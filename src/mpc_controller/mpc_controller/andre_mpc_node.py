@@ -20,8 +20,8 @@ from ackermann_msgs.msg import AckermannDriveStamped
 #   RIGHT     → rotate 180 ° (heading change > π)
 #   … then repeats
 # ---------------------------------------------------------------------------
-STRAIGHT_DIST = 1.0          # metres
-TURN_ANGLE    = math.pi      # 180 °  (exit condition: accumulated |Δyaw| > this)
+STRAIGHT_DIST = 1.0
+TURN_ANGLE    = math.radians(170)   # 170° tolerance instead of 180°
 
 STEP_SEQUENCE = [
     ('STRAIGHT', None),
@@ -67,17 +67,14 @@ class AndreMPCNode(Node):
         self.cy = None
         self.R  = None
 
-        # ---- position/orientation-based step tracking --------------------
-        self.current_step = 0              # index into STEP_SEQUENCE
-        self.circle_dir   = -1.0           # -1 = right, +1 = left
+        self.current_step  = 0
+        self.circle_dir    = -1.0
 
-        # set when a new step begins (in odom_callback on first pose)
-        self.seg_start_x   = None          # straight: start position
+        self.seg_start_x   = None
         self.seg_start_y   = None
-        self.seg_start_yaw = None          # turn: reference yaw at entry
-        self.seg_yaw_accum = 0.0           # turn: |Δyaw| accumulated so far
-        self.seg_prev_yaw  = None          # turn: last yaw sample for integration
-        # ------------------------------------------------------------------
+        self.seg_start_yaw = None
+        self.seg_yaw_accum = 0.0
+        self.seg_prev_yaw  = None
 
         self.prev_delta     = 0.0
         self.prev_speed_cmd = 0.0
@@ -88,23 +85,22 @@ class AndreMPCNode(Node):
         self.timer = self.create_timer(self.dt, self.control_loop)
 
         self.get_logger().info(
-            f'Figure-8 MPC node started — '
-            f'step 0: {STEP_SEQUENCE[0][0]}'
+            f'Figure-8 MPC node started — step 0: {STEP_SEQUENCE[0][0]}'
         )
 
     # ------------------------------------------------------------------
     def update_params(self):
-        self.qv      = float(self.get_parameter('qv').value)
-        self.qn      = float(self.get_parameter('qn').value)
-        self.qalpha  = float(self.get_parameter('qalpha').value)
-        self.qac     = float(self.get_parameter('qac').value)
-        self.qddelta = float(self.get_parameter('qddelta').value)
-        self.alat_max= float(self.get_parameter('alat_max').value)
-        self.a_min   = float(self.get_parameter('a_min').value)
-        self.a_max   = float(self.get_parameter('a_max').value)
-        self.v_min   = float(self.get_parameter('v_min').value)
-        self.v_max   = float(self.get_parameter('v_max').value)
-        self.v_ref   = float(self.get_parameter('v_ref').value)
+        self.qv       = float(self.get_parameter('qv').value)
+        self.qn       = float(self.get_parameter('qn').value)
+        self.qalpha   = float(self.get_parameter('qalpha').value)
+        self.qac      = float(self.get_parameter('qac').value)
+        self.qddelta  = float(self.get_parameter('qddelta').value)
+        self.alat_max = float(self.get_parameter('alat_max').value)
+        self.a_min    = float(self.get_parameter('a_min').value)
+        self.a_max    = float(self.get_parameter('a_max').value)
+        self.v_min    = float(self.get_parameter('v_min').value)
+        self.v_max    = float(self.get_parameter('v_max').value)
+        self.v_ref    = float(self.get_parameter('v_ref').value)
 
     # ------------------------------------------------------------------
     def yaw_from_quat(self, q):
@@ -128,35 +124,26 @@ class AndreMPCNode(Node):
 
     # ------------------------------------------------------------------
     def _begin_step(self, x, y, yaw):
-        """Initialise tracking state for the newly entered step."""
         step_name = STEP_SEQUENCE[self.current_step][0]
 
         if step_name == 'STRAIGHT':
             self.seg_start_x   = x
             self.seg_start_y   = y
-            self.seg_start_yaw = yaw
             self.seg_yaw_accum = 0.0
             self.seg_prev_yaw  = None
 
         else:  # RIGHT or LEFT
             self.circle_dir = -1.0 if step_name == 'RIGHT' else 1.0
             self._update_circle_center(x, y, yaw)
-            self.seg_start_yaw = yaw
             self.seg_yaw_accum = 0.0
             self.seg_prev_yaw  = yaw
             self.seg_start_x   = x
             self.seg_start_y   = y
 
-        self.get_logger().info(
-            f'→ Begin step {self.current_step}: {step_name}'
-        )
+        self.get_logger().info(f'→ Begin step {self.current_step}: {step_name}')
 
     # ------------------------------------------------------------------
     def _check_step_transition(self, x, y, yaw):
-        """
-        Returns True and advances current_step when the exit condition is met.
-        Uses strict inequality (>) so equality edge-cases never stall progress.
-        """
         step_name = STEP_SEQUENCE[self.current_step][0]
 
         if step_name == 'STRAIGHT':
@@ -168,19 +155,22 @@ class AndreMPCNode(Node):
                 return True
 
         else:  # TURN
-            # Accumulate signed angular change, count absolute value
             if self.seg_prev_yaw is not None:
                 dyaw = self.wrap_angle(yaw - self.seg_prev_yaw)
-                # Only accumulate rotation in the intended direction;
-                # noise in the opposite sense is ignored (clamp to 0).
-                signed = self.circle_dir * dyaw
-                self.seg_yaw_accum += max(0.0, signed)
+                self.seg_yaw_accum += abs(dyaw)   # just count total rotation regardless of sign
+
             self.seg_prev_yaw = yaw
+
+            self.get_logger().info(
+                f'[TURN {"R" if self.circle_dir < 0 else "L"}] '
+                f'accum={math.degrees(self.seg_yaw_accum):.1f}° '
+                f'yaw={math.degrees(yaw):.1f}°'
+            )
 
             if self.seg_yaw_accum > TURN_ANGLE:
                 self.get_logger().info(
                     f'{"RIGHT" if self.circle_dir < 0 else "LEFT"} turn done: '
-                    f'{math.degrees(self.seg_yaw_accum):.1f}° > 180°'
+                    f'{math.degrees(self.seg_yaw_accum):.1f}° accumulated'
                 )
                 return True
 
@@ -193,20 +183,17 @@ class AndreMPCNode(Node):
         yaw = self.yaw_from_quat(msg.pose.pose.orientation)
         v   = msg.twist.twist.linear.x
 
-        # First pose ever received — initialise everything
         if self.x0 is None:
             self.x0   = x
             self.y0   = y
             self.yaw0 = yaw
             self.get_logger().info(
-                f'Initial pose: ({x:.2f}, {y:.2f}), '
-                f'yaw={math.degrees(yaw):.1f}°'
+                f'Initial pose: ({x:.2f}, {y:.2f}), yaw={math.degrees(yaw):.1f}°'
             )
             self._begin_step(x, y, yaw)
 
         self.state = np.array([x, y, yaw, v, self.prev_delta], dtype=float)
 
-        # Check whether the current step is finished
         if self._check_step_transition(x, y, yaw):
             self.current_step = (self.current_step + 1) % len(STEP_SEQUENCE)
             self._begin_step(x, y, yaw)
@@ -331,7 +318,9 @@ class AndreMPCNode(Node):
 
         step_name = STEP_SEQUENCE[self.current_step][0]
         self.get_logger().info(
-            f'[{step_name}] v={self.state[3]:.2f} cmd_v={speed_cmd:.2f} '
+            f'[{step_name}] '
+            f'x={self.state[0]:.2f} y={self.state[1]:.2f} yaw={math.degrees(self.state[2]):.1f}° '
+            f'v={self.state[3]:.2f} cmd_v={speed_cmd:.2f} '
             f'delta={delta_cmd:.3f} step={self.current_step}'
         )
 
