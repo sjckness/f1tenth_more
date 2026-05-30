@@ -1,9 +1,9 @@
 [submodule "vesc"]
-	path = vesc
+	path = src/vesc
 	url = https://github.com/sjckness/vesc.git
 [submodule "ackermann_mux"]
-	path = ackermann_mux
+	path = src/ackermann_mux
 	url = https://github.com/sjckness/ackermann_mux.git
 [submodule "teleop_tools"]
-	path = teleop_tools
+	path = src/teleop_tools
 	url = https://github.com/f1tenth/teleop_tools.git
