@@ -12,11 +12,11 @@ from ackermann_msgs.msg import AckermannDriveStamped
 # Circle MPC node
 # Steering = geometric feedforward (pure pursuit to circle) +
 #            MPC correction term (bad params → LLM has something to tune)
-# Speed    = open-loop sine profile, [0.5, 1.0] m/s
+# Speed    = open-loop sine profile around CIRCLE_SPEED
 # ---------------------------------------------------------------------------
 CIRCLE_STEER = 0.1     # [rad] desired steady-state steering for the circle
-CIRCLE_SPEED = 1.0    # [m/s] centre of sine  → (0.5 + 1.0) / 2
-SINE_AMP     = 0.0    # [m/s] amplitude        → speed ∈ [0.5, 1.0]
+CIRCLE_SPEED = 1.0     # [m/s] centre of the sine speed profile
+SINE_AMP     = 0.0     # [m/s] sine amplitude (0 → constant speed)
 SINE_PERIOD  = 4.0     # [s]
 
 
@@ -108,13 +108,6 @@ class AndreMPCNode(Node):
         dist  = math.hypot(x - self.cx, y - self.cy)
         # radial error: positive = outside circle, negative = inside
         r_err = dist - self.R
-
-        # Angle from car to circle center
-        angle_to_center = math.atan2(self.cy - y, self.cx - x)
-        # How much the car heading deviates from tangent
-        # Tangent direction on the circle (left turn = CCW)
-        angle_on_circle = math.atan2(y - self.cy, x - self.cx)
-        tangent_yaw     = angle_on_circle + math.pi / 2   # CCW tangent
 
         # Proportional correction: steer toward center if outside, away if inside
         # Gain chosen so 1 m error → ~0.05 rad correction

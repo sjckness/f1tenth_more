@@ -29,6 +29,7 @@ setup(
 	'kinematic_mpc_node = mpc_controller.kinematic_mpc_node:main',
     'frenet_mpc_node = mpc_controller.frenet_mpc_node:main',    
     'andre_mpc_node = mpc_controller.andre_mpc_node:main',
+    'andre_mpc_opt_node = mpc_controller.andre_mpc_opt_node:main',
     ],
    },
 )

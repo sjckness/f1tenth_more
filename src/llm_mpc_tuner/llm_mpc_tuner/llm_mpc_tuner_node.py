@@ -30,7 +30,7 @@ MODE_IDLE = 'IDLE'
 MODE_SLOW = 'SLOW'
 MODE_FAST = 'FAST'
 
-# Exact set of params declared in andre_mpc_controller
+# MPC params exposed to the LLM for tuning, with their (min, max) bounds
 PARAM_RANGES = {
     'qn':          (0.0,   200.0),
     'qalpha':      (0.0,   100.0),
@@ -259,9 +259,7 @@ class LLMMpcTuner(Node):
                 )
                 params[k] = floor
 
-        # Build one big ros2 param set command: faster than N separate calls
-        # ros2 param set only accepts one param at a time, so we use a shell
-        # pipeline to fire them all in parallel as background jobs
+        # ros2 param set accepts one param at a time, so set them sequentially.
         applied = {}
         errors  = []
         for name, value in params.items():
