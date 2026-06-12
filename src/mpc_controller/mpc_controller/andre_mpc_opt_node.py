@@ -72,7 +72,7 @@ except Exception:                       # pragma: no cover - depends on host
 # Speed    = open-loop sine profile around CIRCLE_SPEED
 # ---------------------------------------------------------------------------
 CIRCLE_STEER = 0.1     # [rad] desired steady-state steering for the circle
-CIRCLE_SPEED = 1.0     # [m/s] centre of the sine speed profile
+CIRCLE_SPEED = 0.5     # [m/s] centre of the sine speed profile
 SINE_AMP     = 0.0     # [m/s] sine amplitude (0 → constant speed)
 SINE_PERIOD  = 4.0     # [s]
 

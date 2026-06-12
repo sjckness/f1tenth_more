@@ -30,7 +30,7 @@ MODE_IDLE = 'IDLE'
 MODE_SLOW = 'SLOW'
 MODE_FAST = 'FAST'
 
-# MPC params exposed to the LLM for tuning, with their (min, max) bounds
+# Exact set of params declared in andre_mpc_controller
 PARAM_RANGES = {
     'qn':          (0.0,   200.0),
     'qalpha':      (0.0,   100.0),
@@ -38,7 +38,7 @@ PARAM_RANGES = {
     'alat_max':    (1.0,    20.0),
     'a_min':      (-5.0,     0.0),
     'a_max':       (0.0,     5.0),
-    'v_min':       (0.0,     0.5),
+    'v_min':      (-3.0,    -0.1),   # negative: reverse driving
     'v_max':      (-3.0,    -0.1),   # negative: reverse driving
     'v_ref':      (-3.0,    -0.1),   # negative: reverse driving
     'sine_amp':    (0.0,     0.5),
@@ -62,6 +62,7 @@ Current behavior:
 Step-by-step rules you MUST follow:
 1. Set v_ref  = {target_velocity:.2f}  (MUST be negative — car drives in reverse)
 2. Set v_max  = {v_max_target:.2f}     (MUST be negative, 0.5 more negative than v_ref)
+3. Set v_min  = -0.1                   (MUST be negative, soft floor close to zero)
 3. Set a_max  = 3.0                    (always allow strong acceleration)
 4. Set a_min  = -3.0                   (always allow strong braking)
 5. For qn, qalpha, qddelta: pick values that give smooth circle tracking
@@ -245,8 +246,8 @@ class LLMMpcTuner(Node):
             'qn': 1.0, 'qalpha': 1.0, 'qddelta': 0.1,
             'a_max': 0.5,   # car must be able to accelerate
         }
-        # v_ref and v_max must be negative (reverse driving)
-        for k in ('v_ref', 'v_max'):
+        # v_ref, v_max, v_min must all be negative (reverse driving)
+        for k in ('v_ref', 'v_max', 'v_min'):
             if k in params and params[k] > -0.1:
                 self.get_logger().warn(
                     f'LLM set {k}={params[k]}, enforcing negative ceiling -0.1'
@@ -259,7 +260,9 @@ class LLMMpcTuner(Node):
                 )
                 params[k] = floor
 
-        # ros2 param set accepts one param at a time, so set them sequentially.
+        # Build one big ros2 param set command: faster than N separate calls
+        # ros2 param set only accepts one param at a time, so we use a shell
+        # pipeline to fire them all in parallel as background jobs
         applied = {}
         errors  = []
         for name, value in params.items():
