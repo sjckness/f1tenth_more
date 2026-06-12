@@ -89,12 +89,24 @@ def generate_launch_description():
         name='ackermann_to_vesc_node',
         parameters=[LaunchConfiguration('vesc_config')]
     )
+    # vesc_to_odom_node now fuses the VESC bicycle-model odometry with the
+    # VESC IMU (sensors/imu/raw) using a Kalman filter. KF tuning params
+    # (use_imu_yaw_rate, use_imu_orientation, Q_*, R_*) default sensibly and
+    # can be added under vesc_to_odom_node in the vesc_config yaml.
     vesc_to_odom_node = Node(
         package='vesc_ackermann',
         executable='vesc_to_odom_node',
         name='vesc_to_odom_node',
         parameters=[LaunchConfiguration('vesc_config')]
     )
+    # FALLBACK: original bicycle-model-only odometry (no IMU fusion). To revert,
+    # comment out vesc_to_odom_node above and uncomment the node below.
+    # vesc_to_odom_node_backup = Node(
+    #     package='vesc_ackermann',
+    #     executable='vesc_to_odom_node_backup',
+    #     name='vesc_to_odom_node',
+    #     parameters=[LaunchConfiguration('vesc_config')]
+    # )
     vesc_driver_node = Node(
         package='vesc_driver',
         executable='vesc_driver_node',
