@@ -1,0 +1,24 @@
+# Stereolabs ZED 2 stereo camera — udev rule
+#
+# Gives the ZED 2 a stable symlink at /dev/zed2 and makes it accessible without
+# root. The ZED SDK auto-detects the camera by serial number, so this symlink is
+# mainly for convenience / sanity-checking that the camera enumerated.
+#
+# ZED 2 USB identifiers:
+#   idVendor  = 2b03   (Stereolabs)
+#   idProduct = f582   (ZED 2)
+#
+# Install (run on the Jetson):
+#   sudo cp sensors_stack_bringup/udev/99-zed2.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# Verify after replugging the camera:
+#   ls -l /dev/zed2
+#
+# Modeled after the workspace VESC udev rule (vesc_driver/scripts/99-vesc6.rules),
+# but the ZED is a USB device (SUBSYSTEM=="usb"), not a tty serial device.
+
+SUBSYSTEM=="usb", ATTRS{idVendor}=="2b03", ATTRS{idProduct}=="f582", MODE="0666", GROUP="plugdev", SYMLINK+="zed2"
+
+# TODO: LiDAR — add a udev rule here for the LiDAR's USB/serial device (VID:PID)
+# to give it a stable symlink (e.g. SYMLINK+="lidar") when the LiDAR is added.

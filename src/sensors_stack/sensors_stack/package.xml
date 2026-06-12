@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>sensors_stack</name>
+  <version>0.1.0</version>
+  <description>
+    Metapackage for the F1TENTH / RoboRacer sensor suite on the Jetson Orin AGX.
+    Wraps external USB sensors and their SDK-based drivers, mirroring the structure
+    of the `vesc` metapackage. Currently integrates the Stereolabs ZED 2 stereo
+    camera via the official zed-ros2-wrapper (the SDK bridge, analogous to
+    vesc_driver). A LiDAR will be added here later.
+  </description>
+  <maintainer email="andreas21steffens@gmail.com">Andreas Steffens</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- Sub-packages of this metapackage -->
+  <exec_depend>sensors_stack_bringup</exec_depend>
+  <exec_depend>sensors_stack_description</exec_depend>
+
+  <!-- External SDK bridge (C++ git submodule under src/zed_ros2_wrapper) -->
+  <exec_depend>zed_wrapper</exec_depend>
+
+  <!-- TODO: LiDAR — add the LiDAR driver package as an <exec_depend> here when added. -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

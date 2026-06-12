@@ -7,3 +7,6 @@
 [submodule "teleop_tools"]
 	path = src/teleop_tools
 	url = https://github.com/f1tenth/teleop_tools.git
+[submodule "src/zed_ros2_wrapper"]
+	path = src/zed_ros2_wrapper
+	url = https://github.com/stereolabs/zed-ros2-wrapper.git

@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>sensors_stack_description</name>
+  <version>0.1.0</version>
+  <description>
+    URDF/XACRO description of the F1TENTH sensor mounting frames (ZED 2 camera now;
+    LiDAR later). Holds no compiled code; the xacro files are installed to share so
+    they can be processed at runtime via get_package_share_directory.
+  </description>
+  <maintainer email="andreas21steffens@gmail.com">Andreas Steffens</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <!-- TODO: LiDAR — no extra deps needed; lidar_link is added in the xacro. -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

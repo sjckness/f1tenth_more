@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!-- ==========================================================================
+     F1TENTH / RoboRacer sensor mounting frames.
+
+     Defines the TF frames for the on-board sensors relative to base_link.
+     At runtime the static transforms are published by static_transform_publisher
+     in sensors_stack_bringup/launch/sensors_stack.launch.py (the values there
+     MUST match the origins defined below). This xacro is the single source of
+     truth for the geometry and can also be fed to robot_state_publisher.
+     ========================================================================== -->
+<robot name="sensors_stack" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- base_link is the car's base frame. It is normally provided by the main
+       vehicle description; declared here so this file is valid stand-alone. -->
+  <link name="base_link"/>
+
+  <!-- ===================== ZED 2 stereo camera ===========================
+       zed2_camera_link is the mounting frame of the camera body. The ZED ROS 2
+       wrapper publishes its own internal optical/left/right frames underneath
+       this link when publish_urdf is enabled. -->
+  <link name="zed2_camera_link"/>
+
+  <!-- TODO: measure and update ZED 2 position on the physical car -->
+  <joint name="base_link_to_zed2_camera_link" type="fixed">
+    <parent link="base_link"/>
+    <child link="zed2_camera_link"/>
+    <!-- Placeholder mount pose (meters / radians) — keep in sync with the
+         static_transform_publisher args in the bringup launch file. -->
+    <origin xyz="0.15 0.0 0.10" rpy="0.0 0.0 0.0"/>
+  </joint>
+
+  <!-- ===================== LiDAR (placeholder) ===========================
+       TODO: LiDAR — add lidar_link static transform here when the LiDAR is added.
+
+  <link name="lidar_link"/>
+  <joint name="base_link_to_lidar_link" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0"/>  measure on the physical car
+  </joint>
+  -->
+
+</robot>

@@ -1,0 +1,53 @@
+# ============================================================================
+#  ZED 2 parameter overrides — passed to zed_camera.launch.py via params_file.
+# ============================================================================
+#
+#  These are the project-specific overrides for the F1TENTH car. They are merged
+#  on top of the zed-ros2-wrapper defaults (common_stereo.yaml + zed2.yaml).
+#
+#  NOTE on parameter names:
+#  The keys below follow the names given in the integration spec. The installed
+#  zed-ros2-wrapper version may group some of these differently (e.g.
+#  `general.grab_resolution`, `depth.depth_mode`, `pos_tracking.publish_tf`,
+#  `sensors.sensors_image_sync`). If a value does not take effect, check the
+#  wrapper's own config/zed2.yaml for the exact group/leaf name and align this
+#  file to it. The `/**` wildcard applies these to the zed node regardless of its
+#  namespace/name (default namespace `zed2`, node `zed_node`).
+#
+#  TODO: LiDAR — LiDAR parameters live in their own config file, not here.
+# ============================================================================
+
+/**:
+  ros__parameters:
+    camera_model: zed2
+    camera_name: zed2
+    pub_frame_rate: 30.0
+    grab_resolution: HD720          # 1280x720 — good balance for the Jetson Orin
+
+    # Image topics to enable
+    rgb_module:
+      enable: true
+    depth_module:
+      enable: true
+    point_cloud_module:
+      enable: true
+
+    # Sensor topics — enables IMU, magnetometer, barometer, temperature (ZED 2)
+    sensors_module:
+      enable: true
+
+    # Depth settings
+    depth_mode: PERFORMANCE         # PERFORMANCE / QUALITY / ULTRA — see TUNING.md
+    depth_stabilization: 1
+    point_cloud_freq: 10.0
+
+    # Positional tracking (visual-inertial odometry built into the ZED SDK).
+    # TF publishing is OFF here on purpose — the odom stack manages TF itself.
+    pos_tracking_module:
+      enable: true
+      publish_tf: false
+      publish_map_tf: false
+
+    # Object detection — disabled by default, enable manually if needed.
+    obj_det_module:
+      enable: false
