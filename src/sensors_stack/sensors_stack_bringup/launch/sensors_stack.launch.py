@@ -57,10 +57,11 @@ def generate_launch_description():
                 launch_arguments={
                     'camera_model': 'zed2',
                     'camera_name': 'zed2',
-                    # The spec passes overrides via `params_file`. If the installed
-                    # wrapper version names this argument differently (older
-                    # versions used `ros_params_override_path`), adjust here.
-                    'params_file': zed_params_file,
+                    # The pinned wrapper (humble-v4.2.5, for ZED SDK 4.2) names the
+                    # override-file argument `ros_params_override_path`. Newer
+                    # wrappers (v5.x) renamed it to `params_file` — switch this key
+                    # if you ever bump the submodule tag.
+                    'ros_params_override_path': zed_params_file,
                 }.items(),
             ),
             # Static TF: base_link -> zed2_camera_link.
