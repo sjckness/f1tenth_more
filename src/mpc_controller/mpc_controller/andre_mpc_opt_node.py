@@ -71,8 +71,8 @@ except Exception:                       # pragma: no cover - depends on host
 #            MPC correction term (bad params → LLM has something to tune)
 # Speed    = open-loop sine profile around CIRCLE_SPEED
 # ---------------------------------------------------------------------------
-CIRCLE_STEER = 0.1     # [rad] desired steady-state steering for the circle
-CIRCLE_SPEED = 1.0     # [m/s] centre of the sine speed profile
+CIRCLE_STEER = 0.25     # [rad] desired steady-state steering for the circle
+CIRCLE_SPEED = 2.0     # [m/s] centre of the sine speed profile
 SINE_AMP     = 0.0     # [m/s] sine amplitude (0 → constant speed)
 SINE_PERIOD  = 4.0     # [s]
 
@@ -172,7 +172,7 @@ class AndreMPCOptNode(Node):
         self.declare_parameter('a_min',    -3.0)
         self.declare_parameter('a_max',     3.0)
         self.declare_parameter('v_min',     -1.5)
-        self.declare_parameter('v_max',     1.5)
+        self.declare_parameter('v_max',     2.0)
         self.declare_parameter('v_ref',     CIRCLE_SPEED)
         self.declare_parameter('sine_amp',    SINE_AMP)
         self.declare_parameter('sine_period', SINE_PERIOD)

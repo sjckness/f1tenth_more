@@ -149,13 +149,13 @@ class TrackMPCOptNode(Node):
         self.declare_parameter('a_max',     3.0)
         self.declare_parameter('v_min',     -1.5)
         self.declare_parameter('v_max',     1.5)
-        self.declare_parameter('v_ref',     1.0)   # constant target speed [m/s]
+        self.declare_parameter('v_ref',     0.5)   # constant target speed [m/s]
         self.declare_parameter('sine_amp',    0.0)  # parity only; unused
         self.declare_parameter('sine_period', 4.0)  # parity only; unused
         self.declare_parameter('steer_sign',  1.0)
 
         # ── Path-tracking params (new) ─────────────────────────────────────
-        self.declare_parameter('track_file', 'tracks/default.csv')
+        self.declare_parameter('track_file', 'tracks/random.csv')
         self.declare_parameter('lookahead_steps', 5)
         self.declare_parameter('loop_rate_hz', 20.0)
 
