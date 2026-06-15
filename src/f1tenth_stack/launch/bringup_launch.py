@@ -27,6 +27,7 @@ from launch.substitutions import LaunchConfiguration
 from launch.actions import DeclareLaunchArgument
 from launch.actions import IncludeLaunchDescription
 from launch_xml.launch_description_sources import XMLLaunchDescriptionSource
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -149,6 +150,16 @@ def generate_launch_description():
         }]
     )
 
+    # f1tenth_navigation static map server (publishes /map and the map->odom
+    # static TF). Kept here so /map is available from this basic bringup too,
+    # independent of the startup sequence (which only lives in stack_bringup).
+    f1tenth_nav_share = get_package_share_directory('f1tenth_navigation')
+    map_server = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(f1tenth_nav_share, 'launch', 'map_server_launch.py')
+        )
+    )
+
     # finalize
     #ld.add_action(joy_node)
     #ld.add_action(joy_teleop_node)
@@ -160,5 +171,6 @@ def generate_launch_description():
     ld.add_action(ackermann_mux_node)
     ld.add_action(static_tf_node)
     ld.add_action(foxglove_bridge_node)
-    
+    ld.add_action(map_server)
+
     return ld

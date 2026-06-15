@@ -34,6 +34,11 @@ vesc_to_odom_node:
     # publish odom to base link tf
     publish_tf: true
     use_servo_cmd_to_calc_angular_velocity: true
+    # Do NOT fuse the VESC IMU gyro yaw-rate: at standstill its bias integrates
+    # into yaw and makes base_link rotate on the map even at speed 0. Odometry
+    # uses the speed+servo model instead (no motion when speed is 0).
+    use_imu_yaw_rate: false
+    use_imu_orientation: false
     # car wheelbase is about 25cm
     wheelbase: .25
 
