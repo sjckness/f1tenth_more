@@ -1,3 +1,5 @@
+from glob import glob
+
 from setuptools import find_packages, setup
 
 package_name = 'mpc_controller'
@@ -10,6 +12,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        # Install the track CSVs so track_file resolves under the share dir.
+        ('share/' + package_name + '/tracks', glob('tracks/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -30,6 +34,7 @@ setup(
     'frenet_mpc_node = mpc_controller.frenet_mpc_node:main',    
     'andre_mpc_node = mpc_controller.andre_mpc_node:main',
     'andre_mpc_opt_node = mpc_controller.andre_mpc_opt_node:main',
+    'track_mpc_controller = mpc_controller.track_mpc_opt_node:main',
     ],
    },
 )
