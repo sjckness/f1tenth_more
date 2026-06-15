@@ -166,7 +166,7 @@ def generate_launch_description():
     ld.add_action(static_tf_node)
     ld.add_action(map_server)
     ld.add_action(foxglove_bridge_node)
-    ld.add_action(startup_sequence)
+    #ld.add_action(startup_sequence)
     # Start MPC only after startup_sequence exits
     
     # shut everything down if vesc_driver or MPC dies
