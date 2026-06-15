@@ -22,6 +22,8 @@ def generate_launch_description():
         get_package_share_directory('f1tenth_stack'), 'config', 'sensors.yaml')
     mux_config = os.path.join(
         get_package_share_directory('f1tenth_stack'), 'config', 'mux.yaml')
+    ekf_config = os.path.join(
+        get_package_share_directory('f1tenth_stack'), 'config', 'ekf.yaml')
 
     joy_la     = DeclareLaunchArgument('joy_config',     default_value=joy_teleop_config)
     vesc_la    = DeclareLaunchArgument('vesc_config',    default_value=vesc_config)
@@ -77,11 +79,26 @@ def generate_launch_description():
         name='ackermann_to_vesc_node',
         parameters=[LaunchConfiguration('vesc_config')],
     )
+    # Raw odometry source: pure bicycle-model integration of the VESC speed +
+    # steering (no IMU fusion), publishing /odom. IMU + odometry fusion is now
+    # handled by the robot_localization EKF below (which replaces the old
+    # in-node Kalman filter). publish_tf is false (vesc.yaml) so the EKF owns
+    # the odom -> base_link transform.
     vesc_to_odom_node = Node(
         package='vesc_ackermann',
-        executable='vesc_to_odom_node',
+        executable='vesc_to_odom_node_backup',
         name='vesc_to_odom_node',
         parameters=[LaunchConfiguration('vesc_config')]
+    )
+    # robot_localization EKF: fuses /odom (x, y, yaw) with the VESC IMU
+    # (/sensors/imu/raw: yaw rate + linear acceleration) and broadcasts the
+    # odom -> base_link transform. Replaces the old vesc_to_odom Kalman filter.
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_config]
     )
     vesc_driver_node = Node(
         package='vesc_driver',
@@ -109,6 +126,15 @@ def generate_launch_description():
         executable='static_transform_publisher',
         name='static_baselink_to_laser',
         arguments=['0.27', '0.0', '0.11', '0.0', '0.0', '0.0', 'base_link', 'laser']
+    )
+    # VESC IMU is rigidly mounted on the chassis; treat it as coincident with
+    # base_link. The EKF needs this transform to bring sensors/imu/raw (frame
+    # 'imu') into base_link. Adjust the offset if the IMU is calibrated.
+    static_imu_tf_node = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_baselink_to_imu',
+        arguments=['0.0', '0.0', '0.0', '0.0', '0.0', '0.0', 'base_link', 'imu']
     )
     foxglove_bridge_node = Node(
         package='foxglove_bridge',
@@ -159,11 +185,13 @@ def generate_launch_description():
     # ld.add_action(joy_teleop_node)
     ld.add_action(ackermann_to_vesc_node)
     ld.add_action(vesc_to_odom_node)
+    ld.add_action(ekf_node)
     ld.add_action(vesc_driver_node)
     # ld.add_action(throttle_interpolator_node)
     ld.add_action(urg_node)
     ld.add_action(ackermann_mux_node)
     ld.add_action(static_tf_node)
+    ld.add_action(static_imu_tf_node)
     ld.add_action(map_server)
     ld.add_action(foxglove_bridge_node)
     ld.add_action(startup_sequence)

@@ -1,0 +1,64 @@
+# robot_localization EKF configuration for the F1TENTH car.
+#
+# Replaces the in-house Kalman filter that used to live inside
+# vesc_to_odom_node (vesc_ackermann::VescToOdom). The raw odometry is now
+# produced by the pure bicycle-model node (vesc_to_odom_node_backup,
+# publish_tf:=false) and fused here with the VESC IMU.
+#
+# Fused inputs:
+#   odom0  (/odom)              -> x, y, yaw           (wheel/steering odometry)
+#   imu0   (/sensors/imu/raw)   -> yaw rate, ax, ay    (VESC IMU)
+#
+# Output: odom -> base_link transform + /odometry/filtered, world frame = odom.
+ekf_filter_node:
+  ros__parameters:
+    # --- core ----------------------------------------------------------------
+    frequency: 50.0
+    sensor_timeout: 0.1
+    two_d_mode: true            # planar car: zero z, roll, pitch
+    publish_tf: true            # EKF owns odom -> base_link now
+    publish_acceleration: false
+    print_diagnostics: true
+    debug: false
+
+    # --- frames --------------------------------------------------------------
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom           # fuse continuous odometry in the odom frame
+
+    # --- odom0: wheel/steering odometry from vesc_to_odom_node_backup ---------
+    # state layout per row:
+    #   [ x,     y,     z,
+    #     roll,  pitch, yaw,
+    #     vx,    vy,    vz,
+    #     vroll, vpitch,vyaw,
+    #     ax,    ay,    az ]
+    odom0: odom
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    odom0_queue_size: 10
+    odom0_differential: false
+    odom0_relative: false
+
+    # --- imu0: VESC IMU (sensors/imu/raw) ------------------------------------
+    # Fuse only the gyro yaw rate (vyaw) and planar linear acceleration (ax, ay).
+    # Absolute orientation is intentionally NOT fused (VESC IMU yaw drifts; the
+    # driver also marks orientation_covariance[0] = -1).
+    imu0: sensors/imu/raw
+    imu0_config: [false, false, false,
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,
+                  true,  true,  false]
+    imu0_queue_size: 10
+    imu0_differential: false
+    imu0_relative: false
+    imu0_remove_gravitational_acceleration: true
+
+    # --- process noise (15x15 diagonal shown; defaults are sane) -------------
+    # Left at robot_localization defaults; tune here if the estimate is too
+    # stiff/jittery. See the robot_localization docs for the full matrix.
