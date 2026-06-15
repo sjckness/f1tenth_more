@@ -13,8 +13,8 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
-        (os.path.join('share', package_name, 'maps'),
-            glob('maps/*.yaml') + glob('maps/*.pgm')),
+        # Install everything under maps/ (yaml + png/pgm image data + README).
+        (os.path.join('share', package_name, 'maps'), glob('maps/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -23,6 +23,8 @@ setup(
     description='Static map server for the F1tenth stack.',
     license='Apache License 2.0',
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'odom_tf_broadcaster = f1tenth_navigation.odom_to_tf_node:main',
+        ],
     },
 )
