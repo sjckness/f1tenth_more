@@ -22,7 +22,6 @@ setup(
     maintainer_email='fabiocar@todo.todo',
     description='Static map server for the F1tenth stack.',
     license='Apache License 2.0',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [],
     },
