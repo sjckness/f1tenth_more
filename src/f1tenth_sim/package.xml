@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_sim</name>
+  <version>0.0.0</version>
+  <description>Gazebo Fortress (ignition) simulation for the F1TENTH vehicle.
+  Spawns the f1tenth_description model in an empty world, bridges sim sensors to
+  the real-stack topics, and drives it through ros2_control + an Ackermann
+  controller. Sim-only: no VESC, ZED SDK or urg_node.</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <!-- Robot model (URDF/meshes + RSP-only description_launch.py) -->
+  <exec_depend>f1tenth_description</exec_depend>
+
+  <!-- Gazebo Fortress + ROS 2 bridge (Humble: ros-humble-ros-ign-*) -->
+  <exec_depend>ros_ign_gazebo</exec_depend>
+  <exec_depend>ros_ign_bridge</exec_depend>
+  <exec_depend>ign_ros2_control</exec_depend>
+
+  <!-- ros2_control stack -->
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>ackermann_steering_controller</exec_depend>
+
+  <!-- Localization / mapping / viz (reuse f1tenth_bringup configs) -->
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <!-- drive bridge node -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ackermann_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

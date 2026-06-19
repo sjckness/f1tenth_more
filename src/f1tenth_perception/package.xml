@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_perception</name>
+  <version>0.0.1</version>
+  <description>
+    Centralized perception for the F1TENTH car: ZED2 stereo camera (RGB + depth)
+    and Hokuyo LiDAR, plus a YOLO 2D detection node. Brings up the sensors and
+    publishes vision_msgs/Detection2DArray on /yolo/2D_detections.
+  </description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <!-- Runtime Python deps for the YOLO detector node -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+
+  <!-- Sensors brought up by perception.launch.py -->
+  <exec_depend>zed_wrapper</exec_depend>
+  <exec_depend>urg_node</exec_depend>
+
+  <!-- Needed so launch can IncludeLaunchDescription / run nodes -->
+  <exec_depend>ros2launch</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

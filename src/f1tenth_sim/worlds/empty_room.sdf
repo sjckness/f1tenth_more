@@ -1,0 +1,117 @@
+<?xml version="1.0" ?>
+<!--
+  empty_room.sdf - minimal indoor world for the F1TENTH sim (Gazebo Fortress).
+
+  A 10x10 m floor enclosed by four 1 m walls (gives the LiDAR something to see
+  and SLAM something to map). System plugins use the Fortress / Ignition names
+  (ignition-gazebo-*-system, ignition::gazebo::systems::*) - NOT the gz-sim-*
+  names used by the Harmonic-era msauber world. The Imu + Sensors systems are
+  required for the IMU / LiDAR / camera sensors in the robot URDF to publish.
+-->
+<sdf version="1.6">
+  <world name="empty_room">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="ignition-gazebo-physics-system"
+            name="ignition::gazebo::systems::Physics"/>
+    <plugin filename="ignition-gazebo-user-commands-system"
+            name="ignition::gazebo::systems::UserCommands"/>
+    <plugin filename="ignition-gazebo-scene-broadcaster-system"
+            name="ignition::gazebo::systems::SceneBroadcaster"/>
+    <plugin filename="ignition-gazebo-contact-system"
+            name="ignition::gazebo::systems::Contact"/>
+    <plugin filename="ignition-gazebo-imu-system"
+            name="ignition::gazebo::systems::Imu"/>
+    <plugin filename="ignition-gazebo-sensors-system"
+            name="ignition::gazebo::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>100 100</size></plane>
+          </geometry>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane><normal>0 0 1</normal><size>100 100</size></plane>
+          </geometry>
+          <material>
+            <ambient>0.8 0.8 0.8 1</ambient>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- 10x10 m room: four static walls, 1 m tall, 0.1 m thick -->
+    <model name="room_walls">
+      <static>true</static>
+      <link name="walls">
+        <!-- +X wall -->
+        <collision name="c_px">
+          <pose>5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 10 1</size></box></geometry>
+        </collision>
+        <visual name="v_px">
+          <pose>5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 10 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <!-- -X wall -->
+        <collision name="c_nx">
+          <pose>-5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 10 1</size></box></geometry>
+        </collision>
+        <visual name="v_nx">
+          <pose>-5 0 0.5 0 0 0</pose>
+          <geometry><box><size>0.1 10 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <!-- +Y wall -->
+        <collision name="c_py">
+          <pose>0 5 0.5 0 0 0</pose>
+          <geometry><box><size>10 0.1 1</size></box></geometry>
+        </collision>
+        <visual name="v_py">
+          <pose>0 5 0.5 0 0 0</pose>
+          <geometry><box><size>10 0.1 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+        <!-- -Y wall -->
+        <collision name="c_ny">
+          <pose>0 -5 0.5 0 0 0</pose>
+          <geometry><box><size>10 0.1 1</size></box></geometry>
+        </collision>
+        <visual name="v_ny">
+          <pose>0 -5 0.5 0 0 0</pose>
+          <geometry><box><size>10 0.1 1</size></box></geometry>
+          <material><ambient>0.6 0.6 0.6 1</ambient><diffuse>0.6 0.6 0.6 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+  </world>
+</sdf>

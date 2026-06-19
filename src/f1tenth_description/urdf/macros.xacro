@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<!--
+  macros.xacro - materials, inertial/geometry macros for the F1TENTH model.
+  Ported verbatim (geometry + inertials) from msauber_description/urdf/macros.xacro;
+  gazebo-classic transmission macros were dropped (ign_ros2_control does not use
+  <transmission> tags).
+-->
+<robot name="roboracer" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Materials palette -->
+  <material name="black"><color rgba="0.0 0.0 0.0 1.0"/></material>
+  <material name="blue"><color rgba="0.0 0.0 0.8 1.0"/></material>
+  <material name="green"><color rgba="0.0 0.8 0.0 1.0"/></material>
+  <material name="grey"><color rgba="0.2 0.2 0.2 1.0"/></material>
+  <material name="orange"><color rgba="${255/255} ${108/255} ${10/255} 1.0"/></material>
+  <material name="red"><color rgba="0.8 0.0 0.0 1.0"/></material>
+  <material name="white"><color rgba="1.0 1.0 1.0 1.0"/></material>
+
+  <!-- inertial parameter macros -->
+  <xacro:macro name="chassis_inertial_params">
+    <origin xyz="0.1477 0 0" rpy="0 0 0" />
+    <mass value="4.0" />
+    <inertia ixx="0.010609" ixy="0" ixz="0"
+             iyy="0.050409" iyz="0"
+             izz="0.05865" />
+  </xacro:macro>
+
+  <xacro:macro name="left_wheels_inertial_params">
+    <origin xyz="0 0 -0.0225" rpy="0 0 0" />
+    <mass value="0.34055" />
+    <inertia ixx="0.00026046" ixy="0" ixz="0"
+             iyy="0.00026046" iyz="0"
+             izz="0.00041226" />
+  </xacro:macro>
+
+  <xacro:macro name="right_wheels_inertial_params">
+    <origin xyz="0 0 0.0225" rpy="0 0 0" />
+    <mass value="0.34055" />
+    <inertia ixx="0.00026046" ixy="0" ixz="0"
+             iyy="0.00026046" iyz="0"
+             izz="0.00041226" />
+  </xacro:macro>
+
+  <xacro:macro name="steering_hinge_inertial_params">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <mass value="0.100" />
+    <inertia ixx="4E-06" ixy="0" ixz="0"
+             iyy="4E-06" iyz="0"
+             izz="4E-06" />
+  </xacro:macro>
+
+  <!-- small generic sensor inertia (keeps sensor links well-formed) -->
+  <xacro:macro name="sensor_inertial_params">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <mass value="0.05" />
+    <inertia ixx="1e-5" ixy="0" ixz="0"
+             iyy="1e-5" iyz="0"
+             izz="1e-5" />
+  </xacro:macro>
+
+  <!-- geometry macros -->
+  <xacro:macro name="chassis_geometry">
+    <origin xyz="0.46 -0.135 -0.180" rpy="1.57 0 3.14" />
+    <geometry>
+      <mesh filename="${mesh_dir}/chassis.stl" scale="0.000990 0.0009375 0.0009375"/>
+    </geometry>
+  </xacro:macro>
+
+  <xacro:macro name="left_rear_wheel_geometry">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <geometry><mesh filename="${mesh_dir}/left_wheel.stl" /></geometry>
+  </xacro:macro>
+
+  <xacro:macro name="right_rear_wheel_geometry">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <geometry><mesh filename="${mesh_dir}/right_wheel.stl" /></geometry>
+  </xacro:macro>
+
+  <xacro:macro name="left_front_wheel_geometry">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <geometry><mesh filename="${mesh_dir}/left_wheel.stl" /></geometry>
+  </xacro:macro>
+
+  <xacro:macro name="right_front_wheel_geometry">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <geometry><mesh filename="${mesh_dir}/right_wheel.stl" /></geometry>
+  </xacro:macro>
+
+  <xacro:macro name="left_steering_hinge_geometry">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <geometry><mesh filename="${mesh_dir}/hinge.stl" /></geometry>
+  </xacro:macro>
+
+  <xacro:macro name="right_steering_hinge_geometry">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <geometry><mesh filename="${mesh_dir}/hinge.stl" /></geometry>
+  </xacro:macro>
+
+  <xacro:macro name="left_wheels_collision_geometry">
+    <origin xyz="0 0 -0.0225" rpy="0 0 0" />
+    <geometry><cylinder length="0.045" radius="0.05" /></geometry>
+  </xacro:macro>
+
+  <xacro:macro name="right_wheels_collision_geometry">
+    <origin xyz="0 0 0.0225" rpy="0 0 0" />
+    <geometry><cylinder length="0.045" radius="0.05" /></geometry>
+  </xacro:macro>
+
+</robot>

@@ -14,8 +14,8 @@ reads (0,0,0) at startup `base_link` appears at the pose above in the map frame.
 
 # TF chain
     map → odom        static_transform_publisher (map_to_odom_tf, this package)
-    odom → base_link  vesc_to_odom_node (f1tenth_stack, publish_tf:=true)
-    base_link → laser static_transform_publisher (f1tenth_stack bringup)
+    odom → base_link  vesc_to_odom_node (f1tenth_bringup, publish_tf:=true)
+    base_link → laser static_transform_publisher (f1tenth_bringup bringup)
 
 `odom_to_tf_node` (node `odom_tf_broadcaster`) can also publish `odom → base_link`
 from `/odom`, but it is **disabled by default** in `map_server_launch.py`

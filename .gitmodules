@@ -1,9 +1,12 @@
 [submodule "vesc"]
-	path = src/vesc
+	path = src/f1tenth_hardware/vesc
 	url = https://github.com/sjckness/vesc.git
 [submodule "ackermann_mux"]
-	path = src/ackermann_mux
+	path = src/f1tenth_external/ackermann_mux
 	url = https://github.com/sjckness/ackermann_mux.git
 [submodule "teleop_tools"]
-	path = src/teleop_tools
+	path = src/f1tenth_external/teleop_tools
 	url = https://github.com/f1tenth/teleop_tools.git
+[submodule "src/zed_ros2_wrapper"]
+	path = src/f1tenth_external/zed_ros2_wrapper
+	url = https://github.com/stereolabs/zed-ros2-wrapper.git

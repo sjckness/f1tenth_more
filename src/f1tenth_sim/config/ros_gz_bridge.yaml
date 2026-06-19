@@ -1,0 +1,52 @@
+# ros_ign_bridge (parameter_bridge) config for the F1TENTH sim.
+#
+# Loaded via:  parameter_bridge --ros-args -p config_file:=<this file>
+#
+# All entries are GZ -> ROS (sensors + clock). The drive command path and
+# /odom are pure ROS 2 (ros2_control + drive_bridge), so they are NOT bridged.
+#
+# Schema = gazebosim/ros_gz humble branch: ros_topic_name / gz_topic_name /
+# ros_type_name / gz_type_name / direction. Fortress message types are spelled
+# "ignition.msgs.*". The gz topic names are exactly the <topic> values set on
+# each sensor in f1tenth_description/urdf/sensors.xacro (camera_info is the
+# auto-published "<image topic>/camera_info").
+#
+# >>> VERIFY in-container: if your ros_ign_bridge build predates the YAML
+#     config_file feature, or uses ign_*/IGN_TO_ROS keys instead, see the
+#     equivalent CLI form in sim_bringup_launch.py's comment. <<<
+
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "ignition.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/scan"
+  gz_topic_name: "/scan"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "ignition.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/sensors/imu/raw"
+  gz_topic_name: "/sensors/imu/raw"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "ignition.msgs.IMU"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/zed2/zed_node/rgb/image_rect_color"
+  gz_topic_name: "/zed2/zed_node/rgb/image_rect_color"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/zed2/zed_node/rgb/camera_info"
+  gz_topic_name: "/zed2/zed_node/rgb/image_rect_color/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "ignition.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/zed2/zed_node/depth/depth_registered"
+  gz_topic_name: "/zed2/zed_node/depth/depth_registered"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "ignition.msgs.Image"
+  direction: GZ_TO_ROS

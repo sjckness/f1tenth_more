@@ -15,7 +15,7 @@ Once foxglove_bridge is connected, the `/map` topic can be visualized in:
 The Map panel is the most direct choice for a top-down 2D map view.
 
 TODO: foxglove_bridge is not currently launched anywhere in this stack.
-`f1tenth_stack/package.xml` declares `rosbridge_server` as a dependency,
+`f1tenth_bringup/package.xml` declares `rosbridge_server` as a dependency,
 but neither rosbridge nor foxglove_bridge is started by the existing
 bringup. To actually see `/map` in Foxglove Studio, add a foxglove_bridge
 launch (apt: `ros-humble-foxglove-bridge`) — e.g.::

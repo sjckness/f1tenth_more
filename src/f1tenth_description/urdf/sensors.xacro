@@ -1,0 +1,173 @@
+<?xml version="1.0"?>
+<!--
+  sensors.xacro - sensor links + Gazebo Fortress (ignition) sensor plugins.
+
+  NEW relative to msauber (which had only a stereo "front camera" and no LiDAR/
+  IMU in its URDF). Frame names and mount poses match the real F1TENTH stack
+  (f1tenth_bringup static TFs + f1tenth_perception):
+
+    base_link -> laser              @ (-0.27, 0, 0.11)   (Hokuyo, behind)
+    base_link -> imu                @ ( 0,    0, 0   )   (VESC IMU @ base_link)
+    base_link -> zed2_camera_link   @ ( 0.27, 0, 0.11)   (ZED2, front)
+                 -> zed2_left_camera_frame -> zed2_left_camera_optical_frame
+
+  Gazebo tags use the Fortress conventions: <ignition_frame_id> (NOT gz_frame_id)
+  and the sensors are rendered by the world's ignition::gazebo::systems::Sensors
+  / ::Imu systems. <gazebo> blocks are ignored by robot_state_publisher, so this
+  file is harmless on the real robot.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
+
+  <xacro:if value="$(arg enable_sensors)">
+
+    <!-- ============================ LiDAR =============================== -->
+    <link name="laser">
+      <inertial><xacro:sensor_inertial_params /></inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><cylinder radius="0.025" length="0.05"/></geometry>
+        <material name="grey"/>
+      </visual>
+    </link>
+    <joint name="laser_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="laser"/>
+      <origin xyz="-0.27 0.0 0.11" rpy="0 0 0"/>
+    </joint>
+
+    <gazebo reference="laser">
+      <sensor name="hokuyo" type="gpu_lidar">
+        <topic>scan</topic>
+        <ignition_frame_id>laser</ignition_frame_id>
+        <update_rate>40</update_rate>
+        <always_on>true</always_on>
+        <visualize>true</visualize>
+        <lidar>
+          <scan>
+            <horizontal>
+              <!-- 270 deg FOV: [-135 deg, +135 deg] = [-2.3562, 2.3562] rad -->
+              <samples>1081</samples>
+              <resolution>1</resolution>
+              <min_angle>-2.3561945</min_angle>
+              <max_angle>2.3561945</max_angle>
+            </horizontal>
+            <vertical>
+              <samples>1</samples>
+              <min_angle>0</min_angle>
+              <max_angle>0</max_angle>
+            </vertical>
+          </scan>
+          <range>
+            <min>0.1</min>
+            <max>10.0</max>
+            <resolution>0.01</resolution>
+          </range>
+        </lidar>
+      </sensor>
+    </gazebo>
+
+    <!-- ============================= IMU ================================ -->
+    <link name="imu">
+      <inertial><xacro:sensor_inertial_params /></inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><box size="0.02 0.02 0.01"/></geometry>
+        <material name="blue"/>
+      </visual>
+    </link>
+    <joint name="imu_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="imu"/>
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </joint>
+
+    <gazebo reference="imu">
+      <sensor name="imu_sensor" type="imu">
+        <topic>sensors/imu/raw</topic>
+        <ignition_frame_id>imu</ignition_frame_id>
+        <update_rate>100</update_rate>
+        <always_on>true</always_on>
+      </sensor>
+    </gazebo>
+
+    <!-- ====================== ZED2 mock camera ========================= -->
+    <!-- Mount link (root of the ZED URDF chain on the real robot) -->
+    <link name="zed2_camera_link">
+      <inertial><xacro:sensor_inertial_params /></inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><box size="0.03 0.175 0.03"/></geometry>
+        <material name="grey"/>
+      </visual>
+    </link>
+    <joint name="zed2_camera_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="zed2_camera_link"/>
+      <origin xyz="0.27 0.0 0.11" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Left lens frame (ZED2 baseline ~0.06 m, left = +y) -->
+    <link name="zed2_left_camera_frame">
+      <inertial><xacro:sensor_inertial_params /></inertial>
+    </link>
+    <joint name="zed2_left_camera_joint" type="fixed">
+      <parent link="zed2_camera_link"/>
+      <child link="zed2_left_camera_frame"/>
+      <origin xyz="0.0 0.06 0.0" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Optical frame: REP-103 optical convention (z forward, x right, y down) -->
+    <link name="zed2_left_camera_optical_frame"/>
+    <joint name="zed2_left_camera_optical_joint" type="fixed">
+      <parent link="zed2_left_camera_frame"/>
+      <child link="zed2_left_camera_optical_frame"/>
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
+
+    <!-- RGB + depth sensors. Image headers carry the optical frame id. -->
+    <gazebo reference="zed2_left_camera_frame">
+      <sensor name="zed2_rgb" type="camera">
+        <topic>zed2/zed_node/rgb/image_rect_color</topic>
+        <ignition_frame_id>zed2_left_camera_optical_frame</ignition_frame_id>
+        <update_rate>30</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <camera>
+          <!-- ZED2 HD720 left lens: ~101 deg HFOV -->
+          <horizontal_fov>1.7633</horizontal_fov>
+          <image>
+            <width>1280</width>
+            <height>720</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>50.0</far>
+          </clip>
+        </camera>
+      </sensor>
+      <sensor name="zed2_depth" type="depth_camera">
+        <topic>zed2/zed_node/depth/depth_registered</topic>
+        <ignition_frame_id>zed2_left_camera_optical_frame</ignition_frame_id>
+        <update_rate>30</update_rate>
+        <always_on>true</always_on>
+        <visualize>false</visualize>
+        <camera>
+          <horizontal_fov>1.7633</horizontal_fov>
+          <image>
+            <width>1280</width>
+            <height>720</height>
+            <format>R_FLOAT32</format>
+          </image>
+          <clip>
+            <!-- ZED2 depth range -->
+            <near>0.3</near>
+            <far>20.0</far>
+          </clip>
+        </camera>
+      </sensor>
+    </gazebo>
+
+  </xacro:if>
+
+</robot>

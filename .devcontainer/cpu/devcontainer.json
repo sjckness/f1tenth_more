@@ -1,0 +1,17 @@
+{
+  "name": "f1tenth_more (CPU)",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "f1tenth_cpu",
+  "runServices": ["f1tenth_cpu"],
+  "workspaceFolder": "/f1tenth_more",
+  "postStartCommand": "source /opt/ros/humble/setup.bash && [ -f install/setup.bash ] && source install/setup.bash || true",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-iot.vscode-ros",
+        "ms-python.python",
+        "ms-vscode.cpptools"
+      ]
+    }
+  }
+}

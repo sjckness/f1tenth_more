@@ -1,0 +1,170 @@
+# ============================================================================
+# F1TENTH dev container - GPU (desktop, NVIDIA RTX 5050 / Blackwell, x86_64)
+# Base: stereolabs/zed on Docker Hub - ZED SDK pre-installed
+#   stereolabs/zed:5.3-runtime-cuda12.6-ubuntu22.04
+#   (itself based on nvidia/cuda:12.6-runtime-ubuntu22.04 -> Ubuntu 22.04 jammy)
+# ROS 2 Humble (ros-base) + Gazebo Fortress are layered on top here.
+# Workspace source is NOT copied in - it is bind-mounted at /f1tenth_more.
+#
+# Why this base: Stereolabs blocks direct wget of the .run installer (returns an
+# HTML page), so the SDK is taken pre-installed from the official image instead
+# of downloading it at build time.
+#
+# !!! BLACKWELL / sm_120 NOTE !!!
+# The RTX 5050 is Blackwell (compute capability sm_120). ZED SDK 5.3 ships
+# against CUDA 12.6, which includes Blackwell support - so the camera SDK side
+# is covered by this base image. The remaining risk is PyTorch: the default
+# wheel ultralytics pulls may lack sm_120 kernels (see the torch note below).
+# ============================================================================
+# Base: stereolabs/zed:5.2-runtime-cuda12.8-ubuntu22.04
+# ZED SDK 5.2 pre-installed, CUDA 12.8 (supports RTX 5050 Blackwell sm_120)
+FROM stereolabs/zed:5.2-runtime-cuda12.8-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=en_US.UTF-8
+
+# --- locale + base tooling -----------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        locales curl gnupg2 lsb-release software-properties-common \
+        ca-certificates build-essential cmake git wget \
+    && locale-gen en_US en_US.UTF-8 \
+    && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Full CUDA 12.8 toolkit (nvcc + headers + CMake configs) --------------
+# The base image ships only the CUDA *runtime*; building zed_components from
+# the ZED SDK in our ROS 2 workspace needs nvcc, the CUDA headers, and the
+# CMake config files. The cuda-toolkit-12-8 metapackage provides all three.
+# The CUDA apt repo is expected to already be configured by the nvidia/cuda
+# base layer.
+# FALLBACK: if this fails with "Unable to locate package cuda-toolkit-12-8",
+# the base image lacks the CUDA apt repo - add the NVIDIA cuda-keyring deb
+# (cuda-keyring_*_all.deb for ubuntu2204) and `apt-get update` BEFORE this
+# install layer, then retry.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        cuda-toolkit-12-8 \
+    && rm -rf /var/lib/apt/lists/*
+
+# CUDA env (placed AFTER the toolkit layer so it applies to all later layers
+# and the running container). /usr/local/cuda symlinks to the 12.8 install.
+ENV CUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+# --- add the ROS 2 apt repository ----------------------------------------
+# Base image is Ubuntu 22.04 (jammy), per the image tag, so the jammy repo is correct.
+RUN add-apt-repository universe \
+    && curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+         -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" \
+         > /etc/apt/sources.list.d/ros2.list
+
+# --- Gazebo Fortress + ROS 2 bridge (best supported with Humble) ----------
+RUN curl -sSL https://packages.osrfoundation.org/gazebo.gpg \
+         -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable jammy main" \
+         > /etc/apt/sources.list.d/gazebo-stable.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        ignition-fortress \
+        ros-humble-ros-ign-bridge \
+        ros-humble-ros-ign-gazebo \
+        ros-humble-ros-ign-gazebo-demos \
+        ros-humble-xacro \
+        ros-humble-robot-state-publisher \
+        ros-humble-joint-state-publisher \
+        ros-humble-slam-toolbox \
+        ros-humble-nav2-bringup \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- ROS 2 Humble (ros-base) + all workspace package dependencies ----------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ros-humble-ros-base \
+        python3-pip \
+        python3-colcon-common-extensions \
+        python3-rosdep \
+        python3-yaml \
+        libasio-dev \
+        ros-humble-foxglove-bridge \
+        ros-humble-nav2-map-server \
+        ros-humble-nav2-lifecycle-manager \
+        ros-humble-ackermann-msgs \
+        ros-humble-robot-localization \
+        ros-humble-urg-node \
+        ros-humble-vision-msgs \
+        ros-humble-cv-bridge \
+        ros-humble-joy \
+        ros-humble-joy-teleop \
+        ros-humble-rosbridge-server \
+        ros-humble-tf2-ros \
+        ros-humble-action-tutorials-interfaces \
+        ros-humble-ackermann-steering-controller \
+        ros-humble-cob-srvs \
+        ros-humble-compressed-depth-image-transport \
+        ros-humble-compressed-image-transport \
+        ros-humble-control-msgs \
+        ros-humble-controller-manager \
+        ros-humble-diagnostic-updater \
+        ros-humble-draco-point-cloud-transport \
+        ros-humble-example-interfaces \
+        ros-humble-ffmpeg-encoder-decoder \
+        ros-humble-ffmpeg-image-transport \
+        ros-humble-geographic-msgs \
+        ros-humble-ign-ros2-control \
+        ros-humble-image-transport \
+        ros-humble-image-transport-plugins \
+        ros-humble-joint-state-broadcaster \
+        ros-humble-launch-testing \
+        ros-humble-launch-testing-ament-cmake \
+        ros-humble-launch-testing-ros \
+        ros-humble-nmea-msgs \
+        ros-humble-point-cloud-transport \
+        ros-humble-point-cloud-transport-plugins \
+        ros-humble-stereo-msgs \
+        ros-humble-test-msgs \
+        ros-humble-tf2-geometry-msgs \
+        ros-humble-theora-image-transport \
+        ros-humble-udp-msgs \
+        ros-humble-visualization-msgs \
+        ros-humble-zed-msgs \
+        ros-humble-zlib-point-cloud-transport \
+        ros-humble-zstd-point-cloud-transport \
+    && rosdep init || true \
+    && rosdep update --rosdistro humble || true \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Ultralytics YOLO ----------------------------------------------------
+# `pip install ultralytics` pulls a torch build automatically.
+# !!! torch + Blackwell (sm_120) !!!
+# The default torch wheel ultralytics resolves may NOT yet ship sm_120 kernels.
+# If `torch.cuda.is_available()` is True but inference errors with
+# "no kernel image is available for execution on the device", install nightly:
+#   pip install --pre torch torchvision --index-url \
+#       https://download.pytorch.org/whl/nightly/cu128
+RUN pip3 install --no-cache-dir ultralytics
+
+# --- Python runtime deps (pip) -------------------------------------------
+RUN pip3 install --no-cache-dir \
+        pyserial \
+        pynmea2 \
+        requests \
+        numpy \
+        scipy
+
+# --- ROS entrypoint (sources ROS + workspace overlay, then execs cmd) -----
+# The stereolabs base ships its own entrypoint; we override it so ROS is
+# always sourced for interactive shells and `ros2 launch ...` invocations.
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    'set -e' \
+    'source /opt/ros/humble/setup.bash' \
+    '[ -f /f1tenth_more/install/setup.bash ] && source /f1tenth_more/install/setup.bash' \
+    'exec "$@"' \
+    > /ros_entrypoint.sh && chmod +x /ros_entrypoint.sh
+
+WORKDIR /f1tenth_more
+
+# Foxglove bridge websocket
+EXPOSE 8765
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]

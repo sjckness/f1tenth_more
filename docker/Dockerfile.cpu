@@ -1,0 +1,60 @@
+# ============================================================================
+# F1TENTH dev container - CPU / no-GPU (ThinkPad T15 Gen 2, x86_64)
+# Mirrors the Jetson Orin AGX software env: Ubuntu 22.04 + ROS 2 Humble.
+# Lightweight: NO CUDA, NO ZED SDK, NO Ultralytics/torch.
+# Workspace source is NOT copied in - it is bind-mounted at /f1tenth_more.
+# ============================================================================
+FROM ros:humble-ros-base-jammy
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# --- ROS 2 apt dependencies (resolved from first-party package.xml files) ---
+# Core msgs/rclpy/launch/tf2 already ship in ros-base; the rest are explicit.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        git \
+        python3-pip \
+        python3-colcon-common-extensions \
+        python3-rosdep \
+        python3-yaml \
+        ros-humble-foxglove-bridge \
+        ros-humble-nav2-map-server \
+        ros-humble-nav2-lifecycle-manager \
+        ros-humble-ackermann-msgs \
+        ros-humble-robot-localization \
+        ros-humble-urg-node \
+        ros-humble-vision-msgs \
+        ros-humble-cv-bridge \
+        ros-humble-joy \
+        ros-humble-joy-teleop \
+        ros-humble-rosbridge-server \
+        ros-humble-tf2-ros \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Python runtime deps (pip) -------------------------------------------
+#   pyserial / pynmea2 : serial + NMEA parsing (sensor/GPS plumbing)
+#   requests           : used by llm_mpc_tuner_node
+#   numpy / scipy      : used by mpc_controller
+# (No ultralytics/torch here - that is GPU-container only.)
+RUN pip3 install --no-cache-dir \
+        pyserial \
+        pynmea2 \
+        requests \
+        numpy \
+        scipy
+
+# rosdep db is pre-initialised in the base image; refresh it so a runtime
+# `rosdep install --from-paths src` resolves cleanly against the bind mount.
+RUN rosdep update --rosdistro humble || true
+
+WORKDIR /f1tenth_more
+
+# Foxglove bridge websocket
+EXPOSE 8765
+
+# ROS is sourced by the base image's /ros_entrypoint.sh (sources
+# /opt/ros/humble/setup.bash). The workspace overlay (install/setup.bash) is
+# sourced at run time (devcontainer postStartCommand / README), not baked in.
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["bash"]

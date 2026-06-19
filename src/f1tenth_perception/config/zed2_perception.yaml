@@ -1,0 +1,41 @@
+# config/zed2_perception.yaml
+#
+# OVERRIDE-ONLY parameters for the ZED2 on the F1TENTH car. This file is passed
+# to the upstream zed_wrapper launch via its `ros_params_override_path` argument,
+# so it is applied *on top of* common_stereo.yaml + zed2.yaml — it extends, it
+# does NOT replace, the wrapper's own configuration. Only the deltas we care
+# about for perception are listed here.
+#
+# Uses the `/**` wildcard so it applies to the ZED node regardless of the
+# camera_name/node_name chosen by the launch file.
+---
+/**:
+    ros__parameters:
+        general:
+            # NOTE: there is no `rgb.quality` parameter in this wrapper. RGB
+            # publish resolution/bandwidth is controlled here. CUSTOM applies the
+            # downscale factor below to keep things real-time on the Jetson.
+            pub_resolution: 'CUSTOM'
+            pub_downscale_factor: 2.0   # publish at half the grab resolution
+            pub_frame_rate: 30.0
+
+        depth:
+            # Lightest real-time depth mode for the Jetson. Switch to 'ULTRA'
+            # (or a NEURAL_* mode) if accuracy matters more than latency.
+            depth_mode: 'PERFORMANCE'
+            # Point cloud is published lazily (only when something subscribes),
+            # and nothing subscribes in this stack, so it is effectively off.
+            # No point_cloud_enabled flag exists; leaving it unsubscribed is the
+            # supported way to "not enable" it.
+
+        pos_tracking:
+            # IMPORTANT: the f1tenth stack already owns the `map` and `odom`
+            # frames (map_server static TF + EKF). The ZED's positional tracking
+            # would publish a competing `map -> odom -> camera` chain, so it is
+            # disabled here. We only want RGB + depth from the camera.
+            pos_tracking_enabled: false
+            publish_tf: false
+            publish_map_tf: false
+
+        # Object detection / body tracking / mapping are already disabled in
+        # common_stereo.yaml; left untouched.

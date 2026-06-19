@@ -1,0 +1,105 @@
+<?xml version="1.0" ?>
+<!--
+  ros2_control.xacro - ros2_control hardware + Gazebo Fortress plugin.
+
+  Ported from msauber_description/urdf/gazebo_plugins_acker.xacro. Translated for
+  ROS 2 Humble + Gazebo Fortress:
+    gz_ros2_control/GazeboSimSystem         -> ign_ros2_control/IgnitionSystem
+    filename="gz_ros2_control-system"       -> filename="ign_ros2_control-system"
+    name="...GazeboSimROS2ControlPlugin"    -> name="ign_ros2_control::IgnitionROS2ControlPlugin"
+
+  Command interfaces (match the AckermannSteeringController):
+    rear wheels    -> velocity command  (traction)
+    steering hinges-> position command  (steering)
+    front wheels   -> passive (state only)
+
+  The friction/contact tuning is kept as legacy <gazebo reference> tags
+  (mu1/mu2/kp/kd/fdir1), which libsdformat's URDF parser translates for Fortress.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
+
+  <ros2_control name="roboracer_control" type="system">
+    <hardware>
+      <plugin>ign_ros2_control/IgnitionSystem</plugin>
+    </hardware>
+
+    <!-- Rear axle: velocity command (traction) -->
+    <joint name="left_rear_wheel_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="right_rear_wheel_joint">
+      <command_interface name="velocity"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+
+    <!-- Front wheels: passive -->
+    <joint name="left_front_wheel_joint">
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="right_front_wheel_joint">
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+
+    <!-- Steering hinges: position command -->
+    <joint name="left_steering_hinge_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+    <joint name="right_steering_hinge_joint">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+      <state_interface name="effort"/>
+    </joint>
+  </ros2_control>
+
+  <xacro:if value="$(arg use_sim)">
+    <gazebo>
+      <plugin filename="ign_ros2_control-system"
+              name="ign_ros2_control::IgnitionROS2ControlPlugin">
+        <parameters>$(arg control_config)</parameters>
+      </plugin>
+    </gazebo>
+  </xacro:if>
+
+  <!-- Contact / friction tuning (legacy gazebo-reference tags) -->
+  <gazebo reference="chassis">
+    <mu1 value="0.0"/>
+    <mu2 value="0.0"/>
+    <kp  value="10000000.0"/>
+    <kd  value="1.0"/>
+  </gazebo>
+
+  <gazebo reference="left_rear_wheel">
+    <mu1 value="1.0"/><mu2 value="1.0"/>
+    <kp value="10000000.0"/><kd value="1.0"/>
+    <fdir1 value="1 0 0"/>
+  </gazebo>
+  <gazebo reference="right_rear_wheel">
+    <mu1 value="1.0"/><mu2 value="1.0"/>
+    <kp value="10000000.0"/><kd value="1.0"/>
+    <fdir1 value="1 0 0"/>
+  </gazebo>
+  <gazebo reference="left_front_wheel">
+    <mu1 value="1.0"/><mu2 value="1.0"/>
+    <kp value="10000000.0"/><kd value="1.0"/>
+    <fdir1 value="0 0 1"/>
+  </gazebo>
+  <gazebo reference="right_front_wheel">
+    <mu1 value="1.0"/><mu2 value="1.0"/>
+    <kp value="10000000.0"/><kd value="1.0"/>
+    <fdir1 value="0 0 1"/>
+  </gazebo>
+
+</robot>

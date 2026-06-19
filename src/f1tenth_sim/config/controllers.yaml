@@ -1,0 +1,50 @@
+# ros2_control configuration for the F1TENTH simulation.
+#
+# Loaded by the ign_ros2_control plugin embedded in the spawned robot (the
+# controller_manager runs INSIDE Gazebo, not as a standalone node).
+#
+# NOTE: parameter names follow the ros2_control steering_controllers_library
+# schema (as used by msauber_control/config/ackerman_config.yaml). If the
+# ackermann_steering_controller patch shipped in your Humble image expects
+# different keys (e.g. front_wheels_radius vs traction_wheels_radius), adjust
+# here -- verify in-container with:
+#   ros2 control list_controllers
+#   ros2 param dump /ackermann_steering_controller
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+    use_sim_time: true
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    ackermann_steering_controller:
+      type: ackermann_steering_controller/AckermannSteeringController
+
+ackermann_steering_controller:
+  ros__parameters:
+    use_sim_time: true
+
+    # Traction = rear axle (velocity), steering = front hinges (position).
+    traction_joints_names:
+      - right_rear_wheel_joint
+      - left_rear_wheel_joint
+    steering_joints_names:
+      - right_steering_hinge_joint
+      - left_steering_hinge_joint
+
+    # Geometry (matches the roboracer URDF; keep drive_bridge wheelbase in sync).
+    wheelbase: 0.325
+    traction_track_width: 0.2
+    steering_track_width: 0.2
+    traction_wheels_radius: 0.05
+
+    reference_timeout: 1.0
+    use_stamped_vel: true          # reference is TwistStamped on ~/reference
+
+    # The robot_localization EKF owns odom -> base_link (see ekf.yaml), so the
+    # controller must NOT also broadcast it. It still publishes the odom message
+    # (relayed to /odom by drive_bridge) for the EKF to fuse.
+    enable_odom_tf: false
+    odom_frame_id: odom
+    base_frame_id: base_link
