@@ -1,0 +1,101 @@
+# F1TENTH dev containers.
+#   f1tenth_cpu    : ThinkPad / no-GPU  (lean, no CUDA/ZED)
+#   f1tenth_gpu    : desktop RTX 5050   (CUDA 12.8 + ZED SDK + Ultralytics)
+#   f1tenth_jetson : Jetson AGX Thor    (arm64, CUDA 13.2 + ZED SDK 5.2)
+#                    Guarded by the `jetson` profile so `docker compose up` on an
+#                    x86_64 box is unchanged; start it with
+#                    `docker compose --profile jetson up` (built natively on Thor).
+# All bind-mount the workspace and use host networking so the Hokuyo LiDAR
+# (192.168.0.10:10940) and DDS discovery work without extra port mapping.
+#
+# Peripherals (VESC, serial adapters, cameras) are exposed by bind-mounting the
+# host /dev into the container and granting char-device access via
+# device_cgroup_rules instead of pinning specific device files. This means:
+#   * the container ALWAYS starts, even with no hardware connected;
+#   * devices plugged in AFTER start are seen live, with no container restart.
+# Host udev rules still own enumeration/symlinks; the container just sees /dev.
+# NOTE: privileged mode is intentionally NOT used — cgroup rules are enough.
+services:
+  f1tenth_cpu:
+    build:
+      context: ..                 # repo root (this compose file lives in .devcontainer/)
+      dockerfile: docker/Dockerfile.cpu
+    image: f1tenth_more:cpu
+    network_mode: host          # Hokuyo LiDAR over ethernet + ROS 2 DDS discovery
+    privileged: false
+    volumes:
+      - ..:/f1tenth_more          # repo root → workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw          # ← X11 socket
+      - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro  # ← X auth
+      - /dev:/dev                                  # ← all host devices (rw, hot-plug aware)
+    device_cgroup_rules:
+      - 'c 166:* rmw'   # ttyACM (VESC)
+      - 'c 188:* rmw'   # ttyUSB (USB serial adapters)
+      - 'c 81:* rmw'    # video4linux (cameras)
+    environment:
+      ROS_DOMAIN_ID: "0"
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      DISPLAY: ${DISPLAY:-:0}                      # ← X display
+      QT_X11_NO_MITSHM: "1"                        # ← needed for Qt/Gazebo
+    stdin_open: true
+    tty: true
+
+  f1tenth_gpu:
+    build:
+      context: ..                 # repo root (this compose file lives in .devcontainer/)
+      dockerfile: docker/Dockerfile.gpu
+    image: f1tenth_more:gpu
+    network_mode: host
+    privileged: false
+    volumes:
+      - ..:/f1tenth_more          # repo root → workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro
+      - /dev:/dev                                  # ← all host devices (rw, hot-plug aware)
+    device_cgroup_rules:
+      - 'c 166:* rmw'   # ttyACM (VESC)
+      - 'c 188:* rmw'   # ttyUSB (USB serial adapters)
+      - 'c 81:* rmw'    # video4linux (cameras)
+    environment:
+      ROS_DOMAIN_ID: "0"
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      DISPLAY: ${DISPLAY:-:0}
+      QT_X11_NO_MITSHM: "1"
+      LIBGL_ALWAYS_SOFTWARE: "0"
+    runtime: nvidia
+    stdin_open: true
+    tty: true
+
+  # Jetson AGX Thor (arm64 / JetPack 7.2). Built NATIVELY on the Thor.
+  # Mirrors f1tenth_gpu's /dev + cgroup pattern, but:
+  #   * NO `runtime: nvidia` — Thor's Tegra iGPU is reached via the L4T device
+  #     nodes already exposed by the /dev bind mount, not the discrete-GPU
+  #     nvidia-container runtime.
+  #   * gated behind the `jetson` profile so default `docker compose up` on an
+  #     x86_64 machine never tries to build this arm64 image.
+  f1tenth_jetson:
+    profiles: ["jetson"]
+    build:
+      context: ..                 # repo root (this compose file lives in .devcontainer/)
+      dockerfile: docker/Dockerfile.jetson-thor
+    image: f1tenth_more:jetson
+    network_mode: host
+    privileged: false
+    volumes:
+      - ..:/f1tenth_more          # repo root → workspace
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-~/.Xauthority}:/root/.Xauthority:ro
+      - /dev:/dev                                  # ← all host devices (rw, hot-plug aware)
+    device_cgroup_rules:
+      - 'c 166:* rmw'   # ttyACM (VESC)
+      - 'c 188:* rmw'   # ttyUSB (USB serial adapters)
+      - 'c 81:* rmw'    # video4linux (cameras)
+    environment:
+      ROS_DOMAIN_ID: "0"
+      RMW_IMPLEMENTATION: rmw_fastrtps_cpp
+      DISPLAY: ${DISPLAY:-:0}
+      QT_X11_NO_MITSHM: "1"
+    stdin_open: true
+    tty: true

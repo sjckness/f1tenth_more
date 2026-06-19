@@ -1,0 +1,229 @@
+# ============================================================================
+# F1TENTH dev container - Jetson AGX Thor (arm64 / aarch64)
+#
+# TARGET HOST: NVIDIA Jetson AGX Thor running JetPack 7.2
+#              (host = Ubuntu 24.04 / L4T r38.4 / CUDA 13.2 / glibc 2.39).
+#
+# The CONTAINER intentionally stays on Ubuntu 22.04 (jammy) + ROS 2 Humble to
+# match the rest of the f1tenth_more workspace (cpu/gpu images). It is built
+# NATIVELY on the Thor itself - NO QEMU emulation. Build with:
+#     docker compose --profile jetson build
+#
+# Workspace source is NOT copied in - it is bind-mounted at /f1tenth_more.
+#
+# !!! 22.04-CONTAINER-ON-24.04-HOST CAVEAT !!!
+# The ROS 2 Humble + CPU side of the workspace builds and runs fine here. The
+# CUDA *toolkit* (nvcc/headers) below is for BUILDING zed_components. The CUDA
+# *runtime* driver (libcuda.so) and the L4T-38.4-built ZED SDK are compiled
+# against the host's glibc 2.39 (24.04); loading them inside this glibc-2.35
+# (22.04) container is the known "old ROS distro on new Tegra" risk. If GPU/ZED
+# runtime fails to load, the fix is a 24.04 base - not a change in this file.
+#
+# Each layer below maps to a lesson-learned letter (a)-(m) from the x86_64 GPU
+# debug session; do NOT skip or reorder them.
+# NOTE on lesson (d): transport_drivers (io_context / serial_driver /
+# udp_driver / asio_cmake_module) is now VENDORED in src/transport_drivers and
+# built by colcon, so the old /opt/ros_external_src clone + overlay (Layer 11)
+# is intentionally OMITTED for this workspace.
+# ============================================================================
+
+# --- Layer 1 - base: native arm64 Ubuntu 22.04 (jammy) -------------------
+FROM arm64v8/ubuntu:22.04
+
+# --- Layer 2 - build-wide ENV / ARG --------------------------------------
+ARG DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Europe/Rome
+ENV LANG=en_US.UTF-8
+
+# --- Layer 3 - timezone FIRST [fixes (b)] --------------------------------
+# An empty/corrupt /etc/localtime makes every ament_python build die with
+# `struct.error: unpack requires a buffer of 44 bytes` (babel/pytz). Install
+# tzdata and pin Europe/Rome BEFORE any pip/ROS layer so the zoneinfo file is
+# valid for all later builds.
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata \
+    && ln -sf /usr/share/zoneinfo/Europe/Rome /etc/localtime \
+    && echo "Europe/Rome" > /etc/timezone \
+    && dpkg-reconfigure -f noninteractive tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Layer 4 - enable the universe repo [fixes (c)] ----------------------
+# libasio-dev (Layer 10) lives in Ubuntu `universe`, which is not enabled in
+# the minimal arm64v8 image. Enable it BEFORE the apt install layer.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common \
+    && add-apt-repository universe \
+    && apt-get update \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Layer 5 - base build tooling + locale -------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl gnupg2 ca-certificates build-essential cmake git wget \
+        lsb-release locales zstd sudo udev \
+    && locale-gen en_US en_US.UTF-8 \
+    && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Layer 6 - FULL CUDA 13.2 toolkit (nvcc + headers + CMake cfg) [fixes (a)]
+# Base image ships nothing CUDA. Building zed_components needs the full toolkit
+# (NOT just the runtime). JetPack 7.2 = CUDA 13.2, so install cuda-toolkit-13-2
+# from the NVIDIA SBSA arm64 jammy repo (the .run-installed ZED SDK provides
+# the camera libs; the host L4T stack provides the runtime driver at run time).
+# The cuda-keyring deb (pinned 1.1-1) wires up the apt repo + GPG key.
+RUN curl -fsSL -O \
+        https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/cuda-keyring_1.1-1_all.deb \
+    && dpkg -i cuda-keyring_1.1-1_all.deb \
+    && rm cuda-keyring_1.1-1_all.deb \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        cuda-toolkit-13-2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Layer 7 - CUDA env (after the toolkit so it applies everywhere) ------
+ENV CUDA_TOOLKIT_ROOT_DIR=/usr/local/cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH}
+
+# --- Layer 8 - ZED SDK 5.2 (Jetson / L4T 38.4 = Thor) [matches (e)] -------
+# Pinned to ZED_SDK_Tegra_L4T38.4_v5.2.3 to MATCH the wrapper version the
+# workspace pins (pinning the wrapper is the workspace's job, not this file's).
+# Do NOT bump to a newer SDK here - that re-introduces the wrapper-vs-SDK API
+# mismatch (setFromSerialNumber BUS_TYPE arg, sl::CAMERA_TYPE::MONO) the GPU
+# debug session already resolved.
+# --silent skip_drivers skip_python skip_tools: no kernel driver (host owns it),
+# no pyzed (we build the C++ wrapper), no GUI tools.
+RUN wget -q -O /tmp/ZED_SDK.run \
+        https://download.stereolabs.com/zedsdk/5.2/l4t38.4/jetsons \
+    && chmod +x /tmp/ZED_SDK.run \
+    && /tmp/ZED_SDK.run -- silent skip_drivers skip_python skip_tools \
+    && rm -f /tmp/ZED_SDK.run
+
+# --- Layer 9 - ROS 2 Humble (ros-base) + colcon + rosdep -----------------
+# arm64 repo line (NOT amd64). Humble jammy arm64 is ROS Tier 1.
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
+        -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && echo "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main" \
+        > /etc/apt/sources.list.d/ros2.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        ros-humble-ros-base \
+        python3-pip \
+        python3-colcon-common-extensions \
+        python3-rosdep \
+        python3-yaml \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Layer 10 - ALL workspace apt deps in ONE layer [fixes whack-a-mole] --
+# Tables A (ros-humble-*, all verified present for arm64/jammy) + B (plain
+# ubuntu apt). Gazebo Fortress comes from the OSRF repo (arm64 verified).
+# joy-teleop is intentionally kept for parity with the gpu image even though
+# teleop_tools is also vendored in src/ (src wins at colcon time).
+RUN curl -sSL https://packages.osrfoundation.org/gazebo.gpg \
+        -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg \
+    && echo "deb [arch=arm64 signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] http://packages.osrfoundation.org/gazebo/ubuntu-stable jammy main" \
+        > /etc/apt/sources.list.d/gazebo-stable.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        libasio-dev \
+        python3-tk \
+        ignition-fortress \
+        ros-humble-ros-ign-bridge \
+        ros-humble-ros-ign-gazebo \
+        ros-humble-ros-ign-gazebo-demos \
+        ros-humble-xacro \
+        ros-humble-robot-state-publisher \
+        ros-humble-joint-state-publisher \
+        ros-humble-slam-toolbox \
+        ros-humble-nav2-bringup \
+        ros-humble-foxglove-bridge \
+        ros-humble-nav2-map-server \
+        ros-humble-nav2-lifecycle-manager \
+        ros-humble-ackermann-msgs \
+        ros-humble-robot-localization \
+        ros-humble-urg-node \
+        ros-humble-vision-msgs \
+        ros-humble-cv-bridge \
+        ros-humble-joy \
+        ros-humble-joy-teleop \
+        ros-humble-rosbridge-server \
+        ros-humble-tf2-ros \
+        ros-humble-action-tutorials-interfaces \
+        ros-humble-ackermann-steering-controller \
+        ros-humble-cob-srvs \
+        ros-humble-compressed-depth-image-transport \
+        ros-humble-compressed-image-transport \
+        ros-humble-control-msgs \
+        ros-humble-controller-manager \
+        ros-humble-diagnostic-updater \
+        ros-humble-draco-point-cloud-transport \
+        ros-humble-example-interfaces \
+        ros-humble-ffmpeg-encoder-decoder \
+        ros-humble-ffmpeg-image-transport \
+        ros-humble-geographic-msgs \
+        ros-humble-ign-ros2-control \
+        ros-humble-image-transport \
+        ros-humble-image-transport-plugins \
+        ros-humble-joint-state-broadcaster \
+        ros-humble-launch-testing \
+        ros-humble-launch-testing-ament-cmake \
+        ros-humble-launch-testing-ros \
+        ros-humble-nmea-msgs \
+        ros-humble-point-cloud-transport \
+        ros-humble-point-cloud-transport-plugins \
+        ros-humble-stereo-msgs \
+        ros-humble-test-msgs \
+        ros-humble-tf2-geometry-msgs \
+        ros-humble-theora-image-transport \
+        ros-humble-udp-msgs \
+        ros-humble-visualization-msgs \
+        ros-humble-zed-msgs \
+        ros-humble-zlib-point-cloud-transport \
+        ros-humble-zstd-point-cloud-transport \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- Layer 11 - external source overlay: INTENTIONALLY OMITTED -----------
+# Lesson (d) had us clone io_context / serial_driver / udp_driver /
+# asio_cmake_module into /opt/ros_external_src. They are now VENDORED in
+# src/transport_drivers (workspace-local) and built by colcon, and udp_msgs
+# comes from apt (Layer 10). Nothing to clone; no /opt/ros_external_install
+# overlay to source. (Re-add this layer only if those packages leave src/.)
+
+# --- Layer 12 - pip layer (numpy/scipy together) [fixes (g, i)] ----------
+# apt scipy builds against numpy <1.25, but opencv-python (and pyzed, if ever
+# enabled) need numpy >=2.0; no single numpy satisfies both. Upgrade BOTH
+# together, LAST, so this wins over any apt-pulled numpy. --ignore-installed
+# (older pip here has no --break-system-packages) and run as root (default
+# user) - no virtualenv.
+RUN pip3 install --no-cache-dir \
+        pyserial \
+        pynmea2 \
+        requests \
+    && pip3 install --no-cache-dir --ignore-installed \
+        'numpy>=2.0' \
+        'scipy>=1.13'
+
+# --- Layer 13 - rosdep init/update at BUILD time [partial (j)] ------------
+# The actual `rosdep install` over the bind-mounted src/ runs at CONTAINER
+# START (entrypoint), because src/ is not present at image-build time.
+RUN rosdep init || true \
+    && rosdep update --rosdistro humble || true
+
+# --- Layer 14 - git safe.directory + auto-source in EVERY shell [(h, m)] --
+# safe.directory '*' : bind-mounted workspace UID != container UID -> git
+# otherwise refuses with "dubious ownership".
+# /etc/bash.bashrc (NOT just profile) so interactive shells, VS Code
+# terminals and `docker exec` sessions all get ROS sourced. (No external
+# overlay line - Layer 11 omitted.)
+RUN git config --system --add safe.directory '*' \
+    && echo 'source /opt/ros/humble/setup.bash' >> /etc/bash.bashrc \
+    && echo '[ -f /f1tenth_more/install/setup.bash ] && source /f1tenth_more/install/setup.bash' >> /etc/bash.bashrc
+
+# --- Layer 15 - entrypoint (sources ROS for non-interactive too) [(j,l,m)]
+# Build context is the repo root, so the script lives at docker/entrypoint.jetson.sh.
+COPY docker/entrypoint.jetson.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /f1tenth_more
+
+# Foxglove bridge websocket
+EXPOSE 8765
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
