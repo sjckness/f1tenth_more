@@ -35,7 +35,7 @@ def generate_launch_description():
 
     # ---- launch arguments --------------------------------------------------
     use_lidar_arg = DeclareLaunchArgument(
-        'use_lidar', default_value='true',
+        'use_lidar', default_value='false',
         description='Start the Hokuyo LiDAR. Set false to test without it.')
     # The ZED wrapper publishes fixed topic names it cannot rename; we point the
     # detector at the canonical RGB topic for camera_name:=zed2.
