@@ -1,0 +1,75 @@
+================================================================================
+ f1tenth_more — exact pins for all external / submodule packages
+ Generated: 2026-06-19   Branch: new-structure
+ (Reference file for Claude Code — keep in sync when bumping any external pkg)
+================================================================================
+
+Format: <name>
+        path   : <path in repo>
+        origin : <git remote url>
+        commit : <exact SHA>
+        ref    : <tag / branch / describe>
+
+--------------------------------------------------------------------------------
+REGISTERED SUBMODULES (in .gitmodules — fetched by `git submodule update --init`)
+--------------------------------------------------------------------------------
+
+vesc
+        path   : src/f1tenth_hardware/vesc
+        origin : https://github.com/sjckness/vesc.git
+        commit : 02dddcf07f3bbb05bcc76abdde46497230e78c64
+        ref    : branch vesc-tuner-test
+
+ackermann_mux
+        path   : src/f1tenth_external/ackermann_mux
+        origin : https://github.com/sjckness/ackermann_mux.git
+        commit : b3c0b083ac03aa8c648537d7e4d22608fcd3440c
+        ref    : branch foxy-devel
+
+teleop_tools
+        path   : src/f1tenth_external/teleop_tools
+        origin : https://github.com/f1tenth/teleop_tools.git
+        commit : 4337558fd38e0e1a5c08bdd3c7b4b1a9454a74a9
+        ref    : 1.2.1-15-g4337558 (15 commits past tag 1.2.1)
+
+zed_ros2_wrapper
+        path   : src/f1tenth_external/zed_ros2_wrapper
+        origin : https://github.com/stereolabs/zed-ros2-wrapper.git
+        commit : b5844a81b0baa4e6b847a16030bcf4075f2b3d1d
+        ref    : tag humble-v4.2.5
+
+--------------------------------------------------------------------------------
+EMBEDDED GIT REPOS (gitlink mode 160000 in index, but NOT in .gitmodules)
+  -> a fresh `git clone` + `git submodule update --init` will NOT populate these.
+     Either `git submodule add` them, or clone manually at the commit below.
+--------------------------------------------------------------------------------
+
+transport_drivers   (provides io_context / serial_driver / udp_driver / asio_cmake_module)
+        path   : src/transport_drivers
+        origin : https://github.com/ros-drivers/transport_drivers.git
+        commit : d3f510ce1b4be12967064d8251ebcac530921a04
+        ref    : tag 1.2.0, branch humble
+
+zed-ros2-interfaces
+        path   : zed-ros2-interfaces   (repo root)
+        origin : https://github.com/stereolabs/zed-ros2-interfaces.git
+        commit : e97008721d56ecf3733b95265ff4deaddf3f664e
+        ref    : tag 5.3.0, branch master
+
+================================================================================
+ CAVEATS
+================================================================================
+
+1. transport_drivers + zed-ros2-interfaces are embedded repos, NOT registered
+   submodules. `git submodule update --init --recursive` only fetches the 4
+   registered ones. Add real .gitmodules entries if you want reproducible clones.
+
+2. ZED version alignment (watch for build-time mismatches):
+     - zed_ros2_wrapper      = humble-v4.2.5  (4.2.x API)
+     - Docker images install   ZED SDK 5.2    (gpu: 5.2 base / jetson: 5.2.3 L4T38.4)
+     - zed-ros2-interfaces   = tag 5.3.0      (SDK-5.3 message set)
+   The 5.3 interfaces shadow apt ros-humble-zed-msgs. If the build fails on
+   zed_interfaces::msg::* members, move zed-ros2-interfaces to a 4.2.x-/5.2-
+   compatible tag. Do NOT bump the SDK in the Dockerfiles to "fix" it — that
+   re-introduces the wrapper-vs-SDK API mismatch.
+================================================================================

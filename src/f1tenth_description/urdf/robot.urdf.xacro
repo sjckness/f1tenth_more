@@ -1,0 +1,51 @@
+<?xml version="1.0" ?>
+<!--
+  robot.urdf.xacro - top-level F1TENTH vehicle description.
+
+  (Renamed from roboracer.urdf.xacro during the TF/XACRO refactor.) Includes the
+  decomposed parts:
+    inertial_macros.xacro - inertia helpers + per-link inertial params
+    base.xacro            - materials, base_link (+ base_footprint), chassis
+    wheels.xacro          - ONE wheel macro, instantiated 4x
+    sensors.xacro         - laser / imu / camera frames (fixed joints off base_link)
+    ros2_control.xacro    - ros2_control hardware + Gazebo Fortress plugin (sim)
+
+  ALL vehicle dimensions are declared ONCE below as xacro:property and shared by
+  both the URDF geometry and (via vesc.yaml / drive_bridge) the odometry
+  kinematics. Never hardcode a dimension twice.
+
+  Args:
+    pkg_share         - absolute path to this package's share dir (for mesh_dir).
+    use_sim           - true to emit the ign_ros2_control gazebo plugin + sensors.
+    enable_sensors    - true to include the laser / imu / camera mount frames.
+    enable_camera_mock- true to include the ZED2 internal sub-frames + gazebo
+                        camera/depth sensors (sim only). Set false on real
+                        hardware, where the ZED wrapper owns those frames.
+    control_config    - path to the ros2_control controllers.yaml (f1tenth_sim).
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
+
+  <xacro:arg name="pkg_share"          default="$(find f1tenth_description)" />
+  <xacro:arg name="use_sim"            default="true" />
+  <xacro:arg name="enable_sensors"     default="true" />
+  <xacro:arg name="enable_camera_mock" default="true" />
+  <xacro:arg name="control_config"     default="" />
+
+  <xacro:property name="pkg_share" value="$(arg pkg_share)" />
+  <xacro:property name="mesh_dir"  value="${pkg_share}/meshes" />
+
+  <!-- ===================== single-source dimensions ===================== -->
+  <!-- Shared with the odometry kinematics (vesc.yaml / drive_bridge wheelbase). -->
+  <xacro:property name="wheelbase"    value="0.325" />  <!-- rear axle -> front axle -->
+  <xacro:property name="track"        value="0.2"   />  <!-- left wheel -> right wheel -->
+  <xacro:property name="wheel_radius" value="0.05"  />
+  <xacro:property name="wheel_width"  value="0.045" />
+  <xacro:property name="ride_height"  value="0.05"  />  <!-- base_link -> chassis (z) -->
+
+  <xacro:include filename="${pkg_share}/urdf/inertial_macros.xacro" />
+  <xacro:include filename="${pkg_share}/urdf/base.xacro" />
+  <xacro:include filename="${pkg_share}/urdf/wheels.xacro" />
+  <xacro:include filename="${pkg_share}/urdf/sensors.xacro" />
+  <xacro:include filename="${pkg_share}/urdf/ros2_control.xacro" />
+
+</robot>

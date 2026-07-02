@@ -1,9 +1,10 @@
 import os
 
 from launch import LaunchDescription
-from launch_ros.actions import Node
-from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node, SetRemap
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch.actions import DeclareLaunchArgument
+from launch.actions import GroupAction
 from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.actions import RegisterEventHandler
@@ -30,9 +31,15 @@ def generate_launch_description():
     vesc_la    = DeclareLaunchArgument('vesc_config',    default_value=vesc_config)
     sensors_la = DeclareLaunchArgument('sensors_config', default_value=sensors_config)
     mux_la     = DeclareLaunchArgument('mux_config',     default_value=mux_config)
-    use_zed_la = DeclareLaunchArgument(
-        'use_zed_perception', default_value='true',
-        description='Start the ZED2 camera stream. Set false to run without the camera.')
+    # Camera source selection. The two paths are mutually exclusive: exactly one
+    # of {v4l2 webcam, ZED2 wrapper} is brought up, and both publish onto the
+    # canonical /camera/image_raw + /camera/camera_info so downstream nodes (the
+    # YOLO detector below) are agnostic to which camera is active.
+    camera_source_la = DeclareLaunchArgument(
+        'camera_source', default_value='zed',
+        description="Camera source: 'zed' (ZED2 wrapper) or 'webcam' (v4l2 UVC "
+                    'on /dev/video0). Selects exactly one; the other is not '
+                    'launched at all.')
 
     # ---- startup sequence parameters -----------------------------------
     startup_delay_la = DeclareLaunchArgument(
@@ -58,11 +65,17 @@ def generate_launch_description():
         description='Fully-qualified MPC node name for SetParameters call.')
 
     ld = LaunchDescription([
-        joy_la, vesc_la, sensors_la, mux_la, use_zed_la,
+        joy_la, vesc_la, sensors_la, mux_la, camera_source_la,
         startup_delay_la, right_duration_la, left_duration_la,
         center_duration_la, max_steering_angle_la,
         startup_command_topic_la, mpc_node_name_la,
     ])
+
+    # String-equality conditions on camera_source (idiomatic launch comparison).
+    is_webcam = IfCondition(
+        PythonExpression(["'", LaunchConfiguration('camera_source'), "' == 'webcam'"]))
+    is_zed = IfCondition(
+        PythonExpression(["'", LaunchConfiguration('camera_source'), "' == 'zed'"]))
 
     # ---- nodes ---------------------------------------------------------
     joy_node = Node(
@@ -123,10 +136,13 @@ def generate_launch_description():
     # ZED2 is mounted where the LiDAR used to be: 0.27 m forward, 0.11 m up.
     # zed2_camera_link is the root of the ZED URDF chain (the mounting point),
     # so attaching base_link -> zed2_camera_link places the whole camera tree.
+    # ZED-related TF publisher: only started in zed mode (see camera_source).
+    # In webcam mode NO ZED node/TF publisher is launched at all.
     static_zed2_tf_node = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_zed2',
+        condition=is_zed,
         arguments=['0.27', '0.0', '0.11', '0.0', '0.0', '0.0', 'base_link', 'zed2_camera_link']
     )
     # LiDAR is now mounted symmetrically to the ZED2 across the y-z plane
@@ -174,19 +190,73 @@ def generate_launch_description():
     # can broadcast the internal camera TF subtree (zed2_camera_link->zed2_left_camera_frame, etc.).
     zed_wrapper_share = get_package_share_directory('zed_wrapper')
     perception_share = get_package_share_directory('f1tenth_perception')
-    zed_camera = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(zed_wrapper_share, 'launch', 'zed_camera.launch.py')
-        ),
-        condition=IfCondition(LaunchConfiguration('use_zed_perception')),
-        launch_arguments={
-            'camera_model': 'zed2',
-            'camera_name': 'zed2',
-            'ros_params_override_path': os.path.join(
-                perception_share, 'config', 'zed2_perception.yaml'),
-            'publish_tf': 'false',
-            'publish_map_tf': 'false',
-        }.items(),
+    # ZED path: only when camera_source == 'zed'. Wrapped in a GroupAction with
+    # SetRemap so the wrapper's raw RGB image + camera_info land on the canonical
+    # /camera/image_raw + /camera/camera_info (downstream nodes stay agnostic).
+    # The whole group is gated by is_zed, so in webcam mode NONE of the ZED
+    # nodes / TF publishers / diagnostics start.
+    zed_camera = GroupAction(
+        condition=is_zed,
+        actions=[
+            SetRemap(src='/zed2/zed_node/rgb/image_rect_color',
+                     dst='/camera/image_raw'),
+            SetRemap(src='/zed2/zed_node/rgb/camera_info',
+                     dst='/camera/camera_info'),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(zed_wrapper_share, 'launch', 'zed_camera.launch.py')
+                ),
+                launch_arguments={
+                    'camera_model': 'zed2',
+                    'camera_name': 'zed2',
+                    'ros_params_override_path': os.path.join(
+                        perception_share, 'config', 'zed2_perception.yaml'),
+                    'publish_tf': 'false',
+                    'publish_map_tf': 'false',
+                }.items(),
+            ),
+        ],
+    )
+
+    # ---- webcam camera stream (v4l2 UVC) -------------------------------
+    # Only when camera_source == 'webcam'. Logitech/UVC on /dev/video0, MJPG
+    # 1280x720@30, decoded to rgb8. Remapped so it publishes the same canonical
+    # topics as the ZED path. This is the ONLY node started in webcam mode.
+    v4l2_camera_node = Node(
+        package='v4l2_camera',
+        executable='v4l2_camera_node',
+        name='v4l2_camera_node',
+        condition=is_webcam,
+        parameters=[{
+            'video_device': '/dev/video0',
+            'image_size': [1280, 720],
+            'pixel_format': 'MJPG',
+            'output_encoding': 'rgb8',
+            'camera_frame_id': 'camera_link',
+        }],
+        remappings=[
+            ('/image_raw', '/camera/image_raw'),
+            ('/camera_info', '/camera/camera_info'),
+        ],
+    )
+
+    # ---- YOLO 2D detector ----------------------------------------------
+    # Source-agnostic: subscribes to the canonical /camera/image_raw regardless
+    # of which camera above is active. Publishes vision_msgs/Detection2DArray on
+    # /camera/detections and an annotated image on /camera/image_annotated.
+    # model_path empty => passthrough (no ultralytics required); set it to a
+    # weights file (e.g. yolov8n.pt) to enable real detection.
+    yolo_detector_node = Node(
+        package='f1tenth_perception',
+        executable='yolo_detector_node',
+        name='yolo_detector_node',
+        output='screen',
+        parameters=[{
+            'image_topic': '/camera/image_raw',
+            'detections_topic': '/camera/detections',
+            'annotated_topic': '/camera/image_annotated',
+            'model_path': '',
+        }],
     )
 
     # ---- MPC node ------------------------------------------------------
@@ -229,6 +299,8 @@ def generate_launch_description():
     ld.add_action(static_imu_tf_node)
     ld.add_action(map_server)
     ld.add_action(zed_camera)
+    ld.add_action(v4l2_camera_node)
+    ld.add_action(yolo_detector_node)
     ld.add_action(foxglove_bridge_node)
     ld.add_action(startup_sequence)
     # Start MPC only after startup_sequence exits

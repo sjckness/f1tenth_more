@@ -1,0 +1,99 @@
+<?xml version="1.0"?>
+<!--
+  wheels.xacro - ONE wheel macro, instantiated 4x.
+
+  Replaces the six hand-written wheel/hinge links of the old core.xacro. Link
+  and joint names are reproduced EXACTLY (left_rear_wheel, right_rear_wheel,
+  left_front_wheel, right_front_wheel, left/right_steering_hinge and their
+  *_joint joints) so ros2_control.xacro and the gazebo <reference> tuning keep
+  matching.
+
+  Macro params:
+    prefix : link/joint name prefix  (e.g. "left_rear", "right_front")
+    x, y   : wheel/hinge mount position on the chassis (m). x is along the car,
+             y is lateral; the left/right side is derived from sign(y).
+    steer  : false -> rear traction wheel (continuous joint on the chassis)
+             true  -> front steered wheel (revolute steering hinge + continuous
+                      wheel mounted on that hinge)
+
+  Geometry/inertia are selected per side from sign(y): the +y side uses the
+  "left" mesh/inertial and a -wheel_width/2 collision offset, the -y side the
+  mirror. All sizes come from the single-source properties in robot.urdf.xacro.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
+
+  <xacro:macro name="wheel" params="prefix x y steer:=false">
+
+    <!-- side-dependent selections (derived from the lateral sign) -->
+    <xacro:property name="side"    value="${'left' if y >= 0 else 'right'}"/>
+    <xacro:property name="mesh"    value="${'left_wheel.stl' if y >= 0 else 'right_wheel.stl'}"/>
+    <xacro:property name="z_off"   value="${(-wheel_width/2.0) if y >= 0 else (wheel_width/2.0)}"/>
+
+    <!-- steered front wheels hang off a revolute steering hinge -->
+    <xacro:if value="${steer}">
+      <link name="${side}_steering_hinge">
+        <inertial><xacro:steering_hinge_inertial_params /></inertial>
+        <visual>
+          <origin xyz="0 0 0" rpy="0 0 0" />
+          <geometry><mesh filename="${mesh_dir}/hinge.stl" /></geometry>
+          <material name="grey" />
+        </visual>
+      </link>
+      <joint name="${side}_steering_hinge_joint" type="revolute">
+        <origin xyz="${x} ${y} 0" rpy="0 1.5708 0" />
+        <parent link="chassis" />
+        <child link="${side}_steering_hinge" />
+        <axis xyz="-1 0 0" />
+        <limit lower="-0.4" upper="0.4" effort="10" velocity="10" />
+      </joint>
+    </xacro:if>
+
+    <!-- wheel link (shared between rear traction and front steered wheels) -->
+    <link name="${prefix}_wheel">
+      <xacro:if value="${y >= 0}">
+        <inertial><xacro:left_wheels_inertial_params /></inertial>
+      </xacro:if>
+      <xacro:unless value="${y >= 0}">
+        <inertial><xacro:right_wheels_inertial_params /></inertial>
+      </xacro:unless>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry><mesh filename="${mesh_dir}/${mesh}" /></geometry>
+        <material name="black" />
+      </visual>
+      <collision>
+        <origin xyz="0 0 ${z_off}" rpy="0 0 0" />
+        <geometry><cylinder length="${wheel_width}" radius="${wheel_radius}" /></geometry>
+      </collision>
+    </link>
+
+    <!-- front wheel mounts on its steering hinge; rear wheel on the chassis -->
+    <xacro:if value="${steer}">
+      <joint name="${prefix}_wheel_joint" type="continuous">
+        <origin xyz="0 0 0" rpy="1.5708 0 0" />
+        <parent link="${side}_steering_hinge" />
+        <child link="${prefix}_wheel" />
+        <axis xyz="0 0 -1" />
+        <limit effort="100" velocity="100" />
+      </joint>
+    </xacro:if>
+    <xacro:unless value="${steer}">
+      <joint name="${prefix}_wheel_joint" type="continuous">
+        <origin xyz="${x} ${y} 0" rpy="1.5708 0 0" />
+        <parent link="chassis" />
+        <child link="${prefix}_wheel" />
+        <axis xyz="0 0 -1" />
+        <limit effort="100" velocity="100" />
+      </joint>
+    </xacro:unless>
+
+  </xacro:macro>
+
+  <!-- ============================ instances ============================= -->
+  <!-- rear axle at x=0 (base_link is at the rear axle); front axle at wheelbase -->
+  <xacro:wheel prefix="left_rear"   x="0"           y="${ track/2}" steer="false" />
+  <xacro:wheel prefix="right_rear"  x="0"           y="${-track/2}" steer="false" />
+  <xacro:wheel prefix="left_front"  x="${wheelbase}" y="${ track/2}" steer="true"  />
+  <xacro:wheel prefix="right_front" x="${wheelbase}" y="${-track/2}" steer="true"  />
+
+</robot>

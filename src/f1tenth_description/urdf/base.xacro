@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<!--
+  base.xacro - materials palette, kinematic root and chassis for the F1TENTH car.
+
+  base_link is the kinematic root: it sits on the ground plane, at the rear axle,
+  centred laterally. This matches the odometry kinematics (shared `wheelbase` /
+  `track` properties declared in robot.urdf.xacro) and is the frame the EKF
+  drives via odom -> base_link. base_footprint is the ground-projection frame
+  (coincident with base_link here, since base_link is already on the ground).
+
+  Dimensions come from the single-source properties in robot.urdf.xacro
+  (ride_height, etc.); nothing is hardcoded twice.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
+
+  <!-- ========================= materials palette ======================== -->
+  <material name="black"><color rgba="0.0 0.0 0.0 1.0"/></material>
+  <material name="blue"><color rgba="0.0 0.0 0.8 1.0"/></material>
+  <material name="green"><color rgba="0.0 0.8 0.0 1.0"/></material>
+  <material name="grey"><color rgba="0.2 0.2 0.2 1.0"/></material>
+  <material name="orange"><color rgba="${255/255} ${108/255} ${10/255} 1.0"/></material>
+  <material name="red"><color rgba="0.8 0.0 0.0 1.0"/></material>
+  <material name="white"><color rgba="1.0 1.0 1.0 1.0"/></material>
+
+  <!-- ===================== kinematic root + footprint =================== -->
+  <link name="base_link"/>
+
+  <link name="base_footprint"/>
+  <joint name="base_footprint_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+    <parent link="base_link"/>
+    <child link="base_footprint"/>
+  </joint>
+
+  <!-- ============================== chassis ============================= -->
+  <link name="chassis">
+    <visual>
+      <origin xyz="0.46 -0.135 -0.180" rpy="1.57 0 3.14" />
+      <geometry>
+        <mesh filename="${mesh_dir}/chassis.stl" scale="0.000990 0.0009375 0.0009375"/>
+      </geometry>
+      <material name="red" />
+    </visual>
+  </link>
+
+  <joint name="base_link_joint" type="fixed">
+    <origin xyz="0 0 ${ride_height}" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="chassis" />
+  </joint>
+
+  <link name="chassis_inertia">
+    <inertial>
+      <xacro:chassis_inertial_params />
+    </inertial>
+  </link>
+
+  <joint name="chassis_inertia_joint" type="fixed">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="chassis" />
+    <child link="chassis_inertia" />
+  </joint>
+
+</robot>

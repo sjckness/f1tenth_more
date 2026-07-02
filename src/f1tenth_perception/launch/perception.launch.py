@@ -4,7 +4,7 @@ Starts, in one launch file:
   1. The ZED2 stereo camera (RGB + depth) via the upstream zed_wrapper launch,
      configured by config/zed2_perception.yaml (override-only).
   2. The Hokuyo LiDAR (urg_node) -> /scan, frame `laser`  [gated by `use_lidar`].
-  3. The YOLO 2D detector node -> /yolo/2D_detections.
+  3. The YOLO 2D detector node -> /camera/detections (+ /camera/image_annotated).
 
 The LiDAR config (IP/port/frame) is replicated from
 f1tenth_bringup/config/sensors.yaml. If you enable the LiDAR here, REMOVE the
@@ -87,7 +87,8 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'image_topic': LaunchConfiguration('rgb_topic'),
-            'detections_topic': '/yolo/2D_detections',
+            'detections_topic': '/camera/detections',
+            'annotated_topic': '/camera/image_annotated',
             'model_path': LaunchConfiguration('model_path'),
         }],
     )
