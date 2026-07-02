@@ -36,7 +36,7 @@ def generate_launch_description():
     # canonical /camera/image_raw + /camera/camera_info so downstream nodes (the
     # YOLO detector below) are agnostic to which camera is active.
     camera_source_la = DeclareLaunchArgument(
-        'camera_source', default_value='zed',
+        'camera_source', default_value='webcam',
         description="Camera source: 'zed' (ZED2 wrapper) or 'webcam' (v4l2 UVC "
                     'on /dev/video0). Selects exactly one; the other is not '
                     'launched at all.')
@@ -230,9 +230,9 @@ def generate_launch_description():
         parameters=[{
             'video_device': '/dev/video0',
             'image_size': [1280, 720],
-            'pixel_format': 'MJPG',
-            'output_encoding': 'rgb8',
+            'pixel_format': 'YUYV',   # was MJPG
             'camera_frame_id': 'camera_link',
+            'output_encoding': 'rgb8',
         }],
         remappings=[
             ('/image_raw', '/camera/image_raw'),
@@ -255,7 +255,7 @@ def generate_launch_description():
             'image_topic': '/camera/image_raw',
             'detections_topic': '/camera/detections',
             'annotated_topic': '/camera/image_annotated',
-            'model_path': '',
+            'model_path': '/f1tenth_more/src/f1tenth_perception/models/yolo26s.pt',
         }],
     )
 
@@ -288,10 +288,10 @@ def generate_launch_description():
     # ---- finalize ------------------------------------------------------
     # ld.add_action(joy_node)
     # ld.add_action(joy_teleop_node)
-    ld.add_action(ackermann_to_vesc_node)
-    ld.add_action(vesc_to_odom_node)
-    ld.add_action(ekf_node)
-    ld.add_action(vesc_driver_node)
+    #ld.add_action(ackermann_to_vesc_node)
+    #ld.add_action(vesc_to_odom_node)
+    #ld.add_action(ekf_node)
+    #ld.add_action(vesc_driver_node)
     # ld.add_action(throttle_interpolator_node)
     ld.add_action(ackermann_mux_node)
     ld.add_action(static_tf_node)

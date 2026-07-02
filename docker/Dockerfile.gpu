@@ -133,23 +133,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rosdep update --rosdistro humble || true \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Ultralytics YOLO ----------------------------------------------------
-# `pip install ultralytics` pulls a torch build automatically.
+# --- Ultralytics YOLO + Python runtime deps (pip) -------------------------
+# `pip install ultralytics` pulls a torch + opencv-python build automatically.
 # !!! torch + Blackwell (sm_120) !!!
 # The default torch wheel ultralytics resolves may NOT yet ship sm_120 kernels.
 # If `torch.cuda.is_available()` is True but inference errors with
 # "no kernel image is available for execution on the device", install nightly:
 #   pip install --pre torch torchvision --index-url \
 #       https://download.pytorch.org/whl/nightly/cu128
-RUN pip3 install --no-cache-dir ultralytics
-
-# --- Python runtime deps (pip) -------------------------------------------
+# !!! numpy / opencv-python / cv_bridge !!!
+# ros-humble-cv-bridge (apt, above) is compiled against NumPy 1.x and crashes
+# ("_ARRAY_API not found") under NumPy 2.x, so numpy must stay <2. ultralytics
+# pulls opencv-python with no version ceiling of its own, and the latest
+# opencv-python (5.x) hard-requires numpy>=2 for py>=3.9 - which would fight
+# the numpy<2 pin. Pin opencv-python<5 (last numpy-1.x-compatible major) in
+# the SAME pip install as numpy/ultralytics so the resolver settles on one
+# consistent set instead of two installs fighting each other.
 RUN pip3 install --no-cache-dir \
         pyserial \
         pynmea2 \
         requests \
-        numpy \
-        scipy
+        'numpy<2' \
+        scipy \
+        'opencv-python<5' \
+        ultralytics
 
 # --- ROS entrypoint (sources ROS + workspace overlay, then execs cmd) -----
 # The stereolabs base ships its own entrypoint; we override it so ROS is

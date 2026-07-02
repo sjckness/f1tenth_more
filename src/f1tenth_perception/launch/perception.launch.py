@@ -43,7 +43,7 @@ def generate_launch_description():
         'rgb_topic', default_value='/zed2/zed_node/rgb/image_rect_color',
         description='RGB image topic the YOLO detector subscribes to.')
     model_path_arg = DeclareLaunchArgument(
-        'model_path', default_value='',
+        'model_path', default_value='../models/yolo26m.pt',
         description='Path to the YOLO model file (empty = passthrough mode).')
 
     # ---- 1) ZED2 camera (RGB + depth) -------------------------------------

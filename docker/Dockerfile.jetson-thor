@@ -186,19 +186,44 @@ RUN curl -sSL https://packages.osrfoundation.org/gazebo.gpg \
 # comes from apt (Layer 10). Nothing to clone; no /opt/ros_external_install
 # overlay to source. (Re-add this layer only if those packages leave src/.)
 
-# --- Layer 12 - pip layer (numpy/scipy together) [fixes (g, i)] ----------
-# apt scipy builds against numpy <1.25, but opencv-python (and pyzed, if ever
-# enabled) need numpy >=2.0; no single numpy satisfies both. Upgrade BOTH
-# together, LAST, so this wins over any apt-pulled numpy. --ignore-installed
-# (older pip here has no --break-system-packages) and run as root (default
-# user) - no virtualenv.
-RUN pip3 install --no-cache-dir \
+# --- Layer 12 - pip layer (numpy/scipy/ultralytics together) [fixes (g, i)] -
+# ros-humble-cv-bridge (Layer 10, apt) is compiled against NumPy 1.x and
+# crashes ("_ARRAY_API not found") under NumPy 2.x, so numpy must stay <2.
+# ultralytics pulls in opencv-python with no version ceiling of its own; the
+# latest opencv-python (5.x) hard-requires numpy>=2 for py>=3.9, which would
+# fight the numpy<2 pin. Pin opencv-python<5 (last major still numpy-1.x
+# compatible) in the SAME pip install as numpy/ultralytics so the resolver
+# settles on one consistent set instead of two installs fighting each other.
+# --ignore-installed (older pip here has no --break-system-packages) and run
+# as root (default user) - no virtualenv.
+# !!! TORCH ON JETSON NOTE !!!
+# The Tegra iGPU is NOT reachable through the generic PyPI torch wheel: since
+# torch 2.7, the plain `pip install torch` wheel for linux_aarch64 depends on
+# a full set of separate nvidia-cu13-* packages (cublas/cudnn/cusolver/...)
+# totaling ~2.5 GB, and that CUDA stack targets datacenter/discrete GPUs, not
+# Thor's Tegra path - so it downloads for nothing AND turns "rebuild
+# container" into a silent multi-GB pull that looks hung in VS Code. Pull
+# torch/torchvision from PyTorch's dedicated CPU-only index (--extra-index-url)
+# with an EXACT '+cpu'-tagged version pin: the pin is required because the
+# bare public version (e.g. "2.12.1") also exists on default PyPI as the CUDA
+# meta-package, and without the local-version pin the resolver is free to
+# satisfy ultralytics' `torch>=1.8.0` from either index. Do NOT add
+# --ignore-installed to this layer - it would discard the pinned +cpu wheel
+# and let the CUDA one back in on the next `pip install` in this Dockerfile.
+# YOLO runs on CPU until a Jetson-specific CUDA torch wheel (e.g. NVIDIA's
+# jetson-ai-lab index) replaces this - that swap is a follow-up, not done by
+# this layer.
+RUN pip3 install --no-cache-dir --ignore-installed \
+        --extra-index-url https://download.pytorch.org/whl/cpu \
         pyserial \
         pynmea2 \
         requests \
-    && pip3 install --no-cache-dir --ignore-installed \
-        'numpy>=2.0' \
-        'scipy>=1.13'
+        'numpy<2' \
+        'scipy>=1.13' \
+        'opencv-python<5' \
+        'torch==2.12.1+cpu' \
+        'torchvision==0.27.1+cpu' \
+        ultralytics
 
 # --- Layer 13 - rosdep init/update at BUILD time [partial (j)] ------------
 # The actual `rosdep install` over the bind-mounted src/ runs at CONTAINER

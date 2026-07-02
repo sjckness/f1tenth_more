@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /f1tenth_more/src/transport_drivers log --oneline -1)",
+      "Bash(git -C /f1tenth_more/zed-ros2-interfaces log --oneline -1)",
+      "Bash(git clone *)",
+      "Bash(git -C /tmp/transport_drivers_clone checkout d3f510ce1b4be12967064d8251ebcac530921a04)",
+      "Bash(git -C /tmp/zed_interfaces_clone checkout e97008721d56ecf3733b95265ff4deaddf3f664e)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_hardware/vesc fetch origin vesc-tuner-test)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_hardware/vesc checkout 02dddcf07f3bbb05bcc76abdde46497230e78c64)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_hardware/vesc log --oneline FETCH_HEAD -10)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_hardware/vesc checkout vesc-tuner-test)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_external/ackermann_mux log --oneline -1)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_external/teleop_tools log --oneline -1)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_external/zed_ros2_wrapper log --oneline -1)",
+      "Bash(git config *)",
+      "Bash(git -C /f1tenth_more/src/f1tenth_external/zed_ros2_wrapper diff zed_components/CMakeLists.txt)",
+      "Bash(find / -name \"libcuda.so*\" 2>/dev/null | grep -v proc *)",
+      "Read(//usr/lib/aarch64-linux-gnu/**)",
+      "Bash(dpkg -l)",
+      "Bash(awk '{print $2, $3}')",
+      "Bash(cat /etc/nv_tegra_release 2>/dev/null || echo \"no nv_tegra_release\" *)",
+      "Read(//etc/**)",
+      "Read(//usr/local/zed/lib/**)",
+      "Read(//proc/driver/nvidia/**)",
+      "Read(//dev/**)",
+      "Bash(apt-cache search *)",
+      "Bash(apt-cache show *)",
+      "Bash(ldd /usr/local/zed/lib/libsl_zed.so)",
+      "Bash(grep -v \"^$\")",
+      "Bash(apt-get update *)"
+    ]
+  }
+}
