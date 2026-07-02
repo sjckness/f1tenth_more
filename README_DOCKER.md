@@ -69,13 +69,12 @@ ROS is sourced automatically by the container entrypoint. After building once,
 source the overlay (`source install/setup.bash`) in each new shell.
 
 ```bash
-# Basic sensor/drive bringup (VESC + LiDAR + EKF + Foxglove + map server)
-ros2 launch f1tenth_bringup bringup_launch.py
+# Full stack bringup (VESC + EKF + MPC + startup steer sweep + camera + YOLO).
+# camera_source selects the (mutually exclusive) camera: 'zed' (default) or 'webcam'.
+ros2 launch f1tenth_bringup stack_bringup_launch.py camera_source:=zed
+ros2 launch f1tenth_bringup stack_bringup_launch.py camera_source:=webcam
 
-# Full stack bringup (adds MPC + startup steer sweep)
-ros2 launch f1tenth_bringup stack_bringup_launch.py
-
-# Perception (Hokuyo + YOLO; ZED2 only meaningful on the GPU container)
+# Perception only (Hokuyo LiDAR + ZED2 + YOLO; ZED2 needs the GPU container)
 ros2 launch f1tenth_perception perception.launch.py
 ```
 

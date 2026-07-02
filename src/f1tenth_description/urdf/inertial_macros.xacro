@@ -1,0 +1,82 @@
+<?xml version="1.0"?>
+<!--
+  inertial_macros.xacro - reusable inertia helpers + the concrete per-link
+  inertial parameter macros for the F1TENTH model.
+
+  Split out of the old macros.xacro during the TF/XACRO refactor. The measured
+  per-link inertials (chassis / wheels / steering hinge / sensor) are kept
+  verbatim from msauber_description so the sim physics are unchanged; the
+  generic inertial_box / inertial_cylinder helpers are new and available for
+  any future links that should derive inertia from primitive geometry.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
+
+  <!-- ====================== generic inertia helpers ===================== -->
+  <!-- Solid box of mass m and full extents (x, y, z), centred at origin. -->
+  <xacro:macro name="inertial_box" params="mass x y z *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${mass}"/>
+      <inertia ixx="${(1.0/12.0) * mass * (y*y + z*z)}" ixy="0" ixz="0"
+               iyy="${(1.0/12.0) * mass * (x*x + z*z)}" iyz="0"
+               izz="${(1.0/12.0) * mass * (x*x + y*y)}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- Solid cylinder of mass m, given length and radius, axis along local z. -->
+  <xacro:macro name="inertial_cylinder" params="mass length radius *origin">
+    <inertial>
+      <xacro:insert_block name="origin"/>
+      <mass value="${mass}"/>
+      <inertia ixx="${(1.0/12.0) * mass * (3.0*radius*radius + length*length)}" ixy="0" ixz="0"
+               iyy="${(1.0/12.0) * mass * (3.0*radius*radius + length*length)}" iyz="0"
+               izz="${0.5 * mass * radius * radius}"/>
+    </inertial>
+  </xacro:macro>
+
+  <!-- ================ concrete per-link inertial params ================= -->
+  <!-- (kept verbatim so sim dynamics are identical to the pre-refactor model) -->
+  <xacro:macro name="chassis_inertial_params">
+    <origin xyz="0.1477 0 0" rpy="0 0 0" />
+    <mass value="4.0" />
+    <inertia ixx="0.010609" ixy="0" ixz="0"
+             iyy="0.050409" iyz="0"
+             izz="0.05865" />
+  </xacro:macro>
+
+  <!-- Wheel inertials differ between sides only by the sign of the z offset.
+       The single wheel macro selects the right one via the `reflect` sign. -->
+  <xacro:macro name="left_wheels_inertial_params">
+    <origin xyz="0 0 -0.0225" rpy="0 0 0" />
+    <mass value="0.34055" />
+    <inertia ixx="0.00026046" ixy="0" ixz="0"
+             iyy="0.00026046" iyz="0"
+             izz="0.00041226" />
+  </xacro:macro>
+
+  <xacro:macro name="right_wheels_inertial_params">
+    <origin xyz="0 0 0.0225" rpy="0 0 0" />
+    <mass value="0.34055" />
+    <inertia ixx="0.00026046" ixy="0" ixz="0"
+             iyy="0.00026046" iyz="0"
+             izz="0.00041226" />
+  </xacro:macro>
+
+  <xacro:macro name="steering_hinge_inertial_params">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <mass value="0.100" />
+    <inertia ixx="4E-06" ixy="0" ixz="0"
+             iyy="4E-06" iyz="0"
+             izz="4E-06" />
+  </xacro:macro>
+
+  <!-- small generic sensor inertia (keeps sensor links well-formed) -->
+  <xacro:macro name="sensor_inertial_params">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <mass value="0.05" />
+    <inertia ixx="1e-5" ixy="0" ixz="0"
+             iyy="1e-5" iyz="0"
+             izz="1e-5" />
+  </xacro:macro>
+
+</robot>

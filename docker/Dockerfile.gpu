@@ -92,6 +92,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-humble-urg-node \
         ros-humble-vision-msgs \
         ros-humble-cv-bridge \
+        ros-humble-v4l2-camera \
         ros-humble-joy \
         ros-humble-joy-teleop \
         ros-humble-rosbridge-server \

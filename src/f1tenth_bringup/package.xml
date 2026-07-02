@@ -16,6 +16,9 @@
   <depend>ackermann_mux</depend>
   <depend>std_msgs</depend>
   <exec_depend>robot_localization</exec_depend>
+  <!-- Camera source selection + YOLO wiring in stack_bringup_launch.py -->
+  <exec_depend>v4l2_camera</exec_depend>
+  <exec_depend>f1tenth_perception</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
