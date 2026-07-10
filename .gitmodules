@@ -11,8 +11,8 @@
 	path = src/f1tenth_external/zed_ros2_wrapper
 	url = https://github.com/stereolabs/zed-ros2-wrapper.git
 [submodule "transport_drivers"]
-	path = src/transport_drivers
+	path = src/f1tenth_external/transport_drivers
 	url = https://github.com/ros-drivers/transport_drivers.git
 [submodule "zed-ros2-interfaces"]
-	path = zed-ros2-interfaces
+	path = src/f1tenth_external/zed-ros2-interfaces
 	url = https://github.com/stereolabs/zed-ros2-interfaces.git

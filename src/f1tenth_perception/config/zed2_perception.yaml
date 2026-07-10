@@ -37,5 +37,33 @@
             publish_tf: false
             publish_map_tf: false
 
-        # Object detection / body tracking / mapping are already disabled in
-        # common_stereo.yaml; left untouched.
+        mapping:
+            # Off by upstream default too (common_stereo.yaml), pinned here so
+            # a future wrapper/config update can't silently re-enable the
+            # fused point-cloud mapping pipeline we don't use.
+            mapping_enabled: false
+
+        object_detection:
+            # We run our own YOLO + detection_3d_node fusion instead of the
+            # ZED SDK's built-in detector. Same reasoning as `mapping` above:
+            # off by upstream default, pinned here explicitly.
+            od_enabled: false
+
+        sensors:
+            # No node in this stack subscribes to the ZED's IMU/mag topics --
+            # the EKF (f1tenth_bringup/config/ekf.yaml) fuses the VESC's own
+            # IMU (/sensors/imu/raw), not the ZED's. The IMU/mag *data* topics
+            # are already subscriber-gated in the wrapper (zero cost unused),
+            # but `publish_imu_tf` is not: it broadcasts a static camera->imu
+            # TF at up to `sensors_pub_rate` (200 Hz) regardless of
+            # subscribers, so turn it off explicitly.
+            publish_imu_tf: false
+
+        # Left/right raw, unrectified, and grayscale image variants, plus the
+        # point cloud, are intentionally left at upstream defaults (not
+        # disabled): the wrapper only calls retrieveImage()/publish() for a
+        # topic when it has a subscriber (see zed_camera_component.cpp,
+        # e.g. mPubLeft.getNumSubscribers() gating retrieveImage(...LEFT...)).
+        # Since only rgb/image_rect_color (-> /camera/image_raw, for YOLO) and
+        # depth/depth_registered + depth/camera_info (for detection_3d_node)
+        # are ever subscribed, every other stream already publishes nothing.
