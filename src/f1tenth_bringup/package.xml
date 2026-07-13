@@ -9,16 +9,19 @@
 
   <depend>ackermann_msgs</depend>
   <depend>urg_node</depend>
-  <depend>joy</depend>
-  <depend>joy_teleop</depend>
   <depend>rosbridge_server</depend>
-  <depend>vesc</depend>
-  <depend>ackermann_mux</depend>
   <depend>std_msgs</depend>
-  <exec_depend>robot_localization</exec_depend>
-  <!-- Camera source selection + YOLO wiring in stack_bringup_launch.py -->
-  <exec_depend>v4l2_camera</exec_depend>
+  <!-- stack_bringup_launch.py is a thin orchestrator: every node lives in one
+       of these packages' own launch files, included from here. -->
+  <exec_depend>f1tenth_hardware</exec_depend>
+  <exec_depend>f1tenth_control</exec_depend>
+  <exec_depend>f1tenth_localization</exec_depend>
+  <exec_depend>f1tenth_description</exec_depend>
   <exec_depend>f1tenth_perception</exec_depend>
+  <exec_depend>f1tenth_navigation</exec_depend>
+  <exec_depend>safety_stop_controller</exec_depend>
+  <exec_depend>f1tenth_behavior</exec_depend>
+  <exec_depend>foxglove_bridge</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

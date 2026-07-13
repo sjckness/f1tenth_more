@@ -1,10 +1,15 @@
-"""F1TENTH perception bringup.
+"""F1TENTH perception bringup -- standalone entry point for testing
+perception in isolation from the rest of the stack (stack_bringup_launch.py
+brings these same pieces up itself; this file exists so perception can be
+exercised on its own).
 
 Starts, in one launch file:
-  1. The ZED2 stereo camera (RGB + depth) via the upstream zed_wrapper launch,
-     configured by config/zed2_perception.yaml (override-only).
+  1. The ZED2 stereo camera (RGB + depth), via camera.launch.py (shared with
+     stack_bringup_launch.py -- one definition of the camera bringup).
   2. The Hokuyo LiDAR (urg_node) -> /scan, frame `laser`  [gated by `use_lidar`].
-  3. The YOLO 2D detector node -> /camera/detections (+ /camera/image_annotated).
+  3. YOLO 2D detection + 2D-to-3D fusion, via detection.launch.py (shared with
+     stack_bringup_launch.py -- avoids independent definitions of the same
+     nodes drifting out of sync).
 
 The LiDAR config (IP/port/frame) is replicated from
 f1tenth_bringup/config/sensors.yaml. If you enable the LiDAR here, REMOVE the
@@ -26,36 +31,18 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     perception_share = get_package_share_directory('f1tenth_perception')
-    zed_wrapper_share = get_package_share_directory('zed_wrapper')
-
-    zed_override_config = os.path.join(
-        perception_share, 'config', 'zed2_perception.yaml')
-    zed_launch_file = os.path.join(
-        zed_wrapper_share, 'launch', 'zed_camera.launch.py')
 
     # ---- launch arguments --------------------------------------------------
     use_lidar_arg = DeclareLaunchArgument(
-        'use_lidar', default_value='false',
+        'use_lidar', default_value='True',
         description='Start the Hokuyo LiDAR. Set false to test without it.')
-    # The ZED wrapper publishes fixed topic names it cannot rename; we point the
-    # detector at the canonical RGB topic for camera_name:=zed2.
-    rgb_topic_arg = DeclareLaunchArgument(
-        'rgb_topic', default_value='/zed2/zed_node/rgb/image_rect_color',
-        description='RGB image topic the YOLO detector subscribes to.')
-    model_path_arg = DeclareLaunchArgument(
-        'model_path', default_value='../models/yolo26m.pt',
-        description='Path to the YOLO model file (empty = passthrough mode).')
 
     # ---- 1) ZED2 camera (RGB + depth) -------------------------------------
-    # camera_name:=zed2 -> topics under /zed2/zed_node/... and frames zed2_*.
-    # ros_params_override_path applies our override ON TOP of the wrapper config.
-    zed_camera = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(zed_launch_file),
-        launch_arguments={
-            'camera_model': 'zed2',
-            'camera_name': 'zed2',
-            'ros_params_override_path': zed_override_config,
-        }.items(),
+    camera = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(perception_share, 'launch', 'camera.launch.py')
+        ),
+        launch_arguments={'camera_source': 'zed'}.items(),
     )
 
     # ---- 2) Hokuyo LiDAR (replicated from f1tenth_bringup/config/sensors.yaml) -
@@ -79,25 +66,17 @@ def generate_launch_description():
         }],
     )
 
-    # ---- 3) YOLO 2D detector ----------------------------------------------
-    yolo_detector = Node(
-        package='f1tenth_perception',
-        executable='yolo_detector_node',
-        name='yolo_detector_node',
-        output='screen',
-        parameters=[{
-            'image_topic': LaunchConfiguration('rgb_topic'),
-            'detections_topic': '/camera/detections',
-            'annotated_topic': '/camera/image_annotated',
-            'model_path': LaunchConfiguration('model_path'),
-        }],
+    # ---- 3) YOLO 2D detector + 2D-to-3D fusion -----------------------------
+    detection = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(perception_share, 'launch', 'detection.launch.py')
+        ),
+        launch_arguments={'camera_source': 'zed'}.items(),
     )
 
     return LaunchDescription([
         use_lidar_arg,
-        rgb_topic_arg,
-        model_path_arg,
-        zed_camera,
+        camera,
         urg_node,
-        yolo_detector,
+        detection,
     ])

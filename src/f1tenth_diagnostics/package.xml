@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_diagnostics</name>
+  <version>0.0.1</version>
+  <description>
+    Calibration and diagnostic tooling for the F1TENTH stack: one-off measurement/
+    validation nodes (e.g. gyro bias calibration) that shouldn't live inside the
+    production control/perception/hardware packages. Each node here is self-contained,
+    single-purpose, and safe to run standalone -- no modifying live params, no
+    publishing to control topics, unless a node is explicitly a diagnostic tool for
+    that (e.g. an odom noise-floor logger).
+  </description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -41,3 +41,10 @@
 build/
 install/
 log/
+
+# Host-specific YOLO export artifacts (f1tenth_perception/models/): built
+# locally from the tracked *.pt checkpoints via onnx -> trtexec. TensorRT
+# engines are tied to the exact GPU/JetPack/TensorRT version they were built
+# on and are not portable, so they must never be committed.
+src/f1tenth_perception/models/*.onnx
+src/f1tenth_perception/models/*.engine

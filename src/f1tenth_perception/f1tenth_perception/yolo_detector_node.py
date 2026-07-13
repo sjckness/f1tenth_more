@@ -17,6 +17,24 @@ the node runs in **passthrough mode**: it publishes an empty Detection2DArray an
 re-publishes the incoming frame on the annotated topic (so both topics stay live
 and downstream tooling still sees a stream).
 
+The `device` parameter (default `cuda`) selects the torch device YOLO runs on.
+If `cuda` is requested but `torch.cuda.is_available()` is False (e.g. a CPU-only
+torch wheel on a CUDA-capable host), the node raises at startup rather than
+silently running inference on the CPU -- pass `device:=cpu` to opt into CPU
+explicitly (the CPU path is still fully supported, just never used implicitly).
+
+`model_path` may point at a native `*.pt` checkpoint (runs via torch/cuBLAS) or
+a `*.engine` file built for this exact machine via TensorRT:
+    yolo export model=yolo26s.pt format=onnx device=cpu simplify=True
+    trtexec --onnx=yolo26s.onnx --saveEngine=yolo26s.engine --fp16
+(ONNX export runs on CPU deliberately -- it only traces the graph once, and
+doing so avoids depending on GPU torch/cuBLAS for the export step itself.)
+Engines are NOT portable across devices/TensorRT versions, even same-model
+Jetsons, and must be rebuilt per host -- see .gitignore, these are never
+committed. TensorRT engines are CUDA-only and already bound to a device at
+build time, so `Model.to(device)` is skipped for them (it would raise) and
+`device:='cpu'` is rejected outright for a `*.engine` model_path.
+
 Message field reference (vision_msgs, Humble == "4.x" layout):
     Detection2DArray.detections[]            -> Detection2D
     Detection2D.results[]                     -> ObjectHypothesisWithPose
@@ -57,6 +75,10 @@ class YoloDetectorNode(Node):
         self.annotated_topic = str(
             self.declare_parameter('annotated_topic', '/camera/image_annotated').value)
         self.model_path = str(self.declare_parameter('model_path', '').value)
+        # Torch device YOLO runs inference on. Default 'cuda' matches the
+        # Jetson Orin deployment target; pass device:=cpu to explicitly opt
+        # into the (still fully supported) CPU path.
+        self.device = str(self.declare_parameter('device', 'cuda').value)
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -67,13 +89,46 @@ class YoloDetectorNode(Node):
         else:
             try:
                 from ultralytics import YOLO
-                self.model = YOLO(self.model_path)
-                self.get_logger().info(f'Loaded YOLO model "{self.model_path}"')
+                import torch
             except Exception as exc:  # noqa: BLE001 - stay alive in passthrough
                 self.get_logger().error(
-                    f'Failed to load Ultralytics YOLO ("{self.model_path}"): '
-                    f'{exc} — falling back to passthrough mode')
-                self.model = None
+                    f'Failed to import Ultralytics/torch: {exc} — falling '
+                    'back to passthrough mode')
+            else:
+                is_engine = self.model_path.endswith('.engine')
+                if is_engine and self.device == 'cpu':
+                    raise RuntimeError(
+                        f'model_path="{self.model_path}" is a TensorRT engine, '
+                        'which is CUDA-only and already bound to a device at '
+                        'build time -- device:="cpu" is not valid for it. Use '
+                        'a *.pt checkpoint for CPU inference instead.')
+                if self.device == 'cuda' and not torch.cuda.is_available():
+                    # Deliberately NOT caught below / not a passthrough
+                    # fallback: a CPU-only torch wheel silently serving
+                    # "working" but far slower inference is worse than a
+                    # loud startup failure. See module docstring.
+                    raise RuntimeError(
+                        f'device="cuda" requested but torch.cuda.is_available() '
+                        f'is False (torch {torch.__version__}). On Jetson this '
+                        'usually means a generic CPU-only wheel is installed '
+                        'instead of a JetPack-matched CUDA build. Pass '
+                        'device:=cpu to explicitly run on CPU instead.')
+                try:
+                    self.model = YOLO(self.model_path, task='detect')
+                    if not is_engine:
+                        # TensorRT engines are already device-bound at build
+                        # time; Model.to() only supports native *.pt models
+                        # and raises TypeError otherwise.
+                        self.model.to(self.device)
+                    self.get_logger().info(
+                        f'Loaded YOLO model "{self.model_path}" on '
+                        f'device="{self.device}"')
+                except Exception as exc:  # noqa: BLE001 - stay alive in passthrough
+                    self.get_logger().error(
+                        f'Failed to load Ultralytics YOLO ("{self.model_path}") '
+                        f'on device="{self.device}": {exc} — falling back to '
+                        'passthrough mode')
+                    self.model = None
 
         # ---- ROS interfaces -----------------------------------------------
         self.bridge = CvBridge()
@@ -109,7 +164,7 @@ class YoloDetectorNode(Node):
             return
 
         # ---- real inference ------------------------------------------------
-        results = self.model(cv_image, verbose=False)
+        results = self.model(cv_image, verbose=False, device=self.device)
         result = results[0]
         names = result.names
 

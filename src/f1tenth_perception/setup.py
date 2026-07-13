@@ -26,6 +26,7 @@ setup(
     entry_points={
         'console_scripts': [
             'yolo_detector_node = f1tenth_perception.yolo_detector_node:main',
+            'detection_3d_node = f1tenth_perception.detection_3d_node:main',
         ],
     },
 )

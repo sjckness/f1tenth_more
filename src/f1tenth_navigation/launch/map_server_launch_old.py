@@ -1,4 +1,8 @@
-"""Static map server.
+"""DEPRECATED -- superseded by nav2_bringup.launch.py, which merged map_server (and its
+lifecycle management) into the single unified lifecycle_manager_navigation alongside the
+rest of the Nav2 stack. No longer included from anywhere; kept here for reference only.
+
+Static map server.
 
 Brings up nav2_map_server with the bundled placeholder map and a
 nav2_lifecycle_manager configured with `autostart=True` so the map_server

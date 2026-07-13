@@ -36,10 +36,10 @@ ekf_filter_node:
     #     ax,    ay,    az ]
     odom0: odom
     odom0_config: [true,  true,  false,
-                   false, false, true,
-                   false, false, false,
-                   false, false, false,
-                   false, false, false]
+               false, false, true,
+               true,  false, false,   # fuse vx now
+               false, false, false,
+               false, false, false]
     odom0_queue_size: 10
     odom0_differential: false
     odom0_relative: false
@@ -50,10 +50,10 @@ ekf_filter_node:
     # driver also marks orientation_covariance[0] = -1).
     imu0: sensors/imu/raw
     imu0_config: [false, false, false,
-                  false, false, false,
-                  false, false, false,
-                  false, false, true,
-                  true,  true,  false]
+              false, false, false,
+              false, false, false,
+              false, false, true,    # keep vyaw
+              false, false, false]   # drop ax, ay
     imu0_queue_size: 10
     imu0_differential: false
     imu0_relative: false
@@ -62,3 +62,12 @@ ekf_filter_node:
     # --- process noise (15x15 diagonal shown; defaults are sane) -------------
     # Left at robot_localization defaults; tune here if the estimate is too
     # stiff/jittery. See the robot_localization docs for the full matrix.
+    imu1: /zed/zed_node/imu/data     # ZED IMU (new)
+    imu1_config: [false, false, false,
+                  false, false, false,   # orientation only — this is what blends
+                  false, false, false,
+                  false, false, false,  # angular velocity NOT fused here
+                  false, false, false]
+    imu1_differential: false
+    imu1_relative: false
+    imu1_queue_size: 10

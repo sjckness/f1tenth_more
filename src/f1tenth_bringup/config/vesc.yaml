@@ -23,6 +23,12 @@
     servo_min: 0.15
     servo_max: 0.85
 
+    # measured static yaw-rate bias (rad/s), subtracted from angular_velocity.z
+    # before vesc_driver_node publishes sensors/imu/raw. See
+    # f1tenth_diagnostics' gyro_bias_calibration_node to (re-)measure it.
+    # Update this value after re-measuring; 0.0 = no correction applied.
+    gyro_bias_z: 0.0
+
 # No longer needed, all parameters are shared
 # ackermann_to_vesc_node:
 #   ros__parameters:

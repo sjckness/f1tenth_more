@@ -10,60 +10,40 @@
 # camera_name/node_name chosen by the launch file.
 ---
 /**:
-    ros__parameters:
-        general:
-            # NOTE: there is no `rgb.quality` parameter in this wrapper. RGB
-            # publish resolution/bandwidth is controlled here. CUSTOM applies the
-            # downscale factor below to keep things real-time on the Jetson.
-            pub_resolution: 'CUSTOM'
-            pub_downscale_factor: 2.0   # publish at half the grab resolution
-            pub_frame_rate: 30.0
+  ros__parameters:
+    general:
+      pub_resolution: 'CUSTOM'
+      pub_downscale_factor: 2.0    # publish at half the grab resolution
+      pub_frame_rate: 30.0
+      publish_status: false        # remove /status/* topics from the list
 
-        depth:
-            # Lightest real-time depth mode for the Jetson. Switch to 'ULTRA'
-            # (or a NEURAL_* mode) if accuracy matters more than latency.
-            depth_mode: 'PERFORMANCE'
-            # Point cloud is published lazily (only when something subscribes),
-            # and nothing subscribes in this stack, so it is effectively off.
-            # No point_cloud_enabled flag exists; leaving it unsubscribed is the
-            # supported way to "not enable" it.
+    video:
+      publish_rgb: true            # keep: rgb/image_rect_color for YOLO
+      publish_stereo: false        # remove combined stereo pair topic
 
-        pos_tracking:
-            # IMPORTANT: the f1tenth stack already owns the `map` and `odom`
-            # frames (map_server static TF + EKF). The ZED's positional tracking
-            # would publish a competing `map -> odom -> camera` chain, so it is
-            # disabled here. We only want RGB + depth from the camera.
-            pos_tracking_enabled: false
-            publish_tf: false
-            publish_map_tf: false
+    depth:
+      depth_mode: 'PERFORMANCE'
+      # depth/depth_registered stays advertised implicitly by depth_mode != NONE
+      # point cloud has no separate publish_* flag — subscriber-gating is the
+      # only lever, so it stays in the topic list at 0 Hz unless something
+      # subscribes. Can't be fully hidden with this wrapper version.
 
-        mapping:
-            # Off by upstream default too (common_stereo.yaml), pinned here so
-            # a future wrapper/config update can't silently re-enable the
-            # fused point-cloud mapping pipeline we don't use.
-            mapping_enabled: false
+    pos_tracking:
+      # IMPORTANT: the f1tenth stack already owns the `map` and `odom` frames
+      # (map_server static TF + EKF). The ZED's positional tracking would
+      # publish a competing `map -> odom -> camera` chain, so it stays
+      # disabled here. We only want RGB + depth from the camera.
+      pos_tracking_enabled: false
+      publish_tf: false
+      publish_map_tf: false
 
-        object_detection:
-            # We run our own YOLO + detection_3d_node fusion instead of the
-            # ZED SDK's built-in detector. Same reasoning as `mapping` above:
-            # off by upstream default, pinned here explicitly.
-            od_enabled: false
+    mapping:
+      mapping_enabled: false
 
-        sensors:
-            # No node in this stack subscribes to the ZED's IMU/mag topics --
-            # the EKF (f1tenth_bringup/config/ekf.yaml) fuses the VESC's own
-            # IMU (/sensors/imu/raw), not the ZED's. The IMU/mag *data* topics
-            # are already subscriber-gated in the wrapper (zero cost unused),
-            # but `publish_imu_tf` is not: it broadcasts a static camera->imu
-            # TF at up to `sensors_pub_rate` (200 Hz) regardless of
-            # subscribers, so turn it off explicitly.
-            publish_imu_tf: false
+    object_detection:
+      od_enabled: false
 
-        # Left/right raw, unrectified, and grayscale image variants, plus the
-        # point cloud, are intentionally left at upstream defaults (not
-        # disabled): the wrapper only calls retrieveImage()/publish() for a
-        # topic when it has a subscriber (see zed_camera_component.cpp,
-        # e.g. mPubLeft.getNumSubscribers() gating retrieveImage(...LEFT...)).
-        # Since only rgb/image_rect_color (-> /camera/image_raw, for YOLO) and
-        # depth/depth_registered + depth/camera_info (for detection_3d_node)
-        # are ever subscribed, every other stream already publishes nothing.
+    sensors:
+      publish_imu: true
+      publish_imu_raw: false
+      publish_imu_tf: false

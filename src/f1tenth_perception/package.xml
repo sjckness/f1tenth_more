@@ -18,9 +18,17 @@
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>std_msgs</exec_depend>
 
-  <!-- Sensors brought up by perception.launch.py -->
+  <!-- Runtime Python deps for the 2D-to-3D detection fusion node -->
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+
+  <!-- Sensors brought up by camera.launch.py / perception.launch.py -->
   <exec_depend>zed_wrapper</exec_depend>
   <exec_depend>urg_node</exec_depend>
+  <exec_depend>v4l2_camera</exec_depend>
 
   <!-- Needed so launch can IncludeLaunchDescription / run nodes -->
   <exec_depend>ros2launch</exec_depend>

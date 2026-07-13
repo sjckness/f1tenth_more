@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_behavior</name>
+  <version>0.0.1</version>
+  <description>
+    py_trees-based reactive safety-stop (obstacle corridor check onto the ackermann_mux)
+    plus Nav2 waypoint navigation (NavigateThroughPoses), for the F1TENTH stack. Guarded
+    behind stack_bringup's use_behavior_tree arg, mutually exclusive with mpc_controller's
+    direct drive-command path. Depends on f1tenth_navigation's nav2_bringup.launch.py
+    already being up (that package now owns all Nav2 node bring-up).
+  </description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <depend>rclpy</depend>
+  <depend>py_trees</depend>
+  <depend>py_trees_ros</depend>
+  <depend>nav2_msgs</depend>
+  <depend>vision_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <depend>geometry_msgs</depend>
+
+  <exec_depend>f1tenth_navigation</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

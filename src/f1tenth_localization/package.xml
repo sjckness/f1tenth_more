@@ -3,9 +3,16 @@
 <package format="3">
   <name>f1tenth_localization</name>
   <version>0.0.0</version>
-  <description>Localization (EKF / state estimation) for the F1TENTH vehicle. Placeholder package, currently empty.</description>
+  <description>Localization (EKF / state estimation) for the F1TENTH vehicle. Owns
+  robot_localization EKF bringup via launch/ekf_launch.py.</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

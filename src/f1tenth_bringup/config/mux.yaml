@@ -1,6 +1,13 @@
 ackermann_mux:
   ros__parameters:
     topics:
+      # Published by f1tenth_behavior's Stop BT action node when the outer safety-stop
+      # tree branch is active. Highest priority: beats joystick and navigation so an
+      # obstacle in the corridor always wins, regardless of what else is publishing.
+      safety_stop:
+        topic   : safety_stop
+        timeout : 0.2
+        priority: 200
       navigation:
         topic   : drive
         timeout : 0.2

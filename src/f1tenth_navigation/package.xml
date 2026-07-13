@@ -3,7 +3,9 @@
 <package format="3">
   <name>f1tenth_navigation</name>
   <version>0.0.0</version>
-  <description>Static map server for the F1tenth stack. Serves a placeholder OccupancyGrid on /map for visualization in Foxglove Studio.</description>
+  <description>Static map server and Nav2 navigation stack (planner/controller/behavior
+  servers, bt_navigator, lifecycle manager) for the F1tenth stack. Serves a placeholder
+  OccupancyGrid on /map for visualization in Foxglove Studio.</description>
   <maintainer email="fabiocar@todo.todo">fabiocar</maintainer>
   <license>Apache License 2.0</license>
 
@@ -15,6 +17,17 @@
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+
+  <!-- Nav2 stack brought up by launch/nav2_bringup.launch.py -->
+  <exec_depend>nav2_planner</exec_depend>
+  <exec_depend>nav2_smac_planner</exec_depend>
+  <exec_depend>nav2_controller</exec_depend>
+  <exec_depend>nav2_regulated_pure_pursuit_controller</exec_depend>
+  <exec_depend>nav2_costmap_2d</exec_depend>
+  <exec_depend>nav2_behaviors</exec_depend>
+  <exec_depend>nav2_bt_navigator</exec_depend>
+  <exec_depend>f1tenth_perception</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
