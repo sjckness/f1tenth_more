@@ -15,6 +15,11 @@
   <exec_depend>joy_teleop</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>ros2launch</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package;
+       depending on it here (not f1tenth_bringup) avoids a build-order cycle,
+       since f1tenth_bringup itself includes this package's launch file. -->
+  <exec_depend>f1tenth_params</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

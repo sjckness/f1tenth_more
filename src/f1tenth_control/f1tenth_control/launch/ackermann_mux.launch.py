@@ -8,9 +8,7 @@ target than this stack uses, so it's not a drop-in here -- mux_config below
 is our single combined config (f1tenth_bringup/config/mux.yaml).
 """
 
-import os
-
-from ament_index_python.packages import get_package_share_directory
+from f1tenth_params.param_defaults import get_path_default
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -19,9 +17,9 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    mux_config = os.path.join(
-        get_package_share_directory('f1tenth_bringup'), 'config', 'mux.yaml')
-    mux_la = DeclareLaunchArgument('mux_config', default_value=mux_config)
+    mux_config, mux_config_desc = get_path_default('mux_config')
+    mux_la = DeclareLaunchArgument(
+        'mux_config', default_value=mux_config, description=mux_config_desc)
 
     ackermann_mux_node = Node(
         package='ackermann_mux',

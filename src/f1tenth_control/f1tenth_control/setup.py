@@ -10,14 +10,14 @@ setup(
     version='0.0.1',
     # Metapackage: no Python modules. mpc_controller lives in mpc_controller/
     # and is built as its own ament_python package. It does own
-    # launch/{mpc,ackermann_mux,joy}_launch.py, which wire the control-stack
+    # launch/{mpc,ackermann_mux,joy}.launch.py, which wire the control-stack
     # nodes together.
     packages=[],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*_launch.py')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
