@@ -1,0 +1,1420 @@
+import json
+import math
+import os
+from pathlib import Path
+from typing import List, Tuple, Optional
+
+import numpy as np
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+
+from nav_msgs.msg import Odometry
+from std_msgs.msg import Bool, Float32
+from ackermann_msgs.msg import AckermannDriveStamped
+from geometry_msgs.msg import PoseStamped
+
+from f1tenth_messages.msg import Obstacle2DArray
+from f1tenth_params.param_defaults import get_odom_topic
+from mpc_controller.mpc_solver import solve_mpc_step
+from sensor_msgs.msg import JointState
+from sensor_msgs.msg import Imu
+
+
+def _resolve_debug_output_path(filename: str) -> Path:
+    """Resolve <ws_root>/src/f1tenth_control/corridors_jsons/<filename>,
+    reliably reaching the real source tree regardless of whether this
+    workspace was built with --symlink-install.
+
+    Generalized (old-workspace-name cleanup pass) from what was originally
+    just _resolve_corridor_debug_path() (no filename argument, hardcoded to
+    corridor_debug.jsonl) -- now also used for error_log_path/
+    control_log_path below, which previously hardcoded Path.home() /
+    'ros2_f110_ws' / ..., a stale reference to this project's old workspace
+    name/layout (broken for anyone -- including the current setup -- not on
+    that exact original machine, same class of bug as the one this function
+    itself was already written to fix for the corridor debug path; see the
+    history below).
+
+    Same technique as f1tenth_diagnostics' sensor_covariance_calibration_node.
+    resolve_source_vesc_yaml_path() and vesc_tuning's speed_sweep_diagnostic_
+    node._default_results_dir() -- reimplemented standalone here rather than
+    imported, to avoid an unwanted cross-package dependency between
+    mpc_controller and either of those packages for what is otherwise a
+    self-contained log-path computation.
+
+    Previously (see git history) this assumed ament_python always
+    editable-installs a package's own .py modules (egg-link back to source)
+    "regardless of build/install layout" -- live-verified FALSE on this
+    workspace (no --symlink-install): this file's own __file__ resolves to a
+    PLAIN COPY under install/mpc_controller/lib/python3.10/site-packages/...,
+    so a naive parents[2] anchor off __file__ only reached
+    install/mpc_controller/lib/python3.10/, not
+    src/f1tenth_control/corridors_jsons/ as intended -- same class of bug as
+    the vesc.yaml path-resolution issue fixed in sensor_covariance_
+    calibration_node.py. What IS reliable regardless of --symlink-install is
+    colcon's own workspace layout convention: <ws_root>/install/ and
+    <ws_root>/src/ are always siblings. So: walk up this file's resolved path
+    looking for an 'install' directory; if found, its parent IS the
+    workspace root, and 'src' sits right next to it. If no 'install' ancestor
+    is found at all, this file must already be running from source (e.g.
+    --symlink-install, or a non-colcon dev setup), so fall back to anchoring
+    directly off it, as before.
+    """
+    this_file = Path(__file__).resolve()
+    for parent in this_file.parents:
+        if parent.name == 'install':
+            ws_root = parent.parent
+            return (ws_root / 'src' / 'f1tenth_control' / 'corridors_jsons'
+                     / filename)
+
+    # No 'install' ancestor -- this file's own resolved location IS inside
+    # src/ already.
+    # parents[0]=mpc_controller/mpc_controller (this file's dir),
+    # parents[1]=mpc_controller (the package), parents[2]=f1tenth_control
+    # (the top-level dir housing the mpc_controller and f1tenth_control
+    # packages) -- corridors_jsons lives there, not inside any one package.
+    return this_file.parents[2] / 'corridors_jsons' / filename
+
+
+class MPCController(Node):
+    def __init__(self):
+        super().__init__('mpc_corr')
+
+        # =========================
+        # Stato robot
+        # =========================
+        self.x: Optional[float] = None
+        self.y: Optional[float] = None
+        self.yaw: Optional[float] = None
+        self.v: Optional[float] = None
+
+        # =========================
+        # Odom sources (hardware + sim, hardware priority)
+        # =========================
+        # Each source keeps its own state and last-received clock time;
+        # control_loop's _update_active_odom() picks which one feeds
+        # self.x/self.y/self.yaw/self.v each tick.
+        self.hw_x: Optional[float] = None
+        self.hw_y: Optional[float] = None
+        self.hw_yaw: Optional[float] = None
+        self.hw_v: Optional[float] = None
+        self.hw_odom_last_time: Optional[float] = None
+
+        self.sim_x: Optional[float] = None
+        self.sim_y: Optional[float] = None
+        self.sim_yaw: Optional[float] = None
+        self.sim_v: Optional[float] = None
+        self.sim_odom_last_time: Optional[float] = None
+
+        self.active_odom_source: Optional[str] = None
+        self.odom_stale_timeout_sec = float(
+            self.declare_parameter('odom_stale_timeout_sec', 0.5).value
+        )
+
+        # =========================
+        # Goal distance (runtime command via /mpc/goal_distance)
+        # =========================
+        self.goal_distance: Optional[float] = None
+        self.goal_start_xy: Optional[Tuple[float, float]] = None
+        self.goal_reached = False
+        self._no_goal_warned = False
+
+        # =========================
+        # Goal pose (runtime command via /mpc/goal_pose) -- position-only
+        # arrival this pass, no final-yaw alignment (see build_straight_corridor/
+        # control_loop for the scope note). Mutually exclusive with goal_distance
+        # mode: whichever topic was published to most recently wins -- each
+        # callback clears the other mode's state (see goal_pose_callback/
+        # goal_distance_callback).
+        # =========================
+        self.goal_pose_xy: Optional[Tuple[float, float]] = None
+        self.goal_pose_yaw: Optional[float] = None  # stored but unused by corridor/termination logic this pass
+        self.pose_goal_reached = False
+        self.pose_goal_tolerance = float(
+            self.declare_parameter('pose_goal_tolerance', 0.15).value
+        )
+
+        # External hold (see /mpc/hold subscription below): freezes control_loop's
+        # output at zero without touching goal_start_xy/goal_reached/self.last_u, so
+        # releasing it resumes exactly where the move left off -- deliberately
+        # independent of goal_distance/goal_reached, which mission_manager's
+        # HandleObjectAction must not repurpose for holding (see that behaviour's
+        # docstring for why).
+        self.hold = False
+
+        # =========================
+        # Ostacoli (live, no persistence -- overwritten each /perception/obstacles_2d
+        # message; no matching against previous frames, no timeout/decay)
+        # =========================
+        self.obstacles_global_live: List[Tuple[float, float, float]] = []
+
+        # =========================
+        # MPC / modello
+        # =========================
+        self.last_u = np.array([0.0, 0.0], dtype=float)
+
+        self.wheel_radius = 0.05
+        self.ts = 0.1
+        self.N = 7
+
+        # UPGRADE: rough footprint radius used for the predicted-clearance check.
+        # In-code default (0.20) matches stack_params.yaml's car_radius key, the
+        # shared safety-margin unification pass's single source of truth for this
+        # value -- see that key's own comment for why it's now also read (via the
+        # same default) by the BT's IsObstacleDetected/IsProximityTooClose
+        # behaviours, in a separate process, deriving their own thresholds off it.
+        self.car_radius = float(self.declare_parameter('car_radius', 0.20).value)
+
+        # Extra safety buffer beyond the car's physical footprint. Both active
+        # obstacle-avoidance mechanisms now size their trigger/safety distance off
+        # car_radius + avoidance_margin: this file's compute_local_target (R_safe,
+        # below) directly, and mpc_solver.py's planner_cost_corridor indirectly via
+        # corridor["car_radius"]/corridor["avoidance_margin"] (set in control_loop
+        # below). Previously neither accounted for car_radius at all -- compute_local_
+        # target used corridor["d_safe"] (self.dmin, 0.9m, the disabled hard
+        # constraint's own value) and planner_cost_corridor used a hardcoded 0.3m.
+        # In-code default (0.12) matches stack_params.yaml's obstacle_safety_margin_m
+        # key -- see car_radius's own comment above.
+        self.avoidance_margin = float(self.declare_parameter('avoidance_margin', 0.12).value)
+
+        # Solver selection: real-time-iteration (linearize once + one warm-started
+        # OSQP QP solve per tick) vs. the original from-scratch nonlinear SLSQP
+        # solve every tick. Default true per the MPC optimization pass -- the
+        # frequency/bottleneck audit measured SLSQP's solve_dt averaging 93ms of a
+        # 112.6ms loop against the 100ms/10Hz budget; RTI is the fix. SLSQP is kept
+        # as an explicit opt-out (mpc_solver.py still carries both paths behind one
+        # solve_mpc_step() entry point) rather than removed, so a regression can be
+        # rolled back with a launch arg, not a code change.
+        self.use_rti_solver = bool(self.declare_parameter('use_rti_solver', True).value)
+
+        # cpu_affinity/nice: see _apply_cpu_affinity_and_priority() below, called
+        # near the end of __init__. Both default to no-op (empty string / 0) so
+        # this node's scheduling is unchanged unless a deployment explicitly
+        # opts in via mpc_corr.launch.py.
+        self.declare_parameter('cpu_affinity', '')
+        self.declare_parameter('nice', 0)
+
+        self.params = {
+            "L": 0.305,
+            "lr": 0.17,
+        }
+
+        # Corridoio MATLAB-like
+        self.corr_L_base = 3.0
+        self.corr_N = 120
+        self.corr_wmin = 1.3
+        self.corr_wmax = 2.3
+        self.corr_p = 1.8
+        self.q = 1.2
+        self.corr_epsiMax = math.radians(35.0)
+        self.corr_tmax = math.tan(math.radians(35.0))
+
+        # aggiornamento corridoio
+        self.corridor_update_period = 1.0
+        self.last_corridor_time = None
+        self.cached_corridor: Optional[dict] = None
+        self.cached_pref_nom: Optional[np.ndarray] = None
+
+        self.prev_predicted_state = None
+        self.psi_init_corridor = None  # orientamento iniziale (catturato una volta in odom); il corridoio va sempre dritto lungo questa direzione
+
+        # Old-workspace-name cleanup pass: previously hardcoded Path.home() /
+        # 'ros2_f110_ws' / ... -- a stale reference to this project's old
+        # workspace name/layout, broken for anyone not on that exact original
+        # machine (same class of bug _resolve_debug_output_path() itself was
+        # already written to fix for corridor_log_path below, just missed for
+        # these two). Now resolved the same portable way, alongside
+        # corridor_debug.jsonl in the same corridors_jsons/ directory.
+        self.error_log_path = _resolve_debug_output_path('mpc_odom_error.csv')
+        self.error_log_path.parent.mkdir(parents=True, exist_ok=True)
+        self.error_log_file = open(self.error_log_path, 'w', encoding='utf-8')
+        self.error_log_file.write('t,x_real,y_real,yaw_real,v_real,x_pred,y_pred,yaw_pred,v_pred,ex,ey,eyaw,ev\n')
+        self.error_log_file.flush()
+
+        self.prev_v_real = None
+        self.v_real_log = None
+        self.mpc_k = 0
+        self.prev_v_cmd = None
+
+        self.control_log_path = _resolve_debug_output_path('mpc_control_compare.csv')
+        self.control_log_file = open(self.control_log_path, 'w', encoding='utf-8')
+        self.control_log_file.write(
+            't,t_mpc,delta_cmd,delta_real,a_cmd,v_cmd,wheel_speed_cmd,v_real,a_imu\n'
+        )
+        self.control_log_file.flush()
+
+        self.delta_left_real = None
+        self.delta_right_real = None
+        self.delta_real = None
+        self.ax_imu = None
+
+        self.sub_joint_states = self.create_subscription(
+            JointState,
+            '/joint_states',
+            self.joint_states_callback,
+            10
+        )
+
+        # =========================
+        # Limiti
+        # =========================
+        self.limits = {
+            "delta_min": -1.05,
+            "delta_max": 1.05,
+            "a_min": -2.0,
+            "a_max": 3.0,
+            "dDeltaMin": -0.5,
+            "dDeltaMax": 0.5,
+            "dAMin": -2.0,
+            "dAMax": 2.0,
+            "vMin": -1.0,
+            "vMax": 3.0,
+        }
+
+        # =========================
+        # Pesi
+        # =========================
+        self.weights = {
+            "w_term": 3.0,
+            "w_v": 8.0,
+            "w_psi": 8 * 0,
+            "w_u_a": 20.1 * 0,
+            "w_du_delta": 15.0,
+            "w_du_a": 10.50 * 0,
+            "w_delta0": 0.2 * 0,
+            "w_obs": 8.0,
+            "w_corr": 0 * 5.0,
+        }
+
+        # Disabled/warning-only clearance-log threshold (see
+        # compute_predicted_clearance's comparison below) -- not a declared ROS
+        # param, not a hard constraint. Previously a hardcoded, unrelated 0.9;
+        # now derived from the same shared car_radius/avoidance_margin the two
+        # active avoidance mechanisms use, so a log warning at least means the
+        # same thing those mechanisms' own trigger radius does (safety-margin
+        # unification pass).
+        self.dmin = self.car_radius + self.avoidance_margin
+        self.vdes = 0.5
+
+        # =========================
+        # Target smoothing / obstacle-deflection coast
+        # =========================
+        # Exponential smoothing on compute_local_target's (possibly obstacle-
+        # deflected) output point -- raw per-frame obstacle detections can
+        # otherwise make the target jump frame to frame even with
+        # f1tenth_perception's own merge/plausibility filtering upstream.
+        # new = alpha*raw + (1-alpha)*old; alpha=1.0 disables smoothing
+        # (always the raw point); smaller alpha = smoother but slower to react.
+        self.target_smoothing_alpha = float(
+            self.declare_parameter('target_smoothing_alpha', 0.5).value)
+        self.smoothed_target: Optional[np.ndarray] = None
+
+        # When the obstacle(s) deflecting the target drop out of the live
+        # per-frame list (one missed detection, one merge-away, object
+        # actually cleared -- compute_local_target has no per-frame memory of
+        # its own), don't snap the target straight back to the raw centerline
+        # on the very next tick: decay the last-applied deflection linearly to
+        # zero over this many ticks instead. 1 tick = one compute_local_target
+        # call (~one control_loop tick, self.ts seconds apart).
+        self.deflection_decay_ticks = int(
+            self.declare_parameter('deflection_decay_ticks', 5).value)
+        self.last_deflection_vec = np.zeros(2)
+        self.deflection_decay_remaining = 0
+
+        # =========================
+        # Salvataggio debug corridoio
+        # =========================
+        self.save_corridor_debug = True
+        # See _resolve_debug_output_path()'s docstring (top of this file) for
+        # why this isn't a plain parents[2] anchor off __file__ -- that broke
+        # under this workspace's actual (non --symlink-install) build, the
+        # same class of bug fixed for vesc.yaml in
+        # sensor_covariance_calibration_node.py's resolve_source_vesc_yaml_path().
+        # This replaced a hardcoded Path.home()/'ros2_f110_ws'/... (a stale
+        # reference to this project's old workspace name, broken for anyone
+        # not on that exact original machine/setup).
+        self.corridor_log_path = _resolve_debug_output_path('corridor_debug.jsonl')
+        self.get_logger().info(f'corridor_log_path = "{self.corridor_log_path}"')
+
+        if self.save_corridor_debug:
+            self.corridor_log_path.parent.mkdir(parents=True, exist_ok=True)
+            self.corridor_log_file = open(self.corridor_log_path, 'w', encoding='utf-8')
+
+        # =========================
+        # Subscribers
+        # =========================
+        odom_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10,
+        )
+
+        # Follows localization_source (get_odom_topic(), see f1tenth_params'
+        # param_defaults.py): '/odometry/filtered' (EKF-fused, gyro yaw rate included)
+        # when localization_source is 'ekf', '/odom' (raw wheel/steering dead
+        # reckoning) when 'raw_odom' -- previously hardcoded '/odom' regardless, so
+        # switching localization_source to 'ekf' silently left this, the actual
+        # driving controller when enable_nav2:=false, still reading the unfused topic.
+        self.sub_odom_hw = self.create_subscription(
+            Odometry,
+            get_odom_topic(),
+            self.hw_odom_callback,
+            odom_qos
+        )
+
+        self.sub_odom_sim = self.create_subscription(
+            Odometry,
+            '/model/virtual_robot/odometry',
+            self.sim_odom_callback,
+            odom_qos
+        )
+
+        self.sub_goal_distance = self.create_subscription(
+            Float32,
+            '/mpc/goal_distance',
+            self.goal_distance_callback,
+            10
+        )
+
+        self.sub_goal_pose = self.create_subscription(
+            PoseStamped,
+            '/mpc/goal_pose',
+            self.goal_pose_callback,
+            10
+        )
+
+        self.sub_hold = self.create_subscription(
+            Bool,
+            '/mpc/hold',
+            self.hold_callback,
+            10
+        )
+
+        self.sub_obstacles_2d = self.create_subscription(
+            Obstacle2DArray,
+            '/perception/obstacles_2d',
+            self.obstacles_2d_callback,
+            10
+        )
+
+        self.front_distance = 10.0
+        self.sub_front_distance = self.create_subscription(
+            Float32,
+            '/perception/front_distance',
+            self.front_distance_callback,
+            10
+        )
+
+        self.sub_imu = self.create_subscription(
+            Imu,
+            '/imu',
+            self.imu_callback,
+            10
+        )
+
+        # =========================
+        # Publishers
+        # =========================
+        # Real-hardware drive command: ackermann_mux's "navigation" lane (priority 10,
+        # topic "drive" -- f1tenth_bringup/config/mux.yaml) -> ackermann_to_vesc_node ->
+        # vesc_driver_node. Same topic/QoS/message-construction pattern as
+        # andre_mpc_node.py's self.pub, so the two are interchangeable backends for the
+        # same lane. Replaces the old rear_pub/steer_pub pair, which targeted
+        # f1tenth_sim's Gazebo ros2_control bridge (/rear_wheels_controller/commands,
+        # /steering_controller/commands) -- nothing on the real stack subscribes to
+        # those, which is why MPC mode previously ran with no actuation.
+        self.pub = self.create_publisher(AckermannDriveStamped, '/drive', 10)
+
+        self.min_obstacle_distance_pub = self.create_publisher(
+            Float32,
+            '/mpc/min_obstacle_distance',
+            10
+        )
+
+        # UPGRADE: real clearance verification over the *predicted* trajectory,
+        # separate from min_obstacle_distance_pub (which only reflects "now").
+        self.predicted_clearance_pub = self.create_publisher(
+            Float32,
+            '/mpc/predicted_min_clearance',
+            10
+        )
+
+        self.goal_reached_pub = self.create_publisher(
+            Bool,
+            '/mpc/goal_reached',
+            10
+        )
+
+        # Jetson process tuning (CPU affinity + priority); safe no-op if unset or
+        # denied by the OS. Ported from the deleted andre_mpc_opt_node.py
+        # (git c36e19f) -- that version's own comment recommended pinning away
+        # from llama.cpp specifically; the frequency/bottleneck audit found the
+        # actual live contention on this stack is ZED depth compute + YOLO/
+        # TensorRT + EKF instead (llama.cpp isn't running by default). The
+        # mechanism transfers as-is; which core ids to reserve is a deployment-
+        # time choice (see mpc_corr.launch.py), not hardcoded here.
+        self._apply_cpu_affinity_and_priority()
+
+        self.timer = self.create_timer(self.ts, self.control_loop)
+
+        self.get_logger().info(
+            'MPC Controller STARTED (pure MPC + obstacle avoidance '
+            '[fixed deflection + predicted clearance], no plan executor)'
+        )
+
+        # ---- DEBUG: dump della configurazione all'avvio ----
+        self.get_logger().info(
+            f'CFG | ts={self.ts} N={self.N} vdes={self.vdes} dmin={self.dmin} '
+            f'wheel_radius={self.wheel_radius} car_radius={self.car_radius} '
+            f'avoidance_margin={self.avoidance_margin}'
+        )
+        self.get_logger().info(f'CFG | limits={self.limits}')
+        self.get_logger().info(f'CFG | weights={self.weights}')
+        self.get_logger().info(f'CFG | params={self.params}')
+
+    def destroy_node(self):
+        if hasattr(self, 'corridor_log_file'):
+            try:
+                self.corridor_log_file.close()
+            except Exception:
+                pass
+        if hasattr(self, 'error_log_file'):
+            try:
+                self.error_log_file.close()
+            except Exception:
+                pass
+        super().destroy_node()
+
+    # ── Jetson process tuning ──────────────────────────────────────────────
+    def _apply_cpu_affinity_and_priority(self):
+        """Pin the process and raise its scheduling priority (best effort).
+
+        Ported from the deleted andre_mpc_opt_node.py (git c36e19f). Jetson
+        Orin AGX has 12 homogeneous Cortex-A78AE cores (no big.LITTLE), so
+        "reserve N cores for this node" is the useful lever, not picking a
+        specific core type. Which core ids to reserve is deployment-specific
+        (pass via mpc_corr.launch.py's cpu_affinity arg, e.g.
+        `cpu_affinity:=10,11`) -- pick ids that are NOT where ZED depth
+        compute / YOLO TensorRT / ekf_filter_node are already concentrated
+        (check `/proc/<pid>/status`'s Cpus_allowed_list, or `taskset -pc
+        <pid>`, for those processes' PIDs first). Default is empty (inherit
+        the OS's default affinity, i.e. all cores) because hardcoding core
+        ids here would be wrong on any machine with a different core count
+        or a different contention profile.
+        """
+        spec = str(self.get_parameter('cpu_affinity').value).strip()
+        if spec and hasattr(os, 'sched_setaffinity'):
+            try:
+                ncpu = os.cpu_count() or 1
+                cores = {int(c) for c in spec.split(',') if c.strip() != ''}
+                cores = {c for c in cores if 0 <= c < ncpu}
+                if cores:
+                    os.sched_setaffinity(0, cores)
+                    self.get_logger().info(f'CPU affinity pinned to {sorted(cores)}')
+                else:
+                    self.get_logger().warn(
+                        f'cpu_affinity="{spec}" has no valid core (cpu_count={ncpu})'
+                    )
+            except Exception as exc:
+                self.get_logger().warn(f'Could not set CPU affinity: {exc}')
+
+        nice_val = int(self.get_parameter('nice').value)
+        if nice_val != 0:
+            # Negative niceness lowers scheduling latency for the control loop
+            # but needs CAP_SYS_NICE (root). Failure is non-fatal -- this user
+            # does not have passwordless sudo on the Jetson this was ported to,
+            # so expect (and don't treat as an error) a PermissionError here
+            # unless the node is later run with elevated privileges.
+            try:
+                os.nice(nice_val)
+                self.get_logger().info(f'Process nice set to {nice_val:+d}')
+            except Exception as exc:
+                self.get_logger().warn(
+                    f'Could not set nice {nice_val:+d} (need CAP_SYS_NICE/root): {exc}'
+                )
+
+    # ==========================================
+    # CALLBACKS
+    # ==========================================
+    def hw_odom_callback(self, msg: Odometry):
+        self.hw_x = msg.pose.pose.position.x
+        self.hw_y = msg.pose.pose.position.y
+        self.hw_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
+        self.hw_v = msg.twist.twist.linear.x
+        self.hw_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
+
+        # ---- DEBUG: conferma che /odom arriva davvero e cosa contiene ----
+        self.get_logger().info(
+            f'ODOM/hw | x={self.hw_x:+.4f} y={self.hw_y:+.4f} '
+            f'yaw={self.hw_yaw:+.4f} v={self.hw_v:+.4f}',
+            throttle_duration_sec=1.0
+        )
+
+    def sim_odom_callback(self, msg: Odometry):
+        self.sim_x = msg.pose.pose.position.x
+        self.sim_y = msg.pose.pose.position.y
+        self.sim_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
+        self.sim_v = msg.twist.twist.linear.x
+        self.sim_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
+
+        # ---- DEBUG ----
+        self.get_logger().info(
+            f'ODOM/sim | x={self.sim_x:+.4f} y={self.sim_y:+.4f} '
+            f'yaw={self.sim_yaw:+.4f} v={self.sim_v:+.4f}',
+            throttle_duration_sec=1.0
+        )
+
+    def hold_callback(self, msg: Bool):
+        if msg.data != self.hold:
+            self.get_logger().info(f'HOLD | {"engaged" if msg.data else "released"}')
+        self.hold = msg.data
+
+    def goal_distance_callback(self, msg: Float32):
+        if self.x is None or self.y is None:
+            self.get_logger().warn(
+                'goal_distance ricevuto ma stato ancora None: comando ignorato.'
+            )
+            return
+
+        self.goal_start_xy = (self.x, self.y)
+        self.goal_distance = float(msg.data)
+        self.goal_reached = False
+        self._no_goal_warned = False
+        # Switching to distance mode -- clear any pose-mode goal so the two
+        # modes stay mutually exclusive (see goal_pose_callback).
+        self.goal_pose_xy = None
+        self.goal_pose_yaw = None
+        self.pose_goal_reached = False
+        # New move -- don't let target smoothing/deflection-coast carry over
+        # state from whatever the previous move's target was doing.
+        self.smoothed_target = None
+        self.last_deflection_vec = np.zeros(2)
+        self.deflection_decay_remaining = 0
+        self.get_logger().info(
+            f'Nuovo goal_distance={self.goal_distance:.3f} m da '
+            f'({self.goal_start_xy[0]:.3f}, {self.goal_start_xy[1]:.3f})'
+        )
+
+    def goal_pose_callback(self, msg: PoseStamped):
+        if self.x is None or self.y is None:
+            self.get_logger().warn(
+                'goal_pose ricevuto ma stato ancora None: comando ignorato.'
+            )
+            return
+
+        self.goal_pose_xy = (msg.pose.position.x, msg.pose.position.y)
+        self.goal_pose_yaw = self.quaternion_to_yaw(msg.pose.orientation)
+        self.pose_goal_reached = False
+        # Switching to pose mode -- clear any distance-mode goal so the two
+        # modes stay mutually exclusive: whichever topic was published to most
+        # recently wins (see goal_distance_callback).
+        self.goal_distance = None
+        self.goal_start_xy = None
+        self.goal_reached = False
+        self._no_goal_warned = False
+        # New move -- don't let target smoothing/deflection-coast carry over
+        # state from whatever the previous move's target was doing.
+        self.smoothed_target = None
+        self.last_deflection_vec = np.zeros(2)
+        self.deflection_decay_remaining = 0
+        self.get_logger().info(
+            f'Nuovo goal_pose=({self.goal_pose_xy[0]:.3f}, {self.goal_pose_xy[1]:.3f}) '
+            f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione)'
+        )
+
+    def _update_active_odom(self):
+        """Seleziona la sorgente odom attiva (hardware ha sempre priorita' se fresca)."""
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+
+        hw_age = (now_sec - self.hw_odom_last_time) if self.hw_odom_last_time is not None else math.inf
+        sim_age = (now_sec - self.sim_odom_last_time) if self.sim_odom_last_time is not None else math.inf
+
+        if hw_age < self.odom_stale_timeout_sec:
+            source = 'hardware'
+            self.x, self.y, self.yaw, self.v = self.hw_x, self.hw_y, self.hw_yaw, self.hw_v
+        elif sim_age < self.odom_stale_timeout_sec:
+            source = 'sim'
+            self.x, self.y, self.yaw, self.v = self.sim_x, self.sim_y, self.sim_yaw, self.sim_v
+        else:
+            source = None
+            self.x = self.y = self.yaw = self.v = None
+
+        # ---- DEBUG: eta' delle due sorgenti, per capire chi e' stale ----
+        self.get_logger().info(
+            f'ODOMSEL | src={source} hw_age={hw_age:.3f}s sim_age={sim_age:.3f}s '
+            f'timeout={self.odom_stale_timeout_sec:.3f}s',
+            throttle_duration_sec=2.0
+        )
+
+        if source != self.active_odom_source:
+            self.get_logger().info(f'Odom source -> {source if source is not None else "NESSUNA (stale)"}')
+            self.active_odom_source = source
+
+        # cattura l'orientamento iniziale UNA sola volta: il corridoio va sempre dritto lungo questa direzione
+        if source is not None and self.psi_init_corridor is None:
+            self.psi_init_corridor = self.yaw
+            self.get_logger().info(f'psi_init_corridor = {self.psi_init_corridor:.3f}')
+
+    def obstacles_2d_callback(self, msg: Obstacle2DArray):
+        if self.x is None or self.y is None or self.yaw is None:
+            self.get_logger().warn(
+                'obstacles_2d ricevuto ma stato ancora None: frame scartato.',
+                throttle_duration_sec=5.0
+            )
+            return
+
+        obstacles_global = []
+        for obs in msg.obstacles:
+            x_g, y_g = self.robot_to_global(obs.x, obs.y)
+            obstacles_global.append((x_g, y_g, float(obs.r)))
+
+        self.obstacles_global_live = obstacles_global
+
+        # ---- DEBUG: primo ostacolo in frame robot vs frame globale ----
+        if msg.obstacles:
+            o0 = msg.obstacles[0]
+            g0 = obstacles_global[0]
+            self.get_logger().info(
+                f'OBS/tf | n={len(msg.obstacles)} '
+                f'robot=({o0.x:+.3f},{o0.y:+.3f},r={o0.r:.3f}) -> '
+                f'world=({g0[0]:+.3f},{g0[1]:+.3f},r={g0[2]:.3f})',
+                throttle_duration_sec=2.0
+            )
+
+    def joint_states_callback(self, msg: JointState):
+        try:
+            left_name = 'car_1_left_steering_hinge_joint'
+            right_name = 'car_1_right_steering_hinge_joint'
+
+            if left_name in msg.name and right_name in msg.name:
+                iL = msg.name.index(left_name)
+                iR = msg.name.index(right_name)
+
+                omega_L = float(msg.velocity[iL])
+                omega_R = float(msg.velocity[iR])
+
+                self.delta_left_real = float(msg.position[iL])
+                self.delta_right_real = float(msg.position[iR])
+                self.delta_real = 0.5 * (self.delta_left_real + self.delta_right_real)
+                self.v_real_log = self.wheel_radius * 0.5 * (omega_L + omega_R)
+
+                # ---- DEBUG ----
+                self.get_logger().info(
+                    f'JOINT | dL={self.delta_left_real:+.4f} dR={self.delta_right_real:+.4f} '
+                    f'delta_real={self.delta_real:+.4f} v_wheels={self.v_real_log:+.4f}',
+                    throttle_duration_sec=2.0
+                )
+            else:
+                # ---- DEBUG: i giunti attesi non ci sono, delta_real resta None ----
+                self.get_logger().warn(
+                    f'JOINT | giunti sterzo non trovati in /joint_states: {list(msg.name)}',
+                    throttle_duration_sec=5.0
+                )
+        except Exception as e:
+            self.get_logger().warn(f'joint_states parse failed: {e}')
+
+    def imu_callback(self, msg):
+        self.ax_imu = float(msg.linear_acceleration.x)
+
+        # ---- DEBUG: se questa riga non compare mai, /imu non pubblica ----
+        self.get_logger().info(
+            f'IMU | ax={self.ax_imu:+.4f}',
+            throttle_duration_sec=2.0
+        )
+
+    def front_distance_callback(self, msg):
+        self.front_distance = float(msg.data)
+
+        # ---- DEBUG ----
+        self.get_logger().info(
+            f'FRONT | d={self.front_distance:.3f}',
+            throttle_duration_sec=2.0
+        )
+
+    def _publish_drive(self, speed, steering_angle):
+        msg = AckermannDriveStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.drive.speed = speed
+        msg.drive.steering_angle = steering_angle
+        self.pub.publish(msg)
+
+        # ---- DEBUG: subs=0 significa che NESSUNO ascolta /drive
+        # (ackermann_mux giu' o topic sbagliato) -> nessuna attuazione possibile.
+        n_subs = self.pub.get_subscription_count()
+        self.get_logger().info(
+            f'PUB /drive | speed={speed:+.4f} steer={steering_angle:+.4f} subs={n_subs}',
+            throttle_duration_sec=1.0
+        )
+        if n_subs == 0:
+            self.get_logger().warn(
+                'PUB /drive | nessun subscriber: il comando non raggiunge il VESC.',
+                throttle_duration_sec=5.0
+            )
+
+    # ==========================================
+    # LOOP CONTROLLO
+    # ==========================================
+    def control_loop(self):
+        loop_t0 = self.get_clock().now().nanoseconds * 1e-9
+
+        self._update_active_odom()
+
+        # Diagnostic, independent of autonomy/goal state -- no consumer yet, but
+        # cheap and useful to have live every tick regardless of what else is gating.
+        d_robot_obs = self.compute_robot_obstacle_distance(self.obstacles_global_live)
+        self.min_obstacle_distance_pub.publish(Float32(data=float(d_robot_obs)))
+
+        if self.x is None or self.y is None or self.yaw is None or self.v is None:
+            self.get_logger().warn('ODOM non disponibile: stato ancora None')
+            self._publish_drive(0.0, 0.0)
+            return
+
+        if self.hold:
+            # Deliberately touches nothing else -- goal_start_xy, goal_reached, and
+            # self.last_u are all left exactly as they were, so releasing the hold
+            # resumes the current move rather than restarting or skipping it.
+            self._publish_drive(0.0, 0.0)
+            return
+
+        if self.goal_pose_xy is not None:
+            # Pose mode -- position-only arrival, no final-yaw alignment this
+            # pass (see build_straight_corridor's scope note). Mutually
+            # exclusive with distance mode: goal_pose_callback/
+            # goal_distance_callback each clear the other mode's state, so
+            # goal_distance/goal_start_xy are guaranteed None here.
+            gx, gy = self.goal_pose_xy
+
+            if self.pose_goal_reached:
+                self._publish_drive(0.0, 0.0)
+                self.goal_reached_pub.publish(Bool(data=True))
+                return
+
+            dist_to_goal = math.hypot(self.x - gx, self.y - gy)
+
+            # ---- DEBUG: avanzamento verso il goal pose ----
+            self.get_logger().info(
+                f'POSEGOAL | dist_to_goal={dist_to_goal:.4f} '
+                f'tolerance={self.pose_goal_tolerance:.3f}'
+            )
+
+            if dist_to_goal <= self.pose_goal_tolerance:
+                self.pose_goal_reached = True
+                self._publish_drive(0.0, 0.0)
+                self.goal_reached_pub.publish(Bool(data=True))
+                self.get_logger().info(
+                    f'Goal pose raggiunto: dist_to_goal={dist_to_goal:.3f} m <= '
+                    f'tolerance={self.pose_goal_tolerance:.3f} m'
+                )
+                return
+            # altrimenti: prosegui verso la normale risoluzione MPC qui sotto
+            # (build corridoio -> solver -> publish drive), come in modalita' distanza
+
+        elif self.goal_distance is None or self.goal_start_xy is None:
+            self._publish_drive(0.0, 0.0)
+            if not self._no_goal_warned:
+                self.get_logger().warn(
+                    'Nessun comando su /mpc/goal_distance ancora ricevuto: robot fermo in attesa.'
+                )
+                self._no_goal_warned = True
+            return
+
+        else:
+            if self.goal_reached:
+                self._publish_drive(0.0, 0.0)
+                self.goal_reached_pub.publish(Bool(data=True))
+                return
+
+            traveled = math.hypot(self.x - self.goal_start_xy[0], self.y - self.goal_start_xy[1])
+
+            # ---- DEBUG: avanzamento verso il goal ----
+            self.get_logger().info(
+                f'GOAL | traveled={traveled:.4f}/{self.goal_distance:.3f} m '
+                f'residuo={self.goal_distance - traveled:+.4f} m'
+            )
+
+            if traveled >= self.goal_distance:
+                self.goal_reached = True
+                self._publish_drive(0.0, 0.0)
+                self.goal_reached_pub.publish(Bool(data=True))
+                self.get_logger().info(
+                    f'Goal raggiunto: traveled={traveled:.3f} m >= goal_distance={self.goal_distance:.3f} m'
+                )
+                return
+
+        # confronto tra odometria attuale e primo stato predetto al ciclo precedente
+        if self.prev_predicted_state is not None:
+            x_pred = self.prev_predicted_state
+
+            ex = float(self.x - x_pred[0])
+            ey = float(self.y - x_pred[1])
+
+            eyaw = float(self.yaw - x_pred[2])
+            eyaw = math.atan2(math.sin(eyaw), math.cos(eyaw))
+
+            ev = float(self.v - x_pred[3])
+
+            self.get_logger().info(
+                f'ERR | ex={ex:.3f} ey={ey:.3f} eyaw={eyaw:.3f} ev={ev:.3f}'
+            )
+
+            # ---- DEBUG: un ev che diverge monotonicamente = il modello accelera
+            # mentre la realta' resta ferma (nessuna attuazione).
+            if abs(ev) > 0.5:
+                self.get_logger().warn(
+                    f'ERR | divergenza velocita\' predetta/reale: ev={ev:+.3f} '
+                    f'(v_odom={self.v:.3f} v_pred={x_pred[3]:.3f})',
+                    throttle_duration_sec=3.0
+                )
+
+        obstacles_global = self.obstacles_global_live
+
+        self.get_logger().info(f'OBSTACLES WORLD={obstacles_global}')
+        self.get_logger().info(f'DIST ROBOT-OSTACOLO = {d_robot_obs:.3f}')
+
+        x0 = np.array([self.x, self.y, self.yaw, self.v], dtype=float)
+
+        vdes = self.vdes
+
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+
+        need_update = False
+        if self.cached_corridor is None or self.last_corridor_time is None:
+            need_update = True
+        elif (now_sec - self.last_corridor_time) >= self.corridor_update_period:
+            need_update = True
+
+        # UPGRADE: corridor geometry (walls) stays on the slow cadence -- it
+        # barely changes while driving straight. Obstacle-aware target
+        # selection must NOT be gated by this, see below.
+        if need_update:
+            self.cached_corridor = self.build_straight_corridor(x0)
+            self.last_corridor_time = now_sec
+
+            # ---- DEBUG: il corridoio e' stato ricostruito ----
+            self.get_logger().info(
+                f'CORR | rebuilt: Pend=({self.cached_corridor["Pend"][0]:+.3f},'
+                f'{self.cached_corridor["Pend"][1]:+.3f}) '
+                f'psiRef={self.cached_corridor["psiRef"]:+.3f}'
+            )
+
+        corridor = self.cached_corridor
+
+        # UPGRADE: attach live obstacles/safety distance BEFORE computing the
+        # target, and recompute the target every tick (not just on corridor
+        # rebuild). Previously compute_local_target was only ever called right
+        # after build_straight_corridor(), on a dict that did not have
+        # "obstacles_world" set yet -- so its avoidance loop always saw an
+        # empty obstacle list and never actually deflected the target. All
+        # avoidance was coming from the solver's w_obs cost alone, fighting
+        # every tick against a static straight-line target -- hence the
+        # oversized, last-moment corrections.
+        corridor["obstacles_world"] = obstacles_global
+        corridor["d_safe"] = self.dmin
+        # UPGRADE: car_radius/avoidance_margin, read by both
+        # compute_local_target (below, this file) and mpc_solver.py's
+        # planner_cost_corridor -- passed via the corridor dict rather than
+        # adding new solve_mpc_step parameters. d_safe above is left
+        # unchanged/still set (self.dmin) for the disabled hard constraint's
+        # potential future use; it no longer drives either active mechanism
+        # after this fix.
+        corridor["car_radius"] = self.car_radius
+        corridor["avoidance_margin"] = self.avoidance_margin
+
+        pref_nom = self.compute_local_target(x0, corridor)
+        self.cached_pref_nom = pref_nom
+
+        # ---- DEBUG sintetico ----
+        self.get_logger().info(
+            f'DBG | front={self.front_distance:.2f} '
+            f'psiRef={corridor["psiRef"]:.2f} yaw={self.yaw:.2f} '
+            f'vdes={vdes:.2f} PEND={pref_nom} delta={float(self.last_u[0]):.3f} v={self.v:.2f}'
+        )
+
+        self.save_corridor_snapshot(corridor, obstacles_global)
+
+        # ---- DEBUG: stato e ingressi passati al solver ----
+        self.get_logger().info(
+            f'SOLVE/in | x0=[{x0[0]:+.4f},{x0[1]:+.4f},{x0[2]:+.4f},{x0[3]:+.4f}] '
+            f'last_u=[{self.last_u[0]:+.4f},{self.last_u[1]:+.4f}] '
+            f'vdes={vdes:.3f} n_obs={len(obstacles_global)}'
+        )
+
+        solve_t0 = self.get_clock().now().nanoseconds * 1e-9
+
+        u0, info = solve_mpc_step(
+            x0=x0,
+            last_u=self.last_u,
+            pref_nom=pref_nom,
+            corridor=corridor,
+            horizon=self.N,
+            ts=self.ts,
+            params=self.params,
+            limits=self.limits,
+            weights=self.weights,
+            obstacles=obstacles_global,
+            dmin=self.dmin,
+            vdes=vdes,
+            solver='rti' if self.use_rti_solver else 'slsqp'
+        )
+
+        solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
+
+        # ---- DEBUG: tempo di soluzione; se supera ts il loop va in ritardo ----
+        self.get_logger().info(
+            f'SOLVE/out | dt={solve_dt * 1e3:.1f} ms success={info.get("success")} '
+            f'status={info.get("status")} cost={info.get("cost", float("nan")):.4f}'
+        )
+        if solve_dt > self.ts:
+            self.get_logger().warn(
+                f'SOLVE/out | solver piu\' lento del periodo di controllo '
+                f'({solve_dt * 1e3:.1f} ms > {self.ts * 1e3:.1f} ms)',
+                throttle_duration_sec=3.0
+            )
+        if not info.get("success", False):
+            self.get_logger().warn(
+                f'SOLVE/out | ottimizzazione FALLITA status={info.get("status")}',
+                throttle_duration_sec=2.0
+            )
+
+        if "x_pred" in info and len(info["x_pred"]) > 0:
+            self.prev_predicted_state = info["x_pred"][0].copy()
+
+            # ---- DEBUG: traiettoria di velocita' predetta sull'orizzonte ----
+            v_traj = [f'{float(s[3]):.3f}' for s in info["x_pred"]]
+            self.get_logger().info(f'PRED | v_horizon=[{", ".join(v_traj)}]')
+
+            # UPGRADE: verify actual clearance along the *planned* trajectory,
+            # not just the robot's current position -- min_obstacle_distance_pub
+            # above only reflects "now", which says nothing about whether the
+            # maneuver the solver just picked is actually going to clear the
+            # obstacle by a safe margin.
+            predicted_clearance = self.compute_predicted_clearance(
+                info["x_pred"], obstacles_global
+            )
+            self.predicted_clearance_pub.publish(Float32(data=float(predicted_clearance)))
+            self.get_logger().info(f'CLEARANCE | predicted_min={predicted_clearance:.3f} m')
+            if predicted_clearance < self.dmin:
+                self.get_logger().warn(
+                    f'CLEARANCE | predicted min clearance {predicted_clearance:.3f} m '
+                    f'< dmin {self.dmin:.3f} m over horizon',
+                    throttle_duration_sec=1.0
+                )
+
+        delta_cmd = float(u0[0])
+        a_cmd = float(u0[1])
+        self.get_logger().info(f'INPUT MPC -> delta={delta_cmd:.4f}, a={a_cmd:.4f}')
+
+        # ---- DEBUG: quali vincoli sono attivi su u0 ----
+        at_delta_lim = (
+            delta_cmd <= self.limits["delta_min"] + 1e-6 or
+            delta_cmd >= self.limits["delta_max"] - 1e-6
+        )
+        at_a_lim = (
+            a_cmd <= self.limits["a_min"] + 1e-6 or
+            a_cmd >= self.limits["a_max"] - 1e-6
+        )
+        d_delta = delta_cmd - float(self.last_u[0])
+        d_a = a_cmd - float(self.last_u[1])
+        at_slew_lim = (
+            d_a <= self.limits["dAMin"] * self.ts + 1e-9 or
+            d_a >= self.limits["dAMax"] * self.ts - 1e-9
+        )
+        self.get_logger().info(
+            f'LIM | delta_sat={at_delta_lim} a_sat={at_a_lim} slew_a_sat={at_slew_lim} '
+            f'd_delta={d_delta:+.5f} d_a={d_a:+.5f}'
+        )
+
+        self.last_u = np.array([delta_cmd, a_cmd], dtype=float)
+
+        v_cmd_now = self.v + a_cmd * self.ts
+
+        v_cmd_log = self.prev_v_cmd if self.prev_v_cmd is not None else float("nan")
+        self.prev_v_cmd = v_cmd_now
+
+        wheel_speed = v_cmd_now / self.wheel_radius
+
+        v_real = float(self.v)
+        self.prev_v_real = v_real
+
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        t_mpc = self.mpc_k * self.ts
+        self.mpc_k += 1
+
+        a_imu = self.ax_imu if self.ax_imu is not None else float("nan")
+
+        self.control_log_file.write(
+            f'{now_sec},{t_mpc},{delta_cmd},{self.delta_real if self.delta_real is not None else float("nan")},{a_cmd},{v_cmd_log},{wheel_speed},{v_real},{a_imu}\n'
+        )
+        self.control_log_file.flush()
+
+        self.get_logger().info(
+            f'CTRL | t_mpc={t_mpc:.3f} delta_cmd={delta_cmd:.3f} a_cmd={a_cmd:.3f} '
+            f'v_cmd={v_cmd_log:.3f} wheel_speed={wheel_speed:.3f} '
+            f'v_real={v_real:.3f} a_imu={a_imu:.3f}'
+        )
+
+        self._publish_drive(v_cmd_now, delta_cmd)
+
+        self.get_logger().info(
+            f'MPC | x={self.x:.2f} y={self.y:.2f} yaw={self.yaw:.2f} v={self.v:.2f} '
+            f'| delta={delta_cmd:.3f} a={a_cmd:.3f} v_cmd={v_cmd_log:.3f} '
+            f'| obs_live={len(obstacles_global)} '
+            f'| ok={info["success"]}'
+        )
+
+        if "zopt" in info:
+            zopt = info["zopt"]
+            self.get_logger().info(
+                f'OPT | success={info["success"]} status={info["status"]} '
+                f'cost={info["cost"]:.3f} preview={zopt[:min(len(zopt), 8)].tolist()}'
+            )
+
+        # ---- DEBUG: durata totale del tick ----
+        loop_dt = self.get_clock().now().nanoseconds * 1e-9 - loop_t0
+        self.get_logger().info(f'LOOP | dt={loop_dt * 1e3:.1f} ms (budget {self.ts * 1e3:.0f} ms)')
+
+    # ==========================================
+    # DEBUG DISTANZA
+    # ==========================================
+    def compute_robot_obstacle_distance(self, obstacles_global):
+        if self.x is None or self.y is None:
+            return 1e6
+
+        dmin = 1e6
+        for ox, oy, r in obstacles_global:
+            d = math.hypot(self.x - ox, self.y - oy) - r
+            dmin = min(dmin, d)
+        return dmin
+
+    # UPGRADE: clearance over the solver's *predicted* trajectory, not just the
+    # current pose -- this is the actual verification that the chosen maneuver
+    # keeps a safe margin, rather than just trusting the w_obs cost blindly.
+    def compute_predicted_clearance(self, x_pred, obstacles_global):
+        if not obstacles_global or x_pred is None or len(x_pred) == 0:
+            return float('inf')
+
+        dmin = float('inf')
+        for state in x_pred:
+            px, py = float(state[0]), float(state[1])
+            for ox, oy, r in obstacles_global:
+                d = math.hypot(px - ox, py - oy) - r - self.car_radius
+                dmin = min(dmin, d)
+        return dmin
+
+    # ==========================================
+    # CORRIDOIO — sempre dritto, l'evitamento ostacoli
+    # e' interamente delegato a compute_local_target()
+    # (deflessione tangenziale del target) e al peso w_obs
+    # nel solver MPC.
+    # ==========================================
+    def build_straight_corridor(self, x):
+        X0 = float(x[0])
+        Y0 = float(x[1])
+        psi0 = float(x[2])
+
+        d_front = float(self.front_distance)
+
+        psiStart = psi0
+
+        if self.goal_pose_xy is not None:
+            gx, gy = self.goal_pose_xy
+            psiEnd = math.atan2(gy - Y0, gx - X0)
+            L = float(np.clip(math.hypot(gx - X0, gy - Y0), 1.0, self.corr_L_base))
+        else:
+            psi_base = self.psi_init_corridor if self.psi_init_corridor is not None else psi0
+            psiEnd = psi_base
+            L = max(self.corr_L_base, 1.0)
+
+        u = np.linspace(0.0, 1.0, self.corr_N)
+        s = L * u
+
+        dpsi = math.atan2(math.sin(psiEnd - psiStart), math.cos(psiEnd - psiStart))
+        theta = psiStart + dpsi * u  # rilinearizzazione dolce verso psi_base, di solito ~0 (gia' dritto)
+
+        ds = np.zeros_like(s)
+        ds[1:] = np.diff(s)
+
+        xc = X0 + np.cumsum(np.cos(theta) * ds)
+        yc = Y0 + np.cumsum(np.sin(theta) * ds)
+
+        w0 = self.corr_wmin
+        w1 = self.corr_wmax
+
+        C0 = np.array([xc[0], yc[0]], dtype=float)
+        C1 = np.array([xc[-1], yc[-1]], dtype=float)
+
+        n0 = np.array([-math.sin(psiStart), math.cos(psiStart)], dtype=float)
+        n1 = np.array([-math.sin(psiEnd), math.cos(psiEnd)], dtype=float)
+
+        P_L0 = C0 + w0 * n0
+        P_R0 = C0 - w0 * n0
+        P_L1 = C1 + w1 * n1
+        P_R1 = C1 - w1 * n1
+
+        e0 = np.array([math.cos(psiStart), math.sin(psiStart)], dtype=float)
+        e1 = np.array([math.cos(psiEnd), math.sin(psiEnd)], dtype=float)
+
+        k0 = 0.55 * L
+        k1 = 0.55 * L
+
+        CL0 = P_L0 + k0 * e0
+        CL1 = P_L1 - k1 * e1
+        CR0 = P_R0 + k0 * e0
+        CR1 = P_R1 - k1 * e1
+
+        uu = u[:, None]
+
+        left = (
+            (1 - uu) ** 3 * P_L0 +
+            3 * (1 - uu) ** 2 * uu * CL0 +
+            3 * (1 - uu) * uu ** 2 * CL1 +
+            uu ** 3 * P_L1
+        )
+        right = (
+            (1 - uu) ** 3 * P_R0 +
+            3 * (1 - uu) ** 2 * uu * CR0 +
+            3 * (1 - uu) * uu ** 2 * CR1 +
+            uu ** 3 * P_R1
+        )
+
+        xL = left[:, 0]
+        yL = left[:, 1]
+        xR = right[:, 0]
+        yR = right[:, 1]
+
+        dx = np.gradient(xc)
+        dy = np.gradient(yc)
+        dn = np.sqrt(dx ** 2 + dy ** 2)
+        dn = np.maximum(dn, 1e-9)
+
+        tx = dx / dn
+        ty = dy / dn
+        nx = -ty
+        ny = tx
+
+        halfWidth = 0.5 * np.sqrt((xL - xR) ** 2 + (yL - yR) ** 2)
+
+        p_goal = np.array([xc[-1], yc[-1]], dtype=float)
+
+        corridor = {
+            "xc": xc,
+            "yc": yc,
+            "xL": xL,
+            "yL": yL,
+            "xR": xR,
+            "yR": yR,
+            "tx": tx,
+            "ty": ty,
+            "nx": nx,
+            "ny": ny,
+            "halfWidth": halfWidth,
+            "psiRef": float(psiEnd),
+            "t": float(dpsi),
+            "Pend": p_goal,
+            "dFront": float(d_front),
+            "dpsi": float(dpsi),
+        }
+
+        # ---- DEBUG: geometria del corridoio appena costruito ----
+        self.get_logger().info(
+            f'CORR/build | L={L:.2f} psiStart={psiStart:+.4f} psiEnd={psiEnd:+.4f} '
+            f'dpsi={dpsi:+.4f} halfWidth=[{halfWidth[0]:.3f}..{halfWidth[-1]:.3f}] '
+            f'dFront={d_front:.2f}'
+        )
+
+        return corridor
+
+    def compute_local_target(self, x, corridor):
+        p_robot = np.array([x[0], x[1]], dtype=float)
+
+        xc = np.asarray(corridor["xc"], dtype=float)
+        yc = np.asarray(corridor["yc"], dtype=float)
+
+        d2 = (xc - p_robot[0]) ** 2 + (yc - p_robot[1]) ** 2
+        idx = int(np.argmin(d2))
+        lookahead = 1.5
+
+        ds = np.sqrt(np.diff(xc) ** 2 + np.diff(yc) ** 2)
+        s_cum = np.concatenate(([0.0], np.cumsum(ds)))
+
+        s_target = s_cum[idx] + lookahead
+        idx_target = int(np.searchsorted(s_cum, s_target))
+        idx_target = min(idx_target, len(xc) - 1)
+
+        p_target = np.array(
+            [xc[idx_target], yc[idx_target]],
+            dtype=float
+        )
+        # Raw (pre-obstacle-deflection) target -- kept so the deflection-coast
+        # logic below can tell whether THIS tick actually deflected anything,
+        # and can decay a stale deflection back onto the (current) centerline
+        # rather than some earlier tick's raw point.
+        p_target_raw = p_target.copy()
+
+        # ---- DEBUG: indice piu' vicino e indice di lookahead ----
+        self.get_logger().info(
+            f'TGT | idx={idx} idx_target={idx_target}/{len(xc) - 1} '
+            f'lookahead={lookahead:.2f} nominale=({p_target[0]:+.3f},{p_target[1]:+.3f})'
+        )
+
+        # se il target lookahead cade dentro il margine di sicurezza di un
+        # ostacolo, spostalo tangenzialmente fuori: e' qui che avviene
+        # l'evitamento ostacoli / cambio di direzione locale, senza bisogno
+        # di un piano.
+        #
+        # UPGRADE:
+        #  - il raggio di innesco ora usa la stessa distanza di sicurezza del
+        #    solver (R_safe = r + d_safe) invece del solo raggio ostacolo,
+        #    cosi' il target inizia a muoversi PRIMA che il costo del solver
+        #    debba intervenire con forza, non dopo.
+        #  - lo spostamento tangenziale ora e' proporzionale a quanto il
+        #    target ha "sconfinato" nel margine di sicurezza (0 a R_safe,
+        #    massimo sulla superficie dell'ostacolo) invece di un salto fisso
+        #    di 1.0 m, ed e' limitato per non uscire mai dal corridoio.
+        d_safe = corridor.get("d_safe", 0.0)
+        max_defl = 0.6 * float(np.mean(corridor["halfWidth"]))
+
+        for ox, oy, r in corridor.get("obstacles_world", []):
+            p_obs = np.array([ox, oy], dtype=float)
+            R_safe = r + self.car_radius + self.avoidance_margin
+
+            v = p_target - p_obs
+            d = np.linalg.norm(v)
+
+            if d < R_safe:
+                if d < 1e-6:
+                    psi = float(x[2])
+                    v = np.array([np.cos(psi), np.sin(psi)], dtype=float)
+                    d = 1e-6
+
+                v_hat = v / d
+                t = np.array([-v_hat[1], v_hat[0]], dtype=float)
+
+                e = np.array([np.cos(float(x[2])), np.sin(float(x[2]))], dtype=float)
+                if np.dot(t, e) < 0.0:
+                    t = -t
+
+                penetration = float(np.clip((R_safe - d) / max(R_safe - r, 1e-6), 0.0, 1.0))
+                offset = max_defl * penetration
+
+                p_target_old = p_target.copy()
+                p_target = p_obs + R_safe * v_hat + offset * t
+
+                # ---- DEBUG: deflessione tangenziale effettivamente applicata ----
+                self.get_logger().info(
+                    f'TGT/defl | ostacolo=({ox:+.3f},{oy:+.3f},r={r:.3f}) d={d:.3f}<R_safe={R_safe:.3f} '
+                    f'pen={penetration:.2f} offset={offset:.3f} '
+                    f'({p_target_old[0]:+.3f},{p_target_old[1]:+.3f}) -> '
+                    f'({p_target[0]:+.3f},{p_target[1]:+.3f})'
+                )
+
+        # ---- Obstacle-deflection coast --------------------------------
+        # deflected_this_tick is True iff the loop above actually moved
+        # p_target away from the raw centerline point (i.e. some obstacle in
+        # THIS frame's corridor["obstacles_world"] was inside R_safe of it).
+        deflected_this_tick = not np.allclose(p_target, p_target_raw)
+
+        if deflected_this_tick:
+            self.last_deflection_vec = p_target - p_target_raw
+            self.deflection_decay_remaining = self.deflection_decay_ticks
+        elif self.deflection_decay_remaining > 0:
+            # The obstacle that was deflecting the target is no longer in this
+            # frame's list (missed detection, merged away, or genuinely
+            # cleared) -- coast the deflection down to zero over
+            # deflection_decay_ticks ticks instead of snapping back to the raw
+            # centerline on this very first clear tick. Decrement BEFORE
+            # computing the fraction so this first coast tick already shows
+            # partial decay (not another full-strength tick) -- reaches
+            # exactly zero after deflection_decay_ticks ticks, not ticks+1.
+            self.deflection_decay_remaining -= 1
+            decay_fraction = self.deflection_decay_remaining / self.deflection_decay_ticks
+            p_target = p_target_raw + decay_fraction * self.last_deflection_vec
+            self.get_logger().info(
+                f'TGT/coast | no live deflection this tick, coasting '
+                f'({self.deflection_decay_remaining}/{self.deflection_decay_ticks} '
+                f'ticks left) -> ({p_target[0]:+.3f},{p_target[1]:+.3f})'
+            )
+        # else: no deflection this tick and none coasting -- p_target is
+        # already the raw centerline point, nothing to do.
+
+        # ---- Exponential smoothing on the final (possibly coasted) point ---
+        if self.smoothed_target is None:
+            self.smoothed_target = p_target.copy()
+        else:
+            alpha = self.target_smoothing_alpha
+            self.smoothed_target = alpha * p_target + (1.0 - alpha) * self.smoothed_target
+
+        return self.smoothed_target
+
+    # ==========================================
+    # TRASFORMAZIONE ROBOT -> GLOBALE
+    # ==========================================
+    def robot_to_global(self, x_r, y_r):
+        x_g = self.x + math.cos(self.yaw) * x_r - math.sin(self.yaw) * y_r
+        y_g = self.y + math.sin(self.yaw) * x_r + math.cos(self.yaw) * y_r
+        return x_g, y_g
+
+    # ==========================================
+    # SAVE CORRIDOR DEBUG
+    # ==========================================
+    def save_corridor_snapshot(self, corridor, obstacles_global):
+        if not hasattr(self, 'corridor_log_file'):
+            return
+
+        record = {
+            "robot": {
+                "x": self.x,
+                "y": self.y,
+                "yaw": self.yaw,
+                "v": self.v
+            },
+            "corridor": {
+                "xc": corridor["xc"].tolist(),
+                "yc": corridor["yc"].tolist(),
+                "xL": corridor["xL"].tolist(),
+                "yL": corridor["yL"].tolist(),
+                "xR": corridor["xR"].tolist(),
+                "yR": corridor["yR"].tolist(),
+                "Pend": corridor["Pend"].tolist(),
+            },
+            "target": {
+                "x": float(self.cached_pref_nom[0]),
+                "y": float(self.cached_pref_nom[1])
+            },
+            "obstacles_world": [
+                {"x": ox, "y": oy, "r": r}
+                for (ox, oy, r) in obstacles_global
+            ]
+        }
+
+        try:
+            self.corridor_log_file.write(json.dumps(record) + "\n")
+            self.corridor_log_file.flush()
+        except Exception as e:
+            self.get_logger().warn(f"Corridor log write failed: {e}")
+
+    @staticmethod
+    def quaternion_to_yaw(q):
+        return math.atan2(
+            2.0 * (q.w * q.z + q.x * q.y),
+            1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+        )
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = MPCController()
+
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.shutdown()
+
+
+if __name__ == '__main__':
+    main()

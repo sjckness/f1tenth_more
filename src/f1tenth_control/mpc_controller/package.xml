@@ -12,6 +12,11 @@
   <depend>ackermann_msgs</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>f1tenth_messages</depend>
+  <!-- param_defaults.get_odom_topic(): single source of truth for the active
+       odometry topic given localization_source (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package. -->
+  <exec_depend>f1tenth_params</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

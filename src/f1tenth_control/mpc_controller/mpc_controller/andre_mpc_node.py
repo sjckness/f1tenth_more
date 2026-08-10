@@ -7,6 +7,8 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from ackermann_msgs.msg import AckermannDriveStamped
 
+from f1tenth_params.param_defaults import get_odom_topic
+
 
 # ---------------------------------------------------------------------------
 # Circle MPC node
@@ -57,7 +59,9 @@ class AndreMPCNode(Node):
         self.last_solution  = np.zeros(2 * self.N)
         self.consec_failures = 0
 
-        self.create_subscription(Odometry, '/odom', self.odom_callback, 10)
+        # Follows localization_source -- see MPC_corr.py's identical comment /
+        # f1tenth_params' param_defaults.get_odom_topic().
+        self.create_subscription(Odometry, get_odom_topic(), self.odom_callback, 10)
         self.pub   = self.create_publisher(AckermannDriveStamped, '/drive', 10)
         self.timer = self.create_timer(self.dt, self.control_loop)
 
