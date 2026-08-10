@@ -1,6 +1,6 @@
 twist_to_ackermann_node:
   ros__parameters:
-    wheelbase: 0.25
+    wheelbase: 0.305
     min_steering_angle: -0.264
     max_steering_angle: 0.314
     frame_id: base_link

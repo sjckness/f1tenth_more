@@ -4,10 +4,24 @@
   <name>f1tenth_behavior</name>
   <version>0.0.1</version>
   <description>
-    py_trees-based reactive safety-stop (obstacle corridor check onto the ackermann_mux)
-    plus Nav2 waypoint navigation (NavigateThroughPoses), for the F1TENTH stack. Guarded
+    py_trees-based reactive safety-stop (obstacle corridor check onto the ackermann_mux),
+    an emergency-stop lane (low battery / CPU-GPU overheating, from f1tenth_diagnostics'
+    diagnostics_server_node and system_observer_node), plus Nav2 goal-pose navigation
+    (NavigateThroughPoses, sent as a single-element poses list once a /goal_pose message
+    is received -- no static waypoint list), plus a scripted mission subtree (JSON-config
+    move sequences driving mpc_corr via /mpc/goal_distance and /mpc/hold, with per-move
+    stop conditions and reactions to detected object classes -- see mission/ and the
+    README's config table; loaded via the mission_file_name param, /mission/load_path
+    topic, or the /mission/load_mission, /mission/start_mission, and
+    /mission/abort_mission services -- state published on /mission/status), plus a
+    latched, unconditional /mission/emergency_stop and a raw-sensor
+    IsProximityTooClose (ZED depth + /scan, YOLO-independent) both feeding the
+    emergency lane alongside battery/overheat, plus a live colored dot-graph of
+    the running tree's status published on /bt/tree_visualization for the
+    F1TENTH
+    stack. Guarded
     behind stack_bringup's use_behavior_tree arg, mutually exclusive with mpc_controller's
-    direct drive-command path. Depends on f1tenth_navigation's nav2_bringup.launch.py
+    direct drive-command path. Depends on f1tenth_navigation's nav2.launch.py
     already being up (that package now owns all Nav2 node bring-up).
   </description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
@@ -22,11 +36,43 @@
   <depend>vision_msgs</depend>
   <depend>ackermann_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>action_msgs</depend>
+  <depend>std_srvs</depend>
+  <!-- mission subtree: nav_msgs/Odometry (CheckStopCondition's /odom), std_msgs/
+       {Bool,Float32,String} (mpc_corr's /mpc/hold, /mpc/goal_distance,
+       /mission/load_path; Float32 doubles as IsProximityTooClose's
+       /perception/front_distance type). -->
+  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
+  <!-- IsProximityTooClose (emergency lane): raw /scan, sensor_msgs/LaserScan.
+       Also behavior_executor_node's own /bt/tree_visualization: sensor_msgs/
+       CompressedImage. -->
+  <depend>sensor_msgs</depend>
 
   <exec_depend>f1tenth_navigation</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
+  <!-- behavior_executor_node's live BT status visualization (/bt/tree_visualization,
+       gated by enable_bt_visualization): pydot builds the dot-graph, graphviz's own
+       `dot` binary (invoked by pydot under the hood) renders it to PNG. -->
+  <exec_depend>python3-pydot</exec_depend>
+  <exec_depend>graphviz</exec_depend>
+  <!-- BatteryStatus/SystemStatus msg types for the BT emergency lane's IsBatteryLow/
+       IsSystemOverheated conditions; see f1tenth_diagnostics/diagnostics_server_node.py
+       and system_observer_node.py. Also LoadMission srv type and the MissionStatus msg
+       type (/mission/status, also consumed by the emergency lane's
+       IsEmergencyStopTriggered) for the mission subtree's /mission/load_mission
+       service; see mission/loader.py. start_mission/abort_mission/emergency_stop reuse
+       std_srvs/Trigger (already depended on above) - abort_mission used to be its own
+       AbortMission srv type (mission_id-guarded); removed from f1tenth_messages when
+       that guard was dropped, no msg/srv type needed for those three now. -->
+  <exec_depend>f1tenth_messages</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package;
+       depending on it here (not f1tenth_bringup) avoids a build-order cycle,
+       since f1tenth_bringup itself includes this package's launch file. -->
+  <exec_depend>f1tenth_params</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

@@ -20,7 +20,7 @@ class TwistToAckermannNode(Node):
 
         # Real-car wheelbase (f1tenth_bringup/config/vesc.yaml,
         # vesc_to_odom_node.wheelbase).
-        self.wheelbase = self.declare_parameter('wheelbase', 0.25).value
+        self.wheelbase = self.declare_parameter('wheelbase', 0.305).value
         # Back-solved from vesc.yaml's servo calibration (servo = gain*angle + offset,
         # gain=-1.2135, offset=0.5304, servo_min=0.15, servo_max=0.85) -- the real usable
         # range is asymmetric, not a guessed symmetric constant.

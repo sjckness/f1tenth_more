@@ -1,0 +1,19 @@
+{
+  "mission_id": "dock_approach_01",
+  "moves": [
+    {
+      "id": "hold_3s",
+      "goal_distance": 0.0,
+      "stop_condition": { "type": "time_elapsed", "duration_sec": 3.0 },
+      "timeout_sec": 10,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "turn_left_90deg",
+      "goal_pose": { "x": 5.0, "y": 0.0, "yaw": 0.0 },
+      "stop_condition": { "type": "goal_reached" },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    }
+  ]
+}

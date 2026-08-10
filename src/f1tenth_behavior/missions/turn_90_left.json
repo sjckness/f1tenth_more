@@ -1,0 +1,12 @@
+{
+  "mission_id": "turn_90_left",
+  "moves": [
+    {
+      "id": "turn_left_90deg",
+      "goal_pose": { "x": 1.0, "y": 1.0, "yaw": 1.5707963267948966 },
+      "stop_condition": { "type": "goal_reached" },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    }
+  ]
+}

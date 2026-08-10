@@ -7,6 +7,15 @@ REP-103: x=forward, y=left, z=up). Center-point only, first blocker wins. Like t
 BT.CPP condition (and unlike simple_stop_controller_node), this does not debounce
 consecutive clear frames -- the root Selector re-ticking every cycle plus the
 ackermann_mux lane's own timeout provide the hysteresis instead.
+
+corridor_half_width/corridor_half_height: normally passed in by
+behavior_executor_node.create_root(), derived from stack_params.yaml's shared
+car_radius + obstacle_safety_margin_m (safety-margin unification pass -- see
+that key's own comment for the full 4-mechanism picture and why 0.32 replaces
+this behaviour's old standalone 0.25 default, which had drifted from
+safety_stop_controller's own, separate 0.4). The 0.32 default here is that
+same derivation's result (0.20 + 0.12), kept in sync for standalone
+construction/tests, not re-derived independently.
 """
 
 import py_trees
@@ -20,8 +29,8 @@ class IsObstacleDetected(py_trees.behaviour.Behaviour):
         name='IsObstacleDetected',
         detections_topic='/camera/detections_3d',
         stop_distance=1.0,
-        corridor_half_width=0.25,
-        corridor_half_height=0.25,
+        corridor_half_width=0.32,
+        corridor_half_height=0.32,
     ):
         super().__init__(name=name)
         self.detections_topic = detections_topic
