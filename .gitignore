@@ -42,9 +42,20 @@ build/
 install/
 log/
 
+# MPC_corr.py's per-run corridor debug snapshots (mpc_controller/MPC_corr.py,
+# self.corridor_log_path) -- runtime debug output written under the repo tree,
+# not source.
+src/f1tenth_control/corridors_jsons/
+
 # Host-specific YOLO export artifacts (f1tenth_perception/models/): built
 # locally from the tracked *.pt checkpoints via onnx -> trtexec. TensorRT
 # engines are tied to the exact GPU/JetPack/TensorRT version they were built
 # on and are not portable, so they must never be committed.
 src/f1tenth_perception/models/*.onnx
 src/f1tenth_perception/models/*.engine
+
+# sensor_covariance_calibration_node.py's pre-patch backups of vesc.yaml
+# (backup_path = f'{self.vesc_yaml_path}.bak.{timestamp}', written every time
+# it patches the file in place with measured variances) -- runtime artifacts,
+# not source; accumulate under config/ with every calibration run.
+src/f1tenth_bringup/config/vesc.yaml.bak.*
