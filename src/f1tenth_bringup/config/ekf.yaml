@@ -7,16 +7,20 @@
 #
 # Fused inputs:
 #   odom0  (/odom)              -> x, y, yaw           (wheel/steering odometry)
-#   imu0   (/sensors/imu/raw)   -> yaw rate, ax, ay    (VESC IMU)
+#   imu0   (/sensors/imu/raw)   -> yaw rate             (VESC IMU)
 #
-# Output: odom -> base_link transform + /odometry/filtered, world frame = odom.
+# Output: map -> odom transform + /odometry/filtered, world frame = map.
+# odom -> base_link is a fixed (identity) static transform published by
+# f1tenth_localization/launch/localization.launch.py, not by this node -- with
+# world_frame: map and map_frame != odom_frame, robot_localization composes its
+# map -> odom correction against that existing odom -> base_link edge.
 ekf_filter_node:
   ros__parameters:
     # --- core ----------------------------------------------------------------
     frequency: 50.0
     sensor_timeout: 0.1
     two_d_mode: true            # planar car: zero z, roll, pitch
-    publish_tf: true            # EKF owns odom -> base_link now
+    publish_tf: true            # EKF owns map -> odom now (world_frame: map, below)
     publish_acceleration: false
     print_diagnostics: true
     debug: false
@@ -25,7 +29,7 @@ ekf_filter_node:
     map_frame: map
     odom_frame: odom
     base_link_frame: base_link
-    world_frame: odom           # fuse continuous odometry in the odom frame
+    world_frame: map           # publish map -> odom (odom -> base_link is static, see above)
 
     # --- odom0: wheel/steering odometry from vesc_to_odom_node_backup ---------
     # state layout per row:
@@ -36,38 +40,61 @@ ekf_filter_node:
     #     ax,    ay,    az ]
     odom0: odom
     odom0_config: [true,  true,  false,
-               false, false, true,
-               true,  false, false,   # fuse vx now
-               false, false, false,
-               false, false, false]
+                   false, false, true,
+                   true,  false, false,   # fuse vx now
+                   false, false, false,
+                   false, false, false]
     odom0_queue_size: 10
-    odom0_differential: false
+    # world_frame: map (below) means this filter tracks its state in the map frame
+    # and publishes map -> odom itself -- but odom0's message frame_id is 'odom',
+    # not 'map', and there is no independent absolute-pose source (no GPS/AMCL/
+    # markers) providing a real map correction. Fusing it as an absolute,
+    # non-differential pose (the old false here) makes each update fight the very
+    # map -> odom offset this filter is simultaneously trying to estimate --
+    # documented robot_localization pitfall for exactly this "continuous odom
+    # source + world_frame: map, no independent absolute reference" setup.
+    # Confirmed live: with the car stationary (/odom pinned at yaw=0.0) and
+    # yaw_variance already tightened to 0.03 (see vesc.yaml), /odometry/filtered's
+    # yaw still ran away to -130.9 deg over ~3:49 min, tracking the raw residual
+    # gyro rate (~0.02 rad/s) almost exactly -- i.e. odom0's correction was barely
+    # touching the fused estimate regardless of covariance. differential: true
+    # fuses only the delta since the last odom0 message instead (frame-agnostic
+    # for a rotation delta), which is the standard fix for this pattern.
+    odom0_differential: true
     odom0_relative: false
 
     # --- imu0: VESC IMU (sensors/imu/raw) ------------------------------------
-    # Fuse only the gyro yaw rate (vyaw) and planar linear acceleration (ax, ay).
-    # Absolute orientation is intentionally NOT fused (VESC IMU yaw drifts; the
-    # driver also marks orientation_covariance[0] = -1).
+    # Fuse only the gyro yaw rate (vyaw). Absolute orientation is intentionally
+    # NOT fused (VESC IMU yaw drifts; the driver also marks
+    # orientation_covariance[0] = -1).
     imu0: sensors/imu/raw
     imu0_config: [false, false, false,
-              false, false, false,
-              false, false, false,
-              false, false, true,    # keep vyaw
-              false, false, false]   # drop ax, ay
+                  false, false, false,
+                  false, false, false,
+                  false, false, true,    # keep vyaw
+                  false, false, false]   # drop ax, ay
     imu0_queue_size: 10
     imu0_differential: false
     imu0_relative: false
     imu0_remove_gravitational_acceleration: true
 
-    # --- process noise (15x15 diagonal shown; defaults are sane) -------------
-    # Left at robot_localization defaults; tune here if the estimate is too
-    # stiff/jittery. See the robot_localization docs for the full matrix.
-    imu1: /zed/zed_node/imu/data     # ZED IMU (new)
-    imu1_config: [false, false, false,
-                  false, false, false,   # orientation only — this is what blends
-                  false, false, false,
-                  false, false, false,  # angular velocity NOT fused here
-                  false, false, false]
-    imu1_differential: false
-    imu1_relative: false
-    imu1_queue_size: 10
+    # --- process noise ---------------------------------------------------------
+    # Dialed back from an earlier, too-aggressive pass that caused overshoot/
+    # ringing on real motion (position and vy oscillating well past raw odom
+    # before settling). Still biased toward odom0 over imu0, less severely.
+    # Re-tune by watching /odometry/filtered against known motion.
+    process_noise_covariance: [0.08,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.08,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.05,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.02,  0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.02,  0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.005, 0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.01,  0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.01,  0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.015]

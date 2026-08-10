@@ -2,12 +2,37 @@
   # general parameters shared by all vesc-related nodes
   ros__parameters:
     # erpm (electrical rpm) = speed_to_erpm_gain * speed (meters / second) + speed_to_erpm_offset
-    speed_to_erpm_gain: 4614.0
+    speed_to_erpm_gain: 5499.271647286143
     speed_to_erpm_offset: 0.0
 
+    # Known noise floor on this motor/VESC: state.speed (raw ERPM telemetry,
+    # /sensors/core) sits around 380-400 ERPM even at true rest (confirmed live:
+    # zero commanded speed, real but small current draw, no intended motion).
+    # vesc_driver_node zeroes any |rpm| below this before publishing, so every
+    # consumer (vesc_to_odom_node_backup's dead-reckoning, any future direct
+    # /sensors/core reader) sees a clean zero at rest instead of each needing
+    # its own deadband. 500.0 gives margin above the observed floor while
+    # staying under 0.1 m/s (500 / speed_to_erpm_gain above), so it shouldn't
+    # eat genuine slow motion.
+    erpm_deadband: 500.0
+
     # servo value (0 to 1) =  steering_angle_to_servo_gain * steering angle (radians) + steering_angle_to_servo_offset
-    steering_angle_to_servo_gain: -1.2135
-    steering_angle_to_servo_offset: 0.5304
+    # steering_angle_to_servo_gain (singular) is kept as an average of the
+    # left/right pair below, used only by vesc_to_odom_node_backup's odometry
+    # estimate -- that node is an intentionally unmodified reference
+    # implementation (see its own file header) and is not worth the
+    # asymmetry for a secondary/estimated signal.
+    steering_angle_to_servo_gain: -1.0925563188629024
+
+    # steering_angle_to_servo_gain_left/_right, steering_angle_to_servo_offset,
+    # and servo_min/servo_max (further down) moved to
+    # f1tenth_hardware/config/steering_calibration.yaml -- the single source
+    # of truth for those 5 keys now, loaded AFTER this file by vesc.launch.py
+    # so it wins for ackermann_to_vesc_node/vesc_driver_node (see that
+    # launch file's own note). They are intentionally NOT duplicated here:
+    # a stale copy in this file would be silently overridden and could
+    # mislead anyone hand-editing it expecting an effect. Live-updated by
+    # vesc_tuning's steering_calibration_node.py during calibration.
 
     port: /dev/ttyACM0
     duty_cycle_min: 0.0
@@ -20,14 +45,34 @@
     speed_max: 23250.0
     position_min: 0.0
     position_max: 0.0
-    servo_min: 0.15
-    servo_max: 0.85
+    # servo_min / servo_max moved to steering_calibration.yaml -- see the note
+    # near steering_angle_to_servo_gain above.
 
     # measured static yaw-rate bias (rad/s), subtracted from angular_velocity.z
     # before vesc_driver_node publishes sensors/imu/raw. See
     # f1tenth_diagnostics' gyro_bias_calibration_node to (re-)measure it.
     # Update this value after re-measuring; 0.0 = no correction applied.
-    gyro_bias_z: 0.0
+    gyro_bias_z: 0.017052
+
+    # Message-level (Level 1) covariance calibration: measured stationary variance,
+    # applied as the diagonal of angular_velocity_covariance / linear_acceleration_
+    # covariance on sensors/imu/raw. Auto-updated in place by f1tenth_diagnostics'
+    # sensor_covariance_calibration_node (run with calibration:=true) -- see
+    # f1tenth_hardware/launch/vesc.launch.py.
+    #
+    # MEASURED 2026-07-20 (Phase 9): real values from a stationary
+    # sensor_covariance_calibration_node run via f1tenth_diagnostics/launch/
+    # calibration.launch.py -- 60s window, n=3000 samples/channel, car stationary
+    # and level, VESC + IMU live on real hardware (not the earlier placeholder set,
+    # whose comment noted a prior calibration:=true run's output wasn't reliably
+    # reaching the live driver process). Re-measure if the IMU mount, sample rate,
+    # or vibration environment changes materially.
+    gyro_variance_x: 0.1441998030263511
+    gyro_variance_y: 0.043013110087596965
+    gyro_variance_z: 0.11750069049056168
+    accel_variance_x: 0.0010635530996154579
+    accel_variance_y: 1.5393537976557002e-05
+    accel_variance_z: 0.00013559981787246474
 
 # No longer needed, all parameters are shared
 # ackermann_to_vesc_node:
@@ -45,23 +90,57 @@ vesc_to_odom_node:
     # EKF (robot_localization) broadcasts odom -> base_link now.
     publish_tf: false
     use_servo_cmd_to_calc_angular_velocity: true
-    # car wheelbase is about 25cm
-    wheelbase: .25
+    # car wheelbase is about 30.5cm
+    wheelbase: .305
+
+    # Message-level covariance calibration: measured stationary variance of
+    # twist.twist.linear.x, applied to twist.covariance[0]. vy has no equivalent
+    # (linear.y is a hardcoded 0.0 constant, not measured). Auto-updated in place by
+    # f1tenth_diagnostics' sensor_covariance_calibration_node.
+    #
+    # MEASURED 2026-07-20 (Phase 9): real value from the same stationary
+    # calibration.launch.py run as gyro_variance_*/accel_variance_* above (n=3000) --
+    # came back exactly 0.0 again, this time confirming (not just anticipating) the
+    # structural limitation the previous placeholder's comment already called out:
+    # vesc_to_odom_backup's erpm_deadband forces vx to exactly 0.0 while genuinely
+    # stationary (rejects near-zero ERPM as phantom hall-sensor noise), so a
+    # stationary calibration is structurally unable to measure real vx noise --
+    # constant-zero has zero sample variance by construction, this is not "no noise
+    # found." Flagging, not silently fixing: 0.0 here still risks the same
+    # near-singular EKF innovation-covariance problem the prior placeholder (0.01)
+    # was specifically chosen to avoid. A future calibration pass under light motion
+    # (not stationary) would be needed to get a real non-zero vx_variance estimate --
+    # do not hand-restore a made-up non-zero value here without one.
+    vx_variance: 0.002286410043628927
+
+    # pose.covariance[0]/[7]/[35] (x/y/yaw) on every published /odom message --
+    # previously hardcoded literals in vesc_to_odom_backup.cpp (0.2, 0.2, 0.4), now
+    # parameterized here. x_variance/y_variance left at their old defaults
+    # (unrelated to the drift below); yaw_variance is the one that mattered:
+    #
+    # 0.4 rad^2 (~36 deg stddev) told the EKF (f1tenth_bringup/config/ekf.yaml,
+    # odom0) this bicycle-model yaw was nearly worthless, so the Kalman gain on
+    # odom0's yaw correction was tiny -- between updates the fused yaw evolved
+    # almost entirely off imu0's gyro-rate integration (vyaw), so any residual gyro
+    # bias left after gyro_bias_z's static correction accumulated essentially
+    # unchecked. Tightened ~13x to the same order of magnitude as ekf.yaml's own
+    # process noise on yaw/vyaw (0.06/0.02) and the measured gyro_variance_z
+    # (0.0345) above, so odom0's yaw actually gets to correct gyro drift instead of
+    # being outweighed by it. A reasoned starting point, not a calibrated
+    # measurement (there is no message-level covariance calibration for yaw, only
+    # for vx/gyro/accel) -- re-tune by watching /odometry/filtered's yaw against
+    # /odom's on a stationary car (should track closely, not run away) and against
+    # known ground-truth headings while driving.
+    x_variance: 0.2
+    y_variance: 0.2
+    yaw_variance: 0.03
 
 # No longer needed, all parameters are shared
 # vesc_driver:
 #   ros__parameters:
 
-throttle_interpolator:
-  ros__parameters:
-    rpm_input_topic: commands/motor/unsmoothed_speed
-    rpm_output_topic: commands/motor/speed
-    servo_input_topic: commands/servo/unsmoothed_position
-    servo_output_topic: commands/servo/position
-
-    # servo smoother - limits acceleration and smooths anything above limit
-    max_acceleration: 2.5 # meters/second^2
-    throttle_smoother_rate: 75.0 # messages/sec
-    # servo smoother - limits rotation speed and smooths anything above limit
-    max_servo_speed: 3.2 # radians/second
-    servo_smoother_rate: 75.0 # messages/sec
+# throttle_interpolator's config block was deleted here -- that node
+# (f1tenth_bringup/throttle_interpolator.py) was confirmed dead code (not
+# launched by any launch file, only a registered-but-unused console_script
+# entry point) and deleted in the same pass, see f1tenth_bringup's own
+# module/package history.

@@ -11,7 +11,21 @@
   <depend>urg_node</depend>
   <depend>rosbridge_server</depend>
   <depend>std_msgs</depend>
-  <!-- stack_bringup_launch.py is a thin orchestrator: every node lives in one
+  <exec_depend>ament_index_python</exec_depend>
+  <!-- component_supervisor_node.py: spawns/restarts components as subprocesses,
+       loads components.yaml directly (python3-yaml), exposes
+       f1tenth_messages/srv/RestartComponent. -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>f1tenth_messages</exec_depend>
+  <!-- param_defaults.py / stack_params.yaml: single shared source of launch-param
+       defaults, imported from every owning package's launch file. Lives in its own
+       dependency-free f1tenth_params package (not here) specifically to avoid a
+       build-order cycle: this file includes almost every other package's launch
+       file below, so if the shared defaults lived in this package too, every one of
+       them would need to depend on f1tenth_bringup right back. -->
+  <exec_depend>f1tenth_params</exec_depend>
+  <!-- stack_bringup.launch.py is a thin orchestrator: every node lives in one
        of these packages' own launch files, included from here. -->
   <exec_depend>f1tenth_hardware</exec_depend>
   <exec_depend>f1tenth_control</exec_depend>
@@ -19,9 +33,15 @@
   <exec_depend>f1tenth_description</exec_depend>
   <exec_depend>f1tenth_perception</exec_depend>
   <exec_depend>f1tenth_navigation</exec_depend>
-  <exec_depend>safety_stop_controller</exec_depend>
   <exec_depend>f1tenth_behavior</exec_depend>
+  <exec_depend>f1tenth_diagnostics</exec_depend>
+  <exec_depend>llm</exec_depend>
   <exec_depend>foxglove_bridge</exec_depend>
+  <!-- topic_tools' throttle node: visualization-only throttled copies of
+       /camera/image_raw and /camera/image_annotated for foxglove_bridge
+       (foxglove_bridge itself has no built-in per-topic rate control,
+       see foxglove_bridge.launch.py's own docstring). -->
+  <exec_depend>topic_tools</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

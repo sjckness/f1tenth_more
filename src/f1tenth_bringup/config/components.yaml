@@ -1,0 +1,74 @@
+# Structural registry for component_supervisor_node (see f1tenth_bringup/
+# f1tenth_bringup/component_supervisor_node.py): WHAT each named component runs, as
+# one or more `ros2 launch <package> <launch_file> [args...]` commands. Each
+# component's whole list of launches is restarted together as one unit.
+#
+# WHICH components auto-start at supervisor startup, and whether `navigation`/
+# `behavior`/`intelligence` get modified or skipped, is NOT encoded here --
+# component_supervisor_node.py decides that itself by reading the same 5
+# stack-wide branching values from f1tenth_params/config/stack_params.yaml that
+# stack_bringup.launch.py uses (enable_nav2, use_behavior_tree, enable_llm), so
+# there is exactly one place those defaults live. See that node's module
+# docstring for the exact mapping.
+#
+# calibrate_hardware is registered here (a valid, restartable component_name) but
+# never auto-started -- it's an explicit, on-demand recalibration action, not a
+# steady-state component. See its own args below and component_supervisor_node.py's
+# docstring for the follow-up workflow (restart localization + navigation after it
+# completes).
+
+components:
+  hardware:
+    - package: f1tenth_hardware
+      launch_file: vesc.launch.py
+      args:
+        calibration: 'false'
+
+  calibrate_hardware:
+    - package: f1tenth_hardware
+      launch_file: vesc.launch.py
+      args:
+        calibration: 'true'
+        release_downstream: 'false'
+
+  localization:
+    - package: f1tenth_localization
+      launch_file: localization.launch.py
+
+  perception:
+    - package: f1tenth_perception
+      launch_file: camera.launch.py
+    - package: f1tenth_perception
+      launch_file: lidar.launch.py
+    - package: f1tenth_perception
+      launch_file: detection.launch.py
+
+  control:
+    - package: f1tenth_control
+      launch_file: ackermann_mux.launch.py
+
+  navigation:
+    - package: f1tenth_navigation
+      launch_file: navigation.launch.py
+
+  behavior:
+    - package: f1tenth_behavior
+      launch_file: behavior_bringup.launch.py
+
+  diagnostics:
+    - package: f1tenth_diagnostics
+      launch_file: system_observer.launch.py
+    - package: f1tenth_diagnostics
+      launch_file: diagnostics_server.launch.py
+
+  intelligence:
+    - package: llm
+      launch_file: llm.launch.py
+
+  dev_tools:
+    - package: f1tenth_bringup
+      launch_file: foxglove_bridge.launch.py
+
+  startup_sequence:
+    - package: f1tenth_bringup
+      launch_file: startup_sequence.launch.py

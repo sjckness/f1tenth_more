@@ -12,7 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
@@ -23,9 +23,8 @@ setup(
     license='MIT',
     entry_points={
         'console_scripts': [
-            'throttle_interpolator = f1tenth_bringup.throttle_interpolator:main',
-            'tf_publisher = f1tenth_bringup.tf_publisher:main',
             'stack_startup_sequence = f1tenth_bringup.stack_startup_sequence:main',
+            'component_supervisor_node = f1tenth_bringup.component_supervisor_node:main',
         ],
     },
 )
