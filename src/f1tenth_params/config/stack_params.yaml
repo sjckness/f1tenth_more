@@ -1,0 +1,663 @@
+# Single source of truth for every launch-parameter default (and its description)
+# across the f1tenth_more workspace. Loaded via f1tenth_params' param_defaults.py
+# helper (f1tenth_params/f1tenth_params/param_defaults.py) from any launch file --
+# f1tenth_params is a deliberately dependency-free leaf package (see that module's
+# own docstring for why).
+#
+# Two kinds of entries:
+#   - Stack-Wide (below): the 5 stack-wide branching args. These are NOT
+#     DeclareLaunchArgument anywhere in the workspace -- every file that needs one
+#     reads its value directly from this yaml as a plain Python value at parse time.
+#     The ONLY way to change one of these is editing this file; passing it on the
+#     CLI (e.g. `camera_source:=webcam`) is silently ignored everywhere, since no
+#     launch argument by that name exists anymore to receive it.
+#   - Everything else: normal DeclareLaunchArgument params. Their owning launch
+#     file still declares them (so CLI overrides / ros2 launch --show-args keep
+#     working exactly as before) -- only the default value and description text
+#     are sourced from here instead of being hardcoded in the launch file.
+#
+# Path-type entries (anything whose `default` is a relative path, e.g.
+# "config/vesc.yaml") are resolved at parse time against a package's install share
+# directory via param_defaults.get_path_default(name, package=...) -- package
+# defaults to f1tenth_bringup unless a `package:` field says otherwise (see `map`
+# below, the one exception -- it resolves against f1tenth_navigation instead).
+#
+# use_sim_time is deliberately NOT here: it's declared separately (with its own
+# locally-appropriate default) in f1tenth_description/launch/description.launch.py,
+# f1tenth_navigation/launch/nav2.launch.py (both default false, real
+# hardware/no sim clock), and f1tenth_sim/launch/sim_bringup.launch.py (default
+# true, sim clock) -- real hardware and simulation are non-overlapping runtime
+# contexts, so a single shared default would just be wrong for one of them no
+# matter which value was picked.
+#
+# "Consumed by:" comments below were audited against workspace_inventory.md and
+# cross-checked directly with every get_value()/get_default()/get_path_default()
+# call site in src/ (grep, 2026-07-18) -- they name the package(s) whose code
+# actually reads the key, not just packages that happen to be "related" to it.
+
+# ============================================================
+# Stack-Wide (the 5 branching args -- see header comment above)
+# ============================================================
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_perception
+# (camera.launch.py, detection.launch.py).
+camera_source:
+  default: zed
+  description: "'zed' | 'webcam' -- selects the camera source, mutually exclusive."
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_localization
+# (localization.launch.py).
+localization_source:
+  default: raw_odom
+  description: "'ekf' | 'raw_odom' -- selects the map -> odom source, mutually exclusive."
+# enable_safety_stop (the opt-in safety_stop_controller reactive corridor-stop
+# layer) was retired here -- superseded by the BT's own handle_obstacle lane
+# (IsObstacleDetected -> Stop, f1tenth_behavior), which does the same job
+# unconditionally and, unlike safety_stop_controller, actually works against
+# the current mpc_corr node (safety_stop_controller supervised a `v_ref` ROS
+# parameter that mpc_corr never declared -- confirmed broken if it had ever
+# been enabled). See obstacle_safety_margin_m below for the unified margin the
+# surviving mechanisms now share.
+# Consumed by: f1tenth_bringup (stack_bringup.launch.py, component_supervisor_node.py).
+enable_llm:
+  default: false
+  description: "Launch the LLM stack (llama-server + interrogation node). Opt-in -- loads a whole GGUF model into GPU memory and takes ~20-30s to warm up."
+# Consumed by: f1tenth_bringup (stack_bringup.launch.py, component_supervisor_node.py).
+use_behavior_tree:
+  default: true
+  description: "true: BT + Nav2 drives the ackermann_mux 'navigation' lane. false: the BT does not run; see enable_nav2 for what drives the mux instead."
+# Consumed by: f1tenth_navigation/navigation.launch.py (owns the branch itself --
+# see that file), which is in turn included by f1tenth_bringup/stack_bringup.launch.py
+# (section 6) and f1tenth_hardware/vesc.launch.py's release_downstream path, plus
+# component_supervisor_node.py (auto-starts the 'navigation' component
+# unconditionally now, since navigation.launch.py itself branches on this value).
+enable_nav2:
+  default: false
+  description: "true: bring up the Nav2 stack (idles with no active goal, puts nothing on the mux by itself). false: navigation.launch.py brings up mpc_corr instead, which does drive the mux. Independent of use_behavior_tree."
+
+# ============================================================
+# Hardware
+# ============================================================
+# Consumed by: f1tenth_hardware/vesc.launch.py.
+vesc_config:
+  default: config/vesc.yaml
+  description: "VESC hardware calibration/config (speed/steering gains, limits), shared by all VESC-chain nodes."
+# Consumed by: f1tenth_hardware/vesc.launch.py (loaded AFTER vesc_config so it wins for
+# these keys -- see vesc.launch.py's own note), vesc_tuning/steering_calibration_node.py
+# (read directly at startup, and live-overwritten by it during calibration).
+# Package defaults to f1tenth_hardware, not f1tenth_bringup, since that's where this
+# file actually lives -- see get_path_default()'s package= argument at the call site.
+steering_calibration_config:
+  default: config/steering_calibration.yaml
+  description: "Single source of truth for servo_min/servo_max, steering_angle_to_servo_offset, and steering_angle_to_servo_gain_left/_right -- split out of vesc.yaml so vesc_tuning's steering_calibration_node.py has exactly one file to read from and live-write to. Neither vesc_driver_node nor ackermann_to_vesc_node hot-reloads this file or supports ros2 param set for these keys (params are read once at startup, no set-parameters callback registered) -- restart the driver to apply a change."
+# Consumed by: f1tenth_hardware/vesc.launch.py.
+calibration:
+  default: false
+  description: "true: run message-level covariance calibration against a live driver group before releasing EKF/Nav2, then relaunch with the fresh values."
+# Consumed by: f1tenth_hardware/vesc.launch.py (calibration:=true path) AND
+# f1tenth_diagnostics/calibration.launch.py (standalone entry point) -- both feed
+# sensor_covariance_calibration_node's sample_duration_sec param. Previously two
+# separate keys (this one plus covariance_sample_duration_sec) fed the same
+# underlying node param via two different launch paths, in agreement only by
+# coincidence -- reconciled into this single key during the safety-margin/
+# dead-config cleanup pass; both launch files now declare a launch argument
+# literally named calibration_duration_sec, sourced from here.
+calibration_duration_sec:
+  default: 60.0
+  description: "Stationary sampling window for sensor_covariance_calibration_node (both the calibration:=true path and the standalone calibration.launch.py entry point), in seconds."
+# Consumed by: f1tenth_hardware/vesc.launch.py (startup pre-flight gate), also
+# f1tenth_diagnostics/diagnostics_server.launch.py (continuous monitoring threshold for
+# the BatteryStatus it publishes -- same threshold, two independent checks: one gates
+# launch, the other feeds f1tenth_behavior's BT emergency lane).
+min_battery_voltage:
+  default: 10.8
+  description: "Startup-only minimum VESC input_voltage (volts); below this the drive stack does not launch at all."
+# Consumed by: f1tenth_hardware/vesc.launch.py.
+release_downstream:
+  default: true
+  description: "true (default): vesc.launch.py releases ekf_node/Nav2 itself once calibration:=true finishes cycling to a fresh driver group -- stack_bringup.launch.py's behavior. false: skip that release (used by component_supervisor_node's calibrate_hardware entry, which restarts localization/navigation as independently-tracked components afterward instead of having vesc.launch.py start them as its own nested includes)."
+
+# ============================================================
+# Localization/TF
+# ============================================================
+# Consumed by: f1tenth_localization/ekf.launch.py (path resolved against
+# f1tenth_bringup's install share dir, not f1tenth_localization's own).
+ekf_config:
+  default: config/ekf.yaml
+  description: "robot_localization EKF config: fuses /odom + VESC IMU, publishes map -> odom."
+
+# ============================================================
+# Perception
+# ============================================================
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to BOTH
+# yolo_detector_node (as Ultralytics' own conf= inference cutoff -- boxes below
+# it never get published at all, on either detections_topic or the annotated
+# image) and detection_3d_node (post-hoc score filter before Detection3DArray/
+# MarkerArray). Previously only reached detection_3d_node -- fixed; see
+# yolo_detector_node.py's own docstring.
+confidence_threshold:
+  default: 0.3
+  description: "Minimum YOLO detection score kept (both at YOLO inference in yolo_detector_node and again by detection_3d_node before publishing to Detection3DArray/MarkerArray)."
+# Consumed by: f1tenth_perception/detection.launch.py.
+yolo_device:
+  default: cuda
+  description: "Torch device yolo_detector_node runs inference on: 'cuda' or 'cpu'."
+# Consumed by: f1tenth_perception/detection.launch.py.
+yolo_model:
+  default: yolo26s.engine
+  description: "YOLO weights filename under f1tenth_perception/models/: a .engine TensorRT build or a portable .pt checkpoint."
+# Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
+# duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
+# lidar.launch.py with no override, so this default is what actually reaches Nav2's
+# costmap too: with use_lidar false (default), Nav2's costmap obstacle layer gets
+# zero LiDAR data unless this is explicitly overridden. Lower-severity than when
+# this was first flagged, now that enable_nav2 also defaults false (Nav2 isn't
+# the default drive path at all) -- still worth an explicit true if enable_nav2
+# is ever turned on for real driving.
+use_lidar:
+  default: false
+  description: "Start the Hokuyo LiDAR (urg_node). false to test without it."
+# Consumed by: f1tenth_perception/lidar.launch.py.
+sensors_config:
+  default: config/sensors.yaml
+  description: "Hokuyo LiDAR (urg_node) IP/port/frame config."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated -- only declared/launched when detection_3d_node itself is).
+obstacle_z_min:
+  default: -0.1
+  description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, base_link ~0.07m above ground) -- detections below this are dropped as ground-plane false positives. Untuned starting point."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated).
+obstacle_z_max:
+  default: 2.0
+  description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+
+# ============================================================
+# Command/Control
+# ============================================================
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into mpc_controller's
+# MPC_corr.py's own already-declared ROS param (self.declare_parameter,
+# in-code default 0.5) the same way mpc.launch.py wires andre_mpc_node.py's gains.
+# The in-code default only matters if this file's value is ever overridden.
+odom_stale_timeout_sec:
+  default: 0.5
+  description: "Max age [s] of the hardware /odom message before MPC_corr.py falls back to sim odom (/model/virtual_robot/odometry), or to 'ODOM non disponibile' if both are stale. Hardware always wins while its own message is fresher than this."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own already-declared ROS param (self.declare_parameter, in-code default
+# True), same pattern as odom_stale_timeout_sec above. Added by the MPC
+# optimization pass following the frequency/bottleneck audit: true selects
+# mpc_solver.py's OSQP real-time-iteration solve path (one linearization + one
+# warm-started QP solve per tick); false selects the original from-scratch
+# nonlinear SLSQP solve every tick (kept as an explicit opt-out for rollback,
+# not removed -- see mpc_solver.py's own module docstring).
+use_rti_solver:
+  default: true
+  description: "true (default): mpc_corr.py uses the OSQP real-time-iteration solver. false: fall back to the original SLSQP solve (kept for rollback/comparison)."
+# cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
+# NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
+# every other arg in this file, the right value is machine-specific (which
+# core ids are free of ZED depth compute / YOLO TensorRT / EKF contention on
+# THIS deployment), not a stack-wide default, so they're declared directly in
+# that launch file instead.
+# Consumed by: f1tenth_control/ackermann_mux.launch.py.
+mux_config:
+  default: config/mux.yaml
+  description: "ackermann_mux priority/lock/topic config arbitrating between drive-command sources."
+# Consumed by: f1tenth_control/joy.launch.py.
+joy_config:
+  default: config/joy_teleop.yaml
+  description: "joy_node + joy_teleop button/axis mapping config for manual joystick control."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py (injected as
+# target_node's override on the mpc_tuner interrogation node, same
+# override-wins-over-params_file pattern already used for mpc_url -- see
+# llm/config/mpc_tuner_params.yaml, which no longer hardcodes its own copy). NOT
+# read by f1tenth_bringup/startup_sequence.launch.py anymore (Phase 10): it used to
+# be declared/forwarded there to stack_startup_sequence, but that node never
+# declared a parameter by this name and had no use for it (a pure steering-sweep
+# node with no MPC awareness) -- removed rather than wired up, since there was
+# nothing for it to do with the value. Value is now /mpc_corr, the actually-deployed
+# MPC node (mpc_corr.py, launched by navigation.launch.py when enable_nav2:=false) --
+# previously /andre_mpc_controller / /andre_mpc_opt_controller, both stale names for
+# MPC node variants no longer in the automatic bring-up path. No longer used by
+# safety_stop_controller (retired -- see enable_safety_stop's own comment above;
+# that node's SetParameters(v_ref=...) call would have been rejected by mpc_corr
+# anyway, which never declared a v_ref parameter -- one more reason it was retired
+# rather than re-pointed).
+mpc_node_name:
+  default: /mpc_corr
+  description: "Fully-qualified MPC node name, used by the LLM MPC tuner for SetParameters calls."
+# Consumed by: f1tenth_control/mpc.launch.py -- wired into andre_mpc_node.py's own
+# already-declared ROS params for the first time this phase (mpc.launch.py previously
+# passed no parameters=[...] at all, so these 12 gains were only ever the in-code
+# defaults in mpc_controller/andre_mpc_node.py; values here match those defaults
+# exactly, so wiring them up changes nothing behaviorally by itself).
+qn:
+  default: 50.0
+  description: "MPC rollout cost weight on radial tracking error (distance to the reference circle). High: tight radial tracking."
+# Consumed by: f1tenth_control/mpc.launch.py. Declared by andre_mpc_node.py but not
+# currently read anywhere in its own cost function or control loop (self.qv is set in
+# update_params, never used elsewhere) -- a pre-existing gap in the node itself.
+qv:
+  default: 50.0
+  description: "Declared MPC cost weight, currently unused by andre_mpc_node.py's own rollout cost."
+# Consumed by: f1tenth_control/mpc.launch.py.
+qalpha:
+  default: 30.0
+  description: "MPC rollout cost weight on heading error (deviation from tangent-to-circle). High: stay tangent to the circle."
+# Consumed by: f1tenth_control/mpc.launch.py.
+qddelta:
+  default: 2.0
+  description: "MPC rollout cost weight penalizing steering-correction rate, for smooth corrections."
+# Consumed by: f1tenth_control/mpc.launch.py.
+alat_max:
+  default: 10.0
+  description: "Lateral acceleration limit [m/s^2] enforced as a soft constraint in the MPC rollout cost."
+# Consumed by: f1tenth_control/mpc.launch.py. Declared by andre_mpc_node.py but not
+# currently read anywhere else in the node (self.a_min is set in update_params, never
+# used elsewhere) -- a pre-existing gap in the node itself.
+a_min:
+  default: -3.0
+  description: "Declared MPC deceleration limit [m/s^2], currently unused by andre_mpc_node.py's own control loop."
+# Consumed by: f1tenth_control/mpc.launch.py.
+a_max:
+  default: 3.0
+  description: "MPC acceleration limit [m/s^2] -- rate-limits the open-loop speed command toward v_ref."
+# Consumed by: f1tenth_control/mpc.launch.py.
+v_min:
+  default: -1.5
+  description: "MPC speed floor [m/s] -- clips both the state estimate used in the rollout cost and the published speed command."
+# Consumed by: f1tenth_control/mpc.launch.py.
+v_max:
+  default: 1.5
+  description: "MPC speed ceiling [m/s] -- clips the published speed command."
+# Consumed by: f1tenth_control/mpc.launch.py.
+v_ref:
+  default: 1.0
+  description: "Center [m/s] of the MPC's open-loop sine speed profile."
+# Consumed by: f1tenth_control/mpc.launch.py.
+sine_amp:
+  default: 0.0
+  description: "Amplitude [m/s] of the MPC's open-loop sine speed profile. 0.0: constant speed at v_ref."
+# Consumed by: f1tenth_control/mpc.launch.py.
+sine_period:
+  default: 4.0
+  description: "Period [s] of the MPC's open-loop sine speed profile."
+# safety_forward_v_ref / safety_stop_distance / safety_corridor_half_width /
+# safety_corridor_half_height / safety_clear_frames_required (safety_stop_controller's
+# own params) were deleted here -- that node is retired, see enable_safety_stop's
+# own comment above. The forward-corridor stop distance/dimensions the BT's
+# IsObstacleDetected uses instead are car_radius/obstacle_safety_margin_m-derived
+# now, not a separate config surface -- see those keys below.
+
+# ------------------------------------------------------------------
+# Obstacle-avoidance safety margins -- SINGLE SOURCE OF TRUTH.
+#
+# Four independent mechanisms each need a "how close is too close" distance,
+# and before this pass each hardcoded its own number rather than sharing one:
+# MPC_corr.py's car_radius/avoidance_margin (soft-avoidance deflection
+# trigger radius), the BT's IsObstacleDetected (hard-stop rectangular
+# corridor half-width/height), and the BT's IsProximityTooClose (raw-sensor
+# last-resort front/side/rear standoff distances). Two of those four had
+# already drifted out of agreement (IsObstacleDetected's corridor was
+# 0.25m, safety_stop_controller's own corridor was 0.4m, for what was
+# supposed to be the same "car's forward clearance box" concept).
+#
+# These mechanisms are NOT all checking identical geometry, though, so this
+# is a base value + per-mechanism derived formula, not one scalar force-fit
+# everywhere: MPC's is a continuous omnidirectional path-shaping buffer,
+# IsObstacleDetected's is a hard-stop box dimension, and
+# IsProximityTooClose's two thresholds are deliberately asymmetric raw
+# standoffs (front already has YOLO-lane coverage via handle_obstacle, so is
+# a tighter backstop; sides/rear have zero other coverage, so get their own,
+# less padded threshold). The two keys below are combined as follows:
+#   - MPC_corr.py: avoidance_margin <- obstacle_safety_margin_m (unchanged
+#     numeric default, 0.12); car_radius <- car_radius (unchanged numeric
+#     default, 0.20); dmin (disabled/warning-only clearance log, not a hard
+#     constraint) <- car_radius + obstacle_safety_margin_m = 0.32 (was a
+#     hardcoded, unrelated 0.9).
+#   - BT IsObstacleDetected: corridor_half_width = corridor_half_height <-
+#     car_radius + obstacle_safety_margin_m = 0.32 -- this is the fix for
+#     the 0.25-vs-0.4 drift above: both old competing hardcoded values are
+#     replaced by this one derived, justified number. stop_distance (1.0m,
+#     forward look-ahead reach, a different kind of quantity than a
+#     clearance margin) is untouched.
+#   - BT IsProximityTooClose: lidar_distance_threshold <- car_radius alone
+#     = 0.20 (trip at roughly the car's own physical radius, no extra
+#     margin -- pure contact-avoidance last resort with zero other
+#     coverage on the sides/rear; unchanged numeric default, a clean
+#     coincidence). front_distance_threshold <- car_radius +
+#     obstacle_safety_margin_m + proximity_front_extra_margin_m = 0.40
+#     (unchanged numeric default, now expressed as base + explicit extra
+#     backstop conservatism instead of a bare hardcoded number).
+#
+# Consumed by: f1tenth_control/mpc_corr.launch.py (car_radius,
+# obstacle_safety_margin_m -> MPC_corr.py's car_radius/avoidance_margin ROS
+# params) and f1tenth_behavior/behavior_bringup.launch.py (all three keys ->
+# behavior_executor_node.py's bootstrap param read -> create_root() ->
+# IsObstacleDetected/IsProximityTooClose constructor kwargs, same
+# stack-param-threading pattern IsSystemOverheated already uses).
+car_radius:
+  default: 0.20
+  description: "Car's physical footprint radius [m], promoted from MPC_corr.py's in-code-only ROS-param default to a shared stack-param -- needed here because the BT behaviours that also derive from it run in a separate process and can't read MPC_corr's own ROS param directly."
+# Consumed by: same set as car_radius above -- see that key's own comment for
+# the full derivation of each mechanism's actual threshold.
+obstacle_safety_margin_m:
+  default: 0.12
+  description: "Shared base safety-margin buffer [m] beyond car_radius, matching MPC_corr.py's pre-existing avoidance_margin ROS-param default exactly. Combined with car_radius (and, for IsProximityTooClose's front check only, proximity_front_extra_margin_m below) to derive every mechanism's actual threshold -- see car_radius's own comment."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -> IsProximityTooClose
+# only (its front_distance_threshold derivation) -- see car_radius's own comment.
+proximity_front_extra_margin_m:
+  default: 0.08
+  description: "Small extra conservatism [m] added on top of car_radius + obstacle_safety_margin_m for IsProximityTooClose's front standoff only, since that lane is a raw-sensor last resort behind an already-tighter-tuned backstop (the front direction alone also has YOLO-lane coverage via handle_obstacle) -- kept separately tunable rather than folded into obstacle_safety_margin_m so it doesn't also affect MPC/IsObstacleDetected, which have no such asymmetry."
+
+# --------------------------------------------------------------
+# Runtime-only interface, NOT a launch-parameter default -- documented here
+# for discoverability alongside the rest of this section, but there is no
+# get_value()/get_default() call site for it and no launch file declares it.
+# --------------------------------------------------------------
+# /mpc/goal_distance (std_msgs/Float32) -- subscribed by mpc_controller's
+# MPC_corr.py (entry point mpc_corr, launched by f1tenth_control/mpc_corr.launch.py
+# when enable_nav2:=false -- see navigation.launch.py). Publishing a Float32
+# commands the node to
+# drive straight for that many meters: on receipt it captures the car's
+# current (x, y) as the start point and stops (zero rear/steering commands,
+# latched) once the straight-line Euclidean distance traveled from that
+# point reaches the commanded value. Relative to the receipt point, not to
+# wherever autonomy was enabled -- a new message overrides any goal already
+# in progress and restarts the distance measurement from the new receipt
+# point. Straight-line only for now, no path following.
+
+# ============================================================
+# Autonomy
+# ============================================================
+# Consumed by: f1tenth_navigation/map.launch.py, via either nav2.launch.py's or
+# map_only.launch.py's forwarded 'map' launch argument (the latter is
+# navigation.launch.py's enable_nav2:=false branch -- mpc_corr drives, but map_server
+# still runs standalone so /map stays published).
+map:
+  default: maps/square_100m.yaml
+  package: f1tenth_navigation
+  description: "Absolute path to the map.yaml file map_server serves."
+# Consumed by: f1tenth_navigation/nav2.launch.py (the shared lifecycle_manager_navigation)
+# and f1tenth_navigation/map_only.launch.py (its own single-node lifecycle_manager_map) --
+# mutually exclusive, never both running (see navigation.launch.py).
+autostart:
+  default: true
+  description: "Auto-activate the lifecycle-managed Nav2 nodes on startup (lifecycle_manager_navigation's full set, or map_only.launch.py's map_server alone)."
+# Consumed by: f1tenth_navigation (controller.launch.py, planner.launch.py,
+# behavior_server.launch.py, bt_navigator.launch.py -- via nav2.launch.py's forwarded
+# 'nav2_params' launch argument). One shared params file, same convention Nav2's own
+# reference bringup uses (each node reads its own top-level key, ignores the rest).
+nav2_params_config:
+  default: config/nav2_params.yaml
+  package: f1tenth_navigation
+  description: "Nav2 controller/planner/behavior/bt_navigator + costmap params (nav2_params.yaml)."
+# Consumed by: f1tenth_navigation/nav2.launch.py -- read as a plain value (like the 6
+# stack-wide branching args above), not a DeclareLaunchArgument: it decides whether
+# map.launch.py is even included and whether 'map_server' enters the shared lifecycle
+# manager's node_names list, both parse-time decisions. Not CLI-overridable via
+# nav2.launch.py's own arguments, for the same reason enable_nav2 itself isn't.
+enable_nav2_map:
+  default: true
+  description: "Include map.launch.py (map_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_controller:
+  default: true
+  description: "Include controller.launch.py (controller_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_planner:
+  default: true
+  description: "Include planner.launch.py (planner_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_behavior_server:
+  default: true
+  description: "Include behavior_server.launch.py (behavior_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_bt_navigator:
+  default: true
+  description: "Include bt_navigator.launch.py (bt_navigator) in nav2.launch.py."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py.
+nav2_readiness_service:
+  default: /lifecycle_manager_navigation/is_active
+  description: "std_srvs/Trigger service polled before starting behavior_executor_node/twist_to_ackermann_node."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py.
+nav2_readiness_timeout_sec:
+  default: 90.0
+  description: "How long to wait for nav2_readiness_service to report success before giving up (behavior tree will NOT launch)."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py.
+bt_setup_timeout_sec:
+  default: 90.0
+  description: "behavior_executor_node's own tree.setup() timeout, in seconds -- an independent safety margin on top of the readiness gate."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -- IsSystemOverheated's
+# shared CPU/GPU temp threshold (one threshold applied to both rails, not four separate
+# per-rail values -- see that behaviour's own docstring). Only reaches the BT at all if
+# enable_sys_obs is true (see that key below); unmeasured/untuned starting point, not a
+# board-specific thermal-throttle spec.
+sys_obs_max_temp_c:
+  default: 85.0
+  description: "IsSystemOverheated's shared CPU/GPU temperature threshold (deg C) -- exceeding it on either rail trips the BT emergency lane. Only active when enable_sys_obs is true."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -- IsSystemOverheated's
+# shared CPU/GPU load threshold, same one-threshold-for-both-rails rationale as
+# sys_obs_max_temp_c above.
+sys_obs_max_load_percent:
+  default: 95.0
+  description: "IsSystemOverheated's shared CPU/GPU load threshold (percent) -- exceeding it on either rail trips the BT emergency lane. Only active when enable_sys_obs is true."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py (forwarded to
+# behavior_executor_node) -- MissionLoader (mission/loader.py) resolves this at
+# startup against f1tenth_behavior's own installed missions/ share directory
+# (same bare-filename-under-a-package-dir convention as yolo_model above, resolved
+# via PathJoinSubstitution in the launch file rather than get_path_default, since
+# unlike every other path-type entry the empty default here is itself meaningful --
+# see below), then loads it exactly like a path pushed via /mission/load_path or
+# /mission/load_mission at runtime.
+mission_file_name:
+  default: ''
+  description: "Filename (not a full path) of a mission JSON under f1tenth_behavior/missions/, loaded once at behavior_executor_node startup. Empty (default): start with no mission loaded (mission.state stays IDLE until /mission/load_path or /mission/load_mission)."
+
+# ============================================================
+# Diagnostics & Intelligence
+# ============================================================
+# Consumed by: f1tenth_diagnostics/system_observer.launch.py (decides whether to
+# include system_observer_node at all -- read via get_value() as a plain Python value
+# at parse time, same mechanism the 5 stack-wide branching args use, NOT a
+# DeclareLaunchArgument, for the same single-source-of-truth reason -- but this is not
+# one of "the 5" referenced elsewhere in the workspace's docstrings/enumerations).
+# Also consumed by f1tenth_behavior/behavior_executor_node.py the same way, to decide
+# whether IsSystemOverheated is even constructed and added to the BT emergency lane at
+# all -- deliberately NOT just "subscribe and report no data" when false, since sys_obs
+# being off must not silently look identical to "system is healthy."
+# Independent of diagnostics_server_node/BatteryStatus below -- battery safety
+# monitoring is never gated behind this.
+enable_sys_obs:
+  default: true
+  description: "Run system_observer_node (CPU/GPU/RAM temp+usage) and include IsSystemOverheated in the BT emergency lane. false: both are fully skipped, not just idle."
+# Consumed by: f1tenth_diagnostics (calibration.launch.py -- both
+# gyro_bias_calibration_node and sensor_covariance_calibration_node).
+imu_topic:
+  default: /sensors/imu/raw
+  description: "sensor_msgs/Imu topic sampled by the gyro-bias and covariance calibration nodes."
+# Consumed by: f1tenth_diagnostics/calibration.launch.py.
+gyro_sample_duration_sec:
+  default: 30.0
+  description: "Stationary sampling window for gyro_bias_calibration_node, in seconds."
+# Consumed by: f1tenth_diagnostics/calibration.launch.py.
+min_samples:
+  default: 150
+  description: "Warn if gyro_bias_calibration_node collected fewer than this many samples."
+# Consumed by: f1tenth_diagnostics/calibration.launch.py.
+odom_topic:
+  default: /odom
+  description: "nav_msgs/Odometry topic sampled by sensor_covariance_calibration_node (pre-covariance, raw)."
+# covariance_sample_duration_sec was deleted here -- reconciled into
+# calibration_duration_sec above (see that key's own comment); both launch
+# paths that feed sensor_covariance_calibration_node's sample_duration_sec now
+# share that one key.
+# NOT consumed by any launch file (as of the light_motion stdin-hang fix) -- calibration.launch.py
+# deliberately does not expose calibration_mode/light_motion_*, since ros2 launch cannot
+# forward stdin to confirm_light_motion_start()'s input() gate. This value documents
+# sensor_covariance_calibration_node's own declare_parameter default; light_motion mode is
+# started with `ros2 run` and explicit -p flags instead -- see f1tenth_diagnostics/README.md.
+calibration_mode:
+  default: stationary
+  description: "sensor_covariance_calibration_node mode: 'stationary' measures gyro/accel/vx variance with the car at rest (vx_variance comes back structurally 0.0 -- see that node's docstring); 'light_motion' additionally drives a short, human-confirmed constant-velocity straight line to get a real non-zero vx_variance, leaving gyro/accel untouched. `ros2 run`-only -- see f1tenth_diagnostics/README.md."
+# NOT consumed by any launch file -- ros2 run -p override only, same as calibration_mode above.
+light_motion_target_speed:
+  default: 0.3
+  description: "Constant forward speed (m/s) commanded during calibration_mode: light_motion -- comfortably above vesc.yaml's erpm_deadband so the deadband never masks real motion."
+# NOT consumed by any launch file -- ros2 run -p override only, same as calibration_mode above.
+light_motion_settle_sec:
+  default: 1.0
+  description: "Driven-but-not-sampled ramp-up window (seconds) at the start of calibration_mode: light_motion, so the accelerate-from-rest transient isn't counted as steady-state vx noise."
+# NOT consumed by any launch file -- ros2 run -p override only, same as calibration_mode above.
+light_motion_duration_sec:
+  default: 5.0
+  description: "Sampled driving window (seconds) for calibration_mode: light_motion, after the settle window above."
+# Consumed by: f1tenth_diagnostics/system_observer.launch.py.
+publish_rate_hz:
+  default: 1.0
+  description: "system_observer_node's SystemStatus publish rate, in Hz."
+# Consumed by: f1tenth_diagnostics/diagnostics_server.launch.py.
+battery_check_rate_hz:
+  default: 2.0
+  description: "diagnostics_server_node's BatteryStatus publish rate, in Hz -- faster than publish_rate_hz above since this feeds a continuously-ticking BT condition, not just an observability feed."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+start_server:
+  default: false
+  description: "true: llm.launch.py starts llama-server itself. false: assume one's already running elsewhere on the Jetson."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+model:
+  default: qwen_mpc_pruned
+  description: "Model name key into llm/config/models.yaml (model_path, port, extra_args)."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+interrogation:
+  default: mpc_tuner
+  description: "Interrogation name key into llm/config/interrogations.yaml (executable, params_file)."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+llama_server_path:
+  default: /scratch/fabiocar/llama.cpp/build/bin/llama-server
+  description: "Absolute path to the llama-server binary."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py. A separate key from
+# llama_server_path, not derived from it: llama-server's cwd needs to be the
+# llama.cpp project root (its build system expects paths relative to there), which
+# is two directory levels above the binary itself (.../llama.cpp/build/bin/
+# llama-server vs. cwd .../llama.cpp) -- not the binary's own containing directory,
+# so a simple os.path.dirname() of llama_server_path would give the wrong value.
+llama_server_cwd:
+  default: /scratch/fabiocar/llama.cpp
+  description: "Working directory llama-server is launched from (the llama.cpp project root, not the binary's own directory)."
+
+# ============================================================
+# Simulation-flavored args of f1tenth_description/launch/description.launch.py --
+# Gazebo-specific in meaning, but this file is now included by BOTH f1tenth_sim
+# (sim_bringup.launch.py, use_sim:=true) AND the real-hardware path
+# (f1tenth_bringup/f1tenth_localization, use_sim:=false, the default below) since
+# Phase 9 merged what used to be a sim-only description_launch.py with the real
+# hardware's sensor_tf_launch.py into one file. Defaults below are the real-hardware-
+# safe values; f1tenth_sim overrides both explicitly in its own include.
+# ============================================================
+# Consumed by: f1tenth_description/description.launch.py. NOT read by f1tenth_sim
+# itself -- sim_bringup.launch.py has no dependency on f1tenth_params and hardcodes
+# its own defaults independently; it's simply the only launch tree that overrides
+# this to true.
+use_sim:
+  default: false
+  description: "Emit the ign_ros2_control Gazebo plugin + sim sensors in the URDF."
+# Consumed by: f1tenth_description/description.launch.py (see use_sim note above).
+# Default changed to false in Phase 9 (was true): the URDF's laser/imu/zed2_camera_link
+# links must NOT be emitted on real hardware anymore, now that description.launch.py
+# also runs robot_state_publisher there -- those real frames come from
+# static_transform_publisher nodes instead (this file's own base_link->laser,
+# f1tenth_perception/camera.launch.py's base_link->zed2_camera_link,
+# f1tenth_hardware/vesc.launch.py's base_link->imu), which would otherwise fight the
+# URDF for authority over the exact same transforms. f1tenth_sim's own include still
+# explicitly overrides this to true (unaffected by the default change).
+enable_sensors:
+  default: false
+  description: "Include LiDAR / camera / IMU sensor links in the URDF. Real hardware must NOT set this true -- see description.launch.py's own docstring."
+# Consumed by: f1tenth_description/description.launch.py (see use_sim note above).
+control_config:
+  default: ''
+  description: "Path to the ros2_control controllers.yaml (sim only; empty outside sim)."
+
+# ============================================================
+# Component Supervisor (supervisor_bringup.launch.py / component_supervisor_node --
+# the parallel, per-component-restartable bringup path alongside stack_bringup.launch.py)
+# ============================================================
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+components_config:
+  default: config/components.yaml
+  description: "Registry mapping component name -> the ros2 launch command(s) used to bring it up. See component_supervisor_node.py."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+restart_timeout_sec:
+  default: 10.0
+  description: "How long component_supervisor_node waits for SIGINT to cleanly stop a component's process group before escalating to SIGKILL."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+log_dir:
+  default: ~/.ros/log/component_supervisor
+  description: "Directory component_supervisor_node writes each component's stdout/stderr to, one file per component (overwritten on each restart)."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+watchdog_period_sec:
+  default: 2.0
+  description: "How often component_supervisor_node's watchdog polls tracked processes for unexpected exits (crashes) to auto-respawn."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+max_auto_restarts:
+  default: 3
+  description: "Max watchdog auto-respawns allowed per process within restart_budget_window_sec before the watchdog gives up and leaves it down (manual START/RESTART resets this)."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+restart_budget_window_sec:
+  default: 60.0
+  description: "Trailing time window (seconds) max_auto_restarts is counted over -- a sliding-window crash-loop budget per tracked process."
+
+# ============================================================
+# Dev Tools / Visualization
+# ============================================================
+# Consumed by: f1tenth_bringup/foxglove_bridge.launch.py (IfCondition-wrapped Node --
+# a normal per-file toggle, not one of the 5 stack-wide branching args, since nothing
+# outside this one launch file needs to agree on the value). Also the component
+# component_supervisor_node restarts/stops/starts by name via ~/control_component --
+# see components.yaml's dev_tools entry.
+enable_foxglove:
+  default: true
+  description: "Launch foxglove_bridge (port 8765). false: fully skipped, not just idle."
+# Consumed by: f1tenth_bringup/foxglove_bridge.launch.py (topic_tools throttle
+# nodes, gated on enable_foxglove same as the bridge itself). Added by the
+# perception-optimization pass: foxglove_bridge 3.3.0 has no built-in
+# per-topic rate control (confirmed by reading its installed launch xml
+# directly), so /camera/image_raw and /camera/image_annotated (both 30Hz, the
+# real rate the perception pipeline needs) get a throttled visualization-only
+# copy on /camera/image_raw/viz and /camera/image_annotated/viz instead -- the
+# real 30Hz topics feeding yolo_detector_node/detection_3d_node are untouched.
+foxglove_image_throttle_hz:
+  default: 5.0
+  description: "Rate [Hz] of the throttled /camera/image_raw/viz and /camera/image_annotated/viz copies published for foxglove_bridge visualization -- the real /camera/image_raw and /camera/image_annotated stay at their native 30Hz for the perception pipeline."
+# Consumed by: f1tenth_behavior/behavior_executor_node.py (structurally skips
+# creating the CompressedImage publisher and registering the post_tick_handler
+# when false, not just idling it -- same "absent, not just failing/no-op"
+# pattern as enable_sys_obs) -- a normal per-node toggle, not one of the 6
+# stack-wide branching args, since nothing outside this one node needs to
+# agree on the value.
+enable_bt_visualization:
+  default: true
+  description: "Publish the running BT's live status as a colored dot-graph PNG on /bt/tree_visualization (viewable in Foxglove's Image panel). false: fully skipped, not just idle."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+startup_delay:
+  default: 5.0
+  description: "Seconds to wait before the startup steer-sweep sequence starts."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+right_duration:
+  default: 2.0
+  description: "Seconds to hold max right steering during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+left_duration:
+  default: 2.0
+  description: "Seconds to hold max left steering during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+center_duration:
+  default: 1.0
+  description: "Seconds to hold center steering during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+max_steering_angle:
+  default: 0.18
+  description: "Max steering angle in radians during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+startup_command_topic:
+  default: /teleop
+  description: "High-priority ackermann_mux input topic used for the startup steer sweep."
