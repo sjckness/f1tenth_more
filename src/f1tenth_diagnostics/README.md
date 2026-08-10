@@ -32,7 +32,7 @@ window so they're independently tunable from one command):
 - `gyro_sample_duration_sec` (default `30.0`)
 - `min_samples` (default `150` -- logs a warning if `gyro_bias_calibration_node`
   collected fewer samples than this in the window)
-- `covariance_sample_duration_sec` (default `60.0`)
+- `calibration_duration_sec` (default `60.0`)
 
 ## gyro_bias_calibration_node
 
@@ -96,7 +96,7 @@ mode, preserving all existing comments/formatting/ordering. Requires
 not in `package.xml`.
 
 **How to run standalone (`stationary` mode, the default):** see
-`calibration.launch.py` above (`covariance_sample_duration_sec` launch
+`calibration.launch.py` above (`calibration_duration_sec` launch
 argument).
 
 Or automatically as part of VESC bringup -- see
