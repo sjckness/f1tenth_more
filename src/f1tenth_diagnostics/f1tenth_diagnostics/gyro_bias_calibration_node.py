@@ -23,7 +23,7 @@ class GyroBiasCalibrationNode(Node):
     def __init__(self):
         super().__init__('gyro_bias_calibration_node')
 
-        self.imu_topic = self.declare_parameter('imu_topic', '/zed/zed_node/imu/data').value
+        self.imu_topic = self.declare_parameter('imu_topic', '/sensors/imu/raw').value
         self.sample_duration_sec = self.declare_parameter('sample_duration_sec', 30.0).value
         self.min_samples = self.declare_parameter('min_samples', 300).value
 

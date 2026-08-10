@@ -18,8 +18,24 @@
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>vesc_msgs</exec_depend>
+  <exec_depend>f1tenth_messages</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
+  <exec_depend>python3-psutil</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package;
+       depending on it here (not f1tenth_bringup) avoids a build-order cycle,
+       since f1tenth_bringup itself includes this package's launch file. -->
+  <exec_depend>f1tenth_params</exec_depend>
+  <!-- ruamel.yaml has no rosdep key: install via `pip install ruamel.yaml` or
+       `apt install python3-ruamel.yaml` before running sensor_covariance_calibration_node. -->
+  <!-- jetson-stats (jtop) has no rosdep key either: install via
+       `sudo pip3 install jetson-stats`, then reboot (or restart jtop.service), before
+       running system_observer_node. Node degrades gracefully (see its own module
+       docstring) if this is missing, so it's not a hard build/runtime dependency. -->
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

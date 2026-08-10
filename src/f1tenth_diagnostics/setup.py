@@ -27,6 +27,14 @@ setup(
         'console_scripts': [
             'gyro_bias_calibration_node = '
             'f1tenth_diagnostics.gyro_bias_calibration_node:main',
+            'sensor_covariance_calibration_node = '
+            'f1tenth_diagnostics.sensor_covariance_calibration_node:main',
+            'battery_voltage_check_node = '
+            'f1tenth_diagnostics.battery_voltage_check_node:main',
+            'system_observer_node = '
+            'f1tenth_diagnostics.system_observer_node:main',
+            'diagnostics_server_node = '
+            'f1tenth_diagnostics.diagnostics_server_node:main',
         ],
     },
 )
