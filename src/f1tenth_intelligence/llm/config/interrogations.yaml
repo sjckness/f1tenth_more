@@ -1,0 +1,6 @@
+# Maps an interrogation name (llm.launch.py's `interrogation` launch argument) to the
+# node that runs it. Everything currently resolves inside the llm package, so there's no
+# `package` field yet -- add one if/when a second package joins f1tenth_intelligence.
+mpc_tuner:
+  executable: llm_mpc_tuner_node
+  params_file: mpc_tuner_params.yaml

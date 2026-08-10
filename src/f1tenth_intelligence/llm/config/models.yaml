@@ -1,0 +1,9 @@
+# Maps a short model name (llm.launch.py's `model` launch argument) to the llama-server
+# invocation for it. model_path is expanded with os.path.expanduser() at launch time, so
+# ~ is safe to use here. extra_args are appended verbatim after -m/--port -- anything the
+# real llama-server CLI accepts (see `llama-server --help`) beyond those two flags, e.g.
+# -ngl.
+qwen_mpc_pruned:
+  model_path: ~/projects/llm/models/v2_MPCLLM_structpruned_10-q5_k_m.gguf
+  port: 8082
+  extra_args: ["-ngl", "999"]
