@@ -19,15 +19,61 @@ solve_mpc_step()'s signature and returned info dict shape
 calls it as a black box and does not need to know which path ran.
 
 Per the approved MPC-optimization-pass decision: _solve_rti accepts
-whatever OSQP returns as long as it produced a numeric solution (matches
-_solve_slsqp's own pre-existing behavior of falling back to the warm start
-z0 only when the solver produced literally nothing usable) -- there is no
-per-tick fallback to _solve_slsqp on a merely low-quality/inaccurate RTI
-solve. Hard constraints (steering/accel/rate/corridor bounds) stay hard QP
-constraints in _solve_rti exactly as they're hard SLSQP constraints today,
-so a low-quality solve means worse tracking/avoidance, not an unsafe command.
+whatever OSQP returns as long as it produced a numeric AND FEASIBLE
+solution (matches _solve_slsqp's own pre-existing behavior of falling back
+to the warm start z0 only when the solver produced literally nothing
+usable) -- there is no per-tick fallback to _solve_slsqp on a merely
+low-quality/inaccurate RTI solve. Hard constraints (steering/accel/rate/
+corridor bounds) stay hard QP constraints in _solve_rti exactly as they're
+hard SLSQP constraints today, so a low-quality solve means worse
+tracking/avoidance, not an unsafe command -- PROVIDED the "numeric AND
+FEASIBLE" check actually holds: a plain isfinite() check on results.x
+alone is NOT sufficient (see _OSQP_INFEASIBLE_STATUSES' own comment, added
+after hard boundary constraints below made genuine infeasibility easily
+reachable and demonstrated the gap live) -- an infeasibility certificate
+can be finite while being an arbitrarily large, physically meaningless
+number nowhere near the actual box constraints.
+
+Hard boundary constraints (_solve_rti ONLY -- see below): complements the
+existing soft w_obs obstacle-avoidance cost with up to 3 HARD linear
+constraints from f1tenth_perception (the ZED front wall,
+wall_detector_node.py's /perception/front_wall_boundary, plus the lidar
+left/right line fits, lidar_boundary_node.py's /perception/lidar_boundaries)
+-- see MPC_corr.py's own module-level note for how it gathers/stales/
+transforms these into the `boundaries` list this module consumes. Each
+active constraint is `normal . (x, y) <= offset` (see
+f1tenth_messages/BoundaryConstraint.msg's own field comments for the sign
+convention), added as a hard row at EVERY stage k in the horizon -- this
+is what makes it "per-stage" with no raycasting: the bound itself is fixed
+for the whole solve, but checking it against every predicted stage
+position naturally constrains the whole predicted trajectory, regardless
+of predicted heading.
+
+Fixed-3-slot padding (pad_boundary_constraints): the RTI/OSQP path is
+warm-started every tick (see _solve_rti's own docstring) and a resized
+constraint matrix is the textbook way to fight that -- even though
+CURRENTLY every _solve_rti call does a fresh osqp.OSQP().setup() rather
+than incrementally osqp.update()-ing a persistent solver object (so a
+varying row count wouldn't literally break TODAY's warm_start(x=z_guess)
+call), keeping the QP's structure IDENTICAL tick-to-tick is still the
+right discipline here: it's what a future move to incremental .update()
+solving (a natural next optimization on top of this one) would need
+anyway, and there's no real cost to it now. So: ALWAYS exactly
+max_sources=3 boundary rows per stage, regardless of how many sources are
+actually live this tick -- an absent/stale/disabled slot is a sentinel
+((0.0, 0.0, math.inf), see pad_boundary_constraints) whose resulting QP
+row is all-zero (0*z <= anything, unconditionally satisfied), not a
+missing row.
+
+Purely additive: does not remove or weaken w_obs/compute_local_target's
+existing soft deflection -- boundaries is an EXTRA set of hard rows on
+top of everything _solve_rti already builds, empty by default (`[]`),
+matching solve_mpc_step's/_solve_slsqp's existing "boundaries not
+implemented there" scope (SLSQP is the legacy/rollback path, not what
+this feature targets -- see solve_mpc_step's own note).
 """
 
+import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
@@ -52,6 +98,64 @@ except ImportError:
     osqp = None
     OSQP_AVAILABLE = False
 
+# Statuses where results.x is an INFEASIBILITY CERTIFICATE, not a usable
+# primal solution -- can be finite (even huge-but-finite) while being
+# physically meaningless, so the plain isfinite() check in _solve_rti
+# alone doesn't catch it. Found live while testing hard boundary
+# constraints (see that feature's own module-docstring section): a tight
+# boundary combined with a reference-trajectory linearization that
+# couldn't satisfy it produced OSQP_PRIMAL_INFEASIBLE_INACCURATE with a
+# "solution" of ~2e9 in a control channel bounded to [-1.05, 1.05] -- the
+# OLD finite-ness-only check let that straight through as success=True.
+if OSQP_AVAILABLE:
+    _OSQP_INFEASIBLE_STATUSES = {
+        osqp.SolverStatus.OSQP_PRIMAL_INFEASIBLE,
+        osqp.SolverStatus.OSQP_PRIMAL_INFEASIBLE_INACCURATE,
+        osqp.SolverStatus.OSQP_DUAL_INFEASIBLE,
+        osqp.SolverStatus.OSQP_DUAL_INFEASIBLE_INACCURATE,
+    }
+else:
+    _OSQP_INFEASIBLE_STATUSES = set()
+
+
+# ==============================================================================
+# Hard boundary constraints -- pure functions, no OSQP/numpy-solver
+# dependency, independently unit-testable. See module docstring's "Hard
+# boundary constraints" section for the full design.
+# ==============================================================================
+
+# Sentinel for an absent/inactive boundary slot (see pad_boundary_constraints):
+# a zero normal makes the resulting QP row all-zero, unconditionally
+# satisfied regardless of the offset/margin math applied to it -- matches
+# wall_detector_node.py's own _wall_boundary_from_track pathological-case
+# return value exactly (same sentinel shape, same reasoning).
+BOUNDARY_DISABLED = (0.0, 0.0, math.inf)
+
+
+def pad_boundary_constraints(
+        boundaries: Sequence[Tuple[float, float, float]],
+        max_sources: int = 3) -> List[Tuple[float, float, float]]:
+    """Pad/truncate `boundaries` (each (normal_x, normal_y, offset), 0..
+    max_sources actually-live hard-boundary constraints this tick) to
+    EXACTLY max_sources entries -- extra slots are BOUNDARY_DISABLED. See
+    module docstring's "Fixed-3-slot padding" section for why this must
+    happen even when 0-2 sources are actually live."""
+    boundaries = list(boundaries)[:max_sources]
+    while len(boundaries) < max_sources:
+        boundaries.append(BOUNDARY_DISABLED)
+    return boundaries
+
+
+def boundary_constraint_bounds(
+        normal_x: float, normal_y: float, offset: float,
+        car_radius: float, margin: float) -> Tuple[float, float]:
+    """(lo, hi) OSQP bounds for ONE boundary constraint row at ONE stage:
+    normal . (x, y) <= offset - car_radius - margin, one-sided (lo=-inf).
+    A BOUNDARY_DISABLED slot (offset=inf) naturally produces hi=inf too --
+    combined with that slot's all-zero normal (applied by the caller, not
+    here), the resulting row is unconditionally satisfied regardless."""
+    return -math.inf, offset - car_radius - margin
+
 
 def solve_mpc_step(
     x0: Sequence[float],
@@ -67,6 +171,7 @@ def solve_mpc_step(
     dmin: float,
     vdes: float,
     solver: str = 'rti',
+    boundaries: Optional[List[Tuple[float, float, float]]] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -78,6 +183,13 @@ def solve_mpc_step(
 
     solver: 'rti' (default, OSQP real-time-iteration) or 'slsqp' (original
     from-scratch nonlinear solve). See module docstring.
+
+    boundaries: up to 3 (normal_x, normal_y, offset) hard boundary
+    constraints (see module docstring's "Hard boundary constraints"
+    section) -- RTI-ONLY (padded/added as extra hard QP rows in
+    _solve_rti); silently ignored by the legacy/rollback SLSQP path, which
+    this feature doesn't target. None (default) means "no boundaries",
+    identical to passing an empty list.
     """
     if solver == 'slsqp':
         return _solve_slsqp(
@@ -86,7 +198,7 @@ def solve_mpc_step(
     elif solver == 'rti':
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
-            weights, obstacles, dmin, vdes)
+            weights, obstacles, dmin, vdes, boundaries=boundaries)
     else:
         raise ValueError(f"Unknown solver={solver!r}, expected 'rti' or 'slsqp'")
 
@@ -341,6 +453,7 @@ def _solve_rti(
     dmin: float,
     vdes: float,
     warm_start_z: Optional[np.ndarray] = None,
+    boundaries: Optional[List[Tuple[float, float, float]]] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -349,6 +462,13 @@ def _solve_rti(
     given the frozen nearest-index; obstacle soft cost: local quadratic
     model). warm_start_z defaults to last_u tiled (matches _solve_slsqp's
     own z0 warm start) when the caller has no previous solution yet.
+
+    boundaries: up to 3 (normal_x, normal_y, offset) hard boundary
+    constraints, padded to exactly 3 (pad_boundary_constraints) and added
+    as extra hard rows at EVERY stage -- see module docstring's "Hard
+    boundary constraints" section. None/[] (default) means all 3 slots are
+    disabled (BOUNDARY_DISABLED) -- a fully inert no-op, identical to this
+    feature not existing.
     """
     if not OSQP_AVAILABLE:
         raise RuntimeError(
@@ -469,6 +589,12 @@ def _solve_rti(
     car_radius = corridor.get("car_radius", 0.0)
     avoidance_margin = corridor.get("avoidance_margin", 0.12)
 
+    # Hard boundary constraints (see module docstring's "Hard boundary
+    # constraints" section) -- padded to a FIXED 3 slots once, outside the
+    # stage loop (the same 3 (normal, offset) tuples apply at every stage;
+    # only the ROW itself differs per stage, via xk1_idx below).
+    padded_boundaries = pad_boundary_constraints(boundaries or [])
+
     for k in range(N):
         xk1_idx = x_idx(k + 1)
         x_ref_k1 = x_ref[k + 1]
@@ -523,6 +649,18 @@ def _solve_rti(
         row_v[xk1_idx][3] = 1.0
         add_row(row_v, limits["vMin"], limits["vMax"])
 
+        # hard boundary constraints: ALWAYS exactly 3 rows (padded above),
+        # one per source, at this stage's predicted (x, y) -- see module
+        # docstring. A disabled slot's all-zero normal row is
+        # unconditionally satisfied regardless of its (also-disabled) bound.
+        for bnx, bny, boffset in padded_boundaries:
+            row_b = np.zeros(n_z)
+            row_b[xk1_idx][0] = bnx
+            row_b[xk1_idx][1] = bny
+            lo, hi = boundary_constraint_bounds(
+                bnx, bny, boffset, car_radius, avoidance_margin)
+            add_row(row_b, lo, hi)
+
     # ---- terminal position cost: w_term * ||x_N[:2] - pref_nom||^2, exact
     # quadratic, only at the LAST state block.
     xN_idx = x_idx(N)
@@ -567,13 +705,20 @@ def _solve_rti(
     # already-handled "hold the warm start" fallback path.
     results = prob.solve(raise_error=False)
 
-    if results.x is not None and np.all(np.isfinite(results.x)):
+    status_val = results.info.status_val if results.info is not None else None
+    is_infeasible_certificate = status_val in _OSQP_INFEASIBLE_STATUSES
+
+    if (results.x is not None and np.all(np.isfinite(results.x))
+            and not is_infeasible_certificate):
         z_full = np.asarray(results.x, dtype=float)
         success = True
     else:
         # Mirrors _solve_slsqp's own pre-existing behavior on a solver that
         # produced nothing usable: hold the warm start rather than inventing
         # a value. Not a fallback to _solve_slsqp -- see module docstring.
+        # Also catches infeasibility certificates (see
+        # _OSQP_INFEASIBLE_STATUSES' own comment) -- finite but not a real
+        # solution.
         z_full = z_guess.copy()
         success = False
 

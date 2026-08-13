@@ -14,7 +14,7 @@ from std_msgs.msg import Bool, Float32
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import PoseStamped
 
-from f1tenth_messages.msg import Obstacle2DArray
+from f1tenth_messages.msg import BoundaryConstraintArray, Obstacle2DArray, TurnGoal
 from f1tenth_params.param_defaults import get_odom_topic
 from mpc_controller.mpc_solver import solve_mpc_step
 from sensor_msgs.msg import JointState
@@ -75,6 +75,32 @@ def _resolve_debug_output_path(filename: str) -> Path:
     # (the top-level dir housing the mpc_controller and f1tenth_control
     # packages) -- corridors_jsons lives there, not inside any one package.
     return this_file.parents[2] / 'corridors_jsons' / filename
+
+
+def _boundary_to_world(
+        normal_x: float, normal_y: float, offset: float,
+        robot_x: float, robot_y: float, robot_yaw: float) -> Tuple[float, float, float]:
+    """Transform one (normal, offset) hard-boundary halfspace from
+    base_link-relative (as published by wall_detector_node/
+    lidar_boundary_node -- see f1tenth_messages/BoundaryConstraint.msg's
+    own note) into this MPC's own world/odom frame (self.x/y/yaw, the SAME
+    frame x0/x_ref live in -- see robot_to_global's own docstring for why
+    that transform exists at all: MPC's internal state is NOT base_link-
+    relative).
+
+    Derivation: a base_link-frame point p_b satisfies normal_b . p_b <=
+    offset_b. p_b relates to its world-frame equivalent p_w via
+    p_b = R(-yaw) . (p_w - [x, y]) (the inverse of robot_to_global).
+    Substituting: normal_b . R(-yaw) . (p_w - [x,y]) <= offset_b
+    => (R(yaw) . normal_b) . p_w <= offset_b + (R(yaw) . normal_b) . [x, y]
+    (using R(-yaw)^T = R(yaw) for a rotation matrix). So:
+    normal_w = R(yaw) . normal_b, offset_w = offset_b + dot(normal_w, [x, y]).
+    """
+    cos_yaw, sin_yaw = math.cos(robot_yaw), math.sin(robot_yaw)
+    normal_world_x = cos_yaw * normal_x - sin_yaw * normal_y
+    normal_world_y = sin_yaw * normal_x + cos_yaw * normal_y
+    offset_world = offset + normal_world_x * robot_x + normal_world_y * robot_y
+    return normal_world_x, normal_world_y, offset_world
 
 
 class MPCController(Node):
@@ -148,6 +174,28 @@ class MPCController(Node):
         # message; no matching against previous frames, no timeout/decay)
         # =========================
         self.obstacles_global_live: List[Tuple[float, float, float]] = []
+
+        # =========================
+        # Hard boundary constraints (see mpc_solver.py's own module
+        # docstring, "Hard boundary constraints" section) -- up to 3
+        # sources: wall_detector_node's ZED front wall (0-1 entries) and
+        # lidar_boundary_node's left/right line fits (0-2 entries).
+        # Published base_link-relative (see f1tenth_messages/
+        # BoundaryConstraint.msg's own note on frames); transformed to
+        # WORLD/odom frame immediately in each callback (using self.x/y/yaw
+        # AS OF message arrival as a proxy for "the pose at the source's
+        # own measurement time") -- same approximation
+        # obstacles_2d_callback's own robot_to_global call already makes
+        # for obstacles, not a fresh independent judgment call. Staleness
+        # handling reuses odom_stale_timeout_sec/the SAME now_sec -
+        # last_time < timeout pattern _update_active_odom already uses for
+        # hw/sim odom -- see _get_live_boundaries below, not a new timeout
+        # mechanism.
+        # =========================
+        self.front_wall_boundary_world: List[Tuple[float, float, float]] = []
+        self.front_wall_boundary_last_time: Optional[float] = None
+        self.lidar_boundaries_world: List[Tuple[float, float, float]] = []
+        self.lidar_boundaries_last_time: Optional[float] = None
 
         # =========================
         # MPC / modello
@@ -385,6 +433,16 @@ class MPCController(Node):
             10
         )
 
+        # f1tenth_behavior's PublishMoveGoal, for a mission "turn" step (schema_
+        # version 2.0). See goal_turn_callback's own docstring for how a signed
+        # heading_delta_deg + speed + steering turn into an actual drive command.
+        self.sub_goal_turn = self.create_subscription(
+            TurnGoal,
+            '/mpc/goal_turn',
+            self.goal_turn_callback,
+            10
+        )
+
         self.sub_hold = self.create_subscription(
             Bool,
             '/mpc/hold',
@@ -396,6 +454,20 @@ class MPCController(Node):
             Obstacle2DArray,
             '/perception/obstacles_2d',
             self.obstacles_2d_callback,
+            10
+        )
+
+        self.sub_front_wall_boundary = self.create_subscription(
+            BoundaryConstraintArray,
+            '/perception/front_wall_boundary',
+            self.front_wall_boundary_callback,
+            10
+        )
+
+        self.sub_lidar_boundaries = self.create_subscription(
+            BoundaryConstraintArray,
+            '/perception/lidar_boundaries',
+            self.lidar_boundaries_callback,
             10
         )
 
@@ -624,6 +696,127 @@ class MPCController(Node):
             f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione)'
         )
 
+    def _resolve_turn_reach(self, heading_delta_rad: float, steering: str) -> float:
+        """How far ahead (meters) goal_turn_callback should place its synthetic
+        goal_pose target, given the requested turn's heading change and
+        steering aggressiveness.
+
+        NOT a literal steering-angle command -- this vehicle only has a
+        heading-change primitive at all because build_straight_corridor()
+        already curves its corridor toward goal_pose_xy's bearing from the
+        CURRENT position every rebuild (see that method: psiEnd =
+        atan2(gy-Y0, gx-X0) when goal_pose_xy is set, vs. the fixed
+        psi_init_corridor otherwise) -- confirmed by reading that method
+        directly before relying on it, not assumed. goal_turn reuses that
+        existing, already-working mechanism by computing a target point that
+        SITS along the desired final heading, rather than adding a second,
+        parallel drive mode with its own corridor/solver path.
+
+        "steering" only shapes WHERE that target point is (via the standard
+        Ackermann single-track turn-radius relationship, R = wheelbase /
+        tan(steering_angle)): full_lock (corr_epsiMax, this vehicle's own
+        assumed max steering angle) produces a short reach and therefore a
+        tight curve; a shallow partial:<deg> produces a long reach and a
+        gentle one. The solver still computes its own actual steering output
+        every tick (bounded by self.limits) -- this heuristic never bypasses
+        it, it only points the corridor.
+        """
+        max_steering_rad = self.corr_epsiMax
+        if steering == 'full_lock':
+            steering_rad = max_steering_rad
+        else:
+            # 'partial:<deg>' -- format already validated at mission load time
+            # (mission_config.py's _is_valid_steering), so the split/float()
+            # below is guaranteed to succeed for anything that reached here
+            # via the mission pipeline. Still clamped defensively (a bare
+            # `ros2 topic pub` onto /mpc/goal_turn bypasses that validation
+            # entirely) rather than trusted blindly.
+            try:
+                requested_deg = abs(float(steering.split(':', 1)[1]))
+            except (IndexError, ValueError):
+                self.get_logger().warn(
+                    f'goal_turn: steering={steering!r} non parseable, uso full_lock '
+                    'come fallback.'
+                )
+                requested_deg = math.degrees(max_steering_rad)
+            steering_rad = min(math.radians(requested_deg), max_steering_rad)
+        # Avoid a near-zero (or exactly zero) steering angle producing a
+        # near-infinite (or divide-by-zero) turn radius.
+        steering_rad = max(steering_rad, math.radians(1.0))
+
+        wheelbase = self.params['L']
+        radius = wheelbase / math.tan(steering_rad)
+        chord = 2.0 * radius * math.sin(abs(heading_delta_rad) / 2.0)
+        return float(np.clip(chord, 0.3, self.corr_L_base))
+
+    def goal_turn_callback(self, msg: TurnGoal):
+        """f1tenth_behavior's PublishMoveGoal, once per mission "turn" step
+        entry (schema_version 2.0). Resolves the signed heading_delta_deg
+        into a synthetic goal_pose target and dispatches to the EXACT SAME
+        corridor-following/arrival machinery goal_pose_callback already uses
+        (self.goal_pose_xy/self.goal_pose_yaw/self.pose_goal_reached) --
+        see _resolve_turn_reach's own docstring for why that's sufficient
+        (build_straight_corridor already curves toward goal_pose_xy's live
+        bearing every rebuild) rather than adding a fourth, parallel drive
+        mode with its own path through control_loop.
+
+        mpc_corr's own pose_goal_tolerance-based arrival here is NOT the
+        authoritative "is the turn done" signal for the mission -- that's
+        f1tenth_behavior's own orientation_delta stop_condition, tracked
+        independently against live /odom yaw (see condition_eval.py). This
+        node's arrival check only decides when IT stops actively driving
+        toward the synthetic target; the mission may (and typically will)
+        advance to the next move, which republishes a new goal here and
+        supersedes this one, before or after this node's own tolerance is
+        ever reached -- same relationship goal_pose already has with the
+        mission layer today, not something new introduced for turn.
+        """
+        if self.x is None or self.y is None or self.yaw is None:
+            self.get_logger().warn(
+                'goal_turn ricevuto ma stato ancora None: comando ignorato.'
+            )
+            return
+
+        heading_delta_rad = math.radians(float(msg.heading_delta_deg))
+        target_yaw = self.yaw + heading_delta_rad
+        reach = self._resolve_turn_reach(heading_delta_rad, str(msg.steering))
+
+        self.goal_pose_xy = (
+            self.x + reach * math.cos(target_yaw),
+            self.y + reach * math.sin(target_yaw),
+        )
+        self.goal_pose_yaw = target_yaw
+        self.pose_goal_reached = False
+        # Switching to turn (pose-mode-backed) -- clear any distance-mode
+        # goal so the two stay mutually exclusive, same pattern goal_pose_
+        # callback/goal_distance_callback already use for each other.
+        self.goal_distance = None
+        self.goal_start_xy = None
+        self.goal_reached = False
+        self._no_goal_warned = False
+        # New move -- don't let target smoothing/deflection-coast carry over
+        # state from whatever the previous move's target was doing.
+        self.smoothed_target = None
+        self.last_deflection_vec = np.zeros(2)
+        self.deflection_decay_remaining = 0
+
+        # vdes override for the duration of the turn -- the one real
+        # (non-stub) per-move vdes path in this file today. move.vdes at the
+        # general mission level is still unimplemented elsewhere (see
+        # f1tenth_behavior's check_stop_condition.py, which logs it as a
+        # TODO for every OTHER move type) -- turn's own `speed` field is a
+        # distinct, already-required field on the turn spec, not a reuse of
+        # that stub, so wiring it here doesn't fix or touch that TODO.
+        if msg.speed > 0.0:
+            self.vdes = float(msg.speed)
+
+        self.get_logger().info(
+            f'Nuovo goal_turn: heading_delta={math.degrees(heading_delta_rad):+.1f} deg '
+            f'target_yaw={target_yaw:+.3f} rad synthetic_target=('
+            f'{self.goal_pose_xy[0]:.3f},{self.goal_pose_xy[1]:.3f}) reach={reach:.2f} m '
+            f'steering={msg.steering!r} speed={msg.speed:.2f}'
+        )
+
     def _update_active_odom(self):
         """Seleziona la sorgente odom attiva (hardware ha sempre priorita' se fresca)."""
         now_sec = self.get_clock().now().nanoseconds * 1e-9
@@ -682,6 +875,72 @@ class MPCController(Node):
                 f'world=({g0[0]:+.3f},{g0[1]:+.3f},r={g0[2]:.3f})',
                 throttle_duration_sec=2.0
             )
+
+    def front_wall_boundary_callback(self, msg: BoundaryConstraintArray):
+        self._boundary_callback_common(
+            msg, target_attr='front_wall_boundary_world',
+            time_attr='front_wall_boundary_last_time', log_tag='BOUNDARY/front')
+
+    def lidar_boundaries_callback(self, msg: BoundaryConstraintArray):
+        self._boundary_callback_common(
+            msg, target_attr='lidar_boundaries_world',
+            time_attr='lidar_boundaries_last_time', log_tag='BOUNDARY/lidar')
+
+    def _boundary_callback_common(
+            self, msg: BoundaryConstraintArray, target_attr: str, time_attr: str, log_tag: str):
+        """Shared body for front_wall_boundary_callback/
+        lidar_boundaries_callback -- same base_link -> world transform
+        (_boundary_to_world) either way, only the target state attribute
+        and log tag differ. See module-level _boundary_to_world's own
+        docstring for the transform derivation, and the __init__ comment
+        above self.front_wall_boundary_world for why this transforms
+        immediately here rather than at solve time."""
+        if self.x is None or self.y is None or self.yaw is None:
+            self.get_logger().warn(
+                f'{log_tag} ricevuto ma stato ancora None: frame scartato.',
+                throttle_duration_sec=5.0
+            )
+            return
+
+        world = [
+            _boundary_to_world(c.normal[0], c.normal[1], c.offset, self.x, self.y, self.yaw)
+            for c in msg.constraints
+        ]
+        setattr(self, target_attr, world)
+        setattr(self, time_attr, self.get_clock().now().nanoseconds * 1e-9)
+
+        self.get_logger().info(
+            f'{log_tag} | n={len(world)}',
+            throttle_duration_sec=2.0
+        )
+
+    def _get_live_boundaries(self) -> List[Tuple[float, float, float]]:
+        """Combined, freshness-gated list of (normal_x, normal_y, offset)
+        hard boundary constraints, WORLD-frame (see the two callbacks
+        above), ready to pass straight into solve_mpc_step(boundaries=...).
+        Staleness reuses odom_stale_timeout_sec and the SAME
+        now_sec - last_time < timeout pattern _update_active_odom already
+        uses for hw/sim odom -- a source with no message yet, or whose
+        last message is older than that timeout, contributes NOTHING this
+        tick (dropped, not held/decayed) -- mpc_solver.py's own
+        pad_boundary_constraints is what turns "fewer than 3 live sources"
+        into a structurally-fixed-size QP, not anything here."""
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        live: List[Tuple[float, float, float]] = []
+
+        front_age = (
+            now_sec - self.front_wall_boundary_last_time
+            if self.front_wall_boundary_last_time is not None else math.inf)
+        if front_age < self.odom_stale_timeout_sec:
+            live.extend(self.front_wall_boundary_world)
+
+        lidar_age = (
+            now_sec - self.lidar_boundaries_last_time
+            if self.lidar_boundaries_last_time is not None else math.inf)
+        if lidar_age < self.odom_stale_timeout_sec:
+            live.extend(self.lidar_boundaries_world)
+
+        return live
 
     def joint_states_callback(self, msg: JointState):
         try:
@@ -941,6 +1200,10 @@ class MPCController(Node):
             f'vdes={vdes:.3f} n_obs={len(obstacles_global)}'
         )
 
+        live_boundaries = self._get_live_boundaries()
+        self.get_logger().info(
+            f'BOUNDARY/live | n={len(live_boundaries)}', throttle_duration_sec=2.0)
+
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
         u0, info = solve_mpc_step(
@@ -956,15 +1219,22 @@ class MPCController(Node):
             obstacles=obstacles_global,
             dmin=self.dmin,
             vdes=vdes,
-            solver='rti' if self.use_rti_solver else 'slsqp'
+            solver='rti' if self.use_rti_solver else 'slsqp',
+            boundaries=live_boundaries,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
 
         # ---- DEBUG: tempo di soluzione; se supera ts il loop va in ritardo ----
+        # status_message added for this diagnostic run (hard boundary
+        # constraints task) -- the bare int status code alone doesn't say
+        # "primal infeasible" in a bag/log without cross-referencing OSQP's
+        # own enum; the string does, for exactly the infeasibility-
+        # detection case that fix's own regression test covers.
         self.get_logger().info(
             f'SOLVE/out | dt={solve_dt * 1e3:.1f} ms success={info.get("success")} '
-            f'status={info.get("status")} cost={info.get("cost", float("nan")):.4f}'
+            f'status={info.get("status")} status_message={info.get("status_message")} '
+            f'cost={info.get("cost", float("nan")):.4f}'
         )
         if solve_dt > self.ts:
             self.get_logger().warn(
