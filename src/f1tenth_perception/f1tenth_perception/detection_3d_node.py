@@ -8,7 +8,10 @@ model, and publishes:
   * vision_msgs/Detection3DArray on `detections_3d_topic` (default /camera/detections_3d)
   * visualization_msgs/MarkerArray on `markers_topic` (default /camera/detection_markers)
     -- CUBE markers, color-coded per class, short lifetime so stale boxes vanish
-       in Foxglove/RViz if detections stop.
+       in Foxglove/RViz if detections stop. Each box marker (id i) is paired with a
+       TEXT_VIEW_FACING label marker (id i + LABEL_ID_OFFSET) showing
+       "class_name (confidence)", floated above the box, same lifetime -- both
+       vanish together.
 
 Back-projection math happens in the depth image's own frame (ZED left camera
 *optical* frame, e.g. `zed2_left_camera_optical_frame`), since that's the
@@ -56,10 +59,27 @@ from vision_msgs.msg import (
 )
 from visualization_msgs.msg import Marker, MarkerArray
 
+from f1tenth_perception.cpu_affinity import (
+    apply_cpu_affinity_and_priority,
+    declare_cpu_affinity_params,
+)
+
+# Fixed offset applied to a box marker's id to get its paired text-label marker's id,
+# so both live in the same MarkerArray/topic without id collisions.
+LABEL_ID_OFFSET = 10000
+
 
 class Detection3DNode(Node):
     def __init__(self):
         super().__init__('detection_3d_node')
+
+        # cpu_affinity/nice: see cpu_affinity.py. The perception-latency audit
+        # measured this node at 75-82% CPU with no pinning (less severe than
+        # yolo_detector_node's contention signature, but still substantial) --
+        # shares a "perception" core pair with obstacle_projector_node
+        # (separate from yolo's own dedicated pair and from mpc_corr's 10,11),
+        # set via detection.launch.py's detection_3d_cpu_affinity arg.
+        declare_cpu_affinity_params(self)
 
         # ---- parameters ------------------------------------------------
         self.detections_topic = str(
@@ -104,6 +124,18 @@ class Detection3DNode(Node):
         # either output (Detection3DArray, MarkerArray) is built.
         self.confidence_threshold = float(
             self.declare_parameter('confidence_threshold', 0.3).value)
+        # The ZED2i's real minimum stereo sensing distance is ~0.2-0.3 m;
+        # anything reporting a median depth closer than this is not a
+        # trustworthy reading (stereo matching breaks down that close, not a
+        # genuinely close obstacle) and is dropped in _synced_callback below,
+        # same as a None (unreadable) depth already is.
+        self.min_valid_depth = float(
+            self.declare_parameter('min_valid_depth', 0.2).value)
+        # Text label (class + confidence) floated above each box marker.
+        self.label_scale = float(
+            self.declare_parameter('label_scale', 0.15).value)
+        self.label_z_offset = float(
+            self.declare_parameter('label_z_offset', 0.15).value)
 
         # ---- intrinsics (cached from the latest camera_info) -----------
         self.fx = None
@@ -133,6 +165,8 @@ class Detection3DNode(Node):
             [self.det_sub, self.depth_sub], queue_size=self.sync_queue_size,
             slop=self.sync_slop)
         self.sync.registerCallback(self._synced_callback)
+
+        apply_cpu_affinity_and_priority(self)
 
         self.get_logger().info(
             f'detection_3d_node up: syncing "{self.detections_topic}" + '
@@ -198,7 +232,7 @@ class Detection3DNode(Node):
             box_h = det.bbox.size_y
 
             z = self._median_depth(depth, cx_px, cy_px, box_w, box_h, w, h)
-            if z is None:
+            if z is None or z < self.min_valid_depth:
                 continue
 
             x3d = (cx_px - self.cx) * z / self.fx
@@ -229,6 +263,9 @@ class Detection3DNode(Node):
             markers.markers.append(self._build_marker(
                 header=out_header, marker_id=i, pose=out_pose,
                 width=width_3d, height=height_3d, class_id=class_id))
+            markers.markers.append(self._build_label_marker(
+                header=out_header, marker_id=i, pose=out_pose,
+                height=height_3d, class_id=class_id, score=score))
 
         self.det3d_pub.publish(det3d_array)
         self.marker_pub.publish(markers)
@@ -295,6 +332,44 @@ class Detection3DNode(Node):
         marker.color.b = b
         marker.color.a = 0.5
 
+        marker.lifetime.sec = int(self.marker_lifetime)
+        marker.lifetime.nanosec = int((self.marker_lifetime % 1.0) * 1e9)
+
+        return marker
+
+    def _build_label_marker(self, header, marker_id, pose, height, class_id, score):
+        marker = Marker()
+        marker.header = header
+        marker.ns = 'detection_3d_label'
+        marker.id = marker_id + LABEL_ID_OFFSET
+        marker.type = Marker.TEXT_VIEW_FACING
+        marker.action = Marker.ADD
+
+        # Same x/y as the box; z floats above it. The box marker's orientation
+        # carries the optical -> output_frame rotation (see _synced_callback), so its
+        # *world*-vertical extent is `height` (scale.y, the object's image-plane
+        # height converted to 3D) -- not scale.z (default_depth_extent, a depth
+        # placeholder that ends up along the forward axis after that rotation, not
+        # up). Using `height` here is what actually puts the label above the box
+        # rather than off to one side.
+        marker.pose.position.x = pose.position.x
+        marker.pose.position.y = pose.position.y
+        marker.pose.position.z = pose.position.z + float(height) / 2.0 + self.label_z_offset
+        marker.pose.orientation.w = 1.0
+
+        marker.scale.z = self.label_scale
+
+        # White, distinct from the box's per-class color, for readability against
+        # any box color the hash in _class_color happens to produce.
+        marker.color.r = 1.0
+        marker.color.g = 1.0
+        marker.color.b = 1.0
+        marker.color.a = 1.0
+
+        marker.text = f'{class_id} ({score:.2f})'
+
+        # Same lifetime as the box marker -- both disappear together when a
+        # detection ages out.
         marker.lifetime.sec = int(self.marker_lifetime)
         marker.lifetime.nanosec = int((self.marker_lifetime % 1.0) * 1e9)
 

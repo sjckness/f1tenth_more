@@ -15,6 +15,13 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        # YOLO weights (*.pt/*.onnx/*.engine) consumed by yolo_detector_node's
+        # model_path param -- detection.launch.py resolves it against this
+        # package's *installed* share dir (its own __file__ at runtime), so
+        # without this entry colcon build never copies models/ into install/
+        # and the node silently falls back to passthrough mode (empty
+        # detections) even though the files are right there in src/.
+        (os.path.join('share', package_name, 'models'), glob('models/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -27,6 +34,10 @@ setup(
         'console_scripts': [
             'yolo_detector_node = f1tenth_perception.yolo_detector_node:main',
             'detection_3d_node = f1tenth_perception.detection_3d_node:main',
+            'obstacle_projector_node = f1tenth_perception.obstacle_projector_node:main',
+            'front_depth_monitor_node = f1tenth_perception.front_depth_monitor_node:main',
+            'wall_detector_node = f1tenth_perception.wall_detector_node:main',
+            'lidar_boundary_node = f1tenth_perception.lidar_boundary_node:main',
         ],
     },
 )

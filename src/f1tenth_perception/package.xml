@@ -6,7 +6,7 @@
   <description>
     Centralized perception for the F1TENTH car: ZED2 stereo camera (RGB + depth)
     and Hokuyo LiDAR, plus a YOLO 2D detection node. Brings up the sensors and
-    publishes vision_msgs/Detection2DArray on /yolo/2D_detections.
+    publishes vision_msgs/Detection2DArray on /camera/detections.
   </description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>
@@ -25,6 +25,35 @@
   <exec_depend>tf2_geometry_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
 
+  <!-- Runtime Python deps for obstacle_projector_node (3D detections -> 2D
+       obstacles for mpc_controller), also reused by wall_detector_node -->
+  <exec_depend>f1tenth_messages</exec_depend>
+
+  <!-- Runtime Python deps for wall_detector_node (RANSAC plane segmentation
+       for wall/corner detection from the ZED point cloud) -->
+  <exec_depend>sensor_msgs_py</exec_depend>
+  <!-- nav_msgs/Odometry: wall_detector_node's own motion-compensation
+       odometry subscription (get_odom_topic(), see f1tenth_params); see
+       wall_detector_node.py's own module docstring "Motion compensation"
+       section. -->
+  <exec_depend>nav_msgs</exec_depend>
+  <!-- scipy.spatial.transform.Rotation: quaternion -> rotation matrix for
+       the tf2-based cloud transform (_transform_to_robot_frame). Real
+       rosdep key, already a pinned pip dep in both GPU Dockerfiles for
+       mpc_corr's osqp/numpy layer, just not previously imported by any
+       node in this package. -->
+  <exec_depend>python3-scipy</exec_depend>
+  <!-- open3d has no rosdep key: install via `pip install open3d` (a real
+       manylinux_2_27_aarch64 cp310 wheel exists for this platform/Python
+       version, verified, no need to build from source). NOT installed in
+       this workspace's live environment as of this writing, see
+       docker/Dockerfile.jetson-thor's own pip layer (same "no rosdep key,
+       Jetson-specific gotchas" pattern already used there for torch/
+       ultralytics) and f1tenth_perception's README for the exact install
+       command. Confirmed: the plain wheel is CPU-only (no CUDA), which is
+       fine here, segment_plane (RANSAC) is a CPU algorithm in Open3D
+       regardless, unlike YOLO's GPU-bound inference. -->
+
   <!-- Sensors brought up by camera.launch.py / perception.launch.py -->
   <exec_depend>zed_wrapper</exec_depend>
   <exec_depend>urg_node</exec_depend>
@@ -32,6 +61,11 @@
 
   <!-- Needed so launch can IncludeLaunchDescription / run nodes -->
   <exec_depend>ros2launch</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package;
+       depending on it here (not f1tenth_bringup) avoids a build-order cycle,
+       since f1tenth_bringup itself includes this package's launch file. -->
+  <exec_depend>f1tenth_params</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

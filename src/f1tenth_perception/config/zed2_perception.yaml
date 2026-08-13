@@ -26,13 +26,35 @@
       # depth/depth_registered stays advertised implicitly by depth_mode != NONE
       # point cloud has no separate publish_* flag — subscriber-gating is the
       # only lever, so it stays in the topic list at 0 Hz unless something
-      # subscribes. Can't be fully hidden with this wrapper version.
+      # subscribes. Can't be fully hidden with this wrapper version. Confirmed
+      # neither detection_3d_node nor obstacle_projector_node subscribe to a
+      # point cloud topic at all -- both consume the depth Image directly.
+      #
+      # depth_stabilization: 0 -- was left at common_stereo.yaml's own default
+      # (30), never overridden here despite this file's own pos_tracking
+      # comment below claiming positional tracking "stays disabled". Read
+      # zed_camera_component.cpp directly (perception-optimization pass, Part
+      # 2): the wrapper's own pos-tracking-required check returns true if
+      # `mDepthStabilization > 0`, INDEPENDENTLY of pos_tracking_enabled/
+      # publish_tf -- so positional tracking (continuous visual odometry) was
+      # very likely running this whole time despite pos_tracking_enabled:
+      # false below. Set to 0 to actually stop it, not just believe the
+      # comment. Trade-off: depth_stabilization uses ego-motion from
+      # positional tracking to smooth frame-to-frame depth noise; without it,
+      # single-frame depth is very slightly noisier -- acceptable here since
+      # detection_3d_node already does its own per-frame median-in-ROI
+      # sampling and nothing in this stack does temporal depth filtering or
+      # mapping.
+      depth_stabilization: 0
 
     pos_tracking:
       # IMPORTANT: the f1tenth stack already owns the `map` and `odom` frames
       # (map_server static TF + EKF). The ZED's positional tracking would
       # publish a competing `map -> odom -> camera` chain, so it stays
       # disabled here. We only want RGB + depth from the camera.
+      #
+      # pos_tracking_enabled/publish_tf/publish_map_tf alone do NOT fully
+      # disable the module -- see depth_stabilization above, the actual fix.
       pos_tracking_enabled: false
       publish_tf: false
       publish_map_tf: false
@@ -42,8 +64,20 @@
 
     object_detection:
       od_enabled: false
+      # body_tracking (bt_enabled) needs no override here -- common_stereo.yaml's
+      # own default is already false, confirmed by reading it directly (never
+      # enabled by anything in this workspace).
 
     sensors:
-      publish_imu: true
+      # publish_imu: false -- perception-optimization pass, Part 2. Confirmed
+      # via a full-workspace grep that nothing subscribes to the ZED's own IMU
+      # topic (/zed2/zed_node/imu/data or similar): the EKF
+      # (f1tenth_bringup/config/ekf.yaml) fuses ONLY sensors/imu/raw, the
+      # VESC's own IMU -- MPC_corr.py's /imu subscription is that same VESC
+      # topic too. The physical IMU read itself isn't a separately-disableable
+      # module (it's part of normal camera operation), but the ROS-topic
+      # publish (up to sensors_pub_rate=200Hz) was pure overhead with zero
+      # consumers.
+      publish_imu: false
       publish_imu_raw: false
       publish_imu_tf: false

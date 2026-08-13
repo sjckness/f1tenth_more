@@ -59,10 +59,26 @@ from vision_msgs.msg import (
 
 from cv_bridge import CvBridge, CvBridgeError
 
+from f1tenth_perception.cpu_affinity import (
+    apply_cpu_affinity_and_priority,
+    declare_cpu_affinity_params,
+)
+
 
 class YoloDetectorNode(Node):
     def __init__(self):
         super().__init__('yolo_detector_node')
+
+        # cpu_affinity/nice: declared early (see cpu_affinity.py), applied at
+        # the end of __init__ once model loading is done -- this node showed
+        # the clearest CPU-contention signature in the perception-latency
+        # audit (nonvoluntary:voluntary context-switch ratio ~6:1,
+        # /camera/detections lagging /camera/image_raw by ~278ms measured via
+        # ros2 topic delay, despite only ~22ms of its own in-callback
+        # inference time), so it gets a dedicated core pair, set via
+        # detection.launch.py's yolo_cpu_affinity arg -- not hardcoded here,
+        # same reasoning as MPC_corr.py's own cpu_affinity param.
+        declare_cpu_affinity_params(self)
 
         # ---- parameters ----------------------------------------------------
         # image_topic defaults to the canonical /camera/image_raw so the same
@@ -79,6 +95,16 @@ class YoloDetectorNode(Node):
         # Jetson Orin deployment target; pass device:=cpu to explicitly opt
         # into the (still fully supported) CPU path.
         self.device = str(self.declare_parameter('device', 'cuda').value)
+        # Same stack-wide param/default as detection_3d_node's own
+        # confidence_threshold (f1tenth_params/config/stack_params.yaml) --
+        # previously only reached detection_3d_node via detection.launch.py,
+        # so this node's own /camera/detections (and the annotated image) still
+        # carried every box down to Ultralytics' internal default (~0.25)
+        # regardless of what confidence_threshold was set to. Passed straight
+        # into inference below (conf=...) rather than filtered after the fact,
+        # so low-confidence boxes never even reach cv2 annotation/publishing.
+        self.confidence_threshold = float(
+            self.declare_parameter('confidence_threshold', 0.3).value)
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -139,6 +165,8 @@ class YoloDetectorNode(Node):
         self.sub = self.create_subscription(
             Image, self.image_topic, self.image_callback, 10)
 
+        apply_cpu_affinity_and_priority(self)
+
         self.get_logger().info(
             f'yolo_detector_node up: subscribing "{self.image_topic}", '
             f'publishing detections "{self.detections_topic}" and annotated '
@@ -164,7 +192,8 @@ class YoloDetectorNode(Node):
             return
 
         # ---- real inference ------------------------------------------------
-        results = self.model(cv_image, verbose=False, device=self.device)
+        results = self.model(
+            cv_image, verbose=False, device=self.device, conf=self.confidence_threshold)
         result = results[0]
         names = result.names
 
