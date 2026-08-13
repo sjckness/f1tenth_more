@@ -13,10 +13,18 @@ use_rti_solver/cpu_affinity/nice added by the MPC optimization pass (frequency/
 bottleneck audit follow-up): use_rti_solver picks mpc_solver.py's OSQP real-time-
 iteration path (default, per stack_params.yaml) vs. the original from-scratch
 SLSQP path every tick (opt-out, for rollback without a code change).
-cpu_affinity/nice are both empty/0-default no-ops -- see MPC_corr.py's
-_apply_cpu_affinity_and_priority() docstring for how to pick core ids for a given
-deployment (they are NOT in stack_params.yaml, since the right value is
-machine-specific, unlike every other arg here).
+cpu_affinity defaults to '10,11' (Jetson Orin AGX, 12 homogeneous cores) -- see
+MPC_corr.py's _apply_cpu_affinity_and_priority() docstring for the reasoning.
+NOT in stack_params.yaml, since the right value is machine-specific, unlike every
+other arg here -- same precedent f1tenth_perception/launch/detection.launch.py's
+own yolo/detection_3d/obstacle_projector_cpu_affinity args already follow (their
+own comments assumed mpc_corr already reserved 10,11 this way, pinning themselves
+away from it -- confirmed via git history that this file's own default had
+actually been left at '' since the file was created, never wired to a real value
+despite that assumption; see the "CPU pinning fix" pass's own investigation for
+the full writeup). nice stays an empty/0-default no-op -- CAP_SYS_NICE isn't
+available on this deployment (see _apply_cpu_affinity_and_priority()'s own
+comment), so a non-zero default here couldn't do anything anyway.
 
 car_radius/avoidance_margin (safety-margin unification pass, following the
 safety_stop_controller retirement): wired here for the first time this pass --
@@ -60,13 +68,18 @@ def generate_launch_description():
         description=avoidance_margin_desc)
 
     cpu_affinity_la = DeclareLaunchArgument(
-        'cpu_affinity', default_value='',
+        'cpu_affinity', default_value='10,11',
         description=(
-            "Comma-separated core ids to pin mpc_corr to, e.g. '10,11'. Empty "
-            "(default): inherit the OS default affinity (all cores). Machine-"
-            "specific -- not sourced from stack_params.yaml, pick ids that "
-            "avoid whatever ZED/YOLO/EKF are already concentrated on for this "
-            "deployment (see MPC_corr.py's _apply_cpu_affinity_and_priority())."))
+            "Comma-separated core ids to pin mpc_corr to. Default '10,11' "
+            "(this deployment's Jetson Orin AGX, 12 cores) reserves mpc_corr "
+            "its own pair, away from yolo_detector_node (8,9) and "
+            "detection_3d_node/obstacle_projector_node (6,7) -- see "
+            "f1tenth_perception/launch/detection.launch.py's own cpu_affinity "
+            "args, which already assumed this pair was reserved. Pass empty "
+            "(cpu_affinity:='') to opt back out to the OS default affinity "
+            "(all cores) -- e.g. on a different machine/core count where "
+            "these specific ids don't make sense; see MPC_corr.py's "
+            "_apply_cpu_affinity_and_priority() for how to pick new ones."))
     nice_la = DeclareLaunchArgument(
         'nice', default_value='0',
         description=(
