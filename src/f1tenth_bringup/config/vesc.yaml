@@ -5,6 +5,49 @@
     speed_to_erpm_gain: 5499.271647286143
     speed_to_erpm_offset: 0.0
 
+    # Piecewise-linear low-speed velocity correction (VESC low-speed
+    # velocity correction pass). Consumed by: vesc_ackermann's
+    # ackermann_to_vesc_node (see velocity_correction.hpp there for the
+    # runtime interpolation this feeds), and read/written offline by
+    # vesc_tuning's velocity_correction.py when building this curve from a
+    # speed_sweep_diagnostic_node run.
+    #
+    # Two parallel arrays -- (actual_mps[i], commanded_mps[i]) is one
+    # calibration knot, i.e. "commanding commanded_mps[i] measured
+    # actual_mps[i] m/s of real motion" -- MUST be sorted strictly
+    # ascending by actual_mps (ackermann_to_vesc_node checks this at
+    # startup and disables correction entirely, loudly, if it isn't; see
+    # that node's own comment).
+    #
+    # velocity_correction_actual_mps / velocity_correction_commanded_mps:
+    # DELIBERATELY LEFT OUT OF THIS FILE ENTIRELY until a real sweep has been
+    # calibrated -- do NOT add them back as `key: []`. Confirmed live (a
+    # standalone rclcpp test program, both without the fix and with it) that
+    # an empty-array YAML literal fails to coerce into a statically-typed
+    # std::vector<double> parameter and throws
+    # InvalidParameterValueException ("No parameter value set") at startup,
+    # crashing ackermann_to_vesc_node -- this happens regardless of the
+    # C++-side declare_parameter default. A key that is simply ABSENT from
+    # this file is the safe, unambiguous case: ackermann_to_vesc_node's own
+    # std::vector<double>{} default applies cleanly and correctVelocity()
+    # treats zero knots as a pure pass-through (identical to this feature
+    # not existing), NOT a crash or a guess.
+    #
+    # To populate: run speed_sweep_diagnostic_node's denser sweep
+    # (0.05-0.50 m/s) and paste vesc_tuning.velocity_correction's own
+    # format_yaml_knots() output here as two real, non-empty arrays (or
+    # `python3 -m vesc_tuning.velocity_correction <sweep_csv>` for the CLI
+    # form) -- a real (non-empty) array loads fine, this gotcha is specific
+    # to the empty-array case.
+    #
+    # IMPORTANT (same gotcha as every other vesc.yaml value): this
+    # workspace is NOT --symlink-install -- editing this file under src/
+    # does not take effect until `colcon build` copies it into install/,
+    # AND ackermann_to_vesc_node only reads parameters once at startup (no
+    # dynamic-parameter callback), so it also needs a restart afterward.
+    # See f1tenth_hardware/launch/vesc.launch.py's own note on this exact
+    # gotcha for the steering-calibration keys.
+
     # Known noise floor on this motor/VESC: state.speed (raw ERPM telemetry,
     # /sensors/core) sits around 380-400 ERPM even at true rest (confirmed live:
     # zero commanded speed, real but small current draw, no intended motion).
@@ -52,7 +95,7 @@
     # before vesc_driver_node publishes sensors/imu/raw. See
     # f1tenth_diagnostics' gyro_bias_calibration_node to (re-)measure it.
     # Update this value after re-measuring; 0.0 = no correction applied.
-    gyro_bias_z: 0.017052
+    gyro_bias_z: 0.008585545929769674
 
     # Message-level (Level 1) covariance calibration: measured stationary variance,
     # applied as the diagonal of angular_velocity_covariance / linear_acceleration_
@@ -67,12 +110,12 @@
     # whose comment noted a prior calibration:=true run's output wasn't reliably
     # reaching the live driver process). Re-measure if the IMU mount, sample rate,
     # or vibration environment changes materially.
-    gyro_variance_x: 0.1441998030263511
-    gyro_variance_y: 0.043013110087596965
-    gyro_variance_z: 0.11750069049056168
-    accel_variance_x: 0.0010635530996154579
-    accel_variance_y: 1.5393537976557002e-05
-    accel_variance_z: 0.00013559981787246474
+    gyro_variance_x: 0.09782945674031862
+    gyro_variance_y: 0.056243456894158675
+    gyro_variance_z: 0.06423498161706272
+    accel_variance_x: 0.0006893675651775159
+    accel_variance_y: 1.536952894858414e-05
+    accel_variance_z: 0.00014872621061828032
 
 # No longer needed, all parameters are shared
 # ackermann_to_vesc_node:
@@ -111,7 +154,7 @@ vesc_to_odom_node:
     # was specifically chosen to avoid. A future calibration pass under light motion
     # (not stationary) would be needed to get a real non-zero vx_variance estimate --
     # do not hand-restore a made-up non-zero value here without one.
-    vx_variance: 0.002286410043628927
+    vx_variance: 0.0
 
     # pose.covariance[0]/[7]/[35] (x/y/yaw) on every published /odom message --
     # previously hardcoded literals in vesc_to_odom_backup.cpp (0.2, 0.2, 0.4), now
