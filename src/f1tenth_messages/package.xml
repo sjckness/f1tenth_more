@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_messages</name>
+  <version>0.0.1</version>
+  <description>Message and service definitions for the F1TENTH stack: SystemStatus
+  (f1tenth_diagnostics' system_observer_node), RestartComponent/ComponentControl
+  (f1tenth_bringup's component_supervisor_node), LoadMission/MissionStatus
+  (f1tenth_behavior's mission subtree, mission/loader.py -- start_mission/
+  abort_mission/emergency_stop reuse std_srvs/Trigger, no custom .srv needed), and
+  WallDetection/WallArray (f1tenth_perception's wall_detector_node -- RANSAC
+  plane segmentation for wall/corner detection), and BoundaryConstraint/
+  BoundaryConstraintArray (hard linear boundary constraints for
+  mpc_controller's OSQP/RTI solver -- published by wall_detector_node's
+  front wall check and the lidar boundary node's left/right line fits).
+  Merged from the former
+  f1tenth_diagnostics_msgs and f1tenth_bringup_msgs -- separate ament_cmake
+  interfaces-only package since both consumer packages are pure ament_python,
+  which can't run rosidl_generate_interfaces() in their own build.</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_cmake_auto</buildtool_depend>
+
+  <build_depend>rosidl_default_generators</build_depend>
+  <depend>std_msgs</depend>
+  <!-- WallDetection.msg uses geometry_msgs/Vector3 and geometry_msgs/Point. -->
+  <depend>geometry_msgs</depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

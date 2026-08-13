@@ -1,0 +1,12 @@
+# Served by f1tenth_diagnostics' diagnostics_server_node on ~/run_diagnostics
+# (resolves to /diagnostics_server_node/run_diagnostics). Synchronous "give me a
+# snapshot now" query, for on-demand diagnostic checks rather than only at startup --
+# no arguments needed, the request is empty.
+---
+f1tenth_messages/BatteryStatus battery
+# False: system_status below is the zero-valued default -- nothing publishes
+# /diagnostics/system_status at all when enable_sys_obs is false (see
+# f1tenth_params/config/stack_params.yaml), so it must not be trusted.
+bool sys_obs_enabled
+f1tenth_messages/SystemStatus system_status
+string message
