@@ -88,10 +88,19 @@ vesc_config:
 steering_calibration_config:
   default: config/steering_calibration.yaml
   description: "Single source of truth for servo_min/servo_max, steering_angle_to_servo_offset, and steering_angle_to_servo_gain_left/_right -- split out of vesc.yaml so vesc_tuning's steering_calibration_node.py has exactly one file to read from and live-write to. Neither vesc_driver_node nor ackermann_to_vesc_node hot-reloads this file or supports ros2 param set for these keys (params are read once at startup, no set-parameters callback registered) -- restart the driver to apply a change."
-# Consumed by: f1tenth_hardware/vesc.launch.py.
+# Consumed by: f1tenth_hardware/vesc.launch.py (stack_bringup.launch.py's own
+# `calibration` DeclareLaunchArgument defaults from this key) AND
+# supervisor_bringup.launch.py/component_supervisor_node.py (the
+# component_supervisor path -- this key is now this value's ONLY declaration:
+# component_supervisor_node declare_parameter()s 'calibration', wired from
+# supervisor_bringup.launch.py's own `calibration` launch argument (defaulting
+# from here), and injects it into 'hardware's components.yaml args at runtime
+# instead of components.yaml hardcoding a literal -- see that file's own
+# `hardware` entry comment. calibration-single-source-of-truth pass; previously
+# components.yaml hardcoded 'true' here independently, with no live override).
 calibration:
   default: false
-  description: "true (default, as of the automatic-startup-calibration pass): run both stationary calibrations (message-level covariance AND gyro bias, see f1tenth_diagnostics' sensor_covariance_calibration_node/gyro_bias_calibration_node) against a live driver group before releasing EKF/Nav2, then relaunch with the fresh values -- both nodes gate their own sampling on a live stationary check first and fall back silently (leave vesc.yaml untouched, do not block startup) on any calibration failure. Previously defaulted false (opt-in only); components.yaml's `hardware` component was flipped to 'true' the same way for the same reason. false: driver group launches once, unchanged from the original always-on behavior, no calibration nodes at all."
+  description: "false (default): driver group launches once, unchanged from the original always-on behavior, no calibration nodes at all. true: run both stationary calibrations (message-level covariance AND gyro bias, see f1tenth_diagnostics' sensor_covariance_calibration_node/gyro_bias_calibration_node) against a live driver group before releasing EKF/Nav2, then relaunch with the fresh values -- both nodes gate their own sampling on a live stationary check first and fall back silently (leave vesc.yaml untouched, do not block startup) on any calibration failure. (Earlier revisions of this description had the true/false polarity backwards in places -- verified here against f1tenth_hardware/vesc.launch.py's own 'calibration:=true sequencing' docstring section, the actual code.)"
 # Consumed by: f1tenth_hardware/vesc.launch.py (calibration:=true path) AND
 # f1tenth_diagnostics/calibration.launch.py (standalone entry point) -- both feed
 # sensor_covariance_calibration_node's sample_duration_sec param. Previously two
@@ -122,7 +131,18 @@ release_downstream:
 # f1tenth_bringup's install share dir, not f1tenth_localization's own).
 ekf_config:
   default: config/ekf.yaml
-  description: "robot_localization EKF config: fuses /odom + VESC IMU, publishes map -> odom."
+  description: "robot_localization EKF config (LOCAL instance): fuses /odom + VESC IMU, publishes odom -> base_link. world_frame: odom (reverted from map by the dual-EKF pass -- see ekf_config's own file for the full design and ekf_global_config below for its map -> odom counterpart)."
+# Consumed by: f1tenth_localization/ekf_global.launch.py (path resolved
+# against f1tenth_bringup's install share dir, same convention as ekf_config
+# above). Added by the dual-EKF pass (see that file's own docstring) --
+# GLOBAL instance: fuses the local EKF's own /odometry/filtered + slam_
+# toolbox's /slam/pose (via slam_pose_relay_node's covariance-stamped
+# /slam/pose_calibrated), publishes map -> odom. Only meaningful when
+# localization_source == 'ekf' (raw_odom mode has no /odometry/filtered to
+# feed it -- see localization.launch.py's own branching).
+ekf_global_config:
+  default: config/ekf_global.yaml
+  description: "robot_localization EKF config (GLOBAL instance): fuses the local EKF's /odometry/filtered + slam_toolbox's /slam/pose_calibrated, publishes map -> odom."
 
 # ============================================================
 # Perception
@@ -169,105 +189,6 @@ obstacle_z_min:
 obstacle_z_max:
   default: 2.0
   description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node,
-# is_zed-gated -- only declared/launched when detection_3d_node itself is,
-# same condition as obstacle_z_min/_max above). Toggled separately by
-# enable_wall_detector below.
-enable_wall_detector:
-  default: true
-  description: "Start wall_detector_node (RANSAC plane segmentation for wall/corner detection from the ZED point cloud). Structurally requires camera_source=='zed' regardless of this flag (no point cloud otherwise) -- this only opts out within ZED mode, same pattern as enable_sys_obs/enable_foxglove."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_input_topic:
-  default: /zed2/zed_node/point_cloud/cloud_registered
-  description: "ZED point cloud topic wall_detector_node subscribes to. Verified against a real live run's log (not just the zed_wrapper source) -- this is the actual topic name the wrapper advertises on this robot with camera_name='zed2'."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_roi_x_max:
-  default: 6.0
-  description: "Forward distance [m] wall_detector_node considers, base_link frame. ZED2 stereo depth quality degrades well before this at typical indoor ranges -- a starting point, not a measured limit."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_roi_y_half_width:
-  default: 3.0
-  description: "Lateral +/- window [m] wall_detector_node considers, base_link frame. Deliberately much wider than car_radius + obstacle_safety_margin_m (0.32m, see that key's own comment) -- this is a room/hallway-width geometry window for finding wall PLANES, not the tight obstacle-avoidance corridor those two keys derive; a wall well outside the collision corridor is still relevant for corner/heading detection."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_verticality_max_deg:
-  default: 20.0
-  description: "Max angle [deg] a candidate plane's normal may deviate from horizontal to still count as a wall (rather than floor/ceiling) in wall_detector_node's iterative RANSAC search."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_front_facing_max_deg:
-  default: 35.0
-  description: "Max |bearing| [deg] a detected wall may have to count toward wall_detector_node's published front_clearance (a wall well off to the side doesn't limit forward travel)."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_front_clearance_min_track_frames:
-  default: 5
-  description: "Minimum consecutive matched frames a TrackedWall must have accumulated before it's eligible to count toward wall_detector_node's published front_clearance (on top of the existing wall_front_facing_max_deg bearing-cone check). Reuses wall_ambiguous_confirm_frames' own default (5) as this codebase's established frame-count bar for 'distinguish real persistence from transient noise'. Added after a live-mission-log investigation found front_clearance's old min(distance)-over-bearing-cone-only selection could be dragged below the mission's stop threshold by a short-lived, internally noisy track well before the real wall the mission was approaching got anywhere close -- see wall_detector_node's own module docstring ('front_clearance selection eligibility') for the full writeup, including why this frame-count bar alone is insurance against a single-frame outlier, not the primary defense (the phantom track in that investigation had already accumulated ~38 matched frames by the time it mattered -- see wall_front_clearance_min_inliers below for the mechanism that actually targets that case)."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_front_clearance_min_inliers:
-  default: 300
-  description: "Minimum RANSAC inlier point count (a TrackedWall's latest matched frame) required for that track to be eligible to count toward wall_detector_node's published front_clearance -- the OTHER half of the eligibility gate described under wall_front_clearance_min_track_frames above, and the one that actually targets the investigated failure mode: a marginal/fragment second-plane fit has much weaker point support than a genuine, well-supported dominant wall. 2x the node-local min_inliers=150 floor (which only gates 'is this real enough to track/render at all', not 'real enough to trust for a safety-relevant stop condition') -- a REASONED STARTING POINT, not yet validated against real sensor noise (blocked as of this writing on a ZED camera hardware/cable issue, unrelated to this parameter); see wall_detector_node's own module docstring for the full writeup."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_corner_perp_tolerance_deg:
-  default: 25.0
-  description: "How close to exactly perpendicular (90 deg) two simultaneously-detected wall planes' normals must be for wall_detector_node to tag both WallDetection entries is_corner=true."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_merge_normal_cos_thresh:
-  default: 0.94
-  description: "dot(normal_a, normal_b) above this (both unit vectors) counts as 'same direction' when wall_detector_node checks whether two RANSAC plane candidates in one frame are actually the same physical wall, noisily split in two. Loosened from an initial 0.97 to 0.94 after a live 566-frame debug capture against a real wall found real single-wall splits clustering at 0.951-0.966 -- comfortably ABOVE 0.94 with margin, so they now merge -- while genuine corner pairs measured 84.4-89.4 deg apart (cos ~0.008-0.096), ~20 deg of separation below this threshold's own implied angle (acos(0.94) ~= 20 deg), so corner detection stays in no danger from this loosening -- see wall_detector_node's own unit tests for both directions of that claim, and its module docstring for the full live-evidence writeup."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_merge_distance_thresh_m:
-  default: 0.15
-  description: "Perpendicular offset gap [m] between two candidate planes below which (combined with wall_merge_normal_cos_thresh) they're treated as duplicates of the same physical wall and merged (pooled inliers, refit) rather than published as two separate detections. Loosened from an initial 0.08 (then 0.12) to 0.15 after the same live debug capture found real single-wall splits clustering at 0.08-0.11m offset gap (worst clean case 0.08296m for an otherwise obviously-one-wall pair, cos=0.99959) -- 0.15 clears that whole cluster with margin, and leaves a real gap below wall_min_distinct_separation_m (2.0m) for the new ambiguous zone (wall_merge_distance_thresh_m < offset_gap < wall_min_distinct_separation_m) to actually have room to operate in. See wall_merge_normal_cos_thresh's own comment for the paired evidence and wall_detector_node's module docstring for the full writeup."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_min_distinct_separation_m:
-  default: 2.0
-  description: "Perpendicular offset gap [m] at/above which wall_detector_node treats two parallel-ish (non-corner) walls as confidently DIFFERENT surfaces, spawning a track immediately -- the upper edge of the new 'ambiguous zone' between this and wall_merge_distance_thresh_m (see that key's own comment). A pair whose offset_gap falls strictly between the two thresholds is neither confidently the same wall nor confidently different, so it's held (see wall_ambiguous_confirm_frames) rather than immediately becoming a permanent track."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_ambiguous_confirm_frames:
-  default: 5
-  description: "Consecutive frames an ambiguous-zone candidate (see wall_min_distinct_separation_m) must keep reappearing, matched frame to frame by the same distance/bearing association used for confirmed tracks, before wall_detector_node promotes it to a real published track. A gap in that streak drops the candidate outright -- no partial credit toward a later attempt. Never published to Foxglove/WallArray while still pending."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_track_assoc_distance_thresh_m:
-  default: 0.4
-  description: "Max frame-to-frame distance jump [m] wall_detector_node's tracker still treats as the same physical wall when associating this frame's (post-merge) detections to existing tracks. Generous enough for normal odometry-frame jitter and modest robot motion between frames; tight enough that two genuinely different walls at noticeably different ranges don't get cross-matched."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_track_assoc_bearing_thresh_deg:
-  default: 15.0
-  description: "Max frame-to-frame bearing jump [deg] wall_detector_node's tracker still treats as the same physical wall (paired with wall_track_assoc_distance_thresh_m -- both must pass). A corner's two walls are still expected to differ by much more than this in practice, so this doesn't come at the expense of keeping them as distinct tracks."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_track_hold_frames:
-  default: 5
-  description: "How many consecutive unmatched frames wall_detector_node's tracker keeps a wall's last smoothed value alive (still published/rendered) before dropping the track entirely -- covers a brief occlusion or a frame or two out of the ROI without the wall visibly vanishing and reappearing."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_ema_alpha:
-  default: 0.3
-  description: "EMA smoothing factor wall_detector_node's tracker applies to each tracked wall's distance/bearing/normal/centroid every matched frame (smoothed = alpha*new + (1-alpha)*smoothed_prev; 1.0 = no smoothing at all, values close to 0 = very heavy smoothing/lag). A reasoned starting point, NOT tuned against real sensor noise yet -- flagged explicitly as needing live retuning once this runs against an actual ZED feed; see wall_detector_node's own module docstring."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_prune_conflict_radius_m:
-  default: 2.0
-  description: "Offset gap [m] at/above which two live tracked walls are confidently DIFFERENT surfaces and never pruned against each other, regardless of support -- the same distinct-separation role wall_min_distinct_separation_m plays for the ambiguous zone, reused here as prune_inconsistent_tracks' own conflict-radius threshold (see wall_detector_node's own module docstring, 'Confidence-based pruning' section). Defaults to the same value (2.0) since both are answering the same underlying question ('confidently a different wall'), just for two different consumers."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_prune_min_frames_before_eligible:
-  default: 3
-  description: "Consecutive matched frames a track must accumulate before it's eligible to be the LOSING side of a confidence-based prune comparison (it can still correctly out-compete a genuinely weaker rival before then) -- grace period so a fresh, legitimate track isn't pruned off a single early low-inlier frame. See wall_detector_node's own module docstring."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_prune_inlier_ratio_floor:
-  default: 0.5
-  description: "A conflicting track's RANSAC inlier count below this fraction of the competing track's own counts as MEANINGFULLY weaker (one of two independent signals -- see wall_prune_match_streak_ratio_floor -- either is sufficient to prune). 0.5 requires under half the competing track's support, not just marginally less, since two independently-jittering real measurements of one physical wall will rarely have identical support. See wall_detector_node's own module docstring."
-# Consumed by: f1tenth_perception/detection.launch.py (wall_detector_node).
-wall_prune_match_streak_ratio_floor:
-  default: 0.5
-  description: "A conflicting track's matched-frame count below this fraction of the competing track's own counts as MEANINGFULLY weaker (the other of the two independent signals -- see wall_prune_inlier_ratio_floor). Both floors default to the same value (0.5) for the same 'under half, not just marginally less' reasoning. See wall_detector_node's own module docstring."
-# Consumed by: f1tenth_perception/lidar.launch.py (lidar_boundary_node).
-lidar_boundary_ema_alpha:
-  default: 0.3
-  description: "EMA smoothing factor lidar_boundary_node's per-side tracker applies to each side's fitted line (normal + offset) every matched frame -- same formula and role as wall_ema_alpha, whose already-tuned value (0.3) this reuses directly rather than guessing a new one for a structurally similar smoothing problem. Added after a live bag capture (boundary_constraint_diag_20260813_124824) found 0.017-0.5m frame-to-frame offset flicker on unsmoothed raw fits, which mpc_solver's own OSQP QP correctly flagged as producing infeasible constraint sets on some ticks -- see lidar_boundary_node's own module docstring, 'Temporal tracking' section."
-# Consumed by: f1tenth_perception/lidar.launch.py (lidar_boundary_node).
-lidar_boundary_min_frames_to_publish:
-  default: 5
-  description: "Minimum consecutive matched frames a side's TrackedBoundaryLine must have accumulated before lidar_boundary_node will publish a BoundaryConstraint for it -- same role and default as wall_front_clearance_min_track_frames/wall_ambiguous_confirm_frames (this codebase's established frame-count bar for 'distinguish real persistence from transient noise'), reused here so a single noisy frame can no longer alone produce a hard constraint. See lidar_boundary_node's own module docstring."
-# Consumed by: f1tenth_perception/lidar.launch.py (lidar_boundary_node).
-lidar_boundary_hold_frames:
-  default: 5
-  description: "How many consecutive unmatched (quality-gate-rejected) frames lidar_boundary_node's per-side tracker keeps a side's last smoothed line alive (still published, if already eligible) before dropping it to 'no constraint for this side' -- same role and default as wall_track_hold_frames, reused here. Directly targets the boundary_constraint_diag_20260813_124824 bag's own observed 25-present/absent-transitions-in-under-9-seconds flicker pattern -- see lidar_boundary_node's own module docstring."
 
 # ============================================================
 # Command/Control
@@ -552,6 +473,26 @@ mission_file_name:
   description: "Filename (not a full path) of a mission JSON under f1tenth_behavior/missions/, loaded once at behavior_executor_node startup. Empty (default): start with no mission loaded (mission.state stays IDLE until /mission/load_path or /mission/load_mission)."
 
 # ============================================================
+# SLAM (slam_toolbox)
+# ============================================================
+# Consumed by: f1tenth_navigation/slam.launch.py (IfCondition-wrapped Node -- a
+# normal per-file toggle, not one of the 5 stack-wide branching args, same
+# pattern as enable_foxglove above, not enable_nav2). First SLAM implementation
+# for this stack (slam_toolbox, lidar-primary -- chosen over RTAB-Map after two
+# feasibility NO-GOs on this Orin box, see that investigation's own reports).
+# false by default (not always-on, same "opt-in" precedent as enable_llm) --
+# component_supervisor_node.py always auto-starts the 'slam' component itself
+# (same as dev_tools/enable_foxglove), this flag alone decides whether the
+# actual async_slam_toolbox_node Node launches inside it. Pose-output only in
+# this pass -- NOT wired into localization_source/EKF/mpc_corr (see slam.
+# launch.py's own module docstring for the transform_publish_period=0.0 design
+# that structurally prevents a map->odom TF collision with the EKF/raw_odom
+# already publishing that same edge).
+enable_slam:
+  default: true
+  description: "Launch slam_toolbox (async, lidar-only, mapping mode). false: fully skipped, not just idle. Publishes /slam/map + /slam/pose only -- does not touch map->odom TF or any existing localization/navigation topic."
+
+# ============================================================
 # Diagnostics & Intelligence
 # ============================================================
 # Consumed by: f1tenth_diagnostics/system_observer.launch.py (decides whether to
@@ -580,10 +521,44 @@ imu_topic:
 gyro_sample_duration_sec:
   default: 30.0
   description: "Stationary sampling window for gyro_bias_calibration_node, in seconds."
-# Consumed by: f1tenth_diagnostics/calibration.launch.py.
+# Consumed by: f1tenth_diagnostics/calibration.launch.py AND (as of the
+# calibration-safety-gates pass) f1tenth_hardware/vesc.launch.py's
+# calibration:=true path -- previously only wired through calibration.launch.py,
+# so the automatic boot-time path silently ran on gyro_bias_calibration_node's
+# own node-level default (300) instead of this key. Both paths now pass it
+# explicitly, so this key is the actual single source of truth either way.
 min_samples:
   default: 150
-  description: "Warn if gyro_bias_calibration_node collected fewer than this many samples."
+  description: "HARD floor (calibration-safety-gates pass -- previously only a warning) -- gyro_bias_calibration_node aborts with EXIT_INSUFFICIENT_SAMPLES and does NOT write vesc.yaml if it collected fewer than this many samples on imu_topic."
+# Consumed by: f1tenth_diagnostics (gyro_bias_calibration_node.py, via both
+# f1tenth_hardware/launch/vesc.launch.py's calibration:=true path and
+# f1tenth_diagnostics/launch/calibration.launch.py) -- calibration-safety-gates
+# pass (Phase A). See calibration_common.check_sanity_bound's own docstring for
+# the full reasoning; the actual bad write this closes (2026-08-19 11:06:58,
+# |new|=0.0590) would have tripped this bound (0.0590 >= 0.05).
+gyro_bias_absolute_bound:
+  default: 0.05
+  description: "Sanity bound (rad/s): gyro_bias_calibration_node refuses to write a corrected gyro_bias_z whose absolute value meets or exceeds this -- exits EXIT_SANITY_VIOLATION instead, vesc.yaml left untouched. ~2.86 deg/s -- a resting VESC IMU's true static bias is expected well under this."
+# Consumed by: same as gyro_bias_absolute_bound above, same pass. The actual bad
+# write this closes (delta=-0.0523 from the previous value) would have tripped
+# this bound too (0.0523 >= 0.02) -- independent of the absolute bound above,
+# since a wrong-but-small-looking value could otherwise still slip through.
+gyro_bias_delta_bound:
+  default: 0.02
+  description: "Sanity bound (rad/s): gyro_bias_calibration_node refuses to write a corrected gyro_bias_z that differs from the value already in vesc.yaml by this much or more -- exits EXIT_SANITY_VIOLATION instead, vesc.yaml left untouched. Catches an implausible SWING even when the absolute value alone would pass gyro_bias_absolute_bound."
+# Consumed by: f1tenth_diagnostics (gyro_bias_calibration_node.py, both launch
+# paths, same as above) -- calibration-safety-gates pass (Phase A). Default
+# backed by a live 20s/965-sample stationary probe on this workspace's actual
+# hardware (this pass's own verification), NOT guessed: |ax|+|ay|+|az-1.0|
+# measured mean=0.084, stdev=0.010, max=0.153 at rest -- 0.3 is ~2x the
+# observed resting max. gravity=1.0, not 9.81: f1tenth_hardware's vendored VESC
+# IMU driver publishes linear_acceleration in units of g (vesc_packet.cpp's own
+# acc_x()/acc_y()/acc_z() "g/s" comment; az measured ~0.996 at rest, not
+# ~9.81), despite sensor_msgs/Imu's own REP-103 convention wanting m/s^2 -- a
+# pre-existing vendored-driver mismatch, out of scope to fix here.
+gyro_bias_vibration_threshold:
+  default: 0.3
+  description: "Sanity bound (dimensionless, units of g): gyro_bias_calibration_node aborts sampling (EXIT_MOTION_DURING_SAMPLING, vesc.yaml left untouched) if |accel.x|+|accel.y|+|accel.z-1.0| on imu_topic exceeds this at any point during the sampling window -- catches motion/vibration an ERPM-only check can miss."
 # Consumed by: f1tenth_diagnostics/calibration.launch.py.
 odom_topic:
   default: /odom
@@ -679,6 +654,48 @@ control_config:
   default: ''
   description: "Path to the ros2_control controllers.yaml (sim only; empty outside sim)."
 
+# ============================================================
+# ============================================================
+# DDS discovery (Fast-DDS Discovery Server, EKF-pair-stall investigation
+# follow-up): replaces the RMW default SIMPLE (multicast, full-mesh
+# participant/endpoint matching on every join/leave) with a single,
+# persistent Discovery Server every node registers with as a client instead.
+# Root problem this targets: SIMPLE discovery makes every EXISTING
+# participant do O(N) matching work whenever ANY node joins or leaves --
+# confirmed live (deliberate test: restarting just the 'slam' component via
+# /restart_component) that this alone produces a ~2s stall in BOTH EKF
+# instances' own control loop (13 fresh "Failed to meet update rate!"
+# warnings from that one restart), enough to permanently wedge slam_
+# toolbox's message filter (no resync mechanism once behind -- see that
+# node's own config comments). With a Discovery Server, a join/leave only
+# updates the server's own database and notifies directly-affected peers,
+# not a mesh-wide renegotiation -- this is what should shrink or eliminate
+# that stall, not anything CPU-affinity-related (check_cpu_pinning.py
+# already confirmed the EKF pair's cores stay clean through these events;
+# this is a discovery-bookkeeping problem, not contention for cores).
+# 127.0.0.1: single machine, no multi-robot/multi-host deployment today --
+# revisit if that ever changes. 11811 is fastdds discovery's own tool
+# default (--udp-port), kept rather than picking an arbitrary port so the
+# server's own default invocation and this value never drift apart.
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py AND
+# f1tenth_bringup/supervisor_bringup.launch.py -- deliberately in BOTH (not
+# just the supervisor path this was diagnosed against): a partial rollout,
+# where only one bringup path runs the server, would leave the OTHER path's
+# nodes still on SIMPLE discovery, defeating the point.
+# Split into address/port (not one combined 'ip:port' string) so both the
+# ROS_DISCOVERY_SERVER env var (which needs them joined) and the actual
+# `fastdds discovery` process's own --udp-address/--udp-port arguments (which
+# need them separate) can be composed from the same two DeclareLaunchArgument
+# values via ordinary launch-substitution concatenation, while staying
+# independently CLI-overridable -- a single combined string would need a
+# runtime string-split substitution to feed the process args, or would stop
+# being a real DeclareLaunchArgument default for the port specifically.
+discovery_server_address:
+  default: 127.0.0.1
+  description: "Fast-DDS Discovery Server listen/connect address. Single machine, no multi-robot/multi-host deployment today -- revisit if that ever changes."
+discovery_server_port:
+  default: 11811
+  description: "Fast-DDS Discovery Server UDP port. 11811 is fastdds discovery's own tool default, kept rather than picking an arbitrary port so the server's own default invocation and this value never drift apart."
 # ============================================================
 # Component Supervisor (supervisor_bringup.launch.py / component_supervisor_node --
 # the parallel, per-component-restartable bringup path alongside stack_bringup.launch.py)

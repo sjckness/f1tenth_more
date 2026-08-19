@@ -42,26 +42,49 @@ start() docstring for why). gyro_bias_calibration_node is entirely unaffected by
 this -- it has no calibration_mode of its own.
 
 vesc_yaml_path: passed explicitly here (via resolve_source_vesc_yaml_path(), imported
-from the node module itself) rather than left to the node's own default. The node's own
-default follows the INSTALLED vesc.yaml's symlink back to source -- only correct when
-the workspace was built with --symlink-install, which this one is not, so left alone it
-silently patches the install-space copy instead of src/f1tenth_bringup/config/vesc.yaml.
-resolve_source_vesc_yaml_path() anchors off the node module's own __file__, which
-ament_python always installs in editable mode regardless of --symlink-install (confirmed
-empirically), so it reliably reaches the real source file. The node's own resolution
-logic is left completely intact as a fallback for anyone invoking it directly via
-`ros2 run` instead of through this launch file. Override either way via
-`vesc_yaml_path:=<path>` on this launch command.
+from calibration_common -- shared by both nodes, since gyro_bias_calibration_node now
+also writes vesc.yaml, see its own module docstring) rather than left to either node's
+own default. Each node's own default follows the INSTALLED vesc.yaml's symlink back to
+source -- only correct when the workspace was built with --symlink-install, which this
+one is not, so left alone it silently patches the install-space copy instead of
+src/f1tenth_bringup/config/vesc.yaml. resolve_source_vesc_yaml_path() anchors off
+calibration_common's own __file__, which ament_python always installs in editable mode
+regardless of --symlink-install (confirmed empirically), so it reliably reaches the real
+source file. Each node's own resolution logic is left completely intact as a fallback
+for anyone invoking it directly via `ros2 run` instead of through this launch file.
+Override either way via `vesc_yaml_path:=<path>` on this launch command.
+
+Both nodes now also run a stationary-check gate before sampling (raw ERPM telemetry on
+/sensors/core, held near zero for a short confirmation window) -- see
+calibration_common.StationaryGate and each node's own module docstring. Those knobs
+(state_topic, stationary_erpm_threshold, stationary_confirm_sec, stationary_timeout_sec)
+are deliberately NOT exposed as launch arguments here, same convention as
+light_motion_* above -- `ros2 run ... --ros-args -p <name>:=<value>` overrides them if
+ever needed.
 
 For automatic sequencing with VESC bringup (calibrate-then-launch in one run), use
 f1tenth_hardware/launch/vesc.launch.py's calibration:=true argument instead -- that
-path runs sensor_covariance_calibration_node only (not gyro-bias), invoking the node
-directly rather than through this launch file; see that file's own module docstring.
+path now runs BOTH nodes (gyro-bias and covariance), invoking them directly rather than
+through this launch file; see that file's own module docstring. As of the
+automatic-calibration pass, that is also now the DEFAULT bringup behavior (calibration
+defaults to true) -- this launch file remains as the standalone, on-demand entry point
+for either running it interactively or after that automatic pass fell back.
+
+NOT bundled here (deliberately, not an oversight): slam_pose_covariance_calibration_
+node (dual-EKF pass) -- mirrors these two nodes' own stationary-sampling/auto-write
+discipline (same package, same calibration_common.StationaryGate/Welford), but it
+calibrates slam_toolbox's /slam/pose covariance, not anything VESC/IMU-related, and
+structurally needs the WHOLE localization+perception+SLAM stack already up and
+mapping to have anything to sample at all -- exactly the kind of thing this file's own
+early-boot, VESC-only calibration pair runs BEFORE (vesc.launch.py's calibration:=true
+path runs before localization/perception are even started, see that file's own
+sequencing). Run it standalone instead: `ros2 run f1tenth_diagnostics
+slam_pose_covariance_calibration_node` (see that node's own module docstring for its
+params, including ekf_global_yaml_path for the same reliably-source-anchored write-path
+override this file gives the two nodes above).
 """
 
-from f1tenth_diagnostics.sensor_covariance_calibration_node import (
-    resolve_source_vesc_yaml_path,
-)
+from f1tenth_diagnostics.calibration_common import resolve_source_vesc_yaml_path
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
@@ -85,6 +108,25 @@ def generate_launch_description():
     min_samples_default, min_samples_desc = get_default('min_samples')
     min_samples_arg = DeclareLaunchArgument(
         'min_samples', default_value=str(min_samples_default), description=min_samples_desc)
+    # calibration-safety-gates pass (Phase A) -- see f1tenth_hardware/launch/
+    # vesc.launch.py's own matching DeclareLaunchArgument block and stack_
+    # params.yaml's own comments on each key for the full reasoning.
+    gyro_bias_absolute_bound_default, gyro_bias_absolute_bound_desc = get_default(
+        'gyro_bias_absolute_bound')
+    gyro_bias_absolute_bound_arg = DeclareLaunchArgument(
+        'gyro_bias_absolute_bound', default_value=str(gyro_bias_absolute_bound_default),
+        description=gyro_bias_absolute_bound_desc)
+    gyro_bias_delta_bound_default, gyro_bias_delta_bound_desc = get_default(
+        'gyro_bias_delta_bound')
+    gyro_bias_delta_bound_arg = DeclareLaunchArgument(
+        'gyro_bias_delta_bound', default_value=str(gyro_bias_delta_bound_default),
+        description=gyro_bias_delta_bound_desc)
+    gyro_bias_vibration_threshold_default, gyro_bias_vibration_threshold_desc = get_default(
+        'gyro_bias_vibration_threshold')
+    gyro_bias_vibration_threshold_arg = DeclareLaunchArgument(
+        'gyro_bias_vibration_threshold',
+        default_value=str(gyro_bias_vibration_threshold_default),
+        description=gyro_bias_vibration_threshold_desc)
     calibration_duration_default, calibration_duration_desc = get_default(
         'calibration_duration_sec')
     calibration_duration_arg = DeclareLaunchArgument(
@@ -112,6 +154,15 @@ def generate_launch_description():
             'imu_topic': LaunchConfiguration('imu_topic'),
             'sample_duration_sec': LaunchConfiguration('gyro_sample_duration_sec'),
             'min_samples': LaunchConfiguration('min_samples'),
+            # calibration-safety-gates pass (Phase A).
+            'gyro_bias_absolute_bound': LaunchConfiguration('gyro_bias_absolute_bound'),
+            'gyro_bias_delta_bound': LaunchConfiguration('gyro_bias_delta_bound'),
+            'gyro_bias_vibration_threshold':
+                LaunchConfiguration('gyro_bias_vibration_threshold'),
+            # Now writes gyro_bias_z into vesc.yaml (see module docstring) --
+            # needs the same reliably-source-anchored override as the
+            # covariance node below, for the same reason.
+            'vesc_yaml_path': LaunchConfiguration('vesc_yaml_path'),
         }],
     )
     sensor_covariance_calibration_node = Node(
@@ -138,6 +189,9 @@ def generate_launch_description():
         odom_topic_arg,
         gyro_sample_duration_arg,
         min_samples_arg,
+        gyro_bias_absolute_bound_arg,
+        gyro_bias_delta_bound_arg,
+        gyro_bias_vibration_threshold_arg,
         calibration_duration_arg,
         vesc_yaml_path_arg,
         gyro_bias_calibration_node,
