@@ -1,0 +1,11 @@
+{
+  "mission_id": "STRAIGHT-STOP-TURN90-STRAIGHT",
+  "schema_version": "2.0",
+  "moves": [
+    {
+      "id": "move_1_approach_wall",
+      "goal_distance": 2.0,
+      "stop_condition": { "type": "front_clearance", "distance": 1.0 }
+    }
+  ]
+}

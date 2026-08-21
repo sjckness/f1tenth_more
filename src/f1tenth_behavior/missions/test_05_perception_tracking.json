@@ -1,0 +1,13 @@
+{
+  "mission_id": "test_05_perception_tracking",
+  "schema_version": "2.0",
+  "moves": [
+    {
+      "id": "approach_object",
+      "goal_distance": 10.0,
+      "stop_condition": { "type": "front_clearance", "distance": 1.5 },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    }
+  ]
+}

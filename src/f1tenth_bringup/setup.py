@@ -14,6 +14,15 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        # ensure_discovery_server.py -- launch-time dependency (invoked by
+        # stack_bringup.launch.py/supervisor_bringup.launch.py's own
+        # discovery_server ExecuteProcess action), NOT a top-level scripts/
+        # standalone developer tool like check_ekf_update_rate.py/
+        # check_cpu_pinning.py -- installed here specifically so it's
+        # reliably resolvable via get_package_share_directory() regardless
+        # of workspace location, the same mechanism every other launch-time
+        # file dependency in this codebase already uses.
+        (os.path.join('share', package_name, 'scripts'), glob('scripts/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

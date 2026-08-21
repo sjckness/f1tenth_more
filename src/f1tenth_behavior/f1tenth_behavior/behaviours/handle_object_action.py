@@ -36,6 +36,7 @@ from std_msgs.msg import Bool
 
 from f1tenth_behavior.behaviours.check_stop_condition import (
     CURRENT_XY_KEY,
+    FRONT_CLEARANCE_KEY,
     MIN_OBSTACLE_DISTANCE_KEY,
 )
 from f1tenth_behavior.behaviours.object_seen import MATCHED_OBJECT_KEY
@@ -67,6 +68,8 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key=CURRENT_XY_KEY, access=py_trees.common.Access.READ)
         self.blackboard.register_key(
             key=MIN_OBSTACLE_DISTANCE_KEY, access=py_trees.common.Access.READ)
+        self.blackboard.register_key(
+            key=FRONT_CLEARANCE_KEY, access=py_trees.common.Access.READ)
 
     def setup(self, **kwargs):
         try:
@@ -183,6 +186,7 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
             current_xy=getattr(self.blackboard, CURRENT_XY_KEY),
             detected_classes=getattr(self.blackboard, DETECTED_CLASSES_KEY),
             min_obstacle_distance=getattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY),
+            front_clearance=getattr(self.blackboard, FRONT_CLEARANCE_KEY),
             default_distance=None,
         )
         result = evaluate(resume_condition, ctx)

@@ -35,6 +35,25 @@ committed. TensorRT engines are CUDA-only and already bound to a device at
 build time, so `Model.to(device)` is skipped for them (it would raise) and
 `device:='cpu'` is rejected outright for a `*.engine` model_path.
 
+Class names for a `*.engine` model_path (Foxglove-class-name pass): the raw
+`trtexec` step above builds a bare TensorRT engine with none of Ultralytics'
+own metadata (that only survives an engine built via `model.export(format=
+'engine')`, which produces a `metadata.yaml` sidecar this manual two-step
+recipe never creates) -- confirmed live: loading the deployed yolo26s.engine
+directly, `model.names` comes back as a generic 999-entry `{0: 'class0', 1:
+'class1', ...}` placeholder, not the real 80-class COCO set. Every
+downstream consumer (detection_3d_node.py's/semantic_layer_node.py's own
+Foxglove-facing MarkerArray text labels) was already displaying whatever
+this node published as `class_id` correctly -- the string itself was just
+wrong at the source, not misdisplayed downstream. Fixed here, not there:
+_resolve_class_names() below loads real names from the `*.pt` checkpoint
+sitting next to the engine (same stem, confirmed live to carry the correct
+COCO names -- it's the exact checkpoint the engine was exported from) and
+uses that dict instead of the engine's own placeholder one. Falls back to
+the engine's own `model.names` if no sibling `.pt` is found or it fails to
+load, so a hypothetical engine that WAS exported via Ultralytics' own
+`.export()` (real metadata intact) still works, not just this one.
+
 Message field reference (vision_msgs, Humble == "4.x" layout):
     Detection2DArray.detections[]            -> Detection2D
     Detection2D.results[]                     -> ObjectHypothesisWithPose
@@ -46,6 +65,8 @@ Message field reference (vision_msgs, Humble == "4.x" layout):
         .bbox.center.position.x / .y          -> bbox center in pixels
         .bbox.size_x / .bbox.size_y           -> bbox width / height in pixels
 """
+
+import os
 
 import rclpy
 from rclpy.node import Node
@@ -60,8 +81,8 @@ from vision_msgs.msg import (
 from cv_bridge import CvBridge, CvBridgeError
 
 from f1tenth_perception.cpu_affinity import (
-    apply_cpu_affinity_and_priority,
-    declare_cpu_affinity_params,
+    apply_nice,
+    declare_nice_param,
 )
 
 
@@ -69,16 +90,21 @@ class YoloDetectorNode(Node):
     def __init__(self):
         super().__init__('yolo_detector_node')
 
-        # cpu_affinity/nice: declared early (see cpu_affinity.py), applied at
-        # the end of __init__ once model loading is done -- this node showed
-        # the clearest CPU-contention signature in the perception-latency
-        # audit (nonvoluntary:voluntary context-switch ratio ~6:1,
+        # nice: declared early (see cpu_affinity.py), applied at the end of
+        # __init__ once model loading is done. CPU AFFINITY (this node
+        # showed the clearest contention signature in the perception-latency
+        # audit -- nonvoluntary:voluntary context-switch ratio ~6:1,
         # /camera/detections lagging /camera/image_raw by ~278ms measured via
         # ros2 topic delay, despite only ~22ms of its own in-callback
-        # inference time), so it gets a dedicated core pair, set via
-        # detection.launch.py's yolo_cpu_affinity arg -- not hardcoded here,
-        # same reasoning as MPC_corr.py's own cpu_affinity param.
-        declare_cpu_affinity_params(self)
+        # inference time) is now a `taskset -c` launch prefix instead of an
+        # in-process self-pin -- see detection.launch.py's own
+        # yolo_cpu_affinity comment for why (thread-pinning-leak fix, Step 6
+        # reintroduction investigation: the old self-pin, applied here AFTER
+        # model loading, left 32 of this node's 36 threads -- including
+        # CUDA/TensorRT inference threads spawned during that loading --
+        # fully unpinned, confirmed live executing on the EKF pair's own
+        # reserved cores).
+        declare_nice_param(self)
 
         # ---- parameters ----------------------------------------------------
         # image_topic defaults to the canonical /camera/image_raw so the same
@@ -108,6 +134,11 @@ class YoloDetectorNode(Node):
 
         # ---- model ---------------------------------------------------------
         self.model = None
+        # class-index -> class-name, resolved once at startup (see
+        # _resolve_class_names()'s own docstring for the *.engine case) and
+        # used per-detection in image_callback() below instead of re-reading
+        # result.names every frame.
+        self.names = {}
         if not self.model_path:
             self.get_logger().warn(
                 'No YOLO model_path set — running in passthrough mode '
@@ -146,9 +177,10 @@ class YoloDetectorNode(Node):
                         # time; Model.to() only supports native *.pt models
                         # and raises TypeError otherwise.
                         self.model.to(self.device)
+                    self.names = self._resolve_class_names(YOLO, self.model_path, is_engine)
                     self.get_logger().info(
                         f'Loaded YOLO model "{self.model_path}" on '
-                        f'device="{self.device}"')
+                        f'device="{self.device}" ({len(self.names)} classes)')
                 except Exception as exc:  # noqa: BLE001 - stay alive in passthrough
                     self.get_logger().error(
                         f'Failed to load Ultralytics YOLO ("{self.model_path}") '
@@ -165,12 +197,58 @@ class YoloDetectorNode(Node):
         self.sub = self.create_subscription(
             Image, self.image_topic, self.image_callback, 10)
 
-        apply_cpu_affinity_and_priority(self)
+        apply_nice(self)
 
         self.get_logger().info(
             f'yolo_detector_node up: subscribing "{self.image_topic}", '
             f'publishing detections "{self.detections_topic}" and annotated '
             f'"{self.annotated_topic}"')
+
+    def _resolve_class_names(self, YOLO, model_path, is_engine):  # noqa: N803 - YOLO is a class
+        """class-index -> class-name dict to actually use for this loaded
+        model. For a *.pt checkpoint, `model.names` (Ultralytics' own,
+        embedded in the checkpoint) is already correct -- used directly.
+
+        For a *.engine built via this file's own documented manual
+        `trtexec` recipe (see module docstring's "Class names for a
+        *.engine model_path" paragraph), `model.names` is a generic
+        placeholder (confirmed live on yolo26s.engine: 999 entries,
+        '{0: "class0", 1: "class1", ...}"', not real names) -- the engine
+        simply never had Ultralytics' metadata to begin with. The sibling
+        *.pt checkpoint (same stem, right next to the engine in models/)
+        is the actual source the engine was exported from and still has
+        the real names (confirmed live: yolo26s.pt's `.names` is the real
+        80-class COCO set) -- loaded here ONLY for its `.names` attribute
+        (no `.to(device)`, no inference on it), then used in place of the
+        engine's own placeholder. Falls back to the engine's own
+        `model.names` if no sibling *.pt exists or loading it fails, so an
+        engine that WAS built via Ultralytics' own `.export()` (metadata
+        intact, real names already) isn't penalized either way.
+        """
+        if not is_engine:
+            return dict(self.model.names)
+
+        sibling_pt = model_path[: -len('.engine')] + '.pt'
+        if not os.path.isfile(sibling_pt):
+            self.get_logger().warn(
+                f'No sibling .pt checkpoint at "{sibling_pt}" for engine '
+                f'"{model_path}" -- using the engine\'s own class names as-is '
+                '(a manually-trtexec-built engine will show placeholder '
+                '"classN" names; see module docstring).')
+            return dict(self.model.names)
+        try:
+            names = dict(YOLO(sibling_pt, task='detect').names)
+            self.get_logger().info(
+                f'Resolved real class names from sibling checkpoint '
+                f'"{sibling_pt}" ("{model_path}" itself has no usable '
+                'class-name metadata -- see module docstring).')
+            return names
+        except Exception as exc:  # noqa: BLE001 - names are a nice-to-have, not fatal
+            self.get_logger().warn(
+                f'Failed to load class names from sibling checkpoint '
+                f'"{sibling_pt}": {exc} -- using the engine\'s own class '
+                'names as-is.')
+            return dict(self.model.names)
 
     def image_callback(self, msg: Image):
         # Convert ROS Image -> OpenCV BGR (3-channel) for inference/drawing.
@@ -195,7 +273,6 @@ class YoloDetectorNode(Node):
         results = self.model(
             cv_image, verbose=False, device=self.device, conf=self.confidence_threshold)
         result = results[0]
-        names = result.names
 
         for box in result.boxes:
             x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
@@ -204,12 +281,18 @@ class YoloDetectorNode(Node):
             cx = (x1 + x2) / 2.0
             cy = (y1 + y2) / 2.0
             out.detections.append(self._build_detection(
-                class_id=names.get(cls_id, str(cls_id)), score=score,
+                class_id=self.names.get(cls_id, str(cls_id)), score=score,
                 cx=cx, cy=cy, w=(x2 - x1), h=(y2 - y1)))
 
         self.det_pub.publish(out)
 
-        # results.plot() renders boxes + "class conf" labels (BGR ndarray).
+        # result.plot() reads result.names (copied from the model at
+        # inference time) to draw its own "class conf" labels -- overwritten
+        # here so the annotated image's on-frame labels use the same
+        # resolved self.names as Detection2DArray above, not the model's
+        # own (possibly-placeholder, *.engine case) names. See
+        # _resolve_class_names()'s own docstring.
+        result.names = self.names
         annotated = result.plot()
         self._publish_annotated(annotated, msg.header)
 

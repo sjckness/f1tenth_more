@@ -1,0 +1,259 @@
+# robot_localization EKF configuration for the F1TENTH car -- GLOBAL instance.
+#
+# Second half of a dual-EKF chain (added alongside the first SLAM integration
+# pass's own follow-up): f1tenth_bringup/config/ekf.yaml's own LOCAL EKF
+# instance now tracks world_frame: odom (reverted from map) and owns
+# odom -> base_link directly; THIS instance tracks world_frame: map and owns
+# map -> odom, fusing:
+#   odom0 (/odometry/filtered) -> the LOCAL EKF's own output, fused as a
+#     DIFFERENTIAL (velocity) source, not an absolute pose one -- see odom0's
+#     own comment further down for why (a genuine bootstrap deadlock, found
+#     and fixed live, not the original design) -- a cascaded/two-layer EKF
+#     setup (the standard robot_localization pattern for "one continuous
+#     local estimate + one periodic absolute correction", the same shape as
+#     that package's own navsat/global-EKF reference example, just with
+#     slam_toolbox's pose in place of a GPS-derived one).
+#   pose0 (/slam/pose) -> slam_toolbox's own scan-matched pose (x, y, yaw),
+#     the periodic absolute map-frame correction that keeps this filter's
+#     estimate from drifting the way pure odometry integration would.
+#
+# WHY TWO EKF INSTANCES, not one filter doing both jobs: robot_localization's
+# own world_frame is a single choice per filter instance -- one filter cannot
+# simultaneously publish BOTH odom -> base_link (tracking in odom frame) AND
+# map -> odom (tracking in map frame) itself; the two-instance/cascaded
+# pattern is how the package's own documentation says to compose a continuous
+# local estimate with an intermittent absolute one, not a workaround.
+#
+# pose0 covariance -- REAL CONSTRAINT FOUND while building this (checked
+# against /opt/ros/humble/share/robot_localization/params/ekf.yaml, the
+# package's own reference config, not assumed): robot_localization has NO
+# static per-sensor covariance-override parameter (no "pose0_covariance" or
+# similar) -- a pose0 source's covariance always comes from whatever the
+# MESSAGE ITSELF carries (PoseWithCovarianceStamped.pose.covariance), never
+# from this yaml file directly. This matters because slam_pose_covariance_
+# calibration_node's whole job is making a MEASURED covariance actually
+# affect the fused output, not just sit in a file nothing reads.
+#
+# Fix: pose0 below is /slam/pose_calibrated, NOT slam_toolbox's own raw
+# /slam/pose -- a small new relay (slam_pose_relay_node, f1tenth_localization,
+# see that file) subscribes to the raw topic, overwrites the covariance
+# diagonal with pose_variance_x/y/yaw (below, ITS OWN params block in this
+# same file), and republishes on /slam/pose_calibrated. This IS the real,
+# functional place calibration takes effect -- ekf_global_filter_node's own
+# block above has no covariance field of its own to write into, by design
+# (see above). slam_pose_covariance_calibration_node samples the RAW /slam/
+# pose (upstream of the relay, measuring the actual unmodified noise) and
+# writes into THIS block below.
+#
+# THIS FILTER'S OWN OUTPUT TOPIC -- /ekf_global/odometry/filtered, NOT the
+# plain /odometry/filtered every other consumer in this stack associates
+# with the LOCAL EKF -- see ekf_global.launch.py's own "REAL BUG FOUND..."
+# docstring paragraph for why an explicit remapping was required (a real
+# self-loop bug found while wiring Part 4/costmap_boundary_node, not
+# assumed). This is the "GLOBAL EKF's map-frame pose output" costmap_
+# boundary_node.py subscribes to, per this pass's own Part 4 instruction to
+# use it directly rather than /slam/pose.
+slam_pose_relay_node:
+  ros__parameters:
+    input_topic: /slam/pose
+    output_topic: /slam/pose_calibrated
+    # PLACEHOLDERS -- deliberately conservative (i.e. distrustful/large, not
+    # optimistic) defaults until slam_pose_covariance_calibration_node has
+    # actually run against real data at least once: as of this pass, /slam/
+    # pose does not publish at all (separate, already-flagged, still-open
+    # issue), so these are what's actually in effect regardless of the
+    # calibration node's own existence until that's fixed AND calibration has
+    # been run. 0.1m^2/0.1m^2/~0.05rad^2 (~13deg std dev) -- wide enough that
+    # a real correction still visibly pulls the global EKF's estimate rather
+    # than being effectively ignored, without pretending precision this pass
+    # has no real data to back up.
+    pose_variance_x: 0.1
+    pose_variance_y: 0.1
+    pose_variance_yaw: 0.05
+# Fully-qualified key (NOT a bare 'ekf_global_filter_node') -- required now
+# that ekf_global.launch.py gives this node namespace='ekf_global' (see that
+# file's own "SECOND REAL BUG FOUND..." docstring paragraph for why the
+# namespace exists at all). A bare key silently stops matching a namespaced
+# node -- confirmed empirically, not assumed: robot_localization would fall
+# back to its own built-in defaults with no error raised, which would have
+# been a far worse, fully-silent regression than the bug the namespace
+# fixes. slam_pose_relay_node above is NOT namespaced (no self-loop risk --
+# its topics are plain params, not a hardcoded default name), so its own key
+# stays bare on purpose; the two nodes' blocks are not equivalent.
+/ekf_global/ekf_global_filter_node:
+  ros__parameters:
+    # --- core ----------------------------------------------------------------
+    frequency: 50.0             # matches the local EKF -- smooth continuous
+                                 # output even though pose0 corrections arrive
+                                 # far less often (event-driven, tied to slam_
+                                 # toolbox's own minimum_travel_distance/
+                                 # minimum_travel_heading -- see slam_toolbox_
+                                 # params.yaml).
+    sensor_timeout: 0.1          # fine for odom0 (continuous, up to 50Hz from
+                                 # the local EKF); pose0 will simply be absent
+                                 # from most predict-only ticks between real
+                                 # corrections, which is the correct, intended
+                                 # behavior for a sparse absolute source, not
+                                 # a fault condition.
+    two_d_mode: true            # planar car: zero z, roll, pitch (same as local EKF)
+    publish_tf: true            # this instance owns map -> odom
+    publish_acceleration: false
+    print_diagnostics: true
+    debug: false
+
+    # --- frames --------------------------------------------------------------
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: map            # publish map -> odom, composed against the
+                                 # local EKF's own real odom -> base_link edge
+                                 # (see ekf.yaml's own docstring)
+
+    # --- odom0: the LOCAL EKF's own /odometry/filtered ------------------------
+    # state layout per row (standard robot_localization order):
+    #   [ x,     y,     z,
+    #     roll,  pitch, yaw,
+    #     vx,    vy,    vz,
+    #     vroll, vpitch,vyaw,
+    #     ax,    ay,    az ]
+    odom0: /odometry/filtered
+    # x/y/yaw only -- no z/roll/pitch from either source (2D vehicle, per this
+    # pass's own explicit scope). Originally documented as "no velocity terms
+    # either, kept out deliberately" -- now STALE: with odom0_differential:
+    # true (below), robot_localization's own preparePose()/odometryCallback()
+    # (checked against source, ros_filter.cpp -- not assumed) REPURPOSES these
+    # exact x/y/yaw=true flags into a Vx/Vy/Vyaw (twist) fusion at runtime --
+    # see loadParams()'s own differential-vs-absolute branch, which routes a
+    # differential source's pose_update_vec into twist_var_counts instead of
+    # abs_pose_var_counts entirely. This array does NOT need to change for
+    # that -- same three flags, different runtime meaning now. z/roll/pitch
+    # stay false either way (still a 2D vehicle).
+    odom0_config: [true,  true,  false,
+                   false, false, true,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    odom0_queue_size: 10
+    # DIFFERENTIAL (flipped from false -- see this key's own history below)
+    # -- fixes a genuine bootstrap deadlock, found and root-caused live, not
+    # a stylistic preference: odom0 is published in 'odom' frame; this
+    # filter's world_frame is 'map' (different frame, by design -- see this
+    # file's own header docstring). Fusing odom0 as an ABSOLUTE measurement
+    # (differential: false, the original setting) requires robot_localization
+    # to first transform it odom -> map -- but map -> odom is THIS SAME
+    # NODE'S own output (publish_tf: true, below), and nothing else in this
+    # stack has ever published 'map'. Confirmed live, not assumed: odom0 was
+    # genuinely arriving (~46-48Hz, DDS-matched, process actively consuming
+    # CPU) yet this filter published literally zero messages, ever
+    # (confirmed via its own /diagnostics topic-frequency counter: "Events
+    # since startup: 0") -- a structural deadlock, not a timing race that
+    # would eventually clear on its own.
+    #
+    # differential: true breaks this structurally, confirmed against
+    # robot_localization's own source (ros_filter.cpp preparePose(), humble-
+    # devel): for a differential (non-IMU) measurement, the function sets
+    # pose_tmp.frame_id_ to final_target_frame ITSELF (not the message's real
+    # header.frame_id) before the tf lookup -- so the subsequent
+    # lookupTransformSafe(target=final_target_frame, source=final_target_
+    # frame, ...) call degenerates into a same-frame identity lookup that
+    # always succeeds (ros_filter_utilities::lookupTransformSafe's own
+    # explicit identical-frames fast path), with no real 'map' frame needed
+    # at all. It then computes a delta against the PREVIOUS odom0 reading
+    # (previous_measurements_[topic_name], stored per-topic) and converts
+    # THAT into a velocity, fused via prepareTwist() -- not a raw position
+    # delta fused as pose. This is why odom0_config's x/y/yaw flags above
+    # get reinterpreted as Vx/Vy/Vyaw, not x/y/yaw.
+    #
+    # First-measurement behavior (confirmed from source, not assumed): the
+    # delta computation is gated on previous_measurements_.count(topic_name)
+    # > 0 -- absent on the very first odom0 message ever received, so THAT
+    # one measurement is not fused (preparePose returns false for it), but
+    # it's unconditionally stored as the new "previous" reading regardless.
+    # The SECOND odom0 message (and every one after) has a valid previous
+    # reading to diff against and fuses normally. At odom0's live-confirmed
+    # ~46-48Hz, that's on the order of ~20ms after this filter starts
+    # receiving odom0 at all -- not a meaningful startup delay.
+    #
+    # pose0 (below) is UNCHANGED and remains the real, load-bearing map-frame
+    # correction -- differential/relative are per-measurement-source flags
+    # (arguments to preparePose(), not filter-wide state); pose0's own calls
+    # still use pose0_differential/pose0_relative (still false/false,
+    # untouched) on a completely separate code path. Once pose0 actually
+    # starts firing (still gated on slam_toolbox's own minimum_travel_
+    # distance/heading -- see slam_toolbox_params.yaml), it keeps fusing
+    # x/y/yaw as a genuine absolute map-frame correction exactly as before;
+    # odom0's own velocity fusion doesn't compete with it for the same state
+    # components -- Vx/Vy/Vyaw are DIFFERENT state members from X/Y/Yaw, so
+    # there is nothing left for the two inputs to fight over. This also
+    # means the "2 absolute pose inputs detected for X/Y/YAW... may result
+    # in oscillations" diagnostic WARN (found in the investigation this fix
+    # follows) should no longer fire: loadParams() only counts a source into
+    # abs_pose_var_counts (what that diagnostic checks) when differential is
+    # false -- a differential source's config counts into twist_var_counts
+    # instead, a completely separate tally. pose0 is now the ONLY
+    # contributor to abs_pose_var_counts[X/Y/Yaw], so each count is 1, not
+    # 2 -- confirmed against loadParams()'s own source, not assumed.
+    #
+    # History: this was FALSE (absolute fusion), on the original reasoning
+    # that fusing odom0 as differential would "degrade this filter to pure
+    # dead-reckoning drift, defeating the entire point of adding pose0" --
+    # that reasoning addressed a real tradeoff (a differential-only source
+    # does drift without an absolute corrector) but missed the bootstrap
+    # requirement entirely: an absolute, cross-frame odom0 measurement
+    # cannot be fused AT ALL while 'map' doesn't exist yet, dead-reckoning
+    # drift or not. The tradeoff concern itself still holds and is exactly
+    # why pose0 stays absolute and unchanged -- it's what corrects odom0's
+    # own dead-reckoning drift over time, same as before, once it starts
+    # firing.
+    odom0_differential: true
+    odom0_relative: false
+
+    # --- pose0: slam_toolbox's own map-frame pose, COVARIANCE-STAMPED --------
+    # NOT slam_toolbox's own raw /slam/pose directly -- see slam_pose_relay_
+    # node's own params block below (same file) for why, and slam_pose_relay_
+    # node.py (f1tenth_localization) for the relay itself.
+    pose0: /slam/pose_calibrated
+    pose0_config: [true,  true,  false,
+                   false, false, true,
+                   false, false, false,
+                   false, false, false,
+                   false, false, false]
+    pose0_queue_size: 10
+    pose0_differential: false   # genuine absolute map-frame pose, fuse it as one
+    pose0_relative: false
+    pose0_rejection_threshold: 5.0   # REASONED STARTING POINT (mahalanobis
+                                      # distance), not tuned against real SLAM
+                                      # noise yet -- /slam/pose has never
+                                      # published in this pass (see module
+                                      # docstring), so there is no real data to
+                                      # tune this against. Flagged deliberately,
+                                      # same discipline this codebase's other
+                                      # untuned-starting-point parameters use
+                                      # (see wall_detector_node.py's own Part A
+                                      # gates history for the precedent this
+                                      # follows).
+
+    # --- process noise ---------------------------------------------------------
+    # PLACEHOLDER, same untuned-starting-point status as pose0_rejection_
+    # threshold above -- reuses the local EKF's own process_noise_covariance
+    # verbatim (same diagonal-only shape, same per-axis relative weighting)
+    # rather than inventing new numbers with even less basis: this filter's
+    # own dynamics (a 2D vehicle's x/y/yaw/velocities) are the same physical
+    # system the local EKF already models, just tracked in a different frame.
+    # Re-tune once real /slam/pose data and the calibration node above give
+    # something concrete to tune against.
+    process_noise_covariance: [0.08,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.08,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.05,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.02,  0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.02,  0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.005, 0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.01,  0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.01,  0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.015]

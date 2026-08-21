@@ -13,10 +13,21 @@
   <exec_depend>vesc_msgs</exec_depend>
   <exec_depend>vesc_driver</exec_depend>
   <exec_depend>vesc_ackermann</exec_depend>
-  <exec_depend>vesc_tuning</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>ros2launch</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package;
+       depending on it here (not f1tenth_bringup) avoids a build-order cycle,
+       since f1tenth_bringup itself includes this package's launch file. -->
+  <exec_depend>f1tenth_params</exec_depend>
+  <!-- vesc.launch.py launches sensor_covariance_calibration_node/gyro_bias_
+       calibration_node (f1tenth_diagnostics) unconditionally in its calibration:=true
+       path, and (as of the automatic-startup-calibration pass) imports
+       calibration_common.resolve_source_vesc_yaml_path() from that package directly at
+       launch-description-generation time, previously an undeclared dependency even
+       though the Node() launches already existed; now declared to match reality. -->
+  <exec_depend>f1tenth_diagnostics</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

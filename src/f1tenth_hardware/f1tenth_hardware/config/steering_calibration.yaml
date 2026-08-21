@@ -1,0 +1,33 @@
+# Single source of truth for the 5 steering-calibration values shared between
+# the real VESC driver (servo_min/servo_max, read by vesc_driver_node) and the
+# ackermann->servo conversion (steering_angle_to_servo_offset/
+# steering_angle_to_servo_gain_left/_right, read by ackermann_to_vesc_node).
+#
+# Loaded by vesc.launch.py AFTER vesc.yaml (see that file's own params-file
+# order) so these values win over vesc.yaml for the same keys -- vesc.yaml no
+# longer carries its own copies of these 5, precisely to avoid two files
+# disagreeing about the same value. vesc.yaml keeps everything unrelated
+# (ERPM gain, hardware limits, IMU covariance, etc.) plus the singular
+# steering_angle_to_servo_gain average used only by vesc_to_odom_node_backup.
+#
+# Also read directly (not via a running node's ROS params) at startup by
+# vesc_tuning's steering_calibration_node.py, and live-overwritten by it
+# (atomically) after every confirmed change during calibration -- do not
+# hand-edit this file while that node is running; your edit will be clobbered
+# on its next write.
+#
+# IMPORTANT: vesc_driver_node/ackermann_to_vesc_node read all parameters once
+# at startup (no dynamic-parameter/set-parameters callback registered in
+# either node -- confirmed by reading their source). Neither a hand edit nor
+# a live update from steering_calibration_node.py takes effect on an
+# already-running driver: restart it to pick up new values. `ros2 param set`
+# will not help either, for the same reason.
+/**:
+  ros__parameters:
+    servo_min: 0.15
+    servo_max: 0.8318
+    steering_angle_to_servo_offset: 0.4494
+    # Placeholder until retuned -- see vesc_tuning's steering_calibration_node.py
+    # Mode 3 (gain), which tunes gain_left and gain_right independently.
+    steering_angle_to_servo_gain_left: -1.2135
+    steering_angle_to_servo_gain_right: -1.2135

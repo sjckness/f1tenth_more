@@ -12,17 +12,25 @@ working even if perception/classification is degraded or lagging:
   - Sides + rear: raw /scan (sensor_msgs/LaserScan) directly, no frame/TF
     conversion. Each sample's angle is computed in the RAW scan frame as
     msg.angle_min + i * msg.angle_increment -- angle 0 there is the lidar's
-    OWN forward axis, which is physically rear-facing on this car (confirmed
-    against f1tenth_bringup/config/sensors.yaml: angle_min/max = +-3.14, a
-    full-circle scan, and the base_link->laser static transform mounts it at
-    yaw=pi). The window |angle| <= lidar_window_half_angle_deg (default 135
-    deg) therefore covers a 270 deg arc (left/right/rear) and deliberately
-    excludes the ~90 deg forward cone (centered on raw angle +-180 deg, since
-    0 deg is the rear) that the ZED front check above already covers -- do
-    NOT reuse this angle logic anywhere that assumes angle 0 is the car's
-    front. inf/nan samples and anything below msg.range_min are skipped
-    before the window filter, never treated as a valid near-zero hit. Trips
-    if the minimum in-window range < lidar_distance_threshold (default 0.20 m).
+    OWN forward axis, which is physically FRONT-facing on this car as of the
+    lidar remount (rear-facing -> front-facing) done alongside the first
+    slam_toolbox integration pass -- confirmed against f1tenth_bringup/
+    config/sensors.yaml: angle_min/max = +-3.14, a full-circle scan, and the
+    base_link->laser static transform, now mounted at yaw=0.0 (was pi before
+    the remount). The window |angle| >= lidar_blind_cone_half_angle_deg
+    (default 45 deg -- HALF of the SAME 90 deg total blind-cone size the
+    pre-remount 135 deg "include" threshold implied, since 180-135=45; the
+    parameter's own MEANING flipped from "how much to include" to "how much
+    to exclude" along with the mount, not just its value, hence the rename
+    from lidar_window_half_angle_deg) therefore covers a 270 deg arc (left/
+    right/rear) and deliberately excludes the ~90 deg forward cone (now
+    centered on raw angle 0, since 0 deg is now the front) that the ZED
+    front check above already covers -- do NOT reuse this angle logic
+    anywhere that assumes angle 0 is the car's rear (that assumption is now
+    stale post-remount). inf/nan samples and anything below msg.range_min
+    are skipped before the window filter, never treated as a valid
+    near-zero hit. Trips if the minimum in-window range < lidar_distance_
+    threshold (default 0.20 m).
 
 Either condition tripping is enough -- wired into the emergency lane's
 Selector alongside IsBatteryLow/IsSystemOverheated/IsEmergencyStopTriggered
@@ -66,6 +74,25 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32
 
 
+# ==============================================================================
+# Windowing -- pure function, no rclpy dependency, independently unit-
+# testable (same "pure logic separate from ROS glue" convention
+# f1tenth_perception/lidar_boundary_node.py's own _classify_side/
+# _scan_angle_to_car_frame already use). Extracted here (was previously
+# inline in _scan_callback) specifically so the front-facing-remount window
+# flip below is covered by a real test, not just eyeballed.
+# ==============================================================================
+
+def _in_lidar_window(raw_angle: float, blind_cone_half_angle_rad: float) -> bool:
+    """True if `raw_angle` (RAW scan frame -- 0 = lidar's own forward axis,
+    physically the car's FRONT post-remount, see module docstring) falls
+    OUTSIDE the front blind cone, i.e. should count toward this behaviour's
+    side/rear proximity check. The blind cone is +-blind_cone_half_angle_rad
+    around raw angle 0 -- excluded here because the ZED-based front check
+    above already covers that direction."""
+    return abs(raw_angle) >= blind_cone_half_angle_rad
+
+
 class IsProximityTooClose(py_trees.behaviour.Behaviour):
 
     def __init__(
@@ -75,14 +102,14 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         scan_topic='/scan',
         front_distance_threshold=0.40,
         lidar_distance_threshold=0.20,
-        lidar_window_half_angle_deg=135.0,
+        lidar_blind_cone_half_angle_deg=45.0,
     ):
         super().__init__(name=name)
         self.front_distance_topic = front_distance_topic
         self.scan_topic = scan_topic
         self.front_distance_threshold = front_distance_threshold
         self.lidar_distance_threshold = lidar_distance_threshold
-        self.lidar_window_half_angle_rad = math.radians(lidar_window_half_angle_deg)
+        self.lidar_blind_cone_half_angle_rad = math.radians(lidar_blind_cone_half_angle_deg)
 
         self.node = None
         self.front_distance_sub = None
@@ -133,7 +160,7 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
 
         for i, r in enumerate(msg.ranges):
             angle = msg.angle_min + i * msg.angle_increment
-            if abs(angle) > self.lidar_window_half_angle_rad:
+            if not _in_lidar_window(angle, self.lidar_blind_cone_half_angle_rad):
                 continue
             in_window_count += 1
             if not math.isfinite(r) or r < msg.range_min:

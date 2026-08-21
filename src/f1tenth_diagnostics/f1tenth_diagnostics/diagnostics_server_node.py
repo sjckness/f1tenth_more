@@ -23,15 +23,40 @@ SystemStatus, if enable_sys_obs is true (sys_obs_enabled in the response tells t
 caller whether system_status is meaningful or just the zero-valued default -- nothing
 publishes /diagnostics/system_status at all when sys_obs is disabled, so this node
 can't distinguish "sys_obs is off" from "no message has arrived yet" any other way).
+
+Third job (added alongside f1tenth_bringup/component_supervisor_node.py's
+~/run_calibration service, see that node's own docstring): publishes
+/calibration/in_progress (std_msgs/Bool, TRANSIENT_LOCAL so a late subscriber gets the
+current value immediately instead of waiting for the next tick) -- true while either
+sensor_covariance_calibration_node or gyro_bias_calibration_node is alive in the ROS
+graph, false otherwise. Detected via plain graph introspection (get_node_names(),
+polled on a timer), deliberately NOT wired to any launch-time event handler or to the
+calibration nodes themselves -- this makes it correct regardless of which of the three
+ways calibration actually got triggered (stack_bringup.launch.py's calibration:=true,
+component_supervisor_node's hardware/calibrate_hardware components, or a standalone
+`ros2 launch f1tenth_diagnostics calibration.launch.py`), with zero coupling and zero
+changes needed to any of those paths. Trade-off, stated plainly: graph discovery has
+sub-second latency in both directions, so a transition can lag the node's actual
+start/exit by up to one poll period -- acceptable for a coarse "is calibration running"
+signal, not sold as a hard real-time guarantee.
 """
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
 from vesc_msgs.msg import VescStateStamped
 
 from f1tenth_messages.msg import BatteryStatus, SystemStatus
 from f1tenth_messages.srv import RunDiagnostics
 from f1tenth_params.param_defaults import get_value
+from std_msgs.msg import Bool
+
+# Exact node names of the two stationary calibration nodes (f1tenth_diagnostics) --
+# see each one's own module docstring. light_motion mode uses the same
+# sensor_covariance_calibration_node name, so it's correctly covered too even
+# though light_motion itself is out of scope elsewhere in this codebase.
+_CALIBRATION_NODE_NAMES = frozenset(
+    {'sensor_covariance_calibration_node', 'gyro_bias_calibration_node'})
 
 
 class DiagnosticsServerNode(Node):
@@ -44,6 +69,11 @@ class DiagnosticsServerNode(Node):
             self.declare_parameter('min_battery_voltage', 10.8).value)
         self.battery_check_rate_hz = float(
             self.declare_parameter('battery_check_rate_hz', 2.0).value)
+        # How often to re-poll the ROS graph for calibration-node liveness -- see
+        # module docstring's third-job paragraph. 2.0 Hz is responsive enough for a
+        # ~60-130s calibration cycle without polling get_node_names() excessively.
+        self.calibration_status_poll_rate_hz = float(
+            self.declare_parameter('calibration_status_poll_rate_hz', 2.0).value)
         # Plain get_value() read, not a ROS parameter -- see stack_params.yaml's
         # enable_sys_obs comment for why this node reads it the same way
         # behavior_executor_node does, rather than declaring it as its own parameter.
@@ -67,13 +97,30 @@ class DiagnosticsServerNode(Node):
         period = 1.0 / max(self.battery_check_rate_hz, 1e-3)
         self.create_timer(period, self._publish_battery_status)
 
+        # TRANSIENT_LOCAL (depth 1): a subscriber that connects mid-calibration (or
+        # well after it finished) gets the current value immediately on connect,
+        # rather than waiting for this node's next poll tick to happen to publish
+        # again -- the whole point of a "current state" topic like this one.
+        calibration_status_qos = QoSProfile(
+            depth=1,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self._calibration_in_progress_pub = self.create_publisher(
+            Bool, '/calibration/in_progress', calibration_status_qos)
+        self._calibration_in_progress = False
+        self._publish_calibration_status()  # seed the transient-local value at False
+        calibration_poll_period = 1.0 / max(self.calibration_status_poll_rate_hz, 1e-3)
+        self.create_timer(calibration_poll_period, self._poll_calibration_status)
+
         self._run_diagnostics_srv = self.create_service(
             RunDiagnostics, '~/run_diagnostics', self._on_run_diagnostics)
 
         self.get_logger().info(
             f'[diagnostics_server] Publishing BatteryStatus on /diagnostics/battery_status '
             f'at {self.battery_check_rate_hz:.2f} Hz (min_battery_voltage='
-            f'{self.min_battery_voltage:.1f}V). sys_obs '
+            f'{self.min_battery_voltage:.1f}V) and calibration/in_progress at '
+            f'{self.calibration_status_poll_rate_hz:.2f} Hz. sys_obs '
             f'{"enabled" if self.sys_obs_enabled else "disabled"} -- run_diagnostics '
             f'service ready.')
 
@@ -102,6 +149,26 @@ class DiagnosticsServerNode(Node):
         # Self-resetting bucket: only averages samples received since the last tick,
         # not a running mean over the node's whole lifetime.
         self._voltage_samples = []
+
+    def _poll_calibration_status(self):
+        """Re-check the ROS graph for either calibration node's presence -- see
+        module docstring's third-job paragraph for why this is graph introspection
+        rather than anything wired to the calibration nodes or launch files
+        themselves."""
+        live_node_names = set(self.get_node_names())
+        in_progress = not _CALIBRATION_NODE_NAMES.isdisjoint(live_node_names)
+        if in_progress != self._calibration_in_progress:
+            self._calibration_in_progress = in_progress
+            self.get_logger().info(
+                f'[diagnostics_server] calibration '
+                f'{"started" if in_progress else "finished"} -- '
+                f'/calibration/in_progress -> {in_progress}')
+        self._publish_calibration_status()
+
+    def _publish_calibration_status(self):
+        msg = Bool()
+        msg.data = self._calibration_in_progress
+        self._calibration_in_progress_pub.publish(msg)
 
     def _on_run_diagnostics(self, request, response):
         response.battery = self._current_battery_status()

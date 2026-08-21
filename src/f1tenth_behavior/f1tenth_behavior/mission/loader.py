@@ -272,6 +272,34 @@ class MissionLoader:
                 'mission (if any) left running unchanged.'
             )
             return False, str(exc)
+        except Exception as exc:  # noqa: BLE001 -- deliberate last-resort net, see below
+            # Found live: a mission JSON with a field of the wrong TYPE in a spot
+            # _parse_move/_parse_stop_condition/etc. don't (or didn't yet) run an
+            # explicit isinstance() _require() against -- e.g. `"goal_distance":
+            # {"stop_condition": ...}` (an object where a plain number was
+            # expected) raised a bare `TypeError: float() argument must be a
+            # string or a real number, not 'dict'` straight out of load_mission_
+            # file(), which is neither MissionConfigError/OSError nor ValueError,
+            # so it propagated out of this method entirely and crashed the whole
+            # rclpy spin loop -- taking down the ENTIRE BT node (including the
+            # emergency-stop/obstacle-stop lanes, unrelated to mission loading)
+            # over a single malformed mission file. mission_config.py's own
+            # validation was tightened in response (goal_distance/vdes/
+            # timeout_sec now get an explicit numeric-type _require() before
+            # float() ever sees them), but this catch-all stays regardless: a
+            # service that loads user-authored JSON from disk must never be able
+            # to crash this node over *any* future gap in that validation, known
+            # or not. Every branch below already promises "reject and leave the
+            # previous mission running" -- this is that same promise, just for
+            # exception types the two branches above don't happen to name.
+            self._node.get_logger().error(
+                f'[mission] REJECTED {path!r}: unexpected {type(exc).__name__}: {exc} -- '
+                'previous mission (if any) left running unchanged. This likely means a '
+                'mission field has the wrong JSON type in a spot mission_config.py does not '
+                'yet validate explicitly -- worth tightening there, but this service must '
+                'never crash the node over it regardless.'
+            )
+            return False, f'{type(exc).__name__}: {exc}'
 
         with self._lock:
             state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)

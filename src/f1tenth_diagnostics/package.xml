@@ -19,6 +19,11 @@
   <exec_depend>rclpy</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <!-- geometry_msgs: PoseWithCovarianceStamped, consumed by
+       slam_pose_covariance_calibration_node.py (dual-EKF pass, /slam/pose
+       covariance calibration). -->
+  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>vesc_msgs</exec_depend>
   <exec_depend>f1tenth_messages</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
@@ -30,8 +35,13 @@
        depending on it here (not f1tenth_bringup) avoids a build-order cycle,
        since f1tenth_bringup itself includes this package's launch file. -->
   <exec_depend>f1tenth_params</exec_depend>
-  <!-- ruamel.yaml has no rosdep key: install via `pip install ruamel.yaml` or
-       `apt install python3-ruamel.yaml` before running sensor_covariance_calibration_node. -->
+  <!-- ruamel.yaml IS a real rosdep key (verified: `rosdep resolve python3-ruamel.yaml`
+       resolves to the apt package of the same name), previously undeclared here on
+       the mistaken assumption it had none; now tracked properly instead of a
+       manual-install-and-hope comment. Used by calibration_common.write_vesc_yaml
+       (shared by both sensor_covariance_calibration_node and, as of the
+       automatic-startup-calibration pass, gyro_bias_calibration_node too). -->
+  <exec_depend>python3-ruamel.yaml</exec_depend>
   <!-- jetson-stats (jtop) has no rosdep key either: install via
        `sudo pip3 install jetson-stats`, then reboot (or restart jtop.service), before
        running system_observer_node. Node degrades gracefully (see its own module

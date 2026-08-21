@@ -95,7 +95,27 @@
     # before vesc_driver_node publishes sensors/imu/raw. See
     # f1tenth_diagnostics' gyro_bias_calibration_node to (re-)measure it.
     # Update this value after re-measuring; 0.0 = no correction applied.
-    gyro_bias_z: 0.008585545929769674
+    gyro_bias_z: -0.019279198582350335
+
+    # Final gain applied AFTER bias subtraction above (bias in raw units,
+    # scale as the last step -- see vesc_driver.cpp's own gyro_scale_z_
+    # comment for why the two stay separate). gyro_scale_z is not 1.0 here
+    # deliberately -- empirically measured live via a 180deg reference-
+    # rotation test (two independent attempts, opposite directions, landed
+    # within a few percent of each other and within 0.1% of pi/180 =
+    # 0.0174533): the raw gyro.z reading is ~57x too large for real motion,
+    # matching gyr_z()'s own "// deg/s" comment in the vendored driver
+    # (vesc_packet.cpp) against sensor_msgs/Imu's rad/s contract -- suspected
+    # to be a genuine missing deg->rad conversion, NOT yet confirmed as the
+    # root mechanism (that's why this is a config-level correction, not a fix
+    # at the actual conversion site). Using the exact pi/180 constant here
+    # rather than either raw empirical fit (~0.0180 and ~0.0174 from the two
+    # test runs) -- see this pass's own investigation report.
+    # gyro_scale_x/y: 1.0 (no-op) -- same-source suspicion only, not measured
+    # for these axes yet.
+    gyro_scale_x: 1.0
+    gyro_scale_y: 1.0
+    gyro_scale_z: 0.0174533
 
     # Message-level (Level 1) covariance calibration: measured stationary variance,
     # applied as the diagonal of angular_velocity_covariance / linear_acceleration_
@@ -110,12 +130,12 @@
     # whose comment noted a prior calibration:=true run's output wasn't reliably
     # reaching the live driver process). Re-measure if the IMU mount, sample rate,
     # or vibration environment changes materially.
-    gyro_variance_x: 0.09782945674031862
-    gyro_variance_y: 0.056243456894158675
-    gyro_variance_z: 0.06423498161706272
-    accel_variance_x: 0.0006893675651775159
-    accel_variance_y: 1.536952894858414e-05
-    accel_variance_z: 0.00014872621061828032
+    gyro_variance_x: 0.030539653513912038
+    gyro_variance_y: 0.005006719643874733
+    gyro_variance_z: 0.005734260496684604
+    accel_variance_x: 6.838468054307688e-06
+    accel_variance_y: 7.457561226365246e-06
+    accel_variance_z: 3.9237810323728924e-05
 
 # No longer needed, all parameters are shared
 # ackermann_to_vesc_node:

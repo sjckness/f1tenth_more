@@ -94,6 +94,7 @@ and why the geometry differs enough that this is a base-value-plus-derived-
 formula scheme, not one scalar reused everywhere.
 """
 
+import os
 import sys
 import time
 
@@ -381,6 +382,45 @@ def create_root(
     return root
 
 
+# nice -- own inline copy (own copy, not a cross-package import of
+# f1tenth_perception.cpu_affinity: same precedent MPC_corr.py already
+# established -- a package with a single consumer of this logic keeps its
+# own copy rather than adding a dependency on an unrelated package just for
+# a few lines). Takes `node` explicitly (there's no self here: this node has
+# no custom Node subclass/__init__, tree.node is only constructed inside
+# main() below, well after module load).
+#
+# CPU AFFINITY REMOVED FROM HERE (thread-pinning-leak fix, Step 6
+# reintroduction investigation): this used to also call
+# os.sched_setaffinity(0, cores) on a declared cpu_affinity param, applied
+# once, in-process, from behavior_executor_node's main() (see git history) --
+# confirmed live to only restrict the ONE thread executing that call, not
+# the process: 21 of this node's 22 threads showed full 0-11 affinity, with
+# 2 actually caught executing on cpu1 (one of the EKF pair's own reserved
+# cores) under real load. Worse, that call ran AFTER tree.setup() (py_trees_
+# ros' own executor/action-client machinery), so most of this node's
+# threads already existed, unpinned, before it ever fired. Affinity is now
+# an external `taskset -c <cores>` launch prefix instead (see
+# behavior_bringup.launch.py's own matching comment) -- it sets the mask
+# before this process's first instruction runs, so every thread this node
+# or any library it uses ever spawns inherits it, with no in-process code
+# needed at all. nice stays here (same self-applied, main-thread-only
+# mechanism as before) -- it was never the leak; only affinity was. Renamed
+# _apply_cpu_affinity_and_priority -> _apply_nice to match what this
+# function actually does now (same reasoning as f1tenth_perception/
+# cpu_affinity.py's own matching rename).
+def _apply_nice(node):
+    node.declare_parameter('nice', 0)
+    nice_val = int(node.get_parameter('nice').value)
+    if nice_val != 0:
+        try:
+            os.nice(nice_val)
+            node.get_logger().info(f'Process nice set to {nice_val:+d}')
+        except Exception as exc:  # noqa: BLE001 - best-effort, never fatal
+            node.get_logger().warn(
+                f'Could not set nice {nice_val:+d} (need CAP_SYS_NICE/root): {exc}')
+
+
 def main():
     rclpy.init()
 
@@ -442,6 +482,12 @@ def main():
         sys.exit(1)
 
     node = tree.node
+
+    # nice -- see this module's own _apply_nice() docstring/comment. CPU
+    # affinity is set externally now (taskset -c launch prefix), before this
+    # process even starts, so there's no equivalent "apply as early as
+    # possible" concern for it anymore -- only nice still needs a real node.
+    _apply_nice(node)
 
     node.declare_parameter('bt_loop_duration_ms', 100)
     bt_loop_duration_ms = node.get_parameter('bt_loop_duration_ms').value

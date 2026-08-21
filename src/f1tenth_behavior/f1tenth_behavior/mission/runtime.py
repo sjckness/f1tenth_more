@@ -70,6 +70,12 @@ class MissionRuntimeState:
     current_index: int = 0
     move_start_time: float = 0.0
     move_start_xy: Optional[Tuple[float, float]] = None
+    # Lazily captured the same way move_start_xy is (see CheckStopCondition's
+    # own lazy-capture comment) -- only actually consumed by a "turn" step's
+    # orientation_delta stop_condition, but captured unconditionally for
+    # every move for the same reason move_start_xy is: simpler, uniform code,
+    # harmless for move types that never read it.
+    move_start_yaw: Optional[float] = None
     state: MissionState = MissionState.IDLE
     # Set by AdvanceMove/HandleObjectAction's skip_to_move, cleared by
     # PublishMoveGoal once it has actually published for the new move -- guards
@@ -118,8 +124,9 @@ class MissionRuntimeState:
         therefore never publish a goal -- until begin() transitions LOADED ->
         RUNNING (see /mission/start_mission).
 
-        move_start_xy is deliberately left None (not captured here): MissionLoader
-        doesn't track odom (nothing outside CheckStopCondition does -- see its own
+        move_start_xy (and move_start_yaw, for a turn step's orientation_delta)
+        is deliberately left None (not captured here): MissionLoader doesn't
+        track odom (nothing outside CheckStopCondition does -- see its own
         docstring), and odom may not even be available yet at load time. Same
         reasoning as AdvanceMove/HandleObjectAction's skip_to_move -- see
         CheckStopCondition's lazy-capture comment for how it actually gets set.
@@ -128,6 +135,7 @@ class MissionRuntimeState:
         self.current_index = 0
         self.move_start_time = now
         self.move_start_xy = None
+        self.move_start_yaw = None
         self.state = MissionState.LOADED
         self.goal_dirty = False
         self.hold_context = None
@@ -149,13 +157,15 @@ class MissionRuntimeState:
         """Jump to move `index` -- a normal +1 advance (AdvanceMove) or an
         arbitrary skip_to_move target (HandleObjectAction): same transition
         either way. Resets move_start_time and marks goal_dirty so
-        PublishMoveGoal republishes for the new move; move_start_xy resets to
-        None rather than being carried over, for the same lazy-capture reason as
-        start() -- see CheckStopCondition's own docstring for how it gets set.
+        PublishMoveGoal republishes for the new move; move_start_xy/
+        move_start_yaw reset to None rather than being carried over, for the
+        same lazy-capture reason as start() -- see CheckStopCondition's own
+        docstring for how they get set.
         """
         self.current_index = index
         self.move_start_time = now
         self.move_start_xy = None
+        self.move_start_yaw = None
         self.goal_dirty = True
 
     def complete(self) -> None:

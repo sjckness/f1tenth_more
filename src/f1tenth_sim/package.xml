@@ -12,7 +12,8 @@
 
   <buildtool_depend>ament_python</buildtool_depend>
 
-  <!-- Robot model (URDF/meshes + RSP-only description_launch.py) -->
+  <!-- Robot model (URDF/meshes + description.launch.py, which also carries the
+       real-hardware-only static sensor TF; harmless here, gated off by use_sim). -->
   <exec_depend>f1tenth_description</exec_depend>
 
   <!-- Gazebo Fortress + ROS 2 bridge (Humble: ros-humble-ros-ign-*) -->

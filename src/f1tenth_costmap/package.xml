@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_costmap</name>
+  <version>0.0.1</version>
+  <description>Two-layer costmap (occupancy from slam_toolbox + semantic from detected
+  objects) plus a combined PNG-image render for Foxglove. New package -- doesn't fit
+  f1tenth_perception (not raw detection) or f1tenth_navigation (not Nav2/SLAM itself),
+  a cohesive new subsystem built on both.</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>tf2_geometry_msgs</exec_depend>
+  <!-- BoundaryConstraint/BoundaryConstraintArray - costmap_boundary_node.py
+       (dual-EKF + costmap-derived-MPC-boundaries pass), same message types
+       wall_detector_node.py/lidar_boundary_node.py already used before
+       being retired in favor of this node. -->
+  <exec_depend>f1tenth_messages</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml) - same dependency-free-leaf-package precedent every other
+       f1tenth_* package already follows. -->
+  <exec_depend>f1tenth_params</exec_depend>
+  <!-- semantic_layer.py's update_tracks_batch() - scipy.optimize.linear_sum_assignment
+       (Hungarian solve) for whole-frame detection<->track association (real per-frame
+       tracking pass). Already a real dependency elsewhere in this workspace (e.g.
+       mpc_controller's mpc_solver.py), not a new one to the project as a whole. -->
+  <exec_depend>python3-scipy</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

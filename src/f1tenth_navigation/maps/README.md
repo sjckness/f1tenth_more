@@ -5,23 +5,35 @@ Resolution:  0.01 m/px
 Real extent: 4.0×4.0 m
 Origin:      (0.0, 0.0) = bottom-left corner of image
 
-# Car starting pose (map frame)
-x=2.9639 m, y=2.1302 m, yaw=1.8132 rad (CCW from +X axis)
-
-The static `map → odom` transform encodes this starting pose, so when `/odom`
-reads (0,0,0) at startup `base_link` appears at the pose above in the map frame.
-(quaternion for yaw=1.8132: qz=0.787412, qw=0.616427)
-
 # TF chain
-    map → odom        static_transform_publisher (map_to_odom_tf, this package)
-    odom → base_link  vesc_to_odom_node (f1tenth_bringup, publish_tf:=true)
-    base_link → laser static_transform_publisher (f1tenth_bringup bringup)
+`localization_source` (f1tenth_params/config/stack_params.yaml) selects which of two
+mutually-exclusive nodes owns `map → odom`. Default is `raw_odom`, not `ekf` -- keep
+that in mind, this used to be the other way around.
 
-`odom_to_tf_node` (node `odom_tf_broadcaster`) can also publish `odom → base_link`
-from `/odom`, but it is **disabled by default** in `map_server_launch.py`
-(`publish_odom_tf:=false`) because `vesc_to_odom_node` already owns that
-transform. Enable it only if vesc_to_odom's TF is turned off, otherwise two
-publishers will fight over `odom → base_link`.
+    map → odom        raw_odom (DEFAULT): raw_odom_map_tf_node
+                       (f1tenth_localization) mirrors /odom onto map -> odom
+                       verbatim, unfiltered -- no IMU fusion, no correction.
+                       ekf (opt-in, localization_source:=ekf): robot_localization
+                       EKF (f1tenth_bringup/config/ekf.yaml, world_frame: map)
+                       instead, fusing /odom + VESC IMU. Either way, if the owning
+                       node isn't running, map is disconnected from odom/base_link
+                       entirely.
+    odom → base_link  static_transform_publisher (odom_to_base_link_tf,
+                       f1tenth_navigation/launch/nav2.launch.py) -- a FIXED
+                       identity transform (odom and base_link coincide at
+                       startup); the map -> odom output above is what actually
+                       carries the car's real-world pose, not this.
+    base_link → laser static_transform_publisher
+                       (f1tenth_description/launch/description.launch.py)
+    base_link → zed2_camera_link static_transform_publisher
+                       (f1tenth_perception/launch/camera.launch.py)
+    base_link → imu   static_transform_publisher, identity
+                       (f1tenth_hardware/launch/vesc.launch.py)
+
+There is no static `map → odom` transform encoding a fixed car starting pose
+anymore (the old map_server_launch_old.py / odom_to_tf_node pair that did this
+is gone) -- map → odom is entirely owned by whichever node localization_source
+selects, dynamic from the first measurement either way.
 
 # Foxglove / VSCode setup
 1. Connect to ws://localhost:8765 (or SSH tunnel: ssh -L 8765:localhost:8765 user@<jetson-ip>)

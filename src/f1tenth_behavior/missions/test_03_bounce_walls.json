@@ -1,0 +1,41 @@
+{
+  "mission_id": "test_03_bounce_walls",
+  "schema_version": "2.0",
+  "moves": [
+    {
+      "id": "approach_wall_1",
+      "goal_pose": { "x": 7.0, "y": 0.0, "yaw": 0.0 },
+      "stop_condition": { "type": "front_clearance", "distance": 1.0 },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "turn_180_a",
+      "turn": { "heading_delta_deg": 175, "speed": 0.5, "steering": "full_lock" },
+      "stop_condition": { "type": "orientation_delta", "value": 175 },
+      "timeout_sec": 45,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "approach_wall_2",
+      "goal_pose": { "x": -7.0, "y": 0.0, "yaw": 1.57 },
+      "stop_condition": { "type": "front_clearance", "distance": 1.0 },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "turn_180_b",
+      "turn": { "heading_delta_deg": 175, "speed": 0.5, "steering": "full_lock" },
+      "stop_condition": { "type": "orientation_delta", "value": 175 },
+      "timeout_sec": 45,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "final_leg",
+      "goal_pose": { "x": 0.0, "y": 0.0, "yaw": 0.0 },
+      "stop_condition": { "type": "goal_reached" },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    }
+  ]
+}

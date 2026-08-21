@@ -119,6 +119,19 @@ calibration_duration_sec:
 min_battery_voltage:
   default: 10.8
   description: "Startup-only minimum VESC input_voltage (volts); below this the drive stack does not launch at all."
+# Consumed by: f1tenth_hardware/vesc.launch.py (battery_voltage_check_node's
+# precheck). Ceiling for the "wait for the first telemetry sample" phase,
+# separate from sample_window_sec's (2.0s) averaging-window duration once
+# telemetry is flowing -- see battery_voltage_check_node.py's own module
+# docstring ("startup-race fix") for why these two had to be split apart:
+# the VESC serial handshake can take longer than the old single fixed 2.0s
+# window, and that used to fail-close the whole drive stack on a timing
+# artifact, not a real missing-VESC condition. 10.0s default is real margin
+# over the ~2.9s already observed (live, this hardware) as insufficient --
+# not a round-number guess.
+max_wait_for_first_sample_sec:
+  default: 10.0
+  description: "Startup-only ceiling (seconds) on how long battery_voltage_check_node waits for the FIRST /sensors/core telemetry sample before fail-closing; averaging (sample_window_sec) only starts once that first sample lands."
 # Consumed by: f1tenth_hardware/vesc.launch.py.
 release_downstream:
   default: true

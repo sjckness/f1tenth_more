@@ -49,8 +49,8 @@ from vision_msgs.msg import Detection3DArray
 from f1tenth_messages.msg import Obstacle2D, Obstacle2DArray
 
 from f1tenth_perception.cpu_affinity import (
-    apply_cpu_affinity_and_priority,
-    declare_cpu_affinity_params,
+    apply_nice,
+    declare_nice_param,
 )
 
 
@@ -58,12 +58,14 @@ class ObstacleProjectorNode(Node):
     def __init__(self):
         super().__init__('obstacle_projector_node')
 
-        # cpu_affinity/nice: see cpu_affinity.py. The perception-latency audit
-        # measured this node at ~56-59% CPU with no pinning -- shares
-        # detection_3d_node's "perception" core pair rather than getting its
-        # own dedicated one, set via detection.launch.py's
-        # obstacle_projector_cpu_affinity arg.
-        declare_cpu_affinity_params(self)
+        # nice: see cpu_affinity.py. The perception-latency audit measured
+        # this node at ~56-59% CPU with no pinning. CPU AFFINITY is now a
+        # `taskset -c` launch prefix, not an in-process self-pin -- see
+        # detection.launch.py's own obstacle_projector_cpu_affinity comment
+        # (thread-pinning-leak fix, Step 6 reintroduction investigation: the
+        # old self-pin left 21 of this node's 22 threads fully unpinned,
+        # confirmed live executing on reserved cores).
+        declare_nice_param(self)
 
         self.detections_3d_topic = str(
             self.declare_parameter('detections_3d_topic', '/camera/detections_3d').value)
@@ -107,7 +109,7 @@ class ObstacleProjectorNode(Node):
         self.det_sub = self.create_subscription(
             Detection3DArray, self.detections_3d_topic, self._detections_callback, 10)
 
-        apply_cpu_affinity_and_priority(self)
+        apply_nice(self)
 
         self.get_logger().info(
             f'obstacle_projector_node up: "{self.detections_3d_topic}" -> '

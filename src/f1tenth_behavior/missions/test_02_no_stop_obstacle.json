@@ -1,0 +1,13 @@
+{
+  "mission_id": "test_02_no_stop_obstacle",
+  "schema_version": "2.0",
+  "moves": [
+    {
+      "id": "straight_run_mpc_avoidance",
+      "goal_pose": { "x": 5, "y": 0.0, "yaw": 0.0 },
+      "stop_condition": { "type": "front_clearance", "distance": 1.0 },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    }
+  ]
+}

@@ -10,7 +10,7 @@
     },
     {
       "id": "turn_left_90deg",
-      "goal_pose": { "x": 5.0, "y": 0.0, "yaw": 0.0 },
+      "goal_pose": { "x": 0.5, "y": 0.5, "yaw": 0.0 },
       "stop_condition": { "type": "goal_reached" },
       "timeout_sec": 30,
       "on_timeout": "abort"

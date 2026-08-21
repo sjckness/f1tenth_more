@@ -1,0 +1,218 @@
+# slam_toolbox (async, mapping mode) params for this stack's first SLAM
+# integration -- see f1tenth_navigation/launch/slam.launch.py's own module
+# docstring for the full design (pose-output-only, no TF/localization wiring
+# this pass).
+#
+# Base file: /opt/ros/humble/share/slam_toolbox/config/mapper_params_online_
+# async.yaml (the package's own reference "mapping" config) -- kept as-is for
+# every value NOT called out below, since these (resolution, loop-closure
+# search windows, Ceres solver settings, etc.) are the SAME kind of "reasoned
+# starting point, not tuned against this rig's real lidar noise" this
+# codebase's own gate/threshold parameters already flag deliberately
+# elsewhere (see wall_detector_node.py/lidar_boundary_node.py's own module
+# docstrings) -- live validation is pending the physical lidar remount.
+#
+# Overridden from the vendor default, deliberately, for THIS integration:
+#   base_frame: base_footprint -> base_link (this stack has no base_footprint
+#     frame anywhere -- base_link is the one true robot-body frame, see
+#     f1tenth_description's own URDF/static-TF layout).
+#   transform_publish_period: 0.02 -> 0.0 (the vendor default's own comment:
+#     "if 0 never publishes odometry" -- i.e. slam_toolbox will NEVER
+#     broadcast map->odom (or anything on /tf at all). Load-bearing for this
+#     pass's own scope boundary: map->odom is ALREADY owned by the EKF or
+#     raw_odom mirror, per localization_source (see f1tenth_localization/
+#     launch/localization.launch.py) -- letting slam_toolbox ALSO claim that
+#     same TF edge would be a direct, silent authority collision, not a
+#     hypothetical one. This is the actual mechanism enforcing "do not wire
+#     into localization_source/EKF" -- not just a documentation promise.
+#   minimum_travel_distance: 0.5 -> 0.03, minimum_travel_heading: 0.5 -> 0.035
+#     (stationary-drift-correction pass -- see minimum_travel_distance's own
+#     inline comment below for the full reasoning and, critically, its own
+#     UNVALIDATED status).
+#   scan_queue_size: (unset, so vendor default) -> 10 -- confirmed live, not
+#     assumed, THE reason /scan was reaching this node (DDS-matched,
+#     receiving at ~40Hz -- neither a urg_node/lidar problem, nor a frame-
+#     naming mismatch: laser->base_link static and base_link->odom live were
+#     both confirmed present/healthy throughout) yet 100% of scans were
+#     still being dropped -- 379/379 log lines from process start,
+#     zero successful-processing lines ever, first drop at +0.5s, never
+#     recovered even minutes later with `odom` demonstrably live: `ros2
+#     param get /slam_toolbox scan_queue_size` against the live node
+#     returned 1 -- this key was never set here at all, silently running at
+#     the vendor's own rock-bottom default the whole time. See scan_queue_
+#     size's own inline comment below (next to tf_buffer_duration, easy to
+#     conflate with it -- they are NOT the same mechanism) for why 1 against
+#     a 40Hz stream has zero slack and why 10 is a reasoned, not arbitrary,
+#     replacement.
+slam_toolbox:
+  ros__parameters:
+    # Plugin params
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    # ROS Parameters
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link          # overridden -- see header comment
+    scan_topic: /scan
+    use_map_saver: true
+    mode: mapping
+
+    debug_logging: false
+    throttle_scans: 1
+    transform_publish_period: 0.0  # overridden -- see header comment
+    map_update_interval: 5.0
+    resolution: 0.05
+    min_laser_range: 0.0
+    max_laser_range: 20.0
+    minimum_time_interval: 0.5
+    transform_timeout: 0.2
+    tf_buffer_duration: 30.0
+    # scan_queue_size -- NOT the same knob as tf_buffer_duration just above
+    # it (easy to conflate; this workspace's own first pass at diagnosing
+    # the 100%-scan-drop bug did, briefly, before checking `ros2 param list
+    # /slam_toolbox` against the live node and finding this key exists and
+    # is exposed independently). tf_buffer_duration sizes the tf2 Buffer's
+    # own CACHE -- how far back in time transform samples are kept for
+    # interpolation. scan_queue_size sizes the tf2_ros::MessageFilter's own
+    # separate, small PENDING-message queue -- how many not-yet-
+    # dispatchable LaserScan messages it holds while waiting for the
+    # transform at that scan's own exact timestamp to become available;
+    # once that queue is full, every further incoming scan is dropped
+    # outright ("discarding message because the queue is full" -- the
+    # literal, confirmed log line from every one of the 379/379 drops this
+    # was overridden to fix), not merely delayed.
+    #
+    # This key was UNSET here before this fix -- confirmed live via `ros2
+    # param get /slam_toolbox scan_queue_size` against the actually-running
+    # node: it reported 1, slam_toolbox's own vendor default, never
+    # overridden. Against a ~40Hz scan stream (~25ms/scan) a queue depth of
+    # 1 has ZERO slack -- any single scan that can't be dispatched the
+    # instant it arrives (the local EKF's own base_link->odom TF sample for
+    # that exact timestamp not published yet, a scheduling hiccup, etc.)
+    # gets evicted by the very next scan 25ms later, forever, with no
+    # opportunity to ever catch up. This alone is sufficient to explain
+    # BOTH the drop pattern actually observed: the very first drop at +0.5s
+    # (this node's own startup race against the local EKF's own TF
+    # broadcaster spinning up) AND why it never once recovered afterward,
+    # even minutes later with `odom` demonstrably live and healthy by then
+    # (tf2_ros::MessageFilter with a 1-deep queue has no mechanism to ever
+    # "resync" once behind -- there is no slack to absorb even the
+    # smallest recurring scheduling jitter, and this workspace's own
+    # concurrent robot_state_publisher was independently observed logging
+    # "Failed to meet update rate! Took 0.309s" in the same window, real
+    # evidence this box runs under genuine scheduling pressure with YOLO/
+    # TensorRT + Ceres/SLAM + everything else concurrent).
+    #
+    # 10 (this file's own previous value) WAS live-verified to still not be
+    # enough -- exactly the follow-up this comment's own prior version
+    # anticipated ("if scans are STILL saturating this deeper queue... that
+    # is itself a meaningful signal"). Root cause pinned down precisely
+    # this time, not just "startup/transient scheduling jitter": fetched
+    # slam_toolbox 2.6.10's own source (version-matched against the
+    # installed ros-humble-slam-toolbox package) -- SlamToolbox::configure()
+    # calls setROSInterfaces() (which constructs scan_filter_sub_/
+    # scan_filter_ and makes the scan subscription live) BEFORE it finishes
+    # setSolver() (loads the Ceres solver plugin via pluginlib) and
+    # constructs laser_assistant_/pose_helper_/scan_holder_/map_saver_/
+    # closure_assistant_ (this workspace's own use_map_saver: true adds one
+    # more) -- and the node's executor does not spin (does not service ANY
+    # callback, including the message filter's own) until configure()
+    # fully returns. Real log timestamps from an actual failed run: 1.544s
+    # between the "Using solver plugin solver_plugins::CeresSolver" line
+    # and the first "queue is full" drop -- a 10-deep queue only buffers
+    # 250ms at this stack's 40Hz scan rate (10 x ~25ms), nowhere near
+    # enough to bridge that gap. This is a genuine ordering issue inside
+    # slam_toolbox's own configure() (subscription goes live before the
+    # executor can service it), not a config mistake on this workspace's
+    # side -- flagging for a possible upstream report, not something to fix
+    # by patching vendored source here.
+    #
+    # 100: covers ~2.5s at 40Hz (100 x ~25ms), comfortably above the
+    # measured 1.544s gap with real margin, not just barely enough --
+    # REASONED, not yet independently re-measured against a SECOND failed
+    # run's own exact gap (only one real data point exists so far; if
+    # configure()'s own setup time varies run-to-run, e.g. under heavier
+    # concurrent load, this margin could still be tight -- re-check via
+    # this same log-timestamp method if drops ever reappear rather than
+    # assuming 100 is permanently enough).
+    scan_queue_size: 100
+    stack_size_to_use: 40000000
+    enable_interactive_mode: true
+
+    # General Parameters
+    use_scan_matching: true
+    use_scan_barycenter: true
+    # Lowered from the vendor default (0.5m / 0.5rad~=28.6deg) -- stationary-
+    # drift-correction pass. Root cause established via a live investigation
+    # (not assumed): this gate is evaluated against the LOCAL EKF's own
+    # odometry estimate, not ground truth, so a physically stationary robot
+    # still eventually crosses it as the local EKF's own dead-reckoning
+    # estimate drifts (real, separately-flagged EKF-at-standstill drift) --
+    # at the OLD 0.5m/0.5rad thresholds this took long enough that /slam/
+    # pose looked like it only ever fired once, at bootstrap, and never
+    # again (confirmed live: robot's own EKF-integrated pose was still
+    # exactly (0,0,0) after several minutes stationary). Lowering these
+    # makes that same drift-driven correction happen far sooner instead of
+    # only after a large accumulated (drifted, not real) displacement.
+    #
+    # 0.03m (3cm) / 0.035rad (~2.0deg): REASONED STARTING POINT, deliberately
+    # NOT validated against a real live multi-minute stationary drift
+    # measurement -- that measurement is exactly what this pass's own Part A
+    # steps 2-4 were supposed to confirm, and they're blocked: the lidar's
+    # own embedded TCP server wedged mid-investigation (see this pass's own
+    # report -- ping succeeds, but the device stops completing TCP
+    # handshakes with ANY client, most likely from an earlier raw-socket
+    # probe against it; needs a physical power cycle this agent cannot
+    # perform), so /scan has been unavailable for the live verification this
+    # change actually needs. Chosen instead from reasoning alone: comfortably
+    # above pure EKF numerical/sensor-noise-level jitter (so this doesn't
+    # start scan-matching on pure noise), comfortably below the old
+    # 0.5m/0.5rad thresholds (over an order of magnitude tighter, so real
+    # drift crosses this far sooner) -- and bounded regardless by
+    # minimum_time_interval (0.5s, below/unchanged) already capping actual
+    # scan-processing frequency at 2Hz no matter how low these two are set,
+    # which is what keeps this from being able to cause runaway pose-graph
+    # growth even before live confirmation. MUST be live-verified (real
+    # multi-minute stationary graph-growth check, real /slam/pose update
+    # frequency, real before/after local-EKF-drift comparison) once /scan
+    # is restored -- not yet done, flagged here explicitly rather than
+    # silently treated as tuned.
+    minimum_travel_distance: 0.03
+    minimum_travel_heading: 0.035
+    scan_buffer_size: 10
+    scan_buffer_maximum_scan_distance: 10.0
+    link_match_minimum_response_fine: 0.1
+    link_scan_maximum_distance: 1.5
+    loop_search_maximum_distance: 3.0
+    do_loop_closing: true
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_coarse: 3.0
+    loop_match_minimum_response_coarse: 0.35
+    loop_match_minimum_response_fine: 0.45
+
+    # Correlation Parameters - Correlation Parameters
+    correlation_search_space_dimension: 0.5
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.1
+
+    # Correlation Parameters - Loop Closure Parameters
+    loop_search_space_dimension: 8.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # Scan Matcher Parameters
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true
+    min_pass_through: 2
+    occupancy_threshold: 0.1

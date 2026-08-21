@@ -1,8 +1,8 @@
 """component_supervisor_node: spawns and independently restarts named "components"
 (functional groups of the F1TENTH stack -- hardware, localization, perception,
-control, navigation, behavior, diagnostics, intelligence, dev_tools, startup_sequence,
-plus the on-demand-only calibrate_hardware) as separate `ros2 launch` subprocesses,
-each in
+control, navigation, behavior, diagnostics, intelligence, dev_tools, plus the
+on-demand-only calibrate_hardware/startup_sequence) as separate `ros2 launch`
+subprocesses, each in
 its own process group (subprocess.Popen(..., start_new_session=True)), and exposes
 two services:
   - f1tenth_messages/srv/RestartComponent: kill-and-relaunch one component.
@@ -18,6 +18,21 @@ subprocess has its own restart budget (max_auto_restarts within a trailing
 restart_budget_window_sec): once exhausted, the watchdog stops trying and leaves
 it down, logging clearly, until a manual START/RESTART (via either service)
 resets it by replacing the process with a fresh one.
+
+~/run_calibration (std_srvs/srv/Trigger): a purpose-named, fire-and-forget wrapper
+around what a raw ComponentControl(component_name='calibrate_hardware', action=
+RESTART) call already does today -- returns as soon as the two components are
+(re)started, not once calibration actually finishes (that takes ~60-130s; watch
+/calibration/in_progress, published by f1tenth_diagnostics' diagnostics_server_node,
+or this component's own log for that). Also stops 'hardware' FIRST, which
+ComponentControl on 'calibrate_hardware' alone does NOT do: both components' launch
+trees open the same VESC serial port, and the vendored driver doesn't open it
+exclusively -- running them concurrently risks two processes actually contending
+for the same UART, not just a clean failure. Deliberately does NOT auto-restart
+'hardware' once calibration finishes (same "not auto-sequenced" scope boundary
+calibrate_hardware's own localization/navigation follow-up already has, see below)
+-- watch /calibration/in_progress go back to false, then START/RESTART 'hardware'
+yourself to resume driving with the fresh values.
 
 This is the parallel bringup path alongside stack_bringup.launch.py (which stays
 untouched as a working fallback -- single process, no per-component restart). See
@@ -39,11 +54,34 @@ that stack_bringup.launch.py itself uses:
   dev_tools     always auto-starts; foxglove_bridge.launch.py's own enable_foxglove
                 param (default true) decides whether the Node inside it actually
                 launches -- component_supervisor_node itself doesn't gate this one
-  everything else (hardware, localization, perception, diagnostics, startup_sequence)
+  slam          always auto-starts; f1tenth_navigation/slam.launch.py's own
+                enable_slam param (default TRUE -- corrected here, this
+                comment previously said FALSE, stale since whenever the
+                stack_params.yaml default was actually flipped) decides
+                whether the actual async_slam_toolbox_node Node inside it
+                actually launches -- component_supervisor_node itself
+                doesn't gate this one, same pattern as dev_tools/
+                enable_foxglove above (not navigation/enable_nav2, which
+                IS one of the 5 stack-wide branching values)
+  everything else (hardware, localization, perception, diagnostics)
                 always auto-starts
-  calibrate_hardware
-                NEVER auto-starts -- registered (a valid, restartable component_name)
-                but only ever brought up on an explicit RestartComponent request.
+  calibrate_hardware, startup_sequence
+                NEVER auto-start -- registered (valid, restartable
+                component_names) but only ever brought up on an explicit
+                RestartComponent/ComponentControl request. startup_sequence
+                moved here from always-auto-start on request: it's a
+                steering-sweep visual "the stack is alive" check
+                (f1tenth_bringup/stack_startup_sequence.py), not a
+                functional dependency of anything else in the stack (no
+                other node reads its output or waits on it) -- confirmed
+                via a full grep before this change. Still available via
+                `ros2 service call /restart_component
+                f1tenth_messages/srv/RestartComponent
+                "{component_name: 'startup_sequence'}"` if wanted on
+                demand. stack_bringup.launch.py's own separate, single-
+                process bringup path still includes it unconditionally --
+                that file is untouched, this change is scoped to the
+                supervisor's own auto-start behavior only.
 
 calibrate_hardware runs vesc.launch.py with calibration:=true release_downstream:=
 false: it cycles the VESC driver through a fresh calibration measurement exactly
@@ -59,6 +97,49 @@ yourself to pick up the freshly-calibrated values. That's a deliberate scope
 boundary -- RestartComponent's request is just a component_name, with no field for
 "and then also restart these other components once this one settles", so automatic
 cross-component sequencing would need a different service contract entirely.
+
+'localization' deferred-start (automatic first-boot path -- calibration-restart
+gap fix, following a live CPU-contention/EKF-audit investigation, see that pass's
+own report): the paragraph above documents the MANUAL recalibration path's own
+"restart localization yourself afterward" requirement -- the automatic first-boot
+path had no equivalent at all. Confirmed live: 'hardware' and 'localization' are
+both in _ALWAYS_AUTO_START, started from the same unordered `for name in
+auto_start` loop below with no sequencing between them (observed ~2ms apart) --
+ekf_filter_node/ekf_global_filter_node began integrating /odom + /sensors/imu/raw
+from driver group v1 (running on WHATEVER gyro_bias_z was already in vesc.yaml
+from the PREVIOUS calibration, not this boot's fresh one -- see f1tenth_hardware/
+vesc.launch.py's own module docstring for the v1/v2 split) through the v1->v2
+restart, with NO state reset once v2's freshly-calibrated stream came online
+~60-130s later. Any bias integrated during that window stayed permanently baked
+into the filter's running estimate -- the live-measured ~60deg static local-EKF
+yaw offset at rest, from the investigation this fix follows up on, is consistent
+with exactly this.
+
+Fixed by deferring 'localization's own auto-start (see _defer_localization_start())
+until /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_node, pure
+ROS-graph introspection, unaffected by which of the three ways calibration actually
+got triggered -- see that node's own docstring) shows a genuine True->False
+transition, not merely "reads False" (a real race: this subscription attaches at
+__init__ time, essentially instantly, while the calibration nodes themselves don't
+appear in the graph until several seconds into 'hardware's own battery-check +
+driver-bringup sequence -- trusting the seeded-False initial value would silently
+skip the wait it exists for). Bounded by localization_calibration_wait_timeout_sec
+regardless (fail-open -- same "never block startup indefinitely" discipline vesc.
+launch.py's own calibration-failure handling already uses) so a genuinely stuck
+calibration, or the (structurally unlikely given the timing margin above, but not
+impossible) case of missing the True phase entirely, can't hang 'localization' from
+ever starting. Only 'localization' is deferred -- 'navigation' auto-starts
+immediately as before, unchanged; out of this fix's own explicit scope. A manual
+RestartComponent/ComponentControl request naming 'localization' while the wait is
+still pending cancels it and honors the manual request immediately (see
+_resolve_localization_deferral()'s own docstring) -- a human saying "start it now"
+always wins over the automatic wait.
+
+Scope note (flagged, not silently expanded): this fix does not touch or fold into
+any other outstanding calibration-path work -- searched this repository's git
+history, docs, and code comments for a "startup calibration audit" / prior
+blocker list to fold into and found none; if one exists outside this repo, this
+fix should be reconciled against it separately rather than assumed compatible.
 
 Process model: each component's command(s) are spawned via subprocess.Popen with
 start_new_session=True, which puts each ros2 launch invocation (and everything it in
@@ -164,12 +245,27 @@ from f1tenth_params.param_defaults import get_value
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
+from std_msgs.msg import Bool
+from std_srvs.srv import Trigger
+
+# OS-level process-teardown buffer between "'hardware' confirmed stopped" and
+# "start 'calibrate_hardware'" in ~/run_calibration (see that handler and the
+# module docstring's own paragraph) -- same reasoning and same value as
+# f1tenth_hardware/vesc.launch.py's _TEARDOWN_BUFFER_SEC: the OS/kernel needs a
+# moment after a process exits before the serial port it held is actually free
+# for a different process to reopen, a gap "the process is confirmed gone" alone
+# doesn't cover.
+_HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 
 # Components that auto-start unconditionally.
 _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
-                       'control', 'diagnostics', 'dev_tools', 'startup_sequence'}
+                      'control', 'diagnostics', 'dev_tools', 'slam'}
 # Registered (restartable by name) but never auto-started -- on-demand only.
-_NEVER_AUTO_START = {'calibrate_hardware'}
+# startup_sequence (the steering-sweep visual check) moved here on request --
+# see module docstring's own "calibrate_hardware, startup_sequence" paragraph
+# for why this is safe (no other node depends on it).
+_NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence'}
 # Gated on one of the 6 stack-wide branching values (see module docstring).
 _CONDITIONAL_AUTO_START = {
     'behavior': 'use_behavior_tree',
@@ -246,6 +342,27 @@ class ComponentSupervisorNode(Node):
             self.declare_parameter('max_auto_restarts', 3).value)
         self.restart_budget_window_sec = float(
             self.declare_parameter('restart_budget_window_sec', 60.0).value)
+        # calibration-single-source-of-truth pass: f1tenth_params/config/
+        # stack_params.yaml's own `calibration` key is now the ONLY declaration
+        # of this value -- components.yaml's `hardware` entry no longer hardcodes
+        # a 'true'/'false' literal (see that file's own `hardware` entry comment).
+        # Wired from supervisor_bringup.launch.py's own `calibration` launch
+        # argument (default sourced from that same stack_params.yaml key via
+        # get_default(), same pattern as components_config/log_dir/etc. above);
+        # the True default here is only a fallback for a bare `ros2 run`/test
+        # invocation that skips the launch file entirely. Consumed below, right
+        # after the registry loads: injected into 'hardware's own args dict so
+        # both the real `ros2 launch ... calibration:=<value>` invocation
+        # (_start_component, via that same dict) and _hardware_will_calibrate()
+        # read the identical live value -- one source, not a second read path.
+        self.calibration = bool(self.declare_parameter('calibration', True).value)
+        # 'localization' deferred-start (calibration-restart gap fix) -- see module
+        # docstring's own paragraph and _defer_localization_start()'s docstring.
+        # Generous margin above the documented ~60-130s calibration-cycle figure
+        # (f1tenth_hardware/vesc.launch.py's own module docstring, diagnostics_
+        # server_node.py's own docstring) -- fail-open backstop, not a tight bound.
+        self.localization_calibration_wait_timeout_sec = float(
+            self.declare_parameter('localization_calibration_wait_timeout_sec', 180.0).value)
 
         # {component_name: [pid, ...]} mirror of every live process group this node
         # has spawned -- see module docstring's "Startup safety sweep" paragraph.
@@ -266,6 +383,59 @@ class ComponentSupervisorNode(Node):
             name: [dict(entry, args=entry.get('args', {})) for entry in entries]
             for name, entries in registry_raw.items()
         }
+
+        # calibration-single-source-of-truth pass (see self.calibration's own
+        # declare_parameter comment above) -- pulled out to its own method
+        # (defined alongside _hardware_will_calibrate() further down) purely so
+        # it's unit-testable the same duck-typed way as the rest of this file's
+        # calibration/deferred-start logic, with no rclpy context needed. Must
+        # run before anything reads or launches from self._registry.
+        self._apply_calibration_override()
+
+        # Some individual launch files within a multi-launch component legitimately
+        # do nothing at all when their own feature flag is off -- an empty (or
+        # IfCondition-gated-to-nothing) LaunchDescription, so `ros2 launch` has
+        # nothing left to track and exits cleanly (code 0) almost immediately.
+        # The watchdog (_on_watchdog_tick below) can't distinguish that from a real
+        # crash -- it treats ANY exit as needing a respawn, burns through the whole
+        # restart budget in seconds, then gets stuck re-logging "crashed ... NOT
+        # auto-respawning" every tick forever. A real, observed failure mode (this
+        # is what a "perception crashes" report turned out to be: lidar.launch.py's
+        # urg_node is IfCondition-gated on use_lidar, default false). NOT fixed by
+        # changing the watchdog to ignore exit-code-0 in general -- vesc.launch.py's
+        # own crash handler tears down its whole launch tree via Shutdown() when
+        # vesc_driver_node dies for real, and that also exits 0 (a "clean launch-
+        # tool shutdown" from ros2 launch's own perspective), so that would silently
+        # disable the hardware crash-recovery safety net instead. Filtered out of
+        # the registry entirely here instead -- the same idea _CONDITIONAL_AUTO_START
+        # below already applies to a whole component (behavior/intelligence), just
+        # applied to one entry inside a multi-launch component instead. Extend this
+        # dict if another launch file within a multi-launch component ever grows the
+        # same shape (system_observer.launch.py/enable_sys_obs is the next-most-
+        # likely candidate -- see f1tenth_diagnostics/README.md -- currently dormant
+        # only because enable_sys_obs defaults true).
+        #
+        # slam.launch.py/costmap.launch.py/enable_slam added by the first SLAM
+        # integration pass -- 'slam' has TWO entries (slam.launch.py itself,
+        # plus the two-layer-costmap bringup, both gated on the same enable_
+        # slam flag -- see costmap.launch.py's own module docstring for why
+        # they share the flag rather than each having their own), so with
+        # enable_slam false (the default) BOTH get filtered out, emptying
+        # self._registry['slam'] entirely -- confirmed this is handled
+        # cleanly: _start_component's own for loop over an empty list just
+        # tracks zero processes for that component, no crash, nothing for the
+        # watchdog to (mis)respawn.
+        _SKIP_LAUNCH_FILE_IF_DISABLED = {
+            'lidar.launch.py': 'use_lidar',
+            'slam.launch.py': 'enable_slam',
+            'costmap.launch.py': 'enable_slam',
+        }
+        for entries in self._registry.values():
+            entries[:] = [
+                entry for entry in entries
+                if not (entry['launch_file'] in _SKIP_LAUNCH_FILE_IF_DISABLED
+                        and not get_value(_SKIP_LAUNCH_FILE_IF_DISABLED[entry['launch_file']]))
+            ]
 
         self._processes = {}  # {component_name: [_ComponentProcess, ...]}
 
@@ -288,13 +458,42 @@ class ComponentSupervisorNode(Node):
             f'[component_supervisor] Registry: {sorted(self._registry)}. '
             f'Auto-starting: {sorted(auto_start)}. Log dir: {self.log_dir}'
         )
+
+        # 'localization' deferred-start (calibration-restart gap fix) -- see module
+        # docstring's own paragraph. Only applies when BOTH 'hardware' and
+        # 'localization' are actually auto-starting together AND 'hardware' is
+        # actually about to run a real calibration cycle (calibration:=true in its
+        # own registered launch args) -- every other case (calibration:=false, or a
+        # customized registry/auto_start that doesn't include one or the other)
+        # falls through to the exact same immediate-start behavior as before this
+        # fix, unchanged.
+        defer_localization = (
+            'localization' in auto_start
+            and 'hardware' in auto_start
+            and self._hardware_will_calibrate()
+        )
+        # Default True ("nothing pending, safe no-op") -- only set False, briefly,
+        # inside _defer_localization_start() itself. Every guard in this file that
+        # checks this flag (the two calibration-status callbacks, and the manual-
+        # override check in _on_restart_component/_on_control_component) is then
+        # always safe to evaluate unconditionally, deferral or not.
+        self._localization_deferred_started = True
+        self._localization_calib_sub = None
+        self._localization_calib_timeout_timer = None
+
         for name in auto_start:
+            if name == 'localization' and defer_localization:
+                continue  # started later -- see _defer_localization_start() below
             self._start_component(name)
+        if defer_localization:
+            self._defer_localization_start()
 
         self._restart_srv = self.create_service(
             RestartComponent, 'restart_component', self._on_restart_component)
         self._control_srv = self.create_service(
             ComponentControl, '~/control_component', self._on_control_component)
+        self._run_calibration_srv = self.create_service(
+            Trigger, '~/run_calibration', self._on_run_calibration)
 
         self._watchdog_timer = self.create_timer(
             self.watchdog_period_sec, self._on_watchdog_tick)
@@ -586,6 +785,136 @@ class ComponentSupervisorNode(Node):
         self._processes[name] = procs
         self._write_pgid_file()
 
+    # -- 'localization' deferred-start (calibration-restart gap fix) --------------
+    # See module docstring's own matching paragraph for the bug this closes and
+    # the full reasoning. Four pieces: a static check of 'hardware's own launch
+    # args (does this even apply this run), the deferred-start setup itself (one
+    # subscription + one timeout timer), the two callbacks that can each trigger
+    # the actual start, and one idempotent resolver both of them (and any manual
+    # service request naming 'localization') funnel through so it only ever
+    # actually happens once.
+
+    def _apply_calibration_override(self):
+        """calibration-single-source-of-truth pass: overwrites 'hardware's own
+        registered args with self.calibration (the live declared parameter,
+        wired from supervisor_bringup.launch.py's own `calibration` launch
+        argument, itself defaulting from f1tenth_params/config/stack_params.yaml's
+        `calibration` key) -- components.yaml's `hardware` entry no longer
+        carries a 'calibration' key of its own at all (see that file's own
+        `hardware` entry comment). Called once, from __init__, right after the
+        registry loads and before anything reads or launches from it -- both the
+        real `ros2 launch ... calibration:=<value>` invocation (_start_component,
+        via this same args dict) and _hardware_will_calibrate() (ditto) then see
+        the identical live value; there is no second read path. Deliberately
+        scoped to 'hardware' only, not 'calibrate_hardware' -- that component
+        stays an explicit, always-calibrate action, untouched by this toggle
+        (components.yaml itself still hardcodes 'true' there). Mutates each
+        entry's args dict in place -- safe: every entry in self._registry is
+        built fresh from this process's own yaml.safe_load() of components.yaml
+        (see __init__), not shared with anything else."""
+        for entry in self._registry.get('hardware', []):
+            entry['args']['calibration'] = 'true' if self.calibration else 'false'
+
+    def _hardware_will_calibrate(self):
+        """True if any of 'hardware' component's own registered launch entries
+        passes calibration:=true -- as of the calibration-single-source-of-truth
+        pass, that's the live self.calibration parameter as injected by
+        _apply_calibration_override() above, not a components.yaml literal (see
+        that method's own docstring). Still read directly from the already-
+        parsed registry rather than re-deriving from self.calibration/stack_
+        params.yaml separately, so this can never disagree with what 'hardware'
+        is actually about to be launched with."""
+        return any(
+            str(entry.get('args', {}).get('calibration', '')).strip().lower() == 'true'
+            for entry in self._registry.get('hardware', [])
+        )
+
+    def _defer_localization_start(self):
+        """Called at most once, from __init__, only when defer_localization was
+        True there (see that call site's own comment for the exact conditions).
+        Watches /calibration/in_progress (f1tenth_diagnostics' diagnostics_server_
+        node, TRANSIENT_LOCAL so a late-attaching subscription still gets the
+        current value immediately -- QoS matched exactly to that node's own
+        publisher) for a True->False transition, then starts 'localization'.
+        Bounded by localization_calibration_wait_timeout_sec regardless (fail-open
+        -- see module docstring)."""
+        self._calib_seen_in_progress = False
+        self._localization_deferred_started = False
+        calibration_status_qos = QoSProfile(
+            depth=1,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self._localization_calib_sub = self.create_subscription(
+            Bool, '/calibration/in_progress',
+            self._on_calibration_status_for_localization, calibration_status_qos)
+        self._localization_calib_timeout_timer = self.create_timer(
+            self.localization_calibration_wait_timeout_sec,
+            self._on_localization_calibration_wait_timeout)
+        self.get_logger().info(
+            "[component_supervisor] Deferring 'localization' auto-start until "
+            'startup calibration genuinely completes (watching '
+            '/calibration/in_progress for a True->False transition, timeout '
+            f'{self.localization_calibration_wait_timeout_sec:.0f}s) -- avoids '
+            'ekf_filter_node/ekf_global_filter_node ever integrating pre-'
+            "calibration IMU data. See this method's own docstring / module "
+            "docstring's 'localization deferred-start' paragraph."
+        )
+
+    def _on_calibration_status_for_localization(self, msg):
+        if msg.data:
+            self._calib_seen_in_progress = True
+            return
+        if not self._calib_seen_in_progress:
+            return  # still the seeded/initial False -- not a real completion yet
+        if self._resolve_localization_deferral():
+            self.get_logger().info(
+                "[component_supervisor] 'localization' STARTED -- startup "
+                'calibration completed (/calibration/in_progress True->False '
+                'observed). Deferred specifically so ekf_filter_node/'
+                'ekf_global_filter_node never integrate pre-calibration IMU '
+                "data -- see this file's own module docstring, 'localization "
+                "deferred-start' paragraph, if a static EKF yaw offset like the "
+                'one the investigation behind this fix found ever recurs.'
+            )
+            self._start_component('localization')
+
+    def _on_localization_calibration_wait_timeout(self):
+        if self._resolve_localization_deferral():
+            self.get_logger().warn(
+                "[component_supervisor] 'localization' START TIMED OUT waiting for "
+                f'startup calibration ({self.localization_calibration_wait_timeout_sec:.0f}s) '
+                '-- starting anyway (fail-open, same "never block startup '
+                'indefinitely" discipline vesc.launch.py\'s own calibration-'
+                'failure handling already uses). Either /calibration/in_progress '
+                'was never observed True (diagnostics_server_node slow to start, '
+                'or calibration finished implausibly fast), or the calibration '
+                "cycle itself is taking abnormally long -- check hardware's own "
+                'launch log.'
+            )
+            self._start_component('localization')
+
+    def _resolve_localization_deferral(self):
+        """Idempotent: tears down the deferred-start machinery (subscription +
+        timeout timer) the FIRST time any of its three triggers reaches here (the
+        completion callback, the timeout callback, or a manual RestartComponent/
+        ComponentControl request naming 'localization' arriving mid-wait -- see
+        _on_restart_component/_on_control_component's own matching calls). Returns
+        True the first time (caller should go ahead and act -- start the
+        component, or just log the cancellation), False on every later call
+        (already resolved, caller should no-op) -- callers never need to check
+        self._localization_deferred_started directly, just this return value."""
+        if self._localization_deferred_started:
+            return False
+        self._localization_deferred_started = True
+        if self._localization_calib_sub is not None:
+            self.destroy_subscription(self._localization_calib_sub)
+            self._localization_calib_sub = None
+        if self._localization_calib_timeout_timer is not None:
+            self._localization_calib_timeout_timer.cancel()
+            self._localization_calib_timeout_timer = None
+        return True
+
     def _stop_component(self, name, timeout=None):
         """SIGINT (then SIGKILL if needed) every tracked process for `name`. Returns
         one status string per process, e.g. 'clean SIGINT exit in 1.2s' or 'killed
@@ -798,6 +1127,16 @@ class ComponentSupervisorNode(Node):
             return response
 
         self.get_logger().info(f"[component_supervisor] Restart requested: '{name}'")
+        # 'localization' deferred-start (calibration-restart gap fix): a manual
+        # request always wins over the automatic post-calibration wait -- cancel
+        # it here first so it can't ALSO fire _start_component('localization')
+        # later and double-start what this call is about to (re)start itself. A
+        # no-op (returns False) if no wait is pending, or it already resolved.
+        if name == 'localization' and self._resolve_localization_deferral():
+            self.get_logger().info(
+                "[component_supervisor] Manual restart of 'localization' arrived "
+                'while its post-calibration deferred start was still pending -- '
+                'cancelling the wait, honoring the manual request now.')
         stop_results = self._stop_component(name)
         self._start_component(name)
 
@@ -814,6 +1153,21 @@ class ComponentSupervisorNode(Node):
                 f"Unknown component '{name}'. Valid names: {sorted(self._registry)}")
             self.get_logger().warn(f'[component_supervisor] {response.message}')
             return response
+
+        # 'localization' deferred-start (calibration-restart gap fix): cancel any
+        # pending post-calibration wait before acting on ANY of SHUTDOWN/START/
+        # RESTART for 'localization' -- a manual SHUTDOWN in particular must
+        # actually prevent the later automatic start (there would otherwise be
+        # nothing yet in self._processes['localization'] for SHUTDOWN's own
+        # manually_stopped marking to apply to, and the deferred wait would still
+        # go on to start it once calibration finished, silently overriding the
+        # SHUTDOWN). No-op (returns False) if no wait is pending, or it already
+        # resolved.
+        if name == 'localization' and self._resolve_localization_deferral():
+            self.get_logger().info(
+                "[component_supervisor] Manual request for 'localization' arrived "
+                'while its post-calibration deferred start was still pending -- '
+                'cancelling the wait, honoring the manual request now.')
 
         if request.action == ComponentControl.Request.SHUTDOWN:
             self.get_logger().info(f"[component_supervisor] Shutdown requested: '{name}'")
@@ -855,6 +1209,52 @@ class ComponentSupervisorNode(Node):
             self.get_logger().warn(f'[component_supervisor] {response.message}')
             return response
 
+        self.get_logger().info(f'[component_supervisor] {response.message}')
+        return response
+
+    def _on_run_calibration(self, request, response):
+        """See module docstring's ~/run_calibration paragraph for the full
+        reasoning (why 'hardware' is stopped first, why this doesn't wait for
+        calibration to actually finish, why it doesn't auto-restart 'hardware'
+        afterward)."""
+        if 'calibrate_hardware' not in self._registry:
+            response.success = False
+            response.message = (
+                "'calibrate_hardware' is not registered in components.yaml -- "
+                'cannot run calibration.')
+            self.get_logger().warn(f'[component_supervisor] {response.message}')
+            return response
+
+        already_running = any(
+            proc.popen is not None and proc.popen.poll() is None
+            for proc in self._processes.get('calibrate_hardware', []))
+        if already_running:
+            response.success = False
+            response.message = (
+                "'calibrate_hardware' is already running -- not starting a second "
+                'one on top of it. Watch /calibration/in_progress for it to finish.')
+            self.get_logger().warn(f'[component_supervisor] {response.message}')
+            return response
+
+        self.get_logger().info(
+            "[component_supervisor] Run-calibration requested -- stopping 'hardware' "
+            "first (shares the VESC serial port with 'calibrate_hardware', can't "
+            "safely run both at once), then starting 'calibrate_hardware'.")
+        stop_results = self._shutdown_component('hardware')
+        time.sleep(_HARDWARE_TEARDOWN_BUFFER_SEC)
+        self._start_component('calibrate_hardware')
+
+        response.success = True
+        response.message = (
+            "'hardware' stopped, 'calibrate_hardware' started -- this does NOT wait "
+            'for calibration to finish (typically 60-130s): watch '
+            '/calibration/in_progress (published by '
+            "f1tenth_diagnostics' diagnostics_server_node) go back to false, then "
+            "START or RESTART 'hardware' yourself to resume driving with the fresh "
+            'values (same manual follow-up calibrate_hardware already documented for '
+            'localization/navigation -- this does not auto-sequence that either). '
+            'Stop results: ' + ('; '.join(stop_results) if stop_results
+                                 else "'hardware' was not running"))
         self.get_logger().info(f'[component_supervisor] {response.message}')
         return response
 

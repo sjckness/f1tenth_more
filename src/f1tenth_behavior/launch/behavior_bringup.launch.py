@@ -125,12 +125,74 @@ def generate_launch_description():
     mission_file_name_la = DeclareLaunchArgument(
         'mission_file_name', default_value=str(mission_file_name_default),
         description=mission_file_name_desc)
+    # cpu_affinity/nice -- added by the stack-wide CPU-budget investigation
+    # (found this node at ~45% CPU / 23 threads, unpinned -- lighter than
+    # the perception nodes, but still real). Same "hardcoded default
+    # directly in the launch file, not stack_params.yaml" convention every
+    # other pinned node in this stack already follows (the right core ids
+    # are machine-specific).
+    #
+    # CORRECTED (core-remap pass, following a live CPU-contention
+    # investigation -- see that pass's own report): this comment previously
+    # claimed "combined cost of all three [this node + ekf_node +
+    # foxglove_bridge] is well under one core" -- wrong, and didn't even
+    # account for the SECOND ekf_node instance the later dual-EKF pass
+    # added to the same pair. Live measurement (at rest) found this node at
+    # 24.7% CPU (idle) -- consistent with the documented ~45% under real BT
+    # activity above, not a contradiction, just a different load state --
+    # while the pair as a whole (this node + both EKF instances +
+    # foxglove_bridge) carried ~152% combined demand on a 200% (2-core)
+    # budget, confirmed saturated live (cpu0/cpu1 both 99%+ busy) and
+    # producing ekf_node's own "Failed to meet update rate!" warnings (see
+    # ekf.launch.py's own matching comment). Moved to its own core (4),
+    # off the EKF pair entirely -- ekf.launch.py/ekf_global.launch.py now
+    # reserve cores 0,1 for just the two EKF instances, foxglove_bridge
+    # moved to core 3 (see that file's own matching comment).
+    #
+    # CPU AFFINITY NOW A taskset -c LAUNCH PREFIX, NOT self-pinning (thread-
+    # pinning-leak fix, Step 6 reintroduction investigation): the previous
+    # mechanism -- behavior_executor_node.py's own _apply_cpu_affinity_and_
+    # priority() calling os.sched_setaffinity(0, cores) once, in-process,
+    # from __init__ -- only ever restricted the ONE thread that happened to
+    # be executing that call (confirmed live: 21 of this node's 22 threads
+    # showed full 0-11 affinity, with 2 actually caught executing on cpu1 --
+    # one of the EKF pair's own reserved cores -- under Stage 4 load). Worse,
+    # that call runs AFTER tree.setup() (py_trees_ros' own executor/action-
+    # client machinery), so most of this node's threads already exist,
+    # unpinned, before the call ever fires -- pinning later wouldn't fix that
+    # even if os.sched_setaffinity applied process-wide (it doesn't; pid=0
+    # means the calling thread only). taskset -c sets the affinity mask
+    # BEFORE this node's own code starts running at all, so it applies to
+    # the process's very first thread and everything it (or any library)
+    # spawns afterward inherits it -- confirmed empirically across every
+    # OTHER pinned node in this stack (ekf_node x2, slam_toolbox,
+    # foxglove_bridge, all already taskset-prefixed): 100% of every one of
+    # their threads stayed on their assigned cores through Step 6's full
+    # reintroduction sequence, including Stage 4's saturated load, while
+    # every self-pinning node leaked. behavior_cpu_affinity_la still exists
+    # unchanged below -- it now feeds the launch-level prefix= argument
+    # instead of a ROS param this node reads on itself.
+    behavior_cpu_affinity_la = DeclareLaunchArgument(
+        'behavior_cpu_affinity', default_value='4',
+        description="Comma-separated core ids to pin behavior_executor_node "
+                    "to via a 'taskset -c' launch prefix. Own dedicated core "
+                    "(moved off the EKF pair, 0,1 -- core-remap pass, see "
+                    "this file's own comment above). Must stay a valid, "
+                    "non-empty core list -- 'taskset -c' with no core list "
+                    "is a shell-level error, not a graceful no-op (same "
+                    "caveat as ekf.launch.py's own matching argument); "
+                    "remove this Node's prefix= argument instead to fully "
+                    "disable pinning.")
+    behavior_nice_la = DeclareLaunchArgument(
+        'behavior_nice', default_value='0',
+        description="Process niceness for behavior_executor_node. 0: no-op.")
 
     behavior_executor_node = Node(
         package='f1tenth_behavior',
         executable='behavior_executor_node',
         name='behavior_executor_node',
         output='screen',
+        prefix=['taskset -c ', LaunchConfiguration('behavior_cpu_affinity')],
         parameters=[{
             'bt_setup_timeout_sec': LaunchConfiguration('bt_setup_timeout_sec'),
             'sys_obs_max_temp_c': LaunchConfiguration('sys_obs_max_temp_c'),
@@ -140,6 +202,7 @@ def generate_launch_description():
             'proximity_front_extra_margin_m': LaunchConfiguration(
                 'proximity_front_extra_margin_m'),
             'mission_file_name': LaunchConfiguration('mission_file_name'),
+            'nice': LaunchConfiguration('behavior_nice'),
         }],
     )
     twist_to_ackermann_node = Node(
@@ -156,7 +219,11 @@ def generate_launch_description():
         bt_setup_timeout_la,
         sys_obs_max_temp_la,
         sys_obs_max_load_la,
+        car_radius_la,
+        obstacle_safety_margin_la,
+        proximity_front_extra_margin_la,
         mission_file_name_la,
+        behavior_cpu_affinity_la, behavior_nice_la,
     ]
 
     if not get_value('enable_nav2'):

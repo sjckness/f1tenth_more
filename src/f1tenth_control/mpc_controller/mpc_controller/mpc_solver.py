@@ -36,11 +36,13 @@ number nowhere near the actual box constraints.
 
 Hard boundary constraints (_solve_rti ONLY -- see below): complements the
 existing soft w_obs obstacle-avoidance cost with up to 3 HARD linear
-constraints from f1tenth_perception (the ZED front wall,
-wall_detector_node.py's /perception/front_wall_boundary, plus the lidar
-left/right line fits, lidar_boundary_node.py's /perception/lidar_boundaries)
--- see MPC_corr.py's own module-level note for how it gathers/stales/
-transforms these into the `boundaries` list this module consumes. Each
+constraints from f1tenth_costmap's costmap_boundary_node.py (nearest-
+occupied-cell extraction from slam_toolbox's own /slam/map, front/left/
+right, published on /costmap/boundaries -- retires the earlier two-source
+design, f1tenth_perception's wall_detector_node.py/lidar_boundary_node.py,
+both deleted by the dual-EKF + costmap-derived-MPC-boundaries pass) -- see
+MPC_corr.py's own module-level note for how it gathers/stales/transforms
+these into the `boundaries` list this module consumes. Each
 active constraint is `normal . (x, y) <= offset` (see
 f1tenth_messages/BoundaryConstraint.msg's own field comments for the sign
 convention), added as a hard row at EVERY stage k in the horizon -- this

@@ -81,9 +81,9 @@ def _boundary_to_world(
         normal_x: float, normal_y: float, offset: float,
         robot_x: float, robot_y: float, robot_yaw: float) -> Tuple[float, float, float]:
     """Transform one (normal, offset) hard-boundary halfspace from
-    base_link-relative (as published by wall_detector_node/
-    lidar_boundary_node -- see f1tenth_messages/BoundaryConstraint.msg's
-    own note) into this MPC's own world/odom frame (self.x/y/yaw, the SAME
+    base_link-relative (as published by costmap_boundary_node.py,
+    f1tenth_costmap -- see f1tenth_messages/BoundaryConstraint.msg's own
+    note) into this MPC's own world/odom frame (self.x/y/yaw, the SAME
     frame x0/x_ref live in -- see robot_to_global's own docstring for why
     that transform exists at all: MPC's internal state is NOT base_link-
     relative).
@@ -101,6 +101,28 @@ def _boundary_to_world(
     normal_world_y = sin_yaw * normal_x + cos_yaw * normal_y
     offset_world = offset + normal_world_x * robot_x + normal_world_y * robot_y
     return normal_world_x, normal_world_y, offset_world
+
+
+def _select_live_boundaries(
+        values: List[Tuple[float, float, float]], last_time: Optional[float],
+        now_sec: float, timeout_sec: float) -> List[Tuple[float, float, float]]:
+    """Pure staleness gate factored out of _get_live_boundaries so this
+    pass's own single-source collapse (see that method's docstring -- was
+    previously two independently-staled sources OR-combined, now one) has
+    a directly pure-function-testable piece, matching this test suite's
+    own established pure-function-level convention (mpc_controller's test
+    suite deliberately never constructs a full MPCController Node --
+    MPCController.__init__ opens real log files and starts a real control-
+    loop timer as side effects, unlike the lightweight nodes elsewhere in
+    this workspace that DO get constructed directly in their own tests).
+
+    Returns `values` unchanged if `last_time` is not None and
+    now_sec - last_time < timeout_sec, else an empty list -- the exact
+    same now_sec - last_time < timeout pattern _update_active_odom already
+    uses for hw/sim odom staleness."""
+    if last_time is not None and (now_sec - last_time) < timeout_sec:
+        return list(values)
+    return []
 
 
 class MPCController(Node):
@@ -178,11 +200,21 @@ class MPCController(Node):
         # =========================
         # Hard boundary constraints (see mpc_solver.py's own module
         # docstring, "Hard boundary constraints" section) -- up to 3
-        # sources: wall_detector_node's ZED front wall (0-1 entries) and
-        # lidar_boundary_node's left/right line fits (0-2 entries).
+        # slots (front/left/right), ALL from costmap_boundary_node's own
+        # single /costmap/boundaries topic (f1tenth_costmap) as of the
+        # dual-EKF + costmap-derived-MPC-boundaries pass. Retires the
+        # earlier two-topic/two-callback design (wall_detector_node's own
+        # /perception/front_wall_boundary + lidar_boundary_node's own
+        # /perception/lidar_boundaries, f1tenth_perception, both nodes now
+        # deleted) -- one source now produces all three directions, so one
+        # subscription/callback/staleness check replaces what used to be
+        # two of each (_boundary_callback_common, the shared body between
+        # the two old callbacks, is gone with them -- nothing left to
+        # share once there's only one caller).
+        #
         # Published base_link-relative (see f1tenth_messages/
         # BoundaryConstraint.msg's own note on frames); transformed to
-        # WORLD/odom frame immediately in each callback (using self.x/y/yaw
+        # WORLD/odom frame immediately in the callback (using self.x/y/yaw
         # AS OF message arrival as a proxy for "the pose at the source's
         # own measurement time") -- same approximation
         # obstacles_2d_callback's own robot_to_global call already makes
@@ -192,10 +224,8 @@ class MPCController(Node):
         # hw/sim odom -- see _get_live_boundaries below, not a new timeout
         # mechanism.
         # =========================
-        self.front_wall_boundary_world: List[Tuple[float, float, float]] = []
-        self.front_wall_boundary_last_time: Optional[float] = None
-        self.lidar_boundaries_world: List[Tuple[float, float, float]] = []
-        self.lidar_boundaries_last_time: Optional[float] = None
+        self.costmap_boundaries_world: List[Tuple[float, float, float]] = []
+        self.costmap_boundaries_last_time: Optional[float] = None
 
         # =========================
         # MPC / modello
@@ -236,11 +266,11 @@ class MPCController(Node):
         # rolled back with a launch arg, not a code change.
         self.use_rti_solver = bool(self.declare_parameter('use_rti_solver', True).value)
 
-        # cpu_affinity/nice: see _apply_cpu_affinity_and_priority() below, called
-        # near the end of __init__. Both default to no-op (empty string / 0) so
-        # this node's scheduling is unchanged unless a deployment explicitly
-        # opts in via mpc_corr.launch.py.
-        self.declare_parameter('cpu_affinity', '')
+        # nice: see _apply_nice() below, called near the end of __init__.
+        # Defaults to no-op (0) so this node's priority is unchanged unless a
+        # deployment explicitly opts in via mpc_corr.launch.py. CPU affinity
+        # is now a `taskset -c` launch prefix instead -- see that method's
+        # own docstring and mpc_corr.launch.py's matching comment.
         self.declare_parameter('nice', 0)
 
         self.params = {
@@ -457,17 +487,10 @@ class MPCController(Node):
             10
         )
 
-        self.sub_front_wall_boundary = self.create_subscription(
+        self.sub_costmap_boundaries = self.create_subscription(
             BoundaryConstraintArray,
-            '/perception/front_wall_boundary',
-            self.front_wall_boundary_callback,
-            10
-        )
-
-        self.sub_lidar_boundaries = self.create_subscription(
-            BoundaryConstraintArray,
-            '/perception/lidar_boundaries',
-            self.lidar_boundaries_callback,
+            '/costmap/boundaries',
+            self.costmap_boundaries_callback,
             10
         )
 
@@ -519,15 +542,10 @@ class MPCController(Node):
             10
         )
 
-        # Jetson process tuning (CPU affinity + priority); safe no-op if unset or
-        # denied by the OS. Ported from the deleted andre_mpc_opt_node.py
-        # (git c36e19f) -- that version's own comment recommended pinning away
-        # from llama.cpp specifically; the frequency/bottleneck audit found the
-        # actual live contention on this stack is ZED depth compute + YOLO/
-        # TensorRT + EKF instead (llama.cpp isn't running by default). The
-        # mechanism transfers as-is; which core ids to reserve is a deployment-
-        # time choice (see mpc_corr.launch.py), not hardcoded here.
-        self._apply_cpu_affinity_and_priority()
+        # Jetson process tuning (priority); safe no-op if unset or denied by
+        # the OS. CPU affinity is handled externally now -- see mpc_corr.
+        # launch.py's own cpu_affinity comment.
+        self._apply_nice()
 
         self.timer = self.create_timer(self.ts, self.control_loop)
 
@@ -560,38 +578,32 @@ class MPCController(Node):
         super().destroy_node()
 
     # ── Jetson process tuning ──────────────────────────────────────────────
-    def _apply_cpu_affinity_and_priority(self):
-        """Pin the process and raise its scheduling priority (best effort).
+    def _apply_nice(self):
+        """Raise the process's scheduling priority (best effort).
 
-        Ported from the deleted andre_mpc_opt_node.py (git c36e19f). Jetson
-        Orin AGX has 12 homogeneous Cortex-A78AE cores (no big.LITTLE), so
-        "reserve N cores for this node" is the useful lever, not picking a
-        specific core type. Which core ids to reserve is deployment-specific
-        (pass via mpc_corr.launch.py's cpu_affinity arg, e.g.
-        `cpu_affinity:=10,11`) -- pick ids that are NOT where ZED depth
-        compute / YOLO TensorRT / ekf_filter_node are already concentrated
-        (check `/proc/<pid>/status`'s Cpus_allowed_list, or `taskset -pc
-        <pid>`, for those processes' PIDs first). Default is empty (inherit
-        the OS's default affinity, i.e. all cores) because hardcoding core
-        ids here would be wrong on any machine with a different core count
-        or a different contention profile.
+        Ported from the deleted andre_mpc_opt_node.py (git c36e19f), which
+        also set CPU affinity here -- see the "CPU AFFINITY REMOVED" note
+        below for why that half moved out of this method (renamed from
+        _apply_cpu_affinity_and_priority to match what it actually does now).
+
+        CPU AFFINITY REMOVED FROM HERE (thread-pinning-leak fix, Step 6
+        reintroduction investigation): this used to also declare a
+        cpu_affinity param and call os.sched_setaffinity(0, cores) on it,
+        applied once, in-process, from __init__ -- the same mechanism
+        confirmed live to leak the vast majority of a process's threads in
+        behavior_executor_node and all three f1tenth_perception detection
+        nodes (e.g. yolo_detector_node: 32 of 36 threads fully unpinned,
+        with threads from multiple nodes actually caught executing on
+        reserved cores under real load, not just theoretically able to).
+        mpc_corr was never under measured load in that investigation
+        (behavior/control wasn't reintroduced there), but it shares the
+        identical mechanism, so there's no reason to expect it behaved any
+        differently. Affinity is now an external `taskset -c <cores>`
+        launch prefix instead (see mpc_corr.launch.py's own matching
+        comment) -- it sets the mask before this process's first
+        instruction runs, so every thread this node or any library it uses
+        ever spawns inherits it, with no in-process code needed at all.
         """
-        spec = str(self.get_parameter('cpu_affinity').value).strip()
-        if spec and hasattr(os, 'sched_setaffinity'):
-            try:
-                ncpu = os.cpu_count() or 1
-                cores = {int(c) for c in spec.split(',') if c.strip() != ''}
-                cores = {c for c in cores if 0 <= c < ncpu}
-                if cores:
-                    os.sched_setaffinity(0, cores)
-                    self.get_logger().info(f'CPU affinity pinned to {sorted(cores)}')
-                else:
-                    self.get_logger().warn(
-                        f'cpu_affinity="{spec}" has no valid core (cpu_count={ncpu})'
-                    )
-            except Exception as exc:
-                self.get_logger().warn(f'Could not set CPU affinity: {exc}')
-
         nice_val = int(self.get_parameter('nice').value)
         if nice_val != 0:
             # Negative niceness lowers scheduling latency for the control loop
@@ -876,28 +888,17 @@ class MPCController(Node):
                 throttle_duration_sec=2.0
             )
 
-    def front_wall_boundary_callback(self, msg: BoundaryConstraintArray):
-        self._boundary_callback_common(
-            msg, target_attr='front_wall_boundary_world',
-            time_attr='front_wall_boundary_last_time', log_tag='BOUNDARY/front')
-
-    def lidar_boundaries_callback(self, msg: BoundaryConstraintArray):
-        self._boundary_callback_common(
-            msg, target_attr='lidar_boundaries_world',
-            time_attr='lidar_boundaries_last_time', log_tag='BOUNDARY/lidar')
-
-    def _boundary_callback_common(
-            self, msg: BoundaryConstraintArray, target_attr: str, time_attr: str, log_tag: str):
-        """Shared body for front_wall_boundary_callback/
-        lidar_boundaries_callback -- same base_link -> world transform
-        (_boundary_to_world) either way, only the target state attribute
-        and log tag differ. See module-level _boundary_to_world's own
-        docstring for the transform derivation, and the __init__ comment
-        above self.front_wall_boundary_world for why this transforms
-        immediately here rather than at solve time."""
+    def costmap_boundaries_callback(self, msg: BoundaryConstraintArray):
+        """base_link -> world transform (_boundary_to_world) for
+        costmap_boundary_node's own single /costmap/boundaries source (0-3
+        entries: front/left/right, each independently present or absent --
+        see that node's own module docstring). See module-level
+        _boundary_to_world's own docstring for the transform derivation,
+        and the __init__ comment above self.costmap_boundaries_world for
+        why this transforms immediately here rather than at solve time."""
         if self.x is None or self.y is None or self.yaw is None:
             self.get_logger().warn(
-                f'{log_tag} ricevuto ma stato ancora None: frame scartato.',
+                'BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.',
                 throttle_duration_sec=5.0
             )
             return
@@ -906,41 +907,31 @@ class MPCController(Node):
             _boundary_to_world(c.normal[0], c.normal[1], c.offset, self.x, self.y, self.yaw)
             for c in msg.constraints
         ]
-        setattr(self, target_attr, world)
-        setattr(self, time_attr, self.get_clock().now().nanoseconds * 1e-9)
+        self.costmap_boundaries_world = world
+        self.costmap_boundaries_last_time = self.get_clock().now().nanoseconds * 1e-9
 
         self.get_logger().info(
-            f'{log_tag} | n={len(world)}',
+            f'BOUNDARY/costmap | n={len(world)}',
             throttle_duration_sec=2.0
         )
 
     def _get_live_boundaries(self) -> List[Tuple[float, float, float]]:
-        """Combined, freshness-gated list of (normal_x, normal_y, offset)
-        hard boundary constraints, WORLD-frame (see the two callbacks
+        """Freshness-gated list of (normal_x, normal_y, offset) hard
+        boundary constraints, WORLD-frame (see costmap_boundaries_callback
         above), ready to pass straight into solve_mpc_step(boundaries=...).
-        Staleness reuses odom_stale_timeout_sec and the SAME
-        now_sec - last_time < timeout pattern _update_active_odom already
-        uses for hw/sim odom -- a source with no message yet, or whose
-        last message is older than that timeout, contributes NOTHING this
-        tick (dropped, not held/decayed) -- mpc_solver.py's own
-        pad_boundary_constraints is what turns "fewer than 3 live sources"
-        into a structurally-fixed-size QP, not anything here."""
+        Staleness check itself is _select_live_boundaries (pure function,
+        module level, directly unit-tested -- see that function's own
+        docstring) -- mpc_solver.py's own pad_boundary_constraints is what
+        turns "fewer than 3 live sources" into a structurally-fixed-size
+        QP, not anything here. This is also exactly the state costmap_
+        boundary_node's own staleness gating (map/pose too old or never
+        received) forces continuously as of this pass -- see that node's
+        own module docstring -- so an empty return here is real, live-
+        relevant, expected behavior today, not a hypothetical edge case."""
         now_sec = self.get_clock().now().nanoseconds * 1e-9
-        live: List[Tuple[float, float, float]] = []
-
-        front_age = (
-            now_sec - self.front_wall_boundary_last_time
-            if self.front_wall_boundary_last_time is not None else math.inf)
-        if front_age < self.odom_stale_timeout_sec:
-            live.extend(self.front_wall_boundary_world)
-
-        lidar_age = (
-            now_sec - self.lidar_boundaries_last_time
-            if self.lidar_boundaries_last_time is not None else math.inf)
-        if lidar_age < self.odom_stale_timeout_sec:
-            live.extend(self.lidar_boundaries_world)
-
-        return live
+        return _select_live_boundaries(
+            self.costmap_boundaries_world, self.costmap_boundaries_last_time,
+            now_sec, self.odom_stale_timeout_sec)
 
     def joint_states_callback(self, msg: JointState):
         try:

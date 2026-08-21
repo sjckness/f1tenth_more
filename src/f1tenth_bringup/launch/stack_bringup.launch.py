@@ -24,14 +24,32 @@ that could disagree with it. See f1tenth_behavior/behaviours/is_obstacle_detecte
 Every other param (owned by one node/launch file) still works as a normal
 DeclareLaunchArgument with full CLI-override behavior -- only its default value
 and description are sourced from stack_params.yaml instead of being hardcoded.
+
+Fast-DDS Discovery Server (EKF-pair-stall investigation follow-up -- see
+stack_params.yaml's own discovery_server_address/_port comment for the full
+root-cause writeup): started first, before any include below, as a plain
+standalone process, and ROS_DISCOVERY_SERVER set via SetEnvironmentVariable
+before anything else so every node this file includes (all of them -- every
+IncludeLaunchDescription below inherits process environment the same way any
+child process does) picks it up. Same mechanism, same reasoning, as
+supervisor_bringup.launch.py's own matching addition -- deliberately
+duplicated rather than shared, since these are this workspace's two
+independent top-level bringup entry points and a partial rollout (only one
+of them running the server) would leave the other path's nodes on SIMPLE
+discovery, defeating the point.
 """
 
 import os
 
-from f1tenth_params.param_defaults import get_value
+from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    IncludeLaunchDescription,
+    SetEnvironmentVariable,
+)
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch.conditions import UnlessCondition
@@ -39,6 +57,52 @@ from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
+    # ================================================================
+    # 0. DDS DISCOVERY SERVER -- see module docstring's own paragraph.
+    # Deliberately first: every action below needs ROS_DISCOVERY_SERVER
+    # already set in this launch tree's own environment.
+    # ================================================================
+    discovery_server_address_default, discovery_server_address_desc = get_default(
+        'discovery_server_address')
+    discovery_server_address_la = DeclareLaunchArgument(
+        'discovery_server_address', default_value=str(discovery_server_address_default),
+        description=discovery_server_address_desc)
+    discovery_server_port_default, discovery_server_port_desc = get_default(
+        'discovery_server_port')
+    discovery_server_port_la = DeclareLaunchArgument(
+        'discovery_server_port', default_value=str(discovery_server_port_default),
+        description=discovery_server_port_desc)
+    discovery_server_address = LaunchConfiguration('discovery_server_address')
+    discovery_server_port = LaunchConfiguration('discovery_server_port')
+
+    discovery_server_env = SetEnvironmentVariable(
+        'ROS_DISCOVERY_SERVER', [discovery_server_address, ':', discovery_server_port])
+
+    # cmd invokes scripts/ensure_discovery_server.py -- see supervisor_
+    # bringup.launch.py's own matching comment for the full writeup: the
+    # original '/bin/sh', '-c', '...' wrapper fixed a real Exec-format-error
+    # (fastdds is a shebang-less shell script) but was itself insufficient
+    # -- nothing checked whether a server from an earlier session (which
+    # deliberately survives restarts) was already alive before starting a
+    # new one, causing a live-confirmed "port already in use" + respawn-loop
+    # every time this launch file ran while an old server was still up.
+    # ensure_discovery_server.py checks once and reuses an existing server
+    # instead of fighting it for the port -- installed as an f1tenth_bringup
+    # package resource (not a top-level scripts/ dev tool) specifically so
+    # get_package_share_directory() resolves it reliably regardless of
+    # workspace location, same as every other file this codebase's launch
+    # files already depend on.
+    ensure_discovery_server_path = os.path.join(
+        get_package_share_directory('f1tenth_bringup'), 'scripts', 'ensure_discovery_server.py')
+    discovery_server = ExecuteProcess(
+        cmd=['python3', ensure_discovery_server_path,
+             discovery_server_address, discovery_server_port],
+        name='fastdds_discovery_server',
+        output='screen',
+        respawn=True,
+        respawn_delay=2.0,
+    )
+
     # ================================================================
     # 1. STACK-WIDE (the 5 branching args -- see module docstring)
     # ================================================================
@@ -128,6 +192,23 @@ def generate_launch_description():
     ]
     if use_behavior_tree:
         autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py'))
+    # slam.launch.py self-gates via its own enable_slam param (default false,
+    # mirrors enable_foxglove's own pattern -- see that key's own stack_params.yaml
+    # comment). Deferred behind is_calibration_disabled same as navigation_bringup
+    # above -- not because it touches VESC/serial (it doesn't), but because it
+    # looks up the odom frame (odom_frame param, motion-prior scan matching) via
+    # tf2, which localization_bringup (section 3) is what actually publishes --
+    # starting before that exists would just mean early TF-lookup warnings during
+    # the calibration window, same class of ordering issue localization_bringup/
+    # navigation_bringup were already deferred to avoid.
+    autonomy_bringup.append(
+        include('f1tenth_navigation', 'slam.launch.py', condition=is_calibration_disabled))
+    # costmap.launch.py (f1tenth_costmap) -- the two-layer costmap bringup,
+    # same is_calibration_disabled deferral and self-gates on the same
+    # enable_slam flag as slam.launch.py itself (see that file's own module
+    # docstring for why it shares the flag rather than a second toggle).
+    autonomy_bringup.append(
+        include('f1tenth_costmap', 'costmap.launch.py', condition=is_calibration_disabled))
 
     # ================================================================
     # 7. DIAGNOSTICS & INTELLIGENCE
@@ -162,6 +243,10 @@ def generate_launch_description():
     startup_sequence_bringup = include('f1tenth_bringup', 'startup_sequence.launch.py')
 
     return LaunchDescription([
+        discovery_server_address_la,
+        discovery_server_port_la,
+        discovery_server_env,
+        discovery_server,
         vesc_bringup,
         localization_bringup,
         description_bringup,

@@ -1,10 +1,11 @@
 # f1tenth_hardware
 
-Owns the VESC drive chain: battery pre-flight gate, optional live sensor
-covariance calibration, `ackermann_to_vesc_node`, `vesc_to_odom_node`, the
-VESC driver itself, and the static `base_link → imu` TF. A thin metapackage
-(no code of its own beyond one launch file) wrapping the vendored `vesc`
-submodule's real nodes.
+Owns the VESC drive chain: battery pre-flight gate, live stationary
+calibration (sensor covariance AND gyro bias — on by default as of the
+automatic-startup-calibration pass), `ackermann_to_vesc_node`,
+`vesc_to_odom_node`, the VESC driver itself, and the static `base_link → imu`
+TF. A thin metapackage (no code of its own beyond one launch file) wrapping
+the vendored `vesc` submodule's real nodes.
 
 ## Nodes (all from the vendored `vesc` submodule — see `f1tenth_external`'s doc)
 
@@ -31,24 +32,47 @@ Three layered behaviors:
    Fail → full stack never launches; the precheck driver is deliberately
    left running (harmless, telemetry-only) so voltage recovery can be
    watched without a relaunch.
-2. **`calibration:=false`** (default): driver group (`vesc_driver_node`,
+2. **`calibration:=false`**: driver group (`vesc_driver_node`,
    `vesc_to_odom_node`, static IMU TF) launches once, with a crash handler
    (`OnProcessExit` → whole-launch `Shutdown()` if `vesc_driver_node` dies —
    drive-by-wire has no meaning without it).
-3. **`calibration:=true`**: driver group v1 launches *without* a crash
-   handler (its exit is expected, not a failure) so `sensor_covariance_calibration_node`
-   (`f1tenth_diagnostics`) has live sensor data to measure against. On
-   calibration exit, all 3 v1 processes are shut down individually
+3. **`calibration:=true`** (**default**, as of the automatic-startup-
+   calibration pass — was previously opt-in/`false`; `components.yaml`'s
+   `hardware` component was flipped the same way): driver group v1 launches
+   *without* a crash handler (its exit is expected, not a failure) so
+   `sensor_covariance_calibration_node` AND `gyro_bias_calibration_node`
+   (both `f1tenth_diagnostics`, launched concurrently with each other and
+   with driver group v1) have live sensor data to measure against. Both
+   nodes run their own pre-sampling stationary check (raw ERPM telemetry
+   near zero for a short confirm window) and exit with a distinguishable
+   code either way (success, insufficient samples, not-stationary, or
+   `ruamel.yaml` missing — see `f1tenth_diagnostics/calibration_common.py`).
+   On BOTH nodes' exit (closure-captured counter across 2 watchers, same
+   technique as the 3-process wait below), this file logs each node's result
+   — success, or the specific failure reason — then proceeds identically
+   either way: **a failed or timed-out calibration does not write anything**
+   (each node only calls its write step from its own success path), so
+   `vesc.yaml` is simply left as it already was (the "last-known-good"
+   fallback is structural, not a separate code path) and startup is never
+   blocked on it. All 3 v1 processes are then shut down individually
    (`ShutdownProcess` targeted, not a whole-launch `Shutdown()`); once a
    closure-captured counter confirms all 3 have actually exited (order
    isn't guaranteed), a fixed 2.0s teardown buffer runs, then a fresh driver
    group v2 launches — now reading the config file calibration just
-   overwrote. `release_downstream` (default `true`) then decides whether
-   this file also includes `f1tenth_localization/ekf.launch.py` and
+   overwrote (or left untouched, on a fallback). `release_downstream`
+   (default `true`) then decides whether this file also includes
+   `f1tenth_localization/ekf.launch.py` and
    `f1tenth_navigation/navigation.launch.py` itself (`stack_bringup.launch.py`'s
    behavior) or leaves that to something else (`component_supervisor_node`'s
    `calibrate_hardware` component passes `release_downstream:=false` so
    localization/navigation stay independently-restartable components).
+   `vesc_yaml_path` is passed explicitly to both calibration nodes (via
+   `calibration_common.resolve_source_vesc_yaml_path()`) rather than left to
+   each node's own default — without this, on a non-`--symlink-install`
+   workspace (this one), the calibration would patch the install-space copy
+   of `vesc.yaml` instead of the source-tree file, silently discarding the
+   result on the next `colcon build`; this was a real, previously-latent bug
+   in this exact path, fixed as part of this pass.
 
 **Config file layering**: `vesc_config` (default `f1tenth_bringup/config/vesc.yaml`)
 and `steering_calibration_config` (default `f1tenth_hardware/config/steering_calibration.yaml`)
@@ -74,9 +98,13 @@ only takes effect on that node's next restart.
 ## Consumed `stack_params.yaml` keys
 
 `vesc_config`, `steering_calibration_config`, `calibration`,
-`calibration_duration_sec`, `release_downstream`, `min_battery_voltage` — see
-each key's own `# Consumed by:` comment in `f1tenth_params/config/stack_params.yaml`
-for the authoritative per-key consumer list.
+`calibration_duration_sec`, `gyro_sample_duration_sec`, `release_downstream`,
+`min_battery_voltage` — see each key's own `# Consumed by:` comment in
+`f1tenth_params/config/stack_params.yaml` for the authoritative per-key
+consumer list. `vesc_yaml_path` (see above) is a per-file `DeclareLaunchArgument`
+here too, but is not a `stack_params.yaml` key — it's computed at
+launch-description-generation time via
+`f1tenth_diagnostics.calibration_common.resolve_source_vesc_yaml_path()`.
 
 ## `vesc_tuning` (inside the vendored `vesc` submodule, not a first-party package)
 

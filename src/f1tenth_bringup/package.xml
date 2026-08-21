@@ -18,6 +18,8 @@
   <exec_depend>rclpy</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
   <exec_depend>f1tenth_messages</exec_depend>
+  <!-- component_supervisor_node.py's ~/run_calibration service. -->
+  <exec_depend>std_srvs</exec_depend>
   <!-- param_defaults.py / stack_params.yaml: single shared source of launch-param
        defaults, imported from every owning package's launch file. Lives in its own
        dependency-free f1tenth_params package (not here) specifically to avoid a
@@ -33,6 +35,7 @@
   <exec_depend>f1tenth_description</exec_depend>
   <exec_depend>f1tenth_perception</exec_depend>
   <exec_depend>f1tenth_navigation</exec_depend>
+  <exec_depend>f1tenth_costmap</exec_depend>
   <exec_depend>f1tenth_behavior</exec_depend>
   <exec_depend>f1tenth_diagnostics</exec_depend>
   <exec_depend>llm</exec_depend>

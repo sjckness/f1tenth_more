@@ -4,12 +4,18 @@
 
   NEW relative to msauber (which had only a stereo "front camera" and no LiDAR/
   IMU in its URDF). Frame names and mount poses match the real F1TENTH stack
-  (f1tenth_bringup static TFs + f1tenth_perception):
+  (f1tenth_description/launch/description.launch.py's static TF +
+  f1tenth_perception/camera.launch.py's static TF; Phase 9 layout, base_link
+  centered between the axles, 0.07m above the ground):
 
-    base_link -> laser              @ (-0.27, 0, 0.11)   (Hokuyo, behind)
-    base_link -> imu                @ ( 0,    0, 0   )   (VESC IMU @ base_link)
-    base_link -> zed2_camera_link   @ ( 0.27, 0, 0.11)   (ZED2, front)
+    base_link -> laser              @ (-0.12, 0, 0.15), yaw=pi  (Hokuyo, rear-facing)
+    base_link -> imu                @ ( 0,    0, 0   )          (VESC IMU @ base_link)
+    base_link -> zed2_camera_link   @ ( 0.12, 0, 0.15), yaw=0   (ZED2, front-facing)
                  -> zed2_left_camera_frame -> zed2_left_camera_optical_frame
+
+  laser is mirrored to the camera's position (same distance from base_link, same
+  height, opposite side) but rotated 180deg in yaw so it faces backward while the
+  camera faces forward.
 
   Gazebo tags use the Fortress conventions: <ignition_frame_id> (NOT gz_frame_id)
   and the sensors are rendered by the world's ignition::gazebo::systems::Sensors
@@ -32,7 +38,8 @@
     <joint name="laser_joint" type="fixed">
       <parent link="base_link"/>
       <child link="laser"/>
-      <origin xyz="-0.27 0.0 0.11" rpy="0 0 0"/>
+      <!-- Rear-facing: yaw=pi, mirrored to zed2_camera_joint's position below. -->
+      <origin xyz="-0.12 0.0 0.15" rpy="0 0 ${pi}"/>
     </joint>
 
     <gazebo reference="laser">
@@ -103,7 +110,7 @@
     <joint name="zed2_camera_joint" type="fixed">
       <parent link="base_link"/>
       <child link="zed2_camera_link"/>
-      <origin xyz="0.27 0.0 0.11" rpy="0 0 0"/>
+      <origin xyz="0.12 0.0 0.15" rpy="0 0 0"/>
     </joint>
 
     <!-- Left lens frame (ZED2 baseline ~0.06 m, left = +y) -->

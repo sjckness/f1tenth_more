@@ -33,6 +33,14 @@ window so they're independently tunable from one command):
 - `min_samples` (default `150` -- logs a warning if `gyro_bias_calibration_node`
   collected fewer samples than this in the window)
 - `calibration_duration_sec` (default `60.0`)
+- `vesc_yaml_path` (default: resolved automatically via
+  `calibration_common.resolve_source_vesc_yaml_path()`) -- **both** nodes now
+  write here (see each node's own section below; `gyro_bias_calibration_node`
+  didn't used to write anything at all).
+
+Each node also runs its own stationary-check gate before sampling (not
+exposed as a launch argument here -- see each node's section below and
+`calibration_common.StationaryGate`).
 
 ## gyro_bias_calibration_node
 
@@ -41,36 +49,61 @@ window so they're independently tunable from one command):
 over a fixed window while the car is stationary and level.
 
 **How to run:** see `calibration.launch.py` above (`gyro_sample_duration_sec` /
-`min_samples` launch arguments).
+`min_samples` launch arguments), or automatically as part of VESC bringup --
+see `f1tenth_hardware/launch/vesc.launch.py`'s `calibration:=true` argument
+(the default, as of the automatic-startup-calibration pass), which now runs
+this node alongside `sensor_covariance_calibration_node` in the same blocking
+sequence -- see that file's own module docstring.
 
-Keep the car completely still for the full sampling window. The node never
-publishes anything and never touches any other node's parameters -- it only
-subscribes to the IMU topic.
+**Stationary check (new):** before sampling starts, the node confirms the
+car is actually stationary via raw ERPM telemetry (`VescStateStamped.state.
+speed` on `state_topic`, default `/sensors/core`) held continuously below
+`stationary_erpm_threshold` (default `500.0`, matching `vesc.yaml`'s
+`erpm_deadband`) for `stationary_confirm_sec` (default `2.0s`), or aborts
+after `stationary_timeout_sec` (default `10.0s`) without ever sampling --
+exits with a distinct code (see calibration_common.EXIT_NOT_STATIONARY)
+rather than silently proceeding. This means the node now needs a live
+`VescStateStamped` publisher (normally `vesc_driver_node`) even to begin, not
+just the IMU it actually samples -- a real behavior change from before this
+pass. These knobs are node-level defaults, not launch arguments (same
+convention as `light_motion_*` below) -- override via `ros2 run ... --ros-args
+-p <name>:=<value>` if ever needed.
+
+**Sample-then-exit (changed):** the node used to `rclpy.spin()` forever and
+require a manual Ctrl+C even after logging its result -- it now exits
+cleanly with a real exit code once done (mirrors
+`sensor_covariance_calibration_node`'s pattern), which is what makes
+sequencing it automatically at all possible.
 
 **Expected output:** on completion, the node logs the mean and standard
-deviation of `angular_velocity.x/y/z` over the sampling window, e.g.:
+deviation of `angular_velocity.x/y/z` over the sampling window, then writes
+the measured z-axis bias, e.g.:
 
 ```
+[gyro_bias_calibration_node]: Confirmed stationary for 2.0s -- sampling gyro bias on "/sensors/imu/raw" for 30.0s.
 [gyro_bias_calibration_node]: Gyro bias over 487 samples:
 [gyro_bias_calibration_node]:   angular_velocity.x: mean=+0.001234 rad/s  stdev=0.000456 rad/s
 [gyro_bias_calibration_node]:   angular_velocity.y: mean=-0.000789 rad/s  stdev=0.000321 rad/s
 [gyro_bias_calibration_node]:   angular_velocity.z: mean=+0.002101 rad/s  stdev=0.000512 rad/s
 [gyro_bias_calibration_node]: vyaw (z) bias = +0.002101 rad/s -- ...
+[gyro_bias_calibration_node]: Backed up .../vesc.yaml -> .../vesc.yaml.bak.20260811T120000
+[gyro_bias_calibration_node]: calibration complete, updated ['gyro_bias_z'] in: [.../vesc.yaml]
 ```
 
 A low stdev relative to the mean indicates a stable bias measurement; a large
 stdev suggests vibration, an unlevel surface, or the car wasn't fully
 stationary.
 
-**Where to apply it:** `f1tenth_bringup/config/ekf.yaml`'s `imu0` fusion only
-keeps `vyaw` (`angular_velocity.z`) -- see its `imu0_config` comment. As of
-this writing, `robot_localization`'s EKF config has no explicit per-axis bias
-field for `imu0`, so this is currently a **manual reference measurement**,
-not an automatically-applied correction: note the measured `vyaw` bias down
-and account for it wherever the raw gyro reading is consumed (e.g. before
-deciding the EKF's fused yaw rate is drifting for some other reason, or if a
-future bias-removal step is added upstream of the EKF). Do not edit
-`ekf.yaml` from this tool -- that stays a manual, reviewed change.
+**Where it's applied (changed -- was manual-only):** `f1tenth_bringup/config/
+vesc.yaml`'s `gyro_bias_z` key, in place -- same backup-then-patch mechanism
+`sensor_covariance_calibration_node` already used, now shared by both nodes
+via `calibration_common.write_vesc_yaml` (including its backup-retention
+pruning, see below). `vesc_driver_node` reads this key at startup and
+subtracts it from raw `angular_velocity.z` before publishing
+`sensors/imu/raw`. `f1tenth_bringup/config/ekf.yaml`'s `imu0` fusion only
+keeps `vyaw` (`angular_velocity.z`) -- see its `imu0_config` comment; x/y are
+logged for diagnostic purposes only, not written anywhere (no corresponding
+key exists for them).
 
 ## sensor_covariance_calibration_node
 
@@ -87,13 +120,33 @@ hardcodes it to the constant `0.0` (Ackermann kinematics assumption), never
 derived from a sensor, so its variance is always exactly `0.0` by
 construction -- not a meaningful measurement.
 
-Unlike `gyro_bias_calibration_node`, **this node writes its result**: it
+This node **writes its result** (unlike `gyro_bias_calibration_node`'s
+original design -- that node was changed to match this one, see above): it
 backs up `vesc.yaml` (timestamped copy alongside the original) and then
-patches only the 7 variance keys in place via `ruamel.yaml`'s round-trip
-mode, preserving all existing comments/formatting/ordering. Requires
-`ruamel.yaml` (`pip install ruamel.yaml` or
-`apt install python3-ruamel.yaml`) -- not a standard ROS dependency, so it's
-not in `package.xml`.
+patches only the relevant variance keys in place via `ruamel.yaml`'s
+round-trip mode, preserving all existing comments/formatting/ordering. Both
+calibration nodes now share this via `calibration_common.write_vesc_yaml`.
+Requires `ruamel.yaml` (`pip install ruamel.yaml` or
+`apt install python3-ruamel.yaml`) -- now a real `rosdep`-tracked
+`exec_depend` in `package.xml` (was previously a manual-install-and-hope
+comment only; `python3-ruamel.yaml` does resolve via `rosdep`, verified).
+
+**Backup retention (new):** each write prunes `vesc.yaml.bak.*` down to the
+newest 5 -- without this, calibrating at every boot would accumulate one new
+backup file per boot forever.
+
+**Stationary check + first-message gate (`stationary` mode only, new):**
+before sampling starts, the node confirms the car is actually stationary the
+same way `gyro_bias_calibration_node` now does (raw ERPM telemetry on
+`state_topic`, default `/sensors/core`, held near zero for
+`stationary_confirm_sec`, or aborts after `stationary_timeout_sec` with
+`calibration_common.EXIT_NOT_STATIONARY`). Once confirmed, it then waits for
+at least one message on both `imu_topic` and `odom_topic` (or aborts after
+`first_message_timeout_sec` with `EXIT_INSUFFICIENT_SAMPLES`) before starting
+the `sample_duration_sec` timer, so the full window counts real samples
+instead of silently losing a couple seconds to driver startup latency. None
+of this applies to `light_motion` mode, which inherently drives the car on
+purpose.
 
 **How to run standalone (`stationary` mode, the default):** see
 `calibration.launch.py` above (`calibration_duration_sec` launch
@@ -101,10 +154,15 @@ argument).
 
 Or automatically as part of VESC bringup -- see
 `f1tenth_hardware/launch/vesc.launch.py`'s `calibration:=true` argument,
-which runs this node first and only starts the VESC driver/odometry nodes
-once it exits, so they pick up the freshly-calibrated values on their first
-(and only) startup of that run. (That path also never touches
-`calibration_mode` -- it only runs `stationary`.)
+which is now the **default** (as of the automatic-startup-calibration pass --
+was previously opt-in). That path runs this node and `gyro_bias_calibration_
+node` concurrently, then only starts the VESC driver/odometry nodes once
+both have exited, so they pick up the freshly-calibrated values on their
+first (and only) startup of that run -- regardless of whether either
+calibration succeeded or failed (a failure falls back to whatever was already
+in `vesc.yaml` rather than blocking startup; see that file's own module
+docstring for the exact sequencing and exit-code handling). That path also
+never touches `calibration_mode` -- it only runs `stationary`.
 
 **`light_motion` mode — `ros2 run` only, never `ros2 launch`.** This mode
 additionally drives a short, human-confirmed constant-velocity straight line
@@ -212,7 +270,7 @@ both sides, not just "publishes nothing."
 
 ## diagnostics_server_node
 
-**What it does:** a persistent coordinator node with two independent jobs,
+**What it does:** a persistent coordinator node with three independent jobs,
 deliberately *not* gated behind `enable_sys_obs` (battery safety monitoring
 must keep working even with system observability disabled):
 
@@ -232,11 +290,33 @@ must keep working even with system observability disabled):
    status plus the last-received `SystemStatus` (with `sys_obs_enabled` in
    the response telling you whether `system_status` is meaningful, since
    nothing publishes it at all when `system_observer_node` is disabled).
+3. **Calibration status.** Publishes `std_msgs/Bool` on
+   `/calibration/in_progress` at `calibration_status_poll_rate_hz` (default
+   `2.0` Hz, TRANSIENT_LOCAL durability so a subscriber connecting mid- or
+   after-calibration gets the current value immediately instead of waiting
+   for the next tick) -- `true` while either `sensor_covariance_calibration_
+   node` or `gyro_bias_calibration_node` is alive in the ROS graph
+   (`get_node_names()` polling), `false` otherwise. Deliberately not wired to
+   the calibration nodes or any launch file, so it stays correct no matter
+   which of the three ways calibration was actually triggered -- see
+   `f1tenth_hardware/launch/vesc.launch.py`'s `calibration:=true` path,
+   `component_supervisor_node`'s `hardware`/`calibrate_hardware`/
+   `~/run_calibration`, or this package's own standalone
+   `calibration.launch.py`. Trade-off, stated plainly: graph discovery has
+   sub-second latency in both directions, so a transition can lag the node's
+   actual start/exit by up to one poll period.
 
 ```bash
 ros2 launch f1tenth_diagnostics diagnostics_server.launch.py
 ros2 service call /diagnostics_server_node/run_diagnostics f1tenth_messages/srv/RunDiagnostics
+ros2 topic echo /calibration/in_progress
 ```
+
+**To trigger a calibration on demand:** `~/run_calibration`
+(`std_srvs/srv/Trigger`) on `component_supervisor_node`, not on this node --
+see `f1tenth_bringup`'s own docs/README. Requires running via
+`supervisor_bringup.launch.py` (the per-component-restartable path); not
+available under the single-process `stack_bringup.launch.py` fallback.
 
 **How it's used:** included unconditionally (never gated) by
 `stack_bringup.launch.py` / `components.yaml`'s `diagnostics` component,

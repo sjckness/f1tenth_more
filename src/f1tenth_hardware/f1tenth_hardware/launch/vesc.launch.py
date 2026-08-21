@@ -510,6 +510,15 @@ def generate_launch_description():
     min_battery_voltage_la = DeclareLaunchArgument(
         'min_battery_voltage', default_value=str(min_battery_voltage_default),
         description=min_battery_voltage_desc)
+    # battery-check-startup-race fix: ceiling on the separate "wait for the
+    # first telemetry sample" phase -- see battery_voltage_check_node.py's own
+    # module docstring for why this had to be split out from the fixed
+    # sample_window_sec averaging window it used to double as.
+    max_wait_for_first_sample_default, max_wait_for_first_sample_desc = get_default(
+        'max_wait_for_first_sample_sec')
+    max_wait_for_first_sample_la = DeclareLaunchArgument(
+        'max_wait_for_first_sample_sec', default_value=str(max_wait_for_first_sample_default),
+        description=max_wait_for_first_sample_desc)
 
     # Standalone, temporary instance: exists only to give battery_voltage_check_node
     # something to sample /sensors/core from before "the full stack" (which includes
@@ -529,6 +538,8 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'min_battery_voltage': LaunchConfiguration('min_battery_voltage'),
+            'max_wait_for_first_sample_sec':
+                LaunchConfiguration('max_wait_for_first_sample_sec'),
         }],
     )
 
@@ -585,6 +596,7 @@ def generate_launch_description():
         vesc_yaml_path_la,
         release_downstream_la,
         min_battery_voltage_la,
+        max_wait_for_first_sample_la,
         LogInfo(msg='[vesc_launch] battery pre-flight check starting.'),
         vesc_driver_node_precheck,
         battery_check_node,

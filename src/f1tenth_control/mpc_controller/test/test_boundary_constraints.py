@@ -1,7 +1,10 @@
 """Hard boundary constraint tests (MPC hard boundary constraints task):
-mpc_solver.py's fixed-3-slot padding + per-constraint QP bound math, and
-MPC_corr.py's base_link -> world halfspace transform. Pure-function-level
-throughout except test_hard_boundary_actually_constrains_the_solve /
+mpc_solver.py's fixed-3-slot padding + per-constraint QP bound math,
+MPC_corr.py's base_link -> world halfspace transform, and (added by the
+dual-EKF + costmap-derived-MPC-boundaries pass) MPC_corr.py's own
+_select_live_boundaries staleness gate for costmap_boundary_node.py's
+single-source /costmap/boundaries feed. Pure-function-level throughout
+except test_hard_boundary_actually_constrains_the_solve /
 TestInfeasibilityDetection, which do real (light) OSQP solves to prove the
 wiring genuinely affects the output, not just the isolated math -- matches
 test_solver_rti.py's own "no prior synthetic-scenario test infrastructure
@@ -32,7 +35,7 @@ from mpc_controller.mpc_solver import (
     pad_boundary_constraints,
     solve_mpc_step,
 )
-from mpc_controller.MPC_corr import _boundary_to_world
+from mpc_controller.MPC_corr import _boundary_to_world, _select_live_boundaries
 
 WHEELBASE = 0.305
 LR = 0.17
@@ -170,6 +173,52 @@ class TestBoundaryToWorld:
         robot_x, robot_y, robot_yaw = 3.0, -2.0, math.radians(37.0)
         nx, ny, offset = _boundary_to_world(1.0, 0.0, 1.5, robot_x, robot_y, robot_yaw)
         assert nx * robot_x + ny * robot_y <= offset + 1e-9
+
+
+# ==============================================================================
+# _select_live_boundaries (MPC_corr.py) -- staleness gate for costmap_
+# boundary_node.py's single /costmap/boundaries source, factored out of
+# MPCController._get_live_boundaries() for pure-function-level testability
+# (see that function's own docstring for why -- this replaces the earlier
+# two-source OR-combine that existed before the dual-EKF + costmap-derived-
+# MPC-boundaries pass collapsed wall_detector_node's/lidar_boundary_node's
+# two topics into costmap_boundary_node's one).
+# ==============================================================================
+
+class TestSelectLiveBoundaries:
+
+    def test_fresh_values_pass_through_unchanged(self):
+        values = [(1.0, 0.0, 2.0)]
+        result = _select_live_boundaries(values, last_time=10.0, now_sec=10.2, timeout_sec=0.5)
+        assert result == values
+
+    def test_stale_values_return_empty(self):
+        values = [(1.0, 0.0, 2.0)]
+        result = _select_live_boundaries(values, last_time=10.0, now_sec=11.0, timeout_sec=0.5)
+        assert result == []
+
+    def test_never_received_last_time_none_returns_empty(self):
+        result = _select_live_boundaries(
+            [(1.0, 0.0, 2.0)], last_time=None, now_sec=10.0, timeout_sec=0.5)
+        assert result == []
+
+    def test_exactly_at_timeout_boundary_is_stale(self):
+        # now_sec - last_time == timeout_sec exactly -- the comparison is
+        # strict (<), matching _update_active_odom's own hw/sim odom
+        # staleness check this reuses the shape of.
+        result = _select_live_boundaries(
+            [(1.0, 0.0, 2.0)], last_time=10.0, now_sec=10.5, timeout_sec=0.5)
+        assert result == []
+
+    def test_empty_input_list_stays_empty_when_fresh(self):
+        result = _select_live_boundaries([], last_time=10.0, now_sec=10.1, timeout_sec=0.5)
+        assert result == []
+
+    def test_returns_a_copy_not_the_same_list_object(self):
+        values = [(1.0, 0.0, 2.0)]
+        result = _select_live_boundaries(values, last_time=10.0, now_sec=10.1, timeout_sec=0.5)
+        assert result is not values
+        assert result == values
 
 
 # ==============================================================================

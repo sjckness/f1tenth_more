@@ -82,7 +82,7 @@ def generate_launch_description():
     # --- 2) robot_state_publisher (RSP-only description launch) -------------
     description = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(desc_share, 'launch', 'description_launch.py')),
+            os.path.join(desc_share, 'launch', 'description.launch.py')),
         launch_arguments={
             'use_sim': 'true',
             'use_sim_time': use_sim_time,

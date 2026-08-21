@@ -1,0 +1,27 @@
+{
+  "mission_id": "test_01_clearance_turn_odom",
+  "schema_version": "2.0",
+  "moves": [
+    {
+      "id": "approach_wall",
+      "goal_distance": 10.0,
+      "stop_condition": { "type": "front_clearance", "distance": 2.5 },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "turn_left_90",
+      "turn": { "heading_delta_deg": -90, "speed": 0.5, "steering": "full_lock" },
+      "stop_condition": { "type": "orientation_delta", "value": -90 },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "short_odom_leg",
+      "goal_distance": 2.0,
+      "stop_condition": { "type": "distance_reached", "distance": 1.0 },
+      "timeout_sec": 20,
+      "on_timeout": "abort"
+    }
+  ]
+}

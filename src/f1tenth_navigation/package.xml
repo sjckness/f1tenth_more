@@ -13,13 +13,15 @@
   <exec_depend>nav2_lifecycle_manager</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>rclpy</exec_depend>
-  <exec_depend>nav_msgs</exec_depend>
-  <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package;
+       depending on it here (not f1tenth_bringup) avoids a build-order cycle,
+       since f1tenth_bringup itself includes this package's launch file. -->
+  <exec_depend>f1tenth_params</exec_depend>
 
-  <!-- Nav2 stack brought up by launch/nav2_bringup.launch.py -->
+  <!-- Nav2 stack brought up by launch/nav2.launch.py -->
   <exec_depend>nav2_planner</exec_depend>
   <exec_depend>nav2_smac_planner</exec_depend>
   <exec_depend>nav2_controller</exec_depend>

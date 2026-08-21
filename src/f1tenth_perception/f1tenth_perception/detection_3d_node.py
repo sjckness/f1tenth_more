@@ -60,8 +60,8 @@ from vision_msgs.msg import (
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_perception.cpu_affinity import (
-    apply_cpu_affinity_and_priority,
-    declare_cpu_affinity_params,
+    apply_nice,
+    declare_nice_param,
 )
 
 # Fixed offset applied to a box marker's id to get its paired text-label marker's id,
@@ -73,13 +73,15 @@ class Detection3DNode(Node):
     def __init__(self):
         super().__init__('detection_3d_node')
 
-        # cpu_affinity/nice: see cpu_affinity.py. The perception-latency audit
-        # measured this node at 75-82% CPU with no pinning (less severe than
-        # yolo_detector_node's contention signature, but still substantial) --
-        # shares a "perception" core pair with obstacle_projector_node
-        # (separate from yolo's own dedicated pair and from mpc_corr's 10,11),
-        # set via detection.launch.py's detection_3d_cpu_affinity arg.
-        declare_cpu_affinity_params(self)
+        # nice: see cpu_affinity.py. The perception-latency audit measured
+        # this node at 75-82% CPU with no pinning (less severe than
+        # yolo_detector_node's contention signature, but still substantial).
+        # CPU AFFINITY is now a `taskset -c` launch prefix, not an in-process
+        # self-pin -- see detection.launch.py's own detection_3d_cpu_affinity
+        # comment (thread-pinning-leak fix, Step 6 reintroduction
+        # investigation: the old self-pin left 32 of this node's 33 threads
+        # fully unpinned, confirmed live executing on reserved cores).
+        declare_nice_param(self)
 
         # ---- parameters ------------------------------------------------
         self.detections_topic = str(
@@ -166,7 +168,7 @@ class Detection3DNode(Node):
             slop=self.sync_slop)
         self.sync.registerCallback(self._synced_callback)
 
-        apply_cpu_affinity_and_priority(self)
+        apply_nice(self)
 
         self.get_logger().info(
             f'detection_3d_node up: syncing "{self.detections_topic}" + '

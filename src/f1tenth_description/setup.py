@@ -15,7 +15,7 @@ setup(
         # Robot model + assets, shared by f1tenth_bringup (real) and f1tenth_sim.
         ('share/' + package_name + '/urdf', glob('urdf/*')),
         ('share/' + package_name + '/meshes', glob('meshes/*')),
-        ('share/' + package_name + '/launch', glob('launch/*launch.py')),
+        ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

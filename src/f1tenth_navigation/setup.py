@@ -12,7 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
+        (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         # Install everything under maps/ (yaml + png/pgm image data + README).
         (os.path.join('share', package_name, 'maps'), glob('maps/*')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
@@ -21,11 +21,11 @@ setup(
     zip_safe=True,
     maintainer='fabiocar',
     maintainer_email='fabiocar@todo.todo',
-    description='Static map server for the F1tenth stack.',
+    description='Static map server and Nav2 navigation stack (planner/controller/'
+                 'behavior servers, bt_navigator, lifecycle manager) for the F1tenth '
+                 'stack.',
     license='Apache License 2.0',
     entry_points={
-        'console_scripts': [
-            'odom_tf_broadcaster = f1tenth_navigation.odom_to_tf_node:main',
-        ],
+        'console_scripts': [],
     },
 )

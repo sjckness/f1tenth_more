@@ -9,18 +9,28 @@
 #   odom0  (/odom)              -> x, y, yaw           (wheel/steering odometry)
 #   imu0   (/sensors/imu/raw)   -> yaw rate             (VESC IMU)
 #
-# Output: map -> odom transform + /odometry/filtered, world frame = map.
-# odom -> base_link is a fixed (identity) static transform published by
-# f1tenth_localization/launch/localization.launch.py, not by this node -- with
-# world_frame: map and map_frame != odom_frame, robot_localization composes its
-# map -> odom correction against that existing odom -> base_link edge.
+# Output: odom -> base_link transform + /odometry/filtered, world frame = odom.
+# world_frame REVERTED from map back to odom (dual-EKF pass, see f1tenth_
+# bringup/config/ekf_global.yaml): this LOCAL EKF instance now owns odom ->
+# base_link directly (publish_tf: true below), replacing the fixed-identity
+# static transform f1tenth_localization/launch/localization.launch.py used to
+# publish for this role -- that static publisher is now conditional on
+# localization_source == 'raw_odom' only (see that file's own comment), since
+# with world_frame: odom this node needs no existing odom -> base_link edge to
+# compose against (it publishes that edge itself, and it's the ONLY thing that
+# should be publishing it now -- a second publisher on the same edge would
+# collide). map -> odom is now owned by a SEPARATE, GLOBAL EKF instance
+# (ekf_global.yaml) that fuses THIS node's own /odometry/filtered output
+# together with slam_toolbox's /slam/pose -- see that file's own docstring for
+# the full two-layer design and why a second EKF instance, not one filter
+# doing both jobs.
 ekf_filter_node:
   ros__parameters:
     # --- core ----------------------------------------------------------------
     frequency: 50.0
     sensor_timeout: 0.1
     two_d_mode: true            # planar car: zero z, roll, pitch
-    publish_tf: true            # EKF owns map -> odom now (world_frame: map, below)
+    publish_tf: true            # now owns odom -> base_link (world_frame: odom, below)
     publish_acceleration: false
     print_diagnostics: true
     debug: false
@@ -29,7 +39,7 @@ ekf_filter_node:
     map_frame: map
     odom_frame: odom
     base_link_frame: base_link
-    world_frame: map           # publish map -> odom (odom -> base_link is static, see above)
+    world_frame: odom          # REVERTED (was map) -- publish odom -> base_link directly
 
     # --- odom0: wheel/steering odometry from vesc_to_odom_node_backup ---------
     # state layout per row:
@@ -45,21 +55,26 @@ ekf_filter_node:
                    false, false, false,
                    false, false, false]
     odom0_queue_size: 10
-    # world_frame: map (below) means this filter tracks its state in the map frame
-    # and publishes map -> odom itself -- but odom0's message frame_id is 'odom',
-    # not 'map', and there is no independent absolute-pose source (no GPS/AMCL/
-    # markers) providing a real map correction. Fusing it as an absolute,
-    # non-differential pose (the old false here) makes each update fight the very
-    # map -> odom offset this filter is simultaneously trying to estimate --
-    # documented robot_localization pitfall for exactly this "continuous odom
-    # source + world_frame: map, no independent absolute reference" setup.
-    # Confirmed live: with the car stationary (/odom pinned at yaw=0.0) and
-    # yaw_variance already tightened to 0.03 (see vesc.yaml), /odometry/filtered's
-    # yaw still ran away to -130.9 deg over ~3:49 min, tracking the raw residual
-    # gyro rate (~0.02 rad/s) almost exactly -- i.e. odom0's correction was barely
-    # touching the fused estimate regardless of covariance. differential: true
-    # fuses only the delta since the last odom0 message instead (frame-agnostic
-    # for a rotation delta), which is the standard fix for this pattern.
+    # HISTORICAL CONTEXT for differential: true below (kept UNCHANGED by the
+    # dual-EKF pass's own "no other changes" scope -- world_frame reverted to
+    # odom above, this value is not being re-derived): originally justified by
+    # world_frame: map (this filter tracking state in the map frame while
+    # odom0's own frame_id is 'odom', with no independent absolute-pose source
+    # at the time) -- fusing odom0 as an absolute, non-differential pose made
+    # each update fight the very map -> odom offset this filter was
+    # simultaneously trying to estimate, a documented robot_localization
+    # pitfall for exactly that "continuous odom source + world_frame: map, no
+    # independent absolute reference" setup. Confirmed live: with the car
+    # stationary (/odom pinned at yaw=0.0) and yaw_variance already tightened
+    # to 0.03 (see vesc.yaml), /odometry/filtered's yaw still ran away to
+    # -130.9 deg over ~3:49 min, tracking the raw residual gyro rate (~0.02
+    # rad/s) almost exactly. That original justification no longer strictly
+    # applies now that world_frame: odom matches odom0's own frame_id
+    # directly (no map -> odom offset for THIS filter to fight at all) --
+    # differential fusion still works fine either way (it integrates deltas
+    # regardless of which frame is being tracked), so this is left as-is
+    # rather than re-litigated, per this pass's own explicit "same inputs,
+    # same /odometry/filtered output, no other changes" scope.
     odom0_differential: true
     odom0_relative: false
 

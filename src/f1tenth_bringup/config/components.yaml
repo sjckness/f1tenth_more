@@ -16,13 +16,41 @@
 # steady-state component. See its own args below and component_supervisor_node.py's
 # docstring for the follow-up workflow (restart localization + navigation after it
 # completes).
+#
+# hardware's calibration arg is deliberately ABSENT from its args below (as of
+# the calibration-single-source-of-truth pass) -- it used to be hardcoded here
+# ('true', as of the earlier automatic-startup-calibration pass), which meant
+# f1tenth_params/config/stack_params.yaml's own `calibration` key was a lie: no
+# launch arg or param actually read it for this path, so there was no live way
+# to get calibration:=false through supervisor_bringup.launch.py at all -- only
+# hand-editing this file. Fixed by making stack_params.yaml's `calibration` key
+# the ONLY declaration: component_supervisor_node.py now declare_parameter()s
+# 'calibration' (wired from supervisor_bringup.launch.py's own `calibration`
+# launch argument, defaulting from that same stack_params.yaml key) and injects
+# it into this entry's args dict at runtime, before 'hardware' ever launches --
+# see that node's __init__ and _hardware_will_calibrate()'s own docstring. A
+# calibration failure still falls back silently (vesc.yaml left untouched)
+# rather than blocking startup -- see f1tenth_hardware/launch/vesc.launch.py's
+# own module docstring for the full sequencing. calibrate_hardware below is
+# untouched by this -- it's a deliberate, explicit, always-calibrate action.
+#
+# release_downstream: 'false' here for the same reason calibrate_hardware already
+# had it below: localization/navigation are THIS supervisor's own independently-
+# tracked components (see those entries further down), not nested includes of
+# vesc.launch.py's own launch tree -- without this override, vesc.launch.py's
+# calibration:=true path defaults release_downstream to true and would, once
+# calibration finished, ALSO include ekf.launch.py/navigation.launch.py itself,
+# duplicating (two ekf_node instances, two nav stacks) what component_supervisor_
+# node already separately auto-starts. Missed when calibration was first flipped
+# to 'true' here -- caught before it manifested (the run that surfaced it was
+# interrupted before vesc.launch.py's driver group v2 ever came up).
 
 components:
   hardware:
     - package: f1tenth_hardware
       launch_file: vesc.launch.py
       args:
-        calibration: 'false'
+        release_downstream: 'false'
 
   calibrate_hardware:
     - package: f1tenth_hardware
@@ -50,6 +78,12 @@ components:
   navigation:
     - package: f1tenth_navigation
       launch_file: navigation.launch.py
+
+  slam:
+    - package: f1tenth_navigation
+      launch_file: slam.launch.py
+    - package: f1tenth_costmap
+      launch_file: costmap.launch.py
 
   behavior:
     - package: f1tenth_behavior

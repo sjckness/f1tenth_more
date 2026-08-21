@@ -145,6 +145,7 @@ RUN curl -sSL https://packages.osrfoundation.org/gazebo.gpg \
         ros-humble-joy-teleop \
         ros-humble-rosbridge-server \
         ros-humble-tf2-ros \
+        ros-humble-topic-tools \
         ros-humble-action-tutorials-interfaces \
         ros-humble-ackermann-steering-controller \
         ros-humble-cob-srvs \
@@ -213,6 +214,22 @@ RUN curl -sSL https://packages.osrfoundation.org/gazebo.gpg \
 # YOLO runs on CPU until a Jetson-specific CUDA torch wheel (e.g. NVIDIA's
 # jetson-ai-lab index) replaces this - that swap is a follow-up, not done by
 # this layer.
+#   osqp : mpc_corr's RTI solver (mpc_solver.py::_solve_rti), default on.
+#          Not on the pytorch CPU index above -- --extra-index-url only adds
+#          to the default PyPI index, doesn't replace it, so this resolves
+#          from PyPI as normal.
+#   open3d : f1tenth_perception's wall_detector_node (RANSAC plane
+#          segmentation). No Jetson-specific gotcha like torch above -- a real
+#          manylinux_2_27_aarch64 cp310 wheel exists on plain PyPI (verified:
+#          `pip download --no-deps open3d` resolves and downloads cleanly on
+#          this exact platform/Python version), and it's CPU-only regardless
+#          of platform (Open3D's GPU build is a separate ISPC/CUDA package
+#          this workspace does not use), so there's no CUDA-index split to
+#          worry about the way there is for torch. Requires numpy>=1.18.0,
+#          compatible with the numpy<2 pin above. Pulls in dash/werkzeug/
+#          nbformat/configargparse transitively (Open3D's bundled web
+#          visualizer) -- unused here, just real weight that comes with the
+#          standard wheel.
 RUN pip3 install --no-cache-dir --ignore-installed \
         --extra-index-url https://download.pytorch.org/whl/cpu \
         pyserial \
@@ -223,7 +240,9 @@ RUN pip3 install --no-cache-dir --ignore-installed \
         'opencv-python<5' \
         'torch==2.12.1+cpu' \
         'torchvision==0.27.1+cpu' \
-        ultralytics
+        ultralytics \
+        osqp \
+        open3d
 
 # --- Layer 13 - rosdep init/update at BUILD time [partial (j)] ------------
 # The actual `rosdep install` over the bind-mounted src/ runs at CONTAINER

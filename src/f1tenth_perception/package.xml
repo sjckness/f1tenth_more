@@ -26,33 +26,16 @@
   <exec_depend>geometry_msgs</exec_depend>
 
   <!-- Runtime Python deps for obstacle_projector_node (3D detections -> 2D
-       obstacles for mpc_controller), also reused by wall_detector_node -->
+       obstacles for mpc_controller) -->
   <exec_depend>f1tenth_messages</exec_depend>
 
-  <!-- Runtime Python deps for wall_detector_node (RANSAC plane segmentation
-       for wall/corner detection from the ZED point cloud) -->
-  <exec_depend>sensor_msgs_py</exec_depend>
-  <!-- nav_msgs/Odometry: wall_detector_node's own motion-compensation
-       odometry subscription (get_odom_topic(), see f1tenth_params); see
-       wall_detector_node.py's own module docstring "Motion compensation"
-       section. -->
-  <exec_depend>nav_msgs</exec_depend>
-  <!-- scipy.spatial.transform.Rotation: quaternion -> rotation matrix for
-       the tf2-based cloud transform (_transform_to_robot_frame). Real
-       rosdep key, already a pinned pip dep in both GPU Dockerfiles for
-       mpc_corr's osqp/numpy layer, just not previously imported by any
-       node in this package. -->
-  <exec_depend>python3-scipy</exec_depend>
-  <!-- open3d has no rosdep key: install via `pip install open3d` (a real
-       manylinux_2_27_aarch64 cp310 wheel exists for this platform/Python
-       version, verified, no need to build from source). NOT installed in
-       this workspace's live environment as of this writing, see
-       docker/Dockerfile.jetson-thor's own pip layer (same "no rosdep key,
-       Jetson-specific gotchas" pattern already used there for torch/
-       ultralytics) and f1tenth_perception's README for the exact install
-       command. Confirmed: the plain wheel is CPU-only (no CUDA), which is
-       fine here, segment_plane (RANSAC) is a CPU algorithm in Open3D
-       regardless, unlike YOLO's GPU-bound inference. -->
+  <!-- sensor_msgs_py/nav_msgs/python3-scipy and the open3d install note
+       previously here were wall_detector_node-only (RANSAC plane
+       segmentation for wall/corner detection from the ZED point cloud) -
+       removed when that node was retired by the dual-EKF + costmap-
+       derived-MPC-boundaries pass in favor of f1tenth_costmap's
+       costmap_boundary_node.py. Confirmed via grep that nothing else in
+       this package imports any of them before removing. -->
 
   <!-- Sensors brought up by camera.launch.py / perception.launch.py -->
   <exec_depend>zed_wrapper</exec_depend>

@@ -36,11 +36,17 @@
 
 # py
 *.pyc
+__pycache__/
+.pytest_cache/
 
 #folders
 build/
 install/
 log/
+
+# rosbag recordings dropped under the repo root during live testing --
+# runtime data, not source (each run is tens of MB of binary sqlite3/mcap).
+bags/
 
 # MPC_corr.py's per-run corridor debug snapshots (mpc_controller/MPC_corr.py,
 # self.corridor_log_path) -- runtime debug output written under the repo tree,

@@ -30,19 +30,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-humble-joy-teleop \
         ros-humble-rosbridge-server \
         ros-humble-tf2-ros \
+        ros-humble-topic-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # --- Python runtime deps (pip) -------------------------------------------
 #   pyserial / pynmea2 : serial + NMEA parsing (sensor/GPS plumbing)
 #   requests           : used by llm_mpc_tuner_node
 #   numpy / scipy      : used by mpc_controller
+#   osqp               : mpc_corr's RTI solver (mpc_solver.py::_solve_rti) --
+#                        the SLSQP fallback path (use_rti_solver:=false)
+#                        doesn't need it, but the default does.
 # (No ultralytics/torch here - that is GPU-container only.)
 RUN pip3 install --no-cache-dir \
         pyserial \
         pynmea2 \
         requests \
         numpy \
-        scipy
+        scipy \
+        osqp
 
 # rosdep db is pre-initialised in the base image; refresh it so a runtime
 # `rosdep install --from-paths src` resolves cleanly against the bind mount.

@@ -1,0 +1,11 @@
+{
+  "mission_id": "BOUNDARY-CONSTRAINT-DIAG-5M-STOP-0.5M",
+  "schema_version": "2.0",
+  "moves": [
+    {
+      "id": "move_1_approach_wall",
+      "goal_distance": 5.0,
+      "stop_condition": { "type": "front_clearance", "distance": 0.5 }
+    }
+  ]
+}

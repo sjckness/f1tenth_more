@@ -29,6 +29,16 @@ class EvalContext:
     current_xy: Optional[Tuple[float, float]]
     detected_classes: Dict[str, DetectionInfo]
     min_obstacle_distance: Optional[float]
+    # Live value of /costmap/front_clearance (f1tenth_costmap's
+    # costmap_boundary_node -- nearest-occupied-cell extraction from slam_
+    # toolbox's own /slam/map; retired f1tenth_perception's wall_detector_
+    # node, see the dual-EKF + costmap-derived-MPC-boundaries pass), meters,
+    # or None if no message has arrived yet. Distinct from
+    # min_obstacle_distance: that's YOLO/obstacle_projector_node's discrete-
+    # object distance, this is the nearest occupied map cell roughly ahead --
+    # separate sensing paths, separate stop_condition types, deliberately
+    # not merged.
+    front_clearance: Optional[float]
     # The move's own top-level goal_distance, used as distance_reached's implicit
     # target when the stop_condition itself doesn't override it with its own
     # `distance` field.
@@ -40,6 +50,27 @@ class EvalContext:
     # caller doesn't track this (HandleObjectAction's resume_condition doesn't
     # -- see evaluate()'s goal_reached branch below), not "not yet received".
     goal_reached: Optional[bool] = None
+    # Both new for orientation_delta (schema_version 2.0's "turn" step type),
+    # both defaulted (must come after every non-defaulted field above, same
+    # dataclass-ordering constraint that already put goal_reached last) --
+    # HandleObjectAction's own EvalContext(...) call site (resume_condition)
+    # does not supply either, same as goal_reached; remembering the break
+    # that omission caused for front_clearance (a non-defaulted field there
+    # broke that other construction site) is exactly why these two get
+    # defaults from the start.
+    #
+    # current_yaw: live odometry yaw (radians, /odom's own convention),
+    # captured by CheckStopCondition alongside current_xy. None until the
+    # first odometry message arrives -- same "no message yet" meaning as
+    # front_clearance's own None, not "yaw is exactly zero".
+    current_yaw: Optional[float] = None
+    # turn_start_yaw: this move's yaw at the moment it was first observed
+    # (MissionRuntimeState.move_start_yaw, lazily captured the same way
+    # move_start_xy already is) -- the reference orientation_delta measures
+    # against. None until that first capture happens, which requires
+    # current_yaw to already be available -- see CheckStopCondition's own
+    # lazy-capture logic for exactly when this transitions from None.
+    turn_start_yaw: Optional[float] = None
 
 
 def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
@@ -110,6 +141,44 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
         if ctx.min_obstacle_distance is None:
             return False
         return ctx.min_obstacle_distance < float(p['distance'])
+
+    if t == 'front_clearance':
+        # Same shape as obstacle_distance_below above, different sensor
+        # source -- see EvalContext.front_clearance's own comment.
+        # ctx.front_clearance is None until the first /costmap/front_
+        # clearance message arrives (costmap_boundary_node also publishes a
+        # finite "clear at least this far" value, not silence, whenever
+        # nothing occupied is found within range -- see that node's own
+        # module docstring / costmap_boundary.front_clearance_from_
+        # extraction -- so None here means specifically "no message
+        # received yet", not "clear ahead").
+        if ctx.front_clearance is None:
+            return False
+        return ctx.front_clearance < float(p['distance'])
+
+    if t == 'orientation_delta':
+        # No-odometry-yet case mirrors front_clearance's own None handling:
+        # never satisfied, never crashes, never false-triggers. Covers both
+        # "no /odom message has arrived at all yet" (current_yaw is None) and
+        # "this move's own reference hasn't been captured yet" (turn_start_yaw
+        # is None) -- see CheckStopCondition's lazy-capture comment for why
+        # the latter can lag the former by a tick or two.
+        if ctx.current_yaw is None or ctx.turn_start_yaw is None:
+            return False
+        raw_delta = ctx.current_yaw - ctx.turn_start_yaw
+        # atan2-based wrap, not a naive subtraction: a raw yaw difference is
+        # only correct while both readings stay on the same side of the
+        # +-pi seam. A turn that crosses it mid-maneuver (e.g. starting near
+        # +179 deg and turning further left) would otherwise show up as a
+        # near-360 deg jump instead of the small delta that actually
+        # happened. atan2(sin(x), cos(x)) re-wraps any raw radian difference
+        # back into (-pi, pi] regardless of how it got there.
+        delta_rad = math.atan2(math.sin(raw_delta), math.cos(raw_delta))
+        delta_deg = math.degrees(delta_rad)
+        # >=, not ==: ticks land on whatever the odometry rate happens to
+        # produce, essentially never exactly on the target -- same reasoning
+        # obstacle_distance_below/front_clearance's own threshold checks use.
+        return abs(delta_deg) >= abs(float(p['value']))
 
     # Unreachable if the condition came from mission_config.parse_mission() (it
     # validates `type` against this same set) -- fail safe rather than crash the

@@ -13,7 +13,7 @@
 #
 # >>> VERIFY in-container: if your ros_ign_bridge build predates the YAML
 #     config_file feature, or uses ign_*/IGN_TO_ROS keys instead, see the
-#     equivalent CLI form in sim_bringup_launch.py's comment. <<<
+#     equivalent CLI form in sim_bringup.launch.py's comment. <<<
 
 - ros_topic_name: "/clock"
   gz_topic_name: "/clock"

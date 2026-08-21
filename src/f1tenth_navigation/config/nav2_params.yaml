@@ -15,7 +15,7 @@
 controller_server:
   ros__parameters:
     use_sim_time: false
-    controller_frequency: 10.0
+    controller_frequency: 30.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
     min_theta_velocity_threshold: 0.001
@@ -32,12 +32,12 @@ controller_server:
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.4
-      yaw_goal_tolerance: 0.5
+      xy_goal_tolerance: 1.0
+      yaw_goal_tolerance: 3.0
 
     FollowPath:
       plugin: "nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController"
-      desired_linear_vel: 0.8
+      desired_linear_vel: 0.3
       lookahead_dist: 0.6
       min_lookahead_dist: 0.3
       max_lookahead_dist: 1.2
@@ -55,6 +55,7 @@ controller_server:
       rotate_to_heading_angular_vel: 0.0
       max_angular_accel: 1.5
       max_robot_pose_search_dist: 5.0
+      allow_reversing: true
       # RegulatedPurePursuitController does not itself enforce a minimum turning
       # radius -- that constraint is enforced upstream by SmacPlannerHybrid's
       # minimum_turning_radius, not here.
@@ -70,7 +71,7 @@ planner_server:
       allow_unknown: true
       max_iterations: 1000000
       max_planning_time: 5.0
-      motion_model_for_search: "DUBIN"  # forward-only; see minimum_turning_radius TODO
+      motion_model_for_search: "REEDS_SHEPP"  # forward-only; see minimum_turning_radius TODO
       angle_quantization_bins: 72
       minimum_turning_radius: 0.6       # TODO: measure against the real car
       reverse_penalty: 2.0

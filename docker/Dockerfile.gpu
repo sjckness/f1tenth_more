@@ -97,6 +97,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-humble-joy-teleop \
         ros-humble-rosbridge-server \
         ros-humble-tf2-ros \
+        ros-humble-topic-tools \
         ros-humble-action-tutorials-interfaces \
         ros-humble-ackermann-steering-controller \
         ros-humble-cob-srvs \
@@ -149,6 +150,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # the numpy<2 pin. Pin opencv-python<5 (last numpy-1.x-compatible major) in
 # the SAME pip install as numpy/ultralytics so the resolver settles on one
 # consistent set instead of two installs fighting each other.
+#   osqp : mpc_corr's RTI solver (mpc_solver.py::_solve_rti), default on.
+#   open3d : f1tenth_perception's wall_detector_node (RANSAC plane
+#          segmentation) -- standard manylinux x86_64 wheel, no platform-
+#          specific gotcha here (unlike the Jetson build, see
+#          Dockerfile.jetson-thor's own comment on this same package).
 RUN pip3 install --no-cache-dir \
         pyserial \
         pynmea2 \
@@ -156,7 +162,9 @@ RUN pip3 install --no-cache-dir \
         'numpy<2' \
         scipy \
         'opencv-python<5' \
-        ultralytics
+        ultralytics \
+        osqp \
+        open3d
 
 # --- ROS entrypoint (sources ROS + workspace overlay, then execs cmd) -----
 # The stereolabs base ships its own entrypoint; we override it so ROS is
