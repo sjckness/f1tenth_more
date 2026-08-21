@@ -13,6 +13,9 @@
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>f1tenth_messages</depend>
+  <!-- /mpc/corridor_markers (MPC_corr.py's _publish_corridor_markers()) --
+       Foxglove/RViz visualization of the MPC's own soft reference corridor. -->
+  <depend>visualization_msgs</depend>
   <!-- param_defaults.get_odom_topic(): single source of truth for the active
        odometry topic given localization_source (see f1tenth_params/config/
        stack_params.yaml). f1tenth_params is a dependency-free leaf package. -->

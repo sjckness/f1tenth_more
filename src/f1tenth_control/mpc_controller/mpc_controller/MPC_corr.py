@@ -12,7 +12,8 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPo
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool, Float32
 from ackermann_msgs.msg import AckermannDriveStamped
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Point, PoseStamped
+from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import BoundaryConstraintArray, Obstacle2DArray, TurnGoal
 from f1tenth_params.param_defaults import get_odom_topic
@@ -289,8 +290,47 @@ class MPCController(Node):
         self.corr_tmax = math.tan(math.radians(35.0))
 
         # aggiornamento corridoio
-        self.corridor_update_period = 1.0
+        #
+        # Was a flat 1.0s (10x slower than control_loop's own 10Hz tick,
+        # self.ts below) -- found via Foxglove observation of ~1Hz corridor
+        # updates against an ~80Hz-capable solver, confirmed live via
+        # costmap_boundary_node's own front_clearance timer (20Hz, same
+        # underlying pose source family) making a genuinely-1Hz corridor look
+        # like a mismatch. Investigated rather than just raised: the ONLY
+        # reason a value this conservative existed at all was the adjacent
+        # comment at this rebuild's own call site ("corridor geometry stays on
+        # the slow cadence -- it barely changes while driving straight") --
+        # an argument for why leaving it slow was harmless, not that
+        # rebuilding faster would be harmful. build_straight_corridor() itself
+        # is a handful of vectorized numpy ops over corr_N=120-element arrays
+        # -- sub-millisecond, nowhere near the ~10ms-class OSQP/RTI solve that
+        # actually owns this tick's budget (self.ts=0.1s=100ms) -- so there
+        # was no performance reason for 1.0s either.
+        #
+        # Set to HALF self.ts, not a bare copy of it: the gate below
+        # (`now_sec - last_corridor_time >= corridor_update_period`) is
+        # checked once per control_loop tick, so corridor rebuild can never
+        # exceed control_loop's own 10Hz rate regardless of how low this is
+        # set -- tying it to a bare `self.ts` risked the gate occasionally
+        # missing a tick on ordinary timer-scheduling jitter (elapsed time
+        # landing at e.g. 0.0999s instead of exactly 0.1s), silently falling
+        # back toward a slower effective rate some ticks. Half of self.ts
+        # guarantees the gate always passes every tick with margin, which in
+        # practice means "rebuild every control_loop tick" -- the fastest
+        # this can genuinely go without decoupling corridor rebuild onto its
+        # own timer (a bigger change, not done here: this alone is already a
+        # 10x improvement, 1Hz -> 10Hz, cutting the ~15cm stale-corridor gap
+        # observed at test speed down to ~1.5cm).
+        self.corridor_update_period = 0.5 * self.ts
         self.last_corridor_time = None
+        # Real computation time of the cached corridor (rclpy Time, not a
+        # float) -- used ONLY to stamp /mpc/corridor_markers headers (see
+        # _publish_corridor_markers below) with when the corridor was
+        # actually computed, not whatever instant the marker happens to be
+        # published at. Kept separate from last_corridor_time (a float
+        # second-count used purely for the update_period gate above) since
+        # the two need different representations.
+        self.last_corridor_stamp = None
         self.cached_corridor: Optional[dict] = None
         self.cached_pref_nom: Optional[np.ndarray] = None
 
@@ -553,6 +593,36 @@ class MPCController(Node):
         self.goal_reached_pub = self.create_publisher(
             Bool,
             '/mpc/goal_reached',
+            10
+        )
+
+        # Corridor visualization (Foxglove/RViz) -- the MPC's own soft
+        # reference corridor (build_straight_corridor()'s xL/yL/xR/yR wall
+        # polylines) had no ROS-visible representation at all before this;
+        # only a debug JSONL log file (see save_corridor_snapshot()). NOT the
+        # same thing as /costmap/boundaries (costmap_boundary_node's hard,
+        # occupancy-grid-derived constraints, base_link frame, a non-
+        # renderable custom BoundaryConstraintArray) -- see
+        # _publish_corridor_markers()'s own docstring. visualization_msgs/
+        # MarkerArray, not geometry_msgs/PolygonStamped or nav_msgs/Path --
+        # matches this stack's own existing precedent (semantic_layer_node.py,
+        # detection_3d_node.py both already publish MarkerArray for
+        # Foxglove/RViz; neither PolygonStamped nor Path has any publisher
+        # anywhere in this codebase), and a MarkerArray of two independent
+        # LINE_STRIPs is a more natural fit for "two separate wall polylines"
+        # than a single closed Polygon would be anyway. Published at whatever
+        # rate the corridor is ACTUALLY recomputed at (see corridor_update_
+        # period above and the need_update block in control_loop) -- not
+        # throttled to a separate rate for Foxglove's sake; nothing so far
+        # suggests that's needed (three thin LINE_STRIPs, corr_N=120 points
+        # each, is a light payload compared to e.g. costmap_renderer_node's
+        # own PNG stream). If it ever is needed, follow this stack's own
+        # existing <topic>/viz convention (foxglove_bridge.launch.py's
+        # /camera/image_raw -> /camera/image_raw/viz throttle nodes), not a
+        # new topic-naming shape.
+        self.corridor_markers_pub = self.create_publisher(
+            MarkerArray,
+            '/mpc/corridor_markers',
             10
         )
 
@@ -1150,7 +1220,8 @@ class MPCController(Node):
 
         vdes = self.vdes
 
-        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        now_time = self.get_clock().now()
+        now_sec = now_time.nanoseconds * 1e-9
 
         need_update = False
         if self.cached_corridor is None or self.last_corridor_time is None:
@@ -1164,6 +1235,11 @@ class MPCController(Node):
         if need_update:
             self.cached_corridor = self.build_straight_corridor(x0)
             self.last_corridor_time = now_sec
+            # The actual computation instant, for /mpc/corridor_markers'
+            # header.stamp below -- NOT re-derived from a fresh get_clock().
+            # now() at publish time, which would be off by however long the
+            # rest of this tick (obstacle attach, solve, publish_drive) takes.
+            self.last_corridor_stamp = now_time
 
             # ---- DEBUG: il corridoio e' stato ricostruito ----
             self.get_logger().info(
@@ -1171,6 +1247,7 @@ class MPCController(Node):
                 f'{self.cached_corridor["Pend"][1]:+.3f}) '
                 f'psiRef={self.cached_corridor["psiRef"]:+.3f}'
             )
+            self._publish_corridor_markers(self.cached_corridor, self.last_corridor_stamp)
 
         corridor = self.cached_corridor
 
@@ -1509,6 +1586,69 @@ class MPCController(Node):
         )
 
         return corridor
+
+    def _corridor_line_marker(self, marker_id, ns, xs, ys, stamp, rgba):
+        """One LINE_STRIP Marker from parallel x/y arrays (a corridor wall or
+        the centerline) -- shared by _publish_corridor_markers() below, one
+        call per polyline. Points are already absolute odom-frame coordinates
+        (see that method's own frame comment), so pose stays identity -- no
+        marker-local transform to apply."""
+        m = Marker()
+        m.header.frame_id = 'odom'
+        m.header.stamp = stamp.to_msg()
+        m.ns = ns
+        m.id = marker_id
+        m.type = Marker.LINE_STRIP
+        m.action = Marker.ADD
+        m.pose.orientation.w = 1.0
+        m.scale.x = 0.03  # line width, meters
+        m.color.r, m.color.g, m.color.b, m.color.a = rgba
+        # Slightly longer than corridor_update_period so a normal rebuild
+        # refreshes each marker well before it would expire, but a stalled
+        # mpc_corr (crashed, or stuck on a slow tick) makes the corridor
+        # visibly disappear from Foxglove/RViz instead of silently showing a
+        # stale, no-longer-true corridor forever -- same "don't let a viz
+        # element imply liveness it doesn't have" reasoning as this repo's
+        # own front_clearance/min_obstacle_distance staleness gaps (see
+        # f1tenth_behavior/README.md's "Dependency failure behavior"
+        # section) -- except here the marker's own lifetime enforces it
+        # directly, rather than relying on a consumer to notice.
+        m.lifetime.sec = 0
+        m.lifetime.nanosec = int(3.0 * self.corridor_update_period * 1e9)
+        m.points = [Point(x=float(px), y=float(py), z=0.0) for px, py in zip(xs, ys)]
+        return m
+
+    def _publish_corridor_markers(self, corridor, stamp):
+        """Publishes the MPC's own soft reference corridor (build_straight_
+        corridor()'s xL/yL/xR/yR wall polylines + xc/yc centerline) as a
+        MarkerArray on /mpc/corridor_markers, for Foxglove/RViz -- see that
+        publisher's own construction-site comment in __init__ for why
+        MarkerArray (not PolygonStamped/Path) and why this is NOT the same
+        thing as /costmap/boundaries.
+
+        Frame: 'odom', not 'map' -- corridor/wall points come straight from
+        build_straight_corridor()'s own X0/Y0 (self.x/self.y), which are
+        themselves whatever get_odom_topic() selects (either raw /odom or the
+        LOCAL EKF's /odometry/filtered -- see _update_active_odom()) -- never
+        the global (map-frame) EKF. Publishing these under 'map' would be
+        wrong by whatever offset odom has drifted from map at that instant --
+        exactly the kind of off-frame-marker mistake worth getting right the
+        first time rather than "fixing" visually later.
+        """
+        markers = MarkerArray()
+        markers.markers.append(self._corridor_line_marker(
+            0, 'corridor_left', corridor['xL'], corridor['yL'], stamp,
+            (0.2, 0.6, 1.0, 0.9),
+        ))
+        markers.markers.append(self._corridor_line_marker(
+            1, 'corridor_right', corridor['xR'], corridor['yR'], stamp,
+            (1.0, 0.6, 0.2, 0.9),
+        ))
+        markers.markers.append(self._corridor_line_marker(
+            2, 'corridor_centerline', corridor['xc'], corridor['yc'], stamp,
+            (0.8, 0.8, 0.8, 0.6),
+        ))
+        self.corridor_markers_pub.publish(markers)
 
     def compute_local_target(self, x, corridor):
         p_robot = np.array([x[0], x[1]], dtype=float)
