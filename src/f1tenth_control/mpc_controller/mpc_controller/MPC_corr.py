@@ -295,7 +295,21 @@ class MPCController(Node):
         self.cached_pref_nom: Optional[np.ndarray] = None
 
         self.prev_predicted_state = None
-        self.psi_init_corridor = None  # orientamento iniziale (catturato una volta in odom); il corridoio va sempre dritto lungo questa direzione
+        # Bootstrap value only -- captured once from the first odom message this
+        # node instance ever sees (control_loop() below), purely so
+        # build_straight_corridor() has something non-None if a goal_distance
+        # ever arrives before that first capture somehow lands. Every real
+        # goal_distance move re-anchors this to the robot's heading AT THAT
+        # MOVE'S START (goal_distance_callback below) -- see that callback's own
+        # comment for why: reusing a single node-startup-time value here for
+        # every move, forever, made every straight move drift back toward
+        # whatever direction the car happened to be facing at process startup,
+        # silently undoing any turn executed since (found via live testing:
+        # straight-after-turn advanced along the pre-turn heading, not the
+        # post-turn one -- build_straight_corridor's dpsi relinearization
+        # actively steers toward psi_init_corridor, so this wasn't just a wrong
+        # label on an already-straight path, it was steering error).
+        self.psi_init_corridor = None
 
         # Old-workspace-name cleanup pass: previously hardcoded Path.home() /
         # 'ros2_f110_ws' / ... -- a stale reference to this project's old
@@ -664,6 +678,13 @@ class MPCController(Node):
 
         self.goal_start_xy = (self.x, self.y)
         self.goal_distance = float(msg.data)
+        # Re-anchor "straight" to THIS move's own heading, not whatever
+        # psi_init_corridor last held (possibly node-startup, possibly several
+        # moves and turns ago) -- see psi_init_corridor's own comment for the
+        # bug this fixes. self.yaw is guaranteed non-None here: it's set
+        # atomically alongside self.x/self.y in control_loop()'s odom-source
+        # selection, and self.x is already known non-None from the guard above.
+        self.psi_init_corridor = self.yaw
         self.goal_reached = False
         self._no_goal_warned = False
         # Switching to distance mode -- clear any pose-mode goal so the two
@@ -857,10 +878,12 @@ class MPCController(Node):
             self.get_logger().info(f'Odom source -> {source if source is not None else "NESSUNA (stale)"}')
             self.active_odom_source = source
 
-        # cattura l'orientamento iniziale UNA sola volta: il corridoio va sempre dritto lungo questa direzione
+        # Bootstrap-only capture (see self.psi_init_corridor's own comment) --
+        # goal_distance_callback overwrites this for every real move; this just
+        # covers the case nothing has done that yet.
         if source is not None and self.psi_init_corridor is None:
             self.psi_init_corridor = self.yaw
-            self.get_logger().info(f'psi_init_corridor = {self.psi_init_corridor:.3f}')
+            self.get_logger().info(f'psi_init_corridor (bootstrap) = {self.psi_init_corridor:.3f}')
 
     def obstacles_2d_callback(self, msg: Obstacle2DArray):
         if self.x is None or self.y is None or self.yaw is None:

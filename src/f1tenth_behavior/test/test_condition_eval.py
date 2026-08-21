@@ -83,6 +83,69 @@ class TestFrontClearanceStopCondition:
         assert evaluate(cond, ctx) is False
 
 
+# ==============================================================================
+# orientation_delta -- regression coverage for the "180 deg turn spins
+# forever" bug found via live testing (mission 3). The original implementation
+# computed a wrapped current-minus-start delta (atan2(sin(x), cos(x)), bounded
+# to (-180, 180] deg) which could only ever brush a target of exactly 180 and
+# could never satisfy a target above 180 at all. The fix evaluates against
+# EvalContext.turn_accum_deg -- an unwrapped, per-tick-accumulated rotation
+# with no such ceiling -- instead. These tests exercise turn_accum_deg
+# directly (that's the field evaluate() actually reads); the accumulation
+# itself is CheckStopCondition._odom_cb's job, not condition_eval's, so it's
+# not re-tested here -- see that module's own docstring.
+# ==============================================================================
+
+class TestOrientationDeltaStopCondition:
+
+    def test_missing_turn_accum_fails_safe_not_satisfied(self):
+        # No odom message for this move yet -- never satisfied, never a crash.
+        cond = StopCondition(type='orientation_delta', params={'value': 90.0})
+        ctx = _ctx(turn_accum_deg=None)
+        assert evaluate(cond, ctx) is False
+
+    def test_90deg_turn_left_satisfied_at_target(self):
+        cond = StopCondition(type='orientation_delta', params={'value': 90.0})
+        assert evaluate(cond, _ctx(turn_accum_deg=89.9)) is False
+        assert evaluate(cond, _ctx(turn_accum_deg=90.0)) is True
+        assert evaluate(cond, _ctx(turn_accum_deg=90.5)) is True
+
+    def test_90deg_turn_right_uses_unsigned_comparison(self):
+        # heading_delta_deg's sign convention (+ left, - right) lives on the
+        # turn step itself, not on orientation_delta's own `value` (mission_
+        # config.py's own validator requires value == abs(heading_delta_deg))
+        # -- so the accumulated rotation can be negative (a right turn) and
+        # must still compare by magnitude.
+        cond = StopCondition(type='orientation_delta', params={'value': 90.0})
+        assert evaluate(cond, _ctx(turn_accum_deg=-89.9)) is False
+        assert evaluate(cond, _ctx(turn_accum_deg=-90.0)) is True
+
+    def test_exactly_180deg_is_satisfied(self):
+        # THE bug: a wrapped current-minus-start delta is bounded to
+        # (-180, 180], so it could only ever brush this value, never reliably
+        # land on/past it tick-to-tick (floating-point/timing dependent) --
+        # see condition_eval.py's own turn_accum_deg comment. An unwrapped
+        # accumulator has no such ceiling, so landing past 180 exactly (as a
+        # real odometry stream will, on whichever tick crosses it) satisfies
+        # cleanly regardless of direction.
+        cond = StopCondition(type='orientation_delta', params={'value': 180.0})
+        assert evaluate(cond, _ctx(turn_accum_deg=179.9)) is False
+        assert evaluate(cond, _ctx(turn_accum_deg=180.0)) is True
+        assert evaluate(cond, _ctx(turn_accum_deg=180.1)) is True
+        assert evaluate(cond, _ctx(turn_accum_deg=-180.1)) is True
+
+    def test_270deg_turn_unreachable_under_old_wrapped_logic_now_works(self):
+        # A wrapped delta's magnitude never exceeds 180 -- under the old
+        # implementation this target could NEVER be satisfied, full stop, not
+        # just at the exact boundary. Nothing in mission_config.py's schema
+        # caps heading_delta_deg/orientation_delta's value at 180, so this
+        # was a live latent bug for any turn step requesting more than a
+        # half-turn, not only the ones already discovered at exactly 180.
+        cond = StopCondition(type='orientation_delta', params={'value': 270.0})
+        assert evaluate(cond, _ctx(turn_accum_deg=180.0)) is False
+        assert evaluate(cond, _ctx(turn_accum_deg=270.0)) is True
+
+
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))

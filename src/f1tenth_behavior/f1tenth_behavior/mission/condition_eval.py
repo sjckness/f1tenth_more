@@ -66,11 +66,27 @@ class EvalContext:
     current_yaw: Optional[float] = None
     # turn_start_yaw: this move's yaw at the moment it was first observed
     # (MissionRuntimeState.move_start_yaw, lazily captured the same way
-    # move_start_xy already is) -- the reference orientation_delta measures
-    # against. None until that first capture happens, which requires
-    # current_yaw to already be available -- see CheckStopCondition's own
-    # lazy-capture logic for exactly when this transitions from None.
+    # move_start_xy already is). Kept for reference/logging, but NOT what
+    # orientation_delta itself checks against any more -- see turn_accum_deg
+    # below for why (naive current-minus-start, even wrapped, cannot represent
+    # a turn of >=180 deg).
     turn_start_yaw: Optional[float] = None
+    # turn_accum_deg: signed cumulative rotation (degrees) since this move
+    # started, from CheckStopCondition's own per-odom-message unwrap-and-
+    # accumulate (see that module's docstring) -- NOT a wrapped instantaneous
+    # current-minus-start delta. That distinction is exactly the fix for the
+    # "180 deg turn spins forever" bug: a wrapped delta (atan2(sin(x), cos(x)))
+    # is mathematically bounded to (-180, 180] deg, so it can never reach, and
+    # can only ever brush, a target of exactly 180 -- and for any target above
+    # that (e.g. a 270 deg turn) it could NEVER be satisfied at all, since
+    # continuing to rotate past the wrapped representation's own maximum
+    # makes the wrapped magnitude fall back toward 0 rather than keep growing.
+    # Accumulating each tick's own small (always well under 180 deg) wrapped
+    # step, rather than re-deriving from absolute start/current yaw, has no
+    # such ceiling. None until CheckStopCondition has seen at least one odom
+    # message for this move -- same "no message yet" meaning as the other
+    # Optional fields here.
+    turn_accum_deg: Optional[float] = None
 
 
 def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
@@ -158,27 +174,21 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
 
     if t == 'orientation_delta':
         # No-odometry-yet case mirrors front_clearance's own None handling:
-        # never satisfied, never crashes, never false-triggers. Covers both
-        # "no /odom message has arrived at all yet" (current_yaw is None) and
-        # "this move's own reference hasn't been captured yet" (turn_start_yaw
-        # is None) -- see CheckStopCondition's lazy-capture comment for why
-        # the latter can lag the former by a tick or two.
-        if ctx.current_yaw is None or ctx.turn_start_yaw is None:
+        # never satisfied, never crashes, never false-triggers.
+        #
+        # Deliberately NOT a wrapped current-minus-start delta (that was the
+        # original implementation, and the bug: atan2(sin(x), cos(x)) bounds
+        # its result to (-180, 180] deg, so a target of exactly 180 could only
+        # ever be brushed, never reliably landed on tick-to-tick, and a target
+        # above 180 could never be satisfied at all -- see turn_accum_deg's
+        # own comment on EvalContext for the full explanation). Using the
+        # accumulated, unwrapped rotation instead has no such ceiling.
+        if ctx.turn_accum_deg is None:
             return False
-        raw_delta = ctx.current_yaw - ctx.turn_start_yaw
-        # atan2-based wrap, not a naive subtraction: a raw yaw difference is
-        # only correct while both readings stay on the same side of the
-        # +-pi seam. A turn that crosses it mid-maneuver (e.g. starting near
-        # +179 deg and turning further left) would otherwise show up as a
-        # near-360 deg jump instead of the small delta that actually
-        # happened. atan2(sin(x), cos(x)) re-wraps any raw radian difference
-        # back into (-pi, pi] regardless of how it got there.
-        delta_rad = math.atan2(math.sin(raw_delta), math.cos(raw_delta))
-        delta_deg = math.degrees(delta_rad)
         # >=, not ==: ticks land on whatever the odometry rate happens to
         # produce, essentially never exactly on the target -- same reasoning
         # obstacle_distance_below/front_clearance's own threshold checks use.
-        return abs(delta_deg) >= abs(float(p['value']))
+        return abs(ctx.turn_accum_deg) >= abs(float(p['value']))
 
     # Unreachable if the condition came from mission_config.parse_mission() (it
     # validates `type` against this same set) -- fail safe rather than crash the

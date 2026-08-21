@@ -65,6 +65,21 @@ whose shape changing would be a more invasive edit than a new key).
 move_start_yaw is lazily captured exactly like move_start_xy -- see
 MissionRuntimeState.move_start_yaw's own comment.
 
+Turn accumulation (orientation_delta's own real fix, added when live testing
+found 180deg turns spinning instead of stopping): _odom_cb accumulates
+_turn_accum_deg across EVERY odom message (not just once per BT tick, so a
+turn between two ticks can't be missed) by unwrap-and-adding each small
+per-message step, rather than re-deriving a single current-minus-start delta
+the way move_start_yaw-based tracking did. That wrapped-delta approach is
+mathematically bounded to (-180, 180] deg -- see condition_eval.py's own
+turn_accum_deg comment for exactly why that made a 180deg target nearly
+unreachable and anything above 180 unreachable at all. _turn_accum_deg/
+_turn_accum_prev_yaw reset (to 0.0 / the current yaw) in update() whenever
+move.id changes, same trigger as _goal_reached_flag's own reset just below --
+harmless if an odom message sneaks in between the move actually changing and
+this reset running (it would accumulate onto the stale value using the stale
+baseline, which then simply gets overwritten).
+
 on_timeout='stop' (new alongside 'abort'/'skip'): unlike those two, this
 does not change mission.state or advance current_index at all -- it holds
 the car (/mpc/hold True, hence the new hold_pub here) and leaves the mission
@@ -120,6 +135,12 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.yaw = None
         self._goal_reached_flag = False
         self._goal_reached_tracked_move_id = None
+        # orientation_delta's own accumulator -- see module docstring's "Turn
+        # accumulation" paragraph. _turn_accum_prev_yaw is None until the
+        # first odom message for the CURRENT move has been folded in (reset
+        # alongside _turn_accum_deg on move change, in update() below).
+        self._turn_accum_deg = 0.0
+        self._turn_accum_prev_yaw = None
 
         self.blackboard = self.attach_blackboard_client(name=name)
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
@@ -154,6 +175,18 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
         self.yaw = _quaternion_to_yaw(msg.pose.pose.orientation)
+        # Unwrap-and-accumulate THIS message's own small step, not a re-derived
+        # current-minus-start delta -- see module docstring's "Turn
+        # accumulation" paragraph for why. Every odom message folds in here
+        # (not just once per BT tick), so a fast turn between two ticks can't
+        # be missed/collapsed.
+        if self._turn_accum_prev_yaw is not None:
+            step_rad = math.atan2(
+                math.sin(self.yaw - self._turn_accum_prev_yaw),
+                math.cos(self.yaw - self._turn_accum_prev_yaw),
+            )
+            self._turn_accum_deg += math.degrees(step_rad)
+        self._turn_accum_prev_yaw = self.yaw
         setattr(self.blackboard, CURRENT_XY_KEY, (self.x, self.y))
         setattr(self.blackboard, CURRENT_YAW_KEY, self.yaw)
 
@@ -181,6 +214,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         if move.id != self._goal_reached_tracked_move_id:
             self._goal_reached_tracked_move_id = move.id
             self._goal_reached_flag = False
+            self._turn_accum_deg = 0.0
+            self._turn_accum_prev_yaw = self.yaw
 
         current_xy = (self.x, self.y) if self.x is not None else None
         if state.move_start_xy is None and current_xy is not None:
@@ -241,6 +276,9 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             goal_reached=self._goal_reached_flag,
             current_yaw=self.yaw,
             turn_start_yaw=state.move_start_yaw,
+            turn_accum_deg=(
+                self._turn_accum_deg if self._turn_accum_prev_yaw is not None else None
+            ),
         )
         result = evaluate(move.stop_condition, ctx)
 
