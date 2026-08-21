@@ -19,6 +19,13 @@ and four services for callers that want a synchronous result:
   mission's moves/stop_conditions/on_object entries actually use) -- see that
   module's own docstring for the battery-precheck race this replaces "the car
   silently didn't move" with an explicit, actionable failure at start time.
+  Also publishes /mpc/hold(False) exactly once, right when this transition
+  actually succeeds -- see this method's own extended comment below for why:
+  a real bug found via live testing, where load_mission + start_mission on a
+  fresh mission after an abort both reported success and the mission genuinely
+  reached RUNNING, but mpc_corr silently drove nothing because its OWN
+  self.hold flag (not any state this file owns) was still latched True from
+  the prior abort and nothing had ever released it.
 - /mission/abort_mission (std_srvs/Trigger): abort whatever mission is
   currently loaded-or-running (LOADED, RUNNING, or HOLDING) -- no request
   payload, no mission_id to get right; there is only ever one mission slot
@@ -247,9 +254,48 @@ class MissionLoader:
 
             mission_id = state.config.mission_id if state.config else ''
             state.begin(now=time.monotonic())
+            # Fixes a real "load+start after abort doesn't work" bug found via
+            # live testing. Traced end-to-end, not assumed: neither this
+            # file's own state.state check above nor MissionRuntimeState.load()
+            # (called by _load(), unconditionally overwrites state -> LOADED
+            # regardless of what it was before) ever rejects a load/start
+            # sequence because of a PRIOR abort -- both correctly reset and
+            # succeed. The actual blocker lives entirely in mpc_corr, a
+            # different process: its own self.hold flag (MPC_corr.py's
+            # hold_callback/control_loop) is set True by abort_mission (both
+            # this service's own abort path and HandleObjectAction's
+            # on_object one), by AdvanceMove on mission COMPLETE, and by
+            # CheckStopCondition on_timeout='stop' -- and NOTHING, across this
+            # entire package, ever published hold(False) again except
+            # HandleObjectAction._resume() (the stop_and_hold-specific resume,
+            # unrelated to starting a brand new mission). So a fresh mission
+            # could load, start, reach RUNNING, and PublishMoveGoal a real
+            # goal to mpc_corr -- which would then silently zero its own
+            # output every tick regardless, because control_loop() checks
+            # self.hold before ever looking at the goal. From the operator's
+            # side this reads as "start_mission doesn't work", not as any
+            # kind of error, since every service call along the way
+            # genuinely succeeds.
+            #
+            # Fix, deliberately placed HERE rather than in abort_mission
+            # itself: releasing the hold is exactly correct at the moment a
+            # NEW mission is deliberately, successfully started (this is
+            # precisely the point the system should commit to actively
+            # driving again), not automatically during abort's own settling.
+            # Clearing it inside abort_mission instead would need a "the car
+            # has actually stopped" signal that does not exist anywhere in
+            # this stack today (no ERPM/velocity feedback loop watches for
+            # that), and publishing hold(False) there without one would risk
+            # releasing it before the abort has actually taken effect -- a
+            # worse safety regression than the bug being fixed. Doing it here
+            # instead also uniformly covers all three latch sources above
+            # (abort, mission-complete, timeout-stop) with one change, rather
+            # than three separate "wait for stopped, then release" additions.
+            self.hold_pub.publish(Bool(data=False))
             self._node.get_logger().info(
                 f"[mission] '{mission_id}' STARTED via /mission/start_mission -- "
-                f'state=RUNNING from move 0 ({state.current_move.id!r}).'
+                f'state=RUNNING from move 0 ({state.current_move.id!r}) -- '
+                '/mpc/hold released.'
             )
             response.success = True
             response.message = f"started '{mission_id}'"

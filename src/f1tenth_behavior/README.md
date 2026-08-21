@@ -247,6 +247,25 @@ in-view object tagged only with `log_only` won't stall the mission.
   `/mpc/hold` instead short-circuits `mpc_corr`'s `control_loop` to publish
   zero speed/steering without touching any of that state, so releasing the
   hold resumes exactly where the move left off.
+- **`/mpc/hold` is released exactly once, by `/mission/start_mission`,
+  right when a new mission actually reaches `RUNNING`** -- found via live
+  testing as a real bug: `abort_mission` (both the `/mission/abort_mission`
+  service and `on_object`'s `abort_mission` action), mission `COMPLETE`, and
+  a move's own `on_timeout='stop'` all latch `/mpc/hold(true)`, and **nothing
+  released it again** except `HandleObjectAction`'s `stop_and_hold` ->
+  resume path (unrelated -- that's mid-mission, not a fresh start). A
+  subsequent `load_mission` + `start_mission` on a different mission
+  reported success and the mission genuinely reached `RUNNING`, but
+  `mpc_corr` silently drove nothing -- its own `self.hold` was still latched
+  True. Fixed by publishing `/mpc/hold(false)` in `_on_start_mission_service`
+  itself, exactly when that transition succeeds -- not inside `abort_mission`
+  during its own settling, which would need a "car has actually stopped"
+  signal that does not exist anywhere in this stack and would risk
+  releasing the hold before the abort has actually taken effect. See
+  `mission/loader.py`'s own extended comment on `_on_start_mission_service`
+  for the full trace and `test/test_mission_loader_hold_release.py` for the
+  regression test (reproduces the bug against the pre-fix code, confirms
+  the fix, and confirms the hold is *not* released on a rejected start).
 
 ## Dependency failure behavior (fail-open vs. fail-closed)
 
