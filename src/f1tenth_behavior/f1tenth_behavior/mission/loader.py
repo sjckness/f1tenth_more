@@ -11,7 +11,14 @@ and four services for callers that want a synchronous result:
   car moving the instant the file parses.
 - /mission/start_mission (std_srvs/Trigger): LOADED -> RUNNING. Fails
   (success=false) unless state is currently LOADED -- in particular, it does
-  NOT re-arm an ABORTED/COMPLETE mission; load it again first.
+  NOT re-arm an ABORTED/COMPLETE mission; load it again first. Also fails
+  (success=false, state left at LOADED, not consumed) if mission/preflight.py's
+  liveness check finds a dependency THIS mission needs is not alive and/or not
+  yet publishing (mpc_corr, ackermann_to_vesc_node, localization, and
+  conditionally costmap_boundary_node/yolo_detector_node depending on what the
+  mission's moves/stop_conditions/on_object entries actually use) -- see that
+  module's own docstring for the battery-precheck race this replaces "the car
+  silently didn't move" with an explicit, actionable failure at start time.
 - /mission/abort_mission (std_srvs/Trigger): abort whatever mission is
   currently loaded-or-running (LOADED, RUNNING, or HOLDING) -- no request
   payload, no mission_id to get right; there is only ever one mission slot
@@ -105,7 +112,15 @@ from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 
 from f1tenth_behavior.mission.mission_config import MissionConfigError, load_mission_file
-from f1tenth_behavior.mission.runtime import MISSION_KEY, MissionRuntimeState, MissionState
+from f1tenth_behavior.mission.preflight import check_liveness, required_dependencies
+from f1tenth_behavior.mission.runtime import (
+    CURRENT_XY_KEY,
+    FRONT_CLEARANCE_KEY,
+    MIN_OBSTACLE_DISTANCE_KEY,
+    MISSION_KEY,
+    MissionRuntimeState,
+    MissionState,
+)
 
 # Shared by the /mission/status publisher here and IsEmergencyStopTriggered's
 # subscriber -- durability must match on both ends for the "late subscriber
@@ -127,6 +142,16 @@ class MissionLoader:
         self.blackboard = py_trees.blackboard.Client(name='MissionLoader')
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
         setattr(self.blackboard, MISSION_KEY, MissionRuntimeState())
+        # READ-only -- CheckStopCondition owns writing these (see mission/
+        # runtime.py's own comment on why the key constants live there).
+        # Read here only by _on_start_mission_service's preflight check
+        # (mission/preflight.py) to confirm real data has actually arrived,
+        # not merely that a node exists -- see that module's own docstring.
+        self.blackboard.register_key(key=CURRENT_XY_KEY, access=py_trees.common.Access.READ)
+        self.blackboard.register_key(
+            key=MIN_OBSTACLE_DISTANCE_KEY, access=py_trees.common.Access.READ)
+        self.blackboard.register_key(
+            key=FRONT_CLEARANCE_KEY, access=py_trees.common.Access.READ)
 
         # Not part of MissionRuntimeState: unrelated to mission progress (can be
         # true whether or not a mission is even loaded), and unlike everything
@@ -191,6 +216,32 @@ class MissionLoader:
                 response.message = (
                     f'cannot start: state is {state.state.value}, not LOADED '
                     '(load a mission via /mission/load_mission first)'
+                )
+                return response
+
+            # Preflight liveness check (mission/preflight.py) -- confirms every
+            # node/data source THIS mission actually needs is alive AND
+            # publishing, not just that the service call itself is well-formed.
+            # See that module's own docstring for the battery-precheck race
+            # this replaces "did it silently not move" with "here's exactly
+            # what's missing." Leaves state at LOADED on failure (not
+            # consumed/aborted) so the caller can fix the dependency and retry
+            # the same /mission/start_mission call.
+            reqs = required_dependencies(state.config)
+            failures = check_liveness(
+                reqs,
+                self._node.get_node_names(),
+                lambda key: getattr(self.blackboard, key),
+            )
+            if failures:
+                response.success = False
+                response.message = (
+                    'cannot start: preflight liveness check failed -- '
+                    + '; '.join(failures)
+                )
+                self._node.get_logger().error(
+                    f"[mission] '{state.config.mission_id}' preflight FAILED, staying "
+                    f'LOADED: {response.message}'
                 )
                 return response
 

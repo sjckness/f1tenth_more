@@ -65,3 +65,8 @@ src/f1tenth_perception/models/*.engine
 # it patches the file in place with measured variances) -- runtime artifacts,
 # not source; accumulate under config/ with every calibration run.
 src/f1tenth_bringup/config/vesc.yaml.bak.*
+
+# mission/move_scoring.py's per-mission-run summary files (one per run,
+# timestamped) -- runtime output, not source, same reasoning as
+# corridors_jsons/ above.
+src/f1tenth_behavior/mission_reports/

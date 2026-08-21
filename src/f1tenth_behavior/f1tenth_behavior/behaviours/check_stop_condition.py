@@ -97,12 +97,23 @@ from std_msgs.msg import Bool, Float32
 from f1tenth_behavior.mission.condition_eval import EvalContext, evaluate
 from f1tenth_behavior.mission.mission_config import STUB_STOP_CONDITION_TYPES
 from f1tenth_behavior.mission.detected_classes_bridge import DETECTED_CLASSES_KEY
-from f1tenth_behavior.mission.runtime import MISSION_KEY, MissionRuntimeState
+from f1tenth_behavior.mission.move_scoring import record_move_outcome, write_mission_summary
+from f1tenth_behavior.mission.runtime import (
+    CURRENT_XY_KEY,
+    CURRENT_YAW_KEY,
+    FRONT_CLEARANCE_KEY,
+    GLOBAL_TURN_ACCUM_KEY,
+    GLOBAL_XY_KEY,
+    GLOBAL_YAW_KEY,
+    MIN_OBSTACLE_DISTANCE_KEY,
+    MISSION_KEY,
+    MissionRuntimeState,
+)
 
-CURRENT_XY_KEY = 'mission_current_xy'
-CURRENT_YAW_KEY = 'mission_current_yaw'
-MIN_OBSTACLE_DISTANCE_KEY = 'mission_min_obstacle_distance'
-FRONT_CLEARANCE_KEY = 'mission_front_clearance'
+# Re-exported from mission/runtime.py (the actual definitions now live there
+# -- see its own comment on why) so existing `from f1tenth_behavior.
+# behaviours.check_stop_condition import CURRENT_XY_KEY` call sites
+# (handle_object_action.py) keep working unchanged.
 
 
 def _quaternion_to_yaw(q) -> float:
@@ -121,12 +132,14 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  min_obstacle_distance_topic='/mpc/min_obstacle_distance',
                  goal_reached_topic='/mpc/goal_reached',
                  front_clearance_topic='/costmap/front_clearance',
+                 global_odom_topic='/ekf_global/odometry/filtered',
                  hold_topic='/mpc/hold'):
         super().__init__(name=name)
         self._odom_topic = odom_topic
         self._min_obstacle_distance_topic = min_obstacle_distance_topic
         self._goal_reached_topic = goal_reached_topic
         self._front_clearance_topic = front_clearance_topic
+        self._global_odom_topic = global_odom_topic
         self._hold_topic = hold_topic
         self.node = None
         self.hold_pub = None
@@ -141,6 +154,17 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         # alongside _turn_accum_deg on move change, in update() below).
         self._turn_accum_deg = 0.0
         self._turn_accum_prev_yaw = None
+        # Global (map-frame) EKF pose + its OWN turn accumulator, for
+        # mission/move_scoring.py's closed-loop verification/precision
+        # scoring (3.2/3.5) only -- never read by condition_eval.py. See
+        # runtime.py's own GLOBAL_XY_KEY/GLOBAL_TURN_ACCUM_KEY comments for
+        # why this is a second, independent source/accumulator rather than
+        # reusing the local-odom one above.
+        self.global_x = None
+        self.global_y = None
+        self.global_yaw = None
+        self._global_turn_accum_deg = 0.0
+        self._global_turn_accum_prev_yaw = None
 
         self.blackboard = self.attach_blackboard_client(name=name)
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
@@ -152,10 +176,17 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             key=MIN_OBSTACLE_DISTANCE_KEY, access=py_trees.common.Access.WRITE)
         self.blackboard.register_key(
             key=FRONT_CLEARANCE_KEY, access=py_trees.common.Access.WRITE)
+        self.blackboard.register_key(key=GLOBAL_XY_KEY, access=py_trees.common.Access.WRITE)
+        self.blackboard.register_key(key=GLOBAL_YAW_KEY, access=py_trees.common.Access.WRITE)
+        self.blackboard.register_key(
+            key=GLOBAL_TURN_ACCUM_KEY, access=py_trees.common.Access.WRITE)
         setattr(self.blackboard, CURRENT_XY_KEY, None)
         setattr(self.blackboard, CURRENT_YAW_KEY, None)
         setattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY, None)
         setattr(self.blackboard, FRONT_CLEARANCE_KEY, None)
+        setattr(self.blackboard, GLOBAL_XY_KEY, None)
+        setattr(self.blackboard, GLOBAL_YAW_KEY, None)
+        setattr(self.blackboard, GLOBAL_TURN_ACCUM_KEY, None)
 
     def setup(self, **kwargs):
         try:
@@ -169,6 +200,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             Bool, self._goal_reached_topic, self._goal_reached_cb, 10)
         self.node.create_subscription(
             Float32, self._front_clearance_topic, self._front_clearance_cb, 10)
+        self.node.create_subscription(
+            Odometry, self._global_odom_topic, self._global_odom_cb, 10)
         self.hold_pub = self.node.create_publisher(Bool, self._hold_topic, 10)
 
     def _odom_cb(self, msg: Odometry):
@@ -190,6 +223,29 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         setattr(self.blackboard, CURRENT_XY_KEY, (self.x, self.y))
         setattr(self.blackboard, CURRENT_YAW_KEY, self.yaw)
 
+    def _global_odom_cb(self, msg: Odometry):
+        # Mirrors _odom_cb above exactly (same accumulation technique,
+        # same "every message, not just once per tick" reasoning) against
+        # /ekf_global/odometry/filtered instead of local /odom -- see this
+        # module's docstring and runtime.py's GLOBAL_XY_KEY/
+        # GLOBAL_TURN_ACCUM_KEY comments for why this is a second,
+        # independent subscription/accumulator rather than shared state:
+        # different purpose (post-hoc move scoring vs. real-time stop_
+        # condition evaluation), different data source.
+        self.global_x = msg.pose.pose.position.x
+        self.global_y = msg.pose.pose.position.y
+        self.global_yaw = _quaternion_to_yaw(msg.pose.pose.orientation)
+        if self._global_turn_accum_prev_yaw is not None:
+            step_rad = math.atan2(
+                math.sin(self.global_yaw - self._global_turn_accum_prev_yaw),
+                math.cos(self.global_yaw - self._global_turn_accum_prev_yaw),
+            )
+            self._global_turn_accum_deg += math.degrees(step_rad)
+        self._global_turn_accum_prev_yaw = self.global_yaw
+        setattr(self.blackboard, GLOBAL_XY_KEY, (self.global_x, self.global_y))
+        setattr(self.blackboard, GLOBAL_YAW_KEY, self.global_yaw)
+        setattr(self.blackboard, GLOBAL_TURN_ACCUM_KEY, self._global_turn_accum_deg)
+
     def _min_obstacle_cb(self, msg: Float32):
         setattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY, float(msg.data))
 
@@ -202,6 +258,32 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         # previous move. Reset-on-move-change happens in update().
         if msg.data:
             self._goal_reached_flag = True
+
+    def _record_and_summarize(self, state, move, stop_reason, now):
+        """Records `move`'s outcome and writes the mission summary -- used
+        only by the timeout-abort branch below, the one ending-the-mission
+        path CheckStopCondition itself owns start-to-finish (unlike the
+        stop_condition-satisfied/timeout-skip paths, which return SUCCESS to
+        AdvanceMove and let IT do this instead -- see that behaviour's own
+        docstring). Reads global pose/turn-accum straight off self (this
+        behaviour owns that subscription), not the blackboard -- no need to
+        round-trip through it for its own data."""
+        end_global_xy = (
+            (self.global_x, self.global_y) if self.global_x is not None else None
+        )
+        record_move_outcome(
+            state, self.node.get_logger(), move, stop_reason, now,
+            end_global_xy=end_global_xy,
+            end_global_yaw=self.global_yaw,
+            global_turn_accum_deg=(
+                self._global_turn_accum_deg
+                if self._global_turn_accum_prev_yaw is not None else None
+            ),
+        )
+        write_mission_summary(
+            state.config.mission_id, state.move_outcomes, 'ABORTED',
+            state.mission_start_wall_time, self.node.get_logger(),
+        )
 
     def update(self):
         state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
@@ -216,12 +298,23 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             self._goal_reached_flag = False
             self._turn_accum_deg = 0.0
             self._turn_accum_prev_yaw = self.yaw
+            # Global-EKF turn accumulator resets the same way, same trigger --
+            # see this module's own "Turn accumulation" docstring paragraph.
+            self._global_turn_accum_deg = 0.0
+            self._global_turn_accum_prev_yaw = self.global_yaw
 
         current_xy = (self.x, self.y) if self.x is not None else None
         if state.move_start_xy is None and current_xy is not None:
             state.move_start_xy = current_xy
         if state.move_start_yaw is None and self.yaw is not None:
             state.move_start_yaw = self.yaw
+        # Global-EKF counterparts, same lazy-capture pattern -- see runtime.py's
+        # own move_start_global_xy/move_start_global_yaw comment. Feeds
+        # mission/move_scoring.py only, never condition_eval.py.
+        if state.move_start_global_xy is None and self.global_x is not None:
+            state.move_start_global_xy = (self.global_x, self.global_y)
+        if state.move_start_global_yaw is None and self.global_yaw is not None:
+            state.move_start_global_yaw = self.global_yaw
 
         now = time.monotonic()
 
@@ -241,6 +334,9 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                     f"[mission] Move '{move.id}' timed out after {move.timeout_sec}s -- "
                     "on_timeout=skip, advancing."
                 )
+                # See the stop_condition-satisfied branch below for why this is
+                # set here (read by AdvanceMove right after).
+                state.last_stop_reason = 'timeout:skip'
                 return py_trees.common.Status.SUCCESS
             if move.on_timeout == 'stop':
                 # Neither abort (mission.state -> ABORTED) nor skip (advance)
@@ -259,6 +355,12 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                 f"[mission] Move '{move.id}' timed out after {move.timeout_sec}s -- "
                 'on_timeout=abort, aborting mission.'
             )
+            # Unlike the two branches above, this one ends the WHOLE mission
+            # (FAILURE, not SUCCESS) -- AdvanceMove is never reached to record
+            # this move's outcome/write the mission summary the way it does
+            # for a normal advance, so this branch does both itself, same as
+            # HandleObjectAction's abort_mission does for its own abort path.
+            self._record_and_summarize(state, move, 'timeout:abort', now)
             state.abort()
             return py_trees.common.Status.FAILURE
 
@@ -292,4 +394,10 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             )
             return py_trees.common.Status.RUNNING
 
-        return py_trees.common.Status.SUCCESS if result else py_trees.common.Status.RUNNING
+        if result:
+            # Read by mission/move_scoring.py.record_move_outcome() -- called
+            # from AdvanceMove right after this SUCCESS is what actually
+            # advances the mission (see that behaviour's own docstring).
+            state.last_stop_reason = f'stop_condition:{move.stop_condition.type}'
+            return py_trees.common.Status.SUCCESS
+        return py_trees.common.Status.RUNNING

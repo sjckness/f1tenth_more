@@ -104,6 +104,17 @@ class TestOrientationDeltaStopCondition:
         ctx = _ctx(turn_accum_deg=None)
         assert evaluate(cond, ctx) is False
 
+    def test_0deg_target_is_satisfied_immediately_once_odom_available(self):
+        # Not disallowed by the schema (mission_config.py requires turn.speed
+        # > 0 but places no such floor on heading_delta_deg/orientation_delta's
+        # own value) -- a degenerate but legal edge case: the target is
+        # already met the instant turn_accum_deg exists at all (0.0 on the
+        # very first odom message for the move), rather than only being
+        # reachable once real rotation has happened.
+        cond = StopCondition(type='orientation_delta', params={'value': 0.0})
+        assert evaluate(cond, _ctx(turn_accum_deg=0.0)) is True
+        assert evaluate(cond, _ctx(turn_accum_deg=None)) is False
+
     def test_90deg_turn_left_satisfied_at_target(self):
         cond = StopCondition(type='orientation_delta', params={'value': 90.0})
         assert evaluate(cond, _ctx(turn_accum_deg=89.9)) is False

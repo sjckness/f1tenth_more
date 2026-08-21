@@ -43,7 +43,11 @@ from f1tenth_behavior.behaviours.object_seen import MATCHED_OBJECT_KEY
 from f1tenth_behavior.mission.condition_eval import EvalContext, evaluate
 from f1tenth_behavior.mission.detected_classes_bridge import DETECTED_CLASSES_KEY
 from f1tenth_behavior.mission.mission_config import StopCondition
+from f1tenth_behavior.mission.move_scoring import record_move_outcome, write_mission_summary
 from f1tenth_behavior.mission.runtime import (
+    GLOBAL_TURN_ACCUM_KEY,
+    GLOBAL_XY_KEY,
+    GLOBAL_YAW_KEY,
     MISSION_KEY,
     HoldContext,
     MissionRuntimeState,
@@ -70,6 +74,13 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
             key=MIN_OBSTACLE_DISTANCE_KEY, access=py_trees.common.Access.READ)
         self.blackboard.register_key(
             key=FRONT_CLEARANCE_KEY, access=py_trees.common.Access.READ)
+        # READ-only -- for record_move_outcome() in the abort_mission/
+        # skip_to_move branches below, same reasoning as AdvanceMove's own
+        # registration of these (see that module's own comment).
+        self.blackboard.register_key(key=GLOBAL_XY_KEY, access=py_trees.common.Access.READ)
+        self.blackboard.register_key(key=GLOBAL_YAW_KEY, access=py_trees.common.Access.READ)
+        self.blackboard.register_key(
+            key=GLOBAL_TURN_ACCUM_KEY, access=py_trees.common.Access.READ)
 
     def setup(self, **kwargs):
         try:
@@ -96,6 +107,20 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
 
     # -- freshly-triggered dispatch -------------------------------------------
 
+    def _record_move(self, state, move, stop_reason):
+        """abort_mission/skip_to_move both end the current move OUTSIDE
+        AdvanceMove (they call state.abort()/state.goto_move() directly,
+        Sequence semantics never reaching AdvanceMove for either) -- see
+        move_scoring.py's own module docstring and AdvanceMove's. Each calls
+        this so the move that was in progress when they fired still gets
+        scored/recorded, same as a normal advance would."""
+        record_move_outcome(
+            state, self.node.get_logger(), move, stop_reason, now=time.monotonic(),
+            end_global_xy=getattr(self.blackboard, GLOBAL_XY_KEY),
+            end_global_yaw=getattr(self.blackboard, GLOBAL_YAW_KEY),
+            global_turn_accum_deg=getattr(self.blackboard, GLOBAL_TURN_ACCUM_KEY),
+        )
+
     def _dispatch(self, state, move, entry):
         action = entry.action
 
@@ -117,10 +142,16 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
 
         if action == 'abort_mission':
             reason = entry.params['reason']
+            self._record_move(state, move, f"on_object:{entry.cls}/abort_mission")
             state.abort()
             self.hold_pub.publish(Bool(data=True))
             self.node.get_logger().error(
                 f"[mission] Move '{move.id}': '{entry.cls}' seen -> abort_mission: {reason}"
+            )
+            write_mission_summary(
+                state.config.mission_id if state.config else 'unknown',
+                state.move_outcomes, 'ABORTED', state.mission_start_wall_time,
+                self.node.get_logger(),
             )
             return py_trees.common.Status.SUCCESS
 
@@ -139,6 +170,7 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
             self.node.get_logger().warn(
                 f"[mission] Move '{move.id}': '{entry.cls}' seen -> skip_to_move '{target_id}'."
             )
+            self._record_move(state, move, f"on_object:{entry.cls}/skip_to_move")
             state.goto_move(target_index, now=time.monotonic())
             return py_trees.common.Status.SUCCESS
 

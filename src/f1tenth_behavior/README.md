@@ -248,6 +248,139 @@ in-view object tagged only with `log_only` won't stall the mission.
   zero speed/steering without touching any of that state, so releasing the
   hold resumes exactly where the move left off.
 
+## Dependency failure behavior (fail-open vs. fail-closed)
+
+Audited explicitly after a session where startup races kept behaving
+differently from each other, which made each new one feel like a fresh
+mystery rather than an instance of a known pattern. Enumerated here rather
+than changed wholesale -- most of this is pre-existing behavior, not new
+this pass, and is left as-is except where noted.
+
+| Dependency | On failure/staleness | Fails |
+|---|---|---|
+| VESC battery precheck (launch-time, `f1tenth_hardware/launch/vesc.launch.py` + `battery_voltage_check_node.py`) | Non-zero exit halts the whole downstream VESC launch group (`ackermann_to_vesc_node`, sensor drivers, EKF, Nav2) before any of it starts. No automatic retry -- an operator must relaunch. | **Closed**, deliberately, no retry |
+| `IsBatteryLow` / `IsSystemOverheated` (BT conditions) | Before the first message: returns FAILURE ("not tripped") -- deliberate, so the emergency lane doesn't trip on ordinary stack-startup ordering before the diagnostics publisher comes up. **After** the first message, there is no message-age check at all: if the publishing node dies mid-mission, the last-received reading (however old) keeps being treated as current. | **Open**, both before first data (by design) and after staleness (gap, not by design) |
+| `IsEmergencyStopTriggered` | Same before-first-message FAILURE reasoning as above. Staleness afterward is not a real risk here -- the publisher (`MissionLoader`) is same-process, transient-local QoS, and can't independently die out from under this condition the way a separate node can. | Open before first data; staleness N/A |
+| `object_seen` / `object_cleared` (`condition_eval.py`) | Explicit `DEFAULT_SEEN_FRESHNESS_SEC=1.0s` freshness window -- a detection older than that reads as "not seen" regardless of *why* (target left frame, or `yolo_detector_node` crashed). The **only** stop-condition source with genuine staleness handling. | **Closed** on staleness |
+| `front_clearance` / `min_obstacle_distance` / `goal_reached` / local `/odom` (`CheckStopCondition`'s other `EvalContext` inputs) | No staleness check at all (already flagged individually in `front_clearance`/`min_obstacle_distance`'s own code comments -- true of `goal_reached` and local-odom-derived `current_xy`/`current_yaw` too). If the publisher (`mpc_corr`, `costmap_boundary_node`) dies mid-move, the last value is reused forever; the only backstop is that move's own `timeout_sec`, which is **optional** (schema_version 2.0 relaxed it from required). | **Open** by omission -- inconsistent with `object_seen` above |
+| `/mission/start_mission` (`mission/loader.py`) | Checks only `state == LOADED` -- nothing about whether `mpc_corr`/localization/perception are actually alive and producing data. This is the mission-layer version of the battery-precheck race: a dependency silently absent while everything else still looks healthy. | **Open**, today -- addressed by the preflight check below |
+
+Policy going forward (deliberate, not silently normalized):
+
+- Keep the emergency-lane conditions' fail-OPEN behavior *before first data*
+  -- it's intentional and correct (see their own docstrings). Their fail-OPEN
+  behavior *after* staleness is a real gap, not intentional; the fix would be
+  the same kind of message-age check `object_seen` already has. Not
+  implemented this pass -- flagged as a concrete, scoped follow-up rather
+  than bundled in here silently.
+- `object_seen`/`object_cleared`'s staleness handling is the pattern to
+  eventually match elsewhere, not an inconsistency to normalize away by
+  removing it.
+- Until the gap above is closed, every move that depends on `front_clearance`
+  / `min_obstacle_distance` / `goal_reached` / distance-or-orientation
+  tracking should set an explicit `timeout_sec` (`on_timeout='abort'`, the
+  default) -- today it is the *only* backstop against a dependency dying
+  mid-move. `mission_config.py` does not enforce this (`timeout_sec` stays
+  optional); making it required would reject existing missions that omit it,
+  so that tightening is a candidate for later, not made silently here.
+- The launch-time battery precheck's fail-closed/no-retry behavior is
+  appropriate for a physical safety gate (an explicit relaunch is safer than
+  auto-retrying into a still-low battery) -- kept as-is. Its own historical
+  failure mode (a race that let `ackermann_to_vesc_node` be silently absent
+  while MPC/mux/EKF all looked healthy) is exactly what the mission-start
+  preflight check below now catches at the layer that actually matters: you
+  cannot usefully start a mission that has no way to actually move.
+
+## Closed-loop move verification and mission scoring
+
+Every move used to be commanded and assumed to have executed correctly --
+nothing checked what actually happened against what was asked for. The
+straight-after-turn bug above is exactly the kind of thing this would have
+caught automatically instead of needing to be watched and noticed live.
+
+**Mechanism** (`mission/move_scoring.py`, wired into `CheckStopCondition`/
+`AdvanceMove`/`HandleObjectAction`): each move's start and end pose are
+captured from **`/ekf_global/odometry/filtered`** (the map-frame EKF output)
+-- confirmed to be the right "global odom" before wiring it, specifically
+**not** raw wheel odometry (which has no way to know a turn actually
+happened) and **not** the local EKF `CheckStopCondition` already uses to
+drive `stop_condition` evaluation (that stays on the faster, lower-latency
+source for real-time decisions -- global EKF is only used for this
+after-the-fact grading). A turn's actual rotation is tracked with the same
+unwrap-and-accumulate technique `orientation_delta` itself needed fixing
+(see the regression section above) -- a wrapped end-minus-start delta would
+misscore any turn at or beyond 180deg for the identical reason it broke the
+stop condition.
+
+**Scoring** (decided explicitly, not guessed):
+- Score = `actual / commanded * 100` -- a ratio, not "100 - error". Both
+  undershoot (<100%) and overshoot (>100%) read as "not 100%", and it's
+  always clear which one happened.
+- Turn moves: **unsigned** ratio (direction is `heading_delta_deg`'s own
+  concern, not the score's).
+- `goal_distance` moves: **signed** ratio, where "actual" is the real
+  displacement **projected onto the move's own intended heading**
+  (its global-EKF yaw at the move's start) -- so drifting sideways or
+  moving backward relative to intent shows up as a low or negative score,
+  not a falsely-good one. The commanded value is the stop_condition's own
+  override distance when it has one (`distance_reached`'s `distance` field
+  -- `goal_distance` itself is often just a safety ceiling, not the intended
+  travel distance) or `goal_distance` itself for `goal_reached`. Moves that
+  stop on a sensor/time signal instead of a predetermined distance
+  (`front_clearance`, `obstacle_distance_below`, `time_elapsed`, ...) have
+  no well-defined "commanded distance" and are left **unscored** rather than
+  silently graded against a ceiling nobody expected the car to reach --
+  found live while generating this pass's own sample summary below.
+- `goal_pose` moves are also left unscored this pass -- the task's own
+  scoring examples only covered turn/straight; a remaining-distance-to-
+  target formula would be a reasonable analog but wasn't asked for, so it
+  wasn't invented silently.
+- **Mismatch flag**: an actual-vs-commanded error beyond `max(10% of the
+  commanded magnitude, a floor)` -- floor = 0.05m for distance, 3deg for
+  angle -- logs a warning. Decided explicitly (not guessed) so small
+  commanded moves aren't held to an unreasonably tight bound.
+- **Aggregate mission score**: the mean of all scorable per-move scores
+  (unscored moves excluded, not counted as 0 or 100) -- decided explicitly;
+  flagged alternative considered was the minimum ("weakest link") score.
+
+**Per-mission-run summary**: written to
+`src/f1tenth_behavior/mission_reports/<mission_id>_<timestamp>.json`
+(gitignored -- runtime output, not source, same as `corridors_jsons/`) on
+every mission COMPLETE or ABORTED, one file per run so scores are
+comparable over time -- this is what makes the regression set above
+actually valuable to re-run rather than just a one-off check. Real sample
+(produced by actually calling `record_move_outcome()`/
+`write_mission_summary()` against `test_04_turn_accuracy.json`, with
+synthetic-but-plausible EKF readings standing in for a real run -- this
+pass verified the mechanism by code, not by driving the car; see this
+package's own `test/test_move_scoring.py` for the same functions exercised
+as automated tests):
+
+```json
+{
+  "mission_id": "test_04_turn_accuracy",
+  "final_state": "COMPLETE",
+  "aggregate_score_percent": 95.55555555555556,
+  "aggregate_score_method": "mean_of_scorable_moves",
+  "moves": [
+    {"move_id": "short_runup", "move_type": "goal_distance",
+     "commanded": 0.5, "actual": 0.47, "score_percent": 94.0,
+     "mismatch_flagged": false},
+    {"move_id": "turn_90_isolated", "move_type": "turn",
+     "commanded": 90.0, "actual": 87.4, "score_percent": 97.11111111111111,
+     "mismatch_flagged": false}
+  ]
+}
+```
+
+**Known gap, flagged not hidden**: recording happens at every place a move
+ends INSIDE the BT (`AdvanceMove`'s normal advance/mission-complete,
+`CheckStopCondition`'s timeout-abort, `HandleObjectAction`'s
+`abort_mission`/`skip_to_move`). It does **not** happen for the external
+`/mission/abort_mission` service call (an operator-initiated abort) -- that
+path ends whatever move was in flight without recording its (necessarily
+incomplete) outcome or writing a summary. Not wired this pass.
+
 ## Detected object classes
 
 `detected_classes` (`class name -> last-seen timestamp + confidence`) is
@@ -256,6 +389,51 @@ written by `mission/detected_classes_bridge.py`, which subscribes to
 `f1tenth_perception`'s `yolo_detector_node`). This was confirmed by inspection,
 not assumed: `/perception/obstacles_2d` (the other candidate) is geometry-only
 (`x, y, r`) -- `f1tenth_messages/msg/Obstacle2D.msg` has no class field at all.
+
+## Regression test set (geometric edge cases)
+
+Both mission-logic bugs found via live testing (straight-after-turn using a
+stale reference heading; a 180deg turn spinning instead of stopping) were
+geometric edge cases: a move immediately following a turn, and a turn
+landing exactly on the wrapped-angle boundary. The fixes for both now have
+permanent, hardware-free regression coverage so a future mission-logic
+change can be checked against them without a physical run:
+
+- **`test/test_condition_eval.py::TestOrientationDeltaStopCondition`** --
+  0/90/180/270deg turn targets, both directions (left/right), against
+  `EvalContext.turn_accum_deg`. The 180deg case is the one that used to spin
+  forever; 270deg is the more general latent version of the same bug
+  (nothing in the schema caps `heading_delta_deg` at 180, so any turn asking
+  for more than a half-turn was unreachable under the old wrapped-delta
+  check, not only ones landing exactly on the boundary).
+- **`mpc_controller`'s `test/test_corridor_heading_reference.py`** --
+  reproduces the straight-after-turn bug directly against
+  `build_straight_corridor()`: a corridor built with a stale
+  `psi_init_corridor` still points at the pre-turn heading (the bug, as it
+  behaved before goal_distance_callback's fix), while one built with the
+  now-re-anchored value points at the post-turn heading instead.
+- **The mission JSON fixtures already in `missions/`** double as move-shape
+  fixtures (parsed/validated by `mission_config.parse_mission()`, exercising
+  the schema itself) covering: an isolated 90deg turn plus a preceding
+  distance-mode run-up (`test_04_turn_accuracy.json`), a turn immediately
+  followed by another move (`test_01_clearance_turn_odom.json`'s
+  `turn_left_90` -> `short_odom_leg`, and `straight_left_straight.json`'s own
+  approach -> turn -> straight chain), and chained turn/pose moves across a
+  full mission (`test_03_bounce_walls.json`).
+
+  Worth flagging: `test_03_bounce_walls.json`'s two turns request 175deg, not
+  180 -- reads as a deliberate hedge around the (at the time unfixed) 180deg
+  ambiguity mentioned above, made when this mission was designed. Now that
+  `orientation_delta` handles any magnitude correctly (see
+  `TestOrientationDeltaStopCondition` above), that hedge is no longer
+  necessary -- left as-is rather than changed unilaterally, since this pass
+  didn't author that mission and 175 vs. 180 wasn't asked about explicitly.
+
+Run everything above with `python3 -m pytest test/ -v` from each package's
+own directory (`f1tenth_behavior/`, `f1tenth_control/mpc_controller/`).
+None of this replaces an actual on-car mission run -- it validates the
+logic these bugs lived in, not the physical result -- but it is exactly the
+set of checks that would have caught both bugs before they reached the car.
 
 ## Assumptions made while implementing this (flagged, not silent)
 
