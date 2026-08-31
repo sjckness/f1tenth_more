@@ -1,6 +1,28 @@
 # Maps an interrogation name (llm.launch.py's `interrogation` launch argument) to the
 # node that runs it. Everything currently resolves inside the llm package, so there's no
 # `package` field yet -- add one if/when a second package joins f1tenth_intelligence.
+#
+# default_model: which models.yaml entry llama-server loads when this
+# interrogation is selected and the `model` launch argument is left at its
+# own default (''; see llm.launch.py's own model_la). Explicitly passing
+# `model:=<name>` on the CLI always overrides this regardless of
+# interrogation -- this only fixes what happens when nobody says which
+# model to use. Added specifically because model/interrogation used to be
+# resolved fully independently: picking a non-default interrogation with no
+# matching model override silently kept whichever model `model` defaulted
+# to, which for `planner` would have meant serving it with the MPC-tuning
+# model. If an interrogation entry omits this key, llm.launch.py falls back
+# to stack_params.yaml's own `model` key (the pre-existing, sole global
+# default) and logs a warning.
 mpc_tuner:
   executable: llm_mpc_tuner_node
   params_file: mpc_tuner_params.yaml
+  default_model: qwen_mpc_pruned
+
+# Translates a natural-language command into a f1tenth_behavior mission and
+# loads+starts it via /mission/load_mission + /mission/start_mission -- see
+# llm_planner_node.py's own module docstring for the full flow.
+planner:
+  executable: llm_planner_node
+  params_file: llm_planner_params.yaml
+  default_model: qwen25_3b_instruct

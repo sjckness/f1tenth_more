@@ -612,7 +612,13 @@ battery_check_rate_hz:
 start_server:
   default: false
   description: "true: llm.launch.py starts llama-server itself. false: assume one's already running elsewhere on the Jetson."
-# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py -- but NOT as
+# that file's own `model` launch argument default any more (that's '' now,
+# meaning "auto-select from the chosen interrogation's own default_model in
+# llm/config/interrogations.yaml" -- see llm.launch.py's model_la/
+# _launch_setup() for the full model/interrogation pairing fix). This key's
+# value is now only the last-resort fallback used if an interrogation entry
+# somehow has no default_model of its own; both entries that exist today do.
 model:
   default: qwen_mpc_pruned
   description: "Model name key into llm/config/models.yaml (model_path, port, extra_args)."

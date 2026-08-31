@@ -13,13 +13,34 @@
   <depend>rclpy</depend>
   <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
   <depend>ackermann_msgs</depend>
+  <!-- LoadMission.srv, used by llm_planner_node's /mission/load_mission client
+       (start_mission/abort_mission are plain std_srvs/Trigger, already covered
+       above); confirmed against f1tenth_behavior's own package.xml, which
+       depends on f1tenth_messages for the same .srv/.msg family (mission/
+       loader.py). -->
+  <depend>f1tenth_messages</depend>
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
-  <!-- HTTP client used by llm_mpc_tuner_node to talk to llama-server's /completion endpoint -->
+  <!-- HTTP client used by llm_mpc_tuner_node AND (as of the llama-server
+       backend switch) llm_planner_node's own get_plan_from_llm() to talk to
+       llama-server's /completion endpoint: one dependency, two consumers
+       now. The earlier python3-openai dependency (llm_planner_node's brief
+       Ollama/OpenAI-client phase) is gone along with that code path;
+       confirmed nothing else in this package imports openai before removing
+       it. -->
   <exec_depend>python3-requests</exec_depend>
+  <!-- get_package_share_directory('f1tenth_behavior') at runtime, to write
+       LLM-generated mission JSON files under its installed missions/
+       directory (see llm_planner_node._write_mission_file) and to reach the
+       real mission service names (/mission/load_mission etc., owned by
+       f1tenth_behavior's MissionLoader) this node's clients target. No
+       Python import from f1tenth_behavior itself; only its installed
+       share directory and its ROS service names. -->
+  <exec_depend>f1tenth_behavior</exec_depend>
   <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
        stack_params.yaml). f1tenth_params is a dependency-free leaf package;
        depending on it here (not f1tenth_bringup) avoids a build-order cycle,

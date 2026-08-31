@@ -46,16 +46,6 @@ def _launch_setup(context, *args, **kwargs):
     with open(os.path.join(llm_share, 'config', 'interrogations.yaml')) as f:
         interrogations = yaml.safe_load(f) or {}
 
-    model_name = LaunchConfiguration('model').perform(context)
-    if model_name not in models:
-        raise RuntimeError(
-            f"Unknown model '{model_name}' -- available: {sorted(models)} "
-            '(see config/models.yaml)')
-    model_config = models[model_name]
-    model_path = os.path.expanduser(model_config['model_path'])
-    port = model_config['port']
-    extra_args = model_config.get('extra_args', [])
-
     interrogation_name = LaunchConfiguration('interrogation').perform(context)
     if interrogation_name not in interrogations:
         raise RuntimeError(
@@ -64,6 +54,42 @@ def _launch_setup(context, *args, **kwargs):
     interrogation_config = interrogations[interrogation_name]
     params_file = os.path.join(
         llm_share, 'config', interrogation_config['params_file'])
+
+    # model/interrogation pairing fix: `model` defaults to '' (see model_la's
+    # own default_value below) -- an EXPLICIT `model:=<name>` on the CLI
+    # always wins regardless of interrogation, but leaving it unset now
+    # derives the right model FROM the chosen interrogation
+    # (interrogation_config['default_model'], see interrogations.yaml's own
+    # comment) instead of silently falling back to whatever the `model`
+    # launch argument's own hardcoded default used to be -- previously that
+    # was ALWAYS qwen_mpc_pruned regardless of interrogation, so picking a
+    # non-mpc_tuner interrogation with no explicit model override served it
+    # with the wrong model with no error at all. An interrogation entry with
+    # no default_model of its own (not expected today -- both existing
+    # entries set one -- but a future addition could omit it) falls back to
+    # stack_params.yaml's own `model` key, the sole global default before
+    # this fix, with a clear warning rather than a silent RuntimeError deep
+    # in the "unknown model" check below.
+    model_name = LaunchConfiguration('model').perform(context)
+    model_explicit = bool(model_name)
+    if not model_explicit:
+        model_name = interrogation_config.get('default_model')
+        if not model_name:
+            model_name, _ = get_default('model')
+            print(
+                f"[llm.launch] WARNING: interrogation '{interrogation_name}' has no "
+                f"default_model in interrogations.yaml -- falling back to stack_params."
+                f"yaml's global model default ('{model_name}'). Add a default_model entry "
+                'for this interrogation, or pass model:=<name> explicitly.'
+            )
+    if model_name not in models:
+        raise RuntimeError(
+            f"Unknown model '{model_name}' -- available: {sorted(models)} "
+            '(see config/models.yaml)')
+    model_config = models[model_name]
+    model_path = os.path.expanduser(model_config['model_path'])
+    port = model_config['port']
+    extra_args = model_config.get('extra_args', [])
 
     start_server = LaunchConfiguration('start_server').perform(context).lower() == 'true'
     llama_server_bin = LaunchConfiguration('llama_server_path').perform(context)
@@ -89,16 +115,32 @@ def _launch_setup(context, *args, **kwargs):
         output='screen',
         # params_file first, override dict second: launch_ros applies later entries'
         # keys over earlier ones, so this always wins over anything (or nothing) the
-        # params_file sets for mpc_url/target_node.
+        # params_file sets for mpc_url/target_node/llm_url. Applied uniformly to
+        # EVERY interrogation node regardless of which of these params it actually
+        # declares -- ROS silently ignores an undeclared parameter override, so this
+        # stays a harmless no-op for whichever ones a given node doesn't read (e.g.
+        # llm_mpc_tuner_node doesn't declare llm_url, llm_planner_node doesn't
+        # declare mpc_url/target_node), same as before this pass.
         parameters=[params_file, {
             'mpc_url': f'http://127.0.0.1:{port}/completion',
             'target_node': mpc_node_name,
+            # llm_planner_node's own equivalent of mpc_url above -- named
+            # differently since "mpc_url" is specifically an llm_mpc_tuner_node
+            # concept (it targets an MPC controller node), not a generic name
+            # this interrogation-agnostic override dict should imply for every
+            # future interrogation. Resolved from the SAME `port` this
+            # interrogation's own model_name/model_config picked, so a
+            # get_plan_from_llm() call always reaches whichever llama-server was
+            # actually started for it, not a stale/hardcoded port.
+            'llm_url': f'http://127.0.0.1:{port}/completion',
         }],
     )
 
     return [
         LogInfo(msg=(
-            f"[llm.launch] model='{model_name}' ({model_path}, port={port}) "
+            f"[llm.launch] model='{model_name}' "
+            f"({'explicit' if model_explicit else 'auto-selected for this interrogation'}) "
+            f"({model_path}, port={port}) "
             f"interrogation='{interrogation_name}' "
             f"({interrogation_config['executable']}) -- "
             f'server {"starting now" if start_server else "assumed already running"}.'
@@ -112,9 +154,18 @@ def generate_launch_description():
     start_server_default, start_server_desc = get_default('start_server')
     start_server_la = DeclareLaunchArgument(
         'start_server', default_value=str(start_server_default), description=start_server_desc)
-    model_default, model_desc = get_default('model')
+    # Default is '' (NOT stack_params.yaml's own model default), a sentinel
+    # meaning "auto-select from the chosen interrogation's own default_model
+    # (see config/interrogations.yaml)" -- see _launch_setup()'s own
+    # model/interrogation pairing comment for why. Passing model:=<name>
+    # explicitly always overrides the auto-selection regardless of
+    # interrogation, same as before this fix.
+    _, model_desc = get_default('model')
     model_la = DeclareLaunchArgument(
-        'model', default_value=str(model_default), description=model_desc)
+        'model', default_value='',
+        description=(
+            f'{model_desc} Leave unset (default) to auto-select from the chosen '
+            "interrogation's own default_model in config/interrogations.yaml."))
     interrogation_default, interrogation_desc = get_default('interrogation')
     interrogation_la = DeclareLaunchArgument(
         'interrogation', default_value=str(interrogation_default),

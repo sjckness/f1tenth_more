@@ -7,3 +7,20 @@ qwen_mpc_pruned:
   model_path: ~/projects/llm/models/v2_MPCLLM_structpruned_10-q5_k_m.gguf
   port: 8082
   extra_args: ["-ngl", "999"]
+
+# Stock (unpruned) Qwen2.5-3B-Instruct, q5_k_m -- pulled from
+# https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF
+# (qwen2.5-3b-instruct-q5_k_m.gguf, ~2.3GB) for llm_planner_node's own
+# interrogation (see interrogations.yaml's `planner` entry's default_model).
+# Deliberately NOT one of the structprune-family models already sitting
+# alongside it in this same directory (v2_decisionLLM_structpruned_20-*,
+# also qwen2/Qwen2.5-3B-derived, named for a decision-type task) -- a real,
+# already-available candidate that was flagged and explicitly passed over
+# in favor of a stock download for this pass. Own port (8083, distinct from
+# qwen_mpc_pruned's 8082) since models.yaml already gives every entry its
+# own port, anticipating more than one being served at once even though
+# only one llama-server process is actually launched today.
+qwen25_3b_instruct:
+  model_path: ~/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf
+  port: 8083
+  extra_args: ["-ngl", "999"]

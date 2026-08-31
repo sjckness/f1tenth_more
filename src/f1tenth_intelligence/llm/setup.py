@@ -31,6 +31,7 @@ setup(
     entry_points={
         'console_scripts': [
             'llm_mpc_tuner_node = llm.llm_mpc_tuner_node:main',
+            'llm_planner_node = llm.llm_planner_node:main',
         ],
     },
 )
