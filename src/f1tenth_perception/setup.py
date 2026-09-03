@@ -29,7 +29,6 @@ setup(
     maintainer_email='andreas21steffens@gmail.com',
     description='Centralized perception (ZED2 + Hokuyo + YOLO) for the F1TENTH car.',
     license='MIT',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'yolo_detector_node = f1tenth_perception.yolo_detector_node:main',

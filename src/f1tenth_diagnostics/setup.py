@@ -22,7 +22,6 @@ setup(
     maintainer_email='andreas21steffens@gmail.com',
     description='Calibration and diagnostic tooling for the F1TENTH stack.',
     license='MIT',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'gyro_bias_calibration_node = '

@@ -22,7 +22,6 @@ setup(
     description='Two-layer costmap (occupancy from slam_toolbox + semantic from '
                 'detected objects) plus a combined PNG-image render for Foxglove.',
     license='MIT',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'semantic_layer_node = f1tenth_costmap.semantic_layer_node:main',

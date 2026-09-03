@@ -24,7 +24,6 @@ setup(
     description='py_trees-based reactive safety-stop + Nav2 goal-pose navigation + scripted '
                 'mission subtree for the F1TENTH stack.',
     license='MIT',
-    tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'behavior_executor_node = f1tenth_behavior.behavior_executor_node:main',
