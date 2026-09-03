@@ -37,7 +37,7 @@ import sys
 import time
 from pathlib import Path
 
-from f1tenth_logger.mission_extract import read_bag
+from f1tenth_logger.mission_extract import padding_from_params, read_bag
 from f1tenth_logger.mission_render import (
     DEFAULT_BAG_ROOT, DEFAULT_OUT_DIR, discover_bags, load_manifest_for,
     render_bag)
@@ -49,6 +49,9 @@ def render_bag_dir(bag_dir: Path, cfg):
     print(f'[{bag_dir.name}] reading...')
     read_start = time.time()
     bag = read_bag(bag_dir, cfg.pose_source)
+    # Same run-own padding the extract path carries, read straight from this
+    # run's params snapshot so both paths draw the identical boundary.
+    bag['padding'] = padding_from_params(manifest.get('params_snapshot_path'))
     print(f'[{bag_dir.name}] bag read in {time.time() - read_start:.1f}s')
     return render_bag(bag, manifest, bag_dir.name, cfg)
 
@@ -77,8 +80,12 @@ def main(argv=None):
                     help='how far along each hard boundary to draw')
     ap.add_argument('--pose-source', choices=('global', 'local'), default='global',
                     help='global: map-frame EKF. local: odom-frame EKF.')
-    ap.add_argument('--car-radius', type=float, default=0.20)
-    ap.add_argument('--avoidance-margin', type=float, default=0.12)
+    # default None: the run's own params snapshot supplies these, see
+    # mission_render._resolve_padding. Passing one is an explicit override.
+    ap.add_argument('--car-radius', type=float, default=None,
+                    help="override this run's own recorded car radius [m]")
+    ap.add_argument('--avoidance-margin', type=float, default=None,
+                    help="override this run's own recorded avoidance margin [m]")
     ap.add_argument('--dpi', type=int, default=100)
     ap.add_argument('--bitrate', type=int, default=4000)
     ap.add_argument('--no-map', action='store_true', help='skip the SLAM grid layer')

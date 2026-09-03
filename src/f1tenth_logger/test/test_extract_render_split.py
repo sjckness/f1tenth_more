@@ -14,6 +14,7 @@ Two things must stay true and are both easy to break by accident:
    a subtly different video rather than as an error.
 """
 
+import argparse
 import ast
 import math
 import os
@@ -191,3 +192,72 @@ class TestExtractRoundTrip:
         path = write_extract(bag, tmp_path / 'r.extract.parquet')
         assert os.path.getsize(path) > 0
         assert not math.isnan(os.path.getsize(path))
+
+
+class TestPaddingComesFromTheRunNotTheCurrentConfig:
+    """
+    car_radius / avoidance_margin decide where the tightened boundary is drawn.
+
+    They are properties of the run. Reading them from the live config (or from
+    a constant in the renderer, which is what they used to be) means
+    re-rendering a historical run after a config change silently draws padding
+    that run never flew with, and the archive stops being a faithful record.
+    """
+
+    def _snapshot(self, tmp_path, car_radius=0.20, margin=0.12):
+        path = tmp_path / 'run.params.yaml'
+        path.write_text(
+            f'car_radius:\n  default: {car_radius}\n  description: "r"\n'
+            f'obstacle_safety_margin_m:\n  default: {margin}\n  description: "m"\n')
+        return path
+
+    def test_values_are_read_from_the_runs_own_snapshot(self, tmp_path):
+        from f1tenth_logger.mission_extract import padding_from_params
+        got = padding_from_params(self._snapshot(tmp_path, 0.33, 0.07))
+        assert got['car_radius'] == 0.33
+        assert got['avoidance_margin'] == 0.07
+        assert got['source'].endswith('run.params.yaml')
+
+    def test_avoidance_margin_maps_from_obstacle_safety_margin_m(self, tmp_path):
+        # There is no stack_params key literally named avoidance_margin;
+        # MPC_corr's avoidance_margin is fed from obstacle_safety_margin_m.
+        from f1tenth_logger.mission_extract import padding_from_params
+        assert padding_from_params(self._snapshot(tmp_path, margin=0.09))[
+            'avoidance_margin'] == 0.09
+
+    def test_a_missing_snapshot_falls_back_but_says_so(self, tmp_path):
+        from f1tenth_logger.mission_extract import padding_from_params
+        got = padding_from_params(tmp_path / 'nope.yaml')
+        assert got['source'] == 'fallback'
+        assert got['car_radius'] == 0.20
+
+    def test_the_renderer_uses_the_runs_values_when_no_flag_is_passed(self):
+        cfg = argparse.Namespace(car_radius=None, avoidance_margin=None)
+        bag = {'padding': {'car_radius': 0.33, 'avoidance_margin': 0.07,
+                           'source': '/x.yaml'}}
+        mission_render._resolve_padding(bag, cfg, 'run')
+        assert cfg.car_radius == 0.33
+        assert cfg.avoidance_margin == 0.07
+
+    def test_an_explicit_flag_still_wins(self):
+        cfg = argparse.Namespace(car_radius=0.5, avoidance_margin=None)
+        bag = {'padding': {'car_radius': 0.33, 'avoidance_margin': 0.07,
+                           'source': '/x.yaml'}}
+        mission_render._resolve_padding(bag, cfg, 'run')
+        assert cfg.car_radius == 0.5          # override respected
+        assert cfg.avoidance_margin == 0.07   # the rest still from the run
+
+    def test_an_extract_with_no_padding_refuses_rather_than_guessing(self):
+        cfg = argparse.Namespace(car_radius=None, avoidance_margin=None)
+        with pytest.raises(ValueError, match='car_radius'):
+            mission_render._resolve_padding({'padding': {}}, cfg, 'run')
+
+    def test_padding_survives_the_parquet_round_trip(self, tmp_path):
+        bag = {'streams': {}, 'static_tf': {}, 't0': 0.0, 't1': 1.0,
+               'pose_frame': 'map', 'pose_topic': '/p',
+               'legacy_solver_msgs': 0, 'dropped': {}}
+        path = write_extract(bag, tmp_path / 'r.extract.parquet',
+                             padding={'car_radius': 0.33,
+                                      'avoidance_margin': 0.07,
+                                      'source': '/x.yaml'})
+        assert mission_render.read_extract(path)['padding']['car_radius'] == 0.33

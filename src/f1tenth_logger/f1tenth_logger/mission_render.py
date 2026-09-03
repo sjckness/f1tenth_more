@@ -678,6 +678,46 @@ def build_stop_spans(bag, dt):
     return [(a, max(b, a + dt)) for a, b in spans]
 
 
+def _resolve_padding(bag, cfg, label):
+    """
+    Fill cfg.car_radius / cfg.avoidance_margin from THIS RUN unless overridden.
+
+    These two decide where the tightened (dashed) boundary line sits, so they
+    are properties of the run, not viewing preferences. They used to be
+    hard-coded argparse defaults (0.20 / 0.12), which meant re-rendering a
+    historical run after a config change would silently draw padding that run
+    never flew with -- and the values were a third independent copy of numbers
+    that live in stack_params.yaml, agreeing only by coincidence. The extract
+    now carries the run's own values, read from its params snapshot.
+
+    An explicit --car-radius/--avoidance-margin still wins, because comparing
+    a run against different padding is a legitimate thing to want; it is just
+    no longer what happens by default. The override is announced, so a frame
+    drawn with anything other than the run's own numbers says so.
+    """
+    padding = bag.get('padding') or {}
+    for name, flag in (('car_radius', '--car-radius'),
+                       ('avoidance_margin', '--avoidance-margin')):
+        override = getattr(cfg, name, None)
+        if override is not None:
+            recorded = padding.get(name)
+            if recorded is not None and override != recorded:
+                print(f'[{label}] {flag}={override} overrides this run\'s own '
+                      f'{name}={recorded}', file=sys.stderr)
+            continue
+        if name not in padding:
+            raise ValueError(
+                f'{label}: extract carries no {name} and none was passed; '
+                f'pass {flag} explicitly rather than guessing at this run\'s '
+                'geometry')
+        setattr(cfg, name, padding[name])
+    source = padding.get('source')
+    if source == 'fallback' or source == 'unset':
+        print(f'[{label}] no params snapshot for this run: boundary padding '
+              f'falls back to car_radius={cfg.car_radius} '
+              f'avoidance_margin={cfg.avoidance_margin}', file=sys.stderr)
+
+
 def render_bag(bag, manifest, label, cfg):
     """
     Draw one already-loaded run to MP4.
@@ -688,6 +728,7 @@ def render_bag(bag, manifest, label, cfg):
     verbatim; the md5 check is what enforces that.
     """
     read_start = time.time()
+    _resolve_padding(bag, cfg, label)
     if len(bag['streams']['pose']) == 0:
         print(f'[{label}] no pose samples on {bag["pose_topic"]}; skipped',
               file=sys.stderr)
@@ -793,10 +834,10 @@ def read_extract(path):
     Rebuild the in-memory bag dict from a *.extract.parquet.
 
     Returns exactly the structure read_bag() returned, so every function above
-    is untouched by the split. Floats round-trip through json.dumps/loads
-    without loss (both are repr-based in CPython), which is what lets the
-    post-split render match the pre-split md5 byte for byte rather than merely
-    look the same.
+    is untouched by the split -- which is what lets the post-split render match
+    the pre-split md5 byte for byte rather than merely look the same. (The JSON
+    payloads are lossless too, but so is Parquet's own double; JSON is there
+    for ragged nesting, not for precision. See EXTRACT_SCHEMA.md.)
     """
     table = pq.read_table(path)
     columns = {name: table.column(name).to_pylist()
@@ -838,7 +879,8 @@ def read_extract(path):
             'pose_frame': meta['pose_frame'], 'pose_topic': meta['pose_topic'],
             'legacy_solver_msgs': meta['legacy_solver_msgs'],
             'dropped': meta['dropped'], 'manifest': meta.get('manifest') or {},
-            'run_id': meta.get('run_id')}
+            'run_id': meta.get('run_id'),
+            'padding': meta.get('padding') or {}}
 
 
 def _rehydrate(name, value, grids):
@@ -875,8 +917,12 @@ def main(argv=None):
     ap.add_argument('--corridor-span', type=float, default=5.0, metavar='M')
     ap.add_argument('--pose-source', choices=('global', 'local'), default='global',
                     help='must match what the extract was written with')
-    ap.add_argument('--car-radius', type=float, default=0.20)
-    ap.add_argument('--avoidance-margin', type=float, default=0.12)
+    # default None, NOT a number: the run's own value from the extract is
+    # used unless one of these is passed explicitly.
+    ap.add_argument('--car-radius', type=float, default=None,
+                    help="override this run's own recorded car radius [m]")
+    ap.add_argument('--avoidance-margin', type=float, default=None,
+                    help="override this run's own recorded avoidance margin [m]")
     ap.add_argument('--dpi', type=int, default=100)
     ap.add_argument('--bitrate', type=int, default=4000)
     ap.add_argument('--no-map', action='store_true')

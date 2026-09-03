@@ -31,9 +31,14 @@ with a per-stream max age, --dt selects the period), and baking one dt into
 the extract would both change the output for any other dt and make the md5
 equivalence check meaningless.
 
-Floats travel as JSON, which is exact: CPython's json uses repr() for floats
-and repr -> float round-trips losslessly. That is what makes byte-identical
-re-rendering possible at all.
+Payloads are JSON for CONVENIENCE, not for precision: the structures are
+ragged and differently shaped per stream (variable-length horizons, halfspace
+lists, corridor polylines keyed by namespace, tuples mixing strings, floats and
+null), and one uniform payload column beats a wide mostly-null native schema.
+Parquet's own double is IEEE-754 and would round-trip just as exactly. The
+tradeoff is a larger, slower file that a non-Python consumer must parse JSON
+out of; see EXTRACT_SCHEMA.md for when converting the numeric streams to native
+columns would be worth it.
 
 THE OCCUPANCY GRID IS DEDUPLICATED, and it is the one thing here that would
 otherwise dominate the file. slam_toolbox republishes the whole map on every
@@ -52,6 +57,7 @@ import zlib
 from pathlib import Path
 
 import numpy as np
+import yaml
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -346,7 +352,48 @@ def _jsonable(name, value, grid_ids, grid_rows):
     return {'grid_id': grid_ids[digest], 'extent': list(extent)}
 
 
-def write_extract(bag, out_path, manifest=None, run_id=None):
+# Fallbacks used only when a run has no params snapshot (hand-made bags, and
+# any run recorded before the snapshot was written). They match
+# stack_params.yaml's current values, but a run that falls back is FLAGGED as
+# such in the extract rather than silently presented as authoritative.
+_PADDING_FALLBACK = {'car_radius': 0.20, 'avoidance_margin': 0.12}
+
+
+def padding_from_params(params_snapshot_path):
+    """
+    Read this run's own car_radius / avoidance_margin out of its params snapshot.
+
+    THE POINT: these two set how far inside each hard boundary the tightened
+    (dashed) line is drawn. They are run properties, not viewing preferences,
+    so re-rendering an old run after a config change must keep drawing the
+    padding that run actually flew with. Reading them from the live config, or
+    from a constant in the renderer, would silently redraw history.
+
+    MPC_corr.py's avoidance_margin is fed from stack_params.yaml's
+    obstacle_safety_margin_m (see that key's own comment), so that is the key
+    read here -- not a key literally named avoidance_margin, which does not
+    exist.
+    """
+    result = dict(_PADDING_FALLBACK, source='fallback')
+    if not params_snapshot_path:
+        return result
+    path = Path(params_snapshot_path)
+    if not path.is_file():
+        return result
+    try:
+        params = yaml.safe_load(path.read_text()) or {}
+    except yaml.YAMLError:
+        return result
+    for name, key in (('car_radius', 'car_radius'),
+                      ('avoidance_margin', 'obstacle_safety_margin_m')):
+        entry = params.get(key)
+        if isinstance(entry, dict) and 'default' in entry:
+            result[name] = float(entry['default'])
+            result['source'] = str(path)
+    return result
+
+
+def write_extract(bag, out_path, manifest=None, run_id=None, padding=None):
     """
     Serialize a read_bag() result to `out_path` as Parquet.
 
@@ -391,6 +438,9 @@ def write_extract(bag, out_path, manifest=None, run_id=None):
                         for name, stream in bag['streams'].items()},
             'manifest': manifest or {},
             'run_id': run_id,
+            # This run's own boundary padding, NOT the renderer's defaults --
+            # see padding_from_params above for why that distinction matters.
+            'padding': padding or dict(_PADDING_FALLBACK, source='unset'),
         }),
         'blob': None,
     }
@@ -411,7 +461,8 @@ def extract_bag(bag_dir, out_path, pose_source='global'):
     bag = read_bag(bag_dir, pose_source)
     manifest = load_manifest_for(bag_dir)
     run_id = manifest.get('run_id', bag_dir.name)
-    return write_extract(bag, out_path, manifest, run_id), bag
+    padding = padding_from_params(manifest.get('params_snapshot_path'))
+    return write_extract(bag, out_path, manifest, run_id, padding), bag
 
 
 def main(argv=None):

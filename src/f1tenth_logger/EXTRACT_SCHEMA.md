@@ -38,6 +38,32 @@ per-stream `max_age`, `--dt` selects the period). Baking one `dt` into the
 extract would change output for every other `dt` and make the md5-equivalence
 check meaningless.
 
+## Why JSON payloads, honestly
+
+Convenience for ragged nesting, **not** float exactness.
+
+An earlier version of this document claimed JSON was what made byte-identical
+re-rendering possible. That was wrong and worth correcting: Parquet's `double`
+is IEEE-754 and round-trips bit-exactly on its own, so native columns would be
+exactly as lossless. JSON is not buying precision here.
+
+What it does buy is one uniform payload column for structures that are ragged
+and heterogeneous in different ways per stream: a per-tick horizon of varying
+length, a variable-length list of halfspaces, a dict of corridor polylines
+keyed by namespace, tuples mixing strings, floats and `null`. Expressing those
+natively means a wide schema of `list<double>` / `list<struct<...>>` columns,
+mostly null on any given row, plus a migration whenever a stream's shape
+changes.
+
+The cost is real and worth naming: the file is larger and slower to read than
+native columns would be, and **a non-Python consumer must parse JSON out of a
+string column** rather than reading typed values directly. If a non-Python
+reader ever matters, or the extract grows enough for size to bite, converting
+the numeric streams (`pose`, `drive`, `clearance`, `map_to_odom`, and the
+horizon inside `solver`) to native `double` / `list<double>` columns is the
+obvious next step, and would not change what the renderer draws.
+
+
 ## `meta` (exactly one row)
 
 ```json
@@ -47,6 +73,14 @@ check meaningless.
  "max_age": {"pose": 0.5, "map": null, ...},
  "manifest": {...}, "run_id": "2026-09-02T15-27-43_mission-bottle_then_person"}
 ```
+
+`padding` is `{"car_radius": 0.2, "avoidance_margin": 0.12, "source": <path>}`,
+read from **this run's own params snapshot** (`car_radius` and
+`obstacle_safety_margin_m`, which is what feeds MPC_corr's `avoidance_margin`).
+The renderer uses these unless `--car-radius`/`--avoidance-margin` is passed
+explicitly, and announces the override when it is. `source` is `"fallback"`
+when the run had no snapshot, so a guessed value is never mistaken for a
+recorded one. See **Padded halfspaces** below.
 
 `max_age` (seconds, `null` = never expires) is the renderer's staleness gate
 per stream, carried in the file rather than hard-coded on the read side so the
@@ -102,12 +136,17 @@ never has to special-case a missing topic.
 
 ## Padded halfspaces — derived, not stored
 
-The work order lists "hard boundary halfspaces raw **and padded**". Only the
-raw halfspace is stored, because the padding is not a property of the run: it
-is `offset - car_radius - avoidance_margin`, and both terms are render-time
-options (`--car-radius`, `--avoidance-margin`, defaulting 0.20 m / 0.12 m).
-Storing a padded copy would freeze the render-time choice into the archive and
-make the two disagree the moment either flag changed. `draw_frame` computes it.
+Only the raw halfspace is stored; the padded line is
+`offset - car_radius - avoidance_margin`, computed by `draw_frame`. Storing a
+padded copy would freeze one render-time choice into the archive.
+
+But the two terms **are** properties of the run, and are recorded as such in
+`meta.padding` (above), read from the run's own params snapshot at extract
+time. This corrects an earlier version in which they were hard-coded argparse
+defaults of 0.20 / 0.12 — a third independent copy of numbers that live in
+`stack_params.yaml`, agreeing with it only by coincidence. Under that version,
+re-rendering a historical run after a config change would have silently drawn
+padding that run never flew with.
 
 ## Stop events — the samples are the events
 
