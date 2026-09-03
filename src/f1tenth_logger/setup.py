@@ -48,6 +48,9 @@ setup(
             # path no longer exists, so it gets a console script rather than
             # silently losing its manual entry point.
             'mission_replay_video = f1tenth_logger.mission_replay_video:main',
+            # Stdlib-only CLI over the manifest index -- deliberately usable on
+            # a machine with no bags and no ROS sourced (see runs_db's docstring).
+            'runs = f1tenth_logger.runs_cli:main',
         ],
     },
 )
