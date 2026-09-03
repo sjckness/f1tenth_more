@@ -46,6 +46,12 @@
        Python one and is therefore not declared here. -->
   <exec_depend>python3-numpy</exec_depend>
   <exec_depend>python3-matplotlib</exec_depend>
+  <!-- mission_extract writes and mission_render reads *.extract.parquet.
+       NOT available from apt on this box; installed with
+       `pip3 install --user pyarrow` (25.0.1, aarch64 manylinux wheel).
+       The render half needs it on the report machine too, where it is the
+       only non-stdlib dependency besides numpy and matplotlib. -->
+  <exec_depend>python3-pyarrow</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
