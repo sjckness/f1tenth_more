@@ -51,6 +51,10 @@ setup(
             # Stdlib-only CLI over the manifest index -- deliberately usable on
             # a machine with no bags and no ROS sourced (see runs_db's docstring).
             'runs = f1tenth_logger.runs_cli:main',
+            # bag -> parquet (needs ROS) and parquet -> MP4 (needs none);
+            # mission_replay_video composes both for the one-step path.
+            'mission_extract = f1tenth_logger.mission_extract:main',
+            'mission_render = f1tenth_logger.mission_render:main',
         ],
     },
 )
