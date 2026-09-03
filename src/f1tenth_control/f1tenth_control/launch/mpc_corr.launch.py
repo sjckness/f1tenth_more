@@ -70,6 +70,19 @@ def generate_launch_description():
         'use_rti_solver', default_value=str(use_rti_solver_default),
         description=use_rti_solver_desc)
 
+    corridor_update_period_default, corridor_update_period_desc = get_default(
+        'corridor_update_period')
+    corridor_update_period_la = DeclareLaunchArgument(
+        'corridor_update_period', default_value=str(corridor_update_period_default),
+        description=corridor_update_period_desc)
+
+    use_hard_boundary_constraints_default, use_hard_boundary_constraints_desc = get_default(
+        'use_hard_boundary_constraints')
+    use_hard_boundary_constraints_la = DeclareLaunchArgument(
+        'use_hard_boundary_constraints',
+        default_value=str(use_hard_boundary_constraints_default),
+        description=use_hard_boundary_constraints_desc)
+
     car_radius_default, car_radius_desc = get_default('car_radius')
     car_radius_la = DeclareLaunchArgument(
         'car_radius', default_value=str(car_radius_default),
@@ -114,10 +127,14 @@ def generate_launch_description():
             'car_radius': LaunchConfiguration('car_radius'),
             'avoidance_margin': LaunchConfiguration('avoidance_margin'),
             'nice': LaunchConfiguration('nice'),
+            'corridor_update_period': LaunchConfiguration('corridor_update_period'),
+            'use_hard_boundary_constraints': LaunchConfiguration(
+                'use_hard_boundary_constraints'),
         }],
     )
 
     return LaunchDescription([
         odom_stale_timeout_sec_la, use_rti_solver_la, car_radius_la, avoidance_margin_la,
-        cpu_affinity_la, nice_la, mpc_corr_node,
+        cpu_affinity_la, nice_la, corridor_update_period_la,
+        use_hard_boundary_constraints_la, mpc_corr_node,
     ])

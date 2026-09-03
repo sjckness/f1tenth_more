@@ -35,7 +35,7 @@ from mpc_controller.mpc_solver import (
     pad_boundary_constraints,
     solve_mpc_step,
 )
-from mpc_controller.MPC_corr import _boundary_to_world, _select_live_boundaries
+from mpc_controller.MPC_corr import MPCController, _boundary_to_world, _select_live_boundaries
 
 WHEELBASE = 0.305
 LR = 0.17
@@ -219,6 +219,68 @@ class TestSelectLiveBoundaries:
         result = _select_live_boundaries(values, last_time=10.0, now_sec=10.1, timeout_sec=0.5)
         assert result is not values
         assert result == values
+
+
+# ==============================================================================
+# MPCController._get_live_boundaries -- use_hard_boundary_constraints gate
+# (launch-arg opt-out added for an A/B comparison against MATLAB, see
+# MPC_corr.py's own comment on that attribute and mpc_corr.launch.py's
+# use_hard_boundary_constraints arg). Duck-typed stand-in, same
+# "testable without constructing a real MPCController" shape every other
+# MPC_corr.py method test in this file/test_corridor_*.py already uses --
+# _get_live_boundaries only touches self.get_clock() beyond plain attributes.
+# ==============================================================================
+
+class _FakeClock:
+    def __init__(self, now_sec):
+        self._now_sec = now_sec
+
+    def now(self):
+        return self
+
+    @property
+    def nanoseconds(self):
+        return self._now_sec * 1e9
+
+
+class _FakeMPCForBoundaries:
+    def __init__(self, use_hard_boundary_constraints, now_sec=10.0,
+                 world=None, last_time=10.0, timeout_sec=0.5):
+        self.use_hard_boundary_constraints = use_hard_boundary_constraints
+        self.costmap_boundaries_world = world if world is not None else [(1.0, 0.0, 2.0)]
+        self.costmap_boundaries_last_time = last_time
+        self.odom_stale_timeout_sec = timeout_sec
+        self._clock = _FakeClock(now_sec)
+
+    def get_clock(self):
+        return self._clock
+
+
+class TestGetLiveBoundariesGate:
+
+    def test_enabled_and_fresh_returns_live_boundaries(self):
+        fake = _FakeMPCForBoundaries(use_hard_boundary_constraints=True)
+        result = MPCController._get_live_boundaries(fake)
+        assert result == [(1.0, 0.0, 2.0)]
+
+    def test_disabled_returns_empty_even_when_data_is_fresh(self):
+        fake = _FakeMPCForBoundaries(use_hard_boundary_constraints=False)
+        result = MPCController._get_live_boundaries(fake)
+        assert result == [], (
+            'use_hard_boundary_constraints=False must force [] unconditionally '
+            '-- the A/B-against-MATLAB opt-out must not be defeated by fresh '
+            'costmap_boundary_node data'
+        )
+
+    def test_disabled_short_circuits_before_the_staleness_check(self):
+        # Even data that would fail staleness anyway must go through the
+        # same disabled path, not incidentally pass because it was stale --
+        # last_time=None here would normally still hit _select_live_boundaries
+        # and return [] for its OWN reason; this asserts the gate itself,
+        # not a coincidental match.
+        fake = _FakeMPCForBoundaries(use_hard_boundary_constraints=False, last_time=None)
+        result = MPCController._get_live_boundaries(fake)
+        assert result == []
 
 
 # ==============================================================================

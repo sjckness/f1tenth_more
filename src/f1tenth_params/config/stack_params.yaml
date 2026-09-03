@@ -365,6 +365,23 @@ odom_stale_timeout_sec:
 use_rti_solver:
   default: true
   description: "true (default): mpc_corr.py uses the OSQP real-time-iteration solver. false: fall back to the original SLSQP solve (kept for rollback/comparison)."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own already-declared ROS param (self.declare_parameter, in-code default
+# 0.5*self.ts, i.e. ~10Hz-class rebuild given self.ts=0.1s). Set to 1.0 for the
+# old flat-1Hz rebuild rate (pre-optimization-pass value) -- e.g. for an A/B
+# comparison against MATLAB -- without a code change/revert.
+corridor_update_period:
+  default: 0.05
+  description: "Min seconds between corridor rebuilds in mpc_corr.py. Default 0.05 (half of the 0.1s control tick, i.e. rebuild every tick -- ~10Hz-class). Set to 1.0 for the old flat-1Hz rebuild rate (kept for rollback/comparison against MATLAB, which has no corridor concept at all)."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own already-declared ROS param (self.declare_parameter, in-code default
+# True). false disables costmap_boundary_node's hard boundary constraints in
+# the RTI/OSQP solve (see mpc_solver.py's own module docstring) -- e.g. for an
+# A/B comparison against MATLAB, which has no such constraint -- without a
+# code change/revert.
+use_hard_boundary_constraints:
+  default: true
+  description: "true (default): mpc_corr.py's RTI solve includes costmap_boundary_node's hard wall constraints. false: solve without them (kept for rollback/comparison against MATLAB)."
 # cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
 # NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
 # every other arg in this file, the right value is machine-specific (which

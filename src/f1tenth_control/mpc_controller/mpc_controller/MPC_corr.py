@@ -299,6 +299,19 @@ class MPCController(Node):
         # rolled back with a launch arg, not a code change.
         self.use_rti_solver = bool(self.declare_parameter('use_rti_solver', True).value)
 
+        # Hard boundary constraints (see mpc_solver.py's own module docstring
+        # and _get_live_boundaries below) -- default True, unchanged behavior.
+        # Explicit opt-out, same pattern as use_rti_solver just above: set
+        # false via launch arg (mpc_corr.launch.py's own
+        # use_hard_boundary_constraints) to run without them, e.g. for an A/B
+        # comparison against MATLAB (which has no such constraint) without a
+        # code change/revert. When false, _get_live_boundaries always returns
+        # [] regardless of what costmap_boundary_node is actually publishing
+        # -- solve_mpc_step then sees boundaries=[], identical to no source
+        # ever having been live.
+        self.use_hard_boundary_constraints = bool(
+            self.declare_parameter('use_hard_boundary_constraints', True).value)
+
         # nice: see _apply_nice() below, called near the end of __init__.
         # Defaults to no-op (0) so this node's priority is unchanged unless a
         # deployment explicitly opts in via mpc_corr.launch.py. CPU affinity
@@ -360,7 +373,15 @@ class MPCController(Node):
         # own timer (a bigger change, not done here: this alone is already a
         # 10x improvement, 1Hz -> 10Hz, cutting the ~15cm stale-corridor gap
         # observed at test speed down to ~1.5cm).
-        self.corridor_update_period = 0.5 * self.ts
+        #
+        # Now a ROS param (in-code default unchanged, 0.5*self.ts, i.e. the
+        # 10Hz-class rebuild above) rather than a bare assignment -- same
+        # explicit-opt-out-via-launch-arg pattern as use_rti_solver above, so
+        # this can be set back to 1.0 (the old flat-1Hz value) for an A/B
+        # comparison against MATLAB without a code change/revert. See
+        # mpc_corr.launch.py's own corridor_update_period arg.
+        self.corridor_update_period = float(
+            self.declare_parameter('corridor_update_period', 0.5 * self.ts).value)
         self.last_corridor_time = None
         # Real computation time of the cached corridor (rclpy Time, not a
         # float) -- used ONLY to stamp /mpc/corridor_markers headers (see
@@ -1117,7 +1138,14 @@ class MPCController(Node):
         boundary_node's own staleness gating (map/pose too old or never
         received) forces continuously as of this pass -- see that node's
         own module docstring -- so an empty return here is real, live-
-        relevant, expected behavior today, not a hypothetical edge case."""
+        relevant, expected behavior today, not a hypothetical edge case.
+
+        Gated on self.use_hard_boundary_constraints (default True) -- see
+        that attribute's own comment; false forces [] unconditionally,
+        before even looking at staleness, so disabling the feature via
+        launch arg can't be defeated by fresh data arriving."""
+        if not self.use_hard_boundary_constraints:
+            return []
         now_sec = self.get_clock().now().nanoseconds * 1e-9
         return _select_live_boundaries(
             self.costmap_boundaries_world, self.costmap_boundaries_last_time,
