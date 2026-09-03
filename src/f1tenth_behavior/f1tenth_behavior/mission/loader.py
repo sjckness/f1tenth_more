@@ -195,11 +195,55 @@ class MissionLoader:
                 '(mission.state stays IDLE until then).'
             )
 
+        # MISSION-END EVENT GAP FIX (automatic-mission-logger pass). Before
+        # this, /mission/status was only ever published from the four service/
+        # load paths in this file -- but three of the FOUR ways a mission can
+        # actually reach a terminal state don't go through any of them, because
+        # they happen inside a BT tick against the shared MissionRuntimeState
+        # object, which holds no node or publisher reference at all (see
+        # mission/runtime.py: complete()/abort() just assign self.state):
+        #   - advance_move.py's state.complete()          -- NORMAL SUCCESS
+        #   - handle_object_action.py's state.abort()     -- on_object abort
+        #   - check_stop_condition.py's state.abort()     -- stop-condition abort
+        # Only _on_abort_mission_service's own state.abort() (an operator
+        # calling /mission/abort_mission) republished. So /mission/status
+        # latched RUNNING forever through a mission that had actually finished
+        # or aborted itself, and MissionStatus.msg's own documented contract --
+        # "Republished whenever mission state changes" -- was not true for the
+        # success path or either autonomous abort path. Any consumer keying off
+        # mission lifecycle (f1tenth_diagnostics' mission_logger_node is the
+        # first) would therefore start on RUNNING and then never stop, losing
+        # exactly the failure-run data it exists to capture.
+        #
+        # Fixed by WATCHING the state rather than adding publish calls to each
+        # of the three BT behaviours: those run inside the tree and have no
+        # publisher, and enumerating call sites is exactly the pattern that let
+        # three of them drift out of sync in the first place. This timer diffs
+        # the live state against the last value actually published and emits on
+        # any change, so every terminal transition is covered, including ones
+        # added later that this file never learns about. Still NOT a per-tick
+        # publish (the .msg's other documented promise): it publishes on CHANGE
+        # only, so a steady RUNNING mission emits nothing.
+        self._last_published_state = None
+        state_watch_period_sec = float(
+            node.declare_parameter('mission_state_watch_period_sec', 0.1).value)
+        self._state_watch_timer = node.create_timer(
+            state_watch_period_sec, self._on_state_watch_tick)
+
         # Establishes the initial latched value immediately (state=IDLE or
         # LOADED depending on the auto-load above, emergency_stop_active=False)
         # so a subscriber that attaches before any service is ever called still
         # gets a well-defined value rather than nothing at all.
         self._publish_status()
+
+    def _on_state_watch_tick(self):
+        """Republish /mission/status if the mission state changed without one
+        of this file's own service paths doing it -- see the MISSION-END EVENT
+        GAP FIX comment in __init__ for which transitions those are and why
+        this is a watcher rather than three extra publish calls."""
+        state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
+        if state.state is not self._last_published_state:
+            self._publish_status()
 
     def _on_load_path(self, msg: String):
         self._load(str(msg.data))
@@ -418,3 +462,6 @@ class MissionLoader:
         msg.json_path = self._current_json_path
         msg.emergency_stop_active = self._emergency_stop_active
         self.status_pub.publish(msg)
+        # Read by _on_state_watch_tick to detect transitions this file's own
+        # service paths did NOT publish -- see __init__'s own comment.
+        self._last_published_state = state.state

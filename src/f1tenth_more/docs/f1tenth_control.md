@@ -16,7 +16,7 @@ consumes. Lanes (`f1tenth_bringup/config/mux.yaml`):
 
 | Lane | Topic | Priority | Publisher |
 |---|---|---|---|
-| `safety_stop` | `safety_stop` | 200 (highest) | `f1tenth_behavior`'s `Stop` BT action — emergency lane or `handle_obstacle` lane |
+| `safety_stop` | `safety_stop` | 200 (highest) | `f1tenth_behavior`'s `Stop` BT action — emergency lane (`frame_id=base_link/emergency`) or `handle_obstacle` lane (`frame_id=base_link/obstacle`, disabled by default). The mux republishes the winning message verbatim, so `frame_id` identifies the source in a bag; MPC leaves it empty. |
 | `navigation` | `drive` | 10 | `mpc_corr`/`andre_mpc_node` (direct-MPC path) or `twist_to_ackermann_node` (BT/Nav2 path) |
 | `joystick` | `teleop` | 100 | `joy_teleop` (manual control) |
 

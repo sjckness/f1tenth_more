@@ -646,6 +646,26 @@ def _solve_rti(
         n_dot_pc = float(n_vec @ pc)
         add_row(row_corr, n_dot_pc - half_w, n_dot_pc + half_w)
 
+        # corridor CENTERING cost: w_corr * (n . (p_{k+1} - pc))^2, i.e. the
+        # squared lateral offset from the centerline at the same frozen
+        # nearest index the bound above uses. Exactly quadratic in the state
+        # (n and pc are frozen), so no linearization error -- same E^T E /
+        # -2 E^T p pattern as the terminal position cost below.
+        #
+        # The bound alone is a WALL: anywhere inside half_w costs nothing, so
+        # a car pushed off-center by an obstacle deflection had no reason to
+        # come back. This term is the gradient that makes it come back. It was
+        # previously present only as a commented-out line in
+        # planner_cost_corridor (the SLSQP objective), which the default RTI
+        # backend never evaluates at all, so weights["w_corr"] was inert in
+        # BOTH paths regardless of its value.
+        if weights.get("w_corr", 0.0):
+            n_ext = np.zeros(n_x)
+            n_ext[0] = n_vec[0]
+            n_ext[1] = n_vec[1]
+            P[xk1_idx, xk1_idx] += 2.0 * weights["w_corr"] * np.outer(n_ext, n_ext)
+            q[xk1_idx] += weights["w_corr"] * (-2.0 * n_dot_pc * n_ext)
+
         # speed bound: box on x_{k+1}[3].
         row_v = np.zeros(n_z)
         row_v[xk1_idx][3] = 1.0
@@ -671,6 +691,22 @@ def _solve_rti(
     E[1, 1] = 1.0
     P[xN_idx, xN_idx] += 2.0 * weights["w_term"] * (E.T @ E)
     q[xN_idx] += weights["w_term"] * (-2.0 * (E.T @ pref_nom))
+
+    # ---- terminal yaw cost: w_psi * (psi_N - psiRef)^2, exact quadratic in
+    # the state (psi IS state index 2). The target is UNWRAPPED onto the
+    # reference trajectory's own branch (psi_ref_N + wrapped difference)
+    # rather than used raw: psi is unbounded in this model, so a raw psiRef
+    # near +/-pi would otherwise ask the car for a ~2pi turn to reach an
+    # orientation it is already at. Previously commented out in
+    # planner_cost_corridor and absent here, so weights["w_psi"] did nothing
+    # in either backend.
+    if weights.get("w_psi", 0.0):
+        psi_ref = float(corridor.get("psiRef", x_ref[N][2]))
+        psi_ref_N = float(x_ref[N][2])
+        psi_target = psi_ref_N + math.atan2(math.sin(psi_ref - psi_ref_N),
+                                            math.cos(psi_ref - psi_ref_N))
+        P[xN_idx, xN_idx][2, 2] += 2.0 * weights["w_psi"]
+        q[xN_idx][2] += weights["w_psi"] * (-2.0 * psi_target)
 
     # ---- assemble + solve.
     A_mat = np.array(rows, dtype=float)
@@ -830,9 +866,14 @@ def planner_cost_corridor(
         J += weights["w_u_a"] * a ** 2
 
         # ================= centratura corridoio =================
-        #p = np.array([x[0], x[1]], dtype=float)
-        #d_lat, half_w = corridor_lateral_coordinates(p, corridor)
-        #J += weights["w_corr"] * (d_lat ** 2)
+        # Enabled (was commented out) together with the RTI path's own
+        # stagewise version, so this objective and the QP the default backend
+        # actually solves agree on what a solution costs -- true_cost is
+        # reported from here for RTI solves too.
+        if weights.get("w_corr", 0.0):
+            p_lat = np.array([x[0], x[1]], dtype=float)
+            d_lat, _half_w = corridor_lateral_coordinates(p_lat, corridor)
+            J += weights["w_corr"] * (d_lat ** 2)
 
         # ================= regolarità =================
         du = uk - u_prev
@@ -847,10 +888,15 @@ def planner_cost_corridor(
     J += weights["w_term"] * float(eN @ eN)
 
     # ================= terminale yaw =================
-    #psi_err = x[2] - corridor["psiRef"]
-    psi_err = x[2] - 0
-   # psi_err = np.arctan2(np.sin(psi_err), np.cos(psi_err))
-   # J += 2000* psi_err ** 2
+    # Enabled, matching _solve_rti's own terminal-yaw term (the dead
+    # `psi_err = x[2] - 0` line it replaces computed a value nothing read,
+    # and the commented-out weight was a hardcoded 2000 rather than w_psi).
+    # Wrapped to (-pi, pi] here because this form is evaluated directly, with
+    # no reference branch to unwrap onto.
+    if weights.get("w_psi", 0.0):
+        psi_err = float(x[2]) - float(corridor["psiRef"])
+        psi_err = math.atan2(math.sin(psi_err), math.cos(psi_err))
+        J += weights["w_psi"] * psi_err ** 2
 
     return float(J)
 

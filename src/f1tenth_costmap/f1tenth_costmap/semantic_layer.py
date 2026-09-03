@@ -166,7 +166,8 @@ class SemanticObject:
         dt = max(0.0, min(dt, _MAX_PREDICTION_DT_SEC))
         return self.x_map + self.vx_map * dt, self.y_map + self.vy_map * dt
 
-    def update(self, x_map: float, y_map: float, score: float, stamp_sec: float, alpha: float):
+    def update(self, x_map: float, y_map: float, score: float, stamp_sec: float,
+               alpha: float):
         """Apply one real (matched) detection: EMA-blend both position and
         velocity from the RAW last stored state (not the predicted one --
         blending against a prediction that already incorporates the motion
@@ -192,16 +193,102 @@ class SemanticObject:
         if self.hit_streak >= self._confirm_hit_count:
             self.confirmed = True
 
-    def mark_missed(self):
-        """No detection matched this track this frame."""
-        self.hit_streak = 0
+    def mark_missed(self, confirm_grace_misses: int = 0):
+        """No detection matched this track this frame.
+
+        confirm_grace_misses: how many consecutive misses a not-yet-confirmed
+        track may absorb WITHOUT having its hit_streak reset. 0 reproduces the
+        original behaviour exactly (any miss resets the streak).
+
+        WHY THIS EXISTS (2026-09-01 mission-analysis follow-up): confirmation
+        requires confirm_hit_count CONSECUTIVE hits, and this method used to
+        zero hit_streak on the very first miss. A real, physically-present
+        object frequently could not assemble 3 consecutive hits: it would
+        accumulate 1-2 hits, miss, reset, and eventually be pruned at
+        lost_miss_count, whereupon the next sighting spawned a brand-new track
+        id. That is the mechanism behind the observed churn -- 5 `person` + 4
+        `tv` track ids in a 21 s run for what was almost certainly one person
+        and one TV.
+
+        CORRECTED 2026-09-02: this was originally justified by the "35-45% of
+        detection frames produce no 3D output" figure from the same analysis.
+        Measuring that properly showed the figure to be real but almost
+        entirely benign for THIS purpose -- 99.2% of frames containing at
+        least one detection did produce output; the missing frames were
+        overwhelmingly EMPTY ones (only 3.0% of zero-detection frames produced
+        output, because yolo_detector_node publishes no mask image when a
+        frame has no instances, so detection_3d_node's 3-way sync never
+        fires). Wholesale loss of detection-bearing frames runs at ~0.8%, not
+        35-45%.
+
+        The grace window is still warranted, but by a different and smaller
+        mechanism: per-CLASS presence flicker WITHIN non-empty frames (in run
+        15-04-45, class presence toggled on/off 24 times for `person`, 20 for
+        `bottle`, 31 for `tv` across 275 frames) plus association failures on
+        noisy detections. Sized accordingly -- do not re-derive it from the
+        35-45% figure.
+
+        A grace window lets an intermittent-but-real object keep the progress
+        it has made toward confirmation, without weakening what confirmation
+        means for a genuine one-off false positive: a spurious detection still
+        has to reappear repeatedly, it just no longer has to do so on perfectly
+        consecutive frames. miss_streak itself is ALWAYS advanced, so the
+        lost_miss_count pruning path is completely unaffected by this.
+        """
         self.miss_streak += 1
+        if self.miss_streak > confirm_grace_misses:
+            self.hit_streak = 0
+
+
+def _unpack_detection(det):
+    """Accept both the original 4-tuple (class_id, x_map, y_map, score) and
+    the 5-tuple form carrying a per-detection 1-sigma position uncertainty in
+    metres, (class_id, x_map, y_map, score, sigma).
+
+    Backward compatibility is deliberate rather than incidental: sigma only
+    exists once detection_3d_node populates the pose covariance, and callers
+    that have no uncertainty estimate (including this module's own existing
+    tests) must keep working unchanged. sigma=None means "unknown", which the
+    callers below treat as "apply no confidence weighting", NOT as "zero
+    uncertainty" -- the latter would silently make unknown-quality detections
+    the most trusted ones.
+    """
+    if len(det) >= 5:
+        return det[0], det[1], det[2], det[3], det[4]
+    class_id, x_map, y_map, score = det
+    return class_id, x_map, y_map, score, None
+
+
+def _effective_alpha(alpha: float, sigma, sigma_ref: float, min_alpha_scale: float):
+    """EMA weight for one detection, reduced when that detection is noisy.
+
+    A single global alpha gave a 25 cm-noisy low-confidence detection exactly
+    the same influence over a track's position as a 3 cm-noisy high-confidence
+    one -- the 2026-09-01 analysis measured that 2-7x confidence-dependent
+    spread directly (see detection_3d_node's position_sigma_* params, which
+    produce the sigma passed in here). Scaling alpha by sigma_ref / sigma makes
+    a noisy detection move the track proportionally less, which is the standard
+    inverse-variance intuition applied to the EMA this tracker already uses,
+    rather than a second smoothing stage bolted on afterwards.
+
+    Clamped below by min_alpha_scale so a very poor detection still contributes
+    something: driving alpha to ~0 would freeze a track in place and make it
+    unable to follow a genuinely moving object it can only see poorly.
+    """
+    if sigma is None or not (sigma > 0.0) or not (sigma_ref > 0.0):
+        return alpha
+    scale = min(1.0, sigma_ref / float(sigma))
+    return alpha * max(min_alpha_scale, scale)
 
 
 def update_tracks_batch(
         tracks: list, detections: list, stamp_sec: float,
         max_distance_m: float, alpha: float, confirm_hit_count: int,
-        lost_miss_count: int, next_track_id) -> list:
+        lost_miss_count: int, next_track_id,
+        confirm_grace_misses: int = 0,
+        alpha_sigma_ref_m: float = 0.0,
+        min_alpha_scale: float = 0.25,
+        gate_sigma_scale: float = 0.0) -> list:
     """One frame's worth of association + lifecycle, replacing the old
     per-detection merge_or_add_object() (see module docstring). Mutates
     `tracks` in place where possible and returns the (possibly shorter --
@@ -209,7 +296,8 @@ def update_tracks_batch(
     convention.
 
     tracks: list of SemanticObject (the accumulated state, across calls).
-    detections: list of (class_id, x_map, y_map, score) tuples, ALL of this
+    detections: list of (class_id, x_map, y_map, score) or
+        (class_id, x_map, y_map, score, sigma) tuples, ALL of this
         frame's detections, already transformed into map frame by the caller
         -- batching is the whole point (see module docstring's "split-
         assignment failure mode"), so this must be the full frame, not one
@@ -234,16 +322,35 @@ def update_tracks_batch(
     mark_missed() and is dropped entirely once its miss_streak reaches
     lost_miss_count. An unmatched detection spawns a fresh (not yet
     confirmed) track.
+
+    Uncertainty-aware parameters (all default to the pre-existing behaviour, so
+    omitting every one of them reproduces this function exactly as it was):
+
+    confirm_grace_misses: passed through to mark_missed() -- see there.
+    alpha_sigma_ref_m: the sigma at which a detection gets the full `alpha`.
+        0.0 (default) disables confidence weighting entirely.
+    min_alpha_scale: floor on that scaling, so a poor detection still moves
+        its track somewhat.
+    gate_sigma_scale: widens the association gate for uncertain detections,
+        max_distance_m + gate_sigma_scale * sigma. A fixed gate is the wrong
+        shape against confidence-dependent noise: it is simultaneously too
+        tight for a noisy detection (which then fails to match its own track
+        and spawns a duplicate -- the churn mechanism) and looser than it
+        needs to be for a precise one. 0.0 (default) keeps the fixed gate.
+        NOTE the widened gate is used for matching only; the cost matrix still
+        holds true distances, so the assignment still prefers the nearest
+        legal pairing.
     """
     if not tracks:
-        for class_id, x_map, y_map, score in detections:
+        for det in detections:
+            class_id, x_map, y_map, score, _sigma = _unpack_detection(det)
             tracks.append(SemanticObject(
                 next_track_id(), class_id, x_map, y_map, score, stamp_sec, confirm_hit_count))
         return tracks
 
     if not detections:
         for trk in tracks:
-            trk.mark_missed()
+            trk.mark_missed(confirm_grace_misses)
         return [t for t in tracks if t.miss_streak < lost_miss_count]
 
     n_det, n_trk = len(detections), len(tracks)
@@ -253,16 +360,31 @@ def update_tracks_batch(
     # (see _INFEASIBLE_SENTINEL_MULTIPLIER's own comment for why a sentinel
     # substitute is needed for the solver call itself, separate from this).
     cost = [[math.inf] * n_trk for _ in range(n_det)]
-    for i, (class_id, x_map, y_map, score) in enumerate(detections):
+    unpacked = [_unpack_detection(d) for d in detections]
+    for i, (class_id, x_map, y_map, score, sigma) in enumerate(unpacked):
+        # Gate widened by this detection's own uncertainty (see the
+        # gate_sigma_scale docstring paragraph). The stored cost stays the TRUE
+        # distance, so a widened gate only makes a pairing legal -- it never
+        # makes a far pairing look closer than a near one to the solver.
+        gate = max_distance_m
+        if gate_sigma_scale > 0.0 and sigma is not None and sigma > 0.0:
+            gate += gate_sigma_scale * float(sigma)
         for j, trk in enumerate(tracks):
             if trk.class_id != class_id:
                 continue
             px, py = trk.predict(stamp_sec)
             dist = math.hypot(px - x_map, py - y_map)
-            if dist <= max_distance_m:
+            if dist <= gate:
                 cost[i][j] = dist
 
-    sentinel = max_distance_m * _INFEASIBLE_SENTINEL_MULTIPLIER + 1e6
+    # Sentinel must exceed every legal cost, and legal costs are now bounded by
+    # the WIDEST gate any detection used, not by max_distance_m alone.
+    max_gate = max_distance_m
+    if gate_sigma_scale > 0.0:
+        sigmas = [sg for (_c, _x, _y, _s, sg) in unpacked if sg is not None and sg > 0.0]
+        if sigmas:
+            max_gate += gate_sigma_scale * max(sigmas)
+    sentinel = max_gate * _INFEASIBLE_SENTINEL_MULTIPLIER + 1e6
     solver_matrix = [[c if math.isfinite(c) else sentinel for c in row] for row in cost]
     row_ind, col_ind = linear_sum_assignment(solver_matrix)
 
@@ -275,16 +397,17 @@ def update_tracks_batch(
             # legal one -- treat both sides as unmatched, same as if this
             # pair had never been proposed at all.
             continue
-        class_id, x_map, y_map, score = detections[i]
-        tracks[j].update(x_map, y_map, score, stamp_sec, alpha)
+        class_id, x_map, y_map, score, sigma = unpacked[i]
+        tracks[j].update(x_map, y_map, score, stamp_sec,
+                         _effective_alpha(alpha, sigma, alpha_sigma_ref_m, min_alpha_scale))
         matched_det_idx.add(i)
         matched_trk_idx.add(j)
 
     for j, trk in enumerate(tracks):
         if j not in matched_trk_idx:
-            trk.mark_missed()
+            trk.mark_missed(confirm_grace_misses)
 
-    for i, (class_id, x_map, y_map, score) in enumerate(detections):
+    for i, (class_id, x_map, y_map, score, _sigma) in enumerate(unpacked):
         if i not in matched_det_idx:
             tracks.append(SemanticObject(
                 next_track_id(), class_id, x_map, y_map, score, stamp_sec, confirm_hit_count))

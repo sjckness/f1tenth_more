@@ -32,6 +32,11 @@ ekf_filter_node:
     two_d_mode: true            # planar car: zero z, roll, pitch
     publish_tf: true            # now owns odom -> base_link (world_frame: odom, below)
     publish_acceleration: false
+    transform_time_offset: 0.05  # post-date published TF ~50ms: urg_node stamps
+                                # scans at reception, ~28ms ahead of this filter's
+                                # TF stamp, so time-correct map/odom <- laser
+                                # lookups all failed 'extrapolation into the future'
+                                # and every scan was dropped by slam_toolbox/costmaps/viz.
     print_diagnostics: true
     debug: false
 

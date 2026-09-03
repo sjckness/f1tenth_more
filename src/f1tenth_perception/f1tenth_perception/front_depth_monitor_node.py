@@ -11,19 +11,26 @@ before this node existed (MPC_corr.py's own self.front_distance default of
 
 Deliberately has NO dependency on yolo_detector_node/detection_3d_node/
 obstacle_projector_node's output (Detection2DArray/Detection3DArray/
-Obstacle2DArray) -- this is meant to keep working as a last-resort hardware
-proximity signal even if the YOLO/classification pipeline is degraded,
-lagging, or misconfigured, per f1tenth_behavior's IsProximityTooClose BT
-condition (the emergency lane), which consumes this topic together with raw
-/scan for the side/rear check. See that behaviour's own docstring for the
-full design.
+Obstacle2DArray) -- originally meant to keep working as a last-resort
+hardware proximity signal even if the YOLO/classification pipeline was
+degraded, lagging, or misconfigured, for f1tenth_behavior's
+IsProximityTooClose BT condition (the emergency lane).
 
-Consumed also by MPC_corr.py -- as a side effect of finally having a real
-publisher, MPC_corr's own front_distance-based corridor-length logic
-(previously always seeing the hardcoded 10.0 "clear" fallback) now sees real
-data. Flagged explicitly, not silent: this is a behavior change to MPC_corr
-beyond what the emergency-stop leaf itself needed, chosen deliberately (see
-the chat deliberation) over inventing a second, dedicated topic.
+NO LONGER consumed by IsProximityTooClose (camera -> lidar front-cone swap,
+a later pass): that behaviour's front check now reads raw /scan directly,
+same as its sides/rear check, to remove ZED stereo depth's documented
+unreliability against flat/featureless walls as an e-stop trigger -- see
+is_proximity_too_close.py's own docstring for the full rationale/trade-off.
+This node itself is UNCHANGED and still runs, still publishing this topic --
+kept solely for MPC_corr.py below, its other, independent consumer.
+
+Consumed by MPC_corr.py -- as a side effect of finally having a real
+publisher (this node), MPC_corr's own front_distance-based corridor-length
+logic (previously always seeing the hardcoded 10.0 "clear" fallback) sees
+real data. Flagged explicitly, not silent: this was a behavior change to
+MPC_corr beyond what the emergency-stop leaf itself needed, chosen
+deliberately (see the chat deliberation) over inventing a second, dedicated
+topic -- and is now this node's ONLY remaining consumer.
 
 ROI + statistic: a `center_fraction`-sized box (default 0.5, same convention/
 default as detection_3d_node's own per-detection ROI sampling) centered in the
@@ -39,9 +46,8 @@ conservative (front_distance_percentile=0 would be the literal min).
 If a frame has no valid pixels in the ROI at all (depth completely unreadable
 that frame), nothing is published for it -- silently reporting a fabricated
 "safe" or "danger" value on real sensor dropout would be worse than just not
-updating. IsProximityTooClose (like IsBatteryLow) treats "no message received
-yet" as FAILURE (not tripped), not as a green light, so a cold start or a
-sensor glitch does not itself trigger the emergency lane.
+updating. MPC_corr.py's own front_distance handling (its sole remaining
+consumer, see above) is unaffected by this pass and out of scope here.
 """
 
 import numpy as np

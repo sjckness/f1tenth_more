@@ -3,10 +3,15 @@
 # ~ is safe to use here. extra_args are appended verbatim after -m/--port -- anything the
 # real llama-server CLI accepts (see `llama-server --help`) beyond those two flags, e.g.
 # -ngl.
-qwen_mpc_pruned:
-  model_path: ~/projects/llm/models/v2_MPCLLM_structpruned_10-q5_k_m.gguf
-  port: 8082
-  extra_args: ["-ngl", "999"]
+#
+# qwen_mpc_pruned (v2_MPCLLM_structpruned_10-q5_k_m.gguf, port 8082) used to
+# have an entry here for llm_mpc_tuner_node, which has since been removed
+# outright (see git history) -- this file's own port numbering below still
+# starts at 8083, one past that entry's old port, for continuity/no-collision
+# with anyone who still has a stale launch invocation cached. The .gguf file
+# itself was deliberately NOT deleted from disk (see git history for that
+# pass's own reasoning: unused model weights are harmless to leave behind,
+# deleting them isn't easily undone) -- it's just unregistered here now.
 
 # Stock (unpruned) Qwen2.5-3B-Instruct, q5_k_m -- pulled from
 # https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF
@@ -16,10 +21,7 @@ qwen_mpc_pruned:
 # alongside it in this same directory (v2_decisionLLM_structpruned_20-*,
 # also qwen2/Qwen2.5-3B-derived, named for a decision-type task) -- a real,
 # already-available candidate that was flagged and explicitly passed over
-# in favor of a stock download for this pass. Own port (8083, distinct from
-# qwen_mpc_pruned's 8082) since models.yaml already gives every entry its
-# own port, anticipating more than one being served at once even though
-# only one llama-server process is actually launched today.
+# in favor of a stock download for this pass.
 qwen25_3b_instruct:
   model_path: ~/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf
   port: 8083

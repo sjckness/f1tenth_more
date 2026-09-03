@@ -13,9 +13,9 @@ package avoids that entirely.
 Two ways to use this from a launch file:
   - get_default(name) -> (value, description): for a normal DeclareLaunchArgument,
     pass value (str()-ed) as default_value and description straight through.
-  - get_value(name): just the value -- used for the 5 stack-wide branching args
-    (camera_source, localization_source, enable_llm, use_behavior_tree,
-    enable_nav2), which are plain Python variables at parse time, not
+  - get_value(name): just the value -- used for the 4 stack-wide branching args
+    (camera_source, localization_source, use_behavior_tree, enable_nav2),
+    which are plain Python variables at parse time, not
     DeclareLaunchArgument/LaunchConfiguration.
   - get_path_default(name, package='f1tenth_bringup') -> (absolute_path,
     description): for path-type entries, whose yaml `default` is a path relative
@@ -47,7 +47,7 @@ def get_default(name):
 
 
 def get_value(name):
-    """Return just the yaml default value for `name` -- for the 5 branching args,
+    """Return just the yaml default value for `name` -- for the 4 branching args,
     this call itself IS the value: there is no DeclareLaunchArgument/CLI override
     for these, so any `name:=...` passed on the CLI is silently ignored.
     """
@@ -67,7 +67,7 @@ def get_path_default(name, package='f1tenth_bringup'):
 
 def get_odom_topic():
     """The active odometry topic given the current localization_source (one of the
-    5 stack-wide branching args, see stack_params.yaml): '/odometry/filtered'
+    4 stack-wide branching args, see stack_params.yaml): '/odometry/filtered'
     (EKF-fused x/y/yaw + gyro yaw rate, see f1tenth_bringup/config/ekf.yaml) when
     localization_source is 'ekf', '/odom' (raw wheel/steering dead reckoning from
     vesc_to_odom_node_backup, no IMU at all) when 'raw_odom'.

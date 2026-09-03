@@ -15,12 +15,15 @@ config (`vesc.yaml`, `ekf.yaml`, `mux.yaml`, `sensors.yaml`, `components.yaml`).
 ## Which components auto-start, and how they're modified
 
 `component_supervisor_node` decides this itself, once at startup, reading
-the same 5 stack-wide branching values `stack_bringup.launch.py` also uses:
+the same 4 stack-wide branching values `stack_bringup.launch.py` also uses,
+plus its own `enable_intelligence` declared parameter for `intelligence`
+specifically (a real, CLI-overridable arg, calibration-style — not one of
+the 4 stack-wide values; see that node's own module docstring):
 
 | Component | Auto-starts? | Modified by |
 |---|---|---|
 | `behavior` | only if `use_behavior_tree` | — |
-| `intelligence` | only if `enable_llm` | — |
+| `intelligence` | only if `enable_intelligence` | — |
 | `control` | always | Just `ackermann_mux.launch.py` — `safety_stop_controller` (which used to be conditionally appended here) was retired. |
 | `navigation` | always | `navigation.launch.py` itself branches Nav2 vs. `mpc_corr` on `enable_nav2` — the supervisor doesn't gate this component. |
 | `dev_tools` | always | `foxglove_bridge.launch.py`'s own `enable_foxglove` param decides whether the `Node` inside it actually launches — the supervisor doesn't gate this either. |
@@ -31,7 +34,7 @@ the same 5 stack-wide branching values `stack_bringup.launch.py` also uses:
 
 | File | Purpose |
 |---|---|
-| `stack_bringup.launch.py` | The original, single-process entry point — thin orchestrator, every node lives in its owning package's own launch file, this one just `include()`s them all in order (hardware → localization/TF → perception → command/control → autonomy → diagnostics/intelligence → dev tools → startup self-check). |
+| `stack_bringup.launch.py` | The original, single-process entry point — thin orchestrator, every node lives in its owning package's own launch file, this one just `include()`s them all in order (hardware → localization/TF → perception → command/control → autonomy → diagnostics/intelligence → dev tools → startup self-check). Its own `enable_llm`-gated inclusion of `llm.launch.py` was removed outright — `llama-server` is only reachable through `supervisor_bringup.launch.py`'s `intelligence` component now. |
 | `supervisor_bringup.launch.py` | Starts `component_supervisor_node` alone — the parallel, per-component-restartable path. Does not replicate `stack_bringup.launch.py`'s grouping logic; that stays untouched as a working single-process fallback. |
 | `foxglove_bridge.launch.py` | `foxglove_bridge` (port 8765, gated by `enable_foxglove`) plus two `topic_tools throttle` copies (`/camera/image_raw`/`/camera/image_annotated` → `*_viz` at `foxglove_image_throttle_hz`, default 5Hz) — the real 30Hz topics feeding the perception pipeline are untouched, only the visualization copies are throttled. Added after finding `foxglove_bridge` 3.3.0 has no built-in per-topic/per-client rate control at all. Uses `arguments=[...]` (positional argv), not `parameters=[{...}]`, for `throttle` — that node's CLI is `messages|bytes, in_topic, rate, [out_topic]`, not ROS params, despite param-like strings appearing in its binary. |
 | `startup_sequence.launch.py` | Wires up `stack_startup_sequence`. |
@@ -61,6 +64,11 @@ the same 5 stack-wide branching values `stack_bringup.launch.py` also uses:
 - The two bringup paths (`stack_bringup.launch.py` and
   `component_supervisor_node`) are independently maintained — a change to
   one's component list/branching logic doesn't automatically propagate to
-  the other; both were confirmed in sync as of this writing (5 stack-wide
+  the other; both were confirmed in sync as of this writing (4 stack-wide
   branching args, `safety_stop_controller` retirement reflected in both),
-  but that's a manual-consistency invariant, not an enforced one.
+  but that's a manual-consistency invariant, not an enforced one. (The two
+  paths diverge on `intelligence`/`llama-server` specifically now: only
+  `supervisor_bringup.launch.py` can start it, gated on `enable_intelligence`
+  — `stack_bringup.launch.py`'s own `enable_llm`-gated path was removed
+  outright rather than kept in sync, see the `stack_bringup.launch.py` row
+  above.)

@@ -13,11 +13,13 @@ a plain Python value here, not a DeclareLaunchArgument/LaunchConfiguration.
 front_depth_monitor_node is deliberately unrelated to the YOLO/detection
 pipeline above it in this file -- it reads raw ZED depth directly, with no
 dependency on yolo_detector_node/detection_3d_node's output, by design (see
-its own docstring: it's the front half of f1tenth_behavior's IsProximityTooClose
-last-resort emergency-stop condition, which must keep working even if YOLO is
-degraded). It lives in this file anyway rather than a separate one because the
-is_zed gating condition is identical and this package doesn't otherwise split
-one launch file per node.
+its own docstring). Its /perception/front_distance output no longer feeds
+f1tenth_behavior's IsProximityTooClose (camera -> lidar front-cone swap, see
+that behaviour's own docstring for the full rationale/trade-off) -- this node
+still runs and still publishes it, now solely for MPC_corr.py's own
+front_distance-based corridor-length logic. It lives in this file anyway
+rather than a separate one because the is_zed gating condition is identical
+and this package doesn't otherwise split one launch file per node.
 
 wall_detector_node (RANSAC plane segmentation for wall/corner detection, ZED
 point-cloud-based) previously lived in this file, independent of the YOLO/
@@ -78,7 +80,7 @@ from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 
 
@@ -98,6 +100,74 @@ def generate_launch_description():
     yolo_model_default, yolo_model_desc = get_default('yolo_model')
     yolo_model_la = DeclareLaunchArgument(
         'yolo_model', default_value=str(yolo_model_default), description=yolo_model_desc)
+    yolo_model_task_default, yolo_model_task_desc = get_default('yolo_model_task')
+    yolo_model_task_la = DeclareLaunchArgument(
+        'yolo_model_task', default_value=str(yolo_model_task_default),
+        description=yolo_model_task_desc)
+    # Live-deployable yolo-seg pass: default_value is a PythonExpression, not
+    # str(use_mask_depth_default) like every other arg here -- deliberately,
+    # so selecting a seg-family yolo_model (e.g. yolo26s-seg.pt) is a SINGLE
+    # switch, not two independent ones to remember (mask-based fusion is the
+    # whole point of a seg model; leaving it off by default against one would
+    # silently waste the mask decode and fall back to box-region sampling).
+    # Evaluated against whatever yolo_model actually resolves to at launch
+    # time (its own override included, not just its stack_params.yaml
+    # default) -- 'yolo_model_la' is declared just above so this reference is
+    # always valid. stack_params.yaml's own use_mask_depth default (false) is
+    # unreachable via this expression today (no shipped filename contains
+    # '-seg' except the seg models themselves) but is exactly what a
+    # non-seg yolo_model (the deployed default, yolo26s.engine) still
+    # produces -- '-seg' not in 'yolo26s.engine' is False, same false
+    # default as before this pass, zero behavior change for the default
+    # launch. Explicit `use_mask_depth:=false` on the command line still
+    # overrides this (or `:=true`), same as any other launch arg -- this
+    # only changes what happens when it's left unset.
+    use_mask_depth_default, use_mask_depth_desc = get_default('use_mask_depth')
+    use_mask_depth_la = DeclareLaunchArgument(
+        'use_mask_depth',
+        default_value=PythonExpression(
+            ["'-seg' in '", LaunchConfiguration('yolo_model'), "'"]),
+        description=(
+            use_mask_depth_desc +
+            " Default auto-derived from yolo_model: true whenever its "
+            "filename contains '-seg' (e.g. yolo26s-seg.pt), false "
+            "otherwise (matches stack_params.yaml's own false default for "
+            "every non-seg yolo_model, including the deployed default) -- "
+            "override explicitly to decouple mask-based fusion from model "
+            "selection if ever needed."))
+    # Car's-own-LiDAR exclusion (self-occlusion filter) -- see yolo_detector_
+    # node.py's own module docstring and stack_params.yaml's lidar_exclusion_
+    # x_min comment for the full rationale/trade-off/calibration source. All
+    # 5 forwarded straight through to yolo_detector_node below; screenshot-
+    # calibrated with margin, not yet measured against a real-resolution
+    # live frame.
+    lidar_exclusion_x_min_default, lidar_exclusion_x_min_desc = get_default(
+        'lidar_exclusion_x_min')
+    lidar_exclusion_x_min_la = DeclareLaunchArgument(
+        'lidar_exclusion_x_min', default_value=str(lidar_exclusion_x_min_default),
+        description=lidar_exclusion_x_min_desc)
+    lidar_exclusion_x_max_default, lidar_exclusion_x_max_desc = get_default(
+        'lidar_exclusion_x_max')
+    lidar_exclusion_x_max_la = DeclareLaunchArgument(
+        'lidar_exclusion_x_max', default_value=str(lidar_exclusion_x_max_default),
+        description=lidar_exclusion_x_max_desc)
+    lidar_exclusion_y_min_default, lidar_exclusion_y_min_desc = get_default(
+        'lidar_exclusion_y_min')
+    lidar_exclusion_y_min_la = DeclareLaunchArgument(
+        'lidar_exclusion_y_min', default_value=str(lidar_exclusion_y_min_default),
+        description=lidar_exclusion_y_min_desc)
+    lidar_exclusion_y_max_default, lidar_exclusion_y_max_desc = get_default(
+        'lidar_exclusion_y_max')
+    lidar_exclusion_y_max_la = DeclareLaunchArgument(
+        'lidar_exclusion_y_max', default_value=str(lidar_exclusion_y_max_default),
+        description=lidar_exclusion_y_max_desc)
+    lidar_exclusion_overlap_threshold_default, lidar_exclusion_overlap_threshold_desc = (
+        get_default('lidar_exclusion_overlap_threshold'))
+    lidar_exclusion_overlap_threshold_la = DeclareLaunchArgument(
+        'lidar_exclusion_overlap_threshold',
+        default_value=str(lidar_exclusion_overlap_threshold_default),
+        description=lidar_exclusion_overlap_threshold_desc)
+
     obstacle_z_min_default, obstacle_z_min_desc = get_default('obstacle_z_min')
     obstacle_z_min_la = DeclareLaunchArgument(
         'obstacle_z_min', default_value=str(obstacle_z_min_default),
@@ -152,16 +222,35 @@ def generate_launch_description():
                 src_dir, 'f1tenth_perception', 'models',
                 LaunchConfiguration('yolo_model')]),
             'device': LaunchConfiguration('yolo_device'),
+            # Only consulted for a *.engine yolo_model -- see stack_params.yaml's
+            # own yolo_model_task entry and yolo_detector_node.py's "Task
+            # resolution" docstring paragraph. Ignored for a *.pt yolo_model
+            # (e.g. yolo26s-seg.pt), which carries its own task in the checkpoint.
+            'model_task': LaunchConfiguration('yolo_model_task'),
+            # Only ever published when the loaded model resolves to task
+            # 'segment' -- see yolo_detector_node.py's own docstring.
+            'masks_topic': '/camera/detection_masks',
             # Previously only reached detection_3d_node below -- see
             # yolo_detector_node.py's own docstring for why that left this
             # node's own output unfiltered regardless of this value.
             'confidence_threshold': LaunchConfiguration('confidence_threshold'),
+            # Car's-own-LiDAR exclusion -- see the declare block above.
+            'lidar_exclusion_x_min': LaunchConfiguration('lidar_exclusion_x_min'),
+            'lidar_exclusion_x_max': LaunchConfiguration('lidar_exclusion_x_max'),
+            'lidar_exclusion_y_min': LaunchConfiguration('lidar_exclusion_y_min'),
+            'lidar_exclusion_y_max': LaunchConfiguration('lidar_exclusion_y_max'),
+            'lidar_exclusion_overlap_threshold': LaunchConfiguration(
+                'lidar_exclusion_overlap_threshold'),
             'nice': LaunchConfiguration('yolo_nice'),
         }],
     )
 
     actions = [
         confidence_threshold_la, yolo_device_la, yolo_model_la,
+        yolo_model_task_la, use_mask_depth_la,
+        lidar_exclusion_x_min_la, lidar_exclusion_x_max_la,
+        lidar_exclusion_y_min_la, lidar_exclusion_y_max_la,
+        lidar_exclusion_overlap_threshold_la,
         obstacle_z_min_la, obstacle_z_max_la,
         yolo_cpu_affinity_la, yolo_nice_la,
         detection_3d_cpu_affinity_la, detection_3d_nice_la,
@@ -182,6 +271,12 @@ def generate_launch_description():
                 'depth_info_topic': '/zed2/zed_node/depth/camera_info',
                 'detections_3d_topic': '/camera/detections_3d',
                 'markers_topic': '/camera/detection_markers',
+                # Matches yolo_detector_node's own masks_topic above -- only
+                # actually subscribed when use_mask_depth is true (see
+                # detection_3d_node.py's own docstring); harmless to always
+                # pass the topic name either way.
+                'masks_topic': '/camera/detection_masks',
+                'use_mask_depth': LaunchConfiguration('use_mask_depth'),
                 'confidence_threshold': LaunchConfiguration('confidence_threshold'),
                 'nice': LaunchConfiguration('detection_3d_nice'),
             }],
@@ -208,10 +303,9 @@ def generate_launch_description():
         ))
 
         # See module docstring: independent of the YOLO/detection nodes above
-        # despite living in this file -- last-resort proximity input for
-        # f1tenth_behavior's IsProximityTooClose (emergency lane), and, as a
-        # side effect of finally having a real publisher, MPC_corr.py's own
-        # front_distance-based corridor-length logic.
+        # despite living in this file. No longer feeds f1tenth_behavior's
+        # IsProximityTooClose (camera -> lidar front-cone swap) -- still runs
+        # for MPC_corr.py's own front_distance-based corridor-length logic.
         actions.append(Node(
             package='f1tenth_perception',
             executable='front_depth_monitor_node',

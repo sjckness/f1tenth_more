@@ -61,6 +61,7 @@ from launch.actions import DeclareLaunchArgument, LogInfo, RegisterEventHandler
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -117,6 +118,39 @@ def generate_launch_description():
         'proximity_front_extra_margin_m',
         default_value=str(proximity_front_extra_margin_default),
         description=proximity_front_extra_margin_desc)
+    # Obstacle-avoidance test configuration -- same "declared here,
+    # bootstrap-read in main() before tree.node exists" pattern as the
+    # sys_obs_*/car_radius args above. See stack_params.yaml's own comments
+    # (and behavior_executor_node.create_root()'s docstring) for what each
+    # changes; every one is a real safety-behaviour change, so they are
+    # launch args rather than buried constants.
+    #
+    # value_type is passed EXPLICITLY rather than relying on launch_ros's
+    # string type-inference, because two of these are booleans and that is
+    # exactly where inference is worth not gambling on: a LaunchConfiguration
+    # evaluates to the string 'False', and any path that hands that to the node
+    # without coercion yields a non-empty (therefore TRUE) value -- which would
+    # silently ENABLE the camera stop this pass exists to disable, and enable
+    # the load trip it exists to stop trusting. Both failure modes are silent
+    # and both are backwards, so the types are spelled out.
+    _avoidance_args = [
+        ('enable_camera_obstacle_stop', bool),
+        ('enable_lidar_safety_stop', bool),
+        ('proximity_front_threshold_m', float),
+        ('proximity_side_threshold_m', float),
+        ('enable_sys_obs_load_trip', bool),
+        ('sys_obs_load_trip_consecutive_samples', int),
+    ]
+    avoidance_las = []
+    for _name, _type in _avoidance_args:
+        _default, _desc = get_default(_name)
+        avoidance_las.append(DeclareLaunchArgument(
+            _name, default_value=str(_default), description=_desc))
+    avoidance_params = {
+        _name: ParameterValue(LaunchConfiguration(_name), value_type=_type)
+        for _name, _type in _avoidance_args
+    }
+
     # Bare filename under f1tenth_behavior/missions/, or '' for no mission at
     # startup -- resolved against the package's own share dir by MissionLoader
     # itself (mission/loader.py), not here, since '' has to stay '' (not become a
@@ -203,6 +237,7 @@ def generate_launch_description():
                 'proximity_front_extra_margin_m'),
             'mission_file_name': LaunchConfiguration('mission_file_name'),
             'nice': LaunchConfiguration('behavior_nice'),
+            **avoidance_params,
         }],
     )
     twist_to_ackermann_node = Node(
@@ -222,6 +257,7 @@ def generate_launch_description():
         car_radius_la,
         obstacle_safety_margin_la,
         proximity_front_extra_margin_la,
+        *avoidance_las,
         mission_file_name_la,
         behavior_cpu_affinity_la, behavior_nice_la,
     ]

@@ -5,16 +5,29 @@ those launch files -- including foxglove_bridge.launch.py and
 startup_sequence.launch.py, both of which live in this package itself (f1tenth_bringup)
 rather than being owned by any other f1tenth_* package.
 
-The 5 stack-wide branching args (camera_source, localization_source, enable_llm,
+The 4 stack-wide branching args (camera_source, localization_source,
 use_behavior_tree, enable_nav2) are NOT DeclareLaunchArgument/LaunchConfiguration
 anywhere in the workspace -- they're plain Python values read directly from
 f1tenth_params/config/stack_params.yaml (via param_defaults.get_value) at parse
 time below, and the return list is built with plain Python if/else instead of
-IfCondition/UnlessCondition for them. The ONLY way to change one of these 5 is
+IfCondition/UnlessCondition for them. The ONLY way to change one of these 4 is
 editing stack_params.yaml; passing e.g. `enable_nav2:=false` on the CLI to this
-file (or to any of the owning launch files that used to declare one of these 5
+file (or to any of the owning launch files that used to declare one of these 4
 themselves) is silently ignored, since no launch argument by that name exists
 anymore to receive it.
+
+(enable_llm, the 5th of these branching args, was removed outright --
+component_supervisor_node's own enable_intelligence is now the sole gate for
+llama-server auto-start; see stack_params.yaml's enable_llm-removal comment.
+This file's own diagnostics/intelligence section (7 below) used to
+conditionally include llm.launch.py on enable_llm -- that conditional include
+was removed along with the key, not rewired onto enable_intelligence, since
+this file never declared that as one of its own launch arguments and this
+pass didn't add one. This is the workspace's older, pre-supervisor_bringup
+top-level entry point (see component_supervisor_node.py's own module
+docstring, "a working fallback") -- llm.launch.py is no longer reachable
+through it at all; use supervisor_bringup.launch.py's 'intelligence'
+component instead.)
 
 (enable_safety_stop / safety_stop_controller retired -- the BT's own
 handle_obstacle lane, unconditional, already provides the same corridor-stop
@@ -104,16 +117,15 @@ def generate_launch_description():
     )
 
     # ================================================================
-    # 1. STACK-WIDE (the 5 branching args -- see module docstring)
+    # 1. STACK-WIDE (the 4 branching args -- see module docstring)
     # ================================================================
     camera_source = get_value('camera_source')
-    enable_llm = get_value('enable_llm')
     use_behavior_tree = get_value('use_behavior_tree')
     # enable_nav2 is NOT read here -- like localization_source (see section 3 below),
     # its branch now lives entirely in the file that owns it: f1tenth_navigation/
     # navigation.launch.py, included unconditionally in section 6 below.
 
-    # calibration is NOT one of the 5 -- it's declared in f1tenth_hardware/launch/
+    # calibration is NOT one of the 4 -- it's declared in f1tenth_hardware/launch/
     # vesc.launch.py (included via vesc_bringup below, unconditionally and first),
     # stays a real DeclareLaunchArgument/LaunchConfiguration with normal CLI-override
     # behavior. is_calibration_disabled is still a runtime condition (calibration's
@@ -215,14 +227,17 @@ def generate_launch_description():
     # system_observer.launch.py is self-gated behind enable_sys_obs (see that file's
     # own docstring) -- always included here, but a no-op Node-wise when disabled.
     # diagnostics_server.launch.py (continuous battery monitoring + on-demand
-    # run_diagnostics service) is never gated, always-on. Plus the opt-in LLM stack.
+    # run_diagnostics service) is never gated, always-on. The opt-in LLM stack
+    # (llm.launch.py, previously conditionally included here on enable_llm) is
+    # no longer reachable through this file at all -- enable_llm was removed
+    # outright, not rewired onto enable_intelligence (see module docstring's
+    # own paragraph on this). Use supervisor_bringup.launch.py's
+    # 'intelligence' component to start llama-server instead.
     # ================================================================
     diagnostics_bringup = [
         include('f1tenth_diagnostics', 'system_observer.launch.py'),
         include('f1tenth_diagnostics', 'diagnostics_server.launch.py'),
     ]
-    if enable_llm:
-        diagnostics_bringup.append(include('llm', 'llm.launch.py'))
 
     # ================================================================
     # 8. DEV TOOLS / VISUALIZATION

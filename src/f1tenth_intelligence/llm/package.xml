@@ -3,18 +3,25 @@
 <package format="3">
   <name>llm</name>
   <version>0.0.1</version>
-  <description>F1TENTH LLM-based tooling (MPC tuner) and the llama-server bringup
-  (launch/llm.launch.py) that hosts it. The only package inside f1tenth_intelligence.</description>
+  <description>F1TENTH LLM-based tooling (natural-language mission planner) and the
+  llama-server bringup (launch/llm.launch.py) that hosts it. The only package inside
+  f1tenth_intelligence.</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 
+  <!-- nav_msgs/ackermann_msgs/std_msgs all dropped along with
+       llm_mpc_tuner_node.py's own removal (see git history): nav_msgs/
+       ackermann_msgs (Odometry sub, AckermannDriveStamped stop_topic pub)
+       were exclusively that node's; std_msgs turned out to ALSO be dead
+       already at that point (llm_planner_node's own last std_msgs/String
+       use, the old /corridor_cmd publisher, was removed in an earlier
+       pass; the dependency just never got cleaned up until this audit).
+       Confirmed by grep across every .py file in this package before
+       removing any of the three. -->
   <depend>rclpy</depend>
-  <depend>nav_msgs</depend>
-  <depend>std_msgs</depend>
   <depend>std_srvs</depend>
-  <depend>ackermann_msgs</depend>
   <!-- LoadMission.srv, used by llm_planner_node's /mission/load_mission client
        (start_mission/abort_mission are plain std_srvs/Trigger, already covered
        above); confirmed against f1tenth_behavior's own package.xml, which
@@ -25,13 +32,11 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
-  <!-- HTTP client used by llm_mpc_tuner_node AND (as of the llama-server
-       backend switch) llm_planner_node's own get_plan_from_llm() to talk to
-       llama-server's /completion endpoint: one dependency, two consumers
-       now. The earlier python3-openai dependency (llm_planner_node's brief
-       Ollama/OpenAI-client phase) is gone along with that code path;
-       confirmed nothing else in this package imports openai before removing
-       it. -->
+  <!-- HTTP client used by llm_planner_node's own get_plan_from_llm() to talk
+       to llama-server's /completion endpoint. Previously shared with
+       llm_mpc_tuner_node.ask_llm() (the same backend, same request
+       pattern); that node is gone now (see git history), but this
+       dependency stays: llm_planner_node still needs it on its own. -->
   <exec_depend>python3-requests</exec_depend>
   <!-- get_package_share_directory('f1tenth_behavior') at runtime, to write
        LLM-generated mission JSON files under its installed missions/

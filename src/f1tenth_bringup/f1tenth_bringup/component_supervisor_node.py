@@ -39,11 +39,23 @@ untouched as a working fallback -- single process, no per-component restart). Se
 f1tenth_bringup/config/components.yaml for the structural registry (WHAT each
 component runs) -- WHICH components auto-start, and how navigation/behavior/
 intelligence are modified or skipped, is decided here, once, at startup, by reading
-the same 5 stack-wide branching values (f1tenth_params/config/stack_params.yaml)
-that stack_bringup.launch.py itself uses:
+the same 4 stack-wide branching values (f1tenth_params/config/stack_params.yaml)
+that stack_bringup.launch.py itself uses, PLUS this node's own enable_intelligence
+parameter for 'intelligence' specifically (component-auto-start pass -- a real,
+CLI-overridable launch arg via supervisor_bringup.launch.py, calibration-style, NOT
+one of the 4 stack-wide values; see self.enable_intelligence and stack_params.yaml's
+own enable_intelligence comment for why this one component needed its own separate,
+CLI-overridable flag instead of a baked-in-at-parse-time stack-wide value):
 
   behavior      auto-starts only if use_behavior_tree
-  intelligence  auto-starts only if enable_llm
+  intelligence  auto-starts only if enable_intelligence (this node's own declared
+                parameter, NOT a stack_params.yaml get_value() lookup -- see above). Starts
+                ONLY llama-server (llm.launch.py's own start_server launch-arg
+                now itself defaults 'true' -- components.yaml's intelligence
+                entry doesn't need to override it any more) -- never
+                llm_planner_node itself, which stays a separately,
+                manually-invoked CLI tool regardless of this flag (see
+                llm.launch.py's own module docstring for why).
   control       always auto-starts; f1tenth_control/ackermann_mux.launch.py only --
                 safety_stop_controller was retired (superseded by the BT's own
                 unconditional handle_obstacle lane, see f1tenth_behavior)
@@ -62,7 +74,7 @@ that stack_bringup.launch.py itself uses:
                 actually launches -- component_supervisor_node itself
                 doesn't gate this one, same pattern as dev_tools/
                 enable_foxglove above (not navigation/enable_nav2, which
-                IS one of the 5 stack-wide branching values)
+                IS one of the 4 stack-wide branching values)
   everything else (hardware, localization, perception, diagnostics)
                 always auto-starts
   calibrate_hardware, startup_sequence
@@ -266,10 +278,17 @@ _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
 # see module docstring's own "calibrate_hardware, startup_sequence" paragraph
 # for why this is safe (no other node depends on it).
 _NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence'}
-# Gated on one of the 6 stack-wide branching values (see module docstring).
+# 'behavior' gates on a stack-wide branching value (get_value(), no CLI override --
+# see module docstring). 'intelligence' is DIFFERENT as of the component-auto-start
+# pass: 'enable_intelligence' here names this node's own declared parameter
+# (self.enable_intelligence), not a stack_params.yaml get_value() lookup -- the auto_
+# start-building loop below special-cases it for exactly that reason. Kept as a
+# dict entry (not hardcoded inline) purely for readability/consistency with
+# 'behavior''s own entry; see module docstring for why 'intelligence' needed a real,
+# CLI-overridable flag instead of a baked-in-at-parse-time stack-wide value.
 _CONDITIONAL_AUTO_START = {
     'behavior': 'use_behavior_tree',
-    'intelligence': 'enable_llm',
+    'intelligence': 'enable_intelligence',
 }
 
 # FastDDS SHM transport hygiene (see module docstring's own paragraph on this) --
@@ -356,6 +375,25 @@ class ComponentSupervisorNode(Node):
         # (_start_component, via that same dict) and _hardware_will_calibrate()
         # read the identical live value -- one source, not a second read path.
         self.calibration = bool(self.declare_parameter('calibration', True).value)
+        # component-auto-start pass: whether 'intelligence' (llama-server) auto-
+        # starts -- same "declared parameter, wired from supervisor_bringup.
+        # launch.py's own launch argument, default sourced from stack_params.yaml"
+        # pattern as self.calibration directly above, not the get_value()-from-
+        # _CONDITIONAL_AUTO_START path 'behavior' still uses (see that dict's own
+        # comment for why 'intelligence' needed to be different: a real CLI
+        # override, like calibration has, not a value only stack_params.yaml
+        # itself can change). The True default here is only a fallback for a
+        # bare `ros2 run`/test invocation that skips the launch file entirely --
+        # matches stack_params.yaml's own enable_intelligence default (flipped
+        # true there -- 'intelligence' now auto-starts with the supervisor by
+        # default; this literal was previously False and had drifted out of
+        # sync with that key, same manual-mirroring caveat every other literal
+        # default in this __init__ already carries, e.g. self.calibration
+        # above -- stack_params.yaml/the launch-passed parameter is still the
+        # actual source of truth, this is only what a launch-file-bypassing
+        # invocation falls back to).
+        self.enable_intelligence = bool(
+            self.declare_parameter('enable_intelligence', True).value)
         # 'localization' deferred-start (calibration-restart gap fix) -- see module
         # docstring's own paragraph and _defer_localization_start()'s docstring.
         # Generous margin above the documented ~60-130s calibration-cycle figure
@@ -451,7 +489,13 @@ class ComponentSupervisorNode(Node):
 
         auto_start = set(_ALWAYS_AUTO_START)
         for name, flag in _CONDITIONAL_AUTO_START.items():
-            if get_value(flag):
+            # 'intelligence' reads this node's own live declared parameter
+            # (self.enable_intelligence), not a stack_params.yaml get_value()
+            # lookup -- see _CONDITIONAL_AUTO_START's own comment for why.
+            # Every other entry ('behavior' today) keeps the original
+            # get_value(flag) path unchanged.
+            gate = self.enable_intelligence if name == 'intelligence' else get_value(flag)
+            if gate:
                 auto_start.add(name)
 
         self.get_logger().info(

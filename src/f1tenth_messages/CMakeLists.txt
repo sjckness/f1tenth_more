@@ -15,6 +15,8 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/TurnGoal.msg"
   "msg/BoundaryConstraint.msg"
   "msg/BoundaryConstraintArray.msg"
+  "msg/MpcSolverStatus.msg"
+  "msg/BehaviorTreeStatus.msg"
   "srv/RestartComponent.srv"
   "srv/ComponentControl.srv"
   "srv/RunDiagnostics.srv"

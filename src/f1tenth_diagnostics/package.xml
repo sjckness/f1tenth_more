@@ -26,6 +26,11 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>vesc_msgs</exec_depend>
   <exec_depend>f1tenth_messages</exec_depend>
+  <!-- mission_logger_node.py: rosbag2_py.Recorder, driven directly from the
+       /mission/status callback instead of shelling out to `ros2 bag record`
+       (see that node's own module docstring for why a subprocess is the
+       wrong shape here). -->
+  <exec_depend>rosbag2_py</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

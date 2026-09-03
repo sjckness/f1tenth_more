@@ -37,6 +37,8 @@ setup(
             'f1tenth_diagnostics.system_observer_node:main',
             'diagnostics_server_node = '
             'f1tenth_diagnostics.diagnostics_server_node:main',
+            'mission_logger_node = '
+            'f1tenth_diagnostics.mission_logger_node:main',
         ],
     },
 )

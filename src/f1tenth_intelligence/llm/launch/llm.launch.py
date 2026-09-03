@@ -1,4 +1,28 @@
-"""llama-server bringup + one LLM "interrogation" node (see config/interrogations.yaml).
+"""llama-server bringup ONLY (see config/interrogations.yaml for the model this
+resolves against). Does NOT launch an interrogation node -- component-auto-start
+pass: this file used to also launch the selected interrogation's node (e.g.
+llm_planner_node) as a persistent background Node action, but that was always
+architecturally wrong for a CLI tool -- llm_planner_node.py takes a command as a
+positional argv arg and, absent one, falls back to reading commands from stdin,
+which `ros2 launch` does not reliably give it a real terminal for (see
+llm_planner_node's own module docstring and llm_planner_params.yaml's comment on
+this exact limitation, pre-dating this pass). Making f1tenth_bringup/component_
+supervisor_node.py's new 'intelligence' component (see components.yaml, gated on
+enable_intelligence) auto-start this file at supervisor bringup would have made
+that mismatch a live, automatic problem instead of only a manual-invocation
+footgun -- fixed here by removing the node launch entirely, project-wide, not
+just for the supervisor path. llm_planner_node stays a separately, manually-
+invoked CLI tool: `ros2 run llm llm_planner_node "<command>" [--dry-run|--confirm]`,
+never through this launch file or the component-supervisor/registry system.
+
+One consequence, flagged rather than silently accepted: llm_url (the port
+llm_planner_node's own get_plan_from_llm() talks to) was previously injected here
+at launch time from models.yaml's own resolved port -- one source of truth. With
+no Node action left to inject it into, llm_planner_node.py's own hardcoded
+module-level LLAMA_URL default (currently http://127.0.0.1:8083/completion,
+matching models.yaml's qwen25_3b_instruct entry) is now the ONLY source for a
+bare `ros2 run` invocation -- if that entry's port ever changes, LLAMA_URL needs
+updating by hand there too, nothing keeps them in sync automatically any more.
 
 llama-server is launched directly as an ExecuteProcess -- no wrapper node -- against the
 binary + cwd from stack_params.yaml's llama_server_path / llama_server_cwd (two distinct
@@ -7,16 +31,13 @@ project root, two directory levels above the binary itself -- see stack_params.y
 llama_server_cwd comment for why a simple dirname() of the binary path would be wrong;
 that tree holds the built server, NOT /home/fabiocar/projects/llm/, which only holds the
 .gguf model files). Everything model-specific (-m path, --port, extra CLI flags like
--ngl) comes from config/models.yaml, keyed by the `model` launch argument.
-
-The interrogation node (e.g. llm_mpc_tuner_node) is launched unconditionally, regardless
-of start_server, in case a server is already running standalone elsewhere on the Jetson.
-Its mpc_url parameter is built here from the selected model's resolved port (models.yaml)
-and injected as an override on top of its params_file, rather than being duplicated in
-config/mpc_tuner_params.yaml -- one source of truth for the port. target_node is injected
-the same way, from stack_params.yaml's mpc_node_name -- one source of truth for the MPC
-node name (see that key's own comment); harmless no-op if a future non-MPC interrogation
-doesn't declare a target_node parameter at all.
+-ngl) comes from config/models.yaml, keyed by the `model` launch argument, itself
+resolved against the `interrogation` launch argument's own default_model (see
+_launch_setup()'s own model/interrogation pairing comment) -- interrogations.yaml's
+`executable`/`params_file` fields are no longer consumed by this file at all (nothing
+here launches a Node to pass them to any more); still validated/looked-up for
+default_model resolution and left in the schema for whenever/if node-auto-launch is
+deliberately reintroduced, not read for anything else today.
 
 An OpaqueFunction is required (rather than pure substitutions) because the model and
 interrogation to launch are resolved from YAML file contents at launch time, not just
@@ -35,7 +56,6 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, LogInfo, OpaqueFunction
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
-from launch_ros.actions import Node
 
 
 def _launch_setup(context, *args, **kwargs):
@@ -52,8 +72,6 @@ def _launch_setup(context, *args, **kwargs):
             f"Unknown interrogation '{interrogation_name}' -- available: "
             f'{sorted(interrogations)} (see config/interrogations.yaml)')
     interrogation_config = interrogations[interrogation_name]
-    params_file = os.path.join(
-        llm_share, 'config', interrogation_config['params_file'])
 
     # model/interrogation pairing fix: `model` defaults to '' (see model_la's
     # own default_value below) -- an EXPLICIT `model:=<name>` on the CLI
@@ -65,8 +83,8 @@ def _launch_setup(context, *args, **kwargs):
     # was ALWAYS qwen_mpc_pruned regardless of interrogation, so picking a
     # non-mpc_tuner interrogation with no explicit model override served it
     # with the wrong model with no error at all. An interrogation entry with
-    # no default_model of its own (not expected today -- both existing
-    # entries set one -- but a future addition could omit it) falls back to
+    # no default_model of its own (not expected today -- the one entry that
+    # exists sets one -- but a future addition could omit it) falls back to
     # stack_params.yaml's own `model` key, the sole global default before
     # this fix, with a clear warning rather than a silent RuntimeError deep
     # in the "unknown model" check below.
@@ -94,7 +112,6 @@ def _launch_setup(context, *args, **kwargs):
     start_server = LaunchConfiguration('start_server').perform(context).lower() == 'true'
     llama_server_bin = LaunchConfiguration('llama_server_path').perform(context)
     llama_server_cwd = LaunchConfiguration('llama_server_cwd').perform(context)
-    mpc_node_name = LaunchConfiguration('mpc_node_name').perform(context)
 
     server_process = ExecuteProcess(
         cmd=[
@@ -108,45 +125,17 @@ def _launch_setup(context, *args, **kwargs):
         condition=IfCondition(LaunchConfiguration('start_server')),
     )
 
-    interrogation_node = Node(
-        package='llm',
-        executable=interrogation_config['executable'],
-        name=interrogation_config['executable'],
-        output='screen',
-        # params_file first, override dict second: launch_ros applies later entries'
-        # keys over earlier ones, so this always wins over anything (or nothing) the
-        # params_file sets for mpc_url/target_node/llm_url. Applied uniformly to
-        # EVERY interrogation node regardless of which of these params it actually
-        # declares -- ROS silently ignores an undeclared parameter override, so this
-        # stays a harmless no-op for whichever ones a given node doesn't read (e.g.
-        # llm_mpc_tuner_node doesn't declare llm_url, llm_planner_node doesn't
-        # declare mpc_url/target_node), same as before this pass.
-        parameters=[params_file, {
-            'mpc_url': f'http://127.0.0.1:{port}/completion',
-            'target_node': mpc_node_name,
-            # llm_planner_node's own equivalent of mpc_url above -- named
-            # differently since "mpc_url" is specifically an llm_mpc_tuner_node
-            # concept (it targets an MPC controller node), not a generic name
-            # this interrogation-agnostic override dict should imply for every
-            # future interrogation. Resolved from the SAME `port` this
-            # interrogation's own model_name/model_config picked, so a
-            # get_plan_from_llm() call always reaches whichever llama-server was
-            # actually started for it, not a stale/hardcoded port.
-            'llm_url': f'http://127.0.0.1:{port}/completion',
-        }],
-    )
-
     return [
         LogInfo(msg=(
             f"[llm.launch] model='{model_name}' "
             f"({'explicit' if model_explicit else 'auto-selected for this interrogation'}) "
             f"({model_path}, port={port}) "
             f"interrogation='{interrogation_name}' "
-            f"({interrogation_config['executable']}) -- "
+            f"({interrogation_config['executable']}, not launched by this file -- "
+            f'run it by hand) -- '
             f'server {"starting now" if start_server else "assumed already running"}.'
         )),
         server_process,
-        interrogation_node,
     ]
 
 
@@ -178,10 +167,6 @@ def generate_launch_description():
     llama_server_cwd_la = DeclareLaunchArgument(
         'llama_server_cwd', default_value=str(llama_server_cwd_default),
         description=llama_server_cwd_desc)
-    mpc_node_name_default, mpc_node_name_desc = get_default('mpc_node_name')
-    mpc_node_name_la = DeclareLaunchArgument(
-        'mpc_node_name', default_value=str(mpc_node_name_default),
-        description=mpc_node_name_desc)
 
     return LaunchDescription([
         start_server_la,
@@ -189,6 +174,5 @@ def generate_launch_description():
         interrogation_la,
         llama_server_path_la,
         llama_server_cwd_la,
-        mpc_node_name_la,
         OpaqueFunction(function=_launch_setup),
     ])

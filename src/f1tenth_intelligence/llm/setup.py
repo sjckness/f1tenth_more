@@ -20,8 +20,8 @@ setup(
     zip_safe=True,
     maintainer='andreas',
     maintainer_email='andreas21steffens@gmail.com',
-    description='F1TENTH LLM-based tooling (MPC tuner) and the llama-server bringup '
-                 'that hosts it.',
+    description='F1TENTH LLM-based tooling (natural-language mission planner) and the '
+                 'llama-server bringup that hosts it.',
     license='MIT',
     extras_require={
         'test': [
@@ -30,7 +30,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'llm_mpc_tuner_node = llm.llm_mpc_tuner_node:main',
             'llm_planner_node = llm.llm_planner_node:main',
         ],
     },

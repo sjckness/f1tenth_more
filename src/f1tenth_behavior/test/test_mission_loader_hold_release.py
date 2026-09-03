@@ -86,6 +86,15 @@ class _FakeNode:
     def create_service(self, *a, **k):
         return None
 
+    def create_timer(self, period_sec, callback):
+        # MissionLoader's own /mission/status state-change watcher (see that
+        # file's MISSION-END EVENT GAP FIX comment). Stored, never fired here
+        # -- this test covers the hold-release path; the watcher itself is
+        # covered by test_mission_status_republish.py.
+        self.timers = getattr(self, 'timers', [])
+        self.timers.append((period_sec, callback))
+        return None
+
     def declare_parameter(self, name, default):
         return _FakeParam(default)  # mission_file_name unset -- no auto-load
 

@@ -10,15 +10,18 @@
 # model to use. Added specifically because model/interrogation used to be
 # resolved fully independently: picking a non-default interrogation with no
 # matching model override silently kept whichever model `model` defaulted
-# to, which for `planner` would have meant serving it with the MPC-tuning
-# model. If an interrogation entry omits this key, llm.launch.py falls back
-# to stack_params.yaml's own `model` key (the pre-existing, sole global
+# to (a real, live bug this fixed -- see llm.launch.py's own git history).
+# If an interrogation entry omits this key, llm.launch.py falls back to
+# stack_params.yaml's own `model` key (the pre-existing, sole global
 # default) and logs a warning.
-mpc_tuner:
-  executable: llm_mpc_tuner_node
-  params_file: mpc_tuner_params.yaml
-  default_model: qwen_mpc_pruned
-
+#
+# Only one entry today -- llm_mpc_tuner_node (the `mpc_tuner` entry this
+# file used to also have) was removed outright, not just deprioritized; see
+# git history if you need it back. The default_model mechanism above and the
+# launch arg below are both still real/general, not planner-specific, on
+# purpose: a future second interrogation is expected to reuse both exactly
+# as they are, not need them rebuilt.
+#
 # Translates a natural-language command into a f1tenth_behavior mission and
 # loads+starts it via /mission/load_mission + /mission/start_mission -- see
 # llm_planner_node.py's own module docstring for the full flow.

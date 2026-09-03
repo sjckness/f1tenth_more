@@ -110,7 +110,7 @@ def generate_launch_description():
     # bringup path -- components.yaml's `hardware` entry used to hardcode a
     # 'true' literal here independently, with no live way to override it (see
     # that file's own `hardware` entry comment). This is a real
-    # DeclareLaunchArgument (unlike the 5 stack-wide branching args, which are
+    # DeclareLaunchArgument (unlike the 4 stack-wide branching args, which are
     # plain-Python get_value() reads with no CLI override -- see f1tenth_params/
     # param_defaults.py's own docstring) so `calibration:=false`/`:=true` on the
     # CLI actually reaches component_supervisor_node below, same as stack_
@@ -120,6 +120,18 @@ def generate_launch_description():
     calibration_la = DeclareLaunchArgument(
         'calibration', default_value=str(calibration_default).lower(),
         description=calibration_desc)
+
+    # component-auto-start pass: same "real DeclareLaunchArgument, not one of the
+    # 4 stack-wide branching values" treatment as calibration directly above --
+    # stack_params.yaml's own enable_intelligence key only supplies the default;
+    # enable_intelligence:=true/false on the CLI actually reaches component_
+    # supervisor_node below (see that node's own self.enable_intelligence and
+    # stack_params.yaml's enable_intelligence comment for the full reasoning,
+    # including why this isn't just a baked-in-at-parse-time stack-wide value).
+    enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
+    enable_intelligence_la = DeclareLaunchArgument(
+        'enable_intelligence', default_value=str(enable_intelligence_default).lower(),
+        description=enable_intelligence_desc)
 
     components_config, components_config_desc = get_path_default('components_config')
     components_config_la = DeclareLaunchArgument(
@@ -153,6 +165,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'calibration': LaunchConfiguration('calibration'),
+            'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'components_config': LaunchConfiguration('components_config'),
             'restart_timeout_sec': LaunchConfiguration('restart_timeout_sec'),
             'log_dir': LaunchConfiguration('log_dir'),
@@ -168,6 +181,7 @@ def generate_launch_description():
         discovery_server_env,
         discovery_server,
         calibration_la,
+        enable_intelligence_la,
         components_config_la,
         restart_timeout_la,
         log_dir_la,

@@ -44,7 +44,7 @@ ros2 launch f1tenth_sim sim_bringup.launch.py
 | `f1tenth_behavior` | py_trees behavior tree: emergency-stop / obstacle-stop / Nav2-goal-navigation priority lanes (see below), plus the Nav2-readiness gate and the Twist→Ackermann bridge. |
 | `f1tenth_diagnostics` | Calibration tooling (gyro bias, IMU/odom covariance) + `system_observer_node` (CPU/GPU/RAM, gated by `enable_sys_obs`) + `diagnostics_server_node` (continuous battery monitoring + on-demand diagnostics service, never gated). |
 | `f1tenth_bringup` | Owns both top-level entry points, `component_supervisor_node`, the Foxglove bridge, the boot-time steering-sweep self-check, and most shared hardware config (`vesc.yaml`, `ekf.yaml`, `mux.yaml`, ...). |
-| `f1tenth_intelligence/llm` (ROS package name: `llm`) | `llama-server` bringup + an LLM-driven MPC parameter tuner (manual-trigger, talks to the running MPC node over `ros2 param set`). Opt-in (`enable_llm`). |
+| `f1tenth_intelligence/llm` (ROS package name: `llm`) | `llama-server` bringup + an LLM-driven natural-language mission planner (`llm_planner_node`, manually invoked, delivers via `/mission/load_mission`+`/mission/start_mission`). `llama-server` itself auto-starts by default via `component_supervisor_node`'s `intelligence` component (`enable_intelligence`, default `true`; pass `:=false` to skip it). |
 | `f1tenth_messages` | Shared custom interfaces: `SystemStatus.msg`, `BatteryStatus.msg`, `RestartComponent.srv`, `ComponentControl.srv`, `RunDiagnostics.srv`. `ament_cmake` (the only interfaces-only package — everything else here is `ament_python`). |
 | `f1tenth_more` | Top-level metapackage. Aggregates every first-party package (no code of its own). |
 
@@ -62,7 +62,7 @@ ros2 launch f1tenth_sim sim_bringup.launch.py
 I/O library `vesc_driver` links against). Not first-party code — not covered by the
 reorg or this README's param reference.
 
-## The 5 stack-wide branching args
+## The 4 stack-wide branching args
 
 These are **not** `DeclareLaunchArgument`s anywhere in the workspace — every file that
 needs one reads it directly from `stack_params.yaml` as a plain Python value at parse
@@ -74,9 +74,13 @@ exists to receive it.
 |---|---|---|
 | `camera_source` | `zed` | `'zed'` \| `'webcam'` — camera hardware selection. |
 | `localization_source` | `raw_odom` | `'ekf'` \| `'raw_odom'` — `map→odom` source. **Default is raw, not EKF.** |
-| `enable_llm` | `false` | Opt-in LLM stack — loads a GGUF model into GPU memory, ~20-30s warm-up. |
 | `use_behavior_tree` | `true` | `true`: the py_trees BT drives the `ackermann_mux` "navigation" lane (via Nav2, when `enable_nav2` is also true). `false`: the BT does not run — see `enable_nav2` for what drives the mux instead. |
 | `enable_nav2` | `true` | `true`: bring up the Nav2 stack (idles with no goal, puts nothing on the mux by itself). `false`: `navigation.launch.py` brings up `mpc_corr` instead, which does drive the mux directly. Independent of `use_behavior_tree`. |
+
+(`enable_llm`, a 5th stack-wide branching arg that used to gate `llm.launch.py` from
+`stack_bringup.launch.py`, was removed outright — `component_supervisor_node`'s own
+`enable_intelligence` is now the sole gate for `llama-server` auto-start, and
+`stack_bringup.launch.py` no longer includes `llm.launch.py` at all.)
 
 ## Full parameter reference (`f1tenth_params/config/stack_params.yaml`)
 
@@ -205,7 +209,7 @@ ros2 service call /component_supervisor_node/control_component \
 Registered components: `hardware`, `localization`, `perception`, `control`,
 `navigation`, `behavior`, `diagnostics`, `intelligence`, `dev_tools`,
 `startup_sequence` (all auto-start except `behavior`/`intelligence`, which are
-gated on `use_behavior_tree`/`enable_llm` respectively — `navigation` always
+gated on `use_behavior_tree`/`enable_intelligence` respectively — `navigation` always
 auto-starts, its own `navigation.launch.py` branches Nav2 vs. `mpc_corr` on
 `enable_nav2` itself), plus `calibrate_hardware` (registered but never
 auto-started — on-demand recalibration only, via `restart_component`).

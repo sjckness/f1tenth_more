@@ -33,7 +33,7 @@ entirely.
   | Function | Use |
   |---|---|
   | `get_default(name)` → `(value, description)` | Normal case: pass straight through to a `DeclareLaunchArgument`'s `default_value`/`description`. CLI overrides (`name:=...`) still work normally afterward. |
-  | `get_value(name)` | For the 5 stack-wide branching args (below) — this call *is* the value; there's no `DeclareLaunchArgument` backing it, so `name:=...` on the CLI is silently ignored for these. |
+  | `get_value(name)` | For the 4 stack-wide branching args (below) — this call *is* the value; there's no `DeclareLaunchArgument` backing it, so `name:=...` on the CLI is silently ignored for these. |
   | `get_path_default(name, package='f1tenth_bringup')` → `(absolute_path, description)` | For path-type entries (`default: config/vesc.yaml` etc.) — resolves against `package`'s install share dir. `map` is the one entry that overrides `package` (resolves against `f1tenth_navigation` instead). |
   | `get_odom_topic()` | Returns `/odometry/filtered` if `localization_source == 'ekf'` else `/odom` — single source of truth so every odometry consumer (MPC_corr, the BT's `CheckStopCondition`, Nav2's `bt_navigator`) stays in lockstep with whichever source `f1tenth_localization/localization.launch.py` actually brought up, instead of each hardcoding `/odom` independently. |
 
@@ -41,20 +41,24 @@ entirely.
   process (`functools.lru_cache(maxsize=1)`) from the package's installed
   share directory.
 
-## The 5 stack-wide branching args
+## The 4 stack-wide branching args
 
-`camera_source`, `localization_source`, `enable_llm`, `use_behavior_tree`,
-`enable_nav2` are read via `get_value()` as plain Python values at launch
-*parse* time, not `DeclareLaunchArgument`/`LaunchConfiguration`. This means
-the only way to change one is editing `stack_params.yaml` directly — passing
+`camera_source`, `localization_source`, `use_behavior_tree`, `enable_nav2`
+are read via `get_value()` as plain Python values at launch *parse* time, not
+`DeclareLaunchArgument`/`LaunchConfiguration`. This means the only way to
+change one is editing `stack_params.yaml` directly — passing
 `camera_source:=webcam` on a `ros2 launch` command line is silently ignored,
 since no launch argument by that name exists anywhere to receive it. Every
 other key in the file is a normal, CLI-overridable `DeclareLaunchArgument`
 whose default/description just happens to be sourced from here.
 
-(A sixth branching arg, `enable_safety_stop`, existed through Phase 1 of the
-code-analysis/fixes arc and was deleted along with `safety_stop_controller`
-— see `f1tenth_control`'s doc.)
+(A fifth branching arg, `enable_llm` — gated `stack_bringup.launch.py`'s own
+inclusion of `llm.launch.py` — was removed outright: `component_supervisor_
+node`'s own `enable_intelligence` is now the sole gate for `llama-server`
+auto-start, and `stack_bringup.launch.py` no longer includes `llm.launch.py`
+at all — see that file's own module docstring. A sixth, `enable_safety_stop`,
+existed through Phase 1 of the code-analysis/fixes arc and was deleted along
+with `safety_stop_controller` — see `f1tenth_control`'s doc.)
 
 ## Nodes / launch files
 

@@ -3,9 +3,9 @@
   "moves": [
     {
       "id": "search_person",
-      "goal_distance": 7.0,
-      "vdes": 0.8,
-      "stop_condition": { "type": "object_seen", "class": "person" },
+      "goal_distance": 6.0,
+      "vdes": 0.5,
+      "stop_condition": { "type": "distance_reached", "value": 6.0 },
       "timeout_sec": 60,
       "on_timeout": "abort"
     }

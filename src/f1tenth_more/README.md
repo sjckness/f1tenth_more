@@ -7,7 +7,7 @@ workspace reorg + optimization arc + code-analysis-and-fixes pass had all
 landed, describing the actually-current state of each package (read fresh
 from source, not carried over from any earlier phase's notes).
 
-For the workspace-wide overview (architecture, the 5 stack-wide branching
+For the workspace-wide overview (architecture, the 4 stack-wide branching
 args, full launch-parameter table, docker/deployment) see the
 [top-level workspace README](../../README.md) — this index is one level
 more detailed, package by package.
@@ -26,7 +26,7 @@ more detailed, package by package.
 | `f1tenth_behavior` | py_trees behavior tree: emergency-stop, obstacle-corridor stop, a scripted mission subtree, and Nav2/direct-MPC goal navigation, one priority-ordered root `Selector`. | [docs/f1tenth_behavior.md](docs/f1tenth_behavior.md) (mission JSON schema: [src/f1tenth_behavior/README.md](../f1tenth_behavior/README.md)) |
 | `f1tenth_bringup` | Both top-level entry points (single-process and per-component-restartable), Foxglove bridge, boot-time self-check, most shared hardware config. | [docs/f1tenth_bringup.md](docs/f1tenth_bringup.md) |
 | `f1tenth_diagnostics` | Calibration/diagnostic tooling: gyro bias, sensor covariance, battery pre-flight gate, continuous battery monitoring, system (CPU/GPU) observability. | [docs/f1tenth_diagnostics.md](docs/f1tenth_diagnostics.md) (operational how-to: [src/f1tenth_diagnostics/README.md](../f1tenth_diagnostics/README.md)) |
-| `llm` (`f1tenth_intelligence/llm`) | `llama-server` bringup + an LLM-driven MPC parameter tuner. Opt-in (`enable_llm`). | [docs/llm.md](docs/llm.md) |
+| `llm` (`f1tenth_intelligence/llm`) | `llama-server` bringup + an LLM-driven natural-language mission planner. Auto-starts by default (`enable_intelligence`, the component supervisor's `intelligence` component; `:=false` to opt out). | [docs/llm.md](docs/llm.md) |
 | `f1tenth_external` (+ `vesc` under `f1tenth_hardware/`) | 6 vendored/forked git submodules (ZED SDK wrapper, VESC driver, ackermann_mux, teleop_tools, transport_drivers, zed-ros2-interfaces) — brief, not owned by this project. | [docs/f1tenth_external.md](docs/f1tenth_external.md) |
 
 **Not covered by this documentation pass** (outside the package list this

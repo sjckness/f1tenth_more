@@ -5,7 +5,7 @@
 # own docstring for why).
 #
 # Two kinds of entries:
-#   - Stack-Wide (below): the 5 stack-wide branching args. These are NOT
+#   - Stack-Wide (below): the 4 stack-wide branching args. These are NOT
 #     DeclareLaunchArgument anywhere in the workspace -- every file that needs one
 #     reads its value directly from this yaml as a plain Python value at parse time.
 #     The ONLY way to change one of these is editing this file; passing it on the
@@ -36,7 +36,7 @@
 # actually reads the key, not just packages that happen to be "related" to it.
 
 # ============================================================
-# Stack-Wide (the 5 branching args -- see header comment above)
+# Stack-Wide (the 4 branching args -- see header comment above)
 # ============================================================
 # Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_perception
 # (camera.launch.py, detection.launch.py).
@@ -56,10 +56,42 @@ localization_source:
 # parameter that mpc_corr never declared -- confirmed broken if it had ever
 # been enabled). See obstacle_safety_margin_m below for the unified margin the
 # surviving mechanisms now share.
-# Consumed by: f1tenth_bringup (stack_bringup.launch.py, component_supervisor_node.py).
-enable_llm:
-  default: false
-  description: "Launch the LLM stack (llama-server + interrogation node). Opt-in -- loads a whole GGUF model into GPU memory and takes ~20-30s to warm up."
+#
+# enable_llm (the old stack-wide "launch llama-server" branching value,
+# previously consumed by stack_bringup.launch.py's own diagnostics/
+# intelligence section) was removed outright here, not just deprioritized --
+# enable_intelligence directly below is now the ONLY gate for llama-server
+# auto-start anywhere in the workspace (component_supervisor_node's
+# 'intelligence' component). stack_bringup.launch.py's own now-dead
+# enable_llm branching was removed rather than rewired onto
+# enable_intelligence -- that file never declared enable_intelligence as one
+# of its own launch arguments, and this pass didn't add one; see that file's
+# own module docstring for its current (llm.launch.py no longer included at
+# all) state.
+# Consumed by: f1tenth_bringup/component_supervisor_node.py, via supervisor_
+# bringup.launch.py's own `enable_intelligence` launch argument (default sourced
+# from this key, same "declared parameter, not a baked-in get_value()" pattern
+# `calibration` already uses -- see that key's own comment, and component_
+# supervisor_node.py's self.enable_intelligence/_CONDITIONAL_AUTO_START). A real
+# CLI-overridable arg, deliberately NOT one of the 4 stack-wide branching values
+# above (use_behavior_tree, enable_nav2, camera_source, localization_source):
+# unlike those, `enable_intelligence:=true`/`:=false` on the CLI actually
+# reaches component_supervisor_node, same as `calibration:=...` already does
+# for its own path. Gates ONLY whether the 'intelligence' component
+# (llama-server) auto-starts with the supervisor -- llm_planner_node itself is
+# never auto-launched regardless of this value (see llm.launch.py's own module
+# docstring); default flipped true here (component-intelligence-autostart
+# pass) -- 'intelligence' now auto-starts with the rest of an ordinary
+# supervisor bringup like every other _ALWAYS_AUTO_START component, same as
+# 'behavior'/'navigation' etc. already do, rather than needing an explicit
+# `enable_intelligence:=true` override every time. The ~20-30s GGUF
+# load-into-GPU-memory cost (up to ~58s observed cold-start, see
+# llm_planner_node.py's own _wait_for_llama_server()) is accepted as part of
+# ordinary startup now; pass `enable_intelligence:=false` explicitly to skip
+# it (e.g. a quick debug bringup with no LLM planner use planned).
+enable_intelligence:
+  default: true
+  description: "component_supervisor_node.py only: whether the 'intelligence' component (llama-server) auto-starts. llm_planner_node is never auto-launched by this or any flag -- see llm.launch.py."
 # Consumed by: f1tenth_bringup (stack_bringup.launch.py, component_supervisor_node.py).
 use_behavior_tree:
   default: true
@@ -174,9 +206,118 @@ yolo_device:
   default: cuda
   description: "Torch device yolo_detector_node runs inference on: 'cuda' or 'cpu'."
 # Consumed by: f1tenth_perception/detection.launch.py.
+# SEGMENTATION IS NOW THE DEPLOYED DEFAULT (was yolo26s.engine, the TensorRT
+# detect build). Consequences of this one key, all automatic -- nothing else
+# needs changing to switch:
+#   - use_mask_depth below auto-derives TRUE from this filename (detection.
+#     launch.py declares its default as a PythonExpression, "'-seg' in
+#     yolo_model", precisely so selecting a seg model is a SINGLE switch), so
+#     detection_3d_node samples depth from each detection's own instance mask
+#     instead of its box region -- the whole point of running a seg model.
+#   - yolo_model_task below becomes INERT: it is only ever consulted for a
+#     *.engine, and a *.pt carries its own task in the checkpoint. It stays
+#     'detect' deliberately -- that is still the correct value for every
+#     *.engine this repo ships, so switching back to yolo26s.engine remains a
+#     one-key change with no second edit to remember.
+#   - yolo_detector_node publishes /camera/detection_masks (mono8 instance-
+#     index image) and draws mask overlays instead of boxes on /camera/image_
+#     annotated -- both gated on the LOADED model's task, not on this filename.
+# TRADE-OFF, measured live on this Orin, not estimated: the seg *.pt runs the
+# whole detection chain at ~12.5Hz vs ~25Hz for the yolo26s.engine TensorRT
+# build -- roughly HALF the perception rate, since this is an unoptimized
+# PyTorch checkpoint rather than a compiled engine. Everything downstream
+# (detections_3d, detection_markers, semantic_markers) inherits that rate.
+# Building a *-seg.engine via the trtexec recipe in yolo_detector_node.py's
+# own docstring would recover the speed; until then this is the real cost of
+# the default, flagged rather than buried.
 yolo_model:
-  default: yolo26s.engine
+  default: yolo26s-seg.pt
   description: "YOLO weights filename under f1tenth_perception/models/: a .engine TensorRT build or a portable .pt checkpoint."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to yolo_detector_node
+# as the `model_task` param -- ONLY used when yolo_model is a *.engine (a raw
+# trtexec-built engine carries no embedded Ultralytics task metadata, same root
+# cause as its missing class names -- see yolo_detector_node.py's own docstring).
+# For a *.pt checkpoint the task is read from the checkpoint itself and this value
+# is ignored. 'detect' matches every engine this repo has ever shipped; set to
+# 'segment' only once a *-seg.engine is actually built and deployed.
+yolo_model_task:
+  default: segment
+  description: "Ultralytics task ('detect' or 'segment') for a *.engine yolo_model -- ignored for *.pt, which carries its own task in the checkpoint."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to detection_3d_node.
+# false (default): depth sampling is box-region-based, exactly as before this param
+# existed -- zero behavior change. true: detection_3d_node additionally subscribes to
+# yolo_detector_node's per-detection instance-mask image and, for each detection,
+# samples depth from the mask footprint (median over in-mask valid-depth pixels)
+# instead of the box region, falling back to the box-region method for any detection
+# whose mask has zero valid-depth pixels. Only meaningful when yolo_model is a
+# segmentation checkpoint (e.g. yolo26s-seg.pt) -- a detect-task model publishes no
+# mask image, so every detection falls back to box-region sampling regardless of
+# this flag.
+use_mask_depth:
+  default: true
+  description: "detection_3d_node: sample depth from the per-detection instance mask (median, box-region fallback) instead of the box region. Requires a segmentation yolo_model to have any effect."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to
+# yolo_detector_node. Filters out any 2D detection (its box, or -- for a
+# segment-task model -- its own mask, whichever is more accurate for that
+# detection) that overlaps this fixed rectangle above lidar_exclusion_
+# overlap_threshold below. The car's own LiDAR housing sits inside the ZED's
+# field of view (bottom-right of frame, confirmed live via a Foxglove
+# screenshot: a spurious high-confidence "chair" detection sitting exactly
+# on top of it) -- a fixed self-occlusion artifact, not a real external
+# object. Expressed as FRACTIONS of image width/height (0.0-1.0, not raw
+# pixels) so this stays correct across any camera resolution change --
+# converted to that frame's own actual pixel coordinates at runtime. Applied
+# once, in yolo_detector_node.py, on the raw Ultralytics result BEFORE
+# building Detection2DArray/masks_topic/the annotated image, so a suppressed
+# detection is invisible everywhere downstream (detection_3d_node.py never
+# even sees it) -- not a per-consumer filter repeated in multiple places.
+# Known trade-off, not risk-free: a genuine external obstacle that happens
+# to overlap this same fixed region would also go unseen by the camera-based
+# detection path. Accepted because the region is small and near-field
+# (right where the car's own hardware sits, close to the camera) -- LiDAR
+# itself, the car's actual primary proximity sensor for anything that close
+# (see f1tenth_behavior/behaviours/is_proximity_too_close.py's own front
+# cone, LiDAR-based), is the more relevant sensor for that distance anyway.
+#
+# CALIBRATED FROM A FOXGLOVE SCREENSHOT, NOT A REAL-RESOLUTION LIVE FRAME:
+# attempted live during this pass (camera-only, no mission) to measure the
+# real pixel footprint directly, as originally intended -- blocked, the
+# camera was not mounted on the car at the time (a live-captured frame
+# showed an office room, no LiDAR/car hardware visible anywhere in it). With
+# Andreas's confirmation, calibrated instead from a Foxglove screenshot
+# showing the actual spurious "chair (0.55)" detection sitting on the LiDAR
+# housing in the bottom-right corner -- NOT read as raw on-screen pixels
+# (that panel is a scaled UI render, not the real published resolution, see
+# yolo_detector_node.py's own docstring) but as FRACTIONS of the visible
+# image area within that panel (excluding toolbar/letterboxing), which
+# transfer correctly to the real frame's own resolution as long as Foxglove
+# preserves aspect ratio, which it does. Raw measured rectangle from that
+# screenshot: roughly x in [0.86, 1.0], y in [0.66, 1.0] (right ~14%, bottom
+# ~34% of frame) -- widened below with margin (mount position could shift
+# slightly if ever re-adjusted, per the original task) to x in [0.75, 1.0],
+# y in [0.55, 1.0] (right 25%, bottom 45%). Cross-checked against that same
+# screenshot's OTHER, separate "chair (0.38)" detection (a real chair
+# elsewhere in the room, x fraction roughly [0.54, 0.69]) to confirm the
+# widened x_min=0.75 does NOT also catch it -- 0.69 < 0.75, stays outside.
+# Re-measure precisely against a real frame (not a screenshot) once the
+# camera is confirmed back in its normal on-car mount, per the original
+# task's own preference -- this is a deliberately-margined estimate, not a
+# precise measurement.
+lidar_exclusion_x_min:
+  default: 0.75
+  description: "Left edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image width. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see this key's own comment above."
+lidar_exclusion_x_max:
+  default: 1.0
+  description: "Right edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image width. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see lidar_exclusion_x_min's own comment above."
+lidar_exclusion_y_min:
+  default: 0.55
+  description: "Top edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image height. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see lidar_exclusion_x_min's own comment above."
+lidar_exclusion_y_max:
+  default: 1.0
+  description: "Bottom edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image height. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see lidar_exclusion_x_min's own comment above."
+lidar_exclusion_overlap_threshold:
+  default: 0.5
+  description: "Fraction of a detection's own bounding box (or, for a segment-task model, its own mask) that must fall inside the LiDAR exclusion rectangle for that detection to be suppressed. 0.5: more than half of the detection sits over the excluded region."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's
@@ -238,25 +379,14 @@ mux_config:
 joy_config:
   default: config/joy_teleop.yaml
   description: "joy_node + joy_teleop button/axis mapping config for manual joystick control."
-# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py (injected as
-# target_node's override on the mpc_tuner interrogation node, same
-# override-wins-over-params_file pattern already used for mpc_url -- see
-# llm/config/mpc_tuner_params.yaml, which no longer hardcodes its own copy). NOT
-# read by f1tenth_bringup/startup_sequence.launch.py anymore (Phase 10): it used to
-# be declared/forwarded there to stack_startup_sequence, but that node never
-# declared a parameter by this name and had no use for it (a pure steering-sweep
-# node with no MPC awareness) -- removed rather than wired up, since there was
-# nothing for it to do with the value. Value is now /mpc_corr, the actually-deployed
-# MPC node (mpc_corr.py, launched by navigation.launch.py when enable_nav2:=false) --
-# previously /andre_mpc_controller / /andre_mpc_opt_controller, both stale names for
-# MPC node variants no longer in the automatic bring-up path. No longer used by
-# safety_stop_controller (retired -- see enable_safety_stop's own comment above;
-# that node's SetParameters(v_ref=...) call would have been rejected by mpc_corr
-# anyway, which never declared a v_ref parameter -- one more reason it was retired
-# rather than re-pointed).
-mpc_node_name:
-  default: /mpc_corr
-  description: "Fully-qualified MPC node name, used by the LLM MPC tuner for SetParameters calls."
+# mpc_node_name (previously: fully-qualified MPC node name, /mpc_corr, injected as
+# target_node's override on llm_mpc_tuner_node -- itself removed outright, see
+# git history) removed here too: llm.launch.py stopped launching any interrogation
+# node at all (component-auto-start pass, see that file's own module docstring),
+# so target_node/mpc_url had nowhere left to be injected into and became fully
+# dead code, not just currently-unconsumed data -- removed together rather than
+# left declaring a value nothing reads. If a future interrogation needs to target
+# a specific ROS node again (an MPC-tuning-style one, say), re-add this key then.
 # Consumed by: f1tenth_control/mpc.launch.py -- wired into andre_mpc_node.py's own
 # already-declared ROS params for the first time this phase (mpc.launch.py previously
 # passed no parameters=[...] at all, so these 12 gains were only ever the in-code
@@ -382,6 +512,50 @@ proximity_front_extra_margin_m:
   description: "Small extra conservatism [m] added on top of car_radius + obstacle_safety_margin_m for IsProximityTooClose's front standoff only, since that lane is a raw-sensor last resort behind an already-tighter-tuned backstop (the front direction alone also has YOLO-lane coverage via handle_obstacle) -- kept separately tunable rather than folded into obstacle_safety_margin_m so it doesn't also affect MPC/IsObstacleDetected, which have no such asymmetry."
 
 # --------------------------------------------------------------
+# OBSTACLE-AVOIDANCE TEST CONFIGURATION
+# Added by the 2026-09-01 mission-analysis follow-up (see
+# mission_analysis_2026-09-01.md). That analysis found every unexpected stop
+# came from f1tenth_behavior's BT preempting the MPC on the ackermann_mux
+# safety_stop lane (priority 200) -- NOT from the MPC, which converged on
+# 1285/1285 solves with zero missed deadlines. These four keys move camera-seen
+# obstacles off the stop path and onto the avoidance path, while keeping a
+# tightened lidar floor.
+#
+# NOTE these deliberately do NOT derive from car_radius/obstacle_safety_margin_m
+# above. Those compose a safety margin ON TOP OF the car's radius; a last-resort
+# contact threshold is the opposite intent (deliberately INSIDE that margin), so
+# sharing the derivation would be actively misleading. Consumed by
+# f1tenth_behavior/behavior_bringup.launch.py -> behavior_executor_node.
+# --------------------------------------------------------------
+enable_camera_obstacle_stop:
+  default: false
+  description: "Whether camera detections can halt the car outright via the BT's handle_obstacle lane (IsObstacleDetected -> Stop on the safety_stop mux lane). FALSE by default as of the obstacle-avoidance pass: camera-seen obstacles now influence the car through MPC soft avoidance (/camera/detections_3d -> obstacle_projector_node -> /perception/obstacles_2d -> MPC_corr's w_obs cost term), which is unaffected by this flag, rather than by stopping. The lane is structurally absent when false (not ticked-and-failing), so a BT snapshot distinguishes 'disabled' from 'not tripping'. Set true to restore the old stop-on-sight behaviour as a comparison point or fallback. WHAT IT COSTS: in run 14-35-50 this lane was the only thing preventing a collision with a chair 0.66 m ahead, for the entire 31.8 s run."
+enable_lidar_safety_stop:
+  default: true
+  description: "Whether IsProximityTooClose (raw /scan, last-resort contact avoidance) is in the BT's emergency lane at all. TRUE by default and deliberately so: it is NOT redundant with MPC avoidance -- it is the floor that catches the case where avoidance itself is wrong (stale costmap, dropped track, or a logic bug of the kind already found once in the 2026-09-01 analysis). With both this and enable_camera_obstacle_stop false there is nothing between 'avoidance works' and 'the car drives into it'. Turn off only after a run has already shown avoidance holding up with the tightened thresholds below active."
+proximity_front_threshold_m:
+  default: 0.15
+  description: "IsProximityTooClose front-cone (+-45 deg) trip distance [m]. Tightened from the old derived 0.40 m (car_radius + obstacle_safety_margin_m + proximity_front_extra_margin_m) to a genuine last-resort contact range, so the lidar floor no longer competes with MPC avoidance for the same obstacle -- avoidance gets the whole 0.40-0.15 m band to work in, and this only fires once avoidance has already failed. Note this is INSIDE car_radius (0.20 m) by design."
+proximity_side_threshold_m:
+  default: 0.15
+  description: "IsProximityTooClose side/rear (outside the +-45 deg front cone) trip distance [m]. Was car_radius alone (0.20 m); tightened alongside the front threshold. The sides/rear have no camera or MPC-avoidance coverage at all, so this is the only protection in those directions -- tightened rather than removed for that reason."
+
+# --------------------------------------------------------------
+# IsSystemOverheated load-trip configuration
+# The 2026-09-01 analysis found this condition caused 3 of 9 stop episodes,
+# every one a false positive on the LOAD half of the check: single 1 Hz
+# gpu_percent samples of 96.8-99.1% while the car had 2.65-4.69 m of clear
+# space. Temperatures across the whole session stayed at 55 C CPU / 49 C GPU
+# against a 100 C limit -- the thermal half never fired and is untouched.
+# --------------------------------------------------------------
+enable_sys_obs_load_trip:
+  default: false
+  description: "Whether CPU/GPU UTILIZATION (sys_obs_max_load_percent) can trigger an emergency stop. FALSE by default: gpu_percent is genuinely bursty under YOLO inference (consecutive 1 Hz samples ranged 3.0-99.1% in run 15-08-12), so a utilization threshold on this board measures inference load, not distress. TEMPERATURE (sys_obs_max_temp_c) is a SEPARATE trigger and remains active and undebounced regardless of this flag -- this key does not disable thermal protection, which guards against hardware self-damage and is not downgradeable to a warning."
+sys_obs_load_trip_consecutive_samples:
+  default: 3
+  description: "How many CONSECUTIVE over-threshold /diagnostics/system_status samples the load check needs before it may trip, when enable_sys_obs_load_trip is true. Counted in SAMPLES at the publisher's 1 Hz rate (not BT ticks, which run 10x faster), so 3 means roughly 3 s of sustained high load. All three observed false positives lasted 1-2 samples and would not have tripped at this default."
+
+# --------------------------------------------------------------
 # Runtime-only interface, NOT a launch-parameter default -- documented here
 # for discoverability alongside the rest of this section, but there is no
 # get_value()/get_default() call site for it and no launch file declares it.
@@ -493,7 +667,8 @@ mission_file_name:
 # pattern as enable_foxglove above, not enable_nav2). First SLAM implementation
 # for this stack (slam_toolbox, lidar-primary -- chosen over RTAB-Map after two
 # feasibility NO-GOs on this Orin box, see that investigation's own reports).
-# false by default (not always-on, same "opt-in" precedent as enable_llm) --
+# false by default (not always-on, same deliberate opt-in precedent as other
+# per-component toggles in this file) --
 # component_supervisor_node.py always auto-starts the 'slam' component itself
 # (same as dev_tools/enable_foxglove), this flag alone decides whether the
 # actual async_slam_toolbox_node Node launches inside it. Pose-output only in
@@ -519,6 +694,17 @@ enable_slam:
 # being off must not silently look identical to "system is healthy."
 # Independent of diagnostics_server_node/BatteryStatus below -- battery safety
 # monitoring is never gated behind this.
+# Consumed by: f1tenth_diagnostics/mission_logger.launch.py (IfCondition on
+# mission_logger_node itself -- false fully skips the node, it does not run
+# idle). Deliberately its OWN key rather than reusing enable_sys_obs: that
+# flag governs CPU/GPU/RAM telemetry, and a mission logger that silently
+# stops existing because an unrelated telemetry toggle was flipped is exactly
+# the "recording was off during the run that mattered" failure the automatic
+# logger exists to remove. Defaults TRUE for the same reason -- the whole
+# point is that nobody has to remember to turn it on.
+enable_mission_logger:
+  default: true
+  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle."
 enable_sys_obs:
   default: true
   description: "Run system_observer_node (CPU/GPU/RAM temp+usage) and include IsSystemOverheated in the BT emergency lane. false: both are fully skipped, not just idle."
@@ -608,23 +794,44 @@ publish_rate_hz:
 battery_check_rate_hz:
   default: 2.0
   description: "diagnostics_server_node's BatteryStatus publish rate, in Hz -- faster than publish_rate_hz above since this feeds a continuously-ticking BT condition, not just an observability feed."
-# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py. Default flipped
+# true here (drop-the-start_server-override pass): llm.launch.py's only
+# remaining caller is the 'intelligence' component (components.yaml), whose
+# whole point is starting llama-server itself -- the old false default
+# ("assume one's already running elsewhere") was correct only for the
+# manually-invoked, node-launching use case that pass's own predecessor
+# (component-auto-start pass) already removed, so there was no longer any
+# real scenario left wanting false. components.yaml's own intelligence entry
+# no longer needs to override this arg as a result -- see that file's own
+# comment. Pass `start_server:=false` explicitly if you do want to attach to
+# a llama-server already running standalone elsewhere.
 start_server:
-  default: false
-  description: "true: llm.launch.py starts llama-server itself. false: assume one's already running elsewhere on the Jetson."
+  default: true
+  description: "true (default): llm.launch.py starts llama-server itself. false: assume one's already running elsewhere on the Jetson."
 # Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py -- but NOT as
 # that file's own `model` launch argument default any more (that's '' now,
 # meaning "auto-select from the chosen interrogation's own default_model in
 # llm/config/interrogations.yaml" -- see llm.launch.py's model_la/
 # _launch_setup() for the full model/interrogation pairing fix). This key's
 # value is now only the last-resort fallback used if an interrogation entry
-# somehow has no default_model of its own; both entries that exist today do.
+# somehow has no default_model of its own; the one entry that exists today
+# (`planner`) does, so this branch is not exercised in practice right now --
+# kept pointing at a real, currently-valid models.yaml key regardless (was
+# qwen_mpc_pruned, removed along with llm_mpc_tuner_node -- see git history --
+# now qwen25_3b_instruct, the same model `planner` itself already defaults to).
 model:
-  default: qwen_mpc_pruned
+  default: qwen25_3b_instruct
   description: "Model name key into llm/config/models.yaml (model_path, port, extra_args)."
-# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py. Only one valid
+# value today (`planner`) since llm_mpc_tuner_node (the `mpc_tuner` entry)
+# was removed outright -- see git history. Kept as a real, CLI-overridable
+# launch argument rather than hardcoded/simplified away: interrogations.yaml
+# is still a general registry (a second interrogation is expected to reuse
+# it, not need it rebuilt), and resolving through it still surfaces a
+# mismatched name via llm.launch.py's own "Unknown interrogation" check
+# instead of a silently-wrong hardcoded string buried in that file.
 interrogation:
-  default: mpc_tuner
+  default: planner
   description: "Interrogation name key into llm/config/interrogations.yaml (executable, params_file)."
 # Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
 llama_server_path:

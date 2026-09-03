@@ -1,25 +1,18 @@
-# Params for llm_planner_node, loaded by launch/llm.launch.py per
-# interrogations.yaml's `planner` entry. Empty on purpose: the two ROS
-# params this node DOES declare (llm_url, llm_timeout_sec) are deliberately
-# NOT set here -- same "one source of truth, not duplicated" reasoning
-# mpc_tuner_params.yaml's own comment already documents for mpc_url/
-# target_node: llm_url is built from models.yaml's own port for whichever
-# model this interrogation's default_model resolves to and injected as an
-# override by llm.launch.py's _launch_setup() at launch time (see that
-# file's own interrogation_node parameters=[...]). Command text, --dry-run,
-# --confirm all stay argparse CLI args, not ROS parameters, same as before.
-# This file still exists only because llm.launch.py's OpaqueFunction
-# unconditionally opens a params_file for whichever interrogation is
-# selected (see interrogation_config['params_file'] in _launch_setup()); a
-# missing file would fail Node() construction outright rather than degrade
-# gracefully.
+# NOT CURRENTLY LOADED BY ANYTHING (component-auto-start pass): llm.launch.py
+# stopped launching llm_planner_node as a Node action at all -- see that file's
+# own module docstring for why (a CLI tool with a stdin/argparse mismatch under
+# `ros2 launch`, made into a live problem once component_supervisor_node's new
+# 'intelligence' component could have auto-started it). interrogations.yaml's
+# `planner` entry still names this file as its params_file, but _launch_setup()
+# no longer reads that field for anything -- kept as schema/documentation of
+# what a future, deliberately-reintroduced node-auto-launch would use, not as
+# live config. Left in place (empty, harmless) rather than deleted outright.
 #
-# When launched this way (ros2 launch, not `ros2 run llm llm_planner_node
-# "<command>"`), no positional command args reach argparse, so the node
-# starts in interactive mode, reading commands from stdin -- same limitation
-# llm_mpc_tuner_node's own raw-terminal keyboard input already has under
-# `ros2 launch` (its own tty check logs a warning and disables the keyboard
-# loop if stdin isn't a real terminal; llm_planner_node's input() loop is
-# subject to the same constraint, not a new one introduced here).
+# Original reasoning, for whenever this DOES get reconnected: llm_url/
+# llm_timeout_sec (the two ROS params this node declares) were deliberately never
+# set here -- "one source of truth, not duplicated" -- llm_url was built from
+# models.yaml's own resolved port and injected as a launch-time override instead
+# of being hardcoded in this file. Command text, --dry-run, --confirm all stay
+# argparse CLI args regardless, never ROS parameters.
 /**:
   ros__parameters: {}

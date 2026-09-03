@@ -48,6 +48,10 @@ log/
 # runtime data, not source (each run is tens of MB of binary sqlite3/mcap).
 bags/
 
+# Rendered mission replay videos (scripts/mission_replay_video.py) --
+# regenerable from the bags, tens of MB each.
+mission_videos/
+
 # MPC_corr.py's per-run corridor debug snapshots (mpc_controller/MPC_corr.py,
 # self.corridor_log_path) -- runtime debug output written under the repo tree,
 # not source.

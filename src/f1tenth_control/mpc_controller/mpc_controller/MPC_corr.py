@@ -15,7 +15,8 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
-from f1tenth_messages.msg import BoundaryConstraintArray, Obstacle2DArray, TurnGoal
+from f1tenth_messages.msg import (
+    BoundaryConstraintArray, MpcSolverStatus, Obstacle2DArray, TurnGoal)
 from f1tenth_params.param_defaults import get_odom_topic
 from mpc_controller.mpc_solver import solve_mpc_step
 from sensor_msgs.msg import JointState
@@ -102,6 +103,37 @@ def _boundary_to_world(
     normal_world_y = sin_yaw * normal_x + cos_yaw * normal_y
     offset_world = offset + normal_world_x * robot_x + normal_world_y * robot_y
     return normal_world_x, normal_world_y, offset_world
+
+
+def _project_onto_line(
+        point: Tuple[float, float], line_origin: Tuple[float, float],
+        line_yaw: float) -> float:
+    """Signed along-line progress of `point` past `line_origin`, measured
+    along the direction `line_yaw` -- i.e. the scalar s in
+    line_origin + s * (cos(line_yaw), sin(line_yaw)) that is closest to
+    `point`. Lateral offset is deliberately discarded: that is the whole
+    point of the quantity.
+
+    WHY THIS EXISTS: the goal_distance termination check needs "how far along
+    the move's own direction has the car actually got", not "how far is the
+    car from where it started". Those differ by exactly the lateral deviation
+    an obstacle deflection leaves behind -- and since the car recovers the
+    corridor's DIRECTION rather than merging back onto its original lateral
+    line, that deviation persists for the rest of the move instead of washing
+    out. The straight-line form (math.hypot from goal_start_xy) therefore
+    counts a sideways detour as progress and ends the move early, by more the
+    further the car was pushed. Negative means the car is BEHIND the origin
+    along that direction (it happens: an avoidance manoeuvre can back the
+    projection up), and is returned as-is rather than clamped, so a caller
+    that cares can see it.
+
+    Pure and module-level for the same reason _select_live_boundaries below
+    is: MPCController's constructor opens real log files and starts a real
+    timer, so anything that needs direct unit coverage lives outside it.
+    """
+    dx = float(point[0]) - float(line_origin[0])
+    dy = float(point[1]) - float(line_origin[1])
+    return dx * math.cos(line_yaw) + dy * math.sin(line_yaw)
 
 
 def _select_live_boundaries(
@@ -235,7 +267,7 @@ class MPCController(Node):
 
         self.wheel_radius = 0.05
         self.ts = 0.1
-        self.N = 7
+        self.N = 10
 
         # UPGRADE: rough footprint radius used for the predicted-clearance check.
         # In-code default (0.20) matches stack_params.yaml's car_radius key, the
@@ -407,16 +439,64 @@ class MPCController(Node):
         # =========================
         # Pesi
         # =========================
+        # w_psi / w_corr are now REALLY WIRED UP -- w_psi as a terminal-yaw
+        # cost and w_corr as a stagewise squared-lateral-offset cost, in
+        # mpc_solver.py's RTI QP as well as in planner_cost_corridor. Before
+        # this pass both existed ONLY as commented-out lines in
+        # planner_cost_corridor, which the default RTI backend never evaluates,
+        # so any value here was inert in both backends -- the `8 * 0` /
+        # `0 * 5.0` spellings hid that they were disabled twice over.
+        #
+        # w_psi = 1.0 is what makes the car recover the corridor's DIRECTION
+        # after an avoidance manoeuvre. build_straight_corridor's goal_distance
+        # branch already presents the right reference (psiEnd = the heading
+        # captured at move start, blended in from the live yaw over the
+        # corridor's length); nothing was pulling the solver onto it. Measured
+        # closed-loop -- real corridor + compute_local_target + solver against
+        # the real vehicle model, obstacle sitting on the line -- as distance
+        # travelled past the obstacle before |yaw error| settles under 0.05 rad
+        # and stays, versus the clearance actually achieved (metres of gap
+        # beyond car_radius; avoidance_margin = 0.12 is the configured target):
+        #
+        #   w_psi   settle after obs   clearance r=0.15 / r=0.35   max|lat|
+        #    0.0      3.10 m (bug)          0.201 / 0.210            1.03
+        #    1.0      1.34 m                0.143 / 0.140            0.69
+        #    1.5      1.14 m                0.128 / 0.124            0.63
+        #    2.0      1.03 m                0.117 / 0.112            0.60
+        #    4.0      0.82 m                0.093 / 0.086            0.54
+        #
+        # Strictly monotone: more w_psi buys faster direction recovery and pays
+        # for it in obstacle clearance, because the same pull that straightens
+        # the car also resists the deflection while the obstacle is still
+        # there. 1.0 is the modest end of the useful range -- it cuts recovery
+        # distance 2.3x versus today while keeping ~0.14 m of clearance, ~17%
+        # above the configured margin, which leaves room for the model error,
+        # solve latency and detection jitter this idealised loop does not have.
+        # 1.5 is the largest value that still clears the configured 0.12 m in
+        # both obstacle sizes, if a future tuning pass on real runs wants it.
+        #
+        # w_corr stays 0.0: measured, it degrades every metric at every value
+        # tried, alone or alongside w_psi (at w_psi = 1.0, w_corr 0 -> 1.0
+        # moves settle 1.34 -> 1.71 m and clearance 0.143 -> 0.137; w_corr
+        # alone at 2.0 never settles at all). The reason is structural -- the
+        # corridor is rebuilt from the LIVE pose every tick, so its centerline
+        # passes through the car by construction and "lateral offset from the
+        # centerline" measures departure from this tick's plan rather than from
+        # the intended direction; penalising it damps the very lateral motion
+        # an avoidance-and-recovery manoeuvre is made of. The term itself is
+        # correct and does work on a frozen corridor (w_corr 0 -> 10 cuts the
+        # horizon's end lateral offset 0.324 -> 0.246 m), so it is left wired,
+        # measured, and off rather than deleted.
         self.weights = {
             "w_term": 3.0,
             "w_v": 8.0,
-            "w_psi": 8 * 0,
-            "w_u_a": 20.1 * 0,
+            "w_psi": 5.0,
+            "w_u_a": 0.0,
             "w_du_delta": 15.0,
-            "w_du_a": 10.50 * 0,
-            "w_delta0": 0.2 * 0,
+            "w_du_a": 0.0,
+            "w_delta0": 0.0,
             "w_obs": 8.0,
-            "w_corr": 0 * 5.0,
+            "w_corr": 0.0,
         }
 
         # Disabled/warning-only clearance-log threshold (see
@@ -589,6 +669,16 @@ class MPCController(Node):
             '/mpc/predicted_min_clearance',
             10
         )
+
+        # Per-tick solver outcome. These exact values were previously written
+        # ONLY to the ROS logger (the SOLVE/out line below), which made "did
+        # the MPC converge?" unanswerable from a bag -- the 2026-09-01 mission
+        # analysis had to recover 1285 solves by parsing ~/.ros/log/*.log, and
+        # only succeeded because rotation had not yet discarded them. Depth 10,
+        # default reliable QoS: this is a diagnostic feed nothing controls off,
+        # but it must not silently drop the one tick that explains a stop.
+        self.solver_status_pub = self.create_publisher(
+            MpcSolverStatus, '/mpc/solver_status', 10)
 
         self.goal_reached_pub = self.create_publisher(
             Bool,
@@ -1169,12 +1259,33 @@ class MPCController(Node):
                 self.goal_reached_pub.publish(Bool(data=True))
                 return
 
-            traveled = math.hypot(self.x - self.goal_start_xy[0], self.y - self.goal_start_xy[1])
+            # ALONG-LINE progress, not straight-line displacement from
+            # goal_start_xy (the old math.hypot form): "go 4m" means 4m made
+            # good along psi_init_corridor, the direction the move started in
+            # and the one the corridor references. The old form counted a
+            # sideways detour as progress toward the goal, so a move that
+            # dodged an obstacle terminated early by however much lateral
+            # offset it had picked up -- and since the car deliberately does
+            # NOT merge back onto its original lateral line (it recovers the
+            # direction, running parallel), that offset persists to the end of
+            # the move rather than washing out. The live-yaw fallback matches
+            # build_straight_corridor's own psi_base fallback.
+            psi_line = (self.psi_init_corridor
+                        if self.psi_init_corridor is not None else self.yaw)
+            traveled = _project_onto_line(
+                (self.x, self.y), self.goal_start_xy, psi_line)
 
             # ---- DEBUG: avanzamento verso il goal ----
+            # displacement logged alongside so the two are directly comparable
+            # in a bag/log: they are equal on a clean straight run and diverge
+            # by exactly the lateral deviation once anything has deflected.
+            displacement = math.hypot(self.x - self.goal_start_xy[0],
+                                      self.y - self.goal_start_xy[1])
             self.get_logger().info(
                 f'GOAL | traveled={traveled:.4f}/{self.goal_distance:.3f} m '
-                f'residuo={self.goal_distance - traveled:+.4f} m'
+                f'residuo={self.goal_distance - traveled:+.4f} m '
+                f'displacement={displacement:.4f} m '
+                f'lateral={math.sqrt(max(displacement ** 2 - traveled ** 2, 0.0)):.4f} m'
             )
 
             if traveled >= self.goal_distance:
@@ -1322,10 +1433,50 @@ class MPCController(Node):
         # "primal infeasible" in a bag/log without cross-referencing OSQP's
         # own enum; the string does, for exactly the infeasibility-
         # detection case that fix's own regression test covers.
+        # Published BEFORE the log line and before any of the early-outs below,
+        # so a tick is recorded even on a solve that produces no usable x_pred.
+        # cost is NaN when the backend reports none -- carried through as NaN
+        # rather than coerced to 0.0, which would read as a converged zero-cost
+        # solution.
+        status_msg = MpcSolverStatus()
+        status_msg.header.stamp = self.get_clock().now().to_msg()
+        status_msg.success = bool(info.get('success', False))
+        try:
+            status_msg.status = int(info.get('status', -1))
+        except (TypeError, ValueError):
+            # Some backends report a non-integer status; the string form below
+            # still carries it, so this stays a diagnostic, not a crash.
+            status_msg.status = -1
+        status_msg.status_message = str(info.get('status_message', ''))
+        status_msg.solve_dt_sec = float(solve_dt)
+        status_msg.control_period_sec = float(self.ts)
+        status_msg.cost = float(info.get('cost', float('nan')))
+        status_msg.solver = 'rti' if self.use_rti_solver else 'slsqp'
+        status_msg.n_boundary_constraints = int(len(live_boundaries))
+        status_msg.n_obstacles = int(len(obstacles_global))
+        # Predicted horizon (see MpcSolverStatus.msg's own section): the states
+        # the solver just optimized over, published every tick so "what did the
+        # MPC think would happen from here" is answerable from a bag instead of
+        # being recomputed and discarded inside this loop. Frame is 'odom' --
+        # the same frame, for the same reason, as _publish_corridor_markers'
+        # own markers (x_pred is rolled forward from x0, which is odom-frame).
+        # All-or-nothing: a solve with no usable x_pred publishes empty arrays
+        # rather than a partial trajectory a consumer would have to guess at.
+        x_pred_msg = info.get('x_pred')
+        if x_pred_msg is not None and len(x_pred_msg) > 0:
+            x_pred_arr = np.asarray(x_pred_msg, dtype=float)
+            status_msg.prediction_frame_id = 'odom'
+            status_msg.pred_x = x_pred_arr[:, 0].astype(np.float32).tolist()
+            status_msg.pred_y = x_pred_arr[:, 1].astype(np.float32).tolist()
+            status_msg.pred_yaw = x_pred_arr[:, 2].astype(np.float32).tolist()
+            status_msg.pred_v = x_pred_arr[:, 3].astype(np.float32).tolist()
+        self.solver_status_pub.publish(status_msg)
+
         self.get_logger().info(
             f'SOLVE/out | dt={solve_dt * 1e3:.1f} ms success={info.get("success")} '
             f'status={info.get("status")} status_message={info.get("status_message")} '
-            f'cost={info.get("cost", float("nan")):.4f}'
+            f'cost={info.get("cost", float("nan")):.4f}',
+            throttle_duration_sec=1.0
         )
         if solve_dt > self.ts:
             self.get_logger().warn(
@@ -1484,6 +1635,18 @@ class MPCController(Node):
             psiEnd = math.atan2(gy - Y0, gx - X0)
             L = float(np.clip(math.hypot(gx - X0, gy - Y0), 1.0, self.corr_L_base))
         else:
+            # DIRECTION-ONLY reference, deliberately not a lateral one: psiEnd
+            # is the heading captured at this move's start, and theta below
+            # blends the corridor from the robot's current (possibly
+            # deflection-rotated) yaw back to it over the corridor's length.
+            # X0/Y0 stay the LIVE position, so the corridor never tries to
+            # merge the car back onto the exact line it started on -- what it
+            # recovers is travelling PARALLEL to that line. Convergence onto
+            # this shape is the solver's job (w_psi/w_corr, see __init__'s
+            # weights), not extra geometry here: build_straight_corridor only
+            # ever presents a straight-line-in-a-direction reference, and the
+            # curve driven around an obstacle comes from compute_local_target's
+            # deflected target plus w_obs.
             psi_base = self.psi_init_corridor if self.psi_init_corridor is not None else psi0
             psiEnd = psi_base
             L = max(self.corr_L_base, 1.0)

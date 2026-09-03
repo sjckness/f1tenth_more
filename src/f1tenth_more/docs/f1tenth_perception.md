@@ -3,7 +3,10 @@
 Camera bringup (ZED2 or webcam, mutually exclusive), Hokuyo LiDAR bringup,
 and the YOLO 2D-detection → 3D-fusion → ground-plane-obstacle pipeline that
 feeds both `mpc_controller`'s soft-avoidance and `f1tenth_behavior`'s
-`IsObstacleDetected`/`IsProximityTooClose` conditions.
+`IsObstacleDetected` condition. (`IsProximityTooClose`'s front check used to
+also be fed from here, via `front_depth_monitor_node` below — REPLACED by a
+LiDAR front-cone check reading `f1tenth_behavior`'s own `/scan` subscription
+directly; see that behaviour's own docstring.)
 
 ## Nodes
 
@@ -12,7 +15,7 @@ feeds both `mpc_controller`'s soft-avoidance and `f1tenth_behavior`'s
 | `yolo_detector_node` | `/camera/image_raw` | `/camera/detections` (`vision_msgs/Detection2DArray`), `/camera/image_annotated` | Ultralytics YOLO (TensorRT `.engine` or `.pt`), `device`/`confidence_threshold`/`model_path` params. Header is copied verbatim from the input image (capture-time propagation, not re-stamped at publish). |
 | `detection_3d_node` | `/camera/detections`, `/zed2/zed_node/depth/depth_registered`, `.../depth/camera_info` | `/camera/detections_3d` (`vision_msgs/Detection3DArray`), `/camera/detection_markers` (`MarkerArray`) | `message_filters.ApproximateTimeSynchronizer` (`sync_slop=0.1s`, `sync_queue_size=60`). Back-projects 2D box + depth → 3D pose via pinhole model, transforms into `output_frame` (default `zed2_left_camera_frame`) via tf2. Only built when `camera_source == 'zed'`. |
 | `obstacle_projector_node` | `/camera/detections_3d` | `/perception/obstacles_2d` (`f1tenth_messages/Obstacle2DArray`) | tf2 into `output_frame` (default `base_link`), height-band filter (`obstacle_z_min`/`obstacle_z_max`), radius filter (`min_obstacle_radius`/`max_obstacle_radius`), merges close detections (`obstacle_merge_distance`). ZED-only, depends on `detection_3d_node`'s output. |
-| `front_depth_monitor_node` | `/zed2/zed_node/depth/depth_registered` | `/perception/front_distance` (`std_msgs/Float32`) | Raw ZED depth, center-crop percentile (`center_fraction`, `front_distance_percentile`) — **deliberately independent** of the YOLO/detection pipeline above, by design: it's the front half of `f1tenth_behavior`'s `IsProximityTooClose` last-resort check, which must keep working even if YOLO is degraded/lagging. ZED-only. |
+| `front_depth_monitor_node` | `/zed2/zed_node/depth/depth_registered` | `/perception/front_distance` (`std_msgs/Float32`) | Raw ZED depth, center-crop percentile (`center_fraction`, `front_distance_percentile`) — **deliberately independent** of the YOLO/detection pipeline above, by design. No longer feeds `f1tenth_behavior`'s `IsProximityTooClose` (camera → lidar front-cone swap); still runs, now solely for `mpc_controller`'s `MPC_corr.py` own front-distance-based corridor-length logic. ZED-only. |
 | `wall_detector_node` | `/zed2/zed_node/point_cloud/cloud_registered` | `/perception/wall_detections` (`f1tenth_messages/WallArray`), `/perception/front_clearance` (`std_msgs/Float32`), `/perception/wall_markers` (`MarkerArray`) | Also independent of the YOLO/detection chain — iterative Open3D RANSAC plane segmentation on the ZED point cloud, tf2-transformed into `robot_frame` (`base_link`). Handles corners (two roughly-perpendicular planes in one frame both tagged `is_corner=true`). Two-stage post-processing pipeline (see "Plane merge + tracking" below), so every published value is merged+smoothed, never a raw single-frame detection. Feeds `f1tenth_behavior`'s `front_clearance` stop_condition. ZED-only, gated additionally by `enable_wall_detector`. |
 
 ## Launch files

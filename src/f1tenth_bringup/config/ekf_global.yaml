@@ -98,8 +98,63 @@ slam_pose_relay_node:
     two_d_mode: true            # planar car: zero z, roll, pitch (same as local EKF)
     publish_tf: true            # this instance owns map -> odom
     publish_acceleration: false
+    transform_time_offset: 0.05  # post-date published TF ~50ms: urg_node stamps
+                                # scans at reception, ~28ms ahead of this filter's
+                                # TF stamp, so time-correct map/odom <- laser
+                                # lookups all failed 'extrapolation into the future'
+                                # and every scan was dropped by slam_toolbox/costmaps/viz.
     print_diagnostics: true
     debug: false
+
+    # --- initial_state: the EKF_ONLY-at-startup bootstrap ---------------------
+    # REAL BUG FOUND LIVE (pose-source-arbitration pass, confirmed against a
+    # full running stack): this filter never published a single message and
+    # never broadcast map -> odom at all -- /ekf_global/odometry/filtered
+    # measured at 0.00Hz over a 20s window, and the live TF tree contained
+    # only odom -> base_link (the LOCAL EKF's edge) plus the ZED's own
+    # internal edges. Root cause is NOT the namespace/remap history documented
+    # in ekf_global.launch.py, and NOT a params-key mismatch (the fully-
+    # qualified '/ekf_global/ekf_global_filter_node' key above is correct and
+    # does match): robot_localization will not INITIALIZE a filter whose only
+    # inputs are differential. odom0 below is odom0_differential: true (it
+    # contributes deltas, never an absolute position), and pose0 -- the only
+    # absolute source -- is /slam/pose_calibrated, which is downstream of
+    # slam_toolbox's own /slam/pose. /slam/pose is silent until the car
+    # physically moves past minimum_travel_distance/minimum_travel_heading
+    # (0.03m/0.035rad, slam_toolbox_params.yaml) -- NORMAL, not a fault, see
+    # costmap_boundary_node.py's own PERIODIC-PUBLISH paragraph. So at rest
+    # this filter had no absolute measurement to seed itself from, stayed
+    # uninitialized forever, and RosFilter's periodic update publishes
+    # nothing at all while uninitialized. Everything downstream inherited
+    # that silence: costmap_boundary_node logged 'pose_topic: no message ever
+    # received' continuously, and map -> odom never existed for any consumer.
+    #
+    # Fix: seed the filter explicitly instead of waiting for a correction that
+    # cannot arrive at rest. All-zero is the correct seed and is not an
+    # arbitrary placeholder -- before any SLAM correction has ever been
+    # applied, the map frame IS the odom frame by definition (the car starts
+    # at its own map origin), so this state makes the initial map -> odom
+    # broadcast an identity transform, which is exactly what the standard
+    # map->odom correction pattern wants at startup. The filter then dead-
+    # reckons this seed forward on odom0's deltas (EKF-only operation, the
+    # local EKF still owning odom -> base_link continuously), and the first
+    # real pose0 correction pulls it onto the SLAM estimate through the normal
+    # Kalman update -- a covariance-weighted blend, NOT a teleport, so no
+    # hand-written slew/blend logic is needed for downstream consumers to see
+    # a continuous pose. Fallback is symmetric and equally free: if /slam/pose
+    # goes quiet again (at rest, or SLAM lost), pose0 corrections simply stop
+    # arriving and the filter degrades back to dead-reckoning on odom0 while
+    # its own covariance grows -- exactly the de-weighting a covariance-aware
+    # consumer needs, with no explicit state machine.
+    #
+    # State layout is the same 15-element order documented for odom0_config
+    # below: [x, y, z, roll, pitch, yaw, vx, vy, vz, vroll, vpitch, vyaw,
+    # ax, ay, az].
+    initial_state: [0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0]
 
     # --- frames --------------------------------------------------------------
     map_frame: map

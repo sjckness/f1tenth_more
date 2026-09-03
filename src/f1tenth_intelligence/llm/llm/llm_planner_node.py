@@ -12,37 +12,62 @@ flusso di servizi gia' in produzione:
         -> file JSON -> /mission/abort_mission (se una missione era gia'
            in corso) -> /mission/load_mission -> /mission/start_mission
 
-Uso (package reale: 'llm', non 'f110_autonomy' -- vedi llm_mpc_tuner_node,
-l'altra "interrogation" di questo stesso package, per la stessa convenzione
-di invocazione):
+Uso (package reale: 'llm', non 'f110_autonomy'):
     ros2 run llm llm_planner_node "vai dritto, al muro gira a destra"
     ros2 run llm llm_planner_node            # interattivo (come prima)
     ros2 run llm llm_planner_node --dry-run "..."     # traduce, non carica
     ros2 run llm llm_planner_node --confirm "..."     # chiede conferma
 
-Backend: llama-server's raw /completion endpoint -- lo STESSO backend che
-llm_mpc_tuner_node.py (l'altra "interrogation" di questo stesso package)
-gia' usa, avviato da llm.launch.py via interrogations.yaml/models.yaml
-(vedi get_plan_from_llm() piu' sotto per il pattern di richiesta, copiato
-da ask_llm() di quel file: prompt grezzo via `requests`, NESSUN templating
-ChatML, NESSUN vincolo grammar/json_schema -- solo prompting + temperature
-bassa, esattamente come l'altro nodo). Sostituisce la versione precedente
-di questo pass, che parlava con Ollama locale (Qwen 2.5 3B) via il client
+Unica "interrogation" di questo package (interrogations.yaml) da quando
+llm_mpc_tuner_node.py e' stato RIMOSSO del tutto, non solo deprioritizzato
+-- vedi git history se serve recuperarlo. Il meccanismo default_model/
+sentinel di llm.launch.py (vedi sotto) resta comunque generale, non
+planner-specifico: pensato per una eventuale seconda interrogation futura
+senza doverlo ricostruire.
+
+Backend: llama-server's raw /completion endpoint -- lo STESSO pattern di
+richiesta che llm_mpc_tuner_node.py (rimosso, vedi sopra) gia' usava per il
+suo stesso backend, avviato da llm.launch.py via interrogations.yaml/
+models.yaml (vedi get_plan_from_llm() piu' sotto per il pattern di
+richiesta, all'epoca copiato dal ask_llm() di quel file: prompt grezzo via
+`requests`, NESSUN templating ChatML, NESSUN vincolo grammar/json_schema --
+solo prompting + temperature bassa). Sostituisce la versione precedente di
+questo pass, che parlava con Ollama locale (Qwen 2.5 3B) via il client
 `openai` OpenAI-compatibile -- cambiato deliberatamente per consolidare
-sullo stesso backend/processo llama-server gia' in produzione per
-llm_mpc_tuner_node, non come effetto collaterale di qualcos'altro. Il
-modello servito e' lo Qwen2.5-3B-Instruct ufficiale (non pruned), un
-proprio entry in models.yaml (`qwen25_3b_instruct`) selezionato di default
-per questa interrogation via interrogations.yaml's `default_model` (vedi
-anche llm.launch.py's model/interrogation pairing fix, la stessa modifica
-che ha reso questo cambio sicuro: prima, scegliere una interrogation
-diversa da mpc_tuner senza passare anche model:=... esplicitamente
-avrebbe servito questo nodo con il modello sbagliato, senza errori).
+sullo stesso backend/processo llama-server gia' in produzione per quel
+nodo (all'epoca ancora presente), non come effetto collaterale di
+qualcos'altro. Il modello servito e' lo Qwen2.5-3B-Instruct ufficiale (non
+pruned), un proprio entry in models.yaml (`qwen25_3b_instruct`) selezionato
+di default per questa interrogation via interrogations.yaml's
+`default_model` (vedi anche llm.launch.py's model/interrogation pairing
+fix, la stessa modifica che ha reso questo cambio sicuro: prima, scegliere
+una interrogation diversa dal default senza passare anche model:=...
+esplicitamente avrebbe servito quel nodo con il modello sbagliato, senza
+errori).
 
 get_plan_from_llm() e' l'unica funzione toccata in questo pass -- stessa
 firma, stesso contratto di ritorno (lista di fasi o eccezione).
 normalize_plan/validate_plan/SYSTEM_PROMPT/plan_translate.py e tutto cio'
 che sta a valle del ritorno di get_plan_from_llm() sono INVARIATI.
+
+--------------------------------------------------------------------------
+Pass successivo (readiness/warm-up): due problemi erano in realta' lo
+stesso -- il nodo non aveva alcun concetto reale di "il server e' pronto"
+prima di usarlo.
+  1. Un ConnectionError grezzo (urllib3 traceback) arrivava fino
+     all'operatore dentro "traduzione fallita (...)", senza indicazione
+     azionabile quando llama-server semplicemente non era in ascolto.
+  2. Cold-start non gestito: la PRIMA chiamata /completion contro un
+     llama-server appena avviato e' stata osservata dal vivo a ~58s contro
+     un LLAMA_TIMEOUT di 60s -- un comando arrivato durante quella finestra
+     avrebbe rischiato di andare in timeout o fallire come sopra.
+Risolti insieme con _wait_for_llama_server(): un vero readiness+warm-up
+check (una richiesta /completion reale, non un ping) chiamato in
+LLMPlannerNode.__init__ PRIMA che qualsiasi comando (interattivo o
+one-shot) possa raggiungere get_plan_from_llm(), piu' LLAMA_TIMEOUT alzato
+a 90s come margine di sicurezza e un except dedicato per ConnectionError
+dentro get_plan_from_llm() stessa (server riavviato/crashato a meta'
+sessione, dopo che il warm-up era gia' passato).
 
 --------------------------------------------------------------------------
 Rispetto alla versione originaria di questo file (loose, non pacchettizzata,
@@ -74,6 +99,7 @@ valle (invariato dalla versione originaria):
 
 import argparse
 import json
+import logging
 import os
 import sys
 import threading
@@ -109,7 +135,12 @@ from llm.plan_translate import PlanTranslationError, phases_to_mission
 # pattern del client _client sotto: stato modulo-level che una funzione
 # libera legge, gia' usato da questo file prima di questo pass).
 LLAMA_URL = "http://127.0.0.1:8083/completion"
-LLAMA_TIMEOUT = 60.0          # senza timeout una chiamata appesa blocca tutto
+# Alzato da 60.0 a 90.0 (pass readiness/warm-up) -- margine di sicurezza per
+# un server riavviato a meta' sessione (di nuovo freddo) anche se il warm-up
+# di avvio (_wait_for_llama_server sotto) dovrebbe gia' rendere veloci
+# (~1s, misurato) le chiamate per-comando nel caso normale. Senza timeout
+# una chiamata appesa blocca tutto.
+LLAMA_TIMEOUT = 90.0
 
 # Vocabolario ESATTO del piano LLM -- INVARIATO (validate_plan lo applica,
 # non ha nulla a che fare con lo schema missioni reale, vedi plan_translate.py).
@@ -183,6 +214,69 @@ comando: "vai dritto, supera l'ostacolo e avanza 3 metri"
 """
 
 
+class LlamaServerUnreachableError(RuntimeError):
+    """Sollevata da _wait_for_llama_server() quando llama-server non diventa
+    raggiungibile (e scaldato) entro max_wait_s -- un messaggio chiaro e
+    azionabile per l'operatore, non una ConnectionError/Timeout grezza di
+    requests con dentro un traceback urllib3 illeggibile."""
+
+
+def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
+    """Attende che llama-server sia raggiungibile E scaldato prima di
+    lasciar passare qualsiasi comando -- vedi il modulo docstring, sezione
+    "Pass successivo (readiness/warm-up)", per il problema che questo
+    risolve.
+
+    Ogni tentativo invia una richiesta /completion MINIMA ma REALE (prompt
+    banale, n_predict piccolo) -- non un semplice ping/socket-connect: e'
+    proprio l'elaborazione di una richiesta reale a caricare il modello in
+    memoria GPU la prima volta (il warm-up da ~20-30s, osservato dal vivo
+    fino a 58s), quindi questo stesso check raddoppia da readiness-check a
+    warm-up. Timeout per tentativo = LLAMA_TIMEOUT (letto dal valore
+    corrente del modulo, non catturato all'import): un singolo tentativo
+    puo' legittimamente restare appeso per tutta la finestra di warm-up
+    prima di rispondere con successo.
+
+    Retry con backoff (1s -> raddoppia -> tetto 5s tra un tentativo e il
+    successivo) fino a max_wait_s totali. Si ritenta SOLO su
+    requests.exceptions.ConnectionError (server non ancora in ascolto --
+    atteso durante l'avvio del processo llama-server, prima che apra la
+    porta). Qualsiasi altra eccezione (risposta HTTP di errore, JSON
+    malformato, ecc.) si propaga immediatamente, senza ritentare alla
+    cieca -- non e' detto che ritentare risolva un problema diverso da "non
+    ancora in ascolto".
+
+    Ritorna i secondi di attesa impiegati al successo. Solleva
+    LlamaServerUnreachableError (non una ConnectionError grezza) se
+    max_wait_s viene esaurito senza mai riuscire a connettersi.
+    """
+    t0 = time.time()
+    delay = 1.0
+    last_exc = None
+    while True:
+        try:
+            response = requests.post(
+                url,
+                json={'prompt': 'ciao', 'n_predict': 8, 'temperature': 0.0},
+                timeout=LLAMA_TIMEOUT,
+            )
+            response.raise_for_status()
+            return time.time() - t0
+        except requests.exceptions.ConnectionError as e:
+            last_exc = e
+
+        elapsed = time.time() - t0
+        if elapsed >= max_wait_s:
+            raise LlamaServerUnreachableError(
+                f"Impossibile raggiungere llama-server su '{url}' dopo "
+                f"{max_wait_s:.0f}s. Assicurati di averlo avviato: "
+                f"`ros2 launch llm llm.launch.py` (o `supervisor_bringup."
+                f"launch.py enable_intelligence:=true`)."
+            ) from last_exc
+        time.sleep(min(delay, max_wait_s - elapsed))
+        delay = min(delay * 2, 5.0)
+
+
 def get_plan_from_llm(command_text: str) -> list:
     """Traduce un comando -> lista di fasi, via llama-server's /completion.
 
@@ -203,16 +297,57 @@ def get_plan_from_llm(command_text: str) -> list:
     contratto di prima (Ollama/OpenAI-client), fallback-parsing invariato:
     accetta sia un array nudo sia {"plan": [...]} sia (difensivamente)
     qualsiasi altro campo del dict che risulti una lista.
+
+    Parsing JSON via json.JSONDecoder().raw_decode(), non json.loads() --
+    parsa SOLO il primo valore JSON valido nella risposta e ignora
+    qualsiasi testo il modello generi dopo, invece di rifiutare l'intera
+    risposta con "Extra data" quando il modello continua oltre la "}" di
+    chiusura (es. altre coppie comando:/risposta: allucinate). Cambia SOLO
+    come viene fatto il parsing -- accetta ancora esattamente le stesse
+    forme di sopra, non aggiunge ne' rimuove alcuna forma accettata.
+
+    ConnectionError intercettata a parte (pass readiness/warm-up, vedi
+    modulo docstring): a differenza di _wait_for_llama_server() sopra
+    (chiamato una volta all'avvio), qui il server ERA raggiungibile al
+    momento dell'avvio -- una ConnectionError durante il funzionamento
+    normale significa che e' stato riavviato o e' crashato a meta'
+    sessione, un caso diverso da "non ancora partito" e merita un
+    messaggio diverso. Qualsiasi altro errore (HTTP, JSON malformato, ecc.)
+    e' invariato: si propaga cosi' com'e' fino al catch-all generico di
+    process_command().
     """
     prompt = SYSTEM_PROMPT + f'\ncomando: "{command_text}"\nrisposta:'
-    response = requests.post(
-        LLAMA_URL,
-        json={'prompt': prompt, 'n_predict': 512, 'temperature': 0.0},
-        timeout=LLAMA_TIMEOUT,
-    )
+    try:
+        response = requests.post(
+            LLAMA_URL,
+            json={'prompt': prompt, 'n_predict': 512, 'temperature': 0.0},
+            timeout=LLAMA_TIMEOUT,
+        )
+    except requests.exceptions.ConnectionError as e:
+        raise RuntimeError(
+            "Impossibile contattare llama-server (era raggiungibile "
+            "all'avvio -- e' stato riavviato o e' crashato?)."
+        ) from e
     response.raise_for_status()
     raw = response.json().get('content', '').strip()
-    parsed = json.loads(raw)
+    # raw_decode() invece di json.loads(): parsa SOLO il primo valore JSON
+    # valido nella stringa e ignora qualsiasi cosa il modello generi dopo --
+    # bug riprodotto: il modello continua oltre la "}" di chiusura con altre
+    # coppie comando:/risposta: allucinate, e json.loads() rifiutava l'intera
+    # risposta con "Extra data" anche quando il piano vero e proprio, fino a
+    # quel punto, era perfettamente valido. Un fallimento GENUINO (JSON non
+    # valido fin dall'inizio, non solo garbage in coda) solleva comunque
+    # json.JSONDecodeError qui sotto -- nessun try/except aggiunto, si
+    # propaga esattamente come json.loads() avrebbe fatto prima.
+    parsed, end_index = json.JSONDecoder().raw_decode(raw)
+    trailing = raw[end_index:].strip()
+    if trailing:
+        # Solo debug: non blocca nulla, ma utile per accorgersi se il modello
+        # sta "andando fuori giri" (allucinando oltre il piano) piu' spesso
+        # del previsto.
+        logging.getLogger(__name__).debug(
+            f'get_plan_from_llm: scartati {len(trailing)} caratteri dopo il '
+            f'JSON valido: {trailing!r}')
 
     if isinstance(parsed, list):
         return parsed
@@ -384,6 +519,20 @@ class LLMPlannerNode(Node):
         self.declare_parameter('llm_timeout_sec', LLAMA_TIMEOUT)
         LLAMA_URL = str(self.get_parameter('llm_url').value)
         LLAMA_TIMEOUT = float(self.get_parameter('llm_timeout_sec').value)
+
+        # Readiness + warm-up check (pass readiness/warm-up, vedi modulo
+        # docstring) -- PRIMA di qualsiasi altra cosa in questo __init__,
+        # cosi' che ne' il ramo interattivo (self._thread, sotto) ne' un
+        # comando one-shot (chiamato da main() DOPO che il costruttore
+        # ritorna, quindi dopo questo punto per costruzione) possano mai
+        # raggiungere get_plan_from_llm() prima che il server sia
+        # verificato raggiungibile e scaldato. Solleva
+        # LlamaServerUnreachableError (mai propagata oltre main(), vedi
+        # quella funzione) se il server non risponde entro max_wait_s --
+        # NIENTE viene costruito dopo questo punto in quel caso (nodo
+        # inutilizzabile senza backend).
+        elapsed = _wait_for_llama_server(LLAMA_URL)
+        self.get_logger().info(f'Server raggiunto e scaldato in {elapsed:.1f}s.')
 
         self.load_client = self.create_client(LoadMission, '/mission/load_mission')
         self.start_client = self.create_client(Trigger, '/mission/start_mission')
@@ -574,7 +723,18 @@ def main(args=None):
     opts.interactive = len(opts.command) == 0
 
     rclpy.init(args=args)
-    node = LLMPlannerNode(opts)
+    try:
+        node = LLMPlannerNode(opts)
+    except LlamaServerUnreachableError as e:
+        # Nessun traceback grezzo verso il terminale (pass readiness/warm-up,
+        # vedi modulo docstring) -- messaggio chiaro e azionabile, uscita
+        # pulita con codice non-zero. Il costruttore non e' mai arrivato a
+        # costruire un nodo funzionante (fallito prima ancora di creare i
+        # client dei servizi missione), quindi qui non c'e' nessun
+        # node.destroy_node() da chiamare -- solo rclpy.shutdown().
+        print(f'ERRORE: {e}', file=sys.stderr)
+        rclpy.shutdown()
+        sys.exit(1)
 
     try:
         if opts.interactive:

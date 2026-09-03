@@ -37,7 +37,7 @@ docstring for the pure-function half of this):
   2. base_link -> map: NOT tf2 (see slam.launch.py's own module docstring --
      slam_toolbox's transform_publish_period is deliberately 0.0, so no
      map->odom edge exists in the TF tree to look up at all). Applied
-     directly from the temporally-nearest /slam/pose message instead --
+     directly from the temporally-nearest pose message instead --
      "at the time it was seen" (this node's own bounded pose history,
      matched against each detection batch's own header.stamp via
      semantic_layer.py's find_nearest_pose_by_stamp, not just "whatever
@@ -100,7 +100,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from nav_msgs.msg import Odometry
 from std_msgs.msg import ColorRGBA
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
@@ -112,10 +112,12 @@ from f1tenth_costmap.semantic_layer import (
     compose_base_link_to_map, find_nearest_pose_by_stamp, pose_to_xytheta,
     update_tracks_batch)
 
-# How many /slam/pose samples to keep for find_nearest_pose_by_stamp -- /slam/
-# pose only updates on a real scan-matched pose change (minimum_travel_
-# distance/heading in slam_toolbox_params.yaml), so this is a generous window,
-# not a tight one; sized in samples (not seconds) since the underlying rate is
+# How many pose samples to keep for find_nearest_pose_by_stamp. Sized when
+# this node read slam_toolbox's own /slam/pose, which only updated on a real
+# scan-matched pose change (minimum_travel_distance/heading in slam_toolbox_
+# params.yaml) -- generous for that source, and still correct (just a shorter
+# wall-clock window) now the source is the global EKF's own continuous output
+# instead; sized in samples (not seconds) since the underlying rate is
 # itself irregular (event-driven, not periodic).
 _POSE_HISTORY_MAXLEN = 200
 
@@ -147,7 +149,27 @@ class SemanticLayerNode(Node):
         super().__init__('semantic_layer_node', **kwargs)
 
         self.declare_parameter('detections_topic', '/camera/detections_3d')
-        self.declare_parameter('pose_topic', '/slam/pose')
+        # POSE SOURCE SWAP (pose-source-arbitration pass) -- the GLOBAL EKF's
+        # own fused map-frame output, NOT slam_toolbox's raw /slam/pose.
+        # Same map-frame base_link pose either way (this message's
+        # header.frame_id is 'map', child_frame_id 'base_link'), so every
+        # consumer of _pose_history below is unaffected -- but /slam/pose is
+        # silent until the car physically moves past slam_toolbox's own
+        # minimum_travel_distance/minimum_travel_heading gates (NORMAL, not a
+        # fault -- see costmap_boundary_node.py's own PERIODIC-PUBLISH
+        # paragraph), which meant this node skipped EVERY non-empty detection
+        # batch for the entire time the car sat still, logging 'no /slam/pose
+        # received yet' forever and publishing no semantic markers at all --
+        # confirmed live, and exactly the symptom that sent three separate
+        # debugging passes looking for a missing-markers bug that was never
+        # in this package. The global EKF publishes continuously at its own
+        # frequency= from startup (it is seeded by ekf_global.yaml's own
+        # initial_state -- see that key's comment for why it had to be, and
+        # what it fixed), dead-reckoning on the local EKF between sparse
+        # /slam/pose corrections and folding each one in through a normal
+        # covariance-weighted Kalman update, so this node now gets a
+        # continuous, never-teleporting map-frame pose in every state.
+        self.declare_parameter('pose_topic', '/ekf_global/odometry/filtered')
         self.declare_parameter('output_topic', '/costmap/semantic_markers')
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('base_frame', 'base_link')
@@ -173,8 +195,35 @@ class SemanticLayerNode(Node):
         # own report.
         self.declare_parameter('confirm_hit_count', 3)
         self.declare_parameter('lost_miss_count', 5)
+        # ---- uncertainty-aware tracking (2026-09-01 analysis follow-up) ----
+        # See semantic_layer.py's update_tracks_batch/_effective_alpha/
+        # mark_missed docstrings for what each of these does and the measured
+        # behaviour that motivated it. All three default to ON here (unlike in
+        # semantic_layer.py, where they default to the old behaviour so the
+        # pure functions stay backward compatible for their own tests).
+        #
+        # confirm_grace_misses=2: a track keeps its progress toward
+        # confirmation across up to 2 consecutive missed frames. Sized against
+        # per-class detection flicker within non-empty frames (measured: 24
+        # on/off toggles for `person`, 20 for `bottle`, 31 for `tv` across 275
+        # frames in run 15-04-45), NOT against the "35-45% frame dropout"
+        # figure this was first justified by -- see mark_missed()'s own
+        # CORRECTED 2026-09-02 note for why that figure does not apply here.
+        self.declare_parameter('confirm_grace_misses', 2)
+        # Sigma at which a detection receives the full ema_alpha. 0.05 m is
+        # detection_3d_node's own position_sigma_base_m, i.e. "a close-range,
+        # high-confidence detection is fully trusted"; anything noisier is
+        # down-weighted proportionally.
+        self.declare_parameter('alpha_sigma_ref_m', 0.05)
+        self.declare_parameter('min_alpha_scale', 0.25)
+        # Association gate widening per metre of sigma. 2.0 means a detection
+        # with 0.2 m sigma gets a 0.4 m wider gate than merge_distance_m --
+        # roughly the measured low-confidence frame-to-frame spread, which is
+        # exactly the population that was failing to match its own track.
+        self.declare_parameter('gate_sigma_scale', 2.0)
 
         p = self.get_parameter
+        self.pose_topic = p('pose_topic').value
         self.map_frame = p('map_frame').value
         self.base_frame = p('base_frame').value
         self.score_threshold = p('score_threshold').value
@@ -182,25 +231,29 @@ class SemanticLayerNode(Node):
         self.ema_alpha = p('ema_alpha').value
         self.confirm_hit_count = int(p('confirm_hit_count').value)
         self.lost_miss_count = int(p('lost_miss_count').value)
+        self.confirm_grace_misses = int(p('confirm_grace_misses').value)
+        self.alpha_sigma_ref_m = float(p('alpha_sigma_ref_m').value)
+        self.min_alpha_scale = float(p('min_alpha_scale').value)
+        self.gate_sigma_scale = float(p('gate_sigma_scale').value)
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        # /slam/pose has no natural QoS precedent to match against (unlike
-        # /odom, where MPC_corr.py's own BEST_EFFORT/VOLATILE choice matches
-        # what robot_localization/vesc_to_odom already publish) -- slam_
-        # toolbox's own pose publisher uses the rclpy default (RELIABLE,
-        # VOLATILE, KEEP_LAST depth 10), confirmed via `ros2 node info` on a
-        # live instance during this pass's own feasibility check, so matched
-        # here explicitly rather than assumed.
+        # Same BEST_EFFORT/VOLATILE match costmap_boundary_node.py in this
+        # same package already uses for this exact topic, which in turn matches
+        # MPC_corr.py's own odom subscription -- one consistent QoS choice per
+        # publisher across the package. (Was RELIABLE/VOLATILE while this node
+        # read slam_toolbox's own /slam/pose, whose publisher uses the rclpy
+        # default; that precedent no longer applies now the publisher is the
+        # vendored robot_localization ekf_node instead -- see pose_topic above.)
         pose_qos = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
             durability=DurabilityPolicy.VOLATILE,
             history=HistoryPolicy.KEEP_LAST,
             depth=10,
         )
         self.pose_sub = self.create_subscription(
-            PoseWithCovarianceStamped, p('pose_topic').value, self._pose_cb, pose_qos)
+            Odometry, p('pose_topic').value, self._pose_cb, pose_qos)
         self.det_sub = self.create_subscription(
             Detection3DArray, p('detections_topic').value, self._detections_cb, 10)
         self.marker_pub = self.create_publisher(MarkerArray, p('output_topic').value, 10)
@@ -221,7 +274,7 @@ class SemanticLayerNode(Node):
         self.get_logger().info('semantic_layer_node started')
 
     # ------------------------------------------------------------------
-    def _pose_cb(self, msg: PoseWithCovarianceStamped):
+    def _pose_cb(self, msg: Odometry):
         stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
         xytheta = pose_to_xytheta(msg.pose.pose.position, msg.pose.pose.orientation)
         self._pose_history.append((stamp_sec, xytheta))
@@ -230,7 +283,7 @@ class SemanticLayerNode(Node):
 
     def _recent_pose_jump(self):
         """Step-0 diagnostic only (see module docstring): distance and dt
-        between the two most recent /slam/pose samples, as a cheap proxy for
+        between the two most recent pose samples, as a cheap proxy for
         "how much has the estimated pose been jumping around lately" at the
         moment a new track spawns. (None, None) if fewer than 2 pose samples
         exist yet."""
@@ -248,9 +301,14 @@ class SemanticLayerNode(Node):
             # the lifecycle (see module docstring) -- just nothing to
             # project, so the tf2/pose lookups below are skipped.
             before_ids = {t.track_id for t in self._objects}
+            # confirm_grace_misses matters here too: an empty frame is the
+            # single most common miss, so omitting it would let the empty-batch
+            # path keep zeroing hit_streak and defeat the grace window entirely.
+            # The alpha/gate params are irrelevant with no detections to match.
             self._objects = update_tracks_batch(
                 self._objects, [], stamp_sec, self.merge_distance_m, self.ema_alpha,
-                self.confirm_hit_count, self.lost_miss_count, self._next_track_id)
+                self.confirm_hit_count, self.lost_miss_count, self._next_track_id,
+                confirm_grace_misses=self.confirm_grace_misses)
             self._log_new_spawns(before_ids, map_pose=None)
             self._publish()
             return
@@ -267,7 +325,8 @@ class SemanticLayerNode(Node):
         map_pose = find_nearest_pose_by_stamp(self._pose_history, stamp_sec)
         if map_pose is None:
             self.get_logger().warn(
-                'no /slam/pose received yet -- skipping this detection batch '
+                f'no pose received yet on "{self.pose_topic}" -- skipping this '
+                'detection batch '
                 '(nothing to anchor the map-frame transform to)',
                 throttle_duration_sec=5.0)
             return
@@ -275,7 +334,7 @@ class SemanticLayerNode(Node):
         t = cam_to_base.transform.translation
         q = cam_to_base.transform.rotation
 
-        batch = []  # [(class_id, x_map, y_map, score), ...] -- the WHOLE frame,
+        batch = []  # [(class_id, x_map, y_map, score, sigma), ...] -- the WHOLE frame,
         # gathered before a single update_tracks_batch() call (see module
         # docstring's "batch association" paragraph for why this must not
         # merge one detection at a time as it's produced).
@@ -287,6 +346,22 @@ class SemanticLayerNode(Node):
             score = float(hyp.score)
             if score < self.score_threshold:
                 continue
+
+            # Per-detection position uncertainty, published by
+            # detection_3d_node as the x/y variance of the hypothesis pose
+            # covariance (see its position_sigma_* params). Taken as the
+            # larger of the two axes -- a single scalar is all the tracker
+            # consumes, and the conservative axis is the right one to carry.
+            #
+            # 0.0 means "not populated" (an older detection_3d_node, or any
+            # other publisher on this topic) and is mapped to None, which
+            # semantic_layer.py treats as "no confidence weighting" rather
+            # than as a perfectly precise detection -- so this node degrades
+            # to exactly its previous behaviour against an upstream that
+            # doesn't provide covariance, instead of silently over-trusting it.
+            cov = det.results[0].pose.covariance
+            var_xy = max(float(cov[0]), float(cov[7]))
+            sigma = math.sqrt(var_xy) if var_xy > 0.0 else None
 
             pos = det.bbox.center.position
             # Full 3D rotate+translate for the camera->base_link hop (a real
@@ -321,12 +396,16 @@ class SemanticLayerNode(Node):
             y_base = ry + t.y
 
             x_map, y_map = compose_base_link_to_map(x_base, y_base, map_pose)
-            batch.append((class_id, x_map, y_map, score))
+            batch.append((class_id, x_map, y_map, score, sigma))
 
         before_ids = {t.track_id for t in self._objects}
         self._objects = update_tracks_batch(
             self._objects, batch, stamp_sec, self.merge_distance_m, self.ema_alpha,
-            self.confirm_hit_count, self.lost_miss_count, self._next_track_id)
+            self.confirm_hit_count, self.lost_miss_count, self._next_track_id,
+            confirm_grace_misses=self.confirm_grace_misses,
+            alpha_sigma_ref_m=self.alpha_sigma_ref_m,
+            min_alpha_scale=self.min_alpha_scale,
+            gate_sigma_scale=self.gate_sigma_scale)
         self._log_new_spawns(before_ids, map_pose=map_pose)
 
         self._publish()

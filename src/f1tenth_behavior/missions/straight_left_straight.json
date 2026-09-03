@@ -4,7 +4,7 @@
   "moves": [
     {
       "id": "move_1_approach_wall",
-      "goal_distance": 2.0,
+      "goal_distance": 0.1,
       "stop_condition": { "type": "front_clearance", "distance": 1.0 }
     }
   ]

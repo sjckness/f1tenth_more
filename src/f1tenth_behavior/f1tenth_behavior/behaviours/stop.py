@@ -7,6 +7,27 @@ while blocked" behavior comes from the root Selector re-ticking every cycle, not
 this behaviour holding RUNNING. Publishing simply stops (no explicit "resume" message)
 once the tree stops ticking this node; the mux lane's own timeout (owned entirely by
 mux.yaml, not by this behaviour) is what lets the next-highest lane take back over.
+
+frame_id IS LOAD-BEARING FOR ANALYSIS, not decoration. The ackermann_mux
+republishes the winning source message VERBATIM onto /ackermann_drive, so
+header.frame_id is what a recorded bag can use to attribute an actuated
+command to its source. Two conventions depend on it (see
+behavior_executor_node.create_root()):
+
+  ''                    -- MPC_corr._publish_drive (no frame_id set)
+  'base_link/emergency' -- the emergency lane's Stop
+  'base_link/obstacle'  -- the handle_obstacle lane's Stop
+
+The 2026-09-01 mission analysis could separate MPC commands from BT stops this
+way (35% of all actuated samples turned out to be BT stops), but NOT emergency
+from obstacle stops, because both instances then stamped a bare 'base_link' --
+so all nine stop episodes had to be re-bucketed offline by replaying each
+condition's predicate against recorded sensor data. Any new Stop instance
+should take its own distinct frame_id for the same reason.
+
+Note the default here is still the bare 'base_link': a Stop constructed
+without an explicit frame_id is not attributable, and callers are expected to
+pass one.
 """
 
 import py_trees

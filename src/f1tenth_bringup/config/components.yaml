@@ -5,9 +5,14 @@
 #
 # WHICH components auto-start at supervisor startup, and whether `navigation`/
 # `behavior`/`intelligence` get modified or skipped, is NOT encoded here --
-# component_supervisor_node.py decides that itself by reading the same 5
+# component_supervisor_node.py decides that itself by reading the same 4
 # stack-wide branching values from f1tenth_params/config/stack_params.yaml that
-# stack_bringup.launch.py uses (enable_nav2, use_behavior_tree, enable_llm), so
+# stack_bringup.launch.py uses (enable_nav2, use_behavior_tree among them --
+# `intelligence` is the one exception: component-auto-start pass, gated on
+# component_supervisor_node's own enable_intelligence declared parameter
+# instead, a real CLI-overridable arg like `calibration`, not one of those
+# baked-in-at-parse-time stack-wide values -- see that node's own module
+# docstring/stack_params.yaml's enable_intelligence comment for why), so
 # there is exactly one place those defaults live. See that node's module
 # docstring for the exact mapping.
 #
@@ -94,8 +99,20 @@ components:
       launch_file: system_observer.launch.py
     - package: f1tenth_diagnostics
       launch_file: diagnostics_server.launch.py
+    - package: f1tenth_diagnostics
+      launch_file: mission_logger.launch.py
 
   intelligence:
+    # No args override here (drop-the-start_server-override pass) --
+    # llm.launch.py's own start_server launch-arg now itself defaults 'true'
+    # (see stack_params.yaml's start_server comment for why: this component
+    # is llm.launch.py's only remaining caller, and its whole point is
+    # starting llama-server automatically, so an explicit override here is no
+    # longer needed to make that happen). model/interrogation are also NOT
+    # overridden here -- both already default correctly (interrogation ->
+    # planner, model -> '' auto-selecting planner's own default_model,
+    # qwen25_3b_instruct -- see llm.launch.py's own model/interrogation
+    # pairing fix) with only one interrogation registered today.
     - package: llm
       launch_file: llm.launch.py
 

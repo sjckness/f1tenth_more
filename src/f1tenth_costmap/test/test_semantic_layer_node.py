@@ -65,8 +65,13 @@ def _identity_transform_stamped():
 
 
 def _fake_pose_msg(x, y):
-    from geometry_msgs.msg import PoseWithCovarianceStamped
-    msg = PoseWithCovarianceStamped()
+    # nav_msgs/Odometry, matching the global EKF's own /ekf_global/odometry/
+    # filtered (this node's pose source as of the pose-source-arbitration
+    # pass -- see semantic_layer_node.py's own pose_topic comment). The
+    # .pose.pose access path is identical to the PoseWithCovarianceStamped
+    # this used to build, so only the type itself changes here.
+    from nav_msgs.msg import Odometry
+    msg = Odometry()
     msg.pose.pose.position.x = x
     msg.pose.pose.position.y = y
     msg.pose.pose.orientation.w = 1.0
@@ -196,7 +201,7 @@ class TestEmptyBatchStillTicksLifecycle:
 
     def test_empty_detections_before_any_pose_does_not_crash(self):
         """No tf2/pose lookup needed for the miss-tick path -- an empty
-        message must not require /slam/pose to have arrived yet, unlike a
+        message must not require a pose to have arrived yet, unlike a
         real (non-empty) batch which does (see module docstring)."""
         node = _construct_with_params({'score_threshold': 0.0})
         try:
