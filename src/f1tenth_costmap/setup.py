@@ -22,6 +22,16 @@ setup(
     description='Two-layer costmap (occupancy from slam_toolbox + semantic from '
                 'detected objects) plus a combined PNG-image render for Foxglove.',
     license='MIT',
+    # Declares the 'test' extra colcon's ament_python test step looks for
+    # before it will invoke pytest at all. Without it colcon falls back to
+    # `setup.py test`, whose unittest discovery finds none of this package's
+    # pytest-style tests and reports "Ran 0 tests ... OK" -- a green result
+    # that ran nothing. Not tests_require: modern setuptools does not
+    # recognize that argument (it warns and ignores it) and it never enabled
+    # pytest either.
+    extras_require={
+        'test': ['pytest'],
+    },
     entry_points={
         'console_scripts': [
             'semantic_layer_node = f1tenth_costmap.semantic_layer_node:main',
