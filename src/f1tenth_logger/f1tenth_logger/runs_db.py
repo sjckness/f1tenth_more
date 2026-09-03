@@ -209,10 +209,19 @@ def import_dir(conn, source_dir, runs_dir):
     silently overwritten here.
     """
     imported, failed = [], []
+    # Walks one level down as well as the top level: consolidated runs keep
+    # their manifest inside <complete>/<run_id>/, while pre-migration ones sit
+    # loose in a flat directory. Both shapes import.
+    entries = []
     for entry in sorted(os.listdir(source_dir)):
-        if not entry.endswith('.manifest.json'):
-            continue
         path = os.path.join(source_dir, entry)
+        if entry.endswith('.manifest.json'):
+            entries.append(path)
+        elif os.path.isdir(path):
+            entries.extend(os.path.join(path, child)
+                           for child in sorted(os.listdir(path))
+                           if child.endswith('.manifest.json'))
+    for path in entries:
         try:
             imported.append(sync_manifest(conn, path, runs_dir))
         except (OSError, ValueError, KeyError) as exc:

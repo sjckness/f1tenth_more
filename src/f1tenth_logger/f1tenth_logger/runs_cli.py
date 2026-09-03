@@ -39,6 +39,70 @@ def cmd_import(args, conn):
     return 0
 
 
+def cmd_consolidate(args, conn):
+    """
+    Migrate loose bags into the per-run archive layout, then index them.
+
+    Separate subcommand rather than a flag on `import`: this MOVES real run
+    data, and a destructive-shaped operation should have to be named, not
+    ridden in on a routine one. Extraction needs ROS and is imported lazily by
+    runs_migrate, so every other subcommand stays usable without it.
+    """
+    from f1tenth_logger import runs_migrate
+
+    source = os.path.expanduser(args.source)
+    archive = os.path.expanduser(args.archive_dir)
+    videos = os.path.expanduser(args.video_dir) if args.video_dir else None
+    if not os.path.isdir(source):
+        print(f'not a directory: {source}', file=sys.stderr)
+        return 1
+
+    reports, orphans = runs_migrate.consolidate_dir(
+        source, archive, videos, extract=not args.no_extract)
+
+    total_bag = total_extract = 0
+    problems = []
+    for report in reports:
+        actions = ', '.join(report['actions']) or 'nothing to do'
+        print(f'{report["run_id"]}: {actions}')
+        total_bag += report.get('bag_bytes', 0)
+        total_extract += report.get('extract_bytes', 0)
+        for problem in report['problems']:
+            problems.append(f'{report["run_id"]}: {problem}')
+
+    imported, failed = runs_db.import_dir(
+        conn, os.path.join(archive, 'complete'), args.runs_dir)
+    # Manifests now live one directory deeper (one folder per run), so index
+    # each run folder as well as the top level.
+    for report in reports:
+        manifest = os.path.join(report['dest'], f'{report["run_id"]}.manifest.json')
+        if os.path.isfile(manifest):
+            runs_db.sync_manifest(conn, manifest, args.runs_dir)
+
+    print(f'\nconsolidated {len(reports)} run(s) into {archive}/complete/')
+    if total_bag:
+        ratio = (total_bag / total_extract) if total_extract else float('inf')
+        print(f'  bags {total_bag / 1e9:.2f} GB, extracts '
+              f'{total_extract / 1e6:.1f} MB ({ratio:.0f}x smaller)')
+    print(f'  indexed {len(runs_db.all_runs(conn))} run(s) in runs.db')
+
+    # Reported, never guessed at: pairing these up by mtime or name similarity
+    # would silently attach one run's artifacts to another run's record.
+    if orphans:
+        print(f'\nUNMATCHED videos ({len(orphans)}) -- no run_id matches these, '
+              'left where they are:')
+        for name in orphans:
+            print(f'  {name}')
+    if problems:
+        print(f'\nPROBLEMS ({len(problems)}):')
+        for problem in problems:
+            print(f'  {problem}')
+    if failed:
+        for name, err in failed:
+            print(f'  SKIPPED {name}: {err}', file=sys.stderr)
+    return 0
+
+
 def cmd_list(args, conn):
     rows = runs_db.all_runs(conn)
     if not rows:
@@ -122,6 +186,17 @@ def build_parser():
                                       '*.manifest.json (idempotent)')
     p.add_argument('source')
     p.set_defaults(func=cmd_import)
+
+    p = sub.add_parser('consolidate',
+                       help='MOVE loose bags/manifests into one folder per run '
+                            'under <archive>/complete/, extract each, and index')
+    p.add_argument('source', help='directory holding the loose *.manifest.json')
+    p.add_argument('--archive-dir', default='~/f1tenth_archive')
+    p.add_argument('--video-dir', default=None,
+                   help='copy an already-rendered <run_id>.mp4 in from here')
+    p.add_argument('--no-extract', action='store_true',
+                   help='skip parquet extraction (it needs ROS sourced)')
+    p.set_defaults(func=cmd_consolidate)
 
     p = sub.add_parser('list', help='every run, newest first')
     p.set_defaults(func=cmd_list)
