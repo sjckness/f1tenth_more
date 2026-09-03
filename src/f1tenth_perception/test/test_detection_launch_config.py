@@ -66,13 +66,32 @@ class TestUseMaskDepthAutoDerivation:
     """See detection.launch.py's own comment at use_mask_depth_la -- this is
     the "single switch, not two" requirement's actual coverage."""
 
-    def test_default_launch_stays_on_tensorrt_box_detector_unchanged(self):
-        # No overrides at all -- must reproduce exactly what every launch
-        # before this pass already did: the deployed TensorRT engine,
-        # box-region depth sampling. This is the "default stays off"
-        # guardrail's own regression coverage.
+    def test_default_launch_is_the_seg_model_with_mask_depth_auto_on(self):
+        # No overrides at all: the deployed default is the seg checkpoint
+        # (stack_params.yaml's yolo_model/yolo_model_task, flipped once the
+        # seg path was judged live-ready and used by every recorded run since
+        # 2026-09-02), and use_mask_depth therefore auto-derives ON with no
+        # second argument.
+        #
+        # This assertion previously read 'yolo26s.engine' / 'False' and was
+        # WRONG FROM THE DAY IT WAS WRITTEN: the test and the seg default
+        # landed in the same commit (96c6bbc) contradicting each other, and
+        # nothing caught it for two days because colcon never executed this
+        # file at all (no extras_require 'test' extra -- fixed in aaae377).
+        # Kept explicit here because a stale expected-value is exactly what
+        # this test now exists to catch.
         resolved = _resolve({})
-        assert resolved['yolo_model'] == 'yolo26s.engine'
+        assert resolved['yolo_model'] == 'yolo26s-seg.pt'
+        assert resolved['yolo_model_task'] == 'segment'
+        assert resolved['use_mask_depth'] == 'True'
+
+    def test_selecting_the_tensorrt_box_engine_auto_derives_mask_depth_off(self):
+        # The other direction of the same rule, and the coverage the old
+        # default-case assertion was really providing before the default
+        # moved out from under it: the deployed TensorRT box engine has no
+        # masks to decode, so mask-based fusion must auto-derive OFF for it
+        # without needing a second argument either.
+        resolved = _resolve({'yolo_model': 'yolo26s.engine'})
         assert resolved['use_mask_depth'] == 'False'
 
     def test_selecting_the_seg_model_alone_turns_on_mask_depth(self):
