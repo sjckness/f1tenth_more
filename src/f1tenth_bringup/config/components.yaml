@@ -99,7 +99,7 @@ components:
       launch_file: system_observer.launch.py
     - package: f1tenth_diagnostics
       launch_file: diagnostics_server.launch.py
-    - package: f1tenth_diagnostics
+    - package: f1tenth_logger
       launch_file: mission_logger.launch.py
 
   intelligence:

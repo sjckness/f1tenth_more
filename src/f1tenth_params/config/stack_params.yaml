@@ -694,7 +694,7 @@ enable_slam:
 # being off must not silently look identical to "system is healthy."
 # Independent of diagnostics_server_node/BatteryStatus below -- battery safety
 # monitoring is never gated behind this.
-# Consumed by: f1tenth_diagnostics/mission_logger.launch.py (IfCondition on
+# Consumed by: f1tenth_logger/mission_logger.launch.py (IfCondition on
 # mission_logger_node itself -- false fully skips the node, it does not run
 # idle). Deliberately its OWN key rather than reusing enable_sys_obs: that
 # flag governs CPU/GPU/RAM telemetry, and a mission logger that silently

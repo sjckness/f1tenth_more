@@ -64,7 +64,7 @@ def generate_launch_description():
                     "directly and run data cannot be re-collected.")
 
     mission_logger_node = Node(
-        package='f1tenth_diagnostics',
+        package='f1tenth_logger',
         executable='mission_logger_node',
         name='mission_logger_node',
         output='screen',

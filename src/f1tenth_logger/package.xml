@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_logger</name>
+  <version>0.0.1</version>
+  <description>Post-mission run logging and analysis: the per-mission rosbag2
+  recorder, a SQLite index over the runs it writes, and the replay/report tooling
+  that reads them back. Split out of f1tenth_diagnostics, whose remit is live
+  calibration and telemetry rather than after-the-fact run analysis; the recorder
+  and the renderer that consumes its bags now live together in one package instead
+  of straddling a package boundary and a loose scripts/ directory.</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>visualization_msgs</exec_depend>
+  <exec_depend>vision_msgs</exec_depend>
+  <!-- MissionStatus (mission_logger_node's trigger topic) plus the
+       BoundaryConstraintArray / MpcSolverStatus / BehaviorTreeStatus types
+       mission_replay_video.py deserializes out of a recorded bag. -->
+  <exec_depend>f1tenth_messages</exec_depend>
+  <!-- rosbag2_py.Recorder for the writer side, rosbag2_py sequential reader
+       for the replay side. Moved here with mission_logger_node.py; nothing
+       left in f1tenth_diagnostics uses it any more. -->
+  <exec_depend>rosbag2_py</exec_depend>
+  <!-- deserialize_message / get_message: mission_replay_video.py reads bags
+       whose types are only known at runtime, from the bag's own metadata. -->
+  <exec_depend>rosidl_runtime_py</exec_depend>
+  <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
+       stack_params.yaml). f1tenth_params is a dependency-free leaf package;
+       depending on it here avoids the build-order cycle f1tenth_bringup would
+       introduce, same precedent every other f1tenth_* package follows. -->
+  <exec_depend>f1tenth_params</exec_depend>
+  <!-- mission_replay_video.py's rendering path. matplotlib writes the MP4
+       through an ffmpeg binary, which is a system dependency rather than a
+       Python one and is therefore not declared here. -->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-matplotlib</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

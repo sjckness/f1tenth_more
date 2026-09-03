@@ -82,11 +82,15 @@ source.
 
 USAGE
 -----
-    python3 scripts/mission_replay_video.py                  # 3 most recent missions
-    python3 scripts/mission_replay_video.py --count 5
-    python3 scripts/mission_replay_video.py <bag_dir> [<bag_dir> ...]
-    python3 scripts/mission_replay_video.py --speed 0.5      # slow-motion
-    python3 scripts/mission_replay_video.py --follow 6.0     # camera follows the car
+    ros2 run f1tenth_logger mission_replay_video             # 3 most recent missions
+    ros2 run f1tenth_logger mission_replay_video --count 5
+    ros2 run f1tenth_logger mission_replay_video <bag_dir> [<bag_dir> ...]
+    ros2 run f1tenth_logger mission_replay_video --speed 0.5      # slow-motion
+    ros2 run f1tenth_logger mission_replay_video --follow 6.0     # camera follows the car
+
+(Was `python3 scripts/mission_replay_video.py` before this module moved into
+f1tenth_logger; `python3 -m f1tenth_logger.mission_replay_video` also works
+from a sourced workspace.)
 
 Videos are written to <workspace root>/mission_videos/<run_id>.mp4 (gitignored)
 unless --out-dir says otherwise.
@@ -124,7 +128,28 @@ DEFAULT_BAG_ROOT = Path.home() / '.ros' / 'mission_bags'
 # this is the directory anyone working in the repo already has open. Resolved
 # from this file's own location so it does not depend on the cwd the script
 # happens to be run from.
-DEFAULT_OUT_DIR = Path(__file__).resolve().parents[1] / 'mission_videos'
+#
+# The walk up to the workspace root replaces a plain parents[1], which was
+# correct only while this file lived at <workspace>/scripts/. It now lives at
+# <workspace>/src/f1tenth_logger/f1tenth_logger/, so a fixed index would point
+# at the package directory and silently write videos somewhere new. Walking to
+# the parent of the enclosing 'src' keeps the SAME output directory the 24
+# already-rendered videos are in, and keeps working if the package is ever
+# nested differently. resolve() first: --symlink-install makes the installed
+# copy a symlink back into src/, and src/ is the tree with a workspace root
+# above it.
+
+
+def _workspace_root(start: Path) -> Path:
+    for parent in start.parents:
+        if parent.name == 'src':
+            return parent.parent
+    # Installed outside a source workspace (a real install/ tree, no src/
+    # above it): fall back to the cwd rather than guessing at an index.
+    return Path.cwd()
+
+
+DEFAULT_OUT_DIR = _workspace_root(Path(__file__).resolve()) / 'mission_videos'
 
 # Palette: dark surface + the reference categorical slots 1-3, which are the
 # ones validated for ALL-pairs separation (obstacle classes appear side by side

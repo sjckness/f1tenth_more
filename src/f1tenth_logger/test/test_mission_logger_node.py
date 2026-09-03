@@ -31,7 +31,7 @@ from rclpy.parameter import Parameter
 
 from f1tenth_messages.msg import MissionStatus
 
-from f1tenth_diagnostics.mission_logger_node import MissionLoggerNode
+from f1tenth_logger.mission_logger_node import MissionLoggerNode
 
 
 @pytest.fixture(scope='module', autouse=True)

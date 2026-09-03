@@ -5,7 +5,7 @@
 # that node publishes, producing a bag that contains /mpc/corridor_markers and
 # the predicted-horizon fields of /mpc/solver_status for a run recorded before
 # either existed. That is the only way to get the reference-corridor funnel and
-# the predicted horizon into scripts/mission_replay_video.py's output for an
+# the predicted horizon into f1tenth_logger's mission_replay_video output for an
 # OLD bag -- new missions record both directly (mission_logger_node's topic
 # list), so this is for backfill, not for normal use.
 #
