@@ -140,16 +140,25 @@ DEFAULT_BAG_ROOT = Path.home() / '.ros' / 'mission_bags'
 # above it.
 
 
-def _workspace_root(start: Path) -> Path:
+def _default_out_dir(start: Path):
+    """Workspace-root mission_videos/, or None if there is no workspace root.
+
+    Returns None rather than guessing when this module has no src/ ancestor,
+    which is the case under a plain (non --symlink-install) colcon build: the
+    installed copy is a real file under install/<pkg>/lib/python3.X/site-
+    packages/ with no source tree above it. Guessing at Path.cwd() there would
+    scatter videos into whatever directory the caller happened to be in, and
+    silently -- so main() turns None into an explicit "pass --out-dir" error
+    instead. Under --symlink-install (this workspace's default) resolve()
+    follows the symlink back into src/ and the walk succeeds as normal.
+    """
     for parent in start.parents:
         if parent.name == 'src':
-            return parent.parent
-    # Installed outside a source workspace (a real install/ tree, no src/
-    # above it): fall back to the cwd rather than guessing at an index.
-    return Path.cwd()
+            return parent.parent / 'mission_videos'
+    return None
 
 
-DEFAULT_OUT_DIR = _workspace_root(Path(__file__).resolve()) / 'mission_videos'
+DEFAULT_OUT_DIR = _default_out_dir(Path(__file__).resolve())
 
 # Palette: dark surface + the reference categorical slots 1-3, which are the
 # ones validated for ALL-pairs separation (obstacle classes appear side by side
@@ -1097,7 +1106,9 @@ def main(argv=None):
     ap.add_argument('--bag-root', type=Path, default=DEFAULT_BAG_ROOT)
     ap.add_argument('--count', type=int, default=3)
     ap.add_argument('--out-dir', type=Path, default=None,
-                    help=f'default: {DEFAULT_OUT_DIR}')
+                    help=(f'default: {DEFAULT_OUT_DIR}' if DEFAULT_OUT_DIR
+                          else 'REQUIRED here: no source workspace was found '
+                               'above this module, so there is no default'))
     ap.add_argument('--dt', type=float, default=0.1,
                     help="resample period [s]; default 0.1 = the MPC's control period")
     ap.add_argument('--speed', type=float, default=1.0,
@@ -1135,7 +1146,12 @@ def main(argv=None):
         for st, d, m in found:
             print(f'  {st}  {m.get("outcome", "?"):9s}  {d.name}')
 
-    cfg.out_dir = (cfg.out_dir or DEFAULT_OUT_DIR).expanduser()
+    out_dir = cfg.out_dir or DEFAULT_OUT_DIR
+    if out_dir is None:
+        ap.error('--out-dir is required: this module has no src/ ancestor to '
+                 'derive the workspace-root mission_videos/ from (a plain '
+                 'non-symlink colcon install). Pass --out-dir explicitly.')
+    cfg.out_dir = out_dir.expanduser()
     outputs = []
     for bag_dir in bag_dirs:
         if not (bag_dir / 'metadata.yaml').exists():
