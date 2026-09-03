@@ -321,6 +321,13 @@ class MPCController(Node):
         self.corr_epsiMax = math.radians(35.0)
         self.corr_tmax = math.tan(math.radians(35.0))
 
+        # S-curve heading-blend shape (build_straight_corridor), ported from
+        # f110_autonomy -- see that method's own comment for the full
+        # rationale and the receding-horizon caveat at this pass's rebuild
+        # rate.
+        self.corr_turn_u_start = 0.10
+        self.corr_turn_u_end = 0.70
+
         # aggiornamento corridoio
         #
         # Was a flat 1.0s (10x slower than control_loop's own 10Hz tick,
@@ -1655,7 +1662,35 @@ class MPCController(Node):
         s = L * u
 
         dpsi = math.atan2(math.sin(psiEnd - psiStart), math.cos(psiEnd - psiStart))
-        theta = psiStart + dpsi * u  # rilinearizzazione dolce verso psi_base, di solito ~0 (gia' dritto)
+        # Heading blend shape: an S-curve (straight lead-in, sigmoid bend,
+        # straight lead-out) rather than the previous flat linear taper
+        # across the whole corridor length. Ported from f110_autonomy's
+        # build_returning_corridor_explicit_t (the abandoned experimental
+        # SLSQP-only branch reviewed 2026-08-31/2026-09-03) at Andreas's
+        # explicit request -- this file's own psiEnd computation above is
+        # untouched (still goal_pose-driven / DIRECTION-ONLY reference per
+        # the comment on the else-branch a few lines up), only the SHAPE of
+        # the blend toward it changed.
+        #
+        # WORTH KNOWING, not just a drive-by note: the else-branch comment
+        # right above deliberately argues AGAINST adding shaping geometry
+        # here ("Convergence onto this shape is the solver's job... not
+        # extra geometry here") -- written when corridor_update_period made
+        # this a longer-lived scripted reference. Since the corridor-rebuild-
+        # rate fix (this same pass -- corridor_update_period is now ~every
+        # control_loop tick, not 1.0s), build_straight_corridor is re-run
+        # from the LIVE pose on essentially every 100ms tick regardless, so
+        # this shape only ever governs the near-term reference within one
+        # ~1s replan window (N=10, ts=0.1), not a standing scripted turn the
+        # way it worked in f110_autonomy's slower-cadence design -- its
+        # practical effect is real but more local than the port's origin
+        # context. Flagging so this isn't read as a bigger behavioral change
+        # than it actually is at the new rebuild rate.
+        tau = np.clip(
+            (u - self.corr_turn_u_start) / max(self.corr_turn_u_end - self.corr_turn_u_start, 1e-6),
+            0.0, 1.0)
+        shape = 3.0 * tau ** 2 - 2.0 * tau ** 3
+        theta = psiStart + dpsi * shape
 
         ds = np.zeros_like(s)
         ds[1:] = np.diff(s)

@@ -42,6 +42,11 @@ class _FakeMPC:
         self.corr_wmin = 1.3
         self.corr_wmax = 2.3
         self.psi_init_corridor = psi_init_corridor
+        # S-curve heading-blend shape params (f110_autonomy port) --
+        # defaults mirror MPCController.__init__'s real ones, same as
+        # every other attribute on this fake.
+        self.corr_turn_u_start = 0.10
+        self.corr_turn_u_end = 0.70
 
     def get_logger(self):
         return _FakeLogger()
