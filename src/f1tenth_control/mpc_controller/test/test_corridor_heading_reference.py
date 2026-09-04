@@ -45,6 +45,11 @@ class _FakeMPC:
         self.corr_wmin = 1.3
         self.corr_wmax = 2.3
         self.psi_init_corridor = psi_init_corridor
+        # Move-start anchor for the frozen straight reference. None here
+        # selects build_straight_corridor's bootstrap fallback (live position,
+        # blend from live yaw) -- the path these tests exercise unless a test
+        # sets it explicitly. Default mirrors MPCController.__init__'s.
+        self.goal_start_xy = None
         # S-curve heading-blend shape params (f110_autonomy port) --
         # defaults mirror MPCController.__init__'s real ones, same as
         # every other attribute on this fake.

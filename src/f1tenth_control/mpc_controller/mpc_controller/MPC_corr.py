@@ -117,15 +117,21 @@ def _project_onto_line(
     WHY THIS EXISTS: the goal_distance termination check needs "how far along
     the move's own direction has the car actually got", not "how far is the
     car from where it started". Those differ by exactly the lateral deviation
-    an obstacle deflection leaves behind -- and since the car recovers the
-    corridor's DIRECTION rather than merging back onto its original lateral
-    line, that deviation persists for the rest of the move instead of washing
-    out. The straight-line form (math.hypot from goal_start_xy) therefore
-    counts a sideways detour as progress and ends the move early, by more the
-    further the car was pushed. Negative means the car is BEHIND the origin
-    along that direction (it happens: an avoidance manoeuvre can back the
-    projection up), and is returned as-is rather than clamped, so a caller
-    that cares can see it.
+    an obstacle deflection (or a mechanical drift) leaves behind. The
+    straight-line form (math.hypot from goal_start_xy) therefore counts a
+    sideways detour as progress and ends the move early, by more the further
+    the car was pushed. Since the frozen-straight-reference fix the corridor
+    does pull that deviation back out over the rest of the move, so the two
+    forms reconverge -- but only after the fact, and never for a deflection
+    still in progress, so this remains the right metric.
+
+    ALSO used by build_straight_corridor to slide the frozen straight
+    corridor's origin forward along that same line, so "corridor progress"
+    and "move progress" are the identical quantity by construction.
+
+    Negative means the car is BEHIND the origin along that direction (it
+    happens: an avoidance manoeuvre can back the projection up), and is
+    returned as-is rather than clamped, so a caller that cares can see it.
 
     Pure and module-level for the same reason _select_live_boundaries below
     is: MPCController's constructor opens real log files and starts a real
@@ -515,15 +521,19 @@ class MPCController(Node):
         # w_corr stays 0.0: measured, it degrades every metric at every value
         # tried, alone or alongside w_psi (at w_psi = 1.0, w_corr 0 -> 1.0
         # moves settle 1.34 -> 1.71 m and clearance 0.143 -> 0.137; w_corr
-        # alone at 2.0 never settles at all). The reason is structural -- the
-        # corridor is rebuilt from the LIVE pose every tick, so its centerline
-        # passes through the car by construction and "lateral offset from the
-        # centerline" measures departure from this tick's plan rather than from
-        # the intended direction; penalising it damps the very lateral motion
-        # an avoidance-and-recovery manoeuvre is made of. The term itself is
-        # correct and does work on a frozen corridor (w_corr 0 -> 10 cuts the
-        # horizon's end lateral offset 0.324 -> 0.246 m), so it is left wired,
-        # measured, and off rather than deleted.
+        # alone at 2.0 never settles at all). The reason was structural -- the
+        # corridor was rebuilt from the LIVE pose every tick, so its centerline
+        # passed through the car by construction and "lateral offset from the
+        # centerline" measured departure from this tick's plan rather than from
+        # the intended line; penalising it damped the very lateral motion an
+        # avoidance-and-recovery manoeuvre is made of. That premise NO LONGER
+        # HOLDS on straight moves: build_straight_corridor now anchors them to
+        # a line frozen at move start, and the same note already recorded that
+        # this term does work on a frozen corridor (w_corr 0 -> 10 cuts the
+        # horizon's end lateral offset 0.324 -> 0.246 m). Left at 0.0 all the
+        # same -- turning it on is a retune that needs its own measured pass
+        # against the new geometry, not a side effect of the anchoring fix, and
+        # the frozen line already restores laterally through w_term.
         self.weights = {
             "w_term": 3.0,
             "w_v": 8.0,
@@ -1309,11 +1319,13 @@ class MPCController(Node):
             # and the one the corridor references. The old form counted a
             # sideways detour as progress toward the goal, so a move that
             # dodged an obstacle terminated early by however much lateral
-            # offset it had picked up -- and since the car deliberately does
-            # NOT merge back onto its original lateral line (it recovers the
-            # direction, running parallel), that offset persists to the end of
-            # the move rather than washing out. The live-yaw fallback matches
-            # build_straight_corridor's own psi_base fallback.
+            # offset it had picked up. Since the frozen-straight-reference fix
+            # the corridor does pull that offset back out, but only over the
+            # following metre or two and never while the deflection is still
+            # live, so counting it as progress is still wrong. psi_line is the
+            # SAME frozen line build_straight_corridor now anchors the corridor
+            # to, so move progress and corridor progress are one quantity; the
+            # live-yaw fallback matches that method's own bootstrap fallback.
             psi_line = (self.psi_init_corridor
                         if self.psi_init_corridor is not None else self.yaw)
             traveled = _project_onto_line(
@@ -1679,20 +1691,68 @@ class MPCController(Node):
             psiEnd = math.atan2(gy - Y0, gx - X0)
             L = float(np.clip(math.hypot(gx - X0, gy - Y0), 1.0, self.corr_L_base))
         else:
-            # DIRECTION-ONLY reference, deliberately not a lateral one: psiEnd
-            # is the heading captured at this move's start, and theta below
-            # blends the corridor from the robot's current (possibly
-            # deflection-rotated) yaw back to it over the corridor's length.
-            # X0/Y0 stay the LIVE position, so the corridor never tries to
-            # merge the car back onto the exact line it started on -- what it
-            # recovers is travelling PARALLEL to that line. Convergence onto
-            # this shape is the solver's job (w_psi/w_corr, see __init__'s
-            # weights), not extra geometry here: build_straight_corridor only
-            # ever presents a straight-line-in-a-direction reference, and the
-            # curve driven around an obstacle comes from compute_local_target's
-            # deflected target plus w_obs.
-            psi_base = self.psi_init_corridor if self.psi_init_corridor is not None else psi0
-            psiEnd = psi_base
+            # STRAIGHT (goal_distance) move: a FROZEN reference line, captured
+            # once at move start -- goal_distance_callback sets BOTH
+            # psi_init_corridor (the heading) and goal_start_xy (the position)
+            # in the same breath -- and reused unchanged for every rebuild of
+            # that move. The only thing the car's live pose is still allowed to
+            # move is the corridor's forward EXTENT: its origin slides along the
+            # frozen line by the car's own along-line progress. Its orientation
+            # does not move at all, and neither does the line it sits on.
+            #
+            # WHY (the bug this fixes, seen live as a leftward drift that kept
+            # growing instead of being corrected): this branch used to re-anchor
+            # the corridor to the LIVE pose on every rebuild -- X0/Y0 = the car's
+            # current position, psiStart = the car's current yaw. That is a
+            # closed loop with no restoring force anywhere in it. Mechanical bias
+            # walks the car left; the next rebuild translates the whole reference
+            # left with it and re-points its near field along the already-drifted
+            # yaw; the solver chases a lookahead point taken ON that centerline
+            # (compute_local_target -> pref_nom -> the w_term terminal position
+            # cost), so it sees no lateral error to correct and never opposes the
+            # drift. The reference followed the car rather than the car being
+            # corrected back onto the reference.
+            #
+            # THIS DELIBERATELY REVERSES the "direction reference, deliberately
+            # not a lateral one" design the comment here used to argue for (the
+            # car recovering only PARALLEL travel after a deflection, keeping
+            # whatever lateral offset it had picked up). That choice is exactly
+            # what left a straight move with no lateral restoring force at all.
+            # Lateral offset is now a real, non-zero quantity again, so the
+            # corridor half-width bound (and w_corr, if it is ever enabled)
+            # become restoring, and the lookahead target sits on the frozen line
+            # ahead of the car instead of ahead of wherever the car has wandered.
+            #
+            # psiStart == psiEnd here on purpose: a straight move's reference has
+            # no bend to blend, so the S-curve shape below collapses to a
+            # constant (dpsi == 0) and is inert on this path. It stays fully live
+            # for the goal_pose branch above -- the branch goal_turn_callback
+            # dispatches turns through -- whose heading behaviour is untouched.
+            psi_ref = self.psi_init_corridor
+            anchor = self.goal_start_xy
+            if psi_ref is not None and anchor is not None:
+                psiStart = float(psi_ref)
+                psiEnd = psiStart
+                # Perpendicular foot of the live pose on the frozen line. Same
+                # projection the goal_distance termination check already uses
+                # for "distance made good", so corridor progress and move
+                # progress are measured against the identical line.
+                s_made_good = _project_onto_line((X0, Y0), anchor, psiStart)
+                lat_err = (-(X0 - float(anchor[0])) * math.sin(psiStart)
+                           + (Y0 - float(anchor[1])) * math.cos(psiStart))
+                X0 = float(anchor[0]) + s_made_good * math.cos(psiStart)
+                Y0 = float(anchor[1]) + s_made_good * math.sin(psiStart)
+                self.get_logger().info(
+                    f'CORR/frozen | anchor=({float(anchor[0]):+.3f},{float(anchor[1]):+.3f}) '
+                    f'psi={psiStart:+.4f} s={s_made_good:+.3f} lat={lat_err:+.3f}'
+                )
+            else:
+                # Bootstrap fallback, unchanged from before this fix: no move
+                # start has been recorded yet (no goal_distance received, or
+                # only the odom bootstrap has set psi_init_corridor), so there
+                # is no frozen line to reference. Blend from the live yaw toward
+                # whatever heading reference does exist, off the live position.
+                psiEnd = float(psi_ref) if psi_ref is not None else psi0
             L = max(self.corr_L_base, 1.0)
 
         u = np.linspace(0.0, 1.0, self.corr_N)
@@ -1704,25 +1764,27 @@ class MPCController(Node):
         # across the whole corridor length. Ported from f110_autonomy's
         # build_returning_corridor_explicit_t (the abandoned experimental
         # SLSQP-only branch reviewed 2026-08-31/2026-09-03) at Andreas's
-        # explicit request -- this file's own psiEnd computation above is
-        # untouched (still goal_pose-driven / DIRECTION-ONLY reference per
-        # the comment on the else-branch a few lines up), only the SHAPE of
-        # the blend toward it changed.
+        # explicit request -- this only ever changed the SHAPE of the blend
+        # between psiStart and psiEnd, never which branch computes them.
         #
-        # WORTH KNOWING, not just a drive-by note: the else-branch comment
-        # right above deliberately argues AGAINST adding shaping geometry
-        # here ("Convergence onto this shape is the solver's job... not
-        # extra geometry here") -- written when corridor_update_period made
-        # this a longer-lived scripted reference. Since the corridor-rebuild-
-        # rate fix (this same pass -- corridor_update_period is now ~every
-        # control_loop tick, not 1.0s), build_straight_corridor is re-run
-        # from the LIVE pose on essentially every 100ms tick regardless, so
-        # this shape only ever governs the near-term reference within one
-        # ~1s replan window (N=10, ts=0.1), not a standing scripted turn the
-        # way it worked in f110_autonomy's slower-cadence design -- its
-        # practical effect is real but more local than the port's origin
-        # context. Flagging so this isn't read as a bigger behavioral change
-        # than it actually is at the new rebuild rate.
+        # WHICH BRANCH THIS ACTUALLY AFFECTS, since the frozen-straight fix
+        # above: on the goal_pose branch (the one goal_turn dispatches turns
+        # through) psiStart is the live yaw and psiEnd the live bearing to the
+        # goal, so dpsi is generally non-zero and this S-curve is exactly as
+        # live as it was when it was ported. On the goal_distance branch with a
+        # move-start anchor captured, psiStart == psiEnd by construction, so
+        # dpsi == 0 and every expression below reduces to a constant heading --
+        # the shape is inert there, deliberately (a straight move's reference
+        # has no bend). It is still exercised on that branch's bootstrap
+        # fallback, where psiStart is once again the live yaw.
+        #
+        # Scope note that still holds: with corridor_update_period back at its
+        # 1.0s default (see __init__), the corridor this shape describes is a
+        # ~1s-lived reference; at the launch-arg 0.5*ts setting it is rebuilt
+        # essentially every control_loop tick and the shape only governs the
+        # near-term reference inside one replan window (N=10, ts=0.1), not a
+        # standing scripted turn the way it did in f110_autonomy's
+        # slower-cadence design.
         tau = np.clip(
             (u - self.corr_turn_u_start) / max(self.corr_turn_u_end - self.corr_turn_u_start, 1e-6),
             0.0, 1.0)
