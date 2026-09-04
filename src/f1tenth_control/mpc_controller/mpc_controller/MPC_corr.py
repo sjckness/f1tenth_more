@@ -300,17 +300,21 @@ class MPCController(Node):
         self.use_rti_solver = bool(self.declare_parameter('use_rti_solver', True).value)
 
         # Hard boundary constraints (see mpc_solver.py's own module docstring
-        # and _get_live_boundaries below) -- default True, unchanged behavior.
-        # Explicit opt-out, same pattern as use_rti_solver just above: set
-        # false via launch arg (mpc_corr.launch.py's own
-        # use_hard_boundary_constraints) to run without them, e.g. for an A/B
-        # comparison against MATLAB (which has no such constraint) without a
-        # code change/revert. When false, _get_live_boundaries always returns
-        # [] regardless of what costmap_boundary_node is actually publishing
-        # -- solve_mpc_step then sees boundaries=[], identical to no source
-        # ever having been live.
+        # and _get_live_boundaries below). Default FALSE as of Andreas's
+        # explicit request to run the MATLAB-comparison configuration by
+        # default rather than as an opt-in launch arg -- MATLAB has no such
+        # constraint, so this is the closer match while that comparison is
+        # ongoing. Still a launch-arg opt-IN (mpc_corr.launch.py's own
+        # use_hard_boundary_constraints) to turn them back on, same pattern
+        # as use_rti_solver just above, not a code change. When false,
+        # _get_live_boundaries always returns [] regardless of what
+        # costmap_boundary_node is actually publishing -- solve_mpc_step
+        # then sees boundaries=[], identical to no source ever having been
+        # live. NOTE: this means the RTI solve currently runs with NO hard
+        # wall constraint of any kind -- only the soft w_obs deflection cost
+        # -- until this default is revisited.
         self.use_hard_boundary_constraints = bool(
-            self.declare_parameter('use_hard_boundary_constraints', True).value)
+            self.declare_parameter('use_hard_boundary_constraints', False).value)
 
         # nice: see _apply_nice() below, called near the end of __init__.
         # Defaults to no-op (0) so this node's priority is unchanged unless a
@@ -374,14 +378,19 @@ class MPCController(Node):
         # 10x improvement, 1Hz -> 10Hz, cutting the ~15cm stale-corridor gap
         # observed at test speed down to ~1.5cm).
         #
-        # Now a ROS param (in-code default unchanged, 0.5*self.ts, i.e. the
-        # 10Hz-class rebuild above) rather than a bare assignment -- same
-        # explicit-opt-out-via-launch-arg pattern as use_rti_solver above, so
-        # this can be set back to 1.0 (the old flat-1Hz value) for an A/B
-        # comparison against MATLAB without a code change/revert. See
-        # mpc_corr.launch.py's own corridor_update_period arg.
+        # Now a ROS param. Default CHANGED to 1.0 (the old flat-1Hz value,
+        # reverting the 10x rebuild-rate improvement above as the in-code
+        # default) as of Andreas's explicit request to run the
+        # MATLAB-comparison configuration by default rather than as an
+        # opt-in launch arg. Still a launch-arg opt-out (mpc_corr.launch.py's
+        # own corridor_update_period) to get back to 0.5*self.ts (the
+        # ~10Hz-class rebuild everything above this comment still argues
+        # for), not a code change. See that comment block above for why 1.0
+        # was originally considered too slow -- that reasoning hasn't
+        # changed, only which value is the default while the MATLAB
+        # comparison is ongoing.
         self.corridor_update_period = float(
-            self.declare_parameter('corridor_update_period', 0.5 * self.ts).value)
+            self.declare_parameter('corridor_update_period', 1.0).value)
         self.last_corridor_time = None
         # Real computation time of the cached corridor (rclpy Time, not a
         # float) -- used ONLY to stamp /mpc/corridor_markers headers (see
@@ -1140,7 +1149,7 @@ class MPCController(Node):
         own module docstring -- so an empty return here is real, live-
         relevant, expected behavior today, not a hypothetical edge case.
 
-        Gated on self.use_hard_boundary_constraints (default True) -- see
+        Gated on self.use_hard_boundary_constraints (default False) -- see
         that attribute's own comment; false forces [] unconditionally,
         before even looking at staleness, so disabling the feature via
         launch arg can't be defeated by fresh data arriving."""
