@@ -335,10 +335,32 @@ class MPCController(Node):
         }
 
         # Corridoio MATLAB-like
-        self.corr_L_base = 3.0
+        #
+        # Narrowed to 1/3 width and shortened to 1/2 length on request
+        # (2026-09-07). Previous values: corr_L_base 3.0, corr_wmin 1.3,
+        # corr_wmax 2.3 -- kept here because every one of them is a bare
+        # literal with no ROS parameter behind it (unlike corridor_update_
+        # period directly below, which IS a declared param wired through
+        # stack_params.yaml), so there is no launch-time override and no
+        # config file that records what they used to be.
+        #
+        # corr_wmin/corr_wmax are HALF-widths, not full widths: build_
+        # straight_corridor places the walls at C +/- w*n (see its own
+        # P_L0/P_R0/P_L1/P_R1 construction), so the corridor spans 2*w
+        # across. Scaling the half-width by 1/3 therefore scales the full
+        # corridor width by 1/3 as well -- the requested change, not a
+        # sixth of it.
+        #
+        # NOTE these are not independent of build_straight_corridor's own
+        # floor/clamp on length: its goal_distance branch uses
+        # max(corr_L_base, 1.0) and its goal_pose branch clips the
+        # car-to-goal distance into [1.0, corr_L_base]. At 1.5 both still
+        # behave (1.5 > 1.0, and [1.0, 1.5] is a valid range), but halving
+        # the length again would collapse that clip range to a point.
+        self.corr_L_base = 1.5
         self.corr_N = 120
-        self.corr_wmin = 1.3
-        self.corr_wmax = 2.3
+        self.corr_wmin = 0.4333
+        self.corr_wmax = 0.7667
         self.corr_p = 1.8
         self.q = 1.2
         self.corr_epsiMax = math.radians(35.0)
