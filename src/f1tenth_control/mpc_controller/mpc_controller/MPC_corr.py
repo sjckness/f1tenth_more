@@ -330,6 +330,14 @@ class MPCController(Node):
             'use_map_frame_goal_anchor',
             get_value('localization_source') == 'ekf').value)
 
+        # Staleness ceiling for the map -> odom edge used by the reprojection
+        # (see _lookup_map_odom's own "AGE GUARD" note for the measurement and
+        # for why a FRESH transform's age here is NEGATIVE, not zero).
+        # 0.2s ~= 6 cycles of the global EKF's real ~32Hz output, so a healthy
+        # stack never trips it while a genuine delivery stall does immediately.
+        self.map_odom_max_age_sec = float(self.declare_parameter(
+            'map_odom_max_age_sec', 0.2).value)
+
         # =========================
         # Goal pose (runtime command via /mpc/goal_pose) -- position-only
         # arrival this pass, no final-yaw alignment (see build_straight_corridor/
@@ -1101,9 +1109,12 @@ class MPCController(Node):
             f'({self.goal_start_xy[0]:.3f}, {self.goal_start_xy[1]:.3f})'
         )
 
-    def _lookup_map_odom(self) -> Optional[Tuple[float, float, float]]:
+    def _lookup_map_odom(
+            self, max_age_sec: Optional[float] = None
+    ) -> Optional[Tuple[float, float, float]]:
         """Latest map -> odom edge as (x, y, yaw), or None if it isn't
-        available or the feature is off (see use_map_frame_goal_anchor).
+        available, is older than `max_age_sec`, or the feature is off (see
+        use_map_frame_goal_anchor).
 
         `lookup_transform(map_frame, odom_frame, ...)` -- target 'map', source
         'odom' -- returns the edge in exactly the orientation _pose_odom_to_map/
@@ -1130,6 +1141,45 @@ class MPCController(Node):
                 f'tf2 lookup "{self.map_frame}" -> "{self.odom_frame}" failed: '
                 f'{exc}', throttle_duration_sec=5.0)
             return None
+
+        # ---- AGE GUARD ----------------------------------------------------
+        # WHY THIS IS NEEDED AT ALL, given the lookup above cannot fail during
+        # a stall: rclpy.time.Time() means "latest available", and tf2 keeps a
+        # 10s buffer, so a map -> odom delivery gap does NOT raise here -- the
+        # buffer just keeps handing back the last transform it got, silently,
+        # for as long as the gap lasts. That is the failure this guard exists
+        # for, and it is not hypothetical: across every mpc_corr log in this
+        # workspace the except branch above fired exactly ZERO times, so
+        # nothing in this node has ever noticed a stale edge. Reprojecting the
+        # anchor through one is strictly worse than not reprojecting: it
+        # rotates the reference line by a correction that no longer describes
+        # where the car is.
+        #
+        # SIGN CONVENTION -- read before changing the threshold. ekf_global.yaml
+        # sets transform_time_offset: 0.05, which POST-dates every broadcast
+        # map -> odom by 50ms. A perfectly fresh transform therefore has an age
+        # of about -50ms here, not 0, and ages measured off the recorded stream
+        # run to a median of -25ms. The comparison is deliberately one-sided
+        # (age > max_age) so that post-dating can never trip the guard; only
+        # genuinely OLD transforms do.
+        if max_age_sec is not None:
+            try:
+                age = (self.get_clock().now()
+                       - rclpy.time.Time.from_msg(tf.header.stamp)).nanoseconds * 1e-9
+            except (TypeError, ValueError) as exc:
+                # Mismatched clock types (sim vs system) -- do not let a
+                # diagnostic guard take out the control loop. Degrade to
+                # today's unguarded behaviour and say so.
+                self.get_logger().warn(
+                    f'map -> odom age unavailable ({exc}): proceeding UNGUARDED',
+                    throttle_duration_sec=5.0)
+                age = None
+            if age is not None and age > max_age_sec:
+                self.get_logger().warn(
+                    f'map -> odom STALE: age={age * 1e3:.0f}ms > '
+                    f'{max_age_sec * 1e3:.0f}ms -- not reprojecting through it',
+                    throttle_duration_sec=5.0)
+                return None
 
         return (float(tf.transform.translation.x),
                 float(tf.transform.translation.y),
@@ -1161,7 +1211,11 @@ class MPCController(Node):
         goal_anchor_odom keeps the raw odom-frame value goal_distance_callback
         seeded it with, i.e. the pre-existing frozen-in-odom behaviour.
 
-        Lookup failure with a map anchor present -> HOLD THE LAST KNOWN GOOD
+        Lookup failure OR a transform older than map_odom_max_age_sec (the
+        case that actually happens -- see _lookup_map_odom's AGE GUARD: the
+        lookup itself does not fail during a delivery stall, it silently
+        returns the last transform tf2 holds) with a map anchor present ->
+        HOLD THE LAST KNOWN GOOD
         reprojection, explicitly, rather than falling back to the raw odom
         anchor: that raw value is precisely the thing being corrected for, so
         reverting to it for one tick would silently reintroduce the bug (and,
@@ -1173,12 +1227,12 @@ class MPCController(Node):
         """
         if self.goal_anchor_map is None:
             return
-        tf_map_odom = self._lookup_map_odom()
+        tf_map_odom = self._lookup_map_odom(max_age_sec=self.map_odom_max_age_sec)
         if tf_map_odom is None:
             self.get_logger().warn(
-                'ANCHOR/hold | map -> odom unavailable this tick: holding '
-                'last reprojected anchor (NOT reverting to the raw odom '
-                'anchor)', throttle_duration_sec=5.0)
+                'ANCHOR/hold | map -> odom unavailable OR STALE this tick: '
+                'holding last reprojected anchor (NOT reverting to the raw '
+                'odom anchor)', throttle_duration_sec=5.0)
             return
         self.goal_anchor_odom = _pose_map_to_odom(*self.goal_anchor_map, *tf_map_odom)
 
