@@ -17,10 +17,17 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, MpcSolverStatus, Obstacle2DArray, TurnGoal)
-from f1tenth_params.param_defaults import get_odom_topic
+from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.mpc_solver import solve_mpc_step
 from sensor_msgs.msg import JointState
 from sensor_msgs.msg import Imu
+from tf2_ros import (
+    ConnectivityException,
+    ExtrapolationException,
+    LookupException,
+)
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
 
 
 def _resolve_debug_output_path(filename: str) -> Path:
@@ -105,6 +112,68 @@ def _boundary_to_world(
     return normal_world_x, normal_world_y, offset_world
 
 
+def _pose_odom_to_map(
+        x: float, y: float, psi: float,
+        tf_x: float, tf_y: float, tf_yaw: float) -> Tuple[float, float, float]:
+    """Express an odom-frame planar pose (x, y, psi) in the MAP frame, given
+    the map -> odom transform (tf_x, tf_y, tf_yaw).
+
+    (tf_x, tf_y, tf_yaw) is the edge EXACTLY as tf2 broadcasts and returns it
+    for `lookup_transform('map', 'odom', ...)`: header.frame_id 'map',
+    child_frame_id 'odom', i.e. the pose of the odom frame's origin expressed
+    in map -- so applying it to something odom-frame yields the map-frame
+    equivalent, which is this direction. Published by ekf_global_filter_node
+    (robot_localization, world_frame: map, publish_tf: true -- see
+    f1tenth_bringup/config/ekf_global.yaml) in 'ekf' mode.
+
+    WHY THIS EXISTS (the bug it fixes): this stack's dual-EKF split puts the
+    car's REAL heading drift into map -> odom, not into odom-frame yaw. The
+    local EKF (world_frame: odom) is a smooth dead-reckoning integrator with
+    no absolute yaw reference; slam_toolbox's absolute correction lands in the
+    global EKF, which absorbs it into map -> odom. Measured over one post-fix
+    mission: map-frame yaw drifted 13.1 deg while map -> odom's own yaw drifted
+    12.8 deg in lockstep, leaving the odom-frame yaw the control loop reads
+    (self.yaw) under 0.5 deg the whole time. So a straight move's reference
+    line frozen in ODOM coordinates is frozen in a frame that is itself
+    rotating with the car's real-world error -- it never presents a heading
+    error for w_psi/w_term to correct. Freezing it in MAP instead, and
+    reprojecting it back into the live odom frame every cycle
+    (_pose_map_to_odom, the exact inverse of this), makes that real drift
+    visible to the solver as an ordinary tracking error, without touching the
+    odom-frame state x0 the dynamics/solve themselves run on.
+
+    Pure and module-level for the same reason _boundary_to_world and
+    _project_onto_line are: MPCController's constructor opens real log files
+    and starts a real timer, so anything that needs direct unit coverage lives
+    outside it.
+    """
+    cos_t, sin_t = math.cos(tf_yaw), math.sin(tf_yaw)
+    x_map = tf_x + cos_t * x - sin_t * y
+    y_map = tf_y + sin_t * x + cos_t * y
+    psi_map = math.atan2(math.sin(psi + tf_yaw), math.cos(psi + tf_yaw))
+    return x_map, y_map, psi_map
+
+
+def _pose_map_to_odom(
+        x: float, y: float, psi: float,
+        tf_x: float, tf_y: float, tf_yaw: float) -> Tuple[float, float, float]:
+    """Exact inverse of _pose_odom_to_map (see that function for the frame
+    convention and for why either direction exists at all): express a
+    map-frame planar pose in the CURRENT odom frame, given the SAME
+    `lookup_transform('map', 'odom', ...)` edge -- not a separately looked-up
+    'odom' -> 'map' one. Keeping both directions off one lookup is what makes
+    capture-then-reproject an identity at move start by construction, rather
+    than something that has to be argued about numerically.
+    """
+    cos_t, sin_t = math.cos(tf_yaw), math.sin(tf_yaw)
+    dx = x - tf_x
+    dy = y - tf_y
+    x_odom = cos_t * dx + sin_t * dy
+    y_odom = -sin_t * dx + cos_t * dy
+    psi_odom = math.atan2(math.sin(psi - tf_yaw), math.cos(psi - tf_yaw))
+    return x_odom, y_odom, psi_odom
+
+
 def _project_onto_line(
         point: Tuple[float, float], line_origin: Tuple[float, float],
         line_yaw: float) -> float:
@@ -120,14 +189,18 @@ def _project_onto_line(
     an obstacle deflection (or a mechanical drift) leaves behind. The
     straight-line form (math.hypot from goal_start_xy) therefore counts a
     sideways detour as progress and ends the move early, by more the further
-    the car was pushed. Since the frozen-straight-reference fix the corridor
-    does pull that deviation back out over the rest of the move, so the two
-    forms reconverge -- but only after the fact, and never for a deflection
-    still in progress, so this remains the right metric.
+    the car was pushed. Nothing pulls that deviation back out any more either
+    -- the corridor's origin tracks the car rather than homing onto the
+    original line (see build_straight_corridor's goal_distance branch, and
+    "THE PRICE" in its own comment) -- so a sideways offset persists for the
+    rest of the move and this is the ONLY thing keeping "6 m" meaning 6 m
+    along the intended direction.
 
-    ALSO used by build_straight_corridor to slide the frozen straight
-    corridor's origin forward along that same line, so "corridor progress"
-    and "move progress" are the identical quantity by construction.
+    ONE CALLER, deliberately: control_loop's goal_distance termination check.
+    build_straight_corridor used this too until the corridor stopped homing
+    laterally; it does not any more, and must not start again -- the corridor's
+    origin and the move's progress anchor are two separate quantities now (see
+    the two-anchor note at that branch's own assignment).
 
     Negative means the car is BEHIND the origin along that direction (it
     happens: an avoidance manoeuvre can back the projection up), and is
@@ -206,6 +279,56 @@ class MPCController(Node):
         self.goal_start_xy: Optional[Tuple[float, float]] = None
         self.goal_reached = False
         self._no_goal_warned = False
+
+        # ---- Frozen straight-move anchor, map-frame (drift-correction pass) --
+        # goal_start_xy/psi_init_corridor above freeze the move's reference line
+        # in ODOM coordinates, which is the frame this stack's dual-EKF split
+        # deliberately keeps free of absolute-heading error -- see
+        # _pose_odom_to_map's own docstring for the measurement and the full
+        # reason that made the frozen line unable to present a heading error to
+        # the solver at all.
+        #
+        # goal_anchor_map: (x, y, psi) of the move's start pose in the MAP frame,
+        #   captured once in goal_distance_callback and never touched again for
+        #   that move. None means "no map-frame anchor for this move" -- either
+        #   no move is active, or the map -> odom lookup failed at move start
+        #   (see that callback), in which case everything below degrades to the
+        #   pre-existing odom-frame-only behaviour rather than blocking driving.
+        # goal_anchor_odom: that same anchor reprojected into the CURRENT odom
+        #   frame, refreshed once per control_loop tick by _refresh_goal_anchor().
+        #   Read by two consumers that take DIFFERENT parts of it and must not be
+        #   conflated: control_loop's progress check uses the whole pose (x, y AND
+        #   psi) as the move's frozen origin and direction, while build_straight_
+        #   corridor's goal_distance branch takes ONLY the psi -- its own origin
+        #   tracks the car (see that branch's two-anchor note). Seeded at move
+        #   start with the raw odom anchor, which is what the reprojection
+        #   evaluates to at that instant anyway, so it is never None while a move
+        #   is active and there is always a last-known-good value to hold.
+        self.goal_anchor_map: Optional[Tuple[float, float, float]] = None
+        self.goal_anchor_odom: Optional[Tuple[float, float, float]] = None
+
+        # Frame names for the lookup above. Declared rather than hardcoded,
+        # matching semantic_layer_node.py's own map_frame/base_frame params;
+        # the defaults are the real, live names this stack broadcasts (ekf_
+        # global.yaml's own map_frame/odom_frame keys, and raw_odom_map_tf_
+        # node.py's hardcoded 'map'/'odom' header/child ids).
+        self.map_frame = str(self.declare_parameter('map_frame', 'map').value)
+        self.odom_frame = str(self.declare_parameter('odom_frame', 'odom').value)
+
+        # Gate on the map -> odom edge being a genuinely INDEPENDENT absolute
+        # correction, which is only true in localization_source == 'ekf'.
+        # In 'raw_odom' mode raw_odom_map_tf_node.py mirrors /odom's own pose
+        # verbatim into map -> odom, so that edge IS the car's pose: reprojecting
+        # a captured anchor through it would pin the reference line to the
+        # vehicle instead of the world -- strictly worse than the odom-frame
+        # freeze it replaces, not merely no better. Default is therefore derived
+        # from localization_source (the same single source of truth
+        # get_odom_topic() above already follows) rather than a bare True, and
+        # stays an explicit param so a future map -> odom source can opt in
+        # without a code change.
+        self.use_map_frame_goal_anchor = bool(self.declare_parameter(
+            'use_map_frame_goal_anchor',
+            get_value('localization_source') == 'ekf').value)
 
         # =========================
         # Goal pose (runtime command via /mpc/goal_pose) -- position-only
@@ -624,6 +747,22 @@ class MPCController(Node):
             self.corridor_log_file = open(self.corridor_log_path, 'w', encoding='utf-8')
 
         # =========================
+        # TF (map <-> odom ONLY)
+        # =========================
+        # Deliberately narrow scope: this buffer is used for the frozen
+        # straight-move anchor's map <-> odom reprojection and NOTHING else.
+        # self.x/self.y/self.yaw and the x0 handed to solve_mpc_step stay
+        # exactly what _update_active_odom() puts there -- odom-frame, local
+        # EKF -- because the vehicle model, the corridor geometry and the
+        # markers (frame_id 'odom', see _publish_corridor_markers) are all
+        # consistent in that frame and must remain so. Same Buffer +
+        # TransformListener + lookup_transform(..., rclpy.time.Time())
+        # ("latest available") shape as obstacle_projector_node.py,
+        # detection_3d_node.py and semantic_layer_node.py already use.
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
+
+        # =========================
         # Subscribers
         # =========================
         odom_qos = QoSProfile(
@@ -917,6 +1056,36 @@ class MPCController(Node):
         self.psi_init_corridor = self.yaw
         self.goal_reached = False
         self._no_goal_warned = False
+
+        # MAP-frame equivalent of the same anchor, captured in the same breath
+        # -- this is the one that actually survives the car's real heading
+        # drift (see _pose_odom_to_map's own docstring). goal_anchor_odom is
+        # seeded with the raw odom anchor either way: with a map anchor it is
+        # simply this instant's reprojection (an identity right now, diverging
+        # as map -> odom is corrected); without one it stays that raw value for
+        # the whole move, which is exactly the pre-existing behaviour. A failed
+        # lookup is logged and driven through, never fatal and never blocking --
+        # same fail-safe convention as obstacle_projector_node.py's own
+        # lookup_transform guard, and as costmap_boundary_node's "degrade, keep
+        # publishing, log at WARN" pass.
+        self.goal_anchor_odom = (self.x, self.y, float(self.yaw))
+        self.goal_anchor_map = None
+        tf_map_odom = self._lookup_map_odom()
+        if tf_map_odom is not None:
+            self.goal_anchor_map = _pose_odom_to_map(
+                self.x, self.y, float(self.yaw), *tf_map_odom)
+            self.get_logger().info(
+                f'ANCHOR/capture | odom=({self.x:+.3f},{self.y:+.3f},'
+                f'{float(self.yaw):+.4f}) -> map=({self.goal_anchor_map[0]:+.3f},'
+                f'{self.goal_anchor_map[1]:+.3f},{self.goal_anchor_map[2]:+.4f}) '
+                f'tf_yaw={tf_map_odom[2]:+.4f}')
+        elif self.use_map_frame_goal_anchor:
+            self.get_logger().warn(
+                f'ANCHOR/capture | no "{self.map_frame}" -> "{self.odom_frame}" '
+                'transform at move start: this move keeps the odom-frame-only '
+                'frozen anchor (heading drift absorbed by map -> odom will NOT '
+                'be corrected for it).')
+
         # Switching to distance mode -- clear any pose-mode goal so the two
         # modes stay mutually exclusive (see goal_pose_callback).
         self.goal_pose_xy = None
@@ -931,6 +1100,87 @@ class MPCController(Node):
             f'Nuovo goal_distance={self.goal_distance:.3f} m da '
             f'({self.goal_start_xy[0]:.3f}, {self.goal_start_xy[1]:.3f})'
         )
+
+    def _lookup_map_odom(self) -> Optional[Tuple[float, float, float]]:
+        """Latest map -> odom edge as (x, y, yaw), or None if it isn't
+        available or the feature is off (see use_map_frame_goal_anchor).
+
+        `lookup_transform(map_frame, odom_frame, ...)` -- target 'map', source
+        'odom' -- returns the edge in exactly the orientation _pose_odom_to_map/
+        _pose_map_to_odom both expect; see the former's own docstring. Time() is
+        "latest available", the same choice obstacle_projector_node.py and
+        detection_3d_node.py make for their own fixed/slow-moving lookups: this
+        anchor is a per-move reference line, not a per-message measurement that
+        needs stamp-exact alignment, and the whole point of the reprojection is
+        to track the LATEST correction rather than the one that was current when
+        the move started.
+
+        Failure is a normal, expected state early in a run (map -> odom does not
+        exist until the global EKF has fused something, and a mission's first
+        goal_distance can easily precede that), so it is a throttled WARN and a
+        None return -- never an exception out of a callback or the control loop.
+        """
+        if not self.use_map_frame_goal_anchor:
+            return None
+        try:
+            tf = self.tf_buffer.lookup_transform(
+                self.map_frame, self.odom_frame, rclpy.time.Time())
+        except (LookupException, ConnectivityException, ExtrapolationException) as exc:
+            self.get_logger().warn(
+                f'tf2 lookup "{self.map_frame}" -> "{self.odom_frame}" failed: '
+                f'{exc}', throttle_duration_sec=5.0)
+            return None
+
+        return (float(tf.transform.translation.x),
+                float(tf.transform.translation.y),
+                float(self.quaternion_to_yaw(tf.transform.rotation)))
+
+    def _refresh_goal_anchor(self):
+        """Recompute self.goal_anchor_odom -- the frozen straight-move anchor
+        expressed in THIS cycle's odom frame -- once per control_loop tick.
+
+        Called from control_loop BEFORE both consumers (the goal_distance
+        progress check and build_straight_corridor's own goal_distance branch)
+        so that one lookup per tick serves both instead of each doing its own at
+        its own instant -- the corridor is rebuilt on its own slower cadence
+        (corridor_update_period, 1.0s by default) than the progress check runs
+        (every tick), so two independent lookups would disagree by however much
+        map -> odom moved in between. The two consumers take different parts of
+        the result (see the attribute's own comment in __init__), but the
+        CORRECTION they apply is the same one, which is the point.
+
+        FLICKER NOTE: this runs at the control-loop rate, so the correction it
+        tracks is continuous at 10 Hz; the corridor only samples it when it
+        rebuilds, so a discrete SLAM correction landing between rebuilds still
+        reaches the corridor as one step of up to corridor_update_period's worth
+        of accumulated change. Since the corridor's origin stopped depending on
+        this value that step is now a pure rotation about the car rather than a
+        translation plus a rotation -- see build_straight_corridor's own comment.
+
+        No map anchor (never captured, or the feature is off) -> nothing to do:
+        goal_anchor_odom keeps the raw odom-frame value goal_distance_callback
+        seeded it with, i.e. the pre-existing frozen-in-odom behaviour.
+
+        Lookup failure with a map anchor present -> HOLD THE LAST KNOWN GOOD
+        reprojection, explicitly, rather than falling back to the raw odom
+        anchor: that raw value is precisely the thing being corrected for, so
+        reverting to it for one tick would silently reintroduce the bug (and,
+        worse, jump the reference line mid-move). Holding the last good value
+        instead is the same shape as costmap_boundary_node's own periodic-
+        publish pass, which likewise keeps recomputing from its cached grid/pose
+        of whatever age and only fails safe when the input has NEVER arrived --
+        and that "never" case cannot occur here, since capture seeds a value.
+        """
+        if self.goal_anchor_map is None:
+            return
+        tf_map_odom = self._lookup_map_odom()
+        if tf_map_odom is None:
+            self.get_logger().warn(
+                'ANCHOR/hold | map -> odom unavailable this tick: holding '
+                'last reprojected anchor (NOT reverting to the raw odom '
+                'anchor)', throttle_duration_sec=5.0)
+            return
+        self.goal_anchor_odom = _pose_map_to_odom(*self.goal_anchor_map, *tf_map_odom)
 
     def goal_pose_callback(self, msg: PoseStamped):
         if self.x is None or self.y is None:
@@ -947,6 +1197,8 @@ class MPCController(Node):
         # recently wins (see goal_distance_callback).
         self.goal_distance = None
         self.goal_start_xy = None
+        self.goal_anchor_map = None
+        self.goal_anchor_odom = None
         self.goal_reached = False
         self._no_goal_warned = False
         # New move -- don't let target smoothing/deflection-coast carry over
@@ -1055,6 +1307,8 @@ class MPCController(Node):
         # callback/goal_distance_callback already use for each other.
         self.goal_distance = None
         self.goal_start_xy = None
+        self.goal_anchor_map = None
+        self.goal_anchor_odom = None
         self.goal_reached = False
         self._no_goal_warned = False
         # New move -- don't let target smoothing/deflection-coast carry over
@@ -1288,6 +1542,13 @@ class MPCController(Node):
             self._publish_drive(0.0, 0.0)
             return
 
+        # ONE map -> odom reprojection per tick, shared by the goal_distance
+        # progress check below and by build_straight_corridor's own
+        # goal_distance branch further down -- see _refresh_goal_anchor's own
+        # docstring for why they must not look this up independently. No-op in
+        # pose/turn mode and whenever no map anchor was captured.
+        self._refresh_goal_anchor()
+
         if self.goal_pose_xy is not None:
             # Pose mode -- position-only arrival, no final-yaw alignment this
             # pass (see build_straight_corridor's scope note). Mutually
@@ -1342,24 +1603,44 @@ class MPCController(Node):
             # and the one the corridor references. The old form counted a
             # sideways detour as progress toward the goal, so a move that
             # dodged an obstacle terminated early by however much lateral
-            # offset it had picked up. Since the frozen-straight-reference fix
-            # the corridor does pull that offset back out, but only over the
-            # following metre or two and never while the deflection is still
-            # live, so counting it as progress is still wrong. psi_line is the
-            # SAME frozen line build_straight_corridor now anchors the corridor
-            # to, so move progress and corridor progress are one quantity; the
-            # live-yaw fallback matches that method's own bootstrap fallback.
-            psi_line = (self.psi_init_corridor
-                        if self.psi_init_corridor is not None else self.yaw)
+            # offset it had picked up, and it is still wrong for that reason.
+            #
+            # THE PROGRESS ANCHOR IS NOT THE CORRIDOR ORIGIN -- these are two
+            # separate quantities and must stay that way. This one is the
+            # move's ORIGINAL start point, frozen at move start and only ever
+            # map-corrected since (goal_anchor_odom, refreshed by
+            # _refresh_goal_anchor above), measured along that same corrected
+            # heading: "goal_distance: 6.0" means 6 m made good from where the
+            # move actually began, along the direction it began in. The
+            # corridor's own origin deliberately tracks the CAR now instead
+            # (see build_straight_corridor's goal_distance branch) -- if this
+            # check were ever pointed at that moving origin, traveled would
+            # collapse toward zero and the move would never terminate. The
+            # fallback pair is the old raw odom anchor plus the live-yaw
+            # default, matching build_straight_corridor's own bootstrap
+            # fallback exactly.
+            if self.goal_anchor_odom is not None:
+                progress_anchor_x, progress_anchor_y, psi_line = self.goal_anchor_odom
+            else:
+                progress_anchor_x, progress_anchor_y = self.goal_start_xy
+                psi_line = (self.psi_init_corridor
+                            if self.psi_init_corridor is not None else self.yaw)
             traveled = _project_onto_line(
-                (self.x, self.y), self.goal_start_xy, psi_line)
+                (self.x, self.y), (progress_anchor_x, progress_anchor_y), psi_line)
 
             # ---- DEBUG: avanzamento verso il goal ----
             # displacement logged alongside so the two are directly comparable
             # in a bag/log: they are equal on a clean straight run and diverge
             # by exactly the lateral deviation once anything has deflected.
-            displacement = math.hypot(self.x - self.goal_start_xy[0],
-                                      self.y - self.goal_start_xy[1])
+            # Measured from the SAME progress anchor as traveled, so the derived
+            # lateral term below stays a real right-triangle leg rather than
+            # mixing two different origins. Since the corridor stopped homing
+            # laterally this lateral term is the one place a run's accumulated
+            # sideways offset from the intended line is still visible from the
+            # goal's own point of view (build_straight_corridor logs the same
+            # quantity as lat_off, from the corridor's).
+            displacement = math.hypot(self.x - progress_anchor_x,
+                                      self.y - progress_anchor_y)
             self.get_logger().info(
                 f'GOAL | traveled={traveled:.4f}/{self.goal_distance:.3f} m '
                 f'residuo={self.goal_distance - traveled:+.4f} m '
@@ -1714,60 +1995,97 @@ class MPCController(Node):
             psiEnd = math.atan2(gy - Y0, gx - X0)
             L = float(np.clip(math.hypot(gx - X0, gy - Y0), 1.0, self.corr_L_base))
         else:
-            # STRAIGHT (goal_distance) move: a FROZEN reference line, captured
-            # once at move start -- goal_distance_callback sets BOTH
-            # psi_init_corridor (the heading) and goal_start_xy (the position)
-            # in the same breath -- and reused unchanged for every rebuild of
-            # that move. The only thing the car's live pose is still allowed to
-            # move is the corridor's forward EXTENT: its origin slides along the
-            # frozen line by the car's own along-line progress. Its orientation
-            # does not move at all, and neither does the line it sits on.
+            # STRAIGHT (goal_distance) move: a corridor that ALWAYS PASSES
+            # THROUGH THE CAR'S CURRENT POSITION, pointed along a FROZEN,
+            # drift-corrected HEADING. Position tracks the car; direction does
+            # not. That split is the whole design of this branch.
             #
-            # WHY (the bug this fixes, seen live as a leftward drift that kept
-            # growing instead of being corrected): this branch used to re-anchor
-            # the corridor to the LIVE pose on every rebuild -- X0/Y0 = the car's
-            # current position, psiStart = the car's current yaw. That is a
-            # closed loop with no restoring force anywhere in it. Mechanical bias
-            # walks the car left; the next rebuild translates the whole reference
-            # left with it and re-points its near field along the already-drifted
-            # yaw; the solver chases a lookahead point taken ON that centerline
-            # (compute_local_target -> pref_nom -> the w_term terminal position
-            # cost), so it sees no lateral error to correct and never opposes the
-            # drift. The reference followed the car rather than the car being
-            # corrected back onto the reference.
+            # WHAT THE HEADING IS, and why it is the half worth freezing: it is
+            # goal_anchor_odom's psi -- the move's MAP-frame start heading,
+            # reprojected into THIS tick's odom frame by _refresh_goal_anchor()
+            # once per control_loop tick. It must NOT be a constant in odom
+            # coordinates: this stack's dual-EKF split routes the car's real
+            # heading drift into the map -> odom edge rather than into odom-frame
+            # yaw, so a heading held constant in odom coordinates is a heading
+            # rotating with the error, and presents the solver nothing to
+            # correct. See _pose_odom_to_map's own docstring for the measurement
+            # (13.1 deg of real yaw drift against under 0.5 deg of odom-frame
+            # yaw). Reprojecting it turns that drift back into an ordinary
+            # heading error the w_psi/w_term costs oppose -- confirmed live: the
+            # accumulated drift this was built to kill is gone.
             #
-            # THIS DELIBERATELY REVERSES the "direction reference, deliberately
-            # not a lateral one" design the comment here used to argue for (the
-            # car recovering only PARALLEL travel after a deflection, keeping
-            # whatever lateral offset it had picked up). That choice is exactly
-            # what left a straight move with no lateral restoring force at all.
-            # Lateral offset is now a real, non-zero quantity again, so the
-            # corridor half-width bound (and w_corr, if it is ever enabled)
-            # become restoring, and the lookahead target sits on the frozen line
-            # ahead of the car instead of ahead of wherever the car has wandered.
+            # WHAT THE ORIGIN IS, and why it is NOT the frozen line any more
+            # (deliberate behaviour change, confirmed with Andreas -- NOT a
+            # regression to be cautiously reverted): X0/Y0 stay the car's own
+            # current position. The previous pass put the origin at the
+            # perpendicular FOOT of the live pose on the frozen line, which
+            # made the corridor home laterally back onto the exact original
+            # line after any deflection. That worked, but it fed two moving
+            # inputs into one geometry -- a live position and a static line
+            # that itself steps whenever a SLAM correction lands in map -> odom
+            # -- and the result was a visibly jittery corridor. Tracking the
+            # car's position directly removes the lateral half of that motion
+            # entirely and leaves a corridor that only ever pivots.
+            #
+            # THE PRICE, stated plainly so nobody has to rediscover it: there is
+            # NO lateral homing any more. After an obstacle deflection the car
+            # keeps whatever sideways offset it picked up and simply carries on
+            # parallel to the intended line, since the corridor -- and therefore
+            # the lookahead target taken on its centerline (compute_local_target
+            # -> pref_nom -> w_term) -- has moved sideways with it. Lateral
+            # offset from the ORIGINAL line is once again zero by construction
+            # here, so the corridor half-width bound and w_corr have nothing to
+            # act on. That is the accepted trade for a simpler, steadier
+            # corridor: the drift this all started with was a HEADING error, and
+            # the frozen heading above is what actually fixes it.
+            #
+            # WHAT THIS DOES NOT TOUCH: the goal_distance progress/termination
+            # check in control_loop still measures "distance made good" from the
+            # ORIGINAL frozen start point (goal_anchor_odom's x/y) along this
+            # same corrected heading -- see the two-anchor note at the
+            # assignment below. The two must stay separate quantities, or
+            # "goal_distance: 6.0" stops meaning 6 m along the intended line.
             #
             # psiStart == psiEnd here on purpose: a straight move's reference has
             # no bend to blend, so the S-curve shape below collapses to a
             # constant (dpsi == 0) and is inert on this path. It stays fully live
             # for the goal_pose branch above -- the branch goal_turn_callback
             # dispatches turns through -- whose heading behaviour is untouched.
+            #
+            # When no map anchor was captured (feature off, or no transform at
+            # move start) goal_anchor_odom holds the raw odom-frame move-start
+            # pose for the whole move, so this branch still runs -- with an
+            # uncorrected frozen heading, which is the pre-drift-fix behaviour.
             psi_ref = self.psi_init_corridor
-            anchor = self.goal_start_xy
-            if psi_ref is not None and anchor is not None:
-                psiStart = float(psi_ref)
+            anchor_pose = self.goal_anchor_odom
+            if anchor_pose is not None:
+                # ---- TWO SEPARATE ANCHORS. Do not collapse these into one. ----
+                # progress_anchor_xy: the move's ORIGINAL start point (frozen,
+                #   map-corrected). Owned by control_loop's termination check;
+                #   read here ONLY for the lat_off diagnostic below. Nothing in
+                #   this method's geometry is allowed to depend on it.
+                # corridor_origin (X0, Y0): the car's CURRENT position, which is
+                #   already expressed in the live odom frame the corridor, the
+                #   markers and the solver's x0 all live in -- so it needs no
+                #   reprojection of its own (odom -> map -> odom through the same
+                #   latest transform is exactly the identity; see
+                #   _pose_map_to_odom, the exact inverse of _pose_odom_to_map).
+                #   X0/Y0 are therefore deliberately left as build_straight_
+                #   corridor received them, NOT recomputed onto the frozen line.
+                progress_anchor_xy = (float(anchor_pose[0]), float(anchor_pose[1]))
+                psiStart = float(anchor_pose[2])
                 psiEnd = psiStart
-                # Perpendicular foot of the live pose on the frozen line. Same
-                # projection the goal_distance termination check already uses
-                # for "distance made good", so corridor progress and move
-                # progress are measured against the identical line.
-                s_made_good = _project_onto_line((X0, Y0), anchor, psiStart)
-                lat_err = (-(X0 - float(anchor[0])) * math.sin(psiStart)
-                           + (Y0 - float(anchor[1])) * math.cos(psiStart))
-                X0 = float(anchor[0]) + s_made_good * math.cos(psiStart)
-                Y0 = float(anchor[1]) + s_made_good * math.sin(psiStart)
+                # Diagnostic only: how far the car now sits from the ORIGINAL
+                # line. Deliberately not acted on any more (see "THE PRICE"
+                # above) -- logged so a run can still be read back for how much
+                # lateral offset a move actually accumulated.
+                lat_off = (-(X0 - progress_anchor_xy[0]) * math.sin(psiStart)
+                           + (Y0 - progress_anchor_xy[1]) * math.cos(psiStart))
                 self.get_logger().info(
-                    f'CORR/frozen | anchor=({float(anchor[0]):+.3f},{float(anchor[1]):+.3f}) '
-                    f'psi={psiStart:+.4f} s={s_made_good:+.3f} lat={lat_err:+.3f}'
+                    f'CORR/tracking | origin=({X0:+.3f},{Y0:+.3f}) '
+                    f'psi={psiStart:+.4f} '
+                    f'progress_anchor=({progress_anchor_xy[0]:+.3f},'
+                    f'{progress_anchor_xy[1]:+.3f}) lat_off={lat_off:+.3f}'
                 )
             else:
                 # Bootstrap fallback, unchanged from before this fix: no move
@@ -1946,14 +2264,32 @@ class MPCController(Node):
         MarkerArray (not PolygonStamped/Path) and why this is NOT the same
         thing as /costmap/boundaries.
 
-        Frame: 'odom', not 'map' -- corridor/wall points come straight from
-        build_straight_corridor()'s own X0/Y0 (self.x/self.y), which are
-        themselves whatever get_odom_topic() selects (either raw /odom or the
-        LOCAL EKF's /odometry/filtered -- see _update_active_odom()) -- never
-        the global (map-frame) EKF. Publishing these under 'map' would be
-        wrong by whatever offset odom has drifted from map at that instant --
-        exactly the kind of off-frame-marker mistake worth getting right the
-        first time rather than "fixing" visually later.
+        Frame: 'odom', not 'map' -- and this REMAINS correct after the
+        map-frame anchor fix, which is worth spelling out because that fix
+        makes the corridor's heading originate in map and so reads, at a
+        glance, like it should have moved these markers to 'map' too. It
+        should not. Every number in `corridor` is an odom-frame coordinate by
+        the time it gets here: the origin X0/Y0 is the live pose from
+        get_odom_topic()'s source (raw /odom or the LOCAL EKF's
+        /odometry/filtered -- see _update_active_odom(), never the global
+        map-frame EKF), and the heading is goal_anchor_odom's psi, which
+        _refresh_goal_anchor() has already reprojected OUT of map and INTO
+        this tick's odom frame via _pose_map_to_odom(). The anchor is STORED
+        in map and CONSUMED in odom; only the stored form is map-frame, and it
+        never reaches this method. Publishing under 'map' would therefore be
+        wrong by the entire map -> odom offset -- which reached 1.88 m of
+        translation and 32.3 deg of yaw by the end of the
+        2026-09-07T12-48-40_mission-bottle_then_person run that motivated the
+        fix, so it is not a rounding-level distinction.
+
+        WHAT THIS MEANS FOR REPLAY, since that is the part that bit: these
+        markers line up with map-frame data (the costmap, the occupancy grid,
+        /ekf_global/odometry/filtered) only once the recorded map -> odom edge
+        is applied, which RViz/Foxglove do automatically from /tf -- present
+        in the bag at ~13.7 Hz. Comparing the raw marker coordinates against
+        map-frame ones WITHOUT applying that edge is exactly the measurement
+        that made the pre-fix corridor look 2.12 m adrift; the frame tag here
+        is what tells a viewer (or an analyst) to apply it.
         """
         markers = MarkerArray()
         markers.markers.append(self._corridor_line_marker(

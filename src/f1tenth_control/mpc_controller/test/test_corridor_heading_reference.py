@@ -50,6 +50,12 @@ class _FakeMPC:
         # blend from live yaw) -- the path these tests exercise unless a test
         # sets it explicitly. Default mirrors MPCController.__init__'s.
         self.goal_start_xy = None
+        # The anchor build_straight_corridor actually reads (drift-correction
+        # pass): the move's start pose in the CURRENT odom frame, refreshed
+        # each tick by MPCController._refresh_goal_anchor() from the map-frame
+        # capture. None here selects the same bootstrap fallback goal_start_xy
+        # None already did, which is the path these tests exercise.
+        self.goal_anchor_odom = None
         # S-curve heading-blend shape params (f110_autonomy port) --
         # defaults mirror MPCController.__init__'s real ones, same as
         # every other attribute on this fake.

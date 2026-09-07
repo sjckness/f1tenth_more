@@ -16,6 +16,11 @@
   <!-- /mpc/corridor_markers (MPC_corr.py's _publish_corridor_markers()):
        Foxglove/RViz visualization of the MPC's own soft reference corridor. -->
   <depend>visualization_msgs</depend>
+  <!-- map <-> odom lookups ONLY (MPC_corr.py's _lookup_map_odom()), for the
+       frozen straight-move anchor's drift correction. The control loop's own
+       state stays odom frame, straight off the odometry topic; no other TF
+       edge is consulted. -->
+  <depend>tf2_ros</depend>
   <!-- param_defaults.get_odom_topic(): single source of truth for the active
        odometry topic given localization_source (see f1tenth_params/config/
        stack_params.yaml). f1tenth_params is a dependency-free leaf package. -->

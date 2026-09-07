@@ -14,9 +14,24 @@ turned out to be a drift-following loop: mechanical bias pushed the car
 sideways, the next rebuild translated the whole reference sideways with it,
 and nothing ever opposed the drift.
 
-The behaviour under test NOW: a straight (goal_distance) move references a
-line FROZEN at move start -- goal_start_xy for position, psi_init_corridor
-for heading -- and only the corridor's forward extent advances with the car.
+Then the fix landed in the wrong frame, and a second pass moved the frozen
+heading into map coordinates (see test_map_frame_anchor.py) -- which killed
+the drift live. What that pass did NOT fix was the corridor's own jitter: the
+origin sat at the perpendicular foot of the live pose on the frozen line, so
+the geometry combined a live position with a line that itself steps whenever
+a SLAM correction lands, and the corridor visibly jumped.
+
+The behaviour under test NOW (deliberate change, agreed with Andreas, not a
+regression): a straight move's corridor ALWAYS PASSES THROUGH THE CAR'S
+CURRENT POSITION, pointed along the frozen, map-corrected heading. Position
+tracks the car; direction does not. The explicit price is that lateral offset
+is no longer restored after a deflection -- the car carries on parallel to
+the intended line rather than homing back onto it -- traded for a corridor
+that only ever pivots instead of translating and pivoting. The goal_distance
+progress check keeps its OWN separate anchor at the original start point, so
+"go 6 m" still means 6 m along the intended line; that separation is pinned
+below.
+
 The old direction-only shape survives exactly as the bootstrap fallback for
 when no move start has been recorded yet, and is pinned as such below.
 
@@ -59,6 +74,19 @@ class _FakeMPC:
         # from live yaw); a tuple selects the frozen-line path a real
         # goal_distance move takes. Default mirrors MPCController.__init__'s.
         self.goal_start_xy = goal_start_xy
+        # The anchor build_straight_corridor actually reads: the move's
+        # start pose expressed in the CURRENT odom frame, refreshed each
+        # tick by MPCController._refresh_goal_anchor() from the map-frame
+        # capture (drift-correction pass -- see _pose_odom_to_map). Derived
+        # here exactly the way goal_distance_callback seeds it, so passing
+        # goal_start_xy/psi_init_corridor to this fake keeps selecting the
+        # frozen-line path (and a None psi_init_corridor keeps selecting the
+        # bootstrap fallback) as it did before that pass. Tests wanting a
+        # reference line that has moved relative to odom -- the whole point
+        # of the reprojection -- set this attribute directly.
+        self.goal_anchor_odom = (
+            None if (goal_start_xy is None or psi_init_corridor is None)
+            else (goal_start_xy[0], goal_start_xy[1], psi_init_corridor))
         # S-curve heading-blend shape params (f110_autonomy port) --
         # defaults mirror MPCController.__init__'s real ones, same as
         # every other attribute on this fake.
@@ -206,14 +234,14 @@ class TestBootstrapFallbackIsStillDirectionOnly(unittest.TestCase):
         self.assertAlmostEqual(corridor['psiRef'], 0.3, places=9)
 
 
-class TestFrozenStraightReference(unittest.TestCase):
+class TestCarTrackingCorridorOnAFrozenHeading(unittest.TestCase):
     """
-    THE regression tests for the drift-following bug.
+    The straight-move corridor's position/direction split.
 
-    A straight move's corridor is anchored to the line frozen at move start
-    (goal_start_xy + psi_init_corridor). Rebuilding it mid-move from a pose
-    that has drifted must not move that line -- only slide the corridor's
-    origin forward along it.
+    HEADING is frozen at move start (and map-corrected since -- see
+    test_map_frame_anchor.py); POSITION follows the car. Rebuilding mid-move
+    from a pose that has drifted must not move the reference DIRECTION, and
+    must put the corridor through wherever the car actually is.
     """
 
     def test_drifted_rebuild_returns_the_same_reference_heading(self):
@@ -233,18 +261,19 @@ class TestFrozenStraightReference(unittest.TestCase):
         self.assertAlmostEqual(mid_move['psiRef'], at_start['psiRef'], places=9)
         self.assertAlmostEqual(mid_move['psiRef'], 0.0, places=9)
 
-    def test_drifted_rebuild_puts_the_centerline_back_on_the_frozen_line(self):
+    def test_drifted_rebuild_puts_the_centerline_through_the_car(self):
         """
-        Confirm a rebuild puts the centerline back on the frozen line.
+        Confirm the centerline runs through the car, not the original line.
 
-        Position half of the same bug: the centerline must sit on y=0 (the
-        frozen line), NOT on y=0.35 (where the car has drifted to).
+        Position half of the deliberate change: with the car at y=0.35 the
+        centerline sits on y=0.35, NOT back on y=0 where the move began. It
+        stays parallel to the original line -- only the offset is kept.
         """
         corridor = MPCController.build_straight_corridor(
             _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
             [1.4, 0.35, 0.20, 0.5])
         for y in corridor['yc']:
-            self.assertAlmostEqual(float(y), 0.0, places=6)
+            self.assertAlmostEqual(float(y), 0.35, places=6)
 
     def test_centerline_has_no_bend_at_all(self):
         """
@@ -263,29 +292,30 @@ class TestFrozenStraightReference(unittest.TestCase):
             self.assertAlmostEqual(
                 math.atan2(yc[i] - yc[i - 1], xc[i] - xc[i - 1]), 0.0, delta=1e-9)
 
-    def test_only_the_forward_extent_advances_with_the_car(self):
+    def test_the_corridor_origin_is_the_cars_own_position(self):
         """
-        Confirm only the forward extent advances with the car.
+        Confirm the origin is the live pose, not a projection onto a line.
 
-        The origin slides along the frozen line by along-line progress and by
-        nothing else: 1.4m made good puts the corridor start at x=1.4, y=0
-        even though the car is at y=0.35.
+        The car is at (1.4, 0.35); the corridor starts exactly there and runs
+        corr_L_base straight ahead along the frozen heading. No perpendicular
+        foot is computed any more -- that was the jittery part.
         """
         corridor = MPCController.build_straight_corridor(
             _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
             [1.4, 0.35, 0.20, 0.5])
         self.assertAlmostEqual(float(corridor['xc'][0]), 1.4, places=6)
-        self.assertAlmostEqual(float(corridor['yc'][0]), 0.0, places=6)
+        self.assertAlmostEqual(float(corridor['yc'][0]), 0.35, places=6)
         self.assertAlmostEqual(float(corridor['Pend'][0]), 1.4 + 3.0, places=6)
-        self.assertAlmostEqual(float(corridor['Pend'][1]), 0.0, places=6)
+        self.assertAlmostEqual(float(corridor['Pend'][1]), 0.35, places=6)
 
-    def test_pure_lateral_drift_does_not_advance_the_corridor(self):
+    def test_pure_lateral_drift_translates_the_corridor_with_the_car(self):
         """
-        Confirm pure lateral drift does not advance the corridor.
+        Confirm sideways drift carries the corridor sideways with it.
 
         No along-line progress, 0.5m of pure sideways drift: the corridor is
-        identical to the one built at move start. That is the closed loop the
-        bug had -- before the fix this corridor translated 0.5m sideways.
+        the move-start one shifted 0.5m across, unrotated. This is the
+        no-lateral-homing trade stated explicitly -- the corridor follows,
+        it does not pull back.
         """
         at_start = MPCController.build_straight_corridor(
             _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
@@ -294,23 +324,24 @@ class TestFrozenStraightReference(unittest.TestCase):
             _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
             [0.0, 0.5, 0.0, 0.5])
         for a, b in zip(at_start['yc'], drifted['yc']):
-            self.assertAlmostEqual(float(a), float(b), places=9)
+            self.assertAlmostEqual(float(a) + 0.5, float(b), places=9)
         for a, b in zip(at_start['xc'], drifted['xc']):
             self.assertAlmostEqual(float(a), float(b), places=9)
 
-    def test_lateral_offset_is_now_a_real_nonzero_quantity(self):
+    def test_distance_from_the_centerline_is_zero_by_construction_again(self):
         """
-        Confirm lateral offset is now a real, non-zero quantity.
+        Pin the accepted cost of tracking the car.
 
-        The whole point of freezing the line: the car's distance from the
-        centerline is no longer zero by construction, so the corridor bound
-        and the lookahead target finally have an error to act on.
+        The car sits ON its own corridor's centerline, so the half-width bound
+        and w_corr have no lateral error to act on -- lateral recovery is
+        given up here on purpose. The frozen HEADING is what still corrects
+        the drift this whole line of work started with.
         """
         corridor = MPCController.build_straight_corridor(
             _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
             [1.4, 0.35, 0.20, 0.5])
         d_lat = min(abs(0.35 - float(y)) for y in corridor['yc'])
-        self.assertAlmostEqual(d_lat, 0.35, places=6)
+        self.assertAlmostEqual(d_lat, 0.0, places=9)
 
     def test_works_on_a_rotated_frozen_line(self):
         """Confirm nothing above depends on the frozen line being the x axis."""
@@ -324,10 +355,10 @@ class TestFrozenStraightReference(unittest.TestCase):
             _FakeMPC(psi_init_corridor=psi, goal_start_xy=anchor),
             [px, py, psi + 0.25, 0.5])
         self.assertAlmostEqual(corridor['psiRef'], psi, places=9)
-        self.assertAlmostEqual(
-            float(corridor['xc'][0]), anchor[0] + made_good * math.cos(psi), places=6)
-        self.assertAlmostEqual(
-            float(corridor['yc'][0]), anchor[1] + made_good * math.sin(psi), places=6)
+        # Origin is the car itself -- the 0.4m of lateral offset is kept, not
+        # projected away, and the live yaw (psi + 0.25) is still ignored.
+        self.assertAlmostEqual(float(corridor['xc'][0]), px, places=6)
+        self.assertAlmostEqual(float(corridor['yc'][0]), py, places=6)
 
     def test_anchor_without_a_captured_heading_falls_back(self):
         """
