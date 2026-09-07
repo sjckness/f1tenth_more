@@ -366,26 +366,35 @@ use_rti_solver:
   default: true
   description: "true (default): mpc_corr.py uses the OSQP real-time-iteration solver. false: fall back to the original SLSQP solve (kept for rollback/comparison)."
 # Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
-# own already-declared ROS param (self.declare_parameter). Default CHANGED to
-# 1.0 (the old flat-1Hz rebuild rate) per Andreas's explicit request, so the
-# MATLAB-comparison configuration is what runs unless overridden -- set to
-# 0.05 (half the 0.1s control tick, i.e. rebuild every tick, ~10Hz-class) to
-# get back the pre-comparison-pass rebuild rate without a code change.
+# own already-declared ROS param (self.declare_parameter). Default is 0.1 --
+# a 10Hz rebuild, matching control_loop's own 0.1s tick, i.e. the corridor is
+# rebuilt every tick.
+#
+# THIS KEY IS A PERIOD IN SECONDS, NOT A FREQUENCY. It reads as "seconds
+# between rebuilds", so a bigger number is a SLOWER corridor: 0.1 = 10Hz,
+# 1.0 = 1Hz, 10.0 = one rebuild every ten seconds. Worth stating outright
+# because setting it to 10.0 while intending "10Hz" is a real mistake that
+# was actually made here, and it does not fail loudly -- it also used to
+# crash mpc_corr outright, since 3x this value was packed into a marker
+# lifetime's uint32 nanosec field (fixed in MPC_corr.py's own
+# _corridor_line_marker, which now splits sec/nanosec properly, but the
+# 100x-too-slow corridor would have been silent regardless).
 corridor_update_period:
-  default: 1.0
-  description: "Min seconds between corridor rebuilds in mpc_corr.py. Default 1.0 (flat 1Hz, matching MATLAB-comparison mode). Set to 0.05 for the ~10Hz-class rebuild (half the 0.1s control tick, i.e. every tick) that was the default before the MATLAB-comparison pass."
+  default: 0.1
+  description: "Seconds between corridor rebuilds in mpc_corr.py -- a PERIOD, not a frequency (bigger = slower). Default 0.1 (10Hz, one rebuild per 0.1s control tick). 1.0 gives the flat 1Hz MATLAB-comparison rate."
 # Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
-# own already-declared ROS param (self.declare_parameter). Default CHANGED to
-# false per Andreas's explicit request, so the MATLAB-comparison
-# configuration is what runs unless overridden -- MATLAB has no such
-# constraint. Set to true to re-enable costmap_boundary_node's hard boundary
-# constraints in the RTI/OSQP solve (see mpc_solver.py's own module
-# docstring) without a code change. NOTE: with this false, the RTI solve
-# currently has NO hard wall constraint of any kind, only the soft w_obs
-# deflection cost, until this default is revisited.
+# own already-declared ROS param (self.declare_parameter). Default is TRUE:
+# costmap_boundary_node's hard wall constraints are active in the RTI/OSQP
+# solve (see mpc_solver.py's own module docstring). It had been false for the
+# MATLAB comparison, which has no such constraint; set it back to false to
+# reproduce that configuration without a code change.
+#
+# With this FALSE the RTI solve has NO hard wall constraint of any kind, only
+# the soft w_obs deflection cost -- worth knowing before flipping it, since
+# nothing else in the solve replaces the wall.
 use_hard_boundary_constraints:
-  default: false
-  description: "Default false (MATLAB has no hard boundary constraint, so this matches it): mpc_corr.py's RTI solve runs with NO hard wall constraint, only the soft w_obs deflection cost. Set true to re-enable costmap_boundary_node's hard wall constraints in the solve."
+  default: true
+  description: "true (default): mpc_corr.py's RTI solve enforces costmap_boundary_node's hard wall constraints. false: no hard wall constraint of any kind, only the soft w_obs deflection cost -- the MATLAB-comparison configuration."
 # cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
 # NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
 # every other arg in this file, the right value is machine-specific (which

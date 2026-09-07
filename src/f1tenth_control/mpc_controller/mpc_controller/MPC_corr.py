@@ -384,19 +384,20 @@ class MPCController(Node):
         # 10x improvement, 1Hz -> 10Hz, cutting the ~15cm stale-corridor gap
         # observed at test speed down to ~1.5cm).
         #
-        # Now a ROS param. Default CHANGED to 1.0 (the old flat-1Hz value,
-        # reverting the 10x rebuild-rate improvement above as the in-code
-        # default) as of Andreas's explicit request to run the
-        # MATLAB-comparison configuration by default rather than as an
-        # opt-in launch arg. Still a launch-arg opt-out (mpc_corr.launch.py's
-        # own corridor_update_period) to get back to 0.5*self.ts (the
-        # ~10Hz-class rebuild everything above this comment still argues
-        # for), not a code change. See that comment block above for why 1.0
-        # was originally considered too slow -- that reasoning hasn't
-        # changed, only which value is the default while the MATLAB
-        # comparison is ongoing.
+        # Now a ROS param, back to a 10Hz rebuild (0.1s, one per control_loop
+        # tick) on request (2026-09-07) -- the rate everything above this
+        # comment argues for. It had been 1.0 for the MATLAB-comparison
+        # configuration; set corridor_update_period:=1.0 to get that back
+        # without a code change.
+        #
+        # THE PARAM IS A PERIOD IN SECONDS, NOT A FREQUENCY -- bigger is
+        # slower. The literal below is only the fallback for a bare
+        # `ros2 run` that bypasses the launch file; stack_params.yaml's own
+        # corridor_update_period is the real source of truth, and this is a
+        # hand-mirrored copy of it (same caveat every other in-code default
+        # in this file carries). Keep the two in step.
         self.corridor_update_period = float(
-            self.declare_parameter('corridor_update_period', 1.0).value)
+            self.declare_parameter('corridor_update_period', 0.1).value)
         self.last_corridor_time = None
         # Real computation time of the cached corridor (rclpy Time, not a
         # float) -- used ONLY to stamp /mpc/corridor_markers headers (see
