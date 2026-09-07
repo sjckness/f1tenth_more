@@ -251,6 +251,13 @@ _DEFAULT_BEST_EFFORT_TOPICS = [
     '/odom',
 ]
 
+# Recorded RELIABLE with a deep queue instead of rosbag2's default depth 10 --
+# see _reliable_deep_qos() for the measurement that made this necessary and for
+# why /tf_static is deliberately NOT in this list.
+_DEFAULT_DEEP_QUEUE_TOPICS = [
+    '/tf',
+]
+
 # Snapshotted into the manifest for at-a-glance run comparison. The full
 # stack_params.yaml copy is the authoritative record; this is the shortlist an
 # analysis script can group runs by without parsing yaml.
@@ -270,6 +277,50 @@ def _best_effort_qos(depth):
     return QoSProfile(
         depth=depth,
         reliability=ReliabilityPolicy.BEST_EFFORT,
+        durability=DurabilityPolicy.VOLATILE,
+        history=HistoryPolicy.KEEP_LAST,
+    )
+
+
+def _reliable_deep_qos(depth):
+    """RELIABLE + KEEP_LAST at a large depth, for topics whose MESSAGE RATE
+    (not byte rate) outruns rosbag2's default queue.
+
+    WHY RELIABLE AND NOT BEST_EFFORT, since best-effort is the usual answer to
+    "recorder can't keep up": best-effort would license the middleware to
+    discard silently under load, which is precisely the failure being fixed
+    here -- and it would silently discard MORE, not less. Reliable also
+    matches what tf2 broadcasters actually offer, so the subscription is
+    compatible without adaptation. The queue DEPTH is the fix; the reliability
+    setting is not.
+
+    WHAT THIS FIXES, measured. rosbag2's default subscription QoS is
+    KEEP_LAST depth 10. /tf carries every broadcaster in the stack on one
+    topic -- both EKF instances, the ZED wrapper and robot_state_publisher,
+    ~109Hz aggregate -- so depth 10 is about 92ms of tolerance before samples
+    are overwritten. In run 2026-09-07T12-48-40 that ran out: the recorder's
+    /tf receive-minus-header lag went from a +2.1ms median over the first half
+    to +9803.7ms over the second (peak +9930.6ms), while EVERY other topic's
+    lag stayed flat. Transform deliveries over the same halves went 2895 ->
+    139, a 4.8% retention. All four /tf publishers appeared to collapse at
+    once, which is the tell: four independent nodes cannot fail
+    simultaneously, but they do share exactly one thing -- this subscription.
+
+    THAT COST REAL ANALYSIS TIME, which is why the depth is generous rather
+    than merely sufficient: an entire corridor-drift investigation was built
+    on interpolating that 95%-missing stream, and the "drift" it found did not
+    survive recomputation against non-interpolated samples. A dropped /tf
+    sample is not a lost datum here, it is a wrong conclusion.
+
+    NOT FOR /tf_static, deliberately: that one is TRANSIENT_LOCAL, and
+    subscribing VOLATILE (as this profile does) would miss the latched backlog
+    that IS its entire content -- a recorder that captures no static
+    transforms at all, while looking healthy. Leave it on rosbag2's own
+    adaptation.
+    """
+    return QoSProfile(
+        depth=depth,
+        reliability=ReliabilityPolicy.RELIABLE,
         durability=DurabilityPolicy.VOLATILE,
         history=HistoryPolicy.KEEP_LAST,
     )
@@ -308,6 +359,14 @@ class MissionLoggerNode(Node):
         self.best_effort_topics = list(self.declare_parameter(
             'best_effort_topics', _DEFAULT_BEST_EFFORT_TOPICS).value)
         self.qos_depth = int(self.declare_parameter('qos_override_depth', 10).value)
+        self.deep_queue_topics = list(self.declare_parameter(
+            'deep_queue_topics', _DEFAULT_DEEP_QUEUE_TOPICS).value)
+        # 500 at /tf's ~109Hz is ~4.6s of buffer, against the ~92ms that
+        # rosbag2's default depth 10 gave. Comfortably over the >=100 floor the
+        # fix calls for: the queue only costs memory when it is actually being
+        # used, and the failure it prevents is silent.
+        self.deep_queue_depth = int(self.declare_parameter(
+            'deep_queue_depth', 500).value)
         self.sweep_period_sec = float(self.declare_parameter('sweep_period_sec', 300.0).value)
         # 'move' (default) relocates into <bag_root>/incomplete/; 'delete'
         # removes outright -- opt-in only, see module docstring.
@@ -412,16 +471,31 @@ class MissionLoggerNode(Node):
             }
 
             try:
+                # max_cache_size MUST be passed explicitly. rosbag2_py's
+                # StorageOptions defaults it to 0, whereas `ros2 bag record`
+                # -- the path this node replaced -- defaults to 100MiB, so
+                # constructing StorageOptions without it silently gives the
+                # recorder no write cache at all. Nothing warns: rosbag2 only
+                # rejects a zero cache in snapshot mode.
                 storage_options = rosbag2_py.StorageOptions(
-                    uri=bag_dir, storage_id=self.storage_id)
+                    uri=bag_dir, storage_id=self.storage_id,
+                    max_cache_size=100 * 1024 * 1024)
                 record_options = rosbag2_py.RecordOptions()
                 record_options.all = False
                 record_options.topics = list(self.topics)
                 record_options.is_discovery_disabled = False
                 record_options.rmw_serialization_format = 'cdr'
                 record_options.topic_polling_interval = datetime.timedelta(milliseconds=100)
-                record_options.topic_qos_profile_overrides = {
+                # Deep-queue entries are applied after the best-effort ones
+                # so that a topic listed in both lists lands RELIABLE+deep
+                # rather than silently keeping whichever dict comprehension ran
+                # last. The two lists are disjoint by default.
+                qos_overrides = {
                     t: _best_effort_qos(self.qos_depth) for t in self.best_effort_topics}
+                qos_overrides.update({
+                    t: _reliable_deep_qos(self.deep_queue_depth)
+                    for t in self.deep_queue_topics})
+                record_options.topic_qos_profile_overrides = qos_overrides
 
                 recorder = rosbag2_py.Recorder()
 
