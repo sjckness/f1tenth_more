@@ -404,7 +404,7 @@ class MPCController(Node):
 
         self.wheel_radius = 0.05
         self.ts = 0.1
-        self.N = 10
+        self.N = 20
 
         # UPGRADE: rough footprint radius used for the predicted-clearance check.
         # In-code default (0.20) matches stack_params.yaml's car_radius key, the
@@ -467,13 +467,22 @@ class MPCController(Node):
 
         # Corridoio MATLAB-like
         #
-        # Narrowed to 1/3 width and shortened to 1/2 length on request
-        # (2026-09-07). Previous values: corr_L_base 3.0, corr_wmin 1.3,
-        # corr_wmax 2.3 -- kept here because every one of them is a bare
-        # literal with no ROS parameter behind it (unlike corridor_update_
-        # period directly below, which IS a declared param wired through
-        # stack_params.yaml), so there is no launch-time override and no
-        # config file that records what they used to be.
+        # Narrowed to 1/3 width on request (2026-09-07): corr_wmin 1.3 ->
+        # 0.4333, corr_wmax 2.3 -> 0.7667. Those are kept.
+        #
+        # corr_L_base was shortened to 1/2 (3.0 -> 1.5) in the same request and
+        # has been RESTORED to 3.0 (2026-09-08). It could not stay at 1.5: the
+        # lookahead target is derived from it (see _corridor_lookahead below)
+        # and must sit BEYOND the horizon's physical reach, N*ts*vdes = 20 *
+        # 0.1 * 0.5 = 1.0 m, or the terminal cost stops acting as a direction
+        # pull and becomes an arrival target. At L = 1.5 the derived lookahead
+        # is 0.75 m -- inside the reach, and short enough that the arclength
+        # advance clamped to the corridor's last index on every single cycle.
+        # The WIDTH request is independent of the length and is untouched.
+        # Every one of these is a bare literal with no ROS parameter behind it
+        # (unlike corridor_update_period directly below, which IS a declared
+        # param wired through stack_params.yaml), so there is no launch-time
+        # override and no config file that records what they used to be.
         #
         # corr_wmin/corr_wmax are HALF-widths, not full widths: build_
         # straight_corridor places the walls at C +/- w*n (see its own
@@ -485,13 +494,32 @@ class MPCController(Node):
         # NOTE these are not independent of build_straight_corridor's own
         # floor/clamp on length: its goal_distance branch uses
         # max(corr_L_base, 1.0) and its goal_pose branch clips the
-        # car-to-goal distance into [1.0, corr_L_base]. At 1.5 both still
-        # behave (1.5 > 1.0, and [1.0, 1.5] is a valid range), but halving
-        # the length again would collapse that clip range to a point.
-        self.corr_L_base = 1.5
+        # car-to-goal distance into [1.0, corr_L_base].
+        self.corr_L_base = 3.0
         self.corr_N = 120
         self.corr_wmin = 0.4333
         self.corr_wmax = 0.7667
+
+        # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
+        # It used to be a bare `lookahead = 1.5` inside compute_local_target
+        # while corr_L_base was 1.5 -- two independent literals describing one
+        # geometric relationship, which silently collided: s_target =
+        # s_cum[idx] + 1.5 on a corridor 1.5 m long is >= s_cum[-1] for every
+        # idx, so searchsorted clamped to the last index on EVERY cycle and the
+        # "advance along arclength" never operated at all. The target was
+        # simply the corridor endpoint.
+        #
+        # The reference implementation runs lookahead 1.5 on L 3.0 -- the
+        # target sits mid-corridor and advances -- so the ratio, not the
+        # absolute value, is the tuned quantity.
+        self.corr_lookahead_frac = 0.5
+        # Floor, as a multiple of the horizon's physical reach (N*ts*vdes).
+        # The reference's target sat beyond its horizon's 0.28 m reach, which
+        # is what makes the terminal cost behave as a direction pull
+        # (pure-pursuit-like "steer toward") rather than an arrival target
+        # ("get to this point in N steps"). Keeping the lookahead outside the
+        # reach preserves that character across horizon changes.
+        self.corr_lookahead_reach_margin = 1.25
         self.corr_p = 1.8
         self.q = 1.2
         self.corr_epsiMax = math.radians(35.0)
@@ -501,8 +529,60 @@ class MPCController(Node):
         # f110_autonomy -- see that method's own comment for the full
         # rationale and the receding-horizon caveat at this pass's rebuild
         # rate.
-        self.corr_turn_u_start = 0.10
-        self.corr_turn_u_end = 0.70
+        # DECLARED PARAMETERS, not bare literals, because the measurement
+        # below says these two -- not which end of the blend is frozen -- are
+        # what governs whether the heading return converges.
+        #
+        # HOW MUCH OF ITS HEADING ERROR THE CORRIDOR ASKS THE CAR TO CORRECT.
+        # With psiStart live and psiEnd frozen, the bearing from the car to
+        # the lookahead target is only PART of the way back to the reference
+        # heading -- the S-curve deliberately spreads the return over the
+        # corridor length. At u_start/u_end = 0.10/0.70 and lookahead 1.5 on
+        # L 3.0, that bearing demands just 24.7% of the error. The corridor is
+        # rebuilt from the LIVE pose every tick, so the other 75% is re-granted
+        # every tick and the loop settles at a NON-ZERO heading error while
+        # drifting laterally.
+        #
+        # Measured open-loop-to-closed-loop, car started 0.35 rad off the
+        # reference heading, 8.0 s, N=20, ts=0.1, vdes=0.5, normalised
+        # weights, corridor rebuilt every tick:
+        #
+        #   u_start/u_end   final psi     final lateral offset
+        #   0.10 / 0.70      +0.1344 rad      +1.010 m   <- current default
+        #   0.00 / 0.70      +0.0486 rad      +0.675 m
+        #   0.00 / 0.40      +0.0011 rad      +0.265 m
+        #   0.00 / 0.20      +0.0000 rad      +0.163 m
+        #   0.00 / 0.05      +0.0000 rad      +0.123 m   <- ~= both-ends-frozen
+        #
+        # Monotone: the tighter the blend, the more of the error the corridor
+        # demands per rebuild and the closer the return gets to zero. Left at
+        # the reference implementation's own 0.10/0.70 by default, because
+        # that is what the port is specified to reproduce -- but exposed so
+        # the table above can be walked on the car instead of in a rebuild.
+        self.corr_turn_u_start = float(
+            self.declare_parameter('corr_turn_u_start', 0.10).value)
+        self.corr_turn_u_end = float(
+            self.declare_parameter('corr_turn_u_end', 0.70).value)
+
+        # Which end of the heading blend is frozen (see build_straight_corridor).
+        # True  -- psiStart = LIVE yaw, psiEnd = FROZEN anchor heading. The
+        #          reference implementation's behaviour.
+        # False -- both ends frozen at the anchor heading, i.e. a straight
+        #          corridor through the live position along the reference
+        #          direction. THE DEFAULT since 2026-09-08, and what the stack
+        #          ran before the port.
+        #
+        # The default is stack_params.yaml's, not a literal here -- that key
+        # carries the measurement this flip rests on. Summary: the two
+        # geometries do NOT rank the way the port expected. Across both
+        # rebuild periods (see corridor_update_period below), both-ends-frozen
+        # returns the heading to zero and the reference blend does not, inside
+        # the 8 s window; run long enough the blend does converge, but by then
+        # it has traded away ~0.9 m of lateral offset that nothing restores.
+        self.corridor_heading_return = bool(
+            self.declare_parameter(
+                'corridor_heading_return',
+                get_value('corridor_heading_return')).value)
 
         # aggiornamento corridoio
         #
@@ -537,20 +617,29 @@ class MPCController(Node):
         # 10x improvement, 1Hz -> 10Hz, cutting the ~15cm stale-corridor gap
         # observed at test speed down to ~1.5cm).
         #
-        # Now a ROS param, back to a 10Hz rebuild (0.1s, one per control_loop
-        # tick) on request (2026-09-07) -- the rate everything above this
-        # comment argues for. It had been 1.0 for the MATLAB-comparison
-        # configuration; set corridor_update_period:=1.0 to get that back
-        # without a code change.
+        # AND YET 1.0 IS WHAT SHIPS. Everything above this line is an argument
+        # that nothing STOPS the rebuild going to 10Hz -- it is cheap, and the
+        # gate can absorb it. That is not the same as an argument that faster
+        # is BETTER, and when the question was finally measured rather than
+        # reasoned about (2026-09-08, closed-loop, see stack_params.yaml's own
+        # corridor_update_period comment for the four-cell table) the slower
+        # rebuild won at both corridor geometries. The ~15cm stale-corridor
+        # gap the 10Hz argument was built to close is real; it is simply
+        # cheaper than what a fast rebuild costs the heading return, because
+        # every rebuild re-grants the heading error the previous corridor was
+        # asking the car to give up.
         #
         # THE PARAM IS A PERIOD IN SECONDS, NOT A FREQUENCY -- bigger is
-        # slower. The literal below is only the fallback for a bare
-        # `ros2 run` that bypasses the launch file; stack_params.yaml's own
-        # corridor_update_period is the real source of truth, and this is a
-        # hand-mirrored copy of it (same caveat every other in-code default
-        # in this file carries). Keep the two in step.
+        # slower. THE VALUE IS NOT WRITTEN HERE: the declare_parameter default
+        # below reads stack_params.yaml through get_value(), so that file is
+        # the single source of truth even for a bare `ros2 run` that bypasses
+        # the launch file. It used to be a hand-mirrored literal (0.1) that
+        # had drifted out of step with the yaml (1.0), with this file's own
+        # comments (1.0), and with a test's comment (10.0).
         self.corridor_update_period = float(
-            self.declare_parameter('corridor_update_period', 0.1).value)
+            self.declare_parameter(
+                'corridor_update_period',
+                get_value('corridor_update_period')).value)
         self.last_corridor_time = None
         # Real computation time of the cached corridor (rclpy Time, not a
         # float) -- used ONLY to stamp /mpc/corridor_markers headers (see
@@ -691,11 +780,19 @@ class MPCController(Node):
         self.weights = {
             "w_term": 3.0,
             "w_v": 8.0,
-            "w_psi": 5.0,
+            "w_psi": 1.5,
             "w_u_a": 0.0,
             "w_du_delta": 15.0,
             "w_du_a": 0.0,
             "w_delta0": 0.0,
+            # DECLARED, not effective. Every key here except w_term and w_psi
+            # is a per-stage weight and is multiplied by
+            # STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 inside
+            # solve_mpc_step (see mpc_solver.scale_stage_weights). So the
+            # obstacle weight the solver actually sees is 8.0 * 0.35 = 2.8,
+            # w_v is 2.8, w_du_delta is 5.25 -- while w_term 3.0 and w_psi 1.5
+            # are terminal and pass through untouched. Quote the effective
+            # number when comparing against a tuning note, not the literal.
             "w_obs": 8.0,
             "w_corr": 0.0,
         }
@@ -1099,11 +1196,7 @@ class MPCController(Node):
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
         self.pose_goal_reached = False
-        # New move -- don't let target smoothing/deflection-coast carry over
-        # state from whatever the previous move's target was doing.
-        self.smoothed_target = None
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
+        self._invalidate_move_state()
         self.get_logger().info(
             f'Nuovo goal_distance={self.goal_distance:.3f} m da '
             f'({self.goal_start_xy[0]:.3f}, {self.goal_start_xy[1]:.3f})'
@@ -1255,11 +1348,7 @@ class MPCController(Node):
         self.goal_anchor_odom = None
         self.goal_reached = False
         self._no_goal_warned = False
-        # New move -- don't let target smoothing/deflection-coast carry over
-        # state from whatever the previous move's target was doing.
-        self.smoothed_target = None
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
+        self._invalidate_move_state()
         self.get_logger().info(
             f'Nuovo goal_pose=({self.goal_pose_xy[0]:.3f}, {self.goal_pose_xy[1]:.3f}) '
             f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione)'
@@ -1365,11 +1454,7 @@ class MPCController(Node):
         self.goal_anchor_odom = None
         self.goal_reached = False
         self._no_goal_warned = False
-        # New move -- don't let target smoothing/deflection-coast carry over
-        # state from whatever the previous move's target was doing.
-        self.smoothed_target = None
-        self.last_deflection_vec = np.zeros(2)
-        self.deflection_decay_remaining = 0
+        self._invalidate_move_state()
 
         # vdes override for the duration of the turn -- the one real
         # (non-stub) per-move vdes path in this file today. move.vdes at the
@@ -1387,6 +1472,43 @@ class MPCController(Node):
             f'{self.goal_pose_xy[0]:.3f},{self.goal_pose_xy[1]:.3f}) reach={reach:.2f} m '
             f'steering={msg.steering!r} speed={msg.speed:.2f}'
         )
+
+    def _invalidate_move_state(self):
+        """Drop every piece of per-move cached geometry.
+
+        Called by all three goal callbacks (goal_distance, goal_pose,
+        goal_turn) the instant a new move is accepted.
+
+        WHY THE CORRIDOR CACHE IS IN HERE, and what it cost when it was not:
+        control_loop rebuilds the corridor only every corridor_update_period,
+        so without this a brand-new move solved against the PREVIOUS move's
+        corridor -- its length, its frozen heading, its endpoint -- for up to a
+        full period. It reported "solved" the whole time, and because
+        _publish_corridor_markers only fires on a rebuild, no marker was
+        published to reveal that the geometry on screen belonged to the move
+        before. A turn command following a straight one was the worst case: it
+        steered against the straight move's frozen heading until the period
+        expired. Clearing last_corridor_time forces need_update on the very
+        next tick, which rebuilds AND publishes.
+
+        WHAT IS DELIBERATELY NOT RESET: self.last_u. The RTI warm start is
+        last_u tiled across the horizon (see mpc_solver._solve_rti), but last_u
+        is also the input actually being held by the hardware right now, and it
+        is what w_du_delta measures the next command against. Zeroing it on a
+        goal boundary would command a steering snap to centre and charge the
+        rate cost for a discontinuity the car never made. The linearization
+        trajectory it seeds is re-rolled from the live x0 every tick anyway, so
+        it carries no stale corridor information.
+        """
+        # Target smoothing / obstacle-deflection coast: previous move's state.
+        self.smoothed_target = None
+        self.last_deflection_vec = np.zeros(2)
+        self.deflection_decay_remaining = 0
+        # Corridor geometry: force a rebuild + marker publish on the next tick.
+        self.cached_corridor = None
+        self.last_corridor_time = None
+        self.last_corridor_stamp = None
+        self.cached_pref_nom = None
 
     def _update_active_odom(self):
         """Seleziona la sorgente odom attiva (hardware ha sempre priorita' se fresca)."""
@@ -2082,7 +2204,10 @@ class MPCController(Node):
             # entirely and leaves a corridor that only ever pivots.
             #
             # THE PRICE, stated plainly so nobody has to rediscover it: there is
-            # NO lateral homing any more. After an obstacle deflection the car
+            # NO lateral homing any more (the HEADING return is back, see the
+            # blend note below; lateral/cross-track return is deliberately out
+            # of scope and is not in the reference implementation either).
+            # After an obstacle deflection the car
             # keeps whatever sideways offset it picked up and simply carries on
             # parallel to the intended line, since the corridor -- and therefore
             # the lookahead target taken on its centerline (compute_local_target
@@ -2100,11 +2225,43 @@ class MPCController(Node):
             # assignment below. The two must stay separate quantities, or
             # "goal_distance: 6.0" stops meaning 6 m along the intended line.
             #
-            # psiStart == psiEnd here on purpose: a straight move's reference has
-            # no bend to blend, so the S-curve shape below collapses to a
-            # constant (dpsi == 0) and is inert on this path. It stays fully live
-            # for the goal_pose branch above -- the branch goal_turn_callback
-            # dispatches turns through -- whose heading behaviour is untouched.
+            # WHICH END OF THE HEADING BLEND IS FROZEN -- corridor_heading_
+            # return, and the default is BOTH (false). Read this whole note:
+            # the argument below is the one the port was written on, and the
+            # measurement contradicts its conclusion.
+            #
+            # THE ARGUMENT. With corridor_heading_return true, psiStart is the
+            # car's LIVE yaw and psiEnd the move's FROZEN, map-corrected start
+            # heading. The S-curve below therefore blends live -> frozen across
+            # the corridor, and THAT blend is the heading return: the lookahead
+            # target taken on the centerline (compute_local_target -> pref_nom
+            # -> w_term) sits on the returning arc, so the solver steers back
+            # onto the reference direction with no explicit heading cost
+            # needed. It is the same thing the reference implementation does,
+            # and the reason it runs with w_psi = 0 and w_corr = 0. Freezing
+            # BOTH ends makes dpsi identically 0 and the S-curve inert here,
+            # which reads like it must remove the RETURN along with the
+            # drift-chasing: a corridor rigidly parallel to the reference line
+            # and translated onto the car's current position appears to ask the
+            # car only to hold the heading it already has.
+            #
+            # WHY IT IS WRONG. It is not the corridor alone that returns the
+            # heading -- this stack runs w_psi = 1.5, a terminal yaw cost
+            # pulling toward the corridor's psiRef, which is the FROZEN anchor
+            # heading in both geometries. So both-ends-frozen still returns;
+            # it just returns through w_psi instead of through the centerline
+            # arc, and it does so at 100% of the error per rebuild instead of
+            # the S-curve's 24.7%. Measured closed-loop (see stack_params.yaml
+            # under corridor_update_period), both-ends-frozen is at zero
+            # heading error in under 8 s having given up 0.089 m laterally;
+            # the blend is still +0.0707 rad at 8 s and 0.750 m off, heading
+            # for ~0.900 m of PERMANENT offset, because this corridor has no
+            # lateral homing (see "THE PRICE" above). The blend does converge
+            # eventually -- it is slow, not broken -- but it pays for the
+            # slowness in offset that never comes back.
+            #
+            # true remains reachable as a launch arg: it is what f110_autonomy
+            # and the MATLAB comparison do, and that comparison is still live.
             #
             # When no map anchor was captured (feature off, or no transform at
             # move start) goal_anchor_odom holds the raw odom-frame move-start
@@ -2127,17 +2284,37 @@ class MPCController(Node):
                 #   X0/Y0 are therefore deliberately left as build_straight_
                 #   corridor received them, NOT recomputed onto the frozen line.
                 progress_anchor_xy = (float(anchor_pose[0]), float(anchor_pose[1]))
-                psiStart = float(anchor_pose[2])
-                psiEnd = psiStart
+                # Frozen target heading; the ORIGIN end depends on the
+                # parameter -- see the "WHICH END OF THE HEADING BLEND IS
+                # FROZEN" note above.
+                psiEnd = float(anchor_pose[2])
+                # getattr, not a bare attribute, so the duck-typed stand-ins
+                # the corridor tests build (which predate this parameter) still
+                # select a defined shape. Its fallback tracks the SHIPPED
+                # default from stack_params.yaml -- it is deliberately not a
+                # second, independent opinion about which geometry is right.
+                if getattr(self, 'corridor_heading_return',
+                           get_value('corridor_heading_return')):
+                    psiStart = psi0
+                else:
+                    # THE DEFAULT since 2026-09-08: both ends frozen, dpsi == 0,
+                    # S-curve inert on this branch. It measures BETTER on the
+                    # heading return at every rebuild period tested -- see the
+                    # corridor_heading_return parameter's own note in __init__.
+                    psiStart = psiEnd
                 # Diagnostic only: how far the car now sits from the ORIGINAL
                 # line. Deliberately not acted on any more (see "THE PRICE"
                 # above) -- logged so a run can still be read back for how much
                 # lateral offset a move actually accumulated.
-                lat_off = (-(X0 - progress_anchor_xy[0]) * math.sin(psiStart)
-                           + (Y0 - progress_anchor_xy[1]) * math.cos(psiStart))
+                # psiEnd, not psiStart: this is the offset from the ORIGINAL
+                # reference line, and that line's direction is the FROZEN
+                # heading. psiStart is the live yaw now and would measure the
+                # offset against a line that rotates with the car.
+                lat_off = (-(X0 - progress_anchor_xy[0]) * math.sin(psiEnd)
+                           + (Y0 - progress_anchor_xy[1]) * math.cos(psiEnd))
                 self.get_logger().info(
                     f'CORR/tracking | origin=({X0:+.3f},{Y0:+.3f}) '
-                    f'psi={psiStart:+.4f} '
+                    f'psi_live={psiStart:+.4f} psi_frozen={psiEnd:+.4f} '
                     f'progress_anchor=({progress_anchor_xy[0]:+.3f},'
                     f'{progress_anchor_xy[1]:+.3f}) lat_off={lat_off:+.3f}'
                 )
@@ -2162,24 +2339,28 @@ class MPCController(Node):
         # explicit request -- this only ever changed the SHAPE of the blend
         # between psiStart and psiEnd, never which branch computes them.
         #
-        # WHICH BRANCH THIS ACTUALLY AFFECTS, since the frozen-straight fix
-        # above: on the goal_pose branch (the one goal_turn dispatches turns
-        # through) psiStart is the live yaw and psiEnd the live bearing to the
-        # goal, so dpsi is generally non-zero and this S-curve is exactly as
-        # live as it was when it was ported. On the goal_distance branch with a
-        # move-start anchor captured, psiStart == psiEnd by construction, so
-        # dpsi == 0 and every expression below reduces to a constant heading --
-        # the shape is inert there, deliberately (a straight move's reference
-        # has no bend). It is still exercised on that branch's bootstrap
-        # fallback, where psiStart is once again the live yaw.
+        # WHICH BRANCH THIS ACTUALLY AFFECTS: all of them, since the
+        # heading-return fix. On the goal_pose branch (the one goal_turn
+        # dispatches turns through) psiStart is the live yaw and psiEnd the
+        # live bearing to the goal. On the goal_distance branch psiStart is
+        # the live yaw and psiEnd the move's frozen, map-corrected start
+        # heading, so dpsi is the car's accumulated heading error and this
+        # shape is exactly what returns it. Same on that branch's bootstrap
+        # fallback. dpsi == 0 (already aligned) still collapses every
+        # expression below to a constant heading, which is correct: a car
+        # already on the reference direction has nothing to return from.
         #
-        # Scope note that still holds: with corridor_update_period back at its
-        # 1.0s default (see __init__), the corridor this shape describes is a
-        # ~1s-lived reference; at the launch-arg 0.5*ts setting it is rebuilt
-        # essentially every control_loop tick and the shape only governs the
-        # near-term reference inside one replan window (N=10, ts=0.1), not a
-        # standing scripted turn the way it did in f110_autonomy's
-        # slower-cadence design.
+        # Scope note: at the shipping corridor_update_period of 1.0 s the
+        # corridor this shape describes is a ~1s-lived reference, roughly
+        # matching f110_autonomy's own slower-cadence design that the shape was
+        # ported from. Set the period down to ~ts and it is rebuilt essentially
+        # every control_loop tick, at which point the shape governs only the
+        # near-term reference inside one replan window (N=20, ts=0.1, so 2.0 s
+        # of horizon) rather than a standing scripted turn -- and the heading
+        # return degrades accordingly, which is the measurement that fixed the
+        # period at 1.0. On the goal_distance branch this shape is inert at the
+        # default geometry anyway (corridor_heading_return false -> dpsi == 0);
+        # it is live on every goal_pose turn regardless.
         tau = np.clip(
             (u - self.corr_turn_u_start) / max(self.corr_turn_u_end - self.corr_turn_u_start, 1e-6),
             0.0, 1.0)
@@ -2264,6 +2445,12 @@ class MPCController(Node):
             "ny": ny,
             "halfWidth": halfWidth,
             "psiRef": float(psiEnd),
+            # The length THIS corridor was actually built with (the
+            # goal_pose branch clips it into [1.0, corr_L_base], so it is not
+            # always corr_L_base). _corridor_lookahead derives the lookahead
+            # from it -- see that method.
+            "L": float(L),
+            "psiStart": float(psiStart),
             "t": float(dpsi),
             "Pend": p_goal,
             "dFront": float(d_front),
@@ -2272,7 +2459,8 @@ class MPCController(Node):
 
         # ---- DEBUG: geometria del corridoio appena costruito ----
         self.get_logger().info(
-            f'CORR/build | L={L:.2f} psiStart={psiStart:+.4f} psiEnd={psiEnd:+.4f} '
+            f'CORR/build | L={L:.2f} psiStart(live)={psiStart:+.4f} '
+            f'psiEnd(frozen)={psiEnd:+.4f} '
             f'dpsi={dpsi:+.4f} halfWidth=[{halfWidth[0]:.3f}..{halfWidth[-1]:.3f}] '
             f'dFront={d_front:.2f}'
         )
@@ -2305,8 +2493,23 @@ class MPCController(Node):
         # f1tenth_behavior/README.md's "Dependency failure behavior"
         # section) -- except here the marker's own lifetime enforces it
         # directly, rather than relying on a consumer to notice.
-        m.lifetime.sec = 0
-        m.lifetime.nanosec = int(3.0 * self.corridor_update_period * 1e9)
+        # builtin_interfaces/Duration splits into sec + nanosec, and nanosec is
+        # a uint32 the message class asserts on: anything >= 4294967296 (~4.295s)
+        # raises "The 'nanosec' field must be an unsigned integer in
+        # [0, 4294967295]". Packing the WHOLE lifetime into nanosec therefore
+        # crashed mpc_corr outright for any corridor_update_period above about
+        # 1.43s -- and stack_params.yaml's own default is 10.0, so this fired on
+        # the very first _publish_corridor_markers() call, every run: the
+        # AssertionError propagates out of control_loop() through rclpy's
+        # executor and kills the process, navigation crash-loops until the
+        # supervisor's restart budget is gone, and mpc_corr then stays absent
+        # from the graph -- which /mission/start_mission's own preflight
+        # (f1tenth_behavior/mission/preflight.py) correctly reports as "node
+        # 'mpc_corr' not found in the ROS graph", i.e. start_mission stops
+        # working with no obvious connection to a marker-lifetime line.
+        lifetime_sec = 3.0 * self.corridor_update_period
+        m.lifetime.sec = int(lifetime_sec)
+        m.lifetime.nanosec = int(round((lifetime_sec - int(lifetime_sec)) * 1e9))
         m.points = [Point(x=float(px), y=float(py), z=0.0) for px, py in zip(xs, ys)]
         return m
 
@@ -2360,6 +2563,47 @@ class MPCController(Node):
         ))
         self.corridor_markers_pub.publish(markers)
 
+    def _corridor_lookahead(self, corridor):
+        """Derive compute_local_target's lookahead from the corridor length.
+
+        It is derived rather than carried as an independent constant because
+        two requirements, both of which used to live only in prose:
+
+        1. It must be a fraction of the corridor length (corr_lookahead_frac,
+           0.5 -- the reference's 1.5 on L 3.0), so the target sits inside the
+           corridor and the arclength advance actually operates instead of
+           clamping to the last index every cycle.
+        2. It must lie BEYOND the horizon's physical reach, N*ts*vdes, or the
+           terminal cost changes character from "steer toward" to "arrive at".
+
+        When the two disagree the reach floor wins and the mismatch is logged:
+        that is a geometry that has been mis-configured, and it should say so
+        rather than quietly degrade the way the 1.5/1.5 collision did.
+        """
+        L = float(corridor.get("L", self.corr_L_base))
+        from_length = self.corr_lookahead_frac * L
+        horizon_reach = float(self.N) * float(self.ts) * float(self.vdes)
+        reach_floor = self.corr_lookahead_reach_margin * horizon_reach
+
+        lookahead = from_length
+        if from_length < reach_floor:
+            lookahead = reach_floor
+            self.get_logger().warn(
+                f'TGT/geometry | corridor L={L:.2f} gives lookahead '
+                f'{from_length:.2f} m, inside the horizon reach '
+                f'{horizon_reach:.2f} m (floor {reach_floor:.2f}): the terminal '
+                f'cost becomes an ARRIVAL target, not a direction pull. '
+                f'Using the floor. Raise corr_L_base to at least '
+                f'{reach_floor / max(self.corr_lookahead_frac, 1e-6):.2f}.',
+                throttle_duration_sec=5.0)
+            if lookahead >= L:
+                self.get_logger().warn(
+                    f'TGT/geometry | lookahead {lookahead:.2f} >= corridor '
+                    f'length {L:.2f}: the target clamps to the corridor end on '
+                    f'every cycle and never advances.',
+                    throttle_duration_sec=5.0)
+        return float(lookahead)
+
     def compute_local_target(self, x, corridor):
         p_robot = np.array([x[0], x[1]], dtype=float)
 
@@ -2368,7 +2612,7 @@ class MPCController(Node):
 
         d2 = (xc - p_robot[0]) ** 2 + (yc - p_robot[1]) ** 2
         idx = int(np.argmin(d2))
-        lookahead = 1.5
+        lookahead = self._corridor_lookahead(corridor)
 
         ds = np.sqrt(np.diff(xc) ** 2 + np.diff(yc) ** 2)
         s_cum = np.concatenate(([0.0], np.cumsum(ds)))

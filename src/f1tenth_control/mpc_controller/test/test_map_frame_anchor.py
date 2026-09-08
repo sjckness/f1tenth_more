@@ -152,13 +152,59 @@ class TestCorridorFollowsTheReprojectedAnchor(unittest.TestCase):
     """build_straight_corridor reads goal_anchor_odom, not the raw pair."""
 
     def test_reference_heading_comes_from_the_reprojected_anchor(self):
+        """psiRef is the reprojected anchor heading under EITHER geometry.
+
+        This is the claim this file exists for -- the drift correction is in
+        WHICH heading the corridor references, not in the blend shape -- so it
+        is asserted for both settings of corridor_heading_return. The
+        shape-specific consequences are pinned separately below.
+        """
         psi_ref = -_MEASURED_DRIFT_RAD
+        for heading_return in (False, True):
+            with self.subTest(corridor_heading_return=heading_return):
+                fake = _FakeMPC(goal_anchor_odom=(0.0, 0.0, psi_ref))
+                fake.corridor_heading_return = heading_return
+                corridor = MPCController.build_straight_corridor(
+                    fake, [0.0, 0.0, 0.0, 0.5])
+                self.assertAlmostEqual(corridor['psiRef'], psi_ref, places=9)
+
+    def test_with_the_blend_on_the_corridor_bends_by_the_recovered_drift(self):
+        """With corridor_heading_return TRUE the corridor BENDS from the live
+        yaw (0.0 here) back to the reprojected anchor heading, so dpsi is
+        exactly the drift the reprojection recovered.
+
+        NOT the shipping default (that is both-ends-frozen, dpsi == 0 -- see
+        the next test); the flag is set explicitly.
+        """
+        psi_ref = -_MEASURED_DRIFT_RAD
+        fake = _FakeMPC(goal_anchor_odom=(0.0, 0.0, psi_ref))
+        fake.corridor_heading_return = True
         corridor = MPCController.build_straight_corridor(
-            _FakeMPC(goal_anchor_odom=(0.0, 0.0, psi_ref)),
-            [0.0, 0.0, 0.0, 0.5])
+            fake, [0.0, 0.0, 0.0, 0.5])
+        self.assertAlmostEqual(corridor['psiStart'], 0.0, places=9)
+        self.assertAlmostEqual(corridor['dpsi'], psi_ref - 0.0, places=9)
+        self.assertAlmostEqual(corridor['dpsi'], -_MEASURED_DRIFT_RAD, places=9)
+
+    def test_with_the_blend_off_the_drift_correction_is_still_referenced(self):
+        """The default geometry has dpsi == 0, and that is NOT the old bug.
+
+        "psiStart == psiEnd, dpsi == 0" is what this file's earlier version
+        asserted while the anchor was still in the wrong frame, and it was
+        pinning a real defect then: the referenced heading itself was drifting,
+        so a corridor rigidly parallel to it corrected nothing. What fixed that
+        was reprojecting the anchor through map -> odom, which is orthogonal to
+        the blend. With the anchor correct, dpsi == 0 means the corridor points
+        along the RECOVERED heading and w_psi's terminal cost pulls the car
+        onto it -- the correction lives in psiRef, which is asserted above.
+        """
+        psi_ref = -_MEASURED_DRIFT_RAD
+        fake = _FakeMPC(goal_anchor_odom=(0.0, 0.0, psi_ref))
+        fake.corridor_heading_return = False
+        corridor = MPCController.build_straight_corridor(
+            fake, [0.0, 0.0, 0.0, 0.5])
+        self.assertAlmostEqual(corridor['dpsi'], 0.0, places=12)
+        self.assertAlmostEqual(corridor['psiStart'], psi_ref, places=9)
         self.assertAlmostEqual(corridor['psiRef'], psi_ref, places=9)
-        # Straight move: still no bend to blend, exactly as before this pass.
-        self.assertAlmostEqual(corridor['dpsi'], 0.0, places=9)
 
     def test_a_stale_raw_odom_anchor_no_longer_reaches_the_corridor(self):
         """

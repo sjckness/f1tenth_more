@@ -46,6 +46,7 @@ Run standalone: python3 -m pytest test/test_corridor_direction_recovery.py -v
 import math
 import unittest
 
+from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController, _project_onto_line
 
 
@@ -238,10 +239,13 @@ class TestCarTrackingCorridorOnAFrozenHeading(unittest.TestCase):
     """
     The straight-move corridor's position/direction split.
 
-    HEADING is frozen at move start (and map-corrected since -- see
-    test_map_frame_anchor.py); POSITION follows the car. Rebuilding mid-move
-    from a pose that has drifted must not move the reference DIRECTION, and
-    must put the corridor through wherever the car actually is.
+    POSITION follows the car: the corridor always starts at the live pose.
+    The TARGET heading is frozen at move start (and map-corrected since -- see
+    test_map_frame_anchor.py), and the corridor blends from the car's LIVE
+    yaw back to it across its own length. Rebuilding mid-move from a drifted
+    pose must not move the reference DIRECTION the corridor ends on, must put
+    the corridor through wherever the car actually is, and must bend between
+    the two -- that bend is the heading return.
     """
 
     def test_drifted_rebuild_returns_the_same_reference_heading(self):
@@ -261,52 +265,131 @@ class TestCarTrackingCorridorOnAFrozenHeading(unittest.TestCase):
         self.assertAlmostEqual(mid_move['psiRef'], at_start['psiRef'], places=9)
         self.assertAlmostEqual(mid_move['psiRef'], 0.0, places=9)
 
-    def test_drifted_rebuild_puts_the_centerline_through_the_car(self):
+    def test_with_the_blend_on_it_starts_live_and_ends_frozen(self):
         """
-        Confirm the centerline runs through the car, not the original line.
+        Confirm WHICH END is frozen when corridor_heading_return is TRUE.
 
-        Position half of the deliberate change: with the car at y=0.35 the
-        centerline sits on y=0.35, NOT back on y=0 where the move began. It
-        stays parallel to the original line -- only the offset is kept.
+        NOT the shipping default -- see
+        test_the_default_geometry_freezes_both_ends below. This pins the
+        reference-implementation geometry, which stays reachable as a launch
+        arg for the f110_autonomy/MATLAB comparison, so the flag is set
+        explicitly here rather than left to the getattr fallback.
+
+        The car has drifted: it sits at (1.4, 0.35) pointing 0.20 rad while
+        the move was started pointing 0.0. With the blend on, the corridor
+        LEAVES the car tangent to where it is actually pointing (psiStart =
+        live yaw) and ARRIVES pointing where the move was supposed to go
+        (psiEnd = frozen anchor heading).
         """
+        fake = _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0))
+        fake.corridor_heading_return = True
         corridor = MPCController.build_straight_corridor(
-            _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
-            [1.4, 0.35, 0.20, 0.5])
+            fake, [1.4, 0.35, 0.20, 0.5])
+
+        # START heading == the LIVE yaw.
+        self.assertAlmostEqual(float(corridor['psiStart']), 0.20, places=9)
+        # END heading == the FROZEN move-start heading.
+        self.assertAlmostEqual(float(corridor['psiRef']), 0.0, places=9)
+        # ...and the blend spans exactly the accumulated heading error.
+        self.assertAlmostEqual(float(corridor['dpsi']), -0.20, places=9)
+
+        # Measured off the geometry itself, not just the reported scalars:
+        # the first samples still run along the live yaw (the S-curve's flat
+        # lead-in) and the last along the frozen one (its flat lead-out).
+        xc, yc = corridor['xc'], corridor['yc']
+        self.assertAlmostEqual(
+            math.atan2(yc[2] - yc[1], xc[2] - xc[1]), 0.20, delta=1e-6)
+        self.assertAlmostEqual(
+            math.atan2(yc[-1] - yc[-2], xc[-1] - xc[-2]), 0.0, delta=1e-6)
+
+    def test_with_the_blend_on_the_drifted_centerline_actually_bends(self):
+        """
+        Confirm the centerline curves when the car is off-heading AND the
+        blend is enabled.
+
+        Complement to the test above, stated as the shape rather than the
+        endpoints: a deviated car gets a CURVED reference, and the curvature
+        is what the lookahead target rides back along. Again NOT the default
+        geometry -- the flag is set explicitly.
+        """
+        fake = _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0))
+        fake.corridor_heading_return = True
+        corridor = MPCController.build_straight_corridor(
+            fake, [1.4, 0.35, 0.20, 0.5])
+        xc, yc = corridor['xc'], corridor['yc']
+        headings = [
+            math.atan2(yc[i] - yc[i - 1], xc[i] - xc[i - 1])
+            for i in range(1, len(xc))
+        ]
+        self.assertGreater(max(headings) - min(headings), 0.19)
+        # Monotone return: the blend never overshoots past the frozen heading
+        # and never turns away from it.
+        for a, b in zip(headings, headings[1:]):
+            self.assertLessEqual(b, a + 1e-9)
+
+    def test_with_the_blend_off_both_ends_are_frozen(self):
+        """
+        Confirm corridor_heading_return=False gives the both-ends-frozen shape.
+
+        THIS IS THE SHIPPING GEOMETRY as of 2026-09-08 (see
+        test_the_default_geometry_freezes_both_ends for the default itself).
+        The two shapes do not rank the way the port expected: both-ends-frozen
+        demands 100% of the heading correction on every rebuild -- through
+        w_psi's terminal pull toward psiRef, not through the centerline arc --
+        and is back at zero heading error inside 8 s, while the reference
+        blend concedes ~75% of the error per rebuild, takes ~30 s, and gives
+        away ~0.9 m of lateral offset that nothing restores on the way.
+        """
+        fake = _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0))
+        fake.corridor_heading_return = False
+        corridor = MPCController.build_straight_corridor(
+            fake, [1.4, 0.35, 0.20, 0.5])
+        self.assertAlmostEqual(float(corridor['dpsi']), 0.0, places=12)
+        self.assertAlmostEqual(float(corridor['psiStart']), 0.0, places=9)
+        self.assertAlmostEqual(float(corridor['psiRef']), 0.0, places=9)
         for y in corridor['yc']:
             self.assertAlmostEqual(float(y), 0.35, places=6)
 
-    def test_centerline_has_no_bend_at_all(self):
-        """
-        Confirm the anchored centerline has no bend at all.
+    def test_the_default_geometry_freezes_both_ends(self):
+        """Confirm the default is BOTH-ENDS-FROZEN, sourced from the yaml.
 
-        psiStart == psiEnd on the anchored path, so the S-curve blend is inert
-        and every sample shares one heading -- a straight move's reference is
-        a straight line, whatever the car is doing.
+        THIS TEST ENCODES A CONFIG DEFAULT, so it is a coupling: flipping
+        corridor_heading_return in stack_params.yaml means changing this test
+        in the same commit. It deliberately asserts against get_value() rather
+        than a hardcoded False -- the point of the single-sourcing pass is that
+        there is exactly one place the value lives, and a test with its own
+        copy of it would be a fifth spelling of the same constant.
         """
+        fake = _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0))
+        # No attribute -> build_straight_corridor's getattr fallback decides,
+        # and that fallback must be the shipped default.
+        self.assertFalse(hasattr(fake, 'corridor_heading_return'))
+        self.assertFalse(get_value('corridor_heading_return'))
         corridor = MPCController.build_straight_corridor(
-            _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
-            [1.4, 0.35, 0.20, 0.5])
+            fake, [1.4, 0.35, 0.20, 0.5])
         self.assertAlmostEqual(float(corridor['dpsi']), 0.0, places=12)
-        xc, yc = corridor['xc'], corridor['yc']
-        for i in range(1, len(xc)):
-            self.assertAlmostEqual(
-                math.atan2(yc[i] - yc[i - 1], xc[i] - xc[i - 1]), 0.0, delta=1e-9)
 
     def test_the_corridor_origin_is_the_cars_own_position(self):
         """
         Confirm the origin is the live pose, not a projection onto a line.
 
-        The car is at (1.4, 0.35); the corridor starts exactly there and runs
-        corr_L_base straight ahead along the frozen heading. No perpendicular
-        foot is computed any more -- that was the jittery part.
+        The car is at (1.4, 0.35); the corridor starts exactly there. No
+        perpendicular foot is computed any more -- that was the jittery part.
+        Unchanged by the heading-return fix, which only moved which heading
+        each END of the blend uses: the ORIGIN is still the live position.
         """
         corridor = MPCController.build_straight_corridor(
             _FakeMPC(psi_init_corridor=0.0, goal_start_xy=(0.0, 0.0)),
             [1.4, 0.35, 0.20, 0.5])
         self.assertAlmostEqual(float(corridor['xc'][0]), 1.4, places=6)
         self.assertAlmostEqual(float(corridor['yc'][0]), 0.35, places=6)
-        self.assertAlmostEqual(float(corridor['Pend'][0]), 1.4 + 3.0, places=6)
-        self.assertAlmostEqual(float(corridor['Pend'][1]), 0.35, places=6)
+        # The corridor is corr_L_base long measured ALONG ITS OWN ARC (it is
+        # no longer a straight line, so Pend is not origin + L*e_frozen).
+        arc = sum(
+            math.hypot(corridor['xc'][i] - corridor['xc'][i - 1],
+                       corridor['yc'][i] - corridor['yc'][i - 1])
+            for i in range(1, len(corridor['xc'])))
+        self.assertAlmostEqual(arc, 3.0, delta=3.0 / 120.0 + 1e-6)
 
     def test_pure_lateral_drift_translates_the_corridor_with_the_car(self):
         """

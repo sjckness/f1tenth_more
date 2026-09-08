@@ -76,6 +76,12 @@ def generate_launch_description():
         'corridor_update_period', default_value=str(corridor_update_period_default),
         description=corridor_update_period_desc)
 
+    corridor_heading_return_default, corridor_heading_return_desc = get_default(
+        'corridor_heading_return')
+    corridor_heading_return_la = DeclareLaunchArgument(
+        'corridor_heading_return', default_value=str(corridor_heading_return_default),
+        description=corridor_heading_return_desc)
+
     use_hard_boundary_constraints_default, use_hard_boundary_constraints_desc = get_default(
         'use_hard_boundary_constraints')
     use_hard_boundary_constraints_la = DeclareLaunchArgument(
@@ -128,6 +134,7 @@ def generate_launch_description():
             'avoidance_margin': LaunchConfiguration('avoidance_margin'),
             'nice': LaunchConfiguration('nice'),
             'corridor_update_period': LaunchConfiguration('corridor_update_period'),
+            'corridor_heading_return': LaunchConfiguration('corridor_heading_return'),
             'use_hard_boundary_constraints': LaunchConfiguration(
                 'use_hard_boundary_constraints'),
         }],
@@ -136,5 +143,6 @@ def generate_launch_description():
     return LaunchDescription([
         odom_stale_timeout_sec_la, use_rti_solver_la, car_radius_la, avoidance_margin_la,
         cpu_affinity_la, nice_la, corridor_update_period_la,
+        corridor_heading_return_la,
         use_hard_boundary_constraints_la, mpc_corr_node,
     ])

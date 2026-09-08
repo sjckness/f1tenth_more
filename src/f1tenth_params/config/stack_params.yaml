@@ -369,10 +369,14 @@ odom_stale_timeout_sec:
 use_rti_solver:
   default: true
   description: "true (default): mpc_corr.py uses the OSQP real-time-iteration solver. false: fall back to the original SLSQP solve (kept for rollback/comparison)."
-# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
-# own already-declared ROS param (self.declare_parameter). Default is 0.1 --
-# a 10Hz rebuild, matching control_loop's own 0.1s tick, i.e. the corridor is
-# rebuilt every tick.
+# Consumed by: f1tenth_control/mpc_corr.launch.py AND, since the single-
+# sourcing pass, by MPC_corr.py itself -- its declare_parameter() default is
+# now get_value('corridor_update_period') rather than a hand-mirrored literal.
+# THIS FILE IS THE ONLY PLACE THE NUMBER LIVES. There is no in-code copy to
+# keep in step any more, which is the point: the literal used to say 0.1 here
+# while this key said 1.0, two comments in MPC_corr.py said "1.0s by default",
+# and a test comment said "10.0 is stack_params.yaml's own default" -- four
+# spellings of one constant, three of them wrong.
 #
 # THIS KEY IS A PERIOD IN SECONDS, NOT A FREQUENCY. It reads as "seconds
 # between rebuilds", so a bigger number is a SLOWER corridor: 0.1 = 10Hz,
@@ -383,9 +387,54 @@ use_rti_solver:
 # lifetime's uint32 nanosec field (fixed in MPC_corr.py's own
 # _corridor_line_marker, which now splits sec/nanosec properly, but the
 # 100x-too-slow corridor would have been silent regardless).
+#
+# WHY 1.0 AND NOT 0.1, measured rather than argued (2026-09-08, closed-loop
+# A/B, nominal model, 0.35 rad initial heading error, 8.0 s, N=20, ts=0.1,
+# vdes=0.5, shipping 7/20-scaled weights). Final heading error / final
+# lateral offset:
+#
+#   geometry                period 0.1        period 1.0
+#   both-frozen             +0.0000 / 0.110   +0.0000 / 0.089
+#   live->frozen (blend)    +0.1319 / 0.987   +0.0707 / 0.750
+#
+# The slower rebuild helps BOTH geometries, and helps the blend most (it
+# halves the 8 s heading error), which is what the "the blend concedes 24.7%
+# of the error per rebuild, so a slower rebuild lets the car actually execute
+# the concession" argument predicts. It is not, however, what decides the
+# geometry: both-frozen wins at either period. See corridor_heading_return.
 corridor_update_period:
-  default: 0.1
-  description: "Seconds between corridor rebuilds in mpc_corr.py -- a PERIOD, not a frequency (bigger = slower). Default 0.1 (10Hz, one rebuild per 0.1s control tick). 1.0 gives the flat 1Hz MATLAB-comparison rate."
+  default: 1.0
+  description: "Seconds between corridor rebuilds in mpc_corr.py -- a PERIOD, not a frequency (bigger = slower). Default 1.0 (1Hz). 0.1 rebuilds once per control tick; measured worse on the heading return at both corridor geometries."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own already-declared ROS param, whose declare_parameter() default is
+# get_value('corridor_heading_return'), i.e. this key. Also the default for
+# build_straight_corridor's getattr() fallback for duck-typed test stand-ins.
+#
+# WHICH END OF THE CORRIDOR'S HEADING BLEND IS FROZEN.
+#   false (default) -- BOTH ends frozen at the move's map-corrected start
+#     heading: a straight corridor through the live position along the
+#     reference direction. Demands 100% of the heading correction on every
+#     rebuild.
+#   true -- psiStart = live yaw, psiEnd = frozen anchor heading, so the
+#     S-curve blends live -> frozen across the corridor. This is what the
+#     f110_autonomy reference implementation does, and at u_start/u_end
+#     0.10/0.70 with lookahead 1.5 on L 3.0 it asks for only 24.7% of the
+#     error per rebuild.
+#
+# DEFAULT FLIPPED TO FALSE 2026-09-08 on the measurement tabled under
+# corridor_update_period above. At the shipping period of 1.0 the frozen
+# geometry returns the heading to zero inside 8 s with 0.089 m of lateral
+# offset; the reference blend is still +0.0707 rad at 8 s and has given away
+# 0.750 m sideways. Both geometries do reach zero heading error eventually
+# (the blend needs ~30 s), so the blend is SLOW, not divergent -- but the
+# lateral offset it accumulates on the way is permanent, because this
+# corridor has no lateral homing by design (see build_straight_corridor's
+# "THE PRICE" note). 0.900 m of permanent offset against 0.089 m is what the
+# flip buys. Kept as a launch arg so the reference behaviour stays reachable
+# for the MATLAB/f110_autonomy comparison without a code change.
+corridor_heading_return:
+  default: false
+  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false (default): both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true: blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
 # Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
 # own already-declared ROS param (self.declare_parameter). Default is TRUE:
 # costmap_boundary_node's hard wall constraints are active in the RTI/OSQP
@@ -397,7 +446,7 @@ corridor_update_period:
 # the soft w_obs deflection cost -- worth knowing before flipping it, since
 # nothing else in the solve replaces the wall.
 use_hard_boundary_constraints:
-  default: true
+  default: false
   description: "true (default): mpc_corr.py's RTI solve enforces costmap_boundary_node's hard wall constraints. false: no hard wall constraint of any kind, only the soft w_obs deflection cost -- the MATLAB-comparison configuration."
 # cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
 # NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
