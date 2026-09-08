@@ -276,33 +276,90 @@ slam_pose_relay_node:
     pose0_queue_size: 10
     pose0_differential: false   # genuine absolute map-frame pose, fuse it as one
     pose0_relative: false
-    pose0_rejection_threshold: 5.0   # REASONED STARTING POINT (mahalanobis
-                                      # distance), not tuned against real SLAM
-                                      # noise yet -- /slam/pose has never
-                                      # published in this pass (see module
-                                      # docstring), so there is no real data to
-                                      # tune this against. Flagged deliberately,
-                                      # same discipline this codebase's other
-                                      # untuned-starting-point parameters use
-                                      # (see wall_detector_node.py's own Part A
-                                      # gates history for the precedent this
-                                      # follows).
+    # VALUE UNCHANGED at 5.0, but no longer a placeholder -- it is now a
+    # MEASURED choice, and it is deliberately coupled to the process_noise_
+    # covariance block below. Read both together before touching either.
+    #
+    # UNITS TRAP: this is an n-sigma value, NOT a chi-squared critical value.
+    # robot_localization 3.5.4 squares it -- filter_base.cpp's own
+    # checkMahalanobisThreshold() computes `squared_mahalanobis =
+    # innovation.dot(innovation_covariance * innovation)` and rejects when that
+    # is >= `n_sigmas * n_sigmas` (src/filter_base.cpp:431-451, version-matched
+    # against the installed ros-humble-robot-localization 3.5.4). The check runs
+    # once over the whole innovation vector, which pose0_config above makes 3
+    # DOF (x, y, yaw). So a chi-squared number written straight in silently
+    # squares the gate OPEN: 7.815 (the 3-DOF 95% critical value, and an easy
+    # mistake to make) means an effective cutoff of 61.07, which rejected 0 of
+    # 794 archived corrections. 5.0 here means a cutoff of 25.0.
+    #
+    # WHY NOT TIGHTER. A chi-squared-derived 3.368 (= sqrt(11.345), the 99%
+    # 3-DOF gate) was derived, applied and replayed against 11 archived runs --
+    # and it made three of them materially WORSE (2026-09-01T15-11-29's own
+    # largest single map->odom yaw step went 10.09 -> 46.77 deg). Cause,
+    # confirmed by counting rejections in the replay: the threshold is NOT
+    # independent of the process noise. Cutting Q shrinks P, which shrinks
+    # S = HPH' + R, which INFLATES d^2 for the very same innovation -- measured
+    # at x2.87 on the median across the replay set. A gate calibrated against
+    # the OLD d^2 distribution therefore over-rejects once the new Q is in:
+    # 3.368 rejects 20.1% of corrections under the new Q (vs 0.8% of the
+    # archived ones under the old). Rejecting a valid correction makes the
+    # filter dead-reckon further, so the next accepted one lands as a bigger
+    # jump -- the exact opposite of the goal.
+    #
+    # 5.0 against the NEW Q rejects 10/319 (3.1%) in replay -- a real outlier
+    # gate, which it was not before (0.76% against the old Q). It stays.
+    # If Q is ever retuned again, RE-MEASURE this: the two move together.
+    pose0_rejection_threshold: 5.0
 
     # --- process noise ---------------------------------------------------------
-    # PLACEHOLDER, same untuned-starting-point status as pose0_rejection_
-    # threshold above -- reuses the local EKF's own process_noise_covariance
-    # verbatim (same diagonal-only shape, same per-axis relative weighting)
-    # rather than inventing new numbers with even less basis: this filter's
-    # own dynamics (a 2D vehicle's x/y/yaw/velocities) are the same physical
-    # system the local EKF already models, just tracked in a different frame.
-    # Re-tune once real /slam/pose data and the calibration node above give
-    # something concrete to tune against.
-    process_noise_covariance: [0.08,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
-                                0.0,   0.08,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+    # x, y and yaw (entries [0][0], [1][1], [5][5]) are DERIVED FROM THE ARCHIVE
+    # and are no longer the local EKF's placeholder values. Everything else on
+    # this diagonal IS still that placeholder: z/roll/pitch are zeroed by
+    # two_d_mode anyway, and the velocity/acceleration entries have no
+    # archive-derived basis (pose0 observes pose only, so nothing in this data
+    # constrains them).
+    #
+    # Q is a per-second variance RATE, not a variance: ekf.cpp:426-431
+    # propagates `P = J P J' + delta_sec * Q`. Fitted over 689 consecutive
+    # pose0-to-pose0 intervals (mean dt 0.525 s) from 37 archived runs,
+    # comparing each interval's /slam/pose_calibrated delta against the /odom
+    # delta over the same window, as Q = E[deviation^2 / dt]:
+    #   yaw: 0.0817 rad (4.68 deg) rms per interval -> 0.0123 rad^2/s
+    #   x:   0.1129 m rms per interval              -> 0.0243 m^2/s
+    #   y:   0.1185 m rms per interval              -> 0.0273 m^2/s
+    #
+    # Why this was the load-bearing fix for the map->odom yaw jumps: at the old
+    # Q_yaw = 0.06 the filter added 0.03 rad^2 of yaw uncertainty between
+    # corrections against slam_pose_relay's fixed R_yaw = 0.05, a Kalman gain of
+    # 0.375 -- it moved 37.5% of the way to each SLAM yaw reading inside a
+    # single 50 Hz tick. A 15 deg innovation therefore landed as a ~5.6 deg
+    # step, which is exactly the 5.54 deg largest single-step map->odom jump
+    # measured in the archive. At 0.0123 that same gain is 0.110.
+    #
+    # TWO REASONS THESE GO STALE -- re-derive, do not scale by hand:
+    #
+    # 1. ODOM YAW SCALE. These are fitted against the CURRENT, UNCORRECTED
+    #    odometry, which over-reports yaw by roughly 30% (best-fit
+    #    d_slam_yaw = 0.704 * d_odom_yaw over 693 archived intervals). Q_yaw
+    #    deliberately covers that scale error because the filter really does
+    #    face it today. Fix the VESC yaw / steering-to-yaw-rate calibration and
+    #    the per-interval residual drops from 4.68 to 3.56 deg rms, putting
+    #    Q_yaw near 0.0075 rad^2/s -- 0.0123 would then be too loose.
+    #
+    # 2. R_yaw. slam_pose_relay_node above publishes a FIXED
+    #    pose_variance_yaw: 0.05 rad^2 (sigma 12.8 deg) against a real
+    #    slam-vs-odom yaw disagreement of ~4.7 deg rms. That measurement
+    #    covariance is roughly 7x too loose and is the next thing worth tuning;
+    #    it is deliberately NOT touched here. Since the Kalman gain is
+    #    P/(P+R), changing R changes what Q_yaw should be, and it changes the
+    #    d^2 distribution pose0_rejection_threshold above is calibrated
+    #    against. Re-measure all three together.
+    process_noise_covariance: [0.0243,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0273,0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
                                 0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
                                 0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
                                 0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
-                                0.0,   0.0,   0.0,   0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
+                                0.0,   0.0,   0.0,   0.0,   0.0,   0.0123,0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
                                 0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.05,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
                                 0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.03,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
                                 0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.0,   0.06,  0.0,   0.0,   0.0,   0.0,   0.0,   0.0,
