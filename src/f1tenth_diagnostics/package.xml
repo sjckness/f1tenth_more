@@ -25,6 +25,12 @@
        covariance calibration). -->
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>vesc_msgs</exec_depend>
+  <!-- ackermann_msgs: AckermannDriveStamped, published by
+       steering_offset_calibration_node onto its own ackermann_mux lane
+       (/calibration_drive, priority 50 in mux.yaml). That node is the only
+       one in this package that drives the car, and it is manual-launch only
+       - never wired into supervisor_bringup. -->
+  <exec_depend>ackermann_msgs</exec_depend>
   <!-- diagnostic_msgs + rosidl_runtime_py: ekf_cost_observer_node publishes its
        per update cost metric as a DiagnosticArray on /diagnostics (already in
        mission_logger_node's recorded topic list, so the metric lands in every

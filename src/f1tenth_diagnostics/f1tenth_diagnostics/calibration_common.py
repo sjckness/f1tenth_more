@@ -24,7 +24,10 @@ unchanged, so gyro_bias_calibration_node.py/sensor_covariance_calibration_
 node.py needed no changes at all for this.
 """
 
+import difflib
+import io
 import os
+import re
 import shutil
 import time
 from datetime import datetime
@@ -476,3 +479,224 @@ class StationaryGate:
         if self.confirmed:
             return False
         return (self._now_fn() - self._start_time) >= self._timeout_sec
+
+
+# Sentinel lines bracketing an auto-written provenance block. A block is
+# removed on rewrite by deleting BEGIN..END inclusive -- see
+# strip_provenance_block() for why bracketing beats trying to recognise the
+# block by its content.
+PROVENANCE_BEGIN = '>>> BEGIN {tool} provenance -- auto-written, edits below are overwritten'
+PROVENANCE_END = '<<< END {tool} provenance'
+
+
+def _provenance_bounds(tool):
+    return PROVENANCE_BEGIN.format(tool=tool), PROVENANCE_END.format(tool=tool)
+
+
+def strip_provenance_block(text, tool):
+    """Delete every BEGIN..END provenance block belonging to `tool` from a run
+    of comment lines, leaving all other lines untouched. Pure string surgery,
+    unit-testable without ruamel.
+
+    Line-level, and bracketed by explicit sentinels, for two reasons found by
+    testing this against the real steering_calibration.yaml rather than
+    assuming:
+
+      - ruamel does NOT round-trip a "before key" comment back to where it
+        wrote it. yaml_set_comment_before_after_key puts the block in slot 1
+        of the target key, but on the next load that same text comes back in
+        slot 2 (the after-value comment) of the PRECEDING key. Clearing only
+        the slot we wrote to therefore misses the block entirely on every
+        re-run, and provenance blocks stack up one per calibration run --
+        observed, three runs gave three stacked blocks.
+      - ruamel merges a contiguous run of comment lines into ONE CommentToken.
+        So a token can hold a human-written comment AND an auto-written block
+        together, and dropping whole tokens destroys human documentation.
+        (Confirmed live: steering_calibration.yaml's "Placeholder until
+        retuned" note about gain_left/_right is parsed into the same slot as
+        the key above it.)
+
+    Bracketing sidesteps both: find the sentinels wherever they turn up, and
+    delete only the lines between them.
+    """
+    begin, end = _provenance_bounds(tool)
+    out = []
+    skipping = False
+    for line in text.split('\n'):
+        if not skipping and begin in line:
+            skipping = True
+            continue
+        if skipping:
+            if end in line:
+                skipping = False
+            continue
+        out.append(line)
+    # An unterminated block (file hand-edited mid-block) would otherwise eat
+    # the rest of the comment run; putting the lines back is the safe failure.
+    return '\n'.join(out) if not skipping else text
+
+
+def _strip_provenance_from_comments(block, tool):
+    """Apply strip_provenance_block to every comment token attached anywhere in
+    `block`, regardless of which key/slot ruamel filed it under (see that
+    function's docstring for why the location is not predictable)."""
+    ca = getattr(block, 'ca', None)
+    if ca is None:
+        return
+    for entry in ca.items.values():
+        for index, slot in enumerate(entry):
+            if slot is None:
+                continue
+            tokens = slot if isinstance(slot, list) else [slot]
+            for token in tokens:
+                value = getattr(token, 'value', None)
+                if value is None:
+                    continue
+                token.value = strip_provenance_block(value, tool)
+            if not isinstance(slot, list):
+                # A slot whose comment is now empty must become None, or
+                # ruamel emits a stray blank comment line on dump.
+                if not entry[index].value.strip():
+                    entry[index] = None
+
+
+_KEY_LINE_RE = re.compile(r'^(\s*)([A-Za-z_][A-Za-z0-9_]*):(\s.*)$')
+
+
+def restore_unintended_value_changes(before_text, after_text, intended_keys, logger):
+    """Undo any `key: value` line the YAML round-trip changed that we did not
+    ask it to change.
+
+    ruamel round-trip mode preserves formatting and comments, but it does NOT
+    guarantee byte-identical re-emission of every scalar. Observed live on the
+    real vesc.yaml: writing `wheelbase` also rewrote an untouched neighbour,
+
+        -    accel_variance_y: 7.457561226365246e-06
+        +    accel_variance_y: 7.457561226365245e-06
+
+    one unit in the last place, from re-formatting a float ruamel could not
+    round-trip exactly. Numerically irrelevant, and precisely the kind of
+    silent, unrequested edit to a separately-calibrated value that this
+    codebase keeps getting bitten by -- it also makes the printed diff lie
+    about what the calibration actually did.
+
+    So: after the dump, any changed line whose key is not one we intended to
+    write is restored from the original text, and the fact is logged. Keys are
+    matched by name, which is enough here because these config files do not
+    reuse a key name across sections with different values; a key that IS
+    intended is left exactly as ruamel wrote it.
+    """
+    intended = set(intended_keys)
+    before_by_key = {}
+    for line in before_text.split('\n'):
+        match = _KEY_LINE_RE.match(line)
+        if match and match.group(2) not in intended:
+            before_by_key.setdefault(match.group(2), []).append(line)
+
+    restored = []
+    out = []
+    seen = {}
+    for line in after_text.split('\n'):
+        match = _KEY_LINE_RE.match(line)
+        if match:
+            key = match.group(2)
+            index = seen.get(key, 0)
+            seen[key] = index + 1
+            originals = before_by_key.get(key)
+            if originals is not None and index < len(originals):
+                original = originals[index]
+                if original != line:
+                    restored.append((line.strip(), original.strip()))
+                    out.append(original)
+                    continue
+        out.append(line)
+
+    if restored:
+        logger.warning(
+            f'the YAML round-trip altered {len(restored)} line(s) this calibration '
+            'did not intend to touch; restoring the original value(s): ' +
+            '; '.join(f'{new!r} -> {old!r}' for new, old in restored))
+    return '\n'.join(out)
+
+
+def write_yaml_config_with_provenance(yaml_path, updates, provenance_lines, logger,
+                                      tool='calibration', max_backups=_DEFAULT_MAX_BACKUPS):
+    """Backup-then-patch like write_vesc_yaml/write_yaml_config, with three
+    things steering_offset_calibration_node needs that neither existing writer
+    has: MULTI-SECTION updates in one pass, a PROVENANCE COMMENT BLOCK written
+    into the file above each patched key, and replacement (not stacking) of a
+    previous run's provenance block.
+
+    A third separate function rather than a generalization of the other two,
+    following this module's own established convention (see write_yaml_config's
+    docstring): both existing writers have live, boot-time-wired callers
+    (gyro_bias_calibration_node, sensor_covariance_calibration_node) and are
+    left byte-for-byte unchanged by this addition.
+
+    updates: {section_name: {key: value}}, e.g.
+        {'/**': {'steering_angle_to_servo_offset': 0.4494}}
+    provenance_lines: plain strings WITHOUT a leading '#' -- the comment marker
+        and indentation are added here. Written into the file itself, not just
+        the log, because the log is gone by the next boot while the yaml is
+        what somebody reads six months later wondering where the number came
+        from.
+    tool: names the writing tool in the block's BEGIN/END sentinels, and is
+        what identifies a previous block for removal.
+
+    Returns (backup_path, unified_diff_text). Deliberately does not print the
+    diff itself -- the caller decides whether it goes to the console,
+    /diagnostics, or both.
+    """
+    if YAML is None:
+        raise RuntimeError(
+            'ruamel.yaml is not installed (pip install ruamel.yaml or '
+            f'apt install python3-ruamel.yaml) -- cannot write {yaml_path}.')
+
+    with open(yaml_path, 'r') as f:
+        before_text = f.read()
+
+    timestamp = datetime.now().strftime('%Y%m%dT%H%M%S')
+    backup_path = f'{yaml_path}.bak.{timestamp}'
+    shutil.copy2(yaml_path, backup_path)
+    logger.info(f'Backed up {yaml_path} -> {backup_path}')
+
+    yaml = YAML()
+    yaml.preserve_quotes = True
+    with open(yaml_path, 'r') as f:
+        data = yaml.load(f)
+
+    begin, end = _provenance_bounds(tool)
+    for section, results in updates.items():
+        block = data[section]['ros__parameters']
+        _strip_provenance_from_comments(block, tool)
+        first_key = None
+        for key, value in results.items():
+            block[key] = value
+            if first_key is None:
+                first_key = key
+        if first_key is not None and provenance_lines:
+            lines = [begin] + list(provenance_lines) + [end]
+            comment = '\n'.join(line.rstrip() for line in lines)
+            block.yaml_set_comment_before_after_key(
+                first_key, before='\n' + comment, indent=4)
+
+    buffer = io.StringIO()
+    yaml.dump(data, buffer)
+    # Dump to a buffer first so unrequested round-trip changes can be reverted
+    # BEFORE anything reaches disk -- see restore_unintended_value_changes.
+    after_text = restore_unintended_value_changes(
+        before_text, buffer.getvalue(),
+        [key for results in updates.values() for key in results], logger)
+    with open(yaml_path, 'w') as f:
+        f.write(after_text)
+
+    diff_text = ''.join(difflib.unified_diff(
+        before_text.splitlines(keepends=True),
+        after_text.splitlines(keepends=True),
+        fromfile=f'{os.path.basename(yaml_path)} (before)',
+        tofile=f'{os.path.basename(yaml_path)} (after)'))
+
+    written = {sec: list(res) for sec, res in updates.items()}
+    logger.info(f'calibration complete, updated {written} in: [{yaml_path}]')
+    _prune_old_backups(yaml_path, max_backups, logger)
+    return backup_path, diff_text

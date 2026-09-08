@@ -12,6 +12,22 @@ ackermann_mux:
         topic   : drive
         timeout : 0.2
         priority: 10
+      # f1tenth_diagnostics' steering_offset_calibration_node -- a manually-run
+      # open-loop calibration drive, never part of any bringup. Sits ABOVE
+      # navigation (10) so it wins over the MPC while it runs, and BELOW
+      # joystick (100) and safety_stop (200) so both the human override and the
+      # behaviour tree's safety lane still pre-empt it. Putting it anywhere
+      # above 100 would rank an unattended calibration drive over the operator's
+      # own joystick, which is backwards for a tool whose safety story is "a
+      # human is watching with a hand on the controller".
+      #
+      # Nothing publishes this topic during normal operation, so the lane is
+      # simply always timed out and invisible to the mux until the calibration
+      # node is started by hand.
+      calibration:
+        topic   : calibration_drive
+        timeout : 0.2
+        priority: 50
       joystick:
         topic   : teleop
         timeout : 0.2

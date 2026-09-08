@@ -48,6 +48,8 @@ setup(
             'f1tenth_diagnostics.diagnostics_server_node:main',
             'ekf_cost_observer_node = '
             'f1tenth_diagnostics.ekf_cost_observer_node:main',
+            'steering_offset_calibration_node = '
+            'f1tenth_diagnostics.steering_offset_calibration_node:main',
         ],
     },
 )
