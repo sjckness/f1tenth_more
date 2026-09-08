@@ -2,10 +2,15 @@
   "mission_id": "bottle_then_person",
   "moves": [
     {
+      "id": "settle_before_start",
+      "goal_distance": 0.0,
+      "stop_condition": { "type": "time_elapsed", "duration_sec": 5.0 }
+    },
+    {
       "id": "search_person",
-      "goal_distance": 6.0,
+      "goal_distance": 5.0,
       "vdes": 0.5,
-      "stop_condition": { "type": "distance_reached", "value": 6.0 },
+      "stop_condition": { "type": "distance_reached", "value": 5.0 },
       "timeout_sec": 60,
       "on_timeout": "abort"
     }
