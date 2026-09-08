@@ -159,6 +159,67 @@ def boundary_constraint_bounds(
     return -math.inf, offset - car_radius - margin
 
 
+# ---------------------------------------------------------------------------
+# Stage-cost normalisation: keep the stage/terminal balance INVARIANT to the
+# horizon length.
+#
+# THE BUG THIS FIXES. Every weight below except w_term and w_psi is applied at
+# EVERY one of the N stages; w_term and w_psi are applied ONCE, at the terminal
+# state. So the ratio between "how hard the horizon resists a change" and "how
+# hard the target pulls" is proportional to N -- changing the horizon silently
+# re-tunes the controller. The weights this stack inherited were tuned at
+# N = 7. Running them unchanged at N = 20 multiplies every stage cost's total
+# by 20/7 ~= 2.9 while w_term = 3.0 still acts exactly once. w_du_delta = 15.0
+# accumulating 2.9x the resistance against an unchanged terminal pull is the
+# quantitative reason the steering stopped reversing.
+#
+# THE FIX. Scale the per-stage weights by REF_HORIZON / N. This is a
+# sum-average normalisation pinned to the horizon the weights were tuned at:
+# the TOTAL stage cost over the horizon is now independent of N, so the
+# stage/terminal balance no longer moves when the horizon does, and at
+# N = REF_HORIZON it is the exact identity -- the reference tuning is
+# reproduced bit-for-bit rather than merely approximated. At the current
+# N = 20 the factor is 7/20 = 0.35.
+#
+# Applied in solve_mpc_step, so BOTH backends (RTI and SLSQP) and the
+# true_cost reported from planner_cost_corridor all see the same scaled
+# weights and agree on what a solution costs. planner_cost_corridor itself is
+# left unscaled: it takes whatever weights it is handed, so a caller
+# re-evaluating a recorded frame must scale them the same way (or go through
+# solve_mpc_step) to get a comparable number.
+STAGE_WEIGHT_REF_HORIZON = 7
+
+# Weights applied once per stage inside the horizon loop. w_term and w_psi are
+# deliberately absent: they are terminal, they already act exactly once, and
+# scaling them would defeat the whole point of this normalisation.
+_STAGE_WEIGHT_KEYS = (
+    "w_v",
+    "w_obs",
+    "w_corr",
+    "w_delta0",
+    "w_u_a",
+    "w_du_delta",
+    "w_du_a",
+)
+
+
+def scale_stage_weights(weights: Dict, horizon: int) -> Dict:
+    """Normalise the per-stage entries of *weights* for *horizon*.
+
+    See STAGE_WEIGHT_REF_HORIZON above. Terminal weights are
+    passed through untouched. Keys that are absent stay absent -- this never
+    invents a weight the caller did not set.
+    """
+    if horizon <= 0:
+        return dict(weights)
+    factor = float(STAGE_WEIGHT_REF_HORIZON) / float(horizon)
+    scaled = dict(weights)
+    for key in _STAGE_WEIGHT_KEYS:
+        if key in scaled:
+            scaled[key] = float(scaled[key]) * factor
+    return scaled
+
+
 def solve_mpc_step(
     x0: Sequence[float],
     last_u: Sequence[float],
@@ -193,6 +254,11 @@ def solve_mpc_step(
     this feature doesn't target. None (default) means "no boundaries",
     identical to passing an empty list.
     """
+    # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
+    # Done here, once, so both backends and the true_cost they report are
+    # evaluated against identical weights.
+    weights = scale_stage_weights(weights, horizon)
+
     if solver == 'slsqp':
         return _solve_slsqp(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
