@@ -42,7 +42,9 @@ from f1tenth_params.param_defaults import get_value
 
 from launch import LaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.actions import IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.conditions import IfCondition
+from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 
@@ -50,6 +52,33 @@ def generate_launch_description():
     localization_source = get_value('localization_source')
 
     actions = []
+
+    # ekf_cost_observer_node: measures each EKF instance's per-update COST
+    # directly, because robot_localization's own "Failed to meet update rate!"
+    # test compares loop_elapsed against 1/frequency (ros_filter.cpp:2206) and
+    # is therefore self-referential -- lowering frequency raises the bar the
+    # loop is judged against, and a cost regression that used to warn goes
+    # silent. See that node's own module docstring.
+    #
+    # Hardcoded launch-arg defaults rather than stack_params.yaml keys, the
+    # same convention costmap.launch.py's own render/extraction rates use: this
+    # is an instrument, not a stack-shaping parameter, and nothing outside this
+    # file needs to resolve its values.
+    #
+    # cpu_affinity default deliberately EXCLUDES cores 0,1. Those are reserved
+    # for the two EKF instances (see ekf.launch.py's own cpu_affinity comment),
+    # and an observer that competes for the budget it is measuring would
+    # perturb the very number it exists to report.
+    actions.append(DeclareLaunchArgument(
+        'enable_ekf_cost_observer', default_value='true',
+        description='Run ekf_cost_observer_node alongside the EKF pair, '
+                    'publishing per-update cost on /diagnostics. Only has an '
+                    'effect when localization_source is ekf.'))
+    actions.append(DeclareLaunchArgument(
+        'ekf_cost_observer_cpu_affinity', default_value='2-11',
+        description="Cores for ekf_cost_observer_node's 'taskset -c' prefix. "
+                    'Must exclude 0,1: those are the EKF pair\'s reserved '
+                    'budget and this node measures that budget.'))
 
     if localization_source == 'ekf':
         actions.append(IncludeLaunchDescription(
@@ -65,6 +94,17 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(os.path.join(
                 get_package_share_directory('f1tenth_localization'),
                 'launch', 'ekf_global.launch.py'))
+        ))
+        # Only in 'ekf' mode: raw_odom mode runs no EKF instance for this to
+        # measure, and the node would sit reporting "not found in /proc".
+        actions.append(Node(
+            package='f1tenth_diagnostics',
+            executable='ekf_cost_observer_node',
+            name='ekf_cost_observer_node',
+            output='screen',
+            condition=IfCondition(LaunchConfiguration('enable_ekf_cost_observer')),
+            prefix=['taskset -c ',
+                    LaunchConfiguration('ekf_cost_observer_cpu_affinity')],
         ))
     elif localization_source == 'raw_odom':
         actions.append(IncludeLaunchDescription(

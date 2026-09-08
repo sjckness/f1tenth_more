@@ -25,6 +25,14 @@
        covariance calibration). -->
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>vesc_msgs</exec_depend>
+  <!-- diagnostic_msgs + rosidl_runtime_py: ekf_cost_observer_node publishes its
+       per update cost metric as a DiagnosticArray on /diagnostics (already in
+       mission_logger_node's recorded topic list, so the metric lands in every
+       run's bag with no recorder change), and resolves each EKF input topic's
+       message type from the graph at runtime via get_message rather than
+       hardcoding one type per topic. -->
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>rosidl_runtime_py</exec_depend>
   <exec_depend>f1tenth_messages</exec_depend>
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
