@@ -26,7 +26,16 @@
   ros__parameters:
     servo_min: 0.15
     servo_max: 0.8318
-    steering_angle_to_servo_offset: 0.4494
+    # Retuned 2026-09-08 from 50 archived mission bags (825 SLAM-pose
+    # intervals, ~2 Hz /slam/pose vs /odom speed and /ackermann_drive
+    # command, servo clamp modelled). Bicycle-model fit at L = 0.3302 m
+    # gave an actual wheel angle of +2.68 +/- 0.24 deg (95%) at zero
+    # command -- the car drifted left with the old 0.4494 centre. New
+    # centre = 0.4494 - gain*delta0/gain_error, stable at 0.4873-0.4879
+    # across command-latency assumptions of 0-0.25 s and across both
+    # candidate wheelbases (0.3302 / 0.305). Per-bag spread sd 1.23 deg
+    # over 47 bags, SEM 0.18 deg.
+    steering_angle_to_servo_offset: 0.4874
     # Placeholder until retuned -- see vesc_tuning's steering_calibration_node.py
     # Mode 3 (gain), which tunes gain_left and gain_right independently.
     steering_angle_to_servo_gain_left: -1.2135
