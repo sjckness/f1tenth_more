@@ -21,8 +21,17 @@ processes.
 
 Escalates SIGINT -> SIGTERM -> SIGKILL, waiting up to --timeout seconds
 between each step for processes to exit on their own.
+
+Once every process is confirmed gone it also purges the runtime state that
+outlives them and silently breaks the NEXT launch -- FastDDS /dev/shm
+segments and the singleton/pgid files (see purge_runtime_state). Killing
+processes alone is not a clean slate; leftover SHM in particular presents
+as "foxglove shows nothing", not as a stale-file problem. Skipped if
+anything survived SIGKILL, since deleting segments a live participant still
+holds is itself a failure mode.
 """
 import argparse
+import glob
 import os
 import signal
 import subprocess
@@ -147,6 +156,65 @@ def stop_ros2_daemon() -> None:
         pass
 
 
+# Runtime state that survives process death and breaks the NEXT launch. Killing
+# processes alone is not a clean slate:
+#   - /dev/shm/*fastrtps*: FastDDS SHM transport segments and its well-known
+#     discovery-port files. These are ordinary files; nothing releases them when
+#     a process is SIGKILLed, they accumulate across sessions (316 observed in
+#     one dev session), and once enough of the small fixed discovery-port pool is
+#     occupied, new participants lose the race for a port and hang instead of
+#     failing loudly -- which reads as "foxglove shows nothing"/"ros2 topic list
+#     is empty", not as a leftover-file problem.
+#   - the singleton PID locks: component_supervisor_node and mission_logger_node
+#     each refuse to start while their lock names a LIVE pid. Both reclaim a lock
+#     whose pid is dead, so these are usually harmless -- removed anyway, since a
+#     recycled pid can otherwise block a start for no real reason.
+#   - tracked_pgids.json: component_supervisor_node's own crash-recovery record
+#     of the process groups it spawned. Once every one of them is dead (which is
+#     exactly what this script just guaranteed) it describes nothing, and leaving
+#     it makes the next instance's startup sweep chase pids that are already gone.
+_STATE_FILES = (
+    "/tmp/component_supervisor.lock",
+    "/tmp/mission_logger.lock",
+    os.path.expanduser("~/.ros/log/component_supervisor/tracked_pgids.json"),
+)
+
+
+def purge_runtime_state(dry_run: bool) -> None:
+    """Remove FastDDS SHM residue and stale singleton/state files.
+
+    Only safe once every ROS process is confirmed gone -- deleting a segment a
+    live participant still holds produces "Failed init_port fastrtps_portN:
+    open_and_lock_file failed" in whatever is still running, so this is called
+    at the very end of main(), never before the kill stages.
+    """
+    shm = sorted(glob.glob("/dev/shm/*fastrtps*"))
+    if shm:
+        total = sum(os.path.getsize(f) for f in shm if os.path.exists(f))
+        verb = "Would remove" if dry_run else "Removing"
+        print(f"\n{verb} {len(shm)} FastDDS /dev/shm file(s) ({total / 1e6:.1f} MB)")
+        if not dry_run:
+            for f in shm:
+                try:
+                    os.unlink(f)
+                except OSError as exc:
+                    print(f"  could not remove {f}: {exc}")
+    else:
+        print("\nNo FastDDS /dev/shm residue.")
+
+    for f in _STATE_FILES:
+        if not os.path.exists(f):
+            continue
+        if dry_run:
+            print(f"Would remove {f}")
+            continue
+        try:
+            os.unlink(f)
+            print(f"Removed {f}")
+        except OSError as exc:
+            print(f"  could not remove {f}: {exc}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-n", "--dry-run", action="store_true", help="only list matching processes, don't kill them")
@@ -165,6 +233,7 @@ def main() -> int:
 
     if args.dry_run:
         print("\nDry run: nothing killed.")
+        purge_runtime_state(dry_run=True)
         return 0
 
     if not args.yes:
@@ -199,9 +268,13 @@ def main() -> int:
         print(f"\n{len(alive)} process(es) survived SIGKILL (permission issue?):")
         for proc in alive:
             print(describe(proc))
+        # Deliberately NOT purging here: something is still alive and may still
+        # hold SHM segments, and deleting those out from under it is what
+        # produces "open_and_lock_file failed" in the survivor.
         return 1
 
     print("\nAll ROS 2 processes terminated.")
+    purge_runtime_state(dry_run=False)
     return 0
 
 
