@@ -4,6 +4,15 @@ Merged from two previously-separate files (description_launch.py: robot_state_pu
 only; sensor_tf_launch.py: static base_link->laser only) so there's one place that
 answers "where do all the frames come from."
 
+joint_state_publisher lives here too, next to the robot_state_publisher it feeds:
+robot_state_publisher can only emit a NON-fixed joint's transform once something
+publishes that joint on /joint_states, and until it was added nothing in this
+workspace ever had -- so core.xacro's 4 continuous wheel joints and 2 revolute
+steering hinges were permanently missing from the TF tree while
+robot_state_publisher itself looked healthy (it logs "got segment" for all 6
+regardless). All 6 publish a static 0.0; see that Node's own comment below for
+why the steering hinges are not driven from real data and what it would take.
+
 robot_state_publisher (roboracer.urdf.xacro) is used by:
   * f1tenth_sim (sim_bringup.launch.py includes this with use_sim:=true,
     enable_sensors:=true) -- the URDF's own sensors.xacro is the sole source of
@@ -108,6 +117,67 @@ def generate_launch_description():
         ],
     )
 
+    # joint_state_publisher -- the missing INPUT robot_state_publisher needs to
+    # emit the 6 non-fixed-joint transforms (core.xacro's 4 `continuous` wheel
+    # joints + 2 `revolute` steering hinges). robot_state_publisher emits FIXED
+    # joints to /tf_static unconditionally, but a movable joint's transform is
+    # only published once a sensor_msgs/JointState naming it arrives on
+    # /joint_states -- and until this node was added, NOTHING in this workspace
+    # had ever published that topic (confirmed live: 0 messages in 15s, and
+    # `grep -rn joint_state_publisher src` found nothing). The result was
+    # left/right_{front,rear}_wheel and left/right_steering_hinge permanently
+    # absent from the TF tree, while robot_state_publisher itself logged
+    # "got segment <name>" for all 6 and looked perfectly healthy.
+    #
+    # Reads the URDF off the `robot_description` TOPIC (TRANSIENT_LOCAL, which
+    # is exactly how robot_state_publisher above publishes it) rather than
+    # taking a `robot_description` PARAMETER of its own -- deliberate: a second
+    # parameter would mean a second `xacro` invocation and a second copy of the
+    # description that could silently drift from the one above. Confirmed
+    # against the installed source (/opt/ros/humble/lib/python3.10/site-
+    # packages/joint_state_publisher/joint_state_publisher.py:306-311): with no
+    # URDF file passed on the command line it subscribes to `robot_description`
+    # and configures itself from the first message.
+    #
+    # ALL 6 JOINTS PUBLISH A STATIC 0.0. joint_state_publisher's own default is
+    # 0 when 0 lies inside a joint's limits (else the limit midpoint) -- the
+    # steering hinges are limit="-0.4..0.4" (core.xacro), so 0 is in range and
+    # no explicit `zeros` override is needed for any of the 6.
+    #
+    # The 2 steering hinges are the ones where a REAL value would actually be
+    # worth something (visual feedback on what the car is doing); they are
+    # static anyway because wiring real data in is NOT the cheap change it
+    # looks like, and this pass deliberately did not scope-creep into it:
+    #   * joint_state_publisher's `source_list` param subscribes to
+    #     sensor_msgs/JointState ONLY (same file, line 318). Nothing in this
+    #     stack publishes JointState on real hardware.
+    #   * /drive is ackermann_msgs/AckermannDriveStamped, not JointState.
+    #   * The VESC has no steering feedback at all to relay: vesc_driver.cpp
+    #     :125-128 publishes the COMMANDED servo position as a std_msgs/Float64
+    #     on sensors/servo_position_command, and says so in its own comment
+    #     ("since vesc state does not include the servo position, publish the
+    #     commanded servo position as a 'sensor'").
+    # So driving the hinges needs a NEW converter node (Float64/Ackermann ->
+    # JointState, applying steering_calibration.yaml's own gain/offset to undo
+    # the angle->servo mapping), not a parameter. Left as a follow-up; note it
+    # would visualise COMMANDED steering, never measured.
+    #
+    # UnlessCondition(use_sim), same gate and same reasoning as
+    # static_baselink_to_laser directly below: in sim, ros2_control's
+    # joint_state_broadcaster ALREADY publishes /joint_states (f1tenth_sim/
+    # config/controllers.yaml:18-19, spawned by sim_bringup.launch.py:134).
+    # Running this node there too would put two disagreeing publishers on one
+    # topic -- the identical authority collision this file already avoids for
+    # base_link->laser and localization.launch.py avoids for odom->base_link.
+    joint_state_publisher = Node(
+        package='joint_state_publisher',
+        executable='joint_state_publisher',
+        name='joint_state_publisher',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+        condition=UnlessCondition(use_sim),
+    )
+
     # Real-hardware-only: see module docstring for the front-facing-remount
     # rationale, the placeholder/unconfirmed status of these numbers, and why
     # this is skipped in sim. Positional args are x y z YAW PITCH ROLL
@@ -128,5 +198,6 @@ def generate_launch_description():
         declare_enable_sensors,
         declare_control_config,
         robot_state_publisher,
+        joint_state_publisher,
         static_baselink_to_laser,
     ])
