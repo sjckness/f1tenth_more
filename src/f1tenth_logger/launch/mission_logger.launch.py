@@ -11,13 +11,17 @@ telemetry toggle was flipped is exactly the "recording was off when it
 mattered" failure this node exists to remove. Gate it with its own
 enable_mission_logger instead (stack_params.yaml), which defaults true.
 
-Launch args deliberately follow this file's OWN local convention -- plain
-hardcoded DeclareLaunchArgument defaults for the recorder's operational knobs
-(bag_root/storage_id/sweep_*), stack_params.yaml only for the one value that
-is a stack-wide policy decision (enable_mission_logger). Same reasoning
-costmap.launch.py documents for its own mixed set: the bag root and sweep
-cadence are machine/deployment details, not stack-wide behaviour every other
-package needs to agree on.
+Launch args mostly follow this file's OWN local convention -- plain hardcoded
+DeclareLaunchArgument defaults for the recorder's operational knobs
+(storage_id/sweep_*), stack_params.yaml only for values that are stack-wide
+policy decisions. Same reasoning costmap.launch.py documents for its own mixed
+set: the sweep cadence is a machine/deployment detail, not stack-wide
+behaviour every other package needs to agree on.
+
+The run root moved OUT of that local set and into stack_params.yaml as
+mission_logger_runs_dir: f1tenth-archive.service syncs <dir>/complete/ and the
+runs CLI reads the same tree, so it stopped being a detail only this launch
+file knew and became something three consumers have to agree on.
 """
 
 import os
@@ -37,11 +41,11 @@ def generate_launch_description():
         'enable_mission_logger', default_value=str(enable_default).lower(),
         description=enable_desc)
 
-    bag_root_la = DeclareLaunchArgument(
-        'mission_bag_root',
-        default_value=os.path.join(os.path.expanduser('~'), '.ros', 'mission_bags'),
-        description="Directory holding one bag directory per mission run, plus "
-                    "each run's own .manifest.json/.params.yaml sidecars.")
+    runs_dir_default, runs_dir_desc = get_default('mission_logger_runs_dir')
+    runs_dir_la = DeclareLaunchArgument(
+        'mission_logger_runs_dir',
+        default_value=os.path.expanduser(str(runs_dir_default)),
+        description=runs_dir_desc)
     storage_id_la = DeclareLaunchArgument(
         'mission_bag_storage_id', default_value='mcap',
         description="rosbag2 storage plugin. 'mcap' is preferred (Foxglove reads "
@@ -59,7 +63,7 @@ def generate_launch_description():
     sweep_action_la = DeclareLaunchArgument(
         'mission_bag_sweep_action', default_value='move',
         description="'move' (default): relocate incomplete bags into "
-                    "<bag_root>/incomplete/. 'delete': remove them outright -- "
+                    "<runs_dir>/incomplete/. 'delete': remove them outright -- "
                     "opt-in, since a partial bag is often still readable "
                     "directly and run data cannot be re-collected.")
 
@@ -70,7 +74,7 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_mission_logger')),
         parameters=[{
-            'bag_root': LaunchConfiguration('mission_bag_root'),
+            'runs_dir': LaunchConfiguration('mission_logger_runs_dir'),
             'storage_id': LaunchConfiguration('mission_bag_storage_id'),
             'sweep_period_sec': LaunchConfiguration('mission_bag_sweep_period_sec'),
             'sweep_action': LaunchConfiguration('mission_bag_sweep_action'),
@@ -79,7 +83,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         enable_la,
-        bag_root_la,
+        runs_dir_la,
         storage_id_la,
         sweep_period_la,
         sweep_action_la,

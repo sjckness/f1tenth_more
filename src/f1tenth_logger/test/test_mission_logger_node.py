@@ -24,6 +24,9 @@ Run standalone: python3 -m pytest test/test_mission_logger_node.py -v
 
 import json
 import os
+import subprocess
+import sys
+import time
 
 import pytest
 import rclpy
@@ -31,7 +34,27 @@ from rclpy.parameter import Parameter
 
 from f1tenth_messages.msg import MissionStatus
 
-from f1tenth_logger.mission_logger_node import MissionLoggerNode
+from f1tenth_logger import mission_logger_node as mission_logger_node_module
+from f1tenth_logger.mission_logger_node import (
+    MissionLoggerNode, _read_lock_pid, _snapshot_indices, acquire_singleton_lock,
+    release_singleton_lock)
+
+
+def _make_dead_pid():
+    """A PID that is definitely not running: spawn a trivial process, reap it,
+    and reuse its number. A hardcoded large constant could collide with a real
+    process and turn the stale-lock tests into coin flips."""
+    proc = subprocess.Popen(['true'])
+    proc.wait()
+    return proc.pid
+
+
+_DEAD_PID = _make_dead_pid()
+
+# The child in the two-process lock test imports f1tenth_logger without a
+# sourced overlay, so it needs the package's own parent on sys.path.
+_PKG_PATH = os.path.dirname(os.path.dirname(
+    os.path.abspath(mission_logger_node_module.__file__)))
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -44,7 +67,7 @@ def _rclpy_context():
 
 def _make_node(tmp_path, **overrides):
     params = [
-        Parameter('bag_root', Parameter.Type.STRING, str(tmp_path)),
+        Parameter('runs_dir', Parameter.Type.STRING, str(tmp_path)),
         Parameter('sweep_period_sec', Parameter.Type.DOUBLE, 1e6),  # never auto-fires
     ]
     for k, v in overrides.items():
@@ -177,45 +200,72 @@ class TestStorageFallback:
 class TestIncompleteBagSweep:
 
     def _bag(self, root, name, complete):
-        d = os.path.join(str(root), name)
-        os.makedirs(d)
-        open(os.path.join(d, f'{name}_0.db3'), 'w').close()
+        """A run folder in the active/ tree: <run_id>/bag/, per the layout the
+        node writes. Returns (run_dir, bag_dir)."""
+        run_dir = os.path.join(str(root), 'active', name)
+        bag_dir = os.path.join(run_dir, 'bag')
+        os.makedirs(bag_dir)
+        open(os.path.join(bag_dir, f'{name}_0.db3'), 'w').close()
         if complete:
-            open(os.path.join(d, 'metadata.yaml'), 'w').close()
-        return d
+            open(os.path.join(bag_dir, 'metadata.yaml'), 'w').close()
+        return run_dir, bag_dir
 
     def test_incomplete_bag_is_moved_not_deleted(self, tmp_path):
         """Default sweep_action must not destroy run data: a partial bag is
         often still readable directly, and the run cannot be re-collected."""
         node = _make_node(tmp_path)
-        bad = self._bag(tmp_path, 'run_incomplete', complete=False)
+        run_dir, _ = self._bag(tmp_path, 'run_incomplete', complete=False)
         node._sweep_incomplete_bags(reason='test')
-        assert not os.path.exists(bad)
+        assert not os.path.exists(run_dir)
         assert os.path.isdir(os.path.join(str(tmp_path), 'incomplete', 'run_incomplete'))
+        node.destroy_node()
+
+    def test_sweep_moves_the_whole_run_folder_not_just_the_bag(self, tmp_path):
+        """The manifest and params snapshot are the most valuable part of a
+        dead run -- quarantining the bag and orphaning its sidecars would
+        discard exactly what explains why the recorder died."""
+        node = _make_node(tmp_path)
+        run_dir, _ = self._bag(tmp_path, 'run_incomplete', complete=False)
+        open(os.path.join(run_dir, 'run_incomplete.manifest.json'), 'w').close()
+        node._sweep_incomplete_bags(reason='test')
+        quarantined = os.path.join(str(tmp_path), 'incomplete', 'run_incomplete')
+        assert os.path.isfile(os.path.join(quarantined, 'run_incomplete.manifest.json'))
+        assert os.path.isdir(os.path.join(quarantined, 'bag'))
         node.destroy_node()
 
     def test_complete_bag_is_left_alone(self, tmp_path):
         node = _make_node(tmp_path)
-        good = self._bag(tmp_path, 'run_complete', complete=True)
+        run_dir, _ = self._bag(tmp_path, 'run_complete', complete=True)
         node._sweep_incomplete_bags(reason='test')
-        assert os.path.isdir(good)
+        assert os.path.isdir(run_dir)
         node.destroy_node()
 
     def test_in_progress_bag_is_never_swept(self, tmp_path):
         """The active recording has no metadata.yaml yet BY DEFINITION -- it is
         only written on cancel(). Sweeping it would destroy the run in flight."""
         node = _make_node(tmp_path)
-        active = self._bag(tmp_path, 'run_active', complete=False)
-        node._active_bag_dir = active
+        run_dir, bag_dir = self._bag(tmp_path, 'run_active', complete=False)
+        node._active_bag_dir = bag_dir
         node._sweep_incomplete_bags(reason='test')
-        assert os.path.isdir(active)
+        assert os.path.isdir(run_dir)
+        node.destroy_node()
+
+    def test_completed_runs_are_not_swept(self, tmp_path):
+        """complete/ is out of the sweep's scope entirely: a finalized run has
+        already been renamed out of active/, and the sync unit copies from
+        there. Sweeping it would delete archived runs."""
+        node = _make_node(tmp_path)
+        done = os.path.join(str(tmp_path), 'complete', 'run_done', 'bag')
+        os.makedirs(done)
+        node._sweep_incomplete_bags(reason='test')
+        assert os.path.isdir(done)
         node.destroy_node()
 
     def test_delete_action_removes(self, tmp_path):
         node = _make_node(tmp_path, sweep_action='delete')
-        bad = self._bag(tmp_path, 'run_incomplete', complete=False)
+        run_dir, _ = self._bag(tmp_path, 'run_incomplete', complete=False)
         node._sweep_incomplete_bags(reason='test')
-        assert not os.path.exists(bad)
+        assert not os.path.exists(run_dir)
         assert not os.path.exists(os.path.join(str(tmp_path), 'incomplete'))
         node.destroy_node()
 
@@ -223,12 +273,15 @@ class TestIncompleteBagSweep:
 class TestRunMetadata:
 
     def _run(self, tmp_path):
+        run_dir = os.path.join(str(tmp_path), 'active', 'RUN')
+        os.makedirs(run_dir, exist_ok=True)
         return {
             'mission_id': 'bottle_then_person', 'run_id': 'RUN',
             'start_time': 'T0', 'end_time': None, 'outcome': None,
-            'bag_path': os.path.join(str(tmp_path), 'RUN'),
-            'params_snapshot_path': os.path.join(str(tmp_path), 'RUN.params.yaml'),
-            'manifest_path': os.path.join(str(tmp_path), 'RUN.manifest.json'),
+            'run_dir': run_dir,
+            'bag_path': os.path.join(run_dir, 'bag'),
+            'params_snapshot_path': os.path.join(run_dir, 'RUN.params.yaml'),
+            'manifest_path': os.path.join(run_dir, 'RUN.manifest.json'),
             'storage_id': 'sqlite3', 'mission_json_path': '/x.json',
         }
 
@@ -270,3 +323,147 @@ class TestRunMetadata:
         for key in ('yolo_model', 'yolo_model_task', 'enable_slam'):
             assert key in resolved
         node.destroy_node()
+
+
+class TestSingletonLock:
+    """The 2026-09-04 double-record: the supervisor's auto-started logger and a
+    hand-run `ros2 run` one both recorded the same mission into one bag
+    directory, leaving 31 topics and 0 messages. The guard is a PID file, so
+    these tests are pure filesystem -- no ROS, no processes spawned."""
+
+    def test_first_caller_acquires(self, tmp_path):
+        lock = str(tmp_path / 'l.lock')
+        assert acquire_singleton_lock(lock) == (True, None)
+        assert os.path.isfile(lock)
+
+    def test_second_caller_is_refused_and_told_who_holds_it(self, tmp_path):
+        lock = str(tmp_path / 'l.lock')
+        acquire_singleton_lock(lock)
+        ok, holder = acquire_singleton_lock(lock)
+        assert ok is False
+        assert holder == os.getpid(), 'the refusal must name the live holder'
+
+    def test_a_second_os_process_is_refused(self, tmp_path):
+        """The real shape of the bug: two separate processes, not one calling
+        twice. The child holds the lock while the parent tries to take it."""
+        lock = str(tmp_path / 'l.lock')
+        ready = str(tmp_path / 'ready')
+        child = subprocess.Popen([
+            sys.executable, '-c',
+            'import os,sys,time\n'
+            'sys.path.insert(0, os.environ["PKG_PATH"])\n'
+            'from f1tenth_logger.mission_logger_node import acquire_singleton_lock\n'
+            'ok, _ = acquire_singleton_lock(sys.argv[1])\n'
+            'assert ok\n'
+            'open(sys.argv[2], "w").close()\n'
+            'time.sleep(30)\n',
+            lock, ready],
+            env={**os.environ, 'PKG_PATH': _PKG_PATH})
+        try:
+            for _ in range(200):
+                if os.path.exists(ready):
+                    break
+                time.sleep(0.05)
+            assert os.path.exists(ready), 'child never claimed the lock'
+            ok, holder = acquire_singleton_lock(lock)
+            assert ok is False
+            assert holder == child.pid
+        finally:
+            child.kill()
+            child.wait()
+
+    def test_stale_lock_from_a_dead_pid_is_reclaimed(self, tmp_path):
+        """A logger SIGKILLed mid-run cannot clean up after itself. If a stale
+        lock blocked forever, one crash would disable recording for the rest of
+        the machine's uptime -- worse than the bug being guarded against."""
+        lock = str(tmp_path / 'l.lock')
+        with open(lock, 'w') as fh:
+            fh.write(str(_DEAD_PID))
+        assert acquire_singleton_lock(lock) == (True, None)
+        assert _read_lock_pid(lock) == os.getpid()
+
+    def test_garbage_lock_file_is_reclaimed_not_fatal(self, tmp_path):
+        """A truncated write (power loss mid-claim) must not wedge the logger."""
+        lock = str(tmp_path / 'l.lock')
+        with open(lock, 'w') as fh:
+            fh.write('not-a-pid')
+        assert acquire_singleton_lock(lock) == (True, None)
+
+    def test_release_removes_our_own_lock(self, tmp_path):
+        lock = str(tmp_path / 'l.lock')
+        acquire_singleton_lock(lock)
+        release_singleton_lock(lock)
+        assert not os.path.exists(lock)
+
+    def test_release_leaves_a_lock_owned_by_someone_else(self, tmp_path):
+        """After we are declared stale and a successor reclaims the lock, our
+        late cleanup must not unlink the live logger's claim."""
+        lock = str(tmp_path / 'l.lock')
+        with open(lock, 'w') as fh:
+            fh.write(str(_DEAD_PID))
+        release_singleton_lock(lock)
+        assert os.path.exists(lock)
+
+
+class TestMoveToComplete:
+
+    def _staged(self, node, tmp_path, run_id='RUN'):
+        run_dir = os.path.join(node.active_dir, run_id)
+        os.makedirs(os.path.join(run_dir, 'bag'))
+        open(os.path.join(run_dir, f'{run_id}.manifest.json'), 'w').close()
+        return {
+            'run_id': run_id, 'run_dir': run_dir,
+            'bag_path': os.path.join(run_dir, 'bag'),
+            'params_snapshot_path': os.path.join(run_dir, f'{run_id}.params.yaml'),
+            'manifest_path': os.path.join(run_dir, f'{run_id}.manifest.json'),
+        }
+
+    def test_run_moves_whole_out_of_active(self, tmp_path):
+        node = _make_node(tmp_path)
+        run = self._staged(node, tmp_path)
+        dest = node._move_to_complete(run)
+        assert dest == os.path.join(node.complete_dir, 'RUN')
+        assert not os.path.exists(os.path.join(node.active_dir, 'RUN')), \
+            'a finalized run must not be left in active/ too'
+        assert os.path.isdir(os.path.join(dest, 'bag'))
+        assert os.path.isfile(os.path.join(dest, 'RUN.manifest.json'))
+        node.destroy_node()
+
+    def test_paths_are_repointed_at_the_new_home(self, tmp_path):
+        """Finalize writes the manifest and extract AFTER the move -- if these
+        still pointed into active/ it would resurrect the directory the run was
+        just moved out of."""
+        node = _make_node(tmp_path)
+        run = self._staged(node, tmp_path)
+        node._move_to_complete(run)
+        for key in ('run_dir', 'bag_path', 'params_snapshot_path', 'manifest_path'):
+            assert run[key].startswith(node.complete_dir), f'{key} still in active/'
+        node.destroy_node()
+
+    def test_a_colliding_run_id_is_filed_beside_never_merged(self, tmp_path):
+        node = _make_node(tmp_path)
+        os.makedirs(os.path.join(node.complete_dir, 'RUN'))
+        run = self._staged(node, tmp_path)
+        dest = node._move_to_complete(run)
+        assert dest != os.path.join(node.complete_dir, 'RUN')
+        assert os.path.isdir(os.path.join(node.complete_dir, 'RUN'))
+        node.destroy_node()
+
+
+class TestSnapshotSpacing:
+
+    def test_fewer_messages_than_the_cap_takes_all_of_them(self):
+        assert _snapshot_indices(3, 10) == [0, 1, 2]
+
+    def test_spacing_spans_the_whole_run(self):
+        """First AND last: the end of an aborted run is usually the part worth
+        looking at, so snapshots must not cluster at the start."""
+        idx = _snapshot_indices(100, 5)
+        assert idx[0] == 0
+        assert idx[-1] == 99
+        assert len(idx) == 5
+
+    def test_empty_and_degenerate_inputs_do_not_raise(self):
+        assert _snapshot_indices(0, 10) == []
+        assert _snapshot_indices(10, 0) == []
+        assert _snapshot_indices(10, 1) == [0]

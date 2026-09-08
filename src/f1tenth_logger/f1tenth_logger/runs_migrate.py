@@ -1,8 +1,20 @@
 """
 One-time consolidation of loose bags into the per-run archive layout.
 
-BEFORE (what mission_logger_node wrote until now): three siblings per run
-scattered in one flat directory, plus videos in a fourth place entirely.
+NO LONGER PART OF THE NORMAL FLOW. mission_logger_node now writes the archive
+layout directly -- recording into <runs_dir>/active/<run_id>/ and renaming the
+whole folder to <runs_dir>/complete/<run_id>/ at finalize, where it also writes
+the checksums, extract and snapshots this module used to add afterwards. A run
+recorded today needs no consolidate step at all.
+
+What is left here is a one-off migration tool for stragglers still sitting in
+the old flat ~/.ros/mission_bags/ location from before that change. Kept rather
+than deleted precisely because those stragglers are real run data that cannot
+be re-collected; reach for it when adopting an old directory, not as routine
+housekeeping.
+
+BEFORE (what mission_logger_node wrote until that change): three siblings per
+run scattered in one flat directory, plus videos in a fourth place entirely.
 
     ~/.ros/mission_bags/<run_id>/                 the bag
     ~/.ros/mission_bags/<run_id>.manifest.json

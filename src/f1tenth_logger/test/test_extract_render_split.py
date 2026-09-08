@@ -16,6 +16,7 @@ Two things must stay true and are both easy to break by accident:
 
 import argparse
 import ast
+import json
 import math
 import os
 
@@ -261,3 +262,189 @@ class TestPaddingComesFromTheRunNotTheCurrentConfig:
                                       'avoidance_margin': 0.07,
                                       'source': '/x.yaml'})
         assert mission_render.read_extract(path)['padding']['car_radius'] == 0.33
+
+
+class TestFramesDirDebugFlag:
+    """
+    --frames-dir: raw PNGs, no MP4, for the cross-machine pixel check.
+
+    An MP4 md5 only proves same-machine/same-ffmpeg-build equivalence (VBR
+    H.264 is not bit-identical across builds/architectures even from
+    identical input) -- see mission_render's module docstring. --frames-dir
+    exists so the drawing itself can be verified pixel-identical across
+    machines with no codec in the path at all: `md5sum frame_*.png` on two
+    machines, diffed line for line.
+    """
+
+    @pytest.fixture
+    def bag(self):
+        def stream(max_age, samples):
+            s = mission_render.Stream(max_age)
+            for t, v in samples:
+                s.add(t, v)
+            return s
+
+        grid = np.arange(-1, 5, dtype=np.int8).reshape(2, 3)
+        return {
+            'streams': {
+                'pose': stream(0.5, [(1.0, (1.25, -0.5, 0.33, 2.0)),
+                                     (1.1, (1.30, -0.5, 0.34, 2.1))]),
+                'boundaries': stream(0.5, [(1.0, [(0.9, 0.37, 2.8), (-0.37, 0.92, 1.4)])]),
+                'clearance': stream(0.5, [(1.0, 2.6908931732177734)]),
+                'obstacles': stream(0.5, [(1.0, [(0.5, 0.25, 0.3)])]),
+                'detections': stream(0.5, [(1.0, ('cam_frame',
+                                                  [('person', 0.87, 1.0, 2.0, 0.5, 0.04)]))]),
+                'markers': stream(0.5, [(1.0, [('disk', 'person', 1.0, 2.0, 0.3, ''),
+                                               ('label', 'person', 1.0, 2.3, 0.0, 'p1')])]),
+                'tree': stream(0.5, [(1.0, ('', ['emergency', 'mission'],
+                                            ['FAILURE', 'RUNNING'], '', False, ''))]),
+                'solver': stream(0.5, [(1.0, (True, 1, 'solved', 0.0142850875854,
+                                              0.10000000149011612, 2.9159159660339355,
+                                              'rti', 3, 0, [1.24, 1.29], [0.1, 0.2],
+                                              [0.0, 0.01], [2.0, 2.1], 'odom'))]),
+                'stop': stream(0.25, []),
+                'drive': stream(0.5, [(1.0, (0.4699937105178833, -0.15588527917861938))]),
+                'map': stream(None, [(1.0, (grid, (-0.78, 7.86, -4.53, 7.46)))]),
+                'corridor': stream(0.5, [(1.0, {'corridor_left': [(0.95, 1.69), (0.98, 1.70)],
+                                                'corridor_right': [(1.95, 1.69)]})]),
+                'map_to_odom': stream(0.5, [(1.0, (0.118, 0.004, 0.286))]),
+            },
+            'static_tf': {'cam_frame': ('base_link', np.array([0.1, 0.0, 0.2]),
+                                        np.eye(3))},
+            't0': 1.0, 't1': 2.0,      # aligned with the samples above, NOT
+                                       # the round-trip fixture's bag-clock
+                                       # timestamps -- this bag is actually
+                                       # drawn, not just serialized.
+            'pose_frame': 'map', 'pose_topic': '/ekf_global/odometry/filtered',
+            'legacy_solver_msgs': 0, 'dropped': {},
+            'padding': {'car_radius': 0.20, 'avoidance_margin': 0.12,
+                        'source': 'test'},
+        }
+
+    def _cfg(self, **overrides):
+        cfg = argparse.Namespace(
+            dt=0.5, speed=1.0, follow=None, trail_seconds=3.0,
+            corridor_span=5.0, pose_source='global', car_radius=None,
+            avoidance_margin=None, dpi=50, bitrate=4000, no_map=False,
+            progress=False, frames_dir=None, out_dir=None)
+        for key, value in overrides.items():
+            setattr(cfg, key, value)
+        return cfg
+
+    def test_writes_one_png_per_frame_named_frame_NNNN(self, bag, tmp_path):
+        frames_dir = tmp_path / 'frames'
+        cfg = self._cfg(frames_dir=frames_dir)
+        out = mission_render.render_bag(bag, {'run_id': 'r'}, 'r', cfg)
+        assert out == frames_dir
+        # duration 1.0s / dt 0.5s -> 3 frames, matching render_bag's own
+        # n_frames = int(duration / dt) + 1.
+        assert sorted(p.name for p in frames_dir.glob('*.png')) == [
+            'frame_0001.png', 'frame_0002.png', 'frame_0003.png']
+
+    def test_no_mp4_is_written_in_frames_dir_mode(self, bag, tmp_path):
+        frames_dir = tmp_path / 'frames'
+        cfg = self._cfg(frames_dir=frames_dir)
+        mission_render.render_bag(bag, {'run_id': 'r'}, 'r', cfg)
+        assert not list(tmp_path.rglob('*.mp4'))
+
+    def test_frames_are_real_nonempty_pngs(self, bag, tmp_path):
+        frames_dir = tmp_path / 'frames'
+        cfg = self._cfg(frames_dir=frames_dir)
+        mission_render.render_bag(bag, {'run_id': 'r'}, 'r', cfg)
+        frame = frames_dir / 'frame_0001.png'
+        assert frame.stat().st_size > 0
+        assert frame.read_bytes()[:8] == b'\x89PNG\r\n\x1a\n'    # PNG magic
+
+    def test_rendering_the_same_bag_twice_is_byte_identical(self, bag, tmp_path):
+        # The whole point of --frames-dir: no codec, so re-drawing the same
+        # data must reproduce the same bytes, not merely the same-looking
+        # image. This is the property the cross-machine md5 check leans on.
+        import hashlib
+
+        def render_and_hash(out_dir):
+            cfg = self._cfg(frames_dir=out_dir)
+            mission_render.render_bag(bag, {'run_id': 'r'}, 'r', cfg)
+            return [hashlib.md5(p.read_bytes()).hexdigest()
+                    for p in sorted(out_dir.glob('*.png'))]
+
+        first = render_and_hash(tmp_path / 'a')
+        second = render_and_hash(tmp_path / 'b')
+        assert first == second
+        assert len(first) == 3
+
+
+class TestLoadManifestForBothArchiveLayouts:
+    """
+    load_manifest_for must find the manifest under EITHER directory layout.
+
+    Caught for real: runs_migrate's one-folder-per-run archive names the bag
+    directory literally "bag" (<run_id>/bag/), but load_manifest_for only
+    ever looked for <bag_dir_name>.manifest.json next to it -- which resolved
+    to "bag.manifest.json" and never existed. extract_bag() got {} back for
+    every migrated run, so padding_from_params() (fed from the empty
+    manifest's missing params_snapshot_path) silently fell back to stack
+    defaults instead of the run's own recorded values -- no error, just a
+    'fallback' source where a real path should have been. Three runs
+    consolidated through this path on 2026-09-03 all show `source:
+    'fallback'`, discovered only because their recorded values happened to
+    equal the fallback's.
+    """
+
+    def test_old_flat_layout_still_resolves(self, tmp_path):
+        bag_dir = tmp_path / '2026-01-01T00-00-00_mission-x'
+        bag_dir.mkdir()
+        manifest_path = tmp_path / '2026-01-01T00-00-00_mission-x.manifest.json'
+        manifest_path.write_text(json.dumps({'run_id': 'x', 'params_snapshot_path': 'p'}))
+        assert mission_render.load_manifest_for(bag_dir) == \
+            {'run_id': 'x', 'params_snapshot_path': 'p'}
+
+    def test_new_one_folder_per_run_layout_resolves(self, tmp_path):
+        run_dir = tmp_path / '2026-01-01T00-00-00_mission-x'
+        bag_dir = run_dir / 'bag'
+        bag_dir.mkdir(parents=True)
+        manifest_path = run_dir / '2026-01-01T00-00-00_mission-x.manifest.json'
+        manifest_path.write_text(json.dumps({'run_id': 'x', 'params_snapshot_path': 'p'}))
+        assert mission_render.load_manifest_for(bag_dir) == \
+            {'run_id': 'x', 'params_snapshot_path': 'p'}
+
+    def test_old_layout_candidate_is_tried_first(self, tmp_path):
+        # A directory that happens to be named "bag" under the old flat
+        # layout (bag_root/bag/ next to bag_root/bag.manifest.json) must
+        # still resolve via the first candidate, not skip to the second.
+        bag_dir = tmp_path / 'bag'
+        bag_dir.mkdir()
+        (tmp_path / 'bag.manifest.json').write_text(json.dumps({'run_id': 'flat'}))
+        assert mission_render.load_manifest_for(bag_dir)['run_id'] == 'flat'
+
+    def test_no_manifest_under_either_layout_returns_empty(self, tmp_path):
+        bag_dir = tmp_path / 'orphan' / 'bag'
+        bag_dir.mkdir(parents=True)
+        assert mission_render.load_manifest_for(bag_dir) == {}
+
+    def test_extract_bag_reads_padding_from_the_new_layouts_manifest(
+            self, tmp_path, monkeypatch):
+        # End-to-end: extract_bag() on a <run_id>/bag/ directory must recover
+        # THIS run's own car_radius/avoidance_margin, not the fallback --
+        # the exact failure that shipped.
+        from f1tenth_logger import mission_extract
+
+        run_dir = tmp_path / 'r'
+        bag_dir = run_dir / 'bag'
+        bag_dir.mkdir(parents=True)
+        params_path = run_dir / 'r.params.yaml'
+        params_path.write_text(
+            'car_radius:\n  default: 0.33\n  description: "r"\n'
+            'obstacle_safety_margin_m:\n  default: 0.07\n  description: "m"\n')
+        (run_dir / 'r.manifest.json').write_text(json.dumps({
+            'run_id': 'r', 'params_snapshot_path': str(params_path)}))
+
+        monkeypatch.setattr(mission_extract, 'read_bag', lambda *_a, **_k: {
+            'streams': {}, 'static_tf': {}, 't0': 0.0, 't1': 1.0,
+            'pose_frame': 'map', 'pose_topic': '/p',
+            'legacy_solver_msgs': 0, 'dropped': {}})
+
+        out_path, _bag = mission_extract.extract_bag(bag_dir, tmp_path / 'r.extract.parquet')
+        padding = mission_render.read_extract(out_path)['padding']
+        assert padding['car_radius'] == 0.33
+        assert padding['avoidance_margin'] == 0.07
+        assert padding['source'] == str(params_path)     # NOT 'fallback'

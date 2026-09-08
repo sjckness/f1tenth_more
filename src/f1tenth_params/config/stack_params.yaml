@@ -788,6 +788,21 @@ enable_slam:
 enable_mission_logger:
   default: true
   description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle."
+# Consumed by: f1tenth_logger/mission_logger.launch.py AND mission_logger_node.py
+# (the node falls back to this same key when launched bare via `ros2 run`, so
+# both entry points agree without the launch file having to be involved).
+# Root of the two-state run tree: <runs_dir>/active/<run_id>/ while the bag is
+# open, moved whole to <runs_dir>/complete/<run_id>/ at finalize. The move is a
+# same-filesystem rename, so a run is atomically in one state or the other and
+# never half-copied -- which is what lets f1tenth-archive.service sync
+# complete/ unconditionally instead of filtering for "probably finished".
+# A stack-wide key rather than this launch file's local hardcoded-default
+# convention (see its own docstring) because the sync unit and the runs CLI
+# have to resolve the same location; a bag root only the logger knew about
+# would leave those two guessing.
+mission_logger_runs_dir:
+  default: "~/f1tenth_archive"
+  description: "Root of the mission run archive. Bags record into <dir>/active/<run_id>/bag/ and move whole to <dir>/complete/<run_id>/ at finalize. '~' is expanded."
 enable_sys_obs:
   default: true
   description: "Run system_observer_node (CPU/GPU/RAM temp+usage) and include IsSystemOverheated in the BT emergency lane. false: both are fully skipped, not just idle."

@@ -26,6 +26,15 @@ FORMAT section for the column layout.
 Run standalone, no ROS needed:
 
     python3 -m f1tenth_logger.mission_render <run>.extract.parquet --out-dir DIR
+
+That MP4 md5 check only proves same-machine, same-ffmpeg-build equivalence --
+VBR H.264 is not bit-identical across ffmpeg builds/architectures even from
+pixel-identical input, so it cannot validate the drawing path CROSS-machine.
+For that, use --frames-dir instead of --out-dir: it dumps raw
+frame_0001.png.. with no video codec anywhere in the path, so `md5sum
+frame_*.png` diffs line for line between machines with no codec confound.
+
+    python3 -m f1tenth_logger.mission_render <run>.extract.parquet --frames-dir DIR
 """
 
 import argparse
@@ -162,12 +171,33 @@ def discover_bags(bag_root: Path, count: int):
 
 
 def load_manifest_for(bag_dir: Path):
-    manifest_path = bag_dir.parent / f'{bag_dir.name}.manifest.json'
-    if manifest_path.exists():
-        try:
-            return json.loads(manifest_path.read_text())
-        except (OSError, json.JSONDecodeError):
-            pass
+    """
+    Find and load this bag's manifest.json -- two layouts, tried in order.
+
+    OLD (flat, still what ~/.ros/mission_bags/ and mission_replay_video's live
+    one-step workflow use): <bag_root>/<run_id>/ sits next to
+    <bag_root>/<run_id>.manifest.json, so the manifest is named after the bag
+    directory itself.
+
+    NEW (runs_migrate's one-folder-per-run archive, <archive>/complete/
+    <run_id>/): the bag always lives at <run_id>/bag/ -- literally named
+    "bag" in every run -- so the manifest is named after the bag directory's
+    PARENT instead. Without this second candidate, extract_bag() silently
+    finds no manifest for any migrated run, and padding_from_params()
+    (fed from manifest['params_snapshot_path']) falls back to stack defaults
+    with no error -- exactly the "silently redraws history" failure its own
+    docstring warns about, just one layer upstream of where that docstring
+    looks.
+    """
+    candidates = [bag_dir.parent / f'{bag_dir.name}.manifest.json']
+    if bag_dir.name == 'bag':
+        candidates.append(bag_dir.parent / f'{bag_dir.parent.name}.manifest.json')
+    for manifest_path in candidates:
+        if manifest_path.exists():
+            try:
+                return json.loads(manifest_path.read_text())
+            except (OSError, json.JSONDecodeError):
+                pass
     return {}
 
 
@@ -805,6 +835,36 @@ def render_bag(bag, manifest, label, cfg):
 
     n_frames = max(1, int(duration / cfg.dt) + 1)
     fps = max(1, int(round(cfg.speed / cfg.dt)))
+    render_start = time.time()
+
+    frames_dir = getattr(cfg, 'frames_dir', None)
+    if frames_dir is not None:
+        # Raw PNGs, one savefig() per frame, NO video codec anywhere in this
+        # path. The point: VBR H.264 is not bit-identical across ffmpeg
+        # builds/architectures even from pixel-identical input, so an MP4 md5
+        # cannot validate the drawing code cross-machine -- only cross-run on
+        # the SAME machine/ffmpeg build (that check is real and stays valid;
+        # this is the additional, codec-free one). matplotlib's Agg PNG
+        # backend has no such confound: same figure content in, same bytes
+        # out, whatever machine runs it. Naming is frame_0001.png.. (1-
+        # indexed, 4-digit) so a plain `md5sum frame_*.png | sort` on two
+        # machines diffs line for line.
+        frames_dir.mkdir(parents=True, exist_ok=True)
+        print(f'[{label}] rendering {n_frames} frames @ dt={cfg.dt}s '
+              f'-> {frames_dir}/frame_%04d.png')
+        for k in range(n_frames):
+            rel_t = k * cfg.dt
+            draw_frame((ax_map, ax_hud, ax_time), bag, bag['t0'] + rel_t, rel_t,
+                       cfg, state)
+            fig.savefig(frames_dir / f'frame_{k + 1:04d}.png',
+                        facecolor=SURFACE, dpi=cfg.dpi)
+            if cfg.progress and (k % 25 == 0 or k == n_frames - 1):
+                print(f'  frame {k + 1}/{n_frames}', end='\r', flush=True)
+        plt.close(fig)
+        print(f'\n[{label}] done in {time.time() - render_start:.1f}s '
+              f'-> {frames_dir} ({n_frames} PNGs)')
+        return frames_dir
+
     out_path = cfg.out_dir / f'{state["run_id"]}.mp4'
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
     writer = FFMpegWriter(fps=fps, bitrate=cfg.bitrate,
@@ -812,7 +872,6 @@ def render_bag(bag, manifest, label, cfg):
                                     'comment': 'mission_replay_video.py'})
     print(f'[{label}] rendering {n_frames} frames @ {fps} fps '
           f'({cfg.speed}x) -> {out_path}')
-    render_start = time.time()
     with writer.saving(fig, str(out_path), cfg.dpi):
         for k in range(n_frames):
             rel_t = k * cfg.dt
@@ -908,7 +967,17 @@ def main(argv=None):
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('extracts', nargs='+', type=Path,
                     help='*.extract.parquet files written by mission_extract')
-    ap.add_argument('--out-dir', type=Path, required=True)
+    ap.add_argument('--out-dir', type=Path, default=None,
+                    help='required unless --frames-dir is given')
+    ap.add_argument('--frames-dir', type=Path, default=None,
+                    help='debug: dump raw frame_0001.png.. here instead of '
+                         "encoding an MP4 -- no video codec in the path, so "
+                         "this is what proves the drawing itself is pixel-"
+                         "identical across machines (an MP4 md5 can't: VBR "
+                         "H.264 is not bit-identical across ffmpeg builds/"
+                         "architectures even from identical input). One "
+                         "extract at a time: a second run's frames would "
+                         "land in the same directory and overwrite the first.")
     ap.add_argument('--dt', type=float, default=0.1,
                     help="resample period [s]; default 0.1 = the MPC's control period")
     ap.add_argument('--speed', type=float, default=1.0)
@@ -929,7 +998,15 @@ def main(argv=None):
     ap.add_argument('--no-progress', dest='progress', action='store_false',
                     default=True)
     cfg = ap.parse_args(argv)
-    cfg.out_dir = cfg.out_dir.expanduser()
+    if cfg.frames_dir is None:
+        if cfg.out_dir is None:
+            ap.error('--out-dir is required unless --frames-dir is given')
+        cfg.out_dir = cfg.out_dir.expanduser()
+    else:
+        cfg.frames_dir = cfg.frames_dir.expanduser()
+        if len(cfg.extracts) > 1:
+            ap.error('--frames-dir takes one extract at a time '
+                     '(frames from each run would overwrite the last)')
 
     outputs = []
     for path in cfg.extracts:
