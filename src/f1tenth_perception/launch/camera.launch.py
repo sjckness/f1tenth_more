@@ -50,6 +50,31 @@ def generate_launch_description():
         # positional-tracking odom->camera_link TF, which would conflict with the
         # EKF's odom->base_link transform (f1tenth_localization). zed2_perception.yaml
         # also sets this, but we repeat it here as an explicit guard at the call site.
+        #
+        # publish_imu_tf=false is NOT redundant with zed2_perception.yaml's own
+        # sensors.publish_imu_tf: false -- it is the only thing that actually
+        # takes effect. zed_camera.launch.py appends a launch-argument dict
+        # AFTER ros_params_override_path ("Launch arguments must override the
+        # YAML files values"), and that dict contains
+        # 'sensors.publish_imu_tf': publish_imu_tf, whose DeclareLaunchArgument
+        # default is 'true'. So the yaml key was being silently overwritten on
+        # every run. Measured in the archives: zed2_left_camera_frame ->
+        # zed2_imu_link was broadcast dynamically at 178.9 Hz, 845 of the 1301
+        # /tf messages in run 2026-09-08T11-51-59 -- 65% of all /tf traffic, on
+        # a frame that is a LEAF (never a parent in any of 25 archived bags,
+        # and not modelled in the ZED URDF at all, so nothing can attach to it).
+        # In the two runs of the same session where the ZED was not publishing,
+        # both EKF edges sat at exactly 50.00 Hz; in this one they measured
+        # 49.12 (odom->base_link) and 37.87 (map->odom).
+        #
+        # The wrapper's own DeclareLaunchArgument description claims this is
+        # "Ignored if publish_tf is False" -- that is wrong, and the archives
+        # are what prove it: publish_tf has been false here all along and the
+        # IMU TF was published anyway. zed_camera_component.cpp's
+        # publishSensorsData() gates the broadcast on mPublishImuTF alone, with
+        # no reference to mPublishTf. (It also comments the send as "static TF"
+        # while calling the dynamic mTfBroadcaster with a fresh stamp each
+        # time, which is why this frame never appeared on /tf_static.)
         # base_link->zed2_camera_link is already owned by the static TF above;
         # publish_urdf=true (default) is still needed so the ZED's robot_state_publisher
         # can broadcast the internal camera TF subtree (zed2_camera_link->zed2_left_camera_frame, etc.).
@@ -75,6 +100,7 @@ def generate_launch_description():
                             perception_share, 'config', 'zed2_perception.yaml'),
                         'publish_tf': 'false',
                         'publish_map_tf': 'false',
+                        'publish_imu_tf': 'false',
                     }.items(),
                 ),
             ],
