@@ -191,6 +191,34 @@ still False) and escalates instead: force_kill_all() SIGKILLs every still-
 tracked process group immediately, no waiting, so a second signal is always a
 hard guarantee of a clean exit no matter how slow anything was being.
 
+Single-instance lock (_SUPERVISOR_LOCK_PATH, claimed in main() before rclpy.init()):
+this node must be a singleton, and nothing enforced that until a live session ran
+three of them at once. Two supervisors don't merely duplicate work -- they actively
+break each other in three separate ways, all observed:
+  - Components holding an exclusive OS-level resource simply cannot start twice, so
+    the second supervisor's copy dies instantly with exit code 1 and then burns its
+    whole max_auto_restarts budget losing the same race: 'intelligence' (llama-server
+    binds a fixed TCP port -- "couldn't bind HTTP server socket ... port 8083") and
+    'diagnostics' (mission_logger_node's own single-instance lock, see f1tenth_logger/
+    mission_logger_node.py's own "-- single-instance lock" section, which this one
+    deliberately mirrors). Every other component tolerates a duplicate by merely
+    double-publishing, which is exactly why this failure mode reads as "only
+    diagnostics and intelligence are broken" rather than "the stack is launched twice".
+  - _pgid_file is a fixed path under log_dir, so both instances read, rewrite and
+    delete ONE shared file. The second instance's _sweep_stale_pgids() reads the
+    first's LIVE pids, passes _looks_like_ros2_launch() on them (they are genuine
+    `ros2 launch` processes), kills them as "stale", then _clear_pgid_file()s the
+    survivor's own tracking out from under it -- after which nothing on the machine
+    knows those process groups exist and the next SIGKILL orphans them permanently.
+    An orphaned supervisor tree reparented to init is how this was found.
+  - Per-component log files are opened 'w' (truncate) at a path derived only from
+    package + launch file, so both instances clobber and interleave the same logs,
+    which is what made the failure so hard to read.
+Note that per-instance paths would NOT have been a fix for the middle point: the
+stale sweep works precisely because the next instance knows where the previous one
+left its file. A hard singleton is what makes that shared path safe, so the lock is
+the whole fix rather than one half of it.
+
 Startup safety sweep: none of the above helps if this process itself gets SIGKILLed
 (a crash, an OOM kill, `kill -9`) -- nothing runs, so every process group it had
 spawned is orphaned (reparented to init) with nothing left to ever clean it up, and
@@ -248,6 +276,7 @@ import json
 import os
 import signal
 import subprocess
+import sys
 import time
 
 import yaml
@@ -297,6 +326,97 @@ _CONDITIONAL_AUTO_START = {
 # family, since all of them contain 'fastrtps' as a substring.
 _FASTRTPS_SHM_DIR = '/dev/shm'
 _FASTRTPS_SHM_GLOB_PATTERN = '*fastrtps*'
+
+# -- single-instance lock ------------------------------------------------------
+# See the module docstring's own "Single-instance lock" paragraph for the three
+# distinct ways two concurrent supervisors break each other, all observed live.
+#
+# A PID file claimed with O_CREAT|O_EXCL (atomic, so two supervisors racing from
+# the same script cannot both win) at a FIXED path, deliberately NOT derived from
+# log_dir: two supervisors pointed at different log_dirs are still two supervisors
+# spawning two full stacks onto one machine's ports, serial devices and ROS graph,
+# so they must still collide here. Same reasoning, and the same implementation
+# shape, as f1tenth_logger/mission_logger_node.py's own single-instance lock --
+# kept deliberately parallel so the two read as one pattern rather than two.
+_DEFAULT_SUPERVISOR_LOCK_PATH = '/tmp/component_supervisor.lock'
+
+
+def _supervisor_lock_path():
+    return os.environ.get('COMPONENT_SUPERVISOR_LOCK', _DEFAULT_SUPERVISOR_LOCK_PATH)
+
+
+def _read_lock_pid(path):
+    try:
+        with open(path) as fh:
+            return int(fh.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _pid_alive(pid):
+    """Probe for a process without delivering anything.
+
+    EPERM means it exists but belongs to another user -- still alive.
+    """
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def acquire_singleton_lock(path):
+    """Claim the single-supervisor lock. Returns (True, None) or (False, holder_pid).
+
+    A lock naming a dead PID is stale -- the owner was SIGKILLed before it could
+    clean up -- and gets reclaimed rather than blocking forever. Refusing to ever
+    start again after one `kill -9` would be a worse failure than the one this
+    guards against, and the reclaiming instance's own _sweep_stale_pgids() is
+    precisely what cleans up after that dead owner.
+
+    A live holder is refused unconditionally, including in the (only reachable
+    after PID reuse) case where the recorded PID is our own: the operator gets a
+    message naming the lock file and can delete it, whereas reading it as "that's
+    me, so it must be stale" would green-light a second supervisor in exactly the
+    situation this exists to prevent.
+    """
+    for _ in range(2):
+        try:
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+        except FileExistsError:
+            holder = _read_lock_pid(path)
+            if holder is not None and _pid_alive(holder):
+                return False, holder
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+            continue
+        except OSError:
+            # Unwritable lock directory: refuse rather than silently running
+            # unguarded, which puts us right back in the double-stack case.
+            return False, None
+        with os.fdopen(fd, 'w') as fh:
+            fh.write(str(os.getpid()))
+        return True, None
+    return False, _read_lock_pid(path)
+
+
+def release_singleton_lock(path):
+    """Drop the lock, but only if it is still ours.
+
+    Never unlink a lock a successor legitimately reclaimed after we were
+    declared stale.
+    """
+    if _read_lock_pid(path) == os.getpid():
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
 
 
 class _ComponentProcess:
@@ -1335,6 +1455,28 @@ class ComponentSupervisorNode(Node):
 
 
 def main(args=None):
+    # Claimed BEFORE rclpy.init()/ComponentSupervisorNode(), because that
+    # constructor runs _sweep_stale_pgids() -- which, with a live peer
+    # supervisor around, is itself the destructive step: it reads the peer's
+    # LIVE pids out of the shared _pgid_file and kills them as "stale" (see the
+    # module docstring's own "Single-instance lock" paragraph). Refusing here,
+    # before any of that, is the only point at which a second supervisor can
+    # still be stopped without having already damaged the first.
+    lock = _supervisor_lock_path()
+    acquired, holder = acquire_singleton_lock(lock)
+    if not acquired:
+        held = f' (pid {holder})' if holder else ''
+        print(
+            f'component_supervisor_node: another supervisor is already running{held} '
+            f'-- refusing to start a second one. Two supervisors spawn two full '
+            f'stacks: components holding an exclusive resource (intelligence/'
+            f'llama-server\'s TCP port, diagnostics/mission_logger_node\'s own lock) '
+            f'crash-loop until their restart budget is gone, and the two instances '
+            f'corrupt each other\'s shared process tracking. Stop the running stack '
+            f'first, or if it is already gone, remove the lock: {lock}',
+            file=sys.stderr)
+        return 1
+
     rclpy.init(args=args)
     node = ComponentSupervisorNode()
 
@@ -1374,6 +1516,10 @@ def main(args=None):
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+        # os._exit() skips main()'s own finally, so the lock has to be dropped
+        # here explicitly -- leaving it behind would make the next launch refuse
+        # to start over a PID that is about to stop existing.
+        release_singleton_lock(lock)
         os._exit(0)
 
     signal.signal(signal.SIGINT, _handle_signal)
@@ -1391,7 +1537,9 @@ def main(args=None):
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
+        release_singleton_lock(lock)
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
