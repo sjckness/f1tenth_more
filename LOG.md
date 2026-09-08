@@ -20,6 +20,48 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
+### 2026-09-08 — `transform_time_offset` goes to 0.08 on BOTH edges, not a 0.12/0.08 split [decision]
+tags: decision
+- Context: the 50Hz -> 20Hz EKF retarget widens each filter's publish period from 20ms
+  to 50ms, so `transform_time_offset` (0.05 in both `ekf.yaml` and `ekf_global.yaml`)
+  has to be re-derived or scans start landing ahead of the newest TF stamp. The
+  proposal on the table was to split the edges: 0.12 for map -> odom (which moves at
+  correction rates, so a long post-date costs almost nothing in position) and 0.08 for
+  odom -> base_link (which carries vehicle motion, where 120ms is 36cm at 3 m/s).
+- Measured first, across 5 healthy archived runs (`12-48-40` excluded: its D values run
+  to thousands of ms, independently confirming that run's known 95% /tf loss).
+  `D = scan_stamp - newest_TF_stamp`, so `D > 0` means the scan leads the transform:
+  map -> odom is positive for **3.2-50.0%** of scans, odom -> base_link for 0.3-4.9%.
+  The margin is therefore ALREADY violated today at 50Hz, which the "0.05 clears the
+  28ms need by 2ms" reasoning did not predict.
+- There is also no single ~28ms scan lead. It is ~13-14ms on odom -> base_link and
+  ~27-34ms on map -> odom, and the difference is publish-period JITTER, not sensor
+  stamping.
+- The deciding question was whether positive D costs loss or latency. It costs
+  **latency**:
+  - `slam_toolbox_params.yaml:73` sets `transform_timeout: 0.2` — 200ms of tolerance
+    against a worst measured D of +64.8ms, so 135ms spare. A scan that leads the
+    newest transform waits one publish period and then succeeds.
+  - Zero `extrapolation into the future` in any component log. The only three greps
+    that hit were `static_transform_publisher` `list_parameters (timeout)` service
+    warnings, unrelated to TF lookups.
+  - slam_toolbox dropped exactly **10** scans in the session, ALL of them for
+    `'the timestamp on the message is earlier than all the data in the transform
+    cache'` — extrapolation into the PAST, the opposite direction. ~0.1% of scans,
+    clustered at startup and just after the perception restart.
+  - costmap and navigation logs contain zero transform complaints of any kind.
+- Consequence: 0.08 on both edges, 0.12 dropped. Raising the post-date further would
+  make the one drop mode actually observed slightly WORSE, since post-dating shifts the
+  whole transform cache forward in time and "earlier than all the data in the cache" is
+  precisely a too-old-stamp failure.
+- **This is JITTER MITIGATION, not a fix.** The real defect is the global EKF's p99
+  publish period of 36-55ms against a 20ms nominal. At 20Hz the nominal becomes 50ms
+  with jitter on top, so the offset must be revisited against `ekf_cost_observer_node`'s
+  own `period_ms_p90`/`period_ms_max` once a baseline run exists.
+- status: open — decided and evidenced, NOT yet applied. Lands with the frequency
+  change, which is itself gated on capturing the 50Hz cost baseline first.
+- commit: measurement instrument landed as `1635aed`; the offset change itself is pending
+
 ### 2026-09-02 — Live `w_psi` sweep on hardware refutes the modeled tuning [decision]
 tags: decision
 - 13 mission bags recorded 15:13–15:38 UTC. The MPC node was restarted 14 times and
