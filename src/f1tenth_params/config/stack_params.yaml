@@ -144,26 +144,30 @@ calibration:
 calibration_duration_sec:
   default: 60.0
   description: "Stationary sampling window for sensor_covariance_calibration_node (both the calibration:=true path and the standalone calibration.launch.py entry point), in seconds."
-# Consumed by: f1tenth_hardware/vesc.launch.py (startup pre-flight gate), also
-# f1tenth_diagnostics/diagnostics_server.launch.py (continuous monitoring threshold for
-# the BatteryStatus it publishes -- same threshold, two independent checks: one gates
-# launch, the other feeds f1tenth_behavior's BT emergency lane).
+# Consumed by: f1tenth_hardware/vesc.launch.py (battery_voltage_check_node's
+# startup precheck -- ADVISORY, it warns and proceeds, it does not gate the launch;
+# see that node's own module docstring for why the old fail-closed gate was removed),
+# also f1tenth_diagnostics/diagnostics_server.launch.py (continuous monitoring
+# threshold for the BatteryStatus it publishes). Same threshold, two consumers, but
+# only one of them enforces: diagnostics_server_node's verdict feeds f1tenth_behavior's
+# BT IsBatteryLow emergency lane, which is what actually stops the car.
 min_battery_voltage:
   default: 10.8
-  description: "Startup-only minimum VESC input_voltage (volts); below this the drive stack does not launch at all."
+  description: "Minimum VESC input_voltage (volts). Startup precheck warns below this and proceeds; the BT emergency lane stops the car if the running pack is below it."
 # Consumed by: f1tenth_hardware/vesc.launch.py (battery_voltage_check_node's
 # precheck). Ceiling for the "wait for the first telemetry sample" phase,
 # separate from sample_window_sec's (2.0s) averaging-window duration once
 # telemetry is flowing -- see battery_voltage_check_node.py's own module
-# docstring ("startup-race fix") for why these two had to be split apart:
-# the VESC serial handshake can take longer than the old single fixed 2.0s
-# window, and that used to fail-close the whole drive stack on a timing
-# artifact, not a real missing-VESC condition. 10.0s default is real margin
-# over the ~2.9s already observed (live, this hardware) as insufficient --
-# not a round-number guess.
+# docstring for why these two had to be split apart: the VESC serial handshake
+# can take longer than the old single fixed 2.0s window. 10.0s is real margin
+# over the ~2.9s observed (live, this hardware) as insufficient -- not a
+# round-number guess -- but note it is still exceeded in practice: 40 boots hit
+# it after it was raised to 10.0s, most recently 2026-09-08. Expiring it is no
+# longer fatal (the precheck warns and proceeds), so raising it further buys a
+# measured reading more often, nothing more.
 max_wait_for_first_sample_sec:
   default: 10.0
-  description: "Startup-only ceiling (seconds) on how long battery_voltage_check_node waits for the FIRST /sensors/core telemetry sample before fail-closing; averaging (sample_window_sec) only starts once that first sample lands."
+  description: "Startup-only ceiling (seconds) on how long battery_voltage_check_node waits for the FIRST /sensors/core telemetry sample; on expiry it warns that no reading was taken and proceeds. Averaging (sample_window_sec) only starts once that first sample lands."
 # Consumed by: f1tenth_hardware/vesc.launch.py.
 release_downstream:
   default: true

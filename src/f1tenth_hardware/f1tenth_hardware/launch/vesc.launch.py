@@ -106,20 +106,34 @@ handler, identical to the old always-on behavior), no calibration nodes, no
 v1/v2 split -- stack_bringup.launch.py's own ekf_bringup/navigation_bringup
 launch immediately, completely unaffected by anything in this file.
 
-Battery voltage pre-flight gate (see f1tenth_diagnostics'
+Battery voltage pre-flight REPORT (see f1tenth_diagnostics'
 battery_voltage_check_node): runs BEFORE any of the above, regardless of
 calibration:=true/false -- everything described above (the whole
 calibration:=true/false split) is built unchanged and simply handed to this
-gate as "the full stack" to launch on a pass, rather than returned directly.
-Circular-dependency note: battery_voltage_check_node needs a live
-vesc_driver_node to sample /sensors/core from, so it can't be gated behind
-its own check (same shape as the calibration bug this file already fixes
-once). Resolved with a standalone, temporary precheck vesc_driver_node
-instance: check passes -> ShutdownProcess just that instance -> once it
-exits, launch "the full stack" (built above, completely untouched) after
-the usual OS-teardown buffer. Check fails -> the full stack never launches;
-the precheck vesc_driver_node is deliberately left running (harmless,
-telemetry-only) so voltage can be watched recovering without a relaunch.
+step as "the full stack" to launch once the report is in, rather than
+returned directly. Circular-dependency note: battery_voltage_check_node needs
+a live vesc_driver_node to sample /sensors/core from, so it can't be gated
+behind its own check (same shape as the calibration bug this file already
+fixes once). Resolved with a standalone, temporary precheck vesc_driver_node
+instance: once the check exits, ShutdownProcess just that instance, and once
+IT exits, launch "the full stack" (built above, completely untouched) after
+the usual OS-teardown buffer.
+
+THIS IS NO LONGER A GATE, in any branch. It used to be: a non-zero exit from
+battery_voltage_check_node meant the full stack was never launched for that
+boot, with no retry, so ackermann_to_vesc_node and vesc_to_odom_node simply
+did not exist while everything else came up healthy. That state was also
+invisible from outside: the precheck vesc_driver_node was deliberately left
+running, so this `ros2 launch` kept a live process to track and never exited
+-- component_supervisor_node's watchdog polls for process exit, so it saw the
+'hardware' component as up, logged nothing, and never restarted it. 323
+archived boots took that path (308 of them because VESC telemetry had not
+started yet, not because the pack was flat -- see battery_voltage_check_node's
+own module docstring for the counts). The check is now advisory and always
+exits 0; the returncode is logged here but no longer decides anything, so a
+crash in the checker cannot silently cost the car its drive-by-wire either.
+Battery protection lives in diagnostics_server_node + the BT's IsBatteryLow
+emergency lane, which monitor continuously and are unchanged.
 """
 
 import os
@@ -543,29 +557,40 @@ def generate_launch_description():
         }],
     )
 
-    # Set True only on a passing check (in _on_battery_check_exit below) -- lets
-    # _on_precheck_driver_exit tell "precheck driver released intentionally after a
-    # pass" apart from "precheck driver crashed/disconnected on its own," which must
-    # NOT be treated as permission to launch the full stack.
-    _battery_check_state = {'passed': False}
+    # Set once the battery check has exited, whatever it reported -- lets
+    # _on_precheck_driver_exit tell "precheck driver released intentionally after the
+    # check finished" apart from "precheck driver crashed/disconnected on its own,"
+    # which must NOT be treated as permission to launch the full stack. It is no
+    # longer a pass/fail flag: the check's verdict does not gate anything (see module
+    # docstring), only its completion sequences the driver handover.
+    _battery_check_state = {'completed': False}
 
     def _on_battery_check_exit(event, context):
+        _battery_check_state['completed'] = True
+        # Advisory: battery_voltage_check_node always exits 0, and even a
+        # non-zero exit (i.e. the checker itself crashed) must not cost the car
+        # its drive-by-wire -- that is the failure this whole pass removes. Say
+        # so out loud rather than silently proceeding, so a crashed checker is
+        # still visible in this log.
+        actions = []
         if event.returncode != 0:
-            return [LogInfo(
-                msg='[vesc_launch] STARTUP ABORTED: battery check failed (see '
-                    'battery_voltage_check_node log above) -- the drive stack will '
-                    'NOT launch. vesc_driver_node stays up for diagnostics; fix the '
-                    'battery and relaunch.')]
-        _battery_check_state['passed'] = True
-        return [
-            LogInfo(msg='[vesc_launch] battery check passed -- releasing precheck '
+            actions.append(LogInfo(
+                msg=f'[vesc_launch] battery_voltage_check_node exited '
+                    f'{event.returncode} (it is advisory and should always exit 0 '
+                    '-- a non-zero exit means the checker itself failed, not that '
+                    'the battery is bad). Proceeding with the drive stack; see its '
+                    'log above, and note battery protection is the BT IsBatteryLow '
+                    'emergency lane, not this check.'))
+        actions += [
+            LogInfo(msg='[vesc_launch] battery check reported -- releasing precheck '
                         'driver, launching the full stack.'),
             EmitEvent(event=ShutdownProcess(
                 process_matcher=matches_action(vesc_driver_node_precheck))),
         ]
+        return actions
 
     def _on_precheck_driver_exit(event, context):
-        if not _battery_check_state['passed']:
+        if not _battery_check_state['completed']:
             return [LogInfo(
                 msg='[vesc_launch] precheck vesc_driver_node exited before the battery '
                     'check completed -- treating as a failure, NOT launching the drive '
