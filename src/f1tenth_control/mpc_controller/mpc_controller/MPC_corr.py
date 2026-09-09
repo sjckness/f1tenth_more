@@ -453,6 +453,31 @@ class MPCController(Node):
         self.use_hard_boundary_constraints = bool(
             self.declare_parameter('use_hard_boundary_constraints', False).value)
 
+        # Boundary-row shape, all three INERT on the shipping configuration:
+        # use_hard_boundary_constraints above is False, so
+        # _get_live_boundaries always returns [] and solve_mpc_step never
+        # builds a boundary row of any kind. Declared anyway so the convex-
+        # safe-corridor path (f1tenth_costmap's safe_corridor.py, also built
+        # and also off) is configurable from a launch arg rather than a code
+        # change when it is eventually turned on -- the same opt-in pattern
+        # use_rti_solver and use_hard_boundary_constraints themselves follow.
+        #
+        # boundary_max_sources: rows per stage. 3 matches costmap_boundary_
+        # node's nearest-cell front/left/right output; a convex polytope
+        # needs up to 8, and mpc_solver's pad_boundary_constraints would
+        # otherwise TRUNCATE the extra faces silently.
+        self.boundary_max_sources = int(
+            self.declare_parameter('boundary_max_sources', 3).value)
+        # boundary_hard: False (default) adds the rows with a slack variable
+        # and a large penalty; True makes them strict. Soft is the default
+        # deliberately -- see mpc_solver.py's own "SLACK AND THE SLOT COUNT"
+        # docstring section for why a hard constraint derived from an
+        # occupancy map is a hard failure mode.
+        self.boundary_hard = bool(
+            self.declare_parameter('boundary_hard', False).value)
+        self.boundary_slack_weight = float(
+            self.declare_parameter('boundary_slack_weight', 1.0e4).value)
+
         # Max tangential shove applied to the lookahead target when it lands
         # inside an obstacle's safety radius -- see compute_local_target,
         # which is the only reader. A DECLARED PARAMETER whose default comes
@@ -1973,6 +1998,9 @@ class MPCController(Node):
             vdes=vdes,
             solver='rti' if self.use_rti_solver else 'slsqp',
             boundaries=live_boundaries,
+            boundary_max_sources=self.boundary_max_sources,
+            boundary_hard=self.boundary_hard,
+            boundary_slack_weight=self.boundary_slack_weight,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0

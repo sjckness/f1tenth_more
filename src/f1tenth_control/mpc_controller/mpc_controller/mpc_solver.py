@@ -67,6 +67,41 @@ actually live this tick -- an absent/stale/disabled slot is a sentinel
 row is all-zero (0*z <= anything, unconditionally satisfied), not a
 missing row.
 
+SLACK AND THE SLOT COUNT (convex-safe-corridor pass). Two changes here,
+both driven by f1tenth_costmap's safe_corridor.py, which emits the faces of
+one convex polytope instead of three nearest-cell half-planes.
+
+max_sources IS A PARAMETER NOW (boundary_max_sources, default still 3).
+The fixed-3 padding above would have TRUNCATED an 8-face polytope to 3,
+silently dropping five faces of an obstacle separation -- worse than not
+having the polytope at all, because the remaining three still look like a
+complete constraint set. The default is unchanged, so the pre-polytope
+behaviour is untouched; a caller shipping a polytope asks for the count it
+needs and pays one QP row per face per stage for it.
+
+BOUNDARY ROWS ARE SOFT BY DEFAULT, with a large penalty on a slack
+variable, and boundary_hard=True restores the original strict rows. The
+default moved because a HARD constraint derived from an occupancy map is a
+hard failure mode: unknown-cell and out-of-bounds handling in that map was
+undefined until this same pass, and an infeasible QP does not degrade
+gracefully -- OSQP returns an infeasibility certificate, _solve_rti
+discards the entire solve and holds the warm start, and the caller learns
+nothing about which face was violated or by how much. Soft-with-a-large-
+penalty is identical wherever the constraints are satisfiable and gives a
+controlled, REPORTED violation (info["boundary_slack"]) where they are not.
+
+ONE SLACK PER FACE, SHARED ACROSS STAGES -- 8 extra variables rather than
+the 8 x N = 160 a per-stage formulation would add to a 120-variable
+problem. The penalty is therefore on each face's WORST violation anywhere
+in the horizon rather than the sum along it, which is the right trade for
+what a face is: a wall, where a plan that clips it once is not meaningfully
+better than one that clips it three times.
+
+The slack block exists only when there is at least one live boundary AND
+boundary_hard is false, so on the shipping configuration
+(use_hard_boundary_constraints=False -> boundaries=[]) the QP is
+byte-identical to the pre-slack one, slack-free and unchanged.
+
 Purely additive: does not remove or weaken w_obs/compute_local_target's
 existing soft deflection -- boundaries is an EXTRA set of hard rows on
 top of everything _solve_rti already builds, empty by default (`[]`),
@@ -131,6 +166,29 @@ else:
 # satisfied regardless of the offset/margin math applied to it -- matches
 # wall_detector_node.py's own _wall_boundary_from_track pathological-case
 # return value exactly (same sentinel shape, same reasoning).
+# Default number of boundary-constraint slots padded into every stage. THREE
+# preserves the pre-polytope behaviour exactly (front/left/right from
+# costmap_boundary.py's nearest-cell extraction), and it is a default rather
+# than a constant because a convex polytope needs more: f1tenth_costmap's
+# safe_corridor.py emits up to 8 faces. Raising it costs one QP row per face
+# per stage -- at N=20 that is 20 more rows per extra face -- which is why
+# the caller chooses rather than the solver assuming.
+BOUNDARY_MAX_SOURCES_DEFAULT = 3
+
+# Slack penalty. Quadratic, so the cost grows with the square of the worst
+# violation; large enough that a millimetre of violation outweighs any
+# realistic tracking gain, small enough that OSQP stays well conditioned
+# against the stage weights (which are single digits after
+# scale_stage_weights). This is a REASONED STARTING POINT, not tuned against
+# a real solve.
+BOUNDARY_SLACK_WEIGHT_DEFAULT = 1.0e4
+
+# Upper bound on a slack variable, metres. A finite bound rather than +inf
+# keeps the QP bounded even if every face is momentarily unsatisfiable, and
+# 0.5 m is far past anything a recoverable situation produces -- if the
+# solver wants more than half a metre of boundary violation, the constraint
+# set and the reference disagree at a level no penalty should paper over.
+BOUNDARY_SLACK_MAX_DEFAULT = 0.5
 BOUNDARY_DISABLED = (0.0, 0.0, math.inf)
 
 
@@ -235,6 +293,10 @@ def solve_mpc_step(
     vdes: float,
     solver: str = 'rti',
     boundaries: Optional[List[Tuple[float, float, float]]] = None,
+    boundary_max_sources: int = BOUNDARY_MAX_SOURCES_DEFAULT,
+    boundary_hard: bool = False,
+    boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
+    boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -266,7 +328,11 @@ def solve_mpc_step(
     elif solver == 'rti':
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
-            weights, obstacles, dmin, vdes, boundaries=boundaries)
+            weights, obstacles, dmin, vdes, boundaries=boundaries,
+            boundary_max_sources=boundary_max_sources,
+            boundary_hard=boundary_hard,
+            boundary_slack_weight=boundary_slack_weight,
+            boundary_slack_max=boundary_slack_max)
     else:
         raise ValueError(f"Unknown solver={solver!r}, expected 'rti' or 'slsqp'")
 
@@ -522,6 +588,10 @@ def _solve_rti(
     vdes: float,
     warm_start_z: Optional[np.ndarray] = None,
     boundaries: Optional[List[Tuple[float, float, float]]] = None,
+    boundary_max_sources: int = BOUNDARY_MAX_SOURCES_DEFAULT,
+    boundary_hard: bool = False,
+    boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
+    boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -581,8 +651,44 @@ def _solve_rti(
         B_list.append(B_k)
         c_list.append(c_k)
 
-    # ---- 3. Decision vector layout: z = [u_0..u_{N-1}, x_1..x_N].
-    n_z = N * (n_u + n_x)
+    # ---- 3. Decision vector layout:
+    #         z = [u_0..u_{N-1}, x_1..x_N, s_0..s_{M-1}]
+    #
+    # The trailing block is the BOUNDARY SLACK, one variable per boundary
+    # slot, present only when the boundaries are soft AND there is at least
+    # one live boundary to soften. Both halves of that condition matter:
+    #
+    #   - boundary_hard=True reproduces the original pure-hard rows exactly,
+    #     variable-for-variable. It is the opt-in, not the default: a hard
+    #     constraint derived from an occupancy map whose unknown-cell
+    #     handling was undefined until this pass is a hard failure mode, and
+    #     an infeasible QP does not degrade gracefully -- it returns an
+    #     infeasibility certificate, which _solve_rti then has to discard
+    #     entirely and hold the warm start (see the results.x check below).
+    #     Soft-with-a-large-penalty gives the same behaviour where the
+    #     constraints are satisfiable and a controlled, reportable
+    #     violation where they are not.
+    #
+    #   - no live boundaries means no slack variables at all, so the QP is
+    #     byte-identical to the pre-slack one on the default configuration
+    #     (MPC_corr's use_hard_boundary_constraints is False, so boundaries
+    #     is always [] and this whole block is inert). Padding still emits
+    #     its M all-zero rows in that case, exactly as before.
+    #
+    # ONE SLACK PER FACE, SHARED ACROSS STAGES, not one per (stage, face).
+    # The per-stage form is 8 x 20 = 160 extra variables against a problem
+    # of 120; this form is 8. What it costs is precision about WHERE the
+    # violation happens -- the penalty is on the worst violation of each
+    # face anywhere in the horizon rather than on the sum along it -- which
+    # is the right trade here because a face is a wall, and a plan that
+    # clips a wall at one stage is not meaningfully better than one that
+    # clips it at three.
+    padded_boundaries = pad_boundary_constraints(
+        boundaries or [], max_sources=boundary_max_sources)
+    use_slack = bool(boundaries) and not boundary_hard
+    n_slack = boundary_max_sources if use_slack else 0
+
+    n_z = N * (n_u + n_x) + n_slack
 
     def u_idx(k):
         return slice(k * n_u, k * n_u + n_u)
@@ -590,6 +696,9 @@ def _solve_rti(
     def x_idx(k):  # k = 1..N (state AFTER step k-1, i.e. x_ref[k])
         base = N * n_u
         return slice(base + (k - 1) * n_x, base + (k - 1) * n_x + n_x)
+
+    def s_idx(j):  # j = 0..n_slack-1, only valid when use_slack
+        return N * (n_u + n_x) + j
 
     P = np.zeros((n_z, n_z))
     q = np.zeros(n_z)
@@ -656,12 +765,6 @@ def _solve_rti(
     obstacles_world = corridor.get("obstacles_world", obstacles)
     car_radius = corridor.get("car_radius", 0.0)
     avoidance_margin = corridor.get("avoidance_margin", 0.12)
-
-    # Hard boundary constraints (see module docstring's "Hard boundary
-    # constraints" section) -- padded to a FIXED 3 slots once, outside the
-    # stage loop (the same 3 (normal, offset) tuples apply at every stage;
-    # only the ROW itself differs per stage, via xk1_idx below).
-    padded_boundaries = pad_boundary_constraints(boundaries or [])
 
     for k in range(N):
         xk1_idx = x_idx(k + 1)
@@ -737,17 +840,39 @@ def _solve_rti(
         row_v[xk1_idx][3] = 1.0
         add_row(row_v, limits["vMin"], limits["vMax"])
 
-        # hard boundary constraints: ALWAYS exactly 3 rows (padded above),
-        # one per source, at this stage's predicted (x, y) -- see module
-        # docstring. A disabled slot's all-zero normal row is
+        # boundary constraints: ALWAYS exactly boundary_max_sources rows
+        # (padded above), one per slot, at this stage's predicted (x, y) --
+        # see module docstring. A disabled slot's all-zero normal row is
         # unconditionally satisfied regardless of its (also-disabled) bound.
-        for bnx, bny, boffset in padded_boundaries:
+        #
+        # With slack the row becomes n . p_{k+1} - s_j <= offset - r - margin,
+        # i.e. s_j buys exactly as much violation as it is charged for in
+        # the cost. Without it (boundary_hard, or nothing live to soften)
+        # the -s_j term is absent and this is the original hard row.
+        for j, (bnx, bny, boffset) in enumerate(padded_boundaries):
             row_b = np.zeros(n_z)
             row_b[xk1_idx][0] = bnx
             row_b[xk1_idx][1] = bny
+            if use_slack:
+                row_b[s_idx(j)] = -1.0
             lo, hi = boundary_constraint_bounds(
                 bnx, bny, boffset, car_radius, avoidance_margin)
             add_row(row_b, lo, hi)
+
+    # ---- boundary slack: box 0 <= s_j <= boundary_slack_max, plus the
+    # penalty that makes the solver actually prefer not to use it. The
+    # quadratic term is what makes a large violation disproportionately
+    # expensive; the linear term is what stops a vanishingly small one from
+    # being free (a pure quadratic has zero gradient at s=0, so the solver
+    # will happily take a fraction of a millimetre for nothing). Both are
+    # driven by the same weight so there is one number to tune.
+    if use_slack:
+        for j in range(n_slack):
+            row_s = np.zeros(n_z)
+            row_s[s_idx(j)] = 1.0
+            add_row(row_s, 0.0, boundary_slack_max)
+            P[s_idx(j), s_idx(j)] += 2.0 * boundary_slack_weight
+            q[s_idx(j)] += boundary_slack_weight
 
     # ---- terminal position cost: w_term * ||x_N[:2] - pref_nom||^2, exact
     # quadratic, only at the LAST state block.
@@ -789,7 +914,11 @@ def _solve_rti(
     P_csc = sp.csc_matrix(P)
     A_csc = sp.csc_matrix(A_mat)
 
-    z_guess = np.concatenate([warm_start_z, np.concatenate(x_ref[1:])])
+    # Slack starts at zero -- "assume the boundaries are satisfiable" is
+    # both the right prior and the value the penalty drives it to whenever
+    # they are.
+    z_guess = np.concatenate([
+        warm_start_z, np.concatenate(x_ref[1:]), np.zeros(n_slack)])
 
     prob = osqp.OSQP()
     # warm_starting/polishing: current osqp (>=1.x) setting names -- the
@@ -848,6 +977,14 @@ def _solve_rti(
         "cost": float(true_cost),
         "zopt": zopt.copy(),
         "x_pred": x_pred,
+        # Per-face boundary violation the solver actually bought, metres.
+        # Empty list when the rows are hard or inert. This is how a soft
+        # constraint stays honest: a violated boundary is now a number the
+        # caller can log and act on, where a hard one would have shown up
+        # only as a discarded infeasible solve with no indication of which
+        # face or by how much.
+        "boundary_slack": (
+            [float(v) for v in z_full[N * (n_u + n_x):]] if use_slack else []),
     }
 
     return u0, info

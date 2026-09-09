@@ -350,7 +350,17 @@ class TestHardBoundaryEndToEnd:
         )
 
         boundary = [(1.0, 0.0, wall_offset)]  # normal +x, wall at world x=0.6
-        _, info_constrained = solve_mpc_step(**common_kwargs, boundaries=boundary)
+        # boundary_hard=True is now REQUIRED to get the strict rows this
+        # test is about: the safe-corridor pass made soft-with-a-large-
+        # penalty the default (see mpc_solver.py's own "boundary slack"
+        # section), so a bare boundaries= call no longer promises the
+        # trajectory stays behind the wall -- only that crossing it is
+        # expensive. The strict behaviour still exists and is still
+        # supported; it is opt-in now, and this test pins the opt-in.
+        # TestSoftBoundariesAreTheDefault below covers what a bare call
+        # does instead.
+        _, info_constrained = solve_mpc_step(
+            **common_kwargs, boundaries=boundary, boundary_hard=True)
 
         x_max_constrained = max(s[0] for s in info_constrained["x_pred"])
         assert x_max_constrained <= limit + 1e-6, (
@@ -389,6 +399,14 @@ class TestInfeasibilityDetection:
             x0=x0, last_u=last_u, pref_nom=corridor["Pend"], corridor=corridor,
             horizon=HORIZON, ts=TS, params=PARAMS, limits=LIMITS, weights=WEIGHTS,
             obstacles=[], dmin=0.9, vdes=2.0, solver='rti', boundaries=boundary,
+            # Hard rows are what MAKE this scenario infeasible -- with the
+            # new soft default the QP always has a feasible point (buy
+            # slack, pay the penalty) and there is no certificate to detect.
+            # That is precisely the argument for the default: see
+            # TestSoftBoundariesAreTheDefault below, which pins that this
+            # same fixture now returns a usable solve instead of a
+            # discarded one.
+            boundary_hard=True,
         )
 
         # The fixture itself must actually be infeasible (not a stale
@@ -422,3 +440,189 @@ class TestInfeasibilityDetection:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+# ==============================================================================
+# Soft boundaries (slack + high penalty) are the DEFAULT as of the convex-
+# safe-corridor pass; pure hard rows are opt-in via boundary_hard=True.
+#
+# WHY THE DEFAULT MOVED. A hard constraint derived from an occupancy map
+# whose unknown-cell and out-of-bounds handling was undefined until that
+# same pass is a hard failure mode, and an infeasible QP does not degrade
+# gracefully: OSQP returns an infeasibility certificate, _solve_rti discards
+# the whole solve and holds the warm start, and the caller learns nothing
+# about which face was violated or by how much. Soft-with-a-large-penalty
+# behaves identically wherever the constraints are satisfiable, and gives a
+# controlled, REPORTED violation where they are not.
+# ==============================================================================
+
+class TestSoftBoundariesAreTheDefault:
+
+    def test_a_bare_boundaries_call_uses_slack(self):
+        x0 = np.array([0.0, 0.0, 0.0, 0.3])
+        corridor = _straight_corridor(x0)
+        _u0, info = solve_mpc_step(
+            x0=x0, last_u=np.array([0.0, 0.0]), pref_nom=corridor["Pend"],
+            corridor=corridor, horizon=HORIZON, ts=TS, params=PARAMS,
+            limits=LIMITS, weights=WEIGHTS, obstacles=[], dmin=0.9, vdes=1.0,
+            solver='rti', boundaries=[(1.0, 0.0, 0.6)])
+        assert 'boundary_slack' in info
+        assert len(info['boundary_slack']) == 3  # padded slot count
+
+    def test_boundary_hard_reports_no_slack_at_all(self):
+        x0 = np.array([0.0, 0.0, 0.0, 0.3])
+        corridor = _straight_corridor(x0)
+        _u0, info = solve_mpc_step(
+            x0=x0, last_u=np.array([0.0, 0.0]), pref_nom=corridor["Pend"],
+            corridor=corridor, horizon=HORIZON, ts=TS, params=PARAMS,
+            limits=LIMITS, weights=WEIGHTS, obstacles=[], dmin=0.9, vdes=1.0,
+            solver='rti', boundaries=[(1.0, 0.0, 0.6)], boundary_hard=True)
+        assert info['boundary_slack'] == []
+
+    def test_the_infeasible_fixture_now_solves_instead_of_being_discarded(self):
+        """The same scenario TestInfeasibilityDetection uses, softened.
+
+        That fixture is genuinely infeasible for the RTI linearization with
+        hard rows, so the whole solve is thrown away and the warm start
+        held. With the default soft rows the QP always has a feasible point
+        -- buy slack, pay for it -- so a usable solution comes back AND the
+        violation is visible as a number rather than inferred from a
+        discarded solve. That contrast is the entire argument for the
+        default, so it is pinned directly.
+        """
+        x0 = np.array([0.0, 0.0, 0.0, 1.0])
+        corridor = _straight_corridor(x0)
+        _u0, info = solve_mpc_step(
+            x0=x0, last_u=np.array([0.3, 0.0]), pref_nom=corridor["Pend"],
+            corridor=corridor, horizon=HORIZON, ts=TS, params=PARAMS,
+            limits=LIMITS, weights=WEIGHTS, obstacles=[], dmin=0.9, vdes=2.0,
+            solver='rti', boundaries=[(1.0, 0.0, 0.6)])
+        assert info['success'], 'soft rows should always leave a feasible QP'
+        assert max(info['boundary_slack']) > 0.0, (
+            'the fixture is infeasible with hard rows, so softening it must '
+            'show up as a non-zero, reported violation -- not silently zero')
+
+    def test_boundary_slack_max_actually_caps_the_violation(self):
+        """The cap binds -- lowering it lowers the violation the solver buys.
+
+        Asserted as a COMPARISON rather than against the bound alone,
+        because the bound is an OSQP row satisfied to the solver's own
+        convergence tolerance (default ~1e-3), not exactly: at
+        boundary_slack_max=0.1 this fixture settles at 0.1008. Pinning
+        "<= 0.1 + 1e-6" would be pinning solver tolerance, not behaviour.
+        The measurement that means something is that the generous cap and
+        the tight one give different answers, and the tight one is tight.
+        """
+        x0 = np.array([0.0, 0.0, 0.0, 1.0])
+        corridor = _straight_corridor(x0)
+        kwargs = dict(
+            x0=x0, last_u=np.array([0.3, 0.0]), pref_nom=corridor["Pend"],
+            corridor=corridor, horizon=HORIZON, ts=TS, params=PARAMS,
+            limits=LIMITS, weights=WEIGHTS, obstacles=[], dmin=0.9, vdes=2.0,
+            solver='rti', boundaries=[(1.0, 0.0, 0.6)])
+
+        loose = max(solve_mpc_step(**kwargs, boundary_slack_max=0.5)[1]['boundary_slack'])
+        tight = max(solve_mpc_step(**kwargs, boundary_slack_max=0.1)[1]['boundary_slack'])
+
+        assert loose > 0.1, 'fixture sanity: the loose cap must not itself bind'
+        assert tight < loose
+        assert tight <= 0.1 + 5e-3  # OSQP convergence tolerance, not slop.
+
+    def test_slack_is_never_negative(self):
+        """s >= 0 -- slack buys violation, it must not be able to sell
+        clearance back as a cost saving."""
+        x0 = np.array([0.0, 0.0, 0.0, 1.0])
+        corridor = _straight_corridor(x0)
+        _u0, info = solve_mpc_step(
+            x0=x0, last_u=np.array([0.3, 0.0]), pref_nom=corridor["Pend"],
+            corridor=corridor, horizon=HORIZON, ts=TS, params=PARAMS,
+            limits=LIMITS, weights=WEIGHTS, obstacles=[], dmin=0.9, vdes=2.0,
+            solver='rti', boundaries=[(1.0, 0.0, 0.6)])
+        assert all(s >= -5e-3 for s in info['boundary_slack'])
+
+    def test_no_boundaries_means_no_slack_variables_and_no_behaviour_change(self):
+        """THE DEFAULT CONFIGURATION. MPC_corr ships with
+        use_hard_boundary_constraints False, so boundaries is always [] and
+        this pass must be a no-op there -- same commanded control, same
+        prediction, and no slack block in the QP at all."""
+        x0 = np.array([0.0, 0.0, 0.0, 0.3])
+        corridor = _straight_corridor(x0)
+        kwargs = dict(
+            x0=x0, last_u=np.array([0.0, 0.0]), pref_nom=corridor["Pend"],
+            corridor=corridor, horizon=HORIZON, ts=TS, params=PARAMS,
+            limits=LIMITS, weights=WEIGHTS, obstacles=[], dmin=0.9, vdes=1.0,
+            solver='rti')
+        u_none, info_none = solve_mpc_step(**kwargs)
+        u_empty, info_empty = solve_mpc_step(**kwargs, boundaries=[])
+        assert info_none['boundary_slack'] == []
+        assert info_empty['boundary_slack'] == []
+        assert np.allclose(u_none, u_empty)
+
+
+class TestBoundaryMaxSourcesIsConfigurable:
+    """A convex polytope needs more than three rows.
+
+    safe_corridor.py emits up to 8 faces, and pad_boundary_constraints would
+    have TRUNCATED them to 3 -- silently dropping five faces of an obstacle
+    separation, which is worse than not having the polytope at all. The slot
+    count is a parameter now; the DEFAULT is still 3 so the pre-polytope
+    behaviour is unchanged.
+    """
+
+    def test_the_default_is_still_three(self):
+        assert len(pad_boundary_constraints([])) == 3
+
+    def test_eight_faces_survive_when_the_caller_asks_for_eight(self):
+        faces = [(math.cos(t), math.sin(t), 2.0)
+                 for t in np.linspace(0.0, 2.0 * math.pi, 8, endpoint=False)]
+        assert len(pad_boundary_constraints(faces, max_sources=8)) == 8
+
+    def test_the_default_would_have_silently_truncated_them(self):
+        """The bug this parameter exists to prevent, stated as a test."""
+        faces = [(math.cos(t), math.sin(t), 2.0)
+                 for t in np.linspace(0.0, 2.0 * math.pi, 8, endpoint=False)]
+        assert len(pad_boundary_constraints(faces)) == 3
+
+    def test_a_polytope_of_eight_faces_reaches_the_solve(self):
+        """End to end: eight faces in, a box the trajectory respects out.
+
+        Eight faces enclosing the origin at 2 m, hard, so this asserts the
+        rows genuinely bind rather than being merely present.
+        """
+        x0 = np.array([0.0, 0.0, 0.0, 0.5])
+        corridor = _straight_corridor(x0)
+        # Radius chosen by measurement, between two failure modes. The
+        # unconstrained trajectory reaches x = 0.462 m over this horizon,
+        # so a radius above ~0.78 gives a box that never binds and the test
+        # would pass on eight inert rows. Below ~0.6 the box is not
+        # physically reachable -- a_min is -2.0 and dAMin -2.0/s, so the car
+        # cannot shed 0.5 m/s fast enough and the "constraint respected"
+        # assertion fails on braking limits rather than plumbing (measured:
+        # r=0.55 overshoots its 0.230 limit by 10 mm). 0.65 binds exactly
+        # (worst = limit to four decimals) and is achievable.
+        radius = 0.65
+        faces = [(math.cos(t), math.sin(t), radius)
+                 for t in np.linspace(0.0, 2.0 * math.pi, 8, endpoint=False)]
+        common = dict(
+            x0=x0, last_u=np.array([0.0, 0.0]), pref_nom=corridor["Pend"],
+            corridor=corridor, horizon=HORIZON, ts=TS, params=PARAMS,
+            limits=LIMITS, weights=WEIGHTS, obstacles=[], dmin=0.9, vdes=1.0,
+            solver='rti')
+
+        _u_free, info_free = solve_mpc_step(**common)
+        _u0, info = solve_mpc_step(
+            **common, boundaries=faces, boundary_max_sources=8,
+            boundary_hard=True)
+
+        limit = radius - CAR_RADIUS - MARGIN
+        for state in info['x_pred']:
+            for nx, ny, _off in faces:
+                assert nx * state[0] + ny * state[1] <= limit + 1e-6
+
+        # ...and the box genuinely BINDS -- without it the trajectory runs
+        # past the same limit, so this is not eight inert rows.
+        assert max(s[0] for s in info_free['x_pred']) > limit
+
+    def test_more_faces_than_slots_still_truncates_and_that_is_the_cap(self):
+        faces = [(1.0, 0.0, 1.0)] * 12
+        assert len(pad_boundary_constraints(faces, max_sources=8)) == 8
