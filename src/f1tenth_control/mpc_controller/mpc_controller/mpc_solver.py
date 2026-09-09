@@ -579,7 +579,7 @@ def _nearest_corridor_frame(p: np.ndarray, corridor: Dict) -> Tuple[np.ndarray, 
 
 
 def corridor_heading_at(p: np.ndarray, corridor: Dict) -> float:
-    """Reference HEADING (rad) of the corridor centreline nearest to `p`.
+    """Return the corridor centreline's HEADING (rad) nearest to `p`.
 
     The tangent is recovered from the stored normal rather than from the
     corridor's own tx/ty arrays: build_straight_corridor sets nx = -ty and

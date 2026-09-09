@@ -76,6 +76,46 @@ def generate_launch_description():
         'corridor_update_period', default_value=str(corridor_update_period_default),
         description=corridor_update_period_desc)
 
+    # MPC cost weights -- every one single-sourced through
+    # stack_params.yaml (see its own "MPC COST WEIGHTS" block for the
+    # rho/sigma^2 derivation and the literal-vs-effective table). These were
+    # ten bare literals in MPC_corr.py with no ROS parameter at all until
+    # the weight-set pass, so there was no launch override and no record of
+    # what they had been. The launch arg is named after the yaml key; the
+    # node parameter has the same name.
+    mpc_w_term_default, mpc_w_term_desc = get_default('mpc_w_term')
+    mpc_w_term_la = DeclareLaunchArgument(
+        'mpc_w_term', default_value=str(mpc_w_term_default), description=mpc_w_term_desc)
+    mpc_w_psi_default, mpc_w_psi_desc = get_default('mpc_w_psi')
+    mpc_w_psi_la = DeclareLaunchArgument(
+        'mpc_w_psi', default_value=str(mpc_w_psi_default), description=mpc_w_psi_desc)
+    mpc_w_psi_stage_default, mpc_w_psi_stage_desc = get_default('mpc_w_psi_stage')
+    mpc_w_psi_stage_la = DeclareLaunchArgument(
+        'mpc_w_psi_stage', default_value=str(mpc_w_psi_stage_default),
+        description=mpc_w_psi_stage_desc)
+    mpc_w_corr_default, mpc_w_corr_desc = get_default('mpc_w_corr')
+    mpc_w_corr_la = DeclareLaunchArgument(
+        'mpc_w_corr', default_value=str(mpc_w_corr_default), description=mpc_w_corr_desc)
+    mpc_w_v_default, mpc_w_v_desc = get_default('mpc_w_v')
+    mpc_w_v_la = DeclareLaunchArgument(
+        'mpc_w_v', default_value=str(mpc_w_v_default), description=mpc_w_v_desc)
+    mpc_w_obs_default, mpc_w_obs_desc = get_default('mpc_w_obs')
+    mpc_w_obs_la = DeclareLaunchArgument(
+        'mpc_w_obs', default_value=str(mpc_w_obs_default), description=mpc_w_obs_desc)
+    mpc_w_du_delta_default, mpc_w_du_delta_desc = get_default('mpc_w_du_delta')
+    mpc_w_du_delta_la = DeclareLaunchArgument(
+        'mpc_w_du_delta', default_value=str(mpc_w_du_delta_default),
+        description=mpc_w_du_delta_desc)
+    mpc_w_delta0_default, mpc_w_delta0_desc = get_default('mpc_w_delta0')
+    mpc_w_delta0_la = DeclareLaunchArgument(
+        'mpc_w_delta0', default_value=str(mpc_w_delta0_default), description=mpc_w_delta0_desc)
+    mpc_w_u_a_default, mpc_w_u_a_desc = get_default('mpc_w_u_a')
+    mpc_w_u_a_la = DeclareLaunchArgument(
+        'mpc_w_u_a', default_value=str(mpc_w_u_a_default), description=mpc_w_u_a_desc)
+    mpc_w_du_a_default, mpc_w_du_a_desc = get_default('mpc_w_du_a')
+    mpc_w_du_a_la = DeclareLaunchArgument(
+        'mpc_w_du_a', default_value=str(mpc_w_du_a_default), description=mpc_w_du_a_desc)
+
     # Real actuator envelope, replacing the -+1.05 rad literals -- see
     # stack_params.yaml's own "MPC ACTUATOR LIMITS" block for the derivation
     # from steering_calibration.yaml. Named after the ROS params they set
@@ -151,6 +191,16 @@ def generate_launch_description():
             'avoidance_margin': LaunchConfiguration('avoidance_margin'),
             'nice': LaunchConfiguration('nice'),
             'corridor_update_period': LaunchConfiguration('corridor_update_period'),
+            'mpc_w_term': LaunchConfiguration('mpc_w_term'),
+            'mpc_w_psi': LaunchConfiguration('mpc_w_psi'),
+            'mpc_w_psi_stage': LaunchConfiguration('mpc_w_psi_stage'),
+            'mpc_w_corr': LaunchConfiguration('mpc_w_corr'),
+            'mpc_w_v': LaunchConfiguration('mpc_w_v'),
+            'mpc_w_obs': LaunchConfiguration('mpc_w_obs'),
+            'mpc_w_du_delta': LaunchConfiguration('mpc_w_du_delta'),
+            'mpc_w_delta0': LaunchConfiguration('mpc_w_delta0'),
+            'mpc_w_u_a': LaunchConfiguration('mpc_w_u_a'),
+            'mpc_w_du_a': LaunchConfiguration('mpc_w_du_a'),
             'delta_min': LaunchConfiguration('delta_min'),
             'delta_max': LaunchConfiguration('delta_max'),
             'obstacle_target_shift_m': LaunchConfiguration('obstacle_target_shift_m'),
@@ -163,6 +213,9 @@ def generate_launch_description():
     return LaunchDescription([
         odom_stale_timeout_sec_la, use_rti_solver_la, car_radius_la, avoidance_margin_la,
         cpu_affinity_la, nice_la, corridor_update_period_la,
+        mpc_w_term_la, mpc_w_psi_la, mpc_w_psi_stage_la, mpc_w_corr_la,
+        mpc_w_v_la, mpc_w_obs_la, mpc_w_du_delta_la, mpc_w_delta0_la,
+        mpc_w_u_a_la, mpc_w_du_a_la,
         delta_min_la, delta_max_la,
         obstacle_target_shift_m_la, corridor_heading_return_la,
         use_hard_boundary_constraints_la, mpc_corr_node,

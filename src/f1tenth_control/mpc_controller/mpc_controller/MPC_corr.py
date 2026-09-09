@@ -855,47 +855,83 @@ class MPCController(Node):
         # 1.5 is the largest value that still clears the configured 0.12 m in
         # both obstacle sizes, if a future tuning pass on real runs wants it.
         #
-        # w_corr stays 0.0: measured, it degrades every metric at every value
-        # tried, alone or alongside w_psi (at w_psi = 1.0, w_corr 0 -> 1.0
-        # moves settle 1.34 -> 1.71 m and clearance 0.143 -> 0.137; w_corr
-        # alone at 2.0 never settles at all). The reason was structural -- the
-        # corridor was rebuilt from the LIVE pose every tick, so its centerline
-        # passed through the car by construction and "lateral offset from the
-        # centerline" measured departure from this tick's plan rather than from
-        # the intended line; penalising it damped the very lateral motion an
-        # avoidance-and-recovery manoeuvre is made of. That premise NO LONGER
-        # HOLDS on straight moves: build_straight_corridor now anchors them to
-        # a line frozen at move start, and the same note already recorded that
-        # this term does work on a frozen corridor (w_corr 0 -> 10 cuts the
-        # horizon's end lateral offset 0.324 -> 0.246 m). Left at 0.0 all the
-        # same -- turning it on is a retune that needs its own measured pass
-        # against the new geometry, not a side effect of the anchoring fix, and
-        # the frozen line already restores laterally through w_term.
+        # w_corr WAS 0.0 AND IS NOW ON (effective 1.25). The note it used to
+        # carry here is kept because its reasoning is still the reason to
+        # watch this term, not because its conclusion still stands.
+        #
+        # What it recorded: w_corr degraded every metric at every value
+        # tried (at w_psi 1.0, w_corr 0 -> 1.0 moved settle 1.34 -> 1.71 m
+        # and clearance 0.143 -> 0.137; w_corr alone at 2.0 never settled).
+        # The cause was structural -- the corridor was rebuilt from the LIVE
+        # pose every tick, so its centreline passed through the car by
+        # construction and "lateral offset from the centreline" measured
+        # departure from THIS TICK'S plan rather than from the intended
+        # line. Penalising that damped the very lateral motion an
+        # avoidance-and-recovery manoeuvre is made of.
+        #
+        # That premise is gone: build_straight_corridor anchors straight
+        # moves to a line frozen at move start, and the same note already
+        # recorded that the term works on a frozen corridor (w_corr 0 -> 10
+        # cut the horizon's end lateral offset 0.324 -> 0.246 m).
+        #
+        # WHAT IS STILL TRUE AND UNMEASURED. Those numbers were taken on the
+        # OLD geometry and the OLD weight set; nothing here has been
+        # re-measured closed-loop against the new one, and the stack has no
+        # sim to re-measure it in. Two specific things to watch on the car:
+        #
+        #   - OVERSHOOT. w_corr is a stage cost, so it minimises the
+        #     INTEGRATED cross-track error and will happily trade an
+        #     end-of-horizon overshoot for it. Measured on the old set at
+        #     w_corr 20: integrated error 3.39 -> 2.67 while the horizon
+        #     ended at -0.149 m instead of +0.068 m, i.e. on the far side of
+        #     the line. w_du_delta is what resists that, and it went up
+        #     (5.25 -> 8.33) partly for this reason, but the balance is
+        #     reasoned, not measured.
+        #   - OBSTACLE CLEARANCE. The old note's mechanism -- a lateral
+        #     penalty resists the deflection while an obstacle is still
+        #     there -- has not gone away. w_obs was deliberately left at
+        #     2.8 for less shyness, and w_corr now pulls the other way.
+        # a bare `ros2 run` that bypasses the launch file gets the deployed
+        # set too. Until this pass these were ten bare literals with no ROS
+        # parameter behind them at all: no launch override, no config
+        # record, and no way to change a weight without a rebuild. See that
+        # file's own "MPC COST WEIGHTS" block for the rho/sigma^2 derivation
+        # and the old -> new table.
+        #
+        # THE NUMBER IN THE YAML IS NOT THE NUMBER THE SOLVER APPLIES for
+        # any key except w_term and w_psi. Those two are terminal and pass
+        # through untouched; every other key is per-stage and is multiplied
+        # by STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 inside
+        # solve_mpc_step (mpc_solver.scale_stage_weights). Quote the
+        # EFFECTIVE number when comparing against a tuning note:
+        #
+        #   key            yaml literal   effective (x 0.35)
+        #   w_corr              3.5714               1.2500
+        #   w_psi_stage         4.7736               1.6708
+        #   w_v                 4.2857               1.5000
+        #   w_du_delta         23.8095               8.3333
+        #   w_obs               8.0000               2.8000
+        #   w_term              9.0                  9.0    (terminal)
+        #   w_psi               4.5                  4.5    (terminal)
+        #
+        # The stage literals are rho / (7 * sigma^2), which is exactly what
+        # makes the TOTAL stage cost over the horizon equal rho / sigma^2
+        # for any N -- the set stays horizon-invariant through the existing
+        # scale_stage_weights machinery rather than by dividing by N twice.
+        def _w(key):
+            return float(self.declare_parameter(key, get_value(key)).value)
+
         self.weights = {
-            "w_term": 3.0,
-            "w_v": 8.0,
-            "w_psi": 1.5,
-            "w_u_a": 0.0,
-            "w_du_delta": 15.0,
-            "w_du_a": 0.0,
-            "w_delta0": 0.0,
-            # DECLARED, not effective. Every key here except w_term and w_psi
-            # is a per-stage weight and is multiplied by
-            # STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 inside
-            # solve_mpc_step (see mpc_solver.scale_stage_weights). So the
-            # obstacle weight the solver actually sees is 8.0 * 0.35 = 2.8,
-            # w_v is 2.8, w_du_delta is 5.25 -- while w_term 3.0 and w_psi 1.5
-            # are terminal and pass through untouched. Quote the effective
-            # number when comparing against a tuning note, not the literal.
-            "w_obs": 8.0,
-            "w_corr": 0.0,
-            # Stage heading cost -- WIRED THIS COMMIT, INERT AT 0.0. See
-            # mpc_solver.py's own stage-heading block for what it does and
-            # why it is not redundant with the terminal w_psi. The mechanism
-            # and the tuning land in separate commits deliberately: a
-            # behaviour change on the vehicle should have exactly one
-            # candidate cause.
-            "w_psi_stage": 0.0,
+            "w_term": _w('mpc_w_term'),
+            "w_v": _w('mpc_w_v'),
+            "w_psi": _w('mpc_w_psi'),
+            "w_u_a": _w('mpc_w_u_a'),
+            "w_du_delta": _w('mpc_w_du_delta'),
+            "w_du_a": _w('mpc_w_du_a'),
+            "w_delta0": _w('mpc_w_delta0'),
+            "w_obs": _w('mpc_w_obs'),
+            "w_corr": _w('mpc_w_corr'),
+            "w_psi_stage": _w('mpc_w_psi_stage'),
         }
 
         # Disabled/warning-only clearance-log threshold (see

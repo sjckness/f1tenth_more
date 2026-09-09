@@ -506,6 +506,112 @@ mpc_steering_angle_max_rad:
   default: 0.278
   description: "Most positive steering angle [rad] mpc_corr's QP may command (+15.93 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
 
+# ------------------------------------------------------------------
+# MPC COST WEIGHTS -- SINGLE SOURCE OF TRUTH.
+#
+# Consumed by: MPC_corr.py's self.weights dict, whose declare_parameter()
+# defaults read these through get_value(), and mpc_corr.launch.py. Until
+# this pass that dict was ten bare literals with no ROS parameter behind
+# them at all -- no launch override, no config record, and no way to change
+# a weight without a rebuild.
+#
+# READ THE "EFFECTIVE" COLUMN, NOT THE LITERAL. Every key below except
+# mpc_w_term and mpc_w_psi is a PER-STAGE weight, and solve_mpc_step
+# multiplies those by STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 before the
+# solver sees them (mpc_solver.scale_stage_weights). So the number here is
+# not what the QP applies. This has already caused confusion once and the
+# code comment in MPC_corr.py says so; the descriptions below quote both.
+#
+# HOW THE NUMBERS WERE DERIVED. Normalised as w = rho / sigma^2, where
+# sigma is one unit of badness in that term's own units and rho is a
+# dimensionless priority, with the sigmas taken from this car's geometry
+# rather than picked:
+#
+#   position    sigma 0.20 m        car_radius; under half the 0.4333 m
+#                                   narrow corridor half-width
+#   heading     sigma 0.134 rad     the heading error that produces 0.20 m
+#                                   of lateral offset over the 1.5 m
+#                                   lookahead -- commensurate with the
+#                                   position sigma by construction, not by
+#                                   coincidence
+#   velocity    sigma 0.10 m/s      against vdes (0.5 in MPC_corr; the
+#                                   derivation was written against 0.45 --
+#                                   see the note at the end of this block)
+#   steer rate  sigma 0.03 rad/step full lock ~0.30 rad reachable in 1 s
+#
+#   rho:  position 1.0   heading 0.6   velocity 0.3   steering-rate 0.15
+#
+# The stage literals are then rho / (7 * sigma^2), which is exactly the
+# value that makes the TOTAL stage cost over the horizon equal rho / sigma^2
+# regardless of N:
+#
+#     total = N * literal * (7/N) = 7 * literal = rho / sigma^2
+#
+# so the set is horizon-invariant through the machinery that already exists
+# rather than by dividing by N a second time. Worked through:
+#
+#   term          rho   sigma   rho/sigma^2   literal   effective (x0.35)
+#   position      1.00  0.200        25.000    3.5714              1.2500
+#   heading       0.60  0.134        33.415    4.7736              1.6708
+#   velocity      0.30  0.100        30.000    4.2857              1.5000
+#   steer rate    0.15  0.030       166.667   23.8095              8.3333
+#
+# WHAT CHANGED, effective values, old -> new:
+#   w_corr        0.0  -> 1.25    cross-track tracking, was OFF entirely
+#   w_psi_stage   ---  -> 1.67    new term (see the previous commit)
+#   w_v           2.8  -> 1.50
+#   w_du_delta    5.25 -> 8.33
+#   w_term        3.0  -> 9.0     terminal, unscaled
+#   w_psi         1.5  -> 4.5     terminal, unscaled
+#   w_obs         2.8  -> 2.8     UNCHANGED -- less obstacle shyness was
+#                                 wanted, and 2.8 is already the rescaled
+#                                 value, so the literal 8.0 stays put
+#   w_delta0      0.0  -> 0.0     stays OFF. It penalises steering
+#                                 MAGNITUDE, and with a ~2 deg plant bias
+#                                 (steering_calibration.yaml's own
+#                                 +2.68 deg measurement) the correct steady
+#                                 command is nonzero -- this term would
+#                                 fight holding a line.
+#   w_u_a, w_du_a 0.0  -> 0.0     unchanged, still off
+#
+# NOTE ON vdes, which this derivation did not settle: the velocity sigma was
+# chosen against vdes 0.45, and MPC_corr's bootstrap self.vdes is 0.5 (and
+# every real move overwrites it from the move's own commanded speed anyway).
+# Not changed here -- vdes is a trajectory parameter, not a weight, and
+# moving it would change the car's speed in a commit that is meant to change
+# only the cost balance. The mismatch is 11% on one sigma, i.e. w_v is ~1.2x
+# tighter relative to the actual operating point than intended.
+mpc_w_term:
+  default: 9.0
+  description: "TERMINAL position weight on ||x_N - pref_nom||^2. Not stage-scaled, so 9.0 is what the solver applies. Was 3.0."
+mpc_w_psi:
+  default: 4.5
+  description: "TERMINAL heading weight on (psi_N - corridor psiRef)^2. Not stage-scaled, so 4.5 is what the solver applies. Was 1.5."
+mpc_w_psi_stage:
+  default: 4.7736
+  description: "PER-STAGE heading weight, tracking the corridor tangent at every horizon step. Effective value 1.67 after the 7/20 stage scaling. New term as of the stage-tracking commit; was 0.0 (inert) there and is turned on here."
+mpc_w_corr:
+  default: 3.5714
+  description: "PER-STAGE cross-track weight -- perpendicular distance to the corridor centreline, zero longitudinal component by construction. Effective value 1.25 after the 7/20 stage scaling. Was 0.0, i.e. off entirely."
+mpc_w_v:
+  default: 4.2857
+  description: "PER-STAGE speed-tracking weight on (v - vdes)^2. Effective value 1.50 after the 7/20 stage scaling. Was literal 8.0, effective 2.8."
+mpc_w_obs:
+  default: 8.0
+  description: "PER-STAGE obstacle soft-deflection weight. Effective value 2.8 after the 7/20 stage scaling -- UNCHANGED, deliberately: less obstacle shyness was wanted, not more."
+mpc_w_du_delta:
+  default: 23.8095
+  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2. Effective value 8.33 after the 7/20 stage scaling. Was literal 15.0, effective 5.25. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD dDeltaMin/dDeltaMax bound, which is not."
+mpc_w_delta0:
+  default: 0.0
+  description: "PER-STAGE steering-MAGNITUDE weight. Stays 0.0: the car has a ~2 deg steering bias, so the correct steady-state command is nonzero and this term would fight holding a straight line."
+mpc_w_u_a:
+  default: 0.0
+  description: "PER-STAGE acceleration-magnitude weight. Unchanged at 0.0."
+mpc_w_du_a:
+  default: 0.0
+  description: "PER-STAGE acceleration-RATE weight. Unchanged at 0.0."
+
 # cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
 # NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
 # every other arg in this file, the right value is machine-specific (which

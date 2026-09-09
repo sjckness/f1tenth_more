@@ -26,8 +26,9 @@ WHAT IS ACTUALLY NEW HERE is w_psi_stage, a per-stage HEADING cost. Nothing
 in either backend penalised heading anywhere except at the terminal state,
 so the weight set that follows had nothing to attach its w_psi_stage 1.67
 to. It is wired in both backends and left at 0.0, so this commit changes
-nothing the car can feel -- proved by
-TestThisCommitIsInert, not asserted.
+nothing the car can feel at the time it landed -- the weight-set commit
+that follows turns it on, and test_weight_set.py pins what it turns it on
+to.
 
 Run standalone: python3 -m pytest test/test_stage_tracking.py -v
 """
@@ -315,18 +316,17 @@ class TestStageHeadingCost:
 # =====================================================================
 # This commit must not change anything on the car.
 # =====================================================================
-class TestThisCommitIsInert:
-    """The mechanism lands here, the weights land in the next commit.
+class TestTheTermIsNeutralWhenOff:
+    """A zero (or absent) w_psi_stage must change nothing.
 
-    Andreas is testing on the vehicle and asked for one candidate cause per
-    behaviour change, so "inert" is proved rather than claimed.
+    This started life as TestThisCommitIsInert, proving the stage-heading
+    commit could not move the car because the weight shipped at 0.0. The
+    weight-set commit that followed turned it on, so the "shipped default is
+    zero" assertion is gone -- test_weight_set.py pins the shipped values
+    now. What survives is the property that outlives any particular default:
+    the term is exactly neutral when its weight is not set, which is what
+    lets it be switched off in the field without side effects.
     """
-
-    def test_the_shipped_default_is_zero(self):
-        from mpc_controller.MPC_corr import MPCController
-        import inspect
-        src = inspect.getsource(MPCController.__init__)
-        assert '"w_psi_stage": 0.0' in src
 
     def test_a_zero_weight_leaves_the_solve_bit_for_bit_unchanged(self):
         corridor = _straight_corridor()
