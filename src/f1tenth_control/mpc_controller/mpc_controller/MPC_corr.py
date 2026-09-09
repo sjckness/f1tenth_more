@@ -453,6 +453,20 @@ class MPCController(Node):
         self.use_hard_boundary_constraints = bool(
             self.declare_parameter('use_hard_boundary_constraints', False).value)
 
+        # Max tangential shove applied to the lookahead target when it lands
+        # inside an obstacle's safety radius -- see compute_local_target,
+        # which is the only reader. A DECLARED PARAMETER whose default comes
+        # from stack_params.yaml via get_value(), same single-sourcing as
+        # corridor_update_period below: the number lives in that file and
+        # nowhere else, so a bare `ros2 run` that bypasses the launch file
+        # still gets the deployed value, and the test stand-in in
+        # test_corridor_lookahead_target.py reads the same key rather than
+        # carrying a copy.
+        self.obstacle_target_shift = float(
+            self.declare_parameter(
+                'obstacle_target_shift_m',
+                get_value('obstacle_target_shift_m')).value)
+
         # nice: see _apply_nice() below, called near the end of __init__.
         # Defaults to no-op (0) so this node's priority is unchanged unless a
         # deployment explicitly opts in via mpc_corr.launch.py. CPU affinity
@@ -2650,9 +2664,36 @@ class MPCController(Node):
         #  - lo spostamento tangenziale ora e' proporzionale a quanto il
         #    target ha "sconfinato" nel margine di sicurezza (0 a R_safe,
         #    massimo sulla superficie dell'ostacolo) invece di un salto fisso
-        #    di 1.0 m, ed e' limitato per non uscire mai dal corridoio.
+        #    di 1.0 m.
+        #
+        # THE CEILING ON THAT DISPLACEMENT IS obstacle_target_shift_m, a
+        # declared parameter read from stack_params.yaml (see __init__). It
+        # used to be 0.6 * mean(halfWidth) -- corridor-derived, and so
+        # self-limiting against leaving the corridor, but also unnamed,
+        # untunable without a rebuild, and silently retuned by any change to
+        # corr_wmin/corr_wmax. At the shipping geometry it evaluated to
+        # exactly 0.36 m; the parameter now ships 0.30, deliberately smaller
+        # so the car passes close to obstacles instead of swerving wide.
+        # The PROPORTIONAL SHAPE below is unchanged -- this is only its
+        # ceiling, still scaled by `penetration`.
+        #
+        # Because the value is no longer derived from the corridor, the
+        # "never leaves the corridor" property is no longer structural: it
+        # holds because 0.30 < the 0.4333 m narrow half-width, not because
+        # the arithmetic forces it. The throttled warn below is what keeps
+        # that from going quiet if either number is ever retuned past the
+        # other.
         d_safe = corridor.get("d_safe", 0.0)
-        max_defl = 0.6 * float(np.mean(corridor["halfWidth"]))
+        max_defl = self.obstacle_target_shift
+
+        mean_half_width = float(np.mean(corridor["halfWidth"]))
+        if max_defl > mean_half_width:
+            self.get_logger().warn(
+                f'TGT/defl | obstacle_target_shift_m {max_defl:.3f} exceeds the '
+                f'corridor mean half-width {mean_half_width:.3f}: a fully '
+                f'penetrating obstacle deflects the target outside its own '
+                f'corridor.',
+                throttle_duration_sec=5.0)
 
         for ox, oy, r in corridor.get("obstacles_world", []):
             p_obs = np.array([ox, oy], dtype=float)

@@ -446,7 +446,7 @@ corridor_heading_return:
 # the soft w_obs deflection cost -- worth knowing before flipping it, since
 # nothing else in the solve replaces the wall.
 use_hard_boundary_constraints:
-  default: false
+  default: true
   description: "true (default): mpc_corr.py's RTI solve enforces costmap_boundary_node's hard wall constraints. false: no hard wall constraint of any kind, only the soft w_obs deflection cost -- the MATLAB-comparison configuration."
 # cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
 # NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
@@ -593,6 +593,37 @@ obstacle_safety_margin_m:
 proximity_front_extra_margin_m:
   default: 0.08
   description: "Small extra conservatism [m] added on top of car_radius + obstacle_safety_margin_m for IsProximityTooClose's front standoff only, since that lane is a raw-sensor last resort behind an already-tighter-tuned backstop (the front direction alone also has YOLO-lane coverage via handle_obstacle) -- kept separately tunable rather than folded into obstacle_safety_margin_m so it doesn't also affect MPC/IsObstacleDetected, which have no such asymmetry."
+
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own declared ROS param, whose declare_parameter() default is
+# get_value('obstacle_target_shift_m'), i.e. this key. THIS FILE IS THE ONLY
+# PLACE THE NUMBER LIVES; there is no in-code literal to keep in step. Also
+# what test_corridor_lookahead_target.py's duck-typed stand-in reads, so the
+# test fake cannot drift from the deployed value either.
+#
+# HOW FAR SIDEWAYS THE MPC TRACKING POINT IS SHOVED PAST AN OBSTACLE.
+# compute_local_target takes the corridor-centerline lookahead point and, when
+# that point lands within R_safe = r + car_radius + obstacle_safety_margin_m
+# of an obstacle, pushes it out to the R_safe circle and then TANGENTIALLY by
+# up to this much (scaled by how far it had penetrated -- the proportional
+# shape is unchanged, this key is only its ceiling). It is what makes the car
+# steer around an obstacle rather than at it; bigger = swerve wider and earlier.
+#
+# 0.30 REPLACES A CORRIDOR-DERIVED 0.6 * mean(halfWidth), which at the
+# shipping geometry (corr_wmin 0.4333 / corr_wmax 0.7667, both bare literals
+# in MPC_corr.py) evaluated to exactly 0.36 m. The f110_autonomy reference
+# this branch was ported from uses a fixed 1.0 m step; our stack had already
+# left that behind, so this is 0.36 -> 0.30, not 1.0 -> 0.30. Reduced on
+# request so the car passes close to obstacles instead of swerving wide.
+#
+# MUST STAY INSIDE THE CORRIDOR HALF-WIDTH or the target lands outside its own
+# corridor and the corridor cost fights the terminal cost. The narrow end is
+# 0.4333 m, so 0.30 clears it with 0.13 m to spare. MPC_corr.py warns
+# (throttled) at runtime if this is ever set above the live corridor's mean
+# half-width rather than silently deflecting out of bounds.
+obstacle_target_shift_m:
+  default: 0.30
+  description: "Max tangential displacement [m] applied to the MPC lookahead target when it falls inside an obstacle's safety radius, in compute_local_target. Scaled down by penetration depth, so this is the ceiling, not a fixed step. Was a corridor-derived 0.6 * mean(halfWidth) = 0.36 m; reduced to 0.30 so the car passes close to obstacles instead of swerving wide. Must stay under the corridor half-width (0.4333 m at the narrow end)."
 
 # --------------------------------------------------------------
 # OBSTACLE-AVOIDANCE TEST CONFIGURATION

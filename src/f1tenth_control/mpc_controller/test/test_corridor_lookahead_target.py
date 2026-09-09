@@ -29,10 +29,12 @@ Run standalone: python3 -m pytest test/test_corridor_lookahead_target.py -v
 
 import inspect
 import math
+import re
 import unittest
 
 import numpy as np
 
+from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
 
 
@@ -62,6 +64,13 @@ class _FakeMPC:
         # Obstacle deflection.
         self.car_radius = 0.20
         self.avoidance_margin = 0.12
+        # READ, NOT COPIED. This is the same stack_params.yaml key
+        # MPCController.__init__ declares its obstacle_target_shift_m
+        # parameter default from, so this stand-in cannot drift from the
+        # deployed number the way a hand-mirrored literal would -- which is
+        # exactly how corridor_update_period ended up with four spellings,
+        # three of them wrong.
+        self.obstacle_target_shift = float(get_value('obstacle_target_shift_m'))
         self.last_deflection_vec = np.zeros(2)
         self.deflection_decay_remaining = 0
         self.deflection_decay_ticks = 5
@@ -278,6 +287,61 @@ class TestObstaclesReachTheTargetBeforeItIsComputed(unittest.TestCase):
         self.assertGreaterEqual(
             math.hypot(deflected[0] - 1.5, deflected[1] - 0.0),
             0.15 + 0.20 + 0.12 - 1e-6)
+
+    def test_the_tangential_shove_is_the_parameter_not_a_literal(self):
+        """
+        Pin the SIZE of the sideways displacement to obstacle_target_shift_m.
+
+        The ceiling used to be `0.6 * mean(corridor["halfWidth"])` -- an
+        unnamed literal that silently retuned itself whenever corr_wmin/
+        corr_wmax moved, and that no config file recorded. It is a declared
+        parameter now, so this asserts the parameter is what actually reaches
+        the geometry: two different values, two matching displacements.
+
+        Geometry: the lookahead target lands exactly on the obstacle centre
+        (obstacle at 1.5 m, lookahead 1.5 m), which is the degenerate branch
+        -- penetration saturates at 1.0, so the tangential term is the full
+        ceiling and reads straight off the y coordinate. The radial term goes
+        entirely into x, so the two do not mix.
+        """
+        for shift in (0.30, 0.12):
+            with self.subTest(shift=shift):
+                corridor = _straight_corridor(3.0)
+                corridor["obstacles_world"] = [(1.5, 0.0, 0.15)]
+                fake = _FakeMPC()
+                fake.obstacle_target_shift = shift
+
+                target = MPCController.compute_local_target(
+                    fake, [0.0, 0.0, 0.0, 0.5], corridor)
+
+                # Tangential (+y, since the car heads +x) == the parameter.
+                self.assertAlmostEqual(float(target[1]), shift, places=6)
+                # Radial (+x) is R_safe past the obstacle, untouched by this
+                # change -- guards against the parameter leaking into the
+                # radial term.
+                r_safe = 0.15 + fake.car_radius + fake.avoidance_margin
+                self.assertAlmostEqual(float(target[0]), 1.5 + r_safe, places=6)
+
+    def test_no_hardcoded_deflection_ceiling_survives_in_the_source(self):
+        """The old corridor-derived literal is gone, not merely bypassed."""
+        src = inspect.getsource(MPCController.compute_local_target)
+        self.assertNotIn('0.6 * float(np.mean(', src)
+        self.assertIn('self.obstacle_target_shift', src)
+
+    def test_the_shipping_shift_fits_inside_the_narrow_corridor(self):
+        """
+        The sanity check that makes 0.30 a legal value, kept executable.
+
+        A deflection wider than the corridor half-width puts the terminal
+        cost's own target outside the corridor the corridor cost is pulling
+        the car back into -- the two costs then fight. corr_wmin is the
+        narrow end and is still a bare literal in __init__, so it is read
+        out of the source rather than copied here.
+        """
+        shift = float(get_value('obstacle_target_shift_m'))
+        src = inspect.getsource(MPCController.__init__)
+        wmin = float(re.search(r'self\.corr_wmin\s*=\s*([0-9.]+)', src).group(1))
+        self.assertLess(shift, wmin)
 
     def test_control_loop_populates_the_dict_before_taking_the_target(self):
         """

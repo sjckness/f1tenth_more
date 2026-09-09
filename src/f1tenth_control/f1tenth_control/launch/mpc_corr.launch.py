@@ -76,6 +76,12 @@ def generate_launch_description():
         'corridor_update_period', default_value=str(corridor_update_period_default),
         description=corridor_update_period_desc)
 
+    obstacle_target_shift_m_default, obstacle_target_shift_m_desc = get_default(
+        'obstacle_target_shift_m')
+    obstacle_target_shift_m_la = DeclareLaunchArgument(
+        'obstacle_target_shift_m', default_value=str(obstacle_target_shift_m_default),
+        description=obstacle_target_shift_m_desc)
+
     corridor_heading_return_default, corridor_heading_return_desc = get_default(
         'corridor_heading_return')
     corridor_heading_return_la = DeclareLaunchArgument(
@@ -134,6 +140,7 @@ def generate_launch_description():
             'avoidance_margin': LaunchConfiguration('avoidance_margin'),
             'nice': LaunchConfiguration('nice'),
             'corridor_update_period': LaunchConfiguration('corridor_update_period'),
+            'obstacle_target_shift_m': LaunchConfiguration('obstacle_target_shift_m'),
             'corridor_heading_return': LaunchConfiguration('corridor_heading_return'),
             'use_hard_boundary_constraints': LaunchConfiguration(
                 'use_hard_boundary_constraints'),
@@ -143,6 +150,6 @@ def generate_launch_description():
     return LaunchDescription([
         odom_stale_timeout_sec_la, use_rti_solver_la, car_radius_la, avoidance_margin_la,
         cpu_affinity_la, nice_la, corridor_update_period_la,
-        corridor_heading_return_la,
+        obstacle_target_shift_m_la, corridor_heading_return_la,
         use_hard_boundary_constraints_la, mpc_corr_node,
     ])
