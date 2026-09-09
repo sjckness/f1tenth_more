@@ -167,6 +167,33 @@ def generate_launch_description():
         }],
     )
 
+    # ---- convex safe corridor (safe_corridor.py) -- BUILT, NOT ENABLED.
+    # Default 'false' here mirrors the node's own declare_parameter default;
+    # both have to say false for the flag to actually be off under a bare
+    # `ros2 run` as well as under this launch file. See the node's own
+    # module docstring section "CONVEX SAFE CORRIDOR" for what turning it on
+    # changes -- and note MPC_corr.py's use_hard_boundary_constraints is
+    # ALSO still false, so a published polytope still reaches no solve.
+    boundary_use_polytope_la = DeclareLaunchArgument(
+        'costmap_boundary_use_convex_polytope', default_value='false',
+        description="true: costmap_boundary_node publishes the faces of one "
+                    "convex polytope inflated around the MPC's reference "
+                    "centreline on /costmap/boundaries, instead of three "
+                    "nearest-occupied-cell half-planes. Default false -- built "
+                    "but not enabled. /costmap/front_clearance is unaffected "
+                    "either way.")
+    boundary_polytope_r_local_la = DeclareLaunchArgument(
+        'costmap_boundary_polytope_r_local_m', default_value='3.0',
+        description="Radius (m) of the local window the polytope is carved out "
+                    "of, and the arc length of reference centreline used to "
+                    "seed it. Only read when the polytope path is enabled.")
+    boundary_polytope_max_faces_la = DeclareLaunchArgument(
+        'costmap_boundary_polytope_max_faces', default_value='8',
+        description="Max faces in the polytope. Each face is one QP row at "
+                    "EVERY horizon stage, which is why there is a cap; hitting "
+                    "it is reported on /costmap/safe_corridor_report, not "
+                    "silently accepted.")
+
     # Gated the SAME way as the two nodes above -- enable_slam, not a
     # separate toggle -- for the identical reason: this node is
     # structurally dependent on /slam/map existing at all (see its own
@@ -189,6 +216,12 @@ def generate_launch_description():
             'max_range_m': LaunchConfiguration('costmap_boundary_max_range_m'),
             'extraction_rate_hz': LaunchConfiguration(
                 'costmap_boundary_extraction_rate_hz'),
+            'use_convex_polytope': LaunchConfiguration(
+                'costmap_boundary_use_convex_polytope'),
+            'polytope_r_local_m': LaunchConfiguration(
+                'costmap_boundary_polytope_r_local_m'),
+            'polytope_max_faces': LaunchConfiguration(
+                'costmap_boundary_polytope_max_faces'),
         }],
     )
 
@@ -197,5 +230,7 @@ def generate_launch_description():
         confirm_hit_count_la, lost_miss_count_la, render_rate_la,
         boundary_front_max_la, boundary_side_min_la, boundary_side_max_la,
         boundary_occupied_threshold_la, boundary_max_range_la, boundary_rate_la,
+        boundary_use_polytope_la, boundary_polytope_r_local_la,
+        boundary_polytope_max_faces_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
     ])
