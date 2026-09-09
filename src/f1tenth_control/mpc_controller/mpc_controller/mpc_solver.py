@@ -254,6 +254,11 @@ _STAGE_WEIGHT_KEYS = (
     "w_v",
     "w_obs",
     "w_corr",
+    # Stage heading cost, added with the stage-tracking pass. Belongs here
+    # for the same reason w_corr does -- it is applied at every one of the N
+    # stages, so without the normalisation its total would scale with the
+    # horizon while the terminal w_psi it sits alongside acts exactly once.
+    "w_psi_stage",
     "w_delta0",
     "w_u_a",
     "w_du_delta",
@@ -573,6 +578,39 @@ def _nearest_corridor_frame(p: np.ndarray, corridor: Dict) -> Tuple[np.ndarray, 
     return pc, n, half_w
 
 
+def corridor_heading_at(p: np.ndarray, corridor: Dict) -> float:
+    """Reference HEADING (rad) of the corridor centreline nearest to `p`.
+
+    The tangent is recovered from the stored normal rather than from the
+    corridor's own tx/ty arrays: build_straight_corridor sets nx = -ty and
+    ny = tx, so (tx, ty) = (ny, -nx) exactly. Going through the normal means
+    this needs precisely the keys _nearest_corridor_frame already requires,
+    so any corridor dict that can supply the lateral bound can also supply
+    the heading -- no caller and no test stand-in has to grow a new field.
+
+    Used by the STAGE heading cost (w_psi_stage). The terminal heading cost
+    (w_psi) does NOT use this: it tracks corridor["psiRef"], the single
+    frozen heading the whole move is aiming at, which is a different
+    reference and deliberately so -- see _solve_rti's own terminal-yaw block.
+    """
+    _pc, n_vec, _half_w = _nearest_corridor_frame(p, corridor)
+    return math.atan2(-float(n_vec[0]), float(n_vec[1]))
+
+
+def unwrapped_heading_target(psi_target: float, psi_linearization: float) -> float:
+    """`psi_target` moved onto the same 2*pi branch as `psi_linearization`.
+
+    psi is unbounded in this vehicle model, so a raw target near +-pi would
+    otherwise ask the car for a ~2pi turn to reach an orientation it is
+    already at. Same correction the terminal yaw cost has always applied,
+    factored out here so the stage cost cannot get it subtly different.
+    """
+    delta = math.atan2(
+        math.sin(psi_target - psi_linearization),
+        math.cos(psi_target - psi_linearization))
+    return psi_linearization + delta
+
+
 def _solve_rti(
     x0: Sequence[float],
     last_u: Sequence[float],
@@ -835,6 +873,31 @@ def _solve_rti(
             P[xk1_idx, xk1_idx] += 2.0 * weights["w_corr"] * np.outer(n_ext, n_ext)
             q[xk1_idx] += weights["w_corr"] * (-2.0 * n_dot_pc * n_ext)
 
+        # STAGE heading cost: w_psi_stage * (psi_{k+1} - psi_corridor)^2 at
+        # the same frozen nearest index the two terms above use. Exactly
+        # quadratic in the state (the target is frozen at linearization), so
+        # no approximation beyond the one the whole RTI step already makes.
+        #
+        # WIRED BUT INERT as of this commit -- w_psi_stage defaults to 0.0,
+        # so nothing changes on the car until the weight set turns it on.
+        # That split is deliberate: the mechanism and the tuning land in
+        # separate commits so a behaviour change on the vehicle has exactly
+        # one candidate cause.
+        #
+        # WHY A STAGE HEADING TERM AT ALL, given w_psi already exists. w_psi
+        # is terminal and it tracks corridor["psiRef"], the single frozen
+        # heading the move is aiming at -- it says "end up pointing there".
+        # This says "be aligned with the path you are on, at every step",
+        # which is what actually stops the horizon from planning a path that
+        # arrives at the right place sideways. The two references differ
+        # (frozen goal heading vs local centreline tangent) and are not
+        # redundant on a corridor whose heading blends along its length.
+        if weights.get("w_psi_stage", 0.0):
+            psi_stage_target = unwrapped_heading_target(
+                corridor_heading_at(x_ref_k1[:2], corridor), float(x_ref_k1[2]))
+            P[xk1_idx, xk1_idx][2, 2] += 2.0 * weights["w_psi_stage"]
+            q[xk1_idx][2] += weights["w_psi_stage"] * (-2.0 * psi_stage_target)
+
         # speed bound: box on x_{k+1}[3].
         row_v = np.zeros(n_z)
         row_v[xk1_idx][3] = 1.0
@@ -1077,6 +1140,18 @@ def planner_cost_corridor(
             p_lat = np.array([x[0], x[1]], dtype=float)
             d_lat, _half_w = corridor_lateral_coordinates(p_lat, corridor)
             J += weights["w_corr"] * (d_lat ** 2)
+
+        # ================= allineamento corridoio (stage) =================
+        # Mirror of the RTI path's own stage heading cost, so this objective
+        # and the QP the default backend actually solves agree on what a
+        # solution costs -- true_cost is reported from here for RTI solves
+        # too. Same reason w_corr above is enabled in both.
+        if weights.get("w_psi_stage", 0.0):
+            psi_stage_ref = corridor_heading_at(
+                np.array([x[0], x[1]], dtype=float), corridor)
+            psi_stage_err = math.atan2(
+                math.sin(x[2] - psi_stage_ref), math.cos(x[2] - psi_stage_ref))
+            J += weights["w_psi_stage"] * psi_stage_err ** 2
 
         # ================= regolarità =================
         du = uk - u_prev

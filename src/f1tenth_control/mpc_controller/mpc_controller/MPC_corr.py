@@ -889,6 +889,13 @@ class MPCController(Node):
             # number when comparing against a tuning note, not the literal.
             "w_obs": 8.0,
             "w_corr": 0.0,
+            # Stage heading cost -- WIRED THIS COMMIT, INERT AT 0.0. See
+            # mpc_solver.py's own stage-heading block for what it does and
+            # why it is not redundant with the terminal w_psi. The mechanism
+            # and the tuning land in separate commits deliberately: a
+            # behaviour change on the vehicle should have exactly one
+            # candidate cause.
+            "w_psi_stage": 0.0,
         }
 
         # Disabled/warning-only clearance-log threshold (see
