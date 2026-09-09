@@ -76,6 +76,17 @@ def generate_launch_description():
         'corridor_update_period', default_value=str(corridor_update_period_default),
         description=corridor_update_period_desc)
 
+    # Real actuator envelope, replacing the -+1.05 rad literals -- see
+    # stack_params.yaml's own "MPC ACTUATOR LIMITS" block for the derivation
+    # from steering_calibration.yaml. Named after the ROS params they set
+    # (delta_min/delta_max) on the node side.
+    delta_min_default, delta_min_desc = get_default('mpc_steering_angle_min_rad')
+    delta_min_la = DeclareLaunchArgument(
+        'delta_min', default_value=str(delta_min_default), description=delta_min_desc)
+    delta_max_default, delta_max_desc = get_default('mpc_steering_angle_max_rad')
+    delta_max_la = DeclareLaunchArgument(
+        'delta_max', default_value=str(delta_max_default), description=delta_max_desc)
+
     obstacle_target_shift_m_default, obstacle_target_shift_m_desc = get_default(
         'obstacle_target_shift_m')
     obstacle_target_shift_m_la = DeclareLaunchArgument(
@@ -140,6 +151,8 @@ def generate_launch_description():
             'avoidance_margin': LaunchConfiguration('avoidance_margin'),
             'nice': LaunchConfiguration('nice'),
             'corridor_update_period': LaunchConfiguration('corridor_update_period'),
+            'delta_min': LaunchConfiguration('delta_min'),
+            'delta_max': LaunchConfiguration('delta_max'),
             'obstacle_target_shift_m': LaunchConfiguration('obstacle_target_shift_m'),
             'corridor_heading_return': LaunchConfiguration('corridor_heading_return'),
             'use_hard_boundary_constraints': LaunchConfiguration(
@@ -150,6 +163,7 @@ def generate_launch_description():
     return LaunchDescription([
         odom_stale_timeout_sec_la, use_rti_solver_la, car_radius_la, avoidance_margin_la,
         cpu_affinity_la, nice_la, corridor_update_period_la,
+        delta_min_la, delta_max_la,
         obstacle_target_shift_m_la, corridor_heading_return_la,
         use_hard_boundary_constraints_la, mpc_corr_node,
     ])

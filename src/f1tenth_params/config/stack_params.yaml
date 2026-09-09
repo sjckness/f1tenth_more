@@ -448,6 +448,64 @@ corridor_heading_return:
 use_hard_boundary_constraints:
   default: true
   description: "true (default): mpc_corr.py's RTI solve enforces costmap_boundary_node's hard wall constraints. false: no hard wall constraint of any kind, only the soft w_obs deflection cost -- the MATLAB-comparison configuration."
+# ------------------------------------------------------------------
+# MPC ACTUATOR LIMITS -- what the servo can actually reach.
+#
+# Consumed by: MPC_corr.py's self.limits dict, whose declare_parameter()
+# defaults read these through get_value(). THIS FILE IS THE ONLY PLACE THE
+# NUMBERS LIVE.
+#
+# THE DEFECT THESE REPLACE. self.limits carried delta_min/delta_max of
+# -+1.05 rad (-+60 deg) as bare literals. The servo cannot go anywhere near
+# that: the QP was optimising over a command range 3.8x wider than the
+# actuator, and the excess was silently clipped downstream by
+# vesc_driver's own servo_limit_. Silently is the operative word -- the
+# model integrates the command it asked for, so every saturated tick fed
+# the predicted trajectory a steering angle the car never applied, and
+# MPC_corr's own saturation warning (compare against self.limits) could
+# never fire because the literal it compared to was outside the servo's
+# reach in the first place.
+#
+# WHERE +-0.278/-0.283 COME FROM -- derived, and reproducible from files in
+# this repo, not measured with an instrument. The command path is
+#   ackermann_to_vesc.cpp:  servo = gain_side * steering_angle + offset
+#                           (gain_left for angle >= 0, gain_right below)
+#   vesc_driver.cpp:        servo = clip(servo, servo_min, servo_max)
+# and f1tenth_hardware/config/steering_calibration.yaml currently holds
+#   servo_min 0.15   servo_max 0.8318   offset 0.4874
+#   gain_left = gain_right = -1.2135
+# Inverting the clip bounds through that line:
+#   angle at servo_min = (0.15   - 0.4874) / -1.2135 = +0.27804 rad (+15.93 deg)
+#   angle at servo_max = (0.8318 - 0.4874) / -1.2135 = -0.28381 rad (-16.26 deg)
+# Rounded INWARD (+0.278 / -0.283) so a command at the limit is always one
+# the servo can actually produce rather than one that just reaches the clip.
+#
+# THIS IS NOT THE -0.264/+0.314 PAIR the work order cited, and that pair was
+# NOT applied. Those two numbers appear in exactly one place in this
+# repo -- steering_offset_calibration_node.py's declared parameter
+# defaults, introduced in dd843af, whose docstring calls them "the real
+# ones for this car" with no derivation recorded anywhere. They contradict
+# the calibration above: +0.314 rad maps to servo 0.1064, BELOW servo_min
+# 0.15, so it is not commandable at all -- it clips to +0.278. A mechanical
+# limit the servo clamp forbids is not a mechanical limit. They also point
+# the asymmetry the wrong way: the calibration gives slightly more travel
+# to the RIGHT (-16.26 vs +15.93 deg), not the left.
+#
+# THE ASYMMETRY IS CURRENTLY 0.006 RAD AND IS AN ARTEFACT OF THE OFFSET, not
+# of the linkage. gain_left and gain_right are both -1.2135 and
+# steering_calibration.yaml labels them "Placeholder until retuned" --
+# vesc_tuning's Mode 3 tunes them independently and has not been run. Real
+# linkage asymmetry will only appear here once it has. test_steering_
+# limits.py recomputes this envelope from steering_calibration.yaml and
+# fails if the two drift apart, so a recalibration cannot silently leave
+# these stale.
+mpc_steering_angle_min_rad:
+  default: -0.283
+  description: "Most negative steering angle [rad] mpc_corr's QP may command (-16.22 deg). Derived by inverting servo_max through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare -1.05 literal, 3.7x beyond the servo's reach."
+mpc_steering_angle_max_rad:
+  default: 0.278
+  description: "Most positive steering angle [rad] mpc_corr's QP may command (+15.93 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
+
 # cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
 # NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
 # every other arg in this file, the right value is machine-specific (which

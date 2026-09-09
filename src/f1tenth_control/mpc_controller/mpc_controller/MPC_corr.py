@@ -437,19 +437,28 @@ class MPCController(Node):
         self.use_rti_solver = bool(self.declare_parameter('use_rti_solver', True).value)
 
         # Hard boundary constraints (see mpc_solver.py's own module docstring
-        # and _get_live_boundaries below). Default FALSE as of Andreas's
-        # explicit request to run the MATLAB-comparison configuration by
-        # default rather than as an opt-in launch arg -- MATLAB has no such
-        # constraint, so this is the closer match while that comparison is
-        # ongoing. Still a launch-arg opt-IN (mpc_corr.launch.py's own
-        # use_hard_boundary_constraints) to turn them back on, same pattern
-        # as use_rti_solver just above, not a code change. When false,
-        # _get_live_boundaries always returns [] regardless of what
-        # costmap_boundary_node is actually publishing -- solve_mpc_step
-        # then sees boundaries=[], identical to no source ever having been
-        # live. NOTE: this means the RTI solve currently runs with NO hard
-        # wall constraint of any kind -- only the soft w_obs deflection cost
-        # -- until this default is revisited.
+        # and _get_live_boundaries below). When false, _get_live_boundaries
+        # always returns [] regardless of what costmap_boundary_node is
+        # publishing -- solve_mpc_step then sees boundaries=[], identical to
+        # no source ever having been live.
+        #
+        # THE LITERAL BELOW IS NOT WHAT THE CAR RUNS. Corrected 2026-09-09:
+        # everything this comment used to say about "default FALSE" and "the
+        # RTI solve currently runs with NO hard wall constraint of any kind"
+        # was true only of a bare `ros2 run`. stack_params.yaml declares
+        # use_hard_boundary_constraints default TRUE, mpc_corr.launch.py
+        # reads that key through get_default() and passes it to this node, so
+        # the launched stack -- the one on the vehicle -- has hard boundary
+        # constraints ENABLED and always has.
+        #
+        # That is four spellings of one constant again (this literal, the
+        # yaml, this comment, and mpc_solver.py's own docstring, three of
+        # them wrong), the exact failure CLAUDE.md records for
+        # corridor_update_period. Deliberately NOT resolved here by changing
+        # either value: which one is right is Andreas's call, not a side
+        # effect of a limits commit, and flipping either would change vehicle
+        # behaviour in a commit whose whole point is that it does not. The
+        # literal is left alone and labelled; see this commit's own message.
         self.use_hard_boundary_constraints = bool(
             self.declare_parameter('use_hard_boundary_constraints', False).value)
 
@@ -748,11 +757,57 @@ class MPCController(Node):
         # =========================
         # Limiti
         # =========================
+        # delta_min/delta_max: DECLARED PARAMETERS, defaults read from
+        # stack_params.yaml through get_value(), so a bare `ros2 run` that
+        # bypasses the launch file gets the same envelope. See that file's
+        # own "MPC ACTUATOR LIMITS" block for the derivation from
+        # steering_calibration.yaml and for why the -0.264/+0.314 pair cited
+        # in the work order was NOT used.
+        #
+        # These were -+1.05 rad (-+60 deg) bare literals. The servo clips at
+        # about -+16 deg, so the QP spent every tick optimising over a
+        # command range 3.8x wider than the actuator, and vesc_driver
+        # silently clipped the excess. The silence is the damaging part: the
+        # solver's own model integrates the command it CHOSE, so a saturated
+        # tick predicted a trajectory the car was never going to fly, and
+        # fed that prediction back in as the next tick's warm start.
+        self.steering_angle_min = float(
+            self.declare_parameter(
+                'delta_min', get_value('mpc_steering_angle_min_rad')).value)
+        self.steering_angle_max = float(
+            self.declare_parameter(
+                'delta_max', get_value('mpc_steering_angle_max_rad')).value)
+
         self.limits = {
-            "delta_min": -1.05,
-            "delta_max": 1.05,
+            "delta_min": self.steering_angle_min,
+            "delta_max": self.steering_angle_max,
             "a_min": -2.0,
             "a_max": 3.0,
+            # dDeltaMin/dDeltaMax: LEFT AT -+0.5 rad/s (29 deg/s), and
+            # DELIBERATELY NOT CHANGED, because it cannot be measured with
+            # what this stack has. The work order asked for a measured slew
+            # rate and said to leave it and flag it otherwise. Flagging it:
+            #
+            #   - The VESC returns no servo position. vesc_driver.cpp says so
+            #     outright ("since vesc state does not include the servo
+            #     position, publish the COMMANDED servo position as a
+            #     'sensor'"), so /sensors/servo_position_command echoes the
+            #     command, never the response.
+            #   - /joint_states carries a static 0.0 for both steering
+            #     hinges -- see description.launch.py, which is explicit that
+            #     the hinges are not driven from real data.
+            #   - None of the 39 archived mission bags records any servo or
+            #     joint topic at all; they carry /drive and /ackermann_drive,
+            #     which are commands.
+            #   - No VESC is currently attached (/dev/ttyACM* absent).
+            #
+            # So there is no feedback channel to step-response. Measuring it
+            # needs an instrument this stack does not have: a scope on the
+            # servo line, or a constant-speed yaw-rate step inverted through
+            # the bicycle model. Until then this bound stays a guess, and it
+            # is a HARD one -- unlike w_du_delta it cannot be traded against
+            # anything, so if it is too low it silently caps the steering
+            # response no weight change can recover.
             "dDeltaMin": -0.5,
             "dDeltaMax": 0.5,
             "dAMin": -2.0,
