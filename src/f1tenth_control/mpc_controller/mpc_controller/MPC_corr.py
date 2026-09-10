@@ -775,6 +775,22 @@ class MPCController(Node):
         # label on an already-straight path, it was steering error).
         self.psi_init_corridor = None
 
+        # UNWRAPPED rotation accumulated since the active wall_turn began, and
+        # the yaw the last increment was measured from. Reset per turn by
+        # goal_drive_callback.
+        #
+        # WHY A COUNTER AND NOT wrap(yaw - psi_init_corridor). A wrapped
+        # difference lives in (-pi, pi], so it cannot tell 190 degrees of turn
+        # from -170 degrees of turn -- they are the same number. Every turn
+        # whose magnitude reaches 180 degrees therefore becomes ambiguous
+        # exactly halfway through, and drive_turn_180.json asks for 180.0.
+        # Summing per-tick increments, each of which is far below pi at any
+        # reachable yaw rate, keeps the total unambiguous however far it goes.
+        # See _accumulate_turn_progress and build_straight_corridor's wall_turn
+        # branch for what consumes it.
+        self.turn_progress_rad = 0.0
+        self._turn_progress_last_yaw: Optional[float] = None
+
         # Old-workspace-name cleanup pass: previously hardcoded Path.home() /
         # 'ros2_f110_ws' / ... -- a stale reference to this project's old
         # workspace name/layout, broken for anyone not on that exact original
@@ -1857,6 +1873,10 @@ class MPCController(Node):
         # Re-anchor "this move's own start heading" -- see the docstring's
         # own paragraph on the two f110_autonomy bugs this fixes.
         self.psi_init_corridor = self.yaw
+        # ...and start this turn's rotation counter from zero at that same
+        # heading. Ordered after self.drive_cmd is installed above so the
+        # accumulator's own mode check sees the NEW command.
+        self._reset_turn_progress()
 
         # ---- per-move overrides, both duration-scoped by _clear_drive_state
         # SENTINEL: speed == 0 means "use the node default".
@@ -1925,6 +1945,49 @@ class MPCController(Node):
             '-- OPEN-ENDED: nessun goal_reached, termina solo la stop_condition '
             'del behaviour tree.'
         )
+
+    def _accumulate_turn_progress(self):
+        """Add this tick's yaw increment to the active wall_turn's total.
+
+        Called once per control_loop tick, before the corridor is built, so
+        the turn's remaining rotation is measured against a total that is
+        current rather than up to one corridor_update_period stale.
+
+        Each increment is wrapped, and that wrap is safe where the total's
+        would not be: it spans ONE control period, so at any yaw rate this
+        car can reach it is orders of magnitude below pi. Summing them
+        recovers the unwrapped rotation the wrapped total cannot express --
+        see self.turn_progress_rad's own comment for why that matters at
+        exactly 180 degrees.
+
+        A no-op outside wall_turn: nothing else asks how far round the car
+        has come, and leaving the counter alone means a straight move cannot
+        silently accumulate a total that a later turn would inherit.
+        """
+        if self.yaw is None:
+            return
+        drive_cmd = getattr(self, 'drive_cmd', None)
+        if drive_cmd is None or drive_cmd.get('mode') != 'wall_turn':
+            return
+        yaw = float(self.yaw)
+        if self._turn_progress_last_yaw is None:
+            self._turn_progress_last_yaw = yaw
+            return
+        step = math.atan2(math.sin(yaw - self._turn_progress_last_yaw),
+                          math.cos(yaw - self._turn_progress_last_yaw))
+        self.turn_progress_rad += step
+        self._turn_progress_last_yaw = yaw
+
+    def _reset_turn_progress(self):
+        """Start a fresh turn from zero rotation.
+
+        Separate from _invalidate_move_state so goal_drive_callback can order
+        it AFTER installing the new drive_cmd -- the counter is per turn, and
+        a turn that inherited the previous one's total would believe it was
+        already part-way round.
+        """
+        self.turn_progress_rad = 0.0
+        self._turn_progress_last_yaw = float(self.yaw) if self.yaw is not None else None
 
     def _invalidate_move_state(self):
         """Drop every piece of per-move cached geometry.
@@ -2196,6 +2259,11 @@ class MPCController(Node):
         # docstring for why they must not look this up independently. No-op in
         # pose/turn mode and whenever no map anchor was captured.
         self._refresh_goal_anchor()
+
+        # How far round the active wall_turn has come, updated once per tick
+        # so build_straight_corridor's wall_turn branch can subtract it from
+        # the commanded total. No-op in every other mode.
+        self._accumulate_turn_progress()
 
         if self.drive_cmd is not None:
             # DRIVE MODE -- open-ended, and the ONLY branch here with no
@@ -2749,6 +2817,13 @@ class MPCController(Node):
 
         psiStart = psi0
 
+        # Signed rotation still owed, measured from psiStart, for a wall_turn.
+        # None on every other branch, and the solver's terminal yaw cost falls
+        # straight back to its original shortest-branch unwrap when it is
+        # absent -- so every non-wall_turn corridor is byte-identical to
+        # before. Set only inside the wall_turn branch below.
+        turn_remaining = None
+
         # getattr, not a bare attribute, for the same reason corridor_heading_
         # return below uses one: the corridor tests build duck-typed stand-ins
         # that predate this mode and carry only the fields the geometry under
@@ -2781,8 +2856,34 @@ class MPCController(Node):
             psi_base = (self.psi_init_corridor
                         if self.psi_init_corridor is not None else psi0)
             if drive_cmd['mode'] == 'wall_turn':
-                psiEnd = psi_base + math.radians(
+                # THE COMMANDED TURN IS SIGNED, AND ITS SIGN IS NOT
+                # RECOVERABLE FROM psiEnd ALONE. turn_sign says which way
+                # round to go; a heading does not. "Turn 180 degrees right"
+                # and "turn 180 degrees left" name the SAME psiEnd, and any
+                # consumer that later re-derives the rotation from
+                # (psiEnd - yaw) has to guess -- the shortest branch is the
+                # only thing it can guess, and at 180 that is a coin flip
+                # decided by floating-point noise in sin(). Worse, it locks
+                # in: a solve whose reference rollout drifts a hair the wrong
+                # way pushes the error past pi, the shortest branch flips to
+                # the other side, the car steers further that way, and the
+                # next tick is deeper in. drive_turn_180.json asks for
+                # exactly 180.0, so this is not a corner case.
+                #
+                # So the rotation STILL OWED is computed here, where the sign
+                # is still known, and carried to the solver as psiRefTurn (see
+                # the corridor dict below and mpc_solver's terminal yaw cost).
+                # turn_progress_rad is the unwrapped rotation already made --
+                # unwrapped precisely so that subtracting it stays correct
+                # past 180 degrees, which a wrapped difference cannot be.
+                signed_total = math.radians(
                     drive_cmd['turn_sign'] * drive_cmd['turn_mag_deg'])
+                turn_remaining = signed_total - self.turn_progress_rad
+                # psiEnd stays what it always was -- psi_base + the full
+                # commanded turn -- so the corridor GEOMETRY (the S-curve
+                # blend, the walls, psiRef) is bit-for-bit unchanged. Only the
+                # extra signed key below is new.
+                psiEnd = psi_base + signed_total
                 # psiStart stays the LIVE yaw for a turn, so the S-curve below
                 # describes a real arc from where the car is pointing now to
                 # where the move wants it pointing. Freezing both ends here
@@ -2979,7 +3080,20 @@ class MPCController(Node):
         u = np.linspace(0.0, 1.0, self.corr_N)
         s = L * u
 
-        dpsi = math.atan2(math.sin(psiEnd - psiStart), math.cos(psiEnd - psiStart))
+        if turn_remaining is not None:
+            # SIGNED, UNWRAPPED, for a wall_turn: the geometry has to bend the
+            # way the mission asked, not the short way. wrap() below cannot
+            # express a rotation of 180 degrees or more -- wrap(+270 deg) is
+            # -90 deg -- so a corridor built from it would curl RIGHT for a
+            # commanded 270 degree LEFT turn, and then every position term in
+            # the QP (w_term to Pend, w_corr onto the centreline, w_psi_stage
+            # onto the local tangent) would pull against the terminal heading
+            # cost instead of with it. Same defect as the terminal unwrap, one
+            # layer out: see the wall_turn branch above.
+            dpsi = float(turn_remaining)
+        else:
+            dpsi = math.atan2(math.sin(psiEnd - psiStart),
+                              math.cos(psiEnd - psiStart))
         # Heading blend shape: an S-curve (straight lead-in, sigmoid bend,
         # straight lead-out) rather than the previous flat linear taper
         # across the whole corridor length. Ported from f110_autonomy's
@@ -3094,6 +3208,15 @@ class MPCController(Node):
             "ny": ny,
             "halfWidth": halfWidth,
             "psiRef": float(psiEnd),
+            # WHICH WAY ROUND, which psiRef alone cannot say. None for every
+            # corridor that is not an active wall_turn; a signed rotation in
+            # radians, measured from psiStart, when it is. mpc_solver's
+            # terminal yaw cost uses it INSTEAD OF wrapping psiRef onto the
+            # shortest branch -- see the wall_turn branch above for why the
+            # shortest branch is wrong at and beyond 180 degrees, and
+            # test_turn_branch.py for what is pinned.
+            "psiRefTurn": (None if turn_remaining is None
+                           else float(turn_remaining)),
             # The length THIS corridor was actually built with (the
             # goal_pose branch clips it into [1.0, corr_L_base], so it is not
             # always corr_L_base). _corridor_lookahead derives the lookahead

@@ -636,6 +636,54 @@ def unwrapped_heading_target(psi_target: float, psi_linearization: float) -> flo
     return psi_linearization + delta
 
 
+def terminal_heading_target(corridor: Dict, psi_ref: float,
+                            psi_ref_N: float) -> float:
+    """The absolute yaw the TERMINAL heading cost (w_psi) pulls toward.
+
+    Two cases, and which one applies is the corridor's decision, not this
+    function's:
+
+    SHORTEST BRANCH (corridor["psiRefTurn"] absent or None) -- the original
+    behaviour, unchanged, and what every non-wall_turn corridor gets. psi is
+    unbounded in this model, so a raw psiRef near +-pi would otherwise ask
+    the car for a ~2pi turn to reach an orientation it is already at;
+    unwrapping onto the reference trajectory's own branch fixes that. For a
+    corridor that only ever asks for a heading -- "point along this line" --
+    the shortest way round is the right way round, and there is nothing else
+    to know.
+
+    SIGNED BRANCH (corridor["psiRefTurn"] is a number) -- a wall_turn, where
+    the mission asked for a ROTATION and named its direction. psiRefTurn is
+    the signed rotation still owed, measured from corridor["psiStart"]; the
+    target is that rotation applied to the predicted terminal yaw, with the
+    progress made since the corridor was built subtracted off. NOTHING IS
+    WRAPPED INTO (-pi, pi] here, and that is the entire point.
+
+    WHY THE SHORTEST BRANCH IS WRONG FOR A TURN -- do not "simplify" this
+    back. A heading cannot express which way round: "turn 180 right" and
+    "turn 180 left" name the same psiRef, so the shortest-branch unwrap has
+    to guess, and at exactly 180 the guess is decided by the sign of
+    sin(pi) in floating point. drive_turn_180.json commands exactly 180.0.
+    The failure is not merely a coin flip either, it RATCHETS: let the
+    reference rollout drift a hair the wrong way and the error crosses pi,
+    the unwrap flips to the other side, the solver steers further that way,
+    and the next tick starts deeper in. Measured on the real geometry, a
+    commanded +181 degrees came out as -179 and the first control inverted.
+
+    The progress term IS still wrapped, and safely: it spans one corridor
+    period plus one horizon, so it is far below pi at any yaw rate this car
+    reaches -- unlike the total rotation, which is exactly what
+    MPC_corr.turn_progress_rad accumulates unwrapped for this reason.
+    """
+    turn = corridor.get("psiRefTurn")
+    if turn is None:
+        return unwrapped_heading_target(psi_ref, psi_ref_N)
+    psi_start = float(corridor.get("psiStart", psi_ref_N))
+    progress = math.atan2(math.sin(psi_ref_N - psi_start),
+                          math.cos(psi_ref_N - psi_start))
+    return psi_ref_N + (float(turn) - progress)
+
+
 def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
     """Shift a solved control sequence one step for the NEXT tick's warm start.
 
@@ -1015,19 +1063,17 @@ def _solve_rti(
     P[xN_idx, xN_idx] += 2.0 * weights["w_term"] * (E.T @ E)
     q[xN_idx] += weights["w_term"] * (-2.0 * (E.T @ pref_nom))
 
-    # ---- terminal yaw cost: w_psi * (psi_N - psiRef)^2, exact quadratic in
-    # the state (psi IS state index 2). The target is UNWRAPPED onto the
-    # reference trajectory's own branch (psi_ref_N + wrapped difference)
-    # rather than used raw: psi is unbounded in this model, so a raw psiRef
-    # near +/-pi would otherwise ask the car for a ~2pi turn to reach an
-    # orientation it is already at. Previously commented out in
+    # ---- terminal yaw cost: w_psi * (psi_N - psi_target)^2, exact quadratic
+    # in the state (psi IS state index 2). psi_target is NOT psiRef used raw:
+    # see terminal_heading_target for the two branches it picks between (the
+    # original shortest-way unwrap, and the signed one a wall_turn needs so a
+    # 180 degree turn cannot come out backwards). Previously commented out in
     # planner_cost_corridor and absent here, so weights["w_psi"] did nothing
     # in either backend.
     if weights.get("w_psi", 0.0):
         psi_ref = float(corridor.get("psiRef", x_ref[N][2]))
         psi_ref_N = float(x_ref[N][2])
-        psi_target = psi_ref_N + math.atan2(math.sin(psi_ref - psi_ref_N),
-                                            math.cos(psi_ref - psi_ref_N))
+        psi_target = terminal_heading_target(corridor, psi_ref, psi_ref_N)
         P[xN_idx, xN_idx][2, 2] += 2.0 * weights["w_psi"]
         q[xN_idx][2] += weights["w_psi"] * (-2.0 * psi_target)
 
@@ -1238,11 +1284,16 @@ def planner_cost_corridor(
     # Enabled, matching _solve_rti's own terminal-yaw term (the dead
     # `psi_err = x[2] - 0` line it replaces computed a value nothing read,
     # and the commented-out weight was a hardcoded 2000 rather than w_psi).
-    # Wrapped to (-pi, pi] here because this form is evaluated directly, with
-    # no reference branch to unwrap onto.
+    # Goes through terminal_heading_target so this objective and the QP
+    # _solve_rti builds cannot disagree about which way round a turn goes --
+    # this is what RTI reports as info["cost"], so a wall_turn whose QP used
+    # the signed branch while this used the shortest one would report a cost
+    # for a solution it never optimised. For a non-turn corridor the helper
+    # returns the shortest-branch unwrap onto x[2]'s own branch, which makes
+    # the subtraction below exactly the wrap this line used to do inline.
     if weights.get("w_psi", 0.0):
-        psi_err = float(x[2]) - float(corridor["psiRef"])
-        psi_err = math.atan2(math.sin(psi_err), math.cos(psi_err))
+        psi_err = float(x[2]) - terminal_heading_target(
+            corridor, float(corridor["psiRef"]), float(x[2]))
         J += weights["w_psi"] * psi_err ** 2
 
     return float(J)
