@@ -131,10 +131,14 @@ entirely, no dedup/skip-if-unchanged), not a gap introduced by accident.
 
 CONVEX SAFE CORRIDOR (use_convex_polytope, DEFAULT FALSE) -- built by this
 pass, deliberately not enabled. With the flag off this node behaves exactly
-as described above and none of the code below runs; MPC_corr.py's own
-use_hard_boundary_constraints is also still False, so even a published
-polytope reaches no solve. There is a straight-line drive test pending that
-this must not ride along into.
+as described above and none of the code below runs. There is a straight-line
+drive test pending that this must not ride along into. NOTE (corrected
+2026-09-09): the second belt-and-braces claim this comment used to make --
+that MPC_corr.py's use_hard_boundary_constraints is False so a published
+polytope would reach no solve -- was WRONG. That key is true in
+stack_params.yaml and the MPC consumes these boundaries. This flag being
+false is the ONLY thing keeping the polytope out of the solve, so treat it
+as load-bearing rather than as one of two independent guards.
 
 When the flag is ON, /costmap/boundaries carries the faces of ONE convex
 polytope (up to polytope_max_faces, default 8) inflated around the MPC's own
@@ -363,9 +367,10 @@ class CostmapBoundaryNode(Node):
         # this off, _extraction_tick runs exactly the nearest-occupied-cell
         # path it ran before, byte for byte, and none of the polytope code
         # executes. Deliberate -- there is a straight-line drive test
-        # pending that must not have this ride along into it, and
-        # MPC_corr.py's own use_hard_boundary_constraints is False too, so
-        # even a published polytope would reach no solve.
+        # pending that must not have this ride along into it. This flag is
+        # the ONLY guard: MPC_corr.py's use_hard_boundary_constraints is
+        # TRUE on the launch path (corrected 2026-09-09), so anything
+        # published here does reach the solve.
         #
         # What flipping it to True changes: /costmap/boundaries carries the
         # faces of ONE convex polytope inflated around the MPC's own

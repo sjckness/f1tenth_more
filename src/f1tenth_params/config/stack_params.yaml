@@ -261,10 +261,17 @@ use_mask_depth:
   default: true
   description: "detection_3d_node: sample depth from the per-detection instance mask (median, box-region fallback) instead of the box region. Requires a segmentation yolo_model to have any effect."
 # Consumed by: f1tenth_perception/detection.launch.py, forwarded to
-# yolo_detector_node. Filters out any 2D detection (its box, or -- for a
-# segment-task model -- its own mask, whichever is more accurate for that
-# detection) that overlaps this fixed rectangle above lidar_exclusion_
-# overlap_threshold below. The car's own LiDAR housing sits inside the ZED's
+# yolo_detector_node AND (the four x/y edge fractions only, not the overlap
+# threshold) front_clearance_node -- one calibration of the same physical
+# housing, two consumers, deliberately not duplicated into a second set of
+# keys. yolo_detector_node uses it to suppress whole DETECTIONS that sit over
+# the housing; front_clearance_node cuts the same rectangle out of its depth
+# ROI before computing background statistics, since the housing is a real
+# close-range surface that would otherwise dominate a low-percentile
+# estimate. Filters out any 2D detection (its box, or -- for a segment-task
+# model -- its own mask, whichever is more accurate for that detection) that
+# overlaps this fixed rectangle above lidar_exclusion_overlap_threshold
+# below. The car's own LiDAR housing sits inside the ZED's
 # field of view (bottom-right of frame, confirmed live via a Foxglove
 # screenshot: a spurious high-confidence "chair" detection sitting exactly
 # on top of it) -- a fixed self-occlusion artifact, not a real external
@@ -347,6 +354,78 @@ obstacle_z_min:
 obstacle_z_max:
   default: 2.0
   description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+
+# ============================================================
+# Front clearance / front wall (f1tenth_perception/front_clearance_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/detection.launch.py, forwarded to front_clearance_node.
+#
+# READ THE NODE'S OWN MODULE DOCSTRING BEFORE TUNING ANY OF THESE. Two
+# distinctions there decide what a given value even means:
+#   * front_distance is BACKGROUND/wall only (detected objects are excluded
+#     from it by construction). front_clearance is the stop/slow-down signal
+#     -- min(background, nearest in-corridor obstacle). They are not
+#     interchangeable.
+#   * front_wall's latch is fed a PIXEL COUNT; front_blocked's is fed METRES.
+#     The *_px and *_m suffixes below are load-bearing, not decoration.
+#
+# EVERY VALUE BELOW IS A STARTING POINT, NOT A MEASUREMENT. They came in with
+# the node and have never been fitted to this car's own depth stream. Tune
+# them against a recorded bag with publish_debug_raw true (which exposes the
+# unsmoothed distance and the exact pixel count the latch sees) rather than by
+# guessing at the live stack -- that is what those debug topics are for.
+front_clearance_roi_half_width_px:
+  default: 90
+  description: "Half-width [px] of front_clearance_node's centered depth ROI. Untuned starting point."
+front_clearance_roi_half_height_px:
+  default: 35
+  description: "Half-height [px] of front_clearance_node's centered depth ROI. Untuned starting point."
+front_clearance_min_bg_pixels_for_reading:
+  default: 60
+  description: "Minimum background pixels in the ROI before front_clearance_node produces a distance at all. Below it the frame yields no reading and the EMA holds its last value rather than being poisoned by a tiny sample. Untuned starting point."
+front_clearance_wall_enter_px:
+  default: 150
+  description: "Background pixel count at or above which front_clearance_node's front_wall latch proposes True. Must exceed wall_exit_px -- the gap between them is the dead band. Untuned starting point."
+front_clearance_wall_exit_px:
+  default: 50
+  description: "Background pixel count at or below which front_clearance_node's front_wall latch proposes False. Untuned starting point."
+front_clearance_wall_min_dwell_frames:
+  default: 2
+  description: "Consecutive agreeing frames required before front_clearance_node commits a front_wall flip. On top of the dead band, not instead of it. Untuned starting point."
+front_clearance_distance_ema_alpha:
+  default: 0.25
+  description: "EMA weight on the newest sample for BOTH front_distance and front_clearance in front_clearance_node. Lower is smoother and laggier. Untuned starting point."
+front_clearance_mask_time_constant:
+  default: 0.35
+  description: "Time constant [s] of front_clearance_node's per-pixel object-exclusion confidence EMA (dt-normalized, so this is wall-clock seconds and not a frame count). Governs both how long a dropped detection keeps excluding its pixels and how hard segmentation edge wobble is damped. Untuned starting point."
+front_clearance_background_weight_threshold:
+  default: 0.5
+  description: "Background weight (1 - object confidence) at or above which a pixel counts as background in front_clearance_node. Untuned starting point."
+front_clearance_background_percentile_low:
+  default: 5.0
+  description: "Lower percentile of front_clearance_node's trimmed background-depth band -- drops near-field speckle outliers a bare minimum would latch onto. Untuned starting point."
+front_clearance_background_percentile_high:
+  default: 50.0
+  description: "Upper percentile of front_clearance_node's trimmed background-depth band -- drops the far-field tail so a doorway or gap does not pull the wall estimate backwards. Untuned starting point."
+front_clearance_corridor_half_width_m:
+  default: 0.35
+  description: "Half-width [m] of the central corridor front_clearance_node tests obstacles against. An obstacle counts when its own footprint (|y| - r) reaches the corridor, not just its centre. Untuned starting point."
+front_clearance_obstacle_max_age_s:
+  default: 0.4
+  description: "Maximum age [s] of the last /perception/obstacles_2d message front_clearance_node will still fold into front_clearance. Older than this and clearance falls back to the background distance alone. Untuned starting point."
+front_clearance_clearance_enter_m:
+  default: 0.5
+  description: "front_clearance [m] at or below which front_clearance_node's front_blocked latch proposes True. Must be BELOW clearance_exit_m -- this latch is inverted (smaller distance means more triggered). Untuned starting point, and NOT a validated safety distance."
+front_clearance_clearance_exit_m:
+  default: 0.7
+  description: "front_clearance [m] at or above which front_clearance_node's front_blocked latch proposes False. Untuned starting point."
+front_clearance_clearance_min_dwell_frames:
+  default: 2
+  description: "Consecutive agreeing frames required before front_clearance_node commits a front_blocked flip. Untuned starting point."
+front_clearance_publish_debug_raw:
+  default: false
+  description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance) and /perception/debug/bg_pixel_count (the exact wall-latch input), for tuning the filters against a bag. The topics are not created at all when false."
 
 # ============================================================
 # Command/Control
@@ -433,21 +512,40 @@ corridor_update_period:
 # flip buys. Kept as a launch arg so the reference behaviour stays reachable
 # for the MATLAB/f110_autonomy comparison without a code change.
 corridor_heading_return:
-  default: false
+  default: true
   description: "Corridor heading-blend geometry on a straight (goal_distance) move. false (default): both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true: blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
-# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
-# own already-declared ROS param (self.declare_parameter). Default is TRUE:
-# costmap_boundary_node's hard wall constraints are active in the RTI/OSQP
-# solve (see mpc_solver.py's own module docstring). It had been false for the
-# MATLAB comparison, which has no such constraint; set it back to false to
-# reproduce that configuration without a code change.
+# ------------------------------------------------------------------
+# MPC BOUNDARY CONSTRAINTS -- the costmap wall rows in the RTI solve.
 #
-# With this FALSE the RTI solve has NO hard wall constraint of any kind, only
-# the soft w_obs deflection cost -- worth knowing before flipping it, since
-# nothing else in the solve replaces the wall.
+# TRUE IS NOW A CHOSEN VALUE, NOT AN INHERITED ONE (2026-09-09). It had been
+# true here the whole time while MPC_corr.py's own literal, its comment and
+# mpc_solver.py's docstring all said "False, inert" -- so the vehicle has
+# been solving WITH costmap_boundary_node's wall rows since the key was
+# added, and nobody chose that. Reviewed and kept true, because the
+# alternative is worse: with this false the RTI solve has NO wall term of any
+# kind, only the soft w_obs point-obstacle deflection cost, and nothing else
+# in the solve replaces a wall. Turning it off would be a safety reduction
+# adopted for tidiness. Set it to false only to reproduce the MATLAB /
+# f110_autonomy comparison, which has no such constraint.
+#
+# The three keys below are the SHAPE of those rows. They were code literals
+# in MPC_corr.py, withheld from this file by 69aa44a on the grounds that they
+# were "not yet reachable" -- which was wrong for the same reason as above:
+# they have been reachable and live all along. Promoted here so the shipped
+# values are recorded rather than assumed. Defaults are unchanged from those
+# literals, so this promotion alone changes no behaviour.
 use_hard_boundary_constraints:
   default: true
-  description: "true (default): mpc_corr.py's RTI solve enforces costmap_boundary_node's hard wall constraints. false: no hard wall constraint of any kind, only the soft w_obs deflection cost -- the MATLAB-comparison configuration."
+  description: "true (default, deliberate): mpc_corr.py's RTI solve enforces costmap_boundary_node's wall constraints (soft rows unless boundary_hard). false: no wall constraint of any kind, only the soft w_obs deflection cost -- the MATLAB-comparison configuration."
+boundary_hard:
+  default: false
+  description: "Wall-row form in the RTI/OSQP solve. false (default): soft rows -- one slack per face, shared across stages, penalised at boundary_slack_weight, violation reported in metres as info['boundary_slack']. true: strict rows, where an unsatisfiable wall makes the QP infeasible and _solve_rti discards the whole solve and holds the warm start, telling the caller nothing about which face was violated."
+boundary_max_sources:
+  default: 3
+  description: "Wall rows per horizon stage, i.e. QP rows per stage. 3 (default) matches costmap_boundary_node's nearest-cell front/left/right output. A convex polytope needs up to 8 (costmap_boundary_polytope_max_faces) -- set this to match, or pad_boundary_constraints TRUNCATES the extra faces silently and the survivors still look like a complete constraint set. Each extra slot costs one QP row per stage (20 at N=20)."
+boundary_slack_weight:
+  default: 10000.0
+  description: "Penalty on each wall face's worst violation over the horizon, when boundary_hard is false. Large relative to every cost weight, so the solve treats a wall as near-inviolable while still degrading to a reported violation instead of an infeasible QP. Never validated on the vehicle."
 # ------------------------------------------------------------------
 # MPC ACTUATOR LIMITS -- what the servo can actually reach.
 #
@@ -556,11 +654,18 @@ mpc_steering_angle_max_rad:
 #   velocity      0.30  0.100        30.000    4.2857              1.5000
 #   steer rate    0.15  0.030       166.667   23.8095              8.3333
 #
+# steer rate NO LONGER SHIPS AT ITS DERIVED VALUE -- see mpc_w_du_delta
+# below, which was moved to literal 8.5714 (effective 3.0) on 2026-09-09.
+# The row above is kept as the derivation it departs from, not as the
+# shipped number.
+#
 # WHAT CHANGED, effective values, old -> new:
 #   w_corr        0.0  -> 1.25    cross-track tracking, was OFF entirely
 #   w_psi_stage   ---  -> 1.67    new term (see the previous commit)
 #   w_v           2.8  -> 1.50
-#   w_du_delta    5.25 -> 8.33
+#   w_du_delta    5.25 -> 8.33 -> 3.00  (the 3.00 is a later, deliberate
+#                                 departure from the derivation; see the
+#                                 mpc_w_du_delta key itself)
 #   w_term        3.0  -> 9.0     terminal, unscaled
 #   w_psi         1.5  -> 4.5     terminal, unscaled
 #   w_obs         2.8  -> 2.8     UNCHANGED -- less obstacle shyness was
@@ -599,9 +704,29 @@ mpc_w_v:
 mpc_w_obs:
   default: 8.0
   description: "PER-STAGE obstacle soft-deflection weight. Effective value 2.8 after the 7/20 stage scaling -- UNCHANGED, deliberately: less obstacle shyness was wanted, not more."
+# w_du_delta IS THE ONE TERM DELIBERATELY OFF THE rho/sigma^2 SET (2026-09-09).
+# Lowered effective 8.33 -> 3.0, i.e. literal 23.8095 -> 8.5714. The derived
+# value came from sigma = 0.03 rad/step, and that sigma was chosen as "what
+# the servo can do in a step" -- so it encodes the ACTUATOR limit twice: once
+# here as a soft cost, and again as the hard dDeltaMin/dDeltaMax bound, which
+# is where a rate limit actually belongs. Double-counting it makes the solver
+# pay a large cost for motion the hard bound already forbids it from
+# exceeding, and the term that loses the trade is cross-track/heading
+# correction -- the thing the corridor set was retuned to turn ON.
+#
+# 3.0 is chosen, not derived: it leaves w_du_delta the same order as w_psi_
+# stage (1.67) and w_corr (1.25) so it still damps chatter, without being 5x
+# either of them. If the car now oscillates about the line instead of
+# holding it, this is the number to raise first.
+#
+# THIS IS THE SINGLE BIGGEST BEHAVIOURAL CHANGE IN THE CURRENT SET. During a
+# from-zero steering ramp it changes nothing at all -- the hard bound governs
+# there (see test_weight_set.py's TestTheHardRateBoundDominatesTheWeight,
+# measured) -- so any difference it makes shows up in the SUSTAINED holding
+# behaviour after the ramp, not in how fast the correction starts.
 mpc_w_du_delta:
-  default: 23.8095
-  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2. Effective value 8.33 after the 7/20 stage scaling. Was literal 15.0, effective 5.25. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD dDeltaMin/dDeltaMax bound, which is not."
+  default: 8.5714
+  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2. Effective value 3.0 after the 7/20 stage scaling. Deliberately OFF the rho/sigma^2 derivation (which gives 23.8095, effective 8.33): that sigma double-counts the hard dDeltaMin/dDeltaMax rate bound as a soft cost. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD bound, which is not."
 mpc_w_delta0:
   default: 0.0
   description: "PER-STAGE steering-MAGNITUDE weight. Stays 0.0: the car has a ~2 deg steering bias, so the correct steady-state command is nonzero and this term would fight holding a straight line."
@@ -672,11 +797,11 @@ a_max:
   description: "MPC acceleration limit [m/s^2] -- rate-limits the open-loop speed command toward v_ref."
 # Consumed by: f1tenth_control/mpc.launch.py.
 v_min:
-  default: -1.5
+  default: -0.5
   description: "MPC speed floor [m/s] -- clips both the state estimate used in the rollout cost and the published speed command."
 # Consumed by: f1tenth_control/mpc.launch.py.
 v_max:
-  default: 1.5
+  default: 0.5
   description: "MPC speed ceiling [m/s] -- clips the published speed command."
 # Consumed by: f1tenth_control/mpc.launch.py.
 v_ref:

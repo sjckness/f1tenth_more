@@ -442,50 +442,51 @@ class MPCController(Node):
         # publishing -- solve_mpc_step then sees boundaries=[], identical to
         # no source ever having been live.
         #
-        # THE LITERAL BELOW IS NOT WHAT THE CAR RUNS. Corrected 2026-09-09:
-        # everything this comment used to say about "default FALSE" and "the
-        # RTI solve currently runs with NO hard wall constraint of any kind"
-        # was true only of a bare `ros2 run`. stack_params.yaml declares
-        # use_hard_boundary_constraints default TRUE, mpc_corr.launch.py
-        # reads that key through get_default() and passes it to this node, so
-        # the launched stack -- the one on the vehicle -- has hard boundary
-        # constraints ENABLED and always has.
+        # RESOLVED 2026-09-09 -- these four are now single-sourced from
+        # stack_params.yaml through get_value(), like every other tuned
+        # number in this file.
         #
-        # That is four spellings of one constant again (this literal, the
-        # yaml, this comment, and mpc_solver.py's own docstring, three of
-        # them wrong), the exact failure CLAUDE.md records for
-        # corridor_update_period. Deliberately NOT resolved here by changing
-        # either value: which one is right is Andreas's call, not a side
-        # effect of a limits commit, and flipping either would change vehicle
-        # behaviour in a commit whose whole point is that it does not. The
-        # literal is left alone and labelled; see this commit's own message.
+        # THE DEFECT THIS REPLACES. The literal here was False and said so in
+        # four places (this literal, its comment, mpc_solver.py's module
+        # docstring, costmap_boundary_node.py's), while stack_params.yaml has
+        # declared use_hard_boundary_constraints TRUE the whole time and
+        # mpc_corr.launch.py has been passing it through. So the launched
+        # stack -- the one on the vehicle -- has been solving WITH
+        # costmap_boundary_node's wall rows since the key was added, and the
+        # three "inert on the shipping configuration" boundary-shape
+        # parameters below were live too. Same four-spellings-of-one-constant
+        # failure CLAUDE.md records for corridor_update_period.
+        #
+        # Reviewed and TRUE IS KEPT -- see stack_params.yaml's own
+        # "MPC BOUNDARY CONSTRAINTS" block for why. A bare `ros2 run` now
+        # gets the deployed value too, which is the whole point of reading
+        # get_value() rather than carrying a literal.
         self.use_hard_boundary_constraints = bool(
-            self.declare_parameter('use_hard_boundary_constraints', False).value)
+            self.declare_parameter(
+                'use_hard_boundary_constraints',
+                get_value('use_hard_boundary_constraints')).value)
 
-        # Boundary-row shape, all three INERT on the shipping configuration:
-        # use_hard_boundary_constraints above is False, so
-        # _get_live_boundaries always returns [] and solve_mpc_step never
-        # builds a boundary row of any kind. Declared anyway so the convex-
-        # safe-corridor path (f1tenth_costmap's safe_corridor.py, also built
-        # and also off) is configurable from a launch arg rather than a code
-        # change when it is eventually turned on -- the same opt-in pattern
-        # use_rti_solver and use_hard_boundary_constraints themselves follow.
+        # Boundary-row shape. LIVE, not inert: use_hard_boundary_constraints
+        # above is true on the launch path, so _get_live_boundaries returns
+        # real rows and solve_mpc_step builds them with exactly these.
         #
         # boundary_max_sources: rows per stage. 3 matches costmap_boundary_
         # node's nearest-cell front/left/right output; a convex polytope
         # needs up to 8, and mpc_solver's pad_boundary_constraints would
         # otherwise TRUNCATE the extra faces silently.
         self.boundary_max_sources = int(
-            self.declare_parameter('boundary_max_sources', 3).value)
+            self.declare_parameter(
+                'boundary_max_sources', get_value('boundary_max_sources')).value)
         # boundary_hard: False (default) adds the rows with a slack variable
         # and a large penalty; True makes them strict. Soft is the default
         # deliberately -- see mpc_solver.py's own "SLACK AND THE SLOT COUNT"
         # docstring section for why a hard constraint derived from an
         # occupancy map is a hard failure mode.
         self.boundary_hard = bool(
-            self.declare_parameter('boundary_hard', False).value)
+            self.declare_parameter('boundary_hard', get_value('boundary_hard')).value)
         self.boundary_slack_weight = float(
-            self.declare_parameter('boundary_slack_weight', 1.0e4).value)
+            self.declare_parameter(
+                'boundary_slack_weight', get_value('boundary_slack_weight')).value)
 
         # Max tangential shove applied to the lookahead target when it lands
         # inside an obstacle's safety radius -- see compute_local_target,
@@ -884,9 +885,14 @@ class MPCController(Node):
         #     end-of-horizon overshoot for it. Measured on the old set at
         #     w_corr 20: integrated error 3.39 -> 2.67 while the horizon
         #     ended at -0.149 m instead of +0.068 m, i.e. on the far side of
-        #     the line. w_du_delta is what resists that, and it went up
-        #     (5.25 -> 8.33) partly for this reason, but the balance is
-        #     reasoned, not measured.
+        #     the line. w_du_delta is what resists that. It went up
+        #     (5.25 -> 8.33) partly for this reason and was then LOWERED to
+        #     3.00 on 2026-09-09 -- see stack_params.yaml's mpc_w_du_delta,
+        #     which explains why the derived 8.33 double-counted the hard
+        #     rate bound. Overshoot about the line is therefore the FIRST
+        #     thing to look for on the next run, and mpc_w_du_delta is the
+        #     number to raise if it appears. The balance is reasoned, not
+        #     measured, in both directions.
         #   - OBSTACLE CLEARANCE. The old note's mechanism -- a lateral
         #     penalty resists the deflection while an obstacle is still
         #     there -- has not gone away. w_obs was deliberately left at
@@ -909,7 +915,7 @@ class MPCController(Node):
         #   w_corr              3.5714               1.2500
         #   w_psi_stage         4.7736               1.6708
         #   w_v                 4.2857               1.5000
-        #   w_du_delta         23.8095               8.3333
+        #   w_du_delta          8.5714               3.0000
         #   w_obs               8.0000               2.8000
         #   w_term              9.0                  9.0    (terminal)
         #   w_psi               4.5                  4.5    (terminal)
@@ -918,6 +924,12 @@ class MPCController(Node):
         # makes the TOTAL stage cost over the horizon equal rho / sigma^2
         # for any N -- the set stays horizon-invariant through the existing
         # scale_stage_weights machinery rather than by dividing by N twice.
+        # EXCEPT w_du_delta, which was deliberately moved off that derivation
+        # (2026-09-09, 23.8095 -> 8.5714): its sigma was the servo's per-step
+        # rate limit, so the derived value charged a soft cost for motion the
+        # hard dDeltaMin/dDeltaMax bound already forbids. Horizon-invariance
+        # is unaffected -- that property comes from scale_stage_weights, not
+        # from the literal's provenance.
         def _w(key):
             return float(self.declare_parameter(key, get_value(key)).value)
 
@@ -1749,10 +1761,11 @@ class MPCController(Node):
         own module docstring -- so an empty return here is real, live-
         relevant, expected behavior today, not a hypothetical edge case.
 
-        Gated on self.use_hard_boundary_constraints (default False) -- see
-        that attribute's own comment; false forces [] unconditionally,
-        before even looking at staleness, so disabling the feature via
-        launch arg can't be defeated by fresh data arriving."""
+        Gated on self.use_hard_boundary_constraints, which is TRUE on the
+        launch path (stack_params.yaml) -- see that attribute's own comment.
+        False forces [] unconditionally, before even looking at staleness, so
+        disabling the feature via launch arg can't be defeated by fresh data
+        arriving."""
         if not self.use_hard_boundary_constraints:
             return []
         now_sec = self.get_clock().now().nanoseconds * 1e-9

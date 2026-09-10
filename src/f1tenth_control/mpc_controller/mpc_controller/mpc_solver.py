@@ -98,9 +98,13 @@ what a face is: a wall, where a plan that clips it once is not meaningfully
 better than one that clips it three times.
 
 The slack block exists only when there is at least one live boundary AND
-boundary_hard is false, so on the shipping configuration
-(use_hard_boundary_constraints=False -> boundaries=[]) the QP is
-byte-identical to the pre-slack one, slack-free and unchanged.
+boundary_hard is false. CORRECTED 2026-09-09: this docstring used to say
+the shipping configuration has use_hard_boundary_constraints=False and so
+boundaries=[] -- it does not, and never did. stack_params.yaml declares that
+key TRUE, so the launched vehicle DOES build these rows, soft, three per
+stage. The slack-free byte-identical case is the one where the flag is
+explicitly turned off, or where costmap_boundary_node's staleness gating is
+withholding data.
 
 Purely additive: does not remove or weaken w_obs/compute_local_target's
 existing soft deflection -- boundaries is an EXTRA set of hard rows on
@@ -708,9 +712,10 @@ def _solve_rti(
     #     violation where they are not.
     #
     #   - no live boundaries means no slack variables at all, so the QP is
-    #     byte-identical to the pre-slack one on the default configuration
-    #     (MPC_corr's use_hard_boundary_constraints is False, so boundaries
-    #     is always [] and this whole block is inert). Padding still emits
+    #     byte-identical to the pre-slack one. That is NOT the shipping
+    #     configuration (corrected 2026-09-09 -- stack_params.yaml has
+    #     use_hard_boundary_constraints true, so the vehicle builds these
+    #     rows); it is the flag-off / stale-data case. Padding still emits
     #     its M all-zero rows in that case, exactly as before.
     #
     # ONE SLACK PER FACE, SHARED ACROSS STAGES, not one per (stage, face).

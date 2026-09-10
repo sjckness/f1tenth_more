@@ -146,6 +146,26 @@ def generate_launch_description():
         default_value=str(use_hard_boundary_constraints_default),
         description=use_hard_boundary_constraints_desc)
 
+    # Boundary-row SHAPE -- only reachable while use_hard_boundary_constraints
+    # is true, which on this path it is. Promoted out of MPC_corr.py literals
+    # (2026-09-09) so the shipped values are recorded in stack_params.yaml
+    # like every other tuned number; defaults unchanged, so this changes
+    # nothing on its own.
+    boundary_hard_default, boundary_hard_desc = get_default('boundary_hard')
+    boundary_hard_la = DeclareLaunchArgument(
+        'boundary_hard', default_value=str(boundary_hard_default),
+        description=boundary_hard_desc)
+    boundary_max_sources_default, boundary_max_sources_desc = get_default(
+        'boundary_max_sources')
+    boundary_max_sources_la = DeclareLaunchArgument(
+        'boundary_max_sources', default_value=str(boundary_max_sources_default),
+        description=boundary_max_sources_desc)
+    boundary_slack_weight_default, boundary_slack_weight_desc = get_default(
+        'boundary_slack_weight')
+    boundary_slack_weight_la = DeclareLaunchArgument(
+        'boundary_slack_weight', default_value=str(boundary_slack_weight_default),
+        description=boundary_slack_weight_desc)
+
     car_radius_default, car_radius_desc = get_default('car_radius')
     car_radius_la = DeclareLaunchArgument(
         'car_radius', default_value=str(car_radius_default),
@@ -207,6 +227,9 @@ def generate_launch_description():
             'corridor_heading_return': LaunchConfiguration('corridor_heading_return'),
             'use_hard_boundary_constraints': LaunchConfiguration(
                 'use_hard_boundary_constraints'),
+            'boundary_hard': LaunchConfiguration('boundary_hard'),
+            'boundary_max_sources': LaunchConfiguration('boundary_max_sources'),
+            'boundary_slack_weight': LaunchConfiguration('boundary_slack_weight'),
         }],
     )
 
@@ -218,5 +241,6 @@ def generate_launch_description():
         mpc_w_u_a_la, mpc_w_du_a_la,
         delta_min_la, delta_max_la,
         obstacle_target_shift_m_la, corridor_heading_return_la,
-        use_hard_boundary_constraints_la, mpc_corr_node,
+        use_hard_boundary_constraints_la, boundary_hard_la,
+        boundary_max_sources_la, boundary_slack_weight_la, mpc_corr_node,
     ])

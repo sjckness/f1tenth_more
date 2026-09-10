@@ -45,6 +45,7 @@ setup(
             'detection_3d_node = f1tenth_perception.detection_3d_node:main',
             'obstacle_projector_node = f1tenth_perception.obstacle_projector_node:main',
             'front_depth_monitor_node = f1tenth_perception.front_depth_monitor_node:main',
+            'front_clearance_node = f1tenth_perception.front_clearance_node:main',
         ],
     },
 )

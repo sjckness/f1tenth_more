@@ -40,22 +40,31 @@ from mpc_controller.mpc_solver import (
     scale_stage_weights,
 )
 
-# (yaml key, weights-dict key, rho, sigma) for the four terms the
-# rho/sigma^2 normalisation actually derives. w_obs, w_term and w_psi are
-# not in this table on purpose -- see their own tests below.
+# (yaml key, weights-dict key, rho, sigma) for the three terms the
+# rho/sigma^2 normalisation still derives AND still ships at. w_obs, w_term
+# and w_psi are not in this table on purpose -- see their own tests below.
+#
+# w_du_delta LEFT THIS TABLE on 2026-09-09. Its derivation is unchanged and
+# still gives 23.8095, but the shipped value is now 8.5714 (effective 3.0):
+# a deliberate departure, pinned by its own test below rather than by an
+# equality that would just fail.
 _DERIVED = (
     ('mpc_w_corr', 'w_corr', 1.0, 0.20),
     ('mpc_w_psi_stage', 'w_psi_stage', 0.6, 0.134),
     ('mpc_w_v', 'w_v', 0.3, 0.10),
-    ('mpc_w_du_delta', 'w_du_delta', 0.15, 0.03),
 )
+
+# The steering-rate term's own derivation, kept so the departure below is
+# measured against something rather than asserted against a literal.
+_DU_DELTA_RHO = 0.15
+_DU_DELTA_SIGMA = 0.03
 
 # What the tuning note quotes, i.e. after the 7/20 stage scaling.
 _EFFECTIVE = {
     'w_corr': 1.25,
     'w_psi_stage': 1.67,
     'w_v': 1.5,
-    'w_du_delta': 8.3,
+    'w_du_delta': 3.0,
     'w_obs': 2.8,
 }
 
@@ -134,8 +143,8 @@ class TestTheEffectiveValuesAreWhatTheNoteQuotes:
     @pytest.mark.parametrize('dict_key,expected', sorted(_EFFECTIVE.items()))
     def test_effective_value(self, dict_key, expected):
         # Tolerance 0.05 because _EFFECTIVE holds the values as the tuning
-        # note WRITES them (two or three significant figures -- 8.3, 1.67),
-        # not to full precision (8.3333, 1.6708). Pinning the note's own
+        # note WRITES them (two or three significant figures -- 1.67, 1.25),
+        # not to full precision (1.6708, 1.2500). Pinning the note's own
         # rounding is the point: it is what a human will compare against.
         shipped = _shipped()
         scaled = scale_stage_weights(shipped, horizon=20)
@@ -177,12 +186,44 @@ class TestWhatChangedAndWhatDeliberatelyDidNot:
         assert _shipped()['w_u_a'] == 0.0
         assert _shipped()['w_du_a'] == 0.0
 
-    def test_the_steering_rate_penalty_went_up_not_down(self):
-        """It is what resists the overshoot a stage cross-track cost buys --
-        see test_stage_tracking.py's overshoot test. Effective 5.25 -> 8.33.
+    def test_the_steering_rate_penalty_is_off_its_derived_value_on_purpose(self):
+        """Effective 5.25 -> 8.33 -> 3.00, the last step deliberate.
+
+        The rho/sigma^2 derivation gives literal 23.8095 from sigma = 0.03
+        rad/step, and that sigma is "what the servo can do in a step" -- the
+        ACTUATOR limit. The solve already carries that limit exactly, as the
+        hard dDeltaMin/dDeltaMax bound, so the derived weight charges a
+        second, soft price for motion the hard row already forbids. What
+        loses the resulting trade is cross-track and heading correction,
+        which is what the corridor set was retuned to turn on.
+
+        This test pins the DEPARTURE, not the number: it fails if someone
+        quietly restores the derived value, and it fails if the weight is
+        driven to zero (it still has to damp chatter -- see the overshoot
+        note in MPC_corr's own weights comment).
         """
+        derived = _DU_DELTA_RHO / (STAGE_WEIGHT_REF_HORIZON * _DU_DELTA_SIGMA ** 2)
+        shipped = _shipped()['w_du_delta']
+        assert shipped < derived, (
+            'w_du_delta is back on its derived value; the double-counted '
+            'rate bound is back with it')
         scaled = scale_stage_weights(_shipped(), horizon=20)
-        assert scaled['w_du_delta'] > 5.25
+        assert scaled['w_du_delta'] > 0.0, 'still has to damp chatter'
+        # Same order as the two tracking terms it trades against, rather
+        # than several times either of them.
+        assert scaled['w_du_delta'] < 4.0 * scaled['w_corr']
+
+    def test_the_steering_rate_total_cost_is_still_horizon_invariant(self):
+        """Leaving the derived VALUE does not leave the stage-scaling
+        machinery: the term is still per-stage, so its total over the
+        horizon is still independent of N. Only the constant changed."""
+        literal = _shipped()['w_du_delta']
+        totals = [
+            horizon * scale_stage_weights({'w_du_delta': literal}, horizon)['w_du_delta']
+            for horizon in (7, 20, 40)
+        ]
+        assert totals[0] == pytest.approx(totals[1], rel=1e-4)
+        assert totals[1] == pytest.approx(totals[2], rel=1e-4)
 
     def test_the_soft_rate_penalty_is_not_the_hard_rate_bound(self):
         """Worth keeping distinct in the suite because they sound alike and
@@ -227,14 +268,18 @@ class TestEveryWeightIsSingleSourced:
 class TestTheHardRateBoundDominatesTheWeight:
     """A finding from validating this set, worth more than the set itself.
 
-    w_du_delta is the SOFT steering-rate penalty, and this commit raised its
-    effective value 5.25 -> 8.33. But in the manoeuvre that matters most for
-    it -- building steering from zero to correct an error -- it is not what
-    governs. The HARD bound is: dDeltaMin/dDeltaMax * ts = 0.5 * 0.1 = 0.05
+    w_du_delta is the SOFT steering-rate penalty. Its effective value went
+    5.25 -> 8.33 and then, on 2026-09-09, 8.33 -> 3.00. But in the manoeuvre
+    that matters most for it -- building steering from zero to correct an
+    error -- it is not what governs, which is why NONE of the measurements
+    below moved when the weight did: they are bound measurements, and they
+    are the evidence that the 8.33 -> 3.00 change cannot speed up (or slow
+    down) the start of a correction. The HARD bound is: dDeltaMin/dDeltaMax * ts = 0.5 * 0.1 = 0.05
     rad per step, and the solver rides exactly that limit for the whole ramp.
 
-    Measured with the shipped weights and limits, car on the centreline with
-    0.30 rad of heading error, the first six commanded steering angles are
+    Measured with the shipped weights and limits -- re-measured after the
+    8.33 -> 3.00 change and IDENTICAL -- car on the centreline with 0.30 rad
+    of heading error, the first six commanded steering angles are
 
         -0.0500  -0.1001  -0.1501  -0.2001  -0.2501  -0.2830
 

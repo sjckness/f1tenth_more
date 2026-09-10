@@ -172,8 +172,12 @@ def generate_launch_description():
     # both have to say false for the flag to actually be off under a bare
     # `ros2 run` as well as under this launch file. See the node's own
     # module docstring section "CONVEX SAFE CORRIDOR" for what turning it on
-    # changes -- and note MPC_corr.py's use_hard_boundary_constraints is
-    # ALSO still false, so a published polytope still reaches no solve.
+    # changes. Corrected 2026-09-09: this is the ONLY guard. MPC_corr.py's
+    # use_hard_boundary_constraints is TRUE, so a published polytope WOULD
+    # reach the solve -- and at boundary_max_sources 3 against up to 8 faces
+    # it would be silently truncated. Raise that key to match
+    # costmap_boundary_polytope_max_faces in the same change that sets this
+    # to true.
     boundary_use_polytope_la = DeclareLaunchArgument(
         'costmap_boundary_use_convex_polytope', default_value='false',
         description="true: costmap_boundary_node publishes the faces of one "

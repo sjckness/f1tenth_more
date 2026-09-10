@@ -3,18 +3,19 @@
   "schema_version": "2.0",
   "moves": [
     {
-      "id": "short_runup",
-      "goal_distance": 10,
-      "stop_condition": { "type": "distance_reached", "distance": 0.5 },
-      "timeout_sec": 20,
+      "id": "turn_90_isolated",
+      "turn": { "heading_delta_deg": -30, "speed": 0.3, "steering": "full_lock" },
+      "stop_condition": { "type": "orientation_delta", "value": -30 },
+      "timeout_sec": 30,
       "on_timeout": "abort"
     },
     {
-      "id": "turn_90_isolated",
-      "turn": { "heading_delta_deg": 90, "speed": 0.3, "steering": "full_lock" },
-      "stop_condition": { "type": "orientation_delta", "value": 90 },
-      "timeout_sec": 30,
+      "id": "short_runup",
+      "goal_distance": 2,
+      "stop_condition": { "type": "distance_reached", "distance": 2.0 },
+      "timeout_sec": 20,
       "on_timeout": "abort"
     }
+    
   ]
 }

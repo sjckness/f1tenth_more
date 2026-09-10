@@ -1,25 +1,44 @@
-"""YOLO 2D detector + 2D-to-3D detection fusion, plus front_depth_monitor_node.
+"""YOLO 2D detector + 2D-to-3D detection fusion, plus front_clearance_node.
 
 Source-agnostic: subscribes to the canonical /camera/image_raw (published by
 whichever camera stack_bringup brought up) and publishes vision_msgs
 Detection2DArray/Detection3DArray + a MarkerArray for Foxglove/RViz.
 
-detection_3d_node/obstacle_projector_node/front_depth_monitor_node all need
+detection_3d_node/obstacle_projector_node/front_clearance_node all need
 ZED depth or the ZED point cloud, which only exist in ZED mode, so they're
 only built at all when camera_source == 'zed' -- camera_source is one of
 the 6 stack-wide branching args (see f1tenth_params/config/stack_params.yaml),
 a plain Python value here, not a DeclareLaunchArgument/LaunchConfiguration.
 
-front_depth_monitor_node is deliberately unrelated to the YOLO/detection
-pipeline above it in this file -- it reads raw ZED depth directly, with no
-dependency on yolo_detector_node/detection_3d_node's output, by design (see
-its own docstring). Its /perception/front_distance output no longer feeds
-f1tenth_behavior's IsProximityTooClose (camera -> lidar front-cone swap, see
-that behaviour's own docstring for the full rationale/trade-off) -- this node
-still runs and still publishes it, now solely for MPC_corr.py's own
-front_distance-based corridor-length logic. It lives in this file anyway
-rather than a separate one because the is_zed gating condition is identical
-and this package doesn't otherwise split one launch file per node.
+front_clearance_node REPLACES front_depth_monitor_node, which used to be
+launched here and is no longer launched at all. Both publish /perception/
+front_distance, so running the two together would put two publishers on one
+topic -- the replacement is why that block is gone, not an oversight. The
+node module and its console_scripts entry point are both still present and
+still work if launched by hand; only this file stopped starting it.
+
+What changes for the existing /perception/front_distance consumer
+(MPC_corr.py, which subscribes it into self.front_distance): the value is now
+EMA-smoothed rather than a raw per-frame percentile, and objects detected by
+YOLO are excluded from it rather than included. Its semantics are narrowed to
+"distance to the background/wall". MPC_corr's use of it is telemetry only --
+d_front reaches the corridor debug dict as "dFront" and one log line, and the
+corridor length L is derived from the goal distance clipped to corr_L_base --
+so this is a change in what that telemetry MEANS, not in what the car does.
+Several docstrings around the stack still describe MPC_corr as having
+"front_distance-based corridor-length logic"; that coupling is not in the
+code.
+
+front_clearance_node is only PARTLY independent of the YOLO pipeline above
+it, which is the one real difference from the node it replaces: it reads raw
+ZED depth directly (so it keeps publishing whether or not detections flow),
+but it also consumes /camera/detections, /camera/detection_masks and
+/perception/obstacles_2d to exclude objects from the background estimate and
+to compute front_clearance. Every one of those is optional and degrades
+rather than blocks -- publishing is driven by the depth frame alone, never by
+a synchronizer. It lives in this file rather than a separate one because the
+is_zed gating condition is identical and this package doesn't otherwise split
+one launch file per node.
 
 wall_detector_node (RANSAC plane segmentation for wall/corner detection, ZED
 point-cloud-based) previously lived in this file, independent of the YOLO/
@@ -82,6 +101,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -168,6 +188,54 @@ def generate_launch_description():
         default_value=str(lidar_exclusion_overlap_threshold_default),
         description=lidar_exclusion_overlap_threshold_desc)
 
+    # front_clearance_node's own tuning params. Declared with an explicit
+    # value_type per entry rather than relying on launch_ros's string
+    # type-inference -- the same reasoning behavior_bringup.launch.py's own
+    # _avoidance_args block spells out, and publish_debug_raw is exactly the
+    # case it warns about: a LaunchConfiguration evaluates to the STRING
+    # 'False', which is non-empty and therefore true, so inference would
+    # silently turn the debug topics ON at their default. The integer counts
+    # matter for the same reason in the other direction -- a float pixel
+    # threshold or dwell count would be a type error at the node, not a
+    # silent wrong value, but spelling every type out is cheaper than
+    # remembering which ones are safe.
+    #
+    # Names carry the front_clearance_ prefix in stack_params.yaml (and
+    # therefore as launch args) but are passed to the node under their bare
+    # names -- several of them (distance_ema_alpha, corridor_half_width_m)
+    # are far too generic to sit unprefixed in a workspace-wide flat
+    # namespace shared with every other package's args.
+    _front_clearance_args = [
+        ('roi_half_width_px', int),
+        ('roi_half_height_px', int),
+        ('min_bg_pixels_for_reading', int),
+        ('wall_enter_px', int),
+        ('wall_exit_px', int),
+        ('wall_min_dwell_frames', int),
+        ('distance_ema_alpha', float),
+        ('mask_time_constant', float),
+        ('background_weight_threshold', float),
+        ('background_percentile_low', float),
+        ('background_percentile_high', float),
+        ('corridor_half_width_m', float),
+        ('obstacle_max_age_s', float),
+        ('clearance_enter_m', float),
+        ('clearance_exit_m', float),
+        ('clearance_min_dwell_frames', int),
+        ('publish_debug_raw', bool),
+    ]
+    front_clearance_las = []
+    for _name, _type in _front_clearance_args:
+        _default, _desc = get_default('front_clearance_' + _name)
+        front_clearance_las.append(DeclareLaunchArgument(
+            'front_clearance_' + _name, default_value=str(_default),
+            description=_desc))
+    front_clearance_params = {
+        _name: ParameterValue(
+            LaunchConfiguration('front_clearance_' + _name), value_type=_type)
+        for _name, _type in _front_clearance_args
+    }
+
     obstacle_z_min_default, obstacle_z_min_desc = get_default('obstacle_z_min')
     obstacle_z_min_la = DeclareLaunchArgument(
         'obstacle_z_min', default_value=str(obstacle_z_min_default),
@@ -205,6 +273,16 @@ def generate_launch_description():
     obstacle_projector_nice_la = DeclareLaunchArgument(
         'obstacle_projector_nice', default_value='0',
         description="Process niceness for obstacle_projector_node. 0: no-op.")
+    # No taskset prefix for front_clearance_node, unlike the three nodes
+    # above: it inherits the (unpinned) default the node it replaces,
+    # front_depth_monitor_node, also ran with. Its per-frame work is a
+    # percentile over a small ROI plus one whole-image EMA -- nothing like
+    # the CUDA/TensorRT thread population the pinning exists to contain --
+    # so assigning it cores would be a guess at a budget nobody has
+    # measured. Measure it under Stage 4 load first.
+    front_clearance_nice_la = DeclareLaunchArgument(
+        'front_clearance_nice', default_value='0',
+        description="Process niceness for front_clearance_node. 0: no-op.")
 
     is_zed = get_value('camera_source') == 'zed'
 
@@ -255,6 +333,8 @@ def generate_launch_description():
         yolo_cpu_affinity_la, yolo_nice_la,
         detection_3d_cpu_affinity_la, detection_3d_nice_la,
         obstacle_projector_cpu_affinity_la, obstacle_projector_nice_la,
+        front_clearance_nice_la,
+        *front_clearance_las,
         yolo_detector_node,
     ]
 
@@ -302,18 +382,47 @@ def generate_launch_description():
             }],
         ))
 
-        # See module docstring: independent of the YOLO/detection nodes above
-        # despite living in this file. No longer feeds f1tenth_behavior's
-        # IsProximityTooClose (camera -> lidar front-cone swap) -- still runs
-        # for MPC_corr.py's own front_distance-based corridor-length logic.
+        # Jitter-hardened front wall / front clearance. REPLACES
+        # front_depth_monitor_node, which this file no longer launches -- both
+        # publish /perception/front_distance and two publishers on one topic
+        # is not a thing to leave running. See the module docstring for what
+        # that swap changes for MPC_corr.py, the existing subscriber.
+        #
+        # depth_topic is passed EXPLICITLY as the ZED topic here, exactly as
+        # detection_3d_node above does, even though the node's own default is
+        # the canonical /camera/depth/image_raw. That canonical name does not
+        # exist in this stack: camera.launch.py's GroupAction remaps the ZED
+        # wrapper's RGB and camera_info onto /camera/* but NOT its depth, and
+        # adding a depth SetRemap there would rename the wrapper's published
+        # topic out from under detection_3d_node, which subscribes to
+        # /zed2/zed_node/depth/depth_registered by name. Making the canonical
+        # depth topic real is a camera.launch.py change with its own blast
+        # radius, not a side effect of adding this node.
         actions.append(Node(
             package='f1tenth_perception',
-            executable='front_depth_monitor_node',
-            name='front_depth_monitor_node',
+            executable='front_clearance_node',
+            name='front_clearance_node',
             output='screen',
             parameters=[{
                 'depth_topic': '/zed2/zed_node/depth/depth_registered',
-                'front_distance_topic': '/perception/front_distance',
+                'detections_topic': '/camera/detections',
+                # Only ever published by a segment-task yolo_model; the node
+                # detects that per frame by header stamp and falls back to
+                # bounding boxes when no mask matches, so passing the name
+                # unconditionally is correct for both model types (same
+                # reasoning as detection_3d_node's masks_topic above).
+                'masks_topic': '/camera/detection_masks',
+                'obstacles_topic': '/perception/obstacles_2d',
+                # Same four fractional edges yolo_detector_node gets -- one
+                # calibration of the same physical housing, two consumers.
+                # The overlap threshold is NOT passed: it is a per-detection
+                # suppression rule with no meaning for a depth ROI cut.
+                'lidar_exclusion_x_min': LaunchConfiguration('lidar_exclusion_x_min'),
+                'lidar_exclusion_x_max': LaunchConfiguration('lidar_exclusion_x_max'),
+                'lidar_exclusion_y_min': LaunchConfiguration('lidar_exclusion_y_min'),
+                'lidar_exclusion_y_max': LaunchConfiguration('lidar_exclusion_y_max'),
+                'nice': LaunchConfiguration('front_clearance_nice'),
+                **front_clearance_params,
             }],
         ))
 

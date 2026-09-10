@@ -10,9 +10,10 @@ costmap_renderer.py and semantic_layer.py already use in this package.
 BUILD-ONLY AS OF THIS COMMIT. Nothing imports this module yet. See
 costmap_boundary_node.py's own `use_convex_polytope` parameter (default
 False) for the wiring, and mpc_solver.py's `boundary_max_sources` /
-`boundary_slack` for the consumer side. `use_hard_boundary_constraints` in
-MPC_corr.py stays False, so none of this reaches a solve on the default
-configuration.
+`boundary_slack` for the consumer side. That parameter is the only thing
+holding this out of the solve: corrected 2026-09-09, MPC_corr.py's
+`use_hard_boundary_constraints` is TRUE in stack_params.yaml, not False as
+this docstring used to claim.
 
 
 WHAT IS WRONG WITH THE NEAREST-CELL HALF-PLANES
