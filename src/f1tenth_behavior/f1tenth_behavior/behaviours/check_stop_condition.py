@@ -94,7 +94,8 @@ import py_trees
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool, Float32
 
-from f1tenth_behavior.mission.condition_eval import EvalContext, evaluate
+from f1tenth_behavior.mission.condition_eval import (
+    ConditionDebouncer, EvalContext, evaluate)
 from f1tenth_behavior.mission.mission_config import STUB_STOP_CONDITION_TYPES
 from f1tenth_behavior.mission.detected_classes_bridge import DETECTED_CLASSES_KEY
 from f1tenth_behavior.mission.move_scoring import record_move_outcome, write_mission_summary
@@ -105,6 +106,7 @@ from f1tenth_behavior.mission.runtime import (
     GLOBAL_TURN_ACCUM_KEY,
     GLOBAL_XY_KEY,
     GLOBAL_YAW_KEY,
+    MIN_OBSTACLE_DISTANCE_FORWARD_KEY,
     MIN_OBSTACLE_DISTANCE_KEY,
     MISSION_KEY,
     MissionRuntimeState,
@@ -130,6 +132,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
 
     def __init__(self, name='CheckStopCondition', odom_topic='/odom',
                  min_obstacle_distance_topic='/mpc/min_obstacle_distance',
+                 min_obstacle_distance_forward_topic='/mpc/min_obstacle_distance_forward',
                  goal_reached_topic='/mpc/goal_reached',
                  front_clearance_topic='/costmap/front_clearance',
                  global_odom_topic='/ekf_global/odometry/filtered',
@@ -137,6 +140,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         super().__init__(name=name)
         self._odom_topic = odom_topic
         self._min_obstacle_distance_topic = min_obstacle_distance_topic
+        self._min_obstacle_distance_forward_topic = min_obstacle_distance_forward_topic
         self._goal_reached_topic = goal_reached_topic
         self._front_clearance_topic = front_clearance_topic
         self._global_odom_topic = global_odom_topic
@@ -154,6 +158,13 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         # alongside _turn_accum_deg on move change, in update() below).
         self._turn_accum_deg = 0.0
         self._turn_accum_prev_yaw = None
+        # front_clearance's optional debounce_ticks (default 1 = no debounce,
+        # so every existing mission is unaffected). Reset on move change, on
+        # the same trigger as _goal_reached_flag/_turn_accum_deg below, so a
+        # partial streak from the previous move can never count toward this
+        # one. See condition_eval.ConditionDebouncer for why the state is an
+        # object here rather than a counter hidden inside evaluate().
+        self._debouncer = ConditionDebouncer()
         # Global (map-frame) EKF pose + its OWN turn accumulator, for
         # mission/move_scoring.py's closed-loop verification/precision
         # scoring (3.2/3.5) only -- never read by condition_eval.py. See
@@ -175,6 +186,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(
             key=MIN_OBSTACLE_DISTANCE_KEY, access=py_trees.common.Access.WRITE)
         self.blackboard.register_key(
+            key=MIN_OBSTACLE_DISTANCE_FORWARD_KEY, access=py_trees.common.Access.WRITE)
+        self.blackboard.register_key(
             key=FRONT_CLEARANCE_KEY, access=py_trees.common.Access.WRITE)
         self.blackboard.register_key(key=GLOBAL_XY_KEY, access=py_trees.common.Access.WRITE)
         self.blackboard.register_key(key=GLOBAL_YAW_KEY, access=py_trees.common.Access.WRITE)
@@ -183,6 +196,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         setattr(self.blackboard, CURRENT_XY_KEY, None)
         setattr(self.blackboard, CURRENT_YAW_KEY, None)
         setattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY, None)
+        setattr(self.blackboard, MIN_OBSTACLE_DISTANCE_FORWARD_KEY, None)
         setattr(self.blackboard, FRONT_CLEARANCE_KEY, None)
         setattr(self.blackboard, GLOBAL_XY_KEY, None)
         setattr(self.blackboard, GLOBAL_YAW_KEY, None)
@@ -196,6 +210,9 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.node.create_subscription(Odometry, self._odom_topic, self._odom_cb, 10)
         self.node.create_subscription(
             Float32, self._min_obstacle_distance_topic, self._min_obstacle_cb, 10)
+        self.node.create_subscription(
+            Float32, self._min_obstacle_distance_forward_topic,
+            self._min_obstacle_forward_cb, 10)
         self.node.create_subscription(
             Bool, self._goal_reached_topic, self._goal_reached_cb, 10)
         self.node.create_subscription(
@@ -248,6 +265,9 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
 
     def _min_obstacle_cb(self, msg: Float32):
         setattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY, float(msg.data))
+
+    def _min_obstacle_forward_cb(self, msg: Float32):
+        setattr(self.blackboard, MIN_OBSTACLE_DISTANCE_FORWARD_KEY, float(msg.data))
 
     def _front_clearance_cb(self, msg: Float32):
         setattr(self.blackboard, FRONT_CLEARANCE_KEY, float(msg.data))
@@ -302,6 +322,9 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             # see this module's own "Turn accumulation" docstring paragraph.
             self._global_turn_accum_deg = 0.0
             self._global_turn_accum_prev_yaw = self.global_yaw
+            # Same trigger, same reason: a front_clearance streak accumulated
+            # under the PREVIOUS move must not count toward this one.
+            self._debouncer.reset()
 
         current_xy = (self.x, self.y) if self.x is not None else None
         if state.move_start_xy is None and current_xy is not None:
@@ -365,6 +388,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             return py_trees.common.Status.FAILURE
 
         min_obstacle_distance = getattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY)
+        min_obstacle_distance_forward = getattr(
+            self.blackboard, MIN_OBSTACLE_DISTANCE_FORWARD_KEY)
         front_clearance = getattr(self.blackboard, FRONT_CLEARANCE_KEY)
         ctx = EvalContext(
             now=now,
@@ -373,6 +398,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             current_xy=current_xy,
             detected_classes=getattr(self.blackboard, DETECTED_CLASSES_KEY),
             min_obstacle_distance=min_obstacle_distance,
+            min_obstacle_distance_forward=min_obstacle_distance_forward,
             front_clearance=front_clearance,
             default_distance=move.goal_distance,
             goal_reached=self._goal_reached_flag,
@@ -382,7 +408,12 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                 self._turn_accum_deg if self._turn_accum_prev_yaw is not None else None
             ),
         )
-        result = evaluate(move.stop_condition, ctx)
+        # Raw single-tick answer, then the debounce fold. For every condition
+        # except a front_clearance that explicitly asks for debounce_ticks > 1
+        # these are the same value -- DEFAULT_DEBOUNCE_TICKS is 1, so the
+        # first satisfied tick is also the first satisfied streak. See
+        # condition_eval.ConditionDebouncer.
+        result = self._debouncer.update(move.stop_condition, evaluate(move.stop_condition, ctx))
 
         if result is None:
             assert move.stop_condition.type in STUB_STOP_CONDITION_TYPES

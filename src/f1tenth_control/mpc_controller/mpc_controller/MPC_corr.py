@@ -16,7 +16,7 @@ from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, MpcSolverStatus, Obstacle2DArray, TurnGoal)
+    BoundaryConstraintArray, DriveCommand, MpcSolverStatus, Obstacle2DArray, TurnGoal)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.mpc_solver import solve_mpc_step
 from sensor_msgs.msg import JointState
@@ -351,6 +351,38 @@ class MPCController(Node):
         self.pose_goal_reached = False
         self.pose_goal_tolerance = float(
             self.declare_parameter('pose_goal_tolerance', 0.15).value
+        )
+
+        # =========================
+        # Drive mode (runtime command via /mpc/goal_drive) -- the FOURTH goal
+        # shape, and the only OPEN-ENDED one.
+        # =========================
+        # The other three all name a target this node drives toward and can
+        # decide it has REACHED, at which point it latches zero and publishes
+        # /mpc/goal_reached. A drive command names only a MODE: hold this
+        # heading, or turn by this much and then hold the result. There is no
+        # target, so there is nothing to arrive at, so this mode NEVER sets
+        # goal_reached, NEVER publishes /mpc/goal_reached and NEVER
+        # self-terminates. f1tenth_behavior's own stop_condition is the sole
+        # authority on when the move ends -- see goal_drive_callback.
+        #
+        # Mutually exclusive with the other three in exactly the same way they
+        # already are with each other: whichever topic was published to most
+        # recently wins, and each callback clears the others' state.
+        #
+        # None means "no drive command active". A dict rather than five
+        # parallel attributes so "is drive active" is one unambiguous check
+        # (self.drive_cmd is not None) at all four of its read sites, instead
+        # of a convention about which of five fields is authoritative.
+        self.drive_cmd: Optional[dict] = None
+        # Fallback for DriveCommand.msg's turn_mag_deg == 0 sentinel.
+        # f110_autonomy hardcoded pi/2 here and never read a magnitude off the
+        # phase at all, so a plan asking for 180 degrees silently got 90. This
+        # port keeps 90 as the DEFAULT (matching that stack when a plan says
+        # nothing) but reads the phase's own value whenever it has one -- that
+        # is the fix for the bug, not a reproduction of it.
+        self.drive_default_turn_mag_deg = float(
+            self.declare_parameter('drive_default_turn_mag_deg', 90.0).value
         )
 
         # External hold (see /mpc/hold subscription below): freezes control_loop's
@@ -955,6 +987,17 @@ class MPCController(Node):
         # unification pass).
         self.dmin = self.car_radius + self.avoidance_margin
         self.vdes = 0.5
+        # Baselines captured the instant the live values are first known, so a
+        # per-move override (drive's speed / d_safe) can be UNDONE when that
+        # move ends rather than leaking into every later move. Nothing else
+        # writes these two.
+        #
+        # This matters most for the standoff: drive's approach_d_safe exists
+        # to RELAX obstacle avoidance so the car can close on the object it
+        # was told to stop in front of, and a relaxed standoff still in force
+        # three moves later is a real safety regression, not a cosmetic one.
+        self.vdes_default = self.vdes
+        self.avoidance_margin_default = self.avoidance_margin
 
         # =========================
         # Target smoothing / obstacle-deflection coast
@@ -1070,6 +1113,15 @@ class MPCController(Node):
             10
         )
 
+        # f1tenth_behavior's PublishMoveGoal, for a mission "drive" step
+        # (schema_version 3.0) -- the open-ended mode. See goal_drive_callback.
+        self.sub_goal_drive = self.create_subscription(
+            DriveCommand,
+            '/mpc/goal_drive',
+            self.goal_drive_callback,
+            10
+        )
+
         self.sub_hold = self.create_subscription(
             Bool,
             '/mpc/hold',
@@ -1122,6 +1174,33 @@ class MPCController(Node):
         self.min_obstacle_distance_pub = self.create_publisher(
             Float32,
             '/mpc/min_obstacle_distance',
+            10
+        )
+
+        # FORWARD-ONLY counterpart of the topic above -- a SECOND topic, not a
+        # change to the first. Read this before merging them.
+        #
+        # /mpc/min_obstacle_distance is omnidirectional: compute_robot_obstacle_
+        # distance takes the nearest obstacle in ANY direction, with no heading
+        # term at all, so an object level with the rear axle counts exactly as
+        # much as one dead ahead. That is the wrong signal for the mission
+        # obstacle_distance_below stop_condition, whose whole meaning is
+        # "something is in the way".
+        #
+        # It is published UNCHANGED anyway, and the new filtered value goes out
+        # beside it, because every existing mission using obstacle_distance_below
+        # was written against the omnidirectional behaviour and must keep it
+        # exactly. condition_eval's own forward_only flag (default false)
+        # selects which topic a given stop_condition reads -- see that module.
+        #
+        # f110_autonomy's distance_to_front_object() applied precisely this
+        # filter (dot > 0 against the heading) and its guard "front_object" is
+        # what maps onto obstacle_distance_below, so forward-only is the
+        # faithful semantics for that path -- it just is not the safe DEFAULT
+        # for missions that predate the distinction.
+        self.min_obstacle_distance_forward_pub = self.create_publisher(
+            Float32,
+            '/mpc/min_obstacle_distance_forward',
             10
         )
 
@@ -1340,11 +1419,13 @@ class MPCController(Node):
                 'frozen anchor (heading drift absorbed by map -> odom will NOT '
                 'be corrected for it).')
 
-        # Switching to distance mode -- clear any pose-mode goal so the two
-        # modes stay mutually exclusive (see goal_pose_callback).
+        # Switching to distance mode -- clear any pose-mode goal so the modes
+        # stay mutually exclusive (see goal_pose_callback), and any drive
+        # command along with its per-move overrides (see _clear_drive_state).
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
         self.pose_goal_reached = False
+        self._clear_drive_state()
         self._invalidate_move_state()
         self.get_logger().info(
             f'Nuovo goal_distance={self.goal_distance:.3f} m da '
@@ -1497,6 +1578,7 @@ class MPCController(Node):
         self.goal_anchor_odom = None
         self.goal_reached = False
         self._no_goal_warned = False
+        self._clear_drive_state()
         self._invalidate_move_state()
         self.get_logger().info(
             f'Nuovo goal_pose=({self.goal_pose_xy[0]:.3f}, {self.goal_pose_xy[1]:.3f}) '
@@ -1603,6 +1685,7 @@ class MPCController(Node):
         self.goal_anchor_odom = None
         self.goal_reached = False
         self._no_goal_warned = False
+        self._clear_drive_state()
         self._invalidate_move_state()
 
         # vdes override for the duration of the turn -- the one real
@@ -1620,6 +1703,195 @@ class MPCController(Node):
             f'target_yaw={target_yaw:+.3f} rad synthetic_target=('
             f'{self.goal_pose_xy[0]:.3f},{self.goal_pose_xy[1]:.3f}) reach={reach:.2f} m '
             f'steering={msg.steering!r} speed={msg.speed:.2f}'
+        )
+
+    def _clear_drive_state(self):
+        """Drop any active drive command AND undo its per-move overrides.
+
+        Called by the other three goal callbacks (a new goal of any shape
+        supersedes a drive command, exactly as the existing three already
+        supersede each other) and by goal_drive_callback itself before
+        installing a new one.
+
+        THE OVERRIDES ARE THE POINT. Dropping self.drive_cmd alone would leave
+        that move's relaxed obstacle standoff and its speed in force for every
+        later move -- and approach_d_safe exists specifically to RELAX
+        avoidance so the car can close on the object it was told to stop in
+        front of. A relaxed standoff still active three moves later is a real
+        safety regression. Restoring from the baselines captured in __init__
+        (vdes_default/avoidance_margin_default), not from whatever the values
+        happened to be a moment ago, so repeated overrides cannot ratchet.
+
+        Deliberately does NOT touch goal_reached/pose_goal_reached/last_u or
+        any corridor cache -- each caller owns those, and _invalidate_move_
+        state() is what handles the geometry.
+        """
+        if self.drive_cmd is None:
+            return
+        self.drive_cmd = None
+        self.vdes = self.vdes_default
+        self.avoidance_margin = self.avoidance_margin_default
+        self.get_logger().info(
+            f'DRIVE/clear | drive command dropped; vdes -> {self.vdes:.2f} '
+            f'avoidance_margin -> {self.avoidance_margin:.3f} (baselines restored)'
+        )
+
+    def goal_drive_callback(self, msg: DriveCommand):
+        """f1tenth_behavior's PublishMoveGoal, once per mission "drive" step
+        entry (schema_version 3.0). The FOURTH goal shape, and the only
+        open-ended one.
+
+        WHAT MAKES IT DIFFERENT IN KIND, not just in fields: goal_distance,
+        goal_pose and goal_turn each name a target this node drives toward,
+        decides it has REACHED, and then latches zero on while publishing
+        /mpc/goal_reached. A drive command names only a MODE -- "hold this
+        heading" or "turn by this much off it, then hold the result" -- so
+        there is nothing to arrive at. This mode therefore NEVER sets
+        goal_reached, NEVER publishes /mpc/goal_reached and NEVER
+        self-terminates. The behaviour tree's stop_condition is the sole
+        authority on when the move ends, and /mpc/hold remains the sole
+        authority on stopping the car (control_loop's hold branch is
+        untouched by any of this and keeps absolute priority).
+
+        That is the whole reason this shape exists. f110_autonomy's planner --
+        still ours -- has always emitted mode + guard with no goal, and the
+        only way to land one of its phases in this schema used to be
+        fabricating a goal_distance of 50 m and hoping the guard fired first.
+        Nothing is fabricated any more.
+
+        WHAT THIS RE-ANCHORS, and the two f110_autonomy bugs it fixes:
+        psi_init_corridor is set to self.yaw HERE, per move. That stack's
+        psi_init_corridor was captured ONCE at the first odom message after
+        node start and never re-anchored, so every phase after the first
+        turned relative to a heading the car had long since left; and its
+        turn magnitude was a hardcoded pi/2 rather than read off the phase.
+        Both are deliberate divergences, not oversights -- see
+        build_straight_corridor's own drive branch, where the re-anchored
+        value is consumed.
+
+        Mirrors the other three callbacks exactly otherwise: clear the other
+        modes' state, invalidate the per-move cached geometry, log what was
+        accepted.
+        """
+        if self.x is None or self.y is None or self.yaw is None:
+            self.get_logger().warn(
+                'goal_drive ricevuto ma stato ancora None: comando ignorato.'
+            )
+            return
+
+        mode = str(msg.mode)
+        if mode not in ('straight', 'wall_turn'):
+            # mission_config.py validates this at load time, so anything
+            # reaching here with a bad mode came from a bare `ros2 topic pub`
+            # that bypassed the mission pipeline. Degrade to the safe shape
+            # (hold heading) and say so, rather than either crashing the
+            # callback or driving an undefined geometry.
+            self.get_logger().warn(
+                f'goal_drive: mode={mode!r} sconosciuto, uso "straight" come '
+                'fallback (i modi validi sono "straight" e "wall_turn").'
+            )
+            mode = 'straight'
+
+        # Restore any PREVIOUS drive command's overrides before applying this
+        # one -- see _clear_drive_state's own docstring on why the baselines,
+        # not the live values, are what get restored from.
+        self._clear_drive_state()
+
+        # SENTINEL: 0 means "use the node default" (see DriveCommand.msg).
+        turn_mag_deg = float(msg.turn_mag_deg)
+        if turn_mag_deg == 0.0:
+            turn_mag_deg = self.drive_default_turn_mag_deg
+        # abs(): turn_mag_deg is a MAGNITUDE and turn_sign carries the
+        # direction. A negative magnitude paired with a negative sign would
+        # otherwise silently turn the wrong way. mission_config.py already
+        # rejects that combination at load time; this is the on-the-wire
+        # backstop for the same reason the mode check above exists.
+        turn_mag_deg = abs(turn_mag_deg)
+
+        turn_sign = float(msg.turn_sign)
+        if mode == 'wall_turn' and turn_sign == 0.0:
+            self.get_logger().warn(
+                'goal_drive: mode "wall_turn" senza turn_sign; nessuna direzione '
+                'in cui girare, degrado a "straight".'
+            )
+            mode = 'straight'
+
+        self.drive_cmd = {
+            'mode': mode,
+            'turn_sign': turn_sign,
+            'turn_mag_deg': turn_mag_deg,
+        }
+
+        # Re-anchor "this move's own start heading" -- see the docstring's
+        # own paragraph on the two f110_autonomy bugs this fixes.
+        self.psi_init_corridor = self.yaw
+
+        # ---- per-move overrides, both duration-scoped by _clear_drive_state
+        # SENTINEL: speed == 0 means "use the node default".
+        if msg.speed > 0.0:
+            self.vdes = float(msg.speed)
+        # SENTINEL: d_safe < 0 means "use the node default". 0.0 is a REAL
+        # value (no standoff at all), which is why the sentinel is negative
+        # and not zero.
+        #
+        # HOW A TOTAL STANDOFF BECOMES A MARGIN: this node spends the standoff
+        # as car_radius + avoidance_margin -- it is that SUM that sets
+        # compute_local_target's R_safe and mpc_solver's own obstacle trigger
+        # and boundary rows. d_safe is the total, so the margin that realises
+        # it is d_safe - car_radius, floored at zero (a d_safe inside the car's
+        # own radius cannot be honoured by a margin at all, and clamping is
+        # more honest than a negative margin the solver would read as a bonus).
+        # car_radius itself is deliberately left alone: it is a physical fact
+        # about the vehicle, not a tuning knob, and compute_predicted_clearance
+        # also reads it.
+        if msg.d_safe >= 0.0:
+            requested = float(msg.d_safe)
+            # RELAXATION ONLY, never a tightening. This field exists to let the
+            # car close on the object it was told to stop in front of, so a
+            # request ABOVE the node's own baseline standoff is refused rather
+            # than honoured -- a mission must not be able to make obstacle
+            # avoidance more aggressive than the tuned configuration through a
+            # per-move field. This is f110_autonomy's own min(self.dmin, ...)
+            # clamp, kept here where the real numbers live rather than
+            # duplicated into whatever produced the request.
+            baseline = self.car_radius + self.avoidance_margin_default
+            effective = min(requested, baseline)
+            self.avoidance_margin = max(effective - self.car_radius, 0.0)
+            realised = self.car_radius + self.avoidance_margin
+            notes = ''
+            if effective < requested:
+                notes = (f' -- CLAMPED al baseline {baseline:.3f} m: '
+                         'approach_d_safe puo\' solo RILASSARE la distanza di '
+                         'sicurezza, mai stringerla')
+            elif realised > effective + 1e-9:
+                notes = (f' -- CLAMPED al raggio del veicolo {self.car_radius:.3f} m: '
+                         'un d_safe interno al raggio non e\' realizzabile')
+            self.get_logger().info(
+                f'DRIVE/d_safe | richiesto={requested:.3f} m -> avoidance_margin='
+                f'{self.avoidance_margin:.3f} (standoff effettivo {realised:.3f} m, '
+                f'car_radius={self.car_radius:.3f} invariato)' + notes
+            )
+
+        # Switching to drive mode -- clear every other mode's state so the four
+        # stay mutually exclusive, same pattern the existing three already use
+        # for each other.
+        self.goal_distance = None
+        self.goal_start_xy = None
+        self.goal_anchor_map = None
+        self.goal_anchor_odom = None
+        self.goal_pose_xy = None
+        self.goal_pose_yaw = None
+        self.pose_goal_reached = False
+        self.goal_reached = False
+        self._no_goal_warned = False
+        self._invalidate_move_state()
+
+        self.get_logger().info(
+            f'Nuovo goal_drive: mode={mode!r} turn_sign={turn_sign:+.1f} '
+            f'turn_mag_deg={turn_mag_deg:.1f} vdes={self.vdes:.2f} '
+            f'psi_init_corridor(re-anchored)={self.psi_init_corridor:+.4f} rad '
+            '-- OPEN-ENDED: nessun goal_reached, termina solo la stop_condition '
+            'del behaviour tree.'
         )
 
     def _invalidate_move_state(self):
@@ -1855,6 +2127,13 @@ class MPCController(Node):
         # cheap and useful to have live every tick regardless of what else is gating.
         d_robot_obs = self.compute_robot_obstacle_distance(self.obstacles_global_live)
         self.min_obstacle_distance_pub.publish(Float32(data=float(d_robot_obs)))
+        # Forward-half-plane counterpart, published every tick beside the
+        # omnidirectional one -- see min_obstacle_distance_forward_pub's own
+        # comment for why this is a second topic and not a change to the
+        # first. Published from the same obstacle list in the same breath, so
+        # the two can never disagree about which frame they describe.
+        d_front_obs = self.compute_forward_obstacle_distance(self.obstacles_global_live)
+        self.min_obstacle_distance_forward_pub.publish(Float32(data=float(d_front_obs)))
 
         if self.x is None or self.y is None or self.yaw is None or self.v is None:
             self.get_logger().warn('ODOM non disponibile: stato ancora None')
@@ -1875,7 +2154,37 @@ class MPCController(Node):
         # pose/turn mode and whenever no map anchor was captured.
         self._refresh_goal_anchor()
 
-        if self.goal_pose_xy is not None:
+        if self.drive_cmd is not None:
+            # DRIVE MODE -- open-ended, and the ONLY branch here with no
+            # termination check of its own. Read this before adding one.
+            #
+            # There is deliberately nothing to check: a drive command carries
+            # a MODE, not a target, so there is no arrival condition, no
+            # goal_reached to set, and no /mpc/goal_reached to publish. The
+            # move ends when f1tenth_behavior's own stop_condition fires and
+            # that tree publishes either the next move's goal or /mpc/hold.
+            # Giving this node a second opinion about when a drive move is
+            # done would put two authorities on "stop", which is precisely the
+            # failure mode this whole goal shape exists to remove -- and is
+            # what f110_autonomy's stop_at/stop_at_distance did (an if/elif/
+            # ELSE that latched vdes = 0 and never evaluated its guard again).
+            #
+            # So this branch simply falls THROUGH to the corridor build and
+            # the solve below, exactly as the goal_pose branch does when it
+            # has not yet arrived. build_straight_corridor's own drive branch
+            # is where the mode actually becomes geometry.
+            #
+            # /mpc/hold still has absolute priority: its branch returned
+            # several lines above this one, untouched by any of this.
+            self.get_logger().info(
+                f'DRIVE | mode={self.drive_cmd["mode"]} '
+                f'turn_sign={self.drive_cmd["turn_sign"]:+.1f} '
+                f'turn_mag_deg={self.drive_cmd["turn_mag_deg"]:.1f} '
+                '(open-ended, nessun goal_reached)',
+                throttle_duration_sec=2.0
+            )
+
+        elif self.goal_pose_xy is not None:
             # Pose mode -- position-only arrival, no final-yaw alignment this
             # pass (see build_straight_corridor's scope note). Mutually
             # exclusive with distance mode: goal_pose_callback/
@@ -2066,6 +2375,14 @@ class MPCController(Node):
         # unchanged/still set (self.dmin) for the disabled hard constraint's
         # potential future use; it no longer drives either active mechanism
         # after this fix.
+        # self.avoidance_margin is the ONE value a drive move's approach_d_safe
+        # overrides, and it is read here, once per tick, straight off the live
+        # attribute -- so the override needs no special case anywhere in this
+        # function. goal_drive_callback sets it; _clear_drive_state restores
+        # the baseline when the move ends. Both mechanisms that actually act on
+        # the standoff (compute_local_target's R_safe just below, and
+        # mpc_solver's obstacle trigger + boundary rows) read it from this
+        # dict, so overriding it here covers both.
         corridor["car_radius"] = self.car_radius
         corridor["avoidance_margin"] = self.avoidance_margin
 
@@ -2115,6 +2432,7 @@ class MPCController(Node):
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
+
 
         # ---- DEBUG: tempo di soluzione; se supera ts il loop va in ritardo ----
         # status_message added for this diagnostic run (hard boundary
@@ -2292,6 +2610,47 @@ class MPCController(Node):
     # UPGRADE: clearance over the solver's *predicted* trajectory, not just the
     # current pose -- this is the actual verification that the chosen maneuver
     # keeps a safe margin, rather than just trusting the w_obs cost blindly.
+    def compute_forward_obstacle_distance(self, obstacles_global):
+        """Nearest obstacle in the FORWARD HALF-PLANE, surface distance
+        (centre distance minus radius), or 1e6 when there is nothing ahead.
+
+        Identical to compute_robot_obstacle_distance above except for the
+        half-plane test: an obstacle counts only if it lies in front of the
+        car, i.e. the vector from the car to it has a positive component along
+        the heading. Ported from f110_autonomy's distance_to_front_object(),
+        which used the same dot > 0 test, because that is the sensor its guard
+        "front_object" actually meant -- and "front_object" is what
+        f1tenth_behavior's obstacle_distance_below stop_condition stands in
+        for on the LLM path.
+
+        THE BOUNDARY IS THE FULL HALF-PLANE, not a narrow cone, and that is
+        deliberate: dot > 0 admits an obstacle at 89 degrees off the nose.
+        A cone would be a different, tighter signal, and the one that already
+        exists in this stack for that job is /costmap/front_clearance
+        (symmetric +-front_facing_max_rad, map-derived) behind the separate
+        front_clearance stop_condition. Reproducing the reference behaviour
+        exactly beats inventing a third geometry here.
+
+        1e6, not inf or None, matching compute_robot_obstacle_distance's own
+        no-obstacles return so both topics carry the same "nothing to report"
+        value and a consumer cannot tell them apart by sentinel alone.
+        """
+        if self.x is None or self.y is None or self.yaw is None:
+            return 1e6
+
+        cos_yaw = math.cos(self.yaw)
+        sin_yaw = math.sin(self.yaw)
+
+        dmin = 1e6
+        for ox, oy, r in obstacles_global:
+            dx = ox - self.x
+            dy = oy - self.y
+            if dx * cos_yaw + dy * sin_yaw <= 0.0:
+                continue  # behind the car (or exactly abeam) -- not in the way
+            d = math.hypot(dx, dy) - r
+            dmin = min(dmin, d)
+        return dmin
+
     def compute_predicted_clearance(self, x_pred, obstacles_global):
         if not obstacles_global or x_pred is None or len(x_pred) == 0:
             return float('inf')
@@ -2319,7 +2678,73 @@ class MPCController(Node):
 
         psiStart = psi0
 
-        if self.goal_pose_xy is not None:
+        # getattr, not a bare attribute, for the same reason corridor_heading_
+        # return below uses one: the corridor tests build duck-typed stand-ins
+        # that predate this mode and carry only the fields the geometry under
+        # test needs. A bare self.drive_cmd would make every one of them raise
+        # AttributeError here instead of selecting a shape. The real node
+        # always has the attribute (set in __init__).
+        drive_cmd = getattr(self, 'drive_cmd', None)
+
+        if drive_cmd is not None:
+            # DRIVE (open-ended) move -- a corridor built from a MODE, not
+            # from a target. Same shape as the goal_distance branch below (it
+            # passes through the car's current position along a frozen
+            # heading), differing only in where that frozen heading comes
+            # from and, for wall_turn, in which end of the blend is live.
+            #
+            # THE REFERENCE IS THIS MOVE'S OWN START HEADING, NOT THE RUN'S.
+            # psi_init_corridor is re-anchored by goal_drive_callback on every
+            # drive command. f110_autonomy computed the identical expression
+            # (psiEnd = psi_base + turn_sign * turn_mag for wall_turn,
+            # psi_base for straight) against a psi_base captured ONCE at the
+            # first odom message after node start and never re-anchored --
+            # so its second turn was measured from a heading the car had left
+            # long ago, and its third from one further still. That is a bug,
+            # and this is a deliberate divergence from it, not an oversight.
+            #
+            # The second divergence is turn_mag_deg itself: that stack never
+            # read a magnitude off the phase (hardcoded pi/2), so a plan
+            # asking for 180 degrees got 90. Here the phase's own value is
+            # what lands, with the node default reserved for the sentinel.
+            psi_base = (self.psi_init_corridor
+                        if self.psi_init_corridor is not None else psi0)
+            if drive_cmd['mode'] == 'wall_turn':
+                psiEnd = psi_base + math.radians(
+                    drive_cmd['turn_sign'] * drive_cmd['turn_mag_deg'])
+                # psiStart stays the LIVE yaw for a turn, so the S-curve below
+                # describes a real arc from where the car is pointing now to
+                # where the move wants it pointing. Freezing both ends here
+                # (as the goal_distance branch does by default) would make
+                # dpsi identically zero and leave a corridor running
+                # perpendicular to the car through its own position -- the
+                # solver's w_psi would still eventually rotate the car, but
+                # through a geometry the half-width bound is violated by from
+                # the first tick. f110_autonomy set psiStart = psi0 here too.
+                psiStart = psi0
+            else:
+                # "straight": hold the move's own start heading. Same
+                # geometry, and the same corridor_heading_return choice, as
+                # the goal_distance branch -- see its own long note below for
+                # why both-ends-frozen is the shipping default and what the
+                # measurement was.
+                psiEnd = psi_base
+                if getattr(self, 'corridor_heading_return',
+                           get_value('corridor_heading_return')):
+                    psiStart = psi0
+                else:
+                    psiStart = psiEnd
+            # No goal to clip the length against (that is what open-ended
+            # means), so the full nominal corridor length, exactly as the
+            # goal_distance branch uses.
+            L = max(self.corr_L_base, 1.0)
+            self.get_logger().info(
+                f'CORR/drive | mode={drive_cmd["mode"]} '
+                f'psi_base={psi_base:+.4f} psiStart={psiStart:+.4f} '
+                f'psiEnd={psiEnd:+.4f} L={L:.2f}'
+            )
+
+        elif self.goal_pose_xy is not None:
             gx, gy = self.goal_pose_xy
             psiEnd = math.atan2(gy - Y0, gx - X0)
             L = float(np.clip(math.hypot(gx - X0, gy - Y0), 1.0, self.corr_L_base))

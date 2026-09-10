@@ -117,27 +117,36 @@ file parses.
 
 `mission_id` is for logging only. `moves` must be non-empty; every move's `id`
 must be unique within the mission. `schema_version` is optional -- omitted
-entirely (every mission written before it existed) means `"1.0"`, and nothing
-below is actually gated on this value: it's informational bookkeeping, not an
-enforced feature flag. `"2.0"` is just the first version aware of `turn` /
-`orientation_delta` / optional `timeout_sec`; a `"1.0"`-labeled mission that
-happened to use any of them would still parse and run identically.
+entirely (every mission written before it existed) means `"1.0"`.
+
+Every new **field** stays available regardless of the version declared: a
+`"1.0"`-labeled mission that happened to use a `turn` or a `drive` step would
+still parse and run identically. `"2.0"` is the first version aware of `turn` /
+`orientation_delta` / optional `timeout_sec`; `"3.0"` adds the `drive` step and
+`terminal`.
+
+**The one thing gated on this string** is `terminal`: a mission declaring
+exactly `"3.0"` must set `terminal: true` on its last move. That rule cannot be
+universal without invalidating every mission written before the field existed,
+so it is not. Nothing else below consults the version.
 
 ## Move fields
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `id` | string | yes | Unique within the mission; used by `skip_to_move` and in logs |
-| `goal_distance` | float | one of this/`goal_pose`/`turn` | Straight-line target, passed to `/mpc/goal_distance` |
-| `goal_pose` | `{x, y, yaw}` (floats) | one of this/`goal_distance`/`turn` | Published by `PublishMoveGoal` straight to mpc_corr's own `/mpc/goal_pose` input -- drives the robot directly through mpc_corr (not Nav2/`NavigateThroughPoses`; see "Safety interactions" below for why). Position-only, same scope limit as mpc_corr.py's own pose-goal handling: `yaw` is sent and stored but not consumed for arrival. |
-| `turn` | object (schema_version 2.0) | one of this/`goal_distance`/`goal_pose` | `{heading_delta_deg, speed, steering, reference}` -- see its own section below. Published as `f1tenth_messages/TurnGoal` to mpc_corr's `/mpc/goal_turn`. |
+| `goal_distance` | float | one of this/`goal_pose`/`turn`/`drive` | Straight-line target, passed to `/mpc/goal_distance` |
+| `goal_pose` | `{x, y, yaw}` (floats) | one of this/`goal_distance`/`turn`/`drive` | Published by `PublishMoveGoal` straight to mpc_corr's own `/mpc/goal_pose` input -- drives the robot directly through mpc_corr (not Nav2/`NavigateThroughPoses`; see "Safety interactions" below for why). Position-only, same scope limit as mpc_corr.py's own pose-goal handling: `yaw` is sent and stored but not consumed for arrival. |
+| `turn` | object (schema_version 2.0) | one of this/`goal_distance`/`goal_pose`/`drive` | `{heading_delta_deg, speed, steering, reference}` -- see its own section below. Published as `f1tenth_messages/TurnGoal` to mpc_corr's `/mpc/goal_turn`. |
+| `drive` | object (schema_version 3.0) | one of this/`goal_distance`/`goal_pose`/`turn` | `{mode, turn_sign, turn_mag_deg, speed, approach_d_safe}` -- see its own section below. Published as `f1tenth_messages/DriveCommand` to mpc_corr's `/mpc/goal_drive`. **The only OPEN-ENDED goal shape**: it carries a driving mode, not a target, so mpc_corr never reports it reached and never self-terminates -- this move's `stop_condition` is the sole authority on when it ends. |
 | `vdes` | float | no | Overrides mpc_corr's `vdes` for this move. **No such override mechanism exists yet for non-`turn` moves** -- logged once per move as a TODO stub, otherwise ignored. (A `turn` step's own `speed` field is a separate, real, already-working override -- see below.) |
 | `stop_condition` | object | yes | One of the types below |
 | `on_object` | array of objects | no | Each entry: `{class, action, ...action-specific fields}` -- see below |
 | `timeout_sec` | float | no (schema_version 2.0 -- was required pre-2.0) | Hard escape hatch from move start; must be > 0 if present. Omitted means no per-move timeout cap is enforced at all. Every pre-2.0 mission always set this explicitly, so relaxing it to optional doesn't change how any of them behave. |
 | `on_timeout` | `"abort"` \| `"skip"` \| `"stop"` (schema_version 2.0 added `"stop"`) | no, default `"abort"` | What happens if `timeout_sec` elapses before `stop_condition` fires -- see below. **Rejected at load time if present without `timeout_sec`** (nothing for it to apply to). |
+| `terminal` | bool (schema_version 3.0) | no, default `false`; **required on the last move of a `"3.0"` mission** | When this move's `stop_condition` fires, the mission COMPLETES rather than advancing, and the car latches at `vdes = 0`. **Declares behaviour, does not implement it**: `AdvanceMove`'s last-move branch has done exactly this since schema 1.0 (`complete()` + `/mpc/hold(True)`), so this is a load-time assertion that the author knew the run ends here -- deliberately *not* a second latch, because two authorities on "stop" is the failure this schema version exists to remove. Rejected at load time on any move that is not the last, in **every** schema version. |
 
-Exactly one of `goal_distance`/`goal_pose`/`turn` is required -- providing
+Exactly one of `goal_distance`/`goal_pose`/`turn`/`drive` is required -- providing
 more than one, or none, is rejected at load time.
 
 `on_timeout` behaviors: `"abort"` aborts the whole mission
@@ -171,6 +180,30 @@ authoritative "is the turn done" signal for the mission, though -- that's
 this move's own `orientation_delta` stop_condition, tracked independently
 against live `/odom` yaw by `CheckStopCondition`.
 
+## `drive` fields (schema_version 3.0)
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mode` | `"straight"` \| `"wall_turn"` | yes | `"straight"` holds the move's own start heading. `"wall_turn"` turns by `turn_sign * turn_mag_deg` off that same start heading and then holds the result. **The reference is THIS move's start heading, not the run's** -- mpc_corr re-anchors `psi_init_corridor` on every drive command (`goal_drive_callback`). |
+| `turn_sign` | float, exactly `-1.0` or `+1.0` | yes if `mode` is `"wall_turn"` | `+1.0` = left/CCW, `-1.0` = right/CW -- the same convention `turn.heading_delta_deg`'s sign uses. Ignored when `mode` is `"straight"`. |
+| `turn_mag_deg` | float >= 0 | no, default `0` | Unsigned magnitude in **degrees** (`turn_sign` carries the direction; a negative value here is rejected as a sign mistake). **Sentinel: `0` means "use mpc_corr's `drive_default_turn_mag_deg`" (90°).** |
+| `speed` | float >= 0 | no, default `0` | Linear speed [m/s] for the duration of the move. **Sentinel: `0` means "use mpc_corr's own `vdes`".** Restored to the node baseline when the move ends. |
+| `approach_d_safe` | float >= 0 | no, default unset | Total obstacle standoff [m] for the duration of the move -- the quantity mpc_corr spends as `car_radius + avoidance_margin`. Exists to **relax** avoidance so the car can close on the object it was told to stop in front of, instead of being pushed around it. mpc_corr clamps it so it can only ever relax, never tighten, and restores the baseline when the move ends. Note `0.0` is a real value (no standoff at all), which is why "unset" is a missing field here and a *negative* sentinel on the wire. |
+
+A `drive` step is the only goal shape with **no target**. The other three name
+something mpc_corr drives toward, decides it has REACHED, and then latches zero
+on while publishing `/mpc/goal_reached`. A drive command names only a mode, so
+mpc_corr never sets `goal_reached` for it, never publishes `/mpc/goal_reached`,
+and never self-terminates -- `CheckStopCondition` is the sole authority on when
+the move ends. `/mpc/hold` keeps absolute priority regardless, unchanged.
+
+That is what makes the LLM planner's phase vocabulary (a driving mode plus a
+guard that ends it, with no goal) expressible without inventing anything.
+Before 3.0 the translator had to fabricate a `goal_distance` of 50 m for any
+clearance-guarded phase and hope the guard fired first -- the MPC was genuinely
+driving toward a point 50 m away, and `/mpc/goal_reached` was meaningless for
+those moves. See `f1tenth_intelligence/llm/llm/plan_translate.py`.
+
 ## `stop_condition.type` values
 
 | `type` | Extra fields | Meaning |
@@ -180,9 +213,9 @@ against live `/odom` yaw by `CheckStopCondition`.
 | `time_elapsed` | `duration_sec` (float, required) | Wall-clock time since move start ≥ duration |
 | `object_seen` | `class` (string, required), `min_confidence` (float, optional) | `True` once `class` is present in `detected_classes` at/above confidence, within the freshness window (1.0s default -- see "Assumptions" below) |
 | `object_cleared` | `class` (string, required), `debounce_sec` (float, default 1.0) | `True` once a previously-seen class has been absent for ≥ `debounce_sec` |
-| `obstacle_distance_below` | `distance` (float, required) | `True` when `/mpc/min_obstacle_distance` < threshold |
-| `front_clearance` | `distance` (float, required) | `True` when `/perception/front_clearance` < threshold. Published by `f1tenth_perception`'s `wall_detector_node` (RANSAC plane segmentation, nearest front-facing wall/planar surface) -- a separate sensing path from `obstacle_distance_below`'s YOLO/`obstacle_projector_node` discrete-object distance. `None` (not yet satisfiable) until the first message arrives; `wall_detector_node` publishes `+inf`, not silence, whenever no front-facing wall is currently in view, so a never-arriving message and "no wall detected" are distinguishable. |
-| `orientation_delta` (schema_version 2.0) | `value` (float, required, degrees) | `True` when `abs(current_yaw - turn_start_yaw)` (atan2-wrapped, correctly handles the ±180° seam) ≥ `value`. `turn`-exclusive -- rejected at load time on any other step type. `turn_start_yaw` is this move's own `/odom` yaw at the moment it was first observed (lazily captured the same way `distance_reached`'s `move_start_xy` already is), not the mission's or the car's all-time starting heading. |
+| `obstacle_distance_below` | `distance` (float, required); `forward_only` (bool, optional, default `false`) | `True` when the selected obstacle distance < threshold. `forward_only: false` (the default, and what every pre-3.0 mission gets) reads `/mpc/min_obstacle_distance`, which is **omnidirectional** -- it has no heading term at all, so an obstacle level with the rear axle counts exactly as much as one dead ahead. `forward_only: true` reads `/mpc/min_obstacle_distance_forward` instead: the nearest obstacle in the **forward half-plane** (`MPC_corr.compute_forward_obstacle_distance`'s `dot > 0` test). The two topics are published from the same mpc_corr tick and the same obstacle list. Use `forward_only` for anything that means "something is in the way"; the default exists only so missions written before the distinction keep their exact behaviour. |
+| `front_clearance` | `distance` (float, required); `debounce_ticks` (int >= 1, optional, default `1`) | `True` when `/costmap/front_clearance` < threshold for `debounce_ticks` **consecutive** ticks. Published by `f1tenth_costmap`'s `costmap_boundary_node` (nearest occupied cell of slam_toolbox's map within a symmetric forward cone) -- a separate sensing path from `obstacle_distance_below`'s YOLO/`obstacle_projector_node` discrete-object distance, and **map-derived**, so it does not see anything that is not on the map (a person, a chair someone just moved). `None` (not yet satisfiable) until the first message arrives, and `costmap_boundary_node` *withholds* the publish entirely when its map/pose are stale, so a never-arriving message and "clear ahead" are distinguishable. `debounce_ticks` defaults to 1 (fire on the first satisfied tick, i.e. exactly the pre-3.0 behaviour); a single unsatisfied tick restarts the streak, and a move change resets it. |
+| `orientation_delta` (schema_version 2.0) | `value` (float, required, degrees) | `True` when the **unwrapped accumulated** rotation since move start ≥ `value` (see "Turn accumulation" below -- a wrapped current-minus-start delta is bounded to (-180, 180] and could never satisfy a 180° or 270° target). Valid on a `turn` step **or** (schema_version 3.0) a `drive` step whose `mode` is `wall_turn` -- rejected at load time on any other step type. On a `turn` step `value` must equal `abs(turn.heading_delta_deg)`; on a `drive` step it must equal `abs(drive.turn_mag_deg)`, which must itself be non-zero (0 means "use the controller default", which the equality check cannot compare against). `turn_start_yaw` is this move's own `/odom` yaw at the moment it was first observed (lazily captured the same way `distance_reached`'s `move_start_xy` already is), not the mission's or the car's all-time starting heading. |
 | `manual` | -- | Never auto-completes. **Out of scope for this pass** -- always behaves as still-waiting; only an external trigger (not yet implemented) could advance it. |
 
 `distance_reached` requires either its own `distance` field or the move's

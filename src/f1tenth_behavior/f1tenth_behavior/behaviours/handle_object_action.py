@@ -218,6 +218,17 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
             current_xy=getattr(self.blackboard, CURRENT_XY_KEY),
             detected_classes=getattr(self.blackboard, DETECTED_CLASSES_KEY),
             min_obstacle_distance=getattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY),
+            # KNOWN GAP, deliberately left as-is this pass: this call site
+            # does not supply min_obstacle_distance_forward, so a
+            # resume_condition of type obstacle_distance_below with
+            # forward_only: true evaluates against None and therefore never
+            # resumes the hold. Same shape as the goal_reached/current_yaw/
+            # turn_accum_deg omissions already documented here and in
+            # condition_eval.py -- this caller tracks none of the live signals
+            # CheckStopCondition owns. Wiring it means giving this behaviour
+            # its own subscription (or a fourth shared blackboard key it
+            # registers for), which is a bigger change than this pass is
+            # scoped for. No mission uses that combination today.
             front_clearance=getattr(self.blackboard, FRONT_CLEARANCE_KEY),
             default_distance=None,
         )

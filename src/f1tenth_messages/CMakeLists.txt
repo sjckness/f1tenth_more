@@ -13,6 +13,7 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/WallDetection.msg"
   "msg/WallArray.msg"
   "msg/TurnGoal.msg"
+  "msg/DriveCommand.msg"
   "msg/BoundaryConstraint.msg"
   "msg/BoundaryConstraintArray.msg"
   "msg/MpcSolverStatus.msg"

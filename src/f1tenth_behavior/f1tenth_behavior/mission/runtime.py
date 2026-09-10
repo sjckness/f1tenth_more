@@ -33,6 +33,14 @@ MISSION_KEY = 'mission'
 CURRENT_XY_KEY = 'mission_current_xy'
 CURRENT_YAW_KEY = 'mission_current_yaw'
 MIN_OBSTACLE_DISTANCE_KEY = 'mission_min_obstacle_distance'
+# Forward-half-plane counterpart of the key above (/mpc/min_obstacle_distance_
+# forward -- MPC_corr.compute_forward_obstacle_distance's dot > 0 filter). A
+# SECOND key, not a replacement: an obstacle_distance_below stop_condition
+# picks which of the two it reads via its own `forward_only` param, which
+# defaults to false so every mission written before the distinction existed
+# keeps reading the omnidirectional value. See condition_eval.py's own
+# obstacle_distance_below branch.
+MIN_OBSTACLE_DISTANCE_FORWARD_KEY = 'mission_min_obstacle_distance_forward'
 FRONT_CLEARANCE_KEY = 'mission_front_clearance'
 # Global (map-frame) EKF pose -- /ekf_global/odometry/filtered, a SEPARATE
 # subscription from local /odom above (see CheckStopCondition's own docstring

@@ -1,0 +1,22 @@
+{
+  "mission_id": "drive_stop_1m_from_object",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "approach_and_stop_at_object",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.4,
+        "approach_d_safe": 0.25
+      },
+      "stop_condition": {
+        "type": "obstacle_distance_below",
+        "distance": 1.0,
+        "forward_only": true
+      },
+      "terminal": true,
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    }
+  ]
+}

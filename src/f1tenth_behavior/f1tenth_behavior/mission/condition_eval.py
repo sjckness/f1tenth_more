@@ -20,6 +20,28 @@ from f1tenth_behavior.mission.runtime import DetectionInfo
 # for object_seen (stop_condition) and ObjectSeen (BT condition) alike.
 DEFAULT_SEEN_FRESHNESS_SEC = 1.0
 
+# How many CONSECUTIVE satisfied ticks a condition needs before evaluate_
+# debounced() reports it satisfied, when its stop_condition does not say.
+#
+# 1 -- i.e. no debounce, fire on the first satisfied tick -- and that default
+# is load-bearing: it is exactly what every condition did before debouncing
+# existed, so every mission already under missions/ behaves bit-identically
+# without being touched. Only a stop_condition that explicitly asks for more
+# gets more.
+#
+# f110_autonomy debounced its "wall" guard at 3 consecutive ticks
+# (wall_count_needed = 3) against a noisy raw depth signal. The LLM path asks
+# for the same 3 when it maps that guard (see llm/plan_translate.py); nothing
+# else does.
+DEFAULT_DEBOUNCE_TICKS = 1
+
+# stop_condition types that honour a `debounce_ticks` param. Deliberately a
+# set of one rather than "any type": debouncing a condition that is already
+# an accumulation (orientation_delta) or an edge (goal_reached) either does
+# nothing or actively delays it, and quietly accepting the field on those
+# would advertise a behaviour they do not have.
+DEBOUNCEABLE_TYPES = {'front_clearance'}
+
 
 @dataclass
 class EvalContext:
@@ -87,6 +109,100 @@ class EvalContext:
     # message for this move -- same "no message yet" meaning as the other
     # Optional fields here.
     turn_accum_deg: Optional[float] = None
+    # Live value of /mpc/min_obstacle_distance_forward -- the FORWARD-HALF-PLANE
+    # counterpart of min_obstacle_distance above, from the same mpc_corr tick
+    # and the same obstacle list (see MPC_corr.py's compute_forward_obstacle_
+    # distance). Read only by an obstacle_distance_below whose own params say
+    # `"forward_only": true`; that flag defaults to FALSE, so every existing
+    # mission keeps reading the omnidirectional value and behaves exactly as
+    # before.
+    #
+    # WHY BOTH EXIST rather than one corrected signal: min_obstacle_distance
+    # has no heading term at all, so an object level with the rear axle counts
+    # as much as one dead ahead -- wrong for "something is in the way", but it
+    # is what every mission already under missions/ was written and tuned
+    # against. Changing it in place would have altered those missions silently,
+    # which the compatibility rule forbids. New callers (the LLM path's
+    # front_object guard) opt in.
+    #
+    # None means "no message received yet", same as every other Optional
+    # sensor field here -- not "nothing ahead", which is a large finite value.
+    min_obstacle_distance_forward: Optional[float] = None
+
+
+def debounce_ticks_for(condition: StopCondition) -> int:
+    """How many CONSECUTIVE satisfied ticks `condition` needs before it counts
+    as fired. DEFAULT_DEBOUNCE_TICKS (1, i.e. no debounce) unless the
+    stop_condition explicitly asks for more AND its type is debounceable.
+
+    Silently returns the default for a non-debounceable type carrying the
+    field: mission_config.py is where a nonsensical combination should be
+    rejected by name, not here in a per-tick hot path that has no way to
+    report anything. Values below 1 are clamped up rather than treated as
+    "fire before the condition is ever true".
+    """
+    if condition.type not in DEBOUNCEABLE_TYPES:
+        return DEFAULT_DEBOUNCE_TICKS
+    raw = condition.params.get('debounce_ticks', DEFAULT_DEBOUNCE_TICKS)
+    try:
+        ticks = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_DEBOUNCE_TICKS
+    return max(ticks, 1)
+
+
+class ConditionDebouncer:
+    """Consecutive-satisfied-tick latch for one caller's current condition.
+
+    WHY THE STATE LIVES HERE AND NOT IN evaluate(): evaluate() is a pure
+    function of (condition, ctx) and every one of its callers depends on that
+    -- it is called from two behaviours and directly from tests, and a hidden
+    per-condition counter inside it would make the same inputs return
+    different answers depending on call history. So the counting is an
+    explicit object the caller owns, resets and passes ticks to, while the
+    POLICY (which types debounce, and what the default is) stays here beside
+    the evaluator it belongs to.
+
+    Owned per-caller, reset on every move change -- see CheckStopCondition,
+    the only user today. HandleObjectAction deliberately has none: a
+    resume_condition with no debouncer is evaluated exactly as it always was
+    (DEFAULT_DEBOUNCE_TICKS == 1 means the two paths agree anyway).
+
+    Ported from f110_autonomy's wall_count_needed, which existed because its
+    "wall" guard read a raw, unfiltered depth value that could dip below the
+    threshold for a single frame on noise alone.
+    """
+
+    def __init__(self):
+        self._streak = 0
+
+    def reset(self) -> None:
+        """Drop any accumulated streak -- call on every move change, so a
+        partial streak from the previous move cannot count toward this one."""
+        self._streak = 0
+
+    @property
+    def streak(self) -> int:
+        """Consecutive raw-satisfied ticks seen so far. Diagnostic only."""
+        return self._streak
+
+    def update(self, condition: StopCondition, raw: Optional[bool]) -> Optional[bool]:
+        """Fold this tick's raw evaluate() result into the streak and return
+        the DEBOUNCED answer.
+
+        None passes straight through untouched and does NOT disturb the streak
+        -- it means "this condition cannot be judged from here at all" (a stub
+        type, or a signal this caller doesn't track), which is categorically
+        different from "not satisfied this tick" and must not be counted as
+        either a hit or a miss.
+        """
+        if raw is None:
+            return None
+        if not raw:
+            self._streak = 0
+            return False
+        self._streak += 1
+        return self._streak >= debounce_ticks_for(condition)
 
 
 def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
@@ -154,13 +270,42 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
         return (ctx.now - info.last_seen) >= debounce
 
     if t == 'obstacle_distance_below':
-        if ctx.min_obstacle_distance is None:
+        # TWO SOURCES, selected by this condition's own `forward_only` flag:
+        #
+        #   false (DEFAULT) -- /mpc/min_obstacle_distance, omnidirectional.
+        #     No heading term whatsoever: an obstacle level with the rear axle
+        #     reads exactly like one dead ahead. This is what this condition
+        #     has always done, so it stays the default and every mission
+        #     already under missions/ keeps behaving identically.
+        #
+        #   true -- /mpc/min_obstacle_distance_forward, nearest obstacle in
+        #     the FORWARD HALF-PLANE (MPC_corr.compute_forward_obstacle_
+        #     distance's dot > 0 test). This is the honest reading of
+        #     "something is in the way", and it is exactly what
+        #     f110_autonomy's distance_to_front_object() computed for the
+        #     guard "front_object" that maps onto this condition. The LLM
+        #     path sets it (see llm/plan_translate.py); nothing else does.
+        #
+        # Explicit `is True` rather than truthiness, matching how
+        # mission_config.py parses booleans: a stray `"forward_only": "no"`
+        # should not quietly select the filtered source.
+        if p.get('forward_only') is True:
+            value = ctx.min_obstacle_distance_forward
+        else:
+            value = ctx.min_obstacle_distance
+        if value is None:
             return False
-        return ctx.min_obstacle_distance < float(p['distance'])
+        return value < float(p['distance'])
 
     if t == 'front_clearance':
         # Same shape as obstacle_distance_below above, different sensor
         # source -- see EvalContext.front_clearance's own comment.
+        #
+        # This type is also the only one that honours `debounce_ticks`, but
+        # NOT here: debouncing is a property of a SEQUENCE of ticks, and this
+        # function is deliberately pure. ConditionDebouncer (above) wraps this
+        # result for callers that track ticks; the answer below is the raw,
+        # single-tick one, which is exactly what that wrapper needs.
         # ctx.front_clearance is None until the first /costmap/front_
         # clearance message arrives (costmap_boundary_node also publishes a
         # finite "clear at least this far" value, not silence, whenever

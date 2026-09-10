@@ -53,6 +53,7 @@ from f1tenth_behavior.mission.mission_config import MissionConfig
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     FRONT_CLEARANCE_KEY,
+    MIN_OBSTACLE_DISTANCE_FORWARD_KEY,
     MIN_OBSTACLE_DISTANCE_KEY,
 )
 
@@ -69,11 +70,12 @@ class Requirement:
     blackboard_key: Optional[str] = None
 
 
-# Every move type (goal_distance/goal_pose/turn) is driven through mpc_corr
-# (see PublishMoveGoal's own docstring) -- always required, unconditionally.
+# Every move type (goal_distance/goal_pose/turn/drive) is driven through
+# mpc_corr (see PublishMoveGoal's own docstring) -- always required,
+# unconditionally.
 _MPC_CORR = Requirement(
     name='mpc_corr',
-    reason='every move type (goal_distance/goal_pose/turn) is driven through it',
+    reason='every move type (goal_distance/goal_pose/turn/drive) is driven through it',
     node_name='mpc_corr',
 )
 # THE specific node a prior battery-precheck launch race let go silently
@@ -97,6 +99,26 @@ _LOCALIZATION = Requirement(
     reason="CheckStopCondition's distance/heading tracking needs it for every move",
     blackboard_key=CURRENT_XY_KEY,
 )
+
+
+def _uses_forward_only_obstacle_distance(config: MissionConfig) -> bool:
+    """True if ANY obstacle_distance_below in this mission -- move
+    stop_condition or on_object resume_condition -- sets forward_only: true.
+
+    Any, not all: one such condition is enough to make the forward topic the
+    one whose absence would stall the mission, and a mission mixing both is
+    already covered because both values come from the same mpc_corr tick.
+    """
+    for m in config.moves:
+        if (m.stop_condition.type == 'obstacle_distance_below'
+                and m.stop_condition.params.get('forward_only') is True):
+            return True
+        for oo in m.on_object:
+            rc = oo.params.get('resume_condition')
+            if (rc is not None and rc.type == 'obstacle_distance_below'
+                    and rc.params.get('forward_only') is True):
+                return True
+    return False
 
 
 def required_dependencies(config: MissionConfig) -> List[Requirement]:
@@ -124,11 +146,32 @@ def required_dependencies(config: MissionConfig) -> List[Requirement]:
         # docstring) -- no separate node, just a stronger liveness bar on the
         # one already required above: it must have published this specific
         # value at least once, not merely be present in the graph.
-        reqs.append(Requirement(
-            name='mpc_corr (/mpc/min_obstacle_distance)',
-            reason="an 'obstacle_distance_below' stop_condition (or resume_condition) is used",
-            blackboard_key=MIN_OBSTACLE_DISTANCE_KEY,
-        ))
+        #
+        # WHICH of the two obstacle topics is required depends on the
+        # condition's own forward_only flag, so the flag is inspected here
+        # rather than requiring both: a mission that only ever reads the
+        # forward value should not be blocked on the omnidirectional one, or
+        # vice versa. Both come from the same mpc_corr tick in practice, so
+        # this is about naming the right topic in the failure message more
+        # than about a real difference in liveness.
+        if _uses_forward_only_obstacle_distance(config):
+            reqs.append(Requirement(
+                name='mpc_corr (/mpc/min_obstacle_distance_forward)',
+                reason=(
+                    "an 'obstacle_distance_below' stop_condition with forward_only: "
+                    'true is used'
+                ),
+                blackboard_key=MIN_OBSTACLE_DISTANCE_FORWARD_KEY,
+            ))
+        else:
+            reqs.append(Requirement(
+                name='mpc_corr (/mpc/min_obstacle_distance)',
+                reason=(
+                    "an 'obstacle_distance_below' stop_condition (or resume_condition) "
+                    'is used'
+                ),
+                blackboard_key=MIN_OBSTACLE_DISTANCE_KEY,
+            ))
 
     uses_perception = bool(stop_condition_types & {'object_seen', 'object_cleared'}) or any(
         m.on_object for m in config.moves

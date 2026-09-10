@@ -1,0 +1,14 @@
+{
+  "mission_id": "drive_turn_180",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "turn_right_180deg",
+      "drive": { "mode": "wall_turn", "turn_sign": -1.0, "turn_mag_deg": 180.0, "speed": 0.3 },
+      "stop_condition": { "type": "orientation_delta", "value": 180.0 },
+      "terminal": true,
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    }
+  ]
+}

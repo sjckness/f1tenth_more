@@ -33,13 +33,32 @@ stores it) but not consumed for arrival.
 
 Turn-mode moves (move.turn set, schema_version 2.0) publish
 f1tenth_messages/TurnGoal to mpc_corr's own /mpc/goal_turn input -- the third
-and last of the three mutually-exclusive goal shapes mission_config.py's
-Move.turn/goal_distance/goal_pose enforce. Same "publish once per move,
+of the four mutually-exclusive goal shapes mission_config.py's
+Move.turn/goal_distance/goal_pose/drive enforce. Same "publish once per move,
 guarded by goal_dirty" shape as the other two; mpc_corr owns everything about
 how it actually gets the car turning (see MPC_corr.py's own goal_turn_
 callback docstring) -- this behaviour's only job is forwarding the already-
 validated turn spec across the ROS boundary, exactly like it does for the
 other two goal types.
+
+Drive-mode moves (move.drive set, schema_version 3.0) publish
+f1tenth_messages/DriveCommand to /mpc/goal_drive -- the fourth shape, and the
+only OPEN-ENDED one. The other three all name a target mpc_corr can decide it
+has REACHED, and mpc_corr says so on /mpc/goal_reached; a drive command names
+only a MODE, so mpc_corr drives it indefinitely and NEVER publishes
+goal_reached for it. The move ends when this tree's own CheckStopCondition
+says it ends, and nothing else. That is deliberate and is the whole reason the
+shape exists -- see mission_config.DriveSpec.
+
+THE SENTINEL CONVERSION HAPPENS HERE, and only here. DriveSpec models "not
+set" as Python None (approach_d_safe) because 0.0 is a legal, meaningful
+value; a ROS msg float32 field has no null, so DriveCommand.msg spends a
+NEGATIVE value as its "use the node default" sentinel. Translating between the
+two is this behaviour's job as the ROS boundary -- mission_config.py stays
+ROS-free and never sees the sentinel, and mpc_corr never sees a None. The
+other two sentinels (turn_mag_deg == 0, speed == 0) need no conversion: 0 is
+already how DriveSpec spells "unset" for both, because neither a zero-degree
+turn nor a zero speed is a request anyone can act on.
 """
 
 import math
@@ -48,7 +67,7 @@ import py_trees
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Float32
 
-from f1tenth_messages.msg import TurnGoal
+from f1tenth_messages.msg import DriveCommand, TurnGoal
 
 from f1tenth_behavior.mission.runtime import MISSION_KEY, MissionRuntimeState
 
@@ -60,15 +79,18 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
         goal_distance_topic='/mpc/goal_distance',
         goal_pose_topic='/mpc/goal_pose',
         goal_turn_topic='/mpc/goal_turn',
+        goal_drive_topic='/mpc/goal_drive',
     ):
         super().__init__(name=name)
         self._goal_distance_topic = goal_distance_topic
         self._goal_pose_topic = goal_pose_topic
         self._goal_turn_topic = goal_turn_topic
+        self._goal_drive_topic = goal_drive_topic
         self.node = None
         self.goal_distance_pub = None
         self.goal_pose_pub = None
         self.goal_turn_pub = None
+        self.goal_drive_pub = None
         self.blackboard = self.attach_blackboard_client(name=name)
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
 
@@ -83,6 +105,8 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
             PoseStamped, self._goal_pose_topic, 10)
         self.goal_turn_pub = self.node.create_publisher(
             TurnGoal, self._goal_turn_topic, 10)
+        self.goal_drive_pub = self.node.create_publisher(
+            DriveCommand, self._goal_drive_topic, 10)
 
     def update(self):
         state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
@@ -116,9 +140,32 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
                 f"[mission] Move '{move.id}': published goal_pose=(x={gp.x}, y={gp.y}, "
                 f'yaw={gp.yaw}) to /mpc/goal_pose.'
             )
+        elif move.drive is not None:
+            # The fourth, open-ended shape (schema_version 3.0) -- see module
+            # docstring for why mpc_corr will never report this one reached,
+            # and for why the approach_d_safe sentinel is converted here.
+            d = move.drive
+            drive_msg = DriveCommand()
+            drive_msg.mode = d.mode
+            drive_msg.turn_sign = float(d.turn_sign)
+            drive_msg.turn_mag_deg = float(d.turn_mag_deg)
+            drive_msg.speed = float(d.speed)
+            # None -> -1.0: "leave mpc_corr's own standoff alone". Any
+            # negative value is the sentinel; -1.0 is simply the one this
+            # side spends. 0.0 must survive as a real value (no standoff at
+            # all), which is exactly why the sentinel is not 0.
+            drive_msg.d_safe = (
+                -1.0 if d.approach_d_safe is None else float(d.approach_d_safe))
+            self.goal_drive_pub.publish(drive_msg)
+            self.node.get_logger().info(
+                f"[mission] Move '{move.id}': published drive mode={d.mode!r} "
+                f'turn_sign={d.turn_sign:+.1f} turn_mag_deg={d.turn_mag_deg:.1f} '
+                f'speed={d.speed:.2f} d_safe={drive_msg.d_safe:+.2f} '
+                'to /mpc/goal_drive (open-ended -- the stop_condition ends it).'
+            )
         else:
             # move.turn is set (mission_config.py guarantees exactly one of
-            # the three goal shapes) -- see module docstring.
+            # the four goal shapes) -- see module docstring.
             t = move.turn
             turn_msg = TurnGoal()
             turn_msg.heading_delta_deg = float(t.heading_delta_deg)
