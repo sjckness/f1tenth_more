@@ -130,9 +130,50 @@
     # whose comment noted a prior calibration:=true run's output wasn't reliably
     # reaching the live driver process). Re-measure if the IMU mount, sample rate,
     # or vibration environment changes materially.
+    #
+    # UNIT BASIS -- read this before changing any gyro_scale_* above. Each
+    # variance here must be in the SAME unit as the message field it is assigned
+    # to, and vesc_driver.cpp publishes angular_velocity.<axis> as
+    # gyr_<axis>() * gyro_scale_<axis>, so the correct unit is per-axis and
+    # follows that scale. sensor_covariance_calibration_node samples the
+    # PUBLISHED topic, so a variance measured under one gyro_scale_* is silently
+    # wrong under another -- by exactly (new_scale/old_scale)^2. Changing a
+    # gyro_scale_* means re-measuring, or rescaling, that axis' variance in the
+    # same commit. The node now reads these scales back and logs the unit it
+    # wrote per axis (see its _log_unit_basis) so a mismatch is visible at
+    # calibration time instead of silently degrading the EKF.
+    #
+    # gyro_variance_x/y are in deg^2/s^2, deliberately: gyro_scale_x/y are 1.0
+    # (see above), so those axes publish gyr_x()/gyr_y() unconverted, and
+    # vesc_packet.cpp comments gyr_x() as "deg/s" -- the messages are deg/s, so
+    # deg^2/s^2 variances are already correctly unit-matched to them. The real
+    # defect on these two axes is upstream and NOT here: the driver violates
+    # sensor_msgs/Imu's rad/s contract for x/y. Fixing that is a measurement-path
+    # change in the vesc submodule (out of scope for this pass); when it happens,
+    # both of these must be divided by (180/pi)^2 = 3282.8063507 in the same
+    # commit. Neither axis is fused by the EKF today (ekf.yaml imu0_config keeps
+    # vyaw only), so the contract violation is currently inert.
     gyro_variance_x: 0.030539653513912038
     gyro_variance_y: 0.005006719643874733
-    gyro_variance_z: 0.005734260496684604
+    #
+    # gyro_variance_z is in rad^2/s^2, matching gyro_scale_z = pi/180 above.
+    # CORRECTED 2026-09-10: was 0.005734260496684604, which the 2026-07-20 run
+    # measured in deg^2/s^2 -- that run predates gyro_scale_z going live (both
+    # landed in the same commit, 76804f5), so the stored number was a deg^2/s^2
+    # variance sitting against a now-rad/s signal: 3282.8063507x too large,
+    # sigma 4.34 deg/s against a unit whose real noise is ~0.076 deg/s. Divided
+    # by (180/pi)^2. The cross-axis check that identified it: at 0.00573 rad^2/s^2
+    # the z axis would have been ~3760x noisier than y on the same MEMS die, while
+    # the corrected value puts all three axes within 2.5x of each other
+    # (sigma 0.175 / 0.071 / 0.076 deg/s).
+    gyro_variance_z: 1.746756e-06
+    #
+    # accel_variance_* are in g^2, matching linear_acceleration.<axis> being
+    # filled raw from acc_<axis>() with no conversion -- the same class of
+    # contract violation as gyro x/y (sensor_msgs/Imu wants m/s^2), and likewise
+    # left alone here. sigma = 2.6 / 2.7 / 6.3 mg, plausible for a stationary
+    # MEMS unit. If the m/s^2 conversion is ever added, multiply all three by
+    # 9.80665^2 = 96.17 in that commit.
     accel_variance_x: 6.838468054307688e-06
     accel_variance_y: 7.457561226365246e-06
     accel_variance_z: 3.9237810323728924e-05

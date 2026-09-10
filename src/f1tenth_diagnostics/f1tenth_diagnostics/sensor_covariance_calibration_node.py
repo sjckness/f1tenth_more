@@ -104,6 +104,7 @@ Path resolution for vesc_yaml_path -- two layers, deliberately kept separate:
      --symlink-install).
 """
 
+import math
 import os
 import sys
 import time
@@ -124,6 +125,7 @@ from f1tenth_diagnostics.calibration_common import (
     StationaryGate,
     Welford,
     YAML,
+    read_vesc_yaml_value,
     resolve_source_vesc_yaml_path,
     write_vesc_yaml,
 )
@@ -135,11 +137,34 @@ from f1tenth_diagnostics.calibration_common import (
 # nothing and covers any other direct `ros2 run` / script usage.
 __all__ = ['resolve_source_vesc_yaml_path', 'SensorCovarianceCalibrationNode', 'main']
 
+# Which vesc.yaml gyro_scale_* key governs the unit of each gyro variance key.
+# vesc_driver.cpp publishes angular_velocity.<axis> = gyr_<axis>() *
+# gyro_scale_<axis>, so the unit of the variance that gets assigned to
+# angular_velocity_covariance's diagonal is set, per axis, by that scale.
+_GYRO_SCALE_KEYS = {
+    'gyro_variance_x': 'gyro_scale_x',
+    'gyro_variance_y': 'gyro_scale_y',
+    'gyro_variance_z': 'gyro_scale_z',
+}
+
+# gyr_*() returns deg/s (vesc_packet.cpp comments gyr_x() as "deg/s"), so a
+# gyro_scale_* of pi/180 means that axis is published in rad/s and 1.0 means it
+# is published in deg/s -- unconverted, in violation of sensor_msgs/Imu's rad/s
+# contract. Matched with a loose tolerance because vesc.yaml stores a rounded
+# 0.0174533 rather than the full-precision constant.
+_DEG2RAD = math.pi / 180.0
+_SCALE_MATCH_RTOL = 1e-3
+
 
 class SensorCovarianceCalibrationNode(Node):
 
-    def __init__(self):
-        super().__init__('sensor_covariance_calibration_node')
+    def __init__(self, **kwargs):
+        # **kwargs forwarded to rclpy.node.Node (e.g. parameter_overrides=),
+        # matching gyro_bias_calibration_node/slam_pose_covariance_calibration_
+        # node, which both already take it for the same reason: it is what lets
+        # the tests construct a real, never-spun node with chosen parameters
+        # instead of needing a live launch.
+        super().__init__('sensor_covariance_calibration_node', **kwargs)
 
         self.calibration_mode = str(
             self.declare_parameter('calibration_mode', 'stationary').value)
@@ -173,6 +198,18 @@ class SensorCovarianceCalibrationNode(Node):
                 'built with --symlink-install, so this will patch an install-space '
                 'copy rather than the real source file. Pass vesc_yaml_path explicitly '
                 'if that matters.')
+
+        # Unit basis for the gyro channels. The variance written for an axis
+        # must be in the same unit as the message field it is assigned to, and
+        # that unit is decided by the driver's gyro_scale_<axis> -- so read the
+        # scales from the same vesc.yaml this node writes (the single source of
+        # truth both nodes load) and convert explicitly, rather than inheriting
+        # whatever unit the published topic happens to be in. Sampling the
+        # topic implicitly is what produced the 2026-07-20 gyro_variance_z bug:
+        # that run measured a deg/s topic, gyro_scale_z later went live, and
+        # the stored number silently became a deg^2/s^2 variance sitting
+        # against a rad/s signal -- 3282.8x too large, with nothing logged.
+        self._gyro_scale = self._read_gyro_scales()
 
         self.exit_code = EXIT_INSUFFICIENT_SAMPLES
         self.done = False
@@ -374,10 +411,76 @@ class SensorCovarianceCalibrationNode(Node):
         self.exit_code = EXIT_INSUFFICIENT_SAMPLES
         self.done = True
 
+    def _read_gyro_scales(self):
+        """Read gyro_scale_x/y/z out of vesc_yaml_path -- the basis the sampled
+        gyro channels are converted through (see the __init__ call site).
+
+        Falls back to 1.0 per axis on any read failure, with an explicit
+        warning: 1.0 makes the conversion a no-op, i.e. degrades to this
+        node's ORIGINAL behaviour of writing the variance in whatever unit the
+        topic carried, rather than aborting a calibration run that is
+        otherwise fine.
+        """
+        scales = {}
+        for variance_key, scale_key in _GYRO_SCALE_KEYS.items():
+            try:
+                scales[variance_key] = read_vesc_yaml_value(self.vesc_yaml_path, scale_key)
+            except Exception as exc:  # noqa: BLE001 - any read failure degrades the same way
+                self.get_logger().warning(
+                    f'Could not read {scale_key} from "{self.vesc_yaml_path}" ({exc}) -- '
+                    f'assuming 1.0, so {variance_key} will be written in whatever unit '
+                    f'"{self.imu_topic}" carries. Check that axis by hand.')
+                scales[variance_key] = 1.0
+        return scales
+
+    def _describe_unit(self, scale):
+        """Name the published unit implied by a gyro_scale_* value."""
+        if math.isclose(scale, _DEG2RAD, rel_tol=_SCALE_MATCH_RTOL):
+            return 'rad/s'
+        if math.isclose(scale, 1.0, rel_tol=_SCALE_MATCH_RTOL):
+            return 'deg/s'
+        return f'raw*{scale:g}'
+
+    def _log_unit_basis(self):
+        """State, per gyro axis, the unit its variance is being written in.
+
+        Makes the thing that silently broke before visible in the run log: an
+        axis published unconverted (scale 1.0) gets a variance in deg^2/s^2,
+        which is correctly matched to its own message but violates
+        sensor_msgs/Imu -- worth saying out loud rather than leaving to
+        whoever next reads vesc.yaml.
+        """
+        self.get_logger().info('Gyro unit basis for this run (from vesc.yaml gyro_scale_*):')
+        for variance_key, scale_key in _GYRO_SCALE_KEYS.items():
+            scale = self._gyro_scale[variance_key]
+            unit = self._describe_unit(scale)
+            self.get_logger().info(
+                f'  {variance_key}: {scale_key}={scale:g} -> sampling {unit}, '
+                f'writing ({unit})^2')
+            if unit == 'deg/s':
+                self.get_logger().warning(
+                    f'  {scale_key} is 1.0, so "{self.imu_topic}" publishes this axis in '
+                    'deg/s unconverted (sensor_msgs/Imu requires rad/s -- a driver-side '
+                    f'defect in gyr_*()). {variance_key} is therefore written in '
+                    'deg^2/s^2 to stay matched to the message. If the driver is ever '
+                    f'fixed to publish rad/s, divide {variance_key} by (180/pi)^2 = '
+                    f'{1.0 / _DEG2RAD ** 2:.7f} in that same commit.')
+
     def _imu_callback(self, msg: Imu):
-        self._accumulators['gyro_variance_x'].update(msg.angular_velocity.x)
-        self._accumulators['gyro_variance_y'].update(msg.angular_velocity.y)
-        self._accumulators['gyro_variance_z'].update(msg.angular_velocity.z)
+        # Gyro channels accumulate in RAW sensor units (deg/s): the driver's
+        # gyro_scale_<axis> is divided out here and scale^2 re-applied to the
+        # variance in _finish, so the value written is in the unit of the
+        # message field it will be assigned to BY CONSTRUCTION, derived from a
+        # named scale rather than inherited from whatever the topic carried.
+        # A scale of 0.0 means the axis is published as a constant 0 (variance
+        # structurally 0), so pass the sample through instead of dividing.
+        for variance_key, axis_value in (
+                ('gyro_variance_x', msg.angular_velocity.x),
+                ('gyro_variance_y', msg.angular_velocity.y),
+                ('gyro_variance_z', msg.angular_velocity.z)):
+            scale = self._gyro_scale[variance_key]
+            self._accumulators[variance_key].update(
+                axis_value / scale if scale else axis_value)
         self._accumulators['accel_variance_x'].update(msg.linear_acceleration.x)
         self._accumulators['accel_variance_y'].update(msg.linear_acceleration.y)
         self._accumulators['accel_variance_z'].update(msg.linear_acceleration.z)
@@ -409,12 +512,26 @@ class SensorCovarianceCalibrationNode(Node):
             self.done = True
             return
 
+        self._log_unit_basis()
+
         self.get_logger().info('Calibration complete -- computed variance per channel:')
         results = {}
         for key, acc in self._accumulators.items():
             variance = acc.variance()
+            scale = self._gyro_scale.get(key)
+            if scale is None:
+                # accel_variance_*/vx_variance: no deg->rad conversion applies,
+                # so these stay in the unit their message field already uses
+                # (accel is published raw from acc_*(), i.e. g, not m/s^2).
+                self.get_logger().info(f'  {key} = {variance:.8f}  (n={acc.n})')
+            else:
+                unit = self._describe_unit(scale)
+                published = variance * scale * scale
+                self.get_logger().info(
+                    f'  {key} = {published:.12g} ({unit})^2  '
+                    f'[raw {variance:.12g} (deg/s)^2 x {scale:g}^2]  (n={acc.n})')
+                variance = published
             results[key] = variance
-            self.get_logger().info(f'  {key} = {variance:.8f}  (n={acc.n})')
 
         if YAML is None:
             self.get_logger().error(
