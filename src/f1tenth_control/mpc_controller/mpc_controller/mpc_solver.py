@@ -7,8 +7,11 @@ solve_mpc_step() entry point.
     (same cost/constraint functions, same options) as the rollback target.
   * _solve_rti -- OSQP-based real-time-iteration (RTI): linearize the
     dynamics + corridor + obstacle-cost terms ONCE per tick around a
-    reference trajectory, then solve the resulting convex QP with OSQP
-    (warm-started from the previous tick's solution). Added by the MPC
+    reference trajectory, then solve the resulting convex QP with OSQP,
+    warm-started from the previous tick's solution WHEN THE CALLER PASSES
+    ONE (solve_mpc_step's warm_start_z -- see shift_warm_start below for
+    the shift the caller owes it, and _solve_rti's own docstring for what
+    happens when it is absent). Added by the MPC
     optimization pass following the frequency/bottleneck audit -- SLSQP's
     solve_dt measured 93ms of a 112.6ms/100ms-budget loop (82.6%), and this
     is the standard fix for "full nonlinear re-solve every tick, short
@@ -306,6 +309,7 @@ def solve_mpc_step(
     boundary_hard: bool = False,
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
+    warm_start_z: Optional[np.ndarray] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -324,6 +328,22 @@ def solve_mpc_step(
     _solve_rti); silently ignored by the legacy/rollback SLSQP path, which
     this feature doesn't target. None (default) means "no boundaries",
     identical to passing an empty list.
+
+    warm_start_z: the previous tick's control sequence, already shifted by
+    shift_warm_start(). RTI-ONLY, on the same terms as boundaries above:
+    the SLSQP rollback path keeps its own z0 = last_u tiled and ignores
+    this. None (default) reproduces the pre-warm-start behaviour exactly --
+    _solve_rti falls back to tiling last_u across the horizon.
+
+    WHY THIS PARAMETER HAD TO EXIST. It is not merely OSQP's initial
+    iterate: _solve_rti rolls this same sequence through the TRUE nonlinear
+    model to build x_ref, the single trajectory every Jacobian, every
+    frozen corridor nearest-index and every frozen heading target in the QP
+    is linearized around. Without it that trajectory is "hold the last
+    steering angle for the whole horizon", i.e. a circular arc that on a
+    turn can end tens of degrees away from anything the solver intends to
+    do -- and which changes discontinuously every tick as last_u moves. The
+    QP was being built around a reference nobody was steering toward.
     """
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
@@ -338,6 +358,7 @@ def solve_mpc_step(
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
             weights, obstacles, dmin, vdes, boundaries=boundaries,
+            warm_start_z=warm_start_z,
             boundary_max_sources=boundary_max_sources,
             boundary_hard=boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
@@ -615,6 +636,38 @@ def unwrapped_heading_target(psi_target: float, psi_linearization: float) -> flo
     return psi_linearization + delta
 
 
+def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
+    """Shift a solved control sequence one step for the NEXT tick's warm start.
+
+    z is the flat [delta_0, a_0, delta_1, a_1, ...] sequence _solve_rti
+    returns as info["zopt"]. At the tick that produced it the solver was
+    standing at x_0; one control period later the car is standing at what
+    was x_1, so the plan that was optimal for stage k+1 is the guess that
+    belongs at stage k. The final control is duplicated to refill the slot
+    the shift empties -- "keep doing the last thing planned" is the only
+    prediction available for a stage the previous horizon never covered,
+    and it is what every receding-horizon implementation does here.
+
+    WHY THE SHIFT AND NOT THE RAW SEQUENCE. Feeding zopt back unshifted
+    would be a warm start too, and a much better one than tiling last_u --
+    but it is systematically one step stale in exactly the variable
+    (steering) the corridor is turning, so the reference trajectory would
+    lag the plan by one period on every tick of a turn. The shift costs one
+    array copy and removes that lag entirely.
+
+    Returns a fresh array; the input is not modified. A zopt that is not
+    2*horizon long (a truncated/garbage solve) returns None, so the caller
+    falls back to the tile rather than seeding OSQP with the wrong shape.
+    """
+    z = np.asarray(zopt, dtype=float).ravel()
+    if z.size != 2 * horizon or not np.all(np.isfinite(z)):
+        return None
+    shifted = np.empty_like(z)
+    shifted[: 2 * (horizon - 1)] = z[2:]
+    shifted[2 * (horizon - 1):] = z[2 * (horizon - 1):]
+    return shifted
+
+
 def _solve_rti(
     x0: Sequence[float],
     last_u: Sequence[float],
@@ -662,6 +715,17 @@ def _solve_rti(
     N = horizon
     n_x, n_u = 4, 2
 
+    # A warm start is OPTIONAL and must never be able to break a solve: a
+    # wrong-length or non-finite sequence falls back to the tile rather than
+    # propagating into x_ref (where a short slice would silently roll the
+    # model forward on a truncated control) or into OSQP's z_guess (where a
+    # length mismatch is a hard error). shift_warm_start already returns None
+    # for those cases; this is the second line of defence for any other
+    # caller, and it is why the fallback lives here and not only there.
+    if warm_start_z is not None:
+        warm_start_z = np.asarray(warm_start_z, dtype=float).ravel()
+        if warm_start_z.size != N * n_u or not np.all(np.isfinite(warm_start_z)):
+            warm_start_z = None
     if warm_start_z is None:
         warm_start_z = np.tile(last_u, N)
     warm_start_z = np.asarray(warm_start_z, dtype=float)

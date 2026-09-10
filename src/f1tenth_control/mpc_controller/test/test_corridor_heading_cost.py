@@ -55,10 +55,23 @@ LIMITS = {
 
 # MPC_corr.py's live weights, same choice test_solver_rti.py makes -- w_psi
 # is overridden per-test below, which is the whole point of this file.
+#
+# w_psi_stage CARRIES ITS REAL DEPLOYED VALUE (4.7736, stack_params.yaml).
+# It was absent from this dict entirely, which meant every scenario here ran
+# with the stage heading term switched off while the car runs it on -- a
+# second heading cost, pulling toward a DIFFERENT reference (the local
+# centreline tangent, not psiRef), was outside the coverage of the one file
+# that tests heading costs. Adding it changes no assertion below: it roughly
+# thirds the magnitude of the steering response (+2.82 -> +0.98 deg on
+# test_heading_error_steers_toward_the_reference) because on this file's
+# deliberately straight centreline it pulls toward psi=0 while w_psi pulls
+# toward psiRef, but the SIGN and the left/right symmetry are untouched,
+# which is what these tests assert.
 BASE_WEIGHTS = {
     "w_term": 3.0,
     "w_v": 8.0,
     "w_psi": 0.0,
+    "w_psi_stage": 4.7736,
     "w_u_a": 0.0,
     "w_du_delta": 15.0,
     "w_du_a": 0.0,
@@ -205,6 +218,40 @@ class TestRtiQpHeadingTerm:
         assert left > 1e-4
         assert right < -1e-4
         assert math.isclose(left, -right, rel_tol=1e-6)
+
+    def test_at_a_standstill_the_term_has_no_authority_at_all(self):
+        """
+        Document the v = 0 degeneracy, which is NOT a sign bug.
+
+        psidot = (v/L) cos(beta) tan(delta), so at v = 0 the linearized
+        B[2, 0] is exactly zero: steering is decoupled from yaw, and x/y are
+        decoupled from steering too. The QP is completely flat in delta and
+        returns whatever last_u was, unchanged, whichever side psiRef is on.
+        With w_delta0 = 0.0 (deliberately -- the car has a ~2 deg steering
+        bias, so a term pulling delta to centre would fight holding a
+        straight line) nothing else recentres it either.
+
+        Confirmed live on run 2026-09-10T13-34-09: the car never moved
+        (0.017 m in 7.0 s) and the command sat at -12.2 deg for the whole
+        run with zero sign changes, against a corridor asking for +90. That
+        reads exactly like an inverted sign and is not one -- which is why
+        it is pinned here rather than left to be rediscovered.
+        """
+        held = math.radians(-12.1)
+
+        def steer_from(psi_ref):
+            u0, _info = solve_mpc_step(
+                x0=np.array([0.0, 0.0, 0.0, 0.0]),
+                last_u=np.array([held, 0.0]),
+                pref_nom=np.array([3.0, 0.0]),
+                corridor=_frozen_corridor(psi_ref),
+                horizon=HORIZON, ts=TS, params=PARAMS, limits=LIMITS,
+                weights=_weights(w_psi=5.0), obstacles=[], dmin=0.9,
+                vdes=0.0, solver='rti')
+            return float(u0[0])
+
+        for psi_ref in (+0.3, 0.0, -0.3):
+            assert math.isclose(steer_from(psi_ref), held, abs_tol=1e-6)
 
     def test_term_is_inert_when_its_weight_is_zero(self):
         """

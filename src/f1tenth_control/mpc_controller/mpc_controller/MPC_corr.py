@@ -18,7 +18,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveCommand, MpcSolverStatus, Obstacle2DArray, TurnGoal)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
-from mpc_controller.mpc_solver import solve_mpc_step
+from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from sensor_msgs.msg import JointState
 from sensor_msgs.msg import Imu
 from tf2_ros import (
@@ -433,6 +433,31 @@ class MPCController(Node):
         # MPC / modello
         # =========================
         self.last_u = np.array([0.0, 0.0], dtype=float)
+
+        # Previous tick's solved control sequence, shifted one step, handed
+        # back to the RTI solver as its linearization reference AND OSQP's
+        # initial iterate (mpc_solver.solve_mpc_step's warm_start_z). None
+        # means "no usable previous solution" -- the solver then tiles
+        # last_u, which is the pre-warm-start behaviour and the correct
+        # prior on the first tick of a move.
+        #
+        # WHAT INVALIDATES IT, and why each one:
+        #   - a failed solve            -- on failure the solver hands back
+        #     the guess it was given, so keeping it would re-seed the next
+        #     tick with the exact sequence that just failed to converge.
+        #   - a new move (_invalidate_move_state) -- the corridor's psiRef
+        #     changes there, so the stored plan was optimal for a DIFFERENT
+        #     terminal heading. That is the "warm start from another
+        #     corridor" bug and it is worse than no warm start at all.
+        #   - a drive command ending (_clear_drive_state) -- same reason,
+        #     plus vdes/avoidance_margin revert underneath it.
+        # A PERIODIC corridor rebuild (corridor_update_period, mid-move)
+        # deliberately does NOT invalidate it: that rebuild re-anchors the
+        # corridor's position and psiStart at the live pose but leaves
+        # psiRef -- the thing the stored plan was aiming at -- untouched.
+        # Dropping the warm start once a second would put ~10% of ticks back
+        # on the bad linearization this exists to remove.
+        self.warm_start_z: Optional[np.ndarray] = None
 
         self.wheel_radius = 0.05
         self.ts = 0.1
@@ -1731,6 +1756,13 @@ class MPCController(Node):
         self.drive_cmd = None
         self.vdes = self.vdes_default
         self.avoidance_margin = self.avoidance_margin_default
+        # The stored plan was optimal for THIS drive command's corridor
+        # (build_straight_corridor's drive branch: its own psiEnd, and for a
+        # wall_turn its own signed turn) at THIS command's vdes and standoff.
+        # All three change on the line above or on the next goal, so the plan
+        # is no longer a guess at the next solve's answer -- it is a guess at
+        # a different problem's answer. See self.warm_start_z's own comment.
+        self.warm_start_z = None
         self.get_logger().info(
             f'DRIVE/clear | drive command dropped; vdes -> {self.vdes:.2f} '
             f'avoidance_margin -> {self.avoidance_margin:.3f} (baselines restored)'
@@ -1912,14 +1944,14 @@ class MPCController(Node):
         expired. Clearing last_corridor_time forces need_update on the very
         next tick, which rebuilds AND publishes.
 
-        WHAT IS DELIBERATELY NOT RESET: self.last_u. The RTI warm start is
-        last_u tiled across the horizon (see mpc_solver._solve_rti), but last_u
-        is also the input actually being held by the hardware right now, and it
-        is what w_du_delta measures the next command against. Zeroing it on a
-        goal boundary would command a steering snap to centre and charge the
-        rate cost for a discontinuity the car never made. The linearization
-        trajectory it seeds is re-rolled from the live x0 every tick anyway, so
-        it carries no stale corridor information.
+        WHAT IS DELIBERATELY NOT RESET: self.last_u. It is the input actually
+        being held by the hardware right now, and it is what w_du_delta
+        measures the next command against. Zeroing it on a goal boundary would
+        command a steering snap to centre and charge the rate cost for a
+        discontinuity the car never made. It is also the fallback the RTI
+        linearization tiles across the horizon once self.warm_start_z is
+        cleared below -- and unlike that stored plan it carries no stale
+        corridor information at all, being a single number about the present.
         """
         # Target smoothing / obstacle-deflection coast: previous move's state.
         self.smoothed_target = None
@@ -1930,6 +1962,17 @@ class MPCController(Node):
         self.last_corridor_time = None
         self.last_corridor_stamp = None
         self.cached_pref_nom = None
+        # The RTI warm start, for the same reason the corridor cache is here
+        # and on the same boundary: it is the previous MOVE's control plan,
+        # and the new move's corridor has a different psiRef. Seeding the
+        # first solve of a turn with the straight move's plan would linearize
+        # the whole QP around a trajectory aimed at the old heading -- the
+        # exact failure the corridor cache above was added to prevent, one
+        # layer down. Unlike last_u (see this docstring's own paragraph on
+        # why THAT is deliberately kept) this is not a physical quantity the
+        # hardware is holding; it is a stale opinion, and dropping it costs
+        # only the first tick's linearization quality.
+        self.warm_start_z = None
 
     def _update_active_odom(self):
         """Seleziona la sorgente odom attiva (hardware ha sempre priorita' se fresca)."""
@@ -2429,10 +2472,38 @@ class MPCController(Node):
             boundary_max_sources=self.boundary_max_sources,
             boundary_hard=self.boundary_hard,
             boundary_slack_weight=self.boundary_slack_weight,
+            warm_start_z=self.warm_start_z,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
 
+        # ---- carry this solve forward as the next tick's warm start.
+        # Done HERE, immediately on return, rather than further down beside
+        # self.last_u: several of the branches below return early (no usable
+        # x_pred, hold, goal reached), and a warm start updated on only some
+        # ticks is worse than one updated on none -- it would silently go
+        # stale by an unpredictable number of periods.
+        #
+        # A SOLVE THAT FAILED IS NOT A SOLUTION. On failure _solve_rti hands
+        # back the guess it was given (see its results.x check), so storing
+        # info["zopt"] there would re-seed the next tick with the exact
+        # sequence that just failed, and every tick after that. Drop to None
+        # and let the solver tile last_u -- a different point, and a
+        # dynamically consistent one.
+        #
+        # "solved inaccurate" IS KEPT, deliberately. OSQP reports it when it
+        # hits max_iter having met the loose tolerance but not the tight one:
+        # the iterate is a real, near-feasible solution, and it is precisely
+        # the case where a good warm start next tick is what buys the
+        # convergence. Discarding it would tile last_u instead, guaranteeing
+        # the solver never climbs out of the inaccurate regime it is in.
+        # info["success"] is already False for the genuinely unusable cases
+        # (non-finite, infeasibility certificate), so that flag -- not the
+        # status string -- is the right discriminator.
+        if info.get("success", False):
+            self.warm_start_z = shift_warm_start(info.get("zopt"), self.N)
+        else:
+            self.warm_start_z = None
 
         # ---- DEBUG: tempo di soluzione; se supera ts il loop va in ritardo ----
         # status_message added for this diagnostic run (hard boundary
