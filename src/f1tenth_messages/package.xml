@@ -13,6 +13,9 @@
   BoundaryConstraintArray (hard linear boundary constraints for
   mpc_controller's OSQP/RTI solver -- published by wall_detector_node's
   front wall check and the lidar boundary node's left/right line fits).
+  WallLineFit/WallEstimate (f1tenth_perception's lidar_front_wall_node: the
+  forward LiDAR wall-line fit, and the measured, dead-reckoned or seeded front
+  wall distance built from it).
   Merged from the former
   f1tenth_diagnostics_msgs and f1tenth_bringup_msgs -- separate ament_cmake
   interfaces-only package since both consumer packages are pure ament_python,
