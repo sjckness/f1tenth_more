@@ -1,0 +1,35 @@
+{
+  "command": "vai avanti e fermati davanti alla sedia",
+  "intent": {
+    "plan": [
+      {
+        "mode": "straight",
+        "guard": "front_object",
+        "thresh": 1.0
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_3cca95181175",
+    "schema_version": "3.0",
+    "moves": [
+      {
+        "id": "move_0_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.4
+        },
+        "stop_condition": {
+          "type": "obstacle_distance_below",
+          "distance": 1.0,
+          "forward_only": true
+        },
+        "timeout_sec": 80,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

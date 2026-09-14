@@ -1,0 +1,72 @@
+{
+  "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+  "intent": {
+    "plan": [
+      {
+        "mode": "straight",
+        "guard": "wall",
+        "thresh": 3.0
+      },
+      {
+        "mode": "turn",
+        "dir": "right"
+      },
+      {
+        "mode": "straight",
+        "guard": "distance",
+        "thresh": 2.0
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_aea306d7f3c4",
+    "schema_version": "3.0",
+    "moves": [
+      {
+        "id": "move_0_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.4
+        },
+        "stop_condition": {
+          "type": "front_clearance",
+          "distance": 3.0,
+          "debounce_ticks": 3
+        },
+        "timeout_sec": 80,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_1_turn",
+        "drive": {
+          "mode": "wall_turn",
+          "turn_sign": -1.0,
+          "turn_mag_deg": 90.0,
+          "speed": 0.5
+        },
+        "stop_condition": {
+          "type": "orientation_delta",
+          "value": 90.0
+        },
+        "timeout_sec": 27,
+        "on_timeout": "abort"
+      },
+      {
+        "id": "move_2_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.4
+        },
+        "stop_condition": {
+          "type": "distance_reached",
+          "distance": 2.0
+        },
+        "timeout_sec": 20,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

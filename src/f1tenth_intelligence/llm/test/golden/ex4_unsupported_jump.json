@@ -1,0 +1,37 @@
+{
+  "command": "vai dritto fino al muro, poi salta sopra la scatola e fermati",
+  "intent": {
+    "plan": [
+      {
+        "mode": "straight",
+        "guard": "wall",
+        "thresh": 3.0
+      }
+    ],
+    "unsupported": [
+      "saltare sopra la scatola"
+    ]
+  },
+  "requires_confirmation": true,
+  "mission": {
+    "mission_id": "llm_7fd864a3a596",
+    "schema_version": "3.0",
+    "moves": [
+      {
+        "id": "move_0_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.4
+        },
+        "stop_condition": {
+          "type": "front_clearance",
+          "distance": 3.0,
+          "debounce_ticks": 3
+        },
+        "timeout_sec": 80,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

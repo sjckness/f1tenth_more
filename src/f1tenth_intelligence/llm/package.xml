@@ -38,13 +38,20 @@
        pattern); that node is gone now (see git history), but this
        dependency stays: llm_planner_node still needs it on its own. -->
   <exec_depend>python3-requests</exec_depend>
+  <!-- plan_translate.translate() validates the LLM intent against
+       schemas/intent_v1.json before translating it. A malformed intent must
+       be a named rejection, not a KeyError halfway through the mapping. -->
+  <exec_depend>python3-jsonschema</exec_depend>
   <!-- get_package_share_directory('f1tenth_behavior') at runtime, to write
        LLM-generated mission JSON files under its installed missions/
        directory (see llm_planner_node._write_mission_file) and to reach the
        real mission service names (/mission/load_mission etc., owned by
-       f1tenth_behavior's MissionLoader) this node's clients target. No
-       Python import from f1tenth_behavior itself; only its installed
-       share directory and its ROS service names. -->
+       f1tenth_behavior's MissionLoader) this node's clients target.
+       ALSO A REAL PYTHON IMPORT since the intent translator landed:
+       plan_translate._validate_output() calls mission_config.parse_mission()
+       on everything it emits, rather than checking a second, drifting copy
+       of the v3.0 rules. mission_config is pure stdlib, so this pulls in no
+       rclpy. -->
   <exec_depend>f1tenth_behavior</exec_depend>
   <!-- param_defaults.py: shared launch-param defaults (see f1tenth_params/config/
        stack_params.yaml). f1tenth_params is a dependency-free leaf package;

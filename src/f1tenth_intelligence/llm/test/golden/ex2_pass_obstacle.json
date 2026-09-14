@@ -1,0 +1,34 @@
+{
+  "command": "vai dritto, supera l'ostacolo e avanza 3 metri",
+  "intent": {
+    "plan": [
+      {
+        "mode": "straight",
+        "guard": "distance",
+        "thresh": 3.0
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_fd5d8fd4f171",
+    "schema_version": "3.0",
+    "moves": [
+      {
+        "id": "move_0_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.4
+        },
+        "stop_condition": {
+          "type": "distance_reached",
+          "distance": 3.0
+        },
+        "timeout_sec": 28,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

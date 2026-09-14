@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://f1tenth.local/schemas/intent-v1.json",
+  "title": "F1TENTH navigation intent, v1",
+  "description": "The smallest thing the LLM is allowed to author. Speed, timeouts, abort policy, turn magnitude, move ids and schema version are NOT here on purpose: a model that can author its own timeout can author a 600-second one. plan_translate.translate() adds all of those from named config, and never guesses. NOTE ON multipleOf: the obvious way to say 'at most 2 decimals' is multipleOf 0.01, and it is DELIBERATELY ABSENT. JSON Schema evaluates it as float division, so 2.03/0.01 == 202.99999999999997 is not an integer and 2.03 is rejected -- 321 of the first 2000 valid 2-dp values fail that way under jsonschema 4.26.0. Decimal places are enforced in the translator instead, by rounding, which cannot false-reject. See also the per-guard thresh ranges, which are tighter than the blanket 0.2-20.0 below and are likewise enforced exactly once, in the translator (GUARD_THRESH_RANGE).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["plan", "unsupported"],
+  "properties": {
+    "plan": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "guard", "thresh"],
+            "properties": {
+              "mode": { "const": "straight" },
+              "guard": { "enum": ["wall", "front_object", "distance"] },
+              "thresh": { "type": "number", "minimum": 0.2, "maximum": 20.0 }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "dir"],
+            "properties": {
+              "mode": { "const": "turn" },
+              "dir": { "enum": ["left", "right"] }
+            }
+          }
+        ]
+      }
+    },
+    "unsupported": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 200 },
+      "maxItems": 10
+    }
+  }
+}

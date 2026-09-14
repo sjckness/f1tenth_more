@@ -15,6 +15,8 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        (os.path.join('share', package_name, 'schemas'), glob('schemas/*.json')),
+        (os.path.join('share', package_name, 'prompts'), glob('prompts/*.txt')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

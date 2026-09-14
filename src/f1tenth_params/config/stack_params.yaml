@@ -2010,3 +2010,49 @@ wall_distance_geom_inlier_distance_m:
   default: 0.03
   # real, measured on ~58k archived scans
   description: "Perpendicular distance [m] within which a return is an inlier of a geometric line. 0.03 is this LiDAR's own measured inlier distance -- the same number and the same sensor as lidar_front_wall_inlier_distance_m, deliberately tighter than glass_line_inlier_dist (0.05), which is loose because a pane's support returns span a wide incidence range where range error grows."
+
+# ============================================================
+# mission_translator -- llm/plan_translate.translate()
+# ============================================================
+# Everything translate() is allowed to inject into a mission the LLM did not
+# author. The model emits INTENT only (schemas/intent_v1.json): no speed, no
+# timeout, no turn magnitude, no ids. Each key below is one of the four
+# permitted provenance sources -- see plan_translate.py's "INTENT v1 ->
+# mission v3.0" header for the rule, and llm/README.md for the D1-D4 record.
+#
+# TranslatorConfig duplicates these defaults so the module stays importable
+# without an ament index; test_intent_translate.py asserts the two agree, so
+# changing a value here without changing it there fails the suite.
+mission_translator_speed_straight:
+  default: 0.4
+  # real: the run-up speed of missions/wall_turn.json, run on hardware 2026-09-14
+  description: "Speed [m/s] for a straight intent phase. Not an independent guess: it is the speed missions/wall_turn.json runs its 2 m straight run-up at."
+mission_translator_speed_turn:
+  default: 0.5
+  # real: the turn speed of missions/wall_turn.json, run on hardware 2026-09-14
+  description: "Speed [m/s] for a turn intent phase. The speed missions/wall_turn.json turns at, which is deliberately higher than the straight run-up."
+mission_translator_turn_magnitude_deg:
+  default: 90.0
+  description: "Magnitude [deg] of every turn the translator emits, written into BOTH drive.turn_mag_deg and stop_condition.value from one variable. The behaviour tree honours any value -- condition_eval's orientation_delta ends the move on abs(turn_accum_deg) >= abs(value), nothing clamps it to 90 -- so this is a real choice. It stays 90 because 90 is the only magnitude the stack has been run at, and the MPC side of a larger turn is unverified."
+mission_translator_nominal_yaw_rate:
+  default: 0.22
+  # real, measured: mission_reports/wall_turn_20260914T160547.json
+  description: "Assumed yaw rate [rad/s] used ONLY to size a turn's timeout. Never commands anything, so a wrong value makes the timeout loose or tight and cannot steer the car. MEASURED, not synthetic: the 2026-09-14 hardware run of missions/wall_turn.json turned 1.6091 rad in 7.3747 s = 0.2182 rad/s at drive.speed 0.5. The first draft of this key said 0.6, which is 2.8x too fast and sized a 90 deg turn's timeout at 13 s against an observed 7.4 s turn."
+mission_translator_open_guard_max_distance:
+  default: 10.0
+  # SYNTHETIC -- retune on hardware
+  description: "Assumed worst-case travel [m] for the guards that have no bounded distance (wall, front_object), used to size their timeout. Without it an open guard that never fires produces a move that never ends -- which is exactly what the generated missions before this work did, since they carried no timeout at all. SYNTHETIC."
+mission_translator_timeout_factor:
+  default: 3.0
+  # SYNTHETIC -- retune on hardware
+  description: "Multiplier on the expected duration in timeout_sec = clamp(ceil(expected_s * factor + floor), 1, 300). 3x leaves room for a slow start and a guard that fires late without letting a stuck move run for minutes. SYNTHETIC."
+mission_translator_timeout_floor:
+  default: 5.0
+  # SYNTHETIC -- retune on hardware
+  description: "Constant [s] added in the timeout formula, so a very short move still gets time to start moving at all. SYNTHETIC."
+mission_translator_mission_id_prefix:
+  default: "llm"
+  description: "Prefix of the generated mission_id, which is f'{prefix}_{sha1(canonical_json(intent))[:12]}'. Deterministic on purpose: the same intent yields the same id, so golden tests are stable and a re-issued command is recognisable as the same mission. Never a timestamp."
+mission_translator_post_turn_uses_straight:
+  default: true
+  description: "Decision D1. true: a straight phase after a turn is emitted as drive.mode 'straight', which is what plan_translate has always done and what missions/wall_turn_then_straight.json exercises. false restores the old workaround (re-emit it as a wall_turn carrying the previous turn's sign and zero magnitude) for the case where a straight move after a turn turns out not to hold its heading on hardware. NOT YET CONFIRMED ON HARDWARE -- wall_turn_then_straight.json has not been run."

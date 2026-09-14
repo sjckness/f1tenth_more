@@ -1,0 +1,11 @@
+{
+  "command": "gira e vai avanti un po'",
+  "intent": {
+    "plan": [],
+    "unsupported": [
+      "ambiguo: direzione della svolta non specificata",
+      "ambiguo: distanza non specificata"
+    ]
+  },
+  "raises": "EmptyPlanError"
+}
