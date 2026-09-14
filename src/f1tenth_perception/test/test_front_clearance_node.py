@@ -455,6 +455,58 @@ class TestObjectConfidenceEma:
         assert float(conf[0, 0]) > 0.5   # still excluded on the next frame
         node.destroy_node()
 
+    def test_a_new_object_is_excluded_on_its_very_first_frame(self):
+        """Attack must be INSTANT -- the bug this locks out reached a real car.
+
+        With a symmetric EMA, confidence ramps up from 0 and needs
+        ceil(ln 0.5 / ln(1 - alpha)) frames to cross background_weight_
+        threshold: at mask_time_constant 0.35 s against a ~17 Hz depth stream
+        that is 5 frames / ~294 ms during which a CONTINUOUSLY DETECTED object
+        is still counted as background, dragging front_distance off the wall and
+        toward the object. 294 ms is several BT ticks, so a mission guard with
+        debounce_ticks 3 stops the car at a person standing in front of a wall
+        metres further back -- which is exactly what it did.
+        """
+        node = _construct({'mask_time_constant': 0.35})
+        zeros = np.zeros((4, 4), dtype=np.float32)
+        ones = np.ones((4, 4), dtype=np.float32)
+        # Establish a settled all-background map first, so this is a genuine
+        # 0 -> 1 transition and not the first-frame seeding path.
+        node._update_object_confidence(zeros, now=100.0)
+        node._update_object_confidence(zeros, now=100.06)
+        conf = node._update_object_confidence(ones, now=100.12)
+        assert float(conf[0, 0]) == pytest.approx(1.0), (
+            'a detected object must be fully excluded on the frame it appears')
+        node.destroy_node()
+
+    def test_release_is_still_smoothed_after_the_attack_change(self):
+        """The asymmetry must not have collapsed into a binary switch: decay is
+        still the EMA, which is what damps edge wobble and detection dropouts
+        (both release-side). Guards against 'fixing' the ramp by dropping the
+        filter entirely."""
+        node = _construct({'mask_time_constant': 0.35})
+        ones = np.ones((4, 4), dtype=np.float32)
+        zeros = np.zeros((4, 4), dtype=np.float32)
+        node._update_object_confidence(ones, now=100.0)
+        c1 = float(node._update_object_confidence(zeros, now=100.06)[0, 0])
+        c2 = float(node._update_object_confidence(zeros, now=100.12)[0, 0])
+        assert 0.0 < c2 < c1 < 1.0, 'release must decay gradually, not switch'
+        node.destroy_node()
+
+    def test_partial_footprint_only_attacks_where_the_object_is(self):
+        """max() is elementwise: an object appearing in one corner must not
+        raise confidence anywhere else, or the exclusion would eat the wall
+        pixels the estimate depends on."""
+        node = _construct({'mask_time_constant': 0.35})
+        zeros = np.zeros((4, 4), dtype=np.float32)
+        node._update_object_confidence(zeros, now=100.0)
+        raw = np.zeros((4, 4), dtype=np.float32)
+        raw[0, 0] = 1.0
+        conf = node._update_object_confidence(raw, now=100.06)
+        assert float(conf[0, 0]) == pytest.approx(1.0)
+        assert float(conf[3, 3]) == pytest.approx(0.0)
+        node.destroy_node()
+
     def test_none_holds_the_map_completely(self):
         node = _construct()
         ones = np.ones((4, 4), dtype=np.float32)
@@ -490,22 +542,47 @@ class TestObjectConfidenceEma:
         assert conf.shape == (8, 8)
         node.destroy_node()
 
-    def test_continuous_detection_with_wobbling_edges_is_damped(self):
+    def test_continuous_detection_with_wobbling_edges_stays_excluded(self):
         # The larger jitter source, per the module docstring: an object that
         # is never missed, whose silhouette breathes by a pixel every frame.
         # The boundary pixel must not alternate between fully-excluded and
-        # fully-included.
+        # fully-included in the background statistics.
+        #
+        # THIS TEST USED TO ASSERT `0.0 < edge < 1.0` AND THAT WAS THE WRONG
+        # THING TO CHECK -- it pinned the mechanism (a mid-range confidence)
+        # instead of the property in its own comment (a stable exclusion
+        # decision), and the mechanism it pinned did not deliver that property.
+        # Measured on the symmetric EMA it was written against: a 50/50
+        # wobbling pixel converges to conf ~0.27-0.46 at mask_time_constant
+        # 0.35 s / dt 0.05 s, i.e. NEVER above background_weight_threshold, so
+        # the boundary pixel was permanently handed BACK to the background --
+        # the failure the docstring says this filter exists to prevent, passing
+        # its own test. What it actually proved was "the number is not 0 and not
+        # 1".
+        #
+        # Now asserted on the exclusion decision every frame, which is what
+        # consumers see, and which holds under the attack-instant filter
+        # (conf alternates 0.867 / 1.0, both excluded).
         node = _construct({'mask_time_constant': 0.35})
         wide = np.zeros((4, 4), dtype=np.float32)
         wide[:, 0:3] = 1.0
         narrow = np.zeros((4, 4), dtype=np.float32)
         narrow[:, 0:2] = 1.0
         t = 0.0
+        decisions = []
         for i in range(10):
             node._update_object_confidence(wide if i % 2 else narrow, now=t)
             t += 0.05
-        edge = float(node.object_conf_mask[0, 2])
-        assert 0.0 < edge < 1.0
+            # Settle first: the opening frames are the ramp, not the steady
+            # state this is about.
+            if i >= 4:
+                decisions.append(float(node.object_conf_mask[0, 2]) > 0.5)
+        assert all(decisions), (
+            f'boundary pixel flipped back into the background estimate: '
+            f'{decisions}')
+        # Still a filter, not a latch: the pixel's confidence must come back
+        # down between object frames rather than pinning at 1.0 forever.
+        assert float(node.object_conf_mask[0, 2]) <= 1.0
         node.destroy_node()
 
 
@@ -803,4 +880,254 @@ class TestTransitionLogging:
             node.depth_callback(wall)
         assert len(calls) == after_first     # no per-frame logging
         assert after_first >= 1              # but the transition did log
+        node.destroy_node()
+
+
+# ==============================================================================
+# The -Inf too-close short-circuit
+#
+# WHAT THESE ARE DEFENDING, stated plainly because the bug they cover was live
+# in this node and looked like correct code: -Inf is the ZED reporting
+# something CLOSER than it can measure, NaN/+Inf mean no stereo match, and
+# `np.isfinite` cannot tell them apart. Dropping -Inf with the rest does not
+# merely lose the reading -- it inverts it, in three independent places (the
+# percentile band rises over the surviving farther pixels; the valid count
+# collapses so the EMA holds its last far value; the wall latch is driven
+# toward "no wall"). Every test below asserts that none of those three paths
+# is taken.
+#
+# The pair of tests pinning NaN/+Inf behaviour is not redundant with the ones
+# above them in this file: the split is exactly where that behaviour would
+# silently drift, so it gets asserted from both sides.
+# ==============================================================================
+
+# Defaults on a 100x100 frame: ROI is y 15..85, x 0..100 (roi_half_h 35,
+# roi_half_w 90 clamped by the image) = 7000 px, of which the LiDAR housing
+# rectangle (x >= 0.75w, y >= 0.55h) covers 25 x 30 = 750. So 6250 px are
+# considered, and the 0.02 default threshold is 125 of them.
+_ROI_ROWS = slice(15, 85)
+_CONSIDERED_PX = 6250
+
+
+def _depth_with_too_close_rows(n_rows, background=5.0, size=100):
+    """A frame whose ROI is `background` everywhere except `n_rows` rows of
+    -Inf, placed at the TOP of the ROI so they miss the LiDAR housing
+    rectangle (which sits in the bottom-right)."""
+    depth = np.full((size, size), background, dtype=np.float32)
+    depth[_ROI_ROWS.start:_ROI_ROWS.start + n_rows, :] = -np.inf
+    return depth
+
+
+class TestTooCloseShortCircuit:
+    def test_a_too_close_roi_publishes_the_floor(self):
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.2)
+        assert node.front_blocked_pub.publish.call_args[0][0].data is True
+        node.destroy_node()
+
+    def test_it_does_not_report_the_rising_far_background(self):
+        # THE core inversion. Dropping the -Inf rows leaves only the 5.0 m
+        # background, so the naive implementation reports the car is FURTHER
+        # from an obstacle the closer that obstacle gets.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40, background=5.0)))
+        clearance = node.front_clearance_pub.publish.call_args[0][0].data
+        assert clearance == pytest.approx(0.2)
+        assert clearance < 5.0
+        node.destroy_node()
+
+    def test_it_does_not_hold_the_previous_far_ema_value(self):
+        # The second inversion: with the -Inf pixels dropped the valid count
+        # can fall under min_bg_pixels_for_reading, at which point
+        # EmaFilter.update(None) holds the last -- far -- value forever.
+        node = _construct({'min_bg_pixels_for_reading': 5000})
+        node.depth_callback(_depth_msg(np.full((100, 100), 6.0, dtype=np.float32)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(6.0)
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40, background=6.0)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.2)
+        assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(-1.0)
+        node.destroy_node()
+
+    def test_it_does_not_report_a_wall(self):
+        # The third inversion: the wall latch is fed a pixel count that is
+        # COLLAPSING at exactly the moment a surface is closest.
+        node = _construct({'wall_enter_px': 10, 'wall_min_dwell_frames': 1,
+                           'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(np.full((100, 100), 3.0, dtype=np.float32)))
+        assert node.front_wall_pub.publish.call_args[0][0].data is True
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40, background=3.0)))
+        assert node.front_wall_pub.publish.call_args[0][0].data is False
+        node.destroy_node()
+
+    def test_it_fires_on_the_very_first_frame_with_no_dwell(self):
+        # No latch, so no dwell delay -- a dwell of 2 frames is 2 frames the
+        # car spends believing it is clear.
+        node = _construct({'clearance_min_dwell_frames': 5,
+                           'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40)))
+        assert node.front_blocked_pub.publish.call_args[0][0].data is True
+        node.destroy_node()
+
+    def test_it_publishes_all_four_topics_exactly_once(self):
+        # The short-circuit returns early; it must not break the node's
+        # "one message per topic per depth frame" invariant.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40)))
+        assert node.front_distance_pub.publish.call_count == 1
+        assert node.front_wall_pub.publish.call_count == 1
+        assert node.front_clearance_pub.publish.call_count == 1
+        assert node.front_blocked_pub.publish.call_count == 1
+        node.destroy_node()
+
+    def test_debug_topics_still_publish_on_a_too_close_frame(self):
+        node = _construct({'publish_debug_raw': True,
+                           'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40)))
+        assert node.front_distance_raw_pub.publish.call_count == 1
+        assert node.bg_pixel_count_pub.publish.call_count == 1
+        node.destroy_node()
+
+    def test_the_floor_is_the_configured_parameter(self):
+        node = _construct({'too_close_clearance_m': 0.35,
+                           'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.35)
+        node.destroy_node()
+
+    def test_the_filters_are_stepped_with_none_not_with_the_floor(self):
+        # The override is published, never fed forward: seeding the EMA with
+        # the floor would drag the next several real readings toward it.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(np.full((100, 100), 4.0, dtype=np.float32)))
+        seeded = node.clearance_filter.value
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40, background=4.0)))
+        assert node.clearance_filter.value == pytest.approx(seeded)
+        node.destroy_node()
+
+    def test_a_too_close_episode_resets_the_dwell_counters(self):
+        # update(None) is the documented "no measurement" path; a partly
+        # accumulated flip must not survive across the episode.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.blocked_latch._candidate = True
+        node.blocked_latch._dwell_count = 1
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40)))
+        assert node.blocked_latch._dwell_count == 0
+        node.destroy_node()
+
+
+class TestTooCloseThreshold:
+    def test_below_the_threshold_does_not_trip_it(self):
+        # 1 row = 100 px < the 125 px the 0.02 default requires. Speckle, not
+        # an object -- and it must still be dropped as invalid, leaving the
+        # ordinary background reading.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(1, background=5.0)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(5.0)
+        assert node.front_blocked_pub.publish.call_args[0][0].data is False
+        node.destroy_node()
+
+    def test_just_above_the_threshold_trips_it(self):
+        # 2 rows = 200 px > 125.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(2, background=5.0)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.2)
+        node.destroy_node()
+
+    def test_crossing_the_threshold_in_both_directions(self):
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        for n_rows, expect_too_close in ((0, False), (40, True), (0, False),
+                                         (40, True), (1, False)):
+            node.depth_callback(_depth_msg(
+                _depth_with_too_close_rows(n_rows, background=5.0)))
+            clearance = node.front_clearance_pub.publish.call_args[0][0].data
+            blocked = node.front_blocked_pub.publish.call_args[0][0].data
+            if expect_too_close:
+                assert clearance == pytest.approx(0.2), n_rows
+                assert blocked is True, n_rows
+            else:
+                assert clearance > 1.0, n_rows
+                assert blocked is False, n_rows
+        node.destroy_node()
+
+    def test_an_explicit_fraction_parameter_is_honoured(self):
+        # 1 row = 100/6250 = 1.6%. Below the 2% default, above a 1% setting.
+        strict = _construct({'too_close_min_pixel_fraction': 0.01,
+                             'min_bg_pixels_for_reading': 1})
+        strict.depth_callback(_depth_msg(_depth_with_too_close_rows(1)))
+        assert strict.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.2)
+        strict.destroy_node()
+
+    def test_the_cars_own_lidar_housing_cannot_trip_it(self):
+        # The housing is a permanent close-range fixture in the ZED's FOV.
+        # If it ever reads -Inf and is counted, the short-circuit latches on
+        # forever and the signal is worthless.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        depth = np.full((100, 100), 5.0, dtype=np.float32)
+        depth[55:100, 75:100] = -np.inf   # exactly the exclusion rectangle
+        node.depth_callback(_depth_msg(depth))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(5.0)
+        assert node.front_blocked_pub.publish.call_args[0][0].data is False
+        node.destroy_node()
+
+    def test_an_object_masked_region_still_counts_toward_too_close(self):
+        # An object at too-close range is the case being caught -- excluding
+        # masked pixels from the count would defeat the check entirely.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node._latest_detections = _detections([(50, 30, 100, 40)])
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40, background=5.0)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.2)
+        node.destroy_node()
+
+
+class TestNaNAndPosInfBehaviourIsUnchanged:
+    """The split is where this would silently drift, so it is pinned from
+    both sides: NaN/+Inf must keep meaning "unknown, no stereo match" and
+    must keep being dropped exactly like a masked pixel."""
+
+    def test_nan_does_not_trip_the_short_circuit(self):
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        depth = np.full((100, 100), 5.0, dtype=np.float32)
+        depth[_ROI_ROWS] = np.nan
+        depth[70:85, :] = 5.0
+        node.depth_callback(_depth_msg(depth))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(5.0)
+        assert node.front_blocked_pub.publish.call_args[0][0].data is False
+        node.destroy_node()
+
+    def test_pos_inf_does_not_trip_the_short_circuit(self):
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        depth = np.full((100, 100), 5.0, dtype=np.float32)
+        depth[_ROI_ROWS] = np.inf
+        depth[70:85, :] = 5.0
+        node.depth_callback(_depth_msg(depth))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(5.0)
+        assert node.front_blocked_pub.publish.call_args[0][0].data is False
+        node.destroy_node()
+
+    def test_an_all_nan_roi_still_holds_rather_than_reporting_too_close(self):
+        # "Unknown" must not be promoted to "something is touching the lens".
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(np.full((100, 100), 7.0, dtype=np.float32)))
+        node.depth_callback(_depth_msg(np.full((100, 100), np.nan, dtype=np.float32)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(7.0)
+        node.destroy_node()
+
+    def test_nan_and_pos_inf_are_still_dropped_from_the_estimate(self):
+        # The pre-existing assertion, restated on the far side of the split.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        depth = np.full((100, 100), 2.0, dtype=np.float32)
+        depth[0:50, :] = np.nan
+        depth[50:60, :] = np.inf
+        node.depth_callback(_depth_msg(depth))
+        assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(2.0)
+        node.destroy_node()
+
+    def test_a_mixed_roi_of_nan_and_neg_inf_trips_on_the_neg_inf_alone(self):
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        depth = np.full((100, 100), 5.0, dtype=np.float32)
+        depth[15:55, :] = np.nan          # unknown, must not count
+        depth[55:57, 0:70] = -np.inf      # 140 px too close, must count
+        node.depth_callback(_depth_msg(depth))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.2)
         node.destroy_node()

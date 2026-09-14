@@ -209,6 +209,8 @@ def generate_launch_description():
         ('roi_half_width_px', int),
         ('roi_half_height_px', int),
         ('min_bg_pixels_for_reading', int),
+        ('too_close_clearance_m', float),
+        ('too_close_min_pixel_fraction', float),
         ('wall_enter_px', int),
         ('wall_exit_px', int),
         ('wall_min_dwell_frames', int),

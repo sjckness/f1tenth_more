@@ -46,12 +46,21 @@ reused and the sources are not interchangeable:
     anything outside the camera's field of view, and inherits every failure
     mode of stereo depth (glass, texureless surfaces, direct sun).
   * /costmap/front_clearance -- f1tenth_costmap's costmap_boundary_node,
-    derived from slam_toolbox's occupancy grid. This is the one the mission
-    `front_clearance` stop_condition actually reads (see
-    f1tenth_behavior's check_stop_condition.py, whose front_clearance_topic
-    defaults to it, and mission/condition_eval.py). Writing
-    `stop_type: front_clearance` in a mission JSON gets the MAP-derived
-    value, NOT this node's.
+    derived from slam_toolbox's occupancy grid. This USED to be the one the
+    mission `front_clearance` stop_condition read; it is not any more. The map-
+    derived topic is left to the safety/diagnostic side: f1tenth_diagnostics'
+    steering_offset_calibration_node abort, and f1tenth_logger's recording.
+
+WHAT THE MISSION `front_clearance` STOP_CONDITION READS: this node's
+/perception/front_DISTANCE, NOT the identically-named front_clearance above
+(see f1tenth_behavior's check_stop_condition.py, whose front_clearance_topic
+default points at front_distance, and mission/condition_eval.py). The
+stop_condition type name is a misnomer kept for schema compatibility. A
+mission means "stop N metres from the WALL", so it needs the object-excluded
+background distance; routing it to front_clearance would make any object in
+the corridor -- the very thing front_clearance exists to notice -- hijack the
+wall guard and stop the car short. The two are one letter apart in the config
+and opposite in meaning, which is why this section is here.
   * /perception/front_clearance as published by the RETIRED
     wall_detector_node (Open3D RANSAC plane segmentation on the ZED point
     cloud). That node was deleted -- see detection.launch.py's own docstring
@@ -60,9 +69,26 @@ reused and the sources are not interchangeable:
     Foxglove layout, or a pre-retirement doc under this name is that node's
     output, not this one's.
 
-Nothing subscribes to /perception/front_clearance or /perception/front_blocked
-as of this pass. Migrating a consumer onto them is a deliberate decision with
-its own validation, not a rename.
+/perception/front_distance has two subscribers: MPC_corr.py (pre-existing, via
+the front_depth_monitor_node swap) and f1tenth_behavior's CheckStopCondition,
+for the mission `front_clearance` stop_condition. Note what that guard
+inherits: every tuning default in this node is still unfitted, so a mission
+that stops on front_distance is only as accurate as the ROI/percentile/EMA
+constants below.
+
+Nothing subscribes to /perception/front_clearance or /perception/front_blocked,
+and that is DELIBERATE, not an unfinished wiring job. The safety path trips on
+LiDAR /scan instead (f1tenth_behavior's IsProximityTooClose), because the ZED
+front check was deliberately REMOVED from it: stereo depth is unreliable
+against large flat/featureless walls and was a live suspect for the
+intermittent mid-mission stop-then-resume, where a noisy near-threshold
+reading trips an e-stop that self-clears next frame. That behaviour's own
+module docstring carries the full reasoning, and a regression test
+(test_is_proximity_too_close.py's test_no_camera_front_distance_subscription_
+remains) asserts the camera path stays out. This node's filtering is aimed at
+exactly that flapping, so re-wiring it is defensible -- but it is a decision
+to make against measured jitter on a real run, and it means deleting that
+test on purpose.
 
 WHY THE OBJECT-EXCLUSION MASK IS AN EMA AND NOT A FRESHNESS WINDOW
 ------------------------------------------------------------------
@@ -83,6 +109,16 @@ wall-clock constant rather than a frame-count one -- this node's rate is set
 by the depth stream and is not fixed. Background weight is `1 - confidence`.
 A dropout decays the exclusion smoothly instead of deleting it; edge wobble
 averages out instead of switching.
+
+THE FILTER IS ASYMMETRIC: attack instant, release EMA'd. Confidence is
+`max(this frame's raw footprint, the EMA)`, so a pixel that is object NOW is
+excluded NOW and only the DECAY is smoothed. Both jitter sources above are
+release-side -- wobble and dropouts are about not RE-ADMITTING a pixel -- so
+ramping the attack side bought nothing and cost the exclusion its purpose: a
+symmetric EMA left a newly-detected object counted as background for its
+first ~294 ms (alpha ~0.155 at 17 Hz), long enough for a mission guard with
+debounce_ticks 3 to stop the car at a person while the wall sat metres
+behind. See _update_object_confidence for the full reasoning.
 
 OBJECT-EXCLUSION SOURCE, in preference order
 --------------------------------------------
@@ -139,6 +175,54 @@ a latch a raw signal wastes the EMA sitting in front of it: the dead band
 would be re-crossed by exactly the per-frame noise the filter exists to
 remove, and the dwell counter would then be the only thing left holding the
 state, which is what the original implementation effectively relied on.
+
+ZED INVALID DEPTH: -Inf AND NaN/+Inf ARE NOT THE SAME THING
+------------------------------------------------------------
+They both fail `np.isfinite`, they both look like "bad pixel", and treating
+them alike is a FALSE-SAFE bug -- one that was live in this node until the
+too-close short-circuit below was added. Read this before touching
+`_too_close_fraction` or the validity mask, because collapsing the two back
+into one `np.isfinite` test is the obvious "simplification" and it silently
+restores the bug.
+
+  * `-Inf` means CLOSER THAN THE CAMERA'S MINIMUM MEASURABLE RANGE (~0.2 m
+    on this rig -- the same floor front_depth_monitor_node/detection_3d_node
+    spell as min_valid_depth). It is not missing data. It is a positive
+    measurement that something is right in front of the lens, and it is the
+    single most safety-relevant reading this node can receive.
+  * `NaN` / `+Inf` mean UNKNOWN -- no stereo match. Textureless wall, glass,
+    direct sun, an occlusion boundary. Genuinely no information.
+
+WHY DROPPING -Inf INVERTS THE ANSWER, in three independent places, which is
+why the fix is a short-circuit and not a smaller patch:
+
+  1. The percentile band is taken over the pixels that SURVIVE the validity
+     mask -- and every survivor is FURTHER AWAY than the object that produced
+     the -Inf. An object entering minimum range therefore makes the reported
+     distance go UP.
+  2. Losing those pixels drops the valid count. Below `min_bg_pixels_for_
+     reading` the frame yields None, and `EmaFilter.update(None)` HOLDS its
+     last -- far -- value.
+  3. `wall_latch` is fed that same collapsing pixel count and is deliberately
+     NOT gated on that floor, so it is driven toward front_wall = False,
+     "no wall here".
+
+An object pressed against the lens thus reads as far, stale-far, and
+wall-free at once. Nothing downstream of the validity mask can recover that,
+so the too-close case is detected BEFORE it and published directly, past the
+percentile band, past both EMAs and past both latches.
+
+`too_close_min_pixel_fraction` IS NOT A NOISE KNOB. It exists to separate a
+real object from isolated speckle -Inf pixels, nothing else. It is not a
+smoothing control and must never be raised to quieten the output -- raising
+it raises the size an object has to reach before the car notices it is
+touching one. If the signal is noisy, that is a depth-quality problem, and
+the honest fixes are the ROI bounds or the camera configuration.
+
+The car's own LiDAR housing is excluded from the too-close count for the same
+reason it is excluded from the background statistics (see above): it is a
+permanent close-range fixture in the ZED's field of view, and counting it
+would hold the short-circuit on forever.
 
 INSUFFICIENT DATA IS None, NOT -1.0
 ------------------------------------
@@ -321,6 +405,28 @@ class FrontClearanceNode(Node):
         self.roi_half_h = int(self.declare_parameter('roi_half_height_px', 35).value)
         self.min_bg_pixels = int(
             self.declare_parameter('min_bg_pixels_for_reading', 60).value)
+
+        # ---- too-close (-Inf) short-circuit --------------------------------
+        # See the module docstring's own "-Inf AND NaN/+Inf ARE NOT THE SAME
+        # THING" section for the ZED semantics and for why this has to bypass
+        # every filter rather than feed one.
+        #
+        # 0.2 m matches the ~0.2 m ZED minimum-stereo-range floor
+        # front_depth_monitor_node and detection_3d_node already spell as
+        # min_valid_depth -- one number for "the closest this camera can
+        # actually measure", three consumers. A -Inf pixel means the true
+        # distance is somewhere BELOW this, so publishing it is conservative
+        # in the right direction: it is an upper bound on a distance we know
+        # only by its ceiling.
+        self.too_close_clearance_m = float(
+            self.declare_parameter('too_close_clearance_m', 0.2).value)
+        # Fraction of the ROI (excluding the car's own LiDAR housing) that
+        # must read -Inf before the short-circuit fires. NOT a noise knob --
+        # see the module docstring. It separates a real object from isolated
+        # speckle; raising it raises how big an object must be before the car
+        # notices it is touching one.
+        self.too_close_min_fraction = float(
+            self.declare_parameter('too_close_min_pixel_fraction', 0.02).value)
 
         # ---- car's-own-LiDAR exclusion rectangle ---------------------------
         # Same five fractional params yolo_detector_node applies to detections,
@@ -554,8 +660,33 @@ class FrontClearanceNode(Node):
         # negative or undefined weight.
         alpha = 1.0 - math.exp(-dt / self.mask_time_constant) \
             if dt > 0.0 and self.mask_time_constant > 0.0 else 1.0
-        self.object_conf_mask = (
-            alpha * raw + (1.0 - alpha) * self.object_conf_mask).astype(np.float32)
+        ema = alpha * raw + (1.0 - alpha) * self.object_conf_mask
+
+        # ATTACK IS INSTANT, RELEASE IS THE EMA -- and the asymmetry is the
+        # whole point, not a shortcut.
+        #
+        # A symmetric EMA ramps a newly-detected object's pixels UP from 0,
+        # so for the first few frames of its life they sit below
+        # background_weight_threshold and are counted as BACKGROUND. At the
+        # deployed rates that hole is not marginal: mask_time_constant 0.35 s
+        # against a ~17 Hz depth stream gives alpha ~0.155, so confidence
+        # needs 5 frames (~294 ms) to cross 0.5. For those 294 ms an object
+        # that has been detected the entire time is inside the percentile
+        # band, dragging front_distance from the wall down toward the object
+        # -- and 294 ms is several BT ticks, so a mission guard with
+        # debounce_ticks 3 fires on the transient. That is a wall guard
+        # stopping at a person with the wall metres further back.
+        #
+        # Taking the elementwise max with this frame's raw footprint removes
+        # the ramp without touching either behaviour the EMA exists for (see
+        # the module docstring): a pixel that is object NOW is excluded NOW,
+        # while a pixel that has stopped being reported still decays down
+        # through `ema` over mask_time_constant instead of being deleted. Both
+        # documented purposes are release-side -- edge wobble must not re-admit
+        # a boundary pixel, and a detection dropout must not re-admit a
+        # still-present object -- so damping the attack side was never buying
+        # anything, and was costing the exclusion its whole reason to exist.
+        self.object_conf_mask = np.maximum(raw, ema).astype(np.float32)
         return self.object_conf_mask
 
     # ------------------------------------------------------------------------
@@ -649,15 +780,52 @@ class FrontClearanceNode(Node):
         x1 = min(w, cx + self.roi_half_w)
         roi = depth[y0:y1, x0:x1]
 
-        # 3. Valid == finite, positive, and not covered by an object.
+        # 3. The car's own LiDAR housing. Computed HERE, before the too-close
+        #    check rather than after the validity mask where it used to sit,
+        #    because BOTH now need it: it is a permanent close-range fixture in
+        #    the ZED's field of view, so counting it would dominate the low
+        #    percentile (its original reason) AND hold the too-close
+        #    short-circuit on forever (the new one). Same mask, one
+        #    computation, two consumers.
+        housing = self._lidar_exclusion_roi_mask((h, w), (y0, y1, x0, x1))
+
+        # 4. TOO CLOSE -- the safety short-circuit, deliberately ahead of the
+        #    validity mask and of every filter below it.
+        #
+        #    -Inf is NOT missing data: it is the ZED reporting something closer
+        #    than it can measure. Read the module docstring's own "-Inf AND
+        #    NaN/+Inf ARE NOT THE SAME THING" section before changing anything
+        #    here -- it spells out the three independent ways the machinery
+        #    below turns a dropped -Inf into evidence of CLEARANCE, which is
+        #    why this returns instead of feeding a value forward.
+        #
+        #    Object-masked pixels are deliberately NOT excluded from this
+        #    count: an object at too-close range is precisely the case being
+        #    caught, so masking it out would defeat the check entirely. The
+        #    housing is excluded, being the car's own hardware.
+        considered = int(roi.size) - int(np.count_nonzero(housing))
+        if considered > 0:
+            n_too_close = int(np.count_nonzero(np.isneginf(roi) & ~housing))
+            if (n_too_close / considered) >= self.too_close_min_fraction:
+                self._publish_too_close(n_too_close, considered)
+                return
+
+        # 5. Valid == finite, positive, and not covered by an object.
+        #
+        #    This is the NaN/+Inf path and its behaviour is UNCHANGED: both
+        #    still fail np.isfinite and are dropped as "unknown, no stereo
+        #    match", exactly like an object-masked pixel. -Inf also still fails
+        #    here, which is now harmless rather than dangerous -- any frame
+        #    carrying a meaningful amount of it already returned above, and a
+        #    residual speckle -Inf below the threshold genuinely is noise and
+        #    genuinely should be dropped.
         valid = np.isfinite(roi) & (roi > 0)
         if conf is not None:
             bg_weight = 1.0 - conf[y0:y1, x0:x1]
             valid &= (bg_weight >= self.bg_weight_threshold)
 
-        # 4. Cut out the car's own LiDAR housing BEFORE any statistics -- it is
-        #    a real close-range surface and would dominate the low percentile.
-        valid &= ~self._lidar_exclusion_roi_mask((h, w), (y0, y1, x0, x1))
+        # 6. Cut the housing out of the statistics -- see step 3.
+        valid &= ~housing
 
         bg_depths = roi[valid]
         n_valid = int(bg_depths.size)
@@ -665,18 +833,18 @@ class FrontClearanceNode(Node):
         raw_distance = (self._robust_background_distance(bg_depths)
                         if n_valid >= self.min_bg_pixels else None)
 
-        # 5. The WALL latch is fed the pixel COUNT, not the distance -- see the
+        # 7. The WALL latch is fed the pixel COUNT, not the distance -- see the
         #    module docstring. Note this is deliberately NOT gated on
         #    min_bg_pixels: a count below that floor is a real, meaningful
         #    observation of "the ROI is empty", and is exactly the evidence
         #    that should drive the latch toward False.
         front_wall = self.wall_latch.update(n_valid)
 
-        # 6. Background distance: EMA, holding on a None frame.
+        # 8. Background distance: EMA, holding on a None frame.
         self.distance_filter.update(raw_distance)
         smoothed_distance = self.distance_filter.value
 
-        # 7-8. Clearance: the nearer of the background and the nearest
+        # 9-10. Clearance: the nearer of the background and the nearest
         #      in-corridor obstacle, smoothed, then latched on the SMOOTHED
         #      value (see module docstring).
         object_distance = self._nearest_corridor_obstacle(now)
@@ -700,6 +868,85 @@ class FrontClearanceNode(Node):
 
         self._log_transitions(front_wall, front_blocked, n_valid,
                               smoothed_distance, smoothed_clearance)
+
+    def _publish_too_close(self, n_too_close, considered):
+        """Publish the too-close override for this frame and nothing else.
+
+        WHAT IS BYPASSED, and why each one has to be. Every stage below the
+        validity mask independently converts a dropped -Inf into evidence of
+        clearance (see the module docstring), so routing the override through
+        any of them would re-introduce the bug this exists to fix:
+
+          * the trimmed percentile band -- its input is the surviving pixels,
+            all of which are FURTHER than the object that produced the -Inf;
+          * both EMAs -- `distance_ema_alpha` would ramp toward the floor over
+            several frames while the object is already against the lens, and
+            on a frame with too few valid pixels `EmaFilter.update(None)` would
+            instead hold the last far value outright;
+          * both latches -- their dwell counters would delay the flip by
+            `*_min_dwell_frames`, and `wall_latch` would be reading a pixel
+            count that is COLLAPSING toward "no wall" at exactly the moment a
+            surface is closest.
+
+        The filters are still stepped with None, which is their documented
+        "no measurement this frame" path: it resets both dwell counters (so a
+        partly-accumulated flip cannot survive across a too-close episode) and
+        holds the EMAs without seeding them. Their held values are simply not
+        what gets published this frame. This is deliberately NOT a retune of
+        any of them -- the filter chain is adequate for real readings, and the
+        fault was always upstream of it.
+
+        WHAT IS PUBLISHED, one message per topic, preserving this node's
+        "every depth frame produces a message on every topic" invariant:
+
+          front_clearance  the floor (`too_close_clearance_m`) -- an upper
+                           bound on a distance known only by its ceiling.
+          front_blocked    True, immediately.
+          front_distance   -1.0, the node's own "no reading" sentinel. NOT the
+                           floor: front_distance means BACKGROUND/wall, and
+                           with something inside minimum range the background
+                           is genuinely unobserved. Publishing the floor here
+                           would report a wall at 0.2 m that nobody measured;
+                           publishing the held EMA value would be the stale
+                           far reading this whole change exists to prevent.
+          front_wall       False. The question it answers is "is a surface
+                           filling the ROI at a measurable distance", and the
+                           answer while something is inside minimum range is
+                           no. Published directly rather than through the
+                           latch, so no dwell delays it.
+        """
+        self.distance_filter.update(None)
+        self.clearance_filter.update(None)
+        self.wall_latch.update(None)
+        self.blocked_latch.update(None)
+
+        self.front_distance_pub.publish(Float32(data=-1.0))
+        self.front_wall_pub.publish(Bool(data=False))
+        self.front_clearance_pub.publish(
+            Float32(data=float(self.too_close_clearance_m)))
+        self.front_blocked_pub.publish(Bool(data=True))
+
+        if self.publish_debug_raw:
+            # No background reading was computed at all this frame, and no
+            # background pixels were counted -- the honest values, not zeros
+            # standing in for numbers that were never produced.
+            self.front_distance_raw_pub.publish(Float32(data=-1.0))
+            self.bg_pixel_count_pub.publish(Float32(data=0.0))
+
+        # Throttled WARN rather than the transition-only info the latches get:
+        # this is a safety event and it should be visible while it persists,
+        # but this node runs at the depth stream's rate and an unthrottled
+        # line would bury the console.
+        self.get_logger().warn(
+            f'TOO CLOSE | {n_too_close}/{considered} ROI px below the ZED\'s '
+            f'minimum measurable range ('
+            f'{100.0 * n_too_close / considered:.1f}% >= '
+            f'{100.0 * self.too_close_min_fraction:.1f}%): publishing '
+            f'front_clearance={self.too_close_clearance_m:.2f} m, '
+            'front_blocked=True, bypassing all filters.',
+            throttle_duration_sec=1.0)
+
+        self._log_transitions(False, True, 0, None, self.too_close_clearance_m)
 
     def _lidar_exclusion_roi_mask(self, depth_shape, roi_bounds):
         """Boolean array shaped like the ROI, True where the ROI overlaps the
