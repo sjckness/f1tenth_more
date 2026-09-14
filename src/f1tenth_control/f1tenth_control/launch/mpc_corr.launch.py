@@ -56,6 +56,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -198,6 +199,15 @@ def generate_launch_description():
             "Process niceness for mpc_corr. 0 (default): no-op. Negative "
             "values need CAP_SYS_NICE/root and fail non-fatally otherwise."))
 
+    # Model-validation CSV for tools/mpc_model_check.py (docs/DIAGNOSTICS.md).
+    # A relative path lands in the node's working directory; '' disables it.
+    # value_type=str so an empty override stays '' rather than being parsed
+    # to None by launch_ros's YAML type inference.
+    model_log_path_default, model_log_path_desc = get_default('mpc_model_log_path')
+    model_log_path_la = DeclareLaunchArgument(
+        'mpc_model_log_path', default_value=str(model_log_path_default),
+        description=model_log_path_desc)
+
     mpc_corr_node = Node(
         package='mpc_controller',
         executable='mpc_corr',
@@ -230,6 +240,8 @@ def generate_launch_description():
             'boundary_hard': LaunchConfiguration('boundary_hard'),
             'boundary_max_sources': LaunchConfiguration('boundary_max_sources'),
             'boundary_slack_weight': LaunchConfiguration('boundary_slack_weight'),
+            'model_log_path': ParameterValue(
+                LaunchConfiguration('mpc_model_log_path'), value_type=str),
         }],
     )
 
@@ -242,5 +254,5 @@ def generate_launch_description():
         delta_min_la, delta_max_la,
         obstacle_target_shift_m_la, corridor_heading_return_la,
         use_hard_boundary_constraints_la, boundary_hard_la,
-        boundary_max_sources_la, boundary_slack_weight_la, mpc_corr_node,
+        boundary_max_sources_la, boundary_slack_weight_la, model_log_path_la, mpc_corr_node,
     ])

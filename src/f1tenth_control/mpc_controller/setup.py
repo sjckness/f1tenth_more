@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'andre_mpc_node = mpc_controller.andre_mpc_node:main',
             'mpc_corr = mpc_controller.MPC_corr:main',
+            'model_log = mpc_controller.model_log:main',
         ],
     },
 )

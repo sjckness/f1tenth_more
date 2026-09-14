@@ -7,7 +7,8 @@ from typing import List, Tuple, Optional
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
+from rclpy.qos import (
+    QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool, Float32
@@ -16,11 +17,15 @@ from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, DriveCommand, MpcSolverStatus, Obstacle2DArray, TurnGoal)
+    BoundaryConstraintArray, DriveCommand, MpcSolverStatus, Obstacle2DArray, TurnGoal,
+    WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
+from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
+from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
+from mpc_controller.wall_turn import SMOOTHSTEP_PEAK_SLOPE, plan_wall_turn_step
 from sensor_msgs.msg import JointState
-from sensor_msgs.msg import Imu
+from sensor_msgs.msg import Imu, LaserScan
 from tf2_ros import (
     ConnectivityException,
     ExtrapolationException,
@@ -566,8 +571,12 @@ class MPCController(Node):
         # own docstring and mpc_corr.launch.py's matching comment.
         self.declare_parameter('nice', 0)
 
+        # Wheelbase: a declared parameter (stack_params.yaml's mpc_wheelbase_m)
+        # rather than the bare 0.305 literal it was, because the wall_turn
+        # increment derives R_min from it -- see wall_turn.py. Same value.
         self.params = {
-            "L": 0.305,
+            "L": float(self.declare_parameter(
+                'mpc_wheelbase_m', get_value('mpc_wheelbase_m')).value),
             "lr": 0.17,
         }
 
@@ -666,9 +675,123 @@ class MPCController(Node):
         # that is what the port is specified to reproduce -- but exposed so
         # the table above can be walked on the car instead of in a rebuild.
         self.corr_turn_u_start = float(
-            self.declare_parameter('corr_turn_u_start', 0.10).value)
+            self.declare_parameter(
+                'corr_turn_u_start', get_value('corr_turn_u_start')).value)
         self.corr_turn_u_end = float(
-            self.declare_parameter('corr_turn_u_end', 0.70).value)
+            self.declare_parameter(
+                'corr_turn_u_end', get_value('corr_turn_u_end')).value)
+
+        # wall_turn increment (build_straight_corridor's wall_turn branch, rule
+        # in wall_turn.py). Each corridor rebuild asks only for the part of the
+        # turn the distance to the wall and the MPC horizon can carry, instead
+        # of the whole remaining angle.
+        #
+        # k_safety below smoothstep's 1.5 peak slope would ask for a curvature
+        # above 1/R_min at the S-curve's steepest point, so it is raised to the
+        # floor loudly rather than allowed to produce an untrackable reference.
+        self.corr_wall_turn_k_safety = float(
+            self.declare_parameter(
+                'corr_wall_turn_k_safety', get_value('corr_wall_turn_k_safety')).value)
+        if self.corr_wall_turn_k_safety < SMOOTHSTEP_PEAK_SLOPE:
+            self.get_logger().error(
+                f'corr_wall_turn_k_safety={self.corr_wall_turn_k_safety} is below '
+                f'{SMOOTHSTEP_PEAK_SLOPE} (smoothstep peak slope): using '
+                f'{SMOOTHSTEP_PEAK_SLOPE}, which has NO margin.')
+            self.corr_wall_turn_k_safety = SMOOTHSTEP_PEAK_SLOPE
+        self.corr_wall_turn_safety_margin_m = max(float(
+            self.declare_parameter(
+                'corr_wall_turn_safety_margin_m',
+                get_value('corr_wall_turn_safety_margin_m')).value), 0.0)
+        # /perception/front_distance older than this is treated as unknown, not
+        # as a distance. Without it a dead camera path would leave the last
+        # value (or the 10.0 bootstrap below) standing in for the wall forever.
+        self.corr_wall_turn_front_distance_max_age_sec = float(
+            self.declare_parameter(
+                'corr_wall_turn_front_distance_max_age_sec',
+                get_value('corr_wall_turn_front_distance_max_age_sec')).value)
+
+        # =========================
+        # d_wall corridor correction (the STRAIGHT drive branch only)
+        # =========================
+        # WHAT THIS IS AND WHERE IT LANDS. wall_distance_node tracks one wall
+        # and publishes a heading correction on
+        # /perception/d_wall/psi_correction (rad, left positive, same sense as
+        # psi). It is added to psi_base in build_straight_corridor's
+        # drive/"straight" branch and NOWHERE ELSE. Full analysis in
+        # docs/wall_turn_investigation.md; the short version is three findings:
+        #
+        #  1. THE MPC DOES NOT OWN A TURN'S EXIT HEADING. A wall_turn move ends
+        #     when f1tenth_behavior's orientation_delta stop_condition sees 90
+        #     degrees of accumulated yaw (condition_eval.py), so the exit
+        #     heading is move_start + 90 deg whatever the corridor asked for. An
+        #     edit here can only change the PATH to those 90 degrees, and
+        #     therefore where the car ends up.
+        #  2. SO CORRECTING dpsi_this WAS REJECTED. It is bounded by
+        #     min(|dpsi_rem|, ...) in wall_turn.py, so its authority goes to
+        #     zero exactly as the turn completes -- which is where the
+        #     correction is wanted -- and the ratchet suppresses the one sign
+        #     that would help. It would also have to pass through the "ONE
+        #     source of truth" invariant at the wall_turn branch below.
+        #  3. THE POST-EXIT STRAIGHT CORRIDOR IS GENUINELY SEPARATE. Its psiEnd
+        #     is psi_base, re-anchored per drive command; its psiRefTurn is
+        #     None; it never calls plan_wall_turn_step, so neither the ratchet
+        #     nor the horizon clip applies to it. That is the seam.
+        #
+        # IT DOES NOTHING TODAY UNLESS A MISSION HAS A MOVE AFTER THE TURN.
+        # Every wall_turn mission in the repo sets terminal: true on the turn,
+        # and on a terminal move AdvanceMove publishes /mpc/hold -- which
+        # returns from control_loop BEFORE the corridor rebuild, so no post-exit
+        # corridor is ever built. missions/wall_turn_then_straight.json is the
+        # one that exercises this.
+        self.corr_d_wall_correction_enable = bool(
+            self.declare_parameter(
+                'corr_d_wall_correction_enable',
+                get_value('corr_d_wall_correction_enable')).value)
+        # Older than this and the correction is treated as ABSENT, i.e. zero --
+        # never as the last value still standing. A dead wall_distance_node must
+        # decay to the geometry this branch had before the node existed, which
+        # is the safe direction by construction. Same reasoning as
+        # corr_wall_turn_front_distance_max_age_sec above.
+        self.corr_d_wall_max_age_sec = float(
+            self.declare_parameter(
+                'corr_d_wall_max_age_sec', get_value('corr_d_wall_max_age_sec')).value)
+        self.d_wall_correction = 0.0
+        self.d_wall_correction_stamp_sec: Optional[float] = None
+
+        # Wall tracker for the wall_turn increment (mpc_controller/
+        # wall_tracker.py, design in its module docstring). Once a wall_turn
+        # commits, the wall that triggered it is selected from /scan and held
+        # as a line in the odom frame; from the next rebuild on the increment
+        # runs on d_wall, the front bumper's perpendicular distance to that
+        # line, instead of dFront -- which is measured along a heading that
+        # rotates away from the wall mid-turn. dFront keeps the commit
+        # decision, the safety layer and the fallback. None when disabled, and
+        # every consumer below checks for None rather than a flag.
+        #
+        # The bumper offset is read from swept_clearance_body_front_x_m and
+        # the inlier distance from lidar_front_wall_inlier_distance_m: the
+        # same physical quantity and the same LiDAR, so one key each rather
+        # than a copy that could drift. See stack_params.yaml's WALL TRACKER
+        # block.
+        self.wall_track_enable = bool(
+            self.declare_parameter('wall_track_enable', get_value('wall_track_enable')).value)
+        self.wall_tracker: Optional[WallTracker] = None
+        if self.wall_track_enable:
+            self.wall_tracker = WallTracker(
+                normal_tol_rad=float(self.declare_parameter(
+                    'wall_normal_tol_rad', get_value('wall_normal_tol_rad')).value),
+                min_span_m=float(self.declare_parameter(
+                    'wall_min_span_m', get_value('wall_min_span_m')).value),
+                min_inliers=int(self.declare_parameter(
+                    'wall_min_inliers', get_value('wall_min_inliers')).value),
+                assoc_dist_m=float(self.declare_parameter(
+                    'wall_assoc_dist_m', get_value('wall_assoc_dist_m')).value),
+                dfront_slack_m=float(self.declare_parameter(
+                    'wall_dfront_slack_m', get_value('wall_dfront_slack_m')).value),
+                bumper_x_m=float(self.declare_parameter(
+                    'wall_bumper_x_m', get_value('swept_clearance_body_front_x_m')).value),
+                inlier_distance_m=float(get_value('lidar_front_wall_inlier_distance_m')),
+            )
 
         # Which end of the heading blend is frozen (see build_straight_corridor).
         # True  -- psiStart = LIVE yaw, psiEnd = FROZEN anchor heading. The
@@ -790,6 +913,12 @@ class MPCController(Node):
         # branch for what consumes it.
         self.turn_progress_rad = 0.0
         self._turn_progress_last_yaw: Optional[float] = None
+        # Per-turn memory of the wall_turn increment: whether the turn has
+        # committed, and the end heading (as rotation from move start) the
+        # last corridor asked for, which the ratchet will not let retreat.
+        # Reset with the progress counter in _reset_turn_progress.
+        self.wall_turn_committed = False
+        self.wall_turn_commanded_rot: Optional[float] = None
 
         # Old-workspace-name cleanup pass: previously hardcoded Path.home() /
         # 'ros2_f110_ws' / ... -- a stale reference to this project's old
@@ -815,6 +944,49 @@ class MPCController(Node):
             't,t_mpc,delta_cmd,delta_real,a_cmd,v_cmd,wheel_speed_cmd,v_real,a_imu\n'
         )
         self.control_log_file.flush()
+
+        # ---- Model-validation log for tools/mpc_model_check.py (docs/DIAGNOSTICS.md).
+        # Additive instrumentation: one row per SOLVED control step, written right
+        # after the /drive publish, never read back by anything in this node.
+        # One row per step of this timer (self.ts) -- not per odometry message, and
+        # never at the ~2 Hz /slam/pose rate. Columns:
+        #   t          header.stamp of the odometry message x0 came from, minus this
+        #              node's clock at construction. The message stamp rather than
+        #              receipt or solve time: it is closer to when the state was true.
+        #   x, y, psi, v
+        #              x0 exactly as handed to solve_mpc_step: ODOM-frame pose and
+        #              forward speed from get_odom_topic() -- /odometry/filtered (local
+        #              EKF, 50 Hz) with localization_source 'ekf', /odom with
+        #              'raw_odom' -- or /model/virtual_robot/odometry only while the
+        #              hardware source is stale. Not the map frame.
+        #   steer_cmd  delta_cmd [rad] on the MODEL side of the servo mapping, ROS
+        #              convention (+ = left, same sense as psi): exactly the /drive
+        #              steering_angle, BEFORE ackermann_to_vesc_node applies the
+        #              negative steering_angle_to_servo_gain_left/_right. Chosen
+        #              because it is the quantity the solver's model uses, so the
+        #              script's steering sign +1 is the one that should fit.
+        #   accel_cmd  a_cmd [m/s^2], the model's acceleration input. What is actually
+        #              published is the speed v + a_cmd * ts.
+        # A relative model_log_path lands in this process's working directory; ''
+        # disables the log. model_log.py explains why a step that reuses the previous
+        # step's odometry message is skipped rather than written.
+        self.hw_odom_stamp_sec = None
+        self.sim_odom_stamp_sec = None
+        self.state_stamp_sec = None
+        self.model_log_t0 = self.get_clock().now().nanoseconds * 1e-9
+        model_log_path = str(self.declare_parameter(
+            'model_log_path', get_value('mpc_model_log_path')).value)
+        self.model_log = ModelLogWriter(model_log_path)
+        self._model_log_reported_skips = 0
+        if self.model_log.enabled:
+            self.get_logger().info(
+                f'model log -> "{os.path.abspath(model_log_path)}" '
+                '(t,x,y,psi,v,steer_cmd,accel_cmd; see docs/DIAGNOSTICS.md)')
+        elif model_log_path:
+            self.get_logger().warn(
+                f'model log DISABLED: cannot open "{model_log_path}": {self.model_log.error}')
+        else:
+            self.get_logger().info('model log disabled (model_log_path is empty)')
 
         self.delta_left_real = None
         self.delta_right_real = None
@@ -1185,12 +1357,54 @@ class MPCController(Node):
         )
 
         self.front_distance = 10.0
+        # Receipt time of the last front_distance message, for the wall_turn
+        # increment's staleness check. None until one arrives, so the 10.0
+        # bootstrap above is never mistaken for a measurement.
+        self.front_distance_stamp_sec: Optional[float] = None
         self.sub_front_distance = self.create_subscription(
             Float32,
             '/perception/front_distance',
             self.front_distance_callback,
             10
         )
+
+        # The d_wall corridor correction. Subscribed even when
+        # corr_d_wall_correction_enable is false, so the trace is on the wire
+        # and in the bag either way and a run can be analysed for what the
+        # correction WOULD have done -- which is exactly what Stage 4 of
+        # docs/bringup_checklist.md does (max_psi_correction forced to 0.0,
+        # node publishing, nothing applied). The flag gates the APPLICATION,
+        # in build_straight_corridor, not the subscription.
+        #
+        # Reliable (plain depth-10), matching the publisher: this is a control
+        # input to the corridor, not a sensor stream, and a dropped message is
+        # a tick of stale geometry rather than a skipped sample.
+        self.sub_d_wall_correction = self.create_subscription(
+            Float32,
+            str(get_value('wall_distance_output_topic')) + '/psi_correction',
+            self.d_wall_correction_callback,
+            10
+        )
+
+        # /scan for the wall tracker: the latest message only, with the odom
+        # pose the car had when it arrived, so a rebuild can place its returns
+        # in the odom frame. Nothing is fitted here -- that happens once per
+        # control tick (_wall_track_tick), so at 40 Hz this callback is a
+        # reference swap. Best-effort
+        # sensor QoS: compatible with urg_node's reliable publisher, sends it
+        # no acknowledgements, and cannot back-pressure it or the e-stop
+        # (f1tenth_behavior's IsProximityTooClose) that reads the same topic.
+        # base_link <- laser is a static edge, looked up once through the
+        # buffer above (its map <-> odom-only scope note predates this; the
+        # control state itself still never consults TF).
+        self.scan_msg: Optional[LaserScan] = None
+        self.scan_pose: Optional[Tuple[float, float, float]] = None
+        self.scan_last_time: Optional[float] = None
+        self._laser_pose: Optional[Tuple[str, Tuple[float, float, float]]] = None
+        self.sub_scan = None
+        if self.wall_tracker is not None:
+            self.sub_scan = self.create_subscription(
+                LaserScan, '/scan', self.scan_callback, qos_profile_sensor_data)
 
         self.sub_imu = self.create_subscription(
             Imu,
@@ -1299,6 +1513,15 @@ class MPCController(Node):
             10
         )
 
+        # d_wall for the wall_turn increment, every control tick of a
+        # wall_turn drive command, valid or not (see f1tenth_messages/
+        # WallTrack.msg). A diagnostic feed like /mpc/solver_status: nothing
+        # controls off the topic, but the trace is the evidence that the
+        # tracker held the wall through a turn, so default reliable QoS.
+        self.wall_track_pub = None
+        if self.wall_tracker is not None:
+            self.wall_track_pub = self.create_publisher(WallTrack, '/mpc/wall_track', 10)
+
         # Jetson process tuning (priority); safe no-op if unset or denied by
         # the OS. CPU affinity is handled externally now -- see mpc_corr.
         # launch.py's own cpu_affinity comment.
@@ -1332,6 +1555,8 @@ class MPCController(Node):
                 self.error_log_file.close()
             except Exception:
                 pass
+        if hasattr(self, 'model_log'):
+            self.model_log.close()
         super().destroy_node()
 
     # ── Jetson process tuning ──────────────────────────────────────────────
@@ -1385,6 +1610,8 @@ class MPCController(Node):
         self.hw_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
         self.hw_v = msg.twist.twist.linear.x
         self.hw_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
+        # Model log only (see model_log_path in __init__).
+        self.hw_odom_stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
 
         # ---- DEBUG: conferma che /odom arriva davvero e cosa contiene ----
         self.get_logger().info(
@@ -1399,6 +1626,8 @@ class MPCController(Node):
         self.sim_yaw = self.quaternion_to_yaw(msg.pose.pose.orientation)
         self.sim_v = msg.twist.twist.linear.x
         self.sim_odom_last_time = self.get_clock().now().nanoseconds * 1e-9
+        # Model log only (see model_log_path in __init__).
+        self.sim_odom_stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
 
         # ---- DEBUG ----
         self.get_logger().info(
@@ -1772,6 +2001,11 @@ class MPCController(Node):
         self.drive_cmd = None
         self.vdes = self.vdes_default
         self.avoidance_margin = self.avoidance_margin_default
+        # The tracked wall belongs to the wall_turn that just ended. getattr
+        # for test_warm_start's duck-typed stand-in.
+        tracker = getattr(self, 'wall_tracker', None)
+        if tracker is not None:
+            tracker.reset()
         # The stored plan was optimal for THIS drive command's corridor
         # (build_straight_corridor's drive branch: its own psiEnd, and for a
         # wall_turn its own signed turn) at THIS command's vdes and standoff.
@@ -1988,6 +2222,36 @@ class MPCController(Node):
         """
         self.turn_progress_rad = 0.0
         self._turn_progress_last_yaw = float(self.yaw) if self.yaw is not None else None
+        # The increment's commit latch and ratchet are per turn for the same
+        # reason: a turn that inherited them would start already committed,
+        # or held to the previous turn's end heading.
+        self.wall_turn_committed = False
+        self.wall_turn_commanded_rot = None
+        # And the tracked wall: it was THAT turn's wall, gated against THAT
+        # turn's commit heading. getattr for the duck-typed test stand-ins.
+        tracker = getattr(self, 'wall_tracker', None)
+        if tracker is not None:
+            tracker.reset()
+
+    def _fresh_front_distance(self):
+        """/perception/front_distance as a distance, or None when it is not one.
+
+        None when no message has arrived, when the last one is older than
+        corr_wall_turn_front_distance_max_age_sec, or when it is negative or
+        non-finite (front_clearance_node's -1.0 means "no reading" or "inside
+        the ZED's minimum range", never a distance). wall_turn.py treats None
+        as unknown rather than as a wall at zero.
+        """
+        stamp = self.front_distance_stamp_sec
+        if stamp is None:
+            return None
+        age = self.get_clock().now().nanoseconds * 1e-9 - stamp
+        if age > self.corr_wall_turn_front_distance_max_age_sec:
+            return None
+        d_front = float(self.front_distance)
+        if not math.isfinite(d_front) or d_front < 0.0:
+            return None
+        return d_front
 
     def _invalidate_move_state(self):
         """Drop every piece of per-move cached geometry.
@@ -2047,12 +2311,15 @@ class MPCController(Node):
         if hw_age < self.odom_stale_timeout_sec:
             source = 'hardware'
             self.x, self.y, self.yaw, self.v = self.hw_x, self.hw_y, self.hw_yaw, self.hw_v
+            self.state_stamp_sec = self.hw_odom_stamp_sec
         elif sim_age < self.odom_stale_timeout_sec:
             source = 'sim'
             self.x, self.y, self.yaw, self.v = self.sim_x, self.sim_y, self.sim_yaw, self.sim_v
+            self.state_stamp_sec = self.sim_odom_stamp_sec
         else:
             source = None
             self.x = self.y = self.yaw = self.v = None
+            self.state_stamp_sec = None
 
         # ---- DEBUG: eta' delle due sorgenti, per capire chi e' stale ----
         self.get_logger().info(
@@ -2194,12 +2461,195 @@ class MPCController(Node):
 
     def front_distance_callback(self, msg):
         self.front_distance = float(msg.data)
+        self.front_distance_stamp_sec = self.get_clock().now().nanoseconds * 1e-9
 
         # ---- DEBUG ----
         self.get_logger().info(
             f'FRONT | d={self.front_distance:.3f}',
             throttle_duration_sec=2.0
         )
+
+    def d_wall_correction_callback(self, msg):
+        self.d_wall_correction = float(msg.data)
+        self.d_wall_correction_stamp_sec = self.get_clock().now().nanoseconds * 1e-9
+
+    def _fresh_d_wall_correction(self) -> float:
+        """The d_wall heading correction [rad] to add to psi_base, or 0.0.
+
+        ZERO, NEVER THE LAST KNOWN VALUE, in every degraded case: disabled, no
+        message yet, stale, or non-finite. wall_distance_node already snaps its
+        own output to zero when it loses the track; this is the second half of
+        the same rule, for when the node itself goes away. The natural
+        implementation holds the last value and that is the bug -- a held
+        correction is a confident heading toward a position nothing can see any
+        more. Zero returns this branch to exactly the geometry it had before
+        wall_distance_node existed.
+        """
+        if not self.corr_d_wall_correction_enable:
+            return 0.0
+        stamp = self.d_wall_correction_stamp_sec
+        if stamp is None:
+            return 0.0
+        age = self.get_clock().now().nanoseconds * 1e-9 - stamp
+        if age > self.corr_d_wall_max_age_sec:
+            self.get_logger().warn(
+                f'DWALL | correction {age:.2f} s old (> '
+                f'{self.corr_d_wall_max_age_sec:.2f} s): treating it as absent. '
+                'Is wall_distance_node running?',
+                throttle_duration_sec=5.0)
+            return 0.0
+        correction = float(self.d_wall_correction)
+        if not math.isfinite(correction):
+            return 0.0
+        return correction
+
+    # =========================
+    # Wall tracker glue (wall_tracker.py holds the logic)
+    # =========================
+
+    def _latest_odom_pose(self) -> Optional[Tuple[float, float, float]]:
+        """The most recent odometry pose, hardware first, mirroring
+        _update_active_odom's preference without its side effects."""
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        if (self.hw_odom_last_time is not None
+                and now_sec - self.hw_odom_last_time < self.odom_stale_timeout_sec):
+            return (self.hw_x, self.hw_y, self.hw_yaw)
+        if (self.sim_odom_last_time is not None
+                and now_sec - self.sim_odom_last_time < self.odom_stale_timeout_sec):
+            return (self.sim_x, self.sim_y, self.sim_yaw)
+        return None
+
+    def scan_callback(self, msg: LaserScan):
+        pose = self._latest_odom_pose()
+        if pose is None:
+            # A scan with no pose to place it cannot be used later either.
+            return
+        self.scan_msg = msg
+        self.scan_pose = pose
+        self.scan_last_time = self.get_clock().now().nanoseconds * 1e-9
+
+    def _laser_pose_for(self, frame_id: str) -> Optional[Tuple[float, float, float]]:
+        """(x, y, yaw) of the scan frame in base_link, from the static edge
+        on /tf_static, cached on first success. None until it is known."""
+        if self._laser_pose is not None and self._laser_pose[0] == frame_id:
+            return self._laser_pose[1]
+        try:
+            stamped = self.tf_buffer.lookup_transform('base_link', frame_id, rclpy.time.Time())
+        except (LookupException, ConnectivityException, ExtrapolationException) as exc:
+            self.get_logger().warn(
+                f'WALL/scan | no base_link <- {frame_id} transform yet ({exc}); '
+                'the wall tracker cannot place returns until it arrives',
+                throttle_duration_sec=5.0)
+            return None
+        t = stamped.transform
+        pose = (t.translation.x, t.translation.y, self.quaternion_to_yaw(t.rotation))
+        self._laser_pose = (frame_id, pose)
+        self.get_logger().info(
+            f'WALL/scan | base_link <- {frame_id}: x={pose[0]:.3f} y={pose[1]:.3f} '
+            f'yaw={math.degrees(pose[2]):.2f} deg')
+        return pose
+
+    def _scan_points_odom(self, now_sec: float) -> Optional[np.ndarray]:
+        """The latest scan's returns in the odom frame, or None when there is
+        no scan, it is older than odom_stale_timeout_sec (the same staleness
+        bound every other live input here uses), or the laser pose is
+        unknown."""
+        if self.scan_msg is None or self.scan_last_time is None:
+            return None
+        if now_sec - self.scan_last_time > self.odom_stale_timeout_sec:
+            return None
+        msg = self.scan_msg
+        laser_pose = self._laser_pose_for(msg.header.frame_id)
+        if laser_pose is None:
+            return None
+        return scan_to_odom_points(
+            msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min, msg.range_max,
+            laser_pose, self.scan_pose)
+
+    def _select_tracked_wall(self, car_pose, now_sec: float):
+        """One selection attempt against the frozen commit references. Logs
+        the accepted candidate, or every rejected one with its angle error --
+        the record wall_normal_tol_rad gets tuned against."""
+        tracker = self.wall_tracker
+        points = self._scan_points_odom(now_sec)
+        if points is None:
+            self.get_logger().warn(
+                'WALL/select | no fresh /scan (or no laser pose) on this rebuild; '
+                'the increment stays on dFront and selection is retried next rebuild')
+            return
+        selection = tracker.select(points, car_pose, now_sec)
+        window_txt = ('none (dFront unknown at commit)' if selection.window_m is None
+                      else f'[{selection.window_m[0]:.2f}, {selection.window_m[1]:.2f}]')
+        accepted = selection.accepted
+        for cand in selection.candidates:
+            if cand is accepted:
+                verdict = 'ACCEPTED'
+            elif cand.reason == 'accepted':
+                verdict = 'passed, not best angle'
+            else:
+                verdict = f'rejected {cand.reason}'
+            self.get_logger().info(
+                f'WALL/select | {verdict}: d={cand.distance_m:.2f} '
+                f'angle_err={math.degrees(cand.angle_err_rad):.1f} deg '
+                f'inliers={cand.inlier_count} span={cand.span_m:.2f} '
+                f'rms={cand.rms_m * 1e3:.1f} mm ahead={cand.ahead}')
+        if accepted is None:
+            self.get_logger().warn(
+                f'WALL/select | no candidate passed the gates ({len(selection.candidates)} '
+                f'extracted, {selection.n_points} returns ahead, window {window_txt}, '
+                f'psi_commit={tracker.psi_commit:+.4f}); the increment stays on dFront')
+            return
+        self.get_logger().info(
+            f'WALL/select | tracking d_wall={accepted.distance_m:.3f} '
+            f'normal_yaw={accepted.line.normal_yaw:+.4f} psi_commit={tracker.psi_commit:+.4f} '
+            f'window {window_txt} ({len(selection.candidates)} candidates)')
+
+    def _wall_track_tick(self):
+        """Every control tick of a wall_turn: refit the tracked wall from the
+        latest scan (dead-reckon when there is none, or the refit degrades)
+        and publish d_wall from the live pose; valid=false until a wall is
+        selected. No-op outside a wall_turn.
+
+        PER TICK, NOT PER REBUILD, ON PURPOSE. Replayed against the archive
+        with a refit only on the 1 s rebuild cadence, d_wall ran a 0.15 m
+        sawtooth: dead reckoning between refits inherits the odometry
+        scale bias (~20% short, see lidar_front_wall_node.py), and each
+        refit snapped it back. A scan arrives at 40 Hz and the refit is
+        association plus three small SVDs, so every tick can afford one;
+        the rebuild then reads a fit at most one tick old."""
+        if self.wall_track_pub is None or self.x is None:
+            return
+        drive_cmd = getattr(self, 'drive_cmd', None)
+        if drive_cmd is None or drive_cmd.get('mode') != 'wall_turn':
+            return
+        tracker = self.wall_tracker
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        car_pose = (self.x, self.y, self.yaw)
+        if tracker.has_wall:
+            step = tracker.update(self._scan_points_odom(now_sec), car_pose, now_sec)
+            if step.provenance != WallTrack.PROVENANCE_MEASURED:
+                self.get_logger().warn(
+                    f'WALL/track | fallback: dead-reckoning d_wall={step.d_wall:.3f} '
+                    f'({step.reason}, associated={step.inlier_count}, '
+                    f'{step.since_last_fit_sec:.1f} s since the last fit)',
+                    throttle_duration_sec=2.0)
+        msg = WallTrack()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.frame_id = self.odom_frame
+        msg.valid = tracker.has_wall
+        msg.provenance = tracker.provenance
+        msg.psi_commit = float(tracker.psi_commit) if tracker.armed else math.nan
+        msg.inlier_count = int(tracker.last_inlier_count)
+        msg.span_m = float(tracker.last_span_m)
+        if tracker.has_wall:
+            msg.d_wall = float(tracker.d_wall(car_pose))
+            msg.normal_yaw = float(tracker.line.normal_yaw)
+            msg.since_last_fit_sec = float(now_sec - tracker.last_fit_time)
+        else:
+            msg.d_wall = math.nan
+            msg.normal_yaw = math.nan
+            msg.since_last_fit_sec = math.nan
+        self.wall_track_pub.publish(msg)
 
     def _publish_drive(self, speed, steering_angle):
         msg = AckermannDriveStamped()
@@ -2220,6 +2670,27 @@ class MPCController(Node):
                 'PUB /drive | nessun subscriber: il comando non raggiunge il VESC.',
                 throttle_duration_sec=5.0
             )
+
+    def _write_model_log(self, x0, delta_cmd, a_cmd):
+        """Write one model-validation row. Never raises into the control loop."""
+        log = self.model_log
+        if not log.enabled or self.state_stamp_sec is None:
+            return
+        try:
+            log.write(self.state_stamp_sec - self.model_log_t0,
+                      x0[0], x0[1], x0[2], x0[3], delta_cmd, a_cmd)
+        except Exception as exc:  # noqa: BLE001 -- logging must not stop control
+            log.close()
+            self.get_logger().error(f'model log DISABLED after an unexpected error: {exc}')
+            return
+        if not log.enabled:
+            self.get_logger().warn(f'model log DISABLED after a failed write: {log.error}')
+        elif log.skipped != self._model_log_reported_skips:
+            self._model_log_reported_skips = log.skipped
+            self.get_logger().warn(
+                f'model log: {log.skipped} step(s) skipped so far because they reused the '
+                'previous odometry message (dt = 0 in the analysis)',
+                throttle_duration_sec=5.0)
 
     # ==========================================
     # LOOP CONTROLLO
@@ -2264,6 +2735,10 @@ class MPCController(Node):
         # so build_straight_corridor's wall_turn branch can subtract it from
         # the commanded total. No-op in every other mode.
         self._accumulate_turn_progress()
+        # Refit the tracked wall from the latest scan and publish d_wall,
+        # every tick of a wall_turn (no-op otherwise), BEFORE the corridor
+        # rebuild below reads it.
+        self._wall_track_tick()
 
         if self.drive_cmd is not None:
             # DRIVE MODE -- open-ended, and the ONLY branch here with no
@@ -2715,6 +3190,11 @@ class MPCController(Node):
 
         self._publish_drive(v_cmd_now, delta_cmd)
 
+        # Model-validation row -- see model_log_path in __init__. AFTER the publish,
+        # so its file I/O can never delay the command; x0/delta_cmd/a_cmd are the
+        # same values the solve used and the publish sent.
+        self._write_model_log(x0, delta_cmd, a_cmd)
+
         self.get_logger().info(
             f'MPC | x={self.x:.2f} y={self.y:.2f} yaw={self.yaw:.2f} v={self.v:.2f} '
             f'| delta={delta_cmd:.3f} a={a_cmd:.3f} v_cmd={v_cmd_log:.3f} '
@@ -2817,8 +3297,9 @@ class MPCController(Node):
 
         psiStart = psi0
 
-        # Signed rotation still owed, measured from psiStart, for a wall_turn.
-        # None on every other branch, and the solver's terminal yaw cost falls
+        # Signed rotation THIS corridor asks for, measured from psiStart, for a
+        # wall_turn (the increment, not the whole remaining turn -- see that
+        # branch). None on every other branch, and the solver's terminal yaw cost falls
         # straight back to its original shortest-branch unwrap when it is
         # absent -- so every non-wall_turn corridor is byte-identical to
         # before. Set only inside the wall_turn branch below.
@@ -2870,20 +3351,97 @@ class MPCController(Node):
                 # next tick is deeper in. drive_turn_180.json asks for
                 # exactly 180.0, so this is not a corner case.
                 #
-                # So the rotation STILL OWED is computed here, where the sign
-                # is still known, and carried to the solver as psiRefTurn (see
-                # the corridor dict below and mpc_solver's terminal yaw cost).
+                # So the rotation is computed here, where the sign is still
+                # known, and carried to the solver as psiRefTurn (see the
+                # corridor dict below and mpc_solver's terminal yaw cost).
                 # turn_progress_rad is the unwrapped rotation already made --
                 # unwrapped precisely so that subtracting it stays correct
                 # past 180 degrees, which a wrapped difference cannot be.
                 signed_total = math.radians(
                     drive_cmd['turn_sign'] * drive_cmd['turn_mag_deg'])
-                turn_remaining = signed_total - self.turn_progress_rad
-                # psiEnd stays what it always was -- psi_base + the full
-                # commanded turn -- so the corridor GEOMETRY (the S-curve
-                # blend, the walls, psiRef) is bit-for-bit unchanged. Only the
-                # extra signed key below is new.
-                psiEnd = psi_base + signed_total
+                # ONE CORRIDOR CARRIES ONE INCREMENT, NOT THE WHOLE TURN. This
+                # used to be psiEnd = psi_base + signed_total on every rebuild:
+                # a target the 1.0 m horizon (N * ts * vdes at 0.5 m/s) cannot
+                # reach for any turn much past 54 degrees, so the QP sat on the
+                # steering bound. wall_turn.py decides how much of what is
+                # still owed THIS corridor asks for -- nothing until the wall
+                # distance forces the turn to commit, then no more than the
+                # distance and the horizon can carry -- and the next rebuild
+                # asks for the next piece. Read its module docstring for the
+                # rule, the commit gate and the anti-chatter ratchet.
+                #
+                # dpsi_this is the ONE source of truth for this corridor: it is
+                # psiEnd - psiStart (terminal heading cost), psiRefTurn (the
+                # solver's signed branch) AND the centreline's S-curve dpsi
+                # below. Feeding the increment to one of them while another
+                # still swung the full angle would set them against each other.
+                # WHICH DISTANCE THE RULE RUNS ON. dFront until the turn
+                # commits and on the rebuild it commits; from then on d_wall,
+                # the tracked wall's bumper distance (wall_tracker.py), for
+                # as long as the tracker holds a wall. dFront is measured
+                # along the car's heading, which rotates away from the wall
+                # mid-turn, so it goes optimistic exactly when the rule
+                # needs it honest; d_wall is heading-independent. When no
+                # candidate passed the selection gates the rule stays on
+                # dFront, exactly as before the tracker existed. getattr for
+                # the duck-typed corridor test stand-ins, as with drive_cmd.
+                d_front = self._fresh_front_distance()
+                tracker = getattr(self, 'wall_tracker', None)
+                d_wall = None
+                if tracker is not None and tracker.has_wall:
+                    # Refitted by _wall_track_tick earlier this tick.
+                    d_wall = tracker.d_wall((X0, Y0, psi0))
+                d_rule = d_wall if d_wall is not None else d_front
+                was_committed = self.wall_turn_committed
+                wall_step = plan_wall_turn_step(
+                    signed_total, self.turn_progress_rad,
+                    d_rule,
+                    wheelbase=self.params['L'],
+                    delta_min=self.limits['delta_min'],
+                    delta_max=self.limits['delta_max'],
+                    k_safety=self.corr_wall_turn_k_safety,
+                    safety_margin=self.corr_wall_turn_safety_margin_m,
+                    n_steps=self.N, ts=self.ts, v_ref=self.vdes,
+                    committed=self.wall_turn_committed,
+                    prev_commanded_rot=self.wall_turn_commanded_rot)
+                self.wall_turn_committed = wall_step.committed
+                self.wall_turn_commanded_rot = wall_step.commanded_rot
+                turn_remaining = wall_step.dpsi_this
+                psiEnd = psi0 + wall_step.dpsi_this
+                # SELECT THE WALL ON THE REBUILD THE TURN COMMITS. The gating
+                # references (this heading, this dFront) are frozen then and
+                # never move; a rebuild with no usable scan retries the
+                # selection against those same references, which is not
+                # re-gating a selected wall -- there is none yet.
+                if tracker is not None and wall_step.committed and not tracker.has_wall:
+                    if not was_committed:
+                        tracker.commit(psi0, d_front)
+                        self.get_logger().info(
+                            f'WALL/commit | psi_commit={psi0:+.4f} '
+                            f'dFront={"unknown" if d_front is None else f"{d_front:.2f}"}: '
+                            'selecting the front wall from /scan')
+                    self._select_tracked_wall(
+                        (X0, Y0, psi0), self.get_clock().now().nanoseconds * 1e-9)
+                d_avail_txt = ('unknown' if wall_step.d_avail is None
+                               else f'{wall_step.d_avail:.2f}')
+                if d_wall is not None:
+                    d_rule_txt = (f'd_wall={d_wall:.2f} '
+                                  f'({PROVENANCE_NAMES[tracker.provenance]}, '
+                                  f'{tracker.last_inlier_count} returns)')
+                else:
+                    d_rule_txt = 'd_wall=none'
+                self.get_logger().info(
+                    f'CORR/wall_turn | dFront={self.front_distance:.2f} '
+                    f'{d_rule_txt} '
+                    f'd_avail={d_avail_txt} '
+                    f'rem={wall_step.dpsi_rem:+.4f}/{signed_total:+.4f} '
+                    f'R_min={wall_step.r_min:.3f} '
+                    f'by_dist={wall_step.dpsi_by_dist:.4f} '
+                    f'by_horizon={wall_step.dpsi_by_horizon:.4f} '
+                    f'committed={wall_step.committed} held={wall_step.held} '
+                    f'dpsi_this={wall_step.dpsi_this:+.4f} '
+                    f'cmd_rot={wall_step.commanded_rot:+.4f}'
+                )
                 # psiStart stays the LIVE yaw for a turn, so the S-curve below
                 # describes a real arc from where the car is pointing now to
                 # where the move wants it pointing. Freezing both ends here
@@ -2900,7 +3458,46 @@ class MPCController(Node):
                 # the goal_distance branch -- see its own long note below for
                 # why both-ends-frozen is the shipping default and what the
                 # measurement was.
-                psiEnd = psi_base
+                #
+                # PLUS the d_wall correction, and THIS IS THE ONE PLACE IT IS
+                # APPLIED. See the corr_d_wall_correction_enable block in
+                # __init__ for why here and not at dpsi_this, and
+                # docs/wall_turn_investigation.md for the full seam analysis.
+                #
+                # WHY BIASING psi_base IS A LATERAL CONTROLLER AT ALL. This
+                # branch's corridor passes through the car's current position
+                # and points along a FROZEN heading; the S-curve below blends
+                # the live yaw onto it over the corridor's length, and the
+                # solver's w_psi/w_term costs pull the car onto that heading.
+                # Rotating the frozen heading by dpsi therefore commands a
+                # sustained heading offset, which integrates into lateral
+                # motion at edot = v*sin(dpsi) -- the first-order law
+                # wall_distance.py derives. It does NOT displace the corridor
+                # sideways, so corr_wmin/corr_wmax and the hard boundary rows
+                # are untouched and the car never starts outside its own
+                # corridor. The deliberate removal of lateral homing recorded
+                # in the goal_distance branch below is likewise untouched: the
+                # centreline still passes through the car by construction.
+                #
+                # ZERO unless a fresh, enabled correction exists, so with
+                # wall_distance_node absent, stale or disabled this line is
+                # byte-identical to psiEnd = psi_base.
+                #
+                # getattr, not a bare method call, for exactly the reason the
+                # drive_cmd lookup above uses one: the corridor tests build
+                # duck-typed stand-ins carrying only the fields the geometry
+                # under test needs, and a bare self._fresh_d_wall_correction()
+                # makes every one of them raise AttributeError here instead of
+                # selecting a shape. test_wall_turn_increment.py's
+                # test_the_straight_drive_branch_is_unchanged is the one that
+                # catches it. The real node always has the method.
+                _correction = getattr(self, '_fresh_d_wall_correction', None)
+                dpsi_d_wall = _correction() if _correction is not None else 0.0
+                psiEnd = psi_base + dpsi_d_wall
+                if dpsi_d_wall != 0.0:
+                    self.get_logger().info(
+                        f'CORR/d_wall | psi_base={psi_base:+.4f} '
+                        f'dpsi_d_wall={dpsi_d_wall:+.4f} -> psiEnd={psiEnd:+.4f}')
                 if getattr(self, 'corridor_heading_return',
                            get_value('corridor_heading_return')):
                     psiStart = psi0
@@ -3209,8 +3806,9 @@ class MPCController(Node):
             "halfWidth": halfWidth,
             "psiRef": float(psiEnd),
             # WHICH WAY ROUND, which psiRef alone cannot say. None for every
-            # corridor that is not an active wall_turn; a signed rotation in
-            # radians, measured from psiStart, when it is. mpc_solver's
+            # corridor that is not an active wall_turn; the signed rotation in
+            # radians this corridor asks for, measured from psiStart, when it
+            # is (the same dpsi_this as psiEnd and the S-curve). mpc_solver's
             # terminal yaw cost uses it INSTEAD OF wrapping psiRef onto the
             # shortest branch -- see the wall_turn branch above for why the
             # shortest branch is wrong at and beyond 180 degrees, and

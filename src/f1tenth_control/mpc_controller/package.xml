@@ -13,6 +13,11 @@
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>f1tenth_messages</depend>
+  <!-- /scan (MPC_corr.py's scan_callback) for the wall_turn wall tracker
+       (wall_tracker.py), plus the JointState/Imu imports that predate this
+       entry and were never declared. Best-effort subscriber: it cannot
+       back-pressure urg_node or the e-stop that also reads /scan. -->
+  <depend>sensor_msgs</depend>
   <!-- /mpc/corridor_markers (MPC_corr.py's _publish_corridor_markers()):
        Foxglove/RViz visualization of the MPC's own soft reference corridor. -->
   <depend>visualization_msgs</depend>

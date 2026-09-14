@@ -74,3 +74,8 @@ src/f1tenth_bringup/config/vesc.yaml.bak.*
 # timestamped) -- runtime output, not source, same reasoning as
 # corridors_jsons/ above.
 src/f1tenth_behavior/mission_reports/
+
+# Model-validation logs: mpc_corr's model_log_path (default mpc_log.csv) lands in
+# the node's working directory, often the repo root. Covers any other CSV output
+# too. See docs/DIAGNOSTICS.md.
+*.csv
