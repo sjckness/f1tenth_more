@@ -1,0 +1,3 @@
+# Offline analysis tools only (tools/mpc_model_check.py). Not used by any ROS node.
+numpy
+matplotlib  # optional: only needed for --plot
