@@ -20,6 +20,13 @@ Deleted entirely here (node file, its 3 lidar_boundary_* stack_params.yaml
 keys, this file's own launch-argument declarations/Node() registration, and
 its own test file) -- confirmed via a codebase-wide grep before deleting
 that nothing else held a functional dependency on it.
+
+DO NOT ADD /scan CONSUMERS TO THIS FILE. urg_node is the only publisher of
+/scan, which the emergency stop (f1tenth_behavior's IsProximityTooClose) reads,
+and component_supervisor_node restarts every launch file of a component
+together: anything launched here restarts urg_node with it.
+lidar_front_wall_node lives in lidar_front_wall.launch.py, its own supervisor
+component, for exactly that reason.
 """
 
 from f1tenth_params.param_defaults import get_default, get_path_default

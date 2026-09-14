@@ -1,6 +1,7 @@
 """component_supervisor_node: spawns and independently restarts named "components"
 (functional groups of the F1TENTH stack -- hardware, localization, perception,
-control, navigation, behavior, diagnostics, intelligence, dev_tools, plus the
+lidar_front_wall, control, navigation, behavior, diagnostics, intelligence,
+dev_tools, plus the
 on-demand-only calibrate_hardware/startup_sequence) as separate `ros2 launch`
 subprocesses, each in
 its own process group (subprocess.Popen(..., start_new_session=True)), and exposes
@@ -75,6 +76,11 @@ CLI-overridable flag instead of a baked-in-at-parse-time stack-wide value):
                 doesn't gate this one, same pattern as dev_tools/
                 enable_foxglove above (not navigation/enable_nav2, which
                 IS one of the 4 stack-wide branching values)
+  lidar_front_wall
+                always auto-starts; lidar_front_wall.launch.py self-gates on
+                use_lidar. Its own component, NOT part of perception, on
+                purpose: restarting perception restarts urg_node, the e-stop's
+                /scan (see components.yaml's comment on this entry)
   everything else (hardware, localization, perception, diagnostics)
                 always auto-starts
   calibrate_hardware, startup_sequence
@@ -299,8 +305,19 @@ from std_srvs.srv import Trigger
 # doesn't cover.
 _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 
-# Components that auto-start unconditionally.
+# Components that auto-start unconditionally. 'lidar_front_wall',
+# 'wall_distance' and 'swept_clearance' are each separate from 'perception' on
+# purpose (restarting 'perception' restarts urg_node, the e-stop's /scan) -- see
+# components.yaml's comments on those entries. All three launch files self-gate
+# on use_lidar.
+#
+# AN UNCATEGORISED COMPONENT SILENTLY NEVER STARTS. A name that is in
+# components.yaml but in none of these three sets is restartable by service call
+# and is never launched at boot, with no warning anywhere. That is why adding a
+# component means adding it here in the same commit, and why
+# test_wall_distance_component.py asserts membership rather than trusting it.
 _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
+                      'lidar_front_wall', 'wall_distance', 'swept_clearance',
                       'control', 'diagnostics', 'dev_tools', 'slam'}
 # Registered (restartable by name) but never auto-started -- on-demand only.
 # startup_sequence (the steering-sweep visual check) moved here on request --

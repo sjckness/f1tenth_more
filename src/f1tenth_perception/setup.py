@@ -46,6 +46,9 @@ setup(
             'obstacle_projector_node = f1tenth_perception.obstacle_projector_node:main',
             'front_depth_monitor_node = f1tenth_perception.front_depth_monitor_node:main',
             'front_clearance_node = f1tenth_perception.front_clearance_node:main',
+            'lidar_front_wall_node = f1tenth_perception.lidar_front_wall_node:main',
+            'swept_clearance_node = f1tenth_perception.swept_clearance_node:main',
+            'wall_distance_node = f1tenth_perception.wall_distance_node:main',
         ],
     },
 )

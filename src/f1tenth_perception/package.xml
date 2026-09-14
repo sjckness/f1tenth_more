@@ -29,6 +29,16 @@
        obstacles for mpc_controller) -->
   <exec_depend>f1tenth_messages</exec_depend>
 
+  <!-- Runtime Python deps for lidar_front_wall_node (forward LiDAR wall-line
+       fit): odometry for dead reckoning, and /tf_static read directly into a
+       tf2 Buffer. f1tenth_messages above carries WallLineFit/WallEstimate. -->
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>tf2_msgs</exec_depend>
+
+  <!-- Runtime Python dep for swept_clearance_node: the steering estimate
+       reads AckermannDriveStamped off the ackermann_mux output. -->
+  <exec_depend>ackermann_msgs</exec_depend>
+
   <!-- sensor_msgs_py/nav_msgs/python3-scipy and the open3d install note
        previously here were wall_detector_node-only (RANSAC plane
        segmentation for wall/corner detection from the ZED point cloud) -

@@ -71,10 +71,51 @@ components:
   perception:
     - package: f1tenth_perception
       launch_file: camera.launch.py
+    # lidar.launch.py runs urg_node, the only /scan publisher, which the e-stop
+    # (IsProximityTooClose) reads. Everything in this component restarts
+    # together, so do not add /scan consumers here -- see lidar_front_wall below.
     - package: f1tenth_perception
       launch_file: lidar.launch.py
     - package: f1tenth_perception
       launch_file: detection.launch.py
+
+  # MUST stay its own component. component_supervisor_node restarts a component
+  # by SIGINTing every launch file registered under it, so if this file sat under
+  # `perception` above -- or its node inside lidar.launch.py -- any restart of the
+  # wall estimator (crash loop, retune, routine restart) would restart urg_node
+  # too and leave the e-stop without /scan for the duration. See
+  # lidar_front_wall.launch.py's module docstring. Enforced by
+  # f1tenth_bringup/test/test_lidar_front_wall_component.py.
+  lidar_front_wall:
+    - package: f1tenth_perception
+      launch_file: lidar_front_wall.launch.py
+
+  # MUST stay its own component, for the identical reason as lidar_front_wall
+  # above and MORE so: this node reads /scan, owns glass_detect.py in-process,
+  # is brand new, and is the one whose gates get retuned in the first powered
+  # session -- i.e. the one most likely to be restarted. Restarting it under
+  # `perception` would take urg_node, and therefore the e-stop's only /scan,
+  # down with it every time. See f1tenth_perception/launch/wall_distance.
+  # launch.py's module docstring. Enforced by f1tenth_bringup/test/
+  # test_wall_distance_component.py.
+  wall_distance:
+    - package: f1tenth_perception
+      launch_file: wall_distance.launch.py
+
+  # Registered as of the d_wall pass. It had an entry point and a launch file
+  # since it was written but appeared in NO component and in no other launch
+  # file, so it had never run on the car at all -- and registering it does not
+  # change that: it still has not. Treat its first powered run as validation,
+  # not a formality (f1tenth_perception/README.md's UNVALIDATED section).
+  #
+  # Its own component for the same /scan reason as the two above. NOTE its
+  # value is rear-axle ARC LENGTH to body contact -- metres of travel, not a
+  # perpendicular gap and not a sensor range. Nothing subscribes to
+  # /perception/swept_clearance yet; anything that starts to must read
+  # swept_corridor.py's module docstring first.
+  swept_clearance:
+    - package: f1tenth_perception
+      launch_file: swept_clearance.launch.py
 
   control:
     - package: f1tenth_control
