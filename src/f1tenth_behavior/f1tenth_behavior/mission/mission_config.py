@@ -62,12 +62,21 @@ DRIVE_MODES = {'straight', 'wall_turn'}
 # backing sensor source for it: this type did not exist in this schema at all
 # before that integration (there was no prior stub, real or otherwise, for the
 # name "front_clearance" specifically -- confirmed by reading this set before
-# adding it). wall_detector_node has since been retired in favor of
-# f1tenth_costmap's costmap_boundary_node (see the dual-EKF + costmap-
-# derived-MPC-boundaries pass) -- a source swap, not a second integration;
-# front_clearance itself has been a real (non-stub) type continuously since
-# the original addition. See CheckStopCondition's own docstring for how the
-# live /costmap/front_clearance value reaches condition_eval.evaluate().
+# adding it). The backing source has been swapped twice since, each time a
+# source swap rather than a second integration -- wall_detector_node ->
+# f1tenth_costmap's costmap_boundary_node (/costmap/front_clearance, the
+# dual-EKF + costmap-derived-MPC-boundaries pass) -> f1tenth_perception's
+# front_clearance_node, whose /perception/front_DISTANCE it reads today: a
+# mission asking to stop N metres from a wall needs the wall measured on this
+# frame rather than read out of an already-converged SLAM map, AND needs
+# detected objects excluded from that measurement, which is what
+# front_distance does and what that node's similarly-named
+# /perception/front_clearance (min(background, nearest obstacle)) explicitly
+# does not. THE TYPE NAME IS NOW A MISNOMER and is kept only because renaming
+# it would invalidate every mission JSON using it. front_clearance itself has
+# been a real (non-stub) type continuously since the original addition. See
+# CheckStopCondition's own docstring for the full three-topic disambiguation
+# and how the live value reaches condition_eval.evaluate().
 #
 # orientation_delta (schema_version 2.0, alongside the "turn" step type) is
 # also real, not a stub -- backed by CheckStopCondition's own /odom

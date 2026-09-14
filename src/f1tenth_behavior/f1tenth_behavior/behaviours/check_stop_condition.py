@@ -16,22 +16,50 @@ machine, so it takes /odom directly.
 Also owns /mpc/min_obstacle_distance (published by mpc_corr itself), for
 obstacle_distance_below -- shared the same way, via MIN_OBSTACLE_DISTANCE_KEY.
 
-Also owns /costmap/front_clearance (published by f1tenth_costmap's
-costmap_boundary_node -- nearest-occupied-cell extraction from slam_
-toolbox's own /slam/map, added alongside this stop_condition type;
-front_clearance did not exist as any kind of stop_condition, stub or real,
-before that integration -- see mission_config.py's own comment on
-STUB_STOP_CONDITION_TYPES), for the front_clearance stop_condition --
-shared the same way as min_obstacle_distance, via FRONT_CLEARANCE_KEY.
-Same "last received value, no freshness/timeout check" caveat applies as
-it already does for min_obstacle_distance: if costmap_boundary_node stops
-publishing entirely (crashed, not just "nothing occupied within range" --
-that case is a finite, honest "clear at least this far" value, not
-silence -- see that node's own module docstring), this blackboard value
-goes stale silently rather than resetting. Not fixed here -- pre-existing
-pattern (originally documented against wall_detector_node, the source this
-retired -- see the dual-EKF + costmap-derived-MPC-boundaries pass), not
-introduced by this addition or by that source swap.
+Also owns /perception/front_distance (published by f1tenth_perception's
+front_clearance_node -- EMA-smoothed BACKGROUND distance from the ZED depth
+ROI), for the front_clearance stop_condition -- shared the same way as
+min_obstacle_distance, via FRONT_CLEARANCE_KEY.
+
+WHICH TOPIC, AND WHY IT IS NOT THE ONE THAT SHARES THE STOP_CONDITION'S
+NAME. Three topics in this stack carry a "front clearance" name and they are
+NOT interchangeable. This behaviour reads front_DISTANCE:
+
+  * /perception/front_distance -- MISSION guard. What this behaviour reads.
+    Wall/background only: front_clearance_node removes detected objects from
+    it by construction (per-pixel exclusion mask), so a person standing 40 cm
+    in front of the car does not lower it -- it reports the wall behind them.
+    That is exactly what a mission means by "stop N metres from the wall".
+  * /perception/front_clearance -- min(background, nearest in-corridor
+    obstacle) from the same node. The STOP/SLOW-DOWN signal, and the wrong
+    signal for a wall guard: any object in the corridor dominates it, so a
+    mission asking to stop 2 m from the wall would instead stop 2 m from
+    whatever happens to be standing in the way. Belongs to the safety path,
+    which is what that node's own docstring says ("anything making a safety
+    decision wants front_clearance/front_blocked").
+  * /costmap/front_clearance -- f1tenth_costmap's costmap_boundary_node,
+    nearest occupied cell of slam_toolbox's /slam/map within a symmetric
+    forward cone. What this behaviour used to read. Map-derived, so it cannot
+    see a wall SLAM has not mapped yet -- precisely the case these missions
+    are written for. Still consumed by f1tenth_diagnostics'
+    steering_offset_calibration_node (its min_front_clearance_m abort) and
+    recorded by f1tenth_logger.
+
+THE FRONT_CLEARANCE_KEY BLACKBOARD NAME AND THE STOP_CONDITION TYPE NAME
+BOTH STILL SAY "CLEARANCE" while the wire now carries a wall distance. Left
+alone deliberately: renaming the stop_condition type is a schema change that
+invalidates every mission JSON using it. The topic is the authority on what
+the value MEANS -- read this list, not the identifier.
+
+Same "last received value, no freshness/timeout check" caveat applies as it
+already does for min_obstacle_distance, and it is now SHARPER rather than
+softer: front_clearance_node publishes one message per depth frame
+regardless of what else arrives, and holds its EMA rather than skipping a
+publish when a frame yields no usable reading, so silence means the node or
+the ZED is down -- there is no benign "withheld because stale" case the way
+costmap_boundary_node had. A dead publisher still leaves this blackboard
+value latched at its last reading rather than resetting. Not fixed here --
+pre-existing pattern, not introduced by this source swap.
 
 Also owns /mpc/goal_reached (std_msgs/Bool, published by mpc_corr for BOTH its
 distance-mode and pose-mode arrival -- same topic, mode-agnostic on the wire),
@@ -134,7 +162,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  min_obstacle_distance_topic='/mpc/min_obstacle_distance',
                  min_obstacle_distance_forward_topic='/mpc/min_obstacle_distance_forward',
                  goal_reached_topic='/mpc/goal_reached',
-                 front_clearance_topic='/costmap/front_clearance',
+                 front_clearance_topic='/perception/front_distance',
                  global_odom_topic='/ekf_global/odometry/filtered',
                  hold_topic='/mpc/hold'):
         super().__init__(name=name)

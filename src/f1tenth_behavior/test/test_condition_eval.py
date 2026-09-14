@@ -52,10 +52,9 @@ def _ctx(**overrides):
 class TestFrontClearanceStopCondition:
 
     def test_missing_front_clearance_fails_safe_not_satisfied(self):
-        """No /costmap/front_clearance message has arrived yet (costmap_
-        boundary_node not yet publishing -- exactly the live state given
-        /slam/pose's own currently-known-broken status, see that node's own
-        module docstring) -- must evaluate to False (stop_condition never
+        """No /perception/front_distance message has arrived yet
+        (front_clearance_node not yet publishing -- no depth frame processed,
+        or the ZED is down) -- must evaluate to False (stop_condition never
         satisfied), never raise, never silently treat missing data as
         'clear'."""
         cond = StopCondition(type='front_clearance', params={'distance': 1.0})
@@ -71,6 +70,46 @@ class TestFrontClearanceStopCondition:
         cond = StopCondition(type='front_clearance', params={'distance': 1.0})
         ctx = _ctx(front_clearance=1.0)
         assert evaluate(cond, ctx) is False
+
+    def test_negative_sentinel_is_absent_not_zero_distance(self):
+        """front_clearance_node's -1.0 "no reading yet" sentinel must NOT be
+        read as a distance.
+
+        THE BUG THIS LOCKS OUT, because it reached a real car: a bare
+        `value < threshold` makes -1.0 satisfy EVERY threshold, so the move
+        completed the instant the reading went absent. front_clearance_node
+        emits -1.0 from _publishable() whenever its EMA has never held a value
+        and from _publish_too_close() for front_distance deliberately, and its
+        own docstring says "everything downstream should treat a negative value
+        as absent rather than as a distance". Concretely: a person standing
+        close enough to fill the depth ROI has their pixels excluded as object,
+        which drops the surviving background count below
+        min_bg_pixels_for_reading, which leaves the EMA unseeded, which puts
+        -1.0 on the wire -- and the car stopped at the person while the wall it
+        was actually driving toward sat metres further back.
+
+        Never bit while this type read /costmap/front_clearance: that publisher
+        withholds instead of emitting a sentinel, so absence arrived as silence
+        (the None case above), not as a number.
+        """
+        cond = StopCondition(type='front_clearance', params={'distance': 2.0})
+        assert evaluate(cond, _ctx(front_clearance=-1.0)) is False
+
+    def test_zero_is_also_treated_as_absent(self):
+        """0.0 is the same class of non-measurement, not "touching the wall":
+        a real contact reads as the node's too_close floor (a positive number),
+        never as an exact zero. Fails safe for a GUARD -- the move stays
+        bounded by timeout_sec, and genuine proximity belongs to the emergency
+        lane's LiDAR check, not to this stop_condition."""
+        cond = StopCondition(type='front_clearance', params={'distance': 2.0})
+        assert evaluate(cond, _ctx(front_clearance=0.0)) is False
+
+    def test_small_positive_value_still_satisfies(self):
+        """The sentinel guard must not swallow a real short reading -- the
+        node's own too_close_clearance_m floor (0.2 m) is positive and is a
+        legitimate, if coarse, distance."""
+        cond = StopCondition(type='front_clearance', params={'distance': 2.0})
+        assert evaluate(cond, _ctx(front_clearance=0.2)) is True
 
     def test_large_finite_clearance_value_is_not_satisfied(self):
         # costmap_boundary_node's own "clear at least this far" convention

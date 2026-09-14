@@ -51,15 +51,27 @@ class EvalContext:
     current_xy: Optional[Tuple[float, float]]
     detected_classes: Dict[str, DetectionInfo]
     min_obstacle_distance: Optional[float]
-    # Live value of /costmap/front_clearance (f1tenth_costmap's
-    # costmap_boundary_node -- nearest-occupied-cell extraction from slam_
-    # toolbox's own /slam/map; retired f1tenth_perception's wall_detector_
-    # node, see the dual-EKF + costmap-derived-MPC-boundaries pass), meters,
-    # or None if no message has arrived yet. Distinct from
-    # min_obstacle_distance: that's YOLO/obstacle_projector_node's discrete-
-    # object distance, this is the nearest occupied map cell roughly ahead --
-    # separate sensing paths, separate stop_condition types, deliberately
-    # not merged.
+    # Live value of /perception/front_distance (f1tenth_perception's
+    # front_clearance_node -- EMA-smoothed BACKGROUND distance from the ZED
+    # depth ROI, detected objects removed by construction), meters, or None if
+    # no message has arrived yet.
+    #
+    # DESPITE THE FIELD NAME THIS IS A WALL DISTANCE, NOT A CLEARANCE, and the
+    # distinction is the whole point. front_clearance_node publishes both:
+    # front_distance excludes detected objects (a person 40 cm ahead does not
+    # lower it -- it reports the wall behind them), while its
+    # /perception/front_clearance is min(background, nearest in-corridor
+    # obstacle). A mission saying "stop 2 m from the wall" wants the former;
+    # the latter would stop it 2 m from whatever object wandered into the
+    # corridor. The name here (and the stop_condition type's own name) still
+    # says "clearance" only because renaming the type is a schema change --
+    # see check_stop_condition.py's module docstring for the full three-topic
+    # list, including /costmap/front_clearance, which this used to read.
+    #
+    # Distinct from min_obstacle_distance: that's YOLO/obstacle_projector_
+    # node's discrete-object distance -- the OPPOSITE quantity, kept as its
+    # own stop_condition type (obstacle_distance_below) precisely so a mission
+    # picks one deliberately.
     front_clearance: Optional[float]
     # The move's own top-level goal_distance, used as distance_reached's implicit
     # target when the stop_condition itself doesn't override it with its own
@@ -306,14 +318,44 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
         # function is deliberately pure. ConditionDebouncer (above) wraps this
         # result for callers that track ticks; the answer below is the raw,
         # single-tick one, which is exactly what that wrapper needs.
-        # ctx.front_clearance is None until the first /costmap/front_
-        # clearance message arrives (costmap_boundary_node also publishes a
-        # finite "clear at least this far" value, not silence, whenever
-        # nothing occupied is found within range -- see that node's own
-        # module docstring / costmap_boundary.front_clearance_from_
-        # extraction -- so None here means specifically "no message
-        # received yet", not "clear ahead").
-        if ctx.front_clearance is None:
+        # ctx.front_clearance is None until the first /perception/front_
+        # distance message arrives. front_clearance_node publishes one message
+        # per depth frame unconditionally (never gated on a synchronizer, and
+        # it holds its EMA rather than dropping the publish when a frame
+        # yields no reading -- see that node's own module docstring), so None
+        # here means specifically "no message received yet", not "clear
+        # ahead", and continued silence means the node or the ZED is down
+        # rather than "nothing found in range".
+        #
+        # A NON-POSITIVE VALUE IS THE PUBLISHER'S "NO READING" SENTINEL, NOT A
+        # DISTANCE, and treating it as one is a stop at every threshold. front_
+        # clearance_node's _publishable() emits -1.0 whenever its EMA has never
+        # held a value, and _publish_too_close() emits -1.0 for front_distance
+        # deliberately (something inside minimum stereo range leaves the
+        # background genuinely unobserved). Its docstring states the contract:
+        # "everything downstream should treat a negative value as absent rather
+        # than as a distance." A bare `<` does the opposite -- -1.0 < any
+        # threshold is True -- so the guard fired the instant the reading went
+        # absent. That is exactly what a person standing close enough to fill
+        # the ROI produces: their pixels are excluded as object, the surviving
+        # background count falls under min_bg_pixels_for_reading, the EMA is
+        # never seeded, and -1.0 goes on the wire while the actual wall sits
+        # metres further back. The car stopped at the person and the reason was
+        # here, not in the perception node.
+        #
+        # Rejecting it (rather than holding the last good value, or treating it
+        # as 0) is the fail-safe direction FOR A GUARD: this stop_condition
+        # decides when a move has ARRIVED, so an absent measurement must mean
+        # "not yet", and the move stays bounded by its own timeout_sec. Genuine
+        # proximity is not this type's job -- the emergency lane's LiDAR
+        # IsProximityTooClose owns that, on a separate sensor, and is unaffected
+        # by any of this.
+        #
+        # This did not bite while the type read /costmap/front_clearance:
+        # costmap_boundary_node WITHHOLDS the publish when it has nothing to
+        # report, so "absent" arrived as silence (the None branch above) and
+        # never as a negative number on the wire.
+        if ctx.front_clearance is None or ctx.front_clearance <= 0.0:
             return False
         return ctx.front_clearance < float(p['distance'])
 
