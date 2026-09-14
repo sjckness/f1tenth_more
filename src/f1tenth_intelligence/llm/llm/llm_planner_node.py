@@ -148,11 +148,21 @@ VALID_MODES = ("straight", "wall_turn")
 VALID_GUARDS = ("wall", "turned", "front_object", "distance")
 
 # soglie plausibili, per intercettare allucinazioni numeriche -- INVARIATO
+#
+# NOTA su "turned" (verificata, non modificata in questo passaggio): il limite
+# superiore e' 6.3 radianti, cioe' ~361 gradi, quindi era GIA' ben sopra pi
+# greco e accettava 180 gradi (3.1416) e 270 gradi (4.712). Quello che prima
+# non funzionava non era questa validazione ma l'ESECUZIONE: orientation_delta
+# confrontava un delta yaw "wrapped", matematicamente limitato a (-180, 180]
+# gradi, quindi 180 era al massimo sfiorabile e qualsiasi valore sopra era
+# irraggiungibile per costruzione. Da quando CheckStopCondition accumula la
+# rotazione in modo unwrapped (vedi condition_eval.turn_accum_deg) quel
+# soffitto non esiste piu' e questo range e' finalmente realizzabile per intero.
 THRESH_RANGE = {
     "wall": (0.2, 10.0),
     "front_object": (0.2, 10.0),
     "distance": (0.1, 50.0),
-    "turned": (0.05, 6.3),      # radianti
+    "turned": (0.05, 6.3),      # radianti (~361 gradi -- vedi nota sopra)
 }
 
 # Timeout per ciascuna chiamata di servizio verso il sistema missioni
@@ -434,11 +444,22 @@ def validate_plan(plan):
                                f"fase; su una fase intermedia il robot si ferma "
                                f"li' e non prosegue"), warns
 
-    # --- l'ultima fase deve avere una condizione di arresto
+    # --- l'ultima fase DEVE avere una condizione di arresto
+    #
+    # ERRORE, non piu' warning. Era un warning quando ogni fase veniva
+    # comunque tradotta in un goal_distance con un tetto finito (50 m): il
+    # piano restava eseguibile, solo con una fine arbitraria. Con lo schema
+    # 3.0 ogni fase diventa un drive OPEN-ENDED -- mpc_corr non termina mai da
+    # solo, per progetto -- quindi un'ultima fase senza stop_at produce
+    # letteralmente una missione che non si ferma mai. E' esattamente la
+    # REGOLA STRUTTURALE 3 del SYSTEM_PROMPT ("altrimenti il robot non si
+    # ferma mai"), che ora ha una conseguenza reale e va fatta rispettare.
     last = plan[-1]
     if "stop_at" not in last and "stop_at_distance" not in last:
-        warns.append("l'ultima fase non ha ne' 'stop_at' ne' 'stop_at_distance': "
-                     "il robot non si fermera' da solo")
+        return False, ("l'ultima fase non ha ne' 'stop_at' ne' 'stop_at_distance': "
+                       "con i moti 'drive' dello schema 3.0 il controllore non "
+                       "termina mai da solo, quindi il robot non si fermerebbe "
+                       "mai"), warns
 
     return True, "", warns
 
