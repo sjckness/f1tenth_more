@@ -28,6 +28,13 @@ Simulation is a third, separate entry point, unrelated to the two above:
 ros2 launch f1tenth_sim sim_bringup.launch.py
 ```
 
+## Model-validation diagnostics
+
+Per-control-step CSV logging in `mpc_corr` and the offline analysis script
+`tools/mpc_model_check.py`: see [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md). It is
+step 1 of a deliberate sequence (log and analyse -> steering calibration on the
+car -> only then MPC weight tuning).
+
 ## Packages
 
 ### Core stack (real hardware)

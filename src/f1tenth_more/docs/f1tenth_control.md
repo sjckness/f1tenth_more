@@ -33,12 +33,16 @@ Launched by `f1tenth_navigation/navigation.launch.py` when `enable_nav2:=false`.
 | `/mpc/goal_pose` | `geometry_msgs/PoseStamped` | Position-only goal-pose driving (used by `f1tenth_behavior`'s mission subtree's `goal_pose` moves) |
 | `/mpc/hold` | `std_msgs/Bool` | Short-circuits `control_loop` to publish zero speed/steering without touching goal-progress state — used by the mission subtree's `stop_and_hold`/`abort_mission` actions |
 | `/perception/obstacles_2d` | `f1tenth_messages/Obstacle2DArray` | Live obstacle list for soft-avoidance deflection |
-| `/perception/front_distance` | `std_msgs/Float32` | Raw ZED depth front-distance reading |
+| `/perception/front_distance` | `std_msgs/Float32` | Raw ZED depth front-distance reading (`dFront`): the wall_turn commit decision, the safety layer, and the increment's distance until a wall is tracked |
+| `/scan` | `sensor_msgs/LaserScan` | Wall tracker input (`wall_tracker.py`), `BEST_EFFORT`, latest message only; subscribed only while `wall_track_enable` is true. Once a wall_turn commits, the wall that triggered it is selected from this scan (gated once against the frozen commit heading) and held as a line in the odom frame; every control tick refits it by proximity, and every later corridor rebuild runs the increment on `d_wall`, the front bumper's perpendicular distance to it |
 | `/imu` | `sensor_msgs/Imu` | — |
 
 **Publishes:** `/drive` (`AckermannDriveStamped`, the mux's `navigation` lane),
 `/mpc/min_obstacle_distance`, `/mpc/predicted_min_clearance`,
-`/mpc/goal_reached` (`Bool`).
+`/mpc/goal_reached` (`Bool`), `/mpc/wall_track` (`f1tenth_messages/WallTrack`,
+every control tick of a wall_turn: `d_wall`, valid only once a wall is
+selected, provenance measured/dead-reckoned — a diagnostic feed, not a safety
+signal).
 
 **ROS params** (declared in-code, wired via `mpc_corr.launch.py`):
 `odom_stale_timeout_sec` (0.5s — max age before falling back to sim odom, then
