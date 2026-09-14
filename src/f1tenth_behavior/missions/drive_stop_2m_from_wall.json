@@ -1,0 +1,14 @@
+{
+  "mission_id": "drive_stop_2m_from_wall",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "straight_until_2m_from_wall",
+      "drive": { "mode": "straight", "speed": 0.5 },
+      "stop_condition": { "type": "front_clearance", "distance": 4.0, "debounce_ticks": 3 },
+      "terminal": true,
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    }
+  ]
+}

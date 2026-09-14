@@ -1,0 +1,28 @@
+{
+  "mission_id": "wall_turn_then_straight",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "straight_until_5m5_from_wall",
+      "drive": { "mode": "straight", "speed": 0.5 },
+      "stop_condition": { "type": "front_clearance", "distance": 5.5, "debounce_ticks": 3 },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "wall_turn",
+      "drive": { "mode": "wall_turn", "turn_sign": 1.0, "turn_mag_deg": 90.0, "speed": 0.4 },
+      "stop_condition": { "type": "orientation_delta", "value": 90.0 },
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "straight_along_the_wall",
+      "drive": { "mode": "straight", "speed": 0.3 },
+      "stop_condition": { "type": "front_clearance", "distance": 1.5, "debounce_ticks": 3 },
+      "terminal": true,
+      "timeout_sec": 60,
+      "on_timeout": "abort"
+    }
+  ]
+}

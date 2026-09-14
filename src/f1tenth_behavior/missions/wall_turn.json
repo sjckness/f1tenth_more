@@ -3,8 +3,15 @@
   "schema_version": "3.0",
   "moves": [
     {
+      "id": "runup_2m",
+      "drive": { "mode": "straight", "speed": 0.4 },
+      "stop_condition": { "type": "distance_reached", "distance": 2.0 },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
       "id": "wall_turn",
-      "drive": { "mode": "wall_turn", "turn_sign": 1.0, "turn_mag_deg": 90.0, "speed": 0.4 },
+      "drive": { "mode": "wall_turn", "turn_sign": -1.0, "turn_mag_deg": 90.0, "speed": 0.5 },
       "stop_condition": { "type": "orientation_delta", "value": 90.0 },
       "terminal": true,
       "timeout_sec": 60,
