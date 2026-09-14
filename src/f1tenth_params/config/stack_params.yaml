@@ -384,6 +384,12 @@ front_clearance_roi_half_height_px:
 front_clearance_min_bg_pixels_for_reading:
   default: 60
   description: "Minimum background pixels in the ROI before front_clearance_node produces a distance at all. Below it the frame yields no reading and the EMA holds its last value rather than being poisoned by a tiny sample. Untuned starting point."
+front_clearance_too_close_clearance_m:
+  default: 0.2
+  description: "front_clearance [m] front_clearance_node publishes when the ROI reads -Inf (the ZED reporting something CLOSER than it can measure). Matches the ~0.2 m minimum-stereo-range floor front_depth_monitor_node/detection_3d_node spell as min_valid_depth -- a -Inf pixel means the true distance is below this, so the value is an upper bound on a distance known only by its ceiling. NOT a validated safety distance."
+front_clearance_too_close_min_pixel_fraction:
+  default: 0.02
+  description: "Fraction of front_clearance_node's ROI (excluding the car's own LiDAR housing) that must read -Inf before the too-close short-circuit fires, bypassing the percentile band, both EMAs and both latches. NOT A NOISE KNOB: it exists only to separate a real object from isolated speckle -Inf pixels, and raising it raises how large an object must be before the car notices it is touching one. If the signal is noisy, fix the ROI bounds or the camera configuration instead. Read the node's own module docstring section on -Inf vs NaN/+Inf before changing this."
 front_clearance_wall_enter_px:
   default: 150
   description: "Background pixel count at or above which front_clearance_node's front_wall latch proposes True. Must exceed wall_exit_px -- the gap between them is the dead band. Untuned starting point."
@@ -426,6 +432,384 @@ front_clearance_clearance_min_dwell_frames:
 front_clearance_publish_debug_raw:
   default: false
   description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance) and /perception/debug/bg_pixel_count (the exact wall-latch input), for tuning the filters against a bag. The topics are not created at all when false."
+
+
+# ============================================================
+# LiDAR front wall (f1tenth_perception/lidar_front_wall_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/lidar_front_wall.launch.py, forwarded to
+# lidar_front_wall_node under their names without the lidar_front_wall_ prefix.
+#
+# NOT the same signal as front_clearance_node above, and not a replacement for
+# it: a LiDAR line fit (distance AND wall normal) plus a measured /
+# dead-reckoned / seeded estimate built from it, on
+# /perception/lidar_front_wall and /perception/lidar_front_wall_virtual.
+# front_clearance_node's /perception/front_wall is a camera pixel-count Bool;
+# the names differ on purpose.
+#
+# UNLIKE the block above, these values were MEASURED, on ~58k archived forward
+# scans. lidar_front_wall_node.py's module docstring carries the numbers behind
+# each one. Re-measure rather than nudge.
+lidar_front_wall_sector_half_angle_deg:
+  default: 10.0
+  description: "Half-width [deg] of the forward /scan sector lidar_front_wall_node fits a line to, centred on the car's heading. 10 (81 beams) roughly halves 5's normal-angle noise (0.43 vs 0.81 deg 1-sigma at 1.2-1.6 m). 5 holds on the noise numbers; 10 is margin for the unmeasured laser mount yaw and wall_turn timing, at the cost of more doorway/clutter in view."
+lidar_front_wall_inlier_distance_m:
+  default: 0.03
+  description: "MSAC inlier distance [m] for lidar_front_wall_node's line fit. Clean-wall acceptance was flat across 0.02/0.03/0.05 (96.6/96.7/96.9%); 0.03 is ~2.7x the p99 inlier residual (11.3 mm, median 2.8 mm)."
+lidar_front_wall_min_inlier_fraction:
+  default: 0.6
+  description: "Minimum inliers / VALID returns in the sector for a fit to count as the wall. Majority rule with margin: the line must be the dominant surface, and a 50/50 wall/object split is rejected rather than coin-flipped."
+lidar_front_wall_min_inlier_count_ratio:
+  default: 0.5
+  description: "Minimum inlier COUNT as a ratio of the sector's beam count: floor = ceil(ratio x beams), 41 at +-10 deg and 21 at +-5 deg. Catches what the fraction cannot: most beams returning nothing (glass, black surfaces) while the few that do sit on a line."
+lidar_front_wall_oblique_max_deg:
+  default: 45.0
+  description: "Largest angle [deg] between the car's heading and the fitted wall normal that still counts as a wall ahead. Past 45 the car moves along the wall more than toward it; measured fit quality holds to 50 deg and collapses at 50-60 deg."
+lidar_front_wall_max_hypothesis_pairs:
+  default: 800
+  description: "Cap on two-point line hypotheses per scan in lidar_front_wall_node (deterministic striding when the sector has more). 81 beams exhaustively is 3240 pairs, 5.0 ms/scan (20% of a core at 40 Hz); 800 is 1.3 ms (5%)."
+lidar_front_wall_wrong_surface_gate_m:
+  default: 0.3
+  description: "A fit further than this [m] from the dead-reckoned wall is rejected as a different surface (an object face) and dead reckoning continues. Sits in the valley of the recorded innovation histogram (same-wall reacquisitions -16/+6 cm p10/p90), while 28% of fit losses came back more than 2 m off. Without it snap-on-reacquisition is unsafe. Never applied against a seed."
+lidar_front_wall_stale_age_sec:
+  default: 3.0
+  description: "Longest [s] lidar_front_wall_node dead-reckons from its last accepted fit. Covers the dead-reckoned 45->90 deg half of a wall_turn at the steering limit (2.1 s at 0.4 m/s, 2.8 s at 0.3 m/s) and 97% of recorded fit losses. Error grows with it: ~25 cm over 3 s at 0.5 m/s from the known odometry scale bias."
+lidar_front_wall_odom_topic:
+  default: /odometry/filtered
+  description: "Odometry lidar_front_wall_node dead-reckons with. Deliberately NOT get_odom_topic(): /odom's servo-integrated yaw measured 0.62-0.92 gain against the LiDAR, and /ekf_global's SLAM steps (157 over 20 cm per hour) would be integrated as motion. Known bias: distance ~17% short (see the node docstring)."
+lidar_front_wall_odom_max_age_sec:
+  default: 0.2
+  description: "Odometry older than this [s] turns off lidar_front_wall_node's dead reckoning and wrong-surface gate. /odometry/filtered runs at 50 Hz; longest recorded gap 136 ms."
+lidar_front_wall_seed_max_age_sec:
+  default: 0.5
+  description: "A /costmap/front_clearance seed older than this [s] (receipt time; the topic has no header) is not used. That topic runs at 20 Hz; longest recorded gap 0.19 s."
+lidar_front_wall_seed_max_valid_m:
+  default: 5.0
+  description: "Largest /costmap/front_clearance value [m] accepted as a seed. Must equal costmap.launch.py's costmap_boundary_max_range_m: that node publishes max_range_m + 1.0 for 'nothing within range', which is not a distance."
+
+# ============================================================
+# Swept clearance (f1tenth_perception/swept_clearance_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/swept_clearance.launch.py, forwarded to
+# swept_clearance_node under their names without the swept_clearance_ prefix.
+#
+# Forward clearance along the steering arc from /scan AND ZED depth, fused, on
+# /perception/swept_clearance. A new topic: it replaces none of the three
+# existing "front clearance" signals and nothing subscribes to it yet. The
+# value is rear-axle travel before the BODY touches something, not a sensor
+# range. Geometry in swept_corridor.py's module docstring.
+#
+# Footprint values come from the URDF chassis mesh bounds, the steering lag
+# from the MPC model-check latency sweep, and the rest are untuned starting
+# points.
+swept_clearance_wheelbase_m:
+  default: 0.305
+  description: "Wheelbase [m] for kappa = tan(delta) / L. The MPC model's L (MPC_corr.py) and vesc.yaml's 'about 30.5 cm'; the URDF says 0.325 and the F1TENTH spec 0.3302 -- unmeasured on this car (docs/DIAGNOSTICS.md)."
+swept_clearance_body_front_x_m:
+  default: 0.443
+  description: "Front bumper x [m] from the rear axle. Straight-ahead clearance is the gap to this. URDF chassis mesh bounds."
+swept_clearance_body_rear_x_m:
+  default: -0.082
+  description: "Rear bumper x [m] from the rear axle (negative). Points behind it never count, not even for the floor. URDF chassis mesh bounds."
+swept_clearance_body_half_width_m:
+  default: 0.136
+  description: "Body half-width [m]. Points inside the body rectangle are the car itself and are ignored. URDF chassis mesh bounds."
+swept_clearance_margin_m:
+  default: 0.1
+  description: "Sideways widening [m] of the swept corridor on each side. Not applied to the front face, so clearance stays the real gap to the bumper. Untuned."
+swept_clearance_max_range_m:
+  default: 5.0
+  description: "Clearance [m] reported when nothing in the corridor is nearer; also the arc-length horizon. Same 5 m as costmap_boundary_max_range_m."
+swept_clearance_absolute_min_clearance_m:
+  default: 0.15
+  description: "Floor [m]: any point this close to the body (straight-line gap to the footprint rectangle, alongside included) sets clearance to that gap whatever the steering. Measured to the body, it trips at or before IsProximityTooClose's 0.15 m sensor-range cone for any point outside the footprint."
+swept_clearance_rear_axle_x_m:
+  default: 0.0
+  description: "Rear axle x [m] in base_link. 0 per the URDF (base.xacro: base_link at the rear axle). Some docstrings say base_link is between the axles (-0.1525 here); change only on a measurement."
+swept_clearance_steering_estimate:
+  default: lagged_command
+  description: "Steering the corridor follows. 'lagged_command': the command in effect steering_lag_sec ago (older, never newer). 'latest_command': the newest. 'envelope': the smallest clearance over the lagged angle and every command still in transit -- covers a newer command steering INTO something, which lagged alone reports late."
+swept_clearance_steering_lag_sec:
+  default: 0.3
+  description: "Actuator lag [s] behind the steering estimate. tools/mpc_model_check.py's latency sweep on out3_turn_left.png: minimum 230 ms in a flat 200-300 ms basin (EKF lag included). The top of the basin, so the estimate errs late."
+swept_clearance_steering_topic:
+  default: /ackermann_drive
+  description: "AckermannDriveStamped steering source. The ackermann_mux OUTPUT, so teleop and safety-lane commands count, not just the MPC's /drive."
+swept_clearance_lidar_timeout_sec:
+  default: 0.25
+  description: "LiDAR clearance older than this [s] is stale and left out of the fusion. /scan runs at 40 Hz."
+swept_clearance_camera_timeout_sec:
+  default: 0.5
+  description: "Depth clearance older than this [s] is stale and left out of the fusion. ZED depth runs at ~17 Hz (front_clearance_node's mask_time_constant comment)."
+swept_clearance_publish_rate_hz:
+  default: 20.0
+  description: "Rate [Hz] of the fused /perception/swept_clearance. Timer-driven so that both sensors going silent still publishes 0.0."
+swept_clearance_camera_stride_px:
+  default: 4
+  description: "Unproject every Nth depth pixel in each direction (640x360 -> 160x90 samples). Untuned."
+swept_clearance_camera_max_points:
+  default: 4000
+  description: "Cap on depth points per frame after the height band, decimated evenly. Untuned."
+swept_clearance_camera_min_depth_m:
+  default: 0.2
+  description: "Range [m] a -Inf ZED pixel (closer than measurable) is placed at along its ray. Same ~0.2 m floor as front_clearance_too_close_clearance_m."
+swept_clearance_camera_max_depth_m:
+  default: 6.0
+  description: "Depth [m] beyond which ZED pixels are dropped. Past max_range_m they cannot change the result. Untuned."
+swept_clearance_camera_z_min_m:
+  default: 0.08
+  description: "Lowest base_link height [m] a depth point counts as an obstacle -- above floor noise and the ZED's unmeasured mount pitch. base_link is on the ground per the URDF (other docs say 0.07 m above). Obstacles lower than this are invisible to the camera path. Untuned."
+swept_clearance_camera_z_max_m:
+  default: 0.35
+  description: "Highest base_link height [m] a depth point counts as an obstacle: just above the car's top (LiDAR at 0.20 m plus housing), so overhead structure does not register. Untuned."
+
+# ============================================================
+# Glass detection gates (f1tenth_perception/glass_detect.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/wall_distance.launch.py, forwarded to
+# wall_distance_node under their names without the glass_ prefix and
+# assembled into glass_detect.DetectorConfig / GlassTracker.
+#
+# WHY THE PREFIX IS glass_ AND NOT wall_distance_. DetectorConfig's own
+# docstring has always claimed "every gate, defaulted to stack_params.yaml's
+# glass_* values" -- and until this block existed that was false: there were
+# ZERO glass_ keys and every gate was a Python default, untunable without a
+# rebuild. The prefix keeps the promise and keeps the gates reusable if
+# glass_detect ever gets a node of its own (it has none today:
+# glass_detector_node.py does not exist, and wall_distance_node is the
+# module's first and only runtime consumer).
+#
+# WHERE THE NUMBERS COME FROM, and this matters more than usual here. The
+# capture behind them is ONE session, 2026-09-14, parked 1.10 m from a clear
+# pane with a UST-10LX. glass_detect.py's module docstring carries all four
+# measurements. Anything marked "real, 1.1 m only" is a genuine measurement
+# AT THAT RANGE AND NOWHERE ELSE -- the docstring is explicit that the pane
+# "HAS NOT BEEN RETESTED AT 3-4 M, WHERE THE BUDGET IS ~13x SMALLER AND THE
+# PANE MAY WELL VANISH", which is the whole open question Stage 3 of
+# docs/bringup_checklist.md exists to close. Everything else is SYNTHETIC:
+# chosen by reasoning against that one capture, never fitted to hardware.
+glass_cos_theta_floor:
+  default: 0.2
+  # SYNTHETIC -- retune on hardware
+  description: "Smallest incidence cosine [-] the intensity normaliser will divide by, clamping the 1/cos blow-up at grazing incidence. 0.2 is 78 deg off normal, past where any return is trustworthy. SYNTHETIC: no measurement fixed this, and the whole intensity path is inert on this glass anyway (see glass_spike_factor)."
+glass_normal_window:
+  default: 5
+  # SYNTHETIC -- retune on hardware
+  description: "Beams either side of a return used to estimate the local surface slope for the incidence cosine. 5 at 0.25 deg spacing is +-1.25 deg of arc: wide enough to average sensor noise, narrow enough not to straddle a mullion. SYNTHETIC."
+glass_intensity_range_exponent:
+  default: 0.0
+  # real, 1.1 m only
+  description: "Exponent n in the intensity range correction I * r^n. 0.0 means OFF, and that is a MEASUREMENT, not a default left unset: over 195591 valid returns a log-log fit of intensity against range gave slope -0.24 (corr -0.30) where raw amplitude would give -2.0, so urg_node's intensity is AGC-normalised or quantised and an r^2 correction would inject error rather than remove it. Set to 2.0 only if a future sensor reports raw amplitude."
+glass_spike_factor:
+  default: 6.0
+  # real, 1.1 m only
+  description: "How many times the local median normalised intensity a beam must reach to count as a Fresnel spike. 6.0 does NOT fire on this building's glass and is not what the detector rests on: measured peak/median within +-20 deg was 1.84, and intensity falls SMOOTHLY with incidence (1153 counts at 0-2 deg to 793 at 15-20 deg), i.e. diffuse behaviour. The spike path is implemented and correct and is what a genuinely specular pane needs. Lowering this to ~1.5 to make it fire on THIS pane would fire on every diffuse wall too."
+glass_spike_window:
+  default: 31
+  # SYNTHETIC -- retune on hardware
+  description: "Beams in the running median a spike is measured against. 31 at 0.25 deg is +-3.75 deg. SYNTHETIC."
+glass_max_spike_width:
+  default: 3
+  # SYNTHETIC -- retune on hardware
+  description: "Widest run of beams still counted as one spike. A genuine near-normal Fresnel return is a few beams; anything wider is a surface. SYNTHETIC."
+glass_min_gradient_ratio:
+  default: 3.0
+  # SYNTHETIC -- retune on hardware
+  description: "Minimum ratio between a spike's edge gradient and the local noise, so a slow intensity ramp across a diffuse surface cannot register as a spike. SYNTHETIC."
+glass_min_void_beams:
+  default: 3
+  # real, 1.1 m only
+  description: "Fewest consecutive beams reading past (or through) a plane to count as an opening. 3, NOT 5: the measured see-through bands on the real pane were 8, 4, 3 and 3 beams wide, so a floor of 5 caught only the widest of the four. This is the single most load-bearing measured number in the block."
+glass_void_range_jump:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Range step [m] between a beam and its neighbour that starts a 'far' void -- the beam came back from behind the plane rather than not at all. 0.5 m is well clear of surface roughness and well inside the corridor depth behind the measured pane. SYNTHETIC."
+glass_support_window_beams:
+  default: 60
+  # real, 1.1 m only
+  description: "Beams either side of an opening whose on-surface returns join the line fit. 60 (+-15 deg) because this pane returns on ~97% of forward beams, so there is abundant support next to each gap; fitting the two frame beams alone yields a two-point line through noise. NOTE this bounds how long a fitted segment can be and therefore when EVIDENCE_WIDE can fire -- see glass_detect.py's comment. A wider window starts pulling an adjoining wall across a corner into the fit."
+glass_see_through_max_gap_m:
+  default: 0.30
+  # real, 1.1 m only
+  description: "Widest see-through run [m] still read as TRANSPARENCY rather than as an actual opening. Measured: real transparency bands were 4 cm; a 0.9 m doorway at the same range is 0.9 m. 0.30 sits between them with room either side. The open-doorway control at 2/3/4 m in Stage 3 of docs/bringup_checklist.md is what tests whether that separation survives at range."
+glass_min_line_inliers:
+  default: 6
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest inliers a RANSAC line needs to be considered at all. SYNTHETIC."
+glass_line_inlier_dist:
+  default: 0.05
+  # SYNTHETIC -- retune on hardware
+  description: "Perpendicular distance [m] within which a point is an inlier of a candidate line. 0.05 is loose next to lidar_front_wall_inlier_distance_m (0.03), deliberately: a pane's support returns span a wide incidence range where range error grows. SYNTHETIC."
+glass_min_segment_length:
+  default: 0.3
+  # SYNTHETIC -- retune on hardware
+  description: "Shortest fitted segment [m] worth reporting. Below this a doorframe edge or a box corner makes a perfect two-point wall. SYNTHETIC."
+glass_max_segment_length:
+  default: 6.0
+  # SYNTHETIC -- retune on hardware
+  description: "Longest fitted segment [m]. Beyond this the fit has almost certainly welded two surfaces across a corner. SYNTHETIC."
+glass_min_range_m:
+  default: 0.8
+  # SYNTHETIC -- retune on hardware
+  description: "Nearest range [m] a return may have and still belong to a partition. Nearer than this it is the car's own structure or near-field clutter: the LiDAR sits 0.12 m ahead of base_link and the body reaches 0.443 m. SYNTHETIC, but constrained by real geometry rather than by a fit."
+glass_normal_tolerance_deg:
+  default: 2.0
+  # SYNTHETIC -- retune on hardware
+  description: "How near normal incidence a spike must be to the fitted line's normal to corroborate it. 2.0 deg brackets the ~0.2-0.4 deg theoretical Fresnel window with margin for the fit's own angular error. SYNTHETIC, and inert while glass_spike_factor does not fire."
+glass_on_line_min_beams:
+  default: 2
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest range returns landing ON the line inside an opening for EVIDENCE_ON_LINE. SYNTHETIC."
+glass_geom_min_length_m:
+  default: 1.2
+  # SYNTHETIC -- retune on hardware
+  description: "Shortest segment [m] that may be accepted on GEOMETRY ALONE (no intensity evidence). Partition-scale, so a doorframe cannot qualify. SYNTHETIC: the real capture's five-opening partition measured 2.07 m, comfortably over, which bounds this from above but does not fix it."
+glass_geom_min_voids:
+  default: 2
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest openings on one line for geometry-only acceptance. One gap is a gap; several in a plane is a glazed partition. SYNTHETIC."
+glass_max_candidates:
+  default: 4
+  # SYNTHETIC -- retune on hardware
+  description: "Most lines extracted from one scan's support set, sequentially. Bounds the per-scan cost; 4 is enough for a partition plus its returns' leftovers. SYNTHETIC."
+glass_point_spacing:
+  default: 0.025
+  # SYNTHETIC -- retune on hardware
+  description: "Spacing [m] at which a fitted segment is sampled into points -- half the costmap resolution, so a sampled segment cannot leave a gap a planner threads a path through. Also the spacing wall_distance_node uses when feeding the tracked segment to swept_corridor.clearance(), which is point-based. SYNTHETIC."
+
+# ============================================================
+# Tracked wall distance (f1tenth_perception/wall_distance_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/wall_distance.launch.py, forwarded to
+# wall_distance_node under their names without the wall_distance_ prefix.
+#
+# WHAT THIS NODE IS. The signed perpendicular distance to ONE tracked wall,
+# on /perception/d_wall (f1tenth_messages/WallDistance), plus that wall as a
+# segment on /perception/d_wall/segment (WallSegment), plus the phase of any
+# active wall_turn read off /mpc/wall_track. It is the first consumer of both
+# glass_detect.py and /mpc/wall_track. See docs/wall_turn_investigation.md
+# for the seam analysis and f1tenth_perception/README.md for what is
+# UNVALIDATED.
+#
+# NOT the same signal as any existing one, and the names in this stack are
+# already a documented trap (see front_clearance_node.py:36-56):
+#   /perception/d_wall             SIGNED lateral offset, left positive  <-- this
+#   /mpc/wall_track  .d_wall       UNSIGNED magnitude, MPC-internal
+#   /perception/lidar_front_wall   UNSIGNED perpendicular, forward sector
+#   /perception/front_distance     camera, straight ahead, wall only
+#   /perception/swept_clearance    rear-axle ARC LENGTH to body contact
+#
+# EVERY VALUE BELOW IS SYNTHETIC unless marked otherwise. None was fitted
+# against hardware: the LiDAR was powered down for the whole of this work and
+# no live run has ever produced a /perception/d_wall message. The node builds
+# and passes fixtures, which makes it NOT YET FALSIFIED, not "working".
+wall_distance_scan_topic:
+  default: /scan
+  description: "LaserScan the tracked wall is fitted from. Subscribed with best-effort sensor QoS, which sends urg_node no acknowledgements and so cannot back-pressure it or the e-stop (IsProximityTooClose) that reads the same topic -- the reasoning MPC_corr.py:1322-1334 already records for its own /scan subscriber."
+wall_distance_wall_track_topic:
+  default: /mpc/wall_track
+  description: "MPC_corr's per-tick wall_turn feed, the phase machine's ONLY input. 10 Hz, reliable, volatile, depth 10 -- matched deliberately: volatile means a late subscriber sees nothing until the next turn, which is why UNKNOWN is also the startup state."
+wall_distance_output_topic:
+  default: /perception/d_wall
+  description: "WallDistance output. The segment goes to this topic plus '/segment' and the swept-arc debug value to this topic plus '/swept_arc', so all three move together if this is retargeted."
+wall_distance_publish_rate_hz:
+  default: 10.0
+  # SYNTHETIC -- retune on hardware
+  description: "Publish rate [Hz] of the WallDistance/WallSegment pair, from a timer and NOT from the scan callback, so silence from /scan still produces a valid=false message rather than silence. 10.0 matches MPC_corr's control tick (ts = 0.1), which is the fastest anything can consume it; /scan arrives at 40 Hz so the track itself refits 4x faster than it publishes. SYNTHETIC."
+wall_distance_wall_track_silence_ticks:
+  default: 3
+  # SYNTHETIC -- retune on hardware
+  description: "Consecutive publish ticks with no /mpc/wall_track message before the phase leaves WALL_TURN/COMMITTED. 3 at 10 Hz is 300 ms, i.e. three missed control ticks -- long enough to ride out one dropped message on a reliable topic, short enough that a real turn exit is seen inside a third of a second. SYNTHETIC: no bag contains /mpc/wall_track, so the real jitter and drop pattern of that topic has never been observed (docs/wall_turn_investigation.md, bag inventory)."
+wall_distance_match_endpoint_tol:
+  default: 0.20
+  # SYNTHETIC -- retune on hardware
+  description: "Mean endpoint distance [m] within which a fresh candidate segment re-associates to an existing track. Above it the track_id changes and the consumer is told, rather than the step in d_wall being hidden. 0.20 is loose enough for a partly-occluded re-observation of the same pane (whose endpoints genuinely move) and tight enough to reject the next wall along. SYNTHETIC."
+wall_distance_match_angle_tol_deg:
+  default: 10.0
+  # SYNTHETIC -- retune on hardware
+  description: "Angle [deg] between a candidate's normal and a track's, folded into [0, 90] because a line fit gives the normal only up to a flip, for re-association. 10.0 is far tighter than mpc_corr's own wall_normal_tol_rad (0.39 rad = 22.5 deg) because that gate selects a wall against a heading while this one matches a wall against ITSELF one scan later, where the true change is ~0. SYNTHETIC."
+wall_distance_max_coast_distance:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Odometry travel [m] a track may be carried on prediction alone before provenance goes NONE and valid goes false. RAISE ONLY AFTER ODOM CALIBRATION: /odom and the local EKF under-report distance by ~17-20% (speed_to_erpm_gain, 2026-08-10), so 2 m of coasting misplaces the wall laterally by ~0.4 m -- larger than any margin in this design. At 0.5 m the same bias is ~0.1 m. SYNTHETIC, and bounded by a real measured bias rather than by a fit."
+wall_distance_max_coast_yaw:
+  default: 0.35
+  # SYNTHETIC -- retune on hardware
+  description: "Odometry rotation [rad] a track may be carried on prediction alone, whichever cap is hit first. RAISE ONLY AFTER ODOM CALIBRATION: the gyro yaw gain is 0.93-1.09, so a 90 deg turn can misorient the stored wall by ~6 deg. 0.35 rad (20 deg) holds that error near 1.4 deg. A 90 deg wall_turn therefore CANNOT be coasted end to end, by design -- the cap firing mid-turn is the expected behaviour, not a failure. SYNTHETIC, bounded by a real measured bias."
+wall_distance_fade_start_age:
+  default: 0.3
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] of the last direct observation at which the SOFT output (the centering correction) starts fading toward zero. Staleness pushes the two outputs in OPPOSITE directions -- see wall_distance_stale_inflate_per_s. 0.3 s is three control ticks. SYNTHETIC."
+wall_distance_fade_zero_age:
+  default: 1.0
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] at which the soft correction has faded linearly to exactly zero. A stale d_wall commands a confident heading toward a position no longer trusted; neutral is safer than wrong. Must be > wall_distance_fade_start_age, which the node asserts at startup. SYNTHETIC."
+wall_distance_stale_inflate_per_s:
+  default: 0.15
+  # SYNTHETIC -- retune on hardware
+  description: "Extra required margin [m] added per second of age on the GATE side. The opposite direction from the fade above, and the asymmetry is the point: a wall IS there and confidence in WHERE is decaying, so a gate must back off while a correction must go neutral. 0.15 m/s roughly tracks the odometry position error accumulated per second at the 0.4 m/s the wall_turn missions command. SYNTHETIC."
+wall_distance_d_ref:
+  default: 0.60
+  # SYNTHETIC -- retune on hardware
+  description: "Target |d_wall| [m] the correction converges the car to -- a FIXED single-wall offset, signed at use by whichever side the track is on. It CANNOT be derived from corridor width: the corridor is synthetic with hardcoded half-widths (corr_wmin 0.4333 / corr_wmax 0.7667 are bare literals in MPC_corr.py, not parameters) and only one wall is ever sensed. SYNTHETIC."
+wall_distance_convergence_length_m:
+  default: 3.0
+  # SYNTHETIC -- retune on hardware
+  description: "Distance [m] over which a lateral error should wash out. k = 1/this, so 3.0 gives k = 0.333 rad/m. THE GAIN IS NOT TUNED EMPIRICALLY AND MUST NOT BE: with e = d_wall - d_ref and dpsi = -k*e, the lateral dynamics are edot = -v*k*e -- first order, unconditionally stable, no oscillation, and the closed-loop behaviour in SPACE is independent of speed. Pick the convergence length, which has physical meaning; the gain follows. SYNTHETIC."
+wall_distance_max_psi_correction:
+  default: 0.20
+  # SYNTHETIC -- retune on hardware
+  description: "Saturation [rad] on |dpsi|. Beyond the small-angle regime edot = v*sin(dpsi) ~ v*dpsi fails and the stability argument with it, and the steering cannot deliver it anyway (delta_max is 0.278 rad at the wheels). Stage 4 of docs/bringup_checklist.md forces this to 0.0 so the node publishes but changes nothing; Stage 5 runs it at ~0.05. SYNTHETIC."
+wall_distance_max_psi_rate:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Rate limit [rad/s] on dpsi. Also what absorbs the handoff discontinuity at a phase transition and at a track_id change, which is why it is a rate limit and not just a filter. SYNTHETIC."
+wall_distance_deadband_floor:
+  default: 0.02
+  # SYNTHETIC -- retune on hardware
+  description: "Smallest lateral error [m] that produces any correction at all, whatever the fit quality. Floors the rms-scaled deadband below. SYNTHETIC."
+wall_distance_deadband_k:
+  default: 2.0
+  # SYNTHETIC -- retune on hardware
+  description: "Multiplier on fit_rms in deadband = max(deadband_floor, deadband_k * fit_rms). DERIVED FROM rms, NOT CONSTANT, on purpose: the 17-19 mm rms measured at 1.1 m will grow substantially at longer range with fewer inliers, and a fixed deadband would steer on noise exactly when the estimate is worst. 2.0 puts the threshold at two standard deviations of the fit. SYNTHETIC."
+wall_distance_odom_topic:
+  default: /odometry/filtered
+  description: "Pose the scan is placed in odom with, and the travel/rotation the coast caps are measured against. Local EKF at 50 Hz, the same source MPC_corr reads (localization_source: ekf), so the two cannot disagree about where the car is."
+wall_distance_odom_max_age_sec:
+  default: 0.2
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] past which the pose is not a pose. Without a fresh one a scan cannot be placed in odom and the track can only be predicted -- and prediction with no odometry is not prediction, so the node goes to provenance NONE. 0.2 s is ten EKF periods. SYNTHETIC."
+wall_distance_fov_half_angle_rad:
+  default: 1.5708
+  # SYNTHETIC -- retune on hardware
+  description: "Half-angle [rad] of the sector in which a track is considered visible, for GlassTracker's expected-return test: a miss only counts against a track that should have been seen. pi/2 (90 deg) is the forward half-plane, well inside the UST-10LX's 270 deg. SYNTHETIC."
+wall_distance_expect_return_tol_deg:
+  default: 60.0
+  # real, 1.1 m only
+  description: "How near normal incidence [deg] a pane must be for a MISS to count against its track. NEVER DECAY ON ABSENCE ALONE: absence is the normal state for glass, so a tracker that decayed on plain absence would drop every pane the moment the car turned away -- the clearing bug this whole design exists to prevent, one layer up. 60.0 is the measured limit: the real pane returned on essentially every forward beam out to 60 deg of incidence (valid fraction 0.928 in the 50-60 deg band), so inside 60 deg a miss really is evidence. Valid AT 1.1 M ONLY."
+wall_distance_max_range_m:
+  default: 5.0
+  # SYNTHETIC -- retune on hardware
+  description: "Range [m] beyond which a track is not expected to return and a miss does not count. Also the horizon of the swept-arc debug value. Same 5 m as swept_clearance_max_range_m and costmap_boundary_max_range_m. SYNTHETIC, and the range at which glass visibility is entirely unmeasured."
+wall_distance_persistence_window:
+  default: 8
+  # SYNTHETIC -- retune on hardware
+  description: "Scans over which a candidate's confirmations are counted before it may be published. SYNTHETIC."
+wall_distance_persistence_hits:
+  default: 3
+  # SYNTHETIC -- retune on hardware
+  description: "Confirmations needed inside that window with intensity evidence available. Doubled by wall_distance_geometry_only_multiplier without it. SYNTHETIC."
+wall_distance_geometry_only_multiplier:
+  default: 2
+  # SYNTHETIC -- retune on hardware
+  description: "Multiplier on persistence_hits when the intensity path was not used, because geometry-only evidence is weaker per scan. It buys confidence that the OPENING is real, NOT that it is glass -- see glass_detect.py's module docstring. On this building's pane the spike path never fires, so this multiplier is the live case, not the fallback. SYNTHETIC."
+wall_distance_track_timeout_sec:
+  default: 0.0
+  description: "Age [s] at which a track is forgotten entirely. 0.0 disables forgetting, which is the safe default for glass and is what GlassTracker.drop_stale already defaults to. NOT the same thing as the coast caps: those stop TRUSTING a track (valid goes false) while the track itself is kept, so that re-acquiring the same pane keeps its track_id instead of looking like a new wall."
 
 # ============================================================
 # Command/Control
@@ -514,6 +898,114 @@ corridor_update_period:
 corridor_heading_return:
   default: true
   description: "Corridor heading-blend geometry on a straight (goal_distance) move. false (default): both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true: blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), no launch
+# arg. The corridor S-curve's heading ramp, as fractions of the corridor length:
+# theta(u) = psiStart + dpsi * smoothstep((u - u_start) / (u_end - u_start)).
+# At L 3.0 the ramp runs from 0.3 m to 2.1 m. These were in-code literals with
+# the same values; MPC_corr.py's own comment carries the closed-loop table on
+# what tightening them does to the straight-move heading return.
+corr_turn_u_start:
+  default: 0.00
+  description: "Corridor fraction [0-1] where build_straight_corridor's S-curve heading ramp starts (0.0 m of a 3.0 m corridor -- the ramp begins at the car). Applies to every corridor that turns, including each wall_turn increment. LOWERED from the reference implementation's 0.10 after a wall_turn drove into the wall: at 0.10/0.70 the bearing to the 1.5 m lookahead presented only 23% of the corridor's 0.763 rad ask (-0.177 rad), the QP steered the -0.059 rad that bearing deserved instead of the -0.274 rad the turn needed, and the 1 Hz rebuild re-deferred the rest from the new pose every second. See MPC_corr.py's own measured u_start/u_end table: this moves final heading error 0.1344 -> 0.0486 rad and lateral drift 1.010 -> 0.675 m. Peak ramp curvature stays at R ~1.83 m, well inside R_min 1.05 m, so neither the steering limit nor the 0.5 rad/s rate bound binds. 0.00/0.40 is the next step in the table (error ~0) but puts peak curvature AT R_min with no margin."
+corr_turn_u_end:
+  default: 0.40
+  description: "Corridor fraction [0-1] where the S-curve heading ramp ends (1.2 m of a 3.0 m corridor). Must exceed corr_turn_u_start. TIGHTENED from 0.70 with u_start already at 0.00: the bearing to the 1.5 m lookahead now presents 60.2% of the corridor's ask to the solver, up from 32.8% at 0.00/0.70 and 23.6% at the original 0.10/0.70 (measured -0.177 rad of a -0.763 rad ask on the run that drove into the wall). MPC_corr.py's own table puts final heading error at +0.0011 rad here versus +0.0486 at 0.00/0.70. NOTE the ramp span is now 1.2 m, so peak curvature is 1.5 * 0.763 / 1.2 = 0.954 rad/m, i.e. R ~1.05 m = R_min: the corridor deliberately asks for full lock at the S-curve's steepest point and LIM | delta_sat=True there is expected, not a fault. Going tighter than this asks for a curvature the car cannot physically track."
+# ------------------------------------------------------------------
+# WALL_TURN INCREMENT -- how much of a wall_turn one corridor asks for.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
+# mpc_controller/wall_turn.py, whose module docstring has the full rule. No
+# launch arg: edit here and relaunch.
+#
+# Each rebuild asks for sign * min(|still owed|, d_avail / (k_safety * R_min),
+# N * ts * v_ref / R_min) once the turn has committed, and nothing before.
+# It commits when d_avail = max(dFront - margin, 0) <= k_safety * R_min *
+# |still owed|. R_min = mpc_wheelbase_m / tan(steering bound for the
+# direction): 1.069 m left (0.278), 1.049 m right (-0.283).
+#
+# Trigger dFront for a turn started straight, at the defaults below:
+#   74.5 deg left 2.58 m / right 2.55 m      90 deg left 3.02 m / right 2.97 m
+#
+# THE TRIGGER IS NOT THE KNOB FOR "START TURNING EARLIER" -- k_safety was run
+# up to 2.75 for exactly that (90 deg trigger 5.62 m, handoff raised to 5.5 m
+# to match) and the live 90 deg turn got WORSE, capping at 42 deg and reaching
+# the wall: see corr_wall_turn_k_safety's own description for the by_dist /
+# ratchet mechanism. Two separate things were confused, and both are recorded
+# here so the same trade is not made twice:
+#
+#   1. WHERE the corridor first bends is set by when the MOVE IS ISSUED, not
+#      by this trigger -- the trigger only gates when the move arrives while
+#      dFront still EXCEEDS it. Missions that hand off inside their trigger
+#      (wall_turn_then_straight at 4.0 m under a 4.27 m trigger) commit on
+#      their first rebuild and the trigger does nothing at all.
+#   2. WHETHER THE TURN FINISHES is set by angle per rebuild, which this value
+#      divides. That is the one that was actually failing.
+#
+# At 1.5 the trigger is back down near where it started and the missions that
+# hand off at 5.5 m / drive a 2 m runup now genuinely sit OUTSIDE it, so the
+# corridor does stay straight until the trigger -- the intended behaviour,
+# reached by leaving this alone rather than raising it.
+#
+# wall_turn.json gained a 2 m runup_2m move so its turn is no longer issued at
+# mission start; it still needs ~5.5 m of room ahead at mission start for the
+# trigger to gate rather than commit on the first rebuild.
+corr_wall_turn_k_safety:
+  default: 1.50
+  description: "Distance safety factor for the wall_turn increment: a turn of dpsi is given k_safety * R_min * dpsi metres. Floor 1.5 -- smoothstep's peak slope, where the S-curve's steepest point sits exactly at 1/R_min with no margin -- and a value below it is raised to 1.5 with an error. AT THE 1.5 FLOOR DELIBERATELY, and the reason is the opposite of what the trigger table below suggests you tune this for. This value does two things at once: it sets the trigger distance (up) AND it divides the per-rebuild distance cap by_dist = d_avail / (k_safety * R_min) (down). The second is what governs whether a turn can finish. Raised to 2.75 to start the bend further out, a live 90 deg wall_turn capped at 42 deg and drove into the wall: by_dist was 0.737 rad on the first rebuild, already under the 0.763 rad horizon cap, so dpsi_this shrank faster than the car rotated, cmd_rot could never advance past its rebuild-1 value and the ratchet pinned psiRef at -0.74 for all eleven rebuilds while yaw crawled to -0.56. At 1.5, with the margin now 0.5, by_dist stays above the horizon cap until d_wall 1.70 m (margin + 1.20 m), so cmd_rot tracks turn_progress + the horizon cap and the ask keeps moving ahead of the car. Trigger distance is the thing to sacrifice here, not angle per rebuild -- the run that failed had committed at 3.13 m with room to spare."
+corr_wall_turn_safety_margin_m:
+  default: 0.5
+  description: "Metres of /perception/front_distance (or, after commit, the tracker's d_wall) the wall_turn increment keeps in reserve: d_avail = max(d - margin, 0). Inside the margin the distance cap is zero and the corridor's end heading stops advancing; the ratchet keeps the last one rather than straightening toward the wall. LOWERED from 1.0: that freeze is what capped a live 90 deg turn at 42 deg, because by_dist = d_avail / (k_safety * R_min) fell under the horizon cap almost immediately and cmd_rot could never advance again. The margin sets when the freeze starts -- by_dist holds above the horizon cap only while d >= margin + 1.20 m, so every 0.1 m of margin costs 0.1 m of free-turning distance. At 0.5 a 90 deg turn committed at d_wall 2.95 m reaches 90 deg with ~0.9 m still in hand; at 1.0 it reached 63 deg and touched the wall. NOTE this is now measured against d_wall, a BUMPER distance, so 0.5 m is 0.5 m from the bodywork, not from the lens."
+corr_wall_turn_front_distance_max_age_sec:
+  default: 0.5
+  description: "A /perception/front_distance message older than this [s], or none at all, is UNKNOWN to the wall_turn increment (as is front_clearance_node's -1.0). Once the turn has committed, unknown drops the distance cap and the turn continues within the horizon's reach; before commit it keeps the corridor straight, except on the move's first rebuild, where it commits. front_clearance_node publishes once per ZED depth frame (~17 Hz); same 0.5 s as swept_clearance_camera_timeout_sec."
+# ------------------------------------------------------------------
+# WALL TRACKER -- d_wall for the wall_turn increment.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
+# mpc_controller/wall_tracker.py, whose module docstring has the full design.
+# No launch arg: edit here and relaunch.
+#
+# The increment above sizes each corridor from the distance left in which to
+# finish rotating, and that distance is governed by the wall that triggered
+# the turn. dFront cannot supply it mid-turn: it is measured along the car's
+# own heading, which rotates away from that wall, so it jumps to whatever
+# lies down the new heading. So on the rebuild a wall_turn commits, the wall
+# is SELECTED from that instant's /scan (line normal within wall_normal_tol_rad
+# of the frozen heading, within wall_dfront_slack_m of the commit dFront,
+# ahead of the car, at least wall_min_span_m of returns)
+# and held as a line in the odom frame. From the next rebuild on, d_avail runs
+# on d_wall = the FRONT BUMPER's perpendicular distance to that line -- no
+# cone, no field of view, no dependence on the current heading -- refitted
+# from returns within wall_assoc_dist_m of it on every control tick (never
+# re-gated: the car is rotating, so the selected wall fails the
+# perpendicularity test partway through the turn) and dead-reckoned from
+# odometry when the refit degrades.
+#
+# dFront keeps every job it has today: the commit decision, the safety layer,
+# and the increment's distance whenever no wall passed the gates. Result on
+# /mpc/wall_track (f1tenth_messages/WallTrack), every control tick of a
+# wall_turn. The bumper offset is swept_clearance_body_front_x_m (the same
+# physical quantity, read from that key); the LiDAR inlier distance is
+# lidar_front_wall_inlier_distance_m (measured on this Hokuyo, not a second
+# tunable). Neither is a separate key here on purpose.
+wall_track_enable:
+  default: true
+  description: "Run the wall tracker for wall_turn moves. false: no /scan subscription in mpc_corr, no /mpc/wall_track, and the increment runs on dFront alone as before."
+wall_normal_tol_rad:
+  default: 0.39
+  description: "Largest angle [rad] between a candidate line's normal (folded to [0, pi/2], a fit gives the sign only up to a flip) and the heading frozen at commit for it to count as the FRONT wall. 0.39 (22.5 deg) is wide enough for an oblique approach and narrow enough that a side wall (90 deg off) can never qualify. If real walls are being rejected, this is the first thing to tune, and mpc_corr's WALL/select rejection log (with each candidate's angle_err) is what to tune it against."
+wall_min_span_m:
+  default: 0.5
+  description: "Shortest extent [m] of a candidate's inlier returns along its line for it to be selectable, and for a tracking refit to be accepted rather than dead-reckoned. The extent is the longest run of returns with no gap over 0.25 m, not max minus min: returns scattered across a room that line up must not read as a long wall. A short cluster fits any line you like: a doorframe or a box corner makes a perfect two-point wall."
+wall_min_inliers:
+  default: 8
+  description: "Fewest returns on a candidate line for it to be selectable, and fewest returns associated to the tracked line for a refit to be accepted; below it that tick dead-reckons d_wall from odometry."
+wall_assoc_dist_m:
+  default: 0.3
+  description: "Association gate [m]: on each control tick only returns within this perpendicular distance of the tracked line (in odom) feed its refit. Proximity only, never orientation. Kept tight so the next corridor's wall is not absorbed into the current fit; the refit then tightens to the LiDAR inlier distance so an adjoining wall's corner returns cannot lever the normal."
+wall_dfront_slack_m:
+  default: 0.5
+  description: "Selection distance window [m]: a candidate's bumper distance must be within this of the dFront the turn committed on. Nearer cannot be the wall the car decided to turn for (side-wall clutter at 0.4 m), and neither can farther: on an archived run that started 1.25 m behind an obstacle, the corridor's genuine end wall 10 m away passed every other gate and would have removed the distance cap from a turn decided on 1.25 m. Relative to the commit dFront, NOT the nominal trigger distance: a wall_turn issued once dFront already reads 4.0 m commits with a 90 deg turn's 4.27 m trigger already passed, and a floor at the trigger would reject the real wall. The slack covers camera-vs-LiDAR disagreement and the lens-to-bumper offset; it is not measured (the archive has no /perception/front_distance to measure it against). dFront unknown at commit means no window (logged)."
 # ------------------------------------------------------------------
 # MPC BOUNDARY CONSTRAINTS -- the costmap wall rows in the RTI solve.
 #
@@ -546,6 +1038,12 @@ boundary_max_sources:
 boundary_slack_weight:
   default: 10000.0
   description: "Penalty on each wall face's worst violation over the horizon, when boundary_hard is false. Large relative to every cost weight, so the solve treats a wall as near-inviolable while still degrading to a reported violation instead of an infeasible QP. Never validated on the vehicle."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -> mpc_corr's model_log_path.
+# Model-validation CSV read by tools/mpc_model_check.py; see docs/DIAGNOSTICS.md.
+# Additive instrumentation: nothing reads it back into the control path.
+mpc_model_log_path:
+  default: mpc_log.csv
+  description: "Per-control-step CSV (t,x,y,psi,v,steer_cmd,accel_cmd) written by mpc_corr on every solved control step, for tools/mpc_model_check.py. A relative path lands in mpc_corr's WORKING DIRECTORY (the shell that launched supervisor_bringup/stack_bringup), not the source tree, and is truncated on every node start, including supervisor restarts. Empty string disables it."
 # ------------------------------------------------------------------
 # MPC ACTUATOR LIMITS -- what the servo can actually reach.
 #
@@ -603,6 +1101,12 @@ mpc_steering_angle_min_rad:
 mpc_steering_angle_max_rad:
   default: 0.278
   description: "Most positive steering angle [rad] mpc_corr's QP may command (+15.93 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
+# Consumed by: MPC_corr.py's declare_parameter() default (get_value), no launch
+# arg. The bicycle model's L, and the wheelbase wall_turn.py's R_min is derived
+# from. Promoted from a bare 0.305 literal with the value unchanged.
+mpc_wheelbase_m:
+  default: 0.305
+  description: "Wheelbase [m] of mpc_corr's vehicle model (params['L']) and of the wall_turn increment's R_min = L / tan(steering bound). Unchanged from the literal it replaces, and unmeasured on this car: the URDF says 0.325 and the F1TENTH spec 0.3302 (see swept_clearance_wheelbase_m)."
 
 # ------------------------------------------------------------------
 # MPC COST WEIGHTS -- SINGLE SOURCE OF TRUTH.
@@ -725,7 +1229,7 @@ mpc_w_obs:
 # measured) -- so any difference it makes shows up in the SUSTAINED holding
 # behaviour after the ramp, not in how fast the correction starts.
 mpc_w_du_delta:
-  default: 8.5714
+  default: 8.33
   description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2. Effective value 3.0 after the 7/20 stage scaling. Deliberately OFF the rho/sigma^2 derivation (which gives 23.8095, effective 8.33): that sigma double-counts the hard dDeltaMin/dDeltaMax rate bound as a soft cost. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD bound, which is not."
 mpc_w_delta0:
   default: 0.0
@@ -1424,3 +1928,85 @@ max_steering_angle:
 startup_command_topic:
   default: /teleop
   description: "High-priority ackermann_mux input topic used for the startup steer sweep."
+
+# ============================================================
+# d_wall corridor correction (mpc_controller/MPC_corr.py)
+# ============================================================
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), no
+# launch arg -- edit here and relaunch, the same convention the corr_wall_turn_*
+# and wall_* keys use.
+#
+# WHERE THE CORRECTION LANDS, AND WHY THERE. wall_distance_node publishes a
+# heading correction on /perception/d_wall/psi_correction; mpc_corr adds it to
+# psi_base in build_straight_corridor's drive/"straight" branch and NOWHERE
+# else. Option B in docs/wall_turn_investigation.md. The three findings behind
+# that choice, short form:
+#
+#   1. The MPC does not own a turn's exit heading -- f1tenth_behavior's
+#      orientation_delta stop_condition ends the move at 90 deg of accumulated
+#      yaw, so the exit heading is move_start + 90 deg whatever the corridor
+#      asked for. Only the PATH to those 90 degrees is controllable.
+#   2. So injecting at dpsi_this was rejected: it is bounded by
+#      min(|dpsi_rem|, ...) in wall_turn.py, so its authority reaches zero
+#      exactly at turn exit, and the ratchet suppresses the sign that helps.
+#   3. The post-exit straight corridor is genuinely separate -- its own psiEnd,
+#      psiRefTurn None, no ratchet, no horizon clip. That is the seam.
+#
+# IT DOES NOTHING UNTIL A MISSION HAS A MOVE AFTER THE TURN. Every wall_turn
+# mission in the repo sets terminal: true on the turn, and on a terminal move
+# AdvanceMove publishes /mpc/hold, which returns from control_loop BEFORE the
+# corridor rebuild -- so no post-exit corridor is ever built.
+# missions/wall_turn_then_straight.json is the one that exercises this.
+corr_d_wall_correction_enable:
+  default: true
+  description: "Apply wall_distance_node's heading correction to the straight drive corridor's psi_base. false: mpc_corr still SUBSCRIBES and still logs, so a run is analysable for what the correction would have done, but psiEnd is byte-identical to before the node existed. The subscription is unconditional on purpose -- Stage 4 of docs/bringup_checklist.md records a real turn with the correction observed and not applied, and that needs the trace on the wire. NOTE the node's own wall_distance_max_psi_correction: 0.0 achieves the same thing one node earlier; this flag is the mpc_corr-side kill switch for when the node cannot be relaunched."
+corr_d_wall_max_age_sec:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] past which the correction is treated as ABSENT, i.e. zero -- never as the last value still standing. A dead or restarted wall_distance_node must decay this branch to the geometry it had before the node existed, which is the safe direction by construction; the natural implementation holds the last value and that is the bug. 0.5 s is five of the node's 10 Hz ticks, matching corr_wall_turn_front_distance_max_age_sec's own budget for the same class of failure. SYNTHETIC."
+
+# ---- wall_distance geometric candidate source ----------------------------
+# WHY THERE IS A SECOND SOURCE AT ALL, and it is not an optimisation.
+# glass_detect.detect() is not a wall fitter and was never meant to be: it
+# returns a surface only when that surface carries TRANSPARENCY evidence,
+# because its job is the marking-only glass observation a costmap must never
+# clear. It begins with `if not voids: return []`, so an ordinary opaque wall
+# produces no candidate at all.
+#
+# MEASURED ON THE ARCHIVE. Over 40 real scans from
+# 2026-09-10T13-34-09_mission-wall_turn (office corridor, opaque walls)
+# glass_detect found 690 voids and 160 candidates but ACCEPTED ONLY 4 -- about
+# one per ten scans, against a bar of wall_distance_persistence_hits *
+# wall_distance_geometry_only_multiplier = 6 hits in a window of 8. It can
+# never confirm at that rate, and wall_distance_node tracked nothing for the
+# entire run. A plain MSAC over the same first scan found a 5.29 m wall with
+# 220 inliers at 2.48 m immediately.
+#
+# So both sources run every scan, which is exactly what WallDistance.msg's
+# provenance field has always distinguished: GLASS_CONFIRMED vs GEOMETRIC.
+# Glass-confirmed is strictly better where it exists -- it survives incidence
+# angles a geometric fit never sees -- but on this car in this building it is
+# the exception, not the rule.
+wall_distance_geom_enable:
+  default: true
+  description: "Run the geometric (non-glass) line fit alongside glass_detect every scan. false: glass-confirmed surfaces only, which on measured archive data means NO TRACK AT ALL on an ordinary opaque wall -- see the note above. Set false only to reproduce that, or once glass detection is proven at range."
+wall_distance_geom_min_inliers:
+  default: 40
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest inliers a geometric line needs. A short cluster fits any line you like: a doorframe or a box corner makes a perfect two-point wall. 40 is well under the 220 the archive's real corridor wall produced and well over the handful a corner does. SYNTHETIC."
+wall_distance_geom_min_span_m:
+  default: 1.0
+  # SYNTHETIC -- retune on hardware
+  description: "Shortest contiguous extent [m] along a geometric line, measured mullion-tolerantly (a 0.6 m gap does not end a surface). Partition scale, so furniture cannot qualify. The archive's corridor wall spanned 5.29 m. SYNTHETIC."
+wall_distance_geom_min_distance_m:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Nearest perpendicular distance [m] from base_link to an accepted geometric line. A line passing through the car's own footprint is the car, or near-field clutter, not a wall. THIS CANNOT BE DONE BY FILTERING RETURNS BY RANGE: the archive produced an oblique line through points all beyond glass_min_range_m (0.8) that still passed 0.62 m from the origin. The body reaches 0.443 m ahead of the axle. SYNTHETIC."
+wall_distance_geom_max_candidates:
+  default: 4
+  # SYNTHETIC -- retune on hardware
+  description: "Most geometric lines extracted from one scan, sequentially. Bounds the per-scan cost; 4 covers a corridor's two side walls plus an end wall plus one spare. SYNTHETIC."
+wall_distance_geom_inlier_distance_m:
+  default: 0.03
+  # real, measured on ~58k archived scans
+  description: "Perpendicular distance [m] within which a return is an inlier of a geometric line. 0.03 is this LiDAR's own measured inlier distance -- the same number and the same sensor as lidar_front_wall_inlier_distance_m, deliberately tighter than glass_line_inlier_dist (0.05), which is loose because a pane's support returns span a wide incidence range where range error grows."
