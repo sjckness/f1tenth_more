@@ -13,7 +13,32 @@ urg_node:
     diagnostics_window_time: 5.0
     error_limit: 4
     get_detailed_status: false
-    publish_intensity: false
+    # TRUE since 2026-09-14, and VERIFIED AGAINST THE REAL SENSOR, not
+    # assumed: this UST-10LX does supply intensity. The driver logs
+    # "Connected to network device with intensity and ID: B2128130", and
+    # intensities[] then carries 1081 values with 1475 distinct levels over
+    # 0-1805 counts (a missed beam reads exactly 0.0). It had been false, so
+    # every archived scan before this date has a ZERO-LENGTH intensities[]
+    # array -- do not expect intensity when replaying those bags.
+    #
+    # Consumed by f1tenth_perception/glass_detector_node.py (see
+    # glass_detect.py's module docstring). Additive: the field costs ~173 kB/s
+    # at 40 Hz and no pre-existing /scan consumer reads it, so the e-stop
+    # (f1tenth_behavior's IsProximityTooClose), slam_toolbox and
+    # lidar_front_wall_node are unaffected.
+    #
+    # CAUTION on the value itself: it is NOT raw amplitude. Over 195,591
+    # returns, a log-log fit against range gives slope -0.24 where raw
+    # amplitude would give -2.0, so it is AGC-normalized or quantized. Any
+    # consumer applying the textbook r^2 correction will inject a spurious
+    # range dependence rather than remove one.
+    publish_intensity: true
+    # MUST STAY FALSE. NOT a capability this sensor has, and enabling it is
+    # actively unsafe: with publish_multiecho:=true the driver connects,
+    # logs "Streaming data.", and then SEGFAULTS. urg_node is the only
+    # publisher of /scan and /scan is what the emergency stop reads, so a
+    # driver crash takes the e-stop's sensor with it. Verified live
+    # 2026-09-14 on device B2128130; the UST-10LX is a single-echo model.
     publish_multiecho: false
     cluster: 1
     skip: 0
