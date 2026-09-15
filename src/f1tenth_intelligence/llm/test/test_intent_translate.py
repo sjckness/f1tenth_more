@@ -431,9 +431,16 @@ def test_turn_sign_mapping_is_the_one_the_loader_validates():
 # the prompt's own examples must be things the schema and translator accept
 # ---------------------------------------------------------------------------
 
-def test_the_prompt_ships_all_five_worked_examples():
-    """A silently dropped example is a silently weakened prompt."""
-    assert len(intent_prompt_examples()) == 5
+def test_the_prompt_ships_all_its_worked_examples():
+    """A silently dropped example is a silently weakened prompt.
+
+    Six since the "a N metri da X" rule landed: a live model read "fermati a
+    due metri dal muro" as "travel two metres" (guard distance) rather than
+    "stop when the wall is two metres away" (guard wall). Both readings are
+    grammatical; only one is what the operator meant, so the prompt now states
+    the distinction and shows it.
+    """
+    assert len(intent_prompt_examples()) == 6
 
 
 def test_every_prompt_example_is_a_valid_intent():

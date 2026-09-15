@@ -1,0 +1,35 @@
+{
+  "command": "vai dritto e fermati a due metri dal muro",
+  "intent": {
+    "plan": [
+      {
+        "mode": "straight",
+        "guard": "wall",
+        "thresh": 2.0
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_2b356aac445f",
+    "schema_version": "3.0",
+    "moves": [
+      {
+        "id": "move_0_straight",
+        "drive": {
+          "mode": "straight",
+          "speed": 0.4
+        },
+        "stop_condition": {
+          "type": "front_clearance",
+          "distance": 2.0,
+          "debounce_ticks": 3
+        },
+        "timeout_sec": 80,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

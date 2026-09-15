@@ -37,6 +37,10 @@ REGOLE:
   l'evitamento ostacoli e' gestito dal controllore. Prosegui con guard
   "distance", non fermarti su X.
 - "fermati davanti a X" -> ultima fase con guard "front_object"
+- "fermati a N metri dal muro" -> guard "wall", thresh N
+  (la distanza indica la SOGLIA del guard, non i metri da percorrere)
+- "avanza N metri" -> guard "distance", thresh N
+  (qui la distanza indica i metri DA PERCORRERE)
 - L'ultima fase e' quella che conclude la missione: non serve indicarlo.
 
 AZIONI NON ESPRIMIBILI:
@@ -63,6 +67,9 @@ ESEMPI:
 
 "vai avanti e fermati davanti alla sedia"
 {"plan":[{"mode":"straight","guard":"front_object","thresh":1.0}],"unsupported":[]}
+
+"vai dritto e fermati a due metri dal muro"
+{"plan":[{"mode":"straight","guard":"wall","thresh":2.0}],"unsupported":[]}
 
 "vai dritto fino al muro, poi salta sopra la scatola e fermati"
 {"plan":[{"mode":"straight","guard":"wall","thresh":3.0}],"unsupported":["saltare sopra la scatola"]}
