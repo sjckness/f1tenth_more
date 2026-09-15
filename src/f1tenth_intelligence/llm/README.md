@@ -165,13 +165,44 @@ JSON Schema copy of v3.0. No such schema file exists in this repo, and writing
 one would create a second spelling of the rules that drifts from the loader the
 missions actually go through. The loader is the contract.
 
-## Wiring this in
+## Selecting a path
 
-**Not yet wired.** `llm_planner_node` still runs the legacy path
-(`SYSTEM_PROMPT` -> `normalize_plan` -> `validate_plan` -> `phases_to_mission`),
-and `prompts/planner_system_prompt.v2.it.txt` is loadable
-(`plan_translate.load_intent_prompt()`) but not sent to any model. Switching
-over means pointing the node at the v2 prompt and at `translate()`, and
-updating `test_llm_planner_request.py`, which asserts the payload starts with
-`SYSTEM_PROMPT`. That is a separate change, deliberately: the two paths are
-independently testable and the legacy one currently works.
+`planner_path` is a ROS parameter on `llm_planner_node`, `legacy` | `v2`,
+**default `v2`**. It selects three things as one unit, declared once in
+`PLANNER_PATH_SPEC`:
+
+| | `legacy` | `v2` |
+|---|---|---|
+| prompt | `SYSTEM_PROMPT` (inline) | `prompts/planner_system_prompt.v2.it.txt` |
+| validation | `validate_plan()` | `schemas/intent_v1.json` |
+| translation | `phases_to_mission()` | `translate()` |
+
+The halves cannot mix. A v2 response reaching the legacy path is refused by
+name (`get_plan_from_llm` would otherwise have pulled `intent["plan"]` out of
+the dict and built a plausible mission from the wrong semantics); a legacy
+response reaching `translate()` fails the schema's `type: object`. The v2
+prompt is read from the file at construction, before the llama-server wait, so
+a packaging break stops startup rather than the first command.
+
+The legacy path is kept as the fallback and is unchanged. **A v2 failure never
+falls back to it** — a silent downgrade would produce a mission from a
+different prompt with different semantics and the display would still look
+reasonable.
+
+## Failure handling
+
+| Condition | Behaviour |
+|---|---|
+| `IntentSchemaError` / `IntentRangeError` | retry at most `MAX_INTENT_RETRIES` (2) more times, feeding the validator's error text back; every retry logged. Then give up, emit nothing. |
+| `EmptyPlanError` | report the ambiguity to the operator, emit nothing. Never retried — ambiguity is the correct answer, not a model error. |
+| `unsupported` non-empty | printed prominently; loading **requires an explicit confirmation** regardless of `--confirm`, and refuses outright with no terminal to ask on. |
+| `TranslatorOutputError` | log the offending document in full. Our bug, not user error. |
+
+## Generated plans on disk
+
+`missions/llm_generated/` under `f1tenth_behavior`'s share directory, named by
+`mission_id`, never `missions/` itself — that holds hand-written missions and
+nothing in this repo writes there. The writer **refuses to overwrite a file
+whose content differs**; identical content is reused, because the v2
+`mission_id` is a hash of the intent, so re-issuing the same command hits the
+same filename by design rather than by collision.

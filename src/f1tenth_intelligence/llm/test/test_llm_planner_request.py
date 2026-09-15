@@ -34,7 +34,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from llm import llm_planner_node
+from llm import llm_planner_node, plan_translate
 
 
 class _FakeResponse:
@@ -53,14 +53,42 @@ class _FakeResponse:
 
 class TestRequestShape:
 
-    @patch('llm.llm_planner_node.requests.post')
-    def test_posts_raw_prompt_no_chat_structure(self, mock_post):
-        mock_post.return_value = _FakeResponse(json.dumps({
-            'plan': [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0,
-                      'stop_at_distance': 3.0}],
-        }))
+    # Both planner paths, because the payload assertion below is the test
+    # that catches a prompt silently not being sent -- and after the v2
+    # wire-in there are two prompts that could fail to be sent. Parameterised
+    # rather than weakened to something both paths happen to satisfy.
+    LEGACY_RESPONSE = json.dumps({
+        'plan': [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0,
+                  'stop_at_distance': 3.0}],
+    })
+    V2_RESPONSE = json.dumps({
+        'plan': [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0}],
+        'unsupported': [],
+    })
 
-        result = llm_planner_node.get_plan_from_llm('vai dritto')
+    @pytest.mark.parametrize('path', ['legacy', 'v2'])
+    @patch('llm.llm_planner_node.requests.post')
+    def test_posts_raw_prompt_no_chat_structure(self, mock_post, path):
+        """Raw /completion payload, and the RIGHT prompt for the selected path.
+
+        legacy asserts exactly what it asserted before the wire-in; v2 asserts
+        the payload begins with the CONTENTS OF THE PROMPT FILE, so a packaging
+        break that leaves the file unread fails here rather than silently
+        sending the model nothing to go on.
+        """
+        if path == 'legacy':
+            mock_post.return_value = _FakeResponse(self.LEGACY_RESPONSE)
+            expected_prompt = llm_planner_node.SYSTEM_PROMPT
+            result = llm_planner_node.get_plan_from_llm('vai dritto')
+            assert result == [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0,
+                               'stop_at_distance': 3.0}]
+        else:
+            mock_post.return_value = _FakeResponse(self.V2_RESPONSE)
+            expected_prompt = plan_translate.load_intent_prompt()
+            result = llm_planner_node.get_intent_from_llm('vai dritto', expected_prompt)
+            assert result == {'plan': [{'mode': 'straight', 'guard': 'wall',
+                                        'thresh': 3.0}],
+                              'unsupported': []}
 
         assert mock_post.call_count == 1
         args, kwargs = mock_post.call_args
@@ -76,17 +104,18 @@ class TestRequestShape:
         assert 'messages' not in payload
         assert payload['temperature'] == pytest.approx(0.0)
 
-        # No chat/ChatML templating -- SYSTEM_PROMPT and the command both
-        # appear verbatim, concatenated, in the same "comando: ...\nrisposta:"
-        # shape SYSTEM_PROMPT's own few-shot examples already use.
-        assert payload['prompt'].startswith(llm_planner_node.SYSTEM_PROMPT)
+        # No chat/ChatML templating -- the prompt and the command both appear
+        # verbatim, concatenated, in the same "comando: ...\nrisposta:" shape
+        # the prompts' own few-shot examples use.
+        assert payload['prompt'].startswith(expected_prompt)
         assert 'comando: "vai dritto"' in payload['prompt']
         assert '<|im_start|>' not in payload['prompt']
 
         assert kwargs['timeout'] == llm_planner_node.LLAMA_TIMEOUT
 
-        assert result == [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0,
-                           'stop_at_distance': 3.0}]
+    def test_the_two_prompts_are_actually_different(self):
+        """Guards the test above: identical prompts would make it prove nothing."""
+        assert llm_planner_node.SYSTEM_PROMPT != plan_translate.load_intent_prompt()
 
     @patch('llm.llm_planner_node.requests.post')
     def test_accepts_bare_array_response(self, mock_post):
