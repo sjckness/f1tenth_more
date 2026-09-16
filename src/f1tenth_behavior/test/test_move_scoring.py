@@ -13,7 +13,8 @@ import math
 
 import pytest
 
-from f1tenth_behavior.mission.mission_config import GoalPose, Move, StopCondition, TurnSpec
+from f1tenth_behavior.mission.mission_config import (
+    GoalPose, Move, StopCondition, TurnSpec, parse_mission)
 from f1tenth_behavior.mission.move_scoring import (
     aggregate_score,
     build_move_outcome,
@@ -330,3 +331,25 @@ class TestRecordMoveOutcomeAndSummary:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+class TestMoveTypeLabel:
+    """A drive move is labelled 'drive', not 'goal_pose' (it used to fall through)."""
+
+    def _outcome(self, raw_move):
+        move = parse_mission({'mission_id': 't', 'schema_version': '3.0',
+                              'moves': [dict(raw_move, id='m', terminal=True)]}).moves[0]
+        return build_move_outcome(move, 'stop_condition:x', 0.0, 1.0, None, None, None,
+                                  None, None)
+
+    def test_a_drive_move_is_labelled_drive_and_stays_unscored(self):
+        out = self._outcome({'drive': {'mode': 'straight', 'speed': 0.4},
+                             'stop_condition': {'type': 'front_clearance', 'distance': 1.0}})
+        assert out.move_type == 'drive'
+        assert out.score_percent is None
+        assert out.note.startswith('drive moves are not scored')
+
+    def test_a_goal_pose_move_is_still_labelled_goal_pose(self):
+        out = self._outcome({'goal_pose': {'x': 1.0, 'y': 0.0, 'yaw': 0.0},
+                             'stop_condition': {'type': 'goal_reached'}})
+        assert out.move_type == 'goal_pose'

@@ -77,7 +77,7 @@ MISMATCH_ANGLE_FLOOR_DEG = 3.0
 @dataclass
 class MoveOutcome:
     move_id: str
-    move_type: str  # 'turn' | 'goal_distance' | 'goal_pose'
+    move_type: str  # 'turn' | 'goal_distance' | 'goal_pose' | 'drive' | 'go_to_object'
     stop_reason: str
     start_time: float  # time.monotonic()
     end_time: float
@@ -249,14 +249,16 @@ def build_move_outcome(
             commanded=commanded, actual=actual, score_percent=score, mismatch_flagged=mismatch,
         )
 
-    # move.goal_pose is set (mission_config.py guarantees exactly one of the
-    # three) -- not scored this pass, see module docstring.
+    # goal_pose or drive (mission_config.py guarantees exactly one goal shape)
+    # -- neither is scored this pass, see module docstring. Drive moves used to
+    # fall through here labelled 'goal_pose'; only the label is fixed.
+    move_type = 'drive' if getattr(move, 'drive', None) is not None else 'goal_pose'
     return MoveOutcome(
-        move_id=move.id, move_type='goal_pose', stop_reason=stop_reason,
+        move_id=move.id, move_type=move_type, stop_reason=stop_reason,
         start_time=start_time, end_time=end_time,
         start_global_xy=start_global_xy, end_global_xy=end_global_xy,
         start_global_yaw=start_global_yaw, end_global_yaw=end_global_yaw,
-        note='goal_pose moves are not scored this pass -- see module docstring',
+        note=f'{move_type} moves are not scored this pass -- see module docstring',
     )
 
 
