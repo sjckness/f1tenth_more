@@ -27,12 +27,26 @@ The reported metrics, per scenario:
   steer saturation    fraction of ticks where |delta| was within 1e-3 of a
                       bound. High means the geometry was asking for more
                       rotation than the car has.
+  min body gap        smallest (car-to-target-centre distance) minus the
+                      person's true half-width and car_radius over the run:
+                      the disk-model clearance between the car and the
+                      person, whatever radius the obstacle list carried.
+  deflected           fraction of ticks on which compute_local_target pushed
+                      the lookahead target off the centreline.
+
+THE TARGET IS ALSO AN OBSTACLE, as on the car: the person the approach drives
+at is in the same detection stream that feeds /perception/obstacles_2d, and it
+is not excluded. Each obstacle row puts one disk at the observed target with
+the radius obstacle_projector_node would publish for a 0.50 m wide, 1.75 m tall
+person: 0.875 in legacy mode (half the HEIGHT), 0.25 in footprint mode, plus
+any obstacle_class_margin_m. 'none' is the obstacle-free reference.
 
 Run standalone: python3 -m pytest test/test_object_approach_closed_loop.py -v
 Print the table:  python3 -m pytest test/test_object_approach_closed_loop.py -s -k table
 """
 
 import math
+import os
 
 import numpy as np
 import pytest
@@ -64,6 +78,31 @@ WEIGHTS = {
 
 SATURATION_EPS = 1e-3
 
+CAR_RADIUS = 0.20
+AVOIDANCE_MARGIN = 0.12
+DMIN = CAR_RADIUS + AVOIDANCE_MARGIN
+
+# A standing adult, as detection_3d_node back-projects one: bbox.size.x is the
+# width, bbox.size.y the height. obstacle_projector_node's two radius rules.
+PERSON_WIDTH = 0.50
+PERSON_HEIGHT = 1.75
+PERSON_RADIUS = {
+    'legacy': max(PERSON_WIDTH, PERSON_HEIGHT) / 2.0,
+    'footprint': PERSON_WIDTH / 2.0,
+}
+
+# (label, obstacle radius the MPC sees or None). The class-margin rows are the
+# obstacle_class_margin_m options under consideration for 'person'; none of
+# them is a chosen value.
+OBSTACLE_ROWS = (
+    ('none', None),
+    ('legacy', PERSON_RADIUS['legacy']),
+    ('footprint', PERSON_RADIUS['footprint']),
+    ('footprint+0.2', PERSON_RADIUS['footprint'] + 0.2),
+    ('footprint+0.3', PERSON_RADIUS['footprint'] + 0.3),
+    ('footprint+0.4', PERSON_RADIUS['footprint'] + 0.4),
+)
+
 
 class _FakeLogger:
 
@@ -88,8 +127,8 @@ class _ObjectMPC:
         self.corr_lookahead_frac = 0.5
         self.corr_lookahead_reach_margin = 1.25
         self.obstacle_target_shift = 0.30
-        self.car_radius = 0.20
-        self.avoidance_margin = 0.12
+        self.car_radius = CAR_RADIUS
+        self.avoidance_margin = AVOIDANCE_MARGIN
         self.N = HORIZON
         self.ts = TS
         self.vdes = speed
@@ -146,13 +185,58 @@ class _ObjectMPC:
 
 class Result:
 
-    def __init__(self, xs, deltas, targets, psi_c_final, standoff, steps):
+    def __init__(self, xs, deltas, targets, psi_c_final, standoff, steps,
+                 step_ticks=(), deflected=()):
         self.xs = xs
         self.deltas = deltas
         self.targets = targets
         self.psi_c_final = psi_c_final
         self.standoff = standoff
         self.steps = steps
+        # Tick index of each entry in `steps` (the rebuild it was planned at).
+        self.step_ticks = list(step_ticks)
+        self.deflected = list(deflected)
+
+    @property
+    def min_centre_distance(self):
+        """Smallest car-to-TRUE-target distance over the run [m]."""
+        return min(math.hypot(tx - s[0], ty - s[1])
+                   for s, (tx, ty) in zip(self.xs[1:], self.targets))
+
+    @property
+    def min_body_gap(self):
+        """Disk-model clearance to the real person: see the module docstring."""
+        return self.min_centre_distance - PERSON_WIDTH / 2.0 - CAR_RADIUS
+
+    @property
+    def deflected_fraction(self):
+        return sum(self.deflected) / len(self.deflected) if self.deflected else 0.0
+
+    def first_reason_tick(self, reason):
+        """Tick of the first planned step carrying `reason`, or None."""
+        for tick, step in zip(self.step_ticks, self.steps):
+            if step is not None and step.reason == reason:
+                return tick
+        return None
+
+    def first_behind_tick(self, sustain):
+        """First tick from which the target stays in the rear half-plane, or None.
+
+        Geometry only, from the state ENTERING each tick and the target at
+        that tick -- what the planner sees. It must hold for `sustain`
+        consecutive ticks: a car circling a target that walks past it can
+        graze 90 degrees and turn back (the footprint 1.0 m unbounded chase
+        sits at 89.3 degrees for a stretch), and that is not "behind".
+        """
+        run = 0
+        for tick, (state, (tx, ty)) in enumerate(zip(self.xs, self.targets)):
+            bearing = math.atan2(ty - state[1], tx - state[0])
+            behind = abs(math.atan2(math.sin(bearing - state[2]),
+                                    math.cos(bearing - state[2]))) > math.pi / 2.0
+            run = run + 1 if behind else 0
+            if run >= sustain:
+                return tick - sustain + 1
+        return None
 
     @property
     def final_range_error(self):
@@ -198,13 +282,24 @@ class Result:
 
 def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
                  duration=30.0, corridor_update_period=1.0, seed=None,
-                 jitter=0.0, jitter_hz=12.5):
+                 jitter=0.0, jitter_hz=12.5, obstacle_r=None, stop_at_rest=True):
     """Drive one approach and return a Result.
 
     `target_fn(t)` gives the TRUE target position at time t. `jitter` adds
     white noise of that standard deviation to what the controller is told,
     refreshed at `jitter_hz` -- the detector's rate, not the control rate,
     because that is how a real estimate arrives.
+
+    `obstacle_r`, when given, puts the target in the obstacle list as a disk
+    of that radius at the OBSERVED position, attached every tick the way
+    MPC_corr's control loop attaches obstacles_global_live: into
+    corridor['obstacles_world'] for compute_local_target and the solver's
+    corridor cost, and as solve_mpc_step's `obstacles`.
+
+    `stop_at_rest` ends the run once the car is at rest at the standoff.
+    Turn it off for a target that walks PAST the car: the speed ramp brings
+    the car to rest as the target goes abeam, and the run would end right
+    where the interesting part starts.
     """
     rng = np.random.default_rng(seed)
     fake = _ObjectMPC(standoff=standoff, speed=speed)
@@ -214,6 +309,7 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
     warm = None
 
     xs, deltas, targets, steps = [x.copy()], [], [], []
+    step_ticks, deflected = [], []
     corridor = None
     last_build_t = None
     observed = target_fn(0.0)
@@ -237,20 +333,29 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
                 or MPCController._object_target_moved_since_build(fake))
         if need:
             corridor = MPCController.build_straight_corridor(fake, x)
-            corridor['obstacles_world'] = []
-            corridor['d_safe'] = 0.0
             last_build_t = t
             steps.append(fake.object_last_step)
+            step_ticks.append(tick)
+        obstacles = [] if obstacle_r is None else [
+            (observed[0], observed[1], float(obstacle_r))]
+        corridor['obstacles_world'] = obstacles
+        corridor['d_safe'] = DMIN if obstacles else 0.0
+        corridor['car_radius'] = fake.car_radius
+        corridor['avoidance_margin'] = fake.avoidance_margin
 
         r = math.hypot(observed[0] - x[0], observed[1] - x[1]) - standoff
         vdes = object_speed_ref(r, speed, fake.object_a_dec)
         fake.vdes = speed          # the corridor's own reach cap stays nominal
 
         pref_nom = MPCController.compute_local_target(fake, x, corridor)
+        # compute_local_target re-arms the coast counter only on a tick that
+        # really deflected, so a full counter means "this tick".
+        deflected.append(bool(obstacles) and fake.deflection_decay_remaining
+                         == fake.deflection_decay_ticks)
         u0, info = solve_mpc_step(
             x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
             horizon=HORIZON, ts=TS, params=PARAMS, limits=LIMITS,
-            weights=dict(WEIGHTS), obstacles=[], dmin=0.32, vdes=vdes,
+            weights=dict(WEIGHTS), obstacles=obstacles, dmin=DMIN, vdes=vdes,
             solver='rti', warm_start_z=warm)
         warm = shift_warm_start(info.get('zopt'), HORIZON) if info else None
 
@@ -265,12 +370,13 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
         # Stopped at the standoff: the speed reference is zero and the car has
         # actually come to rest. Not an arrival LATCH -- the run simply has
         # nothing left to show.
-        if r <= 0.02 and abs(x[3]) < 0.02 and t > 2.0:
+        if stop_at_rest and r <= 0.02 and abs(x[3]) < 0.02 and t > 2.0:
             break
 
     if not targets:
         targets = [target_fn(0.0)]
-    return Result(xs, deltas, targets, fake.object_psi_c, standoff, steps)
+    return Result(xs, deltas, targets, fake.object_psi_c, standoff, steps,
+                  step_ticks, deflected)
 
 
 # --------------------------------------------------------------- scenarios
@@ -286,37 +392,39 @@ SCENARIOS = {
     '70 deg off, 2.5 m': dict(
         target_fn=_static(2.5 * math.cos(math.radians(70)),
                           2.5 * math.sin(math.radians(70)))),
-    # TWO lateral cases, because the one originally asked for turns out to be
-    # two different questions and only one of them is about this controller.
-    #
-    # 'lateral 0.3 m/s' runs the target sideways FOREVER. A target starting
-    # 4 m ahead and walking at 0.3 m/s is 12 m away across in 40 s, and the
-    # car's shipped speed is 0.5 m/s: the target passes abeam and then astern,
-    # and no forward-only vehicle at 0.5 m/s wins that chase. It is kept
-    # because the failure is worth having in the table and because the
-    # controller's behaviour in it is the honest one -- it reports
-    # target_behind rather than pretending -- but it is a statement about the
-    # vehicle's speed, not about the corridor.
-    #
-    # 'lateral 0.3 m/s, 8 s' is the tracking question: the target really moves
-    # (2.4 m of it, well past object_retarget_distance_m) and then holds, so
-    # the approach has to follow a moving target AND converge.
-    'lateral 0.3 m/s': dict(
-        target_fn=lambda t: (4.0, 0.3 * t), duration=40.0),
+    # The target really moves (2.4 m, well past object_retarget_distance_m)
+    # and then holds, so the approach has to follow a moving target AND
+    # converge. The unbounded version (sideways forever) is not a row: it is a
+    # chase a 0.5 m/s forward-only car loses once the target passes abeam, and
+    # the only question worth asking of it is how quickly the controller says
+    # so -- see TestTargetBehindIsRaised.
     'lateral 0.3 m/s, 8 s': dict(
         target_fn=lambda t: (4.0, 0.3 * min(t, 8.0)), duration=40.0),
     'jitter 5 cm @ 12.5 Hz': dict(
         target_fn=_static(4.0, 0.0), jitter=0.05, seed=20260916),
 }
 
+STANDOFFS = (1.0, 1.2)
+
+# The class-margin rows are a sweep of options, not shipped configuration, and
+# they triple the run count. Off by default; the report table sets it.
+MARGIN_SWEEP = os.environ.get('OBJECT_APPROACH_MARGIN_SWEEP') == '1'
+
+
+def _rows():
+    return [row for row in OBSTACLE_ROWS
+            if MARGIN_SWEEP or not row[0].startswith('footprint+')]
+
 
 @pytest.fixture(scope='module')
 def table():
-    """Every scenario at both standoffs, run once and shared."""
+    """Every scenario x obstacle row x standoff, run once and shared."""
     out = {}
     for name, kwargs in SCENARIOS.items():
-        for standoff in (1.0, 1.2):
-            out[(name, standoff)] = run_approach(standoff=standoff, **kwargs)
+        for label, obstacle_r in _rows():
+            for standoff in STANDOFFS:
+                out[(name, label, standoff)] = run_approach(
+                    standoff=standoff, obstacle_r=obstacle_r, **kwargs)
     return out
 
 
@@ -325,32 +433,35 @@ class TestClosedLoopTable:
     def test_print_the_table(self, table, capsys):
         """Not an assertion -- the reported numbers. Run with -s to see it."""
         with capsys.disabled():
-            print(f'\n{"scenario":<24} {"s/off":>5} {"range err":>10} '
-                  f'{"bearing":>9} {"x-track":>8} {"sat":>6}  {"flags"}')
-            print('-' * 78)
-            for (name, standoff), res in table.items():
+            print(f'\n{"scenario":<22} {"obstacle":<14} {"s/off":>5} '
+                  f'{"range err":>9} {"bearing":>8} {"x-track":>7} {"sat":>5} '
+                  f'{"body gap":>8} {"defl":>5}  flags')
+            print('-' * 104)
+            for (name, label, standoff), res in table.items():
                 flags = ','.join(res.reasons) or '-'
-                print(f'{name:<24} {standoff:>5.1f} '
-                      f'{res.final_range_error:>+10.3f} '
-                      f'{math.degrees(res.arrival_bearing_error):>8.2f}d '
-                      f'{res.peak_cross_track:>8.3f} '
-                      f'{res.steer_saturation_fraction:>6.2f}  {flags}')
+                print(f'{name:<22} {label:<14} {standoff:>5.1f} '
+                      f'{res.final_range_error:>+9.3f} '
+                      f'{math.degrees(res.arrival_bearing_error):>7.2f}d '
+                      f'{res.peak_cross_track:>7.3f} '
+                      f'{res.steer_saturation_fraction:>5.2f} '
+                      f'{res.min_body_gap:>8.3f} '
+                      f'{res.deflected_fraction:>5.2f}  {flags}')
             print()
 
-    @pytest.mark.parametrize('standoff', [1.0, 1.2])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_straight_ahead_arrives_at_the_standoff(self, table, standoff):
-        res = table[('ahead 4 m', standoff)]
+        res = table[('ahead 4 m', 'none', standoff)]
         assert abs(res.final_range_error) < 0.10
         assert math.degrees(res.arrival_bearing_error) < 5.0
         assert res.peak_cross_track < 0.10
 
-    @pytest.mark.parametrize('standoff', [1.0, 1.2])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_forty_five_degrees_off_converges(self, table, standoff):
-        res = table[('45 deg off, 4 m', standoff)]
+        res = table[('45 deg off, 4 m', 'none', standoff)]
         assert abs(res.final_range_error) < 0.20
         assert math.degrees(res.arrival_bearing_error) < 15.0
 
-    @pytest.mark.parametrize('standoff', [1.0, 1.2])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_seventy_degrees_off_at_two_and_a_half_metres(self, table, standoff):
         """Expected to be hard: report which of the two outcomes happened.
 
@@ -359,14 +470,14 @@ class TestClosedLoopTable:
         is NOT acceptable is converging somewhere wrong while reporting
         feasible.
         """
-        res = table[('70 deg off, 2.5 m', standoff)]
+        res = table[('70 deg off, 2.5 m', 'none', standoff)]
         if res.any_infeasible:
             assert res.reasons, 'infeasible with no reason given'
         else:
             assert abs(res.final_range_error) < 0.40, (
                 'reported feasible throughout but did not arrive')
 
-    @pytest.mark.parametrize('standoff', [1.0, 1.2])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_a_laterally_moving_target_is_tracked(self, table, standoff):
         """Real target motion, then a hold. This is the tracking question.
 
@@ -388,30 +499,101 @@ class TestClosedLoopTable:
         than by making psi_c chase through the freeze band, which is what
         r_freeze exists to prevent.
         """
-        res = table[('lateral 0.3 m/s, 8 s', standoff)]
+        res = table[('lateral 0.3 m/s, 8 s', 'none', standoff)]
         assert abs(res.final_range_error) < 0.40
         assert math.degrees(res.arrival_bearing_error) < 45.0
 
-    @pytest.mark.parametrize('standoff', [1.0, 1.2])
-    def test_an_unwinnable_chase_is_reported_not_faked(self, table, standoff):
-        """A target that outruns the car must not read as a clean arrival.
-
-        0.3 m/s sideways forever against a 0.5 m/s car is a chase the vehicle
-        loses once the target passes abeam. The controller's job there is to
-        say so -- target_behind -- rather than to converge on something.
-        """
-        res = table[('lateral 0.3 m/s', standoff)]
-        assert 'target_behind' in res.reasons, (
-            'the target went astern and the approach never said so')
-
-    @pytest.mark.parametrize('standoff', [1.0, 1.2])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_jitter_does_not_destabilise_the_approach(self, table, standoff):
         """The freeze radius exists for exactly this."""
-        clean = table[('ahead 4 m', standoff)]
-        noisy = table[('jitter 5 cm @ 12.5 Hz', standoff)]
+        clean = table[('ahead 4 m', 'none', standoff)]
+        noisy = table[('jitter 5 cm @ 12.5 Hz', 'none', standoff)]
         assert abs(noisy.final_range_error) < 0.15
         assert noisy.steer_saturation_fraction <= clean.steer_saturation_fraction + 0.10
         assert noisy.peak_cross_track < 0.25
+
+
+class TestTargetObstacleRadius:
+    """The target is in the obstacle list: what its radius does to the approach.
+
+    Two mechanisms act on it and they are not the same one. compute_local_target
+    DEFLECTS the lookahead target sideways when it falls inside
+    R_safe = r + car_radius + avoidance_margin. Separately, the solver's w_obs
+    term penalises softplus((car_radius + avoidance_margin) - d_front), with
+    d_front measured from nose points up to L/2 + 0.40 m ahead of the car, so
+    the car is held back once the target centre is closer than about
+    0.55 + r + 0.32 m -- whether or not the goal is inside R_safe.
+    """
+
+    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_legacy_height_radius_holds_the_car_well_short(self, table, scenario,
+                                                           standoff):
+        res = table[(scenario, 'legacy', standoff)]
+        assert res.final_range_error > 0.40
+
+    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
+    def test_legacy_radius_puts_the_one_metre_goal_inside_r_safe(self, table, scenario):
+        """R_safe 0.875 + 0.32 = 1.195 > 1.0: the lookahead target is deflected."""
+        assert table[(scenario, 'legacy', 1.0)].deflected_fraction > 0.5
+
+    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
+    def test_footprint_radius_never_deflects_the_goal(self, table, scenario):
+        for standoff in STANDOFFS:
+            assert table[(scenario, 'footprint', standoff)].deflected_fraction == 0.0
+
+    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
+    def test_footprint_at_one_metre_is_held_about_a_decimetre_short(self, table, scenario):
+        """Not by deflection (none happens): by w_obs. 0.55 + 0.25 + 0.32 = 1.12."""
+        assert 0.05 < table[(scenario, 'footprint', 1.0)].final_range_error < 0.20
+
+    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
+    def test_footprint_at_one_point_two_metres_arrives(self, table, scenario):
+        assert abs(table[(scenario, 'footprint', 1.2)].final_range_error) < 0.05
+
+
+# Ticks the planner may take to raise target_behind once the target is
+# genuinely astern: at most one corridor period, since the flag is evaluated
+# at a rebuild.
+BEHIND_SUSTAIN_TICKS = 5
+BEHIND_MAX_LATENCY_TICKS = int(math.ceil(1.0 / TS))
+
+
+class TestTargetBehindIsRaised:
+    """A target that walks past the car forever: the flag, and how fast.
+
+    0.3 m/s sideways forever against a 0.5 m/s forward-only car is a chase the
+    car loses once the target passes abeam. There is no arrival to measure;
+    the question is only whether the controller says so, and how quickly.
+    """
+
+    # REBUILD-SAMPLED FLAGS CANNOT MEET A LATENCY BOUND, and at standoff 1.0
+    # the chase shows it both ways. Footprint: the target is astern for ticks
+    # 134-139 (up to 97 deg), entirely between rebuilds 133 and 140, and is
+    # never flagged; the flag comes at 168. None: the rebuild at 133 samples a
+    # transient crossing and flags 21 ticks before the target is astern for
+    # good. Strict, so evaluating the flags per tick has to turn these green.
+    _REBUILD_SAMPLED = pytest.mark.xfail(
+        strict=True, reason='target_behind is evaluated only at corridor rebuilds')
+
+    @pytest.mark.parametrize('label, standoff', [
+        pytest.param('none', 1.0, marks=_REBUILD_SAMPLED),
+        pytest.param('footprint', 1.0, marks=_REBUILD_SAMPLED),
+        ('none', 1.2),
+        ('footprint', 1.2),
+    ])
+    def test_target_behind_within_latency_of_the_target_going_astern(self, label,
+                                                                     standoff):
+        obstacle_r = dict(OBSTACLE_ROWS)[label]
+        res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
+                           standoff=standoff, obstacle_r=obstacle_r,
+                           stop_at_rest=False)
+        astern = res.first_behind_tick(BEHIND_SUSTAIN_TICKS)
+        assert astern is not None, 'scenario never put the target astern'
+        flagged = res.first_reason_tick('target_behind')
+        assert flagged is not None, 'target went astern and was never flagged'
+        assert astern <= flagged <= astern + BEHIND_MAX_LATENCY_TICKS, (
+            f'astern at tick {astern}, flagged at {flagged}')
 
 
 class TestTheCorridorEndsAtTheGoal:

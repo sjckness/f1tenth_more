@@ -281,6 +281,9 @@ _SNAPSHOT_PARAM_KEYS = [
     'camera_source', 'localization_source', 'use_behavior_tree', 'enable_nav2',
     'enable_slam', 'enable_intelligence', 'enable_sys_obs',
     'yolo_model', 'yolo_model_task', 'use_mask_depth', 'confidence_threshold',
+    # Obstacle disks were sized by object HEIGHT before 2026-09-16 (legacy);
+    # runs on either side of that are not comparable without knowing which.
+    'obstacle_radius_source', 'obstacle_class_margin_m',
 ]
 
 

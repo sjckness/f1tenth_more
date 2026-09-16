@@ -132,3 +132,19 @@ class TestUseMaskDepthAutoDerivation:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+class TestObstacleRadiusLaunchArgs:
+    """obstacle_radius_source and obstacle_class_margin_m reach the projector
+    from stack_params.yaml; the margin map travels as a JSON string."""
+
+    def test_defaults_are_footprint_and_no_class_margin(self):
+        config = _resolve({})
+        assert config['obstacle_radius_source'] == 'footprint'
+        assert config['obstacle_class_margin_m'] == '{}'
+
+    def test_overrides_pass_through(self):
+        config = _resolve({'obstacle_radius_source': 'legacy',
+                           'obstacle_class_margin_m': '{"person": 0.3}'})
+        assert config['obstacle_radius_source'] == 'legacy'
+        assert config['obstacle_class_margin_m'] == '{"person": 0.3}'

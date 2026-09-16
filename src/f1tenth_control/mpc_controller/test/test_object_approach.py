@@ -438,7 +438,20 @@ class TestMinStandoff:
     def test_it_is_r_safe_as_compute_local_target_forms_it(self):
         assert min_standoff_clear_of(0.85, 0.20, 0.12) == pytest.approx(1.17)
 
-    def test_a_standing_person_needs_more_than_one_metre(self):
-        """bbox.size.y is the object's HEIGHT, and the radius is max(w,h)/2."""
-        radius = 1.70 / 2.0
+    def test_legacy_height_radius_person_needs_more_than_one_metre(self):
+        """obstacle_radius_source legacy: r = max(width, HEIGHT) / 2."""
+        radius = max(0.50, 1.70) / 2.0
         assert min_standoff_clear_of(radius, 0.20, 0.12) > 1.0
+
+    def test_footprint_radius_person_clears_at_one_metre(self):
+        """obstacle_radius_source footprint (the default): r = width / 2."""
+        radius = 0.50 / 2.0
+        assert min_standoff_clear_of(radius, 0.20, 0.12) == pytest.approx(0.57)
+
+    @pytest.mark.parametrize('class_margin, r_safe', [(0.2, 0.77), (0.3, 0.87), (0.4, 0.97)])
+    def test_footprint_person_with_class_margin_still_clears_one_metre(self, class_margin,
+                                                                       r_safe):
+        """obstacle_class_margin_m enters through r, once."""
+        radius = 0.50 / 2.0 + class_margin
+        assert min_standoff_clear_of(radius, 0.20, 0.12) == pytest.approx(r_safe)
+        assert r_safe < 1.0

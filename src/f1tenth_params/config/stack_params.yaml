@@ -354,6 +354,37 @@ obstacle_z_min:
 obstacle_z_max:
   default: 2.0
   description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated).
+#
+# THE HEIGHT BUG this switch fixes: detection_3d_node sets bbox.size.x to the
+# back-projected WIDTH and bbox.size.y to the back-projected HEIGHT; size.z is
+# its default_depth_extent placeholder, not a measurement. The projector used
+# max(size.x, size.y) / 2, so any object taller than wide got a ground disk of
+# half its HEIGHT: a 1.75 m x 0.5 m person became r = 0.875 m instead of 0.25 m.
+# That radius feeds MPC_corr's obstacle cost and compute_local_target's R_safe
+# (r + car_radius + avoidance_margin), and front_clearance_node's corridor test
+# (|y| - r) and near-face distance (x - r). Every value tuned on a run before
+# 2026-09-16 saw the inflated disks; see the go-to-object Phase 1.5 inventory
+# before reading any of them as tuned for real footprints. Footprint mode
+# also means objects under 6 cm wide (r < min_obstacle_radius 0.03) are now
+# rejected, where legacy kept a tall narrow bottle via its height.
+obstacle_radius_source:
+  default: footprint
+  description: "'footprint' | 'legacy' -- obstacle_projector_node's ground-disk radius. footprint: bbox.size.x / 2, the object's width (size.z would be folded in only if detection_3d_node measured it; it is a placeholder). legacy: max(size.x, size.y) / 2, the pre-2026-09-16 rule, which used the object's HEIGHT (size.y) and inflated a standing person to r = H/2 ~ 0.87 m. The [min_obstacle_radius, max_obstacle_radius] reject filter applies in both modes."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated), passed to the node as a JSON string.
+#
+# Added to the ground-disk radius in obstacle_projector_node, in both
+# obstacle_radius_source modes, after the radius reject filter. That is the
+# ONLY place it enters: Obstacle2D has no class label, and every downstream
+# consumer reads r once (MPC_corr's R_safe, the solver's d_front,
+# front_clearance_node). Adding it again anywhere downstream would count it
+# twice. No class has a value yet; pick one from a measured edge-to-edge gap,
+# not from a run tuned on legacy radii.
+obstacle_class_margin_m:
+  default: {}
+  description: "Per-class extra clearance [m], class_id -> metres, e.g. {\"person\": 0.3}. Added to obstacle_projector_node's ground-disk radius in both radius modes, after the min/max radius reject filter, so it reaches R_safe = r + car_radius + avoidance_margin exactly once. Classes not listed get 0. Empty by default."
 
 # ============================================================
 # Front clearance / front wall (f1tenth_perception/front_clearance_node.py)

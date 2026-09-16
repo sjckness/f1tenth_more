@@ -24,13 +24,30 @@ is a fixed joint broadcast by the ZED wrapper's own robot_state_publisher).
 Detections whose transformed z falls outside [obstacle_z_min, obstacle_z_max]
 are dropped -- rejects ground-plane and overhead false positives.
 
-Per-detection radius is bbox.size.x/y (the object's real-world width/height,
-back-projected from the 2D box + depth by detection_3d_node) -- max(size.x,
-size.y) / 2.0, a simple top-down bounding-disk radius. bbox.size.z is NOT used:
-it's detection_3d_node's own default_depth_extent placeholder, not a measurement
-(depth-axis extent isn't observable from a single monocular depth view).
+Per-detection radius: see obstacle_radius() and the obstacle_radius_source
+parameter. The obstacle is a disk on the GROUND PLANE, so its radius must come
+from the object's horizontal extent. detection_3d_node fills bbox.size.x with
+the back-projected image WIDTH, bbox.size.y with the back-projected image
+HEIGHT (a vertical extent), and bbox.size.z with its default_depth_extent
+parameter, a fixed placeholder rather than a measurement.
+
+The original rule, max(size.x, size.y) / 2.0, therefore sized the disk by the
+object's HEIGHT whenever it was taller than wide: a standing person 1.75 m tall
+and 0.5 m wide became a 0.875 m disk instead of 0.25 m. "footprint" (default)
+uses the width only; "legacy" keeps the height-inflated rule for comparison
+against runs recorded before the fix.
+
+Per-class clearance (obstacle_class_margin_m, a JSON class -> metres map,
+default {}) is added to the radius HERE and nowhere else, in both radius modes.
+Obstacle2D carries no class label, so this node is the last place the class
+is known; every consumer of /perception/obstacles_2d then inherits it through
+r exactly once (MPC_corr's R_safe = r + car_radius + avoidance_margin, the
+solver's d_front = |p - o| - r, front_clearance_node's |y| - r and x - r).
+The margin is added AFTER the [min, max] radius reject filter, which judges
+the plausibility of the measured size, not of the clearance wanted around it.
 """
 
+import json
 import math
 
 import rclpy
@@ -53,10 +70,65 @@ from f1tenth_perception.cpu_affinity import (
     declare_nice_param,
 )
 
+RADIUS_SOURCES = ('footprint', 'legacy')
+
+# detection_3d_node._build_detection3d sets bbox.size.z to its
+# default_depth_extent parameter: depth-axis extent is not observable from one
+# depth view. Footprint mode may fold size.z in only once that node measures it.
+DETECTION_3D_DEPTH_EXTENT_IS_MEASURED = False
+
+
+def obstacle_radius(size_x, size_y, size_z, source,
+                    depth_extent_is_measured=DETECTION_3D_DEPTH_EXTENT_IS_MEASURED):
+    """Ground-plane disk radius [m] for one detection's bbox.size.
+
+    footprint: max(size.x, size.z) / 2 when size.z is a real depth estimate,
+    otherwise size.x / 2. size.y is never used, since it is the object's height.
+    legacy: max(size.x, size.y) / 2, the pre-fix rule, which inflates the disk
+    to half the object's HEIGHT for anything taller than it is wide.
+    """
+    if source == 'footprint':
+        if depth_extent_is_measured:
+            return max(float(size_x), float(size_z)) / 2.0
+        return float(size_x) / 2.0
+    if source == 'legacy':
+        return max(float(size_x), float(size_y)) / 2.0
+    raise ValueError(
+        f'obstacle_radius_source must be one of {RADIUS_SOURCES}, got {source!r}')
+
+
+def parse_class_margins(text):
+    """Parse obstacle_class_margin_m (JSON object, class -> metres) to a dict.
+
+    Empty text means no margins. Raises ValueError on anything that is not an
+    object of string keys to finite non-negative numbers, so a bad value fails
+    at node startup instead of silently dropping the clearance.
+    """
+    if not str(text).strip():
+        return {}
+    try:
+        raw = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f'obstacle_class_margin_m is not valid JSON: {exc}') from exc
+    if not isinstance(raw, dict):
+        raise ValueError(
+            f'obstacle_class_margin_m must be a JSON object, got {type(raw).__name__}')
+    margins = {}
+    for class_id, value in raw.items():
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                f'obstacle_class_margin_m[{class_id!r}] must be a number, got {value!r}')
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(
+                f'obstacle_class_margin_m[{class_id!r}] must be finite and >= 0, '
+                f'got {value!r}')
+        margins[str(class_id)] = float(value)
+    return margins
+
 
 class ObstacleProjectorNode(Node):
-    def __init__(self):
-        super().__init__('obstacle_projector_node')
+    def __init__(self, **kwargs):
+        super().__init__('obstacle_projector_node', **kwargs)
 
         # nice: see cpu_affinity.py. The perception-latency audit measured
         # this node at ~56-59% CPU with no pinning. CPU AFFINITY is now a
@@ -99,6 +171,17 @@ class ObstacleProjectorNode(Node):
             self.declare_parameter('min_obstacle_radius', 0.03).value)
         self.max_obstacle_radius = float(
             self.declare_parameter('max_obstacle_radius', 1.5).value)
+        # See obstacle_radius(). Validated here so a typo fails at startup, not
+        # on the first detection.
+        self.obstacle_radius_source = str(
+            self.declare_parameter('obstacle_radius_source', 'footprint').value)
+        if self.obstacle_radius_source not in RADIUS_SOURCES:
+            raise ValueError(
+                f'obstacle_radius_source must be one of {RADIUS_SOURCES}, '
+                f'got {self.obstacle_radius_source!r}')
+        # See the module docstring: added to r once, after the reject filter.
+        self.obstacle_class_margin_m = parse_class_margins(
+            self.declare_parameter('obstacle_class_margin_m', '{}').value)
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -114,7 +197,9 @@ class ObstacleProjectorNode(Node):
         self.get_logger().info(
             f'obstacle_projector_node up: "{self.detections_3d_topic}" -> '
             f'"{self.obstacles_topic}" in frame "{self.output_frame}", '
-            f'z-band=[{self.obstacle_z_min}, {self.obstacle_z_max}]')
+            f'z-band=[{self.obstacle_z_min}, {self.obstacle_z_max}], '
+            f'radius_source={self.obstacle_radius_source}, '
+            f'class_margin_m={self.obstacle_class_margin_m}')
 
     def _detections_callback(self, msg: Detection3DArray):
         if not msg.detections:
@@ -137,9 +222,13 @@ class ObstacleProjectorNode(Node):
             if not (self.obstacle_z_min <= pose_out.position.z <= self.obstacle_z_max):
                 continue
 
-            radius = max(float(det.bbox.size.x), float(det.bbox.size.y)) / 2.0
+            radius = obstacle_radius(
+                det.bbox.size.x, det.bbox.size.y, det.bbox.size.z,
+                self.obstacle_radius_source)
             if not (self.min_obstacle_radius <= radius <= self.max_obstacle_radius):
                 continue
+            class_id = det.results[0].hypothesis.class_id if det.results else ''
+            radius += self.obstacle_class_margin_m.get(class_id, 0.0)
 
             obstacle = Obstacle2D()
             obstacle.x = float(pose_out.position.x)

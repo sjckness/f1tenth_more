@@ -93,6 +93,7 @@ cpu_affinity.py's shared helper is now nice-only (declare_nice_param/
 apply_nice) -- see that module's own docstring.
 """
 
+import json
 import os
 
 from f1tenth_params.param_defaults import get_default, get_value
@@ -246,6 +247,18 @@ def generate_launch_description():
     obstacle_z_max_la = DeclareLaunchArgument(
         'obstacle_z_max', default_value=str(obstacle_z_max_default),
         description=obstacle_z_max_desc)
+    obstacle_radius_source_default, obstacle_radius_source_desc = get_default(
+        'obstacle_radius_source')
+    obstacle_radius_source_la = DeclareLaunchArgument(
+        'obstacle_radius_source', default_value=str(obstacle_radius_source_default),
+        description=obstacle_radius_source_desc)
+    # A class -> metres map in stack_params.yaml, carried as a JSON string: a
+    # ROS parameter cannot hold a dict, and the node parses and validates it.
+    obstacle_class_margin_default, obstacle_class_margin_desc = get_default(
+        'obstacle_class_margin_m')
+    obstacle_class_margin_la = DeclareLaunchArgument(
+        'obstacle_class_margin_m', default_value=json.dumps(obstacle_class_margin_default),
+        description=obstacle_class_margin_desc)
 
     # cpu_affinity/nice, one pair per node -- see module docstring. cpu_affinity
     # now feeds a 'taskset -c' launch prefix (not a self-pin ROS param) -- an
@@ -331,7 +344,8 @@ def generate_launch_description():
         lidar_exclusion_x_min_la, lidar_exclusion_x_max_la,
         lidar_exclusion_y_min_la, lidar_exclusion_y_max_la,
         lidar_exclusion_overlap_threshold_la,
-        obstacle_z_min_la, obstacle_z_max_la,
+        obstacle_z_min_la, obstacle_z_max_la, obstacle_radius_source_la,
+        obstacle_class_margin_la,
         yolo_cpu_affinity_la, yolo_nice_la,
         detection_3d_cpu_affinity_la, detection_3d_nice_la,
         obstacle_projector_cpu_affinity_la, obstacle_projector_nice_la,
@@ -380,6 +394,11 @@ def generate_launch_description():
                 'output_frame': 'base_link',
                 'obstacle_z_min': LaunchConfiguration('obstacle_z_min'),
                 'obstacle_z_max': LaunchConfiguration('obstacle_z_max'),
+                'obstacle_radius_source': LaunchConfiguration('obstacle_radius_source'),
+                # value_type=str: launch_ros would otherwise YAML-parse '{}'
+                # into a dict, which is not a legal parameter type.
+                'obstacle_class_margin_m': ParameterValue(
+                    LaunchConfiguration('obstacle_class_margin_m'), value_type=str),
                 'nice': LaunchConfiguration('obstacle_projector_nice'),
             }],
         ))
