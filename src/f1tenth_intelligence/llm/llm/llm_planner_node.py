@@ -122,6 +122,7 @@ from llm.plan_translate import (
     IntentSchemaError,
     PlanTranslationError,
     TranslatorOutputError,
+    UnsupportedIntentModeError,
     load_intent_prompt,
     phases_to_mission,
     translate,
@@ -897,6 +898,7 @@ class LLMPlannerNode(Node):
         plausibile. Se il percorso v2 fallisce, non esce nessuna missione.
         """
         feedback = None
+        unsupported_request = command_text
         t0 = time.time()
         for attempt in range(1, MAX_INTENT_RETRIES + 2):
             try:
@@ -907,6 +909,21 @@ class LLMPlannerNode(Node):
 
             try:
                 result = translate(intent)
+            except UnsupportedIntentModeError as e:
+                # B3: separable from an ordinary schema rejection on purpose.
+                # Getting here means the model authored a mode the prompt
+                # never taught it -- a prompt-compliance failure, not a
+                # malformed plan. A request the model correctly routed to
+                # "unsupported" never reaches the translator at all, so the
+                # two outcomes are distinguishable by grepping this tag.
+                feedback = str(e)
+                unsupported_request = command_text
+                self.get_logger().warn(
+                    f'[prompt-non-rispettato] il modello ha prodotto un mode '
+                    f'non supportato (tentativo {attempt}/{MAX_INTENT_RETRIES + 1}): {e}')
+                self.get_logger().warn(
+                    f'  (intent ricevuto: {json.dumps(intent, ensure_ascii=False)})')
+                continue
             except (IntentSchemaError, IntentRangeError) as e:
                 feedback = str(e)
                 self.get_logger().warn(
@@ -916,10 +933,33 @@ class LLMPlannerNode(Node):
                 continue
             except EmptyPlanError:
                 # NON un errore del modello: e' la risposta giusta a un comando
-                # ambiguo. Un retry qui insisterebbe perche' indovini.
+                # ambiguo o non supportato. Un retry qui insisterebbe perche'
+                # indovini.
+                #
+                # I due casi vanno detti in modo DIVERSO. Il prompt marca
+                # l'ambiguita' vera col prefisso "ambiguo:" ("gira e vai avanti
+                # un po'" -- manca la direzione); tutto il resto e' una
+                # richiesta che il robot non sa fare (andare verso un oggetto
+                # nominato). Stamparli entrambi come "comando ambiguo" fa
+                # sembrare guasto il planner proprio quando ha fatto la cosa
+                # giusta, ed e' il primo messaggio che l'operatore legge.
+                items = list(intent.get('unsupported', ()))
+                ambiguous = [i for i in items if i.strip().lower().startswith('ambiguo')]
+                if items and not ambiguous:
+                    print('\nRICHIESTA NON SUPPORTATA -- il robot non sa farlo, '
+                          'e non e\' un errore del planner:')
+                    for item in items:
+                        print(f'  - {item}')
+                    print('\nSupportato: andare dritto e fermarsi al muro, a una '
+                          'distanza percorsa, o prima di cio\' che si trova davanti '
+                          'senza nominarlo. Esempio: "vai dritto e fermati prima '
+                          'dell\'ostacolo".')
+                    self.get_logger().error(
+                        'richiesta non supportata; nessuna missione emessa.')
+                    return None
                 print('\nnessun piano eseguibile -- il comando e\' ambiguo o '
                       'interamente non esprimibile:')
-                for item in intent.get('unsupported', ()):
+                for item in items:
                     print(f'  - {item}')
                 self.get_logger().error('Nessuna missione emessa.')
                 return None
@@ -933,9 +973,22 @@ class LLMPlannerNode(Node):
 
             return result.mission, result.unsupported, time.time() - t0, attempt
 
+        # B1: the retry budget terminates in an explicit UNSUPPORTED outcome
+        # carrying the operator's original words, not in a bare "planning
+        # failed". There is deliberately no fallback to the last intent that
+        # validated: for a request the robot cannot perform, the nearest
+        # validating plan is precisely the wrong-object substitution the
+        # system prompt spends a section forbidding, and running it would
+        # report success at whatever happened to be in front.
+        print('\n' + '!' * 72)
+        print('RICHIESTA NON SUPPORTATA -- nessuna missione emessa.')
+        print(f'  richiesta: {unsupported_request}')
+        print(f'  motivo:    {feedback}')
+        print('!' * 72 + '\n')
         self.get_logger().error(
-            f'intent non valido dopo {MAX_INTENT_RETRIES + 1} tentativi '
-            f'(ultimo errore: {feedback}). Nulla caricato.')
+            f'richiesta non supportata dopo {MAX_INTENT_RETRIES + 1} tentativi: '
+            f'{unsupported_request!r} (ultimo motivo: {feedback}). '
+            'Nulla caricato, nessun ripiego.')
         return None
 
     def process_command(self, command_text: str) -> bool:

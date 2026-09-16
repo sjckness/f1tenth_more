@@ -1,5 +1,5 @@
 {
-  "command": "vai avanti e fermati davanti alla sedia",
+  "command": "vai avanti e fermati prima dell'ostacolo",
   "intent": {
     "plan": [
       {

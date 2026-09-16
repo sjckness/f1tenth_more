@@ -15,7 +15,8 @@ GUARD (condizione che fa avanzare alla fase successiva):
 
 Scelta del guard:
 - destinazione descritta come muro / parete / fondo del corridoio -> "wall"
-- destinazione descritta come oggetto / sedia / scatola / persona -> "front_object"
+- destinazione descritta come un ostacolo generico, senza nominarlo
+  ("l'ostacolo", "quello che c'e' davanti") -> "front_object"
 - distanza esplicita in metri -> "distance"
 - in dubbio -> "wall"
 
@@ -36,12 +37,41 @@ REGOLE:
 - "supera" / "oltrepassa" / "passa accanto a X" NON e' una fermata:
   l'evitamento ostacoli e' gestito dal controllore. Prosegui con guard
   "distance", non fermarti su X.
-- "fermati davanti a X" -> ultima fase con guard "front_object"
+- "fermati prima dell'ostacolo" -> ultima fase con guard "front_object"
+  (vale solo se l'ostacolo NON e' nominato: vedi OGGETTI NOMINATI)
 - "fermati a N metri dal muro" -> guard "wall", thresh N
   (la distanza indica la SOGLIA del guard, non i metri da percorrere)
 - "avanza N metri" -> guard "distance", thresh N
   (qui la distanza indica i metri DA PERCORRERE)
 - L'ultima fase e' quella che conclude la missione: non serve indicarlo.
+
+OGGETTI NOMINATI - NON SUPPORTATI:
+Il robot non sa andare verso un oggetto o una persona indicati per nome.
+Non esiste nessuna primitiva che punti, insegua o si avvicini a un bersaglio
+riconosciuto. Ogni comando che nomina una cosa specifica come destinazione va
+messo in "unsupported" con il testo originale.
+
+Comandi di questo tipo, in entrambe le lingue:
+  - vai verso la bottiglia / go to the bottle
+  - avvicinati alla persona / drive toward the person
+  - segui la sedia / approach the chair
+  - portati davanti al tavolo / follow me
+  - vai dalla bottiglia e fermati a 1 metro / stop one metre from the table
+
+NON sostituirli con "front_object". "front_object" misura la distanza
+dall'ostacolo PIU' VICINO davanti e non sa che cosa sia. Usarlo per "vai verso
+la bottiglia" fa fermare il robot davanti a qualunque cosa capiti prima - una
+sedia, un muro, una persona - e la missione risulta COMPLETATA. E' l'errore
+peggiore possibile, perche' sembra funzionare.
+
+Non sostituirli nemmeno con:
+  - "distance" e una soglia indovinata: la distanza dell'oggetto non e' nota.
+  - una sequenza "turn" + "straight" per puntare il bersaglio: le svolte sono
+    di 90 gradi fisse e non mirano a niente.
+
+E' invece SUPPORTATO andare dritto e fermarsi prima di cio' che si trova
+davanti, senza nominarlo: "vai dritto e fermati prima dell'ostacolo" ->
+guard "front_object". La differenza e' se il comando nomina una cosa specifica.
 
 AZIONI NON ESPRIMIBILI:
 Se il comando chiede qualcosa che le primitive non possono fare (saltare,
@@ -65,8 +95,14 @@ ESEMPI:
 "vai dritto, supera l'ostacolo e avanza 3 metri"
 {"plan":[{"mode":"straight","guard":"distance","thresh":3.0}],"unsupported":[]}
 
-"vai avanti e fermati davanti alla sedia"
+"vai avanti e fermati prima dell'ostacolo"
 {"plan":[{"mode":"straight","guard":"front_object","thresh":1.0}],"unsupported":[]}
+
+"vai verso la bottiglia e fermati a 1 metro"
+{"plan":[],"unsupported":["vai verso la bottiglia e fermati a 1 metro"]}
+
+"gira a destra poi vai verso la bottiglia"
+{"plan":[{"mode":"turn","dir":"right"}],"unsupported":["vai verso la bottiglia"]}
 
 "vai dritto e fermati a due metri dal muro"
 {"plan":[{"mode":"straight","guard":"wall","thresh":2.0}],"unsupported":[]}

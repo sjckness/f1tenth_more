@@ -453,6 +453,17 @@ class IntentSchemaError(PlanTranslationError):
     """The intent document does not validate against schemas/intent_v1.json."""
 
 
+class UnsupportedIntentModeError(IntentSchemaError):
+    """The model authored a mode the schema allows and the runtime cannot run.
+
+    A subclass of IntentSchemaError so _plan_v2 still feeds it back as retry
+    text, but a distinct type so the node can log it separately: reaching this
+    means the model ignored the system prompt, which is a prompt-quality
+    signal worth counting. A request the model correctly routed to
+    "unsupported" never arrives here.
+    """
+
+
 class IntentRangeError(PlanTranslationError):
     """A thresh is outside the per-guard range in GUARD_THRESH_RANGE.
 
@@ -666,6 +677,35 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov):
     """
     at = f'moves[{i}]'
     mode = phase['mode']
+
+    # go_to validates against intent_v1.json but CANNOT BE EXECUTED by this
+    # runtime, and the gap is not in this translator -- see the schema branch's
+    # own description. mission_config.DRIVE_MODES is {'straight', 'wall_turn'}
+    # and its comment says outright that "neither carries a target"; nothing
+    # bridges a detected class to a pose either, because the two halves never
+    # meet (runtime.DetectionInfo is (last_seen, score) with no position, and
+    # Obstacle2D.msg is x/y/r with no class).
+    #
+    # Refused HERE, as an IntentSchemaError, for two reasons. Without this the
+    # phase falls through to the straight branch below and dies on
+    # phase['guard'] with a bare KeyError -- uncaught by _plan_v2, which
+    # catches only PlanTranslationError subclasses, so it would surface as a
+    # traceback in the planner rather than as a handled failure. And
+    # IntentSchemaError is the one _plan_v2 feeds back to the model as retry
+    # text, so the model is told to re-plan with the request in `unsupported`,
+    # where the operator actually sees it.
+    if mode == 'go_to':
+        # Written for the MODEL, not for a log reader: _plan_v2 appends this
+        # verbatim to the next prompt, where it competes with the system
+        # prompt for attention. Italian to match the prompt and the wrapper
+        # _plan_v2 puts around it; short, and only the three things the model
+        # has to act on.
+        raise UnsupportedIntentModeError(
+            f'fase {i}: "go_to" non e\' eseguibile da questo robot. '
+            'Non sostituirlo con "front_object": quello si ferma alla cosa '
+            'piu\' vicina, non a quella nominata. '
+            'Rimetti la richiesta in "unsupported".')
+
     move = {'id': f'move_{i}_{mode}'}
     prov[f'{at}.id'] = (DERIVED, 'f"move_{index}_{intent mode}"')
 

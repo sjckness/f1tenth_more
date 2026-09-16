@@ -1,0 +1,18 @@
+{
+  "mission_id": "go_to_person",
+  "schema_version": "3.0",
+  "description": "Drive to the nearest semantically tracked person and stop one standoff short of them. REQUIRES f1tenth_behavior/object_goal_bridge running with enabled:=true, and semantic_layer_node publishing /costmap/semantic_tracks. The goal_distance below is a deliberate FAIL-SAFE placeholder, not the mission: the bridge overrides /mpc/goal_pose at 20 Hz and pose mode wins, so if the bridge is NOT running the car drives 0.5 m and stops instead of driving to an arbitrary map-frame point.",
+  "moves": [
+    {
+      "id": "move_0_go_to_person",
+      "description": "goal_distance is the placeholder; the bridge supplies the real goal on /mpc/goal_pose. goal_reached is shared by both MPC modes, so it fires on pose arrival.",
+      "goal_distance": 0.5,
+      "stop_condition": {
+        "type": "goal_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

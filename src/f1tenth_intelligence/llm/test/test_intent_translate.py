@@ -439,8 +439,17 @@ def test_the_prompt_ships_all_its_worked_examples():
     "stop when the wall is two metres away" (guard wall). Both readings are
     grammatical; only one is what the operator meant, so the prompt now states
     the distinction and shows it.
+
+    Eight since the named-object rule landed. Two were added, neither
+    replacing anything: a full refusal ("vai verso la bottiglia e fermati a 1
+    metro" -> empty plan, request preserved in unsupported) and a partial one
+    ("gira a destra poi vai verso la bottiglia" -> the turn is planned, the
+    approach is not). A third example changed wording only -- "fermati davanti
+    alla sedia" became "fermati prima dell'ostacolo" -- because the old one
+    named a specific object while using front_object, which is exactly the
+    substitution the prompt now forbids. Its intent is untouched.
     """
-    assert len(intent_prompt_examples()) == 6
+    assert len(intent_prompt_examples()) == 8
 
 
 def test_every_prompt_example_is_a_valid_intent():

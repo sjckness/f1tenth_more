@@ -105,7 +105,11 @@ from std_msgs.msg import ColorRGBA
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
-from vision_msgs.msg import Detection3DArray
+from vision_msgs.msg import (
+    Detection3D,
+    Detection3DArray,
+    ObjectHypothesisWithPose,
+)
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_costmap.semantic_layer import (
@@ -171,6 +175,15 @@ class SemanticLayerNode(Node):
         # continuous, never-teleporting map-frame pose in every state.
         self.declare_parameter('pose_topic', '/ekf_global/odometry/filtered')
         self.declare_parameter('output_topic', '/costmap/semantic_markers')
+        # The same confirmed tracks as the markers, but as DATA rather than
+        # as a view. The MarkerArray was the only output for a long time,
+        # which meant a fully-associated, map-frame, class-labelled track set
+        # existed in this node and was readable by nothing but RViz. Anything
+        # that wants to ACT on a tracked object -- drive to it, avoid it,
+        # count it -- needs this topic instead of re-deriving tracking from
+        # raw per-frame detections, which is how duplicate/multiplying objects
+        # got reintroduced once already (see this module's own docstring).
+        self.declare_parameter('tracks_topic', '/costmap/semantic_tracks')
         self.declare_parameter('map_frame', 'map')
         self.declare_parameter('base_frame', 'base_link')
         self.declare_parameter('score_threshold', 0.5)
@@ -257,6 +270,8 @@ class SemanticLayerNode(Node):
         self.det_sub = self.create_subscription(
             Detection3DArray, p('detections_topic').value, self._detections_cb, 10)
         self.marker_pub = self.create_publisher(MarkerArray, p('output_topic').value, 10)
+        self.tracks_pub = self.create_publisher(
+            Detection3DArray, p('tracks_topic').value, 10)
 
         self._pose_history: list = []  # [(stamp_sec, (x, y, yaw)), ...]
         self._objects: list = []       # [SemanticObject, ...] (tracks, confirmed + tentative)
@@ -448,6 +463,7 @@ class SemanticLayerNode(Node):
         marker_array = MarkerArray()
         now = self.get_clock().now().to_msg()
         current_keys = set()
+        self._publish_tracks(now)
 
         for obj in self._objects:
             if not obj.confirmed:
@@ -499,6 +515,45 @@ class SemanticLayerNode(Node):
 
         self._last_published_marker_keys = current_keys
         self.marker_pub.publish(marker_array)
+
+
+    def _publish_tracks(self, now):
+        """Confirmed tracks as Detection3DArray, in the map frame.
+
+        Detection3DArray rather than a new message type: it already carries
+        exactly what a track is (class_id, score, a 3-D centre) on a topic
+        whose frame_id says these are map-frame, and both this package and
+        every plausible consumer already depend on vision_msgs. A bespoke
+        message would add a build dependency for no extra information.
+
+        Only CONFIRMED tracks, matching the markers exactly -- a consumer that
+        drives at one of these must never see a track that was too tentative
+        to draw.
+        """
+        message = Detection3DArray()
+        message.header.stamp = now
+        message.header.frame_id = self.map_frame
+
+        for obj in self._objects:
+            if not obj.confirmed:
+                continue
+            hypothesis = ObjectHypothesisWithPose()
+            hypothesis.hypothesis.class_id = obj.class_id
+            hypothesis.hypothesis.score = float(obj.score)
+
+            detection = Detection3D()
+            detection.header = message.header
+            detection.id = str(obj.track_id)
+            detection.results = [hypothesis]
+            detection.bbox.center.position.x = float(obj.x_map)
+            detection.bbox.center.position.y = float(obj.y_map)
+            detection.bbox.center.orientation.w = 1.0
+            detection.bbox.size.x = 0.3
+            detection.bbox.size.y = 0.3
+            detection.bbox.size.z = 0.3
+            message.detections.append(detection)
+
+        self.tracks_pub.publish(message)
 
 
 def main(args=None):
