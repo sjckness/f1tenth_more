@@ -64,6 +64,7 @@ from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import Detection3DArray
 
 from f1tenth_messages.msg import Obstacle2D, Obstacle2DArray
+from f1tenth_params.object_geometry import footprint_radius
 
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
@@ -88,9 +89,8 @@ def obstacle_radius(size_x, size_y, size_z, source,
     to half the object's HEIGHT for anything taller than it is wide.
     """
     if source == 'footprint':
-        if depth_extent_is_measured:
-            return max(float(size_x), float(size_z)) / 2.0
-        return float(size_x) / 2.0
+        # Shared with semantic tracks' fused width (f1tenth_params.object_geometry).
+        return footprint_radius(size_x, size_z, depth_extent_is_measured)
     if source == 'legacy':
         return max(float(size_x), float(size_y)) / 2.0
     raise ValueError(

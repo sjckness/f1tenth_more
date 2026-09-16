@@ -20,5 +20,6 @@ float32 actual
 float32 score_percent
 bool mismatch_flagged
 float32 arrival_bearing_error_deg
-float32 track_range_m
+float32 track_gap_m          # go_to_object: final gap from the global EKF pose to the
+                             # handler's last target point (cross-check on actual)
 string note

@@ -1,18 +1,19 @@
 {
   "mission_id": "go_to_chair",
-  "schema_version": "4.0",
-  "description": "Drive to the nearest confirmed semantic track of a chair and stop 1.2 m short of it. Same requirements as go_to_person.json. Standoff 1.2: a chair ~0.45 m wide gives a footprint radius ~0.23, and the MPC's w_obs term holds the car back once the chair's centre is closer than about 0.55 + r + 0.32 = 1.10 m.",
+  "schema_version": "5.0",
+  "description": "Drive to the nearest confirmed semantic track of a chair and stop at the default gap (gap_min(chair) rounded up to 0.1 m; 0.5 m at the current stack_params). Same requirements as go_to_person.json.",
   "moves": [
     {
       "id": "move_0_go_to_chair",
       "go_to_object": {
         "target_class": "chair",
-        "standoff_m": 1.2,
         "speed": 0.4,
         "acquire_timeout_sec": 5.0,
         "lost_grace_sec": 1.5
       },
-      "stop_condition": { "type": "object_reached" },
+      "stop_condition": {
+        "type": "object_reached"
+      },
       "timeout_sec": 60,
       "on_timeout": "abort",
       "terminal": true

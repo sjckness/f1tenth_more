@@ -80,7 +80,7 @@ def _write_bag(path):
     outcome.move_type, outcome.outcome, outcome.wire_move_id = 'go_to_object', 'reached', WIRE
     outcome.stop_reason = 'stop_condition:object_reached'
     outcome.commanded, outcome.actual = 1.2, 1.28
-    outcome.arrival_bearing_error_deg, outcome.track_range_m = 2.9, 1.31
+    outcome.arrival_bearing_error_deg, outcome.track_gap_m = 2.9, 1.31
     outcome.score_percent = math.nan
     put('/mission/move_outcome', outcome)
     clamp = DriveClamp()
@@ -138,7 +138,7 @@ class TestSummary:
         assert move['stop_reason'] == 'stop_condition:object_reached'
         assert move['final_gap_or_range'] == pytest.approx(1.28)
         assert move['arrival_bearing_error_deg'] == pytest.approx(2.9)
-        assert move['track_range_m'] == pytest.approx(1.31)
+        assert move['track_gap_m'] == pytest.approx(1.31)
 
     def test_the_clamp_summary(self, bag):
         clamp = summarize_drive_clamp(bag['streams']['drive_clamp'])

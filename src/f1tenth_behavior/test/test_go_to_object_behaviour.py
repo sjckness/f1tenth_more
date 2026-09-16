@@ -95,7 +95,9 @@ def _tracks_msg(tracks, stamp=99.5, frame='map'):
         detections=[SimpleNamespace(
             id=tid,
             results=[SimpleNamespace(hypothesis=SimpleNamespace(class_id=cls, score=0.9))],
-            bbox=SimpleNamespace(center=SimpleNamespace(position=SimpleNamespace(x=x, y=y))))
+            bbox=SimpleNamespace(
+                center=SimpleNamespace(position=SimpleNamespace(x=x, y=y)),
+                size=SimpleNamespace(x=0.5, y=0.5, z=0.0)))
             for tid, cls, x, y in tracks])
 
 
@@ -170,7 +172,11 @@ class TestPublishing:
         assert (last.header.stamp.sec, last.header.stamp.nanosec) == (100, 400000000)
         assert last.header.frame_id == 'map'
         assert (last.point.x, last.point.y) == (3.0, pytest.approx(0.4))
-        assert last.standoff == pytest.approx(1.2)
+        spec = rig.config.moves[0].go_to_object
+        # mpc_corr's standoff is the CENTRE distance: default gap + nose_reach +
+        # the track's 0.5 m width / 2.
+        assert spec.gap_m == pytest.approx(0.5)
+        assert last.standoff == pytest.approx(0.5 + spec.nose_reach_m + 0.25)
         assert last.speed == pytest.approx(0.4)
         assert last.target_class == 'person'
 

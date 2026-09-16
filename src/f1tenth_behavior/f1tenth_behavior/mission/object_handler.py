@@ -34,6 +34,8 @@ import math
 from dataclasses import dataclass
 from typing import Iterable, Optional, Sequence, Tuple
 
+from f1tenth_params.object_geometry import nominal_footprint_radius
+
 ACQUIRE = 'ACQUIRE'
 FOLLOW = 'FOLLOW'
 GRACE = 'GRACE'
@@ -58,6 +60,7 @@ class Track:
     y: float
     score: float
     stamp_sec: float   # the tracks message's capture stamp
+    width: float = 0.0  # fused footprint width [m]; <= 0 means unknown
 
 
 @dataclass(frozen=True)
@@ -65,7 +68,8 @@ class HandlerParams:
     """One move's handler configuration: the move's spec plus stack tuning."""
 
     target_class: str
-    standoff_m: float
+    gap_m: float          # car front to object near edge
+    nose_reach_m: float   # base_link to car front, as the solver measures it
     speed: float
     acquire_timeout_sec: float
     lost_grace_sec: float
@@ -86,6 +90,10 @@ class HandlerStep:
     track_id: Optional[str]
     speed: float
     outcome: Optional[str] = None
+    # The target's footprint radius and the centre distance the controller is
+    # sent (ObjectGoal.standoff): gap_m + nose_reach_m + target_radius.
+    target_radius: Optional[float] = None
+    centre_standoff: Optional[float] = None
 
 
 def nearest_track(tracks: Iterable[Track], target_class: str,
@@ -115,6 +123,7 @@ class ObjectHandler:
         self.target_xy: Optional[Tuple[float, float]] = None
         self.target_stamp_sec: Optional[float] = None
         self.track_id: Optional[str] = None
+        self.target_radius: Optional[float] = None
         self.grace_since: Optional[float] = None
         self.outcome: Optional[str] = None
         self.transitions = []
@@ -125,8 +134,10 @@ class ObjectHandler:
             self.phase = phase
 
     def _step(self, speed, outcome=None):
+        standoff = (None if self.target_radius is None else
+                    self.params.gap_m + self.params.nose_reach_m + self.target_radius)
         return HandlerStep(self.phase, self.target_xy, self.target_stamp_sec,
-                           self.track_id, speed, outcome)
+                           self.track_id, speed, outcome, self.target_radius, standoff)
 
     def end(self, outcome: str, now_sec: float) -> HandlerStep:
         """End the move from outside (reached, timeout) or from inside."""
@@ -178,6 +189,10 @@ class ObjectHandler:
         self.target_xy = (track.x, track.y)
         self.target_stamp_sec = track.stamp_sec
         self.track_id = track.track_id
+        # The track's fused footprint width when it has one, else the class
+        # nominal (f1tenth_params.object_geometry).
+        self.target_radius = (track.width / 2.0 if track.width and track.width > 0.0
+                              else nominal_footprint_radius(track.class_id))
 
 
 def object_move_wire_id(mission_id: str, run_generation: int, move_id: str) -> str:

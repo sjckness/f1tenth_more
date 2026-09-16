@@ -1,18 +1,19 @@
 {
   "mission_id": "go_to_person",
-  "schema_version": "4.0",
-  "description": "Drive to the nearest confirmed semantic track of a person and stop 1.2 m short of it. Needs semantic_layer_node (/costmap/semantic_tracks) and the global EKF. Standoff 1.2, not the 1.0 default: in the closed-loop rig a footprint-sized person holds the car ~0.11 m short at 1.0 (the MPC's w_obs term), outside object_reach_tol_m 0.10, so the move could not complete; at 1.2 it settles within 0.02 m.",
+  "schema_version": "5.0",
+  "description": "Drive to the nearest confirmed semantic track of a person and stop at the default gap: gap_min(person) rounded up to 0.1 m, where gap_min = car_radius + obstacle_safety_margin_m + class margin + object_gap_settle_buffer_m (0.42 m, so 0.5 m at the current stack_params). No distance is hardcoded: the gap is measured from the car's front to the person's near edge and resolved at load. Needs semantic_layer_node (/costmap/semantic_tracks) and the global EKF.",
   "moves": [
     {
       "id": "move_0_go_to_person",
       "go_to_object": {
         "target_class": "person",
-        "standoff_m": 1.2,
         "speed": 0.4,
         "acquire_timeout_sec": 5.0,
         "lost_grace_sec": 1.5
       },
-      "stop_condition": { "type": "object_reached" },
+      "stop_condition": {
+        "type": "object_reached"
+      },
       "timeout_sec": 60,
       "on_timeout": "abort",
       "terminal": true

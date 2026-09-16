@@ -61,7 +61,7 @@ def _outcome(**kw):
                 stop_reason='stop_condition:object_reached', start_time=10.0, end_time=16.5,
                 start_global_xy=None, end_global_xy=None, start_global_yaw=None,
                 end_global_yaw=None, commanded=1.2, actual=1.28, score_percent=None,
-                outcome='reached', arrival_bearing_error_deg=2.9, track_range_m=None,
+                outcome='reached', arrival_bearing_error_deg=2.9, track_gap_m=None,
                 wire_move_id='go_to_person#2/move_0_go_to_person')
     base.update(kw)
     return MoveOutcome(**base)
@@ -88,7 +88,7 @@ def test_a_new_outcome_is_published_once(loader):
     assert msg.duration_s == pytest.approx(6.5)
     assert msg.actual == pytest.approx(1.28)
     assert math.isnan(msg.score_percent)
-    assert math.isnan(msg.track_range_m)
+    assert math.isnan(msg.track_gap_m)
 
 
 def test_a_reload_starts_counting_again(loader):

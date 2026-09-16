@@ -179,7 +179,7 @@ objects, read back as dicts.
 | `object_status` | `/mpc/object_status` | move_id, r, alpha, e, psi_c, target_age_s, speed_ref, target_stale, inside_turn_radius, target_behind, target_behind_for_s, target_behind_terminal, goal_watchdog |
 | `goal_object` | `/mpc/goal_object` | move_id, target_class, x, y, standoff, speed, stamp (capture time) |
 | `goal_object_end` | `/mpc/goal_object_end` | move_id |
-| `move_outcome` | `/mission/move_outcome` | mission_id, move_id, move_type, stop_reason, outcome, wire_move_id, duration_s, commanded, actual, score_percent, mismatch_flagged, arrival_bearing_error_deg, track_range_m, note (NaN = unset) |
+| `move_outcome` | `/mission/move_outcome` | mission_id, move_id, move_type, stop_reason, outcome, wire_move_id, duration_s, commanded, actual, score_percent, mismatch_flagged, arrival_bearing_error_deg, track_gap_m, note (NaN = unset) |
 | `drive_clamp` | `/mpc/drive_clamp` | requested_speed, applied_speed |
 
 The `meta` row carries the run summary built from them

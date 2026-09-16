@@ -435,3 +435,34 @@ class TestFindNearestPoseByStamp:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+class TestFusedFootprintWidth:
+    """Tracks carry a width fused from associated detections' footprint widths."""
+
+    def _batch(self, tracks, dets, stamp):
+        ids = iter(range(100, 200))
+        return update_tracks_batch(tracks, dets, stamp, 0.5, 0.5, 1, 3, lambda: next(ids))
+
+    def test_a_new_track_takes_the_detections_width(self):
+        (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.48)], 0.0)
+        assert trk.width == pytest.approx(0.48)
+
+    def test_associated_widths_are_ema_blended(self):
+        tracks = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.40)], 0.0)
+        (trk,) = self._batch(tracks, [('person', 1.0, 2.0, 0.9, None, 0.60)], 0.1)
+        assert trk.width == pytest.approx(0.5 * 0.60 + 0.5 * 0.40)
+
+    def test_a_detection_without_a_width_keeps_the_fused_one(self):
+        tracks = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.40)], 0.0)
+        (trk,) = self._batch(tracks, [('person', 1.0, 2.0, 0.9)], 0.1)
+        assert trk.width == pytest.approx(0.40)
+
+    @pytest.mark.parametrize('bad', [0.0, -0.1, float('nan')])
+    def test_an_unusable_width_is_ignored(self, bad):
+        (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9, None, bad)], 0.0)
+        assert trk.width is None
+
+    def test_old_tuple_shapes_still_work_without_a_width(self):
+        (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9)], 0.0)
+        assert trk.width is None

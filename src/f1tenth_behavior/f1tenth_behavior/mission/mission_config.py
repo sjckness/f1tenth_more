@@ -23,9 +23,10 @@ STOP_CONDITION_TYPES = {
 }
 
 # schema_version "4.0" adds the go_to_object step (ObjectSpec) and its
-# object_reached stop_condition. The terminal-last-move rule that "3.0"
-# introduced applies to every version from "3.0" on.
-TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0'}
+# object_reached stop_condition; "5.0" replaces its standoff_m (a centre
+# distance) with gap_m (car front to object edge, validated against gap_min).
+# The terminal-last-move rule that "3.0" introduced applies from "3.0" on.
+TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0', '5.0'}
 ON_OBJECT_ACTIONS = {
     'stop_and_hold', 'reduce_speed', 'reduce_speed_for', 'abort_mission',
     'skip_to_move', 'log_only',
@@ -212,10 +213,23 @@ class DriveSpec:
 
 @dataclass(frozen=True)
 class ObjectSpec:
-    """A "go_to_object" step's own fields -- see Move.go_to_object, schema 4.0.
+    """A "go_to_object" step's own fields -- see Move.go_to_object, schema 5.0.
 
     Drive to the nearest confirmed semantic track of `target_class` and stop
-    `standoff_m` short of it. The move's life is owned by the mission's object
+    with `gap_m` between the car's front and the object's near edge.
+
+    THE GAP, schema 5.0 (was standoff_m, a centre distance, in 4.0). The front
+    is nose_reach ahead of base_link -- the solver's own farthest front point,
+    f1tenth_params.object_geometry -- and the near edge is the track's fused
+    footprint radius from its centre, so the centre distance the controller is
+    sent is gap_m + nose_reach + r_target. gap_m may not be below
+    gap_min(target_class) = car_radius + avoidance_margin + class margin +
+    settle_buffer: the target is also an obstacle, and w_obs holds the car
+    that far out, so a smaller gap never completes. Absent -> the default gap,
+    gap_min rounded up to 0.1 m. Both are resolved at load from the same
+    stack_params keys the solver and projector read.
+
+    The move's life is owned by the mission's object
     handler (behaviours/go_to_object.py): it acquires a track, follows it,
     keeps the last point through a short loss, and ends the move with one of
     the outcomes reached / target_not_found / target_lost /
@@ -233,7 +247,9 @@ class ObjectSpec:
     target_class: str            # one of object_classes.OBJECT_CLASSES
     speed: float                 # approach speed ceiling [m/s], > 0
     acquire_timeout_sec: float   # no track of the class within this -> target_not_found
-    standoff_m: float = 1.0      # metres short of the target, > 0
+    gap_m: float                 # car front to object near edge [m], >= gap_min_m
+    gap_min_m: float             # the reachable minimum it was validated against
+    nose_reach_m: float          # base_link to the car's front, as the solver measures it
     lost_grace_sec: float = 1.5  # keep the last point this long after losing the track
 
 
@@ -544,10 +560,24 @@ def _require_positive_number(raw: dict, key: str, where: str, default=None) -> f
     return float(value)
 
 
-def _parse_object_spec(raw: object, where: str) -> ObjectSpec:
-    """Parse+validate a "go_to_object" step's own sub-object (schema 4.0)."""
+def _default_gap_limits(target_class):
+    from f1tenth_params.object_geometry import gap_limits
+    return gap_limits(target_class)
+
+
+def _parse_object_spec(raw: object, where: str, gap_limits_for=None) -> ObjectSpec:
+    """Parse+validate a "go_to_object" step's own sub-object (schema 5.0).
+
+    gap_limits_for(target_class) -> object_geometry.GapLimits; None reads
+    stack_params.yaml (tests pass their own).
+    """
     _require(isinstance(raw, dict), f'{where}: go_to_object must be an object')
-    known = {'target_class', 'standoff_m', 'speed', 'acquire_timeout_sec', 'lost_grace_sec'}
+    _require(
+        'standoff_m' not in raw,
+        f'{where}: go_to_object.standoff_m was replaced by gap_m in schema 5.0 -- the '
+        'distance from the car\'s front to the object\'s near edge, not a centre distance',
+    )
+    known = {'target_class', 'gap_m', 'speed', 'acquire_timeout_sec', 'lost_grace_sec'}
     unknown = sorted(set(raw) - known)
     _require(not unknown, f'{where}: go_to_object has unknown field(s) {unknown}')
 
@@ -560,7 +590,19 @@ def _parse_object_spec(raw: object, where: str) -> ObjectSpec:
     )
     speed = _require_positive_number(raw, 'speed', where)
     acquire_timeout_sec = _require_positive_number(raw, 'acquire_timeout_sec', where)
-    standoff_m = _require_positive_number(raw, 'standoff_m', where, default=1.0)
+    limits = (gap_limits_for or _default_gap_limits)(target_class)
+    if raw.get('gap_m') is None:
+        gap_m = limits.default_gap
+    else:
+        gap_m = _require_positive_number(raw, 'gap_m', where)
+        _require(
+            gap_m >= limits.gap_min - 1e-9,
+            f'{where}: go_to_object.gap_m={gap_m:.2f} is below the reachable minimum -- '
+            f'{limits.explain()}. The target is also an obstacle: the controller holds '
+            'the car\'s front car_radius + avoidance_margin + class margin from its edge, '
+            'so a smaller gap would never complete. Omit gap_m for the default '
+            f'({limits.default_gap:.1f} m).',
+        )
 
     lost_grace_sec = raw.get('lost_grace_sec', 1.5)
     _require(
@@ -570,7 +612,8 @@ def _parse_object_spec(raw: object, where: str) -> ObjectSpec:
     )
     return ObjectSpec(
         target_class=target_class, speed=speed, acquire_timeout_sec=acquire_timeout_sec,
-        standoff_m=standoff_m, lost_grace_sec=float(lost_grace_sec),
+        gap_m=float(gap_m), gap_min_m=float(limits.gap_min),
+        nose_reach_m=float(limits.nose_reach), lost_grace_sec=float(lost_grace_sec),
     )
 
 
@@ -630,7 +673,7 @@ def _parse_on_object(raw: object, where: str) -> OnObjectAction:
     return OnObjectAction(cls=cls, action=action, params=params)
 
 
-def _parse_move(raw: object, where: str) -> Move:
+def _parse_move(raw: object, where: str, gap_limits_for=None) -> Move:
     _require(isinstance(raw, dict), f'{where}: move must be an object')
     move_id = raw.get('id')
     _require(isinstance(move_id, str) and move_id, f'{where}: move requires a non-empty id')
@@ -664,7 +707,8 @@ def _parse_move(raw: object, where: str) -> Move:
         goal_pose = GoalPose(x=float(gp['x']), y=float(gp['y']), yaw=float(gp['yaw']))
     turn = _parse_turn_spec(raw['turn'], where) if has_turn else None
     drive = _parse_drive_spec(raw['drive'], where) if has_drive else None
-    go_to_object = _parse_object_spec(raw['go_to_object'], where) if has_object else None
+    go_to_object = (_parse_object_spec(raw['go_to_object'], where, gap_limits_for)
+                    if has_object else None)
 
     _require('stop_condition' in raw, f'{where}: stop_condition is required')
     stop_condition = _parse_stop_condition(raw['stop_condition'], where)
@@ -820,7 +864,7 @@ def _parse_move(raw: object, where: str) -> Move:
     )
 
 
-def parse_mission(raw: object) -> MissionConfig:
+def parse_mission(raw: object, gap_limits_for=None) -> MissionConfig:
     """Parse+validate an already-json.loads()'d mission dict into a MissionConfig.
     Raises MissionConfigError with a specific, actionable message on the first
     violation found. Never returns a partially-built MissionConfig -- either the
@@ -850,7 +894,7 @@ def parse_mission(raw: object) -> MissionConfig:
     moves_raw = raw.get('moves')
     _require(isinstance(moves_raw, list) and len(moves_raw) > 0, 'moves must be a non-empty list')
 
-    moves = [_parse_move(m, f'moves[{i}]') for i, m in enumerate(moves_raw)]
+    moves = [_parse_move(m, f'moves[{i}]', gap_limits_for) for i, m in enumerate(moves_raw)]
 
     ids = [m.id for m in moves]
     dupes = sorted({i for i in ids if ids.count(i) > 1})
@@ -904,7 +948,7 @@ def parse_mission(raw: object) -> MissionConfig:
     return MissionConfig(mission_id=mission_id, moves=moves, schema_version=schema_version)
 
 
-def load_mission_file(path: str) -> MissionConfig:
+def load_mission_file(path: str, gap_limits_for=None) -> MissionConfig:
     """Read and parse a mission JSON file from disk.
 
     Raises MissionConfigError (schema violation), OSError (file not found/
@@ -914,4 +958,4 @@ def load_mission_file(path: str) -> MissionConfig:
     """
     text = Path(path).read_text(encoding='utf-8')
     raw = json.loads(text)
-    return parse_mission(raw)
+    return parse_mission(raw, gap_limits_for)

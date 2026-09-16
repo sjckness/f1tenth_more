@@ -23,13 +23,14 @@ from f1tenth_behavior.mission.object_handler import (
 )
 
 PARAMS = HandlerParams(
-    target_class='person', standoff_m=1.2, speed=0.4, acquire_timeout_sec=5.0,
+    target_class='person', gap_m=0.5, nose_reach_m=0.5525, speed=0.4, acquire_timeout_sec=5.0,
     lost_grace_sec=1.5, follow_gate_m=0.5, grace_speed_factor=0.5,
     tracks_max_gap_sec=0.5)
 
 
-def _t(track_id, x, y, cls='person', stamp=0.0):
-    return Track(track_id=track_id, class_id=cls, x=x, y=y, score=0.9, stamp_sec=stamp)
+def _t(track_id, x, y, cls='person', stamp=0.0, width=0.5):
+    return Track(track_id=track_id, class_id=cls, x=x, y=y, score=0.9, stamp_sec=stamp,
+                 width=width)
 
 
 def _tick(handler, now, tracks, received=None, vehicle=(0.0, 0.0), behind=False):
@@ -181,6 +182,34 @@ class TestUnreachable:
         """No goal has been sent, so the flag cannot be this move's."""
         h = ObjectHandler(PARAMS, start_sec=0.0)
         assert _tick(h, 0.1, [], behind=True).outcome is None
+
+
+class TestCentreStandoff:
+    """ObjectGoal.standoff is a centre distance: gap + nose_reach + target radius."""
+
+    def test_it_uses_the_tracks_fused_width(self):
+        h = ObjectHandler(PARAMS, start_sec=0.0)
+        step = _tick(h, 0.1, [_t('7', 3.0, 0.0, width=0.46)])
+        assert step.target_radius == pytest.approx(0.23)
+        assert step.centre_standoff == pytest.approx(0.5 + 0.5525 + 0.23)
+
+    def test_it_follows_the_width_as_the_track_updates(self):
+        h = ObjectHandler(PARAMS, start_sec=0.0)
+        _tick(h, 0.1, [_t('7', 3.0, 0.0, width=0.46)])
+        step = _tick(h, 0.2, [_t('7', 3.0, 0.0, width=0.60)])
+        assert step.centre_standoff == pytest.approx(0.5 + 0.5525 + 0.30)
+
+    @pytest.mark.parametrize('cls, width, radius', [
+        ('person', 0.0, 0.25), ('chair', 0.0, 0.225), ('bottle', 0.0, 0.15)])
+    def test_an_unknown_width_falls_back_to_the_class_nominal(self, cls, width, radius):
+        params = HandlerParams(**{**PARAMS.__dict__, 'target_class': cls})
+        h = ObjectHandler(params, start_sec=0.0)
+        step = _tick(h, 0.1, [_t('7', 3.0, 0.0, cls=cls, width=width)])
+        assert step.target_radius == pytest.approx(radius)
+
+    def test_nothing_before_acquisition(self):
+        h = ObjectHandler(PARAMS, start_sec=0.0)
+        assert _tick(h, 0.1, []).centre_standoff is None
 
 
 def test_nearest_track_within_a_radius():

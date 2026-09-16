@@ -18,11 +18,13 @@ from f1tenth_behavior.mission.mission_config import (
     MissionConfigError,
     StopCondition,
     load_mission_file,
-    parse_mission,
 )
+from f1tenth_behavior.mission.mission_config import parse_mission as _parse_mission
 from f1tenth_behavior.mission.move_scoring import build_move_outcome
 from f1tenth_behavior.mission.object_classes import OBJECT_CLASSES, SOURCE_MODEL
 from f1tenth_behavior.mission.preflight import required_dependencies
+from f1tenth_params.object_geometry import GapLimits
+
 from f1tenth_behavior.mission.runtime import (
     GLOBAL_XY_KEY,
     ObjectApproachRecord,
@@ -46,8 +48,17 @@ def _object_move(**overrides):
     return move
 
 
-def _mission(*moves, schema_version='4.0'):
+def _mission(*moves, schema_version='5.0'):
     return {'mission_id': 't', 'schema_version': schema_version, 'moves': list(moves)}
+
+
+def _limits(target_class, class_margin=0.0):
+    """car_radius 0.20 + avoidance 0.12 + margin + settle 0.10; wheelbase 0.305."""
+    return GapLimits(target_class, 0.20, 0.12, class_margin, 0.10, 0.305)
+
+
+def parse_mission(raw, gap_limits_for=_limits):
+    return _parse_mission(raw, gap_limits_for)
 
 
 # ------------------------------------------------------------------- parsing
@@ -57,23 +68,53 @@ class TestParse:
     def test_a_minimal_move_gets_the_documented_defaults(self):
         spec = parse_mission(_mission(_object_move())).moves[0].go_to_object
         assert spec.target_class == 'person'
-        assert spec.standoff_m == 1.0
+        assert spec.gap_min_m == pytest.approx(0.42)
+        assert spec.gap_m == pytest.approx(0.5), 'gap_min rounded up to 0.1 m'
+        assert spec.nose_reach_m == pytest.approx(0.305 / 2 + 0.40)
         assert spec.lost_grace_sec == 1.5
         assert spec.speed == 0.4
         assert spec.acquire_timeout_sec == 5.0
 
     def test_every_field_can_be_set(self):
         spec = parse_mission(_mission(_object_move(go_to_object={
-            'target_class': 'chair', 'standoff_m': 1.2, 'speed': 0.3,
+            'target_class': 'chair', 'gap_m': 1.0, 'speed': 0.3,
             'acquire_timeout_sec': 8.0, 'lost_grace_sec': 0.0}))).moves[0].go_to_object
-        assert (spec.target_class, spec.standoff_m, spec.speed,
-                spec.acquire_timeout_sec, spec.lost_grace_sec) == ('chair', 1.2, 0.3, 8.0, 0.0)
+        assert (spec.target_class, spec.gap_m, spec.speed,
+                spec.acquire_timeout_sec, spec.lost_grace_sec) == ('chair', 1.0, 0.3, 8.0, 0.0)
+
+    def test_a_gap_exactly_at_gap_min_is_accepted(self):
+        spec = parse_mission(_mission(_object_move(go_to_object={
+            'target_class': 'person', 'gap_m': 0.42, 'speed': 0.4,
+            'acquire_timeout_sec': 5.0}))).moves[0].go_to_object
+        assert spec.gap_m == pytest.approx(0.42)
+
+    def test_a_gap_below_gap_min_is_rejected_and_says_why(self):
+        with pytest.raises(MissionConfigError) as err:
+            parse_mission(_mission(_object_move(go_to_object={
+                'target_class': 'person', 'gap_m': 0.3, 'speed': 0.4,
+                'acquire_timeout_sec': 5.0})))
+        text = str(err.value)
+        assert 'below the reachable minimum' in text
+        assert ('car_radius 0.20 + avoidance_margin 0.12 + class_margin 0.00 + '
+                'settle_buffer 0.10 = 0.42') in text
+
+    def test_a_class_margin_raises_gap_min_and_the_default(self):
+        spec = parse_mission(_mission(_object_move()),
+                             gap_limits_for=lambda c: _limits(c, 0.3)).moves[0].go_to_object
+        assert spec.gap_min_m == pytest.approx(0.72)
+        assert spec.gap_m == pytest.approx(0.8)
+
+    def test_standoff_m_is_rejected_by_name(self):
+        with pytest.raises(MissionConfigError, match='replaced by gap_m'):
+            parse_mission(_mission(_object_move(go_to_object={
+                'target_class': 'person', 'standoff_m': 1.2, 'speed': 0.4,
+                'acquire_timeout_sec': 5.0})))
 
     @pytest.mark.parametrize('field, value', [
         ('target_class', 'unicorn'),
         ('target_class', 7),
-        ('standoff_m', 0.0),
-        ('standoff_m', -1.0),
+        ('gap_m', 0.0),
+        ('gap_m', -1.0),
         ('speed', 0.0),
         ('speed', True),
         ('acquire_timeout_sec', 0.0),
@@ -97,6 +138,10 @@ class TestParse:
             parse_mission(_mission(_object_move(go_to_object={
                 'target_class': 'person', 'speed': 0.4, 'acquire_timeout_sec': 5.0,
                 'standoff': 1.0})))
+
+    def test_schema_5_0_requires_a_terminal_last_move(self):
+        with pytest.raises(MissionConfigError, match='terminal'):
+            parse_mission(_mission(_object_move(terminal=False)))
 
 
 class TestExclusivity:
@@ -156,10 +201,15 @@ class TestShippedMissions:
 
     @pytest.mark.parametrize('name, cls', [('go_to_person', 'person'), ('go_to_chair', 'chair')])
     def test_they_load_as_single_object_moves(self, name, cls):
+        """Loaded with the REAL stack_params: no distance in the file, the default gap."""
         cfg = load_mission_file(str(MISSIONS / f'{name}.json'))
-        assert cfg.schema_version == '4.0'
+        assert cfg.schema_version == '5.0'
         (move,) = cfg.moves
         assert move.go_to_object.target_class == cls
+        assert move.go_to_object.gap_m == pytest.approx(0.5)
+        raw = json.loads((MISSIONS / f'{name}.json').read_text())
+        assert 'gap_m' not in raw['moves'][0]['go_to_object'], 'no hardcoded distance'
+        assert 'standoff_m' not in raw['moves'][0]['go_to_object']
         assert move.goal_distance is None, 'no goal_distance placeholder'
         assert move.stop_condition.type == 'object_reached'
         assert move.terminal is True
@@ -232,10 +282,10 @@ class TestObjectReached:
 
 # --------------------------------------------------------------------- scoring
 
-def _move(standoff=1.2):
+def _move(gap=0.5):
     return parse_mission(_mission(_object_move(go_to_object={
         'target_class': 'person', 'speed': 0.4, 'acquire_timeout_sec': 5.0,
-        'standoff_m': standoff}))).moves[0]
+        'gap_m': gap}))).moves[0]
 
 
 def _outcome(record, stop_reason='stop_condition:object_reached', end_xy=(1.0, 0.0)):
@@ -249,16 +299,16 @@ class TestScoring:
     def _record(self, r=0.04, alpha=math.radians(37.0), outcome='reached',
                 target=(2.3, 0.0)):
         rec = ObjectApproachRecord(wire_move_id='t#2/go', target_xy=target, track_id='12',
-                                   outcome=outcome)
+                                   outcome=outcome, target_radius=0.25)
         rec.last_status = _status(r=r)._replace(alpha=alpha)
         return rec
 
-    def test_commanded_is_the_standoff_and_actual_the_final_range(self):
+    def test_commanded_is_the_gap_and_actual_the_final_gap(self):
         out = _outcome(self._record(r=0.04))
         assert out.move_type == 'go_to_object'
-        assert out.commanded == pytest.approx(1.2)
-        assert out.actual == pytest.approx(1.24)
-        assert out.score_percent == pytest.approx(1.24 / 1.2 * 100.0)
+        assert out.commanded == pytest.approx(0.5)
+        assert out.actual == pytest.approx(0.54)
+        assert out.score_percent == pytest.approx(0.54 / 0.5 * 100.0)
         assert out.outcome == 'reached'
 
     def test_bearing_error_is_recorded_and_not_part_of_mismatch(self):
@@ -269,9 +319,10 @@ class TestScoring:
     def test_a_range_error_beyond_tolerance_is_a_mismatch(self):
         assert _outcome(self._record(r=0.3)).mismatch_flagged is True
 
-    def test_the_track_based_range_is_recorded_beside_it(self):
+    def test_the_track_based_gap_is_recorded_beside_it(self):
+        """centre 1.3 m - nose_reach 0.5525 - target radius 0.25."""
         out = _outcome(self._record(target=(2.3, 0.0)), end_xy=(1.0, 0.0))
-        assert out.track_range_m == pytest.approx(1.3)
+        assert out.track_gap_m == pytest.approx(1.3 - 0.5525 - 0.25)
         assert out.target_track_id == '12'
 
     def test_without_a_status_it_is_unscored_but_keeps_the_outcome(self):

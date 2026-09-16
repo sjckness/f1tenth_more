@@ -162,7 +162,7 @@ def _move_outcome_msg(outcome, mission_id, stamp):
     msg.mismatch_flagged = bool(outcome.mismatch_flagged)
     msg.arrival_bearing_error_deg = _float_or_nan(
         getattr(outcome, 'arrival_bearing_error_deg', None))
-    msg.track_range_m = _float_or_nan(getattr(outcome, 'track_range_m', None))
+    msg.track_gap_m = _float_or_nan(getattr(outcome, 'track_gap_m', None))
     msg.note = outcome.note or ''
     return msg
 

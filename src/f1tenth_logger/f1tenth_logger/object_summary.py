@@ -31,7 +31,7 @@ def summarize_object_approach(object_status, goal_object, goal_object_end, move_
             'target_behind_terminal': False, 'goal_watchdog_samples': 0,
             'target_stale_samples': 0, 'outcome': None, 'stop_reason': None,
             'final_gap_or_range': None, 'arrival_bearing_error_deg': None,
-            'track_range_m': None,
+            'track_gap_m': None,
         })
 
     for t, goal in zip(goal_object.t, goal_object.v):
@@ -71,7 +71,7 @@ def summarize_object_approach(object_status, goal_object, goal_object_end, move_
         e['stop_reason'] = outcome.get('stop_reason') or None
         e['final_gap_or_range'] = _finite(outcome.get('actual'))
         e['arrival_bearing_error_deg'] = _finite(outcome.get('arrival_bearing_error_deg'))
-        e['track_range_m'] = _finite(outcome.get('track_range_m'))
+        e['track_gap_m'] = _finite(outcome.get('track_gap_m'))
     return moves
 
 

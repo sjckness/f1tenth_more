@@ -112,6 +112,8 @@ from vision_msgs.msg import (
 )
 from visualization_msgs.msg import Marker, MarkerArray
 
+from f1tenth_params.object_geometry import footprint_radius
+
 from f1tenth_costmap.semantic_layer import (
     compose_base_link_to_map, find_nearest_pose_by_stamp, pose_to_xytheta,
     update_tracks_batch)
@@ -411,7 +413,11 @@ class SemanticLayerNode(Node):
             y_base = ry + t.y
 
             x_map, y_map = compose_base_link_to_map(x_base, y_base, map_pose)
-            batch.append((class_id, x_map, y_map, score, sigma))
+            # Footprint WIDTH by obstacle_projector_node's own rule (shared in
+            # f1tenth_params.object_geometry): the back-projected width, never
+            # size.y (the height). Fused per track in semantic_layer.py.
+            width = 2.0 * footprint_radius(det.bbox.size.x, det.bbox.size.z)
+            batch.append((class_id, x_map, y_map, score, sigma, width))
 
         before_ids = {t.track_id for t in self._objects}
         self._objects = update_tracks_batch(
@@ -578,9 +584,14 @@ class SemanticLayerNode(Node):
             detection.bbox.center.position.x = float(obj.x_map)
             detection.bbox.center.position.y = float(obj.y_map)
             detection.bbox.center.orientation.w = 1.0
-            detection.bbox.size.x = 0.3
-            detection.bbox.size.y = 0.3
-            detection.bbox.size.z = 0.3
+            # A top-down disk: x and y both carry the fused footprint width
+            # (0.0 when no detection has provided one yet, which consumers
+            # read as "unknown"; GoToObject then uses a per-class nominal).
+            # z is unused. This was a fixed 0.3 cube for every track.
+            width = obj.width if obj.width is not None else 0.0
+            detection.bbox.size.x = float(width)
+            detection.bbox.size.y = float(width)
+            detection.bbox.size.z = 0.0
             message.detections.append(detection)
 
         self.tracks_pub.publish(message)

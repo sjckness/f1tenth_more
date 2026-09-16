@@ -69,7 +69,8 @@ def tracks_from_message(msg) -> list:
         tracks.append(Track(
             track_id=str(det.id), class_id=str(hyp.class_id),
             x=float(det.bbox.center.position.x), y=float(det.bbox.center.position.y),
-            score=float(hyp.score), stamp_sec=stamp))
+            score=float(hyp.score), stamp_sec=stamp,
+            width=float(det.bbox.size.x)))
     return tracks
 
 
@@ -167,7 +168,8 @@ class GoToObject(py_trees.behaviour.Behaviour):
         if wire_id != self.active_wire_id:
             self._end_active('the next object move started')
             self.handler = ObjectHandler(HandlerParams(
-                target_class=spec.target_class, standoff_m=spec.standoff_m,
+                target_class=spec.target_class, gap_m=spec.gap_m,
+                nose_reach_m=spec.nose_reach_m,
                 speed=spec.speed, acquire_timeout_sec=spec.acquire_timeout_sec,
                 lost_grace_sec=spec.lost_grace_sec, follow_gate_m=self.follow_gate_m,
                 grace_speed_factor=self.grace_speed_factor,
@@ -176,7 +178,8 @@ class GoToObject(py_trees.behaviour.Behaviour):
             state.object_record = ObjectApproachRecord(wire_move_id=wire_id)
             self.node.get_logger().info(
                 f"[go_to_object] move '{move.id}' as {wire_id!r}: acquiring the nearest "
-                f'{spec.target_class!r}, standoff {spec.standoff_m:.2f} m')
+                f'{spec.target_class!r}, gap {spec.gap_m:.2f} m '
+                f'(gap_min {spec.gap_min_m:.2f})')
 
         status = self._bb(OBJECT_STATUS_KEY)
         behind_terminal = (status is not None and status.move_id == wire_id
@@ -190,6 +193,9 @@ class GoToObject(py_trees.behaviour.Behaviour):
         record.phase = step.phase
         record.target_xy = step.target_xy
         record.track_id = step.track_id
+        record.target_radius = step.target_radius
+        record.gap_m = spec.gap_m
+        record.nose_reach_m = spec.nose_reach_m
         if step.phase != previous_phase:
             self.node.get_logger().info(
                 f'[go_to_object] {wire_id!r}: {previous_phase} -> {step.phase}'
@@ -226,6 +232,7 @@ class GoToObject(py_trees.behaviour.Behaviour):
         msg.target_class = spec.target_class
         msg.point.x = float(step.target_xy[0])
         msg.point.y = float(step.target_xy[1])
-        msg.standoff = float(spec.standoff_m)
+        # mpc_corr's standoff is a CENTRE distance: gap + nose_reach + radius.
+        msg.standoff = float(step.centre_standoff)
         msg.speed = float(step.speed)
         self.goal_pub.publish(msg)

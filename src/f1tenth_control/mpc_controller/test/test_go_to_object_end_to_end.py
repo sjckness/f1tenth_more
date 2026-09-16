@@ -71,6 +71,7 @@ BEHAVIOR_MISSIONS = (Path(__file__).resolve().parents[3]
 MAP_ODOM = (0.30, -0.20, 0.05)
 PERSON_MAP = (4.0, 0.8)
 PERSON_RADIUS = rig.PERSON_RADIUS['footprint']
+PERSON_WIDTH = 2.0 * PERSON_RADIUS
 TS = rig.TS
 
 
@@ -186,8 +187,9 @@ def _tracks_msg(clock):
         detections=[SimpleNamespace(
             id='7',
             results=[SimpleNamespace(hypothesis=SimpleNamespace(class_id='person', score=0.9))],
-            bbox=SimpleNamespace(center=SimpleNamespace(position=SimpleNamespace(
-                x=PERSON_MAP[0], y=PERSON_MAP[1]))))])
+            bbox=SimpleNamespace(
+                center=SimpleNamespace(position=SimpleNamespace(x=PERSON_MAP[0], y=PERSON_MAP[1])),
+                size=SimpleNamespace(x=PERSON_WIDTH, y=PERSON_WIDTH, z=0.0)))])
 
 
 def _behaviours(clock, state):
@@ -217,7 +219,8 @@ def _run_go_to_person(duration=40.0):
     spec = config.moves[0].go_to_object
     state = MissionRuntimeState()
     goto, check, bb = _behaviours(clock, state)
-    mpc = _NodeMPC(clock, spec.standoff_m)
+    centre_standoff = spec.gap_m + spec.nose_reach_m + PERSON_RADIUS
+    mpc = _NodeMPC(clock, centre_standoff)
     mpc.object_status_pub = _Pub(sink=check._object_status_cb)
     goto.goal_pub.sink = mpc.goal_object_callback
 
@@ -285,6 +288,7 @@ def _run_go_to_person(duration=40.0):
 
     return SimpleNamespace(clock=clock, state=state, goto=goto, check=check, mpc=mpc,
                            wire=wire, x=x, reached_at=reached_at, spec=spec,
+                           centre_standoff=centre_standoff,
                            person_odom=person_odom, min_centre=min_centre)
 
 
@@ -299,9 +303,15 @@ class TestGoToPersonEndToEnd:
         assert run.reached_at is not None, 'object_reached never fired'
         assert run.state.object_record.outcome == 'reached'
 
-    def test_it_arrives_at_the_standoff_in_the_odom_frame(self, run):
+    def test_it_arrives_at_the_commanded_gap_in_the_odom_frame(self, run):
+        """Gap = centre distance - nose_reach - the person's footprint radius."""
         d = math.hypot(run.person_odom[0] - run.x[0], run.person_odom[1] - run.x[1])
-        assert d == pytest.approx(run.spec.standoff_m, abs=0.10)
+        gap = d - run.spec.nose_reach_m - PERSON_RADIUS
+        assert gap == pytest.approx(run.spec.gap_m, abs=0.10)
+
+    def test_the_goal_carried_the_centre_distance_for_the_default_gap(self, run):
+        assert run.spec.gap_m == pytest.approx(0.5)
+        assert run.goto.goal_pub.msgs[-1].standoff == pytest.approx(run.centre_standoff)
 
     def test_the_person_went_through_the_map_to_odom_edge(self, run):
         """The MPC's target is the map point reprojected, not the raw numbers."""
@@ -318,8 +328,8 @@ class TestGoToPersonEndToEnd:
         assert status.target_age_s == pytest.approx(0.2, abs=1e-6)
         assert status.target_behind_terminal is False
 
-    def test_the_car_never_came_closer_than_the_standoff_less_tolerance(self, run):
-        assert run.min_centre >= run.spec.standoff_m - 0.10
+    def test_the_car_never_came_closer_than_the_commanded_gap_less_tolerance(self, run):
+        assert run.min_centre >= run.centre_standoff - 0.10
 
     def test_hold_then_ends_object_mode_and_ramps_the_steering_out(self, run):
         """What AdvanceMove's completion publishes, delivered to the real callback."""

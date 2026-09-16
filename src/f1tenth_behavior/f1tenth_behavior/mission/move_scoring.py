@@ -25,10 +25,11 @@ Scoring convention (decided explicitly with the user, not guessed):
     straight-line distance travelled) means a move that drifted sideways or
     even went backward relative to its intended heading shows up as a low
     or negative score, not a falsely-good one.
-  - go_to_object moves (schema 4.0): commanded = standoff_m, actual = the
-    FINAL RANGE to the target, i.e. mpc_corr's last /mpc/object_status r for
-    this move plus the standoff -- the same single range source object_reached
-    stops on. Mismatch uses the distance policy below. The arrival bearing
+  - go_to_object moves (schema 5.0): commanded = gap_m, actual = the FINAL
+    GAP between the car's front and the object's near edge, i.e. mpc_corr's
+    last /mpc/object_status r for this move plus gap_m (r is the centre
+    distance minus gap + nose_reach + target radius) -- the same single range
+    source object_reached stops on. Mismatch uses the distance policy below. The arrival bearing
     error (|alpha| at the end, degrees) is recorded as its own field and is
     deliberately NOT part of the mismatch: a car at the right range pointing
     37 degrees off is a different finding from one at the wrong range. The
@@ -94,7 +95,7 @@ class MoveOutcome:
     # OUTCOMES. arrival_bearing_error_deg is NOT part of mismatch_flagged.
     outcome: Optional[str] = None
     arrival_bearing_error_deg: Optional[float] = None
-    track_range_m: Optional[float] = None
+    track_gap_m: Optional[float] = None
     target_track_id: Optional[str] = None
     wire_move_id: Optional[str] = None
 
@@ -266,7 +267,7 @@ def _object_outcome(move, stop_reason, start_time, end_time, start_global_xy,
                     end_global_xy, start_global_yaw, end_global_yaw, record):
     """go_to_object scoring -- see the module docstring."""
     spec = move.go_to_object
-    commanded = float(spec.standoff_m)
+    commanded = float(spec.gap_m)
     common = dict(
         move_id=move.id, move_type='go_to_object', stop_reason=stop_reason,
         start_time=start_time, end_time=end_time,
@@ -282,20 +283,24 @@ def _object_outcome(move, stop_reason, start_time, end_time, start_global_xy,
     wire_id = record.wire_move_id if record is not None else None
     if record is not None:
         track_id = record.track_id
-        if record.target_xy is not None and end_global_xy is not None:
-            track_range = math.hypot(record.target_xy[0] - end_global_xy[0],
-                                     record.target_xy[1] - end_global_xy[1])
+        if (record.target_xy is not None and end_global_xy is not None
+                and record.target_radius is not None):
+            # Track-based GAP, same geometry as the commanded one, from the
+            # global EKF pose rather than mpc_corr's odom frame.
+            track_range = (math.hypot(record.target_xy[0] - end_global_xy[0],
+                                      record.target_xy[1] - end_global_xy[1])
+                           - spec.nose_reach_m - record.target_radius)
     status = record.last_status if record is not None else None
     if status is None:
         return MoveOutcome(
-            **common, outcome=outcome, track_range_m=track_range, target_track_id=track_id,
+            **common, outcome=outcome, track_gap_m=track_range, target_track_id=track_id,
             wire_move_id=wire_id, note='no /mpc/object_status for this move -- unscored')
     actual = float(status.r) + commanded
     return MoveOutcome(
         **common, actual=actual, score_percent=actual / commanded * 100.0,
         mismatch_flagged=is_mismatch(commanded, actual, MISMATCH_DISTANCE_FLOOR_M),
         outcome=outcome, arrival_bearing_error_deg=math.degrees(abs(float(status.alpha))),
-        track_range_m=track_range, target_track_id=track_id, wire_move_id=wire_id)
+        track_gap_m=track_range, target_track_id=track_id, wire_move_id=wire_id)
 
 
 def record_move_outcome(state, logger, move, stop_reason: str, now: float,
@@ -324,12 +329,12 @@ def record_move_outcome(state, logger, move, stop_reason: str, now: float,
 
     if outcome.move_type == 'go_to_object':
         bearing = outcome.arrival_bearing_error_deg
-        track = outcome.track_range_m
+        track = outcome.track_gap_m
         logger.info(
             f"[mission] Move '{move.id}' (go_to_object) outcome={outcome.outcome!r}: "
-            f'range (mpc_corr r + standoff)='
+            f'final gap (mpc_corr r + gap_m)='
             + (f'{outcome.actual:.3f}' if outcome.actual is not None else 'n/a')
-            + f' commanded standoff={outcome.commanded:.3f} track-based range='
+            + f' commanded gap={outcome.commanded:.3f} track-based gap='
             + (f'{track:.3f}' if track is not None else 'n/a')
             + ' arrival bearing error='
             + (f'{bearing:.1f} deg' if bearing is not None else 'n/a')

@@ -121,6 +121,7 @@ import math
 from typing import Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
+from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
 from scipy.optimize import minimize
 
 from mpc_controller.vehicle_model import (
@@ -525,7 +526,8 @@ def _d_front_at(X: float, Y: float, psi: float, L: float,
     """
     e = np.array([np.cos(psi), np.sin(psi)], dtype=float)
     p_nose = np.array([X, Y], dtype=float) + (L / 2.0) * e
-    front_points = [p_nose + 0.10 * e, p_nose + 0.25 * e, p_nose + 0.40 * e]
+    # Shared with go_to_object's gap geometry: f1tenth_params.object_geometry.
+    front_points = [p_nose + offset * e for offset in SOLVER_FRONT_POINT_OFFSETS_M]
 
     d_front = 1e6
     for pF in front_points:
@@ -1213,11 +1215,7 @@ def planner_cost_corridor(
         e = np.array([np.cos(psi), np.sin(psi)], dtype=float)
 
         p_nose = np.array([x[0], x[1]], dtype=float) + (params["L"] / 2.0) * e
-        front_points = [
-            p_nose + 0.10 * e,
-            p_nose + 0.25 * e,
-            p_nose + 0.40 * e
-        ]
+        front_points = [p_nose + offset * e for offset in SOLVER_FRONT_POINT_OFFSETS_M]
 
         d_front = 1e6
         for pF in front_points:

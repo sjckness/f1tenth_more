@@ -1050,6 +1050,9 @@ max_reverse_speed_mps:
 # declare default = this value), for the go_to_object move (schema 4.0):
 # GoToObject (mission/object_handler.py) and CheckStopCondition's
 # object_reached. NONE OF THESE HAS BEEN RUN ON THE CAR.
+object_gap_settle_buffer_m:
+  default: 0.10
+  description: "Margin [m] on top of the controller's rest gap in gap_min(class) = car_radius + obstacle_safety_margin_m + class margin + this (f1tenth_params/object_geometry.py). A go_to_object gap_m below gap_min is rejected at mission load: the target is also an obstacle, so w_obs holds the car's front car_radius + avoidance_margin + class margin from the object's edge, and a smaller commanded gap never reaches. The default gap is gap_min rounded up to 0.1 m."
 object_follow_gate_m:
   default: 0.5
   description: "FOLLOW gate [m]: the target is the nearest confirmed track of the move's class within this distance of the LAST target point, whatever its track_id. semantic_layer_node re-issues ids across dropouts; a same-class track farther than this is a different object."
@@ -1061,10 +1064,10 @@ object_tracks_max_gap_sec:
   description: "A /costmap/semantic_tracks message older than this [s] by receipt time counts as no tracks, so a stalled perception pipeline reads as a lost target (GRACE, then target_lost) rather than a target frozen in place."
 object_reach_tol_m:
   default: 0.10
-  description: "object_reached fires when mpc_corr's live r (distance to the target minus the standoff, /mpc/object_status) is at or below this [m]. Closed-loop rig (nominal model): footprint person at standoff 1.0 settles at r = +0.11 because the solver's w_obs term holds the car short -- above this tolerance; at standoff 1.2 it settles at +0.013."
+  description: "object_reached fires when mpc_corr's live r (/mpc/object_status: centre distance minus the commanded gap + nose_reach + target radius, i.e. actual gap minus commanded gap) is at or below this [m]. Closed-loop rig (nominal model): the controller rests the car's front 0.268 m from a person's or chair's edge; at gap_min 0.42 it settles at 0.427 and fires, at the default 0.5 at 0.496."
 object_reach_max_target_age_sec:
   default: 1.0
-  description: "object_reached also requires the target estimate being driven at to be no older than this [s] (target_age_s: now minus the track's capture stamp). Untuned: the capture-to-status latency of the semantic tracks pipeline has not been measured on the car. If the bench shows target_age_s above this while tracking, the move cannot reach."
+  description: "UNMEASURED -- the bench run that was to measure it did not happen (2026-09-17). object_reached also requires the target estimate being driven at to be no older than this [s] (target_age_s: now minus the track's capture stamp). The capture-to-status latency of the semantic tracks pipeline has not been measured on the car; if the floor shows target_age_s above this while tracking, the move cannot reach."
 object_status_max_gap_sec:
   default: 0.5
   description: "object_reached ignores a /mpc/object_status sample received more than this [s] ago (mpc_corr publishes it every control tick, 10 Hz)."

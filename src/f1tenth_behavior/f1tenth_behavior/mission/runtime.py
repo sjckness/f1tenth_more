@@ -141,6 +141,9 @@ class ObjectApproachRecord:
     phase: str = 'ACQUIRE'
     target_xy: Optional[Tuple[float, float]] = None
     track_id: Optional[str] = None
+    target_radius: Optional[float] = None
+    gap_m: Optional[float] = None
+    nose_reach_m: Optional[float] = None
     last_status: Optional[ObjectStatusSample] = None
     outcome: Optional[str] = None
 

@@ -332,7 +332,7 @@ def read_bag(bag_dir: Path, pose_source: str):
                 field: getattr(msg, field) for field in (
                     'mission_id', 'move_id', 'move_type', 'stop_reason', 'outcome',
                     'wire_move_id', 'duration_s', 'commanded', 'actual', 'score_percent',
-                    'mismatch_flagged', 'arrival_bearing_error_deg', 'track_range_m',
+                    'mismatch_flagged', 'arrival_bearing_error_deg', 'track_gap_m',
                     'note')})
         elif topic == TOPICS['drive_clamp']:
             data['drive_clamp'].add(t, {
