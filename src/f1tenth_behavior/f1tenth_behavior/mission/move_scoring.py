@@ -50,6 +50,8 @@ pass; flagged as a follow-up rather than silently left uncovered.
 
 import json
 import math
+import os
+import tempfile
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -306,6 +308,55 @@ def _resolve_mission_reports_dir() -> Path:
     return this_file.parents[2] / 'mission_reports'
 
 
+def _write_atomic(path: Path, text: str) -> None:
+    """Write `text` to `path` so the path never holds a partial file.
+
+    THE FAILURE THIS REPLACES. Path.write_text opens with mode 'w', which
+    truncates the destination before any content is written, so an
+    interruption anywhere between the open and the close leaves a 0-byte file
+    AT THE FINAL PATH. The mission report for the third go_to_person run of
+    2026-09-15 is exactly that: 0 bytes, at the name a complete report would
+    have had. Reproduced directly -- killing a process between the open and
+    the flush leaves the destination empty.
+
+    Why that is worth fixing rather than noting: a mission report is read back
+    as evidence about a run, and a truncated one is not distinguishable from a
+    run that produced nothing. Every consumer would have to learn to tell a
+    0-byte report from a real one, which is a rule nobody remembers.
+
+    The temp file is created in the DESTINATION DIRECTORY, not in /tmp:
+    os.replace is only atomic within a filesystem, and mission_reports/ lives
+    in the source tree while /tmp may well be a different mount. delete=False
+    plus an explicit replace, because the file must outlive the handle.
+
+    flush + fsync before the replace: os.replace makes the RENAME atomic
+    against other readers, but it does not promise the CONTENT reached the
+    disk first. Without the fsync a power loss can leave the new name pointing
+    at unwritten blocks -- a 0-byte file again, by a slower route.
+
+    Failures are left to the caller, which already catches OSError and logs;
+    a partial temp file is cleaned up here so a failed write cannot silently
+    litter the reports directory with .tmp entries.
+    """
+    fd, tmp_name = tempfile.mkstemp(
+        dir=str(path.parent), prefix=f'.{path.name}.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp_name, str(path))
+    except BaseException:
+        # BaseException, not Exception: a KeyboardInterrupt/SystemExit landing
+        # mid-write is precisely the interruption this function exists to
+        # survive, and it must not leave the temp file behind either.
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
+
+
 def write_mission_summary(
     mission_id: str, outcomes: List[MoveOutcome], final_state: str,
     mission_start_wall_time: Optional[float], logger,
@@ -315,7 +366,10 @@ def write_mission_summary(
     3.3's own regression-set framing: this is what makes it valuable to
     re-run against). Returns the path written, or None if writing failed
     (logged, never raised -- a summary-writing bug must never crash the
-    mission-ending tick that triggers it)."""
+    mission-ending tick that triggers it).
+
+    Written atomically (see _write_atomic): the destination either does not
+    exist or holds a complete report, never a truncated one."""
     ts = mission_start_wall_time if mission_start_wall_time is not None else time.time()
     stamp = time.strftime('%Y%m%dT%H%M%S', time.localtime(ts))
     agg = aggregate_score(outcomes)
@@ -331,7 +385,7 @@ def write_mission_summary(
         out_dir = _resolve_mission_reports_dir()
         out_dir.mkdir(parents=True, exist_ok=True)
         path = out_dir / f'{mission_id}_{stamp}.json'
-        path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+        _write_atomic(path, json.dumps(payload, indent=2))
         logger.info(
             f"[mission] '{mission_id}' summary written to {path} "
             f'(aggregate score={agg!r}).'
