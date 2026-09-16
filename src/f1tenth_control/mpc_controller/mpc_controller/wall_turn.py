@@ -110,6 +110,26 @@ def min_turn_radius(wheelbase: float, steering_bound: float) -> float:
     return float(wheelbase) / math.tan(abs(float(steering_bound)))
 
 
+def horizon_heading_reach(n_steps: int, ts: float, v_ref: float,
+                          r_min: float) -> float:
+    """Heading change the MPC horizon can actually fly, in radians.
+
+    n_steps * ts * v_ref is how far the horizon reaches along the path; at the
+    tightest radius that arc is worth arc/R_min of rotation. Asking a corridor
+    for more than this puts the terminal heading somewhere no control sequence
+    inside the horizon can reach, and the QP answers by sitting on the steering
+    bound -- the defect this module's docstring opens with.
+
+    Named and shared rather than inlined, because object_approach.py needs the
+    identical quantity for the identical reason, and two copies of a cap this
+    load-bearing would drift.
+
+    Clamped at zero: a v_ref of zero (or a nonsense negative one) reaches
+    nothing, and a negative reach would invert every min() it feeds.
+    """
+    return max(float(n_steps) * float(ts) * float(v_ref), 0.0) / float(r_min)
+
+
 def wall_turn_trigger_distance(turn: float, wheelbase: float, steering_bound: float,
                                k_safety: float, safety_margin: float) -> float:
     """Return the dFront at which a still-straight car commits to `turn` radians."""
@@ -171,8 +191,7 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
     bound = delta_max if owed_sign >= 0.0 else delta_min
     r_min = min_turn_radius(wheelbase, bound)
 
-    horizon_len = max(float(n_steps) * float(ts) * float(v_ref), 0.0)
-    dpsi_by_horizon = horizon_len / r_min
+    dpsi_by_horizon = horizon_heading_reach(n_steps, ts, v_ref, r_min)
 
     if d_front is not None and math.isfinite(d_front) and d_front >= 0.0:
         d_avail = max(float(d_front) - float(safety_margin), 0.0)

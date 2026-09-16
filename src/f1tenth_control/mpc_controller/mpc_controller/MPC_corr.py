@@ -17,11 +17,13 @@ from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, DriveCommand, MpcSolverStatus, Obstacle2DArray, TurnGoal,
-    WallTrack)
+    BoundaryConstraintArray, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
+    ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
+from mpc_controller.object_approach import (
+    build_object_centreline, object_speed_ref, plan_object_heading)
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import SMOOTHSTEP_PEAK_SLOPE, plan_wall_turn_step
 from sensor_msgs.msg import JointState
@@ -357,6 +359,66 @@ class MPCController(Node):
         self.pose_goal_tolerance = float(
             self.declare_parameter('pose_goal_tolerance', 0.15).value
         )
+
+        # =========================
+        # Object mode (runtime command via /mpc/goal_object) -- the FIFTH goal
+        # shape, and the first one that is REPUBLISHED throughout its move.
+        #
+        # WHAT MAKES IT DIFFERENT FROM goal_pose, which it superficially
+        # resembles. goal_pose is a point, sent once; every message is a new
+        # move, and goal_pose_callback re-anchors accordingly (clears the
+        # corridor cache, drops the RTI warm start). An object goal is a point
+        # that MOVES, refreshed at the tracker's rate, and re-anchoring per
+        # refresh would drop the corridor cache and cold-start the solver on
+        # every control tick -- at 20 Hz into a 10 Hz loop, permanently.
+        #
+        # So the callback branches on move_id BEFORE touching any state: a new
+        # id is a new move and re-anchors; a repeat updates the target point
+        # and the stamp and NOTHING else. See goal_object_callback.
+        #
+        # THE HELD HEADING. object_psi_c is the corridor's heading, carried
+        # across rebuilds and rotated toward the target by object_approach.
+        # plan_object_heading -- absolute, never an increment, for the reason
+        # that module's docstring gives at length. It is seeded from the
+        # bearing at the move's first message so a move starts pointed at its
+        # target instead of sweeping onto it from the last move's heading.
+        self.goal_object_move_id: Optional[str] = None
+        self.goal_object_target_class: str = ''
+        # The target as RECEIVED: map frame. Kept because the odom-frame copy
+        # below has to be re-derived every tick from a transform that moves.
+        self.goal_object_map_xy: Optional[Tuple[float, float]] = None
+        # The same point in THIS tick's odom frame -- the one the corridor and
+        # the solver actually use. Refreshed by _refresh_object_target(),
+        # which holds its last good value when map -> odom is stale, exactly
+        # as _refresh_goal_anchor does for the straight-move anchor.
+        self.goal_object_odom_xy: Optional[Tuple[float, float]] = None
+        self.goal_object_stamp: Optional[float] = None   # capture time, seconds
+        self.goal_object_standoff: float = 0.0
+        self.goal_object_speed: float = 0.0
+        self.object_psi_c: Optional[float] = None
+        # Odom-frame target at the last corridor build, for the early-rebuild
+        # test (object_retarget_distance_m). None forces the first build.
+        self.object_target_at_build: Optional[Tuple[float, float]] = None
+        # True while _refresh_object_target is holding rather than tracking.
+        self.object_target_held = False
+        self.object_last_step = None    # ObjectHeadingStep, for the status topic
+
+        self.object_r_full = float(self.declare_parameter(
+            'object_r_full_m', get_value('object_r_full_m')).value)
+        self.object_r_freeze = float(self.declare_parameter(
+            'object_r_freeze_m', get_value('object_r_freeze_m')).value)
+        self.object_c_safety = float(self.declare_parameter(
+            'object_c_safety', get_value('object_c_safety')).value)
+        self.object_retarget_distance = float(self.declare_parameter(
+            'object_retarget_distance_m',
+            get_value('object_retarget_distance_m')).value)
+        self.object_a_dec = float(self.declare_parameter(
+            'object_a_dec', get_value('object_a_dec')).value)
+        # Lead-in ahead of the car's projection onto the centreline. Not a
+        # declared parameter: it exists only so compute_local_target's nearest
+        # sample stays interior (see build_object_centreline) and there is
+        # nothing to tune about it.
+        self.object_lead_in_m = 0.5
 
         # =========================
         # Drive mode (runtime command via /mpc/goal_drive) -- the FOURTH goal
@@ -1316,6 +1378,18 @@ class MPCController(Node):
             10
         )
 
+        # Drive-to-a-tracked-object. The ONE goal input that is republished
+        # throughout its move rather than sent once, which is why it carries a
+        # move_id and why its callback branches on that before touching state.
+        self.sub_goal_object = self.create_subscription(
+            ObjectGoal,
+            '/mpc/goal_object',
+            self.goal_object_callback,
+            10
+        )
+        self.object_status_pub = self.create_publisher(
+            ObjectApproachStatus, '/mpc/object_status', 10)
+
         # f1tenth_behavior's PublishMoveGoal, for a mission "turn" step (schema_
         # version 2.0). See goal_turn_callback's own docstring for how a signed
         # heading_delta_deg + speed + steering turn into an actual drive command.
@@ -1855,6 +1929,224 @@ class MPCController(Node):
             f'yaw={self.goal_pose_yaw:+.3f} (yaw non ancora utilizzato, solo posizione)'
         )
 
+    def goal_object_callback(self, msg: ObjectGoal):
+        """Drive to a tracked object. Branches on move_id BEFORE touching state.
+
+        THIS IS THE WHOLE POINT OF THE CALLBACK, so it is the first thing it
+        does. Every other goal callback treats each message as a new move and
+        re-anchors: clears the opposing modes, calls _invalidate_move_state()
+        (corridor cache, target smoothing, RTI warm start), re-seeds the
+        heading reference. That is right for a goal sent once.
+
+        An object goal is REPUBLISHED at the tracker's rate for the whole move,
+        because the target moves. Running the re-anchor path per message would
+        drop the corridor cache and cold-start the solver on every single
+        control tick -- corridor_update_period would stop meaning anything and
+        the RTI warm start would never survive to be used. That is exactly
+        what happens today when object_goal_bridge drives /mpc/goal_pose at
+        20 Hz, and it is the defect this message shape exists to remove.
+
+        So:
+          new move_id  -> a new move. Clear the other modes, invalidate, seed
+                          psi_c from the CURRENT bearing to the target so the
+                          corridor starts pointed at it rather than sweeping
+                          onto it from whatever the last move left behind.
+          same move_id -> the target moved. Store the point and the stamp.
+                          Nothing else: no invalidation, no warm-start reset,
+                          no cache null, no psi_c change (psi_c moves only at
+                          a corridor rebuild, see build_straight_corridor's
+                          object branch).
+
+        The move_id must therefore be distinct between moves INCLUDING between
+        two runs of the same single-move mission -- a mission's move ids repeat
+        across runs. ObjectGoal.msg says so; the sender owns it.
+
+        A standoff of zero or less is refused rather than clamped: it aims the
+        corridor at the target itself, and the target may be a person.
+        """
+        if self.x is None or self.y is None:
+            self.get_logger().warn(
+                'goal_object ricevuto ma stato ancora None: comando ignorato.')
+            return
+
+        standoff = float(msg.standoff)
+        if not standoff > 0.0:
+            self.get_logger().error(
+                f'goal_object con standoff={standoff:.3f} <= 0 rifiutato: '
+                'punterebbe il corridoio sull\'oggetto stesso.')
+            return
+
+        move_id = str(msg.move_id)
+        target_map = (float(msg.point.x), float(msg.point.y))
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+
+        # ---- the same-move fast path. Deliberately first, deliberately tiny.
+        if move_id and move_id == self.goal_object_move_id:
+            self.goal_object_map_xy = target_map
+            self.goal_object_stamp = stamp
+            self.goal_object_standoff = standoff
+            self.goal_object_speed = float(msg.speed)
+            return
+
+        # ---- a new move.
+        self.goal_object_move_id = move_id
+        self.goal_object_target_class = str(msg.target_class)
+        self.goal_object_map_xy = target_map
+        self.goal_object_stamp = stamp
+        self.goal_object_standoff = standoff
+        self.goal_object_speed = float(msg.speed)
+
+        # Mutually exclusive with the other four shapes, the same way they
+        # already are with each other.
+        self.goal_distance = None
+        self.goal_start_xy = None
+        self.goal_anchor_map = None
+        self.goal_anchor_odom = None
+        self.goal_reached = False
+        self.goal_pose_xy = None
+        self.goal_pose_yaw = None
+        self.pose_goal_reached = False
+        self._no_goal_warned = False
+        self._clear_drive_state()
+        # Clears object_psi_c / goal_object_odom_xy / object_target_at_build
+        # along with the rest of the per-move geometry -- which is why the
+        # object state is seeded AFTER this call, not before.
+        self._invalidate_move_state()
+
+        # Seed the held heading from the bearing NOW. The reprojection has not
+        # run for this move yet, so the map point is used directly: at move
+        # start the two frames differ only by the accumulated map -> odom
+        # correction, which a bearing over several metres is insensitive to,
+        # and the first rebuild replaces this with a properly reprojected one.
+        dx = target_map[0] - self.x
+        dy = target_map[1] - self.y
+        self.object_psi_c = (math.atan2(dy, dx)
+                             if math.hypot(dx, dy) > 1e-9 else self.yaw)
+        self.object_target_held = False
+        self.object_last_step = None
+
+        self.get_logger().info(
+            f'Nuovo goal_object move_id={move_id!r} class={msg.target_class!r} '
+            f'target_map=({target_map[0]:+.3f},{target_map[1]:+.3f}) '
+            f'standoff={standoff:.2f} speed={msg.speed:.2f} '
+            f'psi_c(seed)={self.object_psi_c:+.4f}')
+
+    def _refresh_object_target(self):
+        """Reproject the object target into THIS tick's odom frame.
+
+        The same job, the same transform and the same staleness policy as
+        _refresh_goal_anchor -- read that docstring first; this is its
+        counterpart for a target that also MOVES, and it reuses both
+        _lookup_map_odom (with the same map_odom_max_age_sec guard) and
+        _pose_map_to_odom rather than repeating either.
+
+        Two differences worth stating, because neither is arbitrary:
+
+        * A point, not a pose. _pose_map_to_odom's third return is a heading
+          and there is none here -- the corridor's heading is object_psi_c,
+          which lives in odom and is never reprojected (it is the held state;
+          reprojecting it every tick would inject the map -> odom correction
+          into it as a rotation and defeat the hold).
+        * The held case is REPORTED, not just logged. A stale transform means
+          the odom-frame target is drifting away from the real one at whatever
+          rate the correction was moving, and a consumer deciding whether to
+          keep driving needs to know -- so it goes out on
+          /mpc/object_status.target_stale rather than only into a throttled
+          warn nobody is reading at the time.
+        """
+        # object_psi_c, not goal_object_map_xy, is the "object mode is active"
+        # test. _invalidate_move_state clears psi_c, so a goal of any other
+        # shape switches this off; the map point and the move_id survive
+        # (goal_object_callback owns those), and without this gate a refresh
+        # arriving after a superseding goal_pose would repopulate the odom
+        # target and the object branch would start driving again.
+        if self.goal_object_map_xy is None or self.object_psi_c is None:
+            return
+        tf_map_odom = self._lookup_map_odom(max_age_sec=self.map_odom_max_age_sec)
+        if tf_map_odom is None:
+            # Hold the last good reprojection, exactly as _refresh_goal_anchor
+            # does, and for the same reason: reverting to the raw map numbers
+            # would jump the target by the whole accumulated correction.
+            self.object_target_held = self.goal_object_odom_xy is not None
+            if self.goal_object_odom_xy is None:
+                # Nothing good to hold yet: the move began with no transform.
+                # Using the map numbers raw is the pre-correction behaviour and
+                # is better than having no target at all on the first tick.
+                self.goal_object_odom_xy = self.goal_object_map_xy
+            self.get_logger().warn(
+                'OBJECT/hold | map -> odom unavailable OR STALE this tick: '
+                'holding the last reprojected target',
+                throttle_duration_sec=5.0)
+            return
+        x_odom, y_odom, _psi = _pose_map_to_odom(
+            self.goal_object_map_xy[0], self.goal_object_map_xy[1], 0.0,
+            *tf_map_odom)
+        self.goal_object_odom_xy = (x_odom, y_odom)
+        self.object_target_held = False
+
+    def _object_range(self) -> float:
+        """Range from the car to the STANDOFF point, in odom. Negative inside it.
+
+        The same r object_approach computes; duplicated here only because the
+        control loop needs it before the corridor is built (to set the speed
+        reference) and the corridor build needs it after. Both read the same
+        odom-frame target, refreshed once per tick.
+        """
+        if self.goal_object_odom_xy is None or self.x is None:
+            return math.inf
+        tx, ty = self.goal_object_odom_xy
+        return math.hypot(tx - self.x, ty - self.y) - self.goal_object_standoff
+
+    def _object_target_moved_since_build(self) -> bool:
+        """Say whether the odom-frame target has moved far enough to rebuild early.
+
+        A target refresh must NOT re-anchor the corridor -- that is what
+        move_id is for, and re-anchoring per refresh is the defect this mode
+        exists to remove. But a target that has genuinely walked away must not
+        be chased at corridor_update_period's 1 Hz either, or the corridor
+        points at where the person was a second ago.
+
+        So the rebuild is triggered by DISTANCE MOVED, not by arrival of a
+        message: object_retarget_distance_m (0.2 m) of real motion. Estimate
+        jitter is well under that (5 cm is the figure the tests use), so noise
+        alone does not trigger it and the period still governs the quiet case.
+        """
+        if self.object_target_at_build is None or self.goal_object_odom_xy is None:
+            return True
+        dx = self.goal_object_odom_xy[0] - self.object_target_at_build[0]
+        dy = self.goal_object_odom_xy[1] - self.object_target_at_build[1]
+        return math.hypot(dx, dy) >= self.object_retarget_distance
+
+    def _publish_object_status(self, step, speed_ref):
+        """Everything the approach decided this tick, on /mpc/object_status.
+
+        psi_c in particular is HELD state: a run cannot be read back from the
+        pose and the target alone, so if it is not published it is not
+        recoverable. target_age_s is the ObjectGoal stamp's whole purpose --
+        the real age of the estimate being driven at, which a subscriber
+        cannot reconstruct from its own arrival times.
+        """
+        message = ObjectApproachStatus()
+        message.header.stamp = self.get_clock().now().to_msg()
+        message.header.frame_id = self.odom_frame
+        message.move_id = self.goal_object_move_id or ''
+        message.target_class = self.goal_object_target_class
+        if step is not None:
+            message.r = float(step.r)
+            message.bearing = float(step.bearing)
+            message.psi_c = float(step.psi_c_new)
+            message.e = float(step.e)
+            message.k = float(step.k)
+            message.dpsi_max = float(step.dpsi_max)
+            message.feasible = bool(step.feasible)
+            message.reason = step.reason
+        message.speed_ref = float(speed_ref)
+        message.target_stale = bool(self.object_target_held)
+        if self.goal_object_stamp is not None:
+            now_sec = self.get_clock().now().nanoseconds * 1e-9
+            message.target_age_s = float(now_sec - self.goal_object_stamp)
+        self.object_status_pub.publish(message)
+
     def _resolve_turn_reach(self, heading_delta_rad: float, steering: str) -> float:
         """How far ahead (meters) goal_turn_callback should place its synthetic
         goal_pose target, given the requested turn's heading change and
@@ -2284,6 +2576,25 @@ class MPCController(Node):
         self.smoothed_target = None
         self.last_deflection_vec = np.zeros(2)
         self.deflection_decay_remaining = 0
+        # Object mode's per-move geometry. Cleared HERE rather than in each of
+        # the other four callbacks, so that any new goal of any shape drops an
+        # active object approach without those callbacks having to grow a line
+        # each -- they already all call this. goal_object_callback's own
+        # new-move path therefore seeds these AFTER calling us.
+        #
+        # goal_object_map_xy/move_id are deliberately NOT cleared here: they
+        # are the move's identity and its input, not its geometry, and
+        # goal_object_callback owns both. Clearing the id here would make a
+        # refresh arriving between a rebuild and the next message look like a
+        # new move and re-anchor -- the exact failure this mode exists to
+        # avoid. The control loop gates on goal_object_odom_xy, which IS
+        # cleared, so an object approach superseded by another goal stops
+        # driving immediately.
+        self.goal_object_odom_xy = None
+        self.object_psi_c = None
+        self.object_target_at_build = None
+        self.object_target_held = False
+        self.object_last_step = None
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
         self.last_corridor_time = None
@@ -2731,6 +3042,12 @@ class MPCController(Node):
         # pose/turn mode and whenever no map anchor was captured.
         self._refresh_goal_anchor()
 
+        # Same one-lookup-per-tick discipline for the object target: it is
+        # read by the corridor build and by the branch below, and two
+        # independent lookups would disagree by however much map -> odom moved
+        # in between. No-op in every other mode.
+        self._refresh_object_target()
+
         # How far round the active wall_turn has come, updated once per tick
         # so build_straight_corridor's wall_turn branch can subtract it from
         # the commanded total. No-op in every other mode.
@@ -2769,6 +3086,39 @@ class MPCController(Node):
                 '(open-ended, nessun goal_reached)',
                 throttle_duration_sec=2.0
             )
+
+        elif self.goal_object_odom_xy is not None:
+            # OBJECT MODE -- drive at a tracked object, stopping a standoff
+            # short of it. Falls through to the corridor build and the solve,
+            # like the drive branch above.
+            #
+            # NO pose_goal_tolerance HARD STOP, and that is deliberate rather
+            # than unfinished. Pose mode latches an arrival inside 0.15 m and
+            # publishes zero drive from that tick on; doing the same here
+            # would put a second authority on "stop" for a move whose target
+            # is still moving, and it would latch on a target estimate that
+            # can be a frame stale. Instead the SPEED REFERENCE goes to zero
+            # at the standoff (object_speed_ref, the braking parabola), so the
+            # car comes to rest at the standoff under the solver's own control
+            # rather than being cut off, and the move ends when the mission's
+            # own stop condition fires -- the same division of authority the
+            # drive branch above spells out.
+            #
+            # /mpc/goal_reached is therefore never published in this mode.
+            #
+            # Stored, not applied: `vdes` is (re)assigned from self.vdes below,
+            # after this whole if/elif chain, so assigning it here would be
+            # silently overwritten. The override is applied at that line.
+            self._object_vdes = object_speed_ref(
+                self._object_range(), self.goal_object_speed, self.object_a_dec)
+            self.get_logger().info(
+                f'OBJECT | target_odom=('
+                f'{self.goal_object_odom_xy[0]:+.3f},'
+                f'{self.goal_object_odom_xy[1]:+.3f}) '
+                f'r={self._object_range():+.3f} standoff='
+                f'{self.goal_object_standoff:.2f} vdes={self._object_vdes:.3f}'
+                + (' HELD' if self.object_target_held else ''),
+                throttle_duration_sec=1.0)
 
         elif self.goal_pose_xy is not None:
             # Pose mode -- position-only arrival, no final-yaw alignment this
@@ -2911,6 +3261,17 @@ class MPCController(Node):
         x0 = np.array([self.x, self.y, self.yaw, self.v], dtype=float)
 
         vdes = self.vdes
+        if self.goal_object_odom_xy is not None:
+            # Object mode's ramped approach speed, computed in its branch
+            # above. Applied here rather than there because `vdes` is
+            # (re)assigned from self.vdes on the line above, after the branch
+            # chain has run -- see that branch's own note.
+            #
+            # self.vdes itself is deliberately NOT written: it is the node's
+            # standing speed and _clear_drive_state restores it from a
+            # baseline, so ramping it would leave the last approach's speed in
+            # force for the next move.
+            vdes = self._object_vdes
 
         now_time = self.get_clock().now()
         now_sec = now_time.nanoseconds * 1e-9
@@ -2919,6 +3280,15 @@ class MPCController(Node):
         if self.cached_corridor is None or self.last_corridor_time is None:
             need_update = True
         elif (now_sec - self.last_corridor_time) >= self.corridor_update_period:
+            need_update = True
+        elif (self.goal_object_odom_xy is not None
+                and self._object_target_moved_since_build()):
+            # OBJECT MODE ONLY: the target itself moved far enough to be worth
+            # a rebuild before the period is up. This is the one place the
+            # period is legitimately pre-empted, and it is pre-empted by real
+            # target MOTION rather than by message arrival -- see
+            # _object_target_moved_since_build. Every other mode's corridor
+            # describes geometry that does not move, so none of them needs it.
             need_update = True
 
         # UPGRADE: corridor geometry (walls) stays on the slow cadence -- it
@@ -2940,6 +3310,13 @@ class MPCController(Node):
                 f'psiRef={self.cached_corridor["psiRef"]:+.3f}'
             )
             self._publish_corridor_markers(self.cached_corridor, self.last_corridor_stamp)
+
+        if self.goal_object_odom_xy is not None:
+            # EVERY TICK, not only on a rebuild. The step it reports is the
+            # last rebuild's (psi_c moves only there), but target_age_s and
+            # target_stale are live, and those are the two a consumer watches
+            # to decide whether what it is driving at is still real.
+            self._publish_object_status(self.object_last_step, vdes)
 
         corridor = self.cached_corridor
 
@@ -3305,6 +3682,13 @@ class MPCController(Node):
         # before. Set only inside the wall_turn branch below.
         turn_remaining = None
 
+        # True only on the object branch. Carried into the corridor dict so
+        # _corridor_lookahead can tell "the lookahead reaches past the end
+        # because the geometry is mis-configured" (every other branch, worth a
+        # warning) from "because the vehicle has arrived" (this branch, the
+        # expected end of every successful approach).
+        object_mode = False
+
         # getattr, not a bare attribute, for the same reason corridor_heading_
         # return below uses one: the corridor tests build duck-typed stand-ins
         # that predate this mode and carry only the fields the geometry under
@@ -3312,6 +3696,12 @@ class MPCController(Node):
         # AttributeError here instead of selecting a shape. The real node
         # always has the attribute (set in __init__).
         drive_cmd = getattr(self, 'drive_cmd', None)
+        # Same reason, same convention, for the object branch's two: the
+        # stand-ins predate this mode too, and a bare attribute read below
+        # makes all 35 of them raise AttributeError instead of selecting a
+        # shape. The real node always has both (set in __init__).
+        object_target = getattr(self, 'goal_object_odom_xy', None)
+        object_psi_c = getattr(self, 'object_psi_c', None)
 
         if drive_cmd is not None:
             # DRIVE (open-ended) move -- a corridor built from a MODE, not
@@ -3512,6 +3902,77 @@ class MPCController(Node):
                 f'psi_base={psi_base:+.4f} psiStart={psiStart:+.4f} '
                 f'psiEnd={psiEnd:+.4f} L={L:.2f}'
             )
+
+        elif object_target is not None and object_psi_c is not None:
+            # OBJECT MODE -- a straight corridor PINNED AT THE TARGET, along a
+            # HELD heading. Two deliberate departures from every other branch,
+            # both of which the goal_pose branch below gets wrong for this job.
+            #
+            # 1. THE LINE IS PINNED TO THE TARGET, NOT TO THE CAR. Every other
+            #    corridor here passes through the car's current position; the
+            #    goal_distance branch says so outright, and accepts in exchange
+            #    that it has no lateral homing ("THE PRICE", below). That trade
+            #    is right for a move defined by a direction and a distance and
+            #    wrong for one defined by a PLACE: with the line translated onto
+            #    the car there is no cross-track error, so nothing pulls the car
+            #    back onto the line to the object and the approach converges in
+            #    heading only. Pinning the line through the target gives w_corr
+            #    and the half-width bound a real error to act on.
+            #
+            # 2. NO LENGTH FLOOR. The goal_pose branch clips its length into
+            #    [1.0, corr_L_base], so a goal 0.3 m away still gets a 1.0 m
+            #    corridor whose far end is PAST the goal -- and since the
+            #    lookahead clamps to the corridor end inside about 1.25 m, the
+            #    terminal cost then pulls the car THROUGH the target for the
+            #    whole final approach. Here the corridor ends exactly at the
+            #    goal; a short corridor is the correct description of a nearly
+            #    finished approach.
+            #
+            # psiStart == psiEnd == psi_c, so dpsi is 0 and the S-curve below
+            # is inert -- the centreline is straight by construction rather
+            # than by a special case. The heading is not computed from the live
+            # bearing here: it is the HELD state, rotated a scheduled fraction
+            # of the way toward the bearing by plan_object_heading, which is
+            # called exactly once per rebuild. That is what keeps a jittering
+            # target estimate out of the corridor. See object_approach's module
+            # docstring for why the state is absolute and what goes wrong if it
+            # is turned into an increment.
+            step = plan_object_heading(
+                object_psi_c, object_target, (X0, Y0), psi0,
+                self.goal_object_standoff,
+                r_full=self.object_r_full,
+                r_freeze=self.object_r_freeze,
+                c_safety=self.object_c_safety,
+                wheelbase=self.params['L'],
+                delta_min=self.limits['delta_min'],
+                delta_max=self.limits['delta_max'],
+                n_steps=self.N, ts=self.ts, v_ref=self.vdes)
+            self.object_psi_c = step.psi_c_new
+            self.object_last_step = step
+            self.object_target_at_build = object_target
+
+            origin, psi_c, L = build_object_centreline(
+                (X0, Y0), object_target, step.psi_c_new,
+                self.goal_object_standoff, self.corr_N,
+                behind=self.object_lead_in_m)
+            # Reassigning the corridor ORIGIN, which no other branch does. Safe
+            # because everything downstream builds from xc/yc, and the only
+            # other reader of X0/Y0 is the goal_distance branch's own lat_off
+            # diagnostic.
+            X0, Y0 = origin
+            psiStart = psi_c
+            psiEnd = psi_c
+            object_mode = True
+            if not step.feasible:
+                self.get_logger().warn(
+                    f'OBJECT/infeasible | {step.reason}: r={step.r:+.3f} '
+                    f'bearing={step.bearing:+.4f} psi_c={step.psi_c_new:+.4f} '
+                    '-- corridor built anyway, the mission decides what to do',
+                    throttle_duration_sec=2.0)
+            self.get_logger().info(
+                f'CORR/object | psi_c={step.psi_c_new:+.4f} e={step.e:+.4f} '
+                f'k={step.k:.3f} dpsi_max={step.dpsi_max:.4f} r={step.r:+.3f} '
+                f'L={L:.3f}')
 
         elif self.goal_pose_xy is not None:
             gx, gy = self.goal_pose_xy
@@ -3820,6 +4281,8 @@ class MPCController(Node):
             # always corr_L_base). _corridor_lookahead derives the lookahead
             # from it -- see that method.
             "L": float(L),
+            # See object_mode's own declaration at the top of this method.
+            "objectMode": bool(object_mode),
             "psiStart": float(psiStart),
             "t": float(dpsi),
             "Pend": p_goal,
@@ -3958,6 +4421,38 @@ class MPCController(Node):
         lookahead = from_length
         if from_length < reach_floor:
             lookahead = reach_floor
+            if corridor.get("objectMode", False):
+                # SUPPRESSED FOR THE OBJECT MODE ONLY, and not because the
+                # warnings are noisy -- because here they are WRONG.
+                #
+                # Both warnings below say the same thing in different words:
+                # the lookahead reaches past the corridor, so the terminal cost
+                # stops being a direction pull and becomes an arrival target,
+                # and pref_nom pins to the corridor end every cycle. On every
+                # other branch that means the geometry was mis-configured,
+                # because those corridors END NOWHERE IN PARTICULAR -- the
+                # goal_distance branch's end is an arbitrary corr_L_base along
+                # a heading, and the goal_pose branch's end is floored at 1.0 m
+                # and can sit past the goal. Pinning the terminal cost there is
+                # a real defect and deserves to be shouted about.
+                #
+                # An object corridor ends AT THE GOAL. So "the lookahead
+                # reaches past the end" means "the goal is within a lookahead",
+                # pref_nom clamps to the goal and the terminal cost becomes
+                # "arrive at the goal" -- which is precisely what is wanted for
+                # the last stretch of an approach, and is the state EVERY
+                # successful approach passes through. Warning here would fire
+                # once per rebuild on every correct run, and a warning that
+                # fires on success is one nobody reads when it matters.
+                #
+                # The condition is not lost: it goes out on
+                # /mpc/object_status as the range r, from which it is exactly
+                # recoverable, instead of into throttled prose.
+                self.get_logger().debug(
+                    f'TGT/object | lookahead {lookahead:.2f} >= corridor '
+                    f'{L:.2f}: pref_nom clamps to the goal (expected on the '
+                    'final approach)')
+                return float(lookahead)
             self.get_logger().warn(
                 f'TGT/geometry | corridor L={L:.2f} gives lookahead '
                 f'{from_length:.2f} m, inside the horizon reach '

@@ -959,6 +959,32 @@ corr_wall_turn_front_distance_max_age_sec:
   default: 0.5
   description: "A /perception/front_distance message older than this [s], or none at all, is UNKNOWN to the wall_turn increment (as is front_clearance_node's -1.0). Once the turn has committed, unknown drops the distance cap and the turn continues within the horizon's reach; before commit it keeps the corridor straight, except on the move's first rebuild, where it commits. front_clearance_node publishes once per ZED depth frame (~17 Hz); same 0.5 s as swept_clearance_camera_timeout_sec."
 # ------------------------------------------------------------------
+# OBJECT APPROACH -- the corridor that points at a tracked object.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
+# mpc_controller/object_approach.py, whose module docstring has the design and
+# the derivations. No launch arg: edit here and relaunch.
+#
+# The mode holds the corridor heading psi_c as ABSOLUTE state across rebuilds
+# and rotates it a scheduled fraction of the way toward the bearing to the
+# target, capped by what the remaining range and the MPC horizon can fly. The
+# two radii below are that schedule; c_safety is the distance cap's margin.
+object_r_full_m:
+  default: 1.5
+  description: "Range [m] to the STANDOFF point at or beyond which the corridor tracks the target fully (k = 1). Far out there is distance in hand to absorb a turn, and refusing to track a moving target just accumulates error. Measured from the standoff, not from the target, so it means the same thing at every standoff."
+object_r_freeze_m:
+  default: 0.4
+  description: "Range [m] to the standoff at or inside which the corridor heading is FROZEN (k = 0) and the car simply flies what it was given. Exists because bearing sensitivity to target jitter grows as 1/r: 5 cm of estimate noise subtends 0.07 rad at 0.7 m and 0.12 rad at 0.4 m, so a corridor still chasing the target here would be whipped across it every rebuild. Must be below object_r_full_m; k ramps linearly between the two."
+object_c_safety:
+  default: 1.5
+  description: "Margin on the per-rebuild distance cap: rotating the corridor by dpsi is given c_safety * R_min * dpsi metres of remaining range. FLOOR IS 1.0, not the 1.5 wall_turn enforces -- wall_turn needs 1.5 because its corridor bends along a smoothstep whose peak slope is 1.5, while this corridor is straight and the car flies a plain arc onto it, where the honest factor is 1.0. Shipped at 1.5 as margin; a value in [1.0, 1.5) is a tuning choice and is accepted."
+object_retarget_distance_m:
+  default: 0.2
+  description: "How far [m] the target's ODOM-frame position must move since the last corridor build before the build is repeated early, ahead of corridor_update_period. Exists because a target refresh must NOT re-anchor the corridor (that is what move_id is for), but a target that has genuinely walked away must not be chased at 1 Hz either. 0.2 m is about one car width of target motion; below roughly 0.05 m this would fire on estimate jitter alone and rebuild every tick, which is the cost corridor_update_period exists to avoid."
+object_a_dec:
+  default: 0.3
+  description: "Deceleration [m/s^2] the approach speed ramp is sized on: v = min(move speed, sqrt(2 * a_dec * r)), reaching zero exactly at the standoff. A REFERENCE, not a brake -- the solver still owns the command, and this mode deliberately has no pose_goal_tolerance-style hard stop. At 0.3 the ramp leaves the shipped 0.5 m/s at r = 0.42 m. Zero or negative disables the ramp, which shows up as an unramped approach rather than as a car that never moves."
+# ------------------------------------------------------------------
 # WALL TRACKER -- d_wall for the wall_turn increment.
 #
 # Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
