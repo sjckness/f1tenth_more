@@ -1,22 +1,39 @@
-"""The go_to intent branch: shape, strictness, and the wall it hits.
+"""The go_to intent branch: schema, translation to go_to_object, and the switch.
 
-go_to is in intent_v1.json and is NOT executable by this stack. The schema
-branch exists so the vocabulary is written down in one place and so a model
-emitting it gets a precise rejection; the translator refuses it explicitly so
-that refusal is a handled failure rather than a traceback. Both halves are
-pinned here, because the dangerous state is a schema that accepts something
-the runtime silently mishandles.
+go_to_enabled (stack_params.yaml, read by llm_planner_node) chooses between
+two planners:
+
+  true   the prompt teaches go_to and translate() turns a go_to phase into a
+         go_to_object move (mission schema 5.0), clamping a distance below
+         the reachable minimum with an operator note
+  false  the planner before go_to_object: the prompt without go_to, the
+         UnsupportedIntentModeError refusal fed back as retry text, and the
+         RICHIESTA NON SUPPORTATA banner -- pinned here text for text
+
+Both halves are tested, because switching back has to be a single value.
 """
 
 import json
+import math
 import pathlib
+from types import SimpleNamespace
 
 import jsonschema
 import pytest
 
 from llm.plan_translate import (
+    CONST,
+    DERIVED,
+    INTENT,
+    INTENT_PROMPT_FILENAME,
+    INTENT_PROMPT_NO_GO_TO_FILENAME,
     IntentSchemaError,
+    OBJECT_MISSION_SCHEMA_VERSION,
+    TranslatorConfig,
     UnsupportedIntentModeError,
+    intent_prompt_examples,
+    intent_prompt_filename,
+    load_intent_prompt,
     translate,
 )
 
@@ -32,6 +49,30 @@ STRAIGHT = {'mode': 'straight', 'guard': 'wall', 'thresh': 2.0}
 TURN = {'mode': 'turn', 'dir': 'left'}
 GO_TO = {'mode': 'go_to', 'target': 'bottle', 'thresh': 1.0}
 
+# The refusal text the planner fed back before go_to_object existed, verbatim.
+REFUSAL_BEFORE_GO_TO = (
+    'fase {i}: "go_to" non e\' eseguibile da questo robot. '
+    'Non sostituirlo con "front_object": quello si ferma alla cosa '
+    'piu\' vicina, non a quella nominata. '
+    'Rimetti la richiesta in "unsupported".')
+
+# The "what is supported" line under the RICHIESTA NON SUPPORTATA banner,
+# verbatim from the planner before go_to_object existed.
+SUPPORTED_BEFORE_GO_TO = (
+    '\nSupportato: andare dritto e fermarsi al muro, a una '
+    'distanza percorsa, o prima di cio\' che si trova davanti '
+    'senza nominarlo. Esempio: "vai dritto e fermati prima '
+    'dell\'ostacolo".')
+
+
+def _limits(gap_min=0.42, class_margin=0.0):
+    """Return a gap_limits_for whose gap_min is `gap_min`."""
+    from f1tenth_params.object_geometry import GapLimits
+    return lambda target_class: GapLimits(
+        target_class=target_class, car_radius=0.20,
+        avoidance_margin=gap_min - 0.30 - class_margin, class_margin=class_margin,
+        settle_buffer=0.10, wheelbase=0.305)
+
 
 def validate(*phases, unsupported=()):
     jsonschema.validate({'plan': list(phases), 'unsupported': list(unsupported)},
@@ -43,7 +84,11 @@ def rejects(*phases):
         validate(*phases)
 
 
-# -- each branch validates its own shape ----------------------------------
+def _intent(*phases, unsupported=()):
+    return {'plan': list(phases), 'unsupported': list(unsupported)}
+
+
+# -- schema: each branch validates its own shape --------------------------
 
 @pytest.mark.parametrize('phase', [STRAIGHT, TURN, GO_TO], ids=['straight', 'turn', 'go_to'])
 def test_each_branch_validates_its_own_shape(phase):
@@ -54,15 +99,8 @@ def test_all_three_branches_compose_in_one_plan():
     validate(STRAIGHT, TURN, GO_TO)
 
 
-# -- and rejects the other branches' fields -------------------------------
-
 def test_go_to_rejects_a_guard_key():
-    """The specific confusion the branch exists to prevent.
-
-    guard 'front_object' maps to obstacle_distance_below over a class-blind,
-    bearing-blind forward scalar. Accepting it on a go_to would mean steering
-    at the target and stopping at whatever is nearest, reporting success.
-    """
+    """guard front_object is class-blind and bearing-blind: never on a go_to."""
     rejects({**GO_TO, 'guard': 'front_object'})
     rejects({**GO_TO, 'guard': 'distance'})
 
@@ -76,8 +114,8 @@ def test_straight_and_turn_reject_a_target_key():
     rejects({**TURN, 'target': 'bottle'})
 
 
-def test_go_to_requires_every_one_of_its_fields():
-    rejects({'mode': 'go_to', 'target': 'bottle'})        # no thresh
+def test_go_to_requires_mode_and_target_and_thresh_is_optional():
+    validate({'mode': 'go_to', 'target': 'bottle'})
     rejects({'mode': 'go_to', 'thresh': 1.0})             # no target
     rejects({'target': 'bottle', 'thresh': 1.0})          # no mode
 
@@ -85,18 +123,16 @@ def test_go_to_requires_every_one_of_its_fields():
 def test_additional_properties_stays_closed():
     rejects({**GO_TO, 'speed': 0.4})
     rejects({**GO_TO, 'timeout_sec': 30})
+    rejects({**GO_TO, 'gap_m': 1.0})
 
-
-# -- target enum ----------------------------------------------------------
 
 def test_target_is_an_enum_not_a_free_string():
     assert isinstance(TARGETS, list) and len(TARGETS) > 10
     assert 'bottle' in TARGETS and 'person' in TARGETS and 'chair' in TARGETS
 
 
-@pytest.mark.parametrize('bogus', ['unicorn', 'Bottle', 'bottle ', '', 'bottiglia'])
+@pytest.mark.parametrize('bogus', ['unicorn', 'Bottle', 'bottle ', '', 'bottiglia', 'door'])
 def test_a_class_the_detector_never_publishes_is_rejected(bogus):
-    """A free string would validate and then never fire. This is the point."""
     rejects({**GO_TO, 'target': bogus})
 
 
@@ -110,81 +146,36 @@ def test_the_enum_is_sorted_and_free_of_duplicates():
     assert len(TARGETS) == len(set(TARGETS))
 
 
-# -- thresh bounds --------------------------------------------------------
-
-@pytest.mark.parametrize('thresh', [0.2, 1.0, 19.999, 20.0])
-def test_thresh_accepts_its_documented_range(thresh):
+@pytest.mark.parametrize('thresh', [0.0, 0.1, 0.2, 1.0, 19.999, 20.0])
+def test_go_to_thresh_accepts_zero_to_twenty(thresh):
+    """Below gap_min must validate, so the translator can clamp it with a note."""
     validate({**GO_TO, 'thresh': thresh})
 
 
-@pytest.mark.parametrize('thresh', [0.19, 0.0, -1.0, 20.01, 100.0])
-def test_thresh_bounds_are_enforced(thresh):
+@pytest.mark.parametrize('thresh', [-0.01, -1.0, 20.01, 100.0])
+def test_go_to_thresh_bounds_are_enforced(thresh):
     rejects({**GO_TO, 'thresh': thresh})
+
+
+def test_the_straight_thresh_minimum_is_unchanged():
+    rejects({**STRAIGHT, 'guard': 'distance', 'thresh': 0.1})
 
 
 def test_thresh_must_be_a_number():
     rejects({**GO_TO, 'thresh': '1.0'})
 
 
-# -- the translator refuses it, and refuses it *cleanly* ------------------
-
-def test_translate_refuses_go_to_as_a_handled_failure():
-    """Not a KeyError.
-
-    Without the explicit guard the phase falls through to the straight
-    branch and dies on phase['guard']. _plan_v2 catches only
-    PlanTranslationError subclasses, so a KeyError would surface as a
-    traceback in the planner instead of as retry feedback.
-    """
-    with pytest.raises(UnsupportedIntentModeError) as excinfo:
-        translate({'plan': [GO_TO], 'unsupported': []})
-
-    # Still an IntentSchemaError, so _plan_v2 keeps feeding it back as retry
-    # text; a distinct subclass so the node can log it as a prompt-compliance
-    # failure rather than a malformed plan.
-    assert isinstance(excinfo.value, IntentSchemaError)
-
-    message = str(excinfo.value)
-    assert 'go_to' in message
-    assert 'front_object' in message, 'must warn off the false-success shortcut'
-    assert 'unsupported' in message, 'must tell the model where to put it'
-    assert len(message) < 300, 'retry text competes with the system prompt'
-    assert 'DRIVE_MODES' not in message, 'model-facing, not log-facing'
-
-
-def test_the_refusal_survives_being_mixed_with_executable_phases():
-    with pytest.raises(UnsupportedIntentModeError):
-        translate({'plan': [STRAIGHT, GO_TO], 'unsupported': []})
-
-
-def test_executable_intents_are_unaffected_by_the_new_branch():
-    """The branch must not perturb the two modes that do work."""
-    result = translate({'plan': [STRAIGHT, TURN], 'unsupported': []})
-
-    assert len(result.mission['moves']) == 2
-    assert result.mission['moves'][0]['drive']['mode'] == 'straight'
-
-
-# -- the enum is a snapshot, so drift must fail a test --------------------
-
 def test_the_target_enum_matches_the_configured_detector_checkpoint():
-    """The class vocabulary is not defined as code anywhere in this repo.
+    """The enum is a snapshot of the checkpoint's classes; drift must fail.
 
-    yolo_detector_node._resolve_class_names() reads it out of the YOLO
-    checkpoint at runtime, so which strings exist depends on
-    stack_params.yaml's `yolo_model`. The two checkpoints in the tree share
-    only 10 classes: yolo26s-seg.pt has 80 COCO names, yolo26_office.pt has
-    58 office names, 48 of them not in COCO. A static enum is therefore a
-    snapshot, and this test is what stops the snapshot going stale --
-    regenerate with tools/gen_intent_target_enum.py.
+    Regenerate with tools/gen_intent_target_enum.py.
     """
     pytest.importorskip('torch', reason='needed to read the checkpoint')
 
     repo = SCHEMA_PATH.resolve().parents[4]
-    sys_path = repo / 'tools'
     import importlib.util
     spec = importlib.util.spec_from_file_location(
-        'gen_enum', sys_path / 'gen_intent_target_enum.py')
+        'gen_enum', repo / 'tools' / 'gen_intent_target_enum.py')
     gen = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(gen)
 
@@ -198,7 +189,178 @@ def test_the_target_enum_matches_the_configured_detector_checkpoint():
         'rerun tools/gen_intent_target_enum.py')
 
 
-# -- B1/B3: how the retry budget terminates -------------------------------
+# -- translator: go_to -> go_to_object ------------------------------------
+
+class TestTranslatorFields:
+
+    def test_a_go_to_phase_becomes_one_go_to_object_move(self):
+        result = translate(_intent(GO_TO), gap_limits_for=_limits())
+        mission = result.mission
+        assert mission['schema_version'] == OBJECT_MISSION_SCHEMA_VERSION == '5.0'
+        [move] = mission['moves']
+        assert set(move) == {'id', 'go_to_object', 'stop_condition', 'timeout_sec',
+                             'on_timeout', 'terminal'}
+        assert move['stop_condition'] == {'type': 'object_reached'}
+        assert move['on_timeout'] == 'abort'
+        assert move['terminal'] is True
+        assert result.requires_confirmation is False
+        assert result.notes == ()
+
+    def test_target_class_is_the_intent_target_and_gap_is_thresh(self):
+        cfg = TranslatorConfig()
+        body = translate(_intent({'mode': 'go_to', 'target': 'chair', 'thresh': 1.0}),
+                         gap_limits_for=_limits()).mission['moves'][0]['go_to_object']
+        assert body == {
+            'target_class': 'chair', 'gap_m': 1.0, 'speed': cfg.speed_go_to,
+            'acquire_timeout_sec': cfg.go_to_acquire_timeout_sec,
+            'lost_grace_sec': cfg.go_to_lost_grace_sec,
+        }
+
+    def test_no_thresh_gives_the_class_default_gap(self):
+        move = translate(_intent({'mode': 'go_to', 'target': 'person'}),
+                         gap_limits_for=_limits(gap_min=0.42)).mission['moves'][0]
+        assert move['go_to_object']['gap_m'] == 0.5
+
+    def test_the_default_gap_follows_the_class_margin(self):
+        result = translate(_intent({'mode': 'go_to', 'target': 'person'}),
+                           gap_limits_for=_limits(gap_min=0.72, class_margin=0.3))
+        assert result.mission['moves'][0]['go_to_object']['gap_m'] == 0.8
+
+    def test_the_default_gap_comes_from_stack_params_without_an_override(self):
+        from f1tenth_params.object_geometry import gap_limits
+        mission = translate(_intent({'mode': 'go_to', 'target': 'person'})).mission
+        assert mission['moves'][0]['go_to_object']['gap_m'] == pytest.approx(
+            gap_limits('person').default_gap)
+
+    def test_thresh_is_rounded_to_centimetres(self):
+        result = translate(_intent({**GO_TO, 'thresh': 1.234}), gap_limits_for=_limits())
+        assert result.mission['moves'][0]['go_to_object']['gap_m'] == 1.23
+
+    def test_the_timeout_is_sized_like_an_open_guard(self):
+        """open_guard_max_distance / speed_go_to, same formula as front_object."""
+        cfg = TranslatorConfig()
+        move = translate(_intent(GO_TO), gap_limits_for=_limits()).mission['moves'][0]
+        expected_s = cfg.open_guard_max_distance / cfg.speed_go_to
+        assert move['timeout_sec'] == math.ceil(
+            expected_s * cfg.timeout_factor + cfg.timeout_floor)
+
+    def test_the_gap_and_target_name_their_source(self):
+        prov = translate(_intent(GO_TO), explain=True,
+                         gap_limits_for=_limits()).provenance
+        assert prov['moves[0].go_to_object.gap_m'][0] == INTENT
+        assert prov['moves[0].go_to_object.target_class'][0] == INTENT
+        assert prov['moves[0].stop_condition.type'][0] == CONST
+        default = translate(_intent({'mode': 'go_to', 'target': 'bottle'}), explain=True,
+                            gap_limits_for=_limits()).provenance
+        assert default['moves[0].go_to_object.gap_m'][0] == DERIVED
+
+    def test_go_to_never_falls_through_to_a_straight_move(self):
+        """The old failure: a go_to landing in the guard branch."""
+        move = translate(_intent(GO_TO), gap_limits_for=_limits()).mission['moves'][0]
+        assert 'drive' not in move
+        assert move['stop_condition']['type'] != 'obstacle_distance_below'
+
+    def test_a_plan_without_go_to_keeps_schema_3_0(self):
+        assert translate(_intent(STRAIGHT, TURN)).mission['schema_version'] == '3.0'
+
+
+class TestClamp:
+
+    def test_a_gap_below_gap_min_is_raised_to_it_with_an_italian_note(self):
+        result = translate(_intent({'mode': 'go_to', 'target': 'person', 'thresh': 0.1}),
+                           explain=True, gap_limits_for=_limits(gap_min=0.42))
+        assert result.mission['moves'][0]['go_to_object']['gap_m'] == 0.42
+        [note] = result.notes
+        assert 'distanza richiesta 0.10 m' in note
+        assert 'applicata 0.42 m' in note
+        assert '"person"' in note
+        assert result.provenance['moves[0].go_to_object.gap_m'][0] == DERIVED
+        assert result.requires_confirmation is False, 'a larger gap is the safe side'
+
+    def test_zero_is_clamped_too(self):
+        result = translate(_intent({**GO_TO, 'thresh': 0.0}), gap_limits_for=_limits())
+        assert result.mission['moves'][0]['go_to_object']['gap_m'] == 0.42
+        assert len(result.notes) == 1
+
+    def test_the_clamp_rounds_up_so_the_loader_accepts_it(self):
+        """gap_min 0.425 must clamp to 0.43, not round to 0.42 below the minimum."""
+        result = translate(_intent({**GO_TO, 'thresh': 0.2}),
+                           gap_limits_for=_limits(gap_min=0.425))
+        assert result.mission['moves'][0]['go_to_object']['gap_m'] == 0.43
+
+    def test_exactly_gap_min_is_not_clamped(self):
+        result = translate(_intent({**GO_TO, 'thresh': 0.42}),
+                           gap_limits_for=_limits(gap_min=0.42))
+        assert result.mission['moves'][0]['go_to_object']['gap_m'] == 0.42
+        assert result.notes == ()
+
+    def test_one_note_per_clamped_phase(self):
+        result = translate(
+            _intent({**GO_TO, 'thresh': 0.1}, TURN, {**GO_TO, 'target': 'chair', 'thresh': 0.3}),
+            gap_limits_for=_limits())
+        assert [n.split(',')[0] for n in result.notes] == ['fase 0', 'fase 2']
+
+
+class TestMultiPhase:
+
+    def test_go_to_then_turn_is_two_moves_with_the_terminal_on_the_turn(self):
+        moves = translate(_intent({'mode': 'go_to', 'target': 'bottle'},
+                                  {'mode': 'turn', 'dir': 'right'}),
+                          gap_limits_for=_limits()).mission['moves']
+        assert [m['id'] for m in moves] == ['move_0_go_to', 'move_1_turn']
+        assert 'terminal' not in moves[0]
+        assert moves[1]['terminal'] is True
+        assert moves[1]['drive']['turn_sign'] == -1.0
+
+    def test_move_ids_and_wire_ids_are_unique_with_two_go_tos(self):
+        from f1tenth_behavior.mission.object_handler import object_move_wire_id
+        mission = translate(_intent(STRAIGHT, GO_TO, TURN, {**GO_TO, 'target': 'chair'}),
+                            gap_limits_for=_limits()).mission
+        ids = [m['id'] for m in mission['moves']]
+        assert ids == ['move_0_straight', 'move_1_go_to', 'move_2_turn', 'move_3_go_to']
+        wires = {object_move_wire_id(mission['mission_id'], 1, i) for i in ids}
+        assert len(wires) == len(ids)
+
+    def test_the_loader_accepts_the_multi_phase_mission(self):
+        from f1tenth_behavior.mission.mission_config import parse_mission
+        config = parse_mission(translate(_intent(STRAIGHT, GO_TO, TURN)).mission)
+        assert config.moves[1].go_to_object.target_class == 'bottle'
+        assert config.moves[1].go_to_object.gap_m == 1.0
+        assert config.moves[2].terminal is True
+
+
+# -- go_to_enabled = false: the refusal before go_to_object, text for text --
+
+class TestDisabledTranslator:
+
+    def test_translate_refuses_go_to_with_the_text_it_always_had(self):
+        with pytest.raises(UnsupportedIntentModeError) as excinfo:
+            translate(_intent(GO_TO), go_to_enabled=False)
+        assert isinstance(excinfo.value, IntentSchemaError), 'still fed back as retry text'
+        assert str(excinfo.value) == REFUSAL_BEFORE_GO_TO.format(i=0)
+
+    def test_the_refusal_survives_being_mixed_with_executable_phases(self):
+        with pytest.raises(UnsupportedIntentModeError) as excinfo:
+            translate(_intent(STRAIGHT, GO_TO), go_to_enabled=False)
+        assert str(excinfo.value) == REFUSAL_BEFORE_GO_TO.format(i=1)
+
+    def test_executable_intents_are_unaffected_by_the_switch(self):
+        on = translate(_intent(STRAIGHT, TURN))
+        off = translate(_intent(STRAIGHT, TURN), go_to_enabled=False)
+        assert on == off
+
+    def test_the_prompt_file_follows_the_switch(self):
+        assert intent_prompt_filename(True) == INTENT_PROMPT_FILENAME
+        assert intent_prompt_filename(False) == INTENT_PROMPT_NO_GO_TO_FILENAME
+
+
+def test_go_to_enabled_ships_true_in_stack_params():
+    """Coupling: the default the floor test runs with."""
+    from llm.llm_planner_node import go_to_enabled_default
+    assert go_to_enabled_default() is True
+
+
+# -- the planner node, both values of the switch --------------------------
 
 class _Logger:
     """Captures what the node logged, by level."""
@@ -206,6 +368,7 @@ class _Logger:
     def __init__(self):
         self.warn_lines = []
         self.error_lines = []
+        self.info_lines = []
 
     def warn(self, message):
         self.warn_lines.append(str(message))
@@ -214,21 +377,33 @@ class _Logger:
         self.error_lines.append(str(message))
 
     def info(self, message):
-        pass
+        self.info_lines.append(str(message))
 
 
 class _Stub:
-    """The only two attributes _plan_v2 touches on self."""
+    """The attributes _plan_v2 and process_command touch on self."""
 
-    def __init__(self):
+    def __init__(self, go_to_enabled):
         self._system_prompt = 'unused: the LLM call is patched'
         self._logger = _Logger()
+        self._go_to_enabled = go_to_enabled
+        self._planner_path = 'v2'
+        self.opts = SimpleNamespace(dry_run=True, confirm=False)
+        self.written = None
 
     def get_logger(self):
         return self._logger
 
+    def _plan_v2(self, command_text):
+        from llm.llm_planner_node import LLMPlannerNode
+        return LLMPlannerNode._plan_v2(self, command_text)
 
-def _run_plan_v2(monkeypatch, capsys, response, command):
+    def _write_mission_file(self, mission):
+        self.written = mission
+        return '/nonexistent/unused.json'
+
+
+def _run_plan_v2(monkeypatch, capsys, response, command, go_to_enabled):
     from llm import llm_planner_node
     from llm.llm_planner_node import LLMPlannerNode
 
@@ -239,212 +414,202 @@ def _run_plan_v2(monkeypatch, capsys, response, command):
         return response
 
     monkeypatch.setattr(llm_planner_node, 'get_intent_from_llm', fake)
-    stub = _Stub()
+    stub = _Stub(go_to_enabled)
     result = LLMPlannerNode._plan_v2(stub, command)
     return result, calls, stub._logger, capsys.readouterr().out
 
 
-def test_an_unsupported_request_terminates_as_unsupported_not_exhaustion(
-        monkeypatch, capsys):
-    """B1. The budget must end in a stated refusal carrying the request.
+class TestDisabledPlanner:
+    """go_to_enabled=False: exactly the planner before go_to_object."""
 
-    A model that keeps re-emitting go_to burns every retry. What the operator
-    must not get is a bare "planning failed", a traceback, or -- worst --
-    whatever plan last validated, because for a request the robot cannot
-    perform that is exactly the wrong-object substitution.
-    """
-    from llm.llm_planner_node import MAX_INTENT_RETRIES
+    def test_a_go_to_answer_terminates_as_unsupported_not_exhaustion(
+            self, monkeypatch, capsys):
+        from llm.llm_planner_node import MAX_INTENT_RETRIES
 
-    command = 'vai verso la bottiglia e fermati a 1 metro'
-    result, calls, logger, out = _run_plan_v2(
-        monkeypatch, capsys,
-        {'plan': [GO_TO], 'unsupported': []}, command)
+        command = 'vai verso la bottiglia e fermati a 1 metro'
+        result, calls, logger, out = _run_plan_v2(
+            monkeypatch, capsys, _intent(GO_TO), command, go_to_enabled=False)
 
-    assert result is None, 'no mission may be emitted'
-    assert len(calls) == MAX_INTENT_RETRIES + 1, 'the whole budget is spent'
-    assert calls[0] is None and calls[1] is not None, 'the refusal is fed back'
+        assert result is None, 'no mission may be emitted'
+        assert len(calls) == MAX_INTENT_RETRIES + 1, 'the whole budget is spent'
+        assert calls[0] is None
+        assert calls[1] == REFUSAL_BEFORE_GO_TO.format(i=0), 'the refusal is fed back'
+        assert 'RICHIESTA NON SUPPORTATA -- nessuna missione emessa.' in out
+        assert f'  richiesta: {command}' in out
+        assert any('non supportata' in line for line in logger.error_lines)
+        assert any('[prompt-non-rispettato]' in line for line in logger.warn_lines)
 
-    assert 'RICHIESTA NON SUPPORTATA' in out
-    assert command in out, "the operator's own words must appear"
-    assert any('non supportata' in line for line in logger.error_lines)
-    assert not any('Traceback' in line for line in logger.error_lines)
+    def test_exhaustion_does_not_fall_back_to_the_last_valid_plan(self, monkeypatch):
+        from llm import llm_planner_node
+        from llm.llm_planner_node import LLMPlannerNode
 
+        executable = _intent({'mode': 'straight', 'guard': 'front_object', 'thresh': 1.0})
+        stub = _Stub(go_to_enabled=False)
+        monkeypatch.setattr(llm_planner_node, 'get_intent_from_llm',
+                            lambda *a, **k: executable)
+        assert LLMPlannerNode._plan_v2(stub, 'vai verso la bottiglia') is not None
+        monkeypatch.setattr(llm_planner_node, 'get_intent_from_llm',
+                            lambda *a, **k: _intent(GO_TO))
+        assert LLMPlannerNode._plan_v2(stub, 'vai verso la bottiglia') is None
 
-def test_exhaustion_does_not_fall_back_to_the_last_valid_plan(
-        monkeypatch, capsys):
-    """The specific silent failure B1 rules out.
-
-    The model emits a perfectly executable front_object plan first, then
-    go_to. If exhaustion fell back to "the last thing that validated", the
-    car would drive off and stop at the nearest object of any kind.
-    """
-    from llm import llm_planner_node
-    from llm.llm_planner_node import LLMPlannerNode
-
-    executable = {'plan': [{'mode': 'straight', 'guard': 'front_object',
-                            'thresh': 1.0}],
-                  'unsupported': []}
-    refused = {'plan': [GO_TO], 'unsupported': []}
-    seen = []
-
-    def fake(command_text, system_prompt, feedback=None):
-        seen.append(feedback)
-        # First answer translates cleanly; every later one does not.
-        return executable if len(seen) == 1 else refused
-
-    monkeypatch.setattr(llm_planner_node, 'get_intent_from_llm', fake)
-    stub = _Stub()
-
-    first = LLMPlannerNode._plan_v2(stub, 'vai verso la bottiglia')
-    assert first is not None, 'sanity: a translatable answer is accepted'
-
-    # Now the same node, with only untranslatable answers.
-    seen.clear()
-
-    def only_refused(command_text, system_prompt, feedback=None):
-        seen.append(feedback)
-        return refused
-
-    monkeypatch.setattr(llm_planner_node, 'get_intent_from_llm', only_refused)
-    capsys.readouterr()
-
-    assert LLMPlannerNode._plan_v2(stub, 'vai verso la bottiglia') is None, (
-        'no mission may be returned, and in particular not the one that '
-        'validated on an earlier command')
+    def test_a_complied_refusal_prints_the_banner_it_always_printed(
+            self, monkeypatch, capsys):
+        _, _, logger, out = _run_plan_v2(
+            monkeypatch, capsys, _intent(unsupported=['vai verso la bottiglia']),
+            'vai verso la bottiglia', go_to_enabled=False)
+        expected = ('\nRICHIESTA NON SUPPORTATA -- il robot non sa farlo, '
+                    'e non e\' un errore del planner:\n'
+                    '  - vai verso la bottiglia\n'
+                    + SUPPORTED_BEFORE_GO_TO + '\n')
+        assert out == expected
+        assert not any('[prompt-non-rispettato]' in line for line in logger.warn_lines)
 
 
-def test_the_two_refusal_outcomes_are_distinguishable_in_logs(
-        monkeypatch, capsys):
-    """B3. Ignoring the prompt and complying with it must not look alike.
+class TestEnabledPlanner:
+    """go_to_enabled=True: the new branch, and the banner for what is still unsupported."""
 
-    A model that authored go_to ignored the system prompt, which is a
-    prompt-quality signal worth counting. A model that routed the request to
-    "unsupported" did what it was told and never reaches the translator.
-    """
-    _, _, ignored_logger, _ = _run_plan_v2(
-        monkeypatch, capsys, {'plan': [GO_TO], 'unsupported': []},
-        'vai verso la bottiglia')
+    def test_a_go_to_answer_plans_first_time(self, monkeypatch, capsys):
+        result, calls, logger, _ = _run_plan_v2(
+            monkeypatch, capsys, _intent({'mode': 'go_to', 'target': 'person'}),
+            'vai dalla persona', go_to_enabled=True)
+        mission, unsupported, _dt, attempts, notes = result
+        assert attempts == 1 and calls == [None]
+        assert mission['moves'][0]['go_to_object']['target_class'] == 'person'
+        assert unsupported == () and notes == ()
+        assert not logger.warn_lines
 
-    _, _, complied_logger, complied_out = _run_plan_v2(
-        monkeypatch, capsys,
-        {'plan': [], 'unsupported': ['vai verso la bottiglia']},
-        'vai verso la bottiglia')
+    def test_the_clamp_note_reaches_the_operator(self, monkeypatch, capsys):
+        from llm import llm_planner_node
+        from llm.llm_planner_node import LLMPlannerNode
 
-    assert any('[prompt-non-rispettato]' in line
-               for line in ignored_logger.warn_lines)
-    assert not any('[prompt-non-rispettato]' in line
-                   for line in complied_logger.warn_lines), 'compliance is not a fault'
-    # Compliance now prints the "not supported" banner, not the ambiguity
-    # one: an operator reading "comando ambiguo" for a correctly refused
-    # request concludes the planner is broken.
-    assert 'RICHIESTA NON SUPPORTATA' in complied_out
-    assert 'non e\' un errore del planner' in complied_out
+        stub = _Stub(go_to_enabled=True)
+        monkeypatch.setattr(llm_planner_node, 'get_intent_from_llm', lambda *a, **k: _intent(
+            {'mode': 'go_to', 'target': 'person', 'thresh': 0.1}))
+        started = LLMPlannerNode.process_command(
+            stub, 'fermati a dieci centimetri dalla persona')
+        assert started is False, 'dry run'
+        out = capsys.readouterr().out
+        assert 'NOTA: fase 0, go_to "person": distanza richiesta 0.10 m, applicata' in out
+        assert 'vai verso "person" (il piu\' vicino)' in out
+        assert stub.written['moves'][0]['go_to_object']['gap_m'] >= 0.42
 
+    def test_a_still_unsupported_request_keeps_the_banner(self, monkeypatch, capsys):
+        result, calls, _, out = _run_plan_v2(
+            monkeypatch, capsys, _intent(unsupported=['vai da Marco']),
+            'vai da Marco', go_to_enabled=True)
+        assert result is None and len(calls) == 1
+        assert out.startswith('\nRICHIESTA NON SUPPORTATA -- il robot non sa farlo')
+        assert '  - vai da Marco' in out
+        assert SUPPORTED_BEFORE_GO_TO in out, 'what was supported still is'
+        assert '"vai dalla persona"' in out
 
-# -- A1-A4: the prompt text itself is part of the contract ----------------
-
-def _prompt():
-    from llm.plan_translate import load_intent_prompt
-    return load_intent_prompt()
-
-
-def test_the_prompt_never_advertises_go_to():
-    """A1. The branch is in the schema; the model is not told it exists.
-
-    Advertising a mode that is always refused is a contradictory contract:
-    the model would author it and be rejected every time. The prompt flips
-    when a runtime exists.
-    """
-    assert 'go_to' not in _prompt()
-
-
-def test_the_prompt_names_the_unsupported_request_class():
-    """A2, in both languages the operators actually use."""
-    prompt = _prompt()
-
-    for phrase in ['vai verso la bottiglia', 'avvicinati alla persona',
-                   'segui la sedia', 'portati davanti al tavolo',
-                   'go to the bottle', 'drive toward the person',
-                   'approach the chair', 'follow me',
-                   'stop one metre from the table']:
-        assert phrase in prompt, f'{phrase!r} missing from the prompt'
+    def test_ambiguity_and_unsupported_do_not_share_a_message(self, monkeypatch, capsys):
+        _, _, _, ambiguous_out = _run_plan_v2(
+            monkeypatch, capsys, _intent(unsupported=['ambiguo: distanza non specificata']),
+            "gira e vai avanti un po'", go_to_enabled=True)
+        assert 'ambiguo' in ambiguous_out
+        assert 'RICHIESTA NON SUPPORTATA' not in ambiguous_out
 
 
-def test_the_prompt_forbids_the_substitution_and_says_why():
-    """A3. A bare prohibition is complied with less reliably than a reason."""
-    prompt = _prompt()
+# -- the prompts are part of the contract ---------------------------------
 
-    assert 'NON sostituirli con "front_object"' in prompt
-    assert 'PIU\' VICINO' in prompt, 'must say front_object measures the nearest'
-    assert 'COMPLETATA' in prompt, 'must say the mission reports success'
-    assert 'soglia indovinata' in prompt, 'must forbid a guessed distance'
-    assert '"turn" + "straight"' in prompt, 'must forbid the aiming sequence'
+class TestPromptWithGoTo:
+
+    @pytest.fixture(scope='class')
+    def prompt(self):
+        return load_intent_prompt()
+
+    def test_it_teaches_go_to(self, prompt):
+        assert '{"mode":"go_to","target":<classe>}' in prompt
+
+    def test_it_lists_exactly_the_schema_classes(self, prompt):
+        """The in/out-of-enum rule needs the enum; a stale list teaches the wrong one."""
+        block = prompt.split('\nCLASSI:\n', 1)[1].split('\n\n', 1)[0]
+        listed = [c.strip() for c in block.replace('\n', ' ').split(',')]
+        assert listed == TARGETS
+
+    @pytest.mark.parametrize('italian, coco', [
+        ('persona', 'person'), ('sedia', 'chair'), ('bottiglia', 'bottle'),
+        ('tavolo', 'dining table'), ('divano', 'couch'), ('zaino', 'backpack')])
+    def test_it_maps_italian_names_to_coco_classes(self, prompt, italian, coco):
+        assert f'{italian} -> "{coco}"' in prompt
+
+    def test_it_names_the_three_unsupported_kinds(self, prompt):
+        assert '"vai dalla porta"' in prompt           # not a class
+        assert '"vai da Marco"' in prompt              # an individual
+        assert '"la seconda sedia"' in prompt          # a selection
+        assert "PIU' VICINO" in prompt
+
+    def test_front_object_stays_the_generic_guard(self, prompt):
+        assert 'NON usare "front_object" per una cosa nominata' in prompt
+        assert 'COMPLETATA' in prompt
+        assert "fermati prima dell'ostacolo" in prompt
+
+    def test_its_examples_cover_the_work_order_commands(self):
+        examples = dict(intent_prompt_examples())
+        assert examples['vai dalla persona']['plan'] == [{'mode': 'go_to', 'target': 'person'}]
+        assert examples['raggiungi la sedia e fermati a un metro']['plan'] == [
+            {'mode': 'go_to', 'target': 'chair', 'thresh': 1.0}]
+        assert examples['vai verso la bottiglia e poi gira a destra']['plan'] == [
+            {'mode': 'go_to', 'target': 'bottle'}, {'mode': 'turn', 'dir': 'right'}]
+        assert examples['fermati a dieci centimetri dalla persona']['plan'] == [
+            {'mode': 'go_to', 'target': 'person', 'thresh': 0.1}]
+        assert examples['vai dalla porta'] == _intent(unsupported=['vai dalla porta'])
+        assert examples['vai da Marco'] == _intent(unsupported=['vai da Marco'])
 
 
-def test_the_prompt_still_permits_the_unnamed_case():
-    """A4. Over-refusal is a regression too."""
-    prompt = _prompt()
-
-    assert 'SUPPORTATO' in prompt
-    assert "fermati prima dell'ostacolo" in prompt
-    assert 'se il comando nomina una cosa specifica' in prompt
-
-
-def test_no_prompt_example_pairs_a_named_object_with_front_object():
-    """The example that used to teach exactly the forbidden substitution.
-
-    "vai avanti e fermati davanti alla sedia" -> front_object was a worked
-    example, and examples are the model's strongest signal. It now reads
-    "prima dell'ostacolo".
-    """
-    from llm.plan_translate import intent_prompt_examples
-
+@pytest.mark.parametrize('prompt_file', [INTENT_PROMPT_FILENAME, INTENT_PROMPT_NO_GO_TO_FILENAME])
+def test_no_prompt_example_pairs_a_named_object_with_front_object(prompt_file):
+    """Examples are the model's strongest signal; this pairing is the forbidden one."""
     named = ['sedia', 'bottiglia', 'tavolo', 'persona', 'chair', 'bottle']
-    for command, intent in intent_prompt_examples():
-        uses_front_object = any(
-            p.get('guard') == 'front_object' for p in intent['plan'])
-        if not uses_front_object:
-            continue
-        assert not any(word in command.lower() for word in named), (
-            f'{command!r} teaches the forbidden pairing')
+    for command, intent in intent_prompt_examples(prompt_file):
+        if any(p.get('guard') == 'front_object' for p in intent['plan']):
+            assert not any(word in command.lower() for word in named), command
 
 
-def test_the_refusal_examples_preserve_the_operator_wording():
-    """A2 requires the original text, not a paraphrase, in unsupported."""
-    from llm.plan_translate import intent_prompt_examples
+class TestPromptWithoutGoTo:
+    """The prompt go_to_enabled=False loads: the one before go_to was taught."""
 
-    refusals = [(c, i) for c, i in intent_prompt_examples()
-                if i['unsupported'] and 'bottiglia' in c]
-    assert refusals, 'the prompt must show at least one named-object refusal'
+    @pytest.fixture(scope='class')
+    def prompt(self):
+        return load_intent_prompt(INTENT_PROMPT_NO_GO_TO_FILENAME)
 
-    for command, intent in refusals:
-        assert any('bottiglia' in entry for entry in intent['unsupported']), (
-            f'{command!r} loses the operator wording: {intent["unsupported"]}')
+    def test_it_never_advertises_go_to(self, prompt):
+        assert 'go_to' not in prompt
+
+    def test_it_names_the_unsupported_request_class(self, prompt):
+        for phrase in ['vai verso la bottiglia', 'avvicinati alla persona',
+                       'segui la sedia', 'portati davanti al tavolo',
+                       'go to the bottle', 'drive toward the person',
+                       'approach the chair', 'follow me',
+                       'stop one metre from the table']:
+            assert phrase in prompt, f'{phrase!r} missing from the prompt'
+
+    def test_it_forbids_the_substitution_and_says_why(self, prompt):
+        assert 'NON sostituirli con "front_object"' in prompt
+        assert 'PIU\' VICINO' in prompt
+        assert 'COMPLETATA' in prompt
+        assert 'soglia indovinata' in prompt
+        assert '"turn" + "straight"' in prompt
+
+    def test_it_still_permits_the_unnamed_case(self, prompt):
+        assert 'SUPPORTATO' in prompt
+        assert "fermati prima dell'ostacolo" in prompt
+        assert 'se il comando nomina una cosa specifica' in prompt
+
+    def test_its_refusal_examples_preserve_the_operator_wording(self):
+        refusals = [(c, i) for c, i in intent_prompt_examples(INTENT_PROMPT_NO_GO_TO_FILENAME)
+                    if i['unsupported'] and 'bottiglia' in c]
+        assert refusals
+        for command, intent in refusals:
+            assert any('bottiglia' in entry for entry in intent['unsupported']), command
 
 
-def test_ambiguity_and_unsupported_do_not_share_a_message(monkeypatch, capsys):
-    """An operator who reads "comando ambiguo" concludes the planner is broken.
-
-    Both outcomes come through EmptyPlanError, and before the named-object
-    rule landed almost every one of them really was an ambiguity. Now the
-    common case is a request the robot cannot perform, and saying "ambiguo"
-    for it sends the operator looking for a fault that is not there. The
-    prompt already marks true ambiguity with an "ambiguo:" prefix, so that is
-    what splits them.
-    """
-    _, _, _, ambiguous_out = _run_plan_v2(
-        monkeypatch, capsys,
-        {'plan': [], 'unsupported': ['ambiguo: distanza non specificata']},
-        "gira e vai avanti un po'")
-
-    _, _, _, unsupported_out = _run_plan_v2(
-        monkeypatch, capsys,
-        {'plan': [], 'unsupported': ['vai avanti e fermati davanti alla sedia']},
-        'vai avanti e fermati davanti alla sedia')
-
-    assert 'ambiguo' in ambiguous_out
-    assert 'RICHIESTA NON SUPPORTATA' not in ambiguous_out
-
-    assert 'RICHIESTA NON SUPPORTATA' in unsupported_out
-    assert "fermati prima dell'ostacolo" in unsupported_out, (
-        'the refusal must say what IS supported, or the operator is stuck')
+def test_a_changed_gap_limit_gives_a_new_mission_id():
+    """The planner refuses to overwrite a mission file whose id matches but content does not."""
+    intent = _intent({'mode': 'go_to', 'target': 'person'})
+    a = translate(intent, gap_limits_for=_limits(gap_min=0.42)).mission
+    b = translate(intent, gap_limits_for=_limits(gap_min=0.72, class_margin=0.3)).mission
+    assert a['moves'][0]['go_to_object']['gap_m'] != b['moves'][0]['go_to_object']['gap_m']
+    assert a['mission_id'] != b['mission_id']
+    assert translate(intent, gap_limits_for=_limits(gap_min=0.42)).mission == a

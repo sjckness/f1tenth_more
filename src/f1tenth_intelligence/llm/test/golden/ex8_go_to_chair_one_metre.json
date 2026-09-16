@@ -1,0 +1,36 @@
+{
+  "command": "raggiungi la sedia e fermati a un metro",
+  "intent": {
+    "plan": [
+      {
+        "mode": "go_to",
+        "target": "chair",
+        "thresh": 1.0
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "mission": {
+    "mission_id": "llm_7432cac1b4c9",
+    "schema_version": "5.0",
+    "moves": [
+      {
+        "id": "move_0_go_to",
+        "go_to_object": {
+          "target_class": "chair",
+          "gap_m": 1.0,
+          "speed": 0.4,
+          "acquire_timeout_sec": 5.0,
+          "lost_grace_sec": 1.5
+        },
+        "stop_condition": {
+          "type": "object_reached"
+        },
+        "timeout_sec": 80,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

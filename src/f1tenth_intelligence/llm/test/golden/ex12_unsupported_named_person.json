@@ -1,0 +1,10 @@
+{
+  "command": "vai da Marco",
+  "intent": {
+    "plan": [],
+    "unsupported": [
+      "vai da Marco"
+    ]
+  },
+  "raises": "EmptyPlanError"
+}

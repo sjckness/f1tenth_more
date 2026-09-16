@@ -42,8 +42,9 @@ class _StubLogger:
 class _StubNode:
     """Just enough of LLMPlannerNode for the unbound methods under test."""
 
-    def __init__(self, prompt='PROMPT'):
+    def __init__(self, prompt='PROMPT', go_to_enabled=True):
         self._system_prompt = prompt
+        self._go_to_enabled = go_to_enabled
         self._logger = _StubLogger()
 
     def get_logger(self):
@@ -129,7 +130,7 @@ def test_an_invalid_intent_is_retried_then_succeeds():
         planned = LLMPlannerNode._plan_v2(node, 'vai dritto')
 
     assert planned is not None
-    mission, unsupported, _dt, attempts = planned
+    mission, unsupported, _dt, attempts, _notes = planned
     assert attempts == 2
     assert seen[0] is None and seen[1] is not None
     assert node.get_logger().lines['warn'], 'the retry must be logged'
@@ -171,7 +172,7 @@ def test_unsupported_is_carried_out_of_the_planner():
     intent = {'plan': [{'mode': 'straight', 'guard': 'wall', 'thresh': 3.0}],
               'unsupported': ['saltare sopra la scatola']}
     with patch('llm.llm_planner_node.get_intent_from_llm', return_value=intent):
-        _mission, unsupported, _dt, _attempts = LLMPlannerNode._plan_v2(node, 'x')
+        _mission, unsupported, _dt, _attempts, _notes = LLMPlannerNode._plan_v2(node, 'x')
     assert unsupported == ('saltare sopra la scatola',)
 
 

@@ -123,6 +123,7 @@ from llm.plan_translate import (
     PlanTranslationError,
     TranslatorOutputError,
     UnsupportedIntentModeError,
+    intent_prompt_filename,
     load_intent_prompt,
     phases_to_mission,
     translate,
@@ -588,6 +589,8 @@ def _describe_stop_condition(stop: dict) -> str:
         return f'ruotato di {stop["value"]} gradi'
     if t == 'time_elapsed':
         return f'trascorsi {stop.get("duration_sec")} s'
+    if t == 'object_reached':
+        return 'oggetto raggiunto alla distanza indicata sopra'
     return f'{t} {json.dumps({k: v for k, v in stop.items() if k != "type"})}'
 
 
@@ -615,7 +618,14 @@ def describe_mission(mission: dict) -> str:
     for i, move in enumerate(mission.get('moves', [])):
         drive = move.get('drive', {})
         mode = drive.get('mode')
-        if mode == 'wall_turn' and float(drive.get('turn_mag_deg', 0.0)) > 0.0:
+        target = move.get('go_to_object')
+        if target is not None:
+            # Not a drive step at all: without this branch it rendered as
+            # "vai dritto" with the controller's default speed.
+            azione = (f'vai verso "{target["target_class"]}" (il piu\' vicino), '
+                      f'fermati a {target["gap_m"]} m tra muso e bordo')
+            drive = {'speed': target.get('speed', 0.0)}
+        elif mode == 'wall_turn' and float(drive.get('turn_mag_deg', 0.0)) > 0.0:
             verso = 'sinistra' if float(drive.get('turn_sign', 0.0)) > 0 else 'destra'
             azione = f'gira a {verso} di {drive["turn_mag_deg"]} gradi'
         elif mode == 'wall_turn':
@@ -640,6 +650,31 @@ def describe_mission(mission: dict) -> str:
             f'       timeout  {move.get("timeout_sec")} s -> {move.get("on_timeout")}'
             + (f'\n       note     {", ".join(extra)}' if extra else ''))
     return '\n'.join(lines)
+
+
+# Cosa dire che E' supportato, sotto il banner RICHIESTA NON SUPPORTATA. Il
+# testo senza go_to e' quello di prima, identico; con go_to si aggiunge solo
+# la frase sull'oggetto piu' vicino di una classe.
+SUPPORTED_HINT_NO_GO_TO = (
+    '\nSupportato: andare dritto e fermarsi al muro, a una '
+    'distanza percorsa, o prima di cio\' che si trova davanti '
+    'senza nominarlo. Esempio: "vai dritto e fermati prima '
+    'dell\'ostacolo".')
+SUPPORTED_HINT_GO_TO = SUPPORTED_HINT_NO_GO_TO + (
+    '\nSupportato anche: andare verso l\'oggetto PIU\' VICINO di una classe '
+    'riconosciuta (persona, sedia, bottiglia...), non una persona per nome ne\' '
+    'un esemplare scelto. Esempio: "vai dalla persona".')
+
+
+def supported_hint(go_to_enabled: bool) -> str:
+    """Return the "what IS supported" line printed under a refusal."""
+    return SUPPORTED_HINT_GO_TO if go_to_enabled else SUPPORTED_HINT_NO_GO_TO
+
+
+def go_to_enabled_default() -> bool:
+    """stack_params.yaml's go_to_enabled, imported lazily (ament index)."""
+    from f1tenth_params.param_defaults import get_value
+    return bool(get_value('go_to_enabled'))
 
 
 class LLMPlannerNode(Node):
@@ -687,6 +722,8 @@ class LLMPlannerNode(Node):
         self.declare_parameter('llm_url', LLAMA_URL)
         self.declare_parameter('llm_timeout_sec', LLAMA_TIMEOUT)
         self.declare_parameter('planner_path', DEFAULT_PLANNER_PATH)
+        # go_to_enabled: stack_params.yaml's value, overridable per run.
+        self.declare_parameter('go_to_enabled', go_to_enabled_default())
         LLAMA_URL = str(self.get_parameter('llm_url').value)
         LLAMA_TIMEOUT = float(self.get_parameter('llm_timeout_sec').value)
 
@@ -704,21 +741,29 @@ class LLMPlannerNode(Node):
         # spenderebbe fino a 90s ad aspettare il server per poi fallire sul
         # primo comando per un file mancante. Un errore di packaging deve
         # fermare la costruzione, non la prima richiesta.
+        # go_to_enabled sceglie anche il PROMPT, non solo il traduttore: con
+        # false il modello riceve il prompt di prima, che non conosce go_to,
+        # invece di imparare go_to e vederselo rifiutare a ogni tentativo.
+        self._go_to_enabled = bool(self.get_parameter('go_to_enabled').value)
+        prompt_file = intent_prompt_filename(self._go_to_enabled)
         if self._planner_path == 'v2':
             try:
-                self._system_prompt = load_intent_prompt()
+                self._system_prompt = load_intent_prompt(prompt_file)
             except OSError as e:
                 raise RuntimeError(
                     f'planner_path=v2 ma il prompt non e\' leggibile: {e}. '
-                    f'Atteso prompts/{INTENT_PROMPT_FILENAME} nel sorgente o '
+                    f'Atteso prompts/{prompt_file} nel sorgente o '
                     'nella share directory installata del pacchetto llm.') from e
         else:
             self._system_prompt = SYSTEM_PROMPT
 
         spec = PLANNER_PATH_SPEC[self._planner_path]
+        prompt_desc = (f'prompts/{prompt_file}' if self._planner_path == 'v2'
+                       else spec['prompt'])
         self.get_logger().info(
-            f'planner_path={self._planner_path} -- prompt {spec["prompt"]}, '
-            f'validazione {spec["validation"]}, traduttore {spec["translator"]}')
+            f'planner_path={self._planner_path} -- prompt {prompt_desc}, '
+            f'validazione {spec["validation"]}, traduttore {spec["translator"]}, '
+            f'go_to_enabled={self._go_to_enabled}')
 
         # Readiness + warm-up check (pass readiness/warm-up, vedi modulo
         # docstring) -- PRIMA di qualsiasi altra cosa in questo __init__,
@@ -883,7 +928,7 @@ class LLMPlannerNode(Node):
         except PlanTranslationError as e:
             self.get_logger().error(f'Traduzione in missione fallita: {e}. Nulla caricato.')
             return None
-        return mission, (), dt, 1
+        return mission, (), dt, 1, ()
 
     def _plan_v2(self, command_text: str):
         """Percorso v2: prompt file -> intent_v1.json -> translate().
@@ -908,7 +953,7 @@ class LLMPlannerNode(Node):
                 return None
 
             try:
-                result = translate(intent)
+                result = translate(intent, go_to_enabled=self._go_to_enabled)
             except UnsupportedIntentModeError as e:
                 # B3: separable from an ordinary schema rejection on purpose.
                 # Getting here means the model authored a mode the prompt
@@ -950,10 +995,7 @@ class LLMPlannerNode(Node):
                           'e non e\' un errore del planner:')
                     for item in items:
                         print(f'  - {item}')
-                    print('\nSupportato: andare dritto e fermarsi al muro, a una '
-                          'distanza percorsa, o prima di cio\' che si trova davanti '
-                          'senza nominarlo. Esempio: "vai dritto e fermati prima '
-                          'dell\'ostacolo".')
+                    print(supported_hint(self._go_to_enabled))
                     self.get_logger().error(
                         'richiesta non supportata; nessuna missione emessa.')
                     return None
@@ -971,7 +1013,8 @@ class LLMPlannerNode(Node):
                     + json.dumps(e.mission, indent=2, ensure_ascii=False))
                 return None
 
-            return result.mission, result.unsupported, time.time() - t0, attempt
+            return (result.mission, result.unsupported, time.time() - t0, attempt,
+                    result.notes)
 
         # B1: the retry budget terminates in an explicit UNSUPPORTED outcome
         # carrying the operator's original words, not in a bare "planning
@@ -996,7 +1039,7 @@ class LLMPlannerNode(Node):
                    else self._plan_legacy(command_text))
         if planned is None:
             return False
-        mission, unsupported, dt, attempts = planned
+        mission, unsupported, dt, attempts, notes = planned
 
         tentativi = f', {attempts} tentativi' if attempts > 1 else ''
         print(f'\nmissione generata in {dt:.2f}s ({self._planner_path}{tentativi}), '
@@ -1004,6 +1047,11 @@ class LLMPlannerNode(Node):
         print(describe_mission(mission))
         print(f'\nJSON ({mission["mission_id"]}):')
         print(json.dumps(mission, indent=2, ensure_ascii=False))
+
+        # Cio' che il traduttore ha cambiato rispetto alla richiesta (oggi: una
+        # distanza da un oggetto alzata al minimo raggiungibile). Non blocca.
+        for note in notes:
+            print(f'\nNOTA: {note}')
 
         if unsupported:
             print('\n' + '!' * 72)

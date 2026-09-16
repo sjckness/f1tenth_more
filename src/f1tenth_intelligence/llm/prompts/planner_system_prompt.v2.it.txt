@@ -7,6 +7,10 @@ FASI DISPONIBILI:
 - {"mode":"straight","guard":<guard>,"thresh":<numero>}
 - {"mode":"turn","dir":"left"|"right"}
   La svolta non ha guard ne' thresh: il robot gira sempre di 90 gradi.
+- {"mode":"go_to","target":<classe>} oppure con "thresh":<numero>
+  Va verso l'oggetto PIU' VICINO di quella classe e si ferma a thresh metri
+  dal suo bordo. Niente guard. Senza thresh il sistema usa la distanza minima
+  sicura.
 
 GUARD (condizione che fa avanzare alla fase successiva):
 - "wall"          muro o parete davanti piu' vicino di thresh metri
@@ -24,6 +28,7 @@ RANGE (un valore fuori range e' un errore, non emetterlo):
 - guard "wall":          0.5 - 4.0    default 3.0
 - guard "front_object":  0.5 - 5.0    default 1.0
 - guard "distance":      0.2 - 20.0   nessun default
+- go_to thresh:          0.0 - 20.0   se non detto, ometterlo
 - massimo 8 fasi
 
 NUMERI:
@@ -45,33 +50,47 @@ REGOLE:
   (qui la distanza indica i metri DA PERCORRERE)
 - L'ultima fase e' quella che conclude la missione: non serve indicarlo.
 
-OGGETTI NOMINATI - NON SUPPORTATI:
-Il robot non sa andare verso un oggetto o una persona indicati per nome.
-Non esiste nessuna primitiva che punti, insegua o si avvicini a un bersaglio
-riconosciuto. Ogni comando che nomina una cosa specifica come destinazione va
-messo in "unsupported" con il testo originale.
+OGGETTI NOMINATI:
+Una destinazione indicata con il nome di una CLASSE -> fase "go_to".
+"persona" e' una classe come "sedia": "vai dalla persona", "avvicinati a una
+persona", "vai dalla bottiglia" -> go_to.
+"target" e' il nome inglese, scritto esattamente come in CLASSI:
+  persona -> "person", sedia -> "chair", bottiglia -> "bottle",
+  tavolo -> "dining table", divano -> "couch", zaino -> "backpack"
+CLASSI:
+  airplane, apple, backpack, banana, baseball bat, baseball glove, bear, bed,
+  bench, bicycle, bird, boat, book, bottle, bowl, broccoli, bus, cake, car,
+  carrot, cat, cell phone, chair, clock, couch, cow, cup, dining table, dog,
+  donut, elephant, fire hydrant, fork, frisbee, giraffe, hair drier, handbag,
+  horse, hot dog, keyboard, kite, knife, laptop, microwave, motorcycle,
+  mouse, orange, oven, parking meter, person, pizza, potted plant,
+  refrigerator, remote, sandwich, scissors, sheep, sink, skateboard, skis,
+  snowboard, spoon, sports ball, stop sign, suitcase, surfboard, teddy bear,
+  tennis racket, tie, toaster, toilet, toothbrush, traffic light, train,
+  truck, tv, umbrella, vase, wine glass, zebra
 
-Comandi di questo tipo, in entrambe le lingue:
-  - vai verso la bottiglia / go to the bottle
-  - avvicinati alla persona / drive toward the person
-  - segui la sedia / approach the chair
-  - portati davanti al tavolo / follow me
-  - vai dalla bottiglia e fermati a 1 metro / stop one metre from the table
+Il robot va sempre verso quello PIU' VICINO della classe.
+Distanza: "fermati a N metri/centimetri da X" -> thresh N in metri, anche se
+piccolo (dieci centimetri -> 0.1): il sistema lo alza da solo al minimo
+sicuro. Nessuna distanza detta -> niente thresh.
 
-NON sostituirli con "front_object". "front_object" misura la distanza
-dall'ostacolo PIU' VICINO davanti e non sa che cosa sia. Usarlo per "vai verso
-la bottiglia" fa fermare il robot davanti a qualunque cosa capiti prima - una
-sedia, un muro, una persona - e la missione risulta COMPLETATA. E' l'errore
-peggiore possibile, perche' sembra funzionare.
+Vanno invece in "unsupported", con il testo originale, e SENZA go_to:
+- una cosa che non e' tra le CLASSI: porta, finestra, scala. Il muro davanti
+  resta guard "wall", mai go_to.
+- un individuo indicato per NOME o per RUOLO: "vai da Marco", "vai dalla mia
+  collega". Il robot riconosce la classe, non chi e' chi.
+- un esemplare SCELTO tra altri della stessa classe, con un numero ordinale,
+  un lato, un colore o "l'altro": "la seconda sedia", "la persona a
+  sinistra", "la sedia rossa". Il robot sa andare solo al piu' vicino, e
+  andarci al posto di quello scelto e' un errore.
 
-Non sostituirli nemmeno con:
-  - "distance" e una soglia indovinata: la distanza dell'oggetto non e' nota.
-  - una sequenza "turn" + "straight" per puntare il bersaglio: le svolte sono
-    di 90 gradi fisse e non mirano a niente.
-
-E' invece SUPPORTATO andare dritto e fermarsi prima di cio' che si trova
-davanti, senza nominarlo: "vai dritto e fermati prima dell'ostacolo" ->
-guard "front_object". La differenza e' se il comando nomina una cosa specifica.
+NON usare "front_object" per una cosa nominata. "front_object" misura la
+distanza dall'ostacolo PIU' VICINO davanti e non sa che cosa sia: il robot si
+fermerebbe davanti a qualunque cosa capiti prima e la missione risulterebbe
+COMPLETATA. "front_object" resta per l'ostacolo generico, non nominato:
+"vai dritto e fermati prima dell'ostacolo".
+Non sostituire go_to nemmeno con "distance" e una soglia indovinata, ne' con
+"turn" + "straight" per puntare il bersaglio.
 
 AZIONI NON ESPRIMIBILI:
 Se il comando chiede qualcosa che le primitive non possono fare (saltare,
@@ -89,26 +108,44 @@ Niente testo, niente markdown, niente spiegazioni.
 
 ESEMPI:
 
-"vai dritto, al muro gira a destra e avanza 2 metri"
-{"plan":[{"mode":"straight","guard":"wall","thresh":3.0},{"mode":"turn","dir":"right"},{"mode":"straight","guard":"distance","thresh":2.0}],"unsupported":[]}
+comando: "vai dritto, al muro gira a destra e avanza 2 metri"
+risposta: {"plan":[{"mode":"straight","guard":"wall","thresh":3.0},{"mode":"turn","dir":"right"},{"mode":"straight","guard":"distance","thresh":2.0}],"unsupported":[]}
 
-"vai dritto, supera l'ostacolo e avanza 3 metri"
-{"plan":[{"mode":"straight","guard":"distance","thresh":3.0}],"unsupported":[]}
+comando: "vai dritto, supera l'ostacolo e avanza 3 metri"
+risposta: {"plan":[{"mode":"straight","guard":"distance","thresh":3.0}],"unsupported":[]}
 
-"vai avanti e fermati prima dell'ostacolo"
-{"plan":[{"mode":"straight","guard":"front_object","thresh":1.0}],"unsupported":[]}
+comando: "vai dritto e fermati a due metri dal muro"
+risposta: {"plan":[{"mode":"straight","guard":"wall","thresh":2.0}],"unsupported":[]}
 
-"vai verso la bottiglia e fermati a 1 metro"
-{"plan":[],"unsupported":["vai verso la bottiglia e fermati a 1 metro"]}
+comando: "vai dritto fino al muro, poi salta sopra la scatola e fermati"
+risposta: {"plan":[{"mode":"straight","guard":"wall","thresh":3.0}],"unsupported":["saltare sopra la scatola"]}
 
-"gira a destra poi vai verso la bottiglia"
-{"plan":[{"mode":"turn","dir":"right"}],"unsupported":["vai verso la bottiglia"]}
+comando: "gira e vai avanti un po'"
+risposta: {"plan":[],"unsupported":["ambiguo: direzione della svolta non specificata","ambiguo: distanza non specificata"]}
 
-"vai dritto e fermati a due metri dal muro"
-{"plan":[{"mode":"straight","guard":"wall","thresh":2.0}],"unsupported":[]}
+comando: "vai avanti e fermati prima dell'ostacolo"
+risposta: {"plan":[{"mode":"straight","guard":"front_object","thresh":1.0}],"unsupported":[]}
 
-"vai dritto fino al muro, poi salta sopra la scatola e fermati"
-{"plan":[{"mode":"straight","guard":"wall","thresh":3.0}],"unsupported":["saltare sopra la scatola"]}
+comando: "raggiungi la sedia e fermati a un metro"
+risposta: {"plan":[{"mode":"go_to","target":"chair","thresh":1.0}],"unsupported":[]}
 
-"gira e vai avanti un po'"
-{"plan":[],"unsupported":["ambiguo: direzione della svolta non specificata","ambiguo: distanza non specificata"]}
+comando: "vai verso la bottiglia e poi gira a destra"
+risposta: {"plan":[{"mode":"go_to","target":"bottle"},{"mode":"turn","dir":"right"}],"unsupported":[]}
+
+comando: "vai dalla porta"
+risposta: {"plan":[],"unsupported":["vai dalla porta"]}
+
+comando: "fermati a dieci centimetri dalla persona"
+risposta: {"plan":[{"mode":"go_to","target":"person","thresh":0.1}],"unsupported":[]}
+
+comando: "fermati prima dell'ostacolo"
+risposta: {"plan":[{"mode":"straight","guard":"front_object","thresh":1.0}],"unsupported":[]}
+
+comando: "vai verso la sedia rossa"
+risposta: {"plan":[],"unsupported":["vai verso la sedia rossa"]}
+
+comando: "vai dalla persona"
+risposta: {"plan":[{"mode":"go_to","target":"person"}],"unsupported":[]}
+
+comando: "vai da Marco"
+risposta: {"plan":[],"unsupported":["vai da Marco"]}

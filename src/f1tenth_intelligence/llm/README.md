@@ -1,7 +1,7 @@
 # llm
 
 Natural-language mission planning: an Italian command in, a validated
-`schema_version` 3.0 mission out.
+`schema_version` 3.0 mission out (5.0 when the plan has a go_to phase).
 
 ```
 comando (IT)
@@ -66,11 +66,15 @@ cannot drift.
 | `timeout_floor` | 5.0 | SYNTHETIC |
 | `mission_id_prefix` | `"llm"` | choice |
 | `post_turn_uses_straight` | true | see D1 |
+| `speed_go_to` | 0.4 | `missions/go_to_person.json`'s speed |
+| `go_to_acquire_timeout_sec` | 5.0 | `missions/go_to_person.json` |
+| `go_to_lost_grace_sec` | 1.5 | `missions/go_to_person.json` |
 
 `timeout_sec = clamp(ceil(expected_s * timeout_factor + timeout_floor), 1, 300)`,
 where `expected_s` is `thresh / speed_straight` for the `distance` guard,
 `open_guard_max_distance / speed_straight` for `wall` and `front_object`, and
-`radians(turn_magnitude_deg) / nominal_yaw_rate` for a turn.
+`radians(turn_magnitude_deg) / nominal_yaw_rate` for a turn, and
+`open_guard_max_distance / speed_go_to` for go_to.
 `open_guard_max_distance` exists because `wall` and `front_object` have no
 bounded travel: if the wall is never seen the move must still end. The
 generated missions before this work carried **no timeout at all**.
@@ -165,6 +169,37 @@ JSON Schema copy of v3.0. No such schema file exists in this repo, and writing
 one would create a second spelling of the rules that drifts from the loader the
 missions actually go through. The loader is the contract.
 
+## go_to and `go_to_enabled`
+
+`go_to_enabled` in `stack_params.yaml` (default **true**, read once when
+`llm_planner_node` starts; a ROS parameter of the same name overrides it for
+one run) switches between two planners:
+
+| | `true` | `false` |
+|---|---|---|
+| prompt | `prompts/planner_system_prompt.v2.it.txt` (teaches go_to) | `prompts/planner_system_prompt.v2.no_go_to.it.txt` (the prompt before go_to, byte for byte) |
+| a go_to phase | a `go_to_object` move, stop `object_reached`, schema 5.0 | `UnsupportedIntentModeError`, fed back as retry text |
+| refusal banner | adds the go_to example to the "Supportato" line | unchanged |
+
+A go_to phase is `{"mode":"go_to","target":<COCO class>[,"thresh":<m>]}`.
+`thresh` is the gap between the car's front and the object's near edge:
+
+- absent: `default_gap(target)`, which is gap_min rounded up to 0.1 m;
+- at least gap_min: used as given, rounded to 2 dp;
+- below gap_min: raised to gap_min, rounded up to 1 cm, and an Italian `NOTA`
+  printed with the requested and applied distances.
+
+gap_min comes from `f1tenth_params.object_geometry.gap_limits`, the same
+function the mission loader validates against. The mission_id hash covers the
+resolved gaps too, so a margin change yields a new file rather than a refused
+overwrite.
+
+The model is told to refuse three kinds of request: classes not in the enum,
+named individuals, and selections ("the second chair"). The live evals
+(`docs/analysis/2026-09-17_go_to_live_eval.md`) show qwen2.5-3b does **not**
+reliably refuse selections: "vai dalla persona a sinistra" was planned as
+go_to the nearest person.
+
 ## Selecting a path
 
 `planner_path` is a ROS parameter on `llm_planner_node`, `legacy` | `v2`,
@@ -205,4 +240,5 @@ reasonable.
 nothing in this repo writes there. The writer **refuses to overwrite a file
 whose content differs**; identical content is reused, because the v2
 `mission_id` is a hash of the intent, so re-issuing the same command hits the
-same filename by design rather than by collision.
+same filename by design rather than by collision. (For a go_to plan the hash
+also covers the resolved gaps, which come from stack_params.)

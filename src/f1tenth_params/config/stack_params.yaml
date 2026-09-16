@@ -2146,6 +2146,16 @@ mission_translator_speed_turn:
   default: 0.5
   # real: the turn speed of missions/wall_turn.json, run on hardware 2026-09-14
   description: "Speed [m/s] for a turn intent phase. The speed missions/wall_turn.json turns at, which is deliberately higher than the straight run-up."
+mission_translator_speed_go_to:
+  default: 0.4
+  # the speed of missions/go_to_person.json / go_to_chair.json (rig-verified, not floor-run)
+  description: "go_to_object.speed [m/s] for a go_to intent phase: the approach speed missions/go_to_person.json and go_to_chair.json use. Under max_forward_speed_mps."
+mission_translator_go_to_acquire_timeout_sec:
+  default: 5.0
+  description: "go_to_object.acquire_timeout_sec [s] for a go_to intent phase: how long the handler looks for a confirmed track of the class before the move fails target_not_found. Same value as missions/go_to_person.json."
+mission_translator_go_to_lost_grace_sec:
+  default: 1.5
+  description: "go_to_object.lost_grace_sec [s] for a go_to intent phase: how long a lost target is driven toward its last point at reduced speed before the move fails target_lost. Same value as missions/go_to_person.json."
 mission_translator_turn_magnitude_deg:
   default: 90.0
   description: "Magnitude [deg] of every turn the translator emits, written into BOTH drive.turn_mag_deg and stop_condition.value from one variable. The behaviour tree honours any value -- condition_eval's orientation_delta ends the move on abs(turn_accum_deg) >= abs(value), nothing clamps it to 90 -- so this is a real choice. It stays 90 because 90 is the only magnitude the stack has been run at, and the MPC side of a larger turn is unverified."
@@ -2171,3 +2181,18 @@ mission_translator_mission_id_prefix:
 mission_translator_post_turn_uses_straight:
   default: true
   description: "Decision D1. true: a straight phase after a turn is emitted as drive.mode 'straight', which is what plan_translate has always done and what missions/wall_turn_then_straight.json exercises. false restores the old workaround (re-emit it as a wall_turn carrying the previous turn's sign and zero magnitude) for the case where a straight move after a turn turns out not to hold its heading on hardware. NOT YET CONFIRMED ON HARDWARE -- wall_turn_then_straight.json has not been run."
+
+# ============================================================
+# go_to_enabled -- llm/llm_planner_node.py (planner_path v2)
+# ============================================================
+# The single switch between the planner with and without go_to. true: the
+# prompt teaches go_to (prompts/planner_system_prompt.v2.it.txt) and a go_to
+# phase becomes a go_to_object move. false: the planner behaves as before
+# go_to_object existed -- the prompt without go_to
+# (prompts/planner_system_prompt.v2.no_go_to.it.txt), the translator's
+# UnsupportedIntentModeError refusal and the RICHIESTA NON SUPPORTATA banner.
+# Read once at node start: restart llm_planner_node after flipping it. A ROS
+# parameter of the same name overrides it for one run.
+go_to_enabled:
+  default: true
+  description: "llm_planner_node (planner_path v2): true lets the LLM plan go_to phases, translated to go_to_object moves; false restores the refusal and banner of the planner without go_to. Read at node start."

@@ -4,24 +4,24 @@ Every other test in this package starts from a hand-written intent. These
 start from what an operator actually types, which is the only level at which
 a *prompt* change can be verified at all.
 
-That distinction matters more than it looks. The failure this suite exists to
-catch -- answering "vai verso la bottiglia" with
+The failure that matters most -- answering a named object with
 ``{"mode":"straight","guard":"front_object","thresh":1.0}`` -- produces a
-perfectly valid intent. It passes the schema, it translates, it loads, it
-drives, and it reports success at whatever happened to be nearest. **No
-amount of code can catch it**, because nothing downstream of the model knows
-the utterance named a specific object. The system prompt is the only defence,
-so the prompt is what has to be tested, and it can only be tested by running
-a model.
+perfectly valid intent that translates, loads, drives, and reports success at
+whatever happened to be nearest. Nothing downstream of the model knows the
+utterance named a specific thing, so the system prompt is the only defence,
+and it can only be tested by running a model.
+
+Each command is planned the way LLMPlannerNode._plan_v2 plans it: the
+translator's rejection text is fed back for up to MAX_INTENT_RETRIES extra
+attempts, and the attempt count is part of the result. The accepted intent
+is then judged against the command's expectation.
 
 Running these:
     llama-server up (see llm.launch.py)  ->  pytest -m llm
     otherwise                            ->  skipped, with a reason
 
-In CI they run only where a server is provisioned; `pytest -m "not llm"` is
-the default elsewhere, which is why the offline suite in
-test_intent_go_to.py covers the schema and translator halves separately.
 Sampling is temperature 0.0, so a pass here is reproducible rather than lucky.
+docs/analysis/go_to_live_eval.py runs the same cases and prints the table.
 """
 
 import socket
@@ -30,7 +30,15 @@ import urllib.parse
 import pytest
 
 from llm import llm_planner_node
-from llm.llm_planner_node import get_intent_from_llm, load_intent_prompt
+from llm.llm_planner_node import MAX_INTENT_RETRIES, get_intent_from_llm
+from llm.plan_translate import (
+    INTENT_PROMPT_NO_GO_TO_FILENAME,
+    EmptyPlanError,
+    IntentRangeError,
+    IntentSchemaError,
+    load_intent_prompt,
+    translate,
+)
 
 pytestmark = pytest.mark.llm
 
@@ -47,11 +55,112 @@ def _server_is_up() -> bool:
         return False
 
 
-pytest.mark.skipif  # noqa: B018 - referenced for readers of the decorator below
 requires_server = pytest.mark.skipif(
     not _server_is_up(),
     reason=f'no llama-server on {llm_planner_node.LLAMA_URL}; run with -m llm '
            'once one is up')
+
+
+def go_to(target, thresh=None):
+    phase = {'mode': 'go_to', 'target': target}
+    if thresh is not None:
+        phase['thresh'] = thresh
+    return phase
+
+
+def straight(guard, thresh):
+    return {'mode': 'straight', 'guard': guard, 'thresh': thresh}
+
+
+def turn(direction):
+    return {'mode': 'turn', 'dir': direction}
+
+
+REFUSED = 'refused'
+
+# (command, expected plan or REFUSED, why). A plan must match exactly and
+# carry no `unsupported`; REFUSED means an empty plan with the request in
+# `unsupported`, and in particular no go_to and no front_object/distance guess.
+CASES = [
+    ('vai dalla persona', [go_to('person')], 'class, no distance'),
+    ('raggiungi la sedia e fermati a un metro', [go_to('chair', 1.0)], 'class, distance'),
+    ('vai verso la bottiglia e poi gira a destra', [go_to('bottle'), turn('right')],
+     'multi-phase'),
+    ('fermati a dieci centimetri dalla persona', [go_to('person', 0.1)],
+     'distance below gap_min, written as said'),
+    ('vai dalla porta', REFUSED, 'not a class'),
+    ('vai da Marco', REFUSED, 'an individual'),
+    ("fermati prima dell'ostacolo", [straight('front_object', 1.0)], 'generic guard'),
+    ('avvicinati al divano', [go_to('couch')], 'Italian -> COCO'),
+    ('vai verso lo zaino e fermati a mezzo metro', [go_to('backpack', 0.5)], 'Italian -> COCO'),
+    ('vai al tavolo', [go_to('dining table')], 'two-word class'),
+    ('vai dalla persona a sinistra', REFUSED, 'selection'),
+    ('raggiungi la seconda sedia', REFUSED, 'selection'),
+    ('vai verso la finestra', REFUSED, 'not a class'),
+    ('vai dalla mia collega', REFUSED, 'an individual'),
+    ('vai verso il portatile', [go_to('laptop')], 'class not in the examples'),
+    ('gira a sinistra e poi vai dalla sedia', [turn('left'), go_to('chair')], 'multi-phase'),
+    ('vai dritto e fermati a due metri dal muro', [straight('wall', 2.0)],
+     'wall stays a guard'),
+    ('vai dritto, al muro gira a destra e avanza 2 metri',
+     [straight('wall', 3.0), turn('right'), straight('distance', 2.0)], 'unchanged'),
+    ('vai avanti e fermati prima di quello che trovi', [straight('front_object', 1.0)],
+     'generic guard'),
+    ('vai dalla bottiglia e fermati a due metri', [go_to('bottle', 2.0)], 'class, distance'),
+]
+
+# The go_to_enabled=False prompt: named objects refused, go_to never authored.
+NO_GO_TO_CASES = [
+    ('vai dalla persona', REFUSED, 'no go_to in this prompt'),
+    ('vai verso la bottiglia e fermati a 1 metro', REFUSED, 'no go_to in this prompt'),
+    ("vai avanti e fermati prima dell'ostacolo", [straight('front_object', 1.0)],
+     'generic guard'),
+]
+
+
+def plan_like_the_node(prompt, command, go_to_enabled=True):
+    """Return (intent, attempts, error) the way _plan_v2 reaches its answer."""
+    feedback = None
+    intent = None
+    for attempt in range(1, MAX_INTENT_RETRIES + 2):
+        try:
+            intent = get_intent_from_llm(command, prompt, feedback)
+        except Exception as exc:  # the node gives up on these without retrying
+            return intent, attempt, f'generation failed: {exc}'
+        try:
+            translate(intent, go_to_enabled=go_to_enabled)
+        except EmptyPlanError:
+            return intent, attempt, None
+        except (IntentSchemaError, IntentRangeError) as exc:
+            feedback = str(exc)
+            continue
+        return intent, attempt, None
+    return intent, MAX_INTENT_RETRIES + 1, f'retries exhausted: {feedback}'
+
+
+def judge(intent, expected):
+    """Return None when the intent meets the expectation, else the reason."""
+    if intent is None:
+        return 'no intent'
+    plan = intent.get('plan', [])
+    if expected == REFUSED:
+        if plan:
+            return f'expected a refusal, got plan {plan}'
+        if not intent.get('unsupported'):
+            return 'empty plan without an unsupported entry'
+        return None
+    if intent.get('unsupported'):
+        return f'unexpected unsupported {intent["unsupported"]}'
+    if plan != expected:
+        return f'plan {plan} != expected {expected}'
+    return None
+
+
+def run_case(prompt, command, expected, go_to_enabled=True):
+    intent, attempts, error = plan_like_the_node(prompt, command, go_to_enabled)
+    reason = error or judge(intent, expected)
+    return {'command': command, 'intent': intent, 'attempts': attempts,
+            'retries': attempts - 1, 'passed': reason is None, 'reason': reason}
 
 
 @pytest.fixture(scope='module')
@@ -59,111 +168,25 @@ def prompt():
     return load_intent_prompt()
 
 
-def plan_for(prompt, utterance):
-    return get_intent_from_llm(utterance, prompt)
+@pytest.fixture(scope='module')
+def no_go_to_prompt():
+    return load_intent_prompt(INTENT_PROMPT_NO_GO_TO_FILENAME)
 
 
-def guards(intent):
-    return [p.get('guard') for p in intent['plan'] if p['mode'] == 'straight']
-
-
-def assert_refused(intent, utterance):
-    """The request must be declined, and declined for the right reason."""
-    assert intent['unsupported'], (
-        f'{utterance!r} produced no unsupported entry: {intent}')
-    # The assertion that actually matters. Checking only `unsupported` would
-    # pass for the wrong reason -- a model that refused everything, or that
-    # refused *and* also emitted the substitution, would both slip through.
-    assert 'front_object' not in guards(intent), (
-        f'{utterance!r} fell back to the wrong-object substitution: {intent}')
-    assert 'distance' not in guards(intent), (
-        f'{utterance!r} guessed a distance threshold: {intent}')
-
-
-ITALIAN_OBJECT = [
-    'vai verso la bottiglia e fermati a 1 metro',
-    'vai verso la bottiglia',
-    'segui la sedia',
-    'portati davanti al tavolo',
-]
-ITALIAN_PERSON = ['avvicinati alla persona']
-ENGLISH_OBJECT = ['go to the bottle', 'approach the chair']
-ENGLISH_PERSON = ['drive toward the person', 'follow me']
+def test_there_are_at_least_fifteen_italian_commands():
+    assert len(CASES) >= 15
 
 
 @requires_server
-@pytest.mark.parametrize('utterance', ITALIAN_OBJECT)
-def test_italian_named_object_requests_are_refused(prompt, utterance):
-    assert_refused(plan_for(prompt, utterance), utterance)
+@pytest.mark.parametrize('command, expected, why', CASES, ids=[c[0] for c in CASES])
+def test_go_to_prompt(prompt, command, expected, why):
+    result = run_case(prompt, command, expected)
+    assert result['passed'], (why, result)
 
 
 @requires_server
-@pytest.mark.parametrize('utterance', ITALIAN_PERSON + ENGLISH_PERSON)
-def test_named_person_requests_are_refused(prompt, utterance):
-    """Phrased differently from object targets, so covered separately."""
-    assert_refused(plan_for(prompt, utterance), utterance)
-
-
-@requires_server
-@pytest.mark.parametrize('utterance', ENGLISH_OBJECT)
-def test_english_named_object_requests_are_refused(prompt, utterance):
-    assert_refused(plan_for(prompt, utterance), utterance)
-
-
-@requires_server
-@pytest.mark.parametrize('utterance', [
-    "vai dritto e fermati prima dell'ostacolo",
-    'vai avanti e fermati prima di quello che trovi',
-])
-def test_an_unnamed_obstacle_still_plans(prompt, utterance):
-    """Over-refusal guard.
-
-    A prompt that fixed the substitution by refusing everything would be a
-    regression, and the refusal tests above could not tell the difference.
-    The line is whether the utterance names a specific thing.
-    """
-    intent = plan_for(prompt, utterance)
-
-    assert intent['plan'], f'{utterance!r} should still be planned: {intent}'
-    assert 'front_object' in guards(intent), (
-        f'{utterance!r} is exactly what front_object is for: {intent}')
-    assert not intent['unsupported'], f'nothing to refuse here: {intent}'
-
-
-@requires_server
-def test_a_compound_request_is_planned_in_part_and_refused_in_part(prompt):
-    """Documented decision: PARTIAL, never silent.
-
-    "gira a destra poi vai verso la bottiglia" has an expressible half. The
-    prompt's existing AZIONI NON ESPRIMIBILI rule already says to emit the
-    executable part and list the rest, and ex4 (the jump example) has always
-    behaved that way, so refusing the whole thing would be the inconsistent
-    choice.
-
-    Partial is only defensible because it cannot be silent: a non-empty
-    `unsupported` forces an explicit operator confirmation in
-    process_command() before anything is loaded, whether or not --confirm was
-    passed. That gate is what makes this safe, not the model's judgement.
-    """
-    utterance = 'gira a destra poi vai verso la bottiglia'
-    intent = plan_for(prompt, utterance)
-
-    assert intent['unsupported'], f'the approach half must be declined: {intent}'
-    assert 'front_object' not in guards(intent), (
-        f'and must not become the substitution: {intent}')
-
-    turns = [p for p in intent['plan'] if p['mode'] == 'turn']
-    assert turns and turns[0]['dir'] == 'right', (
-        f'the expressible half should survive: {intent}')
-
-
-@requires_server
-def test_the_model_never_authors_go_to(prompt):
-    """go_to is in the schema and deliberately not in the prompt.
-
-    If this ever fails, the model invented the mode from somewhere, and the
-    translator's UnsupportedIntentModeError is the net that catches it.
-    """
-    for utterance in ITALIAN_OBJECT[:2] + ENGLISH_OBJECT[:1]:
-        intent = plan_for(prompt, utterance)
-        assert all(p['mode'] != 'go_to' for p in intent['plan']), intent
+@pytest.mark.parametrize('command, expected, why', NO_GO_TO_CASES,
+                         ids=[c[0] for c in NO_GO_TO_CASES])
+def test_no_go_to_prompt(no_go_to_prompt, command, expected, why):
+    result = run_case(no_go_to_prompt, command, expected, go_to_enabled=False)
+    assert result['passed'], (why, result)

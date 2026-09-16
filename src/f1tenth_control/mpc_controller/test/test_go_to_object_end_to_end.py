@@ -213,9 +213,15 @@ def _behaviours(clock, state):
     return goto, check, bb
 
 
-def _run_go_to_person(duration=40.0):
+def _run_go_to_person(duration=40.0, mission_path=None, speed_limits=None):
+    """Run a one-move person mission; go_to_person.json unless `mission_path` is given.
+
+    `speed_limits` (max_forward, max_reverse) applies MPC_corr's /drive clamp to
+    the plant, as the closed-loop rig's run_approach does; None leaves the
+    solver's command unclamped, which is what this file's own tests use.
+    """
     clock = _SimClock()
-    config = load_mission_file(str(BEHAVIOR_MISSIONS / 'go_to_person.json'))
+    config = load_mission_file(str(mission_path or BEHAVIOR_MISSIONS / 'go_to_person.json'))
     spec = config.moves[0].go_to_object
     state = MissionRuntimeState()
     goto, check, bb = _behaviours(clock, state)
@@ -236,6 +242,7 @@ def _run_go_to_person(duration=40.0):
     person_odom = None
     min_centre = math.inf
     reached_at = None
+    speeds = []
     for tick in range(int(duration / TS)):
         clock.t += TS
         mpc.x, mpc.y, mpc.yaw, mpc.v = float(x[0]), float(x[1]), float(x[2]), float(x[3])
@@ -282,13 +289,19 @@ def _run_go_to_person(duration=40.0):
             solver='rti', warm_start_z=warm)
         warm = shift_warm_start(info.get('zopt'), rig.HORIZON) if info else None
         mpc._publish_drive(float(u0[1]), float(u0[0]))
-        x = np.array(f1tenth_state_fcn_dt_beta(x, u0, TS, rig.WHEELBASE, rig.LR), dtype=float)
+        u_plant = np.asarray(u0, dtype=float)
+        if speed_limits is not None:
+            v_cmd, _ = rig.clamp_drive_speed(x[3] + u_plant[1] * TS, *speed_limits)
+            u_plant = np.array([u_plant[0], (v_cmd - x[3]) / TS])
+        x = np.array(f1tenth_state_fcn_dt_beta(x, u_plant, TS, rig.WHEELBASE, rig.LR),
+                     dtype=float)
+        speeds.append(float(x[3]))
         last_u = np.asarray(u0, dtype=float)
         min_centre = min(min_centre, math.hypot(person_odom[0] - x[0], person_odom[1] - x[1]))
 
     return SimpleNamespace(clock=clock, state=state, goto=goto, check=check, mpc=mpc,
                            wire=wire, x=x, reached_at=reached_at, spec=spec,
-                           centre_standoff=centre_standoff,
+                           centre_standoff=centre_standoff, speeds=speeds,
                            person_odom=person_odom, min_centre=min_centre)
 
 

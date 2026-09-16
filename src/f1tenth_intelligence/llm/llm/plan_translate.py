@@ -143,6 +143,13 @@ import jsonschema
 # requirement on exactly this string.
 MISSION_SCHEMA_VERSION = '3.0'
 
+# The version translate() stamps instead when the plan carries a go_to phase:
+# the go_to_object step and its gap_m exist only from mission schema 5.0 (see
+# mission_config.ObjectSpec). A plan without go_to keeps "3.0", so every
+# mission this module emitted before go_to existed is still emitted byte for
+# byte.
+OBJECT_MISSION_SCHEMA_VERSION = '5.0'
+
 # Consecutive satisfied ticks a "wall"-guarded phase needs before it advances.
 # f110_autonomy used wall_count_needed = 3 against a raw, unfiltered depth
 # value that could dip below the threshold for a single frame on noise alone.
@@ -454,9 +461,10 @@ class IntentSchemaError(PlanTranslationError):
 
 
 class UnsupportedIntentModeError(IntentSchemaError):
-    """The model authored a mode the schema allows and the runtime cannot run.
+    """The model authored go_to while the planner runs with go_to_enabled=False.
 
-    A subclass of IntentSchemaError so _plan_v2 still feeds it back as retry
+    Raised only on that path: with go_to_enabled=True a go_to phase becomes a
+    go_to_object move. A subclass of IntentSchemaError so _plan_v2 still feeds it back as retry
     text, but a distinct type so the node can log it separately: reaching this
     means the model ignored the system prompt, which is a prompt-quality
     signal worth counting. A request the model correctly routed to
@@ -528,6 +536,12 @@ class TranslatorConfig:
     # turn at 0.5 -- these are those two values, not an independent guess.
     speed_straight: float = 0.4
     speed_turn: float = 0.5
+
+    # A go_to phase's go_to_object fields: the values missions/go_to_person.json
+    # and go_to_chair.json run with (speed, acquire_timeout_sec, lost_grace_sec).
+    speed_go_to: float = 0.4
+    go_to_acquire_timeout_sec: float = 5.0
+    go_to_lost_grace_sec: float = 1.5
 
     # The magnitude every emitted turn carries. See translate()'s own note on
     # D2: the behaviour tree honours whatever value it is given, so this is a
@@ -617,6 +631,10 @@ class TranslationResult:
     requires_confirmation: bool
     unsupported: tuple
     provenance: Optional[dict] = None
+    # Operator-facing Italian notes on what translate() changed from what was
+    # asked -- today only a go_to distance raised to the reachable minimum.
+    # Printed by llm_planner_node beside the mission; they never gate it.
+    notes: tuple = ()
 
 
 def _round_m(value: float) -> float:
@@ -638,13 +656,17 @@ def _expected_seconds(phase: dict, cfg: TranslatorConfig) -> float:
         wall          open_guard_max_distance / speed_straight
         front_object  open_guard_max_distance / speed_straight
         turn          radians(turn_magnitude_deg) / nominal_yaw_rate
+        go_to         open_guard_max_distance / speed_go_to
 
     The two open guards have no bounded travel, which is the whole reason
     open_guard_max_distance exists: a wall that is never seen must still end
-    the move.
+    the move. go_to is open in the same way -- the object's distance is not
+    known when the mission is written.
     """
     if phase['mode'] == 'turn':
         return math.radians(cfg.turn_magnitude_deg) / cfg.nominal_yaw_rate
+    if phase['mode'] == 'go_to':
+        return cfg.open_guard_max_distance / cfg.speed_go_to
     guard = phase['guard']
     if guard == 'distance':
         return float(phase['thresh']) / cfg.speed_straight
@@ -669,8 +691,80 @@ def _check_ranges(plan) -> None:
             raise IntentRangeError(guard, value, low, high)
 
 
-def _intent_move(i, phase, cfg, prev_turn_sign, prov):
-    """One intent phase -> one v3.0 move, recording provenance for every leaf.
+def _default_gap_limits(target_class):
+    """object_geometry.gap_limits() over stack_params.yaml, imported lazily.
+
+    Lazily for the same reason as TranslatorConfig.from_stack_params(): it
+    resolves stack_params through the ament index. Only a go_to phase needs
+    it, so a plan without one still translates without an index.
+    """
+    from f1tenth_params.object_geometry import gap_limits
+    return gap_limits(target_class)
+
+
+def _ceil_cm(value: float) -> float:
+    """Round a distance UP to whole centimetres (noise-safe, like default_gap)."""
+    return math.ceil(round(float(value) * 100.0, 5)) / 100.0
+
+
+def _go_to_object_move(i, phase, cfg, prov, gap_limits_for, notes):
+    """Build the go_to_object body of a go_to phase (mission schema 5.0).
+
+    gap_m is the distance between the car's front and the object's near edge
+    (mission_config.ObjectSpec). Three cases, each with its own provenance:
+
+        thresh absent             default_gap(target)          DERIVED
+        thresh >= gap_min         thresh, rounded to 2 dp      INTENT
+        thresh <  gap_min         gap_min rounded UP to 1 cm   DERIVED, + note
+
+    The clamp replaces what would otherwise be a loader rejection: a gap below
+    gap_min cannot complete (the target is also an obstacle the controller
+    keeps its front away from), and "fermati a dieci centimetri dalla persona"
+    is a request with a clear safe reading, not a malformed plan to retry.
+    Rounding up rather than to nearest keeps the emitted value >= gap_min, so
+    the loader's own check cannot reject it.
+    """
+    at = f'moves[{i}]'
+    target = phase['target']
+    limits = gap_limits_for(target)
+    if 'thresh' not in phase:
+        gap = _round_m(limits.default_gap)
+        prov[f'{at}.go_to_object.gap_m'] = (
+            DERIVED, 'object_geometry.default_gap(gap_min(target)): gap_min rounded up to 0.1 m')
+    else:
+        requested = _round_m(phase['thresh'])
+        if requested < limits.gap_min - 1e-9:
+            gap = _ceil_cm(limits.gap_min)
+            prov[f'{at}.go_to_object.gap_m'] = (
+                DERIVED, f'plan[{i}].thresh below gap_min(target): gap_min rounded up to 1 cm')
+            notes.append(
+                f'fase {i}, go_to "{target}": distanza richiesta {requested:.2f} m, '
+                f'applicata {gap:.2f} m. Sotto {gap:.2f} m il robot non riesce a '
+                'fermarsi: e\' la distanza minima tra il muso e il bordo dell\'oggetto '
+                f'(raggio auto {limits.car_radius:.2f} + margine di evitamento '
+                f'{limits.avoidance_margin:.2f} + margine di classe '
+                f'{limits.class_margin:.2f} + tolleranza d\'arresto '
+                f'{limits.settle_buffer:.2f} m).')
+        else:
+            gap = requested
+            prov[f'{at}.go_to_object.gap_m'] = (INTENT, f'plan[{i}].thresh, rounded to 2 dp')
+    body = {
+        'target_class': target,
+        'gap_m': gap,
+        'speed': cfg.speed_go_to,
+        'acquire_timeout_sec': cfg.go_to_acquire_timeout_sec,
+        'lost_grace_sec': cfg.go_to_lost_grace_sec,
+    }
+    prov[f'{at}.go_to_object.target_class'] = (INTENT, f'plan[{i}].target')
+    prov[f'{at}.go_to_object.speed'] = (CONFIG, 'speed_go_to')
+    prov[f'{at}.go_to_object.acquire_timeout_sec'] = (CONFIG, 'go_to_acquire_timeout_sec')
+    prov[f'{at}.go_to_object.lost_grace_sec'] = (CONFIG, 'go_to_lost_grace_sec')
+    return body
+
+
+def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
+                 gap_limits_for=None, notes=None):
+    """One intent phase -> one mission move, recording provenance for every leaf.
 
     prev_turn_sign is the turn_sign of the most recent turn phase, or None,
     and is used only by the post_turn_uses_straight=False branch.
@@ -678,13 +772,8 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov):
     at = f'moves[{i}]'
     mode = phase['mode']
 
-    # go_to validates against intent_v1.json but CANNOT BE EXECUTED by this
-    # runtime, and the gap is not in this translator -- see the schema branch's
-    # own description. mission_config.DRIVE_MODES is {'straight', 'wall_turn'}
-    # and its comment says outright that "neither carries a target"; nothing
-    # bridges a detected class to a pose either, because the two halves never
-    # meet (runtime.DetectionInfo is (last_seen, score) with no position, and
-    # Obstacle2D.msg is x/y/r with no class).
+    # go_to_enabled=False is the planner's switch back to the stack before
+    # go_to_object existed, and it refuses exactly as that stack did.
     #
     # Refused HERE, as an IntentSchemaError, for two reasons. Without this the
     # phase falls through to the straight branch below and dies on
@@ -694,7 +783,7 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov):
     # IntentSchemaError is the one _plan_v2 feeds back to the model as retry
     # text, so the model is told to re-plan with the request in `unsupported`,
     # where the operator actually sees it.
-    if mode == 'go_to':
+    if mode == 'go_to' and not go_to_enabled:
         # Written for the MODEL, not for a log reader: _plan_v2 appends this
         # verbatim to the next prompt, where it competes with the system
         # prompt for attention. Italian to match the prompt and the wrapper
@@ -709,7 +798,16 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov):
     move = {'id': f'move_{i}_{mode}'}
     prov[f'{at}.id'] = (DERIVED, 'f"move_{index}_{intent mode}"')
 
-    if mode == 'turn':
+    if mode == 'go_to':
+        # Never falls through to the straight branch: a go_to that reached
+        # here is a go_to_object move or nothing.
+        move['go_to_object'] = _go_to_object_move(
+            i, phase, cfg, prov, gap_limits_for or _default_gap_limits,
+            notes if notes is not None else [])
+        move['stop_condition'] = {'type': 'object_reached'}
+        prov[f'{at}.stop_condition.type'] = (
+            CONST, 'object_reached -- the only stop condition a go_to_object step takes')
+    elif mode == 'turn':
         turn_sign = TURN_SIGN[phase['dir']]
         mag = _round_deg(cfg.turn_magnitude_deg)
         move['drive'] = {
@@ -769,7 +867,7 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov):
     return move
 
 
-def _validate_output(mission: dict) -> None:
+def _validate_output(mission: dict, gap_limits_for=None) -> None:
     """Reject a mission the stack's own loader would reject, before it ships.
 
     Deliberately calls mission_config.parse_mission() rather than checking a
@@ -789,7 +887,7 @@ def _validate_output(mission: dict) -> None:
             'Refusing to emit an unvalidated mission.', mission) from exc
 
     try:
-        parse_mission(mission)
+        parse_mission(mission, gap_limits_for=gap_limits_for)
     except MissionConfigError as exc:
         raise TranslatorOutputError(
             f'translator produced a mission the loader rejects: {exc}', mission) from exc
@@ -805,8 +903,15 @@ def _validate_output(mission: dict) -> None:
             mission)
 
 
-def translate(intent, *, config=None, explain=False) -> TranslationResult:
-    """Translate an intent_v1 document into a validated mission v3.0.
+def translate(intent, *, config=None, explain=False, go_to_enabled=True,
+              gap_limits_for=None) -> TranslationResult:
+    """Translate an intent_v1 document into a validated mission.
+
+    Schema "3.0", or "5.0" when the plan carries a go_to phase, which becomes
+    a go_to_object move (see _go_to_object_move). go_to_enabled=False refuses
+    go_to with UnsupportedIntentModeError instead, as before go_to_object
+    existed. gap_limits_for(target_class) -> object_geometry.GapLimits, used
+    for go_to and handed to the loader's own check; None reads stack_params.
 
     Emits nothing that is not INTENT, CONFIG, DERIVED or CONST -- see this
     section's header comment. Never returns a partial or patched mission: on
@@ -845,37 +950,56 @@ def translate(intent, *, config=None, explain=False) -> TranslationResult:
 
     prov = {}
     moves = []
+    notes = []
     prev_turn_sign = None
     for i, phase in enumerate(plan):
-        moves.append(_intent_move(i, phase, cfg, prev_turn_sign, prov))
+        moves.append(_intent_move(i, phase, cfg, prev_turn_sign, prov,
+                                  go_to_enabled=go_to_enabled,
+                                  gap_limits_for=gap_limits_for, notes=notes))
         if phase['mode'] == 'turn':
             prev_turn_sign = TURN_SIGN[phase['dir']]
 
     moves[-1]['terminal'] = True
     prov[f'moves[{len(moves) - 1}].terminal'] = (DERIVED, 'True on the last move only')
 
+    has_go_to = any(phase['mode'] == 'go_to' for phase in plan)
+    id_source = _canonical_json(intent)
+    if has_go_to:
+        # A go_to move's gap_m comes from stack_params as well as the intent
+        # (default and clamp both read gap_min). Hashing the resolved gaps too
+        # gives a new id when a margin changes, instead of a collision that
+        # llm_planner_node._write_mission_file refuses to overwrite.
+        id_source += _canonical_json(
+            [m['go_to_object']['gap_m'] for m in moves if 'go_to_object' in m])
     mission_id = '{}_{}'.format(
         cfg.mission_id_prefix,
-        hashlib.sha1(_canonical_json(intent).encode('utf-8')).hexdigest()[:12])
+        hashlib.sha1(id_source.encode('utf-8')).hexdigest()[:12])
+    schema_version = OBJECT_MISSION_SCHEMA_VERSION if has_go_to else MISSION_SCHEMA_VERSION
     mission = {
         'mission_id': mission_id,
-        'schema_version': MISSION_SCHEMA_VERSION,
+        'schema_version': schema_version,
         'moves': moves,
     }
     # Deterministic BY CONSTRUCTION: sha1 over the canonical intent, never a
     # timestamp. The same intent yields the same mission byte for byte, which
     # is what makes the golden fixtures stable and lets a re-issued command be
-    # recognised as the same mission.
-    prov['mission_id'] = (DERIVED, 'f"{mission_id_prefix}_{sha1(canonical_json(intent))[:12]}"')
-    prov['schema_version'] = (CONST, MISSION_SCHEMA_VERSION)
+    # recognised as the same mission. (With go_to: the same intent under the
+    # same stack_params.)
+    prov['mission_id'] = (
+        DERIVED, 'f"{mission_id_prefix}_{sha1(canonical_json(intent) '
+                 '[+ canonical_json(go_to gap_m list) when go_to is present])[:12]}"')
+    prov['schema_version'] = (
+        CONST,
+        f'{schema_version} -- {OBJECT_MISSION_SCHEMA_VERSION} when a go_to phase is present')
 
-    _validate_output(mission)
+    _validate_output(mission, gap_limits_for=gap_limits_for)
 
     return TranslationResult(
         mission=mission,
         requires_confirmation=bool(unsupported),
         unsupported=unsupported,
         provenance=prov if explain else None,
+        notes=tuple(notes),
     )
 
 
@@ -884,6 +1008,17 @@ def translate(intent, *, config=None, explain=False) -> TranslationResult:
 # pinned independently of the code that sends it -- and so the test below can
 # parse its worked examples and check them against the schema.
 INTENT_PROMPT_FILENAME = 'planner_system_prompt.v2.it.txt'
+
+# The same prompt as it was before go_to was taught, byte for byte: go_to is
+# never mentioned and every named-object request goes to "unsupported".
+# llm_planner_node loads it when go_to_enabled is false, so switching go_to
+# off restores the model's behaviour and not only the translator's refusal.
+INTENT_PROMPT_NO_GO_TO_FILENAME = 'planner_system_prompt.v2.no_go_to.it.txt'
+
+
+def intent_prompt_filename(go_to_enabled: bool) -> str:
+    """Return the prompt file the v2 planner sends for this go_to_enabled value."""
+    return INTENT_PROMPT_FILENAME if go_to_enabled else INTENT_PROMPT_NO_GO_TO_FILENAME
 
 
 def _prompt_path(filename: str) -> pathlib.Path:
@@ -914,11 +1049,21 @@ def intent_prompt_examples(filename: str = INTENT_PROMPT_FILENAME):
     The prompt's examples are the model's strongest signal, and a wrong one
     teaches the wrong output directly. Parsing them here lets the test suite
     hold them to the same schema everything else is held to.
+
+    Two spellings are read. The prompt without go_to writes a bare quoted
+    command line followed by the JSON line; the go_to prompt writes
+    `comando: "..."` / `risposta: {...}`, the same framing _completion() puts
+    around the real command, which the live evals showed the 3B model follows
+    more reliably.
     """
     pairs = []
     pending = None
     for line in load_intent_prompt(filename).splitlines():
         stripped = line.strip()
+        if stripped.startswith('comando: '):
+            stripped = stripped[len('comando: '):]
+        elif stripped.startswith('risposta: '):
+            stripped = stripped[len('risposta: '):]
         if stripped.startswith('"') and stripped.endswith('"') and len(stripped) > 1:
             pending = stripped[1:-1]
         elif stripped.startswith('{') and pending is not None:

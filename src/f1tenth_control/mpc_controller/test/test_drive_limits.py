@@ -113,10 +113,9 @@ class TestDefaultsChangeNoRequestedSpeed:
                 for key in ('drive', 'turn', 'go_to_object'):
                     if isinstance(move.get(key), dict) and 'speed' in move[key]:
                         speeds.append((path.name, key, float(move[key]['speed'])))
-        speeds.append(('stack_params', 'mission_translator_speed_straight',
-                       float(get_value('mission_translator_speed_straight'))))
-        speeds.append(('stack_params', 'mission_translator_speed_turn',
-                       float(get_value('mission_translator_speed_turn'))))
+        for key in ('mission_translator_speed_straight', 'mission_translator_speed_turn',
+                    'mission_translator_speed_go_to'):
+            speeds.append(('stack_params', key, float(get_value(key))))
         return speeds
 
     def test_every_requested_speed_is_inside_the_limits(self):

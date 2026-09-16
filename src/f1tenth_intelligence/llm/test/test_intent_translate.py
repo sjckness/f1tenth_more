@@ -23,6 +23,7 @@ from llm.plan_translate import (
     EmptyPlanError,
     GUARD_THRESH_RANGE,
     INTENT,
+    INTENT_PROMPT_NO_GO_TO_FILENAME,
     IntentRangeError,
     IntentSchemaError,
     TIMEOUT_MAX_SEC,
@@ -48,8 +49,13 @@ def _golden(name):
 
 
 def _golden_names():
-    """Every golden fixture that carries a mission (i.e. not the empty-plan one)."""
+    """Every golden fixture that carries a mission (i.e. not the empty-plan ones)."""
     return sorted(p.stem for p in GOLDEN_DIR.glob('*.json') if 'mission' in _golden(p.stem))
+
+
+def _golden_refusal_names():
+    """Every golden fixture whose intent must emit no mission."""
+    return sorted(p.stem for p in GOLDEN_DIR.glob('*.json') if 'raises' in _golden(p.stem))
 
 
 def _leaf_paths(node, prefix=''):
@@ -127,8 +133,13 @@ def test_mission_id_changes_when_the_intent_changes():
 
 
 # ---------------------------------------------------------------------------
-# 3. golden pairs -- the five prompt examples
+# 3. golden pairs -- prompt examples and the go_to work order's commands
 # ---------------------------------------------------------------------------
+#
+# A go_to golden's gap_m comes from stack_params (object_geometry.gap_limits:
+# car_radius, obstacle_safety_margin_m, obstacle_class_margin_m,
+# object_gap_settle_buffer_m). Changing one of those changes ex7/ex9/ex10 --
+# regenerate them in the same commit.
 
 @pytest.mark.parametrize('name', _golden_names())
 def test_golden_pair_still_translates_to_its_committed_mission(name):
@@ -141,6 +152,20 @@ def test_golden_pair_still_translates_to_its_committed_mission(name):
     result = translate(case['intent'])
     assert result.mission == case['mission']
     assert result.requires_confirmation == case['requires_confirmation']
+    assert list(result.notes) == case.get('notes', [])
+
+
+@pytest.mark.parametrize('name', sorted(p.stem for p in GOLDEN_DIR.glob('*.json')))
+def test_every_golden_intent_parses_against_the_schema(name):
+    jsonschema.validate(_golden(name)['intent'], load_intent_schema())
+
+
+@pytest.mark.parametrize('name', _golden_refusal_names())
+def test_a_golden_refusal_emits_no_mission(name):
+    case = _golden(name)
+    assert case['raises'] == 'EmptyPlanError'
+    with pytest.raises(EmptyPlanError):
+        translate(case['intent'])
 
 
 def test_prompt_example_five_emits_no_mission_at_all():
@@ -160,8 +185,9 @@ def test_no_golden_mission_carries_the_bug_that_motivated_this_work():
     """
     for name in _golden_names():
         for move in _golden(name)['mission']['moves']:
-            mag = move['drive'].get('turn_mag_deg')
-            if mag is not None and move['drive']['mode'] == 'wall_turn':
+            drive = move.get('drive', {})
+            mag = drive.get('turn_mag_deg')
+            if mag is not None and drive['mode'] == 'wall_turn':
                 assert mag == TranslatorConfig().turn_magnitude_deg
                 assert round(mag, 1) == mag
 
@@ -448,18 +474,36 @@ def test_the_prompt_ships_all_its_worked_examples():
     alla sedia" became "fermati prima dell'ostacolo" -- because the old one
     named a specific object while using front_object, which is exactly the
     substitution the prompt now forbids. Its intent is untouched.
+
+    Twelve when go_to was first taught. The two refusal examples were replaced by
+    six go_to ones: "vai dalla persona", "raggiungi la sedia e fermati a un
+    metro", "vai verso la bottiglia e poi gira a destra", "fermati a dieci
+    centimetri dalla persona" (clamped by the translator), and the refusals
+    "vai dalla porta" (not a class) and "vai da Marco" (an individual). The
+    prompt without go_to keeps its eight.
+
+    Fourteen after the live evals: "vai verso la sedia rossa" (a selection,
+    refused) and the bare "fermati prima dell'ostacolo" (front_object, placed
+    beside the clamped person example -- without it the model answered the
+    bare command with go_to "front_object"). The go_to prompt also switched
+    its examples to the comando:/risposta: framing the real request uses.
     """
-    assert len(intent_prompt_examples()) == 8
+    assert len(intent_prompt_examples()) == 14
+    assert len(intent_prompt_examples(INTENT_PROMPT_NO_GO_TO_FILENAME)) == 8
 
 
-def test_every_prompt_example_is_a_valid_intent():
+@pytest.mark.parametrize('prompt_file', [None, INTENT_PROMPT_NO_GO_TO_FILENAME],
+                         ids=['go_to', 'no_go_to'])
+def test_every_prompt_example_is_a_valid_intent(prompt_file):
     """The examples are the model's strongest signal, so they are held to the schema.
 
     A worked example that the schema would reject teaches the model to produce
     rejected output, and nothing else in the pipeline would catch it -- the
     prompt is data, not code, so no import or call site ever touches it.
     """
-    for command, intent in intent_prompt_examples():
+    examples = (intent_prompt_examples(prompt_file) if prompt_file
+                else intent_prompt_examples())
+    for command, intent in examples:
         jsonschema.validate(intent, load_intent_schema()), command
 
 

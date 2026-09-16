@@ -1,0 +1,39 @@
+{
+  "command": "fermati a dieci centimetri dalla persona",
+  "intent": {
+    "plan": [
+      {
+        "mode": "go_to",
+        "target": "person",
+        "thresh": 0.1
+      }
+    ],
+    "unsupported": []
+  },
+  "requires_confirmation": false,
+  "notes": [
+    "fase 0, go_to \"person\": distanza richiesta 0.10 m, applicata 0.42 m. Sotto 0.42 m il robot non riesce a fermarsi: e' la distanza minima tra il muso e il bordo dell'oggetto (raggio auto 0.20 + margine di evitamento 0.12 + margine di classe 0.00 + tolleranza d'arresto 0.10 m)."
+  ],
+  "mission": {
+    "mission_id": "llm_76c0cef4fdb7",
+    "schema_version": "5.0",
+    "moves": [
+      {
+        "id": "move_0_go_to",
+        "go_to_object": {
+          "target_class": "person",
+          "gap_m": 0.42,
+          "speed": 0.4,
+          "acquire_timeout_sec": 5.0,
+          "lost_grace_sec": 1.5
+        },
+        "stop_condition": {
+          "type": "object_reached"
+        },
+        "timeout_sec": 80,
+        "on_timeout": "abort",
+        "terminal": true
+      }
+    ]
+  }
+}

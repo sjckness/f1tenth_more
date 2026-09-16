@@ -39,6 +39,9 @@
        CheckStopCondition behaviours against this package's controller. Test
        only: nothing in mpc_controller imports f1tenth_behavior at run time. -->
   <test_depend>f1tenth_behavior</test_depend>
+  <!-- test_llm_go_to_end_to_end.py starts the same chain from the LLM
+       translator and the planner's mission writer. Test only as well. -->
+  <test_depend>llm</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

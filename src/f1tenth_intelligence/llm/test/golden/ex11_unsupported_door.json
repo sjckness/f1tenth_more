@@ -1,0 +1,10 @@
+{
+  "command": "vai dalla porta",
+  "intent": {
+    "plan": [],
+    "unsupported": [
+      "vai dalla porta"
+    ]
+  },
+  "raises": "EmptyPlanError"
+}
