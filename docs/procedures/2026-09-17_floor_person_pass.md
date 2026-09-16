@@ -101,6 +101,31 @@ ros2 service call /mission/start_mission std_srvs/srv/Trigger {}
 After the run: stop the bag, tape-measure the car's stop position, and record
 the run in the log below.
 
+**If `ros2 service call` hangs or reports no service.** The `ros2` CLI is
+unreliable under this stack's Discovery Server (node/topic listing and
+`param get` are known blind; service calls are untested here). The same two
+calls through rclpy, which does discover the graph:
+```bash
+python3 - /tmp/person_pass_5m.json <<'PY'
+import sys, rclpy
+from f1tenth_messages.srv import LoadMission
+from std_srvs.srv import Trigger
+rclpy.init(); n = rclpy.create_node('person_pass_caller')
+def call(cli, req):
+    assert cli.wait_for_service(timeout_sec=10.0), cli.srv_name
+    f = cli.call_async(req); rclpy.spin_until_future_complete(n, f, timeout_sec=10.0)
+    print(cli.srv_name, f.result())
+    return f.result() is not None and f.result().success
+if call(n.create_client(LoadMission, '/mission/load_mission'), LoadMission.Request(path=sys.argv[1])):
+    call(n.create_client(Trigger, '/mission/start_mission'), Trigger.Request())
+n.destroy_node(); rclpy.shutdown()
+PY
+```
+After the first run, check that the hand bag holds messages
+(`ros2 bag info <bag>`: non-zero counts on /odom and /perception/obstacles_2d).
+If it is empty, the recorder did not discover the graph; use
+mission_logger's automatic bag for the analysis instead.
+
 | # | mode | offset | notes |
 |---|---|---|---|
 | 1 | footprint {} | 0.30 | rig: −0.032 m |
@@ -137,7 +162,7 @@ invalid**; do not start it.
 ## Analysis (after the session, from the hand bag)
 
 ```bash
-python3 - <<'PY'
+python3 - <bag_dir> 3.0 <offset> <<'PY'
 import math, sys
 import rosbag2_py
 from rclpy.serialization import deserialize_message
@@ -160,7 +185,8 @@ while r.has_next():
 print(f'min centre distance {d_min:.3f} m, body gap {d_min - 0.45:+.3f} m')
 PY
 ```
-Arguments: bag directory, dummy x (3.0), dummy y (offset). Correct `d` by the
+Arguments (after `python3 -`): bag directory, dummy x (3.0), dummy y (the
+offset, positive left). Correct `d` by the
 per-run odometry scale from the taped final position if they disagree by more
 than 5 cm.
 
