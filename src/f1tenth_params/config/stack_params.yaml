@@ -1015,6 +1015,9 @@ object_retarget_distance_m:
 object_a_dec:
   default: 0.3
   description: "Deceleration [m/s^2] the approach speed ramp is sized on: v = min(move speed, sqrt(2 * a_dec * r)), reaching zero exactly at the standoff. A REFERENCE, not a brake -- the solver still owns the command, and this mode deliberately has no pose_goal_tolerance-style hard stop. At 0.3 the ramp leaves the shipped 0.5 m/s at r = 0.42 m. Zero or negative disables the ramp, which shows up as an unramped approach rather than as a car that never moves."
+object_behind_persist_sec:
+  default: 0.5
+  description: "How long [s] target_behind (the target in the car's rear half-plane) must hold CONTINUOUSLY before mpc_corr reports it TERMINAL on /mpc/object_status.target_behind_terminal, which ends the move target_unreachable. The raw flag is evaluated every control tick; persistence exists because a car circling a person who walks past it grazes 90 degrees and turns back (seen in the closed-loop rig). 0.5 s is 5 ticks at the 10 Hz loop."
 # ------------------------------------------------------------------
 # WALL TRACKER -- d_wall for the wall_turn increment.
 #

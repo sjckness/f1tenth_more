@@ -17,11 +17,13 @@ import math
 import pytest
 
 from mpc_controller.object_approach import (
-    REASON_INSIDE_TURN_RADIUS,
-    REASON_TARGET_BEHIND,
+    DEFAULT_HEADING_MARGIN_RAD,
+    TargetBehindPersistence,
     approach_lookahead,
+    assess_object_approach,
     build_object_centreline,
     goal_point,
+    heading_margin_for,
     min_standoff_clear_of,
     object_speed_ref,
     plan_object_heading,
@@ -46,9 +48,10 @@ KINEMATICS = dict(
 SCHEDULE = dict(r_full=R_FULL, r_freeze=R_FREEZE, c_safety=C_SAFETY)
 
 # A schedule that is frozen (k == 0) at every range these tests use, so
-# psi_c_new == psi_c exactly and a test can place the goal where it means to.
-# Needed because feasibility is judged on the goal implied by psi_c_NEW.
+# psi_c_new == psi_c exactly.
 FROZEN = dict(r_full=101.0, r_freeze=100.0)
+
+FLAG_GEOMETRY = dict(wheelbase=WHEELBASE, delta_min=DELTA_MIN, delta_max=DELTA_MAX)
 
 
 def _plan(psi_c, target, car=(0.0, 0.0), yaw=0.0, standoff=1.0, **overrides):
@@ -56,6 +59,13 @@ def _plan(psi_c, target, car=(0.0, 0.0), yaw=0.0, standoff=1.0, **overrides):
     kwargs.update(SCHEDULE)
     kwargs.update(overrides)
     return plan_object_heading(psi_c, target, car, yaw, standoff, **kwargs)
+
+
+def _assess(psi_c, target, car=(0.0, 0.0), yaw=0.0, standoff=1.0,
+            r_freeze=R_FREEZE, heading_margin=DEFAULT_HEADING_MARGIN_RAD):
+    return assess_object_approach(
+        psi_c, target, car, yaw, standoff, r_freeze=r_freeze,
+        heading_margin=heading_margin, **FLAG_GEOMETRY)
 
 
 def _target_at(range_m, bearing_rad, standoff=1.0):
@@ -241,85 +251,173 @@ class TestWraparound:
 # ------------------------------------------------------------- infeasibility
 
 class TestTargetBehind:
+    """The raw per-tick flag. Terminal only through TargetBehindPersistence."""
 
-    def test_a_target_directly_astern_is_infeasible(self):
-        step = _plan(0.0, _target_at(3.0, math.pi), yaw=0.0)
-        assert step.feasible is False
-        assert step.reason == REASON_TARGET_BEHIND
+    def test_a_target_directly_astern_is_behind(self):
+        assert _assess(0.0, _target_at(3.0, math.pi), yaw=0.0).target_behind is True
 
     def test_just_past_abeam_is_behind(self):
-        step = _plan(0.0, _target_at(3.0, math.pi / 2 + 0.02), yaw=0.0)
-        assert step.feasible is False
-        assert step.reason == REASON_TARGET_BEHIND
+        assert _assess(0.0, _target_at(3.0, math.pi / 2 + 0.02)).target_behind is True
 
-    def test_just_inside_abeam_is_not_behind_for_that_reason(self):
-        step = _plan(0.0, _target_at(6.0, math.pi / 2 - 0.02), yaw=0.0)
-        assert step.reason != REASON_TARGET_BEHIND
+    def test_just_inside_abeam_is_not_behind(self):
+        assert _assess(0.0, _target_at(6.0, math.pi / 2 - 0.02)).target_behind is False
 
     def test_behind_is_relative_to_yaw_not_to_psi_c(self):
         """The car cannot reverse; where the corridor points is irrelevant."""
         target = _target_at(3.0, math.pi)
-        assert _plan(math.pi, target, yaw=0.0).reason == REASON_TARGET_BEHIND
-        assert _plan(0.0, target, yaw=math.pi).feasible is True
+        assert _assess(math.pi, target, yaw=0.0).target_behind is True
+        assert _assess(0.0, target, yaw=math.pi).target_behind is False
 
-    def test_a_still_usable_heading_is_returned_anyway(self):
+    def test_alpha_is_bearing_minus_yaw_wrapped(self):
+        flags = _assess(0.0, _target_at(3.0, 3.0), yaw=-3.0)
+        assert flags.alpha == pytest.approx(math.atan2(math.sin(6.0), math.cos(6.0)))
+
+    def test_plan_object_heading_still_returns_a_usable_heading_astern(self):
         step = _plan(0.0, _target_at(3.0, math.pi), yaw=0.0)
         assert math.isfinite(step.psi_c_new)
 
 
+class TestTargetBehindPersistence:
+
+    def test_not_terminal_before_the_persistence_time(self):
+        p = TargetBehindPersistence(0.5)
+        assert p.update(True, 10.0) == (False, 0.0)
+        terminal, held = p.update(True, 10.4)
+        assert terminal is False and held == pytest.approx(0.4)
+
+    def test_terminal_at_the_persistence_time(self):
+        p = TargetBehindPersistence(0.5)
+        p.update(True, 10.0)
+        assert p.update(True, 10.5)[0] is True
+
+    def test_tick_times_built_from_a_float_period_still_reach_it(self):
+        """5 * 0.1 is not exactly 0.5 after subtraction; 5 ticks must do."""
+        p = TargetBehindPersistence(0.5)
+        results = [p.update(True, tick * 0.1)[0] for tick in range(123, 129)]
+        assert results == [False] * 5 + [True]
+
+    def test_a_shorter_excursion_is_never_terminal_and_resets(self):
+        p = TargetBehindPersistence(0.5)
+        for t in (0.0, 0.1, 0.2, 0.3, 0.4):
+            assert p.update(True, t)[0] is False
+        assert p.update(False, 0.5) == (False, 0.0)
+        assert p.update(True, 0.6) == (False, 0.0)
+        assert p.update(True, 1.0)[0] is False
+
+    def test_it_is_not_a_latch(self):
+        p = TargetBehindPersistence(0.5)
+        p.update(True, 0.0)
+        assert p.update(True, 0.6)[0] is True
+        assert p.update(False, 0.7)[0] is False
+
+    def test_reset_starts_the_clock_again(self):
+        p = TargetBehindPersistence(0.5)
+        p.update(True, 0.0)
+        p.reset()
+        assert p.update(True, 0.6) == (False, 0.0)
+
+    def test_zero_persistence_is_immediately_terminal(self):
+        assert TargetBehindPersistence(0.0).update(True, 3.0)[0] is True
+
+    def test_negative_persistence_is_rejected(self):
+        with pytest.raises(ValueError):
+            TargetBehindPersistence(-0.1)
+
+
+class TestHeadingMargin:
+
+    def test_it_is_the_two_sigma_goal_bearing_error_at_r_freeze(self):
+        assert heading_margin_for(0.4) == pytest.approx(math.atan(2 * 0.05 / 0.4))
+        assert math.degrees(DEFAULT_HEADING_MARGIN_RAD) == pytest.approx(14.036, abs=1e-3)
+
+    def test_it_moves_with_r_freeze(self):
+        assert heading_margin_for(0.8) < heading_margin_for(0.4) < heading_margin_for(0.2)
+
+    def test_a_non_positive_r_freeze_has_no_margin(self):
+        with pytest.raises(ValueError):
+            heading_margin_for(0.0)
+
+
 class TestInsideTurnRadius:
+    """ADVISORY. Judged on the goal implied by the HELD psi_c, per tick."""
+
+    def _goal_target(self, goal_x, goal_y, psi_c=0.0, standoff=1.0):
+        """The target whose goal (standoff back along psi_c) is (goal_x, goal_y)."""
+        return (goal_x + standoff * math.cos(psi_c), goal_y + standoff * math.sin(psi_c))
 
     def test_a_goal_abeam_and_close_is_unreachable(self):
-        """The worst case: |sin a| = 1, threshold 2 * R_min.
-
-        FROZEN is not decoration. Feasibility is judged on the goal implied by
-        psi_c_NEW -- the heading the corridor will actually be built along this
-        rebuild -- so a live schedule would move the goal out from under the
-        geometry this test is placing. Holding k at 0 makes psi_c_new == psi_c
-        exactly, and the goal is then where it was put.
-        """
+        """|sin a| = 1, threshold 2 * R_min; the margin barely matters abeam."""
         r_min = min_turn_radius(WHEELBASE, DELTA_MAX)
-        goal_range = 0.9 * 2.0 * r_min
-        standoff = 1.0
-        target = (0.0 + standoff, goal_range)      # psi_c = 0 -> goal = target - x
-        step = _plan(0.0, target, yaw=0.0, standoff=standoff, **FROZEN)
-        assert step.k == 0.0
-        assert step.feasible is False
-        assert step.reason == REASON_INSIDE_TURN_RADIUS
+        target = self._goal_target(0.0, 0.9 * 2.0 * r_min)
+        assert _assess(0.0, target).inside_turn_radius is True
 
     def test_a_goal_dead_ahead_is_reachable_at_any_range(self):
         """r < R_min would wrongly reject this; the circle test does not."""
         for goal_range in (0.05, 0.2, 0.5, 1.0):
-            standoff = 1.0
-            target = (goal_range + standoff, 0.0)
-            step = _plan(0.0, target, yaw=0.0, standoff=standoff)
-            assert step.feasible is True, f'rejected a goal {goal_range} m dead ahead'
+            flags = _assess(0.0, self._goal_target(goal_range, 0.0), r_freeze=0.0)
+            assert flags.inside_turn_radius is False, goal_range
 
-    def test_the_threshold_is_exactly_two_r_min_sin_alpha(self):
-        """Straddle the derived threshold from both sides. FROZEN -- see above."""
+    @pytest.mark.parametrize('margin', [0.0, DEFAULT_HEADING_MARGIN_RAD])
+    def test_the_threshold_is_two_r_min_sin_of_alpha_less_the_margin(self, margin):
+        """Straddle r_goal = 2 * R_min * sin(|alpha| - margin) from both sides."""
         r_min = min_turn_radius(WHEELBASE, DELTA_MAX)
-        alpha = 0.6
-        threshold = 2.0 * r_min * abs(math.sin(alpha))
-        standoff = 1.0
-        for factor, want_feasible in ((0.95, False), (1.05, True)):
+        alpha = 0.8
+        threshold = 2.0 * r_min * math.sin(alpha - margin)
+        for factor, want_flag in ((0.95, True), (1.05, False)):
             gx = factor * threshold * math.cos(alpha)
             gy = factor * threshold * math.sin(alpha)
-            target = (gx + standoff, gy)      # psi_c = 0 -> goal = target - x
-            step = _plan(0.0, target, yaw=0.0, standoff=standoff, **FROZEN)
-            assert (step.reason != REASON_INSIDE_TURN_RADIUS) is want_feasible, (
-                f'factor {factor}: goal at range '
-                f'{math.hypot(gx, gy):.4f}, threshold {threshold:.4f}')
+            flags = _assess(0.0, self._goal_target(gx, gy), r_freeze=0.0,
+                            heading_margin=margin)
+            assert flags.inside_turn_radius is want_flag, (factor, margin)
 
-    def test_behind_is_reported_before_inside_turn_radius(self):
-        """A target astern also fails the circle test; the name must not lie."""
-        step = _plan(0.0, _target_at(0.1, math.pi), yaw=0.0)
-        assert step.reason == REASON_TARGET_BEHIND
+    def test_the_margin_clears_a_goal_the_bare_test_would_flag(self):
+        """The rig's one spurious tick: alpha_goal 16.3 deg at r_goal 0.44 m."""
+        alpha = math.radians(16.3)
+        r_goal = 0.441
+        target = self._goal_target(r_goal * math.cos(alpha), r_goal * math.sin(alpha))
+        assert _assess(0.0, target, r_freeze=0.0, heading_margin=0.0).inside_turn_radius
+        assert not _assess(0.0, target, r_freeze=0.0).inside_turn_radius
 
-    def test_a_normal_approach_is_feasible(self):
+    def test_it_is_never_evaluated_at_or_inside_r_freeze(self):
+        """Abeam and 0.3 m away would be unreachable; at r <= r_freeze it is not asked."""
+        target = self._goal_target(0.0, 0.3)
+        r = math.hypot(*target) - 1.0
+        assert _assess(0.0, target, r_freeze=r + 0.01).inside_turn_radius is False
+        assert _assess(0.0, target, r_freeze=r - 0.01).inside_turn_radius is True
+
+    def test_arrival_never_raises_it(self):
+        """The old r <= 0 special case, now subsumed by r_freeze."""
+        for r in (0.0, 0.02, -0.05):
+            flags = _assess(0.3, _target_at(r, 1.2), yaw=0.0)
+            assert flags.inside_turn_radius is False, r
+
+    def test_a_negative_r_freeze_is_rejected(self):
+        with pytest.raises(ValueError):
+            _assess(0.0, _target_at(1.0, 0.0), r_freeze=-0.1)
+
+    def test_the_circle_is_chosen_by_the_goal_side(self):
+        """Right-hand goal: R_min from delta_min (the tighter bound here)."""
+        r_left = min_turn_radius(WHEELBASE, DELTA_MAX)
+        r_right = min_turn_radius(WHEELBASE, DELTA_MIN)
+        assert r_right < r_left
+        alpha = -0.9
+        # Between the two thresholds: unreachable on the left circle's radius,
+        # reachable on the right's.
+        r_goal = 2.0 * math.sin(abs(alpha)) * (r_left + r_right) / 2.0
+        target = self._goal_target(r_goal * math.cos(alpha), r_goal * math.sin(alpha))
+        assert _assess(0.0, target, r_freeze=0.0, heading_margin=0.0).inside_turn_radius is False
+
+    def test_behind_takes_precedence(self):
+        """A target astern also fails the circle test; only behind is reported."""
+        flags = _assess(0.0, _target_at(1.5, math.pi), yaw=0.0)
+        assert flags.target_behind is True
+        assert flags.inside_turn_radius is False
+
+    def test_a_normal_approach_raises_nothing(self):
         for r in (0.5, 1.0, 2.0, 4.0):
             for bearing in (-0.4, 0.0, 0.4):
-                step = _plan(bearing, _target_at(r, bearing), yaw=bearing)
-                assert step.feasible is True, f'r={r} bearing={bearing}'
+                flags = _assess(bearing, _target_at(r, bearing), yaw=bearing)
+                assert not flags.inside_turn_radius and not flags.target_behind, (r, bearing)
 
 
 # ------------------------------------------------------------------- speed

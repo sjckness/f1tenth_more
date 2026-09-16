@@ -84,21 +84,28 @@ flies a plain arc onto it and the honest factor is 1.0. 1.5 is still the
 shipped value, as margin, but a value between 1.0 and 1.5 is a tuning choice
 rather than a geometry error and is not rejected.
 
-FEASIBILITY
------------
-Two ways an approach cannot be flown as asked; both set feasible False and
-name themselves in `reason`. Neither is a failure of this module -- the
-caller decides what to do (report, abort, back off), and this module still
-returns a usable psi_c_new so a caller that carries on is not handed a hole.
+FLAGS: ONE ADVISORY, ONE TERMINAL, BOTH PER TICK
+-----------------------------------------------
+Two geometric conditions are reported, and they mean different things to the
+caller. Both are evaluated EVERY CONTROL TICK by assess_object_approach,
+against the live pose and the held psi_c -- not at corridor rebuilds. A flag
+sampled once per rebuild cannot bound its own latency: in the closed-loop rig
+a target that walks past the car was astern for six ticks that fell entirely
+between two rebuilds and was never reported, and another rebuild caught a
+two-tick crossing and reported it twenty ticks early.
 
-`target_behind`: |wrap(bearing - car_yaw)| > pi/2. The target is in the
-rear half-plane. This vehicle has no reverse primitive and the corridor is a
-forward object, so no corridor built along any heading reaches it.
+`target_behind` (TERMINAL once persistent): |wrap(bearing - car_yaw)| > pi/2.
+The target is in the rear half-plane. This vehicle has no reverse primitive
+and the corridor is a forward object, so no corridor built along any heading
+reaches it. A car circling a person who walks past it grazes 90 degrees and
+turns back, so the raw condition alone is not an outcome:
+TargetBehindPersistence makes it terminal only once it has held continuously
+for object_behind_persist_sec.
 
-`inside_turn_radius`: the goal lies inside one of the two circles the car
-would trace at full lock, so no forward path of curvature at most 1/R_min
-reaches it -- the car must first drive away. Derivation, because the obvious
-test (r < R_min) is wrong in both directions:
+`inside_turn_radius` (ADVISORY only, never ends a move): the goal lies inside
+one of the two circles the car would trace at full lock, so no forward path
+of curvature at most 1/R_min reaches it from the current heading. Derivation,
+because the obvious test (r < R_min) is wrong in both directions:
 
     Put the car at the origin heading +x. Its two tightest circles have
     centres at (0, +R) and (0, -R), R = R_min. A goal at range r and bearing
@@ -117,17 +124,45 @@ test (r < R_min) is wrong in both directions:
 
     So the threshold is not R_min. It is ZERO straight ahead -- a target dead
     ahead is reachable at any range, which r < R_min would wrongly reject --
-    and 2 * R_min abeam, twice what r < R_min would allow through. Both
-    errors matter at the ranges this mode runs at: R_min is about 1.05 m and
-    the standoff is about 1.0 m.
+    and 2 * R_min abeam, twice what r < R_min would allow through.
 
-The test runs on the GOAL point (target minus standoff along the current
-psi_c), not on the target: the goal is where the car is actually being sent,
-and with a 1 m standoff the two differ by more than R_min.
+It is advisory because the approach does not need to hit the goal POINT:
+the goal jitters with the estimate, and arriving within the reach tolerance is
+arriving. Two changes make it a signal rather than noise.
 
-It is also skipped once r <= 0 -- the vehicle is at or inside the standoff,
-so there is no range left for the question to be about, and asking it there
-raises the flag on the final tick of a textbook approach. See _feasibility.
+  1. It is evaluated only while r > r_freeze. Inside r_freeze the corridor is
+     frozen and the car flies what it was given; there is nothing left to
+     re-plan, and the 1/r bearing sensitivity that motivates r_freeze makes
+     the test fire on estimate jitter alone (15-37 tick episodes in the
+     jitter run before this rule). This also subsumes the old r <= 0 special
+     case, since r_freeze >= 0 is required.
+
+  2. It carries an explicit HEADING MARGIN delta:
+
+        UNREACHABLE  <=>  r_goal < 2 * R_min * sin(max(|alpha_goal| - delta, 0))
+
+     delta is the goal-bearing uncertainty the test cannot resolve. The goal
+     point sits `standoff` back from the target estimate along psi_c, so it
+     inherits the estimate's lateral error sigma_p unchanged, and at goal
+     range r_goal that is a bearing error of atan(sigma_p / r_goal). The test
+     runs only for r > r_freeze, so the largest such error it can see is at
+     r_freeze. Taking two sigma, so that a single noisy sample does not flag:
+
+        delta = atan(2 * sigma_p / r_freeze)
+              = atan(2 * 0.05 / 0.4) = 0.2450 rad = 14.0 deg
+
+     sigma_p = 0.05 m is detection_3d_node's position_sigma_base_m, the
+     detector's own floor, and the figure object_r_freeze_m's description
+     already quotes. The margin is derived from r_freeze at run time
+     (heading_margin_for), so retuning r_freeze moves it with it. In the rig
+     the one spurious tick outside r_freeze exceeded the unmargined threshold
+     by 4.2 deg; the 70-degrees-off case, which really is inside the circle,
+     exceeds it by 30 deg or more.
+
+The circle whose radius applies is chosen by which side the GOAL is on
+(alpha_goal's sign), since the two steering bounds differ. The test runs on
+the goal point (target minus standoff along the current psi_c), not on the
+target: the goal is where the car is actually being sent.
 
 REFERENCE FRAME. Everything here is one planar frame and the caller picks it;
 mpc_corr uses odom, because that is where the corridor, the solver and the
@@ -145,26 +180,48 @@ from mpc_controller.wall_turn import (
 )
 
 __all__ = [
+    'DEFAULT_HEADING_MARGIN_RAD',
+    'ObjectApproachFlags',
     'ObjectHeadingStep',
-    'REASON_INSIDE_TURN_RADIUS',
-    'REASON_TARGET_BEHIND',
+    'TARGET_POSITION_SIGMA_M',
+    'TargetBehindPersistence',
     'approach_lookahead',
+    'assess_object_approach',
     'build_object_centreline',
     'goal_point',
+    'heading_margin_for',
     'min_standoff_clear_of',
     'object_speed_ref',
     'plan_object_heading',
 ]
 
-# Named, because the caller puts them on the wire (ObjectApproachStatus.reason)
-# and a consumer comparing against a literal would silently stop matching if
-# the spelling here ever changed.
-REASON_TARGET_BEHIND = 'target_behind'
-REASON_INSIDE_TURN_RADIUS = 'inside_turn_radius'
+# detection_3d_node's position_sigma_base_m: the detector's floor 1-sigma
+# position error. See heading_margin_for.
+TARGET_POSITION_SIGMA_M = 0.05
+HEADING_MARGIN_SIGMAS = 2.0
 
 # Below this range the bearing to the target is not a meaningful quantity and
 # the 1/r sensitivity is unbounded. Same role as wall_turn's own guards.
 _COINCIDENT_EPS = 1e-9
+
+
+def heading_margin_for(r_freeze: float,
+                       sigma_p: float = TARGET_POSITION_SIGMA_M,
+                       n_sigma: float = HEADING_MARGIN_SIGMAS) -> float:
+    """Heading margin [rad] for the inside_turn_radius test.
+
+    atan(n_sigma * sigma_p / r_freeze): the largest goal-bearing error target
+    estimate noise can cause at a range the test still runs at. See the
+    module docstring for the derivation.
+    """
+    if not r_freeze > 0.0:
+        raise ValueError(
+            f'r_freeze {r_freeze} must be > 0: the heading margin is the '
+            'bearing error at r_freeze, which is unbounded at zero range')
+    return math.atan(float(n_sigma) * float(sigma_p) / float(r_freeze))
+
+
+DEFAULT_HEADING_MARGIN_RAD = heading_margin_for(0.4)
 
 
 class ObjectHeadingStep(NamedTuple):
@@ -185,10 +242,25 @@ class ObjectHeadingStep(NamedTuple):
     k: float
     # The kinematic cap actually in force this rebuild [rad].
     dpsi_max: float
-    # False when the approach cannot be flown as asked.
-    feasible: bool
-    # '' when feasible, else REASON_TARGET_BEHIND / REASON_INSIDE_TURN_RADIUS.
-    reason: str
+
+
+class ObjectApproachFlags(NamedTuple):
+    """One control tick's geometry and flags, from the live pose."""
+
+    # Range still to close: distance to target minus standoff.
+    r: float
+    # Absolute heading from the vehicle to the target [rad].
+    bearing: float
+    # wrap(bearing - psi_c), against the HELD heading.
+    e: float
+    # wrap(bearing - car_yaw): where the target is relative to the car.
+    alpha: float
+    # Raw, this tick: the target is in the rear half-plane. Terminal only
+    # through TargetBehindPersistence.
+    target_behind: bool
+    # ADVISORY: the goal is inside a full-lock circle by more than the
+    # heading margin. Always False at r <= r_freeze.
+    inside_turn_radius: bool
 
 
 def goal_point(target_xy: Tuple[float, float], psi_c: float,
@@ -231,16 +303,17 @@ def object_speed_ref(r: float, v_move: float, a_dec: float) -> float:
 
 
 def _reachable_within_min_radius(r_goal: float, alpha_goal: float,
-                                 r_min: float) -> bool:
+                                 r_min: float, heading_margin: float) -> bool:
     """Report whether a forward arc at R_min can still reach the goal.
 
-    r_goal < 2 * R_min * |sin(alpha_goal)| -- see the module docstring for the
-    derivation. A goal at or behind the car (r_goal ~ 0) is not judged here;
-    `target_behind` covers that case and is tested first.
+    Unreachable when r_goal < 2 * R_min * sin(max(|alpha_goal| - margin, 0))
+    -- see the module docstring for the derivation and the margin. A goal at
+    the car (r_goal ~ 0) is not judged here.
     """
     if r_goal <= _COINCIDENT_EPS:
         return True
-    return r_goal >= 2.0 * r_min * abs(math.sin(alpha_goal))
+    alpha_eff = max(abs(alpha_goal) - float(heading_margin), 0.0)
+    return r_goal >= 2.0 * r_min * math.sin(min(alpha_eff, math.pi / 2.0))
 
 
 def plan_object_heading(psi_c: float,
@@ -266,7 +339,8 @@ def plan_object_heading(psi_c: float,
     whatever the last move left behind).
 
     Returns a step whose psi_c_new the caller carries forward. Every other
-    field is diagnostic and goes out on /mpc/object_status.
+    field is diagnostic. Flags are not judged here: they belong to every
+    tick, not to rebuilds -- see assess_object_approach.
     """
     if not r_full > r_freeze:
         raise ValueError(
@@ -319,11 +393,6 @@ def plan_object_heading(psi_c: float,
     dpsi = min(dpsi_max, max(-dpsi_max, requested))
     psi_c_new = wrap_to_pi(psi_c + dpsi)
 
-    feasible, reason = _feasibility(
-        bearing=bearing, car_yaw=car_yaw, car_xy=(cx, cy),
-        target_xy=(tx, ty), psi_c=psi_c_new, standoff=standoff, r=r,
-        r_min=r_min)
-
     return ObjectHeadingStep(
         psi_c_new=psi_c_new,
         r=r,
@@ -331,51 +400,92 @@ def plan_object_heading(psi_c: float,
         e=e,
         k=k,
         dpsi_max=dpsi_max,
-        feasible=feasible,
-        reason=reason,
     )
 
 
-def _feasibility(*, bearing: float, car_yaw: float,
-                 car_xy: Tuple[float, float], target_xy: Tuple[float, float],
-                 psi_c: float, standoff: float, r: float,
-                 r_min: float) -> Tuple[bool, str]:
-    """(feasible, reason) for this geometry -- see the module docstring.
+def assess_object_approach(psi_c: float,
+                           target_xy: Tuple[float, float],
+                           car_xy: Tuple[float, float],
+                           car_yaw: float,
+                           standoff: float,
+                           *,
+                           r_freeze: float,
+                           heading_margin: float,
+                           wheelbase: float,
+                           delta_min: float,
+                           delta_max: float) -> ObjectApproachFlags:
+    """Evaluate this tick's approach geometry and flags against the live pose.
 
-    Order matters: `target_behind` is checked first because a target in the
-    rear half-plane also trivially fails the circle test, and naming it
-    `inside_turn_radius` would send the caller looking for a steering problem
-    when the problem is that the thing is behind the car.
+    Called every control tick with the HELD psi_c. Nothing here is state: the
+    terminal form of target_behind needs time, and that lives in
+    TargetBehindPersistence. See the module docstring for both flags.
     """
-    alpha_target = wrap_to_pi(bearing - float(car_yaw))
-    if abs(alpha_target) > math.pi / 2.0:
-        return False, REASON_TARGET_BEHIND
+    if not r_freeze >= 0.0:
+        raise ValueError(
+            f'r_freeze {r_freeze} must be >= 0: inside_turn_radius is skipped '
+            'at r <= r_freeze, and a negative value would evaluate it past the '
+            'standoff, where it fires on the final tick of every approach')
 
-    if r <= 0.0:
-        # ARRIVED (or inside the standoff), so the reachability question is
-        # moot and asking it produces a false alarm. At r <= 0 the goal is at
-        # or behind the car, its bearing is whatever the last centimetre of
-        # motion made it, and 2 * R_min * |sin(alpha)| then exceeds a range of
-        # nearly zero for almost any alpha -- so the test reports
-        # `inside_turn_radius` on the final tick of a textbook approach. It was
-        # doing exactly that in the closed-loop runs: the 45-degrees-off case
-        # converged to 5 mm of range error and 0.01 degrees of bearing error
-        # and still raised the flag.
-        #
-        # Not a tolerance and not an arrival latch -- this mode deliberately
-        # has neither. It is the observation that "could a forward arc still
-        # reach the goal" is a question about range remaining, and there is
-        # none.
-        return True, ''
+    cx, cy = float(car_xy[0]), float(car_xy[1])
+    tx, ty = float(target_xy[0]), float(target_xy[1])
+    psi_c = wrap_to_pi(float(psi_c))
+    d = math.hypot(tx - cx, ty - cy)
+    bearing = math.atan2(ty - cy, tx - cx) if d > _COINCIDENT_EPS else psi_c
+    r = d - float(standoff)
+    e = wrap_to_pi(bearing - psi_c)
+    alpha = wrap_to_pi(bearing - float(car_yaw))
 
-    gx, gy = goal_point(target_xy, psi_c, standoff)
-    r_goal = math.hypot(gx - car_xy[0], gy - car_xy[1])
-    alpha_goal = wrap_to_pi(
-        math.atan2(gy - car_xy[1], gx - car_xy[0]) - float(car_yaw))
-    if not _reachable_within_min_radius(r_goal, alpha_goal, r_min):
-        return False, REASON_INSIDE_TURN_RADIUS
+    target_behind = abs(alpha) > math.pi / 2.0
 
-    return True, ''
+    inside_turn_radius = False
+    # Behind first: a target astern also fails the circle test, and naming it
+    # inside_turn_radius would point at steering when the problem is that the
+    # thing is behind the car.
+    if not target_behind and r > float(r_freeze):
+        gx, gy = goal_point((tx, ty), psi_c, standoff)
+        r_goal = math.hypot(gx - cx, gy - cy)
+        alpha_goal = wrap_to_pi(math.atan2(gy - cy, gx - cx) - float(car_yaw))
+        bound = delta_max if alpha_goal >= 0.0 else delta_min
+        r_min = min_turn_radius(wheelbase, bound)
+        inside_turn_radius = not _reachable_within_min_radius(
+            r_goal, alpha_goal, r_min, heading_margin)
+
+    return ObjectApproachFlags(
+        r=r, bearing=bearing, e=e, alpha=alpha,
+        target_behind=target_behind, inside_turn_radius=inside_turn_radius)
+
+
+class TargetBehindPersistence:
+    """Make target_behind terminal only once it has held for persist_sec.
+
+    Not a latch: it reports the current persisted state, and a target that
+    comes back in front clears it. The CONSUMER latches the outcome (the
+    mission ends the move on the first terminal report). reset() between
+    moves. Time comes from the caller, so a node's clock (including sim time)
+    is the one used.
+    """
+
+    def __init__(self, persist_sec: float):
+        """Hold time [s] before target_behind is terminal; 0 is immediate."""
+        if not persist_sec >= 0.0:
+            raise ValueError(f'persist_sec {persist_sec} must be >= 0')
+        self.persist_sec = float(persist_sec)
+        self._since = None
+
+    def reset(self):
+        """Forget any running hold, for a new move."""
+        self._since = None
+
+    def update(self, target_behind: bool, now_sec: float) -> Tuple[bool, float]:
+        """Return (terminal, seconds target_behind has held continuously)."""
+        if not target_behind:
+            self._since = None
+            return False, 0.0
+        if self._since is None:
+            self._since = float(now_sec)
+        held = float(now_sec) - self._since
+        # 1e-9: tick times built as n * ts do not subtract to exact multiples.
+        return held >= self.persist_sec - 1e-9, held
 
 
 def approach_lookahead(r: float, corridor_length: float,

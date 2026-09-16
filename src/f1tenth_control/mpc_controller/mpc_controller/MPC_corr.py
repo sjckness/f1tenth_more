@@ -23,7 +23,8 @@ from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
-    build_object_centreline, object_speed_ref, plan_object_heading)
+    TargetBehindPersistence, assess_object_approach, build_object_centreline,
+    heading_margin_for, object_speed_ref, plan_object_heading)
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import SMOOTHSTEP_PEAK_SLOPE, plan_wall_turn_step
 from sensor_msgs.msg import JointState
@@ -414,6 +415,16 @@ class MPCController(Node):
             get_value('object_retarget_distance_m')).value)
         self.object_a_dec = float(self.declare_parameter(
             'object_a_dec', get_value('object_a_dec')).value)
+        # Per-tick flags (see _assess_object_tick). The heading margin is not a
+        # parameter: it is derived from r_freeze, the closest range the
+        # inside_turn_radius test runs at (object_approach.heading_margin_for).
+        self.object_heading_margin = heading_margin_for(self.object_r_freeze)
+        self.object_behind = TargetBehindPersistence(float(self.declare_parameter(
+            'object_behind_persist_sec',
+            get_value('object_behind_persist_sec')).value))
+        self.object_last_flags = None   # ObjectApproachFlags, this tick
+        self.object_behind_terminal = False
+        self.object_behind_for_s = 0.0
         # Lead-in ahead of the car's projection onto the centreline. Not a
         # declared parameter: it exists only so compute_local_target's nearest
         # sample stays interior (see build_object_centreline) and there is
@@ -2024,6 +2035,9 @@ class MPCController(Node):
                              if math.hypot(dx, dy) > 1e-9 else self.yaw)
         self.object_target_held = False
         self.object_last_step = None
+        # The only way into object mode, so the one place the persistence
+        # clock needs resetting: flags are assessed only while psi_c is set.
+        self.object_behind.reset()
 
         self.get_logger().info(
             f'Nuovo goal_object move_id={move_id!r} class={msg.target_class!r} '
@@ -2117,7 +2131,43 @@ class MPCController(Node):
         dy = self.goal_object_odom_xy[1] - self.object_target_at_build[1]
         return math.hypot(dx, dy) >= self.object_retarget_distance
 
-    def _publish_object_status(self, step, speed_ref):
+    def _assess_object_tick(self, x0, now_sec):
+        """Assess this tick's approach geometry and flags from the live pose.
+
+        EVERY TICK, not at rebuilds: a flag sampled at corridor rebuilds cannot
+        bound its latency (object_approach's module docstring has the rig
+        evidence). Runs after the rebuild check, so psi_c is the heading this
+        tick's solve is actually flying. Returns None outside object mode.
+        """
+        if self.goal_object_odom_xy is None or self.object_psi_c is None:
+            return None
+        flags = assess_object_approach(
+            self.object_psi_c, self.goal_object_odom_xy,
+            (float(x0[0]), float(x0[1])), float(x0[2]),
+            self.goal_object_standoff,
+            r_freeze=self.object_r_freeze,
+            heading_margin=self.object_heading_margin,
+            wheelbase=self.params['L'],
+            delta_min=self.limits['delta_min'],
+            delta_max=self.limits['delta_max'])
+        was_terminal = self.object_behind_terminal
+        self.object_behind_terminal, self.object_behind_for_s = (
+            self.object_behind.update(flags.target_behind, now_sec))
+        if self.object_behind_terminal and not was_terminal:
+            self.get_logger().warn(
+                f'OBJECT/target_behind TERMINAL | held '
+                f'{self.object_behind_for_s:.2f} s: alpha={flags.alpha:+.3f} '
+                f'r={flags.r:+.3f} move_id={self.goal_object_move_id!r}')
+        if flags.inside_turn_radius and not (
+                self.object_last_flags is not None
+                and self.object_last_flags.inside_turn_radius):
+            self.get_logger().info(
+                f'OBJECT/inside_turn_radius (advisory) | r={flags.r:+.3f} '
+                f'alpha={flags.alpha:+.3f} psi_c={self.object_psi_c:+.4f}')
+        self.object_last_flags = flags
+        return flags
+
+    def _publish_object_status(self, step, flags, speed_ref):
         """Everything the approach decided this tick, on /mpc/object_status.
 
         psi_c in particular is HELD state: a run cannot be read back from the
@@ -2125,21 +2175,29 @@ class MPCController(Node):
         recoverable. target_age_s is the ObjectGoal stamp's whole purpose --
         the real age of the estimate being driven at, which a subscriber
         cannot reconstruct from its own arrival times.
+
+        r, bearing, e and the flags come from this tick (`flags`); k and
+        dpsi_max from the last rebuild (`step`). ObjectApproachStatus.msg
+        labels each field accordingly.
         """
         message = ObjectApproachStatus()
         message.header.stamp = self.get_clock().now().to_msg()
         message.header.frame_id = self.odom_frame
         message.move_id = self.goal_object_move_id or ''
         message.target_class = self.goal_object_target_class
+        if self.object_psi_c is not None:
+            message.psi_c = float(self.object_psi_c)
         if step is not None:
-            message.r = float(step.r)
-            message.bearing = float(step.bearing)
-            message.psi_c = float(step.psi_c_new)
-            message.e = float(step.e)
             message.k = float(step.k)
             message.dpsi_max = float(step.dpsi_max)
-            message.feasible = bool(step.feasible)
-            message.reason = step.reason
+        if flags is not None:
+            message.r = float(flags.r)
+            message.bearing = float(flags.bearing)
+            message.e = float(flags.e)
+            message.inside_turn_radius = bool(flags.inside_turn_radius)
+            message.target_behind = bool(flags.target_behind)
+        message.target_behind_for_s = float(self.object_behind_for_s)
+        message.target_behind_terminal = bool(self.object_behind_terminal)
         message.speed_ref = float(speed_ref)
         message.target_stale = bool(self.object_target_held)
         if self.goal_object_stamp is not None:
@@ -2595,6 +2653,9 @@ class MPCController(Node):
         self.object_target_at_build = None
         self.object_target_held = False
         self.object_last_step = None
+        self.object_last_flags = None
+        self.object_behind_terminal = False
+        self.object_behind_for_s = 0.0
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
         self.last_corridor_time = None
@@ -3312,11 +3373,12 @@ class MPCController(Node):
             self._publish_corridor_markers(self.cached_corridor, self.last_corridor_stamp)
 
         if self.goal_object_odom_xy is not None:
-            # EVERY TICK, not only on a rebuild. The step it reports is the
-            # last rebuild's (psi_c moves only there), but target_age_s and
-            # target_stale are live, and those are the two a consumer watches
-            # to decide whether what it is driving at is still real.
-            self._publish_object_status(self.object_last_step, vdes)
+            # EVERY TICK, not only on a rebuild. k and dpsi_max are the last
+            # rebuild's (psi_c moves only there); r, bearing, e, the flags,
+            # target_age_s and target_stale are this tick's -- the range and
+            # the terminal flag are what the mission ends the move on.
+            flags = self._assess_object_tick(x0, now_sec)
+            self._publish_object_status(self.object_last_step, flags, vdes)
 
         corridor = self.cached_corridor
 
@@ -3963,12 +4025,6 @@ class MPCController(Node):
             psiStart = psi_c
             psiEnd = psi_c
             object_mode = True
-            if not step.feasible:
-                self.get_logger().warn(
-                    f'OBJECT/infeasible | {step.reason}: r={step.r:+.3f} '
-                    f'bearing={step.bearing:+.4f} psi_c={step.psi_c_new:+.4f} '
-                    '-- corridor built anyway, the mission decides what to do',
-                    throttle_duration_sec=2.0)
             self.get_logger().info(
                 f'CORR/object | psi_c={step.psi_c_new:+.4f} e={step.e:+.4f} '
                 f'k={step.k:.3f} dpsi_max={step.dpsi_max:.4f} r={step.r:+.3f} '

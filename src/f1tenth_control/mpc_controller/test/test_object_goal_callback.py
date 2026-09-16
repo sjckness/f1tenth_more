@@ -26,6 +26,7 @@ from types import SimpleNamespace
 import pytest
 
 from mpc_controller.MPC_corr import MPCController
+from mpc_controller.object_approach import TargetBehindPersistence, heading_margin_for
 
 
 class _FakeLogger:
@@ -67,6 +68,14 @@ class _FakeMPC:
         self.object_target_held = False
         self.object_last_step = None
         self.object_retarget_distance = 0.2
+        self.object_r_freeze = 0.4
+        self.object_heading_margin = heading_margin_for(0.4)
+        self.object_behind = TargetBehindPersistence(0.5)
+        self.object_last_flags = None
+        self.object_behind_terminal = False
+        self.object_behind_for_s = 0.0
+        self.params = {'L': 0.305}
+        self.limits = {'delta_min': -0.283, 'delta_max': 0.278}
 
         # The other four goal shapes' state, which a new object move clears.
         self.goal_distance = None
@@ -381,3 +390,83 @@ class TestObjectRange:
     def test_it_is_infinite_with_no_target(self):
         fake = _FakeMPC()
         assert MPCController._object_range(fake) == math.inf
+
+
+# ------------------------------------------------------ per-tick flags
+
+class TestPerTickFlags:
+    """_assess_object_tick: the flags come from THIS tick's pose, every tick."""
+
+    def _active(self, target=(4.0, 0.0), yaw=0.0):
+        fake = _FakeMPC(yaw=yaw)
+        _send(fake, _goal('m', *target))
+        fake.goal_object_odom_xy = target
+        return fake
+
+    def test_nothing_outside_object_mode(self):
+        fake = _FakeMPC()
+        assert MPCController._assess_object_tick(fake, (0.0, 0.0, 0.0), 0.0) is None
+
+    def test_r_is_live_not_the_last_rebuild(self):
+        fake = self._active()
+        fake.object_last_step = SimpleNamespace(r=3.0, k=1.0, dpsi_max=0.1)
+        flags = MPCController._assess_object_tick(fake, (1.5, 0.0, 0.0), 0.0)
+        assert flags.r == pytest.approx(1.5)
+
+    def test_terminal_only_after_the_persistence_time(self):
+        fake = self._active(target=(-3.0, 0.0), yaw=0.0)   # astern
+        states = []
+        for tick in range(7):
+            MPCController._assess_object_tick(fake, (0.0, 0.0, 0.0), tick * 0.1)
+            states.append(fake.object_behind_terminal)
+        assert states == [False] * 5 + [True, True]
+        assert fake.object_behind_for_s == pytest.approx(0.6)
+
+    def test_a_new_move_resets_the_persistence(self):
+        fake = self._active(target=(-3.0, 0.0))
+        for tick in range(6):
+            MPCController._assess_object_tick(fake, (0.0, 0.0, 0.0), tick * 0.1)
+        assert fake.object_behind_terminal is True
+        _send(fake, _goal('m2', -3.0, 0.0))
+        fake.goal_object_odom_xy = (-3.0, 0.0)
+        assert fake.object_behind_terminal is False
+        MPCController._assess_object_tick(fake, (0.0, 0.0, 0.0), 0.6)
+        assert fake.object_behind_terminal is False
+
+
+class TestStatusFields:
+    """_publish_object_status: live fields from the flags, rebuild fields from the step."""
+
+    class _Clock:
+        def now(self):
+            from builtin_interfaces.msg import Time
+            return SimpleNamespace(nanoseconds=int(12.5e9),
+                                   to_msg=lambda: Time(sec=12, nanosec=500000000))
+
+    def _fake(self):
+        fake = _FakeMPC()
+        _send(fake, _goal('m', 4.0, 0.0, stamp=12.0))
+        fake.goal_object_odom_xy = (4.0, 0.0)
+        fake.odom_frame = 'odom'
+        fake.published = []
+        fake.object_status_pub = SimpleNamespace(publish=fake.published.append)
+        fake.get_clock = lambda: self._Clock()
+        return fake
+
+    def test_live_and_rebuild_fields_come_from_their_own_sources(self):
+        fake = self._fake()
+        step = SimpleNamespace(r=9.9, bearing=9.9, e=9.9, k=0.25, dpsi_max=0.05,
+                               psi_c_new=9.9)
+        flags = MPCController._assess_object_tick(fake, (2.0, 0.0, 0.0), 12.5)
+        MPCController._publish_object_status(fake, step, flags, 0.3)
+        (msg,) = fake.published
+        assert msg.r == pytest.approx(1.0)
+        assert msg.e == pytest.approx(0.0)
+        assert msg.k == pytest.approx(0.25)
+        assert msg.dpsi_max == pytest.approx(0.05)
+        assert msg.psi_c == pytest.approx(fake.object_psi_c)
+        assert msg.inside_turn_radius is False
+        assert msg.target_behind is False
+        assert msg.target_behind_terminal is False
+        assert msg.target_age_s == pytest.approx(0.5)
+        assert msg.move_id == 'm'

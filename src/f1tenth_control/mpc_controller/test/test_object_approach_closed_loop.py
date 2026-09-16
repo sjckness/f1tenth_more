@@ -53,7 +53,8 @@ import pytest
 
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
-from mpc_controller.object_approach import goal_point, object_speed_ref
+from mpc_controller.object_approach import (
+    TargetBehindPersistence, goal_point, heading_margin_for, object_speed_ref)
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 
 WHEELBASE = 0.305
@@ -77,6 +78,10 @@ WEIGHTS = {
 }
 
 SATURATION_EPS = 1e-3
+
+R_FREEZE = 0.4
+BEHIND_PERSIST_SEC = 0.5
+BEHIND_PERSIST_TICKS = int(round(BEHIND_PERSIST_SEC / TS))
 
 CAR_RADIUS = 0.20
 AVOIDANCE_MARGIN = 0.12
@@ -151,7 +156,13 @@ class _ObjectMPC:
         self.object_psi_c = None
         self.object_target_at_build = None
         self.object_r_full = 1.5
-        self.object_r_freeze = 0.4
+        self.object_r_freeze = R_FREEZE
+        self.object_heading_margin = heading_margin_for(R_FREEZE)
+        self.object_behind = TargetBehindPersistence(BEHIND_PERSIST_SEC)
+        self.object_last_flags = None
+        self.object_behind_terminal = False
+        self.object_behind_for_s = 0.0
+        self.goal_object_move_id = 'rig'
         self.object_c_safety = 1.5
         self.object_retarget_distance = 0.2
         self.object_a_dec = 0.3
@@ -186,7 +197,8 @@ class _ObjectMPC:
 class Result:
 
     def __init__(self, xs, deltas, targets, psi_c_final, standoff, steps,
-                 step_ticks=(), deflected=()):
+                 step_ticks=(), deflected=(), observed=(), psi_cs=(),
+                 flags=(), terminal=()):
         self.xs = xs
         self.deltas = deltas
         self.targets = targets
@@ -196,6 +208,14 @@ class Result:
         # Tick index of each entry in `steps` (the rebuild it was planned at).
         self.step_ticks = list(step_ticks)
         self.deflected = list(deflected)
+        # Per tick: the target position the controller was told, and the held
+        # corridor heading in force for that tick's solve.
+        self.observed = list(observed)
+        self.psi_cs = list(psi_cs)
+        # Per tick: MPCController._assess_object_tick's flags, and the
+        # terminal target_behind state it left behind.
+        self.flags = list(flags)
+        self.terminal = list(terminal)
 
     @property
     def min_centre_distance(self):
@@ -212,12 +232,9 @@ class Result:
     def deflected_fraction(self):
         return sum(self.deflected) / len(self.deflected) if self.deflected else 0.0
 
-    def first_reason_tick(self, reason):
-        """Tick of the first planned step carrying `reason`, or None."""
-        for tick, step in zip(self.step_ticks, self.steps):
-            if step is not None and step.reason == reason:
-                return tick
-        return None
+    def first_terminal_tick(self):
+        ticks = self.terminal_ticks
+        return ticks[0] if ticks else None
 
     def first_behind_tick(self, sustain):
         """First tick from which the target stays in the rear half-plane, or None.
@@ -272,12 +289,17 @@ class Result:
         return hits / len(self.deltas)
 
     @property
-    def any_infeasible(self):
-        return any(s is not None and not s.feasible for s in self.steps)
+    def advisory_ticks(self):
+        """Ticks inside_turn_radius (advisory) was set."""
+        return [t for t, f in enumerate(self.flags) if f is not None and f.inside_turn_radius]
 
     @property
-    def reasons(self):
-        return sorted({s.reason for s in self.steps if s is not None and s.reason})
+    def terminal_ticks(self):
+        """Ticks target_behind_terminal was set."""
+        return [t for t, term in enumerate(self.terminal) if term]
+
+    def advisory_ticks_within(self, r_max):
+        return [t for t in self.advisory_ticks if self.flags[t].r <= r_max]
 
 
 def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
@@ -309,7 +331,8 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
     warm = None
 
     xs, deltas, targets, steps = [x.copy()], [], [], []
-    step_ticks, deflected = [], []
+    step_ticks, deflected, observed_log, psi_c_log = [], [], [], []
+    flags_log, terminal_log = [], []
     corridor = None
     last_build_t = None
     observed = target_fn(0.0)
@@ -336,6 +359,11 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
             last_build_t = t
             steps.append(fake.object_last_step)
             step_ticks.append(tick)
+        # Every tick, after the rebuild check -- exactly where control_loop
+        # calls it -- and through the real method, so the rig's flags cannot
+        # drift from the node's.
+        flags_log.append(MPCController._assess_object_tick(fake, x, t))
+        terminal_log.append(fake.object_behind_terminal)
         obstacles = [] if obstacle_r is None else [
             (observed[0], observed[1], float(obstacle_r))]
         corridor['obstacles_world'] = obstacles
@@ -366,6 +394,8 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
         xs.append(x.copy())
         deltas.append(float(u0[0]))
         targets.append(true_target)
+        observed_log.append(tuple(observed))
+        psi_c_log.append(fake.object_psi_c)
 
         # Stopped at the standoff: the speed reference is zero and the car has
         # actually come to rest. Not an arrival LATCH -- the run simply has
@@ -376,7 +406,8 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
     if not targets:
         targets = [target_fn(0.0)]
     return Result(xs, deltas, targets, fake.object_psi_c, standoff, steps,
-                  step_ticks, deflected)
+                  step_ticks, deflected, observed_log, psi_c_log,
+                  flags_log, terminal_log)
 
 
 # --------------------------------------------------------------- scenarios
@@ -438,7 +469,11 @@ class TestClosedLoopTable:
                   f'{"body gap":>8} {"defl":>5}  flags')
             print('-' * 104)
             for (name, label, standoff), res in table.items():
-                flags = ','.join(res.reasons) or '-'
+                adv = res.advisory_ticks
+                flags = (f'advisory {len(adv)}t r {res.flags[adv[0]].r:+.2f}..'
+                         f'{res.flags[adv[-1]].r:+.2f}' if adv else '-')
+                if res.terminal_ticks:
+                    flags += f' TERMINAL@{res.terminal_ticks[0]}'
                 print(f'{name:<22} {label:<14} {standoff:>5.1f} '
                       f'{res.final_range_error:>+9.3f} '
                       f'{math.degrees(res.arrival_bearing_error):>7.2f}d '
@@ -462,20 +497,18 @@ class TestClosedLoopTable:
         assert math.degrees(res.arrival_bearing_error) < 15.0
 
     @pytest.mark.parametrize('standoff', STANDOFFS)
-    def test_seventy_degrees_off_at_two_and_a_half_metres(self, table, standoff):
-        """Expected to be hard: report which of the two outcomes happened.
+    def test_seventy_degrees_off_is_flagged_advisory_and_still_arrives(
+            self, table, standoff):
+        """The goal starts inside the full-lock circle, and the approach recovers.
 
-        Either the geometry is declared infeasible (the goal starts inside a
-        full-lock circle) or the approach recovers. Both are acceptable; what
-        is NOT acceptable is converging somewhere wrong while reporting
-        feasible.
+        inside_turn_radius is raised from the first tick, as advisory: nothing
+        ends the move, and the car arrives within 0.1 m. No terminal flag --
+        the target is never astern.
         """
         res = table[('70 deg off, 2.5 m', 'none', standoff)]
-        if res.any_infeasible:
-            assert res.reasons, 'infeasible with no reason given'
-        else:
-            assert abs(res.final_range_error) < 0.40, (
-                'reported feasible throughout but did not arrive')
+        assert res.advisory_ticks and res.advisory_ticks[0] == 0
+        assert res.terminal_ticks == []
+        assert abs(res.final_range_error) < 0.10
 
     @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_a_laterally_moving_target_is_tracked(self, table, standoff):
@@ -552,48 +585,67 @@ class TestTargetObstacleRadius:
         assert abs(table[(scenario, 'footprint', 1.2)].final_range_error) < 0.05
 
 
-# Ticks the planner may take to raise target_behind once the target is
-# genuinely astern: at most one corridor period, since the flag is evaluated
-# at a rebuild.
-BEHIND_SUSTAIN_TICKS = 5
-BEHIND_MAX_LATENCY_TICKS = int(math.ceil(1.0 / TS))
-
-
 class TestTargetBehindIsRaised:
-    """A target that walks past the car forever: the flag, and how fast.
+    """A target that walks past the car forever: the terminal flag, and when.
 
     0.3 m/s sideways forever against a 0.5 m/s forward-only car is a chase the
     car loses once the target passes abeam. There is no arrival to measure;
-    the question is only whether the controller says so, and how quickly.
+    the question is only whether the controller says so, and exactly when.
+
+    target_behind is evaluated every tick and made terminal after
+    object_behind_persist_sec of continuous hold, so the terminal flag must
+    rise exactly BEHIND_PERSIST_TICKS after the target goes astern for good,
+    and never on a shorter excursion.
     """
 
-    # REBUILD-SAMPLED FLAGS CANNOT MEET A LATENCY BOUND, and at standoff 1.0
-    # the chase shows it both ways. Footprint: the target is astern for ticks
-    # 134-139 (up to 97 deg), entirely between rebuilds 133 and 140, and is
-    # never flagged; the flag comes at 168. None: the rebuild at 133 samples a
-    # transient crossing and flags 21 ticks before the target is astern for
-    # good. Strict, so evaluating the flags per tick has to turn these green.
-    _REBUILD_SAMPLED = pytest.mark.xfail(
-        strict=True, reason='target_behind is evaluated only at corridor rebuilds')
-
-    @pytest.mark.parametrize('label, standoff', [
-        pytest.param('none', 1.0, marks=_REBUILD_SAMPLED),
-        pytest.param('footprint', 1.0, marks=_REBUILD_SAMPLED),
-        ('none', 1.2),
-        ('footprint', 1.2),
-    ])
-    def test_target_behind_within_latency_of_the_target_going_astern(self, label,
-                                                                     standoff):
-        obstacle_r = dict(OBSTACLE_ROWS)[label]
+    @pytest.mark.parametrize('label', ['none', 'footprint'])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_terminal_exactly_one_persistence_after_the_target_goes_astern(
+            self, label, standoff):
         res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
-                           standoff=standoff, obstacle_r=obstacle_r,
+                           standoff=standoff, obstacle_r=dict(OBSTACLE_ROWS)[label],
                            stop_at_rest=False)
-        astern = res.first_behind_tick(BEHIND_SUSTAIN_TICKS)
+        astern = res.first_behind_tick(BEHIND_PERSIST_TICKS + 1)
         assert astern is not None, 'scenario never put the target astern'
-        flagged = res.first_reason_tick('target_behind')
-        assert flagged is not None, 'target went astern and was never flagged'
-        assert astern <= flagged <= astern + BEHIND_MAX_LATENCY_TICKS, (
-            f'astern at tick {astern}, flagged at {flagged}')
+        terminal = res.first_terminal_tick()
+        assert terminal == astern + BEHIND_PERSIST_TICKS, (
+            f'astern for good from tick {astern}, terminal at {terminal}')
+
+    @pytest.mark.parametrize('label', ['none', 'footprint'])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_raw_flag_follows_the_geometry_every_tick(self, label, standoff):
+        res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
+                           standoff=standoff, obstacle_r=dict(OBSTACLE_ROWS)[label],
+                           stop_at_rest=False)
+        for tick, flags in enumerate(res.flags):
+            state = res.xs[tick]
+            tx, ty = res.observed[tick]
+            bearing = math.atan2(ty - state[1], tx - state[0])
+            alpha = math.atan2(math.sin(bearing - state[2]), math.cos(bearing - state[2]))
+            assert flags.target_behind is (abs(alpha) > math.pi / 2.0), tick
+
+
+class TestFlagAcceptance:
+    """The approaches that work raise nothing that matters.
+
+    ahead, 45 degrees off and 5 cm jitter end with ZERO terminal flags and
+    ZERO advisory flags inside r_freeze, at both standoffs, with and without
+    the target in the obstacle list.
+    """
+
+    SCENARIOS_OK = ('ahead 4 m', '45 deg off, 4 m', 'jitter 5 cm @ 12.5 Hz')
+
+    @pytest.mark.parametrize('scenario', SCENARIOS_OK)
+    @pytest.mark.parametrize('label', ['none', 'footprint'])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_no_terminal_flag(self, table, scenario, label, standoff):
+        assert table[(scenario, label, standoff)].terminal_ticks == []
+
+    @pytest.mark.parametrize('scenario', SCENARIOS_OK)
+    @pytest.mark.parametrize('label', ['none', 'footprint'])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_no_advisory_flag_inside_r_freeze(self, table, scenario, label, standoff):
+        assert table[(scenario, label, standoff)].advisory_ticks_within(R_FREEZE) == []
 
 
 class TestTheCorridorEndsAtTheGoal:
