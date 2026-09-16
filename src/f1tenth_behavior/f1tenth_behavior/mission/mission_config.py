@@ -206,6 +206,7 @@ class DriveSpec:
     # negative sentinel DriveCommand.msg uses exists only because a ROS msg
     # float32 field cannot be null; the conversion happens in
     # publish_move_goal.py, not here.
+    # tuned against legacy height radii, re-validate on floor
     approach_d_safe: Optional[float] = None
 
 

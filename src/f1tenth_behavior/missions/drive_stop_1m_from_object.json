@@ -1,6 +1,7 @@
 {
   "mission_id": "drive_stop_1m_from_object",
   "schema_version": "3.0",
+  "description": "obstacle_distance_below 1.0 and approach_d_safe 0.25: tuned against legacy height radii, re-validate on floor. The distance is centre minus the obstacle radius, so in footprint mode a person stops the car about 0.6 m closer than it did with legacy radii.",
   "moves": [
     {
       "id": "approach_and_stop_at_object",

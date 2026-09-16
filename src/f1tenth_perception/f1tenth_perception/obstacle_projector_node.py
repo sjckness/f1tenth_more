@@ -169,6 +169,7 @@ class ObstacleProjectorNode(Node):
         # the track's real obstacle set turns out to need a wider range.
         self.min_obstacle_radius = float(
             self.declare_parameter('min_obstacle_radius', 0.03).value)
+        # max_obstacle_radius: tuned against legacy height radii, re-validate on floor
         self.max_obstacle_radius = float(
             self.declare_parameter('max_obstacle_radius', 1.5).value)
         # See obstacle_radius(). Validated here so a typo fails at startup, not

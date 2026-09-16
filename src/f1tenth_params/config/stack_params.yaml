@@ -1315,6 +1315,7 @@ mpc_w_corr:
 mpc_w_v:
   default: 4.2857
   description: "PER-STAGE speed-tracking weight on (v - vdes)^2. Effective value 1.50 after the 7/20 stage scaling. Was literal 8.0, effective 2.8."
+# tuned against legacy height radii, re-validate on floor
 mpc_w_obs:
   default: 8.0
   description: "PER-STAGE obstacle soft-deflection weight. Effective value 2.8 after the 7/20 stage scaling -- UNCHANGED, deliberately: less obstacle shyness was wanted, not more."
@@ -1524,6 +1525,7 @@ proximity_front_extra_margin_m:
 # 0.4333 m, so 0.30 clears it with 0.13 m to spare. MPC_corr.py warns
 # (throttled) at runtime if this is ever set above the live corridor's mean
 # half-width rather than silently deflecting out of bounds.
+# tuned against legacy height radii, re-validate on floor
 obstacle_target_shift_m:
   default: 0.30
   description: "Max tangential displacement [m] applied to the MPC lookahead target when it falls inside an obstacle's safety radius, in compute_local_target. Scaled down by penetration depth, so this is the ceiling, not a fixed step. Was a corridor-derived 0.6 * mean(halfWidth) = 0.36 m; reduced to 0.30 so the car passes close to obstacles instead of swerving wide. Must stay under the corridor half-width (0.4333 m at the narrow end)."
