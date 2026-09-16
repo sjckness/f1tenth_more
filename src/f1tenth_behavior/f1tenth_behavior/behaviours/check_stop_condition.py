@@ -480,11 +480,16 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             # this move's outcome/write the mission summary the way it does
             # for a normal advance, so this branch does both itself, same as
             # HandleObjectAction's abort_mission does for its own abort path.
-            # An aborted object move must also STOP the car: this branch does
-            # not publish /mpc/hold for any other move type (pre-existing), and
-            # mpc_corr would otherwise keep driving at the last point it got.
+            # EVERY abort holds. This branch used to publish nothing, so after
+            # a timeout abort the mission subtree stopped ticking while
+            # mpc_corr kept driving the move's last goal -- for an open-ended
+            # drive move, indefinitely. The other three abort paths
+            # (HandleObjectAction's abort_mission, /mission/abort_mission,
+            # GoToObject's failure outcomes) already held; this one now does
+            # too, for every move type. An object move also gets its end.
             if getattr(move, 'go_to_object', None) is not None:
-                self._end_object_move(state, move, OUTCOME_TIMEOUT, hold=True)
+                self._end_object_move(state, move, OUTCOME_TIMEOUT, hold=False)
+            self.hold_pub.publish(Bool(data=True))
             self._record_and_summarize(state, move, 'timeout:abort', now)
             state.abort()
             return py_trees.common.Status.FAILURE
