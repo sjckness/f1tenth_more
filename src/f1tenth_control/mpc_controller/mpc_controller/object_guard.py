@@ -2,7 +2,8 @@
 
 Pure: no rclpy, no numpy. Ported from the 2026-09-15 go_to_object prototype
 (go_to_object/mission_state.py and the CurvatureLimiter in
-go_to_object/pursuit_geometry.py), whose tracker was NOT ported --
+go_to_object/pursuit_geometry.py, snapshotted in commit 36df2b7 and removed
+once this port passed its tests), whose tracker was NOT ported --
 semantic_layer_node is the one tracker in this stack. What carried over is
 the two rules that prototype's tests pinned about stopping.
 
