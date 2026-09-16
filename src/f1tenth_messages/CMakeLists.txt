@@ -23,6 +23,8 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/WallTrack.msg"
   "msg/WallDistance.msg"
   "msg/WallSegment.msg"
+  "msg/ObjectGoal.msg"
+  "msg/ObjectApproachStatus.msg"
   "srv/RestartComponent.srv"
   "srv/ComponentControl.srv"
   "srv/RunDiagnostics.srv"
