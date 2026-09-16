@@ -109,6 +109,7 @@ import rclpy
 
 from f1tenth_behavior.behaviours.advance_move import AdvanceMove
 from f1tenth_behavior.behaviours.check_stop_condition import CheckStopCondition
+from f1tenth_behavior.behaviours.go_to_object import GoToObject
 from f1tenth_behavior.behaviours.handle_object_action import HandleObjectAction
 from f1tenth_behavior.behaviours.has_goal_pose import HasGoalPose
 from f1tenth_behavior.behaviours.has_mpc_goal import HasMpcGoal
@@ -360,6 +361,7 @@ def create_root(
     proximity_side_threshold_m=0.15,
     enable_sys_obs_load_trip=False,
     sys_obs_load_trip_consecutive_samples=3,
+    object_params=None,
 ) -> py_trees.behaviour.Behaviour:
     """Build the root Selector.
 
@@ -530,9 +532,26 @@ def create_root(
     # instead of CheckStopCondition's own '/odom' default -- so the mission's
     # distance-travelled stop condition reads the EKF-fused pose once localization_source
     # is 'ekf', not silently-still-raw wheel/steering dead reckoning.
+    # GoToObject between PublishMoveGoal and CheckStopCondition: it owns a
+    # go_to_object move's goal and its failure outcomes, and is a no-op (bar
+    # ending a previous object move) for every other move type. See its own
+    # module docstring. object_params are stack_params.yaml values read in
+    # main(); the defaults below only serve create_root() callers in tests.
+    op = dict(object_params or {})
     mission_progress = py_trees.composites.Sequence(name='mission_progress', memory=False)
-    mission_progress.add_children(
-        [PublishMoveGoal(), CheckStopCondition(odom_topic=get_odom_topic()), AdvanceMove()])
+    mission_progress.add_children([
+        PublishMoveGoal(),
+        GoToObject(
+            follow_gate_m=op.get('object_follow_gate_m', 0.5),
+            grace_speed_factor=op.get('object_grace_speed_factor', 0.5),
+            tracks_max_gap_sec=op.get('object_tracks_max_gap_sec', 0.5)),
+        CheckStopCondition(
+            odom_topic=get_odom_topic(),
+            object_reach_tol_m=op.get('object_reach_tol_m', 0.10),
+            object_reach_max_target_age_sec=op.get('object_reach_max_target_age_sec', 1.0),
+            object_status_max_gap_sec=op.get('object_status_max_gap_sec', 0.5)),
+        AdvanceMove(),
+    ])
 
     mission_selector = py_trees.composites.Selector(name='mission_selector', memory=False)
     mission_selector.add_children([mission_object_response, mission_progress])
@@ -654,6 +673,17 @@ def main():
     sys_obs_load_trip_consecutive_samples = int(
         bootstrap_node.declare_parameter(
             'sys_obs_load_trip_consecutive_samples', 3).value)
+    # go_to_object (schema 4.0). Single-sourced: the declare default IS the
+    # stack_params.yaml value (get_value), the same pattern mpc_corr uses for
+    # its object_* keys, so there is no second copy of any number here.
+    object_params = {
+        name: float(bootstrap_node.declare_parameter(name, get_value(name)).value)
+        for name in (
+            'object_follow_gate_m', 'object_grace_speed_factor',
+            'object_tracks_max_gap_sec', 'object_reach_tol_m',
+            'object_reach_max_target_age_sec', 'object_status_max_gap_sec',
+        )
+    }
     bootstrap_node.destroy_node()
 
     root = create_root(
@@ -666,6 +696,7 @@ def main():
         proximity_side_threshold_m=proximity_side_threshold_m,
         enable_sys_obs_load_trip=enable_sys_obs_load_trip,
         sys_obs_load_trip_consecutive_samples=sys_obs_load_trip_consecutive_samples,
+        object_params=object_params,
     )
     tree = py_trees_ros.trees.BehaviourTree(root=root)
 

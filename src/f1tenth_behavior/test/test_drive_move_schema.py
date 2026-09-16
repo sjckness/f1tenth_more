@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from f1tenth_behavior.mission.mission_config import (
-    MissionConfigError, load_mission_file, parse_mission)
+    TERMINAL_REQUIRED_VERSIONS, MissionConfigError, load_mission_file, parse_mission)
 
 MISSIONS_DIR = Path(__file__).resolve().parent.parent / 'missions'
 
@@ -219,7 +219,9 @@ class TestPre30MissionsAreUntouched:
         # terminal flag or a drive step as a side effect.
         for path in sorted(MISSIONS_DIR.glob('*.json')):
             raw = json.loads(path.read_text(encoding='utf-8'))
-            if raw.get('schema_version') == '3.0':
+            # 3.0 and every later version that requires terminal (4.0 added
+            # go_to_object) -- only the pre-3.0 missions must stay untouched.
+            if raw.get('schema_version') in TERMINAL_REQUIRED_VERSIONS:
                 continue
             for move in raw['moves']:
                 assert 'terminal' not in move, f'{path.name}: {move["id"]} gained terminal'

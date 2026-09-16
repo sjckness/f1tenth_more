@@ -61,6 +61,28 @@ GLOBAL_YAW_KEY = 'mission_global_yaw'
 # applies here, just against a different data source, for a different
 # purpose: grading a finished turn, not deciding when to stop it).
 GLOBAL_TURN_ACCUM_KEY = 'mission_global_turn_accum_deg'
+# Latest /mpc/object_status, as an ObjectStatusSample. CheckStopCondition owns
+# the subscription (object_reached reads it); GoToObject reads it for the
+# terminal target_behind flag. One subscription, one value, like every key
+# above.
+OBJECT_STATUS_KEY = 'mission_object_status'
+
+
+class ObjectStatusSample(NamedTuple):
+    """The fields of one ObjectApproachStatus the mission acts on.
+
+    received_sec is time.monotonic() at receipt -- the same clock as
+    EvalContext.now -- so a status that stopped arriving can be told apart
+    from one that is merely unchanged.
+    """
+
+    move_id: str
+    r: float
+    alpha: float
+    target_age_s: float
+    target_behind_terminal: bool
+    goal_watchdog: bool
+    received_sec: float
 
 
 class MissionState(Enum):
@@ -104,6 +126,23 @@ class HoldContext:
     resume_condition: Optional[StopCondition]
     hold_start_time: float
     hold_start_xy: Optional[Tuple[float, float]]
+
+
+@dataclass
+class ObjectApproachRecord:
+    """What the current go_to_object move has done so far, for scoring.
+
+    Written by GoToObject (the handler's phase, target point and track) and by
+    CheckStopCondition (the last status for THIS move), read by
+    move_scoring.record_move_outcome when the move ends. One per move.
+    """
+
+    wire_move_id: str
+    phase: str = 'ACQUIRE'
+    target_xy: Optional[Tuple[float, float]] = None
+    track_id: Optional[str] = None
+    last_status: Optional[ObjectStatusSample] = None
+    outcome: Optional[str] = None
 
 
 @dataclass
@@ -172,6 +211,9 @@ class MissionRuntimeState:
     # own docstring for why that matters to mpc_corr specifically).
     goal_dirty: bool = False
     hold_context: Optional[HoldContext] = None
+    # The current go_to_object move's record (see ObjectApproachRecord); None
+    # for every other move type and between moves.
+    object_record: Optional[ObjectApproachRecord] = None
 
     # Per-current-move dedup for "stub feature used" warnings (goal_pose,
     # vdes-override, manual stop_condition, reduce_speed/_for) so they log once
@@ -233,6 +275,7 @@ class MissionRuntimeState:
         self.state = MissionState.LOADED
         self.goal_dirty = False
         self.hold_context = None
+        self.object_record = None
         self._stub_logged_tags = set()
         self._stub_logged_move_id = None
         # New run: see run_generation's own field comment. Bumped here AND in
@@ -254,6 +297,7 @@ class MissionRuntimeState:
         self.mission_start_wall_time = time.time()
         self.state = MissionState.RUNNING
         self.goal_dirty = True
+        self.object_record = None
         # LOADED -> RUNNING is the other half of "a new run started" -- see
         # run_generation's own field comment and load()'s bump.
         self.run_generation += 1
@@ -275,6 +319,7 @@ class MissionRuntimeState:
         self.move_start_global_xy = None
         self.move_start_global_yaw = None
         self.goal_dirty = True
+        self.object_record = None
 
     def complete(self) -> None:
         self.state = MissionState.COMPLETE

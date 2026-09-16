@@ -35,6 +35,10 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <!-- test_go_to_object_end_to_end.py drives the real GoToObject and
+       CheckStopCondition behaviours against this package's controller. Test
+       only: nothing in mpc_controller imports f1tenth_behavior at run time. -->
+  <test_depend>f1tenth_behavior</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

@@ -53,6 +53,7 @@ from f1tenth_behavior.mission.mission_config import MissionConfig
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     FRONT_CLEARANCE_KEY,
+    GLOBAL_XY_KEY,
     MIN_OBSTACLE_DISTANCE_FORWARD_KEY,
     MIN_OBSTACLE_DISTANCE_KEY,
 )
@@ -172,6 +173,18 @@ def required_dependencies(config: MissionConfig) -> List[Requirement]:
                 ),
                 blackboard_key=MIN_OBSTACLE_DISTANCE_KEY,
             ))
+
+    if any(getattr(m, 'go_to_object', None) is not None for m in config.moves):
+        reqs.append(Requirement(
+            name='semantic_layer_node',
+            reason='a go_to_object step drives at its /costmap/semantic_tracks',
+            node_name='semantic_layer_node',
+        ))
+        reqs.append(Requirement(
+            name='global localization (/ekf_global/odometry/filtered)',
+            reason='a go_to_object step acquires the track NEAREST the vehicle, in the map frame',
+            blackboard_key=GLOBAL_XY_KEY,
+        ))
 
     uses_perception = bool(stop_condition_types & {'object_seen', 'object_cleared'}) or any(
         m.on_object for m in config.moves

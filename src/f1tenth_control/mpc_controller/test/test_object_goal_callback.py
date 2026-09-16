@@ -2,13 +2,13 @@
 
 This is the whole reason ObjectGoal carries a move_id, and the reason the
 callback branches on it before touching any state. The failure being
-prevented is concrete and is happening today: object_goal_bridge drives
-/mpc/goal_pose at 20 Hz, and goal_pose_callback treats every message as a new
-move -- it calls _invalidate_move_state(), which nulls cached_corridor and
-last_corridor_time and drops warm_start_z. With a message per 50 ms into a
-10 Hz control loop, the corridor is rebuilt and re-anchored on EVERY control
-tick, corridor_update_period stops meaning anything, and the RTI warm start
-never survives long enough to be used.
+prevented is concrete and was live until the go_to_object move replaced it:
+object_goal_bridge drove /mpc/goal_pose at 20 Hz, and goal_pose_callback
+treats every message as a new move -- it calls _invalidate_move_state(),
+which nulls cached_corridor and last_corridor_time and drops warm_start_z.
+With a message per 50 ms into a 10 Hz control loop, the corridor is rebuilt
+and re-anchored on EVERY control tick, corridor_update_period stops meaning
+anything, and the RTI warm start never survives long enough to be used.
 
 Same "testable without constructing a real node" shape as
 test_corridor_direction_recovery.py: a duck-typed stand-in carrying just the
@@ -20,6 +20,8 @@ watching cached_corridor actually survive proves the thing that broke.
 No rclpy, no node, no topics, no hardware.
 """
 
+import collections
+import inspect
 import math
 from types import SimpleNamespace
 
@@ -27,6 +29,7 @@ import pytest
 
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.object_approach import TargetBehindPersistence, heading_margin_for
+from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
 
 
 class _FakeLogger:
@@ -48,12 +51,35 @@ class _FakeLogger:
         self.errors.append(str(msg))
 
 
+class _FakeClock:
+    """A settable clock with rclpy's .now().nanoseconds shape."""
+
+    def __init__(self):
+        self.t = 0.0
+
+    def now(self):
+        return SimpleNamespace(nanoseconds=int(round(self.t * 1e9)))
+
+
 class _FakeMPC:
     """Just enough of MPCController for goal_object_callback + friends."""
 
     def __init__(self, x=0.0, y=0.0, yaw=0.0):
         self.x, self.y, self.yaw = x, y, yaw
         self._logger = _FakeLogger()
+        self.clock = _FakeClock()
+        self.drive = []                 # (speed, steering) per _publish_drive
+
+        # Leaving object mode, mirroring MPCController.__init__.
+        self.object_ended_move_ids = collections.deque(maxlen=64)
+        self.object_exit_ramp = SteeringRamp(0.6)
+        self.object_exit_ramping = False
+        self._object_exit_last_sec = None
+        self.object_goal_watchdog = RefreshWatchdog(0.5)
+        self.object_goal_watchdog_tripped = False
+        self._last_published_steer = 0.0
+        self.delta_real = None
+        self.hold = False
 
         # Object-mode state, mirroring MPCController.__init__.
         self.goal_object_move_id = None
@@ -106,8 +132,24 @@ class _FakeMPC:
     def get_logger(self):
         return self._logger
 
+    def get_clock(self):
+        return self.clock
+
     def _clear_drive_state(self):
         pass
+
+    def _publish_drive(self, speed, steering):
+        self._last_published_steer = float(steering)
+        self.drive.append((float(speed), float(steering)))
+
+    def _mark_object_move_ended(self, move_id):
+        MPCController._mark_object_move_ended(self, move_id)
+
+    def _end_object_move(self, reason):
+        MPCController._end_object_move(self, reason)
+
+    def _publish_stop(self):
+        MPCController._publish_stop(self)
 
     def _invalidate_move_state(self):
         """The real one, plus a counter so a test can assert how often it ran."""
@@ -470,3 +512,204 @@ class TestStatusFields:
         assert msg.target_behind_terminal is False
         assert msg.target_age_s == pytest.approx(0.5)
         assert msg.move_id == 'm'
+
+
+# ------------------------------------------------------- leaving object mode
+
+def _end(fake, move_id):
+    MPCController.goal_object_end_callback(fake, SimpleNamespace(data=move_id))
+
+
+class TestLeavingObjectMode:
+    """How an object move ends, and that it stays ended.
+
+    BEFORE this change the only exit was _invalidate_move_state, called when
+    another goal shape arrived. /mpc/hold zeroed the drive but kept object
+    mode, so releasing it resumed the approach, and nothing remembered which
+    move ids had finished.
+    """
+
+    def _active(self, move_id='run7:m'):
+        fake = _FakeMPC()
+        _send(fake, _goal(move_id, 4.0, 0.0))
+        fake.goal_object_odom_xy = (4.0, 0.0)
+        return fake
+
+    def test_the_end_message_leaves_object_mode(self):
+        fake = self._active()
+        _end(fake, 'run7:m')
+        assert fake.object_psi_c is None
+        assert fake.goal_object_odom_xy is None
+        assert 'run7:m' in fake.object_ended_move_ids
+
+    def test_a_late_refresh_of_an_ended_move_does_not_restart_it(self):
+        """The queued-message case: same id, arriving after the end."""
+        fake = self._active()
+        _end(fake, 'run7:m')
+        invalidations = fake.invalidations
+        _send(fake, _goal('run7:m', 4.1, 0.0))
+        assert fake.object_psi_c is None, 'a late ObjectGoal restarted an ended move'
+        assert fake.goal_object_map_xy == (4.0, 0.0), 'nor may it update the target'
+        assert fake.invalidations == invalidations
+
+    def test_an_end_for_a_move_never_started_still_blocks_it(self):
+        fake = _FakeMPC()
+        _end(fake, 'run7:m')
+        _send(fake, _goal('run7:m', 4.0, 0.0))
+        assert fake.object_psi_c is None
+
+    def test_an_end_for_another_id_does_not_touch_the_active_move(self):
+        fake = self._active('run7:m')
+        _end(fake, 'run6:m')
+        assert fake.object_psi_c is not None
+        assert 'run6:m' in fake.object_ended_move_ids
+
+    def test_hold_ends_an_active_object_move(self):
+        fake = self._active()
+        MPCController.hold_callback(fake, SimpleNamespace(data=True))
+        assert fake.object_psi_c is None
+        assert 'run7:m' in fake.object_ended_move_ids
+
+    def test_releasing_the_hold_does_not_resume_it(self):
+        fake = self._active()
+        MPCController.hold_callback(fake, SimpleNamespace(data=True))
+        MPCController.hold_callback(fake, SimpleNamespace(data=False))
+        _send(fake, _goal('run7:m', 4.0, 0.0))
+        assert fake.object_psi_c is None
+
+    def test_hold_outside_object_mode_marks_nothing(self):
+        fake = _FakeMPC()
+        MPCController.hold_callback(fake, SimpleNamespace(data=True))
+        assert list(fake.object_ended_move_ids) == []
+
+    def test_a_superseding_goal_of_another_shape_ends_the_move(self):
+        fake = self._active()
+        MPCController._invalidate_move_state(fake)      # what every other goal does
+        assert 'run7:m' in fake.object_ended_move_ids
+        _send(fake, _goal('run7:m', 4.0, 0.0))
+        assert fake.object_psi_c is None
+
+    def test_a_new_object_move_ends_the_previous_one_not_itself(self):
+        fake = self._active('run7:a')
+        _send(fake, _goal('run7:b', 5.0, 1.0))
+        assert 'run7:a' in fake.object_ended_move_ids
+        assert 'run7:b' not in fake.object_ended_move_ids
+        assert fake.goal_object_move_id == 'run7:b'
+        assert fake.object_psi_c is not None
+        _send(fake, _goal('run7:a', 4.0, 0.0))            # late refresh of a
+        assert fake.goal_object_move_id == 'run7:b'
+
+    def test_the_ended_memory_is_bounded(self):
+        fake = _FakeMPC()
+        for i in range(200):
+            _end(fake, f'run{i}:m')
+        assert len(fake.object_ended_move_ids) == 64
+        assert 'run199:m' in fake.object_ended_move_ids
+
+
+class TestExitRamp:
+    """Ported from the prototype's LOST ramp: speed zero at once, wheels ramp out."""
+
+    def _ended_at(self, steer, measured=None):
+        fake = _FakeMPC()
+        _send(fake, _goal('m', 4.0, 0.0))
+        fake._publish_drive(0.4, steer)                   # the last solve's command
+        fake.delta_real = measured
+        _end(fake, 'm')
+        return fake
+
+    def _stop_ticks(self, fake, n, dt=0.1):
+        for _ in range(n):
+            MPCController._publish_stop(fake)
+            fake.clock.t += dt
+        return fake.drive[-n:]
+
+    def test_speed_is_zero_on_every_tick_and_the_steering_is_a_ramp(self):
+        fake = self._ended_at(0.25)
+        out = self._stop_ticks(fake, 8)
+        assert all(speed == 0.0 for speed, _ in out)
+        steers = [0.25] + [steer for _, steer in out]
+        steps = [abs(b - a) for a, b in zip(steers, steers[1:])]
+        assert max(steps) <= 0.6 * 0.1 + 1e-12, 'a ramp, not a step'
+        assert steers[-1] == 0.0, 'and it does reach centre'
+        assert fake.object_exit_ramping is False
+
+    def test_the_first_tick_holds_because_no_time_has_elapsed(self):
+        fake = self._ended_at(0.25)
+        (first,) = self._stop_ticks(fake, 1)
+        assert first == (0.0, 0.25)
+
+    def test_it_starts_from_the_measured_angle_when_there_is_one(self):
+        fake = self._ended_at(0.25, measured=-0.20)
+        out = self._stop_ticks(fake, 2)
+        assert out[0][1] == pytest.approx(-0.20)
+        assert out[1][1] == pytest.approx(-0.20 + 0.06)
+
+    def test_without_a_measurement_it_starts_from_the_last_published_angle(self):
+        fake = self._ended_at(-0.18)
+        out = self._stop_ticks(fake, 2)
+        assert out[1][1] == pytest.approx(-0.18 + 0.06)
+
+    def test_a_sign_change_on_the_next_move_is_not_inherited(self):
+        """The ramp is cancelled by a new goal, which owns the steering again."""
+        fake = self._ended_at(0.25)
+        self._stop_ticks(fake, 2)
+        MPCController._invalidate_move_state(fake)
+        assert fake.object_exit_ramping is False
+        (out,) = self._stop_ticks(fake, 1)
+        assert out == (0.0, 0.0)
+
+    def test_no_ramp_when_no_object_move_ended(self):
+        fake = _FakeMPC()
+        fake._publish_drive(0.3, 0.2)
+        (out,) = self._stop_ticks(fake, 1)
+        assert out == (0.0, 0.0)
+
+    def test_hold_and_no_goal_both_stop_through_the_ramp(self):
+        """Source check: the two stop paths an ended move lands on use it."""
+        src = inspect.getsource(MPCController.control_loop)
+        hold_branch = src[src.index('if self.hold:'):]
+        assert 'self._publish_stop()' in hold_branch.split('return', 1)[0]
+        no_goal = src[src.index('elif self.goal_distance is None or self.goal_start_xy is None:'):]
+        assert 'self._publish_stop()' in no_goal.split('return', 1)[0]
+
+    def test_lost_odometry_is_a_hard_zero_and_cancels_the_ramp(self):
+        src = inspect.getsource(MPCController.control_loop)
+        odom_branch = src[src.index("'ODOM non disponibile"):].split('return', 1)[0]
+        assert 'self.object_exit_ramping = False' in odom_branch
+        assert 'self._publish_drive(0.0, 0.0)' in odom_branch
+
+
+class TestGoalRefreshWatchdog:
+    """Ported from the prototype's watchdog: a silent sender is a hard stop."""
+
+    def test_refreshes_feed_the_watchdog(self):
+        fake = _FakeMPC()
+        fake.clock.t = 10.0
+        _send(fake, _goal('m', 4.0, 0.0))
+        fake.clock.t = 10.4
+        _send(fake, _goal('m', 4.1, 0.0))
+        assert fake.object_goal_watchdog.tripped(10.8) is None
+        assert fake.object_goal_watchdog.tripped(11.0) is not None
+
+    def test_a_new_move_starts_fresh(self):
+        fake = _FakeMPC()
+        fake.clock.t = 1.0
+        _send(fake, _goal('a', 4.0, 0.0))
+        fake.clock.t = 9.0
+        _send(fake, _goal('b', 4.0, 0.0))
+        assert fake.object_goal_watchdog.tripped(9.1) is None
+
+    def test_the_trip_branch_is_a_hard_zero_not_the_ramp(self):
+        src = inspect.getsource(MPCController.control_loop)
+        branch = src[src.index('watchdog_reason = self.object_goal_watchdog.tripped'):]
+        branch = branch.split('return', 1)[0]
+        assert 'self.object_exit_ramp.seed(0.0)' in branch
+        assert 'self._publish_drive(0.0, 0.0)' in branch
+        assert '_publish_stop' not in branch
+
+    def test_the_trip_status_carries_live_range_not_a_zero(self):
+        src = inspect.getsource(MPCController.control_loop)
+        branch = src[src.index('watchdog_reason = self.object_goal_watchdog.tripped'):]
+        branch = branch.split('return', 1)[0]
+        assert 'self._assess_object_tick(' in branch

@@ -38,7 +38,6 @@ setup(
         'console_scripts': [
             'behavior_executor_node = f1tenth_behavior.behavior_executor_node:main',
             'twist_to_ackermann_node = f1tenth_behavior.twist_to_ackermann_node:main',
-            'object_goal_bridge = f1tenth_behavior.object_goal_bridge:main',
             'wait_for_trigger_service_node = '
             'f1tenth_behavior.wait_for_trigger_service_node:main',
         ],

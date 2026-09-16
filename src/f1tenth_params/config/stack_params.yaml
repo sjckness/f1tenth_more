@@ -1018,6 +1018,34 @@ object_a_dec:
 object_behind_persist_sec:
   default: 0.5
   description: "How long [s] target_behind (the target in the car's rear half-plane) must hold CONTINUOUSLY before mpc_corr reports it TERMINAL on /mpc/object_status.target_behind_terminal, which ends the move target_unreachable. The raw flag is evaluated every control tick; persistence exists because a car circling a person who walks past it grazes 90 degrees and turns back (seen in the closed-loop rig). 0.5 s is 5 ticks at the 10 Hz loop."
+object_goal_timeout_sec:
+  default: 0.5
+  description: "mpc_corr hard-stops (zero speed AND zero steering, not ramped) when no ObjectGoal refresh for the active object move has arrived for this long [s], and resumes when refreshes return. The mission's object handler republishes every behaviour-tree tick (100 ms), so 0.5 s is five missed ticks. Target staleness is a different question, answered by the handler's lost_grace_sec and reported as target_age_s."
+object_exit_steer_rate_rad_s:
+  default: 0.6
+  description: "Steering slew limit [rad/s] when an object move ends (/mpc/goal_object_end or /mpc/hold): speed goes to zero at once and the wheels return to centre at this rate, from the measured angle when /joint_states has one. A smoothness choice, not an actuator limit: full lock (0.28 rad) to centre in about 0.5 s. Ported from the go_to_object prototype's LOST ramp."
+# Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
+# declare default = this value), for the go_to_object move (schema 4.0):
+# GoToObject (mission/object_handler.py) and CheckStopCondition's
+# object_reached. NONE OF THESE HAS BEEN RUN ON THE CAR.
+object_follow_gate_m:
+  default: 0.5
+  description: "FOLLOW gate [m]: the target is the nearest confirmed track of the move's class within this distance of the LAST target point, whatever its track_id. semantic_layer_node re-issues ids across dropouts; a same-class track farther than this is a different object."
+object_grace_speed_factor:
+  default: 0.5
+  description: "Speed multiplier while GRACE keeps publishing the last target point after the gated track disappeared (for the move's lost_grace_sec)."
+object_tracks_max_gap_sec:
+  default: 0.5
+  description: "A /costmap/semantic_tracks message older than this [s] by receipt time counts as no tracks, so a stalled perception pipeline reads as a lost target (GRACE, then target_lost) rather than a target frozen in place."
+object_reach_tol_m:
+  default: 0.10
+  description: "object_reached fires when mpc_corr's live r (distance to the target minus the standoff, /mpc/object_status) is at or below this [m]. Closed-loop rig (nominal model): footprint person at standoff 1.0 settles at r = +0.11 because the solver's w_obs term holds the car short -- above this tolerance; at standoff 1.2 it settles at +0.013."
+object_reach_max_target_age_sec:
+  default: 1.0
+  description: "object_reached also requires the target estimate being driven at to be no older than this [s] (target_age_s: now minus the track's capture stamp). Untuned: the capture-to-status latency of the semantic tracks pipeline has not been measured on the car. If the bench shows target_age_s above this while tracking, the move cannot reach."
+object_status_max_gap_sec:
+  default: 0.5
+  description: "object_reached ignores a /mpc/object_status sample received more than this [s] ago (mpc_corr publishes it every control tick, 10 Hz)."
 # ------------------------------------------------------------------
 # WALL TRACKER -- d_wall for the wall_turn increment.
 #

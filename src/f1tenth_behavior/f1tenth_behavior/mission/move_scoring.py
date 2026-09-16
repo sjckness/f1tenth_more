@@ -25,6 +25,15 @@ Scoring convention (decided explicitly with the user, not guessed):
     straight-line distance travelled) means a move that drifted sideways or
     even went backward relative to its intended heading shows up as a low
     or negative score, not a falsely-good one.
+  - go_to_object moves (schema 4.0): commanded = standoff_m, actual = the
+    FINAL RANGE to the target, i.e. mpc_corr's last /mpc/object_status r for
+    this move plus the standoff -- the same single range source object_reached
+    stops on. Mismatch uses the distance policy below. The arrival bearing
+    error (|alpha| at the end, degrees) is recorded as its own field and is
+    deliberately NOT part of the mismatch: a car at the right range pointing
+    37 degrees off is a different finding from one at the wrong range. The
+    track-based range (global EKF pose to the handler's last target point) is
+    recorded and logged beside it, as a cross-check on the controller's frame.
   - `goal_pose` moves are NOT scored this pass -- the task's own examples
     only ever covered turn/straight; inventing a formula for pose-mode
     arrival (e.g. remaining distance-to-target) wasn't asked for, so it's
@@ -81,6 +90,12 @@ class MoveOutcome:
     score_percent: Optional[float] = None  # None if unscored (goal_pose, or missing pose data)
     mismatch_flagged: bool = False
     note: Optional[str] = None  # e.g. why unscored
+    # go_to_object only (None otherwise). outcome is one of object_handler.
+    # OUTCOMES. arrival_bearing_error_deg is NOT part of mismatch_flagged.
+    outcome: Optional[str] = None
+    arrival_bearing_error_deg: Optional[float] = None
+    track_range_m: Optional[float] = None
+    target_track_id: Optional[str] = None
 
 
 def score_turn(commanded_deg: float, actual_deg: float) -> float:
@@ -129,6 +144,7 @@ def build_move_outcome(
     start_global_yaw: Optional[float],
     end_global_yaw: Optional[float],
     global_turn_accum_deg: Optional[float],
+    object_record=None,
 ) -> MoveOutcome:
     """Pure function: everything record_move_outcome() (the ROS-adjacent
     caller-facing entry point below) needs, minus the actual state mutation
@@ -145,6 +161,11 @@ def build_move_outcome(
     (-180, 180] deg and would silently misscore any turn at or beyond that
     boundary.
     """
+    if getattr(move, 'go_to_object', None) is not None:
+        return _object_outcome(
+            move, stop_reason, start_time, end_time, start_global_xy, end_global_xy,
+            start_global_yaw, end_global_yaw, object_record)
+
     if move.turn is not None:
         move_type = 'turn'
         commanded = float(move.turn.heading_delta_deg)
@@ -238,6 +259,41 @@ def build_move_outcome(
     )
 
 
+def _object_outcome(move, stop_reason, start_time, end_time, start_global_xy,
+                    end_global_xy, start_global_yaw, end_global_yaw, record):
+    """go_to_object scoring -- see the module docstring."""
+    spec = move.go_to_object
+    commanded = float(spec.standoff_m)
+    common = dict(
+        move_id=move.id, move_type='go_to_object', stop_reason=stop_reason,
+        start_time=start_time, end_time=end_time,
+        start_global_xy=start_global_xy, end_global_xy=end_global_xy,
+        start_global_yaw=start_global_yaw, end_global_yaw=end_global_yaw,
+        commanded=commanded,
+    )
+    outcome = record.outcome if record is not None else None
+    if outcome is None and stop_reason.startswith('timeout'):
+        outcome = 'timeout'
+    track_range = None
+    track_id = None
+    if record is not None:
+        track_id = record.track_id
+        if record.target_xy is not None and end_global_xy is not None:
+            track_range = math.hypot(record.target_xy[0] - end_global_xy[0],
+                                     record.target_xy[1] - end_global_xy[1])
+    status = record.last_status if record is not None else None
+    if status is None:
+        return MoveOutcome(
+            **common, outcome=outcome, track_range_m=track_range, target_track_id=track_id,
+            note='no /mpc/object_status for this move -- unscored')
+    actual = float(status.r) + commanded
+    return MoveOutcome(
+        **common, actual=actual, score_percent=actual / commanded * 100.0,
+        mismatch_flagged=is_mismatch(commanded, actual, MISMATCH_DISTANCE_FLOOR_M),
+        outcome=outcome, arrival_bearing_error_deg=math.degrees(abs(float(status.alpha))),
+        track_range_m=track_range, target_track_id=track_id)
+
+
 def record_move_outcome(state, logger, move, stop_reason: str, now: float,
                          end_global_xy, end_global_yaw, global_turn_accum_deg) -> MoveOutcome:
     """ROS-adjacent entry point: builds this move's MoveOutcome (see
@@ -258,8 +314,23 @@ def record_move_outcome(state, logger, move, stop_reason: str, now: float,
         start_global_yaw=state.move_start_global_yaw,
         end_global_yaw=end_global_yaw,
         global_turn_accum_deg=global_turn_accum_deg,
+        object_record=getattr(state, 'object_record', None),
     )
     state.move_outcomes.append(outcome)
+
+    if outcome.move_type == 'go_to_object':
+        bearing = outcome.arrival_bearing_error_deg
+        track = outcome.track_range_m
+        logger.info(
+            f"[mission] Move '{move.id}' (go_to_object) outcome={outcome.outcome!r}: "
+            f'range (mpc_corr r + standoff)='
+            + (f'{outcome.actual:.3f}' if outcome.actual is not None else 'n/a')
+            + f' commanded standoff={outcome.commanded:.3f} track-based range='
+            + (f'{track:.3f}' if track is not None else 'n/a')
+            + ' arrival bearing error='
+            + (f'{bearing:.1f} deg' if bearing is not None else 'n/a')
+            + f' track={outcome.target_track_id!r}'
+        )
 
     if outcome.score_percent is None:
         logger.info(f"[mission] Move '{move.id}' outcome: {outcome.note}")

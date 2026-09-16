@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 from f1tenth_behavior.mission.mission_config import STUB_STOP_CONDITION_TYPES, StopCondition
-from f1tenth_behavior.mission.runtime import DetectionInfo
+from f1tenth_behavior.mission.runtime import DetectionInfo, ObjectStatusSample
 
 # object_seen has no per-condition debounce/freshness field of its own in the
 # schema (only object_cleared's debounce_sec is configurable) -- this is the
@@ -140,6 +140,17 @@ class EvalContext:
     # None means "no message received yet", same as every other Optional
     # sensor field here -- not "nothing ahead", which is a large finite value.
     min_obstacle_distance_forward: Optional[float] = None
+    # object_reached (schema_version 4.0). object_status is the latest
+    # /mpc/object_status; object_move_id is the wire id THIS move's handler
+    # publishes, so a status belonging to any other move -- including the same
+    # move of a previous run -- never satisfies it. The three limits come from
+    # stack_params.yaml via CheckStopCondition. None/defaults for every caller
+    # that does not track object moves, which then never satisfies it.
+    object_status: Optional[ObjectStatusSample] = None
+    object_move_id: Optional[str] = None
+    object_reach_tol_m: float = 0.10
+    object_reach_max_target_age_sec: float = 1.0
+    object_status_max_gap_sec: float = 0.5
 
 
 def debounce_ticks_for(condition: StopCondition) -> int:
@@ -358,6 +369,24 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
         if ctx.front_clearance is None or ctx.front_clearance <= 0.0:
             return False
         return ctx.front_clearance < float(p['distance'])
+
+    if t == 'object_reached':
+        # ONE range source: mpc_corr's live r (distance to the target minus the
+        # standoff, computed every control tick from the pose and the point it
+        # is actually driving at). Arrival additionally requires that the
+        # status is this move's, still arriving, not from a tripped refresh
+        # watchdog, and about a target estimate no older than the limit --
+        # a car at the right distance from where a person WAS is not there.
+        s = ctx.object_status
+        if s is None or ctx.object_move_id is None or s.move_id != ctx.object_move_id:
+            return False
+        if ctx.now - s.received_sec > ctx.object_status_max_gap_sec:
+            return False
+        if s.goal_watchdog:
+            return False
+        if s.target_age_s > ctx.object_reach_max_target_age_sec:
+            return False
+        return s.r <= ctx.object_reach_tol_m
 
     if t == 'orientation_delta':
         # No-odometry-yet case mirrors front_clearance's own None handling:

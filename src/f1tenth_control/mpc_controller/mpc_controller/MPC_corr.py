@@ -1,4 +1,5 @@
 import json
+import collections
 import math
 import os
 from pathlib import Path
@@ -11,7 +12,7 @@ from rclpy.qos import (
     QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool, Float32
+from std_msgs.msg import Bool, Float32, String
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
@@ -25,6 +26,7 @@ from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
     TargetBehindPersistence, assess_object_approach, build_object_centreline,
     heading_margin_for, object_speed_ref, plan_object_heading)
+from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import SMOOTHSTEP_PEAK_SLOPE, plan_wall_turn_step
 from sensor_msgs.msg import JointState
@@ -425,6 +427,24 @@ class MPCController(Node):
         self.object_last_flags = None   # ObjectApproachFlags, this tick
         self.object_behind_terminal = False
         self.object_behind_for_s = 0.0
+        # LEAVING object mode (see object_guard's module docstring). A move ends
+        # on /mpc/goal_object_end or when /mpc/hold engages; its id is then
+        # remembered, so a late queued ObjectGoal for it is ignored instead of
+        # restarting the approach. Bounded: ids carry the run generation, so
+        # only the recent past can ever be replayed.
+        self.object_ended_move_ids = collections.deque(maxlen=64)
+        self.object_exit_ramp = SteeringRamp(float(self.declare_parameter(
+            'object_exit_steer_rate_rad_s',
+            get_value('object_exit_steer_rate_rad_s')).value))
+        self.object_exit_ramping = False
+        self._object_exit_last_sec = None
+        self.object_goal_watchdog = RefreshWatchdog(float(self.declare_parameter(
+            'object_goal_timeout_sec', get_value('object_goal_timeout_sec')).value))
+        self.object_goal_watchdog_tripped = False
+        # What _publish_drive last actually sent, which is where the ramp-out
+        # starts when no measured angle is available. NOT self.last_u[0]: the
+        # hold and no-goal paths publish zero without touching last_u.
+        self._last_published_steer = 0.0
         # Lead-in ahead of the car's projection onto the centreline. Not a
         # declared parameter: it exists only so compute_local_target's nearest
         # sample stays interior (see build_object_centreline) and there is
@@ -1400,6 +1420,14 @@ class MPCController(Node):
         )
         self.object_status_pub = self.create_publisher(
             ObjectApproachStatus, '/mpc/object_status', 10)
+        # The mission's "this object move is over" (std_msgs/String move_id).
+        # See goal_object_end_callback.
+        self.sub_goal_object_end = self.create_subscription(
+            String,
+            '/mpc/goal_object_end',
+            self.goal_object_end_callback,
+            10
+        )
 
         # f1tenth_behavior's PublishMoveGoal, for a mission "turn" step (schema_
         # version 2.0). See goal_turn_callback's own docstring for how a signed
@@ -1725,6 +1753,13 @@ class MPCController(Node):
         if msg.data != self.hold:
             self.get_logger().info(f'HOLD | {"engaged" if msg.data else "released"}')
         self.hold = msg.data
+        # A hold ENDS an object approach; it does not pause it. Every mission
+        # path that finishes a run holds (mission complete, abort, timeout), and
+        # the object handler is not ticked afterwards to say so itself. Pausing
+        # instead would resume driving at a stale target the moment the next
+        # run releases the hold, before that run's first goal arrives.
+        if msg.data and self.object_psi_c is not None:
+            self._end_object_move('hold engaged')
 
     def goal_distance_callback(self, msg: Float32):
         if self.x is None or self.y is None:
@@ -1954,7 +1989,7 @@ class MPCController(Node):
         drop the corridor cache and cold-start the solver on every single
         control tick -- corridor_update_period would stop meaning anything and
         the RTI warm start would never survive to be used. That is exactly
-        what happens today when object_goal_bridge drives /mpc/goal_pose at
+        what the retired object_goal_bridge did, driving /mpc/goal_pose at
         20 Hz, and it is the defect this message shape exists to remove.
 
         So:
@@ -1975,6 +2010,16 @@ class MPCController(Node):
         A standoff of zero or less is refused rather than clamped: it aims the
         corridor at the target itself, and the target may be a person.
         """
+        move_id = str(msg.move_id)
+        if move_id and move_id in self.object_ended_move_ids:
+            # A queued refresh of a move that has already ended. Ignoring it is
+            # the whole point of remembering ended ids: without this a late
+            # message would re-seed psi_c and restart the approach.
+            self.get_logger().warn(
+                f'goal_object for ENDED move_id={move_id!r} ignored',
+                throttle_duration_sec=2.0)
+            return
+
         if self.x is None or self.y is None:
             self.get_logger().warn(
                 'goal_object ricevuto ma stato ancora None: comando ignorato.')
@@ -1987,9 +2032,9 @@ class MPCController(Node):
                 'punterebbe il corridoio sull\'oggetto stesso.')
             return
 
-        move_id = str(msg.move_id)
         target_map = (float(msg.point.x), float(msg.point.y))
         stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
 
         # ---- the same-move fast path. Deliberately first, deliberately tiny.
         if move_id and move_id == self.goal_object_move_id:
@@ -1997,16 +2042,10 @@ class MPCController(Node):
             self.goal_object_stamp = stamp
             self.goal_object_standoff = standoff
             self.goal_object_speed = float(msg.speed)
+            self.object_goal_watchdog.note(now_sec)
             return
 
         # ---- a new move.
-        self.goal_object_move_id = move_id
-        self.goal_object_target_class = str(msg.target_class)
-        self.goal_object_map_xy = target_map
-        self.goal_object_stamp = stamp
-        self.goal_object_standoff = standoff
-        self.goal_object_speed = float(msg.speed)
-
         # Mutually exclusive with the other four shapes, the same way they
         # already are with each other.
         self.goal_distance = None
@@ -2021,8 +2060,20 @@ class MPCController(Node):
         self._clear_drive_state()
         # Clears object_psi_c / goal_object_odom_xy / object_target_at_build
         # along with the rest of the per-move geometry -- which is why the
-        # object state is seeded AFTER this call, not before.
+        # object state is seeded AFTER this call, not before. It also marks the
+        # PREVIOUS object move ended if one was active, which is why the new
+        # move's id is assigned after it too.
         self._invalidate_move_state()
+
+        self.goal_object_move_id = move_id
+        self.goal_object_target_class = str(msg.target_class)
+        self.goal_object_map_xy = target_map
+        self.goal_object_stamp = stamp
+        self.goal_object_standoff = standoff
+        self.goal_object_speed = float(msg.speed)
+        self.object_goal_watchdog.reset()
+        self.object_goal_watchdog.note(now_sec)
+        self.object_goal_watchdog_tripped = False
 
         # Seed the held heading from the bearing NOW. The reprojection has not
         # run for this move yet, so the map point is used directly: at move
@@ -2044,6 +2095,60 @@ class MPCController(Node):
             f'target_map=({target_map[0]:+.3f},{target_map[1]:+.3f}) '
             f'standoff={standoff:.2f} speed={msg.speed:.2f} '
             f'psi_c(seed)={self.object_psi_c:+.4f}')
+
+    def goal_object_end_callback(self, msg: String):
+        """Leave object mode and stop: the mission ended an object move.
+
+        For the ACTIVE move this ends the approach (see _end_object_move). For
+        any other id it only records the id as ended -- a move the mission
+        ended before its first ObjectGoal ever arrived here must not start
+        when that ObjectGoal finally does.
+        """
+        move_id = str(msg.data)
+        if not move_id:
+            return
+        if move_id == self.goal_object_move_id and self.object_psi_c is not None:
+            self._end_object_move('mission ended the move')
+        else:
+            self._mark_object_move_ended(move_id)
+
+    def _mark_object_move_ended(self, move_id):
+        if move_id and move_id not in self.object_ended_move_ids:
+            self.object_ended_move_ids.append(move_id)
+
+    def _end_object_move(self, reason):
+        """Leave object mode: remember the id, drop the geometry, ramp the wheels out.
+
+        Speed goes to zero on the next tick through the ordinary stop paths
+        (hold, or no goal left); steering follows object_exit_ramp from the
+        measured angle when /joint_states provides one, otherwise from what was
+        last published. See object_guard.
+        """
+        move_id = self.goal_object_move_id
+        self._mark_object_move_ended(move_id)
+        self._invalidate_move_state()
+        self.object_goal_watchdog.reset()
+        self.object_goal_watchdog_tripped = False
+        self.object_exit_ramp.seed(self._last_published_steer)
+        self.object_exit_ramp.resync(getattr(self, 'delta_real', None))
+        self.object_exit_ramping = True
+        self._object_exit_last_sec = None
+        self.get_logger().info(
+            f'OBJECT/end | move_id={move_id!r}: {reason} -- object mode off, '
+            f'steering ramps out from {self.object_exit_ramp.previous:+.3f} rad')
+
+    def _publish_stop(self):
+        """Publish zero speed; ramp the steering out if an object move just ended."""
+        if not self.object_exit_ramping:
+            self._publish_drive(0.0, 0.0)
+            return
+        now_sec = self.get_clock().now().nanoseconds * 1e-9
+        dt = 0.0 if self._object_exit_last_sec is None else now_sec - self._object_exit_last_sec
+        self._object_exit_last_sec = now_sec
+        steer = self.object_exit_ramp.apply(0.0, dt)
+        if steer == 0.0:
+            self.object_exit_ramping = False
+        self._publish_drive(0.0, steer)
 
     def _refresh_object_target(self):
         """Reproject the object target into THIS tick's odom frame.
@@ -2194,10 +2299,12 @@ class MPCController(Node):
             message.r = float(flags.r)
             message.bearing = float(flags.bearing)
             message.e = float(flags.e)
+            message.alpha = float(flags.alpha)
             message.inside_turn_radius = bool(flags.inside_turn_radius)
             message.target_behind = bool(flags.target_behind)
         message.target_behind_for_s = float(self.object_behind_for_s)
         message.target_behind_terminal = bool(self.object_behind_terminal)
+        message.goal_watchdog = bool(self.object_goal_watchdog_tripped)
         message.speed_ref = float(speed_ref)
         message.target_stale = bool(self.object_target_held)
         if self.goal_object_stamp is not None:
@@ -2648,6 +2755,15 @@ class MPCController(Node):
         # avoid. The control loop gates on goal_object_odom_xy, which IS
         # cleared, so an object approach superseded by another goal stops
         # driving immediately.
+        # An object move superseded by ANY new goal is over: remember its id
+        # so a late refresh cannot restart it. getattr, because several test
+        # stand-ins for this method carry no object state at all.
+        if (getattr(self, 'object_psi_c', None) is not None
+                and getattr(self, 'goal_object_move_id', None)):
+            self._mark_object_move_ended(self.goal_object_move_id)
+        # A new goal owns the steering from here; an unfinished ramp-out from
+        # the previous object move must not keep overriding the stop paths.
+        self.object_exit_ramping = False
         self.goal_object_odom_xy = None
         self.object_psi_c = None
         self.object_target_at_build = None
@@ -3024,6 +3140,7 @@ class MPCController(Node):
         self.wall_track_pub.publish(msg)
 
     def _publish_drive(self, speed, steering_angle):
+        self._last_published_steer = float(steering_angle)
         msg = AckermannDriveStamped()
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.drive.speed = speed
@@ -3086,6 +3203,10 @@ class MPCController(Node):
 
         if self.x is None or self.y is None or self.yaw is None or self.v is None:
             self.get_logger().warn('ODOM non disponibile: stato ancora None')
+            # Hard zero, NOT the ramp: the ramp assumes a node with a live
+            # state, which is exactly what this branch has lost.
+            self.object_exit_ramping = False
+            self.object_exit_ramp.seed(0.0)
             self._publish_drive(0.0, 0.0)
             return
 
@@ -3093,7 +3214,8 @@ class MPCController(Node):
             # Deliberately touches nothing else -- goal_start_xy, goal_reached, and
             # self.last_u are all left exactly as they were, so releasing the hold
             # resumes the current move rather than restarting or skipping it.
-            self._publish_drive(0.0, 0.0)
+            # Object moves are the exception: hold_callback ENDS them.
+            self._publish_stop()
             return
 
         # ONE map -> odom reprojection per tick, shared by the goal_distance
@@ -3152,6 +3274,31 @@ class MPCController(Node):
             # OBJECT MODE -- drive at a tracked object, stopping a standoff
             # short of it. Falls through to the corridor build and the solve,
             # like the drive branch above.
+            #
+            # First, the refresh watchdog: a sender that stopped republishing
+            # is a HARD stop, not a ramp -- see object_guard. Object mode is
+            # kept, so the approach resumes if refreshes return.
+            watchdog_now = self.get_clock().now().nanoseconds * 1e-9
+            watchdog_reason = self.object_goal_watchdog.tripped(watchdog_now)
+            if watchdog_reason is not None:
+                if not self.object_goal_watchdog_tripped:
+                    self.get_logger().error(
+                        f'OBJECT/watchdog | {watchdog_reason}: hard stop, '
+                        f'move_id={self.goal_object_move_id!r}')
+                self.object_goal_watchdog_tripped = True
+                self.object_exit_ramping = False
+                self.object_exit_ramp.seed(0.0)
+                self._publish_drive(0.0, 0.0)
+                # Live geometry, not an empty status: r defaults to 0.0 on the
+                # wire, which a reach check would read as arrival.
+                flags = self._assess_object_tick(
+                    (self.x, self.y, self.yaw), watchdog_now)
+                self._publish_object_status(self.object_last_step, flags, 0.0)
+                return
+            if self.object_goal_watchdog_tripped:
+                self.get_logger().info('OBJECT/watchdog | refreshes resumed')
+                self.object_goal_watchdog_tripped = False
+
             #
             # NO pose_goal_tolerance HARD STOP, and that is deliberate rather
             # than unfinished. Pose mode latches an arrival inside 0.15 m and
@@ -3215,7 +3362,7 @@ class MPCController(Node):
             # (build corridoio -> solver -> publish drive), come in modalita' distanza
 
         elif self.goal_distance is None or self.goal_start_xy is None:
-            self._publish_drive(0.0, 0.0)
+            self._publish_stop()
             if not self._no_goal_warned:
                 self.get_logger().warn(
                     'Nessun comando su /mpc/goal_distance ancora ricevuto: robot fermo in attesa.'

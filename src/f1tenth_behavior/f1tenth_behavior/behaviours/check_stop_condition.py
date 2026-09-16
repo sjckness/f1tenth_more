@@ -129,13 +129,17 @@ import time
 
 import py_trees
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool, Float32
+from std_msgs.msg import Bool, Float32, String
+
+from f1tenth_messages.msg import ObjectApproachStatus
 
 from f1tenth_behavior.mission.condition_eval import (
     ConditionDebouncer, EvalContext, evaluate)
 from f1tenth_behavior.mission.mission_config import STUB_STOP_CONDITION_TYPES
 from f1tenth_behavior.mission.detected_classes_bridge import DETECTED_CLASSES_KEY
 from f1tenth_behavior.mission.move_scoring import record_move_outcome, write_mission_summary
+from f1tenth_behavior.mission.object_handler import (
+    OUTCOME_REACHED, OUTCOME_TIMEOUT, object_move_wire_id)
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     CURRENT_YAW_KEY,
@@ -146,7 +150,9 @@ from f1tenth_behavior.mission.runtime import (
     MIN_OBSTACLE_DISTANCE_FORWARD_KEY,
     MIN_OBSTACLE_DISTANCE_KEY,
     MISSION_KEY,
+    OBJECT_STATUS_KEY,
     MissionRuntimeState,
+    ObjectStatusSample,
 )
 
 # Re-exported from mission/runtime.py (the actual definitions now live there
@@ -173,8 +179,19 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  goal_reached_topic='/mpc/goal_reached',
                  front_clearance_topic='/perception/front_distance',
                  global_odom_topic='/ekf_global/odometry/filtered',
-                 hold_topic='/mpc/hold'):
+                 hold_topic='/mpc/hold',
+                 object_status_topic='/mpc/object_status',
+                 object_goal_end_topic='/mpc/goal_object_end',
+                 object_reach_tol_m=0.10,
+                 object_reach_max_target_age_sec=1.0,
+                 object_status_max_gap_sec=0.5):
         super().__init__(name=name)
+        self._object_status_topic = object_status_topic
+        self._object_goal_end_topic = object_goal_end_topic
+        self.object_reach_tol_m = float(object_reach_tol_m)
+        self.object_reach_max_target_age_sec = float(object_reach_max_target_age_sec)
+        self.object_status_max_gap_sec = float(object_status_max_gap_sec)
+        self.object_end_pub = None
         self._odom_topic = odom_topic
         self._min_obstacle_distance_topic = min_obstacle_distance_topic
         self._min_obstacle_distance_forward_topic = min_obstacle_distance_forward_topic
@@ -235,6 +252,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.blackboard.register_key(key=GLOBAL_YAW_KEY, access=py_trees.common.Access.WRITE)
         self.blackboard.register_key(
             key=GLOBAL_TURN_ACCUM_KEY, access=py_trees.common.Access.WRITE)
+        self.blackboard.register_key(key=OBJECT_STATUS_KEY, access=py_trees.common.Access.WRITE)
+        setattr(self.blackboard, OBJECT_STATUS_KEY, None)
         setattr(self.blackboard, CURRENT_XY_KEY, None)
         setattr(self.blackboard, CURRENT_YAW_KEY, None)
         setattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY, None)
@@ -262,6 +281,33 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.node.create_subscription(
             Odometry, self._global_odom_topic, self._global_odom_cb, 10)
         self.hold_pub = self.node.create_publisher(Bool, self._hold_topic, 10)
+        self.node.create_subscription(
+            ObjectApproachStatus, self._object_status_topic, self._object_status_cb, 10)
+        self.object_end_pub = self.node.create_publisher(
+            String, self._object_goal_end_topic, 10)
+
+    def _object_status_cb(self, msg):
+        setattr(self.blackboard, OBJECT_STATUS_KEY, ObjectStatusSample(
+            move_id=str(msg.move_id), r=float(msg.r), alpha=float(msg.alpha),
+            target_age_s=float(msg.target_age_s),
+            target_behind_terminal=bool(msg.target_behind_terminal),
+            goal_watchdog=bool(msg.goal_watchdog), received_sec=time.monotonic()))
+
+    def _end_object_move(self, state, move, outcome, hold):
+        """Tell mpc_corr an object move is over (and hold when the mission is).
+
+        The timeout paths below are this behaviour's own, so the object
+        handler (GoToObject) never sees them end: an aborted mission is not
+        ticked again, and a skipped move is only noticed on the next tick.
+        """
+        record = getattr(state, 'object_record', None)
+        if record is not None and record.outcome is None:
+            record.outcome = outcome
+        if self.object_end_pub is not None:
+            self.object_end_pub.publish(String(data=object_move_wire_id(
+                state.config.mission_id, state.run_generation, move.id)))
+        if hold:
+            self.hold_pub.publish(Bool(data=True))
 
     def _odom_cb(self, msg: Odometry):
         self.x = msg.pose.pose.position.x
@@ -404,6 +450,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                     f"[mission] Move '{move.id}' timed out after {move.timeout_sec}s -- "
                     "on_timeout=skip, advancing."
                 )
+                if getattr(move, 'go_to_object', None) is not None:
+                    self._end_object_move(state, move, OUTCOME_TIMEOUT, hold=False)
                 # See the stop_condition-satisfied branch below for why this is
                 # set here (read by AdvanceMove right after).
                 state.last_stop_reason = 'timeout:skip'
@@ -419,6 +467,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                     'on_timeout=stop: holding here, mission left on this move '
                     '(not aborted, not advanced) until manually intervened.'
                 )
+                if getattr(move, 'go_to_object', None) is not None:
+                    self._end_object_move(state, move, OUTCOME_TIMEOUT, hold=False)
                 self.hold_pub.publish(Bool(data=True))
                 return py_trees.common.Status.RUNNING
             self.node.get_logger().error(
@@ -430,6 +480,11 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             # this move's outcome/write the mission summary the way it does
             # for a normal advance, so this branch does both itself, same as
             # HandleObjectAction's abort_mission does for its own abort path.
+            # An aborted object move must also STOP the car: this branch does
+            # not publish /mpc/hold for any other move type (pre-existing), and
+            # mpc_corr would otherwise keep driving at the last point it got.
+            if getattr(move, 'go_to_object', None) is not None:
+                self._end_object_move(state, move, OUTCOME_TIMEOUT, hold=True)
             self._record_and_summarize(state, move, 'timeout:abort', now)
             state.abort()
             return py_trees.common.Status.FAILURE
@@ -438,6 +493,15 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         min_obstacle_distance_forward = getattr(
             self.blackboard, MIN_OBSTACLE_DISTANCE_FORWARD_KEY)
         front_clearance = getattr(self.blackboard, FRONT_CLEARANCE_KEY)
+        object_move_id = None
+        object_status = getattr(self.blackboard, OBJECT_STATUS_KEY, None)
+        if getattr(move, 'go_to_object', None) is not None:
+            object_move_id = object_move_wire_id(
+                state.config.mission_id, getattr(state, 'run_generation', 0), move.id)
+            record = getattr(state, 'object_record', None)
+            if (record is not None and object_status is not None
+                    and object_status.move_id == object_move_id):
+                record.last_status = object_status
         ctx = EvalContext(
             now=now,
             move_start_time=state.move_start_time,
@@ -454,6 +518,11 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             turn_accum_deg=(
                 self._turn_accum_deg if self._turn_accum_prev_yaw is not None else None
             ),
+            object_status=object_status,
+            object_move_id=object_move_id,
+            object_reach_tol_m=self.object_reach_tol_m,
+            object_reach_max_target_age_sec=self.object_reach_max_target_age_sec,
+            object_status_max_gap_sec=self.object_status_max_gap_sec,
         )
         # Raw single-tick answer, then the debounce fold. For every condition
         # except a front_clearance that explicitly asks for debounce_ticks > 1
@@ -477,5 +546,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             # from AdvanceMove right after this SUCCESS is what actually
             # advances the mission (see that behaviour's own docstring).
             state.last_stop_reason = f'stop_condition:{move.stop_condition.type}'
+            record = getattr(state, 'object_record', None)
+            if getattr(move, 'go_to_object', None) is not None and record is not None:
+                record.outcome = OUTCOME_REACHED
             return py_trees.common.Status.SUCCESS
         return py_trees.common.Status.RUNNING

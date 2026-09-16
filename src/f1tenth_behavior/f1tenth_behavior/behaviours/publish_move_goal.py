@@ -140,6 +140,15 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
                 f"[mission] Move '{move.id}': published goal_pose=(x={gp.x}, y={gp.y}, "
                 f'yaw={gp.yaw}) to /mpc/goal_pose.'
             )
+        elif getattr(move, 'go_to_object', None) is not None:
+            # The fifth shape (schema_version 4.0). Nothing to publish ONCE:
+            # the target is a track that moves, so GoToObject publishes
+            # /mpc/goal_object every tick for the whole move. Clearing
+            # goal_dirty below is all this behaviour has to do.
+            self.node.get_logger().info(
+                f"[mission] Move '{move.id}': go_to_object "
+                f'{move.go_to_object.target_class!r} -- GoToObject publishes the goal.'
+            )
         elif move.drive is not None:
             # The fourth, open-ended shape (schema_version 3.0) -- see module
             # docstring for why mpc_corr will never report this one reached,

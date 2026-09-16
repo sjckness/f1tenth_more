@@ -25,6 +25,9 @@ float32 bearing           # LIVE absolute heading from the vehicle to the
                           # target [rad], odom frame
 float32 psi_c             # the HELD corridor heading [rad], odom frame. Not
                           # derivable from anything else published.
+float32 alpha             # LIVE wrap(bearing - vehicle yaw): where the target
+                          # is relative to the car's heading [rad]. |alpha| at
+                          # the end of a move is its arrival bearing error.
 float32 e                 # LIVE wrap(bearing - psi_c): how far the held
                           # heading still has to rotate. Measured against
                           # psi_c, NOT against live yaw -- see object_approach.
@@ -48,3 +51,6 @@ float32 target_age_s      # now minus the ObjectGoal header stamp. The whole
 float32 speed_ref         # the speed command derived from r [m/s]
 bool target_stale         # the map->odom reprojection is holding its last
                           # good value rather than tracking a live transform
+bool goal_watchdog        # ObjectGoal refreshes stopped for longer than
+                          # object_goal_timeout_sec: mpc_corr is holding the
+                          # car at zero (not ramped) until they resume

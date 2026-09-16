@@ -14,11 +14,18 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from f1tenth_behavior.mission.object_classes import OBJECT_CLASSES
+
 STOP_CONDITION_TYPES = {
     'distance_reached', 'goal_reached', 'time_elapsed', 'object_seen',
     'object_cleared', 'obstacle_distance_below', 'front_clearance',
-    'orientation_delta', 'manual',
+    'orientation_delta', 'manual', 'object_reached',
 }
+
+# schema_version "4.0" adds the go_to_object step (ObjectSpec) and its
+# object_reached stop_condition. The terminal-last-move rule that "3.0"
+# introduced applies to every version from "3.0" on.
+TERMINAL_REQUIRED_VERSIONS = {'3.0', '4.0'}
 ON_OBJECT_ACTIONS = {
     'stop_and_hold', 'reduce_speed', 'reduce_speed_for', 'abort_mission',
     'skip_to_move', 'log_only',
@@ -203,6 +210,33 @@ class DriveSpec:
 
 
 @dataclass(frozen=True)
+class ObjectSpec:
+    """A "go_to_object" step's own fields -- see Move.go_to_object, schema 4.0.
+
+    Drive to the nearest confirmed semantic track of `target_class` and stop
+    `standoff_m` short of it. The move's life is owned by the mission's object
+    handler (behaviours/go_to_object.py): it acquires a track, follows it,
+    keeps the last point through a short loss, and ends the move with one of
+    the outcomes reached / target_not_found / target_lost /
+    target_unreachable / timeout. mpc_corr only drives at the point it is
+    given (/mpc/goal_object) and reports the approach geometry back
+    (/mpc/object_status).
+
+    Constraints enforced at load time, by name (see _parse_move): the
+    stop_condition must be object_reached, timeout_sec is required, and
+    on_object is not allowed -- the thing being approached is itself a
+    detected object, and an on_object hold would end the approach (a hold ends
+    an object move in mpc_corr; it does not pause it).
+    """
+
+    target_class: str            # one of object_classes.OBJECT_CLASSES
+    speed: float                 # approach speed ceiling [m/s], > 0
+    acquire_timeout_sec: float   # no track of the class within this -> target_not_found
+    standoff_m: float = 1.0      # metres short of the target, > 0
+    lost_grace_sec: float = 1.5  # keep the last point this long after losing the track
+
+
+@dataclass(frozen=True)
 class Move:
     id: str
     stop_condition: StopCondition
@@ -214,6 +248,9 @@ class Move:
     # fields. Still exactly one of the four per move (_parse_move's own
     # sum(...) == 1).
     drive: Optional[DriveSpec] = None
+    # The fifth goal shape (schema_version 4.0) -- see ObjectSpec. Exactly one
+    # of the five per move.
+    go_to_object: Optional[ObjectSpec] = None
     vdes: Optional[float] = None
     on_object: List[OnObjectAction] = field(default_factory=list)
     # Optional as of schema_version 2.0 (previously always required) --
@@ -261,7 +298,8 @@ class MissionConfig:
     # "1.0" (the implicit, pre-existing behavior) if the JSON omits this field
     # entirely -- see parse_mission(). "2.0" is the first version that knows
     # about "turn" steps / orientation_delta / optional timeout_sec; "3.0"
-    # adds the "drive" step (DriveSpec) and Move.terminal.
+    # adds the "drive" step (DriveSpec) and Move.terminal; "4.0" adds the
+    # "go_to_object" step (ObjectSpec) and the object_reached stop_condition.
     #
     # MOSTLY informational bookkeeping rather than a feature flag: every new
     # FIELD stays available regardless of the version declared (a
@@ -331,6 +369,16 @@ def _parse_stop_condition(raw: object, where: str) -> StopCondition:
                 f'{where}: front_clearance debounce_ticks must be an integer >= 1 '
                 f'(got {dt!r})',
             )
+    elif t == 'object_reached':
+        # No fields: the reach tolerance and the maximum target age are
+        # stack-wide (object_reach_tol_m / object_reach_max_target_age_sec in
+        # stack_params.yaml), and go_to_object-exclusivity needs the sibling
+        # step, so it is checked in _parse_move.
+        _require(
+            not params,
+            f'{where}: object_reached takes no fields (got {sorted(params)}); the '
+            'tolerance is object_reach_tol_m in stack_params.yaml',
+        )
     elif t == 'orientation_delta':
         _require('value' in params, f'{where}: orientation_delta requires value')
         _require(
@@ -484,6 +532,47 @@ def _parse_drive_spec(raw: object, where: str) -> DriveSpec:
     )
 
 
+def _require_positive_number(raw: dict, key: str, where: str, default=None) -> float:
+    value = raw.get(key, default)
+    _require(
+        isinstance(value, (int, float)) and not isinstance(value, bool),
+        f'{where}: go_to_object.{key} is required and must be numeric'
+        if default is None else f'{where}: go_to_object.{key} must be numeric',
+    )
+    _require(value > 0.0, f'{where}: go_to_object.{key} must be > 0 (got {value!r})')
+    return float(value)
+
+
+def _parse_object_spec(raw: object, where: str) -> ObjectSpec:
+    """Parse+validate a "go_to_object" step's own sub-object (schema 4.0)."""
+    _require(isinstance(raw, dict), f'{where}: go_to_object must be an object')
+    known = {'target_class', 'standoff_m', 'speed', 'acquire_timeout_sec', 'lost_grace_sec'}
+    unknown = sorted(set(raw) - known)
+    _require(not unknown, f'{where}: go_to_object has unknown field(s) {unknown}')
+
+    target_class = raw.get('target_class')
+    _require(
+        isinstance(target_class, str) and target_class in OBJECT_CLASSES,
+        f'{where}: go_to_object.target_class={target_class!r} is not a class the '
+        'configured detector produces (object_classes.OBJECT_CLASSES, regenerated by '
+        'tools/gen_intent_target_enum.py)',
+    )
+    speed = _require_positive_number(raw, 'speed', where)
+    acquire_timeout_sec = _require_positive_number(raw, 'acquire_timeout_sec', where)
+    standoff_m = _require_positive_number(raw, 'standoff_m', where, default=1.0)
+
+    lost_grace_sec = raw.get('lost_grace_sec', 1.5)
+    _require(
+        isinstance(lost_grace_sec, (int, float)) and not isinstance(lost_grace_sec, bool)
+        and lost_grace_sec >= 0.0,
+        f'{where}: go_to_object.lost_grace_sec must be a number >= 0 (got {lost_grace_sec!r})',
+    )
+    return ObjectSpec(
+        target_class=target_class, speed=speed, acquire_timeout_sec=acquire_timeout_sec,
+        standoff_m=standoff_m, lost_grace_sec=float(lost_grace_sec),
+    )
+
+
 def _is_valid_steering(value: str) -> bool:
     """"full_lock", or "partial:<deg>" where <deg> parses as a real number
     (sign allowed, e.g. "partial:15" or "partial:15.5") -- mirrors the exact
@@ -531,6 +620,11 @@ def _parse_on_object(raw: object, where: str) -> OnObjectAction:
         params = dict(params)
         params['resume_condition'] = _parse_stop_condition(
             params['resume_condition'], f'{where} (on_object {cls}/{action}).resume_condition')
+        _require(
+            params['resume_condition'].type != 'object_reached',
+            f'{where}: object_reached is not a valid resume_condition -- it is the '
+            'stop_condition of a go_to_object step only',
+        )
 
     return OnObjectAction(cls=cls, action=action, params=params)
 
@@ -545,9 +639,10 @@ def _parse_move(raw: object, where: str) -> Move:
     has_pose = raw.get('goal_pose') is not None
     has_turn = raw.get('turn') is not None
     has_drive = raw.get('drive') is not None
+    has_object = raw.get('go_to_object') is not None
     _require(
-        sum((has_distance, has_pose, has_turn, has_drive)) == 1,
-        f'{where}: exactly one of goal_distance/goal_pose/turn/drive is required',
+        sum((has_distance, has_pose, has_turn, has_drive, has_object)) == 1,
+        f'{where}: exactly one of goal_distance/goal_pose/turn/drive/go_to_object is required',
     )
 
     goal_distance = None
@@ -568,9 +663,22 @@ def _parse_move(raw: object, where: str) -> Move:
         goal_pose = GoalPose(x=float(gp['x']), y=float(gp['y']), yaw=float(gp['yaw']))
     turn = _parse_turn_spec(raw['turn'], where) if has_turn else None
     drive = _parse_drive_spec(raw['drive'], where) if has_drive else None
+    go_to_object = _parse_object_spec(raw['go_to_object'], where) if has_object else None
 
     _require('stop_condition' in raw, f'{where}: stop_condition is required')
     stop_condition = _parse_stop_condition(raw['stop_condition'], where)
+
+    # object_reached and go_to_object are each other's only partner: the
+    # condition reads the approach geometry only an object step produces, and
+    # an object step ending on anything else would bypass its outcomes.
+    if has_object:
+        _require(
+            stop_condition.type == 'object_reached',
+            f'{where}: a go_to_object step requires stop_condition.type '
+            f'"object_reached" (got {stop_condition.type!r})',
+        )
+    elif stop_condition.type == 'object_reached':
+        _require(False, f'{where}: object_reached is only valid on a go_to_object step')
 
     if stop_condition.type == 'distance_reached' and 'distance' not in stop_condition.params:
         _require(
@@ -678,6 +786,19 @@ def _parse_move(raw: object, where: str) -> Move:
     _require(isinstance(on_object_raw, list), f'{where}: on_object must be a list')
     on_object = [_parse_on_object(o, where) for o in on_object_raw]
 
+    if has_object:
+        _require(
+            timeout_sec is not None,
+            f'{where}: a go_to_object step requires timeout_sec -- an approach to a '
+            'moving target must have a bound',
+        )
+        _require(
+            not on_object,
+            f'{where}: on_object is not allowed on a go_to_object step -- the target is '
+            'itself a detected object, and a stop_and_hold would END the approach '
+            '(mpc_corr ends an object move on /mpc/hold)',
+        )
+
     # Explicit `is True`/`is False` rather than truthiness: `"terminal": 1`
     # and `"terminal": "yes"` are mistakes worth naming, not values to
     # silently coerce. Absent -> False, which is what every pre-3.0 mission
@@ -692,7 +813,7 @@ def _parse_move(raw: object, where: str) -> Move:
 
     return Move(
         id=move_id, goal_distance=goal_distance, goal_pose=goal_pose, turn=turn,
-        drive=drive, vdes=vdes,
+        drive=drive, go_to_object=go_to_object, vdes=vdes,
         stop_condition=stop_condition, on_object=on_object,
         timeout_sec=timeout_sec, on_timeout=on_timeout, terminal=terminal,
     )
@@ -761,12 +882,12 @@ def parse_mission(raw: object) -> MissionConfig:
             f'move {m.id!r}: terminal is only legal on the LAST move -- a terminal '
             'move ends the mission, so the moves after it could never run',
         )
-    if schema_version == '3.0':
+    if schema_version in TERMINAL_REQUIRED_VERSIONS:
         _require(
             moves[-1].terminal,
-            f'move {moves[-1].id!r}: schema_version "3.0" requires the last move to '
-            'set terminal: true -- an open-ended mission whose final move does not '
-            'declare itself terminal has nothing that stops the car',
+            f'move {moves[-1].id!r}: schema_version {schema_version!r} requires the '
+            'last move to set terminal: true -- an open-ended mission whose final move '
+            'does not declare itself terminal has nothing that stops the car',
         )
 
     id_set = set(ids)
