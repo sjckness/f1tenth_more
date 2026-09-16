@@ -146,6 +146,25 @@ class MissionRuntimeState:
     # calendar time is what makes runs comparable across restarts of this
     # node (time.monotonic() is meaningless across process boundaries).
     mission_start_wall_time: Optional[float] = None
+    # Monotonic counter of mission RUNS, bumped by load() and by begin().
+    # Exists because a move id is not unique across runs, and behaviours that
+    # cache per-move state keyed on the move id alone therefore carry it from
+    # one run of a mission into the next.
+    #
+    # WHAT THAT COST. go_to_person.json is a single-move mission whose move is
+    # always `move_0_go_to_person`. CheckStopCondition latches mpc_corr's
+    # /mpc/goal_reached (which is only ever published True, never False) and
+    # reset that latch only when the move id changed -- so re-running the
+    # mission in a live executor left the latch True from the previous run and
+    # the first tick of run 2 saw its own goal as already reached. Three live
+    # runs on 2026-09-15 recorded it exactly: run 1 drove 0.548 m, runs 2 and 3
+    # completed in 0.082 s having moved 0.0 m, both mismatch_flagged.
+    #
+    # An int rather than a bool "is this a new run" flag: only INEQUALITY is
+    # ever tested, so a consumer compares (run_generation, move.id) against
+    # what it last saw and needs no reset hook of its own, no ordering
+    # guarantee against the run's first tick, and no way to miss an edge.
+    run_generation: int = 0
     state: MissionState = MissionState.IDLE
     # Set by AdvanceMove/HandleObjectAction's skip_to_move, cleared by
     # PublishMoveGoal once it has actually published for the new move -- guards
@@ -216,6 +235,13 @@ class MissionRuntimeState:
         self.hold_context = None
         self._stub_logged_tags = set()
         self._stub_logged_move_id = None
+        # New run: see run_generation's own field comment. Bumped here AND in
+        # begin() on purpose -- load() alone would miss a begin() that follows
+        # some other path to LOADED, and begin() alone would leave a reloaded
+        # mission sharing the previous run's generation for every tick between
+        # load and start. Two bumps per normal run is harmless: only
+        # inequality is ever tested.
+        self.run_generation += 1
 
     def begin(self, now: float) -> None:
         """LOADED -> RUNNING, called by /mission/start_mission (MissionLoader
@@ -228,6 +254,9 @@ class MissionRuntimeState:
         self.mission_start_wall_time = time.time()
         self.state = MissionState.RUNNING
         self.goal_dirty = True
+        # LOADED -> RUNNING is the other half of "a new run started" -- see
+        # run_generation's own field comment and load()'s bump.
+        self.run_generation += 1
 
     def goto_move(self, index: int, now: float) -> None:
         """Jump to move `index` -- a normal +1 advance (AdvanceMove) or an

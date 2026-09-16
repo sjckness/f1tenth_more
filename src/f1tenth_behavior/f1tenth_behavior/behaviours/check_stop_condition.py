@@ -67,10 +67,17 @@ for the goal_reached stop_condition type. mpc_corr only ever publishes `True`
 on arrival -- it never republishes `False` when a new goal supersedes the old
 one -- so a bare "last received value" would stay latched True from a
 previous move forever. _goal_reached_flag is reset to False any time
-state.current_move's id changes (a new move started, whether via normal
-advance or skip_to_move) and only set True by a message arriving *after* that
-reset, so it means "mpc_corr has confirmed THIS move's own goal, not some
-earlier one." Threaded into EvalContext.goal_reached for condition_eval.py to
+(state.run_generation, state.current_move.id) changes -- a new move started
+(normal advance or skip_to_move) OR a new RUN of the same mission started --
+and only set True by a message arriving *after* that reset, so it means
+"mpc_corr has confirmed THIS move of THIS run, not some earlier one."
+
+The run half of that key is not decoration. Keyed on the move id alone, a
+single-move mission re-run in a live executor kept the previous run's latch,
+because its move id never changed; the second run then completed on its first
+tick having moved 0.0 m. See MissionRuntimeState.run_generation.
+
+Threaded into EvalContext.goal_reached for condition_eval.py to
 consume -- see that module for why HandleObjectAction's resume_condition
 usage does NOT get a live value here (stays stub-like, flagged there).
 
@@ -103,7 +110,9 @@ mathematically bounded to (-180, 180] deg -- see condition_eval.py's own
 turn_accum_deg comment for exactly why that made a 180deg target nearly
 unreachable and anything above 180 unreachable at all. _turn_accum_deg/
 _turn_accum_prev_yaw reset (to 0.0 / the current yaw) in update() whenever
-move.id changes, same trigger as _goal_reached_flag's own reset just below --
+(run_generation, move.id) changes, the same trigger as _goal_reached_flag's
+own reset just below, and correct for the same reason: a turn accumulated
+under a previous RUN of this mission must not count toward this one either --
 harmless if an odom message sneaks in between the move actually changing and
 this reset running (it would accumulate onto the stale value using the stale
 baseline, which then simply gets overwritten).
@@ -179,7 +188,12 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.y = None
         self.yaw = None
         self._goal_reached_flag = False
-        self._goal_reached_tracked_move_id = None
+        # (run_generation, move.id) -- NOT move.id alone. A move id is unique
+        # within a mission and not across runs of it, so keying on the id
+        # alone carried this latch from one run of a single-move mission into
+        # the next. See MissionRuntimeState.run_generation for the three live
+        # runs that recorded the consequence.
+        self._goal_reached_tracked_move_key = None
         # orientation_delta's own accumulator -- see module docstring's "Turn
         # accumulation" paragraph. _turn_accum_prev_yaw is None until the
         # first odom message for the CURRENT move has been folded in (reset
@@ -341,8 +355,13 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             # which shouldn't be reachable without a valid current move.
             return py_trees.common.Status.FAILURE
 
-        if move.id != self._goal_reached_tracked_move_id:
-            self._goal_reached_tracked_move_id = move.id
+        # getattr, not a bare attribute: the duck-typed MissionRuntimeState
+        # stand-ins some tests build predate run_generation, and a missing
+        # attribute must degrade to the old move-id-only behaviour rather than
+        # raising. The real dataclass always has it (default 0).
+        move_key = (getattr(state, 'run_generation', 0), move.id)
+        if move_key != self._goal_reached_tracked_move_key:
+            self._goal_reached_tracked_move_key = move_key
             self._goal_reached_flag = False
             self._turn_accum_deg = 0.0
             self._turn_accum_prev_yaw = self.yaw
