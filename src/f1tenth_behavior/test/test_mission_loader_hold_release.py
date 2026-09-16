@@ -17,9 +17,11 @@ _on_abort_mission_service() are called directly (bypassing ROS's own
 service dispatch) -- legitimate here since those bound methods ARE the
 thing under test, not the service wiring around them.
 
-Run standalone: python3 -m pytest test/test_mission_loader_hold_release.py -v
+Run standalone (from any directory):
+    python3 -m pytest test/test_mission_loader_hold_release.py -v
 """
 
+from pathlib import Path
 import types
 
 import py_trees
@@ -29,8 +31,14 @@ from std_msgs.msg import Bool
 from f1tenth_behavior.mission.loader import MissionLoader
 from f1tenth_behavior.mission.runtime import CURRENT_XY_KEY, MISSION_KEY
 
-MISSION_A = 'missions/dock_approach_01.json'
-MISSION_B = 'missions/turn_90_left.json'
+# Anchored to this file, not the working directory: as bare relative paths
+# these resolved only under colcon (cwd build/f1tenth_behavior, which carries
+# a missions/ symlink dir) or from the package dir. From the repo root _load
+# failed, the state stayed IDLE, and three tests failed downstream on a
+# start rejection that had nothing to do with the hold.
+MISSIONS_DIR = Path(__file__).resolve().parent.parent / 'missions'
+MISSION_A = str(MISSIONS_DIR / 'dock_approach_01.json')
+MISSION_B = str(MISSIONS_DIR / 'turn_90_left.json')
 
 
 class _FakeLogger:
@@ -137,7 +145,8 @@ class TestHoldReleasedOnStart:
         publishes hold(False) -- idempotent/harmless, and confirms the new
         publish happens on the success path at all."""
         loader, node = _make_loader()
-        loader._load(MISSION_A)
+        load_ok, load_msg = loader._load(MISSION_A)
+        assert load_ok is True, load_msg
         resp = loader._on_start_mission_service(_trigger_request(), _trigger_response())
         assert resp.success is True
         hold_pub = node.publishers['/mpc/hold']
@@ -152,7 +161,8 @@ class TestHoldReleasedOnStart:
         loader, node = _make_loader()
         hold_pub = node.publishers['/mpc/hold']
 
-        loader._load(MISSION_A)
+        load_ok, load_msg = loader._load(MISSION_A)
+        assert load_ok is True, load_msg
         start_resp = loader._on_start_mission_service(_trigger_request(), _trigger_response())
         assert start_resp.success is True
 
@@ -198,7 +208,8 @@ class TestHoldReleasedOnStart:
         bb.register_key(key=CURRENT_XY_KEY, access=py_trees.common.Access.WRITE)
         setattr(bb, CURRENT_XY_KEY, (0.0, 0.0))
 
-        loader._load(MISSION_A)
+        load_ok, load_msg = loader._load(MISSION_A)
+        assert load_ok is True, load_msg
         resp = loader._on_start_mission_service(_trigger_request(), _trigger_response())
         assert resp.success is False
         assert 'ackermann_to_vesc_node' in resp.message
