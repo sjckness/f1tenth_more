@@ -25,6 +25,7 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/WallSegment.msg"
   "msg/ObjectGoal.msg"
   "msg/ObjectApproachStatus.msg"
+  "msg/DriveClamp.msg"
   "srv/RestartComponent.srv"
   "srv/ComponentControl.srv"
   "srv/RunDiagnostics.srv"

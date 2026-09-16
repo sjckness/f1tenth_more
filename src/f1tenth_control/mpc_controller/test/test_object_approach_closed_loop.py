@@ -52,6 +52,7 @@ import numpy as np
 import pytest
 
 from mpc_controller.MPC_corr import MPCController
+from mpc_controller.drive_limits import clamp_drive_speed
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
     TargetBehindPersistence, goal_point, heading_margin_for, object_speed_ref)
@@ -304,7 +305,8 @@ class Result:
 
 def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
                  duration=30.0, corridor_update_period=1.0, seed=None,
-                 jitter=0.0, jitter_hz=12.5, obstacle_r=None, stop_at_rest=True):
+                 jitter=0.0, jitter_hz=12.5, obstacle_r=None, stop_at_rest=True,
+                 speed_limits=None):
     """Drive one approach and return a Result.
 
     `target_fn(t)` gives the TRUE target position at time t. `jitter` adds
@@ -322,6 +324,12 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
     Turn it off for a target that walks PAST the car: the speed ramp brings
     the car to rest as the target goes abeam, and the run would end right
     where the interesting part starts.
+
+    `speed_limits`, (max_forward, max_reverse), applies MPC_corr's /drive
+    clamp (drive_limits.clamp_drive_speed) to the plant: the published speed
+    is v + a * ts, and the VESC tracks the CLAMPED value, so the plant is
+    stepped with the acceleration that reaches it. None reproduces the
+    unclamped controller the earlier tables were built with.
     """
     rng = np.random.default_rng(seed)
     fake = _ObjectMPC(standoff=standoff, speed=speed)
@@ -387,7 +395,11 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
             solver='rti', warm_start_z=warm)
         warm = shift_warm_start(info.get('zopt'), HORIZON) if info else None
 
-        x = np.array(f1tenth_state_fcn_dt_beta(x, u0, TS, WHEELBASE, LR),
+        u_plant = np.asarray(u0, dtype=float)
+        if speed_limits is not None:
+            v_cmd, _ = clamp_drive_speed(x[3] + u_plant[1] * TS, *speed_limits)
+            u_plant = np.array([u_plant[0], (v_cmd - x[3]) / TS])
+        x = np.array(f1tenth_state_fcn_dt_beta(x, u_plant, TS, WHEELBASE, LR),
                      dtype=float)
         last_u = np.asarray(u0, dtype=float)
 
@@ -623,6 +635,21 @@ class TestTargetBehindIsRaised:
             bearing = math.atan2(ty - state[1], tx - state[0])
             alpha = math.atan2(math.sin(bearing - state[2]), math.cos(bearing - state[2]))
             assert flags.target_behind is (abs(alpha) > math.pi / 2.0), tick
+
+
+class TestTheDriveClampHoldsInTheChase:
+    """A person crossing close in front drove the unclamped solver to +2.07 and
+    -1.04 m/s against a zero reference (docs/analysis/2026-09-16_chase_overspeed.md).
+    With MPC_corr's /drive clamp at its defaults the plant never leaves
+    [0, 1.0] m/s."""
+
+    def test_peak_speeds_stay_inside_the_default_limits(self):
+        res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
+                           standoff=1.0, obstacle_r=PERSON_RADIUS['footprint'],
+                           stop_at_rest=False, speed_limits=(1.0, 0.0))
+        speeds = [state[3] for state in res.xs]
+        assert max(speeds) <= 1.0 + 1e-9
+        assert min(speeds) >= -1e-9
 
 
 class TestFlagAcceptance:

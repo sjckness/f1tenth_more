@@ -18,9 +18,10 @@ from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
+    BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
+from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
@@ -1538,6 +1539,15 @@ class MPCController(Node):
         # /steering_controller/commands) -- nothing on the real stack subscribes to
         # those, which is why MPC mode previously ran with no actuation.
         self.pub = self.create_publisher(AckermannDriveStamped, '/drive', 10)
+        # The single speed clamp on everything above -- see drive_limits.py.
+        # Declared here, beside the publisher it guards, so nothing can publish
+        # /drive before the limits exist.
+        self.max_forward_speed = float(self.declare_parameter(
+            'max_forward_speed_mps', get_value('max_forward_speed_mps')).value)
+        self.max_reverse_speed = float(self.declare_parameter(
+            'max_reverse_speed_mps', get_value('max_reverse_speed_mps')).value)
+        validate_speed_limits(self.max_forward_speed, self.max_reverse_speed)
+        self.drive_clamp_pub = self.create_publisher(DriveClamp, '/mpc/drive_clamp', 10)
 
         self.min_obstacle_distance_pub = self.create_publisher(
             Float32,
@@ -3140,9 +3150,25 @@ class MPCController(Node):
         self.wall_track_pub.publish(msg)
 
     def _publish_drive(self, speed, steering_angle):
+        requested = speed
+        speed, clamped = clamp_drive_speed(
+            speed, self.max_forward_speed, self.max_reverse_speed)
+        stamp = self.get_clock().now().to_msg()
+        if clamped:
+            event = DriveClamp()
+            event.header.stamp = stamp
+            event.requested_speed = float(requested) if math.isfinite(requested) else math.nan
+            event.applied_speed = float(speed)
+            event.max_forward_speed = float(self.max_forward_speed)
+            event.max_reverse_speed = float(self.max_reverse_speed)
+            self.drive_clamp_pub.publish(event)
+            self.get_logger().warn(
+                f'DRIVE/clamp | requested {requested:+.3f} m/s -> {speed:+.3f} '
+                f'(limits +{self.max_forward_speed:.2f}/-{self.max_reverse_speed:.2f})',
+                throttle_duration_sec=1.0)
         self._last_published_steer = float(steering_angle)
         msg = AckermannDriveStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.header.stamp = stamp
         msg.drive.speed = speed
         msg.drive.steering_angle = steering_angle
         self.pub.publish(msg)

@@ -1024,6 +1024,28 @@ object_goal_timeout_sec:
 object_exit_steer_rate_rad_s:
   default: 0.6
   description: "Steering slew limit [rad/s] when an object move ends (/mpc/goal_object_end or /mpc/hold): speed goes to zero at once and the wheels return to centre at this rate, from the measured angle when /joint_states has one. A smoothness choice, not an actuator limit: full lock (0.28 rad) to centre in about 0.5 s. Ported from the go_to_object prototype's LOST ramp."
+# Consumed by: mpc_controller/MPC_corr.py (declare default = this value).
+# THE SPEED CLAMP on every /drive command mpc_corr publishes (drive_limits.py).
+# Nothing below it is tighter: ackermann_mux has no speed limit and
+# vesc_driver clips at +-23250 ERPM = +-4.23 m/s, reverse included.
+#
+# Defaults chosen to change no requested speed. Every speed a mission, the
+# LLM translator or mpc_corr requests is <= 0.5 m/s (missions: drive 0.3-0.5,
+# turn 0.3-0.5, go_to_object 0.4; translator 0.4/0.5; mpc_corr vdes 0.5) and
+# nothing requests reverse (a negative goal_distance ends its move on the
+# first tick). What the clamp DOES change is solver-chosen speed: the archive
+# has reverse to -0.231 m/s in 13 runs and up to 1.206 m/s in 3, all against
+# references <= 0.5, and the rig reached +2.07/-1.04 m/s when a person
+# crossed close in front. See docs/analysis/2026-09-16_chase_overspeed.md.
+# Paths that do not go through mpc_corr are NOT clamped: joystick teleop
+# (joy_teleop.yaml scale 5.0 on the mux's teleop lane), calibration_drive,
+# twist_to_ackermann_node, and hand scripts publishing /drive.
+max_forward_speed_mps:
+  default: 1.0
+  description: "Largest forward speed [m/s] mpc_corr may put on /drive; larger commands are clamped and reported on /mpc/drive_clamp. Twice the highest speed any mission or code path requests (0.5)."
+max_reverse_speed_mps:
+  default: 0.0
+  description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
 # declare default = this value), for the go_to_object move (schema 4.0):
 # GoToObject (mission/object_handler.py) and CheckStopCondition's
