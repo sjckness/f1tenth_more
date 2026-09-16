@@ -252,6 +252,17 @@ _DEFAULT_TOPICS = [
     # controller at all, so a run that fails to avoid something is not
     # diagnosable without it.
     '/perception/obstacles_2d',
+    # go_to_object: the handler's goal, its end, mpc_corr's per-tick approach
+    # geometry and flags, the scored outcome of every move, and the tracks the
+    # handler chose from. Without these a go_to_object run is not diagnosable
+    # from its bag (the outcome was only in the on-car mission_reports JSON).
+    '/mpc/goal_object',
+    '/mpc/goal_object_end',
+    '/mpc/object_status',
+    '/mission/move_outcome',
+    '/costmap/semantic_tracks',
+    # Every tick mpc_corr's /drive speed clamp changed a command.
+    '/mpc/drive_clamp',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',

@@ -69,6 +69,8 @@ from rosidl_runtime_py.utilities import get_message
 from f1tenth_logger.mission_render import (
     MAX_AGE, Stream, discover_bags, load_manifest_for, quat_to_matrix,
     yaw_from_quat)
+from f1tenth_logger.object_summary import (
+    summarize_drive_clamp, summarize_object_approach)
 
 TOPICS = {
     'pose_global': '/ekf_global/odometry/filtered',
@@ -86,7 +88,17 @@ TOPICS = {
     'map': '/slam/map',
     'tf': '/tf',
     'tf_static': '/tf_static',
+    'object_status': '/mpc/object_status',
+    'goal_object': '/mpc/goal_object',
+    'goal_object_end': '/mpc/goal_object_end',
+    'move_outcome': '/mission/move_outcome',
+    'drive_clamp': '/mpc/drive_clamp',
 }
+
+# Event-like streams added for go_to_object and the /drive clamp. Not drawn by
+# the renderer, so no staleness gate (max_age None); each sample is a dict.
+EVENT_STREAMS = ('object_status', 'goal_object', 'goal_object_end', 'move_outcome',
+                 'drive_clamp')
 
 
 def _decode_legacy_solver_status(raw: bytes):
@@ -182,6 +194,8 @@ def read_bag(bag_dir: Path, pose_source: str):
         'corridor': Stream(MAX_AGE['corridor']),
         'map_to_odom': Stream(MAX_AGE['map_to_odom']),
     }
+    for name in EVENT_STREAMS:
+        data[name] = Stream(None)
     static_tf = {}
     pose_frame = None
     t0 = None
@@ -294,6 +308,36 @@ def read_bag(bag_dir: Path, pose_source: str):
                 walls[mk.ns] = [(pt.x, pt.y) for pt in mk.points]
             if walls:
                 data['corridor'].add(t, walls)
+        elif topic == TOPICS['object_status']:
+            data['object_status'].add(t, {
+                'move_id': msg.move_id, 'r': float(msg.r), 'alpha': float(msg.alpha),
+                'e': float(msg.e), 'psi_c': float(msg.psi_c),
+                'target_age_s': float(msg.target_age_s), 'speed_ref': float(msg.speed_ref),
+                'target_stale': bool(msg.target_stale),
+                'inside_turn_radius': bool(msg.inside_turn_radius),
+                'target_behind': bool(msg.target_behind),
+                'target_behind_for_s': float(msg.target_behind_for_s),
+                'target_behind_terminal': bool(msg.target_behind_terminal),
+                'goal_watchdog': bool(msg.goal_watchdog)})
+        elif topic == TOPICS['goal_object']:
+            data['goal_object'].add(t, {
+                'move_id': msg.move_id, 'target_class': msg.target_class,
+                'x': float(msg.point.x), 'y': float(msg.point.y),
+                'standoff': float(msg.standoff), 'speed': float(msg.speed),
+                'stamp': msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9})
+        elif topic == TOPICS['goal_object_end']:
+            data['goal_object_end'].add(t, {'move_id': msg.data})
+        elif topic == TOPICS['move_outcome']:
+            data['move_outcome'].add(t, {
+                field: getattr(msg, field) for field in (
+                    'mission_id', 'move_id', 'move_type', 'stop_reason', 'outcome',
+                    'wire_move_id', 'duration_s', 'commanded', 'actual', 'score_percent',
+                    'mismatch_flagged', 'arrival_bearing_error_deg', 'track_range_m',
+                    'note')})
+        elif topic == TOPICS['drive_clamp']:
+            data['drive_clamp'].add(t, {
+                'requested_speed': float(msg.requested_speed),
+                'applied_speed': float(msg.applied_speed)})
         elif topic == TOPICS['tf']:
             for tr in msg.transforms:
                 if tr.header.frame_id == 'map' and tr.child_frame_id == 'odom':
@@ -441,6 +485,10 @@ def write_extract(bag, out_path, manifest=None, run_id=None, padding=None):
             # This run's own boundary padding, NOT the renderer's defaults --
             # see padding_from_params above for why that distinction matters.
             'padding': padding or dict(_PADDING_FALLBACK, source='unset'),
+            # The run summary: see object_summary.py. Empty dicts when the run
+            # had no object move / no clamp event (or predates these topics).
+            'object_approach': _object_summary(bag['streams']),
+            'drive_clamp': _clamp_summary(bag['streams']),
         }),
         'blob': None,
     }
@@ -453,6 +501,20 @@ def write_extract(bag, out_path, manifest=None, run_id=None, padding=None):
     out_path.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(table, out_path, compression='zstd')
     return out_path
+
+
+def _object_summary(streams):
+    if not all(name in streams for name in EVENT_STREAMS):
+        return {}
+    return summarize_object_approach(
+        streams['object_status'], streams['goal_object'], streams['goal_object_end'],
+        streams['move_outcome'])
+
+
+def _clamp_summary(streams):
+    if 'drive_clamp' not in streams:
+        return {}
+    return summarize_drive_clamp(streams['drive_clamp'])
 
 
 def extract_bag(bag_dir, out_path, pose_source='global'):
@@ -500,6 +562,19 @@ def main(argv=None):
         ratio = (bag_bytes / size) if size else float('inf')
         print(f'{run_id}: {size / 1e6:.2f} MB extract from '
               f'{bag_bytes / 1e6:.1f} MB bag ({ratio:.0f}x smaller) -> {out_path}')
+        for move_id, move in _object_summary(_bag['streams']).items():
+            final = move['final'] or {}
+            print(f'  go_to_object {move_id}: outcome={move["outcome"]} '
+                  f'r={final.get("r")} alpha={final.get("alpha")} '
+                  f'target_age={final.get("target_age_s")} '
+                  f'itr={move["inside_turn_radius_samples"]} '
+                  f'behind={move["target_behind_samples"]} '
+                  f'terminal={move["target_behind_terminal"]} '
+                  f'watchdog={move["goal_watchdog_samples"]}')
+        clamp = _clamp_summary(_bag['streams'])
+        if clamp.get('events'):
+            print(f'  drive clamp: {clamp["events"]} events, requested '
+                  f'{clamp["min_requested"]}..{clamp["max_requested"]} m/s')
     return 0
 
 

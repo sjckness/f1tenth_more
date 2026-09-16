@@ -105,6 +105,7 @@ for the same single-threaded-executor reason, not because they share this
 lock.
 """
 
+import math
 import os
 import threading
 import time
@@ -112,7 +113,7 @@ from typing import Tuple
 
 import py_trees
 from ament_index_python.packages import get_package_share_directory
-from f1tenth_messages.msg import MissionStatus
+from f1tenth_messages.msg import MissionStatus, MoveOutcome
 from f1tenth_messages.srv import LoadMission
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from std_msgs.msg import Bool, String
@@ -140,10 +141,36 @@ MISSION_STATUS_QOS = QoSProfile(
 )
 
 
+def _float_or_nan(value):
+    return float(value) if value is not None and math.isfinite(float(value)) else math.nan
+
+
+def _move_outcome_msg(outcome, mission_id, stamp):
+    """move_scoring.MoveOutcome -> f1tenth_messages/MoveOutcome (None -> NaN / '')."""
+    msg = MoveOutcome()
+    msg.header.stamp = stamp
+    msg.mission_id = mission_id
+    msg.move_id = outcome.move_id
+    msg.move_type = outcome.move_type
+    msg.stop_reason = outcome.stop_reason or ''
+    msg.outcome = getattr(outcome, 'outcome', None) or ''
+    msg.wire_move_id = getattr(outcome, 'wire_move_id', None) or ''
+    msg.duration_s = _float_or_nan(outcome.end_time - outcome.start_time)
+    msg.commanded = _float_or_nan(outcome.commanded)
+    msg.actual = _float_or_nan(outcome.actual)
+    msg.score_percent = _float_or_nan(outcome.score_percent)
+    msg.mismatch_flagged = bool(outcome.mismatch_flagged)
+    msg.arrival_bearing_error_deg = _float_or_nan(
+        getattr(outcome, 'arrival_bearing_error_deg', None))
+    msg.track_range_m = _float_or_nan(getattr(outcome, 'track_range_m', None))
+    msg.note = outcome.note or ''
+    return msg
+
+
 class MissionLoader:
 
     def __init__(self, node, load_path_topic='/mission/load_path', hold_topic='/mpc/hold',
-                 status_topic='/mission/status'):
+                 status_topic='/mission/status', move_outcome_topic='/mission/move_outcome'):
         self._node = node
         self._lock = threading.Lock()
         self.blackboard = py_trees.blackboard.Client(name='MissionLoader')
@@ -171,6 +198,11 @@ class MissionLoader:
 
         self.hold_pub = node.create_publisher(Bool, hold_topic, 10)
         self.status_pub = node.create_publisher(MissionStatus, status_topic, MISSION_STATUS_QOS)
+        # Each finished move's scored outcome, once, so a bag carries it (the
+        # mission_reports JSON is written on the car, not recorded). Same
+        # watcher as /mission/status below; see _publish_new_outcomes.
+        self.move_outcome_pub = node.create_publisher(MoveOutcome, move_outcome_topic, 10)
+        self._outcomes_published = (None, 0)
 
         self._sub = node.create_subscription(
             String, load_path_topic, self._on_load_path, 10)
@@ -242,8 +274,26 @@ class MissionLoader:
         GAP FIX comment in __init__ for which transitions those are and why
         this is a watcher rather than three extra publish calls."""
         state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
+        self._publish_new_outcomes(state)
         if state.state is not self._last_published_state:
             self._publish_status()
+
+    def _publish_new_outcomes(self, state):
+        """Publish move_outcomes entries appended since the last tick, once each.
+
+        Keyed on the LIST's identity as well as its length: load() replaces the
+        list, so a new run starts counting from zero instead of skipping its
+        first outcomes or republishing the previous run's.
+        """
+        outcomes = state.move_outcomes
+        list_id, count = self._outcomes_published
+        if list_id != id(outcomes):
+            count = 0
+        mission_id = state.config.mission_id if state.config is not None else ''
+        for outcome in outcomes[count:]:
+            self.move_outcome_pub.publish(_move_outcome_msg(
+                outcome, mission_id, self._node.get_clock().now().to_msg()))
+        self._outcomes_published = (id(outcomes), len(outcomes))
 
     def _on_load_path(self, msg: String):
         self._load(str(msg.data))

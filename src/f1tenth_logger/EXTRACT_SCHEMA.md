@@ -167,3 +167,30 @@ bag['t0'], bag['t1'], bag['manifest']
 `read_extract` returns exactly the dict the old ROS-only `read_bag()` returned,
 which is why the drawing code needed no changes and why the output is
 byte-identical.
+
+## go_to_object and /drive-clamp streams, and the run summary (added 2026-09-16)
+
+Not drawn by the renderer; stored so a go_to_object run can be judged from its
+extract. Each is an event stream (`max_age` null) whose samples are JSON
+objects, read back as dicts.
+
+| stream | topic | sample fields |
+|---|---|---|
+| `object_status` | `/mpc/object_status` | move_id, r, alpha, e, psi_c, target_age_s, speed_ref, target_stale, inside_turn_radius, target_behind, target_behind_for_s, target_behind_terminal, goal_watchdog |
+| `goal_object` | `/mpc/goal_object` | move_id, target_class, x, y, standoff, speed, stamp (capture time) |
+| `goal_object_end` | `/mpc/goal_object_end` | move_id |
+| `move_outcome` | `/mission/move_outcome` | mission_id, move_id, move_type, stop_reason, outcome, wire_move_id, duration_s, commanded, actual, score_percent, mismatch_flagged, arrival_bearing_error_deg, track_range_m, note (NaN = unset) |
+| `drive_clamp` | `/mpc/drive_clamp` | requested_speed, applied_speed |
+
+The `meta` row carries the run summary built from them
+(`f1tenth_logger/object_summary.py`):
+
+- `object_approach`: per ObjectGoal move_id — goals sent, first/last goal and
+  end times, status sample count, `final` {r, alpha, target_age_s, psi_c},
+  min_r, max target_age_s, sample counts of inside_turn_radius / target_behind /
+  goal_watchdog / target_stale, whether target_behind_terminal was ever set,
+  and from the move outcome: outcome, stop_reason, final range (or gap),
+  arrival bearing error, track-based range.
+- `drive_clamp`: events, min/max requested speed, first event time.
+
+Both are `{}` for runs recorded before these topics existed.

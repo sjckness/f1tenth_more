@@ -96,6 +96,7 @@ class MoveOutcome:
     arrival_bearing_error_deg: Optional[float] = None
     track_range_m: Optional[float] = None
     target_track_id: Optional[str] = None
+    wire_move_id: Optional[str] = None
 
 
 def score_turn(commanded_deg: float, actual_deg: float) -> float:
@@ -276,6 +277,7 @@ def _object_outcome(move, stop_reason, start_time, end_time, start_global_xy,
         outcome = 'timeout'
     track_range = None
     track_id = None
+    wire_id = record.wire_move_id if record is not None else None
     if record is not None:
         track_id = record.track_id
         if record.target_xy is not None and end_global_xy is not None:
@@ -285,13 +287,13 @@ def _object_outcome(move, stop_reason, start_time, end_time, start_global_xy,
     if status is None:
         return MoveOutcome(
             **common, outcome=outcome, track_range_m=track_range, target_track_id=track_id,
-            note='no /mpc/object_status for this move -- unscored')
+            wire_move_id=wire_id, note='no /mpc/object_status for this move -- unscored')
     actual = float(status.r) + commanded
     return MoveOutcome(
         **common, actual=actual, score_percent=actual / commanded * 100.0,
         mismatch_flagged=is_mismatch(commanded, actual, MISMATCH_DISTANCE_FLOOR_M),
         outcome=outcome, arrival_bearing_error_deg=math.degrees(abs(float(status.alpha))),
-        track_range_m=track_range, target_track_id=track_id)
+        track_range_m=track_range, target_track_id=track_id, wire_move_id=wire_id)
 
 
 def record_move_outcome(state, logger, move, stop_reason: str, now: float,
