@@ -325,7 +325,7 @@ class SemanticLayerNode(Node):
                 self.confirm_hit_count, self.lost_miss_count, self._next_track_id,
                 confirm_grace_misses=self.confirm_grace_misses)
             self._log_new_spawns(before_ids, map_pose=None)
-            self._publish()
+            self._publish(msg.header.stamp)
             return
 
         try:
@@ -423,7 +423,7 @@ class SemanticLayerNode(Node):
             gate_sigma_scale=self.gate_sigma_scale)
         self._log_new_spawns(before_ids, map_pose=map_pose)
 
-        self._publish()
+        self._publish(msg.header.stamp)
 
     def _next_track_id(self) -> int:
         return next(self._track_id_counter)
@@ -449,7 +449,16 @@ class SemanticLayerNode(Node):
                 f'recent_pose_jump={jump_str}')
 
     # ------------------------------------------------------------------
-    def _publish(self):
+    def _publish(self, capture_stamp):
+        """Publish the markers and the tracks for one detection batch.
+
+        `capture_stamp` is that batch's own header.stamp -- the instant the
+        frame was captured, not the instant this runs. It goes on the TRACKS
+        message (see _publish_tracks); the markers keep the current clock,
+        unchanged, because a marker's stamp is what RViz resolves its TF
+        against and back-dating it would make every marker look stale to a
+        viewer that has since moved.
+        """
         # Only CONFIRMED tracks are ever published (see module docstring --
         # a one-off false detection stays tentative and gets pruned before
         # confirm_hit_count is reached, so it never becomes a marker at
@@ -463,7 +472,7 @@ class SemanticLayerNode(Node):
         marker_array = MarkerArray()
         now = self.get_clock().now().to_msg()
         current_keys = set()
-        self._publish_tracks(now)
+        self._publish_tracks(capture_stamp)
 
         for obj in self._objects:
             if not obj.confirmed:
@@ -517,7 +526,7 @@ class SemanticLayerNode(Node):
         self.marker_pub.publish(marker_array)
 
 
-    def _publish_tracks(self, now):
+    def _publish_tracks(self, capture_stamp):
         """Confirmed tracks as Detection3DArray, in the map frame.
 
         Detection3DArray rather than a new message type: it already carries
@@ -529,9 +538,30 @@ class SemanticLayerNode(Node):
         Only CONFIRMED tracks, matching the markers exactly -- a consumer that
         drives at one of these must never see a track that was too tentative
         to draw.
+
+        THE STAMP IS THE DETECTION BATCH'S CAPTURE TIME, not the clock at
+        publish. It used to be the latter, which threw away the one quantity
+        a consumer cannot reconstruct. A track's position is an estimate of
+        where the object was when the frame was CAPTURED; everything between
+        capture and here -- the detector's own inference, the two-hop
+        transform, the association pass -- is latency this node knows about
+        and the consumer does not. Stamping at publish reported every track
+        as zero-age no matter how far behind the pipeline had fallen, so a
+        downstream staleness check could only ever measure its own receive
+        gap, never the real age of the estimate.
+
+        That matters most for exactly the consumer this topic was added for:
+        something that drives at a track. A stale track stamped `now` is
+        indistinguishable from a fresh one, and the car keeps steering at
+        where a person was a second ago while the age check reads healthy.
+
+        This node already matches detections against the pose history by this
+        same stamp (find_nearest_pose_by_stamp in _detections_cb), so the
+        value is the one the estimate was actually built against, not a
+        second opinion about when the frame happened.
         """
         message = Detection3DArray()
-        message.header.stamp = now
+        message.header.stamp = capture_stamp
         message.header.frame_id = self.map_frame
 
         for obj in self._objects:
