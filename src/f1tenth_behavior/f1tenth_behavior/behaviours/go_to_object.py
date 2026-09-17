@@ -232,4 +232,6 @@ class GoToObject(py_trees.behaviour.Behaviour):
         # mpc_corr's standoff is a CENTRE distance: gap + nose_reach + radius.
         msg.standoff = float(step.centre_standoff)
         msg.speed = float(step.speed)
+        msg.track_id = str(step.track_id or '')
+        msg.gap_m = float(spec.gap_m)
         self.goal_pub.publish(msg)

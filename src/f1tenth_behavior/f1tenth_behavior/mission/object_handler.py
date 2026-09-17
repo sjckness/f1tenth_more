@@ -99,6 +99,29 @@ class HandlerStep:
     centre_standoff: Optional[float] = None
 
 
+def track_radius(track: Track) -> float:
+    """Return the target's footprint radius [m]: fused width / 2, else the class nominal.
+
+    THE r_target RULE. The handler sends mpc_corr a centre distance built on it,
+    and anything that reports a gap to the same object (the scoring, the
+    watch_objects debug script) must use it too, or two tools disagree about
+    one car and one object.
+    """
+    if track.width and track.width > 0.0:
+        return track.width / 2.0
+    return nominal_footprint_radius(track.class_id)
+
+
+def centre_distance_for_gap(gap_m: float, nose_reach_m: float, radius_m: float) -> float:
+    """Return the base_link-to-centre distance at which the front-to-edge gap is gap_m."""
+    return float(gap_m) + float(nose_reach_m) + float(radius_m)
+
+
+def gap_for_centre_distance(distance_m: float, nose_reach_m: float, radius_m: float) -> float:
+    """Return the front-to-edge gap [m] at a base_link-to-centre distance (the inverse)."""
+    return float(distance_m) - float(nose_reach_m) - float(radius_m)
+
+
 def nearest_track(tracks: Iterable[Track], target_class: str,
                   point: Tuple[float, float],
                   within: Optional[float] = None) -> Optional[Track]:
@@ -137,8 +160,8 @@ class ObjectHandler:
             self.phase = phase
 
     def _step(self, speed, outcome=None):
-        standoff = (None if self.target_radius is None else
-                    self.params.gap_m + self.params.nose_reach_m + self.target_radius)
+        standoff = (None if self.target_radius is None else centre_distance_for_gap(
+            self.params.gap_m, self.params.nose_reach_m, self.target_radius))
         return HandlerStep(self.phase, self.target_xy, self.target_stamp_sec,
                            self.track_id, speed, outcome, self.target_radius, standoff)
 
@@ -193,10 +216,7 @@ class ObjectHandler:
         self.target_xy = (track.x, track.y)
         self.target_stamp_sec = track.stamp_sec
         self.track_id = track.track_id
-        # The track's fused footprint width when it has one, else the class
-        # nominal (f1tenth_params.object_geometry).
-        self.target_radius = (track.width / 2.0 if track.width and track.width > 0.0
-                              else nominal_footprint_radius(track.class_id))
+        self.target_radius = track_radius(track)
 
 
 def object_move_wire_id(mission_id: str, run_generation: int, move_id: str) -> str:

@@ -35,7 +35,16 @@ geometry_msgs/Point point # the TARGET itself in the header frame, not the
                           # z is ignored; this vehicle is planar.
 float32 standoff          # metres short of `point` to stop. Must be > 0: a
                           # zero standoff drives the vehicle into the target.
-float32 speed             # desired linear speed on approach [m/s]. mpc_corr
-                          # ramps DOWN from this as the range closes (see
-                          # object_approach.object_speed_ref); it is a
-                          # ceiling, not a setpoint.
+float32 speed             # the approach speed [m/s]. mpc_corr drives at it,
+                          # floored at min_moving_speed_mps, until its stop
+                          # latch trips; 0 means stop and wait (the handler is
+                          # acquiring, or holding a lost track's last point).
+                          # A value between 0 and the floor is treated as 0.
+string track_id           # the semantic track this point came from, for
+                          # status and debugging only -- mpc_corr never
+                          # matches on it. Empty when unknown.
+float32 gap_m             # the commanded gap [m], car front to the object's
+                          # near edge, that `standoff` was built from
+                          # (standoff = gap_m + nose_reach + target radius).
+                          # mpc_corr echoes it back as a live gap on
+                          # /mpc/object_status; it does not steer or stop on it.

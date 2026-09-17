@@ -64,3 +64,12 @@ bool target_stale         # the map->odom reprojection is holding its last
 bool goal_watchdog        # ObjectGoal refreshes stopped for longer than
                           # object_goal_timeout_sec: mpc_corr is holding the
                           # car at zero (not ramped) until they resume
+#
+# DEBUG ECHOES, appended 2026-09-17 for the floor session's watch_objects
+# script (additive: every field above keeps its position).
+string track_id           # echoes the ObjectGoal: the semantic track the
+                          # target point came from ('' when the sender did not
+                          # say)
+float32 gap               # LIVE front-to-edge gap [m]: r + the ObjectGoal's
+                          # gap_m, i.e. centre distance - nose_reach - target
+                          # radius. NaN outside a live tick.

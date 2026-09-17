@@ -182,6 +182,9 @@ class TestPublishing:
         assert last.standoff == pytest.approx(0.5 + spec.nose_reach_m + 0.25)
         assert last.speed == pytest.approx(0.4)
         assert last.target_class == 'person'
+        # Debug echoes for /mpc/object_status and watch_objects.py.
+        assert last.track_id == '7'
+        assert last.gap_m == pytest.approx(0.5)
 
     def test_nothing_is_published_before_a_track_is_acquired(self):
         rig = _rig()

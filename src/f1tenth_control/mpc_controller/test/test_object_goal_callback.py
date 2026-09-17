@@ -513,6 +513,32 @@ class TestStatusFields:
         assert msg.target_age_s == pytest.approx(0.5)
         assert msg.move_id == 'm'
 
+    def test_the_debug_echoes_track_id_and_the_live_gap(self):
+        """gap = live r + the goal's gap_m: centre distance - nose_reach - radius."""
+        fake = _FakeMPC()
+        goal = _goal('m', 4.0, 0.0, standoff=1.3, stamp=12.0)
+        goal.track_id, goal.gap_m = '12', 0.5
+        _send(fake, goal)
+        fake.goal_object_odom_xy = (4.0, 0.0)
+        fake.odom_frame = 'odom'
+        fake.published = []
+        fake.object_status_pub = SimpleNamespace(publish=fake.published.append)
+        fake.get_clock = lambda: self._Clock()
+        flags = MPCController._assess_object_tick(fake, (2.0, 0.0, 0.0), 12.5)
+        MPCController._publish_object_status(fake, None, flags, 0.4)
+        (msg,) = fake.published
+        assert msg.track_id == '12'
+        assert msg.r == pytest.approx(2.0 - 1.3)
+        assert msg.gap == pytest.approx(0.7 + 0.5)
+
+    def test_a_goal_without_the_debug_fields_reports_an_unknown_gap(self):
+        fake = self._fake()
+        flags = MPCController._assess_object_tick(fake, (2.0, 0.0, 0.0), 12.5)
+        MPCController._publish_object_status(fake, None, flags, 0.4)
+        (msg,) = fake.published
+        assert msg.track_id == ''
+        assert math.isnan(msg.gap)
+
 
 # ------------------------------------------------------- leaving object mode
 

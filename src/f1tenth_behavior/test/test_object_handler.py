@@ -18,8 +18,11 @@ from f1tenth_behavior.mission.object_handler import (
     HandlerParams,
     ObjectHandler,
     Track,
+    centre_distance_for_gap,
+    gap_for_centre_distance,
     nearest_track,
     object_move_wire_id,
+    track_radius,
 )
 
 PARAMS = HandlerParams(
@@ -240,3 +243,24 @@ def test_the_wire_id_is_distinct_across_runs_and_stable_within_one():
     a = object_move_wire_id('go_to_person', 3, 'move_0')
     assert a == object_move_wire_id('go_to_person', 3, 'move_0')
     assert a != object_move_wire_id('go_to_person', 5, 'move_0')
+
+
+class TestTheGapRule:
+    """One definition, shared with watch_objects.py: radius, centre distance, gap."""
+
+    def test_a_measured_width_gives_the_radius(self):
+        assert track_radius(_t('7', 3.0, 0.0, width=0.6)) == pytest.approx(0.3)
+
+    def test_no_width_falls_back_to_the_class_nominal(self):
+        assert track_radius(_t('7', 3.0, 0.0, width=0.0)) == pytest.approx(0.25)
+
+    def test_centre_distance_and_gap_are_inverses(self):
+        d = centre_distance_for_gap(0.5, 0.5525, 0.25)
+        assert d == pytest.approx(1.3025)
+        assert gap_for_centre_distance(d, 0.5525, 0.25) == pytest.approx(0.5)
+
+    def test_the_handler_sends_the_centre_distance_of_the_rule(self):
+        h = ObjectHandler(PARAMS, start_sec=0.0)
+        step = _tick(h, 0.1, [_t('7', 3.0, 0.0, width=0.6)])
+        assert step.centre_standoff == pytest.approx(
+            centre_distance_for_gap(PARAMS.gap_m, PARAMS.nose_reach_m, 0.3))

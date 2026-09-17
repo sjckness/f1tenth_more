@@ -44,6 +44,7 @@ def _status(r, alpha=0.05, age=0.2, itr=False, behind=False, terminal=False, wat
     msg.inside_turn_radius, msg.target_behind = itr, behind
     msg.target_behind_terminal, msg.goal_watchdog = terminal, watchdog
     msg.stop_latched, msg.speed = latched, speed
+    msg.track_id, msg.gap = '12', r + 0.5
     return msg
 
 
@@ -112,6 +113,8 @@ class TestReadBagDecodesTheNewTopics:
         assert samples[-1]['move_id'] == WIRE
         assert [s['stop_latched'] for s in samples] == [False, False, True, True]
         assert samples[1]['speed'] == pytest.approx(0.42)
+        assert samples[-1]['track_id'] == '12'
+        assert samples[-1]['gap'] == pytest.approx(0.58)
 
     def test_goals_end_outcome_and_clamps(self, bag):
         assert len(bag['streams']['goal_object'].v) == 4
@@ -147,6 +150,8 @@ class TestSummary:
         assert move['latched_r'] == pytest.approx(0.30)
         assert move['latched_t'] is not None
         assert move['max_speed'] == pytest.approx(0.42)
+        assert move['final']['gap'] == pytest.approx(0.58)
+        assert move['final']['track_id'] == '12'
 
     def test_the_clamp_summary(self, bag):
         clamp = summarize_drive_clamp(bag['streams']['drive_clamp'])

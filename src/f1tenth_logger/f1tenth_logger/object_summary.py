@@ -67,7 +67,9 @@ def summarize_object_approach(object_status, goal_object, goal_object_end, move_
         if speed is not None:
             e['max_speed'] = speed if e['max_speed'] is None else max(e['max_speed'], speed)
         e['final'] = {'t': t, 'r': r, 'alpha': _finite(status['alpha']),
-                      'target_age_s': age, 'psi_c': _finite(status['psi_c'])}
+                      'target_age_s': age, 'psi_c': _finite(status['psi_c']),
+                      'gap': _finite(status.get('gap')),
+                      'track_id': status.get('track_id') or None}
 
     for t, end in zip(goal_object_end.t, goal_object_end.v):
         entry(end['move_id'])['end_t'] = t

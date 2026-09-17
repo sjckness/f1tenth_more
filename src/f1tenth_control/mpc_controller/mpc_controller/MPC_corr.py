@@ -166,6 +166,15 @@ def _pose_odom_to_map(
     return x_map, y_map, psi_map
 
 
+def _object_goal_debug_fields(msg):
+    """Return an ObjectGoal's (track_id, gap_m), echoed on /mpc/object_status only.
+
+    Neither steers nor stops anything. getattr: the callback-test stand-ins
+    predate both fields, and a module function keeps them from needing a method.
+    """
+    return str(getattr(msg, 'track_id', '') or ''), float(getattr(msg, 'gap_m', math.nan))
+
+
 def _pose_map_to_odom(
         x: float, y: float, psi: float,
         tf_x: float, tf_y: float, tf_yaw: float) -> Tuple[float, float, float]:
@@ -407,6 +416,9 @@ class MPCController(Node):
         # True while _refresh_object_target is holding rather than tracking.
         self.object_target_held = False
         self.object_last_step = None    # ObjectHeadingStep, for the status topic
+        # Echoed on /mpc/object_status for debugging; see _object_goal_debug_fields.
+        self.goal_object_track_id = ''
+        self.goal_object_gap_m = math.nan
 
         self.object_r_full = float(self.declare_parameter(
             'object_r_full_m', get_value('object_r_full_m')).value)
@@ -2066,6 +2078,8 @@ class MPCController(Node):
             self.goal_object_stamp = stamp
             self.goal_object_standoff = standoff
             self.goal_object_speed = float(msg.speed)
+            self.goal_object_track_id, self.goal_object_gap_m = (
+                _object_goal_debug_fields(msg))
             self.object_goal_watchdog.note(now_sec)
             return
 
@@ -2095,6 +2109,8 @@ class MPCController(Node):
         self.goal_object_stamp = stamp
         self.goal_object_standoff = standoff
         self.goal_object_speed = float(msg.speed)
+        self.goal_object_track_id, self.goal_object_gap_m = (
+            _object_goal_debug_fields(msg))
         self.object_goal_watchdog.reset()
         self.object_goal_watchdog.note(now_sec)
         self.object_goal_watchdog_tripped = False
@@ -2314,6 +2330,8 @@ class MPCController(Node):
         message.header.frame_id = self.odom_frame
         message.move_id = self.goal_object_move_id or ''
         message.target_class = self.goal_object_target_class
+        message.track_id = getattr(self, 'goal_object_track_id', '')
+        message.gap = math.nan
         if self.object_psi_c is not None:
             message.psi_c = float(self.object_psi_c)
         if step is not None:
@@ -2326,6 +2344,7 @@ class MPCController(Node):
             message.alpha = float(flags.alpha)
             message.inside_turn_radius = bool(flags.inside_turn_radius)
             message.target_behind = bool(flags.target_behind)
+            message.gap = float(flags.r) + float(getattr(self, 'goal_object_gap_m', math.nan))
         message.target_behind_for_s = float(self.object_behind_for_s)
         message.target_behind_terminal = bool(self.object_behind_terminal)
         message.goal_watchdog = bool(self.object_goal_watchdog_tripped)
