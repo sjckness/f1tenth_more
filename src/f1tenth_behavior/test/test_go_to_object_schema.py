@@ -94,7 +94,7 @@ class TestParse:
                 'target_class': 'person', 'gap_m': 0.3, 'speed': 0.4,
                 'acquire_timeout_sec': 5.0})))
         text = str(err.value)
-        assert 'below the reachable minimum' in text
+        assert 'below the minimum allowed gap' in text
         assert ('car_radius 0.20 + avoidance_margin 0.12 + class_margin 0.00 + '
                 'settle_buffer 0.10 = 0.42') in text
 

@@ -51,11 +51,13 @@ import os
 import numpy as np
 import pytest
 
+from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.drive_limits import clamp_drive_speed
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
-    TargetBehindPersistence, goal_point, heading_margin_for, object_speed_ref)
+    SPEED_DRIVE, ObjectStopLatch, TargetBehindPersistence, floor_moving_speed,
+    goal_point, heading_margin_for, object_speed_decision)
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 
 WHEELBASE = 0.305
@@ -87,6 +89,76 @@ BEHIND_PERSIST_TICKS = int(round(BEHIND_PERSIST_SEC / TS))
 CAR_RADIUS = 0.20
 AVOIDANCE_MARGIN = 0.12
 DMIN = CAR_RADIUS + AVOIDANCE_MARGIN
+
+# The stop on arrival and the operating floor, from stack_params.yaml -- the
+# same keys MPC_corr declares, so the rig cannot drift from the node.
+REACH_TOL_M = float(get_value('object_reach_tol_m'))
+STOP_DISTANCE_M = float(get_value('object_stop_distance_m'))
+MIN_MOVING_SPEED = float(get_value('min_moving_speed_mps'))
+MAX_FORWARD_SPEED = float(get_value('max_forward_speed_mps'))
+SHIPPED_SPEED_LIMITS = (MAX_FORWARD_SPEED, float(get_value('max_reverse_speed_mps')))
+STOP_TRIGGER_M = REACH_TOL_M + STOP_DISTANCE_M
+
+# THE BRAKING PLANT. What the car does after the command steps to zero, fitted
+# to the six archived stops tools/measure_stop_distance.py found usable:
+# d(v) = v * tau + v^2 / (2 a), tau 0.144 s, a 1.50 m/s^2, d(0.4) = 0.111 m --
+# the measured median. The command holds the car at v for tau (latency), then
+# it decelerates at a. BRAKING_LONG keeps tau and lowers a until d(0.4) is the
+# LONGEST measured stop, 0.133 m: the case that tests how close a long stop
+# brings the car. Positive commands are tracked in one tick, the rig's
+# long-standing convention; nothing measured says otherwise.
+BRAKING_MEASURED = (0.144, 1.50)
+BRAKING_LONG = (0.144, 0.08 / (0.133 - 0.4 * 0.144))
+
+
+def braking_distance(v0, braking):
+    """Total distance [m] from speed v0 under a (tau, a) braking model."""
+    tau, a = braking
+    return v0 * tau + v0 * v0 / (2.0 * a)
+
+
+def stop_window(braking=BRAKING_MEASURED, slack=0.01):
+    """(lo, hi) of the final range error a latched stop can come to rest at.
+
+    The latch trips on the first tick with r <= STOP_TRIGGER_M, so r at the
+    trip is at most the trigger and at least one tick of travel below it; the
+    car then covers braking_distance(v0). v0 is the published speed, between
+    the floor and the clamp. `slack` absorbs the along-ray geometry of an
+    approach that is not dead ahead.
+    """
+    v_lo, v_hi = MIN_MOVING_SPEED, MAX_FORWARD_SPEED
+    lo = STOP_TRIGGER_M - v_hi * TS - braking_distance(v_hi, braking)
+    hi = STOP_TRIGGER_M - braking_distance(v_lo, braking)
+    return lo - slack, hi + slack
+
+
+def _braking_position(t, v0, braking):
+    """Distance covered t seconds after the zero command, from v0."""
+    tau, a = braking
+    if t <= tau:
+        return v0 * t
+    t_end = tau + v0 / a
+    if t >= t_end:
+        return braking_distance(v0, braking)
+    dt = t - tau
+    return v0 * tau + v0 * dt - 0.5 * a * dt * dt
+
+
+def _braking_speed(t, v0, braking):
+    tau, a = braking
+    if t <= tau:
+        return v0
+    return max(v0 - a * (t - tau), 0.0)
+
+
+def _advance_by_distance(x, delta, s):
+    """f1tenth_state_fcn_dt_beta's kinematics, driven by a distance instead of v*ts."""
+    beta = math.atan((LR / WHEELBASE) * math.tan(delta))
+    return np.array([x[0] + s * math.cos(x[2] + beta),
+                     x[1] + s * math.sin(x[2] + beta),
+                     x[2] + (s / WHEELBASE) * math.cos(beta) * math.tan(delta),
+                     x[3]], dtype=float)
+
 
 # A standing adult, as detection_3d_node back-projects one: bbox.size.x is the
 # width, bbox.size.y the height. obstacle_projector_node's two radius rules.
@@ -166,7 +238,9 @@ class _ObjectMPC:
         self.goal_object_move_id = 'rig'
         self.object_c_safety = 1.5
         self.object_retarget_distance = 0.2
-        self.object_a_dec = 0.3
+        self.object_stop_latch = ObjectStopLatch(REACH_TOL_M, STOP_DISTANCE_M)
+        self.min_moving_speed = MIN_MOVING_SPEED
+        self.object_speed_mode = None
         self.object_lead_in_m = 0.5
         self.object_last_step = None
         self.object_target_held = False
@@ -303,10 +377,10 @@ class Result:
         return [t for t in self.advisory_ticks if self.flags[t].r <= r_max]
 
 
-def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
+def run_approach(target_fn, *, standoff=1.0, speed=0.4, start=(0.0, 0.0, 0.0),
                  duration=30.0, corridor_update_period=1.0, seed=None,
                  jitter=0.0, jitter_hz=12.5, obstacle_r=None, stop_at_rest=True,
-                 speed_limits=None):
+                 speed_limits=SHIPPED_SPEED_LIMITS, braking=BRAKING_MEASURED):
     """Drive one approach and return a Result.
 
     `target_fn(t)` gives the TRUE target position at time t. `jitter` adds
@@ -314,37 +388,50 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
     refreshed at `jitter_hz` -- the detector's rate, not the control rate,
     because that is how a real estimate arrives.
 
+    SPEED, AS MPC_corr's OBJECT BRANCH DOES IT. Every tick: live r into the
+    stop latch (ObjectStopLatch, tripping at object_reach_tol_m +
+    object_stop_distance_m); object_speed_decision; on anything but DRIVE,
+    zero speed with the steering held and no solve; on DRIVE, a solve at the
+    move's speed and a published command floored at min_moving_speed_mps
+    (floor_moving_speed). `speed` is the move's speed, 0.4 as the missions run.
+
+    THE PLANT. A positive published speed is tracked in one tick (the rig's
+    long-standing convention). A zero one is braked through `braking`, a
+    (tau, a) model fitted to the archived stops -- see BRAKING_MEASURED.
+
     `obstacle_r`, when given, puts the target in the obstacle list as a disk
     of that radius at the OBSERVED position, attached every tick the way
     MPC_corr's control loop attaches obstacles_global_live: into
     corridor['obstacles_world'] for compute_local_target and the solver's
     corridor cost, and as solve_mpc_step's `obstacles`.
 
-    `stop_at_rest` ends the run once the car is at rest at the standoff.
-    Turn it off for a target that walks PAST the car: the speed ramp brings
-    the car to rest as the target goes abeam, and the run would end right
-    where the interesting part starts.
+    `stop_at_rest` ends the run a few ticks after the latched stop has brought
+    the car to rest. Turn it off to watch what happens afterwards.
 
     `speed_limits`, (max_forward, max_reverse), applies MPC_corr's /drive
-    clamp (drive_limits.clamp_drive_speed) to the plant: the published speed
-    is v + a * ts, and the VESC tracks the CLAMPED value, so the plant is
-    stepped with the acceleration that reaches it. None reproduces the
-    unclamped controller the earlier tables were built with.
+    clamp (drive_limits.clamp_drive_speed) to the published command, and
+    records each tick it bound. The default is the shipped stack_params pair;
+    None leaves the command unclamped.
     """
     rng = np.random.default_rng(seed)
     fake = _ObjectMPC(standoff=standoff, speed=speed)
 
     x = np.array([start[0], start[1], start[2], 0.0], dtype=float)
     last_u = np.array([0.0, 0.0], dtype=float)
+    last_steer = 0.0
     warm = None
 
     xs, deltas, targets, steps = [x.copy()], [], [], []
     step_ticks, deflected, observed_log, psi_c_log = [], [], [], []
     flags_log, terminal_log = [], []
+    modes, published, clamped, latched_log, live_r = [], [], [], [], []
     corridor = None
     last_build_t = None
     observed = target_fn(0.0)
     last_jitter_t = -1e9
+    brake_t = None       # seconds since the command went to zero, while braking
+    brake_v0 = 0.0
+    rest_ticks = 0
 
     n_ticks = int(round(duration / TS))
     for tick in range(n_ticks):
@@ -359,67 +446,100 @@ def run_approach(target_fn, *, standoff=1.0, speed=0.5, start=(0.0, 0.0, 0.0),
         if fake.object_psi_c is None:
             fake.object_psi_c = math.atan2(observed[1] - x[1], observed[0] - x[0])
 
-        need = (corridor is None
-                or (t - last_build_t) >= corridor_update_period
-                or MPCController._object_target_moved_since_build(fake))
-        if need:
-            corridor = MPCController.build_straight_corridor(fake, x)
-            last_build_t = t
-            steps.append(fake.object_last_step)
-            step_ticks.append(tick)
+        # The stop decision, before the rebuild -- where the node takes it.
+        fake.x, fake.y, fake.yaw, fake.v = float(x[0]), float(x[1]), float(x[2]), float(x[3])
+        r = MPCController._object_range(fake)
+        fake.object_stop_latch.update(r)
+        decision = object_speed_decision(
+            speed, fake.object_stop_latch.latched, fake.min_moving_speed)
+        fake.object_speed_mode = decision.mode
+        live_r.append(r)
+        latched_log.append(fake.object_stop_latch.latched)
+        modes.append(decision.mode)
+
+        obstacles = [] if obstacle_r is None else [
+            (observed[0], observed[1], float(obstacle_r))]
+        if decision.mode == SPEED_DRIVE:
+            need = (corridor is None
+                    or (t - last_build_t) >= corridor_update_period
+                    or MPCController._object_target_moved_since_build(fake))
+            if need:
+                corridor = MPCController.build_straight_corridor(fake, x)
+                last_build_t = t
+                steps.append(fake.object_last_step)
+                step_ticks.append(tick)
         # Every tick, after the rebuild check -- exactly where control_loop
         # calls it -- and through the real method, so the rig's flags cannot
         # drift from the node's.
         flags_log.append(MPCController._assess_object_tick(fake, x, t))
         terminal_log.append(fake.object_behind_terminal)
-        obstacles = [] if obstacle_r is None else [
-            (observed[0], observed[1], float(obstacle_r))]
-        corridor['obstacles_world'] = obstacles
-        corridor['d_safe'] = DMIN if obstacles else 0.0
-        corridor['car_radius'] = fake.car_radius
-        corridor['avoidance_margin'] = fake.avoidance_margin
 
-        r = math.hypot(observed[0] - x[0], observed[1] - x[1]) - standoff
-        vdes = object_speed_ref(r, speed, fake.object_a_dec)
-        fake.vdes = speed          # the corridor's own reach cap stays nominal
-
-        pref_nom = MPCController.compute_local_target(fake, x, corridor)
-        # compute_local_target re-arms the coast counter only on a tick that
-        # really deflected, so a full counter means "this tick".
-        deflected.append(bool(obstacles) and fake.deflection_decay_remaining
-                         == fake.deflection_decay_ticks)
-        u0, info = solve_mpc_step(
-            x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
-            horizon=HORIZON, ts=TS, params=PARAMS, limits=LIMITS,
-            weights=dict(WEIGHTS), obstacles=obstacles, dmin=DMIN, vdes=vdes,
-            solver='rti', warm_start_z=warm)
-        warm = shift_warm_start(info.get('zopt'), HORIZON) if info else None
-
-        u_plant = np.asarray(u0, dtype=float)
+        if decision.mode == SPEED_DRIVE:
+            corridor['obstacles_world'] = obstacles
+            corridor['d_safe'] = DMIN if obstacles else 0.0
+            corridor['car_radius'] = fake.car_radius
+            corridor['avoidance_margin'] = fake.avoidance_margin
+            fake.vdes = speed          # the corridor's own reach cap
+            pref_nom = MPCController.compute_local_target(fake, x, corridor)
+            # compute_local_target re-arms the coast counter only on a tick that
+            # really deflected, so a full counter means "this tick".
+            deflected.append(bool(obstacles) and fake.deflection_decay_remaining
+                             == fake.deflection_decay_ticks)
+            u0, info = solve_mpc_step(
+                x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
+                horizon=HORIZON, ts=TS, params=PARAMS, limits=LIMITS,
+                weights=dict(WEIGHTS), obstacles=obstacles, dmin=DMIN,
+                vdes=decision.speed_ref, solver='rti', warm_start_z=warm)
+            warm = shift_warm_start(info.get('zopt'), HORIZON) if info else None
+            last_u = np.asarray(u0, dtype=float)
+            steer = float(u0[0])
+            v_pub = floor_moving_speed(x[3] + float(u0[1]) * TS, fake.min_moving_speed)
+        else:
+            deflected.append(False)
+            steer = last_steer          # stop-and-wait: steering held
+            v_pub = 0.0
+        was_clamped = False
         if speed_limits is not None:
-            v_cmd, _ = clamp_drive_speed(x[3] + u_plant[1] * TS, *speed_limits)
-            u_plant = np.array([u_plant[0], (v_cmd - x[3]) / TS])
-        x = np.array(f1tenth_state_fcn_dt_beta(x, u_plant, TS, WHEELBASE, LR),
-                     dtype=float)
-        last_u = np.asarray(u0, dtype=float)
+            v_pub, was_clamped = clamp_drive_speed(v_pub, *speed_limits)
+        last_steer = steer
+
+        if v_pub > 0.0:
+            brake_t = None
+            u_plant = np.array([steer, (v_pub - x[3]) / TS])
+            x = np.array(f1tenth_state_fcn_dt_beta(x, u_plant, TS, WHEELBASE, LR),
+                         dtype=float)
+        else:
+            if brake_t is None:
+                brake_t, brake_v0 = 0.0, float(x[3])
+            s = (_braking_position(brake_t + TS, brake_v0, braking)
+                 - _braking_position(brake_t, brake_v0, braking))
+            x = _advance_by_distance(x, steer, s)
+            brake_t += TS
+            x[3] = _braking_speed(brake_t, brake_v0, braking)
 
         xs.append(x.copy())
-        deltas.append(float(u0[0]))
+        deltas.append(steer)
+        published.append(v_pub)
+        clamped.append(was_clamped)
         targets.append(true_target)
         observed_log.append(tuple(observed))
         psi_c_log.append(fake.object_psi_c)
 
-        # Stopped at the standoff: the speed reference is zero and the car has
-        # actually come to rest. Not an arrival LATCH -- the run simply has
-        # nothing left to show.
-        if stop_at_rest and r <= 0.02 and abs(x[3]) < 0.02 and t > 2.0:
+        # Latched, and at rest for a few ticks: nothing left to show.
+        rest_ticks = rest_ticks + 1 if (fake.object_stop_latch.latched
+                                        and abs(x[3]) < 1e-6) else 0
+        if stop_at_rest and rest_ticks >= 3:
             break
 
     if not targets:
         targets = [target_fn(0.0)]
-    return Result(xs, deltas, targets, fake.object_psi_c, standoff, steps,
-                  step_ticks, deflected, observed_log, psi_c_log,
-                  flags_log, terminal_log)
+    res = Result(xs, deltas, targets, fake.object_psi_c, standoff, steps,
+                 step_ticks, deflected, observed_log, psi_c_log,
+                 flags_log, terminal_log)
+    res.modes, res.published, res.clamped = modes, published, clamped
+    res.latched, res.live_r = latched_log, live_r
+    res.latched_r = fake.object_stop_latch.latched_r
+    return res
 
 
 # --------------------------------------------------------------- scenarios
@@ -478,8 +598,9 @@ class TestClosedLoopTable:
         with capsys.disabled():
             print(f'\n{"scenario":<22} {"obstacle":<14} {"s/off":>5} '
                   f'{"range err":>9} {"bearing":>8} {"x-track":>7} {"sat":>5} '
-                  f'{"body gap":>8} {"defl":>5}  flags')
-            print('-' * 104)
+                  f'{"body gap":>8} {"defl":>5} {"latch r":>7} {"v pk":>5} '
+                  f'{"clamp":>7}  flags')
+            print('-' * 128)
             for (name, label, standoff), res in table.items():
                 adv = res.advisory_ticks
                 flags = (f'advisory {len(adv)}t r {res.flags[adv[0]].r:+.2f}..'
@@ -492,15 +613,36 @@ class TestClosedLoopTable:
                       f'{res.peak_cross_track:>7.3f} '
                       f'{res.steer_saturation_fraction:>5.2f} '
                       f'{res.min_body_gap:>8.3f} '
-                      f'{res.deflected_fraction:>5.2f}  {flags}')
+                      f'{res.deflected_fraction:>5.2f} '
+                      f'{res.latched_r if res.latched_r is not None else math.nan:>7.3f} '
+                      f'{max(s[3] for s in res.xs):>5.2f} '
+                      f'{sum(res.clamped):>3}/'
+                      f'{sum(1 for v in res.published if v > 0):<3}  {flags}')
             print()
 
     @pytest.mark.parametrize('standoff', STANDOFFS)
-    def test_straight_ahead_arrives_at_the_standoff(self, table, standoff):
+    def test_straight_ahead_comes_to_rest_in_the_stop_window(self, table, standoff):
+        """Latched at the trigger, braked through the measured stop: see stop_window."""
         res = table[('ahead 4 m', 'none', standoff)]
-        assert abs(res.final_range_error) < 0.10
+        lo, hi = stop_window()
+        assert lo <= res.final_range_error <= hi
         assert math.degrees(res.arrival_bearing_error) < 5.0
         assert res.peak_cross_track < 0.10
+
+    @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m', '70 deg off, 2.5 m'])
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_the_car_never_moves_below_the_floor(self, table, scenario, standoff):
+        """Every published speed is zero or at least min_moving_speed_mps."""
+        res = table[(scenario, 'none', standoff)]
+        assert all(v == 0.0 or v >= MIN_MOVING_SPEED - 1e-9 for v in res.published)
+        assert any(v > 0.0 for v in res.published)
+
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_once_latched_it_stays_stopped(self, table, standoff):
+        res = table[('ahead 4 m', 'none', standoff)]
+        first = res.latched.index(True)
+        assert all(res.latched[first:])
+        assert all(v == 0.0 for v in res.published[first:])
 
     @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_forty_five_degrees_off_converges(self, table, standoff):
@@ -514,13 +656,16 @@ class TestClosedLoopTable:
         """The goal starts inside the full-lock circle, and the approach recovers.
 
         inside_turn_radius is raised from the first tick, as advisory: nothing
-        ends the move, and the car arrives within 0.1 m. No terminal flag --
-        the target is never astern.
+        ends the move, and the car comes to rest in the stop window. No
+        terminal flag -- the target is never astern. At the floor speed the
+        steering sits on its bound for most of the approach (0.85-0.87 of
+        ticks): the geometry is at the edge of what the car can fly.
         """
         res = table[('70 deg off, 2.5 m', 'none', standoff)]
         assert res.advisory_ticks and res.advisory_ticks[0] == 0
         assert res.terminal_ticks == []
-        assert abs(res.final_range_error) < 0.10
+        lo, hi = stop_window()
+        assert lo <= res.final_range_error <= hi
 
     @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_a_laterally_moving_target_is_tracked(self, table, standoff):
@@ -550,10 +695,17 @@ class TestClosedLoopTable:
 
     @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_jitter_does_not_destabilise_the_approach(self, table, standoff):
-        """The freeze radius exists for exactly this."""
+        """The freeze radius keeps the steering calm; the stop errs long, never short.
+
+        The latch trips on the FIRST observed r at the trigger, and 5 cm of
+        noise can put that observation up to about two sigmas ahead of the
+        true r. So a noisy approach rests farther out than a clean one (0.19 m
+        past the standoff at 1.0 in this seed, against 0.09 clean) -- on the
+        safe side, and bounded by the trigger plus two sigmas.
+        """
         clean = table[('ahead 4 m', 'none', standoff)]
         noisy = table[('jitter 5 cm @ 12.5 Hz', 'none', standoff)]
-        assert abs(noisy.final_range_error) < 0.15
+        assert 0.0 < noisy.final_range_error <= STOP_TRIGGER_M + 2.0 * 0.05
         assert noisy.steer_saturation_fraction <= clean.steer_saturation_fraction + 0.10
         assert noisy.peak_cross_track < 0.25
 
@@ -572,15 +724,33 @@ class TestTargetObstacleRadius:
 
     @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
     @pytest.mark.parametrize('standoff', STANDOFFS)
-    def test_legacy_height_radius_holds_the_car_well_short(self, table, scenario,
-                                                           standoff):
+    def test_under_the_floor_w_obs_no_longer_holds_the_car_short(self, table, scenario,
+                                                                 standoff):
+        """The floor overrides the obstacle term's slow-down; only the latch stops the car.
+
+        Under the old speed ramp the legacy height radius (0.875 m) held the car
+        more than 0.40 m short of the standoff: w_obs slowed it to a halt outside
+        the obstacle's keep-out. With the command floored at 0.4 m/s the solver
+        can no longer slow the car for an obstacle, so it drives on to the stop
+        latch like any other approach. For the TARGET that is intended (the
+        latch trips well outside the footprint radius's rest point); for any
+        OTHER obstacle in the path of an object approach it means the solver no
+        longer slows for it -- only steering and the behaviour tree's safety
+        stops remain.
+        """
         res = table[(scenario, 'legacy', standoff)]
-        assert res.final_range_error > 0.40
+        assert 0.0 < res.final_range_error < 0.25
 
     @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
     def test_legacy_radius_puts_the_one_metre_goal_inside_r_safe(self, table, scenario):
-        """R_safe 0.875 + 0.32 = 1.195 > 1.0: the lookahead target is deflected."""
-        assert table[(scenario, 'legacy', 1.0)].deflected_fraction > 0.5
+        """R_safe 0.875 + 0.32 = 1.195 > 1.0: the lookahead target is deflected.
+
+        Counted over the ticks compute_local_target actually ran (DRIVE ticks):
+        a stopped car does not compute a target to deflect.
+        """
+        res = table[(scenario, 'legacy', 1.0)]
+        drive = [d for d, m in zip(res.deflected, res.modes) if m == SPEED_DRIVE]
+        assert sum(drive) / len(drive) > 0.3
 
     @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
     def test_footprint_radius_never_deflects_the_goal(self, table, scenario):
@@ -588,33 +758,51 @@ class TestTargetObstacleRadius:
             assert table[(scenario, 'footprint', standoff)].deflected_fraction == 0.0
 
     @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
-    def test_footprint_at_one_metre_is_held_about_a_decimetre_short(self, table, scenario):
-        """Not by deflection (none happens): by w_obs. 0.55 + 0.25 + 0.32 = 1.12."""
-        assert 0.05 < table[(scenario, 'footprint', 1.0)].final_range_error < 0.20
+    def test_footprint_at_one_metre_rests_in_the_stop_window(self, table, scenario):
+        """The latch, not w_obs, now places it.
+
+        Under the speed ramp w_obs held this car about a decimetre short (its
+        rest point, 0.55 + 0.25 + 0.32 = 1.12 m from the centre). Under the
+        floor w_obs cannot slow it, and the stop latch puts it in the same
+        window as every other approach.
+        """
+        lo, hi = stop_window()
+        assert lo <= table[(scenario, 'footprint', 1.0)].final_range_error <= hi
 
     @pytest.mark.parametrize('scenario', ['ahead 4 m', '45 deg off, 4 m'])
-    def test_footprint_at_one_point_two_metres_arrives(self, table, scenario):
-        assert abs(table[(scenario, 'footprint', 1.2)].final_range_error) < 0.05
+    def test_footprint_at_one_point_two_metres_rests_in_the_stop_window(self, table, scenario):
+        lo, hi = stop_window()
+        assert lo <= table[(scenario, 'footprint', 1.2)].final_range_error <= hi
+
+
+def _walks_past_to_the_rear(t):
+    """A person 3.0 m ahead and 1.8 m to the left, walking toward the car's rear at 0.6 m/s."""
+    return (3.0 - 0.6 * t, 1.8)
 
 
 class TestTargetBehindIsRaised:
-    """A target that walks past the car forever: the terminal flag, and when.
-
-    0.3 m/s sideways forever against a 0.5 m/s forward-only car is a chase the
-    car loses once the target passes abeam. There is no arrival to measure;
-    the question is only whether the controller says so, and exactly when.
+    """A target that walks past the car to its rear: the terminal flag, and when.
 
     target_behind is evaluated every tick and made terminal after
     object_behind_persist_sec of continuous hold, so the terminal flag must
     rise exactly BEHIND_PERSIST_TICKS after the target goes astern for good,
     and never on a shorter excursion.
+
+    THE SCENARIO CHANGED WITH THE STOP LATCH. It used to be a target walking
+    sideways forever, which the ramped approach chased until the target went
+    astern. A latched approach does not chase: it stops the first time r
+    reaches the trigger, and a stopped car with the walker still ahead never
+    sees it astern (see test_a_sideways_walker_is_stopped_at_not_chased). So
+    the terminal path is now exercised by a person who walks PAST the car
+    toward its rear -- which puts the target astern whether the car has
+    stopped for them or not, and in this scenario it has, at every standoff.
     """
 
     @pytest.mark.parametrize('label', ['none', 'footprint'])
     @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_terminal_exactly_one_persistence_after_the_target_goes_astern(
             self, label, standoff):
-        res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
+        res = run_approach(target_fn=_walks_past_to_the_rear, duration=15.0,
                            standoff=standoff, obstacle_r=dict(OBSTACLE_ROWS)[label],
                            stop_at_rest=False)
         astern = res.first_behind_tick(BEHIND_PERSIST_TICKS + 1)
@@ -626,7 +814,7 @@ class TestTargetBehindIsRaised:
     @pytest.mark.parametrize('label', ['none', 'footprint'])
     @pytest.mark.parametrize('standoff', STANDOFFS)
     def test_raw_flag_follows_the_geometry_every_tick(self, label, standoff):
-        res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
+        res = run_approach(target_fn=_walks_past_to_the_rear, duration=15.0,
                            standoff=standoff, obstacle_r=dict(OBSTACLE_ROWS)[label],
                            stop_at_rest=False)
         for tick, flags in enumerate(res.flags):
@@ -636,19 +824,34 @@ class TestTargetBehindIsRaised:
             alpha = math.atan2(math.sin(bearing - state[2]), math.cos(bearing - state[2]))
             assert flags.target_behind is (abs(alpha) > math.pi / 2.0), tick
 
+    @pytest.mark.parametrize('standoff', STANDOFFS)
+    def test_a_sideways_walker_is_stopped_at_not_chased(self, standoff):
+        """0.3 m/s sideways forever: the car latches once and stays stopped.
+
+        Under the ramp this was a chase the car lost; under the latch the car
+        stops the first time r reaches the trigger, and the walker leaving does
+        not restart it.
+        """
+        res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
+                           standoff=standoff, stop_at_rest=False)
+        assert res.latched_r is not None
+        first = res.latched.index(True)
+        assert all(v == 0.0 for v in res.published[first:])
+        assert res.live_r[-1] > STOP_TRIGGER_M
+
 
 class TestTheDriveClampHoldsInTheChase:
     """A person crossing close in front drove the unclamped solver to +2.07 and
     -1.04 m/s against a zero reference (docs/analysis/2026-09-16_chase_overspeed.md).
-    With MPC_corr's /drive clamp at its defaults the plant never leaves
-    [0, 1.0] m/s."""
+    With MPC_corr's /drive clamp at the shipped limits the plant never leaves
+    [0, max_forward_speed_mps]."""
 
-    def test_peak_speeds_stay_inside_the_default_limits(self):
-        res = run_approach(target_fn=lambda t: (4.0, 0.3 * t), duration=40.0,
+    def test_peak_speeds_stay_inside_the_shipped_limits(self):
+        res = run_approach(target_fn=_walks_past_to_the_rear, duration=15.0,
                            standoff=1.0, obstacle_r=PERSON_RADIUS['footprint'],
-                           stop_at_rest=False, speed_limits=(1.0, 0.0))
+                           stop_at_rest=False)
         speeds = [state[3] for state in res.xs]
-        assert max(speeds) <= 1.0 + 1e-9
+        assert max(speeds) <= MAX_FORWARD_SPEED + 1e-9
         assert min(speeds) >= -1e-9
 
 

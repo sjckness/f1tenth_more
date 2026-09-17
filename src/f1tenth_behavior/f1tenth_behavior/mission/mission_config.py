@@ -224,8 +224,10 @@ class ObjectSpec:
     footprint radius from its centre, so the centre distance the controller is
     sent is gap_m + nose_reach + r_target. gap_m may not be below
     gap_min(target_class) = car_radius + avoidance_margin + class margin +
-    settle_buffer: the target is also an obstacle, and w_obs holds the car
-    that far out, so a smaller gap never completes. Absent -> the default gap,
+    settle_buffer: the clearance the solver's obstacle term keeps from any
+    obstacle, plus a margin. Under the 0.4 m/s floor a smaller gap WOULD be
+    driven to, so this check is what keeps the car out (object_geometry's
+    docstring). Absent -> the default gap,
     gap_min rounded up to 0.1 m. Both are resolved at load from the same
     stack_params keys the solver and projector read.
 
@@ -597,11 +599,11 @@ def _parse_object_spec(raw: object, where: str, gap_limits_for=None) -> ObjectSp
         gap_m = _require_positive_number(raw, 'gap_m', where)
         _require(
             gap_m >= limits.gap_min - 1e-9,
-            f'{where}: go_to_object.gap_m={gap_m:.2f} is below the reachable minimum -- '
-            f'{limits.explain()}. The target is also an obstacle: the controller holds '
-            'the car\'s front car_radius + avoidance_margin + class margin from its edge, '
-            'so a smaller gap would never complete. Omit gap_m for the default '
-            f'({limits.default_gap:.1f} m).',
+            f'{where}: go_to_object.gap_m={gap_m:.2f} is below the minimum allowed gap -- '
+            f'{limits.explain()}. The target is also an obstacle, and the car must not '
+            'stop inside the clearance the obstacle model keeps from anything else '
+            '(car_radius + avoidance_margin + class margin from its edge). Omit gap_m for '
+            f'the default ({limits.default_gap:.1f} m).',
         )
 
     lost_grace_sec = raw.get('lost_grace_sec', 1.5)

@@ -718,8 +718,9 @@ def _go_to_object_move(i, phase, cfg, prov, gap_limits_for, notes):
         thresh <  gap_min         gap_min rounded UP to 1 cm   DERIVED, + note
 
     The clamp replaces what would otherwise be a loader rejection: a gap below
-    gap_min cannot complete (the target is also an obstacle the controller
-    keeps its front away from), and "fermati a dieci centimetri dalla persona"
+    gap_min is not allowed (the target is also an obstacle, and the car must not
+    stop inside the clearance kept from any obstacle -- a safety minimum since
+    the 0.4 m/s floor, see object_geometry), and "fermati a dieci centimetri dalla persona"
     is a request with a clear safe reading, not a malformed plan to retry.
     Rounding up rather than to nearest keeps the emitted value >= gap_min, so
     the loader's own check cannot reject it.
@@ -739,8 +740,8 @@ def _go_to_object_move(i, phase, cfg, prov, gap_limits_for, notes):
                 DERIVED, f'plan[{i}].thresh below gap_min(target): gap_min rounded up to 1 cm')
             notes.append(
                 f'fase {i}, go_to "{target}": distanza richiesta {requested:.2f} m, '
-                f'applicata {gap:.2f} m. Sotto {gap:.2f} m il robot non riesce a '
-                'fermarsi: e\' la distanza minima tra il muso e il bordo dell\'oggetto '
+                f'applicata {gap:.2f} m: e\' la distanza minima consentita tra il muso '
+                'e il bordo dell\'oggetto '
                 f'(raggio auto {limits.car_radius:.2f} + margine di evitamento '
                 f'{limits.avoidance_margin:.2f} + margine di classe '
                 f'{limits.class_margin:.2f} + tolleranza d\'arresto '

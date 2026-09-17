@@ -15,18 +15,28 @@ each other for it and each needs the SAME numbers:
 * gap_min -- the closest a go_to_object move may ask to stop from an object.
 
 WHY gap_min IS WHAT IT IS. The target of a go_to_object move is also an
-obstacle, so w_obs holds the car where its front is car_radius +
-avoidance_margin + class_margin from the object's footprint edge:
+obstacle, and the solver's w_obs keeps the car's front car_radius +
+avoidance_margin + class_margin from an obstacle's footprint edge:
 
-    centre distance at rest ~= nose_reach + r_target + car_radius
-                               + avoidance_margin + class_margin
+    centre distance ~= nose_reach + r_target + car_radius
+                       + avoidance_margin + class_margin
 
 Measured as a GAP from the car's front (nose_reach ahead of base_link) to the
-object's near edge (r_target from its centre), that rest point is
+object's near edge (r_target from its centre), that clearance is
 car_radius + avoidance_margin + class_margin, independent of the object's
-size. A commanded gap below it cannot be reached: the car settles farther out
-and object_reached never fires. settle_buffer is the margin on top that lets
-the approach actually arrive within object_reach_tol_m.
+size; settle_buffer is added on top.
+
+WHAT ENFORCES IT CHANGED WITH THE 0.4 m/s OPERATING FLOOR (2026-09-17). Before
+it, w_obs also slowed the car to rest at that clearance, so a commanded gap
+below gap_min could not complete: the car settled farther out and
+object_reached never fired. Under the floor the solver can no longer slow the
+car -- the published speed is held at min_moving_speed_mps until mpc_corr's
+stop latch trips -- so a smaller commanded gap WOULD be driven to: the
+closed-loop rig brings a commanded gap of 0 to about 0.1 m from the object's
+edge. gap_min is therefore a SAFETY minimum now, enforced where the gap is
+set: the mission loader rejects a smaller gap_m and the LLM translator raises
+one to it. A go_to never asks the car to stop inside the clearance the
+obstacle model keeps from everything else.
 """
 
 import math
@@ -85,7 +95,7 @@ def class_margin_for(margins, class_id: str) -> float:
 
 def gap_min(car_radius: float, avoidance_margin: float, class_margin: float,
             settle_buffer: float) -> float:
-    """Smallest reachable front-to-edge gap [m]; see the module docstring."""
+    """Smallest allowed front-to-edge gap [m]; see the module docstring."""
     return float(car_radius) + float(avoidance_margin) + float(class_margin) + float(settle_buffer)
 
 
@@ -111,7 +121,7 @@ class GapLimits:
 
     @property
     def gap_min(self) -> float:
-        """Return the smallest reachable gap [m] for this class."""
+        """Return the smallest allowed gap [m] for this class."""
         return gap_min(self.car_radius, self.avoidance_margin, self.class_margin,
                        self.settle_buffer)
 

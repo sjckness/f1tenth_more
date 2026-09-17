@@ -26,7 +26,8 @@ from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
     TargetBehindPersistence, assess_object_approach, build_object_centreline,
-    heading_margin_for, object_speed_ref, plan_object_heading)
+    SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
+    heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import SMOOTHSTEP_PEAK_SLOPE, plan_wall_turn_step
@@ -416,8 +417,21 @@ class MPCController(Node):
         self.object_retarget_distance = float(self.declare_parameter(
             'object_retarget_distance_m',
             get_value('object_retarget_distance_m')).value)
-        self.object_a_dec = float(self.declare_parameter(
-            'object_a_dec', get_value('object_a_dec')).value)
+        # THE OPERATING FLOOR and the STOP ON ARRIVAL (object_approach's
+        # ObjectStopLatch docstring). The approach drives at the move's speed,
+        # never commanding less than min_moving_speed_mps while it moves, until
+        # live r <= object_reach_tol_m + object_stop_distance_m; then zero,
+        # latched for the rest of the move. object_reach_tol_m is the SAME key
+        # the mission's object_reached reads, so the stop is placed where the
+        # mission judges arrival.
+        self.min_moving_speed = float(self.declare_parameter(
+            'min_moving_speed_mps', get_value('min_moving_speed_mps')).value)
+        self.object_stop_latch = ObjectStopLatch(
+            float(self.declare_parameter(
+                'object_reach_tol_m', get_value('object_reach_tol_m')).value),
+            float(self.declare_parameter(
+                'object_stop_distance_m', get_value('object_stop_distance_m')).value))
+        self.object_speed_mode = None   # object_approach SPEED_*, this tick
         # Per-tick flags (see _assess_object_tick). The heading margin is not a
         # parameter: it is derived from r_freeze, the closest range the
         # inside_turn_radius test runs at (object_approach.heading_margin_for).
@@ -2316,6 +2330,9 @@ class MPCController(Node):
         message.target_behind_terminal = bool(self.object_behind_terminal)
         message.goal_watchdog = bool(self.object_goal_watchdog_tripped)
         message.speed_ref = float(speed_ref)
+        latch = getattr(self, 'object_stop_latch', None)
+        message.stop_latched = bool(latch is not None and latch.latched)
+        message.speed = float(self.v) if getattr(self, 'v', None) is not None else 0.0
         message.target_stale = bool(self.object_target_held)
         if self.goal_object_stamp is not None:
             now_sec = self.get_clock().now().nanoseconds * 1e-9
@@ -2782,6 +2799,12 @@ class MPCController(Node):
         self.object_last_flags = None
         self.object_behind_terminal = False
         self.object_behind_for_s = 0.0
+        # The stop-on-arrival latch belongs to the move it tripped in. getattr
+        # for the duck-typed stand-ins that carry no object state.
+        latch = getattr(self, 'object_stop_latch', None)
+        if latch is not None:
+            latch.reset()
+        self.object_speed_mode = None
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
         self.last_corridor_time = None
@@ -3326,30 +3349,51 @@ class MPCController(Node):
                 self.object_goal_watchdog_tripped = False
 
             #
-            # NO pose_goal_tolerance HARD STOP, and that is deliberate rather
-            # than unfinished. Pose mode latches an arrival inside 0.15 m and
-            # publishes zero drive from that tick on; doing the same here
-            # would put a second authority on "stop" for a move whose target
-            # is still moving, and it would latch on a target estimate that
-            # can be a frame stale. Instead the SPEED REFERENCE goes to zero
-            # at the standoff (object_speed_ref, the braking parabola), so the
-            # car comes to rest at the standoff under the solver's own control
-            # rather than being cut off, and the move ends when the mission's
-            # own stop condition fires -- the same division of authority the
-            # drive branch above spells out.
+            # SPEED: the move's speed until the stop latches, then zero. No ramp.
+            # The car is not operated below min_moving_speed_mps while it moves
+            # (the operating floor), so the braking parabola this branch used to
+            # follow -- whose last 0.27 m sat between 0 and 0.4 m/s -- is gone.
+            # See object_approach.ObjectStopLatch and object_speed_decision.
             #
-            # /mpc/goal_reached is therefore never published in this mode.
-            #
-            # Stored, not applied: `vdes` is (re)assigned from self.vdes below,
-            # after this whole if/elif chain, so assigning it here would be
-            # silently overwritten. The override is applied at that line.
-            self._object_vdes = object_speed_ref(
-                self._object_range(), self.goal_object_speed, self.object_a_dec)
+            # Still NOT a pose_goal_tolerance-style arrival latch with
+            # /mpc/goal_reached: the move ends when the mission's object_reached
+            # fires (on live r, or on this latch once the car is at rest), which
+            # keeps one authority on when the move is over.
+            r_live = self._object_range()
+            was_latched = self.object_stop_latch.latched
+            self.object_stop_latch.update(r_live)
+            if self.object_stop_latch.latched and not was_latched:
+                self.get_logger().info(
+                    f'OBJECT/stop | latched at r={self.object_stop_latch.latched_r:+.3f} '
+                    f'(trigger {self.object_stop_latch.trigger_r:.3f} = reach tol + '
+                    f'stop distance), v={self.v:.3f}: zero speed for the rest of '
+                    f'move_id={self.goal_object_move_id!r}')
+            decision = object_speed_decision(
+                self.goal_object_speed, self.object_stop_latch.latched,
+                self.min_moving_speed)
+            self.object_speed_mode = decision.mode
+            if decision.mode != SPEED_DRIVE:
+                if decision.mode == SPEED_BELOW_FLOOR:
+                    self.get_logger().error(
+                        f'OBJECT/speed | ObjectGoal speed {self.goal_object_speed:.3f} '
+                        f'is below the operating floor min_moving_speed_mps '
+                        f'{self.min_moving_speed:.2f}: holding the car stopped rather '
+                        'than driving it that slowly', throttle_duration_sec=2.0)
+                # STOP-AND-WAIT: zero speed, steering HELD at what was last sent
+                # (not ramped out -- the move is not over), no solve. Status is
+                # still published every tick: object_reached needs the latch,
+                # the measured speed and a fresh r to judge arrival.
+                now_stop = self.get_clock().now().nanoseconds * 1e-9
+                flags = self._assess_object_tick((self.x, self.y, self.yaw), now_stop)
+                self._publish_drive(0.0, self._last_published_steer)
+                self._publish_object_status(self.object_last_step, flags, 0.0)
+                return
+            self._object_vdes = decision.speed_ref
             self.get_logger().info(
                 f'OBJECT | target_odom=('
                 f'{self.goal_object_odom_xy[0]:+.3f},'
                 f'{self.goal_object_odom_xy[1]:+.3f}) '
-                f'r={self._object_range():+.3f} standoff='
+                f'r={r_live:+.3f} standoff='
                 f'{self.goal_object_standoff:.2f} vdes={self._object_vdes:.3f}'
                 + (' HELD' if self.object_target_held else ''),
                 throttle_duration_sec=1.0)
@@ -3774,6 +3818,11 @@ class MPCController(Node):
         self.last_u = np.array([delta_cmd, a_cmd], dtype=float)
 
         v_cmd_now = self.v + a_cmd * self.ts
+        if self.goal_object_odom_xy is not None and self.object_speed_mode == SPEED_DRIVE:
+            # The operating floor, on the command that actually goes out. Every
+            # non-driving object tick returned above, so this is only ever a
+            # moving approach; the top of the range is _publish_drive's clamp.
+            v_cmd_now = floor_moving_speed(v_cmd_now, self.min_moving_speed)
 
         v_cmd_log = self.prev_v_cmd if self.prev_v_cmd is not None else float("nan")
         self.prev_v_cmd = v_cmd_now

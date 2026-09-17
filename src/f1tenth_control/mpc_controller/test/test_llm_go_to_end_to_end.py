@@ -11,8 +11,9 @@ The chain, every link the shipped code except the LLM and the plant:
                        gap limits
   handler + MPC        test_go_to_object_end_to_end's chain: fake semantic
                        tracks -> GoToObject -> ObjectGoal -> MPC_corr's object
-                       mode -> solve_mpc_step -> /drive clamp at its
-                       stack_params defaults -> nominal plant ->
+                       mode (stop latch, 0.4 m/s floor) -> solve_mpc_step ->
+                       /drive clamp at its stack_params defaults -> nominal
+                       plant with the measured braking model ->
                        CheckStopCondition on the real ObjectApproachStatus
 
 Run standalone: python3 -m pytest test/test_llm_go_to_end_to_end.py -v
@@ -88,10 +89,12 @@ class TestVaiDallaPersona:
         assert run.state.object_record.outcome == 'reached'
         assert run.state.last_stop_reason == 'stop_condition:object_reached'
 
-    def test_it_stops_at_the_default_gap(self, default_gap):
+    def test_it_rests_just_outside_the_default_gap(self, default_gap):
+        """The stop latches past the gap and brakes in: see e2e.rig.stop_window."""
         run = default_gap[3]
         assert run.spec.gap_m == pytest.approx(0.5)
-        assert _final_gap(run) == pytest.approx(run.spec.gap_m, abs=0.10)
+        lo, hi = e2e.rig.stop_window()
+        assert run.spec.gap_m + lo <= _final_gap(run) <= run.spec.gap_m + hi
 
     def test_the_car_never_reverses_or_exceeds_the_forward_limit(self, default_gap):
         speeds = default_gap[3].speeds
@@ -117,4 +120,5 @@ class TestFermatiADieciCentimetri:
         run = clamped_gap[3]
         assert run.reached_at is not None, 'object_reached never fired at gap_min'
         assert run.state.object_record.outcome == 'reached'
-        assert _final_gap(run) == pytest.approx(run.spec.gap_m, abs=0.10)
+        lo, hi = e2e.rig.stop_window()
+        assert run.spec.gap_m + lo <= _final_gap(run) <= run.spec.gap_m + hi

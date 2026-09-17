@@ -57,7 +57,8 @@ from f1tenth_behavior.mission.runtime import (  # noqa: E402
 
 from mpc_controller.MPC_corr import MPCController, _pose_odom_to_map  # noqa: E402
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step  # noqa: E402
-from mpc_controller.object_approach import object_speed_ref  # noqa: E402
+from mpc_controller.object_approach import (  # noqa: E402
+    SPEED_DRIVE, floor_moving_speed, object_speed_decision)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp  # noqa: E402
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta  # noqa: E402
 
@@ -213,12 +214,17 @@ def _behaviours(clock, state):
     return goto, check, bb
 
 
-def _run_go_to_person(duration=40.0, mission_path=None, speed_limits=None):
+def _run_go_to_person(duration=40.0, mission_path=None,
+                      speed_limits=rig.SHIPPED_SPEED_LIMITS):
     """Run a one-move person mission; go_to_person.json unless `mission_path` is given.
 
-    `speed_limits` (max_forward, max_reverse) applies MPC_corr's /drive clamp to
-    the plant, as the closed-loop rig's run_approach does; None leaves the
-    solver's command unclamped, which is what this file's own tests use.
+    The MPC tick is MPC_corr's object branch, as the closed-loop rig's
+    run_approach applies it: live r into the stop latch, object_speed_decision,
+    stop-and-wait (zero speed, steering held, no solve) on anything but DRIVE,
+    and on DRIVE a solve whose published command is floored at
+    min_moving_speed_mps. A zero command is braked through the rig's measured
+    braking model. `speed_limits` (max_forward, max_reverse) is MPC_corr's
+    /drive clamp, the shipped pair by default; None leaves it off.
     """
     clock = _SimClock()
     config = load_mission_file(str(mission_path or BEHAVIOR_MISSIONS / 'go_to_person.json'))
@@ -243,6 +249,7 @@ def _run_go_to_person(duration=40.0, mission_path=None, speed_limits=None):
     min_centre = math.inf
     reached_at = None
     speeds = []
+    brake_t, brake_v0 = None, 0.0
     for tick in range(int(duration / TS)):
         clock.t += TS
         mpc.x, mpc.y, mpc.yaw, mpc.v = float(x[0]), float(x[1]), float(x[2]), float(x[3])
@@ -272,31 +279,46 @@ def _run_go_to_person(duration=40.0, mission_path=None, speed_limits=None):
         if need:
             corridor = MPCController.build_straight_corridor(mpc, x)
             last_build = clock.t
+        mpc.object_stop_latch.update(mpc._object_range())
+        decision = object_speed_decision(
+            mpc.goal_object_speed, mpc.object_stop_latch.latched, mpc.min_moving_speed)
+        mpc.object_speed_mode = decision.mode
         flags = mpc._assess_object_tick(x, clock.t)
-        vdes = object_speed_ref(mpc._object_range(), spec.speed, mpc.object_a_dec)
-        mpc._publish_object_status(mpc.object_last_step, flags, vdes)
+        mpc._publish_object_status(mpc.object_last_step, flags, decision.speed_ref)
 
-        obstacles = [(person_odom[0], person_odom[1], PERSON_RADIUS)]
-        corridor['obstacles_world'] = obstacles
-        corridor['d_safe'] = rig.DMIN
-        corridor['car_radius'] = rig.CAR_RADIUS
-        corridor['avoidance_margin'] = rig.AVOIDANCE_MARGIN
-        pref_nom = MPCController.compute_local_target(mpc, x, corridor)
-        u0, info = solve_mpc_step(
-            x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
-            horizon=rig.HORIZON, ts=TS, params=rig.PARAMS, limits=rig.LIMITS,
-            weights=dict(rig.WEIGHTS), obstacles=obstacles, dmin=rig.DMIN, vdes=vdes,
-            solver='rti', warm_start_z=warm)
-        warm = shift_warm_start(info.get('zopt'), rig.HORIZON) if info else None
-        mpc._publish_drive(float(u0[1]), float(u0[0]))
-        u_plant = np.asarray(u0, dtype=float)
-        if speed_limits is not None:
-            v_cmd, _ = rig.clamp_drive_speed(x[3] + u_plant[1] * TS, *speed_limits)
-            u_plant = np.array([u_plant[0], (v_cmd - x[3]) / TS])
-        x = np.array(f1tenth_state_fcn_dt_beta(x, u_plant, TS, rig.WHEELBASE, rig.LR),
-                     dtype=float)
+        if decision.mode != SPEED_DRIVE:
+            # stop-and-wait: zero speed, steering held, no solve
+            mpc._publish_drive(0.0, mpc._last_published_steer)
+            if brake_t is None:
+                brake_t, brake_v0 = 0.0, float(x[3])
+            s = (rig._braking_position(brake_t + TS, brake_v0, rig.BRAKING_MEASURED)
+                 - rig._braking_position(brake_t, brake_v0, rig.BRAKING_MEASURED))
+            x = rig._advance_by_distance(x, mpc._last_published_steer, s)
+            brake_t += TS
+            x[3] = rig._braking_speed(brake_t, brake_v0, rig.BRAKING_MEASURED)
+        else:
+            brake_t = None
+            obstacles = [(person_odom[0], person_odom[1], PERSON_RADIUS)]
+            corridor['obstacles_world'] = obstacles
+            corridor['d_safe'] = rig.DMIN
+            corridor['car_radius'] = rig.CAR_RADIUS
+            corridor['avoidance_margin'] = rig.AVOIDANCE_MARGIN
+            pref_nom = MPCController.compute_local_target(mpc, x, corridor)
+            u0, info = solve_mpc_step(
+                x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
+                horizon=rig.HORIZON, ts=TS, params=rig.PARAMS, limits=rig.LIMITS,
+                weights=dict(rig.WEIGHTS), obstacles=obstacles, dmin=rig.DMIN,
+                vdes=decision.speed_ref, solver='rti', warm_start_z=warm)
+            warm = shift_warm_start(info.get('zopt'), rig.HORIZON) if info else None
+            v_pub = floor_moving_speed(x[3] + float(u0[1]) * TS, mpc.min_moving_speed)
+            if speed_limits is not None:
+                v_pub, _ = rig.clamp_drive_speed(v_pub, *speed_limits)
+            mpc._publish_drive(v_pub, float(u0[0]))
+            u_plant = np.array([float(u0[0]), (v_pub - x[3]) / TS])
+            x = np.array(f1tenth_state_fcn_dt_beta(x, u_plant, TS, rig.WHEELBASE, rig.LR),
+                         dtype=float)
+            last_u = np.asarray(u0, dtype=float)
         speeds.append(float(x[3]))
-        last_u = np.asarray(u0, dtype=float)
         min_centre = min(min_centre, math.hypot(person_odom[0] - x[0], person_odom[1] - x[1]))
 
     return SimpleNamespace(clock=clock, state=state, goto=goto, check=check, mpc=mpc,
@@ -316,11 +338,17 @@ class TestGoToPersonEndToEnd:
         assert run.reached_at is not None, 'object_reached never fired'
         assert run.state.object_record.outcome == 'reached'
 
-    def test_it_arrives_at_the_commanded_gap_in_the_odom_frame(self, run):
-        """Gap = centre distance - nose_reach - the person's footprint radius."""
+    def test_it_rests_in_the_stop_window_past_the_commanded_gap(self, run):
+        """Gap = centre distance - nose_reach - the person's footprint radius.
+
+        The stop latches at object_reach_tol_m + object_stop_distance_m past the
+        commanded gap and the car brakes in from there, so it rests a little
+        OUTSIDE the commanded gap -- never inside it.
+        """
         d = math.hypot(run.person_odom[0] - run.x[0], run.person_odom[1] - run.x[1])
         gap = d - run.spec.nose_reach_m - PERSON_RADIUS
-        assert gap == pytest.approx(run.spec.gap_m, abs=0.10)
+        lo, hi = rig.stop_window()
+        assert run.spec.gap_m + lo <= gap <= run.spec.gap_m + hi
 
     def test_the_goal_carried_the_centre_distance_for_the_default_gap(self, run):
         assert run.spec.gap_m == pytest.approx(0.5)
@@ -337,12 +365,20 @@ class TestGoToPersonEndToEnd:
     def test_the_status_it_stopped_on_is_this_moves_and_fresh(self, run):
         status = run.state.object_record.last_status
         assert status.move_id == run.wire
-        assert status.r <= 0.10
+        # object_reached's own two ways to fire: r within tolerance, or the
+        # stop latched with the car at rest.
+        assert status.r <= rig.REACH_TOL_M or (status.stop_latched and status.speed <= 0.05)
         assert status.target_age_s == pytest.approx(0.2, abs=1e-6)
         assert status.target_behind_terminal is False
 
-    def test_the_car_never_came_closer_than_the_commanded_gap_less_tolerance(self, run):
-        assert run.min_centre >= run.centre_standoff - 0.10
+    def test_the_car_never_came_closer_than_the_commanded_gap(self, run):
+        """The latched stop rests outside the commanded gap over the whole run."""
+        assert run.min_centre >= run.centre_standoff
+
+    def test_it_never_drove_below_the_floor(self, run):
+        """Every /drive speed the chain published is zero or at least the floor."""
+        assert all(v == 0.0 or v >= rig.MIN_MOVING_SPEED - 1e-9 for v, _ in run.mpc.drive)
+        assert any(v > 0.0 for v, _ in run.mpc.drive)
 
     def test_hold_then_ends_object_mode_and_ramps_the_steering_out(self, run):
         """What AdvanceMove's completion publishes, delivered to the real callback."""

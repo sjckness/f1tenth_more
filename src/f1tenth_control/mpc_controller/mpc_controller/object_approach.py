@@ -190,8 +190,15 @@ __all__ = [
     'build_object_centreline',
     'goal_point',
     'heading_margin_for',
+    'SPEED_BELOW_FLOOR',
+    'SPEED_DRIVE',
+    'SPEED_STOP_LATCHED',
+    'SPEED_WAIT',
+    'ObjectSpeedDecision',
+    'ObjectStopLatch',
+    'floor_moving_speed',
     'min_standoff_clear_of',
-    'object_speed_ref',
+    'object_speed_decision',
     'plan_object_heading',
 ]
 
@@ -277,29 +284,119 @@ def goal_point(target_xy: Tuple[float, float], psi_c: float,
     return (tx - standoff * math.cos(psi_c), ty - standoff * math.sin(psi_c))
 
 
-def object_speed_ref(r: float, v_move: float, a_dec: float) -> float:
-    """Speed command at range `r`, reaching zero exactly at r = 0.
+# The four ways the object approach can be driving this tick; see
+# object_speed_decision. Named because MPC_corr logs them and the rigs count them.
+SPEED_DRIVE = 'drive'
+SPEED_STOP_LATCHED = 'stop_latched'
+SPEED_WAIT = 'wait'
+SPEED_BELOW_FLOOR = 'below_floor'
 
-    The braking parabola v = sqrt(2 a d), capped at the move's own speed: the
-    fastest approach that can still stop in the distance left at a_dec. It is
-    a REFERENCE, not a stop -- the solver still owns the actual command, and
-    this mode deliberately has no hard tolerance stop of the kind pose mode
-    uses (see MPC_corr's goal_object branch).
 
-    Zero at and inside r = 0, rather than negative or clamped to some floor:
-    r = 0 is the standoff, which is where the vehicle is meant to come to
-    rest. A floor here would make it creep into the target forever.
+class ObjectStopLatch:
+    """Stop on arrival: trip once live r reaches the trigger, then hold for the move.
 
-    a_dec <= 0 is treated as "no ramp" and returns v_move, so a mis-set
-    parameter fails visibly as an unramped approach rather than as a vehicle
-    that never moves.
+    THE OPERATING FLOOR IS WHY THIS EXISTS. The car is not operated below
+    0.4 m/s: that is the minimum commanded forward speed while it moves, and
+    zero is used only to stop. The approach used to ramp its speed reference
+    down a braking parabola, sqrt(2 * a_dec * r), which at a_dec 0.3 put the
+    reference between 0 and 0.4 m/s for the last 0.267 m of every approach --
+    exactly the region the floor forbids, and the region where the VESC tracks
+    a speed command worst (vesc_ackermann's velocity_correction.hpp: 0.15 m/s
+    commanded measured 0.083). So instead the approach drives at the move's
+    speed until
+
+        r <= trigger_r = object_reach_tol_m + object_stop_distance_m
+
+    and then commands zero for the rest of the move. The car coasts to rest one
+    stopping distance later, at r near object_reach_tol_m.
+
+    LATCHED, not re-evaluated. After the trip the target keeps refreshing and r
+    keeps moving -- estimate jitter, a person shifting their weight, the car's
+    own last centimetres. Re-arming on r > trigger_r would restart a car that
+    is still braking at the very speed the floor sets. A move ends the latch
+    (reset), nothing else does.
+
+    object_stop_distance_m is MEASURED, not chosen: the true distance the car
+    covers after mpc_corr's command steps to zero from 0.4 m/s. See that
+    parameter's description in stack_params.yaml for the archived stops it was
+    taken from, and why odometry could not be used to take it.
     """
-    v_move = float(v_move)
-    if a_dec <= 0.0:
-        return v_move
-    if r <= 0.0:
-        return 0.0
-    return min(v_move, math.sqrt(2.0 * float(a_dec) * float(r)))
+
+    def __init__(self, reach_tol_m: float, stop_distance_m: float):
+        """Trip at r <= reach_tol_m + stop_distance_m."""
+        if not reach_tol_m >= 0.0:
+            raise ValueError(f'reach_tol_m must be >= 0, got {reach_tol_m}')
+        if not stop_distance_m > 0.0:
+            raise ValueError(
+                f'stop_distance_m must be > 0, got {stop_distance_m}: a zero stopping '
+                'distance triggers the stop at the reach tolerance, and the car then '
+                'coasts past it')
+        self.trigger_r = float(reach_tol_m) + float(stop_distance_m)
+        self.latched = False
+        self.latched_r = None
+
+    def update(self, r: float) -> bool:
+        """Fold this tick's live r in; return whether the stop is latched.
+
+        A non-finite r (no target yet) never trips it.
+        """
+        if not self.latched and math.isfinite(r) and r <= self.trigger_r:
+            self.latched = True
+            self.latched_r = float(r)
+        return self.latched
+
+    def reset(self) -> None:
+        """Clear the latch: a new move starts driving."""
+        self.latched = False
+        self.latched_r = None
+
+
+class ObjectSpeedDecision(NamedTuple):
+    """How the approach drives this tick."""
+
+    # SPEED_DRIVE, SPEED_STOP_LATCHED, SPEED_WAIT or SPEED_BELOW_FLOOR.
+    mode: str
+    # The speed reference [m/s]: the move's speed while driving, else 0.
+    speed_ref: float
+
+
+def object_speed_decision(goal_speed: float, latched: bool,
+                          min_moving_speed: float) -> ObjectSpeedDecision:
+    """Decide from the ObjectGoal speed and the stop latch; no ramp anywhere.
+
+    DRIVE        goal_speed >= min_moving_speed and not latched: the reference
+                 is goal_speed, and the published command is floored at
+                 min_moving_speed (floor_moving_speed).
+    STOP_LATCHED the stop latch has tripped: zero, whatever the goal says.
+    WAIT         goal_speed <= 0: the mission's handler is waiting (acquiring,
+                 or the track was lost and it is holding the last point).
+                 Stop-and-wait -- zero speed, steering held.
+    BELOW_FLOOR  0 < goal_speed < min_moving_speed: a speed the car must not be
+                 driven at. Treated as WAIT, not raised to the floor: whoever
+                 asked for it wanted to go SLOWER, and faster is the wrong way
+                 to be wrong. The mission loader rejects such a speed, so
+                 reaching this means a stale sender, and MPC_corr logs it.
+    """
+    if latched:
+        return ObjectSpeedDecision(SPEED_STOP_LATCHED, 0.0)
+    goal_speed = float(goal_speed)
+    if not goal_speed > 0.0:
+        return ObjectSpeedDecision(SPEED_WAIT, 0.0)
+    if goal_speed < float(min_moving_speed):
+        return ObjectSpeedDecision(SPEED_BELOW_FLOOR, 0.0)
+    return ObjectSpeedDecision(SPEED_DRIVE, goal_speed)
+
+
+def floor_moving_speed(v_cmd: float, min_moving_speed: float) -> float:
+    """Return the published speed while driving: the solver's command, never below the floor.
+
+    The solver's command is v + a * ts. Starting from rest its first ticks are
+    below 0.4 (a_max 3.0 reaches 0.3 in one tick), and whenever it wants to
+    slow for anything in the corridor it dips below again. The floor holds it
+    at min_moving_speed; the stop itself is not the solver's call but the
+    latch's. The top of the range is the /drive clamp's (max_forward_speed_mps).
+    """
+    return max(float(v_cmd), float(min_moving_speed))
 
 
 def _reachable_within_min_radius(r_goal: float, alpha_goal: float,

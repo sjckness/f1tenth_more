@@ -9,7 +9,7 @@ The shipped geometry these use:
     wheelbase  0.305   delta_min -0.283   delta_max +0.278
     N 20        ts 0.1  v_ref 0.5   ->  horizon reach 1.0 m
     R_min      1.0685 m turning left, 1.0483 m turning right
-    r_full 1.5  r_freeze 0.4  c_safety 1.5  a_dec 0.3
+    r_full 1.5  r_freeze 0.4  c_safety 1.5
 """
 
 import math
@@ -24,8 +24,14 @@ from mpc_controller.object_approach import (
     build_object_centreline,
     goal_point,
     heading_margin_for,
+    SPEED_BELOW_FLOOR,
+    SPEED_DRIVE,
+    SPEED_STOP_LATCHED,
+    SPEED_WAIT,
+    ObjectStopLatch,
+    floor_moving_speed,
     min_standoff_clear_of,
-    object_speed_ref,
+    object_speed_decision,
     plan_object_heading,
 )
 from mpc_controller.wall_turn import horizon_heading_reach, min_turn_radius
@@ -422,35 +428,109 @@ class TestInsideTurnRadius:
 
 # ------------------------------------------------------------------- speed
 
-class TestSpeedRef:
+class TestStopLatch:
+    """Trips once live r reaches reach_tol + stop_distance, then holds for the move."""
 
-    def test_it_is_zero_at_the_standoff(self):
-        assert object_speed_ref(0.0, 0.5, 0.3) == 0.0
+    def test_the_trigger_is_reach_tol_plus_stop_distance(self):
+        """The trip range is the sum of the two stack_params keys."""
+        assert ObjectStopLatch(0.10, 0.14).trigger_r == pytest.approx(0.24)
 
-    def test_it_is_zero_inside_the_standoff(self):
-        assert object_speed_ref(-0.4, 0.5, 0.3) == 0.0
+    def test_it_does_not_trip_above_the_trigger(self):
+        """Anything short of the trigger leaves the approach driving."""
+        latch = ObjectStopLatch(0.10, 0.14)
+        for r in (3.0, 1.0, 0.5, 0.2401):
+            assert latch.update(r) is False
+        assert latch.latched_r is None
 
-    def test_it_saturates_at_the_move_speed_far_out(self):
-        assert object_speed_ref(10.0, 0.5, 0.3) == pytest.approx(0.5)
+    def test_it_trips_at_the_trigger_and_records_where(self):
+        """At the trigger it trips, and the r it tripped at is kept for the status."""
+        latch = ObjectStopLatch(0.10, 0.14)
+        latch.update(0.30)
+        assert latch.update(0.24) is True
+        assert latch.latched_r == pytest.approx(0.24)
 
-    def test_it_follows_the_braking_parabola_in_between(self):
-        for r in (0.05, 0.1, 0.2, 0.4):
-            expected = min(0.5, math.sqrt(2.0 * 0.3 * r))
-            assert object_speed_ref(r, 0.5, 0.3) == pytest.approx(expected)
+    def test_it_holds_when_r_grows_again(self):
+        """Jitter, a person stepping back, the last centimetres: none re-arm it."""
+        latch = ObjectStopLatch(0.10, 0.14)
+        latch.update(0.2)
+        for r in (0.5, 2.0, 10.0):
+            assert latch.update(r) is True
+        assert latch.latched_r == pytest.approx(0.2)
 
-    def test_it_is_monotone_in_range(self):
-        speeds = [object_speed_ref(r / 100.0, 0.5, 0.3) for r in range(0, 200)]
-        assert speeds == sorted(speeds)
+    def test_reset_starts_a_new_move_driving(self):
+        """A new move clears the latch and its recorded range."""
+        latch = ObjectStopLatch(0.10, 0.14)
+        latch.update(0.0)
+        latch.reset()
+        assert latch.latched is False and latch.latched_r is None
+        assert latch.update(1.0) is False
 
-    def test_a_non_positive_a_dec_disables_the_ramp_visibly(self):
-        assert object_speed_ref(0.1, 0.5, 0.0) == 0.5
-        assert object_speed_ref(0.1, 0.5, -1.0) == 0.5
+    def test_a_non_finite_r_never_trips_it(self):
+        """No target yet reads as infinite range."""
+        latch = ObjectStopLatch(0.10, 0.14)
+        assert latch.update(math.inf) is False
+        assert latch.update(math.nan) is False
 
-    def test_the_ramp_can_actually_stop_in_the_distance_it_leaves(self):
-        """v^2 / (2 a) <= r at every range -- the defining property."""
-        for r in (0.05, 0.3, 0.8, 1.5):
-            v = object_speed_ref(r, 0.5, 0.3)
-            assert v * v / (2.0 * 0.3) <= r + 1e-9
+    def test_a_zero_stop_distance_is_rejected(self):
+        """Zero would trip at the reach tolerance itself and coast past it."""
+        with pytest.raises(ValueError, match='stop_distance_m'):
+            ObjectStopLatch(0.10, 0.0)
+
+    def test_a_negative_reach_tolerance_is_rejected(self):
+        """A negative tolerance is a configuration error, named."""
+        with pytest.raises(ValueError, match='reach_tol_m'):
+            ObjectStopLatch(-0.01, 0.14)
+
+
+class TestSpeedDecision:
+    """The move's speed or zero -- never anything between zero and the floor."""
+
+    FLOOR = 0.4
+
+    def test_driving_uses_the_move_speed_as_the_reference(self):
+        """Not a ramp: the reference is the move speed itself."""
+        d = object_speed_decision(0.4, False, self.FLOOR)
+        assert (d.mode, d.speed_ref) == (SPEED_DRIVE, 0.4)
+
+    def test_a_latched_stop_is_zero_whatever_the_goal_says(self):
+        """The latch wins over a goal that still asks to drive."""
+        d = object_speed_decision(0.5, True, self.FLOOR)
+        assert (d.mode, d.speed_ref) == (SPEED_STOP_LATCHED, 0.0)
+
+    def test_a_zero_goal_speed_is_stop_and_wait(self):
+        """The handler acquiring, or holding the last point of a lost track."""
+        d = object_speed_decision(0.0, False, self.FLOOR)
+        assert (d.mode, d.speed_ref) == (SPEED_WAIT, 0.0)
+
+    def test_a_speed_below_the_floor_stops_rather_than_crawls(self):
+        """0.2 was the old grace speed: it must stop the car, not drive it at 0.2 or 0.4."""
+        d = object_speed_decision(0.2, False, self.FLOOR)
+        assert (d.mode, d.speed_ref) == (SPEED_BELOW_FLOOR, 0.0)
+
+    def test_exactly_the_floor_drives(self):
+        """The floor is inclusive."""
+        assert object_speed_decision(0.4, False, self.FLOOR).mode == SPEED_DRIVE
+
+    def test_no_decision_ever_asks_for_a_speed_between_zero_and_the_floor(self):
+        """The operating constraint itself, over goals on both sides of the floor."""
+        for goal in (0.0, 0.05, 0.2, 0.39, 0.4, 0.45, 0.5):
+            for latched in (False, True):
+                ref = object_speed_decision(goal, latched, self.FLOOR).speed_ref
+                assert ref == 0.0 or ref >= self.FLOOR, (goal, latched, ref)
+
+
+class TestFloorMovingSpeed:
+    """The published command while driving: never below the floor."""
+
+    def test_a_command_below_the_floor_is_raised_to_it(self):
+        """The solver's first tick from rest is 0.3 (a_max 3.0 over 0.1 s)."""
+        assert floor_moving_speed(0.3, 0.4) == 0.4
+        assert floor_moving_speed(-0.2, 0.4) == 0.4
+
+    def test_a_command_above_the_floor_passes_through(self):
+        """The top of the range is the /drive clamp's business, not this one's."""
+        assert floor_moving_speed(0.45, 0.4) == 0.45
+        assert floor_moving_speed(0.65, 0.4) == 0.65
 
 
 # ------------------------------------------------------------- goal geometry

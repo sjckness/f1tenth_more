@@ -1012,9 +1012,6 @@ object_c_safety:
 object_retarget_distance_m:
   default: 0.2
   description: "How far [m] the target's ODOM-frame position must move since the last corridor build before the build is repeated early, ahead of corridor_update_period. Exists because a target refresh must NOT re-anchor the corridor (that is what move_id is for), but a target that has genuinely walked away must not be chased at 1 Hz either. 0.2 m is about one car width of target motion; below roughly 0.05 m this would fire on estimate jitter alone and rebuild every tick, which is the cost corridor_update_period exists to avoid."
-object_a_dec:
-  default: 0.3
-  description: "Deceleration [m/s^2] the approach speed ramp is sized on: v = min(move speed, sqrt(2 * a_dec * r)), reaching zero exactly at the standoff. A REFERENCE, not a brake -- the solver still owns the command, and this mode deliberately has no pose_goal_tolerance-style hard stop. At 0.3 the ramp leaves the shipped 0.5 m/s at r = 0.42 m. Zero or negative disables the ramp, which shows up as an unramped approach rather than as a car that never moves."
 object_behind_persist_sec:
   default: 0.5
   description: "How long [s] target_behind (the target in the car's rear half-plane) must hold CONTINUOUSLY before mpc_corr reports it TERMINAL on /mpc/object_status.target_behind_terminal, which ends the move target_unreachable. The raw flag is evaluated every control tick; persistence exists because a car circling a person who walks past it grazes 90 degrees and turns back (seen in the closed-loop rig). 0.5 s is 5 ticks at the 10 Hz loop."
@@ -1043,16 +1040,27 @@ object_exit_steer_rate_rad_s:
 max_forward_speed_mps:
   default: 0.5
   description: "Largest forward speed [m/s] mpc_corr may put on /drive; larger commands are clamped and reported on /mpc/drive_clamp. FLOOR VALUE, set by the operator for the 2026-09-18 go_to floor session (was 1.0): equal to the highest speed any mission or code path requests (0.5: drive/turn moves, translator turn speed, mpc_corr's vdes default), so nothing that asks for 0.5 or less is changed, and solver overshoot above a 0.5 reference is now cut instead of reaching the car. The go_to approach runs at 0.4, leaving 0.1 m/s of headroom before a command is clamped."
+# THE OPERATING FLOOR. 0.4 m/s is the minimum commanded forward speed while
+# the car moves; below it the car is not operated, and zero is used only to
+# stop. Nothing in the stack enforced one before 2026-09-17: vesc.yaml's
+# erpm_deadband (500 ERPM = 0.091 m/s) zeroes TELEMETRY only, not commands, and
+# the low-speed velocity_correction curve is unpopulated (pass-through), while
+# its own sweep found 0.15 m/s commanded moving the car at 0.083 m/s.
+min_moving_speed_mps:
+  default: 0.4
+  description: "Minimum forward speed [m/s] commanded while the car moves; zero only to stop. ENFORCED on: go_to_object moves -- the mission loader rejects go_to_object.speed below it, mpc_corr floors the published /drive speed at it while an object approach drives, and treats an ObjectGoal speed below it as stop-and-wait. NOT YET ENFORCED on drive, turn, goal_distance and goal_pose moves: drive_turn_180.json, test_04_turn_accuracy.json, turn_90_left.json and wall_turn_then_straight.json still request 0.3 m/s, and mpc_corr's other modes still let the solver's command fall below 0.4 near a goal."
 max_reverse_speed_mps:
   default: 0.0
   description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
 # declare default = this value), for the go_to_object move (schema 4.0):
 # GoToObject (mission/object_handler.py) and CheckStopCondition's
-# object_reached. NONE OF THESE HAS BEEN RUN ON THE CAR.
+# object_reached; object_reach_tol_m and object_stop_distance_m ALSO by
+# MPC_corr.py (declare default = this value), for the stop on arrival.
+# NONE OF THESE HAS BEEN RUN ON THE CAR.
 object_gap_settle_buffer_m:
   default: 0.10
-  description: "Margin [m] on top of the controller's rest gap in gap_min(class) = car_radius + obstacle_safety_margin_m + class margin + this (f1tenth_params/object_geometry.py). A go_to_object gap_m below gap_min is rejected at mission load: the target is also an obstacle, so w_obs holds the car's front car_radius + avoidance_margin + class margin from the object's edge, and a smaller commanded gap never reaches. The default gap is gap_min rounded up to 0.1 m."
+  description: "Margin [m] on top of the controller's rest gap in gap_min(class) = car_radius + obstacle_safety_margin_m + class margin + this (f1tenth_params/object_geometry.py). A go_to_object gap_m below gap_min is rejected at mission load (and raised to it by the LLM translator). Since the 0.4 m/s operating floor this is a SAFETY minimum, not a reachability one: the solver can no longer slow the car, so a smaller commanded gap would be driven to (the rig brings gap 0 to about 0.1 m from the edge); the check keeps the car outside the clearance the obstacle model keeps from anything else. The default gap is gap_min rounded up to 0.1 m."
 object_follow_gate_m:
   default: 0.5
   description: "FOLLOW gate [m]: the target is the nearest confirmed track of the move's class within this distance of the LAST target point, whatever its track_id. semantic_layer_node re-issues ids across dropouts; a same-class track farther than this is a different object."
@@ -1064,7 +1072,10 @@ object_tracks_max_gap_sec:
   description: "A /costmap/semantic_tracks message older than this [s] by receipt time counts as no tracks, so a stalled perception pipeline reads as a lost target (GRACE, then target_lost) rather than a target frozen in place."
 object_reach_tol_m:
   default: 0.10
-  description: "object_reached fires when mpc_corr's live r (/mpc/object_status: centre distance minus the commanded gap + nose_reach + target radius, i.e. actual gap minus commanded gap) is at or below this [m]. Closed-loop rig (nominal model): the controller rests the car's front 0.268 m from a person's or chair's edge; at gap_min 0.42 it settles at 0.427 and fires, at the default 0.5 at 0.496."
+  description: "Read by BOTH ends of the stop. The mission's object_reached fires when mpc_corr's live r (/mpc/object_status: centre distance minus the commanded gap + nose_reach + target radius, i.e. actual gap minus commanded gap) is at or below this [m] -- or when mpc_corr reports its stop latched and the car at rest (object_rest_speed_mps). mpc_corr latches that stop at r <= this + object_stop_distance_m, so the car comes to rest near r = this. The same key on both sides places the stop where arrival is judged."
+object_stop_distance_m:
+  default: 0.14
+  description: "MEASURED: the TRUE distance [m] the car covers after mpc_corr's command steps to zero from 0.4 m/s. mpc_corr stops an object approach (speed to zero, latched for the move) once live r <= object_reach_tol_m + this, so the car comes to rest near r = object_reach_tol_m. Taken 2026-09-17 from the six archived mid-mission stops with a usable LiDAR ground truth (tools/measure_stop_distance.py; command persistently 0 after >= 1 s of driving, last command 0.47-0.54, measured speed 0.34-0.48, dead-ahead range interpolated at the zero command and 0.5 s after rest, yaw change < 1.5 deg), each normalised to 0.4 m/s as d * (0.4 / v0)^2: median 0.111, mean 0.108, sd 0.016, range 0.083-0.133; a latency-plus-deceleration fit d = v*tau + v^2/(2a) gives tau 0.144 s, a 1.50 m/s^2, d(0.4) = 0.111. Shipped at median + 2 sd = 0.143, rounded to 0.14 (above the largest measured stop). ODOMETRY CANNOT MEASURE IT: /odometry/filtered's path over the same stops is 0.074 at 0.4, the LiDAR distance 1.45x that (1.20x when cruising, see the 2026-09-11 scale audit) -- the wheels read short while braking. End-of-mission stops (hold, goal_reached, abort) could not be used at all: the mission logger stops recording at the hold."
 object_reach_max_target_age_sec:
   default: 1.0
   description: "UNMEASURED -- the bench run that was to measure it did not happen (2026-09-17). object_reached also requires the target estimate being driven at to be no older than this [s] (target_age_s: now minus the track's capture stamp). The capture-to-status latency of the semantic tracks pipeline has not been measured on the car; if the floor shows target_age_s above this while tracking, the move cannot reach."
