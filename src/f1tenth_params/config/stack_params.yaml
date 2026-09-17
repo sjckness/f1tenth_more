@@ -1041,8 +1041,8 @@ object_exit_steer_rate_rad_s:
 # (joy_teleop.yaml scale 5.0 on the mux's teleop lane), calibration_drive,
 # twist_to_ackermann_node, and hand scripts publishing /drive.
 max_forward_speed_mps:
-  default: 1.0
-  description: "Largest forward speed [m/s] mpc_corr may put on /drive; larger commands are clamped and reported on /mpc/drive_clamp. Twice the highest speed any mission or code path requests (0.5)."
+  default: 0.5
+  description: "Largest forward speed [m/s] mpc_corr may put on /drive; larger commands are clamped and reported on /mpc/drive_clamp. FLOOR VALUE, set by the operator for the 2026-09-18 go_to floor session (was 1.0): equal to the highest speed any mission or code path requests (0.5: drive/turn moves, translator turn speed, mpc_corr's vdes default), so nothing that asks for 0.5 or less is changed, and solver overshoot above a 0.5 reference is now cut instead of reaching the car. The go_to approach runs at 0.4, leaving 0.1 m/s of headroom before a command is clamped."
 max_reverse_speed_mps:
   default: 0.0
   description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
@@ -2149,7 +2149,7 @@ mission_translator_speed_turn:
 mission_translator_speed_go_to:
   default: 0.4
   # the speed of missions/go_to_person.json / go_to_chair.json (rig-verified, not floor-run)
-  description: "go_to_object.speed [m/s] for a go_to intent phase: the approach speed missions/go_to_person.json and go_to_chair.json use. Under max_forward_speed_mps."
+  description: "go_to_object.speed [m/s] for a go_to intent phase: the approach speed missions/go_to_person.json and go_to_chair.json use. FLOOR VALUE 0.4, and it must not go lower: 0.4 m/s is the operating floor, the minimum commanded forward speed while the car moves (below it the car is not operated; zero is used only to stop). Under max_forward_speed_mps (0.5), so the approach itself is never clamped."
 mission_translator_go_to_acquire_timeout_sec:
   default: 5.0
   description: "go_to_object.acquire_timeout_sec [s] for a go_to intent phase: how long the handler looks for a confirmed track of the class before the move fails target_not_found. Same value as missions/go_to_person.json."
