@@ -143,10 +143,13 @@ def _feed_tracks(rig, tracks, stamp=None):
     rig.goto._tracks_cb(_tracks_msg(tracks, stamp=rig.clock.t - 0.2 if stamp is None else stamp))
 
 
-def _status(rig, move_id, r, behind=False, watchdog=False, age=0.2):
+def _status(rig, move_id, r, behind=False, watchdog=False, age=0.2,
+            latched=False, speed=0.0):
+    """Feed a status stand-in carrying every field the callback reads."""
     rig.check._object_status_cb(SimpleNamespace(
         move_id=move_id, r=r, alpha=0.05, target_age_s=age,
-        target_behind_terminal=behind, goal_watchdog=watchdog))
+        target_behind_terminal=behind, goal_watchdog=watchdog,
+        stop_latched=latched, speed=speed))
 
 
 def _tick(rig, dt=0.1):

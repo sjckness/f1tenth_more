@@ -549,7 +549,8 @@ def create_root(
             odom_topic=get_odom_topic(),
             object_reach_tol_m=op.get('object_reach_tol_m', 0.10),
             object_reach_max_target_age_sec=op.get('object_reach_max_target_age_sec', 1.0),
-            object_status_max_gap_sec=op.get('object_status_max_gap_sec', 0.5)),
+            object_status_max_gap_sec=op.get('object_status_max_gap_sec', 0.5),
+            object_rest_speed_mps=op.get('object_rest_speed_mps', 0.05)),
         AdvanceMove(),
     ])
 
@@ -682,6 +683,7 @@ def main():
             'object_follow_gate_m', 'object_grace_speed_factor',
             'object_tracks_max_gap_sec', 'object_reach_tol_m',
             'object_reach_max_target_age_sec', 'object_status_max_gap_sec',
+            'object_rest_speed_mps',
         )
     }
     bootstrap_node.destroy_node()

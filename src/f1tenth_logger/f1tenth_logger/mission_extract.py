@@ -318,7 +318,8 @@ def read_bag(bag_dir: Path, pose_source: str):
                 'target_behind': bool(msg.target_behind),
                 'target_behind_for_s': float(msg.target_behind_for_s),
                 'target_behind_terminal': bool(msg.target_behind_terminal),
-                'goal_watchdog': bool(msg.goal_watchdog)})
+                'goal_watchdog': bool(msg.goal_watchdog),
+                'stop_latched': bool(msg.stop_latched), 'speed': float(msg.speed)})
         elif topic == TOPICS['goal_object']:
             data['goal_object'].add(t, {
                 'move_id': msg.move_id, 'target_class': msg.target_class,
@@ -570,7 +571,8 @@ def main(argv=None):
                   f'itr={move["inside_turn_radius_samples"]} '
                   f'behind={move["target_behind_samples"]} '
                   f'terminal={move["target_behind_terminal"]} '
-                  f'watchdog={move["goal_watchdog_samples"]}')
+                  f'watchdog={move["goal_watchdog_samples"]} '
+                  f'latched_r={move["latched_r"]} max_speed={move["max_speed"]}')
         clamp = _clamp_summary(_bag['streams'])
         if clamp.get('events'):
             print(f'  drive clamp: {clamp["events"]} events, requested '

@@ -48,7 +48,17 @@ float32 target_age_s      # now minus the ObjectGoal header stamp. The whole
                           # point of that stamp being the capture time: this
                           # is the real age of the estimate being driven at,
                           # not the age of the last message received.
-float32 speed_ref         # the speed command derived from r [m/s]
+float32 speed_ref         # the speed reference in force this tick [m/s]:
+                          # the move's speed while driving, 0 while stopped
+bool stop_latched         # the approach has STOPPED ON ARRIVAL: live r fell
+                          # to object_reach_tol_m + object_stop_distance_m,
+                          # speed went to zero and stays there for the rest of
+                          # the move whatever r does next. The mission's
+                          # object_reached accepts this, once the car is at
+                          # rest, as arrival -- see condition_eval.
+float32 speed             # the vehicle's MEASURED speed [m/s] (mpc_corr's
+                          # odometry state), so object_reached can tell a
+                          # latched car still braking from one at rest
 bool target_stale         # the map->odom reprojection is holding its last
                           # good value rather than tracking a live transform
 bool goal_watchdog        # ObjectGoal refreshes stopped for longer than

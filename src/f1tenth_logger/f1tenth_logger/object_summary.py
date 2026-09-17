@@ -32,6 +32,9 @@ def summarize_object_approach(object_status, goal_object, goal_object_end, move_
             'target_stale_samples': 0, 'outcome': None, 'stop_reason': None,
             'final_gap_or_range': None, 'arrival_bearing_error_deg': None,
             'track_gap_m': None,
+            # The live r on the first status with stop_latched set -- where
+            # mpc_corr decided to stop -- and when; the fastest measured speed.
+            'latched_r': None, 'latched_t': None, 'max_speed': None,
         })
 
     for t, goal in zip(goal_object.t, goal_object.v):
@@ -57,6 +60,12 @@ def summarize_object_approach(object_status, goal_object, goal_object_end, move_
         e['target_behind_terminal'] |= bool(status['target_behind_terminal'])
         e['goal_watchdog_samples'] += int(bool(status['goal_watchdog']))
         e['target_stale_samples'] += int(bool(status['target_stale']))
+        # .get: extracts written before the fields existed carry neither.
+        if status.get('stop_latched') and e['latched_t'] is None:
+            e['latched_t'], e['latched_r'] = t, r
+        speed = _finite(status.get('speed'))
+        if speed is not None:
+            e['max_speed'] = speed if e['max_speed'] is None else max(e['max_speed'], speed)
         e['final'] = {'t': t, 'r': r, 'alpha': _finite(status['alpha']),
                       'target_age_s': age, 'psi_c': _finite(status['psi_c'])}
 

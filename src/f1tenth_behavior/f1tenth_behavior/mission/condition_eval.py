@@ -151,6 +151,9 @@ class EvalContext:
     object_reach_tol_m: float = 0.10
     object_reach_max_target_age_sec: float = 1.0
     object_status_max_gap_sec: float = 0.5
+    # A latched stop counts as arrival once the measured speed is at or below
+    # this [m/s]. See the object_reached branch of evaluate().
+    object_rest_speed_mps: float = 0.05
 
 
 def debounce_ticks_for(condition: StopCondition) -> int:
@@ -386,7 +389,21 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
             return False
         if s.target_age_s > ctx.object_reach_max_target_age_sec:
             return False
-        return s.r <= ctx.object_reach_tol_m
+        if s.r <= ctx.object_reach_tol_m:
+            return True
+        # ...OR mpc_corr stopped on arrival and the car is at rest. mpc_corr
+        # latches its stop when live r reaches object_reach_tol_m +
+        # object_stop_distance_m, so the car comes to rest one braking
+        # distance later -- at r near object_reach_tol_m, but on either side
+        # of it, by the measured spread of the stopping distance plus up to one
+        # control tick of travel past the trigger. Requiring r <= tol alone
+        # would miss every stop that came to rest a few centimetres short, and
+        # the move would then time out with the car parked at the gap. The
+        # stop decision was made on this move's own live r, under the same
+        # move-id, freshness, watchdog and target-age gates above; "at rest"
+        # makes the status the mission records the resting one, not a braking
+        # one.
+        return s.stop_latched and abs(s.speed) <= ctx.object_rest_speed_mps
 
     if t == 'orientation_delta':
         # No-odometry-yet case mirrors front_clearance's own None handling:

@@ -36,12 +36,14 @@ def test_the_logger_records_the_object_and_clamp_topics():
         assert topic in _DEFAULT_TOPICS, topic
 
 
-def _status(r, alpha=0.05, age=0.2, itr=False, behind=False, terminal=False, watchdog=False):
+def _status(r, alpha=0.05, age=0.2, itr=False, behind=False, terminal=False, watchdog=False,
+            latched=False, speed=0.4):
     msg = ObjectApproachStatus()
     msg.move_id = WIRE
     msg.r, msg.alpha, msg.target_age_s = r, alpha, age
     msg.inside_turn_radius, msg.target_behind = itr, behind
     msg.target_behind_terminal, msg.goal_watchdog = terminal, watchdog
+    msg.stop_latched, msg.speed = latched, speed
     return msg
 
 
@@ -71,9 +73,10 @@ def _write_bag(path):
     goal.move_id, goal.target_class = WIRE, 'person'
     goal.point.x, goal.point.y, goal.standoff, goal.speed = 4.0, 0.8, 1.2, 0.4
     goal.header.stamp = Time(sec=12, nanosec=500000000)
-    for r, itr in ((1.8, True), (0.9, False), (0.30, False), (0.08, False)):
+    for r, itr, latched, speed in ((1.8, True, False, 0.4), (0.9, False, False, 0.42),
+                                   (0.30, False, True, 0.4), (0.08, False, True, 0.0)):
         put('/mpc/goal_object', goal)
-        put('/mpc/object_status', _status(r, itr=itr), dt_ns=1)
+        put('/mpc/object_status', _status(r, itr=itr, latched=latched, speed=speed), dt_ns=1)
     put('/mpc/goal_object_end', String(data=WIRE))
     outcome = MoveOutcome()
     outcome.mission_id, outcome.move_id = 'go_to_person', 'move_0_go_to_person'
@@ -107,6 +110,8 @@ class TestReadBagDecodesTheNewTopics:
         assert [round(s['r'], 3) for s in samples] == [1.8, 0.9, 0.3, 0.08]
         assert samples[0]['inside_turn_radius'] is True
         assert samples[-1]['move_id'] == WIRE
+        assert [s['stop_latched'] for s in samples] == [False, False, True, True]
+        assert samples[1]['speed'] == pytest.approx(0.42)
 
     def test_goals_end_outcome_and_clamps(self, bag):
         assert len(bag['streams']['goal_object'].v) == 4
@@ -139,6 +144,9 @@ class TestSummary:
         assert move['final_gap_or_range'] == pytest.approx(1.28)
         assert move['arrival_bearing_error_deg'] == pytest.approx(2.9)
         assert move['track_gap_m'] == pytest.approx(1.31)
+        assert move['latched_r'] == pytest.approx(0.30)
+        assert move['latched_t'] is not None
+        assert move['max_speed'] == pytest.approx(0.42)
 
     def test_the_clamp_summary(self, bag):
         clamp = summarize_drive_clamp(bag['streams']['drive_clamp'])

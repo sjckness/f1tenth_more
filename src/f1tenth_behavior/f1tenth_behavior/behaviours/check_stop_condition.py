@@ -184,13 +184,15 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  object_goal_end_topic='/mpc/goal_object_end',
                  object_reach_tol_m=0.10,
                  object_reach_max_target_age_sec=1.0,
-                 object_status_max_gap_sec=0.5):
+                 object_status_max_gap_sec=0.5,
+                 object_rest_speed_mps=0.05):
         super().__init__(name=name)
         self._object_status_topic = object_status_topic
         self._object_goal_end_topic = object_goal_end_topic
         self.object_reach_tol_m = float(object_reach_tol_m)
         self.object_reach_max_target_age_sec = float(object_reach_max_target_age_sec)
         self.object_status_max_gap_sec = float(object_status_max_gap_sec)
+        self.object_rest_speed_mps = float(object_rest_speed_mps)
         self.object_end_pub = None
         self._odom_topic = odom_topic
         self._min_obstacle_distance_topic = min_obstacle_distance_topic
@@ -291,7 +293,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             move_id=str(msg.move_id), r=float(msg.r), alpha=float(msg.alpha),
             target_age_s=float(msg.target_age_s),
             target_behind_terminal=bool(msg.target_behind_terminal),
-            goal_watchdog=bool(msg.goal_watchdog), received_sec=time.monotonic()))
+            goal_watchdog=bool(msg.goal_watchdog), received_sec=time.monotonic(),
+            stop_latched=bool(msg.stop_latched), speed=float(msg.speed)))
 
     def _end_object_move(self, state, move, outcome, hold):
         """Tell mpc_corr an object move is over (and hold when the mission is).
@@ -528,6 +531,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             object_reach_tol_m=self.object_reach_tol_m,
             object_reach_max_target_age_sec=self.object_reach_max_target_age_sec,
             object_status_max_gap_sec=self.object_status_max_gap_sec,
+            object_rest_speed_mps=self.object_rest_speed_mps,
         )
         # Raw single-tick answer, then the debounce fold. For every condition
         # except a front_clearance that explicitly asks for debounce_ticks > 1

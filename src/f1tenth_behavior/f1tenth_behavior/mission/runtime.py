@@ -83,6 +83,11 @@ class ObjectStatusSample(NamedTuple):
     target_behind_terminal: bool
     goal_watchdog: bool
     received_sec: float
+    # mpc_corr stopped the approach on arrival (ObjectApproachStatus.
+    # stop_latched), and the vehicle's measured speed. Defaulted so a status
+    # from an mpc_corr that predates the fields reads as "not latched".
+    stop_latched: bool = False
+    speed: float = 0.0
 
 
 class MissionState(Enum):

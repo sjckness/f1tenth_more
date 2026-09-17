@@ -1071,6 +1071,9 @@ object_reach_max_target_age_sec:
 object_status_max_gap_sec:
   default: 0.5
   description: "object_reached ignores a /mpc/object_status sample received more than this [s] ago (mpc_corr publishes it every control tick, 10 Hz)."
+object_rest_speed_mps:
+  default: 0.05
+  description: "object_reached also fires when mpc_corr reports stop_latched (it stopped the approach on arrival, see object_stop_distance_m) and the vehicle's measured speed on /mpc/object_status is at or below this [m/s]. 'At rest', so the status the mission records is the resting one. The speed is mpc_corr's odometry state (/odometry/filtered with localization_source ekf), which is fed by VESC telemetry that reads exactly zero below vesc.yaml's erpm_deadband (500 ERPM = 0.091 m/s); in the archived stops the filtered speed was at or below 0.02 m/s within 0.5 s of the zero command."
 # ------------------------------------------------------------------
 # WALL TRACKER -- d_wall for the wall_turn increment.
 #

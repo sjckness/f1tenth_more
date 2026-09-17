@@ -239,10 +239,11 @@ def _ctx(status, move_id='t#2/go', now=100.0, **limits):
         default_distance=None, object_status=status, object_move_id=move_id, **limits)
 
 
-def _status(r=0.05, move_id='t#2/go', age=0.3, watchdog=False, received=99.9):
+def _status(r=0.05, move_id='t#2/go', age=0.3, watchdog=False, received=99.9,
+            latched=False, speed=0.0):
     return ObjectStatusSample(move_id=move_id, r=r, alpha=0.1, target_age_s=age,
                               target_behind_terminal=False, goal_watchdog=watchdog,
-                              received_sec=received)
+                              received_sec=received, stop_latched=latched, speed=speed)
 
 
 REACHED = StopCondition(type='object_reached', params={})
@@ -278,6 +279,48 @@ class TestObjectReached:
 
     def test_the_tolerance_is_the_context_value(self):
         assert evaluate(REACHED, _ctx(_status(r=0.15), object_reach_tol_m=0.2)) is True
+
+
+class TestObjectReachedOnALatchedStop:
+    """mpc_corr stops on arrival at r <= tol + stop distance; the car rests near tol.
+
+    The rest point falls on either side of object_reach_tol_m by the spread of
+    the stopping distance plus up to a tick of travel, so a latched stop at
+    rest is arrival even at r a few centimetres above the tolerance.
+    """
+
+    def test_latched_and_at_rest_above_the_tolerance_is_reached(self):
+        """A resting latched stop at r 0.14, above tol 0.10, is still arrival."""
+        assert evaluate(REACHED, _ctx(_status(r=0.14, latched=True, speed=0.0))) is True
+
+    def test_latched_but_still_braking_is_not(self):
+        """The recorded status must be the resting one, not a braking one."""
+        assert evaluate(REACHED, _ctx(_status(r=0.20, latched=True, speed=0.3))) is False
+
+    def test_the_rest_speed_is_the_context_value(self):
+        """object_rest_speed_mps comes from the context, not a literal."""
+        status = _status(r=0.14, latched=True, speed=0.08)
+        assert evaluate(REACHED, _ctx(status)) is False
+        assert evaluate(REACHED, _ctx(status, object_rest_speed_mps=0.1)) is True
+
+    def test_at_rest_without_the_latch_is_not(self):
+        """A car stopped for another reason (waiting out a lost track) has not arrived."""
+        assert evaluate(REACHED, _ctx(_status(r=0.14, latched=False, speed=0.0))) is False
+
+    @pytest.mark.parametrize('gate', [
+        dict(move_id='t#1/go'), dict(received=99.4), dict(age=1.01), dict(watchdog=True)])
+    def test_the_latch_does_not_bypass_the_gates(self, gate):
+        """Wrong move, stale status, old target and a tripped watchdog still block it."""
+        status = _status(**dict(dict(r=0.14, latched=True, speed=0.0), **gate))
+        assert evaluate(REACHED, _ctx(status)) is False
+
+    def test_a_status_without_the_new_fields_reads_as_not_latched(self):
+        """A sample built without the two fields defaults to not latched."""
+        legacy = ObjectStatusSample(move_id='t#2/go', r=0.14, alpha=0.1, target_age_s=0.3,
+                                    target_behind_terminal=False, goal_watchdog=False,
+                                    received_sec=99.9)
+        assert legacy.stop_latched is False
+        assert evaluate(REACHED, _ctx(legacy)) is False
 
 
 # --------------------------------------------------------------------- scoring
