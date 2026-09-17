@@ -90,7 +90,6 @@ class GoToObject(py_trees.behaviour.Behaviour):
                  hold_topic='/mpc/hold',
                  map_frame='map',
                  follow_gate_m=0.5,
-                 grace_speed_factor=0.5,
                  tracks_max_gap_sec=0.5,
                  clock=time.monotonic):
         """Set topics and handler tuning; `clock` is injectable for tests."""
@@ -101,7 +100,6 @@ class GoToObject(py_trees.behaviour.Behaviour):
         self._hold_topic = hold_topic
         self.map_frame = map_frame
         self.follow_gate_m = float(follow_gate_m)
-        self.grace_speed_factor = float(grace_speed_factor)
         self.tracks_max_gap_sec = float(tracks_max_gap_sec)
         self._clock = clock
         self.node = None
@@ -172,7 +170,6 @@ class GoToObject(py_trees.behaviour.Behaviour):
                 nose_reach_m=spec.nose_reach_m,
                 speed=spec.speed, acquire_timeout_sec=spec.acquire_timeout_sec,
                 lost_grace_sec=spec.lost_grace_sec, follow_gate_m=self.follow_gate_m,
-                grace_speed_factor=self.grace_speed_factor,
                 tracks_max_gap_sec=self.tracks_max_gap_sec), start_sec=now)
             self.active_wire_id = wire_id
             state.object_record = ObjectApproachRecord(wire_move_id=wire_id)

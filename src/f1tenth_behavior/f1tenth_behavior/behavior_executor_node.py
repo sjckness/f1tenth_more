@@ -543,7 +543,6 @@ def create_root(
         PublishMoveGoal(),
         GoToObject(
             follow_gate_m=op.get('object_follow_gate_m', 0.5),
-            grace_speed_factor=op.get('object_grace_speed_factor', 0.5),
             tracks_max_gap_sec=op.get('object_tracks_max_gap_sec', 0.5)),
         CheckStopCondition(
             odom_topic=get_odom_topic(),
@@ -680,7 +679,7 @@ def main():
     object_params = {
         name: float(bootstrap_node.declare_parameter(name, get_value(name)).value)
         for name in (
-            'object_follow_gate_m', 'object_grace_speed_factor',
+            'object_follow_gate_m',
             'object_tracks_max_gap_sec', 'object_reach_tol_m',
             'object_reach_max_target_age_sec', 'object_status_max_gap_sec',
             'object_rest_speed_mps',

@@ -24,7 +24,7 @@ from f1tenth_behavior.mission.object_handler import (
 
 PARAMS = HandlerParams(
     target_class='person', gap_m=0.5, nose_reach_m=0.5525, speed=0.4, acquire_timeout_sec=5.0,
-    lost_grace_sec=1.5, follow_gate_m=0.5, grace_speed_factor=0.5,
+    lost_grace_sec=1.5, follow_gate_m=0.5,
     tracks_max_gap_sec=0.5)
 
 
@@ -126,13 +126,31 @@ class TestGraceAndLost:
         _tick(h, 0.1, [_t('7', 3.0, 0.0)])
         return h
 
-    def test_grace_keeps_the_last_point_at_reduced_speed(self):
+    def test_grace_keeps_the_last_point_and_stops_to_wait(self):
+        """Stop and wait, not a reduced speed: 0.2 m/s is below the operating floor."""
         h = self._following()
         step = _tick(h, 0.2, [])
         assert step.phase == GRACE
         assert step.target_xy == (3.0, 0.0)
-        assert step.speed == pytest.approx(0.2)
+        assert step.speed == 0.0
         assert step.outcome is None
+
+    def test_a_track_returning_during_grace_drives_at_the_move_speed_again(self):
+        h = self._following()
+        _tick(h, 0.2, [])
+        step = _tick(h, 0.5, [_t('9', 3.05, 0.0)])
+        assert step.phase == FOLLOW
+        assert step.speed == pytest.approx(0.4)
+
+    def test_no_phase_ever_asks_for_a_speed_between_zero_and_the_floor(self):
+        """ACQUIRE, FOLLOW, GRACE and ENDED over a whole lose-and-regain sequence."""
+        h = ObjectHandler(PARAMS, start_sec=0.0)
+        speeds = [_tick(h, 0.05, []).speed]
+        speeds.append(_tick(h, 0.1, [_t('7', 3.0, 0.0)]).speed)
+        speeds += [_tick(h, 0.2 + 0.1 * k, []).speed for k in range(5)]
+        speeds.append(_tick(h, 0.8, [_t('8', 3.1, 0.0)]).speed)
+        speeds += [_tick(h, 0.9 + 0.1 * k, []).speed for k in range(20)]
+        assert all(s == 0.0 or s >= 0.4 for s in speeds), speeds
 
     def test_grace_then_lost(self):
         h = self._following()

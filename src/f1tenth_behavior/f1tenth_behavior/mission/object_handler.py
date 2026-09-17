@@ -16,9 +16,13 @@ FOLLOW   the nearest confirmed track of target_class within follow_gate_m of
          who is re-acquired under a new id 10 cm from where they were is
          still the person being approached, and a different person 2 m away
          with the right class is not.
-GRACE    no gated track. The last point keeps being published, at a reduced
-         speed, for lost_grace_sec; a gated track brings the handler back to
-         FOLLOW. When the grace expires -> target_lost.
+GRACE    no gated track. STOP AND WAIT: the last point keeps being
+         published, at speed 0, for lost_grace_sec -- mpc_corr holds the car
+         stopped with its steering where it was -- and a gated track brings the
+         handler back to FOLLOW at the move's speed. When the grace expires ->
+         target_lost. Not a reduced speed: the car is not operated below
+         min_moving_speed_mps (0.4 m/s), and the halved speed this used to send
+         (0.4 * 0.5 = 0.2) was exactly such a speed.
 
 Every confirmed track in a tracks message counts: semantic_layer_node
 publishes confirmed tracks only. A tracks message older than tracks_max_gap_sec
@@ -74,7 +78,6 @@ class HandlerParams:
     acquire_timeout_sec: float
     lost_grace_sec: float
     follow_gate_m: float = 0.5
-    grace_speed_factor: float = 0.5
     tracks_max_gap_sec: float = 0.5
 
 
@@ -183,7 +186,8 @@ class ObjectHandler:
             self._go(GRACE, now_sec)
         if now_sec - self.grace_since >= p.lost_grace_sec:
             return self.end(OUTCOME_LOST, now_sec)
-        return self._step(p.speed * p.grace_speed_factor)
+        # Stop and wait: see GRACE in the module docstring.
+        return self._step(0.0)
 
     def _take(self, track: Track):
         self.target_xy = (track.x, track.y)

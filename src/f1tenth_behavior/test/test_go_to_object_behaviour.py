@@ -190,7 +190,8 @@ class TestPublishing:
         assert _tick(rig) == (S.SUCCESS, S.RUNNING)
         assert rig.goto.goal_pub.msgs == []
 
-    def test_grace_republishes_the_last_point_at_reduced_speed(self):
+    def test_grace_republishes_the_last_point_at_speed_zero(self):
+        """Stop and wait: the refresh keeps mpc_corr's watchdog fed, the car stopped."""
         rig = _rig()
         _start(rig)
         _feed_tracks(rig, [('7', 'person', 3.0, 0.0)])
@@ -199,7 +200,7 @@ class TestPublishing:
         _tick(rig)
         last = rig.goto.goal_pub.msgs[-1]
         assert (last.point.x, last.point.y) == (3.0, 0.0)
-        assert last.speed == pytest.approx(0.2)
+        assert last.speed == 0.0
 
     def test_tracks_in_another_frame_are_ignored(self):
         rig = _rig()
