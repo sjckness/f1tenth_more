@@ -1,0 +1,22 @@
+{
+  "mission_id": "go_to_chair_floor",
+  "schema_version": "5.0",
+  "description": "2026-09-18 floor session, CHAIR approach. Drive to the nearest confirmed semantic track of a chair at 0.4 m/s (the operating floor) and stop at the default gap: gap_min(chair) rounded up to 0.1 m, 0.5 m at the current stack_params, resolved at load. mpc_corr latches the stop at object_reach_tol_m + object_stop_distance_m past that gap, so expect the car's front to REST about 0.59-0.63 m from the chair's near edge (rig, measured and longest-measured braking), up to 0.67 m with 5 cm of track jitter; never inside 0.5. Same requirements as go_to_chair.json. See docs/procedures/2026-09-18_go_to_floor.md.",
+  "moves": [
+    {
+      "id": "move_0_go_to_chair",
+      "go_to_object": {
+        "target_class": "chair",
+        "speed": 0.4,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

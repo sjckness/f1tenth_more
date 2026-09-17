@@ -247,7 +247,7 @@ class ObjectSpec:
     """
 
     target_class: str            # one of object_classes.OBJECT_CLASSES
-    speed: float                 # approach speed ceiling [m/s], > 0
+    speed: float                 # [m/s], min_moving_speed_mps..max_forward_speed_mps
     acquire_timeout_sec: float   # no track of the class within this -> target_not_found
     gap_m: float                 # car front to object near edge [m], >= gap_min_m
     gap_min_m: float             # the reachable minimum it was validated against
@@ -567,6 +567,18 @@ def _default_gap_limits(target_class):
     return gap_limits(target_class)
 
 
+def _object_speed_limits():
+    """(min_moving_speed_mps, max_forward_speed_mps) from stack_params.yaml.
+
+    A go_to_object speed must lie between them. Below the floor is a speed the
+    car is not operated at (mpc_corr would hold it stopped rather than drive
+    it); above the clamp, every driving tick's command would be cut to it.
+    """
+    from f1tenth_params.param_defaults import get_value
+    return (float(get_value('min_moving_speed_mps')),
+            float(get_value('max_forward_speed_mps')))
+
+
 def _parse_object_spec(raw: object, where: str, gap_limits_for=None) -> ObjectSpec:
     """Parse+validate a "go_to_object" step's own sub-object (schema 5.0).
 
@@ -591,6 +603,18 @@ def _parse_object_spec(raw: object, where: str, gap_limits_for=None) -> ObjectSp
         'tools/gen_intent_target_enum.py)',
     )
     speed = _require_positive_number(raw, 'speed', where)
+    speed_floor, speed_ceiling = _object_speed_limits()
+    _require(
+        speed >= speed_floor - 1e-9,
+        f'{where}: go_to_object.speed={speed:.2f} is below the operating floor '
+        f'min_moving_speed_mps={speed_floor:.2f}: the car is not operated slower than '
+        'that while it moves, and mpc_corr would hold it stopped instead of driving.',
+    )
+    _require(
+        speed <= speed_ceiling + 1e-9,
+        f'{where}: go_to_object.speed={speed:.2f} is above max_forward_speed_mps='
+        f'{speed_ceiling:.2f}: every driving tick would be clamped to it.',
+    )
     acquire_timeout_sec = _require_positive_number(raw, 'acquire_timeout_sec', where)
     limits = (gap_limits_for or _default_gap_limits)(target_class)
     if raw.get('gap_m') is None:

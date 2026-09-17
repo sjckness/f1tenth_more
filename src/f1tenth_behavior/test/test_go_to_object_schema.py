@@ -77,10 +77,29 @@ class TestParse:
 
     def test_every_field_can_be_set(self):
         spec = parse_mission(_mission(_object_move(go_to_object={
-            'target_class': 'chair', 'gap_m': 1.0, 'speed': 0.3,
+            'target_class': 'chair', 'gap_m': 1.0, 'speed': 0.45,
             'acquire_timeout_sec': 8.0, 'lost_grace_sec': 0.0}))).moves[0].go_to_object
         assert (spec.target_class, spec.gap_m, spec.speed,
-                spec.acquire_timeout_sec, spec.lost_grace_sec) == ('chair', 1.0, 0.3, 8.0, 0.0)
+                spec.acquire_timeout_sec, spec.lost_grace_sec) == ('chair', 1.0, 0.45, 8.0, 0.0)
+
+    @pytest.mark.parametrize('speed', [0.05, 0.2, 0.3, 0.39])
+    def test_a_speed_below_the_operating_floor_is_rejected_and_says_why(self, speed):
+        with pytest.raises(MissionConfigError) as err:
+            parse_mission(_mission(_object_move(go_to_object={
+                'target_class': 'person', 'speed': speed, 'acquire_timeout_sec': 5.0})))
+        assert 'below the operating floor min_moving_speed_mps=0.40' in str(err.value)
+
+    def test_the_floor_and_the_clamp_themselves_are_accepted(self):
+        for speed in (0.4, 0.5):
+            spec = parse_mission(_mission(_object_move(go_to_object={
+                'target_class': 'person', 'speed': speed,
+                'acquire_timeout_sec': 5.0}))).moves[0].go_to_object
+            assert spec.speed == speed
+
+    def test_a_speed_above_the_forward_clamp_is_rejected(self):
+        with pytest.raises(MissionConfigError, match='above max_forward_speed_mps=0.50'):
+            parse_mission(_mission(_object_move(go_to_object={
+                'target_class': 'person', 'speed': 0.6, 'acquire_timeout_sec': 5.0})))
 
     def test_a_gap_exactly_at_gap_min_is_accepted(self):
         spec = parse_mission(_mission(_object_move(go_to_object={
@@ -198,6 +217,35 @@ class TestExclusivity:
 
 
 class TestShippedMissions:
+
+    def test_every_go_to_object_mission_runs_at_the_floor_or_above(self):
+        """Every mission file in the package, not only the ones named below."""
+        found = 0
+        for path in sorted(MISSIONS.glob('*.json')):
+            raw = json.loads(path.read_text())
+            for move in raw.get('moves', ()):
+                if 'go_to_object' in move:
+                    found += 1
+                    assert move['go_to_object']['speed'] >= 0.4, path.name
+        assert found >= 4
+
+    @pytest.mark.parametrize('name, cls, gap', [
+        ('go_to_person_floor', 'person', 1.0), ('go_to_chair_floor', 'chair', None)])
+    def test_the_floor_missions_load(self, name, cls, gap):
+        """The 2026-09-18 floor session's missions, with the REAL stack_params."""
+        cfg = load_mission_file(str(MISSIONS / f'{name}.json'))
+        assert cfg.schema_version == '5.0'
+        (move,) = cfg.moves
+        spec = move.go_to_object
+        assert spec.target_class == cls
+        assert spec.speed == 0.4
+        assert spec.gap_m == pytest.approx(0.5 if gap is None else gap)
+        raw = json.loads((MISSIONS / f'{name}.json').read_text())
+        assert ('gap_m' in raw['moves'][0]['go_to_object']) is (gap is not None)
+        assert move.goal_distance is None
+        assert move.stop_condition.type == 'object_reached'
+        assert move.terminal is True
+        assert move.timeout_sec is not None
 
     @pytest.mark.parametrize('name, cls', [('go_to_person', 'person'), ('go_to_chair', 'chair')])
     def test_they_load_as_single_object_moves(self, name, cls):

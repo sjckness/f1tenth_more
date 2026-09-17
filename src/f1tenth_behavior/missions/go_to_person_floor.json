@@ -1,0 +1,23 @@
+{
+  "mission_id": "go_to_person_floor",
+  "schema_version": "5.0",
+  "description": "2026-09-18 floor session, PERSON approach. Drive to the nearest confirmed semantic track of a person at 0.4 m/s (the operating floor) and stop with the car's front 1.0 m from the person's near edge -- deliberately twice the default gap (0.5) for the first run of the stop latch on the car. mpc_corr latches the stop at object_reach_tol_m + object_stop_distance_m past that gap, so expect the car's front to REST about 1.08-1.11 m from the person's near edge (rig, measured and longest-measured braking), up to 1.28 m with 5 cm of track jitter; never inside 1.0. Same requirements as go_to_person.json. See docs/procedures/2026-09-18_go_to_floor.md.",
+  "moves": [
+    {
+      "id": "move_0_go_to_person",
+      "go_to_object": {
+        "target_class": "person",
+        "gap_m": 1.0,
+        "speed": 0.4,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 60,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}
