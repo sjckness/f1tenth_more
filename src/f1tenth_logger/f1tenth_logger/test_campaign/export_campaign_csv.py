@@ -3,6 +3,7 @@
 
     ros2 run f1tenth_logger test_campaign_export [campaign_folder]
         [--cutoff-hz 5] [--deadband-rad 0.02] [--excel-eu | --plain]
+        [--no-backfill]
 
 Writes ``<campaign>/campaign_results.csv``: the automatic metrics computed
 from each test folder, next to three columns a human fills in by hand --
@@ -20,6 +21,18 @@ end of the mission**, so the countdown and the post-roll cannot dilute them;
 a test with no ``mission_started`` event leaves them empty.
 ``standstill_jerk_rms`` is the same jerk measure over the countdown instead
 -- this test's own noise floor.
+
+``plan_id`` and ``plan_hash`` identify the plan the test ran: the hash is
+robot_logger.plan_hash of ``plan.json`` (or, for a test recorded before
+plan.json existed, of the plan in ``llm_calls.jsonl``).
+
+BACKFILL. ``<campaign>/backfill.json`` (written by
+``tools/test_campaign_backfill.py``, never by the logger) supplies values a
+test's own files cannot: an automatic column the files leave EMPTY is taken
+from it, and the ``backfilled`` column lists every column filled that way,
+with its tag (e.g. ``min_clear_raw_m(partial 41%)``). A value the test's own
+files do produce always wins. The test folders are never modified.
+``--no-backfill`` ignores the file.
 
 The file is written to a temporary file and renamed, so an interrupted export
 cannot leave a half-written CSV. If the target cannot be replaced because it is
@@ -42,11 +55,12 @@ import numpy as np
 from scipy.signal import butter, filtfilt
 
 from f1tenth_logger.test_campaign.robot_logger import (
-    DEFAULT_CAMPAIGN, find_root, parse_test_id)
+    DEFAULT_CAMPAIGN, find_root, parse_test_id, plan_hash)
 
 RESULTS_NAME = "campaign_results.csv"
 FALLBACK_NAME = "campaign_results_NEW.csv"
 SETTINGS_NAME = "export_settings.json"
+BACKFILL_NAME = "backfill.json"
 FILTER_ORDER = 2
 DEFAULT_CUTOFF_HZ = 5.0
 DEFAULT_DEADBAND_RAD = 0.02
@@ -61,6 +75,8 @@ COLUMNS = [
     "repetition",
     "date",
     "time",
+    "plan_id",
+    "plan_hash",
     "llm_latency_ms",
     "n_replans",
     "countdown_s",
@@ -78,6 +94,7 @@ COLUMNS = [
     "mpc_solve_time_p95_ms",
     "jerk_rms",
     "steer_rev_per_m",
+    "backfilled",           # which columns came from backfill.json
     "transl_ok",            # MANUAL
     "notes",                # MANUAL
 ]
@@ -154,6 +171,44 @@ def read_llm_calls(path):
                 latency = None
             calls.append(((row.get("tag") or "").strip(), latency))
     return calls
+
+
+def plan_identity(test_dir, meta, events):
+    """(plan_id, plan_hash) of the test's initial plan; None where unknown.
+
+    plan_id: the planner's id as the logger stored it, else the first mission
+    event that carried one. plan_hash: meta.json's record of plan.json, else
+    plan.json itself, else the initial call's plan in llm_calls.jsonl (tests
+    recorded before plan.json was written kept it there as ``response``).
+    """
+    plan_id = (meta.get("extra_meta") or {}).get("plan_id") or next(
+        (e.get("plan_id") for e in events if e.get("plan_id")), None)
+
+    for record in meta.get("plans") or []:
+        if record.get("tag") != "replan" and record.get("plan_hash"):
+            return plan_id, record["plan_hash"]
+
+    path = test_dir / "plan.json"
+    if path.exists():
+        try:
+            with open(path, encoding="utf-8") as fh:
+                return plan_id, plan_hash(json.load(fh))
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    calls = read_jsonl(test_dir / "llm_calls.jsonl")
+    initial = next((c for c in calls if c.get("tag") == "initial"),
+                   calls[0] if calls else None)
+    if initial is not None:
+        plan = initial.get("translated_plan")
+        if plan is None and isinstance(initial.get("response"), str):
+            try:
+                plan = json.loads(initial["response"])
+            except json.JSONDecodeError:
+                plan = None
+        if plan is not None:
+            return plan_id, plan_hash(plan)
+    return plan_id, None
 
 
 def first_event_times(events):
@@ -425,6 +480,7 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
         countdown = standstill_window[1] - standstill_window[0]
 
     standstill_mask = in_window(imu["t"], standstill_window)
+    plan_id, digest = plan_identity(test_dir, meta, events)
 
     return {
         "mission": mission,
@@ -433,6 +489,8 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
         "repetition": parsed["repetition"],
         "date": when.strftime("%Y-%m-%d"),
         "time": when.strftime("%H:%M:%S"),
+        "plan_id": plan_id,
+        "plan_hash": digest,
         "llm_latency_ms": None if initial is None else initial[1],
         "n_replans": n_replans,
         "countdown_s": countdown,
@@ -564,6 +622,47 @@ def merge(existing, computed):
     return ordered, kept_manual
 
 
+def read_backfill(campaign_dir):
+    """{test_id: {column: entry}} from ``backfill.json``; {} if there is none.
+
+    An entry is ``{"value": ..., "source": "...", "tag": "..."}`` (tag
+    optional); the source stays in the json, the tag reaches the CSV.
+    """
+    path = campaign_dir / BACKFILL_NAME
+    if not path.exists():
+        return {}
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot read {path}: {exc} (--no-backfill to skip it)")
+    tests = data.get("tests") or {}
+    return {test_id: entry.get("columns") or {}
+            for test_id, entry in tests.items() if isinstance(entry, dict)}
+
+
+def apply_backfill(row, entries):
+    """Fill the row's EMPTY automatic columns from ``entries``; returns how many.
+
+    Sets ``backfilled`` to the filled columns, ``|``-separated (the CSV's own
+    separator is ``;`` or ``,``), each with its tag in brackets.
+    """
+    filled = []
+    for column, entry in entries.items():
+        if column not in COLUMNS or column in MANUAL_COLUMNS or column == "backfilled":
+            continue
+        if row.get(column) is not None:
+            continue    # the test's own files produced a value: it wins
+        value = entry.get("value") if isinstance(entry, dict) else entry
+        if value is None:
+            continue
+        row[column] = value
+        tag = entry.get("tag") if isinstance(entry, dict) else None
+        filled.append(f"{column}({tag})" if tag else column)
+    row["backfilled"] = "|".join(filled) or None
+    return len(filled)
+
+
 def scan_campaign(campaign_dir, cutoff_hz, deadband_rad):
     computed = []
     for mission_dir in sorted(p for p in campaign_dir.iterdir() if p.is_dir()):
@@ -599,6 +698,8 @@ def parse_args(argv=None):
                      help="';' separator and decimal comma (default)")
     fmt.add_argument("--plain", dest="excel_eu", action="store_false",
                      help="',' separator and decimal point")
+    parser.add_argument("--no-backfill", dest="backfill", action="store_false",
+                        help=f"ignore <campaign>/{BACKFILL_NAME}")
     return parser.parse_args(argv)
 
 
@@ -622,6 +723,9 @@ def main(argv=None):
     if not computed and not existing:
         print(f"no test folders found in {campaign_dir}")
         return 1
+    backfill = read_backfill(campaign_dir) if args.backfill else {}
+    n_backfilled = sum(apply_backfill(row, backfill.get(row["test_id"], {}))
+                       for row in computed)
 
     rows, kept_manual = merge(existing, computed)
     new_ids = {r["test_id"] for r in computed} - set(existing)
@@ -640,6 +744,8 @@ def main(argv=None):
         "separator": delimiter,
         "decimal": "," if args.excel_eu else ".",
         "n_tests": len(rows),
+        "backfill": BACKFILL_NAME if backfill else None,
+        "n_backfilled": n_backfilled,
     }
     with open(campaign_dir / SETTINGS_NAME, "w", encoding="utf-8") as fh:
         json.dump(settings, fh, indent=2)
@@ -649,6 +755,9 @@ def main(argv=None):
     print(f"{written}")
     print(f"  {len(rows)} tests   {len(new_ids)} new   "
           f"{kept_manual} manual values kept   {filled} with a success verdict")
+    if n_backfilled:
+        print(f"  {n_backfilled} value(s) filled from {BACKFILL_NAME}; the "
+              f"'backfilled' column names them")
     if orphans:
         print(f"  {len(orphans)} row(s) kept for tests whose folder is gone: "
               f"{', '.join(sorted(orphans)[:3])}"

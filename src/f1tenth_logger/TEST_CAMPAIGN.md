@@ -58,8 +58,13 @@ Four terminals. Everything below assumes `source install/setup.bash` first.
 ```bash
 ros2 launch f1tenth_bringup supervisor_bringup.launch.py
 ./scripts/stackctl.py status                          # what is actually up (the ros2 CLI lies under the discovery server)
-./scripts/stackctl.py start obstacle_clearance        # optional: the obstacle_clearance column and contact events
+./scripts/stackctl.py start obstacle_clearance        # the obstacle_clearance column and contact events
 ```
+
+`obstacle_clearance` is not auto-started. Without it a test has no
+`min_clear_m` and no contact events, and the recorder says so: an ERROR line
+and a `no_obstacle_clearance` event when nothing arrives within
+`clearance_grace_s` (2 s) of `mission_started`.
 
 ### 2. The recorder: start it once and leave it running
 
@@ -70,6 +75,12 @@ ros2 launch f1tenth_logger test_campaign_logger.launch.py
 Parameters come from `config/test_campaign_logger.yaml`: campaign
 `first_test_campaing`, robot radius, pre/post roll, timeout, robot and model
 names, and the topics. Override any of them with `config:=<your.yaml>`.
+
+A bare `ros2 run f1tenth_logger test_campaign_logger` loads the same yaml by
+itself when no `--params-file` is given (`-p` still overrides it), and says
+so at startup. Before that, `ros2 run` silently ran on the code defaults --
+poses from raw `/odom`, robot radius 0, no pre-roll -- which is how the whole
+2026-09-21 session was recorded.
 
 At startup it prints:
 - the absolute campaign folder, which is always
@@ -129,7 +140,13 @@ warning if the text drifts. Add `--kind replan` for a second call against a
 test that is already open.
 
 The planner publishes `/test/plan_result`, the loader publishes
-`/test/mission_event`, and the recorder writes the folder. The mission waits
+`/test/mission_event`, and the recorder writes the folder. The planner sends
+`/test/plan_result` **before** it aborts the previous mission and loads the
+new one, so the test is already open when `mission_loaded` arrives. If load
+or start then fails, a follow-up `/test/plan_result` with `kind: delivery`
+records `delivery_failed` in the test and closes it. The abort's own
+`mission_aborted` (the previous mission's end) lands in the new test before
+its `mission_loaded`; it is recorded as `stale_mission_event` and ignored. The mission waits
 `mission_countdown_sec` (default 3 s) at a standstill before it drives. That
 standstill is the noise floor every jerk number is measured against.
 
@@ -165,6 +182,13 @@ You can re-run the export whenever you like:
 
 If Excel still has the file open, it says so and writes
 `campaign_results_NEW.csv` instead of losing the run.
+
+**Backfill.** `python3 tools/test_campaign_backfill.py` writes
+`backfill.json` for tests whose inputs never reached their folder (the
+2026-09-21 session: see the tool's docstring). The export fills a column from
+it only where the test's own files leave it empty, and lists each such column
+in `backfilled`, with a tag like `partial 39%`. `--no-backfill` ignores it.
+The test folders are never modified.
 
 ```bash
 ros2 run f1tenth_logger test_campaign_analyze --footprints 2.0
@@ -211,6 +235,7 @@ Running both loggers at once is the normal case, and they cannot collide:
 ├── results.csv                one row per finished test, written by the logger
 ├── campaign_results.csv       one row per test, written by the export, judged by you
 ├── export_settings.json       the filter settings the last export used
+├── backfill.json              values NOT recorded live (tools/test_campaign_backfill.py)
 ├── analysis/                  report.txt, summary.csv, the plots
 └── M01_red_box/
     ├── mission.json           mission name, prompt text, success criterion
@@ -223,7 +248,12 @@ Running both loggers at once is the normal case, and they cannot collide:
         ├── mpc.csv            t, status, solve_time_ms, cost, iterations
         ├── llm_calls.csv      call_idx, tag, t_sent, t_received, latency_ms, ttft_ms,
         │                      prompt_chars, response_chars, ok, error
-        ├── llm_calls.jsonl    the full prompt and response text of each call
+        ├── llm_calls.jsonl    the full prompt of each call, llm_raw (what the model
+        │                      wrote), rejections, translated_plan (the translator's
+        │                      output), plan_file, plan_hash; `response` is a
+        │                      deprecated copy of translated_plan
+        ├── plan.json          the initial plan as the planner delivered it
+        ├── plan_replan_N.json the N-th replan
         ├── corridors.jsonl    every corridor: t, id, source, polygon, meta
         ├── events.jsonl       mission lifecycle, contact, estop, replan, ...
         └── meta.json          everything above, summarised
@@ -265,6 +295,8 @@ gap in the data; it is the finding.
 | `test_id` | — | `P<prompt>-R<repetition>-<timestamp>` |
 | `prompt_num`, `repetition` | — | decoded from `test_id` |
 | `date`, `time` | — | when the test started |
+| `plan_id` | — | the planner's mission_id, echoed by every mission event |
+| `plan_hash` | — | sha256 of `plan.json` as canonical JSON. Equal hashes, same plan. A copy that differs from the loader's `llm_generated/<plan_id>.json` is a `plan_file_mismatch` event |
 | `llm_latency_ms` | the initial call | what the operator waited for the first plan |
 | `n_replans` | whole run | LLM calls tagged `replan` |
 | `countdown_s` | — | standstill the mission node held before driving |
@@ -282,6 +314,7 @@ gap in the data; it is the finding.
 | `mpc_solve_time_p95_ms` | driving | p95 solve time |
 | `jerk_rms` | driving | RMS horizontal jerk, m/s³, low-passed at `--cutoff-hz` |
 | `steer_rev_per_m` | driving | filtered steering reversals clearing `--deadband-rad`, per metre |
+| `backfilled` | — | columns filled from `backfill.json`, not recorded live, `\|`-separated |
 | **`transl_ok`** | — | **MANUAL.** Did the translator produce what the prompt meant? |
 | **`notes`** | — | **MANUAL.** Free text. Semicolons and accents are safe. |
 

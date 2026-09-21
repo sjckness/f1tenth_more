@@ -412,6 +412,8 @@ def test_events_carry_the_plan_id_and_the_countdown():
     started = _events(node)[-1]
     assert started["event"] == "mission_started"
     assert started["plan_id"] == mission_id
+    # repeated on the start, for a logger that missed mission_loaded
+    assert started["countdown_s"] == COUNTDOWN_S
 
 
 def test_one_event_per_edge_not_per_publish():

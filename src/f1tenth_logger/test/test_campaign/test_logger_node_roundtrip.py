@@ -182,8 +182,12 @@ class Fake(Node):
 
 
 def start_node(root, timeout_s=LONG_TIMEOUT_S):
+    # odom_topic pinned to /odom: the node now defaults (and its packaged
+    # yaml, which it loads by itself here) to /odometry/filtered, and the
+    # corridor-frame warning below needs poses from a different estimate.
     return subprocess.Popen(
         [sys.executable, "-m", "f1tenth_logger.test_campaign.logger_node", "--ros-args",
+         "-p", "odom_topic:=/odom",
          "-p", f"root:={root}",
          "-p", "status_period_s:=1.0",
          "-p", f"campaign:={CAMPAIGN}",

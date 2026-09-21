@@ -867,9 +867,12 @@ class LLMPlannerNode(Node):
         # SINK di _emit_result invece di essere chiamato dai percorsi di
         # pianificazione, cosi' che valga per ogni esito senza dover elencare
         # i punti di uscita -- esattamente il motivo per cui la riga RESULT
-        # sta li' e non in process_command().
+        # sta li' e non in process_command(). L'UNICA eccezione e' una
+        # missione valida da consegnare: li' process_command() lo pubblica
+        # prima di abort/load (vedi _announce_plan), e il sink non lo ripete.
         self.test_plan_pub = self.create_publisher(
             String, str(self.get_parameter('test_plan_result_topic').value), 10)
+        self._plan_result_sent = False
         _RESULT_SINKS.append(self._publish_plan_result)
 
         self.get_logger().info(
@@ -907,7 +910,22 @@ class LLMPlannerNode(Node):
         file missione consegnato a /mission/load_mission: il loader la
         ripubblica come plan_id nei suoi /test/mission_event, ed e' cosi' che
         il logger verifica che quegli eventi appartengano al test aperto.
+
+        `translated_plan` e' l'uscita del traduttore (la missione), `llm_raw`
+        cio' che il modello ha scritto davvero, `rejections` i tentativi
+        rifiutati prima di quello buono. `plan` e' lo stesso documento di
+        translated_plan, tenuto solo per i logger precedenti: deprecato.
+        `mission_path` e' il file in llm_generated/ che load_mission carica,
+        contro cui il logger confronta la sua copia del piano.
+
+        UNA volta per comando: se process_command() l'ha gia' pubblicato
+        prima di abort/load, il sink chiamato da _emit_result non lo ripete --
+        un secondo 'initial' chiuderebbe il test appena aperto come
+        "superseded by new test".
         """
+        if self._plan_result_sent:
+            return
+        self._plan_result_sent = True
         status = 'ok' if outcome.get('status') == 'ok' else 'error'
         error = ''
         if status != 'ok':
@@ -931,12 +949,57 @@ class LLMPlannerNode(Node):
             'status': status,
             'error': error,
             'plan_id': outcome.get('mission_id') or '',
+            'translated_plan': outcome.get('mission'),
             'plan': outcome.get('mission'),
+            'mission_path': outcome.get('mission_path'),
+            'llm_raw': outcome.get('llm_raw'),
+            'rejections': outcome.get('rejections') or [],
             'planner_status': outcome.get('status'),
             'attempts': outcome.get('attempts'),
         }
         self.test_plan_pub.publish(
             String(data=json.dumps(payload, ensure_ascii=False, default=str)))
+
+    def _announce_plan(self):
+        """/test/plan_result PRIMA di abort/load: il test deve esistere gia'.
+
+        Il loader pubblica mission_loaded dentro /mission/load_mission; se il
+        logger non ha ancora un test aperto quell'evento e' perso, e con lui
+        countdown_s e la finestra di fermo (successo a ogni test del
+        2026-09-21, quando il plan_result partiva solo dal `finally` di
+        run_command, dopo start_mission). Un errore di publish non deve mai
+        impedire la consegna della missione.
+        """
+        try:
+            self._publish_plan_result(self._outcome or {})
+        except Exception as e:  # noqa: BLE001 -- come un sink rotto
+            self.get_logger().error(f'/test/plan_result non pubblicato: {e}')
+
+    def _report_delivery_failure(self, stage: str, message: str):
+        """Seguito del plan_result gia' pubblicato: load/start sono falliti.
+
+        Il test e' aperto e nessun evento di missione arrivera' a chiuderlo:
+        senza questo messaggio resterebbe aperto fino al timeout del logger
+        con la ragione sbagliata. kind 'delivery' -> il logger lo registra nel
+        test aperto e lo chiude, non ne apre uno nuovo.
+        """
+        if not self._plan_result_sent:
+            return
+        outcome = self._outcome if isinstance(self._outcome, dict) else {}
+        payload = {
+            'prompt_num': self.opts.prompt_num,
+            'prompt_text': self._command_text,
+            'kind': 'delivery',
+            'status': 'error',
+            'stage': stage,
+            'error': message,
+            'plan_id': outcome.get('mission_id') or '',
+        }
+        try:
+            self.test_plan_pub.publish(
+                String(data=json.dumps(payload, ensure_ascii=False, default=str)))
+        except Exception as e:  # noqa: BLE001 -- come un sink rotto
+            self.get_logger().error(f'/test/plan_result (delivery) non pubblicato: {e}')
 
     def _input_loop(self):
         while not self._stop:
@@ -1247,6 +1310,7 @@ class LLMPlannerNode(Node):
         self._command_text = command_text
         self._llm_t_sent = None
         self._llm_t_received = None
+        self._plan_result_sent = False
         try:
             return self.process_command(command_text)
         finally:
@@ -1339,19 +1403,25 @@ class LLMPlannerNode(Node):
                     if unsupported else 'annullato')
                 return False
 
-        # 6) abort dell'eventuale missione in corso, poi load + start
+        # 6) il test della campagna si apre ORA, prima di abort/load (vedi
+        # _announce_plan); poi abort dell'eventuale missione in corso, load +
+        # start. Un fallimento di load/start chiude quel test (vedi
+        # _report_delivery_failure).
+        self._announce_plan()
         self._call_abort_mission()
 
         load_ok, load_message = self._call_load_mission(mission_path)
         if not load_ok:
             self.get_logger().error(
                 f'load_mission FALLITO: {load_message}. start_mission NON chiamato.')
+            self._report_delivery_failure('load_mission', load_message)
             return False
         self.get_logger().info(f'load_mission OK: {load_message}')
 
         start_ok, start_message = self._call_start_mission()
         if not start_ok:
             self.get_logger().error(f'start_mission FALLITO: {start_message}')
+            self._report_delivery_failure('start_mission', start_message)
             return False
         self.get_logger().info(f'start_mission OK: {start_message}')
         return True

@@ -48,6 +48,18 @@ Conventions
 
   Data is recorded from ``mission_loaded`` (earlier with pre-roll), but the
   driving metrics are computed only between ``mission_started`` and the end.
+* The plan a test ran is saved next to its streams by :meth:`TestLogger.save_plan`:
+  ``plan.json`` for the initial one, ``plan_replan_<N>.json`` for the N-th
+  replan. Its identity is :func:`plan_hash` -- sha256 of the canonical JSON
+  (sorted keys, no whitespace), so formatting never changes it. If the file
+  the mission loader was handed (``missions/llm_generated/<plan_id>.json``)
+  hashes differently, or cannot be read, a ``plan_file_mismatch`` event
+  says so.
+* In ``llm_calls.jsonl``, ``response`` is **deprecated** for calls recorded
+  from a planner message: it held the translator's output, never the model's
+  reply. Read ``translated_plan`` (the translator's output) and ``llm_raw``
+  (what the model wrote) instead; such records carry
+  ``"deprecated": {"response": "translated_plan"}``.
 """
 
 from __future__ import annotations
@@ -79,6 +91,7 @@ __all__ = [
     "find_root",
     "make_test_id",
     "parse_test_id",
+    "plan_hash",
     "signed_clearance",
     "corridor_from_centerline",
     "TEST_ID_RE",
@@ -229,6 +242,18 @@ def parse_test_id(test_id):
         "repetition": int(match.group(2)),
         "datetime": datetime.strptime(match.group(3), _TS_FMT),
     }
+
+
+def plan_hash(plan):
+    """sha256 of ``plan`` as canonical JSON: sorted keys, no whitespace.
+
+    Two copies of the same plan hash the same however they were indented,
+    so the test folder's ``plan.json`` and the loader's file compare equal
+    exactly when their content does.
+    """
+    canonical = json.dumps(plan, sort_keys=True, separators=(",", ":"),
+                           ensure_ascii=False, default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def _check_index(value, name):
@@ -556,6 +581,7 @@ class TestLogger:
         self._n_llm = 0
         self._n_mpc = 0
         self._n_events = 0
+        self._plans = []            # one record per save_plan(), for meta.json
 
         self.summary = None
         self.auto_outcome = None
@@ -877,7 +903,8 @@ class TestLogger:
 
     def record_llm_call(self, prompt, response=None, tag="", t_sent=None,
                         t_received=None, latency_ms=None, ttft_ms=None,
-                        ok=1, error=""):
+                        ok=1, error="", llm_raw=None, rejections=None,
+                        translated_plan=None, plan_file=None, plan_hash=None):
         """Record a call **someone else** timed, e.g. the planner node.
 
         :meth:`llm_call` is for code that makes the request itself. When the
@@ -885,6 +912,13 @@ class TestLogger:
         writes the same row from the numbers that message carried.
         ``t_sent``/``t_received`` are in this test's time base and may be
         negative -- the prompt is normally sent before the test folder exists.
+
+        ``llm_raw`` (what the model wrote), ``rejections`` (the attempts the
+        planner refused before this one) and ``translated_plan`` (the
+        translator's output) become their own fields in ``llm_calls.jsonl``;
+        ``plan_file``/``plan_hash`` name the copy :meth:`save_plan` wrote.
+        With a ``translated_plan``, ``response`` is kept only for older
+        readers and marked deprecated in the record.
         """
         with self._lock:
             if self._closed:
@@ -913,21 +947,89 @@ class TestLogger:
                     error,
                 ]
             )
-            self._streams["llm_jsonl"].line(
-                {
-                    "call_idx": call_idx,
-                    "tag": tag,
-                    "t_sent": _round6(t_sent),
-                    "t_received": _round6(t_received),
-                    "latency_ms": _round6(latency_ms),
-                    "ttft_ms": _round6(ttft_ms),
-                    "ok": ok,
-                    "error": error,
-                    "prompt": prompt,
-                    "response": response,
-                }
-            )
+            record = {
+                "call_idx": call_idx,
+                "tag": tag,
+                "t_sent": _round6(t_sent),
+                "t_received": _round6(t_received),
+                "latency_ms": _round6(latency_ms),
+                "ttft_ms": _round6(ttft_ms),
+                "ok": ok,
+                "error": error,
+                "prompt": prompt,
+                "response": response,
+                "llm_raw": llm_raw,
+                "rejections": list(rejections or []),
+                "translated_plan": translated_plan,
+                "plan_file": plan_file,
+                "plan_hash": plan_hash,
+            }
+            if translated_plan is not None:
+                record["deprecated"] = {"response": "translated_plan"}
+            self._streams["llm_jsonl"].line(record)
             return call_idx
+
+    def save_plan(self, plan, tag="initial", reference_path=None, plan_id=None):
+        """Write the plan into the test folder and check it against the loader's.
+
+        ``plan.json`` for the initial plan, ``plan_replan_<N>.json`` for the
+        N-th replan, in the planner's own format (2-space JSON). The hash is
+        :func:`plan_hash`. ``reference_path`` is the file the mission loader
+        was given; if it cannot be read, or hashes differently, a
+        ``plan_file_mismatch`` event records both sides. Returns the record
+        that also lands in ``meta.json`` under ``plans``, or None once closed.
+        """
+        with self._lock:
+            if self._closed:
+                return None
+            if tag == "replan":
+                n = 1 + sum(1 for p in self._plans if p["tag"] == "replan")
+                name = f"plan_replan_{n}.json"
+            else:
+                name = "plan.json"
+                if (self.dir / name).exists():
+                    # a second 'initial' plan inside one test never overwrites
+                    n = 1 + sum(1 for p in self._plans if p["file"].startswith("plan_initial_"))
+                    name = f"plan_initial_{n}.json"
+            _write_json_atomic(self.dir / name, plan)
+            digest = plan_hash(plan)
+
+            reference_hash, problem = None, None
+            if reference_path:
+                try:
+                    with open(reference_path, encoding="utf-8") as fh:
+                        reference_hash = plan_hash(json.load(fh))
+                except FileNotFoundError:
+                    problem = "reference file not found"
+                except (OSError, json.JSONDecodeError) as exc:
+                    problem = f"reference file unreadable: {type(exc).__name__}: {exc}"
+                else:
+                    if reference_hash != digest:
+                        problem = "content differs"
+            else:
+                problem = "no reference file to compare with"
+
+            record = {
+                "tag": tag,
+                "file": name,
+                "plan_id": plan_id,
+                "plan_hash": digest,
+                "reference": None if reference_path is None else str(reference_path),
+                "reference_hash": reference_hash,
+                "match": problem is None,
+            }
+            self._plans.append(record)
+            if problem is not None:
+                self.log_event(
+                    "plan_file_mismatch",
+                    file=name,
+                    plan_id=plan_id,
+                    plan_hash=digest,
+                    reference=record["reference"],
+                    reference_hash=reference_hash,
+                    reason=problem,
+                )
+            return record
 
     @contextmanager
     def llm_call(self, prompt, tag=""):
@@ -1084,6 +1186,7 @@ class TestLogger:
                 "mpc_ok_statuses": sorted(self.mpc_ok_statuses),
                 "extra_meta": self.extra_meta,
                 "campaign_dir": str(self.campaign_dir),
+                "plans": list(self._plans),
             }
             meta.update({k: summary[k] for k in SUMMARY_FIELDS})
             _write_json_atomic(self.dir / "meta.json", meta)

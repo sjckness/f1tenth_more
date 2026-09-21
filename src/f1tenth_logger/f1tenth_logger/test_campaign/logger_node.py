@@ -9,27 +9,52 @@ by any bringup: leave it running in its own terminal for the whole session. It o
 when the planner announces an LLM result and closes it when the mission ends,
 so tests accumulate without ever restarting the node.
 
+PARAMETERS. ``ros2 run f1tenth_logger test_campaign_logger`` with no
+``--params-file`` loads the packaged config/test_campaign_logger.yaml itself,
+ahead of any ``-p`` given on the command line (which still wins). Before
+that, a bare ``ros2 run`` -- how the 2026-09-21 session was started -- ran
+on the code defaults: poses from raw /odom, robot_radius 0, no pre-roll. The
+startup log names the file that was applied.
+
 **It never calls the LLM.** The planner owns the call and publishes what it
 measured; this node only records. Everything it knows arrives as messages:
 
   /test/plan_result    std_msgs/String, JSON, after EVERY LLM call
                        {prompt_num, prompt_text, kind: initial|replan,
                         t_prompt_sent, t_response_received, latency_ms,
-                        status: ok|error, error, plan_id, plan}
+                        status: ok|error, error, plan_id, translated_plan,
+                        plan (deprecated alias), mission_path, llm_raw,
+                        rejections}
+                       and, when load/start fails after it,
+                       {kind: delivery, status: error, stage, error, plan_id}
   /test/mission_event  std_msgs/String, JSON
                        {event: mission_loaded|mission_started|
                                mission_finished|mission_aborted,
                         plan_id, reason, countdown_s}
 
+The planner publishes the initial plan_result BEFORE it aborts the previous
+mission and loads the new one, so the test is open when mission_loaded
+arrives.
+
 Lifecycle, in one place:
 
-* ``initial`` + ``ok``      -> open a test, record the call, keep recording.
+* ``initial`` + ``ok``      -> open a test, save the plan, record the call.
 * ``initial`` + ``error``   -> open a test anyway, record the call, close it
                                as aborted. A failed LLM call is a test.
 * ``initial`` while open    -> close the open one as "superseded by new test".
 * ``replan``                -> another row in the open test; never a new one.
+* ``delivery`` (error)      -> load/start failed: recorded as
+                               ``delivery_failed``, closed after the post-roll
+                               as "<stage> failed: <error>".
 * mission_finished/aborted  -> keep recording for ``post_roll_s``, then close.
 * aborted before started    -> "cancelled before start".
+* finished/aborted before this test's own mission_loaded/started
+                            -> the previous mission, ended by the planner's
+                               abort: recorded as ``stale_mission_event``,
+                               acted on never.
+* no /obstacle_clearance for ``clearance_grace_s`` after mission_started
+                            -> an ERROR in the log and a
+                               ``no_obstacle_clearance`` event, once per test.
 * nothing for max_test_duration_s -> "timeout: no end message".
 * Ctrl+C                    -> "logger node shut down", files closed cleanly.
 
@@ -37,7 +62,9 @@ plan_id: the planner puts its plan_id inside the plan, the mission node
 echoes it on every mission event, and this node checks the two match. A
 mismatch is warned about and written to events.jsonl as ``plan_id_mismatch``;
 the event is still acted on, because a stalled test that times out loses more
-than a mislabelled one that is flagged.
+than a mislabelled one that is flagged. The one exception is the stale end
+event above, which is ignored whatever its plan_id: repetitions of one prompt
+reuse the same plan_id, so the id cannot tell that event apart.
 
 Time base: t=0 is the moment the test folder is created, so the prompt that
 started it has a negative ``t_sent``. Sample times come from the message
@@ -62,7 +89,9 @@ from __future__ import annotations
 import json
 import math
 import signal
+import sys
 from collections import deque
+from pathlib import Path
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -85,6 +114,10 @@ try:
     from ackermann_msgs.msg import AckermannDriveStamped
 except ImportError:  # pragma: no cover - ackermann_msgs is a separate package
     AckermannDriveStamped = None
+try:
+    from ament_index_python.packages import get_package_share_directory
+except ImportError:  # pragma: no cover - not a sourced ROS environment
+    get_package_share_directory = None
 
 STAMP_SANITY_S = 5.0  # header stamps further than this from the clock are ignored
 NODE_NAME = "test_campaign_logger"
@@ -96,6 +129,34 @@ STATUS_TOPIC = "/test_campaign/logger_status"
 MISSION_EVENTS = (
     "mission_loaded", "mission_started", "mission_finished", "mission_aborted",
 )
+CONFIG_NAME = "test_campaign_logger.yaml"
+
+
+def _share_file(package, *parts):
+    """A file in ``package``'s share directory, or None if there is none."""
+    if get_package_share_directory is None:
+        return None
+    try:
+        path = Path(get_package_share_directory(package)).joinpath(*parts)
+    except Exception:  # noqa: BLE001 - PackageNotFoundError, or no index at all
+        return None
+    return path if path.is_file() else None
+
+
+def with_packaged_params(args):
+    """``(args, params_file)``: the packaged config in front, unless one was given.
+
+    Placed first, in a ``--ros-args ... --`` section of its own, so every
+    ``-p`` and ``--params-file`` already on the command line is parsed after
+    it and still overrides it.
+    """
+    args = list(args)
+    if "--params-file" in args:
+        return args, None
+    path = _share_file("f1tenth_logger", "config", CONFIG_NAME)
+    if path is None:
+        return args, None
+    return args[:1] + ["--ros-args", "--params-file", str(path), "--"] + args[1:], path
 
 
 def yaw_from_quaternion(x, y, z, w):
@@ -108,8 +169,9 @@ def yaw_from_quaternion(x, y, z, w):
 class TestLoggerNode(Node):
     """Owns at most one open :class:`TestLogger` at a time."""
 
-    def __init__(self):
+    def __init__(self, params_file=None):
         super().__init__(NODE_NAME)
+        self._params_file = params_file   # the packaged yaml main() injected
 
         def param(name, default):
             return self.declare_parameter(name, default).value
@@ -127,7 +189,9 @@ class TestLoggerNode(Node):
 
         self._plan_topic = param("plan_result_topic", "/test/plan_result")
         self._event_topic = param("mission_event_topic", "/test/mission_event")
-        self._odom_topic = param("odom_topic", "/odom")
+        # Same as the yaml: /corridor is built from the local EKF, and raw
+        # /odom drifts ~19 deg of yaw over 15 m.
+        self._odom_topic = param("odom_topic", "/odometry/filtered")
         self._imu_topic = param("imu_topic", "/sensors/imu/raw")
         self._drive_topic = param("drive_topic", "/drive")
         self._mpc_topic = param("mpc_status_topic", "/mpc/status")
@@ -140,6 +204,9 @@ class TestLoggerNode(Node):
         self._pre_roll_s = float(param("pre_roll_s", 0.0))
         self._max_test_duration_s = float(param("max_test_duration_s", 300.0))
         self._status_period_s = float(param("status_period_s", 10.0))
+        # obstacle_clearance_node publishes once per scan (40 Hz): this long
+        # after mission_started with nothing from it means it is not running.
+        self._clearance_grace_s = float(param("clearance_grace_s", 2.0))
         best_effort = bool(param("best_effort_sensors", True))
 
         # Open-test state. NOT self._logger: rclpy's Node already owns that
@@ -156,6 +223,10 @@ class TestLoggerNode(Node):
         self._shutting_down = False
         self._next_status = None        # node time of the next status line
         self._n_clearance = 0           # poses that carried a clearance
+        self._lifecycle_seen = False    # this test's own loaded/started arrived
+        self._n_clearance_driving = 0   # /obstacle_clearance msgs since started
+        self._started_at = None         # node time this test's mission started
+        self._clearance_warned = False
         self._subscribed = []           # (topic, type, qos) for the startup log
 
         reliable = QoSProfile(depth=10)
@@ -198,6 +269,14 @@ class TestLoggerNode(Node):
     def _log_startup(self):
         log = self.get_logger()
         log.info(f"[test_campaign] campaign folder: {self._campaign_dir}")
+        if self._params_file is not None:
+            log.info(f"[test_campaign] parameters: {self._params_file} (packaged "
+                     f"default, loaded because no --params-file was given)")
+        log.info(
+            f"[test_campaign] poses from {self._odom_topic}, robot_radius "
+            f"{self._robot_radius:g} m, robot {self._robot_name or '-'}, "
+            f"llm_model {self._llm_model or '-'}"
+        )
         if not (self._campaign_dir / "prompts.yaml").is_file():
             log.warn(
                 f"[test_campaign] no prompts.yaml in {self._campaign_dir}: every "
@@ -302,6 +381,10 @@ class TestLoggerNode(Node):
         self._pending_close = None
         self._obstacle_clearance = None
         self._n_clearance = 0
+        self._lifecycle_seen = False
+        self._n_clearance_driving = 0
+        self._started_at = None
+        self._clearance_warned = False
         self._plan_id = str(plan_id or "")
         self._next_status = self._t0 + self._status_period_s
 
@@ -325,6 +408,8 @@ class TestLoggerNode(Node):
 
     def _close_test(self, outcome, reason):
         if self._test is not None:
+            # a test shorter than the grace period is still checked, once
+            self._check_clearance(closing=True)
             # before the state below is reset, so the last line is the truth
             self._publish_status(self._test, state="closed", outcome=outcome)
         logger, self._test = self._test, None
@@ -361,6 +446,7 @@ class TestLoggerNode(Node):
             "mission_started": self._mission_started,
             "closing": self._pending_close is not None,
             "samples": {**logger.stream_counts(), "obstacle_clearance": self._n_clearance},
+            "obstacle_clearance_after_start": self._n_clearance_driving,
             "campaign_dir": str(self._campaign_dir),
         }
         if outcome is not None:
@@ -389,6 +475,8 @@ class TestLoggerNode(Node):
         if self._next_status is not None and now >= self._next_status:
             self._next_status = now + self._status_period_s
             self._publish_status(self._test, state="open")
+        if self._started_at is not None and not self._clearance_warned:
+            self._check_clearance()
         if self._pending_close is not None:
             outcome, reason, close_at = self._pending_close
             if now >= close_at:
@@ -396,6 +484,37 @@ class TestLoggerNode(Node):
             return
         if now - self._t0 > self._max_test_duration_s:
             self._close_test("aborted", "timeout: no end message")
+
+    def _check_clearance(self, closing=False):
+        """Say it loudly, once per test, when the clearance source is silent.
+
+        Without /obstacle_clearance the test has no min_clear_m, and no
+        contact event either: obstacle_clearance_node is the only source of
+        both. It is not auto-started by the supervisor, so forgetting it
+        leaves a test that looks complete and is not (every test of
+        2026-09-21).
+        """
+        if (self._test is None or self._clearance_warned
+                or self._started_at is None or self._n_clearance_driving > 0):
+            return
+        waited = self._now() - self._started_at
+        if not closing and waited < self._clearance_grace_s:
+            return
+        self._clearance_warned = True
+        message = (
+            f"[test_campaign] !!! {self._test.test_id}: NO {self._clearance_topic} "
+            f"sample in {waited:.1f} s since mission_started -- min_clear_m, "
+            f"min_clear_raw_m and contact will be EMPTY for this test. Start the "
+            f"source: ./scripts/stackctl.py start obstacle_clearance"
+        )
+        if self._shutting_down:
+            print(message, flush=True)   # rosout is already down (see _close_test)
+        else:
+            self.get_logger().error(message)
+        self._test.log_event(
+            "no_obstacle_clearance", t=self._t(), topic=self._clearance_topic,
+            seconds_since_start=round(waited, 3), at_close=closing,
+        )
 
     # -- pre-roll ----------------------------------------------------------
 
@@ -443,8 +562,13 @@ class TestLoggerNode(Node):
         kind = str(data.get("kind") or "initial")
         status = str(data.get("status") or "ok")
         error = str(data.get("error") or "")
-        plan = data.get("plan")
+        # translated_plan since the planner sent both; plan is its old name
+        plan = data.get("translated_plan", data.get("plan"))
         prompt_text = data.get("prompt_text")
+
+        if kind == "delivery":
+            self._on_delivery(data, status, error)
+            return
 
         if kind == "replan":
             if self._test is None:
@@ -473,6 +597,9 @@ class TestLoggerNode(Node):
     def _record_call(self, data, kind, status, error, plan, prompt_text):
         t_sent = data.get("t_prompt_sent")
         t_recv = data.get("t_response_received")
+        saved = None
+        if plan is not None:
+            saved = self._save_plan(data, kind, plan)
         self._test.record_llm_call(
             prompt_text if prompt_text is not None else self._test.prompt_text,
             response=None if plan is None else json.dumps(plan),
@@ -482,7 +609,74 @@ class TestLoggerNode(Node):
             latency_ms=data.get("latency_ms"),
             ok=1 if status == "ok" else 0,
             error=error,
+            llm_raw=data.get("llm_raw"),
+            rejections=data.get("rejections"),
+            translated_plan=plan,
+            plan_file=None if saved is None else saved["file"],
+            plan_hash=None if saved is None else saved["plan_hash"],
         )
+
+    def _save_plan(self, data, kind, plan):
+        """plan.json / plan_replan_N.json, checked against the loader's file.
+
+        The reference is the file the planner handed /mission/load_mission
+        (``mission_path``); without one, the path the planner always writes
+        to, missions/llm_generated/<plan_id>.json in f1tenth_behavior's share.
+        """
+        plan_id = str(data.get("plan_id") or "")
+        reference = data.get("mission_path")
+        if not reference and plan_id:
+            reference = _share_file(
+                "f1tenth_behavior", "missions", "llm_generated", f"{plan_id}.json")
+        try:
+            saved = self._test.save_plan(
+                plan, tag=kind, reference_path=reference, plan_id=plan_id or None)
+        except Exception as exc:  # noqa: BLE001 - never lose the call row over it
+            self.get_logger().error(
+                f"[test_campaign] could not save the plan of {self._test.test_id}: "
+                f"{type(exc).__name__}: {exc}")
+            return None
+        if saved is not None and not saved["match"]:
+            self.get_logger().warn(
+                f"[test_campaign] {self._test.test_id}/{saved['file']} does not match "
+                f"{saved['reference'] or 'any loader file'} -- plan_file_mismatch "
+                f"recorded")
+        return saved
+
+    def _on_delivery(self, data, status, error):
+        """The planner's follow-up: load or start failed after the plan_result.
+
+        Nothing else will end this test -- no mission event follows a failed
+        load, and a failed start leaves the loader sitting at LOADED -- so it
+        is closed here, after the usual post-roll, unless the mission somehow
+        started anyway, in which case its own events end it.
+        """
+        stage = str(data.get("stage") or "delivery")
+        if self._test is None:
+            self.get_logger().warn(
+                f"[test_campaign] {stage} result arrived with no test open -- ignored")
+            return
+        plan_id = str(data.get("plan_id") or "")
+        if plan_id and self._plan_id and plan_id != self._plan_id:
+            self.get_logger().warn(
+                f"[test_campaign] {stage} result is for plan_id {plan_id!r}, but "
+                f"the open test is {self._plan_id!r} -- recorded, not acted on")
+            self._test.log_event("plan_id_mismatch", t=self._t(), for_event=stage,
+                                 expected=self._plan_id, got=plan_id)
+            return
+        failed = status != "ok"
+        self._test.log_event("delivery_failed" if failed else "delivery",
+                             t=self._t(), stage=stage, error=error, plan_id=plan_id)
+        if not failed:
+            return
+        self.get_logger().error(
+            f"[test_campaign] {self._test.test_id}: {stage} FAILED ({error}) -- "
+            f"closing the test")
+        if not self._mission_started and self._pending_close is None:
+            self._pending_close = (
+                "aborted", f"{stage} failed: {error or 'no reason given'}",
+                self._now() + self._post_roll_s,
+            )
 
     def _on_mission_event(self, msg):
         data = self._payload(msg, self._event_topic, self.get_logger())
@@ -495,6 +689,26 @@ class TestLoggerNode(Node):
                 f"open -- ignored"
             )
             return
+
+        # The planner opens the test BEFORE it aborts whatever was running, so
+        # that abort's mission_aborted lands in this test. It belongs to the
+        # previous mission: acting on it would close this test as "cancelled
+        # before start" before it began. This test's own lifecycle always
+        # starts with its mission_loaded (or, if that was lost, its
+        # mission_started), so an end event before either is stale. The
+        # plan_id cannot decide it: repetitions of one prompt share one.
+        if event in ("mission_finished", "mission_aborted") and not self._lifecycle_seen:
+            self.get_logger().warn(
+                f"[test_campaign] {event} (plan_id {data.get('plan_id')!r}) arrived "
+                f"before this test's mission_loaded -- the previous mission's end, "
+                f"recorded as stale_mission_event and ignored"
+            )
+            self._test.log_event(
+                "stale_mission_event", t=self._t(), for_event=event,
+                **{k: v for k, v in data.items() if k != "event"})
+            return
+        if event in ("mission_loaded", "mission_started"):
+            self._lifecycle_seen = True
 
         # The planner's plan_id travels inside the plan to the mission node,
         # which echoes it here: a mismatch means these events belong to some
@@ -517,6 +731,8 @@ class TestLoggerNode(Node):
 
         if event == "mission_started":
             self._mission_started = True
+            if self._started_at is None:
+                self._started_at = self._now()
         elif event in ("mission_finished", "mission_aborted"):
             reason = str(data.get("reason") or "")
             if event == "mission_finished":
@@ -638,6 +854,8 @@ class TestLoggerNode(Node):
         # handed to the next log_state, then forgotten: a pose carries the
         # clearance measured for it, never a stale one repeated for minutes
         self._obstacle_clearance = float(msg.data)
+        if self._test is not None and self._mission_started:
+            self._n_clearance_driving += 1
 
     def _on_safety(self, msg):
         if self._test is None:
@@ -656,9 +874,12 @@ class TestLoggerNode(Node):
 
 
 def main(argv=None):
-    rclpy.init(args=argv)
+    # A bare `ros2 run` must record with the campaign config too: see the
+    # module docstring's PARAMETERS.
+    args, params_file = with_packaged_params(sys.argv if argv is None else argv)
+    rclpy.init(args=args)
     try:
-        node = TestLoggerNode()
+        node = TestLoggerNode(params_file=params_file)
     except (RuntimeError, NotADirectoryError) as exc:
         # no workspace root: say where it looked and stop, rather than record
         # a campaign into a folder nobody will find

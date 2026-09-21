@@ -236,6 +236,10 @@ class MissionLoader:
         # retune it with `ros2 param set` between tests, without a restart.
         self._countdown_timer = None
         self._start_cancelled = False
+        # The countdown the last accepted start actually armed (0.0 when it
+        # was switched off). mission_started reports this, not a fresh read
+        # of the parameter, which may have been retuned in between.
+        self._armed_countdown_s = None
 
         self._sub = node.create_subscription(
             String, load_path_topic, self._on_load_path, 10)
@@ -411,6 +415,7 @@ class MissionLoader:
             # which the operator is most likely to need it.
             self._start_cancelled = False
             countdown_s = self._countdown_seconds()
+            self._armed_countdown_s = max(countdown_s, 0.0)
             if countdown_s <= 0.0:
                 # Countdown switched off: identical to the behaviour before
                 # there was one. No timer exists, so there is nothing a stop
@@ -731,4 +736,10 @@ class MissionLoader:
         payload = {'event': event, 'plan_id': mission_id, 'reason': reason}
         if event == 'mission_loaded':
             payload['countdown_s'] = self._countdown_seconds()
+        elif event == 'mission_started':
+            # Repeated here so a logger that missed mission_loaded still
+            # learns the countdown this start actually waited out.
+            payload['countdown_s'] = (
+                self._armed_countdown_s if self._armed_countdown_s is not None
+                else self._countdown_seconds())
         self.test_event_pub.publish(String(data=json.dumps(payload)))

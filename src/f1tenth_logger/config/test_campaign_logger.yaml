@@ -1,8 +1,10 @@
 # test_campaign_logger -- the test-campaign recorder (f1tenth_logger/test_campaign).
 #
 # Loaded by launch/test_campaign_logger.launch.py, which is started by hand and
-# never by a bringup. `root` is NOT set here: the launch file resolves it to
-# the workspace (<f1tenth_more>) and passes it, so the campaign always lands in
+# never by a bringup, and by the node itself when it is started with a bare
+# `ros2 run` and no --params-file (logger_node.with_packaged_params).
+# `root` is NOT set here: the launch file resolves it to the workspace
+# (<f1tenth_more>) and passes it, so the campaign always lands in
 # <f1tenth_more>/<campaign> however the package was built.
 #
 # Nothing here overlaps with mission_logger_node: different node name, output
@@ -15,6 +17,7 @@ test_campaign_logger:
     post_roll_s: 2.0
     max_test_duration_s: 300.0
     status_period_s: 10.0                # status line + /test_campaign/logger_status
+    clearance_grace_s: 2.0               # no /obstacle_clearance this long after start -> ERROR
     robot_name: f1tenth-01
     llm_model: qwen2.5-3b-instruct
     mpc_ok_statuses: [solved]            # /mpc/status values that count as solved
