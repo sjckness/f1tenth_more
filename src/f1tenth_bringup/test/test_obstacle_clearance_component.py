@@ -1,12 +1,12 @@
-"""Supervisor side of obstacle_clearance: its own component, and never at boot.
+"""Supervisor side of obstacle_clearance: its own component, started at boot.
 
 obstacle_clearance_node reads /scan, so it follows the placement rule
 test_wall_distance_component.py argues for the other three /scan consumers:
 never under `perception` (whose urg_node is the e-stop's only /scan) and
-never sharing a component with another consumer. Unlike those three it is
-OPTIONAL -- a data source for the test-campaign logger that nothing controls
-off -- so it is registered on demand only (_NEVER_AUTO_START) and started
-with `./scripts/stackctl.py start obstacle_clearance`.
+never sharing a component with another consumer. It is the test-campaign
+logger's data source and nothing controls off it. It was on-demand
+(_NEVER_AUTO_START) until the 2026-09-21 campaign session ran every test
+without it, so it now auto-starts with the stack (_ALWAYS_AUTO_START).
 
 Plain YAML and set checks, no rclpy.
 """
@@ -44,7 +44,7 @@ def test_no_other_component_launches_it():
         assert _LAUNCH_FILE not in [e['launch_file'] for e in entries], name
 
 
-def test_it_is_registered_but_never_started_at_boot():
-    assert 'obstacle_clearance' in _NEVER_AUTO_START
-    assert 'obstacle_clearance' not in _ALWAYS_AUTO_START
+def test_it_starts_with_the_stack():
+    assert 'obstacle_clearance' in _ALWAYS_AUTO_START
+    assert 'obstacle_clearance' not in _NEVER_AUTO_START
     assert 'obstacle_clearance' not in _CONDITIONAL_AUTO_START

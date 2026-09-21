@@ -40,7 +40,7 @@ automatically.
 | `/mpc/status` | String JSON | mpc_corr, after **every** solve: `{status, solve_time_ms, cost, iterations, ...}` |
 | `/corridor` | String JSON | mpc_corr, on every corridor rebuild: `{id, polygon, frame_id: odom, odom_topic, ...}` |
 | `/safety/event` | String JSON | `behavior_executor_node`: `{event: estop, cause}` once per emergency stop. `obstacle_clearance_node`: `{event: contact, cause}` |
-| `/obstacle_clearance` | Float32 | `obstacle_clearance_node` (f1tenth_perception), once per `/scan`. **Optional**; start it for a campaign session (step 1). |
+| `/obstacle_clearance` | Float32 | `obstacle_clearance_node` (f1tenth_perception), once per `/scan`. Starts with the stack (step 1). |
 
 Two files outside this package are part of the chain:
 `src/f1tenth_intelligence/llm/llm/llm_planner_node.py` publishes the plan
@@ -58,12 +58,16 @@ Four terminals. Everything below assumes `source install/setup.bash` first.
 ```bash
 ros2 launch f1tenth_bringup supervisor_bringup.launch.py
 ./scripts/stackctl.py status                          # what is actually up (the ros2 CLI lies under the discovery server)
-./scripts/stackctl.py start obstacle_clearance        # the obstacle_clearance column and contact events
 ```
 
-`obstacle_clearance` is not auto-started. Without it a test has no
-`min_clear_m` and no contact events, and the recorder says so: an ERROR line
-and a `no_obstacle_clearance` event when nothing arrives within
+`obstacle_clearance` (the `min_clear_m` column and contact events) starts
+with the stack: it is in the supervisor's `Auto-starting:` line, and
+`~/.ros/log/component_supervisor/f1tenth_perception_obstacle_clearance.launch.py.log`
+shows `obstacle_clearance_node up`. It was on-demand until the 2026-09-21
+session ran every test without it. If it is down,
+`./scripts/stackctl.py restart obstacle_clearance`. Without it a test
+has no `min_clear_m` and no contact events, and the recorder says so: an
+ERROR line and a `no_obstacle_clearance` event when nothing arrives within
 `clearance_grace_s` (2 s) of `mission_started`.
 
 ### 2. The recorder: start it once and leave it running

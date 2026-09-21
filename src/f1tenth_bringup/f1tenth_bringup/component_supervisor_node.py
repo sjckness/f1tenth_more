@@ -306,10 +306,13 @@ from std_srvs.srv import Trigger
 _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 
 # Components that auto-start unconditionally. 'lidar_front_wall',
-# 'wall_distance' and 'swept_clearance' are each separate from 'perception' on
-# purpose (restarting 'perception' restarts urg_node, the e-stop's /scan) -- see
-# components.yaml's comments on those entries. All three launch files self-gate
-# on use_lidar.
+# 'wall_distance', 'swept_clearance' and 'obstacle_clearance' are each separate
+# from 'perception' on purpose (restarting 'perception' restarts urg_node, the
+# e-stop's /scan) -- see components.yaml's comments on those entries. All four
+# launch files self-gate on use_lidar. obstacle_clearance was on-demand until
+# the 2026-09-21 campaign session ran every test without it (no min_clear_m,
+# no contact events): the test-campaign logger's data source now comes up with
+# the stack, so it cannot be forgotten. Nothing controls off it.
 #
 # AN UNCATEGORISED COMPONENT SILENTLY NEVER STARTS. A name that is in
 # components.yaml but in none of these three sets is restartable by service call
@@ -318,14 +321,13 @@ _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 # test_wall_distance_component.py asserts membership rather than trusting it.
 _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
                       'lidar_front_wall', 'wall_distance', 'swept_clearance',
-                      'control', 'diagnostics', 'dev_tools', 'slam'}
+                      'obstacle_clearance', 'control', 'diagnostics', 'dev_tools',
+                      'slam'}
 # Registered (restartable by name) but never auto-started -- on-demand only.
 # startup_sequence (the steering-sweep visual check) moved here on request --
 # see module docstring's own "calibrate_hardware, startup_sequence" paragraph
-# for why this is safe (no other node depends on it). obstacle_clearance is
-# the test-campaign logger's data source and likewise nothing depends on it:
-# started by hand for a campaign session (see its launch file).
-_NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence', 'obstacle_clearance'}
+# for why this is safe (no other node depends on it).
+_NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence'}
 # 'behavior' gates on a stack-wide branching value (get_value(), no CLI override --
 # see module docstring). 'intelligence' is DIFFERENT as of the component-auto-start
 # pass: 'enable_intelligence' here names this node's own declared parameter

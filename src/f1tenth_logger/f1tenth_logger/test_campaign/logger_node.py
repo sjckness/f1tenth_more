@@ -490,9 +490,9 @@ class TestLoggerNode(Node):
 
         Without /obstacle_clearance the test has no min_clear_m, and no
         contact event either: obstacle_clearance_node is the only source of
-        both. It is not auto-started by the supervisor, so forgetting it
-        leaves a test that looks complete and is not (every test of
-        2026-09-21).
+        both. A test without it looks complete and is not (every test of
+        2026-09-21, when the component was still on-demand). It now starts
+        with the stack, so silence here means it died or never came up.
         """
         if (self._test is None or self._clearance_warned
                 or self._started_at is None or self._n_clearance_driving > 0):
@@ -505,7 +505,7 @@ class TestLoggerNode(Node):
             f"[test_campaign] !!! {self._test.test_id}: NO {self._clearance_topic} "
             f"sample in {waited:.1f} s since mission_started -- min_clear_m, "
             f"min_clear_raw_m and contact will be EMPTY for this test. Start the "
-            f"source: ./scripts/stackctl.py start obstacle_clearance"
+            f"source: ./scripts/stackctl.py restart obstacle_clearance"
         )
         if self._shutting_down:
             print(message, flush=True)   # rosout is already down (see _close_test)

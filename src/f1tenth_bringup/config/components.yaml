@@ -117,8 +117,8 @@ components:
     - package: f1tenth_perception
       launch_file: swept_clearance.launch.py
 
-  # OPTIONAL: in _NEVER_AUTO_START, so it runs only when asked for
-  # (./scripts/stackctl.py start obstacle_clearance). A data source for the
+  # In _ALWAYS_AUTO_START: starts with the stack (it was on-demand until the
+  # 2026-09-21 campaign session ran without it). A data source for the
   # test-campaign logger (/obstacle_clearance, contact events on
   # /safety/event); nothing controls off it. Its own component for the same
   # /scan reason as the three above. Enforced by f1tenth_bringup/test/

@@ -1,14 +1,14 @@
 """obstacle_clearance_node -> /obstacle_clearance (+ contact events on /safety/event).
 
-OPTIONAL. Registered as the `obstacle_clearance` component in
+Registered as the `obstacle_clearance` component in
 f1tenth_bringup/config/components.yaml and listed in the supervisor's
-_NEVER_AUTO_START: it is never launched at boot, and starts only on request,
+_ALWAYS_AUTO_START: it starts with the stack. It was on-demand until the
+2026-09-21 campaign session ran every test without it. Restart it by hand with
 
-    ./scripts/stackctl.py start obstacle_clearance
+    ./scripts/stackctl.py restart obstacle_clearance
 
 It exists for the test-campaign logger (f1tenth_logger test_campaign) and
-nothing in the stack controls off it, so there is no reason to run it
-outside a campaign session. Its OWN component for the same reason as
+nothing in the stack controls off it. Its OWN component for the same reason as
 lidar_front_wall/wall_distance/swept_clearance: it reads /scan, and a
 restart of `perception` would take urg_node -- the e-stop's only /scan --
 down with it. f1tenth_bringup/test/test_obstacle_clearance_component.py
