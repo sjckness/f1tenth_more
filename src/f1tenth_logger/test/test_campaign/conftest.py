@@ -1,11 +1,7 @@
-"""pytest wiring for the test-logging suite.
+"""pytest wiring for the test-campaign suite (f1tenth_logger.test_campaign).
 
-    python3 -m pytest tools/test_logging -q
-
-Two files here are named ``test_*`` because they are the operator's
-executables, not test modules -- ``test_logger_node.py`` is the recorder that
-runs all session, ``test_trigger.py`` is the manual trigger. pytest would
-otherwise import them and try to collect ``TestLoggerNode`` as a test class.
+    colcon test --packages-select f1tenth_logger
+    python3 -m pytest src/f1tenth_logger/test/test_campaign -q    # sourced
 
 **ROS isolation.** The node round trip publishes real DDS traffic, so the
 whole pytest process is moved onto its own domain with localhost-only
@@ -19,8 +15,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
-collect_ignore = ["test_logger_node.py", "test_trigger.py"]
 
 os.environ["ROS_DOMAIN_ID"] = os.environ.get("F1TENTH_TEST_DOMAIN", "91")
 os.environ["ROS_LOCALHOST_ONLY"] = "1"

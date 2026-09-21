@@ -52,6 +52,13 @@
        The render half needs it on the report machine too, where it is the
        only non-stdlib dependency besides numpy and matplotlib. -->
   <exec_depend>python3-pyarrow</exec_depend>
+  <!-- The test-campaign logger (f1tenth_logger/test_campaign). PyYAML reads the
+       prompt table; scipy filters jerk and steering in the export; the
+       recorder subscribes to /drive as AckermannDriveStamped. numpy and
+       matplotlib, which the analysis also needs, are declared above. -->
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
+  <exec_depend>ackermann_msgs</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

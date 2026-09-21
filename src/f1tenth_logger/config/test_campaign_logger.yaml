@@ -1,0 +1,35 @@
+# test_campaign_logger -- the test-campaign recorder (f1tenth_logger/test_campaign).
+#
+# Loaded by launch/test_campaign_logger.launch.py, which is started by hand and
+# never by a bringup. `root` is NOT set here: the launch file resolves it to
+# the workspace (<f1tenth_more>) and passes it, so the campaign always lands in
+# <f1tenth_more>/<campaign> however the package was built.
+#
+# Nothing here overlaps with mission_logger_node: different node name, output
+# folder, and topics (see TEST_CAMPAIGN.md, "Next to the mission logger").
+test_campaign_logger:
+  ros__parameters:
+    campaign: first_test_campaing        # folder under <f1tenth_more>
+    robot_radius: 0.3                    # circle for corridor_clearance [m]
+    pre_roll_s: 2.0
+    post_roll_s: 2.0
+    max_test_duration_s: 300.0
+    status_period_s: 10.0                # status line + /test_campaign/logger_status
+    robot_name: f1tenth-01
+    llm_model: qwen2.5-3b-instruct
+    mpc_ok_statuses: [solved]            # /mpc/status values that count as solved
+
+    # The pose the corridors are built from. mpc_corr builds /corridor from
+    # the LOCAL EKF (localization_source: ekf), so corridor_clearance only
+    # means something against the same estimate; raw /odom also invents
+    # ~19 deg of yaw over 15 m. The node warns if /corridor names another one.
+    odom_topic: /odometry/filtered
+    imu_topic: /sensors/imu/raw
+    drive_topic: /drive
+    mpc_status_topic: /mpc/status
+    corridor_topic: /corridor
+    obstacle_clearance_topic: /obstacle_clearance
+    safety_event_topic: /safety/event
+    plan_result_topic: /test/plan_result
+    mission_event_topic: /test/mission_event
+    best_effort_sensors: true

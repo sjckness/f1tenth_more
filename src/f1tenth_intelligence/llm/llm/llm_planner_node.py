@@ -799,7 +799,7 @@ class LLMPlannerNode(Node):
         self.declare_parameter('llm_url', LLAMA_URL)
         self.declare_parameter('llm_timeout_sec', LLAMA_TIMEOUT)
         self.declare_parameter('planner_path', DEFAULT_PLANNER_PATH)
-        # Topic dell'esito per la campagna di test (tools/test_logging/).
+        # Topic dell'esito per la campagna di test (f1tenth_logger/test_campaign/).
         self.declare_parameter('test_plan_result_topic', '/test/plan_result')
         # go_to_enabled: stack_params.yaml's value, overridable per run.
         self.declare_parameter('go_to_enabled', go_to_enabled_default())
@@ -863,7 +863,7 @@ class LLMPlannerNode(Node):
         self.abort_client = self.create_client(Trigger, '/mission/abort_mission')
 
         # /test/plan_result: un messaggio per comando, riuscito o fallito,
-        # per il logger della campagna (tools/test_logging/). Registrato come
+        # per il logger della campagna (f1tenth_logger/test_campaign/). Registrato come
         # SINK di _emit_result invece di essere chiamato dai percorsi di
         # pianificazione, cosi' che valga per ogni esito senza dover elencare
         # i punti di uscita -- esattamente il motivo per cui la riga RESULT
@@ -1373,7 +1373,7 @@ def build_parser():
                    help='traduce e scrive il file missione, ma non chiama i servizi')
     p.add_argument('--confirm', action='store_true',
                    help='chiede conferma prima di chiamare load_mission/start_mission')
-    # Campagna di test (tools/test_logging/): finiscono in /test/plan_result.
+    # Campagna di test (f1tenth_logger/test_campaign/): finiscono in /test/plan_result.
     p.add_argument('--prompt-num', type=int, default=-1, dest='prompt_num',
                    help='numero del prompt in prompts.yaml della campagna. '
                         '-1 (default) lascia che il logger risolva il test dal '

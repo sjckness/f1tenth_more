@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Read a campaign written by robot_logger and report what happened.
 
-    analyze_tests.py [campaign_folder] [--mission M] [--prompt N]
-                     [--footprints METERS] [--out DIR]
+    ros2 run f1tenth_logger test_campaign_analyze [campaign_folder]
+        [--mission M] [--prompt N] [--footprints METERS] [--out DIR]
 
 Success is the **manual** ``success`` column of ``campaign_results.csv``
-(written by ``export_campaign_csv.py``, filled in by hand), not the logger's
+(written by ``test_campaign_export``, filled in by hand), not the logger's
 own outcome. A test with an empty ``success`` cell counts towards nothing: it
 is excluded from k/N and listed as not yet evaluated, and its trajectory is
 drawn dimmed with the automatic outcome shown only as a hint.
@@ -23,7 +23,6 @@ import csv
 import json
 import math
 import statistics
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -38,9 +37,8 @@ from matplotlib.colors import Normalize, TwoSlopeNorm  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.patches import Circle, Patch  # noqa: E402
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from robot_logger import DEFAULT_CAMPAIGN, find_root, parse_test_id  # noqa: E402
+from f1tenth_logger.test_campaign.robot_logger import (  # noqa: E402
+    DEFAULT_CAMPAIGN, find_root, parse_test_id)
 
 Z = 1.96
 CLEARANCE_LABEL = "clearance: robot edge to corridor boundary [m] (<0 = outside)"
@@ -362,7 +360,7 @@ def format_report(campaign_dir, runs, rows, has_manual, unreadable):
         out.append("")
         out.append(
             f"NOTE: there is no {RESULTS_NAME} in this campaign, so no test has a\n"
-            f"      manual verdict yet. Run export_campaign_csv.py, fill in the\n"
+            f"      manual verdict yet. Run test_campaign_export, fill in the\n"
             f"      'success' column by hand, then run this again."
         )
     for test_id, text in unreadable:
@@ -699,6 +697,7 @@ def main(argv=None):
     campaign_dir = resolve_campaign(args.campaign_folder)
     if not campaign_dir.is_dir():
         raise NotADirectoryError(f"campaign folder not found: {campaign_dir}")
+    print(f"campaign: {campaign_dir}")
 
     runs, has_manual, unreadable = load_campaign(campaign_dir)
     if args.mission:

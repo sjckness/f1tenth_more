@@ -15,18 +15,13 @@ import math
 import os
 import random
 import shutil
-import sys
-from pathlib import Path
 
 import numpy as np
 import pytest
 import yaml
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-import analyze_tests  # noqa: E402
-import export_campaign_csv as exp  # noqa: E402
+from f1tenth_logger.test_campaign import analyze_tests
+from f1tenth_logger.test_campaign import export_campaign_csv as exp
 
 COUNTDOWN = 2.5   # standstill before mission_started, at negative t
 POST_ROLL = 1.0   # junk after mission_finished that must not reach a metric

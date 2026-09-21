@@ -27,13 +27,10 @@ are the thing under test, not ROS's service dispatch.
 from __future__ import annotations
 
 import json
-import sys
 import types
 from pathlib import Path
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 py_trees = pytest.importorskip("py_trees")
 loader_module = pytest.importorskip("f1tenth_behavior.mission.loader")
@@ -44,10 +41,8 @@ from f1tenth_behavior.mission.runtime import (  # noqa: E402
     MISSION_KEY,
     MissionState,
 )
-from robot_logger import find_root  # noqa: E402
-
 MISSION_JSON = str(
-    find_root() / "src" / "f1tenth_behavior" / "missions" / "dock_approach_01.json"
+    Path(__file__).resolve().parents[1] / "missions" / "dock_approach_01.json"
 )
 COUNTDOWN_S = 3.0
 
@@ -433,7 +428,7 @@ def test_the_loader_publishes_exactly_the_events_the_logger_consumes():
     Renaming an event on one side without the other would leave the campaign
     logger silently waiting for a mission that already finished.
     """
-    logger_node = pytest.importorskip("test_logger_node")
+    logger_node = pytest.importorskip("f1tenth_logger.test_campaign.logger_node")
     assert set(loader_module._TEST_EVENTS.values()) == set(logger_node.MISSION_EVENTS)
 
 

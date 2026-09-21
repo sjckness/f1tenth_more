@@ -144,7 +144,7 @@ MISSION_STATUS_QOS = QoSProfile(
 
 
 # MissionState -> the /test/mission_event name the campaign logger keys off
-# (tools/test_logging/README.md). IDLE and HOLDING deliberately have none:
+# (f1tenth_logger/TEST_CAMPAIGN.md). IDLE and HOLDING deliberately have none:
 # the first is not a mission, the second is not a lifecycle edge -- the
 # mission is still live and the logger must keep recording.
 _TEST_EVENTS = {
@@ -218,7 +218,7 @@ class MissionLoader:
         self._outcomes_published = (None, 0)
 
         # The mission lifecycle as JSON, for the test-campaign logger
-        # (tools/test_logging/). Published from _publish_status() and nowhere
+        # (f1tenth_logger/test_campaign/). Published from _publish_status() and nowhere
         # else -- see _publish_test_event for why.
         self.test_event_pub = node.create_publisher(String, test_event_topic, 10)
         self._last_event_key = None

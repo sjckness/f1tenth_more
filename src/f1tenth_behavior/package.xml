@@ -78,6 +78,10 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <!-- test_mission_countdown.py asserts the loader's /test/mission_event names
+       equal the ones f1tenth_logger's test_campaign logger consumes; without
+       this the contract test would skip instead of run. -->
+  <test_depend>f1tenth_logger</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

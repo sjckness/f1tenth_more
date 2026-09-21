@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """The campaign recorder: one long-lived rclpy node, one TestLogger per test.
 
-    python3 test_logger_node.py --ros-args \\
-        -p campaign:=first_test_campaing -p robot_radius:=0.3
+    ros2 launch f1tenth_logger test_campaign_logger.launch.py
 
-Leave it running in its own terminal for the whole session. It opens a test
+(parameters in config/test_campaign_logger.yaml; the launch file also pins
+``root`` to the workspace). Node name ``test_campaign_logger``. Never started
+by any bringup: leave it running in its own terminal for the whole session. It opens a test
 when the planner announces an LLM result and closes it when the mission ends,
 so tests accumulate without ever restarting the node.
 
@@ -46,15 +47,22 @@ QoS: the high-rate sensor streams are subscribed BEST_EFFORT, which also
 matches RELIABLE publishers, so a sensor publisher can never fail to connect;
 the low-rate control topics are RELIABLE so a mission event cannot be dropped.
 Set ``best_effort_sensors:=false`` if a publisher needs the opposite.
+
+Visibility: at startup it prints the absolute campaign folder and every
+subscription with its QoS; it refuses to start if the workspace root cannot
+be found, rather than writing a campaign somewhere unexpected. While a test
+is open it logs one status line every ``status_period_s`` (10 s) -- test id,
+seconds recorded, rows per stream -- and publishes the same as JSON on
+``/test_campaign/logger_status`` (std_msgs/String), plus a final one when the
+test closes. That is the only topic this node publishes.
 """
 
 from __future__ import annotations
 
 import json
 import math
-import sys
+import signal
 from collections import deque
-from pathlib import Path
 
 import rclpy
 from rclpy.executors import ExternalShutdownException
@@ -62,9 +70,8 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Float32, String
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from robot_logger import DEFAULT_CAMPAIGN, TestLogger  # noqa: E402
+from f1tenth_logger.test_campaign.robot_logger import (
+    DEFAULT_CAMPAIGN, TestLogger, find_root)
 
 try:
     from nav_msgs.msg import Odometry
@@ -80,10 +87,12 @@ except ImportError:  # pragma: no cover - ackermann_msgs is a separate package
     AckermannDriveStamped = None
 
 STAMP_SANITY_S = 5.0  # header stamps further than this from the clock are ignored
+NODE_NAME = "test_campaign_logger"
+STATUS_TOPIC = "/test_campaign/logger_status"
 
 #: The mission lifecycle this node understands. mission/loader.py's _TEST_EVENTS
-#: publishes exactly these four; test_mission_countdown.py asserts the two lists
-#: stay equal, so neither side can rename an event on its own.
+#: publishes exactly these four; f1tenth_behavior's test_mission_countdown.py
+#: asserts the two lists stay equal, so neither side can rename an event alone.
 MISSION_EVENTS = (
     "mission_loaded", "mission_started", "mission_finished", "mission_aborted",
 )
@@ -100,13 +109,17 @@ class TestLoggerNode(Node):
     """Owns at most one open :class:`TestLogger` at a time."""
 
     def __init__(self):
-        super().__init__("test_logger_node")
+        super().__init__(NODE_NAME)
 
         def param(name, default):
             return self.declare_parameter(name, default).value
 
-        self._root = param("root", "") or None
         self._campaign = param("campaign", DEFAULT_CAMPAIGN)
+        # Resolved once, here, and handed to every TestLogger: the folder a
+        # campaign lands in must not depend on which test happens to open
+        # first. find_root raises with its own explanation if there is none.
+        self._root = find_root(param("root", "") or None)
+        self._campaign_dir = self._root / str(self._campaign)
         self._robot_radius = float(param("robot_radius", 0.0))
         self._mpc_ok_statuses = tuple(param("mpc_ok_statuses", ["solved"]))
         self._robot_name = param("robot_name", "")
@@ -126,6 +139,7 @@ class TestLoggerNode(Node):
         self._post_roll_s = float(param("post_roll_s", 2.0))
         self._pre_roll_s = float(param("pre_roll_s", 0.0))
         self._max_test_duration_s = float(param("max_test_duration_s", 300.0))
+        self._status_period_s = float(param("status_period_s", 10.0))
         best_effort = bool(param("best_effort_sensors", True))
 
         # Open-test state. NOT self._logger: rclpy's Node already owns that
@@ -140,35 +154,32 @@ class TestLoggerNode(Node):
         self._pre_roll = deque()        # (t_ros, kind, payload)
         self._warned = set()
         self._shutting_down = False
+        self._next_status = None        # node time of the next status line
+        self._n_clearance = 0           # poses that carried a clearance
+        self._subscribed = []           # (topic, type, qos) for the startup log
 
         reliable = QoSProfile(depth=10)
         sensor = QoSProfile(depth=50)
         if best_effort:
             sensor.reliability = ReliabilityPolicy.BEST_EFFORT
 
-        self.create_subscription(String, self._plan_topic,
-                                 self._on_plan_result, reliable)
-        self.create_subscription(String, self._event_topic,
-                                 self._on_mission_event, reliable)
-        self.create_subscription(String, self._mpc_topic, self._on_mpc, sensor)
-        self.create_subscription(String, self._corridor_topic,
-                                 self._on_corridor, reliable)
-        self.create_subscription(String, self._safety_topic,
-                                 self._on_safety, reliable)
-        self.create_subscription(Float32, self._clearance_topic,
-                                 self._on_clearance, sensor)
+        self._subscribe(String, self._plan_topic, self._on_plan_result, reliable)
+        self._subscribe(String, self._event_topic, self._on_mission_event, reliable)
+        self._subscribe(String, self._mpc_topic, self._on_mpc, sensor)
+        self._subscribe(String, self._corridor_topic, self._on_corridor, reliable)
+        self._subscribe(String, self._safety_topic, self._on_safety, reliable)
+        self._subscribe(Float32, self._clearance_topic, self._on_clearance, sensor)
         if Odometry is not None:
-            self.create_subscription(Odometry, self._odom_topic,
-                                     self._on_odom, sensor)
+            self._subscribe(Odometry, self._odom_topic, self._on_odom, sensor)
         else:
             self._warn_once("nav_msgs", "nav_msgs is missing: no odometry logged")
         if Imu is not None:
-            self.create_subscription(Imu, self._imu_topic, self._on_imu, sensor)
+            self._subscribe(Imu, self._imu_topic, self._on_imu, sensor)
         else:
             self._warn_once("sensor_msgs", "sensor_msgs is missing: no IMU logged")
         if AckermannDriveStamped is not None:
-            self.create_subscription(AckermannDriveStamped, self._drive_topic,
-                                     self._on_drive, sensor)
+            self._subscribe(AckermannDriveStamped, self._drive_topic,
+                            self._on_drive, sensor)
         else:
             self._warn_once(
                 "ackermann_msgs",
@@ -176,9 +187,30 @@ class TestLoggerNode(Node):
                 f"be logged (everything else still works)",
             )
 
+        self._status_pub = self.create_publisher(String, STATUS_TOPIC, 10)
         self.create_timer(0.1, self._tick)
-        self.get_logger().info(
-            f"[test_logger] campaign={self._campaign} "
+        self._log_startup()
+
+    def _subscribe(self, msg_type, topic, callback, qos):
+        self.create_subscription(msg_type, topic, callback, qos)
+        self._subscribed.append((topic, msg_type.__name__, qos))
+
+    def _log_startup(self):
+        log = self.get_logger()
+        log.info(f"[test_campaign] campaign folder: {self._campaign_dir}")
+        if not (self._campaign_dir / "prompts.yaml").is_file():
+            log.warn(
+                f"[test_campaign] no prompts.yaml in {self._campaign_dir}: every "
+                f"test will be refused until it exists"
+            )
+        for topic, type_name, qos in self._subscribed:
+            log.info(
+                f"[test_campaign] subscribed {topic} ({type_name}) "
+                f"{qos.reliability.name.lower()} depth {qos.depth}"
+            )
+        log.info(
+            f"[test_campaign] publishing {STATUS_TOPIC} every "
+            f"{self._status_period_s:g}s while a test is open; "
             f"post_roll={self._post_roll_s}s pre_roll={self._pre_roll_s}s "
             f"timeout={self._max_test_duration_s}s -- waiting for "
             f"{self._plan_topic}"
@@ -189,7 +221,7 @@ class TestLoggerNode(Node):
     def _warn_once(self, key, message):
         if key not in self._warned:
             self._warned.add(key)
-            self.get_logger().warn(f"[test_logger] {message}")
+            self.get_logger().warn(f"[test_campaign] {message}")
 
     def _now(self):
         return self.get_clock().now().nanoseconds * 1e-9
@@ -221,10 +253,10 @@ class TestLoggerNode(Node):
         try:
             data = json.loads(msg.data)
         except (json.JSONDecodeError, TypeError) as exc:
-            logger.warn(f"[test_logger] {what} is not valid JSON: {exc}")
+            logger.warn(f"[test_campaign] {what} is not valid JSON: {exc}")
             return None
         if not isinstance(data, dict):
-            logger.warn(f"[test_logger] {what} must be a JSON object")
+            logger.warn(f"[test_campaign] {what} must be a JSON object")
             return None
         return data
 
@@ -236,7 +268,7 @@ class TestLoggerNode(Node):
             "llm_model": self._llm_model or None,
             "plan_id": plan_id,
             "ros_start_time": self._now(),
-            "source": "test_logger_node",
+            "source": NODE_NAME,
         }
         # prompt_num -1 (the planner's default when nobody passed --prompt-num)
         # means "resolve it from the text": prompts.yaml indexes both, and the
@@ -258,7 +290,7 @@ class TestLoggerNode(Node):
             )
         except Exception as exc:  # noqa: BLE001 - a bad message must not kill the node
             self.get_logger().error(
-                f"[test_logger] cannot open a test for prompt_num="
+                f"[test_campaign] cannot open a test for prompt_num="
                 f"{prompt_num!r} / text {str(prompt_text)[:60]!r}: "
                 f"{type(exc).__name__}: {exc}"
             )
@@ -269,11 +301,13 @@ class TestLoggerNode(Node):
         self._mission_started = False
         self._pending_close = None
         self._obstacle_clearance = None
+        self._n_clearance = 0
         self._plan_id = str(plan_id or "")
+        self._next_status = self._t0 + self._status_period_s
 
         if prompt_text is not None and str(prompt_text) != logger.prompt_text:
             self.get_logger().warn(
-                f"[test_logger] {logger.test_id}: the prompt in the message is "
+                f"[test_campaign] {logger.test_id}: the prompt in the message is "
                 f"not the one in prompts.yaml for prompt_num={prompt_num}; "
                 f"recording both"
             )
@@ -285,11 +319,14 @@ class TestLoggerNode(Node):
             )
         self._flush_pre_roll()
         self.get_logger().info(
-            f"[test_logger] open {logger.mission}/{logger.test_id}"
+            f"[test_campaign] open {logger.mission}/{logger.test_id}"
         )
         return logger
 
     def _close_test(self, outcome, reason):
+        if self._test is not None:
+            # before the state below is reset, so the last line is the truth
+            self._publish_status(self._test, state="closed", outcome=outcome)
         logger, self._test = self._test, None
         self._pending_close = None
         self._mission_started = False
@@ -297,7 +334,7 @@ class TestLoggerNode(Node):
             return
         summary = logger.finish(outcome, reason)
         message = (
-            f"[test_logger] close {logger.mission}/{logger.test_id} "
+            f"[test_campaign] close {logger.mission}/{logger.test_id} "
             f"-> {outcome} ({reason}); {summary['n_imu']} imu, "
             f"{summary['n_cmd']} cmd, {summary['n_llm_calls']} llm"
         )
@@ -314,11 +351,44 @@ class TestLoggerNode(Node):
         if self._test is not None:
             self._close_test("aborted", reason)
 
+    def _status(self, logger, state, outcome=None):
+        """The status line's content: test id, seconds recorded, rows per stream."""
+        status = {
+            "state": state,
+            "test_id": logger.test_id,
+            "mission": logger.mission,
+            "seconds": round(self._now() - self._t0, 1),
+            "mission_started": self._mission_started,
+            "closing": self._pending_close is not None,
+            "samples": {**logger.stream_counts(), "obstacle_clearance": self._n_clearance},
+            "campaign_dir": str(self._campaign_dir),
+        }
+        if outcome is not None:
+            status["outcome"] = outcome
+        return status
+
+    def _publish_status(self, logger, state, outcome=None):
+        if self._shutting_down:
+            return
+        try:
+            status = self._status(logger, state, outcome)
+            samples = " ".join(f"{k}={v}" for k, v in status["samples"].items())
+            self.get_logger().info(
+                f"[test_campaign] {state} {status['test_id']} "
+                f"{status['seconds']:.0f}s: {samples}"
+            )
+            self._status_pub.publish(String(data=json.dumps(status)))
+        except Exception as exc:  # noqa: BLE001 - a status line must not stop a test
+            self._warn_once("status", f"status not published: {exc}")
+
     def _tick(self):
         if self._test is None:
             self._trim_pre_roll()
             return
         now = self._now()
+        if self._next_status is not None and now >= self._next_status:
+            self._next_status = now + self._status_period_s
+            self._publish_status(self._test, state="open")
         if self._pending_close is not None:
             outcome, reason, close_at = self._pending_close
             if now >= close_at:
@@ -379,7 +449,7 @@ class TestLoggerNode(Node):
         if kind == "replan":
             if self._test is None:
                 self.get_logger().warn(
-                    "[test_logger] replan arrived with no test open -- ignored"
+                    "[test_campaign] replan arrived with no test open -- ignored"
                 )
                 return
             self._record_call(data, kind, status, error, plan, prompt_text)
@@ -387,7 +457,7 @@ class TestLoggerNode(Node):
 
         if kind != "initial":
             self.get_logger().warn(
-                f"[test_logger] unknown plan_result kind {kind!r} -- treating "
+                f"[test_campaign] unknown plan_result kind {kind!r} -- treating "
                 f"it as 'initial'"
             )
 
@@ -421,7 +491,7 @@ class TestLoggerNode(Node):
         event = str(data.get("event") or "")
         if self._test is None:
             self.get_logger().warn(
-                f"[test_logger] {event or 'mission event'} arrived with no test "
+                f"[test_campaign] {event or 'mission event'} arrived with no test "
                 f"open -- ignored"
             )
             return
@@ -433,7 +503,7 @@ class TestLoggerNode(Node):
         event_plan_id = str(data.get("plan_id") or "")
         if event_plan_id and self._plan_id and event_plan_id != self._plan_id:
             self.get_logger().warn(
-                f"[test_logger] {event or 'mission event'} carries plan_id "
+                f"[test_campaign] {event or 'mission event'} carries plan_id "
                 f"{event_plan_id!r}, but the open test is {self._plan_id!r} -- "
                 f"recorded, and acted on, but the two may not belong together"
             )
@@ -461,7 +531,7 @@ class TestLoggerNode(Node):
             )
         elif event not in MISSION_EVENTS:
             self.get_logger().warn(
-                f"[test_logger] unknown mission event {event!r} -- recorded, "
+                f"[test_campaign] unknown mission event {event!r} -- recorded, "
                 f"but it ends nothing"
             )
 
@@ -488,6 +558,8 @@ class TestLoggerNode(Node):
             self._remember("state", stamp, payload)
             return
         clearance, self._obstacle_clearance = self._obstacle_clearance, None
+        if clearance is not None:
+            self._n_clearance += 1
         self._test.log_state(
             **payload, obstacle_clearance=clearance, t=self._t(stamp)
         )
@@ -540,10 +612,18 @@ class TestLoggerNode(Node):
         data = self._payload(msg, self._corridor_topic, self.get_logger())
         if data is None:
             return
+        corridor_odom = data.get("odom_topic")
+        if corridor_odom and corridor_odom != self._odom_topic:
+            self._warn_once(
+                "corridor_frame",
+                f"corridors are built from {corridor_odom} but poses come from "
+                f"{self._odom_topic}: corridor_clearance compares two different "
+                f"estimates. Set odom_topic:={corridor_odom}.",
+            )
         polygon = data.get("polygon") or []
         if len(polygon) < 3:
             self.get_logger().warn(
-                f"[test_logger] corridor has {len(polygon)} points -- ignored"
+                f"[test_campaign] corridor has {len(polygon)} points -- ignored"
             )
             return
         self._test.log_corridor(
@@ -568,7 +648,7 @@ class TestLoggerNode(Node):
         event = str(data.get("event") or "")
         if event not in ("contact", "estop"):
             self.get_logger().warn(
-                f"[test_logger] safety event {event!r} is neither 'contact' nor "
+                f"[test_campaign] safety event {event!r} is neither 'contact' nor "
                 f"'estop' -- recorded as is"
             )
         self._test.log_event(event, t=self._t(),
@@ -577,14 +657,28 @@ class TestLoggerNode(Node):
 
 def main(argv=None):
     rclpy.init(args=argv)
-    node = TestLoggerNode()
+    try:
+        node = TestLoggerNode()
+    except (RuntimeError, NotADirectoryError) as exc:
+        # no workspace root: say where it looked and stop, rather than record
+        # a campaign into a folder nobody will find
+        print(f"[test_campaign] cannot start: {exc}", flush=True)
+        rclpy.shutdown()
+        return 1
     try:
         rclpy.spin(node)
     except (KeyboardInterrupt, ExternalShutdownException):
         # Ctrl+C reaches rclpy as either of these depending on how the signal
-        # was delivered; both mean the same thing here.
-        node.get_logger().info("[test_logger] interrupted")
+        # was delivered; both mean the same thing here. The context is already
+        # down, so rosout would only complain -- print instead.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        print("[test_campaign] interrupted", flush=True)
     finally:
+        # Under ros2 launch a terminal Ctrl+C arrives TWICE: once from the
+        # terminal, once forwarded by launch. The second must not land inside
+        # close_open_test(), which is what writes the open test's meta.json --
+        # found live, as a KeyboardInterrupt traceback out of destroy_node().
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         node.close_open_test()
         node.destroy_node()
         if rclpy.ok():

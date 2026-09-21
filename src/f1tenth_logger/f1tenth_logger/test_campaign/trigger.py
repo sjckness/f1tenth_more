@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Drive the logger by hand, with no LLM and no mission node in the loop.
 
-    python3 test_trigger.py 0                # prompt_num 0, e.g. M00_calibration
-    python3 test_trigger.py 0 --countdown 5
+    ros2 run f1tenth_logger test_campaign_trigger 0                # M00_calibration
+    ros2 run f1tenth_logger test_campaign_trigger 0 --countdown 5
 
 Publishes a plan_result that looks like a successful "initial" LLM call
 (latency 0, no plan), then ``mission_loaded``, waits out the countdown,
@@ -20,20 +20,17 @@ import argparse
 import json
 import sys
 import time
-from pathlib import Path
 
 import rclpy
 import yaml
 from rclpy.node import Node
 from std_msgs.msg import String
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from robot_logger import DEFAULT_CAMPAIGN, find_root  # noqa: E402
+from f1tenth_logger.test_campaign.robot_logger import DEFAULT_CAMPAIGN, find_root
 
 
 def load_prompt(root, campaign, prompt_num):
-    """(prompt_num, text, mission) from the campaign's prompt table."""
+    """(text, mission) of prompt_num in the campaign's prompt table."""
     path = find_root(root) / campaign / "prompts.yaml"
     if not path.exists():
         raise SystemExit(f"no prompt table at {path}")
@@ -48,7 +45,7 @@ def load_prompt(root, campaign, prompt_num):
 
 class Trigger(Node):
     def __init__(self, plan_topic, event_topic):
-        super().__init__("test_trigger")
+        super().__init__("test_campaign_trigger")
         self.plan_pub = self.create_publisher(String, plan_topic, 10)
         self.event_pub = self.create_publisher(String, event_topic, 10)
 
@@ -102,6 +99,7 @@ def main(argv=None):
     parser.add_argument("--event-topic", default="/test/mission_event")
     args = parser.parse_args(argv)
 
+    print(f"campaign: {find_root(args.root) / args.campaign}")
     text, mission = load_prompt(args.root, args.campaign, args.prompt_num)
     plan_id = f"manual_{int(time.time())}"
 
@@ -110,7 +108,7 @@ def main(argv=None):
     try:
         if not node.wait_for_logger():
             print("WARNING: nothing is subscribed to the test topics -- is "
-                  "test_logger_node running?", file=sys.stderr)
+                  "test_campaign_logger running?", file=sys.stderr)
 
         print(f"prompt {args.prompt_num} -> {mission}: {text}")
         node.plan_result(args.prompt_num, text, plan_id)

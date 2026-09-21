@@ -18,11 +18,8 @@ from pathlib import Path
 import pytest
 import yaml
 
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-import analyze_tests  # noqa: E402
-from robot_logger import (  # noqa: E402
+from f1tenth_logger.test_campaign import analyze_tests
+from f1tenth_logger.test_campaign.robot_logger import (
     TestLogger,
     corridor_from_centerline,
     find_root,
@@ -287,8 +284,7 @@ def test_leaving_the_block_without_finishing_is_an_abort(root):
 def test_a_process_that_exits_without_finishing_still_closes(root):
     """atexit: a crashed run is data, and must not be left half-written."""
     script = (
-        f"import sys; sys.path.insert(0, {str(HERE)!r})\n"
-        "from robot_logger import TestLogger\n"
+        "from f1tenth_logger.test_campaign.robot_logger import TestLogger\n"
         f"log = TestLogger(1, root={str(root)!r}, robot_radius=0.3)\n"
         "log.log_state(0.0, 0.0)\n"
         "print(log.dir)\n"
@@ -384,8 +380,7 @@ def test_a_changed_prompt_warns_and_is_recorded(root, campaign):
         yaml.safe_dump(changed, fh)
 
     script = (
-        f"import sys; sys.path.insert(0, {str(HERE)!r})\n"
-        "from robot_logger import TestLogger\n"
+        "from f1tenth_logger.test_campaign.robot_logger import TestLogger\n"
         f"log = TestLogger(2, root={str(root)!r})\n"
         "print(log.dir)\n"
         "log.finish('completed')\n"
@@ -437,10 +432,70 @@ def test_analysis_filters_and_reports(root, campaign, tmp_path):
 # finding the project root
 # --------------------------------------------------------------------------
 
-def test_the_upward_search_finds_the_project(monkeypatch):
+def test_the_upward_search_finds_the_workspace(monkeypatch):
     monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
     found = find_root()
-    assert found.name == "f1tenth_more" and (found / "tools").is_dir()
+    assert found.name == "f1tenth_more"
+    assert (found / "src" / "f1tenth_logger" / "package.xml").is_file()
+
+
+def _workspace(tmp_path):
+    """A workspace with the two decoys that fooled the old name-based walk:
+    src/f1tenth_more and install/f1tenth_more, both folders named like the
+    workspace that are not it."""
+    ws = tmp_path / "f1tenth_more"
+    pkg = ws / "src" / "f1tenth_logger"
+    (pkg / "f1tenth_logger" / "test_campaign").mkdir(parents=True)
+    (pkg / "package.xml").write_text("<package/>")
+    source = pkg / "f1tenth_logger" / "test_campaign" / "robot_logger.py"
+    source.write_text("")
+    (ws / "src" / "f1tenth_more").mkdir()
+    (ws / "install" / "f1tenth_more").mkdir(parents=True)
+    return ws, source
+
+
+def test_from_source_the_search_finds_the_workspace_not_the_decoy(tmp_path, monkeypatch):
+    monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
+    ws, source = _workspace(tmp_path)
+    assert find_root(anchors=[source]) == ws.resolve()
+
+
+def test_from_a_colcon_install_the_search_finds_the_workspace(tmp_path, monkeypatch):
+    monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
+    ws, _ = _workspace(tmp_path)
+    installed = (ws / "install" / "f1tenth_logger" / "lib" / "python3.10"
+                 / "site-packages" / "f1tenth_logger" / "test_campaign")
+    installed.mkdir(parents=True)
+    (installed / "robot_logger.py").write_text("")
+    assert find_root(anchors=[installed / "robot_logger.py"]) == ws.resolve()
+
+
+def test_from_a_symlink_install_the_search_finds_the_workspace(tmp_path, monkeypatch):
+    """--symlink-install imports from build/f1tenth_logger/f1tenth_logger, a
+    symlink into src/: both the path as imported and as resolved work."""
+    monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
+    ws, source = _workspace(tmp_path)
+    build = ws / "build" / "f1tenth_logger"
+    build.mkdir(parents=True)
+    (build / "f1tenth_logger").symlink_to(source.parent.parent, target_is_directory=True)
+    imported = build / "f1tenth_logger" / "test_campaign" / "robot_logger.py"
+    assert imported.is_file()
+    assert find_root(anchors=[imported]) == ws.resolve()
+    assert find_root(anchors=[imported.resolve()]) == ws.resolve()
+
+
+def test_an_install_outside_the_workspace_is_a_clear_error(tmp_path, monkeypatch):
+    monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
+    elsewhere = tmp_path / "opt" / "f1tenth_more" / "robot_logger.py"
+    elsewhere.parent.mkdir(parents=True)
+    elsewhere.write_text("")
+    with pytest.raises(RuntimeError, match="F1TENTH_MORE_ROOT"):
+        find_root(anchors=[elsewhere])
+
+
+def test_an_empty_root_parameter_means_not_given(monkeypatch, root):
+    monkeypatch.setenv("F1TENTH_MORE_ROOT", str(root))
+    assert find_root("") == root.resolve()
 
 
 def test_the_environment_variable_wins(root, monkeypatch):

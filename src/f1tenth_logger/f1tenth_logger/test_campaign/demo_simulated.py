@@ -6,7 +6,8 @@ car, with a fake LLM, fake MPC solves, and the occasional contact or estop.
 Some runs leave the corridor and abort, which is the point -- the analysis has
 to show both outcomes.
 
-    ./demo_simulated.py [--root DIR] [--repetitions N] [--seed S]
+    python3 -m f1tenth_logger.test_campaign.demo_simulated \
+        [--root DIR] [--repetitions N] [--seed S]
 
 It then does the round trip the campaign depends on:
 
@@ -31,18 +32,14 @@ import csv
 import json
 import math
 import random
-import sys
 import tempfile
 import time
 from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-import analyze_tests  # noqa: E402
-import export_campaign_csv  # noqa: E402
-from robot_logger import TestLogger, corridor_from_centerline  # noqa: E402
+from f1tenth_logger.test_campaign import analyze_tests, export_campaign_csv
+from f1tenth_logger.test_campaign.robot_logger import TestLogger, corridor_from_centerline
 
 CAMPAIGN = "first_test_campaing"
 WIDTH = 1.2            # corridor width [m]

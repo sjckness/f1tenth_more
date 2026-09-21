@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Turn a campaign's raw logs into one reviewable row per test.
 
-    export_campaign_csv.py [campaign_folder] [--cutoff-hz 5] [--deadband-rad 0.02]
-                           [--excel-eu | --plain]
+    ros2 run f1tenth_logger test_campaign_export [campaign_folder]
+        [--cutoff-hz 5] [--deadband-rad 0.02] [--excel-eu | --plain]
 
 Writes ``<campaign>/campaign_results.csv``: the automatic metrics computed
 from each test folder, next to three columns a human fills in by hand --
@@ -41,9 +41,8 @@ from pathlib import Path
 import numpy as np
 from scipy.signal import butter, filtfilt
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-
-from robot_logger import DEFAULT_CAMPAIGN, find_root, parse_test_id  # noqa: E402
+from f1tenth_logger.test_campaign.robot_logger import (
+    DEFAULT_CAMPAIGN, find_root, parse_test_id)
 
 RESULTS_NAME = "campaign_results.csv"
 FALLBACK_NAME = "campaign_results_NEW.csv"
@@ -611,6 +610,7 @@ def main(argv=None):
         campaign_dir = find_root() / DEFAULT_CAMPAIGN
     if not campaign_dir.is_dir():
         raise SystemExit(f"campaign folder not found: {campaign_dir}")
+    print(f"campaign: {campaign_dir}")
     if args.cutoff_hz <= 0:
         raise SystemExit("--cutoff-hz must be positive")
     if args.deadband_rad < 0:

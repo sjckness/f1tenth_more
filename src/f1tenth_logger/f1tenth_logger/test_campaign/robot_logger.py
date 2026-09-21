@@ -31,14 +31,14 @@ Conventions
   negative value means contact.
 * ``finish()`` only records an **automatic hint** (``auto_outcome`` /
   ``auto_success``). The real pass/fail is the ``success`` column a human
-  fills in ``campaign_results.csv`` (see ``export_campaign_csv.py``).
+  fills in ``campaign_results.csv`` (see ``export_campaign_csv``).
 * Safety events go through :meth:`TestLogger.log_event` under two reserved
   names, each carrying a ``cause``::
 
       log.log_event("contact", cause="hit the left wall")
       log.log_event("estop", cause="operator pressed the button")
 
-  ``export_campaign_csv.py`` reads exactly those two names.
+  ``export_campaign_csv`` reads exactly those two names.
 * The mission lifecycle uses four more reserved event names, which decide
   the window the export measures over::
 
@@ -142,14 +142,32 @@ _LLM_COLS = [
 # paths and ids
 # --------------------------------------------------------------------------
 
-def find_root(explicit=None):
-    """Locate the ``f1tenth_more`` project folder.
+#: What marks the workspace root: the directory holding this package's source.
+_ROOT_MARKER = Path("src") / "f1tenth_logger" / "package.xml"
 
-    Order: explicit argument, ``$F1TENTH_MORE_ROOT``, then a walk upward from
-    this file. The current working directory is never consulted -- ``ros2 run``
-    and ``ros2 launch`` both change it.
+
+def find_root(explicit=None, anchors=None):
+    """Locate the ``f1tenth_more`` workspace folder.
+
+    Order: explicit argument (the node's ``root`` parameter), then
+    ``$F1TENTH_MORE_ROOT`` (test_campaign_logger.launch.py sets both), then an
+    upward search for the directory holding ``src/f1tenth_logger/package.xml``.
+
+    The search starts from this file as imported AND as resolved, and from
+    the package's install prefix, so it gives the same answer run from
+    source, from a colcon install (``install/.../site-packages``) and from a
+    ``--symlink-install`` one (``build/f1tenth_logger/...``, which resolves
+    into ``src/``). It deliberately does not look for a folder merely NAMED
+    ``f1tenth_more``: the workspace holds two of those that are not it
+    (``src/f1tenth_more`` and ``install/f1tenth_more``, the f1tenth_more
+    package), and the old name-based walk found the first from an installed
+    copy. An install outside the workspace finds nothing and says so; set
+    F1TENTH_MORE_ROOT there. The current working directory is never
+    consulted -- ``ros2 run`` and ``ros2 launch`` both change it.
+
+    ``anchors`` replaces the starting points (for tests).
     """
-    if explicit is not None:
+    if explicit is not None and str(explicit) != "":
         root = Path(explicit).expanduser().resolve()
         if not root.is_dir():
             raise NotADirectoryError(f"root={explicit!r} is not a directory")
@@ -164,19 +182,30 @@ def find_root(explicit=None):
             )
         return root
 
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        if parent.name == ROOT_NAME:
-            return parent
-        candidate = parent / ROOT_NAME
-        if candidate.is_dir():
-            return candidate.resolve()
+    starts = list(anchors) if anchors is not None else _default_anchors()
+    for start in starts:
+        start = Path(start)
+        for parent in (start, *start.parents):
+            if (parent / _ROOT_MARKER).is_file():
+                return parent.resolve()
 
     raise RuntimeError(
-        f"cannot locate the {ROOT_NAME!r} project folder: no ancestor of "
-        f"{here} is named {ROOT_NAME!r} or contains it. Pass root=... to "
-        f"TestLogger or set F1TENTH_MORE_ROOT."
+        f"cannot locate the {ROOT_NAME!r} workspace: no ancestor of "
+        f"{', '.join(str(s) for s in starts)} holds {_ROOT_MARKER}. Pass "
+        f"root:=<path> to the node (or --root to the tools), or set "
+        f"F1TENTH_MORE_ROOT."
     )
+
+
+def _default_anchors():
+    here = Path(os.path.abspath(__file__))
+    anchors = [here] if here.resolve() == here else [here, here.resolve()]
+    try:
+        from ament_index_python.packages import get_package_prefix
+        anchors.append(Path(get_package_prefix("f1tenth_logger")))
+    except Exception:  # noqa: BLE001 - not sourced, or not installed: fine
+        pass
+    return anchors
 
 
 def make_test_id(prompt_num, repetition, when=None):
@@ -525,6 +554,8 @@ class TestLogger:
         self._n_corridors = 0
         self._llm_latencies = []
         self._n_llm = 0
+        self._n_mpc = 0
+        self._n_events = 0
 
         self.summary = None
         self.auto_outcome = None
@@ -838,6 +869,7 @@ class TestLogger:
             if self._closed:
                 return
             t = self._stamp(t)
+            self._n_mpc += 1
             self._note("mpc", t)
             self._streams["mpc"].row(
                 [t, status, solve_time_ms, cost, iterations]
@@ -996,7 +1028,21 @@ class TestLogger:
             t = self._stamp(t)
             record = {"t": _round6(t), "event": str(name)}
             record.update(data)
+            self._n_events += 1
             self._streams["events"].line(record)
+
+    def stream_counts(self):
+        """Rows written so far, per stream -- the recorder's status line."""
+        with self._lock:
+            return {
+                "kinematics": self._n_pose,
+                "imu": self._n_imu,
+                "commands": self._n_cmd,
+                "mpc": self._n_mpc,
+                "corridors": self._n_corridors,
+                "llm_calls": self._n_llm,
+                "events": self._n_events,
+            }
 
     # -- teardown -----------------------------------------------------------
 

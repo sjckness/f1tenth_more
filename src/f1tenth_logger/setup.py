@@ -8,12 +8,15 @@ package_name = 'f1tenth_logger'
 setup(
     name=package_name,
     version='0.0.1',
-    packages=[package_name],
+    # test_campaign is its own subpackage so no module of the test-campaign
+    # logger can collide with the mission logger's (see its __init__).
+    packages=[package_name, package_name + '.test_campaign'],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
+        (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -55,6 +58,12 @@ setup(
             # mission_replay_video composes both for the one-step path.
             'mission_extract = f1tenth_logger.mission_extract:main',
             'mission_render = f1tenth_logger.mission_render:main',
+            # The test-campaign logger (f1tenth_logger/test_campaign/,
+            # TEST_CAMPAIGN.md). Started by hand only, never by a bringup.
+            'test_campaign_logger = f1tenth_logger.test_campaign.logger_node:main',
+            'test_campaign_trigger = f1tenth_logger.test_campaign.trigger:main',
+            'test_campaign_export = f1tenth_logger.test_campaign.export_campaign_csv:main',
+            'test_campaign_analyze = f1tenth_logger.test_campaign.analyze_tests:main',
         ],
     },
 )

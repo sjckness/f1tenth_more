@@ -1,4 +1,4 @@
-"""test_logger_node against real DDS traffic, every branch of the lifecycle.
+"""test_campaign_logger against real DDS traffic, every branch of the lifecycle.
 
 Starts the node as a subprocess and publishes odometry, IMU, drive commands,
 MPC status, clearance and safety events at realistic rates, then walks it
@@ -22,15 +22,11 @@ import signal
 import subprocess
 import sys
 import time
-from pathlib import Path
 
 import pytest
 import yaml
 
 from conftest import requires_rclpy
-
-HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
 
 rclpy = pytest.importorskip("rclpy")
 from ackermann_msgs.msg import AckermannDriveStamped  # noqa: E402
@@ -40,8 +36,8 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy  # noqa: E402
 from sensor_msgs.msg import Imu  # noqa: E402
 from std_msgs.msg import Float32, String  # noqa: E402
 
-import export_campaign_csv as exp  # noqa: E402
-from robot_logger import parse_test_id  # noqa: E402
+from f1tenth_logger.test_campaign import export_campaign_csv as exp  # noqa: E402
+from f1tenth_logger.test_campaign.robot_logger import parse_test_id  # noqa: E402
 
 pytestmark = requires_rclpy
 
@@ -82,6 +78,10 @@ class Fake(Node):
         self.drive = self.create_publisher(AckermannDriveStamped, "/drive", sensor)
         self.mpc = self.create_publisher(String, "/mpc/status", sensor)
         self.clear = self.create_publisher(Float32, "/obstacle_clearance", sensor)
+        self.statuses = []
+        self.create_subscription(
+            String, "/test_campaign/logger_status",
+            lambda msg: self.statuses.append(json.loads(msg.data)), reliable)
         self.x = self.y = self.yaw = 0.0
         self.rng = random.Random(4)
 
@@ -183,8 +183,9 @@ class Fake(Node):
 
 def start_node(root, timeout_s=LONG_TIMEOUT_S):
     return subprocess.Popen(
-        [sys.executable, str(HERE / "test_logger_node.py"), "--ros-args",
+        [sys.executable, "-m", "f1tenth_logger.test_campaign.logger_node", "--ros-args",
          "-p", f"root:={root}",
+         "-p", "status_period_s:=1.0",
          "-p", f"campaign:={CAMPAIGN}",
          "-p", "robot_radius:=0.3",
          "-p", f"post_roll_s:={POST_ROLL_S}",
@@ -259,7 +260,7 @@ def session(tmp_path_factory):
         # 1. the real trigger, end to end, on the calibration prompt
         before = _tests_in(campaign, "M00_calibration")
         trigger = subprocess.Popen(
-            [sys.executable, str(HERE / "test_trigger.py"), "0",
+            [sys.executable, "-m", "f1tenth_logger.test_campaign.trigger", "0",
              "--root", str(root), "--campaign", CAMPAIGN, "--countdown", "2.5"],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT, text=True)
@@ -284,6 +285,7 @@ def session(tmp_path_factory):
         fake.stream(1.5, speed=0.8, steer=0.15)
         fake.plan_result(1, kind="replan", sent_ago=0.2)
         fake.send(fake.corridor, {"id": 7, "width": 2.0,
+                                  "odom_topic": "/odometry/filtered",
                                   "polygon": [[-1, -1], [9, -1], [9, 1], [-1, 1]]})
         fake.send(fake.safety, {"event": "contact", "cause": "clipped a cone"})
         # a mission event from some other plan must be flagged, not believed
@@ -323,7 +325,8 @@ def session(tmp_path_factory):
 
         # 6. restart with a short timeout, then send no end message at all
         node_proc.send_signal(signal.SIGINT)
-        node_proc.communicate(timeout=10)
+        out["first_output"] = node_proc.communicate(timeout=10)[0]
+        out["statuses"] = list(fake.statuses)
         node_proc = start_node(root, timeout_s=SHORT_TIMEOUT_S)
         out["restarted"] = fake.wait_for_logger()
         before = _tests_in(campaign, "M02_bend")
@@ -526,3 +529,39 @@ def test_contact_and_feasibility_reached_the_export(session):
 def test_a_test_that_never_started_has_no_driving_metrics(session):
     row = session["rows"][session["stale"].name]
     assert row["viol_rate_pct"] == "" and row["jerk_rms"] == ""
+
+
+# --------------------------------------------------------------------------
+# visibility: startup log and the status topic
+# --------------------------------------------------------------------------
+
+def test_startup_prints_the_absolute_campaign_folder_and_every_subscription(session):
+    output = session["first_output"]
+    assert f"campaign folder: {session['campaign']}" in output
+    assert session["campaign"].is_absolute()
+    for line in ("subscribed /odom (Odometry) best_effort depth 50",
+                 "subscribed /test/plan_result (String) reliable depth 10",
+                 "subscribed /safety/event (String) reliable depth 10",
+                 "subscribed /obstacle_clearance (Float32) best_effort depth 50"):
+        assert line in output, line
+
+
+def test_an_open_test_publishes_status_lines_and_a_closing_one(session):
+    drive_id = session["drive"].name
+    mine = [s for s in session["statuses"] if s["test_id"] == drive_id]
+    opened = [s for s in mine if s["state"] == "open"]
+    closed = [s for s in mine if s["state"] == "closed"]
+    # the drive test is open for ~6 s at status_period_s 1.0
+    assert len(opened) >= 3
+    assert opened[-1]["seconds"] > opened[0]["seconds"]
+    assert opened[-1]["samples"]["imu"] > opened[0]["samples"]["imu"] > 0
+    assert opened[-1]["samples"]["kinematics"] > 0
+    assert opened[-1]["samples"]["obstacle_clearance"] > 0
+    assert len(closed) == 1 and closed[0]["outcome"] == "completed"
+    assert closed[0]["mission_started"] is True
+    assert closed[0]["campaign_dir"] == str(session["campaign"])
+
+
+def test_a_corridor_from_another_pose_estimate_is_warned_about(session):
+    assert "corridors are built from /odometry/filtered but poses come from /odom" \
+        in session["first_output"]
