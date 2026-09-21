@@ -128,12 +128,16 @@ from f1tenth_behavior.behaviours.stop import Stop
 
 from f1tenth_behavior.mission.detected_classes_bridge import DetectedClassesBridge
 from f1tenth_behavior.mission.loader import MissionLoader
+from f1tenth_behavior.safety_event import (
+    active_lane as find_active_lane, emergency_trip as find_emergency_trip,
+    make_safety_event_publisher)
 
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 
 import pydot
 from f1tenth_messages.msg import BehaviorTreeStatus
 from sensor_msgs.msg import CompressedImage
+from std_msgs.msg import String
 
 GOAL_POSE_KEY = 'goal_pose_goal'
 
@@ -303,39 +307,16 @@ def make_tree_status_publisher(node, publisher):
         msg = BehaviorTreeStatus()
         msg.header.stamp = node.get_clock().now().to_msg()
 
-        lane_names = []
-        lane_statuses = []
-        active_lane = ''
-        for child in root.children:
-            lane_names.append(child.name)
-            lane_statuses.append(child.status.name)
-            # First succeeding child is the one a memory=False Selector stopped
-            # at -- i.e. the lane that actually ran this tick.
-            if not active_lane and child.status == py_trees.common.Status.SUCCESS:
-                active_lane = child.name
-        msg.lane_names = lane_names
-        msg.lane_statuses = lane_statuses
+        msg.lane_names = [child.name for child in root.children]
+        msg.lane_statuses = [child.status.name for child in root.children]
+        # First succeeding child is the one a memory=False Selector stopped
+        # at -- i.e. the lane that actually ran this tick.
+        active_lane = find_active_lane(root)
         msg.active_lane = active_lane
 
-        # Which emergency child tripped. Walked by name so this keeps working
-        # when the emergency lane's composition changes with the
-        # enable_lidar_safety_stop/enable_sys_obs flags.
-        emergency_trip = ''
-        for child in root.children:
-            if child.name != 'emergency':
-                continue
-            for cond in child.children:
-                if cond.name != 'emergency_condition':
-                    continue
-                for leaf in cond.children:
-                    if leaf.status == py_trees.common.Status.SUCCESS:
-                        # tripped_reason is optional -- only IsSystemOverheated
-                        # currently exposes it (see that behaviour).
-                        reason = getattr(leaf, 'tripped_reason', '')
-                        emergency_trip = (
-                            f'{leaf.name}: {reason}' if reason else leaf.name)
-                        break
-        msg.emergency_trip = emergency_trip
+        # Which emergency child tripped (safety_event.emergency_trip, shared
+        # with /safety/event so the two always name a stop the same way).
+        msg.emergency_trip = find_emergency_trip(root)
 
         # stop_source mirrors the frame_id the corresponding Stop stamps, so
         # this topic can be cross-checked against /safety_stop itself.
@@ -750,6 +731,12 @@ def main():
     tree_status_pub = node.create_publisher(
         BehaviorTreeStatus, '/behavior/tree_status', 10)
     tree.add_post_tick_handler(make_tree_status_publisher(node, tree_status_pub))
+
+    # /safety/event: one 'estop' per rising edge of the emergency lane, for
+    # the test-campaign logger (see safety_event.py for why the lane and not
+    # each trigger). Ungated for the same reason as /behavior/tree_status.
+    safety_event_pub = node.create_publisher(String, '/safety/event', 10)
+    tree.add_post_tick_handler(make_safety_event_publisher(node, safety_event_pub))
 
     node.get_logger().info(
         f'BT safety config: camera_obstacle_stop={enable_camera_obstacle_stop} '

@@ -21,6 +21,7 @@ from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
+from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
@@ -1625,6 +1626,17 @@ class MPCController(Node):
         # but it must not silently drop the one tick that explains a stop.
         self.solver_status_pub = self.create_publisher(
             MpcSolverStatus, '/mpc/solver_status', 10)
+
+        # The test-campaign logger's two feeds (f1tenth_logger test_campaign,
+        # started by hand, never with the stack): std_msgs/String JSON, built
+        # by campaign_status.py from values the tick has already computed.
+        # /mpc/status after every solve, /corridor on every corridor rebuild,
+        # with an id that counts rebuilds. Neither is read by anything that
+        # controls the car, and both publishes are wrapped so a failure can
+        # only lose a message -- see _publish_campaign_status.
+        self.campaign_status_pub = self.create_publisher(String, '/mpc/status', 10)
+        self.corridor_pub = self.create_publisher(String, '/corridor', 10)
+        self._corridor_seq = 0
 
         self.goal_reached_pub = self.create_publisher(
             Bool,
@@ -3607,6 +3619,7 @@ class MPCController(Node):
                 f'psiRef={self.cached_corridor["psiRef"]:+.3f}'
             )
             self._publish_corridor_markers(self.cached_corridor, self.last_corridor_stamp)
+            self._publish_corridor_polygon(self.cached_corridor)
 
         if self.goal_object_odom_xy is not None:
             # EVERY TICK, not only on a rebuild. k and dpsi_max are the last
@@ -3767,6 +3780,7 @@ class MPCController(Node):
             status_msg.pred_yaw = x_pred_arr[:, 2].astype(np.float32).tolist()
             status_msg.pred_v = x_pred_arr[:, 3].astype(np.float32).tolist()
         self.solver_status_pub.publish(status_msg)
+        self._publish_campaign_status(info, solve_dt, status_msg.solver)
 
         self.get_logger().info(
             f'SOLVE/out | dt={solve_dt * 1e3:.1f} ms success={info.get("success")} '
@@ -4692,6 +4706,45 @@ class MPCController(Node):
             (0.8, 0.8, 0.8, 0.6),
         ))
         self.corridor_markers_pub.publish(markers)
+
+    def _publish_campaign_status(self, info, solve_dt, solver):
+        """/mpc/status for the test-campaign logger, once per solve.
+
+        Never raises: this runs inside control_loop between the solve and the
+        /drive publish, and a malformed info dict or a JSON error must cost a
+        status message, not the command that follows it.
+        """
+        try:
+            payload = mpc_status_payload(info, solve_dt, solver)
+            self.campaign_status_pub.publish(String(data=json.dumps(payload)))
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
+            self.get_logger().warn(
+                f'/mpc/status not published: {type(exc).__name__}: {exc}',
+                throttle_duration_sec=5.0)
+
+    def _publish_corridor_polygon(self, corridor):
+        """/corridor for the test-campaign logger, once per corridor rebuild.
+
+        Same frame as /mpc/corridor_markers ('odom', see
+        _publish_corridor_markers for why) and the same walls, as one closed
+        polygon. odom_topic names the pose estimate the walls were built
+        from, so a consumer measuring clearance against another estimate can
+        tell. Never raises, for the same reason as _publish_campaign_status.
+        """
+        try:
+            self._corridor_seq += 1
+            if getattr(self, 'active_odom_source', None) == 'sim':
+                odom_topic = self.sub_odom_sim.topic_name
+            else:
+                odom_topic = self.sub_odom_hw.topic_name
+            payload = corridor_payload(
+                corridor, self._corridor_seq, frame_id='odom', source='mpc_corr',
+                odom_topic=odom_topic)
+            self.corridor_pub.publish(String(data=json.dumps(payload)))
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
+            self.get_logger().warn(
+                f'/corridor not published: {type(exc).__name__}: {exc}',
+                throttle_duration_sec=5.0)
 
     def _corridor_lookahead(self, corridor):
         """Derive compute_local_target's lookahead from the corridor length.

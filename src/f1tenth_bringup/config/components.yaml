@@ -117,6 +117,16 @@ components:
     - package: f1tenth_perception
       launch_file: swept_clearance.launch.py
 
+  # OPTIONAL: in _NEVER_AUTO_START, so it runs only when asked for
+  # (./scripts/stackctl.py start obstacle_clearance). A data source for the
+  # test-campaign logger (/obstacle_clearance, contact events on
+  # /safety/event); nothing controls off it. Its own component for the same
+  # /scan reason as the three above. Enforced by f1tenth_bringup/test/
+  # test_obstacle_clearance_component.py.
+  obstacle_clearance:
+    - package: f1tenth_perception
+      launch_file: obstacle_clearance.launch.py
+
   control:
     - package: f1tenth_control
       launch_file: ackermann_mux.launch.py

@@ -474,6 +474,9 @@ def _solve_slsqp(
         "status": int(result.status),
         "message": str(result.message),
         "cost": float(result.fun) if result.fun is not None else 0.0,
+        # Reported on /mpc/status for the test-campaign logger; read nowhere
+        # in the control path.
+        "iterations": int(getattr(result, "nit", -1)),
         "zopt": zopt.copy()
     }
 
@@ -1155,6 +1158,9 @@ def _solve_rti(
         "status_message": str(results.info.status) if results.info is not None else "no solve",
         "message": str(results.info.status) if results.info is not None else "osqp returned no solution",
         "cost": float(true_cost),
+        # OSQP's ADMM iteration count, for /mpc/status (test-campaign logger);
+        # read nowhere in the control path.
+        "iterations": int(results.info.iter) if results.info is not None else -1,
         "zopt": zopt.copy(),
         "x_pred": x_pred,
         # Per-face boundary violation the solver actually bought, metres.

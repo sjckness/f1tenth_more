@@ -322,8 +322,10 @@ _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
 # Registered (restartable by name) but never auto-started -- on-demand only.
 # startup_sequence (the steering-sweep visual check) moved here on request --
 # see module docstring's own "calibrate_hardware, startup_sequence" paragraph
-# for why this is safe (no other node depends on it).
-_NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence'}
+# for why this is safe (no other node depends on it). obstacle_clearance is
+# the test-campaign logger's data source and likewise nothing depends on it:
+# started by hand for a campaign session (see its launch file).
+_NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence', 'obstacle_clearance'}
 # 'behavior' gates on a stack-wide branching value (get_value(), no CLI override --
 # see module docstring). 'intelligence' is DIFFERENT as of the component-auto-start
 # pass: 'enable_intelligence' here names this node's own declared parameter

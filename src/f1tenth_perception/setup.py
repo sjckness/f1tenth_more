@@ -49,6 +49,7 @@ setup(
             'lidar_front_wall_node = f1tenth_perception.lidar_front_wall_node:main',
             'swept_clearance_node = f1tenth_perception.swept_clearance_node:main',
             'wall_distance_node = f1tenth_perception.wall_distance_node:main',
+            'obstacle_clearance_node = f1tenth_perception.obstacle_clearance_node:main',
         ],
     },
 )
