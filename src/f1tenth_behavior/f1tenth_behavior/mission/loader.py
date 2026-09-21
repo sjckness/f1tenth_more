@@ -120,11 +120,12 @@ from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 
 from f1tenth_behavior.mission.mission_config import MissionConfigError, load_mission_file
-from f1tenth_behavior.mission.preflight import check_liveness, required_dependencies
+from f1tenth_behavior.mission.preflight import (
+    PREFLIGHT_BLACKBOARD_KEYS,
+    check_liveness,
+    required_dependencies,
+)
 from f1tenth_behavior.mission.runtime import (
-    CURRENT_XY_KEY,
-    FRONT_CLEARANCE_KEY,
-    MIN_OBSTACLE_DISTANCE_KEY,
     MISSION_KEY,
     MissionRuntimeState,
     MissionState,
@@ -181,11 +182,9 @@ class MissionLoader:
         # Read here only by _on_start_mission_service's preflight check
         # (mission/preflight.py) to confirm real data has actually arrived,
         # not merely that a node exists -- see that module's own docstring.
-        self.blackboard.register_key(key=CURRENT_XY_KEY, access=py_trees.common.Access.READ)
-        self.blackboard.register_key(
-            key=MIN_OBSTACLE_DISTANCE_KEY, access=py_trees.common.Access.READ)
-        self.blackboard.register_key(
-            key=FRONT_CLEARANCE_KEY, access=py_trees.common.Access.READ)
+        # The key list lives there too, so the two cannot drift apart.
+        for key in PREFLIGHT_BLACKBOARD_KEYS:
+            self.blackboard.register_key(key=key, access=py_trees.common.Access.READ)
 
         # Not part of MissionRuntimeState: unrelated to mission progress (can be
         # true whether or not a mission is even loaded), and unlike everything

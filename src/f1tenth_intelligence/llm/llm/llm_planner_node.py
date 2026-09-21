@@ -330,7 +330,17 @@ def _completion(system_prompt: str, command_text: str):
         ) from e
     response.raise_for_status()
     raw = response.json().get('content', '').strip()
-    parsed, end_index = json.JSONDecoder().raw_decode(raw)
+    try:
+        parsed, end_index = json.JSONDecoder().raw_decode(raw)
+    except ValueError as e:
+        # La STESSA eccezione, stesso tipo e stesso messaggio, ri-sollevata:
+        # le si appende soltanto il testo che il modello ha davvero prodotto.
+        # Senza questo, una risposta non parsabile e' l'unico fallimento di
+        # cui non resta traccia di cosa sia stato detto -- il chiamante vede
+        # "Expecting value: line 1 column 1" e nient'altro. Letto da
+        # _emit_result() (campo llm_raw) e da nessun altro.
+        e.llm_raw = raw
+        raise
     trailing = raw[end_index:].strip()
     if trailing:
         logging.getLogger(__name__).debug(
@@ -677,6 +687,48 @@ def go_to_enabled_default() -> bool:
     return bool(get_value('go_to_enabled'))
 
 
+# Prefisso della riga di esito macchina-leggibile (vedi _emit_result).
+RESULT_PREFIX = 'RESULT '
+
+
+def _emit_result(outcome: dict) -> None:
+    """Stampa UNA riga `RESULT {json}` per comando, sempre l'ultima.
+
+    PURAMENTE ADDITIVO: nessuna print, nessun log e nessun ritorno esistente
+    cambia: questa riga si aggiunge in fondo e basta. Serve a chi osserva il
+    nodo DA FUORI (la campagna di test --dry-run) per dire un fallimento LLM
+    da un fallimento del traduttore senza dover fare regex su prosa italiana
+    e senza mai vedere il TIPO dell'eccezione, che fino a qui non usciva.
+
+    I campi sono FATTI che il nodo conosce con certezza -- da quale stadio
+    l'esito e' uscito e quale eccezione e' stata sollevata -- non una
+    tassonomia: mappare error_type su categorie proprie e' compito di chi
+    consuma la riga, non di questo file.
+
+    `status` e' uno tra: ok, llm_error, translator_error, refused, node_error.
+    `refused` NON e' un errore -- e' EmptyPlanError, cioe' la risposta giusta
+    a un comando ambiguo o non eseguibile (vedi plan_translate.EmptyPlanError).
+    """
+    print(RESULT_PREFIX + json.dumps(outcome, ensure_ascii=False, default=str),
+          flush=True)
+
+
+def _llm_failure_outcome(exc: Exception, attempts: int) -> dict:
+    """Esito per un'eccezione arrivata dalla chiamata all'LLM.
+
+    `llm_raw` c'e' solo quando il modello ha risposto ma il testo non era
+    parsabile (vedi _completion): e' esattamente il caso in cui serve.
+    """
+    return {
+        'status': 'llm_error',
+        'stage': 'llm',
+        'error_type': type(exc).__name__,
+        'error_message': str(exc),
+        'attempts': attempts,
+        'llm_raw': getattr(exc, 'llm_raw', None),
+    }
+
+
 class LLMPlannerNode(Node):
     """Vedi il modulo docstring per il flusso completo.
 
@@ -705,6 +757,9 @@ class LLMPlannerNode(Node):
     def __init__(self, opts):
         super().__init__('llm_planner_node')
         self.opts = opts
+        # Esito dell'ultimo comando, riempito dai percorsi di pianificazione e
+        # stampato una volta da process_command() -- vedi _emit_result.
+        self._outcome = None
 
         # llm_url/llm_timeout_sec: gli unici parametri ROS di questo nodo.
         # Default sui moduli-level LLAMA_URL/LLAMA_TIMEOUT gia' definiti in
@@ -803,7 +858,7 @@ class LLMPlannerNode(Node):
                 break
             if not command:
                 continue
-            self.process_command(command)
+            self.run_command(command)
 
     # ── Servizi verso il sistema missioni reale ─────────────────────────
     def _call_trigger_service(self, client, service_name: str):
@@ -907,7 +962,9 @@ class LLMPlannerNode(Node):
         try:
             plan = get_plan_from_llm(command_text)
         except Exception as e:
-            self.get_logger().error(f'LLM: traduzione fallita ({e}). Nulla caricato.')
+            self.get_logger().error(
+                f'LLM: traduzione fallita ({type(e).__name__}: {e}). Nulla caricato.')
+            self._outcome = _llm_failure_outcome(e, attempts=1)
             return None
         dt = time.time() - t0
 
@@ -919,6 +976,11 @@ class LLMPlannerNode(Node):
         if not ok:
             self.get_logger().error(f'Piano invalido: {reason}. Nulla caricato.')
             self.get_logger().error(f'  (piano ricevuto: {json.dumps(plan, ensure_ascii=False)})')
+            self._outcome = {
+                'status': 'translator_error', 'stage': 'translator',
+                'error_type': 'InvalidPlan', 'error_message': reason,
+                'attempts': 1, 'llm_raw': json.dumps(plan, ensure_ascii=False),
+            }
             return None
         for w in warns:
             self.get_logger().warn(w)
@@ -927,6 +989,11 @@ class LLMPlannerNode(Node):
             mission = phases_to_mission(plan)
         except PlanTranslationError as e:
             self.get_logger().error(f'Traduzione in missione fallita: {e}. Nulla caricato.')
+            self._outcome = {
+                'status': 'translator_error', 'stage': 'translator',
+                'error_type': type(e).__name__, 'error_message': str(e),
+                'attempts': 1, 'llm_raw': json.dumps(plan, ensure_ascii=False),
+            }
             return None
         return mission, (), dt, 1, ()
 
@@ -945,11 +1012,15 @@ class LLMPlannerNode(Node):
         feedback = None
         unsupported_request = command_text
         t0 = time.time()
+        rejections = []          # un record per tentativo rifiutato (vedi _emit_result)
         for attempt in range(1, MAX_INTENT_RETRIES + 2):
             try:
                 intent = get_intent_from_llm(command_text, self._system_prompt, feedback)
             except Exception as e:
-                self.get_logger().error(f'LLM: generazione fallita ({e}). Nulla caricato.')
+                self.get_logger().error(
+                    f'LLM: generazione fallita ({type(e).__name__}: {e}). Nulla caricato.')
+                self._outcome = _llm_failure_outcome(e, attempts=attempt)
+                self._outcome['rejections'] = rejections
                 return None
 
             try:
@@ -968,6 +1039,8 @@ class LLMPlannerNode(Node):
                     f'non supportato (tentativo {attempt}/{MAX_INTENT_RETRIES + 1}): {e}')
                 self.get_logger().warn(
                     f'  (intent ricevuto: {json.dumps(intent, ensure_ascii=False)})')
+                rejections.append({'attempt': attempt, 'error_type': type(e).__name__,
+                                   'error_message': str(e), 'intent': intent})
                 continue
             except (IntentSchemaError, IntentRangeError) as e:
                 feedback = str(e)
@@ -975,8 +1048,10 @@ class LLMPlannerNode(Node):
                     f'intent rifiutato (tentativo {attempt}/{MAX_INTENT_RETRIES + 1}): {e}')
                 self.get_logger().warn(
                     f'  (intent ricevuto: {json.dumps(intent, ensure_ascii=False)})')
+                rejections.append({'attempt': attempt, 'error_type': type(e).__name__,
+                                   'error_message': str(e), 'intent': intent})
                 continue
-            except EmptyPlanError:
+            except EmptyPlanError as e:
                 # NON un errore del modello: e' la risposta giusta a un comando
                 # ambiguo o non supportato. Un retry qui insisterebbe perche'
                 # indovini.
@@ -990,6 +1065,15 @@ class LLMPlannerNode(Node):
                 # giusta, ed e' il primo messaggio che l'operatore legge.
                 items = list(intent.get('unsupported', ()))
                 ambiguous = [i for i in items if i.strip().lower().startswith('ambiguo')]
+                # `refused`, non un errore: vedi _emit_result. I due sotto-casi
+                # (ambiguo / non eseguibile) restano distinti come nelle print.
+                self._outcome = {
+                    'status': 'refused', 'stage': 'translator',
+                    'error_type': type(e).__name__, 'error_message': str(e),
+                    'attempts': attempt, 'ambiguous': bool(ambiguous),
+                    'unsupported': items, 'rejections': rejections,
+                    'llm_raw': json.dumps(intent, ensure_ascii=False),
+                }
                 if items and not ambiguous:
                     print('\nRICHIESTA NON SUPPORTATA -- il robot non sa farlo, '
                           'e non e\' un errore del planner:')
@@ -1011,8 +1095,20 @@ class LLMPlannerNode(Node):
                 self.get_logger().error(
                     'documento rifiutato:\n'
                     + json.dumps(e.mission, indent=2, ensure_ascii=False))
+                self._outcome = {
+                    'status': 'translator_error', 'stage': 'translator',
+                    'error_type': type(e).__name__, 'error_message': str(e),
+                    'attempts': attempt, 'rejections': rejections,
+                    'llm_raw': json.dumps(intent, ensure_ascii=False),
+                }
                 return None
 
+            self._outcome = {
+                'status': 'ok', 'stage': 'translator',
+                'error_type': None, 'error_message': None,
+                'attempts': attempt, 'rejections': rejections,
+                'llm_raw': json.dumps(intent, ensure_ascii=False),
+            }
             return (result.mission, result.unsupported, time.time() - t0, attempt,
                     result.notes)
 
@@ -1032,7 +1128,37 @@ class LLMPlannerNode(Node):
             f'richiesta non supportata dopo {MAX_INTENT_RETRIES + 1} tentativi: '
             f'{unsupported_request!r} (ultimo motivo: {feedback}). '
             'Nulla caricato, nessun ripiego.')
+        self._outcome = {
+            'status': 'translator_error', 'stage': 'translator',
+            'error_type': 'RetriesExhausted', 'error_message': feedback,
+            'attempts': MAX_INTENT_RETRIES + 1, 'rejections': rejections,
+            'llm_raw': json.dumps(intent, ensure_ascii=False),
+        }
         return None
+
+    def run_command(self, command_text: str) -> bool:
+        """process_command() piu' UNA riga RESULT finale (vedi _emit_result).
+
+        Involucro PURAMENTE ADDITIVO: process_command() qui sotto e' esattamente
+        quella di prima -- stesso nome, stesso corpo, stesso valore di ritorno,
+        stesse print -- cosi' che chi la chiama direttamente (i test lo fanno,
+        anche non-bound su uno stub) non veda alcuna differenza. I due punti di
+        ingresso REALI, main() e _input_loop(), passano invece di qui.
+
+        L'emissione e' in `finally` cosi' che anche un'eccezione che nessun
+        except cattura (un bug del traduttore) lasci comunque una riga di esito
+        prima di risalire come traceback.
+        """
+        self._outcome = None
+        try:
+            return self.process_command(command_text)
+        finally:
+            _emit_result(self._outcome or {
+                'status': 'node_error', 'stage': 'node',
+                'error_type': 'Unhandled',
+                'error_message': 'nessun esito registrato (vedi stderr)',
+                'attempts': None, 'llm_raw': None,
+            })
 
     def process_command(self, command_text: str) -> bool:
         planned = (self._plan_v2(command_text) if self._planner_path == 'v2'
@@ -1040,6 +1166,21 @@ class LLMPlannerNode(Node):
         if planned is None:
             return False
         mission, unsupported, dt, attempts, notes = planned
+
+        # Completa l'esito 'ok' gia' registrato dal pianificatore. `status`
+        # resta 'ok' anche piu' sotto se load/start falliscono: dice che una
+        # missione VALIDA e' stata prodotta, non che sia stata consegnata --
+        # la consegna ha i suoi log ed e' fuori dallo scopo di questa riga.
+        if isinstance(self._outcome, dict):
+            self._outcome.update({
+                'mission_id': mission.get('mission_id'),
+                'schema_version': mission.get('schema_version'),
+                'n_moves': len(mission.get('moves', ())),
+                'plan_seconds': round(dt, 3),
+                'unsupported': list(unsupported),
+                'notes': list(notes),
+                'mission': mission,
+            })
 
         tentativi = f', {attempts} tentativi' if attempts > 1 else ''
         print(f'\nmissione generata in {dt:.2f}s ({self._planner_path}{tentativi}), '
@@ -1066,8 +1207,18 @@ class LLMPlannerNode(Node):
             mission_path = self._write_mission_file(mission)
         except OSError as e:
             self.get_logger().error(f'scrittura della missione fallita: {e}. Nulla caricato.')
+            # Ne' LLM ne' traduttore: la missione era valida, e' il nodo che non
+            # e' riuscito a scriverla su disco.
+            self._outcome = {
+                'status': 'node_error', 'stage': 'node',
+                'error_type': type(e).__name__, 'error_message': str(e),
+                'attempts': attempts, 'mission_id': mission.get('mission_id'),
+                'llm_raw': None,
+            }
             return False
         print(f'\nscritta in: {mission_path}\n')
+        if isinstance(self._outcome, dict):
+            self._outcome['mission_path'] = mission_path
 
         if self.opts.dry_run:
             self.get_logger().warn('--dry-run: NON caricata sul sistema missioni')
@@ -1144,6 +1295,13 @@ def main(args=None):
         # client dei servizi missione), quindi qui non c'e' nessun
         # node.destroy_node() da chiamare -- solo rclpy.shutdown().
         print(f'ERRORE: {e}', file=sys.stderr)
+        # Stesso formato di esito degli altri percorsi (vedi _emit_result):
+        # qui il nodo non esiste nemmeno, quindi la riga la stampa main().
+        _emit_result({
+            'status': 'llm_error', 'stage': 'llm',
+            'error_type': type(e).__name__, 'error_message': str(e),
+            'attempts': 0, 'llm_raw': None,
+        })
         rclpy.shutdown()
         sys.exit(1)
 
@@ -1157,7 +1315,7 @@ def main(args=None):
             # (Ctrl-D/Ctrl-C).
             node._thread.join()
         else:
-            node.process_command(' '.join(opts.command))
+            node.run_command(' '.join(opts.command))
             # Nessun topic latched da tenere vivo (load_mission/start_mission
             # sono servizi sincroni, non piu' una publish fire-and-forget su
             # /corridor_cmd) -- a differenza della versione originaria, non

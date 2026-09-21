@@ -5,11 +5,24 @@ synthetic only" convention test_condition_eval.py already establishes.
 Run standalone: python3 -m pytest test/test_preflight.py -v
 """
 
+from pathlib import Path
+
 import pytest
 
-from f1tenth_behavior.mission.mission_config import parse_mission
-from f1tenth_behavior.mission.preflight import check_liveness, required_dependencies
-from f1tenth_behavior.mission.runtime import CURRENT_XY_KEY, FRONT_CLEARANCE_KEY
+from f1tenth_behavior.mission.mission_config import load_mission_file, parse_mission
+from f1tenth_behavior.mission.preflight import (
+    PREFLIGHT_BLACKBOARD_KEYS,
+    check_liveness,
+    required_dependencies,
+)
+from f1tenth_behavior.mission.runtime import (
+    CURRENT_XY_KEY,
+    FRONT_CLEARANCE_KEY,
+    GLOBAL_XY_KEY,
+    MIN_OBSTACLE_DISTANCE_FORWARD_KEY,
+)
+
+MISSIONS = Path(__file__).resolve().parent.parent / 'missions'
 
 
 def _mission(moves):
@@ -75,6 +88,26 @@ class TestRequiredDependencies:
         ])
         names = _names(required_dependencies(config))
         assert 'mpc_corr (/mpc/min_obstacle_distance)' in names
+
+    def test_every_blackboard_key_named_is_one_the_loader_can_read(self):
+        """MissionLoader registers READ access to PREFLIGHT_BLACKBOARD_KEYS and
+        nothing else, so any other key raises inside start_mission. One mission
+        per branch that names a key; go_to_object from a file, since its gap
+        is resolved against stack params at load."""
+        configs = [
+            _mission([_distance_move()]),
+            _mission([_distance_move(stop_type='front_clearance', stop_params={'distance': 1.0})]),
+            _mission([_distance_move(
+                stop_type='obstacle_distance_below', stop_params={'distance': 0.5})]),
+            _mission([_distance_move(
+                stop_type='obstacle_distance_below',
+                stop_params={'distance': 0.5, 'forward_only': True})]),
+            load_mission_file(str(MISSIONS / 'go_to_person_floor.json')),
+        ]
+        keys = {r.blackboard_key for c in configs for r in required_dependencies(c)} - {None}
+        assert keys <= set(PREFLIGHT_BLACKBOARD_KEYS)
+        # The two a hand-kept list in loader.py had missed.
+        assert {GLOBAL_XY_KEY, MIN_OBSTACLE_DISTANCE_FORWARD_KEY} <= keys
 
 
 class TestCheckLiveness:

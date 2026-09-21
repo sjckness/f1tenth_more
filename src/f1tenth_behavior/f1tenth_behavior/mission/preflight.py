@@ -58,6 +58,21 @@ from f1tenth_behavior.mission.runtime import (
     MIN_OBSTACLE_DISTANCE_KEY,
 )
 
+# Every blackboard_key a Requirement below can name. MissionLoader registers
+# READ access to exactly these, so a key added to a Requirement is readable at
+# start_mission without a second edit in loader.py. That second edit was
+# missed twice (MIN_OBSTACLE_DISTANCE_FORWARD_KEY, GLOBAL_XY_KEY): py_trees
+# raises AttributeError on an unregistered key, and raised inside the service
+# callback it killed behavior_executor_node on every go_to_object start
+# (2026-09-17). test_preflight.py fails if a Requirement names a key not here.
+PREFLIGHT_BLACKBOARD_KEYS = (
+    CURRENT_XY_KEY,
+    FRONT_CLEARANCE_KEY,
+    GLOBAL_XY_KEY,
+    MIN_OBSTACLE_DISTANCE_FORWARD_KEY,
+    MIN_OBSTACLE_DISTANCE_KEY,
+)
+
 
 @dataclass(frozen=True)
 class Requirement:
