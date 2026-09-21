@@ -105,6 +105,7 @@ for the same single-threaded-executor reason, not because they share this
 lock.
 """
 
+import json
 import math
 import os
 import threading
@@ -142,6 +143,18 @@ MISSION_STATUS_QOS = QoSProfile(
 )
 
 
+# MissionState -> the /test/mission_event name the campaign logger keys off
+# (tools/test_logging/README.md). IDLE and HOLDING deliberately have none:
+# the first is not a mission, the second is not a lifecycle edge -- the
+# mission is still live and the logger must keep recording.
+_TEST_EVENTS = {
+    MissionState.LOADED: 'mission_loaded',
+    MissionState.RUNNING: 'mission_started',
+    MissionState.COMPLETE: 'mission_finished',
+    MissionState.ABORTED: 'mission_aborted',
+}
+
+
 def _float_or_nan(value):
     return float(value) if value is not None and math.isfinite(float(value)) else math.nan
 
@@ -171,7 +184,8 @@ def _move_outcome_msg(outcome, mission_id, stamp):
 class MissionLoader:
 
     def __init__(self, node, load_path_topic='/mission/load_path', hold_topic='/mpc/hold',
-                 status_topic='/mission/status', move_outcome_topic='/mission/move_outcome'):
+                 status_topic='/mission/status', move_outcome_topic='/mission/move_outcome',
+                 test_event_topic='/test/mission_event'):
         self._node = node
         self._lock = threading.Lock()
         self.blackboard = py_trees.blackboard.Client(name='MissionLoader')
@@ -202,6 +216,26 @@ class MissionLoader:
         # watcher as /mission/status below; see _publish_new_outcomes.
         self.move_outcome_pub = node.create_publisher(MoveOutcome, move_outcome_topic, 10)
         self._outcomes_published = (None, 0)
+
+        # The mission lifecycle as JSON, for the test-campaign logger
+        # (tools/test_logging/). Published from _publish_status() and nowhere
+        # else -- see _publish_test_event for why.
+        self.test_event_pub = node.create_publisher(String, test_event_topic, 10)
+        self._last_event_key = None
+        self._pending_event_reason = ''
+
+        # Countdown between /mission/start_mission and the mission actually
+        # beginning, so every test starts from a measured standstill. The car
+        # cannot move during it: the state stays LOADED, and MissionActive only
+        # succeeds on RUNNING/HOLDING, so the mission subtree never ticks and no
+        # goal is ever published; /mpc/hold stays engaged until the timer fires.
+        # /mission/emergency_stop and /mission/abort_mission both cancel it.
+        self._countdown_s = float(
+            node.declare_parameter('mission_countdown_sec', 3.0).value)
+        # Read live at every start (see _countdown_seconds) so a campaign can
+        # retune it with `ros2 param set` between tests, without a restart.
+        self._countdown_timer = None
+        self._start_cancelled = False
 
         self._sub = node.create_subscription(
             String, load_path_topic, self._on_load_path, 10)
@@ -319,6 +353,29 @@ class MissionLoader:
                 )
                 return response
 
+            # The countdown leaves the state at LOADED, so without this a
+            # second call would arm a second timer against the same mission.
+            if self._countdown_timer is not None:
+                response.success = False
+                response.message = (
+                    f'cannot start: already starting in up to '
+                    f'{self._countdown_seconds():.1f} s '
+                    '(call /mission/abort_mission to cancel it)'
+                )
+                return response
+
+            # Refused rather than armed-and-then-refused: the emergency stop
+            # latches for the lifetime of the process, so this start could
+            # never be allowed to fire anyway (see _on_countdown_elapsed's own
+            # check, which is what stops one already in flight).
+            if self._emergency_stop_active:
+                response.success = False
+                response.message = (
+                    'cannot start: emergency stop is latched -- restart the '
+                    'node to clear it'
+                )
+                return response
+
             # Preflight liveness check (mission/preflight.py) -- confirms every
             # node/data source THIS mission actually needs is alive AND
             # publishing, not just that the service call itself is well-formed.
@@ -346,54 +403,155 @@ class MissionLoader:
                 return response
 
             mission_id = state.config.mission_id if state.config else ''
-            state.begin(now=time.monotonic())
-            # Fixes a real "load+start after abort doesn't work" bug found via
-            # live testing. Traced end-to-end, not assumed: neither this
-            # file's own state.state check above nor MissionRuntimeState.load()
-            # (called by _load(), unconditionally overwrites state -> LOADED
-            # regardless of what it was before) ever rejects a load/start
-            # sequence because of a PRIOR abort -- both correctly reset and
-            # succeed. The actual blocker lives entirely in mpc_corr, a
-            # different process: its own self.hold flag (MPC_corr.py's
-            # hold_callback/control_loop) is set True by abort_mission (both
-            # this service's own abort path and HandleObjectAction's
-            # on_object one), by AdvanceMove on mission COMPLETE, and by
-            # CheckStopCondition on_timeout='stop' -- and NOTHING, across this
-            # entire package, ever published hold(False) again except
-            # HandleObjectAction._resume() (the stop_and_hold-specific resume,
-            # unrelated to starting a brand new mission). So a fresh mission
-            # could load, start, reach RUNNING, and PublishMoveGoal a real
-            # goal to mpc_corr -- which would then silently zero its own
-            # output every tick regardless, because control_loop() checks
-            # self.hold before ever looking at the goal. From the operator's
-            # side this reads as "start_mission doesn't work", not as any
-            # kind of error, since every service call along the way
-            # genuinely succeeds.
-            #
-            # Fix, deliberately placed HERE rather than in abort_mission
-            # itself: releasing the hold is exactly correct at the moment a
-            # NEW mission is deliberately, successfully started (this is
-            # precisely the point the system should commit to actively
-            # driving again), not automatically during abort's own settling.
-            # Clearing it inside abort_mission instead would need a "the car
-            # has actually stopped" signal that does not exist anywhere in
-            # this stack today (no ERPM/velocity feedback loop watches for
-            # that), and publishing hold(False) there without one would risk
-            # releasing it before the abort has actually taken effect -- a
-            # worse safety regression than the bug being fixed. Doing it here
-            # instead also uniformly covers all three latch sources above
-            # (abort, mission-complete, timeout-stop) with one change, rather
-            # than three separate "wait for stopped, then release" additions.
-            self.hold_pub.publish(Bool(data=False))
-            self._node.get_logger().info(
-                f"[mission] '{mission_id}' STARTED via /mission/start_mission -- "
-                f'state=RUNNING from move 0 ({state.current_move.id!r}) -- '
-                '/mpc/hold released.'
-            )
-            response.success = True
-            response.message = f"started '{mission_id}'"
+            # Arm, do not begin: the mission starts in _on_countdown_elapsed,
+            # countdown_s from now, and only if nothing has asked it to stop by
+            # then. Deliberately NOT a sleep here -- this callback holds
+            # self._lock and blocks the executor, so sleeping in it would make
+            # /mission/emergency_stop unanswerable for exactly the window in
+            # which the operator is most likely to need it.
+            self._start_cancelled = False
+            countdown_s = self._countdown_seconds()
+            if countdown_s <= 0.0:
+                # Countdown switched off: identical to the behaviour before
+                # there was one. No timer exists, so there is nothing a stop
+                # could arrive in the middle of.
+                self._begin_mission(state, mission_id)
+                response.success = True
+                response.message = f"started '{mission_id}'"
+            else:
+                self._countdown_timer = self._node.create_timer(
+                    countdown_s, self._on_countdown_elapsed)
+                self._node.get_logger().info(
+                    f"[mission] '{mission_id}' starting in "
+                    f'{countdown_s:.1f} s -- state stays LOADED until '
+                    f'then, /mpc/hold still engaged, emergency stop armed.'
+                )
+                response.success = True
+                response.message = f'starting in {countdown_s:.1f} s'
         self._publish_status()
         return response
+
+    def _on_countdown_elapsed(self):
+        """The mission begins here, or it never begins at all.
+
+        Re-checks everything rather than trusting that the timer was cancelled:
+        rclpy can have this callback already queued in the executor when
+        _cancel_countdown() runs, so a stop that arrives in that window would
+        otherwise still start the car. ``_start_cancelled`` is the flag that
+        closes it.
+        """
+        with self._lock:
+            stop_requested = self._start_cancelled
+            self._cancel_countdown()        # one-shot: never fire twice
+            state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
+            mission_id = state.config.mission_id if state.config else ''
+
+            blocked = None
+            if stop_requested:
+                blocked = 'a stop was requested during the countdown'
+            elif self._emergency_stop_active:
+                blocked = 'the emergency stop is active'
+            elif state.state is not MissionState.LOADED:
+                blocked = f'state is {state.state.value}, not LOADED'
+
+            if blocked is not None:
+                self._node.get_logger().error(
+                    f"[mission] '{mission_id}' NOT started -- {blocked}. The car "
+                    'stays where it is.'
+                )
+                self._pending_event_reason = 'cancelled before start'
+                if state.state is MissionState.LOADED:
+                    # Do not leave it sitting at LOADED as though the start had
+                    # never been asked for: it was asked for and refused, and
+                    # the campaign logger needs that to be an outcome.
+                    state.abort()
+                    self.hold_pub.publish(Bool(data=True))
+            else:
+                self._begin_mission(state, mission_id)
+        self._publish_status()
+
+    def _begin_mission(self, state: MissionRuntimeState, mission_id: str):
+        """The actual start: RUNNING, /mpc/hold released, one log line.
+
+        Called from _on_countdown_elapsed, and directly from
+        _on_start_mission_service when mission_countdown_sec is 0 -- one body,
+        so the two paths cannot drift apart on something this safety-relevant.
+        Caller holds self._lock and publishes status afterwards.
+        """
+        state.begin(now=time.monotonic())
+        # Fixes a real "load+start after abort doesn't work" bug found via
+        # live testing. Traced end-to-end, not assumed: neither this
+        # file's own state.state check above nor MissionRuntimeState.load()
+        # (called by _load(), unconditionally overwrites state -> LOADED
+        # regardless of what it was before) ever rejects a load/start
+        # sequence because of a PRIOR abort -- both correctly reset and
+        # succeed. The actual blocker lives entirely in mpc_corr, a
+        # different process: its own self.hold flag (MPC_corr.py's
+        # hold_callback/control_loop) is set True by abort_mission (both
+        # this service's own abort path and HandleObjectAction's
+        # on_object one), by AdvanceMove on mission COMPLETE, and by
+        # CheckStopCondition on_timeout='stop' -- and NOTHING, across this
+        # entire package, ever published hold(False) again except
+        # HandleObjectAction._resume() (the stop_and_hold-specific resume,
+        # unrelated to starting a brand new mission). So a fresh mission
+        # could load, start, reach RUNNING, and PublishMoveGoal a real
+        # goal to mpc_corr -- which would then silently zero its own
+        # output every tick regardless, because control_loop() checks
+        # self.hold before ever looking at the goal. From the operator's
+        # side this reads as "start_mission doesn't work", not as any
+        # kind of error, since every service call along the way
+        # genuinely succeeds.
+        #
+        # Fix, deliberately placed HERE rather than in abort_mission
+        # itself: releasing the hold is exactly correct at the moment a
+        # NEW mission is deliberately, successfully started (this is
+        # precisely the point the system should commit to actively
+        # driving again), not automatically during abort's own settling.
+        # Clearing it inside abort_mission instead would need a "the car
+        # has actually stopped" signal that does not exist anywhere in
+        # this stack today (no ERPM/velocity feedback loop watches for
+        # that), and publishing hold(False) there without one would risk
+        # releasing it before the abort has actually taken effect -- a
+        # worse safety regression than the bug being fixed. Doing it here
+        # instead also uniformly covers all three latch sources above
+        # (abort, mission-complete, timeout-stop) with one change, rather
+        # than three separate "wait for stopped, then release" additions.
+        self.hold_pub.publish(Bool(data=False))
+        self._node.get_logger().info(
+            f"[mission] '{mission_id}' STARTED -- state=RUNNING from move 0 "
+            f'({state.current_move.id!r}) -- /mpc/hold released.'
+        )
+
+    def _countdown_seconds(self) -> float:
+        """The countdown as it is set RIGHT NOW, in seconds.
+
+        Falls back to the value read at construction when the node has no
+        get_parameter -- the unit tests drive this class with a minimal stub,
+        and a stub missing one accessor must not change the behaviour under
+        test.
+        """
+        getter = getattr(self._node, 'get_parameter', None)
+        if getter is None:
+            return self._countdown_s
+        try:
+            return float(getter('mission_countdown_sec').value)
+        except Exception:  # noqa: BLE001 -- an undeclared/odd stub parameter
+            return self._countdown_s
+
+    def _cancel_countdown(self) -> bool:
+        """Disarm a pending start. True if one was actually armed.
+
+        Every stop path calls this, and the caller must hold self._lock. It is
+        safe to call when nothing is armed -- the flag it sets is what stops an
+        already-queued _on_countdown_elapsed from starting the car anyway.
+        """
+        self._start_cancelled = True
+        timer, self._countdown_timer = self._countdown_timer, None
+        if timer is None:
+            return False
+        timer.cancel()
+        self._node.destroy_timer(timer)
+        return True
 
     def _on_abort_mission_service(
         self, request: Trigger.Request, response: Trigger.Response
@@ -412,6 +570,10 @@ class MissionLoader:
 
             mission_id = state.config.mission_id if state.config else ''
 
+            # A start that is counting down is cancelled here, before anything
+            # else: the car must never begin driving after a stop was asked for.
+            was_counting = self._cancel_countdown()
+
             # Same transition HandleObjectAction's on_object abort_mission action
             # performs (state.abort() + /mpc/hold(True)) -- reused, not
             # reimplemented. See that behaviour's _dispatch() for the other caller.
@@ -419,8 +581,15 @@ class MissionLoader:
             # driving): mpc_corr just holds at zero, which it already was.
             state.abort()
             self.hold_pub.publish(Bool(data=True))
+            self._pending_event_reason = (
+                'cancelled before start' if was_counting
+                else 'aborted via /mission/abort_mission'
+            )
             self._node.get_logger().error(
-                f"[mission] '{mission_id}' ABORTED via /mission/abort_mission service call."
+                f"[mission] '{mission_id}' ABORTED via /mission/abort_mission service call"
+                + (f' -- the pending {self._countdown_seconds():.1f} s start '
+                   f'was cancelled.'
+                   if was_counting else '.')
             )
             response.success = True
             response.message = f"aborted '{mission_id}'"
@@ -433,6 +602,20 @@ class MissionLoader:
         with self._lock:
             already_active = self._emergency_stop_active
             self._emergency_stop_active = True
+            # Nothing here waits or blocks, so this service stays answerable at
+            # any time -- including during a start countdown, which it cancels.
+            was_counting = self._cancel_countdown()
+            if was_counting:
+                state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
+                if state.state is MissionState.LOADED:
+                    state.abort()
+                self.hold_pub.publish(Bool(data=True))
+                self._pending_event_reason = 'cancelled before start'
+        if was_counting:
+            self._node.get_logger().error(
+                '[mission] the pending start countdown was CANCELLED by the '
+                'emergency stop -- the mission will not begin.'
+            )
         self._node.get_logger().error(
             '[mission] EMERGENCY STOP triggered via /mission/emergency_stop -- '
             'latched for the rest of this process\'s lifetime, restart to clear.'
@@ -493,6 +676,11 @@ class MissionLoader:
 
         with self._lock:
             state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
+            if self._cancel_countdown():
+                self._node.get_logger().warn(
+                    '[mission] a new mission was loaded while the previous one '
+                    'was counting down -- that start has been cancelled.'
+                )
             state.load(config, now=time.monotonic())
             self._current_json_path = path
         self._node.get_logger().info(
@@ -511,6 +699,36 @@ class MissionLoader:
         msg.json_path = self._current_json_path
         msg.emergency_stop_active = self._emergency_stop_active
         self.status_pub.publish(msg)
+        self._publish_test_event(state)
         # Read by _on_state_watch_tick to detect transitions this file's own
         # service paths did NOT publish -- see __init__'s own comment.
         self._last_published_state = state.state
+
+    def _publish_test_event(self, state: MissionRuntimeState):
+        """One /test/mission_event per lifecycle edge, from here and nowhere else.
+
+        Called only by _publish_status(), which every service path and the
+        state watcher already call -- so the three terminal transitions that
+        happen inside a BT tick are covered without this file having to
+        enumerate them. That is the same reasoning as the MISSION-END EVENT GAP
+        FIX in __init__, and the reason there is no second publish call
+        anywhere: adding one per call site is exactly how three of them drifted
+        out of sync before.
+
+        plan_id is the mission_id. The planner puts that same string in its
+        /test/plan_result, so the campaign logger can check that these events
+        belong to the test it currently has open.
+        """
+        reason, self._pending_event_reason = self._pending_event_reason, ''
+        event = _TEST_EVENTS.get(state.state)
+        if event is None:
+            return
+        mission_id = state.config.mission_id if state.config else ''
+        key = (state.state, mission_id)
+        if key == self._last_event_key:
+            return              # this edge has already been announced
+        self._last_event_key = key
+        payload = {'event': event, 'plan_id': mission_id, 'reason': reason}
+        if event == 'mission_loaded':
+            payload['countdown_s'] = self._countdown_seconds()
+        self.test_event_pub.publish(String(data=json.dumps(payload)))

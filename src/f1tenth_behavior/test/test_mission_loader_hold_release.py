@@ -75,6 +75,20 @@ class _FakeParam:
         self.value = value
 
 
+class _FakeTimer:
+    """MissionLoader cancels and destroys the start countdown's timer, so the
+    fake has to be cancellable -- returning None would make _cancel_countdown
+    believe nothing was ever armed."""
+
+    def __init__(self, period_sec, callback):
+        self.period_sec = period_sec
+        self.callback = callback
+        self.cancelled = False
+
+    def cancel(self):
+        self.cancelled = True
+
+
 class _FakeNode:
     """Just enough of rclpy.node.Node for MissionLoader.__init__ and the
     three service handlers under test -- see module docstring."""
@@ -95,13 +109,19 @@ class _FakeNode:
         return None
 
     def create_timer(self, period_sec, callback):
-        # MissionLoader's own /mission/status state-change watcher (see that
-        # file's MISSION-END EVENT GAP FIX comment). Stored, never fired here
-        # -- this test covers the hold-release path; the watcher itself is
-        # covered by test_mission_status_republish.py.
+        # Two timers land here: MissionLoader's own /mission/status
+        # state-change watcher (see that file's MISSION-END EVENT GAP FIX
+        # comment), created at construction and never fired by this test
+        # (test_mission_status_republish.py covers it), and the one-shot
+        # start countdown armed by /mission/start_mission, which _fire_
+        # countdown() below fires by hand.
         self.timers = getattr(self, 'timers', [])
-        self.timers.append((period_sec, callback))
-        return None
+        timer = _FakeTimer(period_sec, callback)
+        self.timers.append(timer)
+        return timer
+
+    def destroy_timer(self, timer):
+        self.timers = [t for t in getattr(self, 'timers', []) if t is not timer]
 
     def declare_parameter(self, name, default):
         return _FakeParam(default)  # mission_file_name unset -- no auto-load
@@ -130,6 +150,22 @@ def _make_loader():
     return loader, node
 
 
+def _fire_countdown(loader, node):
+    """Run the start countdown to completion, as the executor would.
+
+    /mission/start_mission no longer starts the mission itself: it arms a
+    mission_countdown_sec timer (default 3 s) so every logged test begins from
+    a measured standstill, and the mission begins in _on_countdown_elapsed --
+    which is also where /mpc/hold is released. These tests drive that timer
+    directly rather than waiting three real seconds.
+    """
+    pending = [t for t in getattr(node, 'timers', [])
+               if t.callback == loader._on_countdown_elapsed and not t.cancelled]
+    assert pending, 'no start countdown was armed'
+    for timer in pending:
+        timer.callback()
+
+
 def _trigger_request():
     return types.SimpleNamespace()
 
@@ -150,6 +186,9 @@ class TestHoldReleasedOnStart:
         resp = loader._on_start_mission_service(_trigger_request(), _trigger_response())
         assert resp.success is True
         hold_pub = node.publishers['/mpc/hold']
+        # Nothing is released while the countdown runs: that is the point of it.
+        assert hold_pub.published == []
+        _fire_countdown(loader, node)
         assert any(m.data is False for m in hold_pub.published)
 
     def test_reproduces_the_bug_then_confirms_the_fix(self):
@@ -165,6 +204,7 @@ class TestHoldReleasedOnStart:
         assert load_ok is True, load_msg
         start_resp = loader._on_start_mission_service(_trigger_request(), _trigger_response())
         assert start_resp.success is True
+        _fire_countdown(loader, node)
 
         abort_resp = loader._on_abort_mission_service(_trigger_request(), _trigger_response())
         assert abort_resp.success is True
@@ -181,6 +221,7 @@ class TestHoldReleasedOnStart:
         assert load_ok is True
         start_resp_2 = loader._on_start_mission_service(_trigger_request(), _trigger_response())
         assert start_resp_2.success is True
+        _fire_countdown(loader, node)
 
         # THE fix: the hold latched by the abort above must have been
         # released by this second, successful start_mission -- the last

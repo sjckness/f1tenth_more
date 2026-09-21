@@ -113,6 +113,7 @@ from rclpy.utilities import remove_ros_args
 
 from ament_index_python.packages import get_package_share_directory
 from f1tenth_messages.srv import LoadMission
+from std_msgs.msg import String
 from std_srvs.srv import Trigger
 
 from llm.plan_translate import (
@@ -690,6 +691,12 @@ def go_to_enabled_default() -> bool:
 # Prefisso della riga di esito macchina-leggibile (vedi _emit_result).
 RESULT_PREFIX = 'RESULT '
 
+# Consumatori AGGIUNTIVI dell'esito, registrati da chi ne ha uno (il nodo
+# registra il publisher /test/plan_result). La riga stampata resta identica:
+# questo e' un secondo destinatario, non una sostituzione, e un sink che
+# solleva non puo' impedire l'emissione ne' rompere il comando.
+_RESULT_SINKS = []
+
 
 def _emit_result(outcome: dict) -> None:
     """Stampa UNA riga `RESULT {json}` per comando, sempre l'ultima.
@@ -711,6 +718,12 @@ def _emit_result(outcome: dict) -> None:
     """
     print(RESULT_PREFIX + json.dumps(outcome, ensure_ascii=False, default=str),
           flush=True)
+    for sink in tuple(_RESULT_SINKS):
+        try:
+            sink(outcome)
+        except Exception as e:  # noqa: BLE001 -- un sink rotto non e' un errore
+            print(f'{RESULT_PREFIX}sink fallito: {type(e).__name__}: {e}',
+                  file=sys.stderr, flush=True)
 
 
 def _llm_failure_outcome(exc: Exception, attempts: int) -> dict:
@@ -760,6 +773,15 @@ class LLMPlannerNode(Node):
         # Esito dell'ultimo comando, riempito dai percorsi di pianificazione e
         # stampato una volta da process_command() -- vedi _emit_result.
         self._outcome = None
+        # Finestra REALE della chiamata all'LLM, in tempo ROS: marcata attorno
+        # alla chiamata stessa (vedi _note_llm_sent/_note_llm_received), non
+        # attorno a process_command(), che fa anche traduzione, scrittura file
+        # e chiamate di servizio. Con i retry, 'sent' resta quello del PRIMO
+        # tentativo e 'received' quello dell'ultimo: e' l'attesa che l'utente
+        # ha davvero pagato per questo comando.
+        self._llm_t_sent = None
+        self._llm_t_received = None
+        self._command_text = ''
 
         # llm_url/llm_timeout_sec: gli unici parametri ROS di questo nodo.
         # Default sui moduli-level LLAMA_URL/LLAMA_TIMEOUT gia' definiti in
@@ -777,6 +799,8 @@ class LLMPlannerNode(Node):
         self.declare_parameter('llm_url', LLAMA_URL)
         self.declare_parameter('llm_timeout_sec', LLAMA_TIMEOUT)
         self.declare_parameter('planner_path', DEFAULT_PLANNER_PATH)
+        # Topic dell'esito per la campagna di test (tools/test_logging/).
+        self.declare_parameter('test_plan_result_topic', '/test/plan_result')
         # go_to_enabled: stack_params.yaml's value, overridable per run.
         self.declare_parameter('go_to_enabled', go_to_enabled_default())
         LLAMA_URL = str(self.get_parameter('llm_url').value)
@@ -838,6 +862,16 @@ class LLMPlannerNode(Node):
         self.start_client = self.create_client(Trigger, '/mission/start_mission')
         self.abort_client = self.create_client(Trigger, '/mission/abort_mission')
 
+        # /test/plan_result: un messaggio per comando, riuscito o fallito,
+        # per il logger della campagna (tools/test_logging/). Registrato come
+        # SINK di _emit_result invece di essere chiamato dai percorsi di
+        # pianificazione, cosi' che valga per ogni esito senza dover elencare
+        # i punti di uscita -- esattamente il motivo per cui la riga RESULT
+        # sta li' e non in process_command().
+        self.test_plan_pub = self.create_publisher(
+            String, str(self.get_parameter('test_plan_result_topic').value), 10)
+        _RESULT_SINKS.append(self._publish_plan_result)
+
         self.get_logger().info(
             f'LLM Planner (llama-server @ {LLAMA_URL}) pronto -- consegna via '
             '/mission/load_mission + /mission/start_mission.'
@@ -849,6 +883,60 @@ class LLMPlannerNode(Node):
             self.get_logger().info('Scrivi un comando e premi invio (Ctrl-D per uscire).')
             self._thread = threading.Thread(target=self._input_loop, daemon=True)
             self._thread.start()
+
+    def _ros_now(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _note_llm_sent(self):
+        """Marca l'invio del prompt. Solo il PRIMO tentativo di un comando."""
+        if self._llm_t_sent is None:
+            self._llm_t_sent = self._ros_now()
+
+    def _note_llm_received(self):
+        """Marca la risposta. Ogni tentativo: vince l'ultimo."""
+        self._llm_t_received = self._ros_now()
+
+    def _publish_plan_result(self, outcome: dict):
+        """Esito -> /test/plan_result (sezione 16a del brief test-logging).
+
+        `status` e' ok/error soltanto: la distinzione fine (llm_error,
+        translator_error, refused, node_error) resta in `planner_status`, che
+        il logger ignora ma un'analisi successiva no.
+
+        `plan_id` e' il mission_id, cioe' la STESSA stringa che finisce nel
+        file missione consegnato a /mission/load_mission: il loader la
+        ripubblica come plan_id nei suoi /test/mission_event, ed e' cosi' che
+        il logger verifica che quegli eventi appartengano al test aperto.
+        """
+        status = 'ok' if outcome.get('status') == 'ok' else 'error'
+        error = ''
+        if status != 'ok':
+            error = ': '.join(str(x) for x in (
+                outcome.get('error_type'), outcome.get('error_message')) if x)
+        sent = self._llm_t_sent
+        received = self._llm_t_received
+        if sent is None:
+            # Nessuna chiamata all'LLM e' mai partita (es. errore di nodo
+            # prima): la finestra e' vuota, non inventata.
+            sent = received = self._ros_now()
+        elif received is None:
+            received = self._ros_now()
+        payload = {
+            'prompt_num': self.opts.prompt_num,
+            'prompt_text': self._command_text,
+            'kind': self.opts.kind,
+            't_prompt_sent': sent,
+            't_response_received': received,
+            'latency_ms': (received - sent) * 1000.0,
+            'status': status,
+            'error': error,
+            'plan_id': outcome.get('mission_id') or '',
+            'plan': outcome.get('mission'),
+            'planner_status': outcome.get('status'),
+            'attempts': outcome.get('attempts'),
+        }
+        self.test_plan_pub.publish(
+            String(data=json.dumps(payload, ensure_ascii=False, default=str)))
 
     def _input_loop(self):
         while not self._stop:
@@ -959,13 +1047,16 @@ class LLMPlannerNode(Node):
         fallback. Ritorna (mission, unsupported, secondi, tentativi) o None.
         """
         t0 = time.time()
+        self._note_llm_sent()
         try:
             plan = get_plan_from_llm(command_text)
         except Exception as e:
+            self._note_llm_received()
             self.get_logger().error(
                 f'LLM: traduzione fallita ({type(e).__name__}: {e}). Nulla caricato.')
             self._outcome = _llm_failure_outcome(e, attempts=1)
             return None
+        self._note_llm_received()
         dt = time.time() - t0
 
         plan, fixes = normalize_plan(plan)
@@ -1014,14 +1105,17 @@ class LLMPlannerNode(Node):
         t0 = time.time()
         rejections = []          # un record per tentativo rifiutato (vedi _emit_result)
         for attempt in range(1, MAX_INTENT_RETRIES + 2):
+            self._note_llm_sent()
             try:
                 intent = get_intent_from_llm(command_text, self._system_prompt, feedback)
             except Exception as e:
+                self._note_llm_received()
                 self.get_logger().error(
                     f'LLM: generazione fallita ({type(e).__name__}: {e}). Nulla caricato.')
                 self._outcome = _llm_failure_outcome(e, attempts=attempt)
                 self._outcome['rejections'] = rejections
                 return None
+            self._note_llm_received()
 
             try:
                 result = translate(intent, go_to_enabled=self._go_to_enabled)
@@ -1150,6 +1244,9 @@ class LLMPlannerNode(Node):
         prima di risalire come traceback.
         """
         self._outcome = None
+        self._command_text = command_text
+        self._llm_t_sent = None
+        self._llm_t_received = None
         try:
             return self.process_command(command_text)
         finally:
@@ -1276,6 +1373,15 @@ def build_parser():
                    help='traduce e scrive il file missione, ma non chiama i servizi')
     p.add_argument('--confirm', action='store_true',
                    help='chiede conferma prima di chiamare load_mission/start_mission')
+    # Campagna di test (tools/test_logging/): finiscono in /test/plan_result.
+    p.add_argument('--prompt-num', type=int, default=-1, dest='prompt_num',
+                   help='numero del prompt in prompts.yaml della campagna. '
+                        '-1 (default) lascia che il logger risolva il test dal '
+                        'TESTO esatto del comando.')
+    p.add_argument('--kind', choices=('initial', 'replan'), default='initial',
+                   help="'replan' se questo comando ri-pianifica una missione "
+                        'gia\' in corso: il logger lo aggiunge al test aperto '
+                        'invece di aprirne uno nuovo.')
     return p
 
 
