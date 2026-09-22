@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>corridor_perception</name>
+  <version>0.0.1</version>
+  <description>
+    Structural corridor perception from a 2D lidar: line extraction, corridor
+    axis and surface classification, a motion-noise model, and replay of
+    recorded rosbag2 data.
+
+    The perception core (geometry, scan, extraction, axis, process_noise) is numpy
+    only and imports no ROS package, so it can be exercised without a sourced
+    workspace. replay.py is the single exception and the reason for the
+    dependencies below: deserialising a recorded /scan needs the message
+    definition it was recorded with, and there is no numpy-only way to read a
+    rosbag2. Those imports are function local, inside the loader, so importing
+    anything else in the package stays ROS free.
+  </description>
+  <maintainer email="fabio.carapellese@seamorphrobotics.com">fabiocar</maintainer>
+  <license>MIT</license>
+
+  <exec_depend>python3-numpy</exec_depend>
+
+  <!-- replay.py only, for reading recorded bags. See the description above. -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>tf2_msgs</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
