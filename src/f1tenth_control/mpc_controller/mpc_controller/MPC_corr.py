@@ -4520,7 +4520,15 @@ class MPCController(Node):
             # the car away from the approach. assess_object_approach's
             # persistent flag is the gate. getattr for the duck-typed corridor
             # test stand-ins, which carry no object flags.
-            if getattr(self, 'object_behind_terminal', False):
+            if not use_arc:
+                # ON A STRAIGHT OBJECT CORRIDOR THE CENTRELINE *IS* THE TARGET
+                # LINE. w_corr already owns that error; adding w_line on top
+                # would charge the same deviation twice and double the lateral
+                # stiffness (1.25 + 1.25) on the DEFAULT path, where nothing
+                # about the geometry has changed at all. The split exists only
+                # because the arc makes them two different curves.
+                target_line = None
+            elif getattr(self, 'object_behind_terminal', False):
                 target_line = None
                 self.get_logger().warn(
                     'CORR/object | target behind the car: the target-line cost '

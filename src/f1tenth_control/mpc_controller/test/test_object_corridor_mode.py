@@ -158,20 +158,6 @@ def test_w_line_is_stage_scaled_like_w_corr():
     assert scaled['w_term'] == pytest.approx(9.0)      # terminal, untouched
 
 
-def test_w_line_is_on_the_same_derivation_as_the_weights_it_joins():
-    """NOT a fitted number. The stage weights obey literal = rho / (7 sigma^2)
-    -- see test_weight_set.py -- and w_line ships at rho 1.0 over sigma 0.20 m,
-    the same pair w_corr uses, so its effective weight is the lateral authority
-    w_corr already provided on the object branch. It is a transfer expressed in
-    the set's own units, not an exception to them.
-    """
-    from f1tenth_params.param_defaults import get_value
-    rho, sigma = 1.0, 0.20
-    assert get_value('mpc_w_line') == pytest.approx(rho / (7 * sigma ** 2), rel=1e-4)
-    w_line = scale_stage_weights({'w_line': get_value('mpc_w_line')}, 20)['w_line']
-    assert w_line == pytest.approx(1.25, abs=1e-3)
-
-
 def test_the_global_w_corr_is_untouched_by_the_arc():
     """The arc's tolerances are ARC-SCOPED. The straight and turn branches keep
     the weight set they are tuned at, which is the whole reason the split is
@@ -248,6 +234,43 @@ def test_a_non_positive_sigma_is_rejected(bad):
     with pytest.raises(ZeroDivisionError if bad == 0.0 else AssertionError):
         got = node.weights_for({'objectShape': 'arc'})
         assert got['w_corr'] > 0 and bad > 0
+
+
+def test_a_straight_object_corridor_carries_no_target_line():
+    """THE REGRESSION THIS PINS. On a straight object corridor the centreline
+    IS the target line, so a w_line term on top of w_corr would charge the same
+    deviation twice and put 2.5 of lateral stiffness on the DEFAULT path, where
+    the geometry has not changed at all. The split exists only because the arc
+    makes them two different curves, so the line is carried only by an arc.
+
+    Asserted on the shape, which is what MPC_corr gates on: 'straight' and
+    'none' must produce no line, 'arc' must produce one.
+    """
+    node = _WeightNode()
+    # the weight override and the line are gated on the SAME shape value, so a
+    # non-arc corridor gets neither
+    for shape in ('none', 'straight'):
+        assert node.weights_for({'objectShape': shape}) is node.weights
+    assert node.weights_for({'objectShape': 'arc'}) is not node.weights
+
+
+def test_off_mode_leaves_the_lateral_stiffness_exactly_as_it_was():
+    """object_corridor_mode defaults to 'off'. Nothing about the weights the
+    car flies may change until it is asked for."""
+    from f1tenth_params.param_defaults import get_value
+    assert get_value('object_corridor_mode') == 'off'
+    node = _WeightNode()
+    got = scale_stage_weights(node.weights_for({'objectShape': 'straight'}), 20)
+    assert got['w_corr'] == pytest.approx(1.25, abs=1e-3)
+
+
+def test_the_declared_w_line_agrees_with_the_arc_sigma():
+    """Two spellings of one number would drift. The yaml literal is the same
+    rho/(7 sigma^2) the arc-scoped override computes."""
+    from f1tenth_params.param_defaults import get_value
+    sigma = get_value('mpc_arc_line_sigma_m')
+    assert get_value('mpc_w_line') == pytest.approx(
+        1.0 / (7 * sigma ** 2), rel=1e-3)
 
 
 @pytest.mark.parametrize('corridor', [
