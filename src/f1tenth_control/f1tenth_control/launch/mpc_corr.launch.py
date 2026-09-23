@@ -261,7 +261,17 @@ def generate_launch_description():
             'mpc_w_psi_stage': LaunchConfiguration('mpc_w_psi_stage'),
             'mpc_w_corr': LaunchConfiguration('mpc_w_corr'),
             'mpc_w_line': LaunchConfiguration('mpc_w_line'),
-            'object_corridor_mode': LaunchConfiguration('object_corridor_mode'),
+            # ParameterValue(value_type=str), the same treatment model_log_path
+            # gets below. An UNTYPED substitution is coerced with YAML 1.1
+            # rules, under which a bare `off` is the BOOLEAN false -- and 'off'
+            # is this parameter's own default, so every bringup wrote
+            # `object_corridor_mode: false` into the generated params file and
+            # mpc_corr died in __init__ on InvalidParameterTypeException
+            # ("expecting type 'STRING'") before main() ever ran. The other two
+            # values, 'arc' and 'arc_far', survive the coercion untouched, which
+            # is why only the default -- i.e. every plain bringup -- was hit.
+            'object_corridor_mode': ParameterValue(
+                LaunchConfiguration('object_corridor_mode'), value_type=str),
             'mpc_arc_corr_sigma_m': LaunchConfiguration('mpc_arc_corr_sigma_m'),
             'mpc_arc_line_sigma_m': LaunchConfiguration('mpc_arc_line_sigma_m'),
             'object_arc_switch_hi_frac': LaunchConfiguration(

@@ -15,6 +15,7 @@ import pytest
 from f1tenth_logger.test_campaign.corridor_def import (
     SCHEMA_V1,
     SCHEMA_V2,
+    CorridorRecord,
     evaluate,
     load_corridors,
     schema_of,
@@ -157,6 +158,49 @@ def test_the_centreline_is_resolution_dependent_on_purpose():
 # --------------------------------------------------------------------------
 # v1 compatibility
 # --------------------------------------------------------------------------
+
+def test_a_bezier_centreline_round_trips_through_the_record():
+    """The pose geometry's record must re-evaluate to the planner's curve.
+
+    The two centrelines share one schema and differ only by a key, so this is
+    the assertion that the key is read: evaluated as a heading ramp of length
+    L the same record would draw a curve that never touches C1.
+    """
+    geom = mpc.corridor_curves_to_pose(
+        0.0, 0.0, -0.1, 3.0, 0.8, 0.25, 120,
+        w0=0.4333, w1=0.7667, length_ref=3.0)
+    record = CorridorRecord({
+        "t": 1.0, "id": 4, "source": "mpc_corr",
+        "polygon": [[float(x), float(y)] for x, y in zip(geom["xL"], geom["yL"])],
+        "meta": {"frame_id": "odom", "definition": {
+            "type": SCHEMA_V2,
+            "C0": [0.0, 0.0], "psiStart": -0.1, "psiEnd": 0.25,
+            "dpsi": float(geom["dpsi"]), "psiRefTurn": None,
+            "L": float(geom["length"]), "corr_N": 120,
+            "u_start": 0.0, "u_end": 0.40, "w0": 0.4333, "w1": 0.7667,
+            "handle_frac": mpc.CORRIDOR_HANDLE_FRAC,
+            "centreline": "bezier",
+            "C1": [3.0, 0.8],
+            "handle_a": mpc.POSE_HANDLE_FRAC,
+            "handle_b": mpc.POSE_HANDLE_FRAC,
+        }},
+    })
+    again = evaluate(record)
+    assert again is not None
+    assert again["xc"][-1] == pytest.approx(3.0)
+    assert again["yc"][-1] == pytest.approx(0.8)
+    for key in ("xc", "yc", "xL", "yL", "halfWidth"):
+        assert again[key] == pytest.approx(geom[key])
+
+
+def test_a_record_with_no_centreline_key_is_a_ramp():
+    """Every corridor logged before the pose geometry existed."""
+    geom, record = build()
+    loaded = CorridorRecord(record)
+    assert "centreline" not in loaded.definition
+    again = evaluate(loaded)
+    assert again["xc"] == pytest.approx(geom["xc"])
+
 
 def test_a_v1_polygon_only_file_still_loads(tmp_path):
     """Every run in first_test_campaing/ is this shape. It must load, report

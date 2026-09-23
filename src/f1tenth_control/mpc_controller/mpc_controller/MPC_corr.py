@@ -24,7 +24,8 @@ from f1tenth_messages.msg import (
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
-    CORRIDOR_HANDLE_FRAC, corridor_curves, wrap_pi)
+    CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
+    corridor_curves_to_pose, wrap_pi)
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
@@ -478,6 +479,15 @@ class MPCController(Node):
                 f"object_corridor_mode '{self.object_corridor_mode}' is not one "
                 "of off|arc|arc_far: falling back to 'off'")
             self.object_corridor_mode = 'off'
+        # WHICH GEOMETRY IS RUNNING, said out loud at startup and again at
+        # every mission start (see hold_callback). A run was taken on 'off'
+        # and read back from the figures as if it might have been the arc:
+        # the mode is recorded in every corridor's v2 definition, but nobody
+        # opens the jsonl mid-session. Default is INFO, anything else WARN --
+        # a non-default geometry on the car is worth one loud line, and the
+        # asymmetry is the point: silence in the log means the default.
+        self._object_mode_default = str(get_value('object_corridor_mode'))
+        self._log_object_corridor_mode('startup')
         # THE SWITCH BAND, as multiples of the lookahead clamp distance rather
         # than metres, so it follows that distance instead of restating it.
         # _lookahead_clamp_length() is the one definition; at the shipping
@@ -1955,9 +1965,35 @@ class MPCController(Node):
             throttle_duration_sec=1.0
         )
 
+    def _log_object_corridor_mode(self, when):
+        """Say which object-corridor geometry is active, once, at `when`.
+
+        WARN when it is not stack_params' default, INFO when it is: a run on
+        a non-default geometry must be visible in a log read after the fact,
+        and a run on the default must not add noise to every mission start.
+        """
+        mode = getattr(self, 'object_corridor_mode', 'off')
+        default = getattr(self, '_object_mode_default', 'off')
+        shape = {'off': 'straight corridor pinned to the target line',
+                 'arc': 'arc from the car to the target, always',
+                 'arc_far': 'arc beyond the switch band, straight inside it'}
+        text = (f'OBJECT CORRIDOR | {when}: object_corridor_mode={mode!r} '
+                f'({shape.get(mode, "unknown")})')
+        if mode == default:
+            self.get_logger().info(f'{text} -- the default')
+        else:
+            self.get_logger().warn(f'{text} -- NOT the default ({default!r})')
+
     def hold_callback(self, msg: Bool):
         if msg.data != self.hold:
             self.get_logger().info(f'HOLD | {"engaged" if msg.data else "released"}')
+            # A hold RELEASE is this node's only view of "a mission just
+            # started": the behaviour tree releases it as the mission goes
+            # RUNNING. Logging the mode here puts it in the log next to the
+            # run it governs, rather than only in a startup banner that may be
+            # hours and several missions earlier.
+            if not msg.data:
+                self._log_object_corridor_mode('mission start')
         self.hold = msg.data
         # A hold ENDS an object approach; it does not pause it. Every mission
         # path that finishes a run holds (mission complete, abort, timeout), and
@@ -4174,6 +4210,21 @@ class MPCController(Node):
         # campaign columns. 'none' on every other branch: the field always
         # exists, so a reader never has to infer the mode from its absence.
         object_corridor_shape = 'none'
+
+        # The POSE the centreline must END on, when it must end on one.
+        # Set only by the object branch, and only where ending on the target
+        # is both wanted and drivable (see there). None everywhere else means
+        # the ordinary length-driven geometry: the corridor ends where a
+        # heading ramp of that length happens to put it.
+        pose_target = None
+
+        # The standoff point this corridor was built to reach, and the tracked
+        # target it was derived from -- both odom, both None off the object
+        # branch. Logged per rebuild because "where was the car being sent"
+        # was not recoverable from a finished run: corridors.jsonl carried the
+        # geometry but never the target behind it, so a corridor built on a
+        # stale or jumped target looked exactly like one built on a good one.
+        object_goal_xy = None
         # The straight line the target sits on, for mpc_solver's w_line term.
         # None on every branch but the object one, and None there too whenever
         # the line is meaningless -- see where it is set. None means the term
@@ -4461,6 +4512,12 @@ class MPCController(Node):
             # only safe while the lookahead still sits inside the corridor.
             r_goal = math.hypot(origin[0] + L * math.cos(psi_c) - X0,
                                 origin[1] + L * math.sin(psi_c) - Y0)
+            # The corridor's own end under today's geometry: the standoff
+            # point, i.e. the place the car is actually being sent to. Kept
+            # because the pose geometry below needs it as a POINT, while the
+            # rest of this branch only ever needs its distance.
+            object_goal_xy = (origin[0] + L * math.cos(psi_c),
+                              origin[1] + L * math.sin(psi_c))
             # getattr for the same reason as drive_cmd/object_target above:
             # the corridor stand-ins predate this mode and carry none of it.
             # Absent -> 'off' -> today's geometry, which is what a stand-in
@@ -4502,6 +4559,27 @@ class MPCController(Node):
                 # corridor_curves' ds from collapsing to zero.
                 L = max(r_goal, 1e-3)
                 object_corridor_shape = 'arc'
+                # ENDING ON THE TARGET, and the one condition under which that
+                # is even a question. The heading-ramp arc is built from a
+                # LENGTH, so where it ends is an output -- measured over the 24
+                # archived rebuilds it lands mean 0.25 m, max 0.96 m from the
+                # goal, and Pend is what w_term pulls toward once the lookahead
+                # clamps. corridor_curves_to_pose ends ON the goal by
+                # construction, tangent to psi_c, with the cap perpendicular
+                # to it.
+                #
+                # ONLY WHEN THE TARGET IS WITHIN THE MAXIMUM LENGTH, and the
+                # switch is explicit rather than a side effect of the cut
+                # below: a corridor cut at corr_L_base does not reach the
+                # target at all, so "ends on the target" is not a property it
+                # can have. Beyond the cap the ramp arc is the geometry, cut,
+                # with psiEnd still the bearing -- see the cut block.
+                #
+                # Feasibility is decided at the build site, not here: the
+                # curvature it needs is a property of the curve, so it is
+                # measured on the curve rather than predicted from a rule.
+                if r_goal <= max(float(self.corr_L_base), 1e-3):
+                    pose_target = object_goal_xy
             else:
                 X0, Y0 = origin
                 psiStart = psi_c
@@ -4746,6 +4824,61 @@ class MPCController(Node):
         # selecting a shape. Without the limits there is no R_min to clamp
         # against, so the clamp is simply off and the geometry is what it was
         # before it existed -- which is the right answer for a stand-in.
+        # ---- THE MAXIMUM CORRIDOR LENGTH, one cap for every branch ------
+        # Every branch but the object one already produces L <= corr_L_base
+        # (goal_distance uses it outright, goal_pose clips into
+        # [1.0, corr_L_base]), so this line bites only the object branch --
+        # which is the point: the cap belongs to the corridor, not to the
+        # branch that asked for one, and a branch added later inherits it.
+        #
+        # A CUT IS NOT THE CLIP THE OBJECT BRANCH REFUSES. That refusal is
+        # about the LOWER bound: a 1.0 m floor on a goal 0.3 m away puts the
+        # corridor END PAST the target, and inside the lookahead clamp
+        # (~1.25 m) Pend IS the terminal position cost, so the car is sent
+        # through the thing it was approaching. A maximum-length cut can only
+        # move the end CLOSER than the target, and it can only engage when the
+        # target is farther than corr_L_base = 3.0 m -- i.e. when Pend sits at
+        # 3.0 m, more than twice the clamp distance, where w_term acts on the
+        # lookahead as a direction pull and not as an arrival target. The two
+        # cases are opposites, and the lower bound stays absent here.
+        #
+        # SAME ARC, ENDING EARLY. The heading ramp is a fraction of L, so
+        # simply shortening L would cram the same turn into a shorter corridor
+        # and bend it harder. Rescaling the ramp by L_full / L_cut keeps it at
+        # the same METRES from the car, which makes the cut corridor the exact
+        # prefix of the uncut one: tau is then a function of distance alone.
+        #
+        # psiEnd IS UNCHANGED, and that is a consequence rather than a choice.
+        # The ramp finishes at u_end * L_full (1.85 m into the 4.63 m corridor
+        # P004-R003 actually logged), so with the cut at 3.0 m the heading has
+        # already stopped changing there and the direction AT the cut is
+        # psiEnd. The end cap, built from psiEnd, is therefore perpendicular to
+        # the real end direction. The only way that stops holding is a target
+        # beyond corr_L_base / u_end = 7.5 m, where min(1.0, ...) lands the
+        # ramp's end exactly on the cut instead: the turn is then planned over
+        # the corridor that exists rather than over a target too far to see,
+        # the cap is still perpendicular, and it is said out loud below.
+        L_full = float(L)
+        # A pose corridor is selected only inside the cap, so there is nothing
+        # to cut -- and its length is an OUTPUT of the fit, not an input, so
+        # capping it here would cap a number that has not been computed yet.
+        L = (L_full if pose_target is not None
+             else min(L_full, max(float(self.corr_L_base), 1e-3)))
+        corridor_cut = L < L_full - 1e-9
+        _scale = (L_full / L) if corridor_cut and L > 0.0 else 1.0
+        u_start_use = min(1.0, self.corr_turn_u_start * _scale)
+        u_end_use = min(1.0, self.corr_turn_u_end * _scale)
+        if corridor_cut:
+            ramp_truncated = self.corr_turn_u_end * L_full > L + 1e-9
+            self.get_logger().info(
+                f'CORR/cut | target at {L_full:.2f} m is beyond corr_L_base='
+                f'{self.corr_L_base:.2f} m: corridor cut to {L:.2f} m, ramp '
+                f'u=[{u_start_use:.3f}, {u_end_use:.3f}]'
+                + (' -- RAMP TRUNCATED: the turn is planned over the cut '
+                   'corridor, not over the full approach' if ramp_truncated
+                   else ''),
+                throttle_duration_sec=5.0)
+
         _dpsi_for_bound = (turn_remaining if turn_remaining is not None
                            else wrap_pi(psiEnd - psiStart))
         _limits = getattr(self, 'limits', None)
@@ -4755,26 +4888,99 @@ class MPCController(Node):
             _bound = (_limits['delta_max'] if _dpsi_for_bound >= 0.0
                       else _limits['delta_min'])
             _r_min = min_turn_radius(_params['L'], _bound)
-        geom = corridor_curves(
-            X0, Y0, psiStart, psiEnd, L, self.corr_N,
-            dpsi=turn_remaining,
-            u_start=self.corr_turn_u_start,
-            u_end=self.corr_turn_u_end,
-            w0=self.corr_wmin,
-            w1=self.corr_wmax,
-            # BOTH CLAMPS APPLY TO EVERY BRANCH, not only the object one. The
-            # ramp span is a fraction of L, so peak curvature runs away as the
-            # corridor shortens; the straight branch is unprotected without
-            # this and goes past full lock beyond ~50 degrees of heading error
-            # at L 3.0. wall_turn caps its own dpsi separately, so there this
-            # is belt-and-braces.
-            r_min=_r_min,
-            # And the funnel opens at a fixed rate per metre rather than
-            # reaching corr_wmax whatever the length: 10 of the 24 archived
-            # object rebuilds were WIDER THAN LONG without this.
-            length_ref=getattr(self, 'corr_L_base', None),
-        )
-        if not geom['feasible']:
+        # THE POSE GEOMETRY, and its fallback. The curve is built first and
+        # judged afterwards because its peak curvature is a property of the
+        # curve: kappa grows as the heading error over the distance left, so
+        # the same 10 degrees is free at 3 m and past full lock at 0.5 m, and
+        # no distance threshold expresses that as well as the number itself.
+        # Over the 24 archived rebuilds the fit is drivable on every rebuild
+        # beyond 2.0 m, 8 of 9 beyond 1.55 m and 9 of 12 beyond 1.25 m -- so a
+        # fallback is not an edge case, it is the final approach, and it is the
+        # straight geometry the branch has always used there.
+        if pose_target is not None:
+            geom = corridor_curves_to_pose(
+                X0, Y0, psiStart, pose_target[0], pose_target[1], psiEnd,
+                self.corr_N,
+                w0=self.corr_wmin,
+                w1=self.corr_wmax,
+                r_min=_r_min,
+                length_ref=getattr(self, 'corr_L_base', None),
+            )
+            # THE CAP APPLIES TO THIS SHAPE TOO, and it has to be checked
+            # after the fit rather than before it: the pose corridor's length
+            # is an OUTPUT (an arc between two poses is longer than the chord
+            # between them -- measured 1.008x median, 1.14x worst over the
+            # archived rebuilds), so a target inside corr_L_base can still
+            # produce a corridor past it. Rejected rather than trimmed,
+            # because a trimmed pose corridor no longer ends on the pose that
+            # is its whole reason for existing.
+            _over_cap = float(geom['length']) > max(float(self.corr_L_base),
+                                                    1e-3) + 1e-9
+            if geom['feasible'] and not _over_cap:
+                object_corridor_shape = 'pose_arc'
+                L = float(geom['length'])
+                L_full = L
+            elif _over_cap:
+                self.get_logger().info(
+                    f'CORR/pose | the fit is {geom["length"]:.2f} m long for a '
+                    f'{L_full:.2f} m chord, past corr_L_base='
+                    f'{self.corr_L_base:.2f} m: building the cut arc instead',
+                    throttle_duration_sec=5.0)
+                pose_target = None
+                object_corridor_shape = 'arc'
+                L = min(L_full, max(float(self.corr_L_base), 1e-3))
+                corridor_cut = L < L_full - 1e-9
+                _scale = (L_full / L) if corridor_cut and L > 0.0 else 1.0
+                u_start_use = min(1.0, self.corr_turn_u_start * _scale)
+                u_end_use = min(1.0, self.corr_turn_u_end * _scale)
+            else:
+                self.get_logger().warn(
+                    f'CORR/pose | ending on the target needs kappa='
+                    f'{geom["kappa_max"]:.3f} 1/m (R='
+                    f'{1.0 / max(geom["kappa_max"], 1e-9):.2f} m) against '
+                    f'R_min={_r_min:.3f} m at {L_full:.2f} m to go: falling '
+                    'back to the straight corridor pinned to the target line',
+                    throttle_duration_sec=5.0)
+                pose_target = None
+                # Back to the geometry that branch would have built without
+                # the arc at all -- the straight corridor on the target line,
+                # not the ramp arc, because the ramp arc's own endpoint drift
+                # is worst exactly here.
+                X0, Y0 = origin
+                psiStart = psi_c
+                psiEnd = psi_c
+                L = min(L_full, max(float(self.corr_L_base), 1e-3))
+                corridor_cut = L < L_full - 1e-9
+                object_corridor_shape = 'straight'
+                self._object_arc_active = False
+                # AND THE TARGET LINE GOES WITH IT. It was set above because
+                # the arc was chosen, and on the straight corridor the
+                # centreline IS the target line -- leaving it would charge the
+                # same lateral error through w_corr and w_line at once, which
+                # is the doubling the split exists to avoid.
+                target_line = None
+
+        if pose_target is None:
+            geom = corridor_curves(
+                X0, Y0, psiStart, psiEnd, L, self.corr_N,
+                dpsi=turn_remaining,
+                u_start=u_start_use,
+                u_end=u_end_use,
+                w0=self.corr_wmin,
+                w1=self.corr_wmax,
+                # BOTH CLAMPS APPLY TO EVERY BRANCH, not only the object one.
+                # The ramp span is a fraction of L, so peak curvature runs away
+                # as the corridor shortens; the straight branch is unprotected
+                # without this and goes past full lock beyond ~50 degrees of
+                # heading error at L 3.0. wall_turn caps its own dpsi
+                # separately, so there this is belt-and-braces.
+                r_min=_r_min,
+                # And the funnel opens at a fixed rate per metre rather than
+                # reaching corr_wmax whatever the length: 10 of the 24 archived
+                # object rebuilds were WIDER THAN LONG without this.
+                length_ref=getattr(self, 'corr_L_base', None),
+            )
+        if not geom['feasible'] and pose_target is None:
             self.get_logger().warn(
                 f'CORR/curvature | dpsi={geom["dpsi"]:+.4f} over L={L:.2f} m '
                 f'needs a ramp longer than the corridor: kappa_max='
@@ -4815,18 +5021,47 @@ class MPCController(Node):
                                else float(turn_remaining)),
                 "L": float(L),
                 "corr_N": int(self.corr_N),
-                "u_start": float(self.corr_turn_u_start),
-                "u_end": float(self.corr_turn_u_end),
+                # The ramp ACTUALLY USED, which is the asked-for one except
+                # on a cut corridor -- a re-evaluator reproduces the arrays
+                # from these, so they must be what corridor_curves was given.
+                "u_start": float(u_start_use),
+                "u_end": float(u_end_use),
+                # What the cut did, for the campaign rather than for the
+                # geometry: L above is already the cut length, so a reader
+                # needs no arithmetic, but "3.00 m because the target was
+                # 4.63 m away" and "3.00 m because that is the nominal length"
+                # are different runs and only these two tell them apart.
+                "L_full": float(L_full),
+                "cut": bool(corridor_cut),
                 "w0": float(self.corr_wmin),
                 "w1": float(self.corr_wmax),
                 "handle_frac": float(CORRIDOR_HANDLE_FRAC),
+                # WHICH CENTRELINE, because from here there are two kinds and
+                # they are not distinguishable from the other fields: 'ramp'
+                # is the integrated heading ramp of the given L, 'bezier' the
+                # cubic through the two END POSES. A reader that does not know
+                # the key is looking at a record written before the pose
+                # geometry existed, where 'ramp' is the only possibility --
+                # which is exactly what corridor_def.evaluate assumes.
+                "centreline": ('bezier' if pose_target is not None
+                               else 'ramp'),
+                # The end POSE, which for a bezier centreline is an input and
+                # not a consequence: C0 + these + the handles reproduce it.
+                "C1": ([float(pose_target[0]), float(pose_target[1])]
+                       if pose_target is not None else None),
+                "handle_a": (float(POSE_HANDLE_FRAC)
+                             if pose_target is not None else None),
+                "handle_b": (float(POSE_HANDLE_FRAC)
+                             if pose_target is not None else None),
                 # what the clamps actually produced, not what was asked for
                 "u_end_eff": float(geom["u_end_eff"]),
                 "w1_eff": float(geom["w1_eff"]),
                 "ramp_clamped": bool(geom["ramp_clamped"]),
                 "feasible": bool(geom["feasible"]),
                 "kappa_max": float(geom["kappa_max"]),
-                # 'none' off the object branch, else 'arc' or 'straight'
+                # 'none' off the object branch; 'straight', 'arc' (the ramp
+                # arc, ending where its length puts it) or 'pose_arc' (the
+                # bezier, ending ON the target) on it.
                 "object_shape": object_corridor_shape,
                 "object_corridor_mode": str(
                     getattr(self, 'object_corridor_mode', 'off')),
@@ -4854,6 +5089,12 @@ class MPCController(Node):
             "objectMode": bool(object_mode),
             "psiStart": float(psiStart),
             "objectShape": object_corridor_shape,
+            "objectTarget": (None if object_target is None
+                             else [float(object_target[0]),
+                                   float(object_target[1])]),
+            "objectGoal": (None if object_goal_xy is None
+                           else [float(object_goal_xy[0]),
+                                 float(object_goal_xy[1])]),
             # None off the object branch and whenever the line is meaningless;
             # mpc_solver's w_line term is structurally absent when it is None.
             "targetLine": target_line,
@@ -4900,7 +5141,14 @@ class MPCController(Node):
         replace: one sigma of sustained offset is worth the same as it was,
         what changes is how much offset a sigma is.
         """
-        if corridor.get('objectShape') != 'arc':
+        # BOTH ARC SHAPES, for the same reason: 'arc' and 'pose_arc' are
+        # anchored on the car, so the car sits exactly on its own centreline
+        # and w_corr sees no error at the moment of the rebuild. That is what
+        # makes w_line load-bearing rather than optional, and it is a property
+        # of where the corridor STARTS -- which the two share -- not of how it
+        # ends. 'straight' keeps the single-weight set, where the centreline
+        # IS the target line and splitting would charge the same error twice.
+        if corridor.get('objectShape') not in ('arc', 'pose_arc'):
             return self.weights
         weights = dict(self.weights)
         weights['w_corr'] = 1.0 / (
@@ -5049,12 +5297,23 @@ class MPCController(Node):
     def _publish_campaign_status(self, info, solve_dt, solver):
         """/mpc/status for the test-campaign logger, once per solve.
 
+        Carries this solve's predicted horizon (campaign_status.horizon_payload)
+        alongside the convergence fields, which is how the horizon reaches a
+        test folder: /mpc/solver_status has published the same prediction since
+        96c6bbc, but the campaign logger subscribes here, not there.
+
         Never raises: this runs inside control_loop between the solve and the
         /drive publish, and a malformed info dict or a JSON error must cost a
         status message, not the command that follows it.
         """
         try:
-            payload = mpc_status_payload(info, solve_dt, solver)
+            # ts and the frame ride along so the payload's horizon is readable
+            # on its own: without the control period a reader cannot place step
+            # k in time, and 'odom' is asserted here rather than assumed
+            # downstream because it is the same frame, for the same reason, as
+            # the /corridor polygon this logger draws the horizon against.
+            payload = mpc_status_payload(info, solve_dt, solver,
+                                         ts=self.ts, frame_id='odom')
             self.campaign_status_pub.publish(String(data=json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
             self.get_logger().warn(

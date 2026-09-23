@@ -58,6 +58,8 @@ import numpy as np
 
 __all__ = [
     'corridor_curves',
+    'corridor_curves_to_pose',
+    'POSE_HANDLE_FRAC',
     'bezier',
     'wrap_pi',
     'ramp_span_for',
@@ -69,6 +71,14 @@ __all__ = [
 #: in build_straight_corridor since that code was written; named here because
 #: it now has to be logged for a corridor to be reproducible.
 CORRIDOR_HANDLE_FRAC = 0.55
+
+#: Handle length of the POSE-TO-POSE centreline, as a fraction of the straight
+#: distance between the two poses. 0.40 from a search over the 24 archived
+#: object rebuilds: peak curvature is flat between about 0.35 and 0.50 (the
+#: per-rebuild optimum averages 0.45 leaving the car and 0.35 arriving, and
+#: buys under 10% of kappa over a symmetric 0.40), so the symmetric value is
+#: taken and the asymmetry is left as the tuning it would be.
+POSE_HANDLE_FRAC = 0.40
 
 
 def wrap_pi(angle):
@@ -236,6 +246,152 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
                       / max((u_end_eff - u_start) * length, 1e-9)),
         # the control points, so corridor_payload can log a definition that
         # reproduces these walls without re-deriving C1 from the centreline
+        'ctrl_left': [p_l0.tolist(), cl0.tolist(), cl1.tolist(), p_l1.tolist()],
+        'ctrl_right': [p_r0.tolist(), cr0.tolist(), cr1.tolist(), p_r1.tolist()],
+    }
+
+
+def corridor_curves_to_pose(x0, y0, psi_start, x1, y1, psi_end, n,
+                            handle_a=POSE_HANDLE_FRAC,
+                            handle_b=POSE_HANDLE_FRAC,
+                            w0=0.4333, w1=0.7667,
+                            handle_frac=CORRIDOR_HANDLE_FRAC,
+                            r_min=None, length_ref=None):
+    """The same corridor dict, for a centreline that ENDS ON A GIVEN POSE.
+
+    corridor_curves integrates a heading ramp for a given LENGTH: where it
+    ends is an output. This one is the boundary-value form -- start pose
+    (x0, y0, psi_start), end pose (x1, y1, psi_end), both honoured exactly --
+    which is what an approach to a target needs, because the corridor's end is
+    the place the car is being sent to and "0.25 m past it on average" is a
+    different instruction.
+
+    WHY A CUBIC BEZIER AND NOT THE RAMP FAMILY. The ramp's heading is monotone
+    from psi_start to psi_end, so its mean direction lies strictly between the
+    two: it can reach a point in the psi_end direction from the start only by
+    going straight. The target bearing IS psi_end here (that is what psi_c is),
+    so the ask is exactly the case the ramp cannot express -- measured over the
+    24 archived object rebuilds, 23 are unreachable by any (length, ramp
+    placement) pair. The cubic Bezier through two poses always exists, and it
+    is already the family this module's WALLS are built from.
+
+    THE PRICE, and the reason ``feasible`` matters more here than in the ramp
+    case. Landing on a pose whose tangent points back along the chord forces
+    the curve out and back, so peak curvature grows as the heading error over
+    the remaining distance -- kappa ~ |dpsi| / d. Over the same 24 rebuilds it
+    fits inside the car's R_min on every rebuild beyond 2.0 m, on 8 of 9 beyond
+    1.55 m, and on 9 of 12 beyond 1.25 m; inside a metre it is hopeless (up to
+    12.8 1/m against a limit of 1.047). A caller must therefore be ready to
+    fall back, and this function REPORTS rather than repairs: ``feasible`` is
+    False and ``kappa_max`` says by how much.
+
+    ``handle_a``/``handle_b`` are the Bezier handle lengths as fractions of the
+    straight distance between the poses -- leaving the start and arriving at
+    the end respectively. The curve is sampled by ARCLENGTH, not by the Bezier
+    parameter, so the returned samples are evenly spaced the way the ramp
+    family's are and anything advancing along s behaves identically.
+
+    Returns the same keys as :func:`corridor_curves` plus ``length`` (the
+    centreline's arclength, which here is an output) and ``handle_a`` /
+    ``handle_b``. ``u_end_eff``/``ramp_clamped`` are reported as the ramp
+    concepts they are: not applicable, so 1.0 and False.
+    """
+    n = int(n)
+    if n < 2:
+        raise ValueError(f'a corridor needs at least 2 samples, got {n}')
+
+    p0 = np.array([float(x0), float(y0)])
+    p3 = np.array([float(x1), float(y1)])
+    chord = float(np.hypot(*(p3 - p0)))
+    e_start = np.array([math.cos(psi_start), math.sin(psi_start)])
+    e_end = np.array([math.cos(psi_end), math.sin(psi_end)])
+    # A degenerate chord has no pose-to-pose curve; the handles would collapse
+    # and every derivative below would be 0/0.
+    a = max(float(handle_a) * chord, 1e-6)
+    b = max(float(handle_b) * chord, 1e-6)
+    p1 = p0 + a * e_start
+    p2 = p3 - b * e_end
+
+    # Dense in the Bezier parameter first: arclength sampling needs a curve to
+    # measure before it can resample it, and curvature is read off the same
+    # dense pass so a peak between two output samples is not missed.
+    dense = max(8 * n, 512)
+    t = np.linspace(0.0, 1.0, dense)[:, None]
+    pts = ((1 - t) ** 3 * p0 + 3 * (1 - t) ** 2 * t * p1
+           + 3 * (1 - t) * t ** 2 * p2 + t ** 3 * p3)
+    d1 = (3 * (1 - t) ** 2 * (p1 - p0) + 6 * (1 - t) * t * (p2 - p1)
+          + 3 * t ** 2 * (p3 - p2))
+    d2 = 6 * (1 - t) * (p2 - 2 * p1 + p0) + 6 * t * (p3 - 2 * p2 + p1)
+    speed = np.maximum(np.hypot(d1[:, 0], d1[:, 1]), 1e-12)
+    kappa = np.abs(d1[:, 0] * d2[:, 1] - d1[:, 1] * d2[:, 0]) / speed ** 3
+
+    seg = np.hypot(np.diff(pts[:, 0]), np.diff(pts[:, 1]))
+    s_dense = np.concatenate([[0.0], np.cumsum(seg)])
+    length = float(s_dense[-1])
+
+    s_out = np.linspace(0.0, length, n)
+    xc = np.interp(s_out, s_dense, pts[:, 0])
+    yc = np.interp(s_out, s_dense, pts[:, 1])
+    # The ends are interpolation-exact only up to floating point; the whole
+    # point of this function is that they are the poses asked for.
+    xc[0], yc[0] = p0
+    xc[-1], yc[-1] = p3
+
+    kappa_max = float(kappa.max())
+    feasible = True if r_min is None else kappa_max <= 1.0 / float(r_min)
+
+    w1_eff = float(w1)
+    if length_ref is not None and float(length_ref) > 0.0:
+        w1_eff = w0 + (w1 - w0) * min(length / float(length_ref), 1.0)
+
+    # The walls are the SAME construction as the ramp family's: they depend on
+    # the two end poses, the two half-widths and the handle fraction, and on
+    # the centreline only through its endpoint. So a corridor built here is
+    # the same object as any other -- one centreline of a different kind
+    # inside identical walls -- and nothing downstream has to know which.
+    c0_pt = np.array([xc[0], yc[0]], dtype=float)
+    c1_pt = np.array([xc[-1], yc[-1]], dtype=float)
+    n0 = np.array([-math.sin(psi_start), math.cos(psi_start)])
+    n1 = np.array([-math.sin(psi_end), math.cos(psi_end)])
+    p_l0 = c0_pt + w0 * n0
+    p_r0 = c0_pt - w0 * n0
+    p_l1 = c1_pt + w1_eff * n1
+    p_r1 = c1_pt - w1_eff * n1
+    k = handle_frac * length
+    cl0 = p_l0 + k * e_start
+    cl1 = p_l1 - k * e_end
+    cr0 = p_r0 + k * e_start
+    cr1 = p_r1 - k * e_end
+    u = np.linspace(0.0, 1.0, n)
+    left = bezier(p_l0, cl0, cl1, p_l1, u)
+    right = bezier(p_r0, cr0, cr1, p_r1, u)
+    x_l, y_l = left[:, 0], left[:, 1]
+    x_r, y_r = right[:, 0], right[:, 1]
+
+    dx = np.gradient(xc)
+    dy = np.gradient(yc)
+    dn = np.maximum(np.sqrt(dx ** 2 + dy ** 2), 1e-9)
+    tx = dx / dn
+    ty = dy / dn
+
+    return {
+        'xc': xc, 'yc': yc,
+        'xL': x_l, 'yL': y_l,
+        'xR': x_r, 'yR': y_r,
+        'tx': tx, 'ty': ty,
+        'nx': -ty, 'ny': tx,
+        'halfWidth': 0.5 * np.sqrt((x_l - x_r) ** 2 + (y_l - y_r) ** 2),
+        'Pend': np.array([xc[-1], yc[-1]], dtype=float),
+        'dpsi': wrap_pi(psi_end - psi_start),
+        'length': length,
+        'handle_a': float(handle_a),
+        'handle_b': float(handle_b),
+        'u_end_eff': 1.0,
+        'w1_eff': float(w1_eff),
+        'ramp_clamped': False,
+        'feasible': bool(feasible),
+        'kappa_max': kappa_max,
+        'ctrl_centre': [p0.tolist(), p1.tolist(), p2.tolist(), p3.tolist()],
         'ctrl_left': [p_l0.tolist(), cl0.tolist(), cl1.tolist(), p_l1.tolist()],
         'ctrl_right': [p_r0.tolist(), cr0.tolist(), cr1.tolist(), p_r1.tolist()],
     }

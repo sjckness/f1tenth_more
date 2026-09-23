@@ -25,6 +25,11 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <!-- test/test_mpc_corr_launch_config.py builds this package's own launch
+       description against a LaunchContext and evaluates the node parameters,
+       so it needs the launch system itself, not just ros2launch's CLI. -->
+  <test_depend>launch</test_depend>
+  <test_depend>launch_ros</test_depend>
 
   <export>
     <build_type>ament_python</build_type>

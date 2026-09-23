@@ -631,3 +631,145 @@ def test_the_working_directory_is_never_consulted(root, monkeypatch, tmp_path):
     assert find_root() == find_root(None)
     assert find_root().name == "f1tenth_more"
     assert os.getcwd() != str(find_root())
+
+
+# --------------------------------------------------------------------------
+# the predicted horizon stream
+# --------------------------------------------------------------------------
+
+def read_horizons(log):
+    path = Path(log.dir) / "horizon.jsonl"
+    with open(path, encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
+
+
+def test_a_horizon_is_written_to_its_own_stream(root):
+    log = logger_for(root)
+    index = log.log_horizon([1.0, 2.0], [0.0, 0.1], yaw=[0.0, 0.05],
+                            v=[0.5, 0.5], steer=[0.01, 0.02],
+                            accel=[0.1, 0.0], ts=0.1, frame_id="odom", t=3.0)
+    log.finish("completed")
+    assert index == 0
+    records = read_horizons(log)
+    assert len(records) == 1
+    assert records[0]["t"] == 3.0
+    assert records[0]["n"] == 2
+    assert records[0]["ts"] == 0.1
+    assert records[0]["frame_id"] == "odom"
+    assert records[0]["x"] == [1.0, 2.0]
+    assert records[0]["steer"] == [0.01, 0.02]
+    # mpc.csv must be untouched by this: the two streams are independent
+    assert not (Path(log.dir) / "horizon.csv").exists()
+
+
+def test_a_horizon_carries_the_corridor_it_was_solved_under(root):
+    """Stamped at log time, not matched by timestamp afterwards.
+
+    This is what lets the plot draw each corridor beside the plan actually
+    made under it, including when a rebuild and a solve share a stamp.
+    """
+    log = logger_for(root)
+    log.log_horizon([1.0], [0.0], ts=0.1, t=0.0)          # before any corridor
+    log.log_corridor(straight_corridor(), corridor_id=7, t=1.0)
+    log.log_horizon([2.0], [0.0], ts=0.1, t=1.1)
+    log.log_corridor(straight_corridor(), corridor_id=8, t=2.0)
+    log.log_horizon([3.0], [0.0], ts=0.1, t=2.1)
+    log.finish("completed")
+    assert [r["corridor_id"] for r in read_horizons(log)] == [None, 7, 8]
+
+
+def test_an_empty_or_ragged_horizon_is_dropped(root):
+    """A failed solve publishes no prediction: that is normal, not an error."""
+    log = logger_for(root)
+    assert log.log_horizon([], [], ts=0.1, t=0.0) is None
+    assert log.log_horizon([1.0, 2.0], [0.0], ts=0.1, t=0.1) is None
+    assert log.log_horizon(None, None, ts=0.1, t=0.2) is None
+    log.finish("completed")
+    assert read_horizons(log) == []
+
+
+def test_a_non_finite_horizon_is_dropped_whole(root):
+    """A diverged rollout is not a horizon with a hole in it."""
+    log = logger_for(root)
+    assert log.log_horizon([1.0, math.nan], [0.0, 0.0], ts=0.1, t=0.0) is None
+    log.finish("completed")
+    assert read_horizons(log) == []
+
+
+def test_a_mismatched_optional_array_becomes_null_not_truncated(root):
+    """A partially recorded input sequence is worse than an absent one."""
+    log = logger_for(root)
+    log.log_horizon([1.0, 2.0], [0.0, 0.0], steer=[0.5], v=[1.0, 1.0],
+                    ts=0.1, t=0.0)
+    log.finish("completed")
+    record = read_horizons(log)[0]
+    assert record["steer"] is None
+    assert record["v"] == [1.0, 1.0]
+
+
+def test_the_summary_counts_horizons(root):
+    log = logger_for(root)
+    for k in range(4):
+        log.log_horizon([float(k)], [0.0], ts=0.1, t=k * 0.1)
+    assert log.stream_counts()["horizon"] == 4
+    summary = log.finish("completed")
+    assert summary["n_horizon"] == 4
+
+
+# --------------------------------------------------------------------------
+# the tracks stream
+# --------------------------------------------------------------------------
+
+def read_tracks(log):
+    path = Path(log.dir) / "tracks.jsonl"
+    with open(path, encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
+
+
+def test_a_tracks_message_is_written_to_its_own_stream(root):
+    log = logger_for(root)
+    log.log_tracks([{"id": "11", "class": "person", "score": 0.9,
+                     "x": 2.0, "y": 0.5, "z": 0.1, "width": 0.4}],
+                   frame_id="map", stamp=100.25, t=3.0)
+    log.finish("completed")
+    records = read_tracks(log)
+    assert len(records) == 1
+    assert records[0]["t"] == 3.0
+    assert records[0]["stamp"] == 100.25
+    assert records[0]["frame_id"] == "map"
+    assert records[0]["n"] == 1
+    assert records[0]["tracks"][0]["id"] == "11"
+    assert records[0]["tracks"][0]["class"] == "person"
+
+
+def test_an_empty_tracks_message_is_still_recorded(root):
+    """The abort is MADE of these: no confirmed track for lost_grace_sec.
+
+    A stream that only recorded sightings could not tell "the topic stopped"
+    from "the topic kept coming without the person in it", which is exactly
+    the distinction P004-R003 could not be diagnosed on.
+    """
+    log = logger_for(root)
+    log.log_tracks([], frame_id="map", stamp=1.0, t=1.0)
+    log.log_tracks([{"id": "2", "class": "person", "x": 1.0, "y": 0.0}],
+                   frame_id="map", t=2.0)
+    log.finish("completed")
+    records = read_tracks(log)
+    assert [r["n"] for r in records] == [0, 1]
+    assert records[0]["tracks"] == []
+
+
+def test_the_frame_is_recorded_and_not_converted(root):
+    """map, while the corridors are odom -- this node has no TF."""
+    log = logger_for(root)
+    log.log_tracks([{"id": "1", "x": 1.0, "y": 2.0}], frame_id="map", t=1.0)
+    log.finish("completed")
+    assert read_tracks(log)[0]["frame_id"] == "map"
+
+
+def test_tracks_are_counted_in_the_status_line(root):
+    log = logger_for(root)
+    log.log_tracks([], t=1.0)
+    log.log_tracks([], t=2.0)
+    assert log.stream_counts()["tracks"] == 2
+    log.finish("completed")

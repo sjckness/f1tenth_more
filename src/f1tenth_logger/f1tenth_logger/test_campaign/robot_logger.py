@@ -511,6 +511,25 @@ def _fmt(value):
     return str(value)
 
 
+def _finite_list(values):
+    """``values`` as a list of 6-digit floats, or [] if any entry is unusable.
+
+    All-or-nothing on purpose: a horizon with a NaN in the middle is not a
+    horizon with a hole, it is a solve whose rollout diverged, and silently
+    dropping the bad entry would shorten the array and shift every step after
+    it onto the wrong time.
+    """
+    if values is None:
+        return []
+    out = []
+    for value in values:
+        rounded = _round6(value)
+        if rounded is None:
+            return []
+        out.append(rounded)
+    return out
+
+
 def _round6(value):
     """Same 6-significant-digit contract, for JSON."""
     if value is None:
@@ -681,6 +700,15 @@ class TestLogger:
             "llm": _Stream(self.dir / "llm_calls.csv", _LLM_COLS, immediate=True),
             "llm_jsonl": _Stream(self.dir / "llm_calls.jsonl", immediate=True),
             "corridors": _Stream(self.dir / "corridors.jsonl", immediate=True),
+            # Its own stream rather than columns on mpc.csv: a horizon is
+            # N points wide, so it is jsonl like the corridors, and it is
+            # written at the CONTROL rate, so unlike the corridors it is
+            # buffered rather than flushed per record.
+            "horizon": _Stream(self.dir / "horizon.jsonl"),
+            # What PERCEPTION offered, beside what the controller did with it.
+            # Buffered like the horizon (it arrives at the detection rate) and
+            # jsonl for the same reason: a message is a variable-length list.
+            "tracks": _Stream(self.dir / "tracks.jsonl"),
             "events": _Stream(self.dir / "events.jsonl"),
         }
 
@@ -689,6 +717,7 @@ class TestLogger:
         self._last_vel = None       # (t, vx, vy)
         self._last_yaw = None       # (t, yaw)
         self._corridor = None       # current polygon
+        self._corridor_id = None    # its id, stamped onto each horizon
         self.last_corridor_clearance = None
 
         # accumulators for the summary
@@ -704,6 +733,8 @@ class TestLogger:
         self._max_imu_horiz_acc = None
         self._max_abs_yaw_rate = None
         self._n_corridors = 0
+        self._n_horizon = 0
+        self._n_tracks = 0
         self._llm_latencies = []
         self._n_llm = 0
         self._n_mpc = 0
@@ -1028,6 +1059,78 @@ class TestLogger:
                 [t, status, solve_time_ms, cost, iterations]
             )
 
+    def log_horizon(self, x, y, yaw=None, v=None, steer=None, accel=None,
+                    ts=None, frame_id=None, t=None):
+        """Log one solve's predicted horizon to ``horizon.jsonl``.
+
+        WHY ITS OWN STREAM. A horizon is N points wide, so it does not fit
+        mpc.csv's fixed columns, and it is produced at the control rate, so it
+        is an order of magnitude more data than corridors.jsonl. Keeping it
+        separate means a reader that only wants feasibility still parses a
+        small mpc.csv, and one that wants plans does not have to reduce a
+        column of embedded JSON.
+
+        WHAT A RECORD CARRIES beyond the geometry, and why each is needed to
+        make the horizon answerable rather than merely stored:
+
+        ``ts``    the control period, so step k is at ``t + (k + 1) * ts``.
+                  Without it the arrays cannot be lined up against what the car
+                  then did, which is the only reason to log them.
+        ``corridor_id`` the corridor that was current when this solve ran,
+                  stamped from :meth:`log_corridor`'s last id rather than
+                  matched by time afterwards. This is what lets a plot draw
+                  each corridor beside the plan actually made under it, exactly,
+                  including when a rebuild and a solve share a timestamp.
+        ``frame_id`` the frame the points are in, recorded rather than assumed
+                  so a consumer drawing horizons over corridors can check the
+                  two agree instead of trusting that they do.
+
+        ``x`` and ``y`` are required and must be the same length; an empty or
+        ragged pair is DROPPED and returns None, because a solve that produced
+        no usable prediction is the normal failed-solve case, not an error. An
+        optional array (``yaw``, ``v``, ``steer``, ``accel``) whose length does
+        not match is stored as null rather than truncated -- a partially
+        recorded input sequence is worse than an absent one.
+
+        Returns the record index, or None when nothing was written.
+        """
+        xs = _finite_list(x)
+        ys = _finite_list(y)
+        if not xs or len(xs) != len(ys):
+            return None
+        n = len(xs)
+
+        def _aligned(values):
+            if values is None:
+                return None
+            out = _finite_list(values)
+            return out if len(out) == n else None
+
+        with self._lock:
+            if self._closed:
+                return None
+            t = self._stamp(t)
+            index = self._n_horizon
+            self._n_horizon += 1
+            self._note("horizon", t)
+            self._streams["horizon"].line(
+                {
+                    "t": _round6(t),
+                    "i": index,
+                    "corridor_id": self._corridor_id,
+                    "frame_id": None if frame_id is None else str(frame_id),
+                    "ts": _round6(ts),
+                    "n": n,
+                    "x": xs,
+                    "y": ys,
+                    "yaw": _aligned(yaw),
+                    "v": _aligned(v),
+                    "steer": _aligned(steer),
+                    "accel": _aligned(accel),
+                }
+            )
+            return index
+
     def record_llm_call(self, prompt, response=None, tag="", t_sent=None,
                         t_received=None, latency_ms=None, ttft_ms=None,
                         ok=1, error="", llm_raw=None, rejections=None,
@@ -1227,6 +1330,7 @@ class TestLogger:
             if corridor_id is None:
                 corridor_id = self._n_corridors
             self._corridor = poly
+            self._corridor_id = corridor_id
             self._n_corridors += 1
             self._streams["corridors"].line(
                 {
@@ -1243,6 +1347,51 @@ class TestLogger:
                     x, y, poly, self.robot_radius
                 )
             return corridor_id
+
+    def log_tracks(self, tracks, frame_id=None, stamp=None, t=None):
+        """One /costmap/semantic_tracks message to ``tracks.jsonl``.
+
+        WHY THIS STREAM EXISTS. P004-R003 aborted on ``target_lost`` 1.89 m
+        short of the person and the cause could not be recovered afterwards:
+        the two candidates -- the detector stopped confirming the person, or
+        the tracks topic went stale (object_tracks_max_gap_sec) -- look
+        identical from the behaviour log, and the only record of what
+        perception was publishing died with the node's own log. One line per
+        MESSAGE, including a message carrying NO tracks, because an empty list
+        is the observation that matters: it is what GRACE and then the abort
+        are made of, and a stream that only recorded sightings could not tell
+        an empty message from no message at all.
+
+        ``frame_id`` IS RECORDED AND NOT CONVERTED. These tracks are map-frame
+        while the corridors, the horizons and kinematics.csv are odom, and this
+        node has no TF. Silently plotting them together would be wrong by the
+        map->odom drift; the per-rebuild target in corridors.jsonl (`meta.
+        object_target`) is the odom-frame quantity for that job.
+
+        ``stamp`` is the message's own header time where the caller has it,
+        kept beside ``t`` (receipt, the test clock) because staleness is the
+        difference between them and a single timestamp cannot express it.
+        """
+        rows = []
+        for track in tracks or []:
+            row = {k: track.get(k) for k in
+                   ("id", "class", "score", "x", "y", "z", "width")
+                   if track.get(k) is not None}
+            if row:
+                rows.append(row)
+        with self._lock:
+            if self._closed:
+                return None
+            t = self._stamp(t)
+            self._n_tracks += 1
+            self._streams["tracks"].line({
+                "t": _round6(t),
+                "stamp": None if stamp is None else _round6(float(stamp)),
+                "frame_id": None if frame_id is None else str(frame_id),
+                "n": len(rows),
+                "tracks": rows,
+            })
+            return len(rows)
 
     def log_event(self, name, t=None, **data):
         """Free-form event, one JSON object per line.
@@ -1269,6 +1418,8 @@ class TestLogger:
                 "commands": self._n_cmd,
                 "mpc": self._n_mpc,
                 "corridors": self._n_corridors,
+                "horizon": self._n_horizon,
+                "tracks": self._n_tracks,
                 "llm_calls": self._n_llm,
                 "events": self._n_events,
             }
@@ -1348,6 +1499,7 @@ class TestLogger:
             ),
             "llm_latency_max_ms": _round6(max(latencies) if latencies else None),
             "n_corridors": self._n_corridors,
+            "n_horizon": self._n_horizon,
             "min_corridor_clearance": _round6(self._min_corr_clear),
             "min_obstacle_clearance": _round6(self._min_obst_clear),
             "max_speed": _round6(self._max_speed),

@@ -56,6 +56,8 @@ from scipy.signal import butter, filtfilt
 
 from f1tenth_logger.test_campaign.corridor_def import (
     SCHEMA_V1, SCHEMA_V2, load_corridors)
+from f1tenth_logger.test_campaign.horizon_log import (
+    load_horizons, prediction_error)
 from f1tenth_logger.test_campaign.robot_logger import (
     DEFAULT_CAMPAIGN, find_root, parse_test_id, plan_hash)
 
@@ -89,7 +91,12 @@ COLUMNS = [
     "estop",
     "contact",
     "corridor_schema",
+    "object_corridor_mode",
     "object_shape",
+    "n_corr_pose_arc",
+    "n_corr_arc",
+    "n_corr_straight",
+    "n_corr_cut",
     "ref_step_centreline_mean_m",
     "ref_step_centreline_max_m",
     "ref_step_pend_mean_m",
@@ -101,6 +108,9 @@ COLUMNS = [
     "feas_pct",
     "max_infeas_streak_s",
     "mpc_solve_time_p95_ms",
+    "horizon_err_mean_m",
+    "horizon_err_max_m",
+    "n_horizons",
     "jerk_rms",
     "steer_rev_per_m",
     "backfilled",           # which columns came from backfill.json
@@ -426,6 +436,39 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
     shapes = sorted({c.object_shape for c in corridors} - {"none", "unknown"})
     object_shape = "+".join(shapes) if shapes else None
 
+    # THE MODE, beside the shape, because they answer different questions: the
+    # shape is what the geometry did on this run, the mode is what it was ASKED
+    # to do. A run of 'arc_far' that never crossed the switch band logs shape
+    # 'straight' and is indistinguishable from 'off' without this column --
+    # which is exactly how a campaign ends up comparing a mode against itself.
+    # Joined like the shapes for the same reason, though a mid-run change takes
+    # a relaunch; None when no corridor carried one (v1 logs, and every test
+    # recorded before the mode existed).
+    modes = sorted({c.corridor_mode for c in corridors if c.corridor_mode})
+    object_corridor_mode = "+".join(modes) if modes else None
+
+    # THE REGIMES, COUNTED. object_shape says which shapes a test used; these
+    # say how MUCH of the test each one ran, which is the difference between
+    # an A/B and a coin flip: mode 'arc' falls back to the straight geometry
+    # wherever the pose fit needs more than full lock (11 of the 24 archived
+    # rebuilds, all inside 1.85 m), so an 'arc' run that spent most of its
+    # rebuilds straight is not an arc run and must not be averaged as one.
+    # Zero, not empty, when the test logged v2 corridors at all: "no arc
+    # rebuilds" is a measurement, while a test with no corridors has nothing
+    # to say.
+    v2 = [c for c in corridors if c.schema == SCHEMA_V2]
+
+    def _count(shape):
+        return sum(1 for c in v2 if c.object_shape == shape) if v2 else None
+
+    n_corr_pose_arc = _count("pose_arc")
+    n_corr_arc = _count("arc")
+    n_corr_straight = _count("straight")
+    # Orthogonal to the shape, and deliberately a separate column: the cap can
+    # cut the ramp arc AND the straight corridor (7 of 31 archived object
+    # rebuilds were cut, all of them straight ones).
+    n_corr_cut = sum(1 for c in v2 if c.cut) if v2 else None
+
     # THE REFERENCE STEP. How far the corridor moves between rebuilds is a
     # wobble candidate in its own right and was never measured: at 1 Hz with
     # the car at ~0.45 m/s the solver is handed a visibly re-laid reference
@@ -445,7 +488,8 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
     step_tangent = _steps("tangent_rad")
 
     kin = read_csv_columns(
-        test_dir / "kinematics.csv", ["t", "corridor_clearance", "obstacle_clearance"]
+        test_dir / "kinematics.csv",
+        ["t", "x", "y", "corridor_clearance", "obstacle_clearance"],
     )
     imu = read_csv_columns(test_dir / "imu.csv", ["t", "ax", "ay"])
     cmd = read_csv_columns(test_dir / "commands.csv", ["t", "cmd_steer"])
@@ -487,6 +531,19 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
         if drive_window is not None and math.isfinite(stamp)
         and drive_window[0] <= stamp <= drive_window[1]
     ]
+
+    # PREDICTION ERROR: how far each predicted horizon ended up from what the
+    # car actually did over the same time window. This is the numeric form of
+    # the three-curve question the corridor figure asks -- a controller that
+    # plans well and tracks badly, or plans badly at all, shows up here as a
+    # number rather than only as a shape. Restricted to solves inside the drive
+    # window: horizons solved while the car was stationary are trivially
+    # accurate and would drag the mean toward zero. Empty (not zero) on a test
+    # logged before horizon.jsonl existed -- see horizon_log.prediction_error.
+    horizons = load_horizons(test_dir / "horizon.jsonl")
+    horizon_err_mean, horizon_err_max, _n_pred = prediction_error(
+        horizons, kin["t"], kin["x"], kin["y"], window=drive_window,
+    )
 
     obstacle = kin["obstacle_clearance"][kin_in]
     obstacle = obstacle[np.isfinite(obstacle)]
@@ -561,7 +618,12 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
         "estop": estop,
         "contact": contact,
         "corridor_schema": corridor_schema,
+        "object_corridor_mode": object_corridor_mode,
         "object_shape": object_shape,
+        "n_corr_pose_arc": n_corr_pose_arc,
+        "n_corr_arc": n_corr_arc,
+        "n_corr_straight": n_corr_straight,
+        "n_corr_cut": n_corr_cut,
         "ref_step_centreline_mean_m": (
             float(np.mean(step_centre)) if step_centre else None),
         "ref_step_centreline_max_m": max(step_centre) if step_centre else None,
@@ -579,6 +641,9 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
         "mpc_solve_time_p95_ms": (
             float(np.percentile(solve_ms, 95)) if solve_ms.size else None
         ),
+        "horizon_err_mean_m": horizon_err_mean,
+        "horizon_err_max_m": horizon_err_max,
+        "n_horizons": len(horizons) or None,
         "jerk_rms": jerk_rms(
             imu["t"][imu_in], imu["ax"][imu_in], imu["ay"][imu_in], cutoff_hz
         ),

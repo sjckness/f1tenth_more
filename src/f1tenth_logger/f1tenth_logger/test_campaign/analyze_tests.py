@@ -685,6 +685,11 @@ def parse_args(argv=None):
                              "test folder (see corridor_plot.py)")
     parser.add_argument("--corridor-plot-dpi", type=int, default=150,
                         help="dpi for --corridor-plots (default 150)")
+    parser.add_argument("--horizon-every", type=int, default=None, metavar="N",
+                        help="in --corridor-plots, draw every Nth solve's "
+                             "predicted horizon instead of one per corridor")
+    parser.add_argument("--no-horizons", dest="horizons", action="store_false",
+                        help="in --corridor-plots, omit the predicted horizons")
     parser.add_argument("--out", default=None,
                         help="output folder (default: <campaign>/analysis)")
     return parser.parse_args(argv)
@@ -758,7 +763,8 @@ def main(argv=None):
         # belongs beside the streams it was drawn from. A test with nothing to
         # draw is counted, not fatal.
         made, skipped = corridor_plot.plot_many(
-            [run.path for run in runs], dpi=args.corridor_plot_dpi, quiet=True)
+            [run.path for run in runs], dpi=args.corridor_plot_dpi, quiet=True,
+            horizons=args.horizons, horizon_every=args.horizon_every)
         print("")
         print(f"{len(made)} corridor_plot.png written into the test folders"
               + (f", {len(skipped)} skipped for want of data" if skipped else ""))

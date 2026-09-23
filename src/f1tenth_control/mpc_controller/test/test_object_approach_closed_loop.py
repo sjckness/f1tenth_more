@@ -52,6 +52,7 @@ import numpy as np
 import pytest
 
 from f1tenth_params.param_defaults import get_value
+from f1tenth_params.corridor_geometry import corridor_curves
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.drive_limits import clamp_drive_speed
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
@@ -878,6 +879,103 @@ class TestFlagAcceptance:
         assert table[(scenario, label, standoff)].advisory_ticks_within(R_FREEZE) == []
 
 
+class TestTheCorridorEndsONTheTarget:
+    """The pose geometry: both END POSES honoured, or an explicit fallback.
+
+    The ramp arc is built from a length, so where it ends is an output -- 0.25
+    m from the goal on average over the archived rebuilds, 0.96 m at worst, and
+    Pend is what the terminal cost pulls toward once the lookahead clamps. What
+    is asserted here is that inside the maximum length the corridor ends ON the
+    goal instead, tangent to psi_c, and that where that curve would need more
+    than full lock the branch says so and falls back rather than shipping an
+    undrivable reference.
+    """
+
+    def _fake(self, target, psi_c, mode='arc', standoff=1.0):
+        fake = _ObjectMPC(standoff=standoff)
+        fake.object_corridor_mode = mode
+        fake.goal_object_odom_xy = target
+        fake.object_psi_c = psi_c
+        return fake
+
+    def test_the_end_is_the_goal_exactly(self):
+        fake = self._fake((3.0, 0.8), 0.25)
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, 0.0, 0.3]))
+        goal = goal_point((3.0, 0.8), fake.object_psi_c, 1.0)
+        assert corridor['objectShape'] == 'pose_arc'
+        assert corridor['Pend'][0] == pytest.approx(goal[0], abs=1e-9)
+        assert corridor['Pend'][1] == pytest.approx(goal[1], abs=1e-9)
+
+    def test_both_tangents_are_honoured(self):
+        """Start at the car's heading, end at psi_c: that is what makes the
+        caps perpendicular to the directions they are caps for."""
+        fake = self._fake((3.0, 0.8), 0.25)
+        yaw = -0.15
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, yaw, 0.3]))
+        start = math.atan2(corridor['ty'][0], corridor['tx'][0])
+        end = math.atan2(corridor['ty'][-1], corridor['tx'][-1])
+        assert start == pytest.approx(yaw, abs=5e-3)
+        assert end == pytest.approx(fake.object_psi_c, abs=5e-3)
+
+    def test_the_car_starts_on_its_own_centreline(self):
+        fake = self._fake((3.0, 0.8), 0.25)
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.2, -0.1, 0.0, 0.3]))
+        assert corridor['xc'][0] == pytest.approx(0.2)
+        assert corridor['yc'][0] == pytest.approx(-0.1)
+
+    def test_the_record_says_which_centreline_it_is(self):
+        """Two kinds of curve share one schema, so the record has to say.
+
+        Without it an offline reader re-evaluates a bezier as a heading ramp
+        of length L and draws a curve the planner never used.
+        """
+        fake = self._fake((3.0, 0.8), 0.25)
+        d = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, 0.0, 0.3]))['defn']
+        assert d['centreline'] == 'bezier'
+        assert d['C1'] is not None
+        assert d['handle_a'] is not None and d['handle_b'] is not None
+
+    def test_an_undrivable_fit_falls_back_to_the_straight_corridor(self):
+        """Close in with a big heading error the pose curve needs more than
+        full lock -- 12.8 1/m at worst over the archive against a limit near
+        1.05 -- and the branch must not ship that as a reference."""
+        fake = self._fake((0.9, 0.0), 0.0)
+        fake.object_psi_c = 0.0
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, 1.0, 0.3]))   # aimed 57 deg off
+        assert corridor['objectShape'] == 'straight'
+        assert corridor['defn']['centreline'] == 'ramp'
+        # and the straight corridor's own contract is back: the centreline IS
+        # the target line, so the split weights must not both act
+        assert corridor['targetLine'] is None
+
+    def test_beyond_the_maximum_length_there_is_no_pose_corridor(self):
+        """"Ends on the target" is not a property a cut corridor can have."""
+        fake = self._fake((6.0, 1.5), 0.25)
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, 0.0, 0.3]))
+        assert corridor['defn']['cut'] is True
+        assert corridor['defn']['centreline'] == 'ramp'
+        assert corridor['objectShape'] == 'arc'
+
+    def test_the_pose_corridor_gets_the_arc_weight_set(self):
+        """It is car-anchored, so w_corr sees no error at the rebuild and the
+        target-line term is load-bearing -- the same reason 'arc' has it."""
+        fake = self._fake((3.0, 0.8), 0.25)
+        fake.weights = dict(WEIGHTS)
+        fake.arc_corr_sigma_m = 0.25
+        fake.arc_line_sigma_m = 0.35
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, 0.0, 0.3]))
+        weights = MPCController._weights_for(fake, corridor)
+        assert weights['w_corr'] != WEIGHTS['w_corr']
+        assert weights['w_line'] < weights['w_corr']
+
+
 class TestTheCorridorEndsAtTheGoal:
 
     def test_pref_nom_never_goes_past_the_goal(self):
@@ -905,15 +1003,90 @@ class TestTheCorridorEndsAtTheGoal:
                 f'pref_nom at car_x={car_x} is {pref[0]:.4f}, past the goal '
                 f'{goal[0]:.4f}')
 
-    def test_the_corridor_end_is_the_goal(self):
+    def test_the_corridor_end_is_the_goal_within_the_maximum_length(self):
+        """Unchanged where it can hold: the whole corridor fits in corr_L_base."""
         fake = _ObjectMPC(standoff=1.0)
-        fake.goal_object_odom_xy = (4.0, 1.0)
+        fake.goal_object_odom_xy = (3.0, 0.6)
         fake.object_psi_c = 0.2
         x = np.array([0.0, 0.0, 0.0, 0.3])
         corridor = MPCController.build_straight_corridor(fake, x)
-        goal = goal_point((4.0, 1.0), fake.object_psi_c, 1.0)
+        goal = goal_point((3.0, 0.6), fake.object_psi_c, 1.0)
+        assert corridor['L'] < fake.corr_L_base
         assert corridor['Pend'][0] == pytest.approx(goal[0], abs=1e-6)
         assert corridor['Pend'][1] == pytest.approx(goal[1], abs=1e-6)
+
+    def test_a_target_beyond_the_maximum_length_cuts_the_corridor(self):
+        """Pend stops being the goal, and that is the point of the cut.
+
+        The corridor is corr_L_base long, ends short of the target on the same
+        line, and says so in the record. A reader that still wants "where was
+        the car being sent" has the target line; Pend is now a waypoint.
+        """
+        fake = _ObjectMPC(standoff=1.0)
+        fake.goal_object_odom_xy = (4.0, 1.0)
+        fake.object_psi_c = 0.2
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, 0.0, 0.3]))
+        goal = goal_point((4.0, 1.0), fake.object_psi_c, 1.0)
+        assert corridor['L'] == pytest.approx(fake.corr_L_base)
+        assert corridor['defn']['cut'] is True
+        assert corridor['defn']['L_full'] > fake.corr_L_base
+        # short of the goal, and on the way to it rather than off to one side
+        assert math.hypot(corridor['Pend'][0] - goal[0],
+                          corridor['Pend'][1] - goal[1]) > 0.1
+        along = ((corridor['Pend'][0]) * math.cos(fake.object_psi_c)
+                 + (corridor['Pend'][1]) * math.sin(fake.object_psi_c))
+        goal_along = (goal[0] * math.cos(fake.object_psi_c)
+                      + goal[1] * math.sin(fake.object_psi_c))
+        assert along < goal_along
+
+    def test_the_cut_corridor_is_a_prefix_of_the_uncut_one(self):
+        """"Same arc, ending early": the ramp is rescaled to hold its METRES.
+
+        Shortening L alone would cram the same heading change into a shorter
+        corridor and bend it harder; this is the assertion that it does not.
+        """
+        fake = _ObjectMPC(standoff=1.0)
+        fake.object_corridor_mode = 'arc'
+        fake.goal_object_odom_xy = (6.0, 2.0)
+        fake.object_psi_c = 0.32
+        x = np.array([0.0, 0.0, 0.0, 0.3])
+        cut = MPCController.build_straight_corridor(fake, x)
+        assert cut['defn']['cut'] is True
+
+        # the same definition, uncut, evaluated directly
+        d = cut['defn']
+        uncut = corridor_curves(
+            d['C0'][0], d['C0'][1], d['psiStart'], d['psiEnd'],
+            d['L_full'], d['corr_N'],
+            u_start=d['u_start'] * d['L'] / d['L_full'],
+            u_end=d['u_end'] * d['L'] / d['L_full'],
+            w0=d['w0'], w1=d['w1'], length_ref=fake.corr_L_base)
+        # every cut sample lies on the uncut curve, to quadrature accuracy
+        for i in (0, 20, 60, 119):
+            s_i = d['L'] * i / (d['corr_N'] - 1)
+            j = int(round(s_i / d['L_full'] * (d['corr_N'] - 1)))
+            assert math.hypot(cut['xc'][i] - uncut['xc'][j],
+                              cut['yc'][i] - uncut['yc'][j]) < 0.02
+
+    def test_the_cut_leaves_psi_end_alone(self):
+        """The ramp is finished long before the cut, so the end direction is
+        still psiEnd and the end cap is still perpendicular to it."""
+        fake = _ObjectMPC(standoff=1.0)
+        fake.object_corridor_mode = 'arc'
+        fake.goal_object_odom_xy = (6.0, 2.0)
+        fake.object_psi_c = 0.32
+        corridor = MPCController.build_straight_corridor(
+            fake, np.array([0.0, 0.0, 0.0, 0.3]))
+        d = corridor['defn']
+        # psi_c itself, which the heading planner rate-limits toward the live
+        # bearing -- the assertion is that the CUT did not touch it, not that
+        # the planner left it where the rig seeded it.
+        assert d['psiEnd'] == pytest.approx(fake.object_psi_c)
+        # the ramp ends inside the cut, with room to spare
+        assert d['u_end'] * d['L'] < d['L']
+        heading = math.atan2(corridor['ty'][-1], corridor['tx'][-1])
+        assert heading == pytest.approx(d['psiEnd'], abs=1e-3)
 
     def test_there_is_no_one_metre_length_floor(self):
         fake = _ObjectMPC(standoff=1.0)

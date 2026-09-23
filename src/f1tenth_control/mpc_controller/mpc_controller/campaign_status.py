@@ -5,7 +5,7 @@ f1tenth_logger's test_campaign logger reads (see its logger_node.py):
 
     /mpc/status  after EVERY solve
                  {status, solve_time_ms, cost, iterations, success, solver,
-                  status_code, status_message}
+                  status_code, status_message, horizon}
     /corridor    every time build_straight_corridor() produces a new corridor
                  {id, polygon: [[x, y], ...], source, frame_id, ...}
 
@@ -15,6 +15,13 @@ the logger can count feasibility with one rule for both backends. Only
 because mpc_corr itself treats it as usable (it keeps the warm start), which
 the campaign may or may not want to count.
 
+``horizon`` is the predicted state trajectory of THIS solve -- the same
+info["x_pred"] that /mpc/solver_status already carries as pred_x/pred_y/...,
+plus the control sequence that produced it. It rides on /mpc/status rather
+than on a topic of its own because the campaign logger already subscribes
+here, and because a horizon is only meaningful beside the solve that made it:
+one message, one solve, one plan. See :func:`horizon_payload`.
+
 Nothing here feeds back into control: MPC_corr builds these from values the
 tick has already computed, after the solve, and publishing them is wrapped so
 a failure can only lose a message.
@@ -22,7 +29,8 @@ a failure can only lose a message.
 
 import math
 
-__all__ = ['corridor_payload', 'mpc_status_payload', 'solve_status_label']
+__all__ = ['corridor_payload', 'horizon_payload', 'mpc_status_payload',
+           'solve_status_label']
 
 # osqp.SolverStatus values (OSQP 1.x, same numbering as 0.6's status_val).
 # Literal ints so this module stays importable without osqp.
@@ -76,12 +84,114 @@ def solve_status_label(info, solver):
     return label
 
 
-def mpc_status_payload(info, solve_dt_sec, solver):
+#: Decimal places the horizon arrays are rounded to. 1e-4 m / 1e-4 rad is two
+#: orders below the centimetre scale any prediction-error question is asked at,
+#: and it keeps one solve near 700 bytes of JSON: this rides on /mpc/status at
+#: the CONTROL rate (10 Hz at ts=0.1), not at the 1 Hz corridor rate, which is
+#: why the arrays are rounded at all and why the inputs are the only extras.
+_HORIZON_DP = 4
+
+
+def _rounded(value):
+    """Finite float rounded for the wire, or None."""
+    value = _finite_or_none(value)
+    return None if value is None else round(value, _HORIZON_DP)
+
+
+def horizon_payload(info, ts, frame_id='odom'):
+    """The predicted horizon of one solve, or None when it produced none.
+
+    ``x``/``y``/``yaw``/``v`` are ``info["x_pred"]``: the horizon states rolled
+    forward through the TRUE nonlinear model, identical to the pred_* arrays
+    /mpc/solver_status already carries and for the same reason (see
+    MpcSolverStatus.msg). One entry per step k = 1..N. The CURRENT state x0 is
+    NOT included -- a consumer drawing a path starting at the car prepends its
+    own pose, exactly as that message's readers do.
+
+    ``steer``/``accel`` are ``info["zopt"]``, the control sequence that produced
+    those states: the flat [delta_0, a_0, delta_1, a_1, ...] both backends
+    return, split and aligned index-for-index with the states, so entry k is the
+    input applied to REACH state k. They cost nothing (already computed, no
+    second rollout) and they are what separates "the MPC planned a bad path"
+    from "it planned a good one and the steering never got there".
+
+    ``ts`` is the control period, carried because it is the one thing the arrays
+    cannot be read without: step k happened at the solve time + (k + 1) * ts.
+    A reader that has to guess this cannot line a horizon up against what the
+    car then did, which is the entire point of logging it.
+
+    ``frame_id`` is the MPC's own world frame -- 'odom', the same frame as
+    /corridor's polygon and /mpc/corridor_markers, because x_pred is rolled
+    forward from x0 and x0 is odom-frame. Carried per message rather than
+    assumed, so a consumer that draws corridors and horizons together can
+    assert they match instead of trusting that they do.
+
+    ALL-OR-NOTHING on the states, matching MpcSolverStatus: a solve whose
+    x_pred is missing, short or non-finite returns None rather than a partial
+    or NaN-padded trajectory. That is the normal state on a failed solve, not
+    an error. The INPUTS are treated more leniently -- a usable state
+    trajectory with an unusable zopt still publishes, with steer/accel null --
+    because the states are the deliverable and the inputs are the extra.
+    """
+    x_pred = info.get('x_pred')
+    try:
+        n = len(x_pred)
+    except TypeError:
+        return None
+    if n == 0:
+        return None
+
+    xs, ys, yaws, vs = [], [], [], []
+    for row in x_pred:
+        try:
+            state = [_rounded(row[i]) for i in range(4)]
+        except (IndexError, KeyError, TypeError, ValueError):
+            return None
+        if any(value is None for value in state):
+            return None
+        xs.append(state[0])
+        ys.append(state[1])
+        yaws.append(state[2])
+        vs.append(state[3])
+
+    steer, accel = None, None
+    zopt = info.get('zopt')
+    try:
+        usable = zopt is not None and len(zopt) >= 2 * n
+    except TypeError:
+        usable = False
+    if usable:
+        steer = [_rounded(zopt[2 * k]) for k in range(n)]
+        accel = [_rounded(zopt[2 * k + 1]) for k in range(n)]
+        if any(v is None for v in steer) or any(v is None for v in accel):
+            steer, accel = None, None
+
+    return {
+        'frame_id': str(frame_id),
+        'ts': _finite_or_none(ts),
+        'n': n,
+        'x': xs,
+        'y': ys,
+        'yaw': yaws,
+        'v': vs,
+        'steer': steer,
+        'accel': accel,
+    }
+
+
+def mpc_status_payload(info, solve_dt_sec, solver, ts=None, frame_id='odom'):
     """The /mpc/status JSON object for one solve.
 
     ``cost`` and ``iterations`` are null when the backend reported none (a
     NaN cost is not a zero cost); ``solve_time_ms`` is the same wall time
     /mpc/solver_status carries as solve_dt_sec.
+
+    ``horizon`` is :func:`horizon_payload`, and is null on a solve that
+    produced no usable prediction -- which is most failed solves, so a reader
+    must handle the null rather than assume every status line carries a plan.
+    ``ts`` is the caller's control period; passing it is what makes the
+    horizon's steps placeable in time, and leaving it out publishes the
+    geometry with a null ``ts`` rather than dropping it.
     """
     iterations = info.get('iterations')
     try:
@@ -103,6 +213,7 @@ def mpc_status_payload(info, solve_dt_sec, solver):
         'solver': str(solver),
         'status_code': status_code,
         'status_message': str(info.get('status_message', info.get('message', ''))),
+        'horizon': horizon_payload(info, ts, frame_id),
     }
 
 
@@ -114,6 +225,18 @@ def mpc_status_payload(info, solve_dt_sec, solver):
 #: sampling error it sat on top of, which made the polygon the limiting term
 #: for no reason. The function definition below is never rounded.
 _POLYGON_DP = 6
+
+
+def _xy_or_none(point):
+    """[x, y] as finite floats, or None -- never a half-finite pair."""
+    if point is None:
+        return None
+    try:
+        x = _finite_or_none(point[0])
+        y = _finite_or_none(point[1])
+    except (IndexError, KeyError, TypeError):
+        return None
+    return None if x is None or y is None else [x, y]
 
 
 def corridor_payload(corridor, corridor_id, frame_id, source, odom_topic=None):
@@ -166,6 +289,15 @@ def corridor_payload(corridor, corridor_id, frame_id, source, odom_topic=None):
     # to the previous one and to the branch that built it, not the function the
     # definition evaluates. A reader wanting only the geometry can ignore them.
     payload['object_shape'] = str(corridor.get('objectShape', 'none'))
+    # WHAT THE CORRIDOR WAS AIMED AT, beside the corridor. odom, like the
+    # polygon: the tracked target as the planner held it at build time, and
+    # the standoff point derived from it (the corridor's own end, except where
+    # the length cap cut the corridor short of it). None off the object
+    # branch. Without these a rebuilt corridor cannot be checked against the
+    # thing it was built for -- which is how a target_lost abort ends up
+    # undiagnosable after the fact.
+    payload['object_target'] = _xy_or_none(corridor.get('objectTarget'))
+    payload['object_goal'] = _xy_or_none(corridor.get('objectGoal'))
     step = corridor.get('refStep') or {}
     payload['ref_step'] = {
         'centreline_m': _finite_or_none(step.get('centreline_m')),

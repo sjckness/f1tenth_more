@@ -122,6 +122,35 @@ class CorridorRecord:
         return str(self.meta.get('object_shape') or 'unknown')
 
     @property
+    def corridor_mode(self):
+        """The object_corridor_mode this corridor was built under, or None.
+
+        The MODE is the setting ('off' | 'arc' | 'arc_far'); object_shape is
+        what that setting produced on this rebuild ('straight' | 'arc'). They
+        are not the same fact and the campaign carries both: 'arc_far' that
+        stayed straight all run is a different thing from 'off', and only the
+        mode distinguishes them. Read from the v2 definition, so None on a v1
+        record and on anything logged before the mode existed.
+        """
+        if not self.definition:
+            return None
+        mode = self.definition.get('object_corridor_mode')
+        return str(mode) if mode else None
+
+    @property
+    def cut(self):
+        """True when the length cap shortened this corridor. None on v1.
+
+        A cut corridor does NOT end where it was aiming: Pend is a waypoint on
+        the way to the target rather than the target's standoff. Counting cuts
+        is how a campaign sees that regime at all -- the length alone cannot
+        say whether 3.00 m is the nominal corridor or a 4.63 m one truncated.
+        """
+        if not self.definition:
+            return None
+        return bool(self.definition.get('cut', False))
+
+    @property
     def ref_step(self):
         """How far the reference moved since the previous rebuild, or {}.
 
@@ -177,10 +206,28 @@ def evaluate(record, n=None):
     if record.schema != SCHEMA_V2:
         return None
     from f1tenth_params.corridor_geometry import (  # noqa: PLC0415 - see docstring
-        CORRIDOR_HANDLE_FRAC, corridor_curves,
+        CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
+        corridor_curves_to_pose,
     )
     d = record.definition
     c0 = d['C0']
+    # TWO KINDS OF CENTRELINE, and the record says which. 'bezier' ends ON the
+    # pose in C1 and so carries no usable L (its length is an output of the
+    # fit); 'ramp', the only kind before the object branch learned to end on
+    # its target, is the integrated heading ramp of length L. A record with no
+    # 'centreline' key predates the distinction and can only be a ramp.
+    if d.get('centreline') == 'bezier':
+        c1 = d['C1']
+        return corridor_curves_to_pose(
+            float(c0[0]), float(c0[1]), float(d['psiStart']),
+            float(c1[0]), float(c1[1]), float(d['psiEnd']),
+            int(d['corr_N'] if n is None else n),
+            handle_a=float(d.get('handle_a') or POSE_HANDLE_FRAC),
+            handle_b=float(d.get('handle_b') or POSE_HANDLE_FRAC),
+            w0=float(d.get('w0', 0.4333)),
+            w1=float(d.get('w1', 0.7667)),
+            handle_frac=float(d.get('handle_frac', CORRIDOR_HANDLE_FRAC)),
+        )
     # dpsi is passed from the record rather than left to the evaluator's own
     # wrap: it is the RESOLVED value the planner used, which for a wall_turn is
     # signed and unwrapped and so is not equal to wrap(psiEnd - psiStart) past

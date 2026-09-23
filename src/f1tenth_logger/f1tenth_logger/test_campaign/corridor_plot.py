@@ -12,6 +12,7 @@ so a figure from a log and a figure from the live planner read the same way:
     teal, dashed the centreline
     tab:gray x  Pend, the corridor's end point
     black       the trajectory actually driven, on top of everything
+    tab:orange  the MPC's predicted horizons, dotted, with a dot at the far end
 
 with two additions this file needs and a single snapshot did not: every
 corridor of the test rather than one, faded by age so the newest is the most
@@ -28,10 +29,35 @@ For a v1 record there is no definition, so the sampled boundary polygon is all
 there is. It is drawn as a filled band with no centreline, and the figure says
 so. Every run in first_test_campaing/ is v1.
 
+THE HORIZONS, and why only some of them. A horizon is logged every solve --
+hundreds per test -- so drawing them all would be a solid orange field that
+says nothing. The default is ONE PER CORRIDOR: the first horizon solved under
+each corridor, matched by the corridor_id the logger stamps on every record
+rather than by timestamp, so each corridor is shown beside the plan actually
+made under it. ``--horizon-every N`` replaces that with every Nth solve, for
+the different question of how the plan drifts BETWEEN rebuilds.
+
+Each horizon is drawn from the car's ACTUAL pose at the solve instant
+(interpolated from kinematics.csv) through its predicted states, because the
+prediction itself starts one control period ahead -- x_pred is x_1..x_N and
+x0 is deliberately not in it. Without that first segment the horizons float
+detached from the trajectory and the figure loses the comparison it exists
+for. With no usable trajectory they are drawn from their first predicted
+point instead.
+
+WHAT THE THREE CURVES TOGETHER ANSWER, which is the whole reason the horizon
+is on this figure: a good plan followed (horizon lies along the driven path),
+a good plan not followed (horizon hugs the centreline, driven path does not),
+or a bad plan (horizon leaves the corridor or swings away from the
+centreline). The numeric form of the same question is the prediction error in
+the campaign export.
+
     test_campaign_corridor_plot <test folder>
     test_campaign_corridor_plot --mission first_test_campaing/M02_approach_wall
     test_campaign_corridor_plot --campaign first_test_campaing --dpi 200
     test_campaign_corridor_plot <test folder> --split --show
+    test_campaign_corridor_plot <test folder> --horizon-every 20
+    test_campaign_corridor_plot <test folder> --no-horizons
 """
 
 from __future__ import annotations
@@ -58,6 +84,9 @@ from matplotlib.lines import Line2D  # noqa: E402
 from f1tenth_logger.test_campaign.corridor_def import (  # noqa: E402
     SCHEMA_V2, evaluate, load_corridors,
 )
+from f1tenth_logger.test_campaign.horizon_log import (  # noqa: E402
+    load_horizons, select_by_corridor, select_every,
+)
 
 __all__ = ["plot_test", "plot_many", "find_tests", "PLOT_NAME"]
 
@@ -68,6 +97,9 @@ FILL_COLOR = "tab:cyan"
 CENTER_COLOR = "teal"
 PEND_COLOR = "tab:gray"
 TRACK_COLOR = "black"
+#: Warm, so it cannot be confused with the cool corridor palette, and
+#: distinct from the black driven path it is meant to be compared against.
+HORIZON_COLOR = "tab:orange"
 START_COLOR = "tab:green"
 END_COLOR = "tab:red"
 
@@ -89,14 +121,19 @@ def _warn(messages, text):
     messages.append(text)
 
 
-def read_trajectory(test_dir):
-    """(xs, ys) actually driven, or ([], []) when there is no usable pose data."""
+def read_trajectory_timed(test_dir):
+    """(ts, xs, ys) actually driven; ts entries are None where t was unusable.
+
+    The timestamps are what lets a horizon be attached to the pose the car
+    actually held when that solve ran. A row with a good pose but no usable t
+    is still kept for the trajectory line -- it just cannot anchor a horizon.
+    """
     path = Path(test_dir) / "kinematics.csv"
-    xs, ys = [], []
+    ts, xs, ys = [], [], []
     try:
         handle = open(path, newline="", encoding="utf-8")
     except OSError:
-        return xs, ys
+        return ts, xs, ys
     with handle:
         for row in csv.DictReader(handle):
             try:
@@ -104,9 +141,21 @@ def read_trajectory(test_dir):
                 y = float(row["y"])
             except (TypeError, ValueError, KeyError):
                 continue
-            if x == x and y == y:      # not NaN
-                xs.append(x)
-                ys.append(y)
+            if x != x or y != y:       # NaN
+                continue
+            try:
+                t = float(row["t"])
+            except (TypeError, ValueError, KeyError):
+                t = None
+            ts.append(t if t == t else None)
+            xs.append(x)
+            ys.append(y)
+    return ts, xs, ys
+
+
+def read_trajectory(test_dir):
+    """(xs, ys) actually driven, or ([], []) when there is no usable pose data."""
+    _, xs, ys = read_trajectory_timed(test_dir)
     return xs, ys
 
 
@@ -127,6 +176,16 @@ def title_for(test_dir, meta, records):
     mission = summary.get("mission") or test_dir.parent.name
     outcome = summary.get("auto_outcome") or "unknown"
     line = f"{test_id}   {mission}   {outcome}"
+    # THE GEOMETRY THAT DREW THIS FIGURE, on the title line. A run on 'off'
+    # and a run on 'arc' that stayed straight produce figures that look alike,
+    # and the mode was readable only by opening corridors.jsonl -- so a figure
+    # was read back as possibly-arc when it was the default. Taken from the
+    # corridors themselves rather than meta.json: the definition is what the
+    # planner actually ran under, meta is a copy of it. Silent when no corridor
+    # recorded a mode (v1 logs), since "unknown" on every old figure is noise.
+    modes = sorted({r.corridor_mode for r in records if r.corridor_mode})
+    if modes:
+        line += f"   object_corridor_mode={'+'.join(modes)}"
     n_v2 = sum(1 for r in records if r.schema == SCHEMA_V2)
     if records and n_v2 == 0:
         line += "\nv1 log: sampled boundary only, no centreline"
@@ -183,6 +242,54 @@ def _alphas(n):
     return [ALPHA_MIN + (1.0 - ALPHA_MIN) * i / (n - 1) for i in range(n)]
 
 
+def _anchor(t_solve, ts, xs, ys):
+    """The driven pose at ``t_solve``, linearly interpolated, or None.
+
+    Returns None outside the logged span rather than clamping to an endpoint:
+    an anchor that is not a measurement would draw a horizon from a place the
+    car never was.
+    """
+    if t_solve is None:
+        return None
+    pairs = [(t, x, y) for t, x, y in zip(ts, xs, ys) if t is not None]
+    if not pairs or t_solve < pairs[0][0] or t_solve > pairs[-1][0]:
+        return None
+    previous = pairs[0]
+    for current in pairs:
+        if current[0] >= t_solve:
+            span = current[0] - previous[0]
+            if span <= 0:
+                return current[1], current[2]
+            frac = (t_solve - previous[0]) / span
+            return (previous[1] + frac * (current[1] - previous[1]),
+                    previous[2] + frac * (current[2] - previous[2]))
+        previous = current
+    return previous[1], previous[2]
+
+
+def draw_horizon(ax, record, alpha, t_traj=(), x_traj=(), y_traj=()):
+    """One predicted horizon, anchored on the driven pose when there is one.
+
+    Dotted rather than solid so it never reads as something the car did, and
+    with a dot at the far end so the horizon's reach is visible where several
+    overlap. Sits above the corridors and below the driven path: the plan is
+    context for the trajectory, not a competitor to it.
+    """
+    xs = list(record.x)
+    ys = list(record.y)
+    if not xs:
+        return False
+    start = _anchor(record.t, t_traj, x_traj, y_traj)
+    if start is not None:
+        xs.insert(0, start[0])
+        ys.insert(0, start[1])
+    ax.plot(xs, ys, ":", color=HORIZON_COLOR, linewidth=1.3, alpha=alpha,
+            zorder=3)
+    ax.plot(xs[-1], ys[-1], ".", color=HORIZON_COLOR, markersize=4,
+            alpha=alpha, zorder=3)
+    return True
+
+
 def _draw_trajectory(ax, xs, ys):
     ax.plot(xs, ys, "-", color=TRACK_COLOR, linewidth=1.8, zorder=4,
             label="driven")
@@ -202,7 +309,7 @@ def _finish_axes(ax, grid=True):
     ax.set_ylabel("y [m]")
 
 
-def _legend_handles(any_centreline, has_track):
+def _legend_handles(any_centreline, has_track, has_horizon=False):
     handles = [
         Line2D([], [], color=wall_color(1.0), lw=1.4,
                label="corridor walls (light = early)"),
@@ -213,6 +320,10 @@ def _legend_handles(any_centreline, has_track):
         handles.append(
             Line2D([], [], color=PEND_COLOR, marker="x", ls="none",
                    label="corridor end (Pend)"))
+    if has_horizon:
+        handles.append(
+            Line2D([], [], color=HORIZON_COLOR, lw=1.3, ls=":", marker=".",
+                   label="MPC horizon"))
     if has_track:
         handles += [
             Line2D([], [], color=TRACK_COLOR, lw=1.8, label="driven"),
@@ -224,7 +335,8 @@ def _legend_handles(any_centreline, has_track):
     return handles
 
 
-def _figure_single(records, xs, ys, title, messages):
+def _figure_single(records, horizons, traj, title, messages):
+    t_traj, xs, ys = traj
     fig, ax = plt.subplots(figsize=(9, 8))
     any_centreline = False
     n = len(records)
@@ -233,6 +345,14 @@ def _figure_single(records, xs, ys, title, messages):
         frac = 0.0 if n <= 1 else index / (n - 1)
         any_centreline |= draw_corridor(ax, record, alpha, messages=messages,
                                         color=wall_color(frac))
+
+    # Horizons fade on their own ramp, not the corridors': there may be many
+    # more of them (--horizon-every) or fewer (a corridor nobody solved under),
+    # so borrowing the corridor alphas would mis-age them.
+    drawn = 0
+    h_alphas = _alphas(len(horizons))
+    for record, alpha in zip(horizons, h_alphas):
+        drawn += draw_horizon(ax, record, alpha, t_traj, xs, ys)
 
     if xs:
         _draw_trajectory(ax, xs, ys)
@@ -251,23 +371,34 @@ def _figure_single(records, xs, ys, title, messages):
 
     _finish_axes(ax)
     ax.set_title(title)
-    handles = _legend_handles(any_centreline, bool(xs))
+    handles = _legend_handles(any_centreline, bool(xs), bool(drawn))
     ax.legend(handles=handles, loc="upper left", fontsize=8, framealpha=0.9)
     return fig
 
 
-def _figure_split(records, xs, ys, title, messages):
+def _figure_split(records, horizons, traj, title, messages):
+    t_traj, xs, ys = traj
     n = len(records)
     cols = min(4, n)
     rows = (n + cols - 1) // cols
     fig, axes = plt.subplots(rows, cols, figsize=(3.2 * cols, 3.0 * rows),
                              squeeze=False)
+    # Panel k is corridor k, so each panel gets the horizons solved under THAT
+    # corridor and no others -- the split figure's whole point is one corridor
+    # at a time, and a shared horizon would undo it.
+    by_corridor = {}
+    for record in horizons:
+        by_corridor.setdefault(record.corridor_id, []).append(record)
+
     any_centreline = False
+    drawn = 0
     for index, record in enumerate(records):
         ax = axes[index // cols][index % cols]
         frac = 0.0 if n <= 1 else index / (n - 1)
         any_centreline |= draw_corridor(ax, record, 1.0, messages=messages,
                                         color=wall_color(frac))
+        for horizon in by_corridor.get(record.id, []):
+            drawn += draw_horizon(ax, horizon, 1.0, t_traj, xs, ys)
         if xs:
             _draw_trajectory(ax, xs, ys)
         _finish_axes(ax)
@@ -279,7 +410,7 @@ def _figure_split(records, xs, ys, title, messages):
     for index in range(n, rows * cols):
         axes[index // cols][index % cols].axis("off")
     fig.suptitle(title)
-    handles = _legend_handles(any_centreline, bool(xs))
+    handles = _legend_handles(any_centreline, bool(xs), bool(drawn))
     # Below the grid, not inside it: at 4 columns the last panel is exactly
     # where a corner legend lands.
     fig.legend(handles=handles, loc="lower center", ncol=len(handles),
@@ -288,8 +419,14 @@ def _figure_split(records, xs, ys, title, messages):
     return fig
 
 
-def plot_test(test_dir, out=None, dpi=150, show=False, split=False, quiet=False):
+def plot_test(test_dir, out=None, dpi=150, show=False, split=False, quiet=False,
+              horizons=True, horizon_every=None):
     """Write ``corridor_plot.png`` for one test folder.
+
+    ``horizons`` draws the MPC's predicted horizons; ``horizon_every`` replaces
+    the default one-per-corridor selection with every Nth solve (see the module
+    docstring). A test logged before horizon.jsonl existed simply has none, and
+    gets the same figure it got before plus one warning.
 
     Returns ``(path_or_None, warnings)``. A test with neither corridors nor a
     trajectory produces no file and one warning -- there is nothing to draw,
@@ -299,8 +436,25 @@ def plot_test(test_dir, out=None, dpi=150, show=False, split=False, quiet=False)
     messages = []
 
     records = load_corridors(test_dir / "corridors.jsonl")
-    xs, ys = read_trajectory(test_dir)
+    t_traj, xs, ys = read_trajectory_timed(test_dir)
     meta = read_meta(test_dir)
+
+    picked = []
+    if horizons:
+        logged = load_horizons(test_dir / "horizon.jsonl")
+        if not logged:
+            _warn(messages, "no horizon.jsonl (or it is empty): "
+                            "predicted horizons not drawn")
+        elif horizon_every:
+            picked = select_every(logged, horizon_every)
+        else:
+            picked = select_by_corridor(logged)
+            if not records:
+                # Nothing stamped a corridor_id, so the selection collapsed to
+                # a single record: say so rather than let the figure look as
+                # though the MPC solved once.
+                _warn(messages, f"{len(logged)} horizons but no corridors: "
+                                f"showing {len(picked)}; use --horizon-every N")
 
     if not records:
         _warn(messages, "no corridors.jsonl (or it is empty): corridors not drawn")
@@ -309,7 +463,7 @@ def plot_test(test_dir, out=None, dpi=150, show=False, split=False, quiet=False)
     if not meta:
         _warn(messages, "no meta.json: the title falls back to the folder name")
 
-    if not records and not xs:
+    if not records and not xs and not picked:
         _warn(messages, "nothing to plot")
         if not quiet:
             for text in messages:
@@ -317,12 +471,13 @@ def plot_test(test_dir, out=None, dpi=150, show=False, split=False, quiet=False)
         return None, messages
 
     title = title_for(test_dir, meta, records)
+    traj = (t_traj, xs, ys)
     if split and records:
-        fig = _figure_split(records, xs, ys, title, messages)
+        fig = _figure_split(records, picked, traj, title, messages)
     else:
         if split:
             _warn(messages, "--split needs corridors; drawing a single panel")
-        fig = _figure_single(records, xs, ys, title, messages)
+        fig = _figure_single(records, picked, traj, title, messages)
 
     target = Path(out) if out else test_dir / PLOT_NAME
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -354,11 +509,14 @@ def find_tests(root, mission=None, campaign=None):
     return [root]
 
 
-def plot_many(test_dirs, dpi=150, split=False, show=False, quiet=False):
+def plot_many(test_dirs, dpi=150, split=False, show=False, quiet=False,
+              horizons=True, horizon_every=None):
     """``(written, skipped)`` over several test folders."""
     written, skipped = [], []
     for test_dir in test_dirs:
-        path, _ = plot_test(test_dir, dpi=dpi, split=split, show=show, quiet=quiet)
+        path, _ = plot_test(test_dir, dpi=dpi, split=split, show=show,
+                            quiet=quiet, horizons=horizons,
+                            horizon_every=horizon_every)
         (written if path else skipped).append(test_dir)
     return written, skipped
 
@@ -377,6 +535,11 @@ def parse_args(argv=None):
                         help="one small subplot per corridor, in time order")
     parser.add_argument("--show", action="store_true",
                         help="also open the figure in a window")
+    parser.add_argument("--horizon-every", type=int, default=None, metavar="N",
+                        help="draw every Nth solve's predicted horizon instead "
+                             "of one per corridor rebuild")
+    parser.add_argument("--no-horizons", dest="horizons", action="store_false",
+                        help="omit the predicted horizons")
     parser.add_argument("--out", default=None,
                         help="write here instead of <test>/corridor_plot.png "
                              "(single test only)")
@@ -401,7 +564,9 @@ def main(argv=None):
 
     if args.test_dir and not (args.mission or args.campaign):
         path, _ = plot_test(args.test_dir, out=args.out, dpi=args.dpi,
-                            show=args.show, split=args.split)
+                            show=args.show, split=args.split,
+                            horizons=args.horizons,
+                            horizon_every=args.horizon_every)
         if path is None:
             return 1
         print(path)
@@ -412,7 +577,9 @@ def main(argv=None):
     if not tests:
         print("no test folders found", file=sys.stderr)
         return 1
-    written, skipped = plot_many(tests, dpi=args.dpi, split=args.split)
+    written, skipped = plot_many(tests, dpi=args.dpi, split=args.split,
+                                 horizons=args.horizons,
+                                 horizon_every=args.horizon_every)
     for path in written:
         print(Path(path) / PLOT_NAME)
     print(f"{len(written)} figure(s) written, {len(skipped)} skipped",

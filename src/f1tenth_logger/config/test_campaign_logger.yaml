@@ -31,6 +31,9 @@ test_campaign_logger:
     drive_topic: /drive
     mpc_status_topic: /mpc/status
     corridor_topic: /corridor
+    # What perception offered, beside what the controller did with it:
+    # go_to_object's own tracks topic, recorded to tracks.jsonl.
+    tracks_topic: /costmap/semantic_tracks
     obstacle_clearance_topic: /obstacle_clearance
     safety_event_topic: /safety/event
     plan_result_topic: /test/plan_result

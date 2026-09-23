@@ -64,6 +64,8 @@ class _FakeClock:
 class _FakeMPC:
     """Just enough of MPCController for goal_object_callback + friends."""
 
+    _log_object_corridor_mode = MPCController._log_object_corridor_mode
+
     def __init__(self, x=0.0, y=0.0, yaw=0.0):
         self.x, self.y, self.yaw = x, y, yaw
         self._logger = _FakeLogger()
@@ -80,6 +82,14 @@ class _FakeMPC:
         self._last_published_steer = 0.0
         self.delta_real = None
         self.hold = False
+
+        # A hold RELEASE now also says which object-corridor geometry is
+        # active (MPC_corr._log_object_corridor_mode, added so a run's log
+        # records the mode beside the mission it governs). Bound rather than
+        # stubbed: a stand-in that skipped it would let the callback break on
+        # the car while these tests stayed green.
+        self.object_corridor_mode = 'off'
+        self._object_mode_default = 'off'
 
         # Object-mode state, mirroring MPCController.__init__.
         self.goal_object_move_id = None

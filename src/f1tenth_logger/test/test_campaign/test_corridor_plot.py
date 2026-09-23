@@ -60,10 +60,29 @@ def v1_record(index, x0=0.0):
     }
 
 
-def make_test(tmp_path, *, corridors=None, poses=10, meta=True,
+def horizon_record(index, corridor_id, t, n=5, ts=0.1, dx=0.2, offset=0.0):
+    """A straight horizon walking forward in x, offset in y by ``offset``."""
+    return {
+        "t": t, "i": index, "corridor_id": corridor_id, "frame_id": "odom",
+        "ts": ts, "n": n,
+        "x": [t * 2.0 + (k + 1) * dx for k in range(n)],
+        "y": [offset] * n,
+        "yaw": [0.0] * n,
+        "v": [0.45] * n,
+        "steer": [0.0] * n,
+        "accel": [0.0] * n,
+    }
+
+
+def make_test(tmp_path, *, corridors=None, poses=10, meta=True, horizons=None,
               name="P001-R001-20260101T000000", mission="M01"):
     directory = tmp_path / mission / name
     directory.mkdir(parents=True)
+
+    if horizons is not None:
+        with open(directory / "horizon.jsonl", "w", encoding="utf-8") as fh:
+            for record in horizons:
+                fh.write(json.dumps(record) + "\n")
 
     if corridors is not None:
         with open(directory / "corridors.jsonl", "w", encoding="utf-8") as fh:
@@ -111,8 +130,11 @@ def count_drawn(directory, split=False):
 # --------------------------------------------------------------------------
 
 def test_a_figure_is_written_into_the_test_folder(tmp_path):
-    directory = make_test(tmp_path, corridors=[v2_record(i, i * 0.5)
-                                               for i in range(4)])
+    directory = make_test(
+        tmp_path,
+        corridors=[v2_record(i, i * 0.5) for i in range(4)],
+        horizons=[horizon_record(i, i, t=i * 0.2) for i in range(4)],
+    )
     path, warnings = corridor_plot.plot_test(directory, quiet=True)
     assert path == directory / corridor_plot.PLOT_NAME
     assert path.exists() and path.stat().st_size > 0
@@ -327,3 +349,136 @@ def test_cli_with_no_target_is_an_error(capsys):
 def test_cli_on_an_empty_test_reports_failure(tmp_path):
     directory = make_test(tmp_path, corridors=None, poses=0, meta=False)
     assert corridor_plot.main([str(directory)]) == 1
+
+
+# --------------------------------------------------------------------------
+# the predicted horizons
+# --------------------------------------------------------------------------
+
+def _horizon_lines(ax):
+    """Axes lines drawn in the horizon colour, whatever else is on the plot."""
+    return [line for line in ax.lines
+            if line.get_color() == corridor_plot.HORIZON_COLOR]
+
+
+def test_one_horizon_per_corridor_is_the_default(tmp_path):
+    """Four corridors, twenty solves -> four horizons, not twenty.
+
+    The default exists because a horizon is logged every solve: drawing them
+    all is a solid orange field. The selection is by corridor_id, so this also
+    pins that the plot uses the stamped id rather than matching on time.
+    """
+    horizons = [horizon_record(i, corridor_id=i // 5, t=i * 0.05)
+                for i in range(20)]
+    directory = make_test(tmp_path,
+                          corridors=[v2_record(i, i * 0.5) for i in range(4)],
+                          horizons=horizons)
+    import matplotlib.pyplot as plt
+
+    from f1tenth_logger.test_campaign.horizon_log import (
+        load_horizons, select_by_corridor)
+
+    picked = select_by_corridor(load_horizons(directory / "horizon.jsonl"))
+    assert len(picked) == 4
+    # the FIRST solve under each corridor, not the last
+    assert [r.i for r in picked] == [0, 5, 10, 15]
+
+    fig, ax = plt.subplots()
+    for record in picked:
+        corridor_plot.draw_horizon(ax, record, 1.0)
+    assert len(_horizon_lines(ax)) == 8       # one path + one end dot each
+    plt.close(fig)
+
+
+def test_horizon_every_n_overrides_the_per_corridor_default(tmp_path):
+    from f1tenth_logger.test_campaign.horizon_log import (
+        load_horizons, select_every)
+
+    horizons = [horizon_record(i, corridor_id=i // 5, t=i * 0.05)
+                for i in range(20)]
+    directory = make_test(tmp_path,
+                          corridors=[v2_record(i) for i in range(4)],
+                          horizons=horizons)
+    records = load_horizons(directory / "horizon.jsonl")
+    assert [r.i for r in select_every(records, 5)] == [0, 5, 10, 15]
+    assert len(select_every(records, 1)) == 20
+    assert select_every(records, 0) == []
+
+    path, _ = corridor_plot.plot_test(directory, quiet=True, horizon_every=5)
+    assert path.exists()
+
+
+def test_no_horizons_flag_draws_none(tmp_path):
+    directory = make_test(
+        tmp_path, corridors=[v2_record(0)],
+        horizons=[horizon_record(0, 0, t=0.1)])
+    path, warnings = corridor_plot.plot_test(directory, quiet=True,
+                                             horizons=False)
+    assert path.exists()
+    # the horizon file is never read, so its absence is never reported either
+    assert not any("horizon" in w for w in warnings)
+
+
+def test_a_test_without_horizons_still_plots_and_says_so(tmp_path):
+    """Every run logged before horizon.jsonl existed must still draw."""
+    directory = make_test(tmp_path, corridors=[v2_record(0)])
+    path, warnings = corridor_plot.plot_test(directory, quiet=True)
+    assert path.exists()
+    assert any("no horizon.jsonl" in w for w in warnings)
+
+
+def test_the_horizon_is_anchored_on_the_driven_pose(tmp_path):
+    """The drawn path starts at the car, not one control period ahead.
+
+    x_pred is x_1..x_N with x0 deliberately absent, so an unanchored horizon
+    floats detached from the trajectory and the plan/driven comparison the
+    figure exists for is lost.
+    """
+    import matplotlib.pyplot as plt
+
+    from f1tenth_logger.test_campaign.horizon_log import load_horizons
+
+    # kinematics: x = 0.2 * i at t = 0.1 * i, so at t = 0.25 the car is at 0.5
+    directory = make_test(tmp_path, corridors=[v2_record(0)],
+                          horizons=[horizon_record(0, 0, t=0.25)])
+    t_traj, xs, ys = corridor_plot.read_trajectory_timed(directory)
+    record = load_horizons(directory / "horizon.jsonl")[0]
+
+    fig, ax = plt.subplots()
+    corridor_plot.draw_horizon(ax, record, 1.0, t_traj, xs, ys)
+    drawn = _horizon_lines(ax)[0].get_xydata()
+    plt.close(fig)
+
+    assert len(drawn) == len(record.x) + 1
+    assert drawn[0][0] == pytest.approx(0.5)      # interpolated, not clamped
+    assert drawn[1][0] == pytest.approx(record.x[0])
+
+
+def test_an_unanchorable_horizon_is_drawn_from_its_first_step(tmp_path):
+    """A solve outside the logged trajectory must not invent a start pose."""
+    import matplotlib.pyplot as plt
+
+    from f1tenth_logger.test_campaign.horizon_log import load_horizons
+
+    directory = make_test(tmp_path, corridors=[v2_record(0)],
+                          horizons=[horizon_record(0, 0, t=99.0)])
+    t_traj, xs, ys = corridor_plot.read_trajectory_timed(directory)
+    record = load_horizons(directory / "horizon.jsonl")[0]
+
+    fig, ax = plt.subplots()
+    corridor_plot.draw_horizon(ax, record, 1.0, t_traj, xs, ys)
+    drawn = _horizon_lines(ax)[0].get_xydata()
+    plt.close(fig)
+    assert len(drawn) == len(record.x)
+    assert drawn[0][0] == pytest.approx(record.x[0])
+
+
+def test_split_panels_get_only_their_own_corridors_horizon(tmp_path):
+    """The split figure is one corridor per panel; horizons must follow."""
+    directory = make_test(
+        tmp_path,
+        corridors=[v2_record(i, i * 0.5) for i in range(3)],
+        horizons=[horizon_record(i, corridor_id=i, t=i * 0.2) for i in range(3)],
+    )
+    path, _ = corridor_plot.plot_test(directory, split=True, quiet=True)
+    assert path.exists() and path.stat().st_size > 0

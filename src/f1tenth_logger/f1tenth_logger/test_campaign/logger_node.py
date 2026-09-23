@@ -115,6 +115,10 @@ try:
 except ImportError:  # pragma: no cover - ackermann_msgs is a separate package
     AckermannDriveStamped = None
 try:
+    from vision_msgs.msg import Detection3DArray
+except ImportError:  # pragma: no cover - vision_msgs is a separate package
+    Detection3DArray = None
+try:
     from ament_index_python.packages import get_package_share_directory
 except ImportError:  # pragma: no cover - not a sourced ROS environment
     get_package_share_directory = None
@@ -199,6 +203,10 @@ class TestLoggerNode(Node):
         self._clearance_topic = param("obstacle_clearance_topic",
                                       "/obstacle_clearance")
         self._safety_topic = param("safety_event_topic", "/safety/event")
+        # The tracks the behaviour tree drives at: go_to_object's own default
+        # topic, so the stream records the messages that actually decided the
+        # move rather than a parallel copy of them.
+        self._tracks_topic = param("tracks_topic", "/costmap/semantic_tracks")
 
         self._post_roll_s = float(param("post_roll_s", 2.0))
         self._pre_roll_s = float(param("pre_roll_s", 0.0))
@@ -217,6 +225,9 @@ class TestLoggerNode(Node):
         self._mission_started = False
         self._pending_close = None      # (outcome, reason, close_at)
         self._obstacle_clearance = None
+        # Frame the last corridor was built in, kept only to check that the
+        # horizons arriving on /mpc/status are drawable over those corridors.
+        self._corridor_frame = None
         self._plan_id = ''
         self._pre_roll = deque()        # (t_ros, kind, payload)
         self._warned = set()
@@ -256,6 +267,18 @@ class TestLoggerNode(Node):
                 "ackermann_msgs",
                 f"ackermann_msgs is not installed: {self._drive_topic} will not "
                 f"be logged (everything else still works)",
+            )
+
+        if Detection3DArray is not None:
+            # sensor QoS: this arrives at the detection rate and a dropped
+            # message is a dropped observation, not a broken log.
+            self._subscribe(Detection3DArray, self._tracks_topic,
+                            self._on_tracks, sensor)
+        else:
+            self._warn_once(
+                "vision_msgs",
+                f"vision_msgs is not installed: {self._tracks_topic} will not "
+                f"be logged, so a target_lost abort will not be diagnosable",
             )
 
         self._status_pub = self.create_publisher(String, STATUS_TOPIC, 10)
@@ -814,13 +837,101 @@ class TestLoggerNode(Node):
         data = self._payload(msg, self._mpc_topic, self.get_logger())
         if data is None:
             return
+        # One stamp for both streams: the horizon IS this solve's plan, so
+        # horizon.jsonl and the mpc.csv row must agree on when it was made.
+        # Taking self._t() twice would put them microseconds apart and make
+        # every downstream join approximate for no reason.
+        t = self._t()
         self._test.log_mpc(
             data.get("status", ""),
             solve_time_ms=data.get("solve_time_ms"),
             cost=data.get("cost"),
             iterations=data.get("iterations"),
-            t=self._t(),
+            t=t,
         )
+        self._log_horizon(data.get("horizon"), t)
+
+    def _log_horizon(self, horizon, t):
+        """Write one solve's predicted horizon, if this status carried one.
+
+        A null horizon is the normal state on a failed solve (see
+        campaign_status.horizon_payload), so it is skipped in silence. Only a
+        horizon that is present but unusable is worth a word, and only once.
+        """
+        if horizon is None:
+            return
+        if not isinstance(horizon, dict):
+            self._warn_once(
+                "horizon_shape",
+                f"{self._mpc_topic} carries a 'horizon' that is not an object: "
+                f"predicted horizons will not be logged",
+            )
+            return
+        frame = horizon.get("frame_id")
+        if (frame and self._corridor_frame and frame != self._corridor_frame):
+            # Drawing a horizon over a corridor is only meaningful in one
+            # frame; a mismatch makes the figure silently wrong rather than
+            # visibly broken, so it is said out loud once.
+            self._warn_once(
+                "horizon_frame",
+                f"horizons are in {frame} but corridors are in "
+                f"{self._corridor_frame}: the two cannot be plotted together",
+            )
+        if self._test.log_horizon(
+            horizon.get("x"),
+            horizon.get("y"),
+            yaw=horizon.get("yaw"),
+            v=horizon.get("v"),
+            steer=horizon.get("steer"),
+            accel=horizon.get("accel"),
+            ts=horizon.get("ts"),
+            frame_id=frame,
+            t=t,
+        ) is None and horizon.get("x"):
+            # Points were offered and rejected: ragged or non-finite. Unlike an
+            # absent horizon this is a real defect upstream, so it is reported.
+            self._warn_once(
+                "horizon_unusable",
+                f"{self._mpc_topic} horizons are being dropped: x/y are ragged "
+                f"or non-finite",
+            )
+
+    def _on_tracks(self, msg):
+        """Every semantic-tracks message, including the empty ones.
+
+        An EMPTY message is the point: go_to_object enters GRACE when no
+        confirmed track of the class sits within the follow gate, and aborts
+        lost_grace_sec later. Only a stream that records the empties can say
+        afterwards whether the tracks stopped coming (the topic stalled) or
+        kept coming without the person in them (the detector stopped
+        confirming) -- the two causes that were indistinguishable after
+        P004-R003.
+        """
+        if self._test is None:
+            return
+        tracks = []
+        for det in getattr(msg, "detections", []) or []:
+            results = getattr(det, "results", None) or []
+            hypothesis = getattr(results[0], "hypothesis", None) if results else None
+            centre = det.bbox.center.position
+            tracks.append({
+                "id": str(det.id),
+                "class": (None if hypothesis is None
+                          else str(hypothesis.class_id)),
+                "score": (None if hypothesis is None
+                          else float(hypothesis.score)),
+                "x": float(centre.x),
+                "y": float(centre.y),
+                "z": float(centre.z),
+                "width": float(det.bbox.size.x),
+            })
+        header = getattr(msg, "header", None)
+        stamp = None
+        frame = None
+        if header is not None:
+            frame = getattr(header, "frame_id", None)
+            stamp = header.stamp.sec + header.stamp.nanosec * 1e-9
+        self._test.log_tracks(tracks, frame_id=frame, stamp=stamp, t=self._t())
 
     def _on_corridor(self, msg):
         if self._test is None:
@@ -828,6 +939,7 @@ class TestLoggerNode(Node):
         data = self._payload(msg, self._corridor_topic, self.get_logger())
         if data is None:
             return
+        self._corridor_frame = data.get("frame_id") or self._corridor_frame
         corridor_odom = data.get("odom_topic")
         if corridor_odom and corridor_odom != self._odom_topic:
             self._warn_once(

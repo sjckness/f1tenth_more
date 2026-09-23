@@ -40,8 +40,22 @@ MPC_TAIL = [
     for i in range(201)
 ]
 
+# One solve a second, each predicting a constant lateral offset while the car
+# in fact sits at (0, 0) for the whole recording: the error of every step IS
+# that offset, so the pooled mean and the worst step are readable by eye. The
+# first is solved during the countdown and is 9 m out -- it is there to be
+# excluded, and it would swamp any mean that counted it.
+HORIZONS = (
+    [{"t": -1.0, "i": 0, "corridor_id": 0, "frame_id": "odom", "ts": 0.1,
+      "x": [0.0] * 5, "y": [9.0] * 5}]
+    + [{"t": float(k), "i": k, "corridor_id": k, "frame_id": "odom", "ts": 0.1,
+        "x": [0.0] * 5, "y": [0.2] * 5} for k in (1, 2, 3)]
+    + [{"t": 4.0, "i": 4, "corridor_id": 4, "frame_id": "odom", "ts": 0.1,
+        "x": [0.0] * 5, "y": [0.5] * 5}]
+)
 
-def write_corridors(directory, schema):
+
+def write_corridors(directory, schema, mode="off", shapes=None, cuts=()):
     """A corridors.jsonl of the requested schema, or none at all for None.
 
     The geometry is not what these tests measure -- viol_rate_pct reads the
@@ -54,14 +68,22 @@ def write_corridors(directory, schema):
               "polygon": [[0.0, 0.5], [3.0, 0.5], [3.0, -0.5], [0.0, -0.5]],
               "meta": {"frame_id": "odom", "length_m": 3.0}}
     if schema == "mpc_corr/v2":
+        record["meta"]["object_shape"] = "straight"
         record["meta"]["definition"] = {
+            "object_corridor_mode": mode,
             "type": "mpc_corr/v2", "C0": [0.0, 0.0], "psiStart": 0.0,
             "psiEnd": 0.0, "dpsi": 0.0, "psiRefTurn": None, "L": 3.0,
             "corr_N": 120, "u_start": 0.0, "u_end": 0.40,
             "w0": 0.4333, "w1": 0.7667, "handle_frac": 0.55,
         }
     with open(directory / "corridors.jsonl", "w", encoding="utf-8") as fh:
-        fh.write(json.dumps(record) + "\n")
+        for i, shape in enumerate(shapes or ["straight"]):
+            line = json.loads(json.dumps(record))
+            line["id"] = i
+            line["meta"]["object_shape"] = shape
+            if line["meta"].get("definition") is not None:
+                line["meta"]["definition"]["cut"] = bool(i in cuts)
+            fh.write(json.dumps(line) + "\n")
 
 
 def _write_csv(path, header, rows):
@@ -74,15 +96,22 @@ def _write_csv(path, header, rows):
 def build_test(campaign, test_id, *, clearance_window=(4.0, 6.0), obstacle_min=0.5,
                events=(), mpc=None, ok_statuses=("solved",), path_length=10.0,
                steer_hz=0.5, imu_seconds=5.0, imu_hz=1.0, mission_events=True,
-               n_replans=1, corridor_schema="mpc_corr/v2"):
+               n_replans=1, corridor_schema="mpc_corr/v2", horizons=None,
+               corridor_mode="off", corridor_shapes=None, corridor_cuts=()):
     directory = campaign / "M01" / test_id
     directory.mkdir(parents=True)
+
+    if horizons is not None:
+        with open(directory / "horizon.jsonl", "w", encoding="utf-8") as fh:
+            for record in horizons:
+                fh.write(json.dumps(record) + "\n")
 
     # viol_rate_pct is gated on the corridor schema (see metrics_for_test), so
     # a folder with no corridors.jsonl now yields an EMPTY one. These fixtures
     # exercise the metric, so they log a v2 corridor by default; pass
     # corridor_schema="v1" or None to exercise the gate itself.
-    write_corridors(directory, corridor_schema)
+    write_corridors(directory, corridor_schema, corridor_mode,
+                    corridor_shapes, corridor_cuts)
 
     kinematics = []
     for i in range(int(COUNTDOWN * 20)):            # countdown: parked, safe
@@ -203,6 +232,8 @@ def metrics(tmp_path_factory):
     build_test(campaign, "P001-R005-20260101T000400", mpc=MPC_ROWS, path_length=0.0)
     build_test(campaign, "P001-R006-20260101T000500", mpc=MPC_ROWS,
                mission_events=False)
+    build_test(campaign, "P001-R007-20260101T000600", mpc=MPC_ROWS,
+               horizons=HORIZONS)
     rows = exp.scan_campaign(campaign, exp.DEFAULT_CUTOFF_HZ, exp.DEFAULT_DEADBAND_RAD)
     return campaign, {r["test_id"]: r for r in rows}
 
@@ -210,6 +241,11 @@ def metrics(tmp_path_factory):
 @pytest.fixture
 def plain(metrics):
     return metrics[1]["P001-R001-20260101T000000"]
+
+
+@pytest.fixture
+def horizons(metrics):
+    return metrics[1]["P001-R007-20260101T000600"]
 
 
 # --------------------------------------------------------------------------
@@ -294,6 +330,87 @@ def test_steering_reversals_per_metre(plain):
 def test_p95_solve_time_excludes_the_post_roll(plain):
     """The post-roll solves are 40 ms; the window's are 10-16."""
     assert plain["mpc_solve_time_p95_ms"] == pytest.approx(16.0, abs=0.5)
+
+
+def test_the_three_regimes_are_counted_per_test(tmp_path):
+    """An 'arc' run that mostly fell back is not an arc run.
+
+    The fallback fires wherever the pose fit needs more than full lock -- 11 of
+    the 24 archived rebuilds -- so without these counts an A/B would average a
+    mode against itself and call the difference noise.
+    """
+    campaign = make_campaign(tmp_path)
+    build_test(campaign, "P001-R001-20260101T000000", mpc=MPC_ROWS,
+               corridor_mode="arc",
+               corridor_shapes=["pose_arc", "pose_arc", "straight", "arc"],
+               corridor_cuts=(3,))
+    row = exp.scan_campaign(campaign, exp.DEFAULT_CUTOFF_HZ,
+                            exp.DEFAULT_DEADBAND_RAD)[0]
+    assert row["object_corridor_mode"] == "arc"
+    assert row["n_corr_pose_arc"] == 2
+    assert row["n_corr_straight"] == 1
+    assert row["n_corr_arc"] == 1
+    # orthogonal to the shape: the cap cuts the ramp arc and the straight alike
+    assert row["n_corr_cut"] == 1
+
+
+def test_no_rebuilds_of_a_regime_is_zero_and_no_corridors_is_empty(tmp_path):
+    """Zero is a measurement; empty is the absence of one."""
+    campaign = make_campaign(tmp_path)
+    build_test(campaign, "P001-R001-20260101T000000", mpc=MPC_ROWS)
+    build_test(campaign, "P001-R002-20260101T000100", mpc=MPC_ROWS,
+               corridor_schema=None)
+    rows = {r["test_id"]: r for r in exp.scan_campaign(
+        campaign, exp.DEFAULT_CUTOFF_HZ, exp.DEFAULT_DEADBAND_RAD)}
+    assert rows["P001-R001-20260101T000000"]["n_corr_pose_arc"] == 0
+    assert rows["P001-R002-20260101T000100"]["n_corr_pose_arc"] is None
+
+
+def test_the_mode_column_says_what_the_geometry_was_asked_to_do(plain):
+    """Beside object_shape, which says what it did.
+
+    'arc_far' that never left the straight shape and 'off' produce the same
+    shapes; only the mode tells a campaign that it compared a geometry with
+    itself.
+    """
+    assert plain["object_corridor_mode"] == "off"
+    assert plain["object_shape"] == "straight"
+
+
+def test_a_test_whose_corridors_carry_no_mode_leaves_the_column_empty(tmp_path):
+    """Every run recorded before the mode existed, and every v1 log."""
+    campaign = make_campaign(tmp_path)
+    build_test(campaign, "P001-R001-20260101T000000", mpc=MPC_ROWS,
+               corridor_schema="v1")
+    row = exp.scan_campaign(campaign, exp.DEFAULT_CUTOFF_HZ,
+                            exp.DEFAULT_DEADBAND_RAD)[0]
+    assert row["object_corridor_mode"] is None
+
+
+def test_the_prediction_error_pools_every_predicted_step(horizons):
+    """15 steps 0.20 m off and 5 steps 0.50 m off: 0.275 m mean, 0.50 m worst.
+
+    Pooled over steps, not averaged per horizon -- a solve measured over two
+    of its steps must not weigh as much as one measured over all five.
+    """
+    assert horizons["horizon_err_mean_m"] == pytest.approx(0.275)
+    assert horizons["horizon_err_max_m"] == pytest.approx(0.5)
+
+
+def test_a_horizon_solved_in_the_countdown_is_counted_but_not_measured(horizons):
+    """The car had not moved yet, so its 9 m miss says nothing about tracking.
+
+    n_horizons is every horizon in the file -- how much plan was logged -- so
+    it still sees five while the error saw four.
+    """
+    assert horizons["n_horizons"] == 5
+    assert horizons["horizon_err_max_m"] == pytest.approx(0.5)
+
+
+def test_a_test_with_no_horizon_log_gets_empty_columns(plain):
+    """Empty, not zero: every test recorded before the stream existed."""
+    for column in ("horizon_err_mean_m", "horizon_err_max_m", "n_horizons"):
+        assert plain[column] is None, column
 
 
 def test_min_clearance_is_not_clamped_when_nothing_was_touched(plain):
