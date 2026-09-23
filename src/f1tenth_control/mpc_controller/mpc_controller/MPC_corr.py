@@ -2,6 +2,7 @@ import json
 import collections
 import math
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Optional
 
@@ -1371,12 +1372,41 @@ class MPCController(Node):
         # This replaced a hardcoded Path.home()/'ros2_f110_ws'/... (a stale
         # reference to this project's old workspace name, broken for anyone
         # not on that exact original machine/setup).
-        self.corridor_log_path = _resolve_debug_output_path('corridor_debug.jsonl')
+        #
+        # ONE FILE PER NODE RUN, NEVER A TRUNCATION. This used to be a single
+        # fixed corridor_debug.jsonl opened 'w', so every launch destroyed the
+        # previous run's snapshots -- the file was found at 0 bytes, which is
+        # what it is between a launch and the first solve, and every earlier
+        # run was already gone. Nothing anywhere kept a copy, and these
+        # snapshots carry the only record of the per-solve obstacle set and
+        # local target; the corridor geometry itself is reproducible from
+        # corridors.jsonl's v2 definition, but those two are not.
+        #
+        # The name now carries the node's start time and the file is opened
+        # 'a', so a run can only ever add to its own file.
+        self._corridor_log_stamp = datetime.now().strftime('%Y%m%dT%H%M%S')
+        self.corridor_log_path = _resolve_debug_output_path(
+            f'corridor_debug_{self._corridor_log_stamp}.jsonl')
         self.get_logger().info(f'corridor_log_path = "{self.corridor_log_path}"')
+
+        # Set while a test-campaign test is open: snapshots go into that test's
+        # own folder instead, so the run's evidence lands beside the streams it
+        # belongs to rather than in a workspace-wide scratch file that the next
+        # launch used to erase. See _on_campaign_status().
+        self._corridor_test_file = None
+        self._corridor_test_dir = None
 
         if self.save_corridor_debug:
             self.corridor_log_path.parent.mkdir(parents=True, exist_ok=True)
-            self.corridor_log_file = open(self.corridor_log_path, 'w', encoding='utf-8')
+            self.corridor_log_file = open(self.corridor_log_path, 'a', encoding='utf-8')
+
+        # The test-campaign logger names the open test (campaign_dir, mission,
+        # test_id) on this topic every status tick. Subscribing is how this node
+        # learns where to put a snapshot without either node importing the
+        # other: mpc_controller must not depend on f1tenth_logger, and the
+        # logger is often not running at all.
+        self.create_subscription(
+            String, '/test_campaign/logger_status', self._on_campaign_status, 10)
 
         # =========================
         # TF (map <-> odom ONLY)
@@ -4924,11 +4954,59 @@ class MPCController(Node):
     # ==========================================
     # SAVE CORRIDOR DEBUG
     # ==========================================
+    def _on_campaign_status(self, msg):
+        """Follow the test-campaign logger's open test, so snapshots land in it.
+
+        The status carries campaign_dir / mission / test_id, which is the test
+        folder. On "open" for a test this node is not already writing to, the
+        previous per-test handle is closed and a new one opened in append mode;
+        on "closed" (or a malformed status) it falls back to this node's own
+        per-run file, so free driving outside a campaign is still recorded and
+        still never overwrites anything.
+
+        Never raises: this runs on the control node and a bad status message
+        must cost a destination, not the node.
+        """
+        if not self.save_corridor_debug:
+            return
+        try:
+            data = json.loads(msg.data)
+            state = data.get('state')
+            campaign_dir = data.get('campaign_dir')
+            mission = data.get('mission')
+            test_id = data.get('test_id')
+            target = None
+            if (state == 'open' and campaign_dir and mission and test_id):
+                target = Path(campaign_dir) / str(mission) / str(test_id)
+            if target == self._corridor_test_dir:
+                return
+            if self._corridor_test_file is not None:
+                self._corridor_test_file.close()
+                self._corridor_test_file = None
+            self._corridor_test_dir = target
+            if target is not None:
+                target.mkdir(parents=True, exist_ok=True)
+                self._corridor_test_file = open(
+                    target / 'corridor_debug.jsonl', 'a', encoding='utf-8')
+                self.get_logger().info(
+                    f'corridor snapshots -> {target / "corridor_debug.jsonl"}')
+            else:
+                self.get_logger().info(
+                    f'corridor snapshots -> {self.corridor_log_path} (no test open)')
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
+            self.get_logger().warn(
+                f'campaign status ignored: {type(exc).__name__}: {exc}',
+                throttle_duration_sec=5.0)
+
     def save_corridor_snapshot(self, corridor, obstacles_global):
         if not hasattr(self, 'corridor_log_file'):
             return
 
         record = {
+            # Seconds since the epoch, so a snapshot can be lined up with the
+            # test folder's own streams. There was no timestamp at all before,
+            # which made these records impossible to align with anything.
+            "t": self.get_clock().now().nanoseconds * 1e-9,
             "robot": {
                 "x": self.x,
                 "y": self.y,
@@ -4954,9 +5032,12 @@ class MPCController(Node):
             ]
         }
 
+        # The open test's folder when there is one, this node's own per-run
+        # file otherwise. Never both: a snapshot belongs to exactly one run.
+        handle = self._corridor_test_file or self.corridor_log_file
         try:
-            self.corridor_log_file.write(json.dumps(record) + "\n")
-            self.corridor_log_file.flush()
+            handle.write(json.dumps(record) + "\n")
+            handle.flush()
         except Exception as e:
             self.get_logger().warn(f"Corridor log write failed: {e}")
 
