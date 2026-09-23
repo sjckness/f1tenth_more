@@ -34,7 +34,7 @@ W0, W1, L_BASE = 0.4333, 0.7667, 3.0
 RMIN_LEFT, RMIN_RIGHT = 0.923, 0.955
 #: MPC_corr._lookahead_clamp_length() at N 20, ts 0.1, vdes 0.5, margin 1.25.
 CLAMP_LEN = 1.25
-HI_FRAC, LO_FRAC = 1.12, 0.88
+HI_FRAC, LO_FRAC = 1.24, 1.00
 
 REBUILDS = json.loads(
     (Path(__file__).parent / "data" / "object_rebuilds.json").read_text()
@@ -214,12 +214,13 @@ def test_arc_far_uses_todays_geometry_where_the_endpoint_matters():
     above = [L for L in lengths if L >= HI_FRAC * CLAMP_LEN]
     below = [L for L in lengths if L <= LO_FRAC * CLAMP_LEN]
     inside = [L for L in lengths if LO_FRAC * CLAMP_LEN < L < HI_FRAC * CLAMP_LEN]
-    assert (len(above), len(inside), len(below)) == (12, 2, 10)
+    assert (len(above), len(inside), len(below)) == (9, 3, 12)
 
-    # Every corridor the arc is used on is longer than the clamp distance, so
-    # the lookahead floor never reaches its end: Pend is not the terminal
-    # target there and its drift cannot mislead it. That is the whole safety
-    # argument for arc_far, and it is the band that enforces it.
+    # THE SAFETY ARGUMENT, and now it is exact. The band's LOWER edge sits on
+    # the clamp distance, so the arc is never entered -- and, through
+    # hysteresis, never held -- below it. Pend therefore never becomes the
+    # terminal target while an arc is being flown, whatever its drift.
+    assert LO_FRAC * CLAMP_LEN >= CLAMP_LEN
     for length in above:
         assert length > CLAMP_LEN
 

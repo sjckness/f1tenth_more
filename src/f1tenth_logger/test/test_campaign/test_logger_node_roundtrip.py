@@ -17,6 +17,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import random
 import signal
 import subprocess
@@ -43,8 +44,27 @@ pytestmark = requires_rclpy
 
 CAMPAIGN = "first_test_campaing"
 POST_ROLL_S = 0.5
-LONG_TIMEOUT_S = 25.0     # the normal scenarios must never trip this
-SHORT_TIMEOUT_S = 3.0     # the node is restarted with this to test the timeout
+# EVERY WAIT IN THIS FILE IS SCALED BY THIS. The scenarios here drive a REAL
+# logger node in a subprocess and wait on real wall-clock behaviour, so the
+# deadlines below are not assertions about the node -- they are assertions
+# about the machine, and under a parallel `colcon test` across the workspace
+# the machine is a different one. That is exactly what happened: this file
+# passed alone and produced 24 setup errors in a full-workspace run, all of
+# them a wait giving up early and the None it returned exploding later.
+#
+# Raise it (F1TENTH_TEST_TIMEOUT_SCALE=3) on a loaded or slow box rather than
+# editing the numbers. The waits are condition polls, so a larger scale costs
+# nothing when the condition is met promptly -- only a genuine failure waits
+# out the full deadline.
+TIMEOUT_SCALE = float(os.environ.get("F1TENTH_TEST_TIMEOUT_SCALE", "2.0"))
+
+
+def _scaled(seconds):
+    return float(seconds) * TIMEOUT_SCALE
+
+
+LONG_TIMEOUT_S = _scaled(25.0)    # the normal scenarios must never trip this
+SHORT_TIMEOUT_S = _scaled(3.0)    # the node is restarted with this to test the timeout
 PRE_ROLL_S = 1.0
 IMU_HZ, ODOM_HZ, DRIVE_HZ, MPC_HZ, CLEAR_HZ = 80.0, 40.0, 20.0, 20.0, 10.0
 
@@ -96,7 +116,7 @@ class Fake(Node):
         rclpy.spin_once(self, timeout_sec=0.02)
 
     def wait_for_logger(self, timeout=15.0):
-        deadline = time.monotonic() + timeout
+        deadline = time.monotonic() + _scaled(timeout)
         while time.monotonic() < deadline:
             if (self.plan.get_subscription_count() > 0
                     and self.odom.get_subscription_count() > 0
@@ -215,24 +235,44 @@ def _tests_in(campaign, mission):
     return found
 
 
+def _listing(folder):
+    """What is actually in a folder, for a wait's failure message."""
+    try:
+        return sorted(p.name for p in folder.iterdir())
+    except OSError:
+        return "folder missing"
+
+
 def wait_for_meta(test_dir, timeout=8.0):
-    deadline = time.monotonic() + timeout
+    """meta.json for a finished test. RAISES on timeout rather than returning
+    None: a None here used to surface as `NoneType / str` further down the
+    fixture, which says nothing about what actually failed."""
+    assert test_dir is not None, "wait_for_meta got no test folder to wait on"
+    deadline = time.monotonic() + _scaled(timeout)
     while time.monotonic() < deadline:
         if (test_dir / "meta.json").exists():
             time.sleep(0.2)
             return json.loads((test_dir / "meta.json").read_text())
         time.sleep(0.1)
-    return None
+    raise AssertionError(
+        f"no meta.json in {test_dir} after {_scaled(timeout):.0f}s: the node "
+        f"never closed the test. Contents: {_listing(test_dir)}. "
+        f"Raise F1TENTH_TEST_TIMEOUT_SCALE if this box is loaded.")
 
 
 def wait_for_new_test(campaign, mission, known, timeout=8.0):
-    deadline = time.monotonic() + timeout
+    """The folder the node opens for a new test. RAISES on timeout -- see
+    wait_for_meta for why None was worse than useless."""
+    deadline = time.monotonic() + _scaled(timeout)
     while time.monotonic() < deadline:
         new = [d for d in _tests_in(campaign, mission) if d not in known]
         if new:
             return new[0]
         time.sleep(0.1)
-    return None
+    raise AssertionError(
+        f"the node opened no new test under {mission} after "
+        f"{_scaled(timeout):.0f}s (knew {len(known)}, still {len(_tests_in(campaign, mission))}). "
+        f"Raise F1TENTH_TEST_TIMEOUT_SCALE if this box is loaded.")
 
 
 def read_events(test_dir):

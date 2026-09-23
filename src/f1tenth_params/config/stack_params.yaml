@@ -1031,11 +1031,33 @@ object_corridor_mode:
   default: "off"
   description: "'off' | 'arc' | 'arc_far'. 'off' (default) is today's geometry: centreline pinned to the target line, starting object_lead_in_m behind the car, straight by construction. 'arc': origin on the car, psiStart the live yaw, psiEnd the held bearing psi_c, so dpsi is the heading error and the existing S-curve draws the arc onto the target. 'arc_far': 'arc' outside the switch band, 'off' inside it. WHY NOT PLAIN 'arc': with the origin on the car the corridor no longer ends at the goal (measured mean 0.25 m, max 0.96 m of endpoint drift), which is harmless while the lookahead sits inside the corridor and NOT harmless once it clamps to the corridor end, since from there Pend IS the terminal position cost. Prefer 'arc_far'."
 object_arc_switch_hi_frac:
-  default: 1.12
+  default: 1.24
   description: "Enter the arc shape when the distance from the car to the corridor's end is at least this multiple of the lookahead clamp distance (MPC_corr._lookahead_clamp_length(), 1.25 m at the shipping N/ts/vdes/margin, so 1.40 m here). A MULTIPLE and not a length, so the switch follows the clamp instead of restating it: the arc is only safe while the lookahead still sits inside the corridor, which is exactly what that distance measures."
 object_arc_switch_lo_frac:
-  default: 0.88
-  description: "Leave the arc shape below this multiple of the lookahead clamp distance (1.10 m at the shipping geometry). Must not exceed object_arc_switch_hi_frac. HYSTERESIS, not a second threshold: the two shapes differ by the object_lead_in_m origin offset even when dpsi is zero, so the reference step at the switch has a FLOOR (measured 0.31 m at dpsi = +1.0 deg) and a bare threshold would chatter across it every rebuild."
+  default: 1.00
+  description: "Leave the arc shape below this multiple of the lookahead clamp distance (1.25 m at the shipping geometry, i.e. exactly ON the clamp). Must not exceed object_arc_switch_hi_frac. THE LOWER EDGE IS ON THE CLAMP DELIBERATELY: at 0.88 the band reached BELOW it, so hysteresis held the arc for 2 of the 24 archived rebuilds into the region where Pend does feed the terminal cost (worst error there 0.101 m). Putting the edge on the clamp makes the safety argument exact -- the arc is never used where Pend is the terminal target -- at the same four shape switches, so it costs nothing. HYSTERESIS, not a second threshold: the two shapes differ by the object_lead_in_m origin offset even when dpsi is zero, so the reference step at the switch has a FLOOR (measured 0.31 m at dpsi = +1.0 deg) and a bare threshold would chatter across it every rebuild."
+# ------------------------------------------------------------------
+# THE ARC'S CROSS-TRACK TOLERANCES. ARC-SCOPED: they replace w_corr and
+# w_line only while an arc corridor is being flown (MPC_corr._weights_for).
+# Off the arc, w_corr stays the value the straight and turn branches are
+# tuned at and w_line is inert for want of a target line -- making these
+# global would retune the straight branch for a feature that is off by
+# default.
+#
+# Both obey the stage set's own identity, literal = rho / (7 sigma^2) with
+# rho 1.0, so these are tolerances and not fitted weights. They own DIFFERENT
+# curves, which is why they do not share a sigma: measured over the archived
+# rebuilds the arc departs from the target line by 0.194 m mean, 0.466 m max.
+#
+# PROVISIONAL, pending on-car tuning. Parameters so the pair can be walked
+# between runs without a rebuild.
+# ------------------------------------------------------------------
+mpc_arc_corr_sigma_m:
+  default: 0.25
+  description: "Tolerance [m] on distance to the CORRIDOR CENTRELINE while flying an arc corridor -- how far off the arc the car may sit before the cost is worth rho. Effective weight rho/(20 sigma^2) = 0.800. 0.25 m is 58% of the narrowest half-width those corridors actually have (0.4327 m measured), so the soft cost acts well before the hard half-width row. PROVISIONAL."
+mpc_arc_line_sigma_m:
+  default: 0.35
+  description: "Tolerance [m] on distance to the TARGET LINE while flying an arc corridor. Effective weight rho/(20 sigma^2) = 0.408. LOOSER than the corridor tolerance on purpose: this is a SLOW HOMING term, not path-following. The arc is re-anchored on the car every rebuild and so has no memory of accumulated lateral offset, which is the lateral homing the corridor has never had by design; this term supplies it. 0.35 m sits ABOVE the arc's own mean departure from the line (0.194 m) so it does not fight the corridor's designed shape, and BELOW the maximum (0.466 m) so it still acts on a real excursion. Total lateral stiffness 0.800 + 0.408 = 1.208, against the 1.25 the car is tuned at, with the untested term the weaker of the two on the first runs. PROVISIONAL."
 object_c_safety:
   default: 1.5
   description: "Margin on the per-rebuild distance cap: rotating the corridor by dpsi is given c_safety * R_min * dpsi metres of remaining range. FLOOR IS 1.0, not the 1.5 wall_turn enforces -- wall_turn needs 1.5 because its corridor bends along a smoothstep whose peak slope is 1.5, while this corridor is straight and the car flies a plain arc onto it, where the honest factor is 1.0. Shipped at 1.5 as margin; a value in [1.0, 1.5) is a tuning choice and is accepted."

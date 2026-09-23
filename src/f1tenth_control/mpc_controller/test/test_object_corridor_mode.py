@@ -23,7 +23,7 @@ from mpc_controller.mpc_solver import _STAGE_WEIGHT_KEYS, scale_stage_weights
 class FakeNode:
     """Only what the switch decision reads."""
 
-    def __init__(self, mode='arc_far', hi=1.12, lo=0.88,
+    def __init__(self, mode='arc_far', hi=1.24, lo=1.00,
                  n=20, ts=0.1, vdes=0.5, margin=1.25):
         self.object_corridor_mode = mode
         self.object_arc_switch_hi_frac = hi
@@ -95,13 +95,13 @@ def test_inside_the_band_the_previous_choice_holds():
     threshold chatters across it. Inside the band nothing changes."""
     node = FakeNode()
     decide(node, 3.0)                      # enter the arc
-    for r in (1.39, 1.25, 1.11):           # the whole band, descending
+    for r in (1.54, 1.40, 1.26):           # the whole band, descending
         assert decide(node, r) is True     # still the arc
-    assert decide(node, 1.09) is False     # only below lo does it leave
+    assert decide(node, 1.24) is False     # only at/below lo does it leave
 
-    for r in (1.11, 1.25, 1.39):           # and back up through the band
+    for r in (1.26, 1.40, 1.54):           # and back up through the band
         assert decide(node, r) is False    # still today's geometry
-    assert decide(node, 1.41) is True
+    assert decide(node, 1.56) is True
 
 
 def test_the_band_cannot_be_crossed_twice_without_leaving_it():
@@ -111,7 +111,7 @@ def test_the_band_cannot_be_crossed_twice_without_leaving_it():
     decide(node, 3.0)
     flips = 0
     previous = node._object_arc_active
-    for r in (1.20, 1.30, 1.18, 1.32, 1.22, 1.28):
+    for r in (1.30, 1.45, 1.28, 1.50, 1.35, 1.42):
         now = decide(node, r)
         flips += int(now != previous)
         previous = now
@@ -172,16 +172,82 @@ def test_w_line_is_on_the_same_derivation_as_the_weights_it_joins():
     assert w_line == pytest.approx(1.25, abs=1e-3)
 
 
-def test_w_corr_is_still_on_its_derivation():
-    """OPEN QUESTION, pinned so it cannot be answered by accident. Under 'arc'
-    the two cross-track terms own different curves, and at sigma 0.20 apiece
-    they sum to 2.5 of effective lateral stiffness where the car has only ever
-    been tuned at 1.25. Lowering w_corr is a SIGMA choice, and taking it off
-    this derivation also breaks the invariant that exactly one weight departs
-    from it deliberately. Until that is decided, w_corr stays derived.
-    """
+def test_the_global_w_corr_is_untouched_by_the_arc():
+    """The arc's tolerances are ARC-SCOPED. The straight and turn branches keep
+    the weight set they are tuned at, which is the whole reason the split is
+    applied per corridor rather than in the yaml."""
     from f1tenth_params.param_defaults import get_value
     assert get_value('mpc_w_corr') == pytest.approx(1.0 / (7 * 0.20 ** 2), rel=1e-4)
+
+
+class _WeightNode:
+    """Only what _weights_for reads."""
+
+    def __init__(self, corr_sigma=0.25, line_sigma=0.35):
+        from f1tenth_params.param_defaults import get_value
+        self.arc_corr_sigma_m = corr_sigma
+        self.arc_line_sigma_m = line_sigma
+        self.weights = {'w_corr': get_value('mpc_w_corr'),
+                        'w_line': get_value('mpc_w_line'),
+                        'w_term': get_value('mpc_w_term')}
+
+    weights_for = MPCController._weights_for
+
+
+@pytest.mark.parametrize('shape', ['none', 'straight', None])
+def test_a_non_arc_corridor_gets_the_untouched_weight_set(shape):
+    node = _WeightNode()
+    got = node.weights_for({} if shape is None else {'objectShape': shape})
+    assert got is node.weights
+
+
+def test_an_arc_corridor_derives_both_from_its_own_sigmas():
+    """literal = rho / (7 sigma^2), the stage set's own identity, with a
+    DIFFERENT sigma for each term because they own different curves."""
+    node = _WeightNode(corr_sigma=0.25, line_sigma=0.35)
+    got = node.weights_for({'objectShape': 'arc'})
+    assert got['w_corr'] == pytest.approx(1.0 / (7 * 0.25 ** 2), rel=1e-9)
+    assert got['w_line'] == pytest.approx(1.0 / (7 * 0.35 ** 2), rel=1e-9)
+    assert got['w_term'] == node.weights['w_term']        # untouched
+    assert node.weights['w_corr'] != got['w_corr']        # the original stands
+
+
+def test_the_shipped_pair_keeps_the_total_near_what_the_car_is_tuned_at():
+    """0.800 + 0.408 = 1.208 effective, against 1.25, and the untested term is
+    the weaker one. PROVISIONAL -- both are parameters for exactly that reason.
+    """
+    from f1tenth_params.param_defaults import get_value
+    node = _WeightNode(get_value('mpc_arc_corr_sigma_m'),
+                       get_value('mpc_arc_line_sigma_m'))
+    scaled = scale_stage_weights(node.weights_for({'objectShape': 'arc'}), 20)
+    assert scaled['w_corr'] == pytest.approx(0.800, abs=0.005)
+    assert scaled['w_line'] == pytest.approx(0.408, abs=0.005)
+    assert scaled['w_line'] < scaled['w_corr']
+    assert scaled['w_corr'] + scaled['w_line'] == pytest.approx(1.208, abs=0.01)
+
+
+def test_the_line_tolerance_is_looser_than_the_arc_it_must_not_fight():
+    """The measured numbers the two sigmas are chosen against: the arc departs
+    from the target line by 0.194 m mean and 0.466 m max over the archived
+    rebuilds, and the narrowest half-width there is 0.4327 m. The line sigma
+    must sit between mean and max; the corridor sigma inside the half-width.
+    """
+    from f1tenth_params.param_defaults import get_value
+    corr_sigma = get_value('mpc_arc_corr_sigma_m')
+    line_sigma = get_value('mpc_arc_line_sigma_m')
+    assert 0.194 < line_sigma < 0.466
+    assert corr_sigma < 0.4327
+    assert corr_sigma < line_sigma
+
+
+@pytest.mark.parametrize('bad', [0.0, -0.1])
+def test_a_non_positive_sigma_is_rejected(bad):
+    """rho / (7 sigma^2) is not defined there, and a zero would silently turn
+    the term into an infinite weight rather than off."""
+    node = _WeightNode(corr_sigma=bad)
+    with pytest.raises(ZeroDivisionError if bad == 0.0 else AssertionError):
+        got = node.weights_for({'objectShape': 'arc'})
+        assert got['w_corr'] > 0 and bad > 0
 
 
 @pytest.mark.parametrize('corridor', [

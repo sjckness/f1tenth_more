@@ -27,7 +27,7 @@ from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, corridor_curves, wrap_pi)
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
-from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
+from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
     TargetBehindPersistence, assess_object_approach, build_object_centreline,
     SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
@@ -499,6 +499,47 @@ class MPCController(Node):
         # Which side of the band the last rebuild landed on. None until the
         # first object rebuild; reset with the rest of the object state.
         self._object_arc_active = False
+
+        # ---- THE ARC'S CROSS-TRACK TOLERANCES --------------------------
+        # ARC-SCOPED, and that scoping is the point. Off the arc, w_corr is
+        # the corridor centreline weight the straight and turn branches are
+        # tuned at (effective 1.25, rho 1.0 over sigma 0.20) and w_line is
+        # inert because there is no target line. Making these two sigmas
+        # global would retune the straight branch for a feature that is off
+        # by default.
+        #
+        # ON an arc corridor the two terms own DIFFERENT curves, so sharing
+        # 0.20 m would be an accident rather than a derivation:
+        #
+        #   corr_sigma  tolerance on distance to the CORRIDOR CENTRELINE, the
+        #     arc the car is being asked to fly. 0.25 m is 58% of the
+        #     narrowest half-width those corridors actually have (0.4327 m
+        #     measured over the archived rebuilds), so the soft cost acts well
+        #     before the hard half-width row does.
+        #
+        #   line_sigma  tolerance on distance to the TARGET LINE. This is a
+        #     SLOW HOMING term, not a path-following one: the arc is
+        #     re-anchored on the car at every rebuild and so has no memory of
+        #     accumulated lateral offset -- the same "no lateral homing by
+        #     design" property corridor_heading_return's own measurement is
+        #     about. 0.35 m sits ABOVE the arc's own mean departure from the
+        #     line (0.194 m) so the term does not fight the corridor's
+        #     designed shape, and BELOW the maximum (0.466 m) so it still acts
+        #     on a real excursion.
+        #
+        # Effective weights rho/(20 sigma^2): 0.800 + 0.408 = 1.208 total,
+        # against the 1.25 the car is tuned at, and w_line < w_corr so the
+        # untested term is the weaker one on the first runs. PROVISIONAL:
+        # both are parameters precisely so they can be walked between runs.
+        self.arc_corr_sigma_m = float(self.declare_parameter(
+            'mpc_arc_corr_sigma_m', get_value('mpc_arc_corr_sigma_m')).value)
+        self.arc_line_sigma_m = float(self.declare_parameter(
+            'mpc_arc_line_sigma_m', get_value('mpc_arc_line_sigma_m')).value)
+        for _name, _sigma in (('mpc_arc_corr_sigma_m', self.arc_corr_sigma_m),
+                              ('mpc_arc_line_sigma_m', self.arc_line_sigma_m)):
+            if not _sigma > 0.0:
+                raise ValueError(
+                    f'{_name} must be > 0: the weight is rho / (7 sigma^2)')
 
         # ---- REFERENCE STEP --------------------------------------------
         # The previous corridor, kept only to measure how far the reference
@@ -3817,7 +3858,7 @@ class MPCController(Node):
             ts=self.ts,
             params=self.params,
             limits=self.limits,
-            weights=self.weights,
+            weights=self._weights_for(corridor),
             obstacles=obstacles_global,
             dmin=self.dmin,
             vdes=vdes,
@@ -4833,6 +4874,32 @@ class MPCController(Node):
         )
 
         return corridor
+
+    def _weights_for(self, corridor):
+        """self.weights, with the arc's own cross-track split when it applies.
+
+        Returns self.weights UNCHANGED for every corridor that is not an arc,
+        so the straight and turn branches keep exactly the weight set they are
+        tuned at and w_line stays inert (no target line, no rows).
+
+        On an arc corridor the two cross-track terms own different curves, so
+        each gets the weight its OWN tolerance derives:
+
+            literal = rho / (STAGE_WEIGHT_REF_HORIZON * sigma^2)
+
+        the same identity the rest of the stage set obeys -- see
+        test_weight_set.py. rho is 1.0 for both, as it is for the w_corr these
+        replace: one sigma of sustained offset is worth the same as it was,
+        what changes is how much offset a sigma is.
+        """
+        if corridor.get('objectShape') != 'arc':
+            return self.weights
+        weights = dict(self.weights)
+        weights['w_corr'] = 1.0 / (
+            STAGE_WEIGHT_REF_HORIZON * self.arc_corr_sigma_m ** 2)
+        weights['w_line'] = 1.0 / (
+            STAGE_WEIGHT_REF_HORIZON * self.arc_line_sigma_m ** 2)
+        return weights
 
     def _reference_step(self, corridor):
         """How far this corridor's reference moved from the previous one.
