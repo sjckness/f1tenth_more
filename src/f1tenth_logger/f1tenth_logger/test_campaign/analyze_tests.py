@@ -37,6 +37,8 @@ from matplotlib.colors import Normalize, TwoSlopeNorm  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
 from matplotlib.patches import Circle, Patch  # noqa: E402
 
+from f1tenth_logger.test_campaign import corridor_def  # noqa: E402
+from f1tenth_logger.test_campaign import corridor_plot  # noqa: E402
 from f1tenth_logger.test_campaign.robot_logger import (  # noqa: E402
     DEFAULT_CAMPAIGN, find_root, parse_test_id)
 
@@ -678,6 +680,11 @@ def parse_args(argv=None):
                         help="keep only this prompt_num")
     parser.add_argument("--footprints", type=float, default=None, metavar="METERS",
                         help="draw a faint footprint circle every N metres")
+    parser.add_argument("--corridor-plots", action="store_true",
+                        help="also write corridor_plot.png into every matched "
+                             "test folder (see corridor_plot.py)")
+    parser.add_argument("--corridor-plot-dpi", type=int, default=150,
+                        help="dpi for --corridor-plots (default 150)")
     parser.add_argument("--out", default=None,
                         help="output folder (default: <campaign>/analysis)")
     return parser.parse_args(argv)
@@ -745,6 +752,24 @@ def main(argv=None):
     print(f"written to {out_dir}:")
     for path in written:
         print(f"  {Path(path).name}")
+
+    if args.corridor_plots:
+        # Into each TEST folder, not out_dir: the figure describes one test and
+        # belongs beside the streams it was drawn from. A test with nothing to
+        # draw is counted, not fatal.
+        made, skipped = corridor_plot.plot_many(
+            [run.path for run in runs], dpi=args.corridor_plot_dpi, quiet=True)
+        print("")
+        print(f"{len(made)} corridor_plot.png written into the test folders"
+              + (f", {len(skipped)} skipped for want of data" if skipped else ""))
+        v1 = sum(1 for run in runs
+                 if all(r.schema != corridor_def.SCHEMA_V2
+                        for r in corridor_def.load_corridors(
+                            run.path / "corridors.jsonl")))
+        if v1:
+            print(f"  {v1} of them are v1 logs: sampled boundary only, so the "
+                  f"centreline is not drawn and the corridors are the logged "
+                  f"samples rather than an evaluation of the definition")
     return 0
 
 

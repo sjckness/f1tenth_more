@@ -64,6 +64,10 @@ setup(
             'test_campaign_trigger = f1tenth_logger.test_campaign.trigger:main',
             'test_campaign_export = f1tenth_logger.test_campaign.export_campaign_csv:main',
             'test_campaign_analyze = f1tenth_logger.test_campaign.analyze_tests:main',
+            # Per-test corridor figure, from corridors.jsonl + kinematics.csv.
+            # analyze_tests --corridor-plots calls the same code in-process.
+            'test_campaign_corridor_plot = '
+            'f1tenth_logger.test_campaign.corridor_plot:main',
         ],
     },
 )
