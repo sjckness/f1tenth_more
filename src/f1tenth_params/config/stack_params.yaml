@@ -926,9 +926,24 @@ corridor_update_period:
 # "THE PRICE" note). 0.900 m of permanent offset against 0.089 m is what the
 # flip buys. Kept as a launch arg so the reference behaviour stays reachable
 # for the MATLAB/f110_autonomy comparison without a code change.
+#
+# AND FLIPPED BACK TO TRUE, UNEXPLAINED. ace2446 ("wip: corridor tuning, front
+# clearance node, detection launch rework") changed this value from false to
+# true and changed NOTHING ELSE -- not the description below, not the
+# measurement paragraph above, which still reads as though false is what
+# ships. The value is what runs, so the BLEND geometry is live today and the
+# paragraph above describes the configuration that does NOT run.
+#
+# WHICH ONE IS INTENDED IS UNRESOLVED. The measurement above argues for false
+# (0.089 m of lateral offset against 0.900 m); nothing recorded anywhere
+# argues for true. Settle it before reading either value as deliberate. The
+# object-branch corridor work has the same trade-off at its centre: the blend
+# drifts laterally precisely because this corridor has no lateral homing, so
+# whatever is decided here should be decided together with whether that homing
+# becomes its own cost term.
 corridor_heading_return:
   default: true
-  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false (default): both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true: blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
+  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false: both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true (THE CURRENT DEFAULT, see the unresolved note above): blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
 # Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), no launch
 # arg. The corridor S-curve's heading ramp, as fractions of the corridor length:
 # theta(u) = psiStart + dpsi * smoothstep((u - u_start) / (u_end - u_start)).
