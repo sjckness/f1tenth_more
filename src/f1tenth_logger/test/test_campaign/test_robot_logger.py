@@ -21,11 +21,14 @@ import yaml
 from f1tenth_logger.test_campaign import analyze_tests
 from f1tenth_logger.test_campaign.robot_logger import (
     TestLogger,
+    corridor_clearance,
     corridor_from_centerline,
     find_root,
     make_test_id,
     parse_test_id,
     signed_clearance,
+    signed_wall_clearance,
+    split_corridor_polygon,
 )
 
 PROMPTS = [
@@ -135,6 +138,118 @@ def test_a_bend_stays_a_valid_polygon():
 def test_a_one_point_centerline_is_rejected():
     with pytest.raises(ValueError):
         corridor_from_centerline([(0, 0)], 1.0)
+
+
+# --------------------------------------------------------------------------
+# wall clearance: the end-cap artifact
+# --------------------------------------------------------------------------
+
+def straight_corridor(length=3.0, w0=0.4333, w1=0.7667, n=120):
+    """A straight mpc_corr-shaped corridor along +x, widening w0 -> w1.
+
+    Same vertex order corridor_payload emits: left wall forward, right wall
+    back. Closed form, so every expected value below is exact arithmetic.
+    """
+    us = [i / (n - 1) for i in range(n)]
+    left = [(length * u, w0 + (w1 - w0) * u) for u in us]
+    right = [(length * u, -(w0 + (w1 - w0) * u)) for u in us]
+    return left + right[::-1]
+
+
+def test_a_car_at_the_corridor_start_reads_the_half_width_not_zero():
+    """THE ARTIFACT THIS COMMIT REMOVES.
+
+    Every mpc_corr corridor passes through the car's own position, so the car
+    sits exactly on the polygon's start-cap edge and the all-edges measure
+    returns 0 -- or -robot_radius with a radius set. Both values are in the 13
+    archived runs. The walls-only measure returns the real half-width.
+    """
+    poly = straight_corridor()
+    assert signed_clearance(0.0, 0.0, poly, 0.0) == pytest.approx(0.0)
+    assert signed_clearance(0.0, 0.0, poly, 0.3) == pytest.approx(-0.3)
+
+    assert corridor_clearance(0.0, 0.0, poly, 0.0) == pytest.approx(0.4333)
+    assert corridor_clearance(0.0, 0.0, poly, 0.3) == pytest.approx(0.1333)
+
+
+def test_wall_clearance_is_exact_away_from_the_caps():
+    """Mid-corridor the two measures agree: this change only touches the caps.
+
+    Parallel walls here (w1 == w0) so every expected number is the half-width
+    exactly. On the real widening corridor the perpendicular distance to a
+    sloped wall carries a cos(atan(dw/dL)) factor -- correct, but it would make
+    these assertions approximate for a reason that has nothing to do with the
+    cap being tested.
+    """
+    poly = straight_corridor(w0=0.5, w1=0.5)
+    assert corridor_clearance(1.5, 0.0, poly, 0.0) == pytest.approx(0.5)
+    assert corridor_clearance(1.5, 0.0, poly, 0.0) == pytest.approx(
+        signed_clearance(1.5, 0.0, poly, 0.0), abs=1e-9
+    )
+    assert corridor_clearance(1.5, 0.2, poly, 0.0) == pytest.approx(0.3)
+    assert corridor_clearance(1.5, -0.2, poly, 0.0) == pytest.approx(0.3)
+
+
+def test_a_car_outside_a_wall_is_negative():
+    poly = straight_corridor(w0=0.5, w1=0.5)
+    assert corridor_clearance(1.5, 0.75, poly, 0.0) == pytest.approx(-0.25)
+    assert corridor_clearance(1.5, -0.75, poly, 0.0) == pytest.approx(-0.25)
+    # and at the start, where the old measure could not tell inside from out
+    assert corridor_clearance(0.0, 0.6, poly, 0.0) < 0.0
+
+
+def test_a_widening_wall_is_measured_perpendicular_to_itself():
+    """The real corridor widens 0.4333 -> 0.7667 over 3 m, so the distance to a
+    wall is the PERPENDICULAR one, shorter than the vertical offset by
+    cos(atan(dw/dL)). Pinned so the slope is not quietly dropped."""
+    poly = straight_corridor()
+    slope = (0.7667 - 0.4333) / 3.0
+    expected = 0.25 / math.hypot(1.0, slope)
+    assert corridor_clearance(1.5, 0.85, poly, 0.0) == pytest.approx(-expected, abs=1e-6)
+
+
+def test_the_end_cap_still_catches_an_overrun():
+    """The one cap that is NOT extended.
+
+    On the object branch the corridor ends exactly at the goal, and M03/M04
+    are scored on stopping short of it, so a car past the end must read
+    negative. Only the START cap is dropped.
+    """
+    poly = straight_corridor(length=3.0)
+    assert corridor_clearance(2.9, 0.0, poly, 0.0) > 0.0
+    assert corridor_clearance(3.2, 0.0, poly, 0.0) < 0.0
+
+
+def test_split_corridor_polygon_round_trips():
+    left, right = split_corridor_polygon(straight_corridor(n=5))
+    assert len(left) == len(right) == 5
+    assert left[0] == (0.0, 0.4333)
+    assert right[0] == (0.0, -0.4333)
+    assert left[-1][0] == pytest.approx(3.0)
+
+
+def test_a_polygon_that_is_not_two_walls_falls_back():
+    """An odd vertex count cannot be left + reversed right; rather than guess a
+    split, corridor_clearance uses the all-edges measure."""
+    assert split_corridor_polygon(SQUARE[:3]) is None
+    triangle = [(0, 0), (4, 0), (2, 3)]
+    assert corridor_clearance(2, 1, triangle, 0.0) == pytest.approx(
+        signed_clearance(2, 1, triangle, 0.0)
+    )
+
+
+def test_wall_clearance_rejects_a_degenerate_wall():
+    with pytest.raises(ValueError):
+        signed_wall_clearance(0.0, 0.0, [(0.0, 1.0)], [(0.0, -1.0)], 0.0)
+
+
+def test_the_logger_records_wall_clearance(root):
+    """End to end: the number that reaches kinematics.csv is the wall one."""
+    log = logger_for(root, robot_radius=0.0)
+    log.log_corridor(straight_corridor(), t=0.0)
+    assert log.log_state(0.0, 0.0, yaw=0.0, t=0.1) == pytest.approx(0.4333)
+    summary = log.finish("completed")
+    assert summary["min_corridor_clearance"] == pytest.approx(0.4333)
 
 
 # --------------------------------------------------------------------------

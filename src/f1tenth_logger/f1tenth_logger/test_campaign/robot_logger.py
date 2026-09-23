@@ -93,6 +93,9 @@ __all__ = [
     "parse_test_id",
     "plan_hash",
     "signed_clearance",
+    "signed_wall_clearance",
+    "corridor_clearance",
+    "split_corridor_polygon",
     "corridor_from_centerline",
     "TEST_ID_RE",
     "SUMMARY_FIELDS",
@@ -300,6 +303,14 @@ def signed_clearance(px, py, polygon, robot_radius=0.0):
     Distance from ``(px, py)`` to the nearest polygon edge, signed positive
     inside and negative outside, minus ``robot_radius``. ``< 0`` means the
     circular footprint touches or crosses the boundary.
+
+    EVERY edge counts here, INCLUDING the two end caps. For a corridor that is
+    a band between two walls that is the wrong measure -- see
+    signed_wall_clearance, which is what TestLogger actually uses and why.
+    This function stays as it is because it is the general
+    point-to-closed-polygon primitive (obstacle footprints, the test suite's
+    squares) and because signed_wall_clearance falls back to it for a polygon
+    that does not split into two walls.
     """
     polygon = [(float(x), float(y)) for x, y in polygon]
     if len(polygon) < 3:
@@ -311,6 +322,122 @@ def signed_clearance(px, py, polygon, robot_radius=0.0):
     if not _point_in_polygon(px, py, polygon):
         dist = -dist
     return dist - float(robot_radius)
+
+
+def split_corridor_polygon(polygon):
+    """Split a corridor polygon back into its two wall polylines.
+
+    Both producers in this workspace -- mpc_corr's ``corridor_payload`` and
+    this module's ``corridor_from_centerline`` -- emit the left wall walked
+    forward followed by the right wall walked BACK, so the two halves are
+    equal in length and the right one is reversed. Returns ``(left, right)``
+    both walked forward, or ``None`` if the polygon cannot be a corridor in
+    that form (odd vertex count, or fewer than 2 points per wall).
+    """
+    poly = [(float(x), float(y)) for x, y in polygon]
+    n = len(poly)
+    if n < 4 or n % 2 != 0:
+        return None
+    half = n // 2
+    return poly[:half], poly[half:][::-1]
+
+
+def _nearest_on_polyline(px, py, pts):
+    """(distance, segment_index) for the closest point on an OPEN polyline."""
+    best, best_i = float("inf"), 0
+    for i in range(len(pts) - 1):
+        d = _point_segment_distance(px, py, *pts[i], *pts[i + 1])
+        if d < best:
+            best, best_i = d, i
+    return best, best_i
+
+
+def _cross_to_segment(px, py, a, b):
+    """Cross product (b - a) x (p - a): > 0 when p is LEFT of a -> b."""
+    return (b[0] - a[0]) * (py - a[1]) - (b[1] - a[1]) * (px - a[0])
+
+
+def signed_wall_clearance(px, py, left, right, robot_radius=0.0):
+    """Margin to the corridor WALLS, ignoring the start cap.
+
+    WHY THIS EXISTS. Every corridor mpc_corr builds passes through the car's
+    own position by construction (build_straight_corridor seeds the centreline
+    at X0/Y0), so the car sits EXACTLY on the polygon's start-cap edge at every
+    rebuild. Measured against the closed polygon that is a distance of 0, so
+    ``min_corridor_clearance`` came out as 0.0 for every run with
+    robot_radius 0 and as exactly -robot_radius for every run with a radius --
+    a number produced entirely by the cap, never by a wall. Both values are in
+    the 13 archived runs of first_test_campaing/.
+
+    WHAT IS MEASURED. The distance is taken to the two wall polylines only;
+    neither cap is an edge here, because neither is an obstacle -- the corridor
+    is a band the car must not leave SIDEWAYS.
+
+    THE SIGN, and why the two caps are treated differently:
+
+      * inside/outside is decided by which side of each wall the point lies on,
+        using the nearest segment of that wall. The corridor interior is to the
+        RIGHT of the left wall and to the LEFT of the right wall, both walked
+        forward. At the corridor origin that gives +w0 on both tests, so a car
+        at the start now reads its real half-width instead of 0.
+
+      * the START cap is not tested at all. A point behind the corridor origin
+        reads its distance to the wall start vertices, positive. That is
+        harmless: the corridor is rebuilt through the car's position at >= 1 Hz
+        and the car drives forward, so the case does not arise.
+
+      * the END cap IS tested, as the half-plane through the wall end points.
+        Past it the clearance goes negative. This is deliberate and is the one
+        place where extending a cap would have destroyed a real measurement:
+        on the object branch "the corridor ends exactly at the goal"
+        (build_straight_corridor's object branch), and M03/M04's success
+        criteria are "stops within 0.5 m of the bottle" and "stops at 1.0 m
+        from the person". Extending the end cap would have hidden exactly the
+        overrun those two missions are testing for. M01/M02 never reach the end
+        cap -- their corridor is a rolling 3 m reference rebuilt at 1 Hz while
+        the car covers ~0.5 m -- so keeping it costs them nothing.
+    """
+    left = [(float(x), float(y)) for x, y in left]
+    right = [(float(x), float(y)) for x, y in right]
+    if len(left) < 2 or len(right) < 2:
+        raise ValueError("each corridor wall needs at least 2 points")
+
+    dl, il = _nearest_on_polyline(px, py, left)
+    dr, ir = _nearest_on_polyline(px, py, right)
+    dist = min(dl, dr)
+
+    # interior is right of the left wall, left of the right wall
+    inside = (_cross_to_segment(px, py, left[il], left[il + 1]) <= 0.0
+              and _cross_to_segment(px, py, right[ir], right[ir + 1]) >= 0.0)
+
+    # ... and not past the end cap: the half-plane through the wall ends,
+    # normal along the corridor's end tangent.
+    if inside:
+        ex, ey = left[-1], right[-1]
+        cx, cy = 0.5 * (ex[0] + ey[0]), 0.5 * (ex[1] + ey[1])
+        # end tangent from the cap's own normal: cap direction is (left - right),
+        # rotate -90 deg to get the forward tangent.
+        capx, capy = ex[0] - ey[0], ex[1] - ey[1]
+        tx, ty = capy, -capx
+        if (px - cx) * tx + (py - cy) * ty > 0.0:
+            inside = False
+
+    if not inside:
+        dist = -dist
+    return dist - float(robot_radius)
+
+
+def corridor_clearance(px, py, polygon, robot_radius=0.0):
+    """Clearance for a logged corridor polygon: walls only where possible.
+
+    Splits the polygon into its two walls and measures against those. A
+    polygon that is not in the two-wall form falls back to the all-edges
+    ``signed_clearance`` rather than guessing.
+    """
+    walls = split_corridor_polygon(polygon)
+    if walls is None:
+        return signed_clearance(px, py, polygon, robot_radius)
+    return signed_wall_clearance(px, py, walls[0], walls[1], robot_radius)
 
 
 def corridor_from_centerline(points, width, end_extension=None):
@@ -812,12 +939,12 @@ class TestLogger:
                 self._last_yaw = (t, yaw)
             yaw_rate = None if yaw_rate is None else float(yaw_rate)
 
-            corridor_clearance = None
+            clearance = None
             if self._corridor is not None:
-                corridor_clearance = signed_clearance(
+                clearance = corridor_clearance(
                     x, y, self._corridor, self.robot_radius
                 )
-            self.last_corridor_clearance = corridor_clearance
+            self.last_corridor_clearance = clearance
 
             obstacle_clearance = (
                 None if obstacle_clearance is None else float(obstacle_clearance)
@@ -825,7 +952,7 @@ class TestLogger:
 
             self._max_speed = _max_opt(self._max_speed, speed)
             self._max_acc = _max_opt(self._max_acc, acc)
-            self._min_corr_clear = _min_opt(self._min_corr_clear, corridor_clearance)
+            self._min_corr_clear = _min_opt(self._min_corr_clear, clearance)
             self._min_obst_clear = _min_opt(self._min_obst_clear, obstacle_clearance)
             if yaw_rate is not None:
                 self._max_abs_yaw_rate = _max_opt(
@@ -836,9 +963,9 @@ class TestLogger:
             self._note("kinematics", t)
             self._streams["kinematics"].row(
                 [t, x, y, yaw, yaw_rate, vx, vy, speed, ax, ay, acc,
-                 corridor_clearance, obstacle_clearance]
+                 clearance, obstacle_clearance]
             )
-            return corridor_clearance
+            return clearance
 
     def log_imu(
         self, ax, ay, az, gx, gy, gz, imu_yaw=None, sensor_stamp=None, t=None
@@ -1112,7 +1239,7 @@ class TestLogger:
             )
             if self._last_pose is not None:
                 _, x, y = self._last_pose
-                self.last_corridor_clearance = signed_clearance(
+                self.last_corridor_clearance = corridor_clearance(
                     x, y, poly, self.robot_radius
                 )
             return corridor_id
