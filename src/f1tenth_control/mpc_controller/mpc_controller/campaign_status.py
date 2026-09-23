@@ -106,13 +106,36 @@ def mpc_status_payload(info, solve_dt_sec, solver):
     }
 
 
+#: Vertex rounding of the sampled boundary, in decimal places. 6 dp is 1e-6 m,
+#: two orders below the 6.5e-5 m worst-case error the 120-sample polygon itself
+#: carries against an exact evaluation of the walls (measured at the documented
+#: 0.763 rad wall_turn ask, the tightest corridor the stack asks for). The
+#: previous 4 dp put the rounding floor at 1e-4 m, i.e. LARGER than the
+#: sampling error it sat on top of, which made the polygon the limiting term
+#: for no reason. The function definition below is never rounded.
+_POLYGON_DP = 6
+
+
 def corridor_payload(corridor, corridor_id, frame_id, source, odom_topic=None):
     """The /corridor JSON object for one freshly built corridor.
 
-    The polygon is the left wall walked forward then the right wall walked
-    back, closed implicitly -- the same order robot_logger's
-    corridor_from_centerline uses -- in the frame the walls were built in.
-    Non-finite vertices are dropped rather than serialised as NaN.
+    TWO DESCRIPTIONS OF THE SAME CORRIDOR, and the distinction is the whole
+    point of the v2 schema:
+
+    ``definition`` is the SOURCE OF TRUTH -- every number
+    corridor_geometry.corridor_curves needs to reproduce the planner's own
+    arrays exactly, at full float precision. A consumer that wants the curves
+    evaluates them; it does not interpolate the samples.
+
+    ``polygon`` is a SAMPLED boundary, kept because the clearance computation
+    needs a polygon and because a v1 reader still works. It is the left wall
+    walked forward then the right wall walked back, closed implicitly -- the
+    same order robot_logger's corridor_from_centerline uses -- in the frame the
+    walls were built in. ``sample_step_m`` records the arclength spacing it was
+    taken at. Non-finite vertices are dropped rather than serialised as NaN.
+
+    The centreline is NOT in the polygon and never was; it comes back only from
+    the definition. That is what made the archived v1 runs unreproducible.
     """
     left = zip(corridor['xL'], corridor['yL'])
     right = list(zip(corridor['xR'], corridor['yR']))[::-1]
@@ -120,7 +143,7 @@ def corridor_payload(corridor, corridor_id, frame_id, source, odom_topic=None):
     for x, y in list(left) + right:
         x, y = _finite_or_none(x), _finite_or_none(y)
         if x is not None and y is not None:
-            polygon.append([round(x, 4), round(y, 4)])
+            polygon.append([round(x, _POLYGON_DP), round(y, _POLYGON_DP)])
     payload = {
         'id': int(corridor_id),
         'polygon': polygon,
@@ -130,6 +153,18 @@ def corridor_payload(corridor, corridor_id, frame_id, source, odom_topic=None):
         'length_m': _finite_or_none(corridor.get('L')),
         'object_mode': bool(corridor.get('objectMode', False)),
     }
+
+    defn = corridor.get('defn')
+    if defn:
+        payload['schema'] = str(defn.get('type', 'mpc_corr/v2'))
+        payload['definition'] = dict(defn)
+        n = defn.get('corr_N')
+        length = _finite_or_none(defn.get('L'))
+        if n and length is not None and int(n) > 1:
+            # arclength between consecutive boundary samples: what the
+            # clearance polygon's discretisation error is governed by
+            payload['sample_step_m'] = length / (int(n) - 1)
+
     if odom_topic:
         # the pose estimate the walls were built from: a logger measuring
         # clearance against a different one compares two frames

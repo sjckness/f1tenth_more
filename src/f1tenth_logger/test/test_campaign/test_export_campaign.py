@@ -41,6 +41,29 @@ MPC_TAIL = [
 ]
 
 
+def write_corridors(directory, schema):
+    """A corridors.jsonl of the requested schema, or none at all for None.
+
+    The geometry is not what these tests measure -- viol_rate_pct reads the
+    kinematics column -- so the definition carries the minimum
+    corridor_def.schema_of requires rather than a realistic corridor.
+    """
+    if schema is None:
+        return
+    record = {"t": 0.0, "id": 0, "source": "mpc_corr",
+              "polygon": [[0.0, 0.5], [3.0, 0.5], [3.0, -0.5], [0.0, -0.5]],
+              "meta": {"frame_id": "odom", "length_m": 3.0}}
+    if schema == "mpc_corr/v2":
+        record["meta"]["definition"] = {
+            "type": "mpc_corr/v2", "C0": [0.0, 0.0], "psiStart": 0.0,
+            "psiEnd": 0.0, "dpsi": 0.0, "psiRefTurn": None, "L": 3.0,
+            "corr_N": 120, "u_start": 0.0, "u_end": 0.40,
+            "w0": 0.4333, "w1": 0.7667, "handle_frac": 0.55,
+        }
+    with open(directory / "corridors.jsonl", "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(record) + "\n")
+
+
 def _write_csv(path, header, rows):
     with open(path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.writer(fh)
@@ -51,9 +74,15 @@ def _write_csv(path, header, rows):
 def build_test(campaign, test_id, *, clearance_window=(4.0, 6.0), obstacle_min=0.5,
                events=(), mpc=None, ok_statuses=("solved",), path_length=10.0,
                steer_hz=0.5, imu_seconds=5.0, imu_hz=1.0, mission_events=True,
-               n_replans=1):
+               n_replans=1, corridor_schema="mpc_corr/v2"):
     directory = campaign / "M01" / test_id
     directory.mkdir(parents=True)
+
+    # viol_rate_pct is gated on the corridor schema (see metrics_for_test), so
+    # a folder with no corridors.jsonl now yields an EMPTY one. These fixtures
+    # exercise the metric, so they log a v2 corridor by default; pass
+    # corridor_schema="v1" or None to exercise the gate itself.
+    write_corridors(directory, corridor_schema)
 
     kinematics = []
     for i in range(int(COUNTDOWN * 20)):            # countdown: parked, safe
@@ -190,6 +219,47 @@ def plain(metrics):
 def test_viol_rate_is_a_share_of_time_not_of_samples(plain):
     """2 s of a 10 s window, regardless of how the samples are spaced."""
     assert plain["viol_rate_pct"] == pytest.approx(20.0, abs=0.3)
+    assert plain["corridor_schema"] == "mpc_corr/v2"
+
+
+@pytest.mark.parametrize("schema,expected", [("v1", "v1"), (None, "none")])
+def test_a_v1_test_gets_no_viol_rate_at_all(tmp_path, schema, expected):
+    """THE GATE. On a v1 test the kinematics' corridor_clearance column was
+    measured against the corridor's start cap, which the car sits on by
+    construction, so any viol_rate_pct computed from it is an artifact -- 60-80%
+    on the archived M02 runs, which never left their corridor. The export
+    reports nothing rather than that.
+
+    The clearance data here is IDENTICAL to the v2 fixture's (build_test writes
+    the same kinematics.csv either way), so a non-empty answer would prove the
+    gate is not reading the schema.
+    """
+    campaign = make_campaign(tmp_path)
+    build_test(campaign, "P001-R001-20260101T000000", mpc=MPC_ROWS,
+               corridor_schema=schema)
+    rows = exp.scan_campaign(campaign, exp.DEFAULT_CUTOFF_HZ,
+                             exp.DEFAULT_DEADBAND_RAD)
+    row = rows[0]
+    assert row["corridor_schema"] == expected
+    assert row["viol_rate_pct"] is None
+    # the metrics that do NOT come from the corridor are unaffected
+    assert row["feas_pct"] is not None or row["min_clear_raw_m"] is not None
+
+
+def test_a_mixed_file_counts_as_v1(tmp_path):
+    """One v1 line is enough: the run's clearance column was written under the
+    old measure for at least part of the drive."""
+    campaign = make_campaign(tmp_path)
+    build_test(campaign, "P001-R001-20260101T000000", mpc=MPC_ROWS)
+    directory = campaign / "M01" / "P001-R001-20260101T000000"
+    with open(directory / "corridors.jsonl", "a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"t": 1.0, "id": 1,
+                             "polygon": [[0, 0], [1, 0], [1, 1]],
+                             "meta": {}}) + "\n")
+    rows = exp.scan_campaign(campaign, exp.DEFAULT_CUTOFF_HZ,
+                             exp.DEFAULT_DEADBAND_RAD)
+    assert rows[0]["corridor_schema"] == "v1"
+    assert rows[0]["viol_rate_pct"] is None
 
 
 def test_feasibility_percentage(plain):

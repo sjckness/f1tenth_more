@@ -16,6 +16,13 @@
 
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>python3-yaml</exec_depend>
+  <!-- corridor_geometry.py: the corridor's three curves as one pure function,
+       shared by mpc_controller (which builds them) and f1tenth_logger (which
+       re-evaluates them from a log). Here for the same reason
+       object_geometry.py is: neither consumer may depend on the other, and an
+       f1tenth_logger to mpc_controller edge closes a cycle through
+       mpc_controller's own test_depend on llm. -->
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

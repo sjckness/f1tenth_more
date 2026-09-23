@@ -54,6 +54,8 @@ from pathlib import Path
 import numpy as np
 from scipy.signal import butter, filtfilt
 
+from f1tenth_logger.test_campaign.corridor_def import (
+    SCHEMA_V1, SCHEMA_V2, load_corridors)
 from f1tenth_logger.test_campaign.robot_logger import (
     DEFAULT_CAMPAIGN, find_root, parse_test_id, plan_hash)
 
@@ -86,6 +88,7 @@ COLUMNS = [
     "auto_outcome",
     "estop",
     "contact",
+    "corridor_schema",
     "viol_rate_pct",
     "min_clear_m",
     "min_clear_raw_m",
@@ -389,6 +392,27 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
     estop = 1 if "estop" in names else 0
     contact = 1 if "contact" in names else 0
 
+    # WHICH CORRIDOR SCHEMA THIS TEST WAS LOGGED UNDER, and why the export
+    # cares. viol_rate_pct is the share of drive time the kinematics'
+    # corridor_clearance column spends below zero, and that column was written
+    # at log time. On a v1 test it was written by the measure that counted the
+    # corridor's START CAP as an edge -- and the corridor is seeded at the car,
+    # so the car sits on that cap at every rebuild. The column is therefore 0.0
+    # (or exactly -robot_radius) at each rebuild whatever the car was doing,
+    # which put viol_rate_pct at 60-80% on runs that never left their corridor.
+    #
+    # The gate is the SCHEMA rather than a separate flag because the two landed
+    # together: the wall measure and the v2 record ship in consecutive commits
+    # and no run was recorded between them. A v1 test gets an EMPTY
+    # viol_rate_pct, never a silently wrong one.
+    corridors = load_corridors(test_dir / "corridors.jsonl")
+    if not corridors:
+        corridor_schema = "none"
+    elif all(c.schema == SCHEMA_V2 for c in corridors):
+        corridor_schema = SCHEMA_V2
+    else:
+        corridor_schema = SCHEMA_V1
+
     kin = read_csv_columns(
         test_dir / "kinematics.csv", ["t", "corridor_clearance", "obstacle_clearance"]
     )
@@ -505,8 +529,10 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
         "auto_outcome": auto_outcome,
         "estop": estop,
         "contact": contact,
-        "viol_rate_pct": time_share_below_zero(
-            kin["t"][kin_in], kin["corridor_clearance"][kin_in]
+        "corridor_schema": corridor_schema,
+        "viol_rate_pct": (
+            time_share_below_zero(kin["t"][kin_in], kin["corridor_clearance"][kin_in])
+            if corridor_schema == SCHEMA_V2 else None
         ),
         "min_clear_m": min_clear,
         "min_clear_raw_m": min_clear_raw,
@@ -762,6 +788,17 @@ def main(argv=None):
         print(f"  {len(orphans)} row(s) kept for tests whose folder is gone: "
               f"{', '.join(sorted(orphans)[:3])}"
               + (" ..." if len(orphans) > 3 else ""))
+    stale = sorted(
+        r["test_id"] for r in rows
+        if r.get("corridor_schema") in (SCHEMA_V1, "none")
+    )
+    if stale:
+        print(f"  viol_rate_pct is EMPTY for {len(stale)} test(s) logged under "
+              f"the v1 corridor schema: their corridor_clearance column was "
+              f"measured against the corridor's start cap, which the car sits "
+              f"on by construction, so the number it would produce is an "
+              f"artifact. See the 'corridor_schema' column. Re-run these on "
+              f"the car to get a real one.")
     print(f"  fill in {', '.join(MANUAL_COLUMNS)} by hand; the export never "
           f"overwrites them")
     return 0

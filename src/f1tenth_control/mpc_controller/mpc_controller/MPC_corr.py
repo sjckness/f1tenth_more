@@ -22,6 +22,7 @@ from f1tenth_messages.msg import (
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
+from f1tenth_params.corridor_geometry import CORRIDOR_HANDLE_FRAC, corridor_curves
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
@@ -4446,123 +4447,44 @@ class MPCController(Node):
                 psiEnd = float(psi_ref) if psi_ref is not None else psi0
             L = max(self.corr_L_base, 1.0)
 
-        u = np.linspace(0.0, 1.0, self.corr_N)
-        s = L * u
-
-        if turn_remaining is not None:
-            # SIGNED, UNWRAPPED, for a wall_turn: the geometry has to bend the
-            # way the mission asked, not the short way. wrap() below cannot
-            # express a rotation of 180 degrees or more -- wrap(+270 deg) is
-            # -90 deg -- so a corridor built from it would curl RIGHT for a
-            # commanded 270 degree LEFT turn, and then every position term in
-            # the QP (w_term to Pend, w_corr onto the centreline, w_psi_stage
-            # onto the local tangent) would pull against the terminal heading
-            # cost instead of with it. Same defect as the terminal unwrap, one
-            # layer out: see the wall_turn branch above.
-            dpsi = float(turn_remaining)
-        else:
-            dpsi = math.atan2(math.sin(psiEnd - psiStart),
-                              math.cos(psiEnd - psiStart))
-        # Heading blend shape: an S-curve (straight lead-in, sigmoid bend,
-        # straight lead-out) rather than the previous flat linear taper
-        # across the whole corridor length. Ported from f110_autonomy's
-        # build_returning_corridor_explicit_t (the abandoned experimental
-        # SLSQP-only branch reviewed 2026-08-31/2026-09-03) at Andreas's
-        # explicit request -- this only ever changed the SHAPE of the blend
-        # between psiStart and psiEnd, never which branch computes them.
+        # THE GEOMETRY ITSELF LIVES IN f1tenth_params.corridor_geometry.
+        # It used to be ~110 lines inline here, which meant the test-campaign
+        # plotter (and anything else re-evaluating a logged corridor) had to
+        # reimplement the shape and could silently drift from it. Read that
+        # module's docstring for what the three curves are and why the
+        # centreline's cumsum makes `corr_N` part of the definition rather
+        # than a rendering detail.
         #
-        # WHICH BRANCH THIS ACTUALLY AFFECTS: all of them, since the
-        # heading-return fix. On the goal_pose branch (the one goal_turn
-        # dispatches turns through) psiStart is the live yaw and psiEnd the
-        # live bearing to the goal. On the goal_distance branch psiStart is
-        # the live yaw and psiEnd the move's frozen, map-corrected start
-        # heading, so dpsi is the car's accumulated heading error and this
-        # shape is exactly what returns it. Same on that branch's bootstrap
-        # fallback. dpsi == 0 (already aligned) still collapses every
-        # expression below to a constant heading, which is correct: a car
-        # already on the reference direction has nothing to return from.
+        # turn_remaining is passed straight through as dpsi: SIGNED and
+        # UNWRAPPED for a wall_turn, because the geometry has to bend the way
+        # the mission asked, not the short way. wrap() cannot express a
+        # rotation of 180 degrees or more -- wrap(+270 deg) is -90 deg -- so a
+        # corridor built from it would curl RIGHT for a commanded 270 degree
+        # LEFT turn, and then every position term in the QP (w_term to Pend,
+        # w_corr onto the centreline, w_psi_stage onto the local tangent)
+        # would pull against the terminal heading cost instead of with it.
+        # Same defect as the terminal unwrap, one layer out: see the wall_turn
+        # branch above. None on every other branch, where corridor_curves
+        # falls back to the shortest-branch wrap, exactly as before.
         #
-        # Scope note: at the shipping corridor_update_period of 1.0 s the
-        # corridor this shape describes is a ~1s-lived reference, roughly
-        # matching f110_autonomy's own slower-cadence design that the shape was
-        # ported from. Set the period down to ~ts and it is rebuilt essentially
-        # every control_loop tick, at which point the shape governs only the
-        # near-term reference inside one replan window (N=20, ts=0.1, so 2.0 s
-        # of horizon) rather than a standing scripted turn -- and the heading
-        # return degrades accordingly, which is the measurement that fixed the
-        # period at 1.0. On the goal_distance branch this shape is inert at the
-        # default geometry anyway (corridor_heading_return false -> dpsi == 0);
-        # it is live on every goal_pose turn regardless.
-        tau = np.clip(
-            (u - self.corr_turn_u_start) / max(self.corr_turn_u_end - self.corr_turn_u_start, 1e-6),
-            0.0, 1.0)
-        shape = 3.0 * tau ** 2 - 2.0 * tau ** 3
-        theta = psiStart + dpsi * shape
-
-        ds = np.zeros_like(s)
-        ds[1:] = np.diff(s)
-
-        xc = X0 + np.cumsum(np.cos(theta) * ds)
-        yc = Y0 + np.cumsum(np.sin(theta) * ds)
-
-        w0 = self.corr_wmin
-        w1 = self.corr_wmax
-
-        C0 = np.array([xc[0], yc[0]], dtype=float)
-        C1 = np.array([xc[-1], yc[-1]], dtype=float)
-
-        n0 = np.array([-math.sin(psiStart), math.cos(psiStart)], dtype=float)
-        n1 = np.array([-math.sin(psiEnd), math.cos(psiEnd)], dtype=float)
-
-        P_L0 = C0 + w0 * n0
-        P_R0 = C0 - w0 * n0
-        P_L1 = C1 + w1 * n1
-        P_R1 = C1 - w1 * n1
-
-        e0 = np.array([math.cos(psiStart), math.sin(psiStart)], dtype=float)
-        e1 = np.array([math.cos(psiEnd), math.sin(psiEnd)], dtype=float)
-
-        k0 = 0.55 * L
-        k1 = 0.55 * L
-
-        CL0 = P_L0 + k0 * e0
-        CL1 = P_L1 - k1 * e1
-        CR0 = P_R0 + k0 * e0
-        CR1 = P_R1 - k1 * e1
-
-        uu = u[:, None]
-
-        left = (
-            (1 - uu) ** 3 * P_L0 +
-            3 * (1 - uu) ** 2 * uu * CL0 +
-            3 * (1 - uu) * uu ** 2 * CL1 +
-            uu ** 3 * P_L1
+        # The S-curve heading blend (corr_turn_u_start/u_end) and the widening
+        # funnel (corr_wmin/corr_wmax) are unchanged; see corridor_geometry
+        # for the shape and stack_params.yaml for the measured table behind
+        # the 0.00/0.40 ramp.
+        geom = corridor_curves(
+            X0, Y0, psiStart, psiEnd, L, self.corr_N,
+            dpsi=turn_remaining,
+            u_start=self.corr_turn_u_start,
+            u_end=self.corr_turn_u_end,
+            w0=self.corr_wmin,
+            w1=self.corr_wmax,
         )
-        right = (
-            (1 - uu) ** 3 * P_R0 +
-            3 * (1 - uu) ** 2 * uu * CR0 +
-            3 * (1 - uu) * uu ** 2 * CR1 +
-            uu ** 3 * P_R1
-        )
-
-        xL = left[:, 0]
-        yL = left[:, 1]
-        xR = right[:, 0]
-        yR = right[:, 1]
-
-        dx = np.gradient(xc)
-        dy = np.gradient(yc)
-        dn = np.sqrt(dx ** 2 + dy ** 2)
-        dn = np.maximum(dn, 1e-9)
-
-        tx = dx / dn
-        ty = dy / dn
-        nx = -ty
-        ny = tx
-
-        halfWidth = 0.5 * np.sqrt((xL - xR) ** 2 + (yL - yR) ** 2)
-
-        p_goal = np.array([xc[-1], yc[-1]], dtype=float)
+        xc, yc = geom["xc"], geom["yc"]
+        xL, yL = geom["xL"], geom["yL"]
+        xR, yR = geom["xR"], geom["yR"]
+        halfWidth = geom["halfWidth"]
+        dpsi = geom["dpsi"]
+        p_goal = geom["Pend"]
 
         corridor = {
             "xc": xc,
@@ -4571,11 +4493,34 @@ class MPCController(Node):
             "yL": yL,
             "xR": xR,
             "yR": yR,
-            "tx": tx,
-            "ty": ty,
-            "nx": nx,
-            "ny": ny,
+            "tx": geom["tx"],
+            "ty": geom["ty"],
+            "nx": geom["nx"],
+            "ny": geom["ny"],
             "halfWidth": halfWidth,
+            # THE FUNCTION DEFINITION, for corridor_payload's v2 record: every
+            # number needed to re-evaluate these exact arrays offline. Kept
+            # next to the arrays rather than recomputed at publish time so the
+            # two can never describe different corridors.
+            "defn": {
+                "type": "mpc_corr/v2",
+                "C0": [float(X0), float(Y0)],
+                "psiStart": float(psiStart),
+                "psiEnd": float(psiEnd),
+                "dpsi": float(dpsi),
+                "psiRefTurn": (None if turn_remaining is None
+                               else float(turn_remaining)),
+                "L": float(L),
+                "corr_N": int(self.corr_N),
+                "u_start": float(self.corr_turn_u_start),
+                "u_end": float(self.corr_turn_u_end),
+                "w0": float(self.corr_wmin),
+                "w1": float(self.corr_wmax),
+                "handle_frac": float(CORRIDOR_HANDLE_FRAC),
+                "ctrl_left": geom["ctrl_left"],
+                "ctrl_right": geom["ctrl_right"],
+                "Pend": [float(p_goal[0]), float(p_goal[1])],
+            },
             "psiRef": float(psiEnd),
             # WHICH WAY ROUND, which psiRef alone cannot say. None for every
             # corridor that is not an active wall_turn; the signed rotation in
