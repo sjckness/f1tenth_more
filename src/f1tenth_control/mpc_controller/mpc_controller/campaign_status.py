@@ -127,6 +127,13 @@ def corridor_payload(corridor, corridor_id, frame_id, source, odom_topic=None):
     arrays exactly, at full float precision. A consumer that wants the curves
     evaluates them; it does not interpolate the samples.
 
+    ``object_shape`` and ``ref_step`` are per-rebuild facts rather than
+    geometry: which shape the object branch chose, and how far the reference
+    moved since the previous corridor (centreline, tangent at the car, Pend).
+    The reference step is a wobble candidate in its own right -- at 1 Hz with
+    the car at ~0.45 m/s the solver is handed a visibly re-laid reference every
+    second -- and nothing was measuring it.
+
     ``polygon`` is a SAMPLED boundary, kept because the clearance computation
     needs a polygon and because a v1 reader still works. It is the left wall
     walked forward then the right wall walked back, closed implicitly -- the
@@ -152,6 +159,18 @@ def corridor_payload(corridor, corridor_id, frame_id, source, odom_topic=None):
         'psi_ref': _finite_or_none(corridor.get('psiRef')),
         'length_m': _finite_or_none(corridor.get('L')),
         'object_mode': bool(corridor.get('objectMode', False)),
+    }
+
+    # The object shape and the per-rebuild reference step ride at the top
+    # level, not inside `definition`: they describe THIS rebuild's relationship
+    # to the previous one and to the branch that built it, not the function the
+    # definition evaluates. A reader wanting only the geometry can ignore them.
+    payload['object_shape'] = str(corridor.get('objectShape', 'none'))
+    step = corridor.get('refStep') or {}
+    payload['ref_step'] = {
+        'centreline_m': _finite_or_none(step.get('centreline_m')),
+        'tangent_rad': _finite_or_none(step.get('tangent_rad')),
+        'pend_m': _finite_or_none(step.get('pend_m')),
     }
 
     defn = corridor.get('defn')

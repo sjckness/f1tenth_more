@@ -842,6 +842,22 @@ class TestLoggerNode(Node):
                 f"[test_campaign] corridor has {len(polygon)} points -- ignored"
             )
             return
+        # The corridor shape and the mode that chose it belong in the test's
+        # meta.json as well as in every corridor line: a reader asking "which
+        # geometry did this test run?" should not have to open the jsonl and
+        # reduce 20 records. First writer wins per test, and a later corridor
+        # that disagrees appends rather than overwrites, so an arc_far run that
+        # crossed the switch band records both.
+        shape = data.get("object_shape")
+        if shape and shape != "none":
+            seen = self._test.extra_meta.setdefault("object_shapes", [])
+            if shape not in seen:
+                seen.append(shape)
+        defn = data.get("definition") or {}
+        mode = defn.get("object_corridor_mode")
+        if mode:
+            self._test.extra_meta.setdefault("object_corridor_mode", mode)
+
         self._test.log_corridor(
             polygon,
             corridor_id=data.get("id"),

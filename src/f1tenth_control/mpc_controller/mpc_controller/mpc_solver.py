@@ -262,6 +262,14 @@ _STAGE_WEIGHT_KEYS = (
     "w_v",
     "w_obs",
     "w_corr",
+    # Cross-track to the TARGET LINE on the object branch. Per-stage for the
+    # same reason w_corr is, and separated from it because the two now own
+    # different errors: w_corr holds the car on the corridor, which under
+    # object_corridor_mode 'arc' is the curve that GETS it to the target,
+    # while this holds it on the straight line the target sits on. Before the
+    # split one term did both, and the arc geometry makes them different
+    # curves -- they disagree by up to 0.58 m mid-approach, measured.
+    "w_line",
     # Stage heading cost, added with the stage-tracking pass. Belongs here
     # for the same reason w_corr does -- it is applied at every one of the N
     # stages, so without the normalisation its total would scale with the
@@ -995,6 +1003,30 @@ def _solve_rti(
             P[xk1_idx, xk1_idx] += 2.0 * weights["w_corr"] * np.outer(n_ext, n_ext)
             q[xk1_idx] += weights["w_corr"] * (-2.0 * n_dot_pc * n_ext)
 
+        # TARGET-LINE cost: w_line * (n_line . (p_{k+1} - p_line))^2.
+        #
+        # STRUCTURALLY ABSENT when the corridor carries no target line: the
+        # `if` covers both the weight and the line, so a drive/goal_distance
+        # corridor (no target exists), a move whose target was lost, and one
+        # whose target has gone behind the car all add NO rows at all rather
+        # than rows referring to a stale or invented line. See MPC_corr's
+        # object branch for which of those cases clears it.
+        #
+        # Unlike w_corr this needs no frozen nearest index: the line is a
+        # single fixed (point, heading), so the perpendicular distance is
+        # exactly linear in position at every stage and the cost is exactly
+        # quadratic -- no linearization error anywhere in the horizon.
+        line = corridor.get("targetLine")
+        if line is not None and weights.get("w_line", 0.0):
+            psi_line = float(line["psi"])
+            n_line = np.array([-math.sin(psi_line), math.cos(psi_line)])
+            n_dot_pl = float(n_line @ np.asarray(line["p"], dtype=float))
+            nl_ext = np.zeros(n_x)
+            nl_ext[0] = n_line[0]
+            nl_ext[1] = n_line[1]
+            P[xk1_idx, xk1_idx] += 2.0 * weights["w_line"] * np.outer(nl_ext, nl_ext)
+            q[xk1_idx] += weights["w_line"] * (-2.0 * n_dot_pl * nl_ext)
+
         # STAGE heading cost: w_psi_stage * (psi_{k+1} - psi_corridor)^2 at
         # the same frozen nearest index the two terms above use. Exactly
         # quadratic in the state (the target is frozen at linearization), so
@@ -1259,6 +1291,17 @@ def planner_cost_corridor(
             p_lat = np.array([x[0], x[1]], dtype=float)
             d_lat, _half_w = corridor_lateral_coordinates(p_lat, corridor)
             J += weights["w_corr"] * (d_lat ** 2)
+
+        # ================= distanza dalla linea del target =================
+        # Mirror of the RTI path's target-line cost, so the two backends agree
+        # on what a solution costs. Same structural gate.
+        line = corridor.get("targetLine")
+        if line is not None and weights.get("w_line", 0.0):
+            psi_line = float(line["psi"])
+            p_line = np.asarray(line["p"], dtype=float)
+            d_line = (-math.sin(psi_line) * (x[0] - p_line[0])
+                      + math.cos(psi_line) * (x[1] - p_line[1]))
+            J += weights["w_line"] * (d_line ** 2)
 
         # ================= allineamento corridoio (stage) =================
         # Mirror of the RTI path's own stage heading cost, so this objective

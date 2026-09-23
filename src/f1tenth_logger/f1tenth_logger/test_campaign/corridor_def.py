@@ -111,6 +111,27 @@ class CorridorRecord:
     def object_mode(self):
         return bool(self.meta.get('object_mode', False))
 
+    @property
+    def object_shape(self):
+        """'arc', 'straight' or 'none'; 'unknown' on a record that predates it.
+
+        NOT inferred from object_mode: a v1 object corridor was always straight
+        but did not say so, and guessing 'straight' for it would make the
+        campaign columns claim a shape the log never recorded.
+        """
+        return str(self.meta.get('object_shape') or 'unknown')
+
+    @property
+    def ref_step(self):
+        """How far the reference moved since the previous rebuild, or {}.
+
+        Empty on v1 and on the first corridor of a move (nothing to difference
+        against), so a caller must treat a missing value as unmeasured rather
+        than as zero.
+        """
+        step = self.meta.get('ref_step')
+        return dict(step) if isinstance(step, dict) else {}
+
     def __repr__(self):
         return (f'<CorridorRecord id={self.id} t={self.t} schema={self.schema} '
                 f'{len(self.polygon)} boundary samples>')

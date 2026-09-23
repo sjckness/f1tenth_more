@@ -1021,6 +1021,21 @@ object_r_full_m:
 object_r_freeze_m:
   default: 0.4
   description: "Range [m] to the standoff at or inside which the corridor heading is FROZEN (k = 0) and the car simply flies what it was given. Exists because bearing sensitivity to target jitter grows as 1/r: 5 cm of estimate noise subtends 0.07 rad at 0.7 m and 0.12 rad at 0.4 m, so a corridor still chasing the target here would be whipped across it every rebuild. Must be below object_r_full_m; k ramps linearly between the two."
+# ------------------------------------------------------------------
+# OBJECT CORRIDOR SHAPE. Today's object corridor sets psiStart == psiEnd, so
+# dpsi is identically zero and the corridor is straight however badly the car
+# is aimed. Measured over the 24 archived go_to_object rebuilds: dpsi used was
+# 1e-5 rad while the car's heading error toward the target ran 8 to 48 degrees.
+# ------------------------------------------------------------------
+object_corridor_mode:
+  default: "off"
+  description: "'off' | 'arc' | 'arc_far'. 'off' (default) is today's geometry: centreline pinned to the target line, starting object_lead_in_m behind the car, straight by construction. 'arc': origin on the car, psiStart the live yaw, psiEnd the held bearing psi_c, so dpsi is the heading error and the existing S-curve draws the arc onto the target. 'arc_far': 'arc' outside the switch band, 'off' inside it. WHY NOT PLAIN 'arc': with the origin on the car the corridor no longer ends at the goal (measured mean 0.25 m, max 0.96 m of endpoint drift), which is harmless while the lookahead sits inside the corridor and NOT harmless once it clamps to the corridor end, since from there Pend IS the terminal position cost. Prefer 'arc_far'."
+object_arc_switch_hi_frac:
+  default: 1.12
+  description: "Enter the arc shape when the distance from the car to the corridor's end is at least this multiple of the lookahead clamp distance (MPC_corr._lookahead_clamp_length(), 1.25 m at the shipping N/ts/vdes/margin, so 1.40 m here). A MULTIPLE and not a length, so the switch follows the clamp instead of restating it: the arc is only safe while the lookahead still sits inside the corridor, which is exactly what that distance measures."
+object_arc_switch_lo_frac:
+  default: 0.88
+  description: "Leave the arc shape below this multiple of the lookahead clamp distance (1.10 m at the shipping geometry). Must not exceed object_arc_switch_hi_frac. HYSTERESIS, not a second threshold: the two shapes differ by the object_lead_in_m origin offset even when dpsi is zero, so the reference step at the switch has a FLOOR (measured 0.31 m at dpsi = +1.0 deg) and a bare threshold would chatter across it every rebuild."
 object_c_safety:
   default: 1.5
   description: "Margin on the per-rebuild distance cap: rotating the corridor by dpsi is given c_safety * R_min * dpsi metres of remaining range. FLOOR IS 1.0, not the 1.5 wall_turn enforces -- wall_turn needs 1.5 because its corridor bends along a smoothstep whose peak slope is 1.5, while this corridor is straight and the car flies a plain arc onto it, where the honest factor is 1.0. Shipped at 1.5 as margin; a value in [1.0, 1.5) is a tuning choice and is accepted."
@@ -1340,7 +1355,10 @@ mpc_w_psi_stage:
   description: "PER-STAGE heading weight, tracking the corridor tangent at every horizon step. Effective value 1.67 after the 7/20 stage scaling. New term as of the stage-tracking commit; was 0.0 (inert) there and is turned on here."
 mpc_w_corr:
   default: 3.5714
-  description: "PER-STAGE cross-track weight -- perpendicular distance to the corridor centreline, zero longitudinal component by construction. Effective value 1.25 after the 7/20 stage scaling. Was 0.0, i.e. off entirely."
+  description: "PER-STAGE cross-track weight -- perpendicular distance to the corridor CENTRELINE, zero longitudinal component by construction. Effective value 1.25 after the 7/20 stage scaling; DERIVED, rho 1.0 over sigma 0.20 m, and left on its derivation when mpc_w_line split the job in two: this term used to own both errors, because on the object branch the corridor centreline WAS the target line. Under object_corridor_mode 'arc' they are different curves -- measured to disagree by up to 0.58 m mid-approach over the 24 archived rebuilds -- so w_corr holds the car on the corridor it is being asked to fly and mpc_w_line holds it on the line the target sits on. OPEN: with both at sigma 0.20 the two together put 2.5 of effective lateral stiffness on a car only ever tuned at 1.25. Lowering this one is a sigma choice (0.354 m would give 0.40) and NOT a free fit -- it would take w_corr off the rho/sigma^2 derivation that test_weight_set.py pins, and off the invariant that exactly one weight (w_du_delta) departs from it on purpose. Decide the sigma, not the literal. RETUNE ORDER: mpc_w_psi_stage first -- under 'arc' it tracks a tangent that now rotates through the corridor."
+mpc_w_line:
+  default: 3.5714
+  description: "PER-STAGE cross-track weight on the perpendicular distance to the TARGET LINE (the straight line through the target at the corridor's held heading psi_c). Effective value 1.25 after the 7/20 stage scaling -- deliberately the value mpc_w_corr carried before the split, because this term inherits exactly the lateral homing w_corr used to provide on the object branch; it is a transfer, not a new tuning. STRUCTURALLY ABSENT off the object branch and whenever the line is meaningless (no target, target lost, target behind the car): the corridor carries targetLine=None and mpc_solver adds no rows at all rather than zero-weighted ones. SYNTHETIC beyond the transfer argument -- retune on hardware with mpc_w_corr."
 mpc_w_v:
   default: 4.2857
   description: "PER-STAGE speed-tracking weight on (v - vdes)^2. Effective value 1.50 after the 7/20 stage scaling. Was literal 8.0, effective 2.8."

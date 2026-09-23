@@ -96,8 +96,13 @@ optimistic mid-turn.
 import math
 from typing import NamedTuple, Optional
 
+from f1tenth_params.corridor_geometry import SMOOTHSTEP_PEAK_SLOPE
+
 # Peak slope of smoothstep 3t^2 - 2t^3 (at t = 0.5). See the module docstring.
-SMOOTHSTEP_PEAK_SLOPE = 1.5
+# The corridor's own smoothstep peak slope, imported rather than redeclared:
+# this module's k_safety guard and corridor_geometry's ramp-span clamp are
+# the same 1.5, and two copies could drift apart while both looked right.
+# Re-exported so importers of this name keep working.
 
 
 def wrap_to_pi(angle: float) -> float:

@@ -60,7 +60,9 @@ __all__ = [
     'corridor_curves',
     'bezier',
     'wrap_pi',
+    'ramp_span_for',
     'CORRIDOR_HANDLE_FRAC',
+    'SMOOTHSTEP_PEAK_SLOPE',
 ]
 
 #: Bezier handle length as a fraction of the corridor length. A bare literal
@@ -87,10 +89,25 @@ def bezier(p0, c0, c1, p1, u):
             + uu ** 3 * p1)
 
 
+#: Peak of the smoothstep's derivative, 6 tau (1 - tau), at tau = 0.5. The
+#: heading ramp's steepest point, and so the corridor's peak curvature:
+#:     kappa_max = SMOOTHSTEP_PEAK_SLOPE * |dpsi| / ramp_span
+SMOOTHSTEP_PEAK_SLOPE = 1.5
+
+
+def ramp_span_for(dpsi, r_min):
+    """Shortest ramp span [m] whose peak curvature still fits inside r_min.
+
+    From kappa_max = 1.5 |dpsi| / span <= 1 / r_min.
+    """
+    return SMOOTHSTEP_PEAK_SLOPE * abs(float(dpsi)) * float(r_min)
+
+
 def corridor_curves(x0, y0, psi_start, psi_end, length, n,
                     dpsi=None, u_start=0.0, u_end=0.40,
                     w0=0.4333, w1=0.7667,
-                    handle_frac=CORRIDOR_HANDLE_FRAC):
+                    handle_frac=CORRIDOR_HANDLE_FRAC,
+                    r_min=None, length_ref=None):
     """Every array build_straight_corridor's corridor dict carries.
 
     ``dpsi`` is the SIGNED, possibly unwrapped rotation the corridor asks for.
@@ -98,6 +115,32 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
     pi are not recoverable from ``psi_end`` alone; leave it None and it falls
     back to the shortest-branch wrap of ``psi_end - psi_start``, which is what
     every non-turn branch wants.
+
+    ``r_min`` turns on the RAMP-SPAN CLAMP. The ramp span is (u_end - u_start)
+    * length, i.e. a FRACTION of the corridor, so the same heading change is
+    crammed into a shorter and shorter arc as the corridor shortens, and peak
+    curvature runs away as 1/length. With r_min given, u_end is widened
+    (never narrowed, never past 1.0) until the span is at least
+    ramp_span_for(dpsi, r_min). Reported as ``u_end_eff`` /  ``ramp_clamped``.
+
+    If even u_end = 1.0 is too short the geometry is simply not drivable from
+    here, and that is REPORTED (``feasible`` False) rather than repaired:
+    capping dpsi instead would silently move the corridor's end heading, and
+    on the object branch that is the one thing holding the end cap on the goal.
+    The reference is soft, so an infeasible ask costs steering saturation, not
+    a constraint violation -- but nothing should have to infer that from the
+    curvature.
+
+    ``length_ref`` turns on the WIDTH RATE. Without it the funnel reaches w1 at
+    u = 1 whatever the corridor's length, so a short corridor is wider than it
+    is long -- 10 of the 24 archived object rebuilds are, the shortest being
+    0.74 m long against a 1.53 m far-end width, which is a degenerate shape to
+    hand a cross-track cost. With it, the funnel opens at a fixed rate per
+    metre instead:
+
+        w1_eff = w0 + (w1 - w0) * min(length / length_ref, 1)
+
+    identical at length == length_ref (the design point), narrower below it.
 
     Returns a dict of numpy arrays plus the Bezier control points, so a caller
     that wants to log the definition does not have to re-derive them.
@@ -113,6 +156,25 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
     if dpsi is None:
         dpsi = wrap_pi(psi_end - psi_start)
     dpsi = float(dpsi)
+
+    # ---- width rate ----------------------------------------------------
+    w1_eff = float(w1)
+    if length_ref is not None and float(length_ref) > 0.0:
+        w1_eff = w0 + (w1 - w0) * min(length / float(length_ref), 1.0)
+
+    # ---- ramp-span clamp -----------------------------------------------
+    u_end_eff = float(u_end)
+    ramp_clamped = False
+    feasible = True
+    if r_min is not None and length > 0.0:
+        need = ramp_span_for(dpsi, r_min)
+        u_need = u_start + need / length
+        if u_need > u_end_eff:
+            u_end_eff = min(1.0, u_need)
+            ramp_clamped = True
+        feasible = (u_end_eff - u_start) * length + 1e-12 >= need
+    u_end = u_end_eff
+    w1 = w1_eff
 
     tau = np.clip((u - u_start) / max(u_end - u_start, 1e-6), 0.0, 1.0)
     shape = 3.0 * tau ** 2 - 2.0 * tau ** 3
@@ -164,6 +226,14 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
         'halfWidth': 0.5 * np.sqrt((x_l - x_r) ** 2 + (y_l - y_r) ** 2),
         'Pend': np.array([xc[-1], yc[-1]], dtype=float),
         'dpsi': dpsi,
+        # what the two clamps actually did, so a log records the geometry that
+        # was built rather than the one that was asked for
+        'u_end_eff': float(u_end_eff),
+        'w1_eff': float(w1_eff),
+        'ramp_clamped': bool(ramp_clamped),
+        'feasible': bool(feasible),
+        'kappa_max': (SMOOTHSTEP_PEAK_SLOPE * abs(dpsi)
+                      / max((u_end_eff - u_start) * length, 1e-9)),
         # the control points, so corridor_payload can log a definition that
         # reproduces these walls without re-deriving C1 from the centreline
         'ctrl_left': [p_l0.tolist(), cl0.tolist(), cl1.tolist(), p_l1.tolist()],

@@ -89,6 +89,12 @@ COLUMNS = [
     "estop",
     "contact",
     "corridor_schema",
+    "object_shape",
+    "ref_step_centreline_mean_m",
+    "ref_step_centreline_max_m",
+    "ref_step_pend_mean_m",
+    "ref_step_pend_max_m",
+    "ref_step_tangent_max_rad",
     "viol_rate_pct",
     "min_clear_m",
     "min_clear_raw_m",
@@ -413,6 +419,31 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
     else:
         corridor_schema = SCHEMA_V1
 
+    # WHICH SHAPE THE OBJECT BRANCH USED, as one value for the test: the
+    # shapes actually seen, joined, so an arc_far run that crossed the switch
+    # band reads "arc+straight" rather than silently reporting whichever came
+    # last. Empty when no corridor recorded a shape.
+    shapes = sorted({c.object_shape for c in corridors} - {"none", "unknown"})
+    object_shape = "+".join(shapes) if shapes else None
+
+    # THE REFERENCE STEP. How far the corridor moves between rebuilds is a
+    # wobble candidate in its own right and was never measured: at 1 Hz with
+    # the car at ~0.45 m/s the solver is handed a visibly re-laid reference
+    # every second. Unmeasured entries (v1 logs, and the first corridor of
+    # every move) are DROPPED rather than counted as zero, which would drag
+    # both statistics toward a stillness that was never observed.
+    def _steps(key):
+        out = []
+        for record in corridors:
+            value = record.ref_step.get(key)
+            if value is not None and math.isfinite(float(value)):
+                out.append(abs(float(value)))
+        return out
+
+    step_centre = _steps("centreline_m")
+    step_pend = _steps("pend_m")
+    step_tangent = _steps("tangent_rad")
+
     kin = read_csv_columns(
         test_dir / "kinematics.csv", ["t", "corridor_clearance", "obstacle_clearance"]
     )
@@ -530,6 +561,13 @@ def metrics_for_test(test_dir, mission, cutoff_hz, deadband_rad):
         "estop": estop,
         "contact": contact,
         "corridor_schema": corridor_schema,
+        "object_shape": object_shape,
+        "ref_step_centreline_mean_m": (
+            float(np.mean(step_centre)) if step_centre else None),
+        "ref_step_centreline_max_m": max(step_centre) if step_centre else None,
+        "ref_step_pend_mean_m": float(np.mean(step_pend)) if step_pend else None,
+        "ref_step_pend_max_m": max(step_pend) if step_pend else None,
+        "ref_step_tangent_max_rad": max(step_tangent) if step_tangent else None,
         "viol_rate_pct": (
             time_share_below_zero(kin["t"][kin_in], kin["corridor_clearance"][kin_in])
             if corridor_schema == SCHEMA_V2 else None

@@ -97,6 +97,31 @@ def generate_launch_description():
     mpc_w_corr_default, mpc_w_corr_desc = get_default('mpc_w_corr')
     mpc_w_corr_la = DeclareLaunchArgument(
         'mpc_w_corr', default_value=str(mpc_w_corr_default), description=mpc_w_corr_desc)
+    # Object corridor shape, and the new target-line weight. Launch args
+    # because the A/B is run BETWEEN runs on the car: switching it must not
+    # need a source edit or a rebuild.
+    mpc_w_line_default, mpc_w_line_desc = get_default('mpc_w_line')
+    mpc_w_line_la = DeclareLaunchArgument(
+        'mpc_w_line', default_value=str(mpc_w_line_default),
+        description=mpc_w_line_desc)
+    object_corridor_mode_default, object_corridor_mode_desc = get_default(
+        'object_corridor_mode')
+    object_corridor_mode_la = DeclareLaunchArgument(
+        'object_corridor_mode', default_value=str(object_corridor_mode_default),
+        description=object_corridor_mode_desc)
+    object_arc_switch_hi_frac_default, object_arc_switch_hi_frac_desc = get_default(
+        'object_arc_switch_hi_frac')
+    object_arc_switch_hi_frac_la = DeclareLaunchArgument(
+        'object_arc_switch_hi_frac',
+        default_value=str(object_arc_switch_hi_frac_default),
+        description=object_arc_switch_hi_frac_desc)
+    object_arc_switch_lo_frac_default, object_arc_switch_lo_frac_desc = get_default(
+        'object_arc_switch_lo_frac')
+    object_arc_switch_lo_frac_la = DeclareLaunchArgument(
+        'object_arc_switch_lo_frac',
+        default_value=str(object_arc_switch_lo_frac_default),
+        description=object_arc_switch_lo_frac_desc)
+
     mpc_w_v_default, mpc_w_v_desc = get_default('mpc_w_v')
     mpc_w_v_la = DeclareLaunchArgument(
         'mpc_w_v', default_value=str(mpc_w_v_default), description=mpc_w_v_desc)
@@ -225,6 +250,12 @@ def generate_launch_description():
             'mpc_w_psi': LaunchConfiguration('mpc_w_psi'),
             'mpc_w_psi_stage': LaunchConfiguration('mpc_w_psi_stage'),
             'mpc_w_corr': LaunchConfiguration('mpc_w_corr'),
+            'mpc_w_line': LaunchConfiguration('mpc_w_line'),
+            'object_corridor_mode': LaunchConfiguration('object_corridor_mode'),
+            'object_arc_switch_hi_frac': LaunchConfiguration(
+                'object_arc_switch_hi_frac'),
+            'object_arc_switch_lo_frac': LaunchConfiguration(
+                'object_arc_switch_lo_frac'),
             'mpc_w_v': LaunchConfiguration('mpc_w_v'),
             'mpc_w_obs': LaunchConfiguration('mpc_w_obs'),
             'mpc_w_du_delta': LaunchConfiguration('mpc_w_du_delta'),
@@ -249,6 +280,8 @@ def generate_launch_description():
         odom_stale_timeout_sec_la, use_rti_solver_la, car_radius_la, avoidance_margin_la,
         cpu_affinity_la, nice_la, corridor_update_period_la,
         mpc_w_term_la, mpc_w_psi_la, mpc_w_psi_stage_la, mpc_w_corr_la,
+        mpc_w_line_la, object_corridor_mode_la,
+        object_arc_switch_hi_frac_la, object_arc_switch_lo_frac_la,
         mpc_w_v_la, mpc_w_obs_la, mpc_w_du_delta_la, mpc_w_delta0_la,
         mpc_w_u_a_la, mpc_w_du_a_la,
         delta_min_la, delta_max_la,

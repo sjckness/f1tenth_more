@@ -23,7 +23,8 @@ from f1tenth_messages.msg import (
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
-from f1tenth_params.corridor_geometry import CORRIDOR_HANDLE_FRAC, corridor_curves
+from f1tenth_params.corridor_geometry import (
+    CORRIDOR_HANDLE_FRAC, corridor_curves, wrap_pi)
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
@@ -33,7 +34,8 @@ from mpc_controller.object_approach import (
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
-from mpc_controller.wall_turn import SMOOTHSTEP_PEAK_SLOPE, plan_wall_turn_step
+from mpc_controller.wall_turn import (
+    SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step)
 from sensor_msgs.msg import JointState
 from sensor_msgs.msg import Imu, LaserScan
 from tf2_ros import (
@@ -43,6 +45,25 @@ from tf2_ros import (
 )
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
+
+
+def lookahead_clamp_length(n_steps, ts, v_des, reach_margin):
+    """Corridor length at and below which the lookahead pins to the corridor end.
+
+    The lookahead is max(corr_lookahead_frac * L, this). The fractional term is
+    0.5 * L, always inside the corridor, so it never pins; this floor is the
+    only thing that can, and it does so exactly when it reaches L. At the
+    shipping geometry (N 20, ts 0.1, vdes 0.5, margin 1.25) that is 1.25 m.
+
+    A MODULE FUNCTION, not a method, because two callers need it and one of
+    them is reached through the duck-typed corridor stand-ins: those bind
+    _corridor_lookahead onto objects that carry the four values below but no
+    methods, so a self.<method>() call there raises instead of computing. The
+    other caller is the object branch's arc switch, which must stop using the
+    arc before Pend starts feeding the terminal cost -- writing 1.25 there
+    instead would leave the switch behind the moment any of these four moved.
+    """
+    return float(reach_margin) * float(n_steps) * float(ts) * float(v_des)
 
 
 def _resolve_debug_output_path(filename: str) -> Path:
@@ -427,6 +448,70 @@ class MPCController(Node):
             'object_r_full_m', get_value('object_r_full_m')).value)
         self.object_r_freeze = float(self.declare_parameter(
             'object_r_freeze_m', get_value('object_r_freeze_m')).value)
+
+        # ---- OBJECT CORRIDOR SHAPE -------------------------------------
+        # WHAT THIS CHANGES. Today's object corridor sets psiStart == psiEnd
+        # == psi_c, so dpsi is identically zero and the corridor is straight
+        # by construction, whatever the car's heading error. Measured over the
+        # 24 archived go_to_object rebuilds: dpsi used was 1e-5 rad while the
+        # car's heading error toward the target ran 8-48 degrees. The corridor
+        # pointed where the car was already going, never where it had to go.
+        #
+        #   'off'      today's geometry, unchanged. THE DEFAULT.
+        #   'arc'      psiStart = live yaw, psiEnd = psi_c, origin = the car,
+        #              at every range.
+        #   'arc_far'  'arc' beyond the switch band, 'off' inside it.
+        #
+        # WHY 'arc' IS NOT THE DEFAULT AND 'arc_far' EXISTS. With the origin
+        # on the car the corridor no longer ends at the goal: the arc bulges
+        # off the straight line, measured mean 0.25 m and up to 0.96 m. That
+        # is harmless while the lookahead still sits inside the corridor, and
+        # NOT harmless once the lookahead clamps to the corridor end, because
+        # from there Pend IS the terminal position cost and the car would be
+        # sent to a point up to a metre off the goal -- the exact defect the
+        # object branch's unclipped L was written to avoid. So the arc is used
+        # only outside the clamp distance.
+        self.object_corridor_mode = str(self.declare_parameter(
+            'object_corridor_mode', get_value('object_corridor_mode')).value)
+        if self.object_corridor_mode not in ('off', 'arc', 'arc_far'):
+            self.get_logger().error(
+                f"object_corridor_mode '{self.object_corridor_mode}' is not one "
+                "of off|arc|arc_far: falling back to 'off'")
+            self.object_corridor_mode = 'off'
+        # THE SWITCH BAND, as multiples of the lookahead clamp distance rather
+        # than metres, so it follows that distance instead of restating it.
+        # _lookahead_clamp_length() is the one definition; at the shipping
+        # geometry it is 1.25 m, so these are 1.40 m and 1.10 m. Hysteresis
+        # because the two geometries differ by the 0.5 m lead-in even when
+        # dpsi is zero -- the step at the switch has a floor (measured 0.31 m
+        # at dpsi = +1.0 deg), so a bare threshold would chatter across it.
+        self.object_arc_switch_hi_frac = float(self.declare_parameter(
+            'object_arc_switch_hi_frac',
+            get_value('object_arc_switch_hi_frac')).value)
+        self.object_arc_switch_lo_frac = float(self.declare_parameter(
+            'object_arc_switch_lo_frac',
+            get_value('object_arc_switch_lo_frac')).value)
+        if self.object_arc_switch_lo_frac > self.object_arc_switch_hi_frac:
+            raise ValueError(
+                f'object_arc_switch_lo_frac {self.object_arc_switch_lo_frac} '
+                f'exceeds _hi_frac {self.object_arc_switch_hi_frac}: the band '
+                'would invert and the mode would latch on noise')
+        # Which side of the band the last rebuild landed on. None until the
+        # first object rebuild; reset with the rest of the object state.
+        self._object_arc_active = False
+
+        # ---- REFERENCE STEP --------------------------------------------
+        # The previous corridor, kept only to measure how far the reference
+        # MOVES between rebuilds. At 1 Hz with the car at ~0.45 m/s the
+        # centreline is re-laid from a pose half a metre further on every
+        # second, so the solver is handed a visibly different reference each
+        # time; that step is a wobble candidate in its own right and nothing
+        # was measuring it. Three numbers, because they fail differently:
+        # the centreline can shift while the tangent at the car holds (pure
+        # lateral re-anchoring), the tangent can swing while the centreline
+        # holds (a heading rethink), and Pend can jump on its own when the
+        # target estimate moves.
+        self._prev_corridor_ref = None
         self.object_c_safety = float(self.declare_parameter(
             'object_c_safety', get_value('object_c_safety')).value)
         self.object_retarget_distance = float(self.declare_parameter(
@@ -1311,6 +1396,7 @@ class MPCController(Node):
             "w_delta0": _w('mpc_w_delta0'),
             "w_obs": _w('mpc_w_obs'),
             "w_corr": _w('mpc_w_corr'),
+            "w_line": _w('mpc_w_line'),
             "w_psi_stage": _w('mpc_w_psi_stage'),
         }
 
@@ -2869,6 +2955,12 @@ class MPCController(Node):
         self.object_speed_mode = None
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
+        # A new move's first corridor has nothing meaningful to be a step FROM
+        # -- differencing it against the last move's would report the whole
+        # re-anchoring as reference movement. Same reason the arc's hysteresis
+        # latch starts cold.
+        self._prev_corridor_ref = None
+        self._object_arc_active = False
         self.last_corridor_time = None
         self.last_corridor_stamp = None
         self.cached_pref_nom = None
@@ -4037,6 +4129,16 @@ class MPCController(Node):
         # expected end of every successful approach).
         object_mode = False
 
+        # Which shape the object branch chose, for the v2 record and the
+        # campaign columns. 'none' on every other branch: the field always
+        # exists, so a reader never has to infer the mode from its absence.
+        object_corridor_shape = 'none'
+        # The straight line the target sits on, for mpc_solver's w_line term.
+        # None on every branch but the object one, and None there too whenever
+        # the line is meaningless -- see where it is set. None means the term
+        # adds no QP rows at all, not that it adds zero-weighted ones.
+        target_line = None
+
         # getattr, not a bare attribute, for the same reason corridor_heading_
         # return below uses one: the corridor tests build duck-typed stand-ins
         # that predate this mode and carry only the fields the geometry under
@@ -4307,9 +4409,91 @@ class MPCController(Node):
             # because everything downstream builds from xc/yc, and the only
             # other reader of X0/Y0 is the goal_distance branch's own lat_off
             # diagnostic.
-            X0, Y0 = origin
-            psiStart = psi_c
-            psiEnd = psi_c
+            # THE SHAPE DECISION. `origin`/`psi_c` above are today's geometry:
+            # the centreline pinned to the target line, starting behind the
+            # car, straight because both ends are psi_c. object_corridor_mode
+            # can replace it with the arc that actually gets the car there.
+            #
+            # r_goal is the distance from the CAR to the corridor's own end
+            # (the standoff point), which is the length an arc from here would
+            # have, and so the quantity the switch band is about: the arc is
+            # only safe while the lookahead still sits inside the corridor.
+            r_goal = math.hypot(origin[0] + L * math.cos(psi_c) - X0,
+                                origin[1] + L * math.sin(psi_c) - Y0)
+            # getattr for the same reason as drive_cmd/object_target above:
+            # the corridor stand-ins predate this mode and carry none of it.
+            # Absent -> 'off' -> today's geometry, which is what a stand-in
+            # written before the mode existed is asserting against.
+            _mode = getattr(self, 'object_corridor_mode', 'off')
+            if _mode == 'arc':
+                use_arc = True
+                clamp_len = float('nan')
+            elif _mode == 'arc_far':
+                clamp_len = lookahead_clamp_length(
+                    self.N, self.ts, self.vdes,
+                    self.corr_lookahead_reach_margin)
+                # Hysteresis: enter the arc above hi, leave it below lo, hold
+                # in between. See the parameter block for why the band cannot
+                # be a single threshold.
+                if r_goal >= getattr(self, 'object_arc_switch_hi_frac',
+                                     1.12) * clamp_len:
+                    use_arc = True
+                elif r_goal <= getattr(self, 'object_arc_switch_lo_frac',
+                                       0.88) * clamp_len:
+                    use_arc = False
+                else:
+                    use_arc = getattr(self, '_object_arc_active', False)
+            else:
+                use_arc = False
+                clamp_len = float('nan')
+            self._object_arc_active = use_arc
+
+            if use_arc:
+                # The SAME family as every other branch, differing only in
+                # what the two headings are: origin on the car (as the
+                # straight and turn branches already do), psiStart the live
+                # yaw, psiEnd the bearing psi_c that plan_object_heading
+                # already computes and rate-limits. dpsi is then the car's
+                # heading error and the existing S-curve draws the arc.
+                psiStart = psi0
+                psiEnd = psi_c
+                # A target on top of the car has no arc; the guard keeps
+                # corridor_curves' ds from collapsing to zero.
+                L = max(r_goal, 1e-3)
+                object_corridor_shape = 'arc'
+            else:
+                X0, Y0 = origin
+                psiStart = psi_c
+                psiEnd = psi_c
+                object_corridor_shape = 'straight'
+            # THE TARGET LINE, which is what today's corridor centreline IS:
+            # the line through the target at psi_c. It is handed to the solver
+            # separately from here on, because under the arc shape the corridor
+            # no longer lies along it and the two errors stop being the same
+            # number. Set from `origin` and psi_c, so it is the same line in
+            # both shapes and the switch does not move it.
+            #
+            # CLEARED, not down-weighted, when the target is BEHIND the car:
+            # past pi/2 the bearing flips and the "line to the target" runs
+            # backwards through the car, so a cost pulling onto it would drive
+            # the car away from the approach. assess_object_approach's
+            # persistent flag is the gate. getattr for the duck-typed corridor
+            # test stand-ins, which carry no object flags.
+            if getattr(self, 'object_behind_terminal', False):
+                target_line = None
+                self.get_logger().warn(
+                    'CORR/object | target behind the car: the target-line cost '
+                    'is OFF for this corridor', throttle_duration_sec=5.0)
+            else:
+                target_line = {'p': [float(origin[0]), float(origin[1])],
+                               'psi': float(psi_c)}
+            self.get_logger().info(
+                f'CORR/object_shape | mode={_mode} '
+                f'shape={object_corridor_shape} r_goal={r_goal:.2f} '
+                f'clamp={clamp_len:.2f} '
+                f'band=[{getattr(self, "object_arc_switch_lo_frac", 0.88) * clamp_len:.2f},'
+                f'{getattr(self, "object_arc_switch_hi_frac", 1.12) * clamp_len:.2f}] '
+                f'dpsi={wrap_pi(psiEnd - psiStart):+.4f}')
             object_mode = True
             self.get_logger().info(
                 f'CORR/object | psi_c={step.psi_c_new:+.4f} e={step.e:+.4f} '
@@ -4501,6 +4685,27 @@ class MPCController(Node):
         # funnel (corr_wmin/corr_wmax) are unchanged; see corridor_geometry
         # for the shape and stack_params.yaml for the measured table behind
         # the 0.00/0.40 ramp.
+        # R_min for the direction this corridor turns, so the ramp-span clamp
+        # knows which steering bound applies: the two are not equal (0.923 m
+        # left, 0.955 m right at the shipping calibration). Same rule as
+        # plan_object_heading's and wall_turn's owed_sign.
+        #
+        # getattr for both, for exactly the reason drive_cmd and object_target
+        # above use one: the corridor tests build duck-typed stand-ins carrying
+        # only the fields the geometry under test needs, and a bare self.limits
+        # makes every one of them raise AttributeError here instead of
+        # selecting a shape. Without the limits there is no R_min to clamp
+        # against, so the clamp is simply off and the geometry is what it was
+        # before it existed -- which is the right answer for a stand-in.
+        _dpsi_for_bound = (turn_remaining if turn_remaining is not None
+                           else wrap_pi(psiEnd - psiStart))
+        _limits = getattr(self, 'limits', None)
+        _params = getattr(self, 'params', None)
+        _r_min = None
+        if _limits is not None and _params is not None:
+            _bound = (_limits['delta_max'] if _dpsi_for_bound >= 0.0
+                      else _limits['delta_min'])
+            _r_min = min_turn_radius(_params['L'], _bound)
         geom = corridor_curves(
             X0, Y0, psiStart, psiEnd, L, self.corr_N,
             dpsi=turn_remaining,
@@ -4508,7 +4713,26 @@ class MPCController(Node):
             u_end=self.corr_turn_u_end,
             w0=self.corr_wmin,
             w1=self.corr_wmax,
+            # BOTH CLAMPS APPLY TO EVERY BRANCH, not only the object one. The
+            # ramp span is a fraction of L, so peak curvature runs away as the
+            # corridor shortens; the straight branch is unprotected without
+            # this and goes past full lock beyond ~50 degrees of heading error
+            # at L 3.0. wall_turn caps its own dpsi separately, so there this
+            # is belt-and-braces.
+            r_min=_r_min,
+            # And the funnel opens at a fixed rate per metre rather than
+            # reaching corr_wmax whatever the length: 10 of the 24 archived
+            # object rebuilds were WIDER THAN LONG without this.
+            length_ref=getattr(self, 'corr_L_base', None),
         )
+        if not geom['feasible']:
+            self.get_logger().warn(
+                f'CORR/curvature | dpsi={geom["dpsi"]:+.4f} over L={L:.2f} m '
+                f'needs a ramp longer than the corridor: kappa_max='
+                f'{geom["kappa_max"]:.3f} (R={1.0 / max(geom["kappa_max"], 1e-9):.2f} m) '
+                f'against R_min={_r_min:.3f} m. '
+                'The reference asks for more than full lock; the solver will '
+                'saturate steering.', throttle_duration_sec=5.0)
         xc, yc = geom["xc"], geom["yc"]
         xL, yL = geom["xL"], geom["yL"]
         xR, yR = geom["xR"], geom["yR"]
@@ -4547,6 +4771,16 @@ class MPCController(Node):
                 "w0": float(self.corr_wmin),
                 "w1": float(self.corr_wmax),
                 "handle_frac": float(CORRIDOR_HANDLE_FRAC),
+                # what the clamps actually produced, not what was asked for
+                "u_end_eff": float(geom["u_end_eff"]),
+                "w1_eff": float(geom["w1_eff"]),
+                "ramp_clamped": bool(geom["ramp_clamped"]),
+                "feasible": bool(geom["feasible"]),
+                "kappa_max": float(geom["kappa_max"]),
+                # 'none' off the object branch, else 'arc' or 'straight'
+                "object_shape": object_corridor_shape,
+                "object_corridor_mode": str(
+                    getattr(self, 'object_corridor_mode', 'off')),
                 "ctrl_left": geom["ctrl_left"],
                 "ctrl_right": geom["ctrl_right"],
                 "Pend": [float(p_goal[0]), float(p_goal[1])],
@@ -4570,11 +4804,25 @@ class MPCController(Node):
             # See object_mode's own declaration at the top of this method.
             "objectMode": bool(object_mode),
             "psiStart": float(psiStart),
+            "objectShape": object_corridor_shape,
+            # None off the object branch and whenever the line is meaningless;
+            # mpc_solver's w_line term is structurally absent when it is None.
+            "targetLine": target_line,
             "t": float(dpsi),
             "Pend": p_goal,
             "dFront": float(d_front),
             "dpsi": float(dpsi),
         }
+
+        # getattr, like every other new read in this method: the stand-ins
+        # bind build_straight_corridor onto objects that carry only the fields
+        # the geometry under test needs, and a bare self._reference_step makes
+        # all of them raise instead of building a corridor. No previous
+        # corridor to difference against is the same answer as no method.
+        _ref_step = getattr(self, '_reference_step', None)
+        corridor["refStep"] = (
+            _ref_step(corridor) if _ref_step is not None
+            else {'centreline_m': None, 'tangent_rad': None, 'pend_m': None})
 
         # ---- DEBUG: geometria del corridoio appena costruito ----
         self.get_logger().info(
@@ -4585,6 +4833,47 @@ class MPCController(Node):
         )
 
         return corridor
+
+    def _reference_step(self, corridor):
+        """How far this corridor's reference moved from the previous one.
+
+        Three separable quantities, all in metres/radians, None on the first
+        corridor of a move (there is nothing to difference against):
+
+          centreline_m  max over this centreline of the distance to the
+                        NEAREST point of the previous one. A curve-to-curve
+                        separation, not a sample-to-sample one, so simply
+                        re-laying the same geometry from a pose further along
+                        it reads ~0 -- which is the point: sliding along the
+                        reference is not a step, changing it is.
+          tangent_rad   change in the corridor's tangent AT THE CAR, i.e. what
+                        the stage heading cost starts asking for differently.
+          pend_m        how far the terminal point moved.
+
+        Never raises: this is diagnostics on the control path.
+        """
+        try:
+            xc = np.asarray(corridor['xc'], dtype=float)
+            yc = np.asarray(corridor['yc'], dtype=float)
+            pend = np.asarray(corridor['Pend'], dtype=float)
+            tan_now = math.atan2(float(corridor['ty'][0]), float(corridor['tx'][0]))
+            prev = getattr(self, '_prev_corridor_ref', None)
+            self._prev_corridor_ref = {
+                'xc': xc, 'yc': yc, 'Pend': pend, 'tan': tan_now}
+            if prev is None:
+                return {'centreline_m': None, 'tangent_rad': None, 'pend_m': None}
+            d = np.hypot(xc[:, None] - prev['xc'][None, :],
+                         yc[:, None] - prev['yc'][None, :])
+            return {
+                'centreline_m': float(d.min(axis=1).max()),
+                'tangent_rad': float(wrap_pi(tan_now - prev['tan'])),
+                'pend_m': float(np.hypot(*(pend - prev['Pend']))),
+            }
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
+            self.get_logger().warn(
+                f'reference step not measured: {type(exc).__name__}: {exc}',
+                throttle_duration_sec=5.0)
+            return {'centreline_m': None, 'tangent_rad': None, 'pend_m': None}
 
     def _corridor_line_marker(self, marker_id, ns, xs, ys, stamp, rgba):
         """One LINE_STRIP Marker from parallel x/y arrays (a corridor wall or
@@ -4721,6 +5010,24 @@ class MPCController(Node):
                 f'/corridor not published: {type(exc).__name__}: {exc}',
                 throttle_duration_sec=5.0)
 
+    def _lookahead_clamp_length(self):
+        """Corridor length at and below which the lookahead pins to the end.
+
+        The lookahead is max(corr_lookahead_frac * L, this). The fractional
+        term is 0.5 * L, always inside the corridor, so it never pins; this
+        floor is the only thing that can, and it does so exactly when it
+        reaches L. At the shipping geometry (N 20, ts 0.1, vdes 0.5, margin
+        1.25) that is 1.25 m.
+
+        WHY IT IS A METHOD AND NOT A CONSTANT. Two callers now need it:
+        _corridor_lookahead, which applies it, and the object branch's arc
+        switch, which must stop using the arc before Pend starts feeding the
+        terminal cost. Writing 1.25 in the second place would leave the switch
+        behind the moment N, ts, vdes or the margin moved.
+        """
+        return lookahead_clamp_length(
+            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
+
     def _corridor_lookahead(self, corridor):
         """Derive compute_local_target's lookahead from the corridor length.
 
@@ -4740,8 +5047,12 @@ class MPCController(Node):
         """
         L = float(corridor.get("L", self.corr_L_base))
         from_length = self.corr_lookahead_frac * L
+        # The floor and the raw reach it is derived from: the warning below
+        # quotes both, because "inside the horizon reach" and "below the floor"
+        # are different statements and the fix differs.
         horizon_reach = float(self.N) * float(self.ts) * float(self.vdes)
-        reach_floor = self.corr_lookahead_reach_margin * horizon_reach
+        reach_floor = lookahead_clamp_length(
+            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
 
         lookahead = from_length
         if from_length < reach_floor:
