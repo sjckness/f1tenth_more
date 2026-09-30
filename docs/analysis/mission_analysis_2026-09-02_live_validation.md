@@ -417,7 +417,7 @@ Both `llm_plan` runs report `outcome: COMPLETE`. Neither finished its last move:
 Neither log contains a `Goal raggiunto` line — the MPC never considered the move
 finished. The BT declared it finished anyway.
 
-**Root cause,** [condition_eval.py:131-135](src/f1tenth_behavior/f1tenth_behavior/mission/condition_eval.py#L131-L135):
+**Root cause,** [condition_eval.py:131-135](../../src/f1tenth_behavior/f1tenth_behavior/mission/condition_eval.py#L131-L135):
 
 ```python
 traveled = math.hypot(
@@ -428,7 +428,7 @@ return traveled >= float(target)
 ```
 
 `distance_reached` uses **raw Euclidean displacement**. `MPC_corr` terminates on
-the **along-line projection** ([MPC_corr.py:1275](src/f1tenth_control/mpc_controller/mpc_controller/MPC_corr.py#L1275),
+the **along-line projection** ([MPC_corr.py:1275](../../src/f1tenth_control/mpc_controller/mpc_controller/MPC_corr.py#L1275),
 `_project_onto_line`). The two disagree by exactly the divergence measured in
 §4 — and in `15-31-05` that divergence is 0.260 m against a 2.0 m goal, so the BT
 fires **13 % early**. The two checklist items are the same bug seen from two
@@ -569,7 +569,7 @@ from the published markers.
 ## Ranked next steps
 
 1. **Fix the false-COMPLETE properly** — change `distance_reached` in
-   [condition_eval.py:131](src/f1tenth_behavior/f1tenth_behavior/mission/condition_eval.py#L131)
+   [condition_eval.py:131](../../src/f1tenth_behavior/f1tenth_behavior/mission/condition_eval.py#L131)
    to the along-line projection, or better, have it consume `/mpc/goal_reached`
    so there is exactly one definition of "arrived" in the stack. This is a real
    bug with a measured 13 % early termination and a known one-line cause.

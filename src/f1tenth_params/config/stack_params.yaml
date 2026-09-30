@@ -30,7 +30,7 @@
 # contexts, so a single shared default would just be wrong for one of them no
 # matter which value was picked.
 #
-# "Consumed by:" comments below were audited against workspace_inventory.md and
+# "Consumed by:" comments below were audited against workspace_inventory.md (since removed) and
 # cross-checked directly with every get_value()/get_default()/get_path_default()
 # call site in src/ (grep, 2026-07-18) -- they name the package(s) whose code
 # actually reads the key, not just packages that happen to be "related" to it.
@@ -1602,7 +1602,7 @@ obstacle_target_shift_m:
 # --------------------------------------------------------------
 # OBSTACLE-AVOIDANCE TEST CONFIGURATION
 # Added by the 2026-09-01 mission-analysis follow-up (see
-# mission_analysis_2026-09-01.md). That analysis found every unexpected stop
+# docs/analysis/mission_analysis_2026-09-01.md). That analysis found every unexpected stop
 # came from f1tenth_behavior's BT preempting the MPC on the ackermann_mux
 # safety_stop lane (priority 200) -- NOT from the MPC, which converged on
 # 1285/1285 solves with zero missed deadlines. These four keys move camera-seen

@@ -353,7 +353,7 @@ def create_root(
     analysis, which found that 100% of unexpected stops came from this tree
     preempting the MPC on the ackermann_mux safety_stop lane (priority 200),
     NOT from the MPC failing -- the solver converged on 1285/1285 solves with
-    zero missed deadlines. See mission_analysis_2026-09-01.md.
+    zero missed deadlines. See docs/analysis/mission_analysis_2026-09-01.md.
 
     enable_camera_obstacle_stop (DEFAULT FALSE -- this is the behaviour change):
         Gates the whole handle_obstacle lane (IsObstacleDetected + Stop).

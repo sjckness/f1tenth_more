@@ -5,10 +5,10 @@ The `f1tenth_jetson` container brings the f1tenth_more workspace up on a
 container stays on **Ubuntu 22.04 + ROS 2 Humble** even though the Thor host is
 Ubuntu 24.04. It is built **natively on the Thor itself — no QEMU emulation.**
 
-- Dockerfile: [docker/Dockerfile.jetson-thor](docker/Dockerfile.jetson-thor)
-- Entrypoint: [docker/entrypoint.jetson.sh](docker/entrypoint.jetson.sh)
-- Compose service: `f1tenth_jetson` in [.devcontainer/docker-compose.yml](.devcontainer/docker-compose.yml) (guarded by the `jetson` profile)
-- Dev Container: [.devcontainer/jetson-thor/devcontainer.json](.devcontainer/jetson-thor/devcontainer.json)
+- Dockerfile: [docker/Dockerfile.jetson-thor](../../docker/Dockerfile.jetson-thor)
+- Entrypoint: [docker/entrypoint.jetson.sh](../../docker/entrypoint.jetson.sh)
+- Compose service: `f1tenth_jetson` in [.devcontainer/docker-compose.yml](../../.devcontainer/docker-compose.yml) (guarded by the `jetson` profile)
+- Dev Container: [.devcontainer/jetson-thor/devcontainer.json](../../.devcontainer/jetson-thor/devcontainer.json)
 
 ## Build & run
 
@@ -26,7 +26,7 @@ source install/setup.bash
 The `jetson` profile keeps `docker compose up` on the x86_64 cpu/gpu machines
 unchanged — the arm64 image is only touched when you pass `--profile jetson`.
 
-Or open **[.devcontainer/jetson-thor/devcontainer.json](.devcontainer/jetson-thor/devcontainer.json)**
+Or open **[.devcontainer/jetson-thor/devcontainer.json](../../.devcontainer/jetson-thor/devcontainer.json)**
 in VS Code on the Thor (Dev Containers: Reopen in Container).
 
 ## What's baked into the image

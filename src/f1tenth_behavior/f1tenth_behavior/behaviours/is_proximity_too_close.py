@@ -94,7 +94,7 @@ front_distance_threshold/lidar_distance_threshold: normally passed in by
 behavior_executor_node.create_root().
 
 RETUNED BY THE 2026-09-01 MISSION-ANALYSIS FOLLOW-UP (see
-mission_analysis_2026-09-01.md). These used to be DERIVED from
+docs/analysis/mission_analysis_2026-09-01.md). These used to be DERIVED from
 stack_params.yaml's car_radius/obstacle_safety_margin_m/
 proximity_front_extra_margin_m, giving 0.40 m front and 0.20 m side/rear.
 They are now direct stack_params keys of their own -- proximity_front_

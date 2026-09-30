@@ -20,12 +20,12 @@ for the src/ ancestor rather than assuming a fixed home-relative path.
 
 Usage
 -----
-    python3 plot_corridor.py                    # plot the most recent snapshot
-    python3 plot_corridor.py --index 42         # plot snapshot #42 (0-indexed)
-    python3 plot_corridor.py --animate          # step through every snapshot in the file
-    python3 plot_corridor.py --live             # keep watching the file, plot new
+    python3 tools/plot_corridor.py                    # plot the most recent snapshot
+    python3 tools/plot_corridor.py --index 42         # plot snapshot #42 (0-indexed)
+    python3 tools/plot_corridor.py --animate          # step through every snapshot in the file
+    python3 tools/plot_corridor.py --live             # keep watching the file, plot new
                                                 # snapshots as mpc_corr appends them
-    python3 plot_corridor.py --path /other/file.jsonl
+    python3 tools/plot_corridor.py --path /other/file.jsonl
 
 Dependencies
 ------------
@@ -42,11 +42,11 @@ import matplotlib.animation as animation
 import numpy as np
 
 
-# This script lives at the workspace root (next to src/), always run from
+# This script lives in tools/ (one level below the workspace root), always run from
 # source (never colcon-installed), so -- unlike MPC_corr.py's own
 # _resolve_debug_output_path(), which has to handle being copied into
 # install/ -- a plain __file__-relative anchor is sufficient here.
-DEFAULT_PATH = (Path(__file__).resolve().parent / "src" / "f1tenth_control"
+DEFAULT_PATH = (Path(__file__).resolve().parent.parent / "src" / "f1tenth_control"
                  / "corridors_jsons" / "corridor_debug.jsonl")
 
 

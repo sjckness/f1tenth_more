@@ -1,5 +1,5 @@
 """Regression tests for the obstacle-avoidance test configuration added by the
-2026-09-01 mission-analysis follow-up (see mission_analysis_2026-09-01.md).
+2026-09-01 mission-analysis follow-up (see docs/analysis/mission_analysis_2026-09-01.md).
 
 Every assertion here corresponds to a specific finding in that analysis:
 

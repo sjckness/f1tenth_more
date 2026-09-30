@@ -4,8 +4,8 @@ Reads a finished test folder and nothing else. No ROS, no replanning, no live
 anything: corridors.jsonl for the geometry, kinematics.csv for the trajectory,
 meta.json for the title.
 
-WHAT IT DRAWS, and where the styling comes from. The palette is plot_corridor.
-py's draw_snapshot(), the standalone viewer for mpc_corr's own debug snapshots,
+WHAT IT DRAWS, and where the styling comes from. The palette is tools/
+plot_corridor.py's draw_snapshot(), the standalone viewer for mpc_corr's own debug snapshots,
 so a figure from a log and a figure from the live planner read the same way:
 
     tab:blue    the two wall Beziers, and a cyan fill between them

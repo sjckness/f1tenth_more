@@ -6,8 +6,8 @@ Fortress simulation. Real hardware and simulation are separate, non-overlapping 
 points that share the same robot description, EKF config, and most node code.
 
 This README reflects the workspace after a full package-by-package reorganization
-(the "Phase 0-10" reorg referenced in commit history / `workspace_inventory.md`, the
-original read-only audit that scoped the work).
+(the "Phase 0-10" reorg referenced in commit history and in the since-removed
+`workspace_inventory.md`, the original read-only audit that scoped the work).
 
 ## Quick start — the two bringup entry points
 

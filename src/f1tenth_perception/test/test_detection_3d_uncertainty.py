@@ -1,5 +1,5 @@
 """detection_3d_node position-uncertainty tests -- the covariance added by the
-2026-09-01 mission-analysis follow-up (see mission_analysis_2026-09-01.md).
+2026-09-01 mission-analysis follow-up (see docs/analysis/mission_analysis_2026-09-01.md).
 
 Same "construct a real but never-spun rclpy Node and call its methods
 directly" convention as test_detection_3d_node.py in this directory (see that

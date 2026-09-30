@@ -1,5 +1,5 @@
 """Regression tests for the uncertainty-aware tracking added by the 2026-09-01
-mission-analysis follow-up (see mission_analysis_2026-09-01.md).
+mission-analysis follow-up (see docs/analysis/mission_analysis_2026-09-01.md).
 
 The analysis measured, in detection_3d_node's own output frame (so with both
 ego-motion and localisation removed), that frame-to-frame detection

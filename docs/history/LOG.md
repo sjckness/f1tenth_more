@@ -621,7 +621,7 @@ tags: bug
 - **It was abandoned, and the evidence is live.** The same commit added a commented-out
   `vesc_to_odom_node_backup` — *"FALLBACK: original bicycle-model-only odometry (no IMU
   fusion)"*. Today
-  [vesc.launch.py:205-208](src/f1tenth_hardware/f1tenth_hardware/launch/vesc.launch.py#L205-L208)
+  [vesc.launch.py:205-208](../../src/f1tenth_hardware/f1tenth_hardware/launch/vesc.launch.py#L205-L208)
   runs `executable='vesc_to_odom_node_backup'` under the node *name* `vesc_to_odom_node`
   — so the fallback is what actually runs, wearing the fused node's name. Both sources
   still exist in the submodule (`vesc_to_odom.cpp`, `vesc_to_odom_backup.cpp`), and
