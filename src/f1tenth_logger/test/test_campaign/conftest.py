@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 os.environ["ROS_DOMAIN_ID"] = os.environ.get("F1TENTH_TEST_DOMAIN", "91")
-os.environ["ROS_LOCALHOST_ONLY"] = "1"
+os.environ["ROS_AUTOMATIC_DISCOVERY_RANGE"] = "LOCALHOST"
 os.environ.pop("ROS_DISCOVERY_SERVER", None)
 os.environ.pop("ROS_SUPER_CLIENT", None)
 
