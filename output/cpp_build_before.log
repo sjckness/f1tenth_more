@@ -1,0 +1,535 @@
+Starting >>> asio_cmake_module
+Starting >>> vesc_msgs
+Starting >>> teleop_tools_msgs
+Starting >>> key_teleop
+Starting >>> ackermann_mux
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+[  1%] Built target vesc_msgs__rosidl_generator_type_description
+[  3%] Built target vesc_msgs__rs
+[  3%] Built target ament_cmake_python_symlink_vesc_msgs
+[  4%] Built target vesc_msgs__cpp
+[ 26%] Built target vesc_msgs__rosidl_generator_c
+[ 44%] Built target vesc_msgs__rosidl_typesupport_fastrtps_cpp
+[ 44%] Built target vesc_msgs__rosidl_typesupport_c
+[ 53%] Built target vesc_msgs__rosidl_typesupport_introspection_c
+[ 63%] Built target vesc_msgs__rosidl_typesupport_cpp
+[ 72%] Built target vesc_msgs__rosidl_typesupport_fastrtps_c
+[ 81%] Built target vesc_msgs__rosidl_typesupport_introspection_cpp
+[ 81%] Built target vesc_msgs
+[ 83%] Built target vesc_msgs__py
+[ 90%] Built target vesc_msgs__rosidl_generator_py
+[ 96%] Built target vesc_msgs_s__rosidl_typesupport_fastrtps_c
+[ 96%] Built target vesc_msgs_s__rosidl_typesupport_c
+[100%] Built target vesc_msgs_s__rosidl_typesupport_introspection_c
+[  2%] Built target teleop_tools_msgs__rosidl_generator_type_description
+[  5%] Built target teleop_tools_msgs__rs
+[  5%] Built target ament_cmake_python_symlink_teleop_tools_msgs
+[ 20%] Built target teleop_tools_msgs__rosidl_generator_c
+[ 22%] Built target teleop_tools_msgs__cpp
+[ 34%] Built target teleop_tools_msgs__rosidl_typesupport_fastrtps_c
+[ 42%] Built target teleop_tools_msgs__rosidl_typesupport_c
+[ 57%] Built target teleop_tools_msgs__rosidl_typesupport_introspection_c
+[ 54%] Built target teleop_tools_msgs__rosidl_typesupport_fastrtps_cpp
+[ 65%] Built target teleop_tools_msgs__rosidl_typesupport_introspection_cpp
+[ 74%] Built target teleop_tools_msgs__rosidl_typesupport_cpp
+[ 74%] Built target teleop_tools_msgs
+[ 77%] Built target teleop_tools_msgs__py
+[ 82%] Built target teleop_tools_msgs__rosidl_generator_py
+[ 88%] Built target teleop_tools_msgs_s__rosidl_typesupport_c
+[ 94%] Built target teleop_tools_msgs_s__rosidl_typesupport_introspection_c
+[100%] Built target teleop_tools_msgs_s__rosidl_typesupport_fastrtps_c
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/ament_index/resource_index/package_run_dependencies/asio_cmake_module
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/ament_index/resource_index/parent_prefix_path/asio_cmake_module
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/environment/path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/environment/path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/local_setup.bash
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/local_setup.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/local_setup.zsh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/local_setup.dsv
+-- Symlinking: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/package.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/ament_index/resource_index/packages/asio_cmake_module
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/cmake/asio_cmake_module-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/cmake/asio_cmake_moduleConfig.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/cmake/asio_cmake_moduleConfig-version.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/package.xml
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/cmake/Modules/FindASIO.cmake
+Finished <<< asio_cmake_module [0.28s]
+Starting >>> io_context
+running egg_info
+-- Found ament_cmake_auto: 2.5.6 (/opt/ros/jazzy/share/ament_cmake_auto/cmake)
+[100%] Built target ackermann_mux
+writing vesc_msgs.egg-info/PKG-INFO
+writing dependency_links to vesc_msgs.egg-info/dependency_links.txt
+writing top-level names to vesc_msgs.egg-info/top_level.txt
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/lib/ackermann_mux/ackermann_mux
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/launch/ackermann_mux_launch.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/config/ackermann_mux_locks.yaml
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/config/ackermann_mux_topics.yaml
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/config/joystick.yaml
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/include/ackermann_mux/ackermann_mux.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/include/ackermann_mux/ackermann_mux_diagnostics.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/include/ackermann_mux/ackermann_mux_diagnostics_status.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/include/ackermann_mux/params_helpers.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/include/ackermann_mux/topic_handle.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/include/ackermann_mux/utils.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ament_index/resource_index/package_run_dependencies/ackermann_mux
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ament_index/resource_index/parent_prefix_path/ackermann_mux
+running egg_info
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/environment/path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/environment/path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/local_setup.bash
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/local_setup.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/local_setup.zsh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/local_setup.dsv
+-- Symlinking: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/package.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ament_index/resource_index/packages/ackermann_mux
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/cmake/ament_cmake_export_include_directories-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/cmake/ament_cmake_export_dependencies-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/cmake/ackermann_muxConfig.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/cmake/ackermann_muxConfig-version.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/ackermann_mux/share/ackermann_mux/package.xml
+Finished <<< ackermann_mux [0.34s]
+writing teleop_tools_msgs.egg-info/PKG-INFO
+writing dependency_links to teleop_tools_msgs.egg-info/dependency_links.txt
+writing top-level names to teleop_tools_msgs.egg-info/top_level.txt
+reading manifest file 'vesc_msgs.egg-info/SOURCES.txt'
+writing manifest file 'vesc_msgs.egg-info/SOURCES.txt'
+[100%] Built target ament_cmake_python_build_vesc_msgs_egg
+reading manifest file 'teleop_tools_msgs.egg-info/SOURCES.txt'
+writing manifest file 'teleop_tools_msgs.egg-info/SOURCES.txt'
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/ament_index/resource_index/rosidl_interfaces/vesc_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescState.json
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescStateStamped.json
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescImu.json
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescImuStamped.json
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__functions.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__struct.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__type_support.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__functions.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__struct.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__type_support.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__functions.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__struct.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__type_support.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__functions.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__struct.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__type_support.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/rosidl_generator_c__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_imu.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_imu_stamped.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_state.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_state_stamped.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/library_path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/library_path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/rosidl_typesupport_fastrtps_c__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/rosidl_typesupport_introspection_c__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__builder.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__struct.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__traits.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__type_support.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__builder.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__struct.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__traits.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__type_support.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__builder.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__struct.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__traits.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__type_support.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__builder.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__struct.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__traits.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__type_support.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/rosidl_generator_cpp__visibility_control.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_imu.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_imu_stamped.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_state.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/vesc_state_stamped.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_imu_stamped__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/include/vesc_msgs/vesc_msgs/msg/detail/vesc_state_stamped__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/pythonpath.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/pythonpath.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs-1.1.0-py3.12.egg-info/PKG-INFO
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs-1.1.0-py3.12.egg-info/SOURCES.txt
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs-1.1.0-py3.12.egg-info/dependency_links.txt
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs-1.1.0-py3.12.egg-info/top_level.txt
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/__init__.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/_vesc_msgs_s.ep.rosidl_typesupport_c.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/_vesc_msgs_s.ep.rosidl_typesupport_fastrtps_c.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/_vesc_msgs_s.ep.rosidl_typesupport_introspection_c.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/__init__.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_imu.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_imu_s.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_imu_stamped.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_imu_stamped_s.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_state.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_state_s.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_state_stamped.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg/_vesc_state_stamped_s.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/vesc_msgs_s__rosidl_typesupport_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/vesc_msgs_s__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/vesc_msgs_s__rosidl_typesupport_introspection_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/vesc_msgs_s__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/vesc_msgs_s__rosidl_typesupport_introspection_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/vesc_msgs_s__rosidl_typesupport_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/ament_index/resource_index/rust_packages/vesc_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/rust/Cargo.toml
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/rust/build.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/rust/src/lib.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/rust/src/msg.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/rust/src/msg/rmw.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescState.idl
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescStateStamped.idl
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescImu.idl
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescImuStamped.idl
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescState.msg
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescStateStamped.msg
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescImu.msg
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/msg/VescImuStamped.msg
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/ament_index/resource_index/package_run_dependencies/vesc_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/ament_index/resource_index/parent_prefix_path/vesc_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/environment/path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/local_setup.bash
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/local_setup.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/local_setup.zsh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/local_setup.dsv
+-- Symlinking: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/package.dsv
+[100%] Built target ament_cmake_python_build_teleop_tools_msgs_egg
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/ament_index/resource_index/packages/vesc_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/rosidl_cmake-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/ament_cmake_export_dependencies-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/ament_cmake_export_include_directories-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/ament_cmake_export_libraries-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/ament_cmake_export_targets-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgsConfig.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgsConfig-version.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/package.xml
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_generator_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_typesupport_introspection_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_typesupport_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_typesupport_fastrtps_cpp.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_typesupport_introspection_cpp.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_typesupport_cpp.so
+-- Install configuration: ""
+-- Execute custom install script
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/ament_index/resource_index/rosidl_interfaces/teleop_tools_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/action/Increment.json
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__functions.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__struct.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__type_support.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/increment.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/msg/rosidl_generator_c__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/library_path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/library_path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__rosidl_typesupport_fastrtps_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/msg/rosidl_typesupport_fastrtps_c__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__rosidl_typesupport_introspection_c.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/msg/rosidl_typesupport_introspection_c__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__builder.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__struct.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__traits.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__type_support.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/increment.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/msg/rosidl_generator_cpp__visibility_control.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__rosidl_typesupport_fastrtps_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/msg/rosidl_typesupport_fastrtps_cpp__visibility_control.h
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/include/teleop_tools_msgs/teleop_tools_msgs/action/detail/increment__rosidl_typesupport_introspection_cpp.hpp
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/pythonpath.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/pythonpath.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs-1.2.1-py3.12.egg-info/PKG-INFO
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs-1.2.1-py3.12.egg-info/SOURCES.txt
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs-1.2.1-py3.12.egg-info/dependency_links.txt
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs-1.2.1-py3.12.egg-info/top_level.txt
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/__init__.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_c.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_fastrtps_c.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_introspection_c.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/action/__init__.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/action/_increment.py
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/action/_increment_s.c
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/teleop_tools_msgs_s__rosidl_typesupport_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/teleop_tools_msgs_s__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/teleop_tools_msgs_s__rosidl_typesupport_introspection_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/teleop_tools_msgs_s__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/teleop_tools_msgs_s__rosidl_typesupport_introspection_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/teleop_tools_msgs_s__rosidl_typesupport_c.so
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/ament_index/resource_index/rust_packages/teleop_tools_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/rust/Cargo.toml
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/rust/build.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/rust/src/action.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/rust/src/action/rmw.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/rust/src/lib.rs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/action/Increment.idl
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/action/Increment.action
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/ament_index/resource_index/package_run_dependencies/teleop_tools_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/ament_index/resource_index/parent_prefix_path/teleop_tools_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/ament_prefix_path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/ament_prefix_path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/path.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/environment/path.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/local_setup.bash
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/local_setup.sh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/local_setup.zsh
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/local_setup.dsv
+-- Symlinking: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/package.dsv
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/ament_index/resource_index/packages/teleop_tools_msgs
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/rosidl_cmake-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/ament_cmake_export_dependencies-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/ament_cmake_export_include_directories-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/ament_cmake_export_libraries-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/ament_cmake_export_targets-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/rosidl_cmake_export_typesupport_targets-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/rosidl_cmake_export_typesupport_libraries-extras.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgsConfig.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgsConfig-version.cmake
+-- Up-to-date symlink: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/package.xml
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_generator_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_typesupport_fastrtps_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_typesupport_introspection_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_typesupport_c.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_typesupport_fastrtps_cpp.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_typesupport_introspection_cpp.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_typesupport_cpp.so
+Listing '/home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs'...
+Listing '/home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/python3.12/site-packages/vesc_msgs/msg'...
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/lib/libvesc_msgs__rosidl_generator_py.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_generator_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_generator_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_typesupport_fastrtps_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_typesupport_fastrtps_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_introspection_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_introspection_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_generator_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_typesupport_fastrtps_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_introspection_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_introspection_cppExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/vesc_msgs__rosidl_typesupport_cppExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_generator_pyExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/vesc_msgs/share/vesc_msgs/cmake/export_vesc_msgs__rosidl_generator_pyExport-noconfig.cmake
+Finished <<< vesc_msgs [0.50s]
+Starting >>> vesc_ackermann
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+Listing '/home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs'...
+Listing '/home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/python3.12/site-packages/teleop_tools_msgs/action'...
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/lib/libteleop_tools_msgs__rosidl_generator_py.so
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_generator_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_generator_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_typesupport_fastrtps_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_typesupport_fastrtps_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_introspection_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_introspection_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_cExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_cExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_generator_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_typesupport_fastrtps_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_typesupport_fastrtps_cppExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_introspection_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_introspection_cppExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_cppExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/teleop_tools_msgs__rosidl_typesupport_cppExport-noconfig.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_generator_pyExport.cmake
+-- Up-to-date: /home/andreas/dev_ws/f1tenth_more/install/teleop_tools_msgs/share/teleop_tools_msgs/cmake/export_teleop_tools_msgs__rosidl_generator_pyExport-noconfig.cmake
+Finished <<< teleop_tools_msgs [0.52s]
+Starting >>> joy_teleop
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+-- The C compiler identification is GNU 13.3.0
+-- The CXX compiler identification is GNU 13.3.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /usr/bin/cc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Found rosidl_generator_c: 4.6.7 (/opt/ros/jazzy/share/rosidl_generator_c/cmake)
+-- Found rosidl_generator_cpp: 4.6.7 (/opt/ros/jazzy/share/rosidl_generator_cpp/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+-- Found rmw_implementation_cmake: 7.3.3 (/opt/ros/jazzy/share/rmw_implementation_cmake/cmake)
+-- Found rmw_fastrtps_cpp: 8.4.3 (/opt/ros/jazzy/share/rmw_fastrtps_cpp/cmake)
+-- Using RMW implementation 'rmw_fastrtps_cpp' as default
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/c++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found ament_cmake_auto: 2.5.6 (/opt/ros/jazzy/share/ament_cmake_auto/cmake)
+CMake Error at /usr/share/cmake-3.28/Modules/FindPackageHandleStandardArgs.cmake:230 (message):
+  Could NOT find ASIO (missing: ASIO_INCLUDE_DIRS)
+Call Stack (most recent call first):
+  /usr/share/cmake-3.28/Modules/FindPackageHandleStandardArgs.cmake:600 (_FPHSA_FAILURE_MESSAGE)
+  /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/cmake/Modules/FindASIO.cmake:19 (find_package_handle_standard_args)
+  CMakeLists.txt:34 (find_package)
+
+
+-- Configuring incomplete, errors occurred!
+--- stderr: io_context
+CMake Error at /usr/share/cmake-3.28/Modules/FindPackageHandleStandardArgs.cmake:230 (message):
+  Could NOT find ASIO (missing: ASIO_INCLUDE_DIRS)
+Call Stack (most recent call first):
+  /usr/share/cmake-3.28/Modules/FindPackageHandleStandardArgs.cmake:600 (_FPHSA_FAILURE_MESSAGE)
+  /home/andreas/dev_ws/f1tenth_more/install/asio_cmake_module/share/asio_cmake_module/cmake/Modules/FindASIO.cmake:19 (find_package_handle_standard_args)
+  CMakeLists.txt:34 (find_package)
+
+
+---
+Failed   <<< io_context [0.59s, exited with code 1]
+-- Found Python3: /usr/bin/python3 (found version "3.12.3") found components: Interpreter 
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+-- Override CMake install command with custom implementation using symlinks instead of copying resources
+-- Found rosidl_generator_c: 4.6.7 (/opt/ros/jazzy/share/rosidl_generator_c/cmake)
+running develop
+-- Found rosidl_generator_cpp: 4.6.7 (/opt/ros/jazzy/share/rosidl_generator_cpp/cmake)
+-- Using all available rosidl_typesupport_c: rosidl_typesupport_fastrtps_c;rosidl_typesupport_introspection_c
+-- Using all available rosidl_typesupport_cpp: rosidl_typesupport_fastrtps_cpp;rosidl_typesupport_introspection_cpp
+Aborted  <<< joy_teleop [0.77s]
+running egg_info
+-- Found rmw_implementation_cmake: 7.3.3 (/opt/ros/jazzy/share/rmw_implementation_cmake/cmake)
+-- Found rmw_fastrtps_cpp: 8.4.3 (/opt/ros/jazzy/share/rmw_fastrtps_cpp/cmake)
+writing key_teleop.egg-info/PKG-INFO
+writing dependency_links to key_teleop.egg-info/dependency_links.txt
+writing entry points to key_teleop.egg-info/entry_points.txt
+writing requirements to key_teleop.egg-info/requires.txt
+writing top-level names to key_teleop.egg-info/top_level.txt
+reading manifest file 'key_teleop.egg-info/SOURCES.txt'
+writing manifest file 'key_teleop.egg-info/SOURCES.txt'
+running build_ext
+Creating /home/andreas/dev_ws/f1tenth_more/install/key_teleop/lib/python3.12/site-packages/key-teleop.egg-link (link to .)
+Installing key_teleop script to /home/andreas/dev_ws/f1tenth_more/install/key_teleop/lib/key_teleop
+
+Installed /home/andreas/dev_ws/f1tenth_more/build/key_teleop
+running symlink_data
+-- Found OpenSSL: /usr/lib/x86_64-linux-gnu/libcrypto.so (found version "3.0.13")  
+-- Found FastRTPS: /opt/ros/jazzy/include (Required is at least version "2.13") 
+Aborted  <<< key_teleop [1.46s]
+-- Using RMW implementation 'rmw_fastrtps_cpp' as default
+-- Found ament_lint_auto: 0.17.5 (/opt/ros/jazzy/share/ament_lint_auto/cmake)
+-- Found gtest sources under '/opt/ros/jazzy/src/gtest_vendor': C++ tests using 'Google Test' will be built
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+In this package, headers install destination is set to `include` by ament_auto_package. It is recommended to install `include/vesc_ackermann` instead and will be the default behavior of ament_auto_package from ROS 2 Kilted Kaiju. On distributions before Kilted, ament_auto_package behaves the same way when you use USE_SCOPED_HEADER_INSTALL_DIR option.
+-- Added test 'copyright' to check source files copyright and LICENSE
+-- Added test 'cppcheck' to perform static code analysis on C / C++ code
+-- Configured cppcheck include dirs: /home/andreas/dev_ws/f1tenth_more/src/f1tenth_hardware/vesc/vesc_ackermann/include
+-- Configured cppcheck exclude dirs and/or files: 
+-- Added test 'cpplint' to check C / C++ code against the Google style
+-- Configured cpplint exclude dirs and/or files: 
+-- Added test 'lint_cmake' to check CMake code style
+-- Added test 'uncrustify' to check C / C++ code style
+-- Configured uncrustify additional arguments: 
+-- Added test 'xmllint' to check XML markup files
+-- Configuring done (1.4s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/andreas/dev_ws/f1tenth_more/build/vesc_ackermann
+Aborted  <<< vesc_ackermann [1.46s]
+
+Summary: 4 packages finished [2.19s]
+  1 package failed: io_context
+  3 packages aborted: joy_teleop key_teleop vesc_ackermann
+  3 packages had stderr output: io_context key_teleop vesc_ackermann
+  5 packages not processed
