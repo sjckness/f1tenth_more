@@ -50,7 +50,7 @@ rosbag2_storage_mcap plugin is not installed (checked live). Rather than fail
 every mission recording on a missing plugin, _resolve_storage_id() below
 checks the registered writers at startup and falls back to sqlite3 with a
 loud one-time WARNING naming the exact package to install
-(ros-humble-rosbag2-storage-mcap). Install it and this node switches to mcap
+(ros-jazzy-rosbag2-storage-mcap). Install it and this node switches to mcap
 on the next start with no code or config change. The fallback is deliberately
 noisy rather than silent: sqlite3 bags are what Foxglove reads least well, so
 "it recorded fine" must not quietly mean "in the format you didn't want".
@@ -644,7 +644,7 @@ class MissionLoggerNode(Node):
         self.get_logger().warn(
             f'storage_id "{self.requested_storage_id}" is NOT a registered rosbag2 '
             f'writer on this system (registered: {sorted(available)}) -- falling back to '
-            f'"{fallback}". For mcap: sudo apt install ros-humble-rosbag2-storage-mcap, '
+            f'"{fallback}". For mcap: sudo apt install ros-jazzy-rosbag2-storage-mcap, '
             'then restart this node; no config change needed.')
         return fallback
 
