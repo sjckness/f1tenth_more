@@ -323,8 +323,12 @@ recovered. Flagged as a Phase 1 follow-up, not resolved here.
 ## Commits
 
 ```
-(pending commit) jazzy/p1: localization parity harness
+9beea9b jazzy/p1: localization parity harness — slam_pose_relay bit-exact, ekf_global within noise floor at steady state
 ```
+
+Pushed to `origin/jazzy` (confirmed via `git log --oneline origin/jazzy..HEAD`,
+2026-10-01 addendum pass — not pushed by this agent; `3781f2e`/`9beea9b` were
+already on the remote when checked).
 
 `scripts/jazzy_parity/{bag_compat,bag_read,filter_bag_for_layer,
 replay_localization.sh,compare_runs,make_plots}.py`,

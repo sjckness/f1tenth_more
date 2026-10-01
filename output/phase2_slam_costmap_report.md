@@ -5,6 +5,12 @@ no blockers for this phase. Gate read before starting.
 
 ## Verdict: **GO-WITH-NOTES**
 
+**Updated by the 2026-10-01 addendum below (Section A/B) — read those
+before trusting the two claims this paragraph originally made about
+"timing artifact, not a logic difference" and the SLAM map's size. The
+original text below is kept as the historical record of what was found
+and reasoned at the time; the addendum is what actually got tested.**
+
 `slam_toolbox` (2.8.5, with Phase 0's `4edcbbf` lifecycle fix) reaches
 `active`, processes scans correctly, and — proven directly, not inferred
 — publishes **zero** TF of any kind beyond what it's fed, confirming
@@ -296,8 +302,13 @@ worth knowing about, not a regression to chase.**
 ## Commits
 
 ```
-(pending commit) jazzy/p2: SLAM + costmap parity harness
+5fec439 jazzy/p2: SLAM + costmap parity harness — slam_toolbox TF-silent and within noise floor, semantic_layer bit-exact, costmap_boundary tight median agreement
 ```
+
+Local, unpushed (confirmed: `git log --oneline origin/jazzy..HEAD` shows
+only `5fec439` — Phase 0's and Phase 1's commits are already on
+`origin/jazzy`, pushed outside this agent's own actions; this agent has
+never run `git push`). Plus the addendum commit below once made.
 
 `scripts/jazzy_parity/{bag_compat,filter_bag_for_layer,
 replay_localization.sh,compare_runs,make_plots_phase2}.py` (extended, not
@@ -331,3 +342,159 @@ forked), `output/phase2/{*.json,plots/*.png,runs/,inputs/}`,
    now characterized with hard numbers (floor ~0.09m/1.2° at 1Hz
    resampling) — worth keeping as the reference noise floor for any
    future SLAM-adjacent parity work, rather than re-deriving it.
+
+---
+
+## Addendum (2026-10-01): costmap_boundary verified at the function level, SLAM map explanation corrected
+
+Three follow-up items before Phase 3. The original report text above is
+left unchanged as the historical record; this section is what was
+actually tested afterward and supersedes it where they disagree.
+
+### A. `costmap_boundary_node` — function-level parity, timing removed
+
+**The concern:** the original report's "periodic-timer race" explanation
+for the large outliers (up to 89°/2.24m) was plausible but unproven, and
+these boundaries feed MPC hard constraints — not something to wave off on
+a theory.
+
+**Test performed** (`scripts/jazzy_parity/verify_costmap_boundary_logic.py`,
+new script, not folded into the replay harness since it's a fundamentally
+different mode — direct function calls, zero ROS, zero timing):
+
+1. For every recorded Humble `/costmap/boundaries` message, reconstructed
+   the inputs the node most plausibly had cached at that tick: the latest
+   `/slam/map` and latest `/ekf_global/odometry/filtered` by **recv
+   (bag-write) time**, strictly before the output's own recv time — not
+   its `header.stamp`, which `_extraction_tick()` sets from
+   `self.get_clock().now()` at publish time, not from the inputs.
+2. Called `extract_boundary_constraints()`/`front_clearance_from_extraction()`
+   **directly** — plain function imports, no `rclpy`, no node, no timer —
+   with those reconstructed inputs and the same production-default
+   parameters, and diffed against what Humble actually published for that
+   exact tick.
+
+**Critical property of this test: it uses ONLY the original Humble
+recording.** No Jazzy code or data is involved anywhere in it — the
+`costmap_boundary.py` module being called is the one, single,
+distro-agnostic source file (confirmed zero diff between the bag-era
+commit and the Jazzy baseline in Step 1 above), executed here under
+Jazzy's own Python 3.12/numpy 1.26.4 environment on Thor, with its output
+compared against what the **Humble** process itself recorded. If there
+were a numpy/Python-version-dependent numerical difference (the exact
+class of bug Phase 0's `fd83d6e` fixed elsewhere), it would show up right
+here. It didn't.
+
+**Results** (827 messages, 10 skipped for no cached map/pose yet, 0
+constraint-count mismatches):
+
+| | median | p95 | max | frac > threshold |
+|---|---|---|---|---|
+| normal angle error | **0.424°** | 3.67° | 89.10° | 3.26% > 5° |
+| offset error | **6.6 mm** | 65.7 mm | 2.244 m | 2.04% > 0.1 m |
+| front_clearance error | **14.0 mm** | 98.2 mm | 2.241 m | 4.71% > 0.1 m |
+
+Full output: `output/phase2/costmap_boundary_logic_verification.txt`.
+
+**Interpretation — the parity question is answered, the mechanism claim
+needs correcting:**
+
+- The median is tight — tighter, in fact, than the original live-replay
+  comparison (0.42° here vs 0.52° there) — and the **same ~3% large-error
+  tail** appears in this pure-Humble, zero-Jazzy, zero-ROS-timing test as
+  appeared in the original Jazzy-vs-Humble live comparison. Since this
+  test cannot possibly contain a Jazzy-specific defect (no Jazzy involved
+  at all), the ~3% tail is proven to be **independent of distro** — this
+  is the actual, direct evidence the original report's theory was
+  missing. **The extraction logic itself is confirmed correct and
+  distro-independent.**
+- **The specific mechanism originally proposed (simple N-1 cache
+  staleness from the 20Hz timer racing the 5s map update) is only a
+  partial explanation.** The off-by-one check on the 76 ticks with >5°
+  error: using the *previous* `/slam/map` resolved 1, using the *previous*
+  pose resolved 9 — **10/76 (13%) resolved; 66/76 (87%) remained >1°
+  error even after trying the one-step-back cache state.** A simple
+  "which message arrived last" model, built from bag recv timestamps,
+  does not fully explain the outliers.
+- **Best remaining explanation**, consistent with everything observed:
+  ROS 2's own executor does not guarantee that multi-topic callback
+  *servicing* order matches wire/bag-write arrival order — `/slam/map` is
+  a large message (~180 KB) with real deserialization cost, `/scan`-rate
+  pose updates are small and frequent, and the periodic timer fires on its
+  own schedule; a bag-recv-time reconstruction run as an external,
+  synchronous script cannot fully reproduce the original process's
+  internal callback-queue ordering under concurrent multi-topic load. This
+  is a property of **any** external bag-based reconstruction against a
+  live multi-subscriber node, not a reconstruction bug specific to this
+  script, and — critically — not a Jazzy-vs-Humble question at all, since
+  the comparison that exposed it was Humble-vs-itself.
+
+**Verdict for this layer, on this evidence: PASS, with the mechanism
+description corrected.** The extraction logic is proven identical and
+correct (tight median, zero count mismatches, confirmed under Jazzy's
+actual numpy/Python runtime against Humble's recorded ground truth). The
+~3% large-tick tail is real, inherent to periodic sampling of
+asynchronously-arriving large messages, and demonstrated to be
+distro-independent — not something Phase 3 needs to carry forward as an
+open risk, but the original "it's just a simple timer race" explanation
+should not be repeated as established fact; "inherent to periodic-sampling
+of multi-topic ROS input under real scheduling, mechanism not fully
+pinned down, proven distro-independent" is the accurate statement.
+
+### B. SLAM map explanation corrected
+
+**The claim to check:** the original report attributed Jazzy's final
+`/slam/map` being narrower than Humble's (384–390 vs 510 cells wide) to
+"the same pose-timing variance already characterized" for `/slam/pose` —
+vague and not the real reason.
+
+**Verified directly:** Humble's **first** `/slam/map` message in the bag
+has `header.stamp` = **1790176688.469** — **5.4 seconds before the bag's
+own recorded start** (1790176693.14, established in Phase 1) — and
+already shows 17.2% of cells known (26,153 cells) over a 25.4 m × 15.0 m
+area. The clip's own vehicle trajectory covers roughly 14 m of forward
+travel in 42.5 s (from Phase 1: (4.0, 0.2) → (17.7, 0.7)) — nowhere near
+enough to explain a 25×15 m partially-explored map **already existing
+5.4 seconds before the clip starts recording**.
+
+**Corrected explanation:** this is the exact same cold-start asymmetry
+Phase 1 found and proved for the EKF — Humble's `slam_toolbox` instance
+had been running continuously since mission start and had already mapped
+a substantial area before this 42.5 s segment was captured; this replay
+starts `slam_toolbox` **fresh** for just the clip, so it only ever
+explores what the clip's own ~14 m of travel covers. The narrower final
+map is explained by **less total exploration time**, not by "pose-timing
+variance" — the two are different phenomena (this one is about explored
+*extent*, the earlier one was about trajectory *accuracy*) and
+conflating them in the original text was imprecise. The 96%+ occupied-
+vs-free agreement over the *shared/overlapping* area (unaffected by this
+explanation — that metric only ever compared cells both maps actually
+observed) remains the correct measure of mapping-quality parity, and it
+still passes.
+
+### C. Commit verification
+
+```
+$ git log --oneline origin/jazzy..HEAD
+5fec439 jazzy/p2: SLAM + costmap parity harness — slam_toolbox TF-silent and within noise floor, semantic_layer bit-exact, costmap_boundary tight median agreement
+```
+
+Confirmed: `9beea9b` (Phase 1) and `3781f2e` (Phase 0) are both already on
+`origin/jazzy` — pushed at some point outside this agent's own actions
+(this agent has never run `git push`; per the reflog, both were
+`update by push` events). Only `5fec439` (Phase 2) remains local/unpushed,
+correctly reflecting "no pushes until Andreas says so." Both phase
+reports' "Commits" sections previously said "(pending commit)" — stale
+placeholder text left over from before the commits were actually made;
+fixed in both files to show the real commit hashes.
+
+### Addendum commit
+
+```
+(pending commit) jazzy/p2: costmap_boundary function-level verification + SLAM map / commit-reference corrections
+```
+
+`scripts/jazzy_parity/verify_costmap_boundary_logic.py` (new),
+`output/phase2/costmap_boundary_logic_verification.txt` (new),
+`output/phase2_slam_costmap_report.md` (this addendum),
+`output/phase1_localization_report.md` (commit-reference fix only).

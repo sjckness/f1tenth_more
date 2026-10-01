@@ -1,0 +1,19 @@
+=== costmap_boundary logic-only verification (latest-cached inputs) ===
+total /costmap/boundaries messages: 827
+  no map/pose cached yet (skipped):  10
+  constraint-count mismatch:          0
+  compared directly:                  see below
+
+normal angle error (deg): median=0.4239 p95=3.6748 max=89.0981 frac>1deg=0.2742 frac>5deg=0.0326
+offset error (m):         median=0.00657 p95=0.06572 max=2.24433 frac>0.01m=0.3680 frac>0.1m=0.0204
+front_clearance error (m): median=0.01397 p95=0.09817 max=2.24063 frac>0.01m=0.5819 frac>0.1m=0.0471  n=806
+
+=== off-by-one cache check on 0 count-mismatched ticks ===
+  resolved with previous /slam/map:      0
+  resolved with previous pose:            0
+  still mismatched (neither explains it): 0
+
+=== off-by-one cache check on 76 large-angle-error (>5deg) ticks ===
+  resolved (<1deg) with previous /slam/map: 1
+  resolved (<1deg) with previous pose:       9
+  still large (neither explains it):          66
