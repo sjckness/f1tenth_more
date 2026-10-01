@@ -30,6 +30,43 @@
 #                   its own map->odom output, and must never see the
 #                   latter, which is its own output), records
 #                   /ekf_global/odometry/filtered + /tf.
+# slam layer:       plays /scan + /tf_static + filtered /tf (odom->base_link
+#                   ONLY, via --tf-keep -- slam_toolbox needs that one edge
+#                   and nothing else must be on the topic, since this
+#                   layer's own Phase 2 job is partly to PROVE it adds
+#                   nothing to /tf itself; see TF-silence check below).
+#                   async_slam_toolbox_node is a LifecycleNode (Phase 0's
+#                   4edcbbf fix taught slam.launch.py to drive it through
+#                   configure->activate; this script does the same two
+#                   transitions via the `ros2 lifecycle` CLI directly,
+#                   since invoking the launch file itself would need a
+#                   use_sim_time passthrough it doesn't currently expose --
+#                   out of scope to add for this harness, see the Phase 2
+#                   report). Records /slam/pose + /slam/map + /tf (the last
+#                   one to prove TF silence, not because slam_toolbox is
+#                   expected to produce anything there).
+# semantic_layer:   plays /camera/detections_3d + /ekf_global/odometry/filtered
+#                   + /tf_static (cam_to_base is a fully static chain --
+#                   base_link->zed2_camera_link->...->zed2_left_camera_frame
+#                   -- no dynamic /tf needed at all). Records
+#                   /costmap/semantic_tracks.
+# costmap_boundary: plays /slam/map + /ekf_global/odometry/filtered +
+#                   /mpc/corridor_markers (present in the bag; only read
+#                   when use_convex_polytope is true, which it isn't here
+#                   -- included anyway for a faithful subscription set).
+#                   No TF needed at all: its only tf_buffer.lookup_transform
+#                   call (map->odom) is inside the convex-polytope path,
+#                   which is off by default (confirmed: node's own
+#                   declare_parameter default AND costmap.launch.py's own
+#                   launch-arg default both say false) -- see the Phase 2
+#                   report's Step 3 for the inflate_polytope confirmation
+#                   this directly supports. Records /costmap/boundaries +
+#                   /costmap/front_clearance.
+# Both semantic_layer and costmap_boundary are launched via plain `ros2
+# run` with ONLY use_sim_time overridden -- every other parameter's node-
+# internal declare_parameter() default already matches costmap.launch.py's
+# own declared launch-arg default exactly (checked line by line, not
+# assumed), so no further -p overrides are needed for a faithful replay.
 set -euo pipefail
 
 LAYER=$1
@@ -43,6 +80,7 @@ unset ROS_DISCOVERY_SERVER 2>/dev/null || true
 
 REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 EKF_GLOBAL_CONFIG="$REPO_ROOT/src/f1tenth_bringup/config/ekf_global.yaml"
+SLAM_CONFIG="$REPO_ROOT/src/f1tenth_navigation/config/slam_toolbox_params.yaml"
 
 # `ros2 run` spawns the actual node as a CHILD process rather than
 # exec-replacing itself -- killing the PID bash's $! captures (the `ros2
@@ -57,11 +95,14 @@ EKF_GLOBAL_CONFIG="$REPO_ROOT/src/f1tenth_bringup/config/ekf_global.yaml"
 # assuming a signal took effect immediately.
 NODE_PATTERN_relay="slam_pose_relay_node"
 NODE_PATTERN_ekf_global="ekf_node.*ekf_global_filter_node"
+NODE_PATTERN_slam="async_slam_toolbox_node"
+NODE_PATTERN_semantic_layer="semantic_layer_node"
+NODE_PATTERN_costmap_boundary="costmap_boundary_node"
 
 case "$LAYER" in
-  relay|ekf_global) ;;
+  relay|ekf_global|slam|semantic_layer|costmap_boundary) ;;
   *)
-    echo "unknown layer: $LAYER (expected relay or ekf_global)" >&2
+    echo "unknown layer: $LAYER (expected relay, ekf_global, slam, semantic_layer, or costmap_boundary)" >&2
     exit 1
     ;;
 esac
@@ -79,6 +120,9 @@ kill_and_wait() {
 cleanup() {
   kill_and_wait "$NODE_PATTERN_relay"
   kill_and_wait "$NODE_PATTERN_ekf_global"
+  kill_and_wait "$NODE_PATTERN_slam"
+  kill_and_wait "$NODE_PATTERN_semantic_layer"
+  kill_and_wait "$NODE_PATTERN_costmap_boundary"
   kill_and_wait "ros2 bag play"
   kill_and_wait "ros2 bag record"
 }
@@ -103,11 +147,40 @@ case "$LAYER" in
       --params-file "$EKF_GLOBAL_CONFIG" -p use_sim_time:=true \
       > "$OUT_DIR/node.log" 2>&1 &
     ;;
+  slam)
+    RECORD_TOPICS="/slam/pose /slam/map /tf"
+    # -r /map:=/slam/map etc. match slam.launch.py's own remappings exactly
+    # -- without them the node publishes on its unremapped defaults
+    # (/map, /pose), and this script would record nothing at all on
+    # /slam/pose//slam/map despite the node working correctly. Found live:
+    # `ros2 node info /slam_toolbox` showed /pose and /map as real
+    # publishers the whole time this was missing.
+    ros2 run slam_toolbox async_slam_toolbox_node --ros-args \
+      -r /map:=/slam/map -r /map_metadata:=/slam/map_metadata \
+      -r /pose:=/slam/pose \
+      --params-file "$SLAM_CONFIG" -p use_sim_time:=true \
+      > "$OUT_DIR/node.log" 2>&1 &
+    ;;
+  semantic_layer)
+    RECORD_TOPICS="/costmap/semantic_tracks /costmap/semantic_markers"
+    ros2 run f1tenth_costmap semantic_layer_node --ros-args \
+      -p use_sim_time:=true \
+      > "$OUT_DIR/node.log" 2>&1 &
+    ;;
+  costmap_boundary)
+    RECORD_TOPICS="/costmap/boundaries /costmap/front_clearance"
+    ros2 run f1tenth_costmap costmap_boundary_node --ros-args \
+      -p use_sim_time:=true \
+      > "$OUT_DIR/node.log" 2>&1 &
+    ;;
 esac
 
 case "$LAYER" in
   relay) NODE_PATTERN=$NODE_PATTERN_relay ;;
   ekf_global) NODE_PATTERN=$NODE_PATTERN_ekf_global ;;
+  slam) NODE_PATTERN=$NODE_PATTERN_slam ;;
+  semantic_layer) NODE_PATTERN=$NODE_PATTERN_semantic_layer ;;
+  costmap_boundary) NODE_PATTERN=$NODE_PATTERN_costmap_boundary ;;
 esac
 
 # sanity: the node must actually be up before we start recording. (Not an
@@ -126,6 +199,25 @@ done
 if [ "$n_running" -lt 1 ]; then
   echo "FATAL: $LAYER node never started" >&2
   exit 1
+fi
+
+if [ "$LAYER" = "slam" ]; then
+  # Mirrors slam.launch.py's own configure->activate event pair (Phase 0's
+  # 4edcbbf) via the `ros2 lifecycle` CLI instead of launch actions, since
+  # driving the launch file itself here would need a use_sim_time
+  # passthrough it doesn't currently expose (see this file's own header
+  # comment). Before --clock starts moving (bag play hasn't started yet) --
+  # confirmed live in Phase 0 that configure/activate complete fine without
+  # sim time ticking; activate is what starts scan processing, so it must
+  # finish before play begins or early scans would be missed.
+  ros2 lifecycle set /slam_toolbox configure
+  ros2 lifecycle set /slam_toolbox activate
+  state=$(ros2 lifecycle get /slam_toolbox)
+  echo "slam_toolbox lifecycle state after configure+activate: $state"
+  case "$state" in
+    active*) ;;
+    *) echo "FATAL: slam_toolbox did not reach active (got: $state)" >&2; exit 1 ;;
+  esac
 fi
 
 ros2 bag record -o "$OUT_DIR/bag" $RECORD_TOPICS \

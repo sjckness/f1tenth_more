@@ -1,0 +1,191 @@
+{
+  "layer": "costmap_boundary",
+  "humble_bag": "/home/andre/bags/humble_reference/humble_obstacle_run/bag",
+  "jazzy_bags": [
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_costmap_boundary_1/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_costmap_boundary_2/bag",
+    "/home/andre/dev_ws/f1tenth_more/output/phase2/runs/jazzy_costmap_boundary_3/bag"
+  ],
+  "humble_n_boundaries": 827,
+  "jazzy_n_boundaries": [
+    842,
+    847,
+    795
+  ],
+  "humble_n_clearance": 782,
+  "jazzy_n_clearance": [
+    830,
+    830,
+    791
+  ],
+  "boundaries_noise_floor": [
+    {
+      "label": "jazzy_1_vs_jazzy_2",
+      "n_ref": 842,
+      "n_matched": 842,
+      "match_rate": 1.0,
+      "count_match_rate": 1.0,
+      "normal_angle_err_deg_median": 0.0,
+      "normal_angle_err_deg_p90": 1.2074182697257333e-06,
+      "normal_angle_err_deg_rms": 0.21187304006510407,
+      "normal_angle_err_deg_max": 7.056627203245054,
+      "normal_angle_frac_over_5deg": 0.0007993605115907274,
+      "offset_err_m_median": 0.0,
+      "offset_err_m_p90": 0.0,
+      "offset_err_m_rms": 0.002612926514701978,
+      "offset_err_m_max": 0.09291265499471446
+    },
+    {
+      "label": "jazzy_1_vs_jazzy_3",
+      "n_ref": 842,
+      "n_matched": 797,
+      "match_rate": 0.9465558194774347,
+      "count_match_rate": 1.0,
+      "normal_angle_err_deg_median": 0.0,
+      "normal_angle_err_deg_p90": 1.2074182697257333e-06,
+      "normal_angle_err_deg_rms": 0.04142087680778804,
+      "normal_angle_err_deg_max": 0.8951560708836531,
+      "normal_angle_frac_over_5deg": 0.0,
+      "offset_err_m_median": 0.0,
+      "offset_err_m_p90": 0.0,
+      "offset_err_m_rms": 0.0009163319424496816,
+      "offset_err_m_max": 0.033782499465548455
+    },
+    {
+      "label": "jazzy_2_vs_jazzy_3",
+      "n_ref": 847,
+      "n_matched": 797,
+      "match_rate": 0.9409681227863046,
+      "count_match_rate": 1.0,
+      "normal_angle_err_deg_median": 0.0,
+      "normal_angle_err_deg_p90": 1.2074182697257333e-06,
+      "normal_angle_err_deg_rms": 0.2173544210071747,
+      "normal_angle_err_deg_max": 7.056627203245054,
+      "normal_angle_frac_over_5deg": 0.000836470096194061,
+      "offset_err_m_median": 0.0,
+      "offset_err_m_p90": 0.0,
+      "offset_err_m_rms": 0.0026137377466710016,
+      "offset_err_m_max": 0.09291265499471446
+    }
+  ],
+  "boundaries_jazzy_vs_humble": [
+    {
+      "label": "jazzy_1_vs_humble",
+      "n_ref": 842,
+      "n_matched": 841,
+      "match_rate": 0.998812351543943,
+      "count_match_rate": 0.9916765755053508,
+      "normal_angle_err_deg_median": 0.5180849029764469,
+      "normal_angle_err_deg_p90": 2.4672114507909706,
+      "normal_angle_err_deg_rms": 6.3469419357972985,
+      "normal_angle_err_deg_max": 89.05764584427331,
+      "normal_angle_frac_over_5deg": 0.036370903277378096,
+      "offset_err_m_median": 0.007437647816583848,
+      "offset_err_m_p90": 0.04065515107623923,
+      "offset_err_m_rms": 0.12635243445299937,
+      "offset_err_m_max": 2.24433074553641
+    },
+    {
+      "label": "jazzy_2_vs_humble",
+      "n_ref": 847,
+      "n_matched": 846,
+      "match_rate": 0.9988193624557261,
+      "count_match_rate": 0.9858156028368794,
+      "normal_angle_err_deg_median": 0.5175913992662216,
+      "normal_angle_err_deg_p90": 2.4393056852669464,
+      "normal_angle_err_deg_rms": 6.343042398114116,
+      "normal_angle_err_deg_max": 89.05764584427331,
+      "normal_angle_frac_over_5deg": 0.03557154276578737,
+      "offset_err_m_median": 0.007502333452835186,
+      "offset_err_m_p90": 0.04056696059440356,
+      "offset_err_m_rms": 0.1263499199440651,
+      "offset_err_m_max": 2.24433074553641
+    },
+    {
+      "label": "jazzy_3_vs_humble",
+      "n_ref": 795,
+      "n_matched": 795,
+      "match_rate": 1.0,
+      "count_match_rate": 1.0,
+      "normal_angle_err_deg_median": 0.5448909899146333,
+      "normal_angle_err_deg_p90": 2.5198532504895446,
+      "normal_angle_err_deg_rms": 6.499038062880784,
+      "normal_angle_err_deg_max": 89.05764584427331,
+      "normal_angle_frac_over_5deg": 0.03815513626834382,
+      "offset_err_m_median": 0.007901670495144897,
+      "offset_err_m_p90": 0.04222445011524999,
+      "offset_err_m_rms": 0.12946971468037066,
+      "offset_err_m_max": 2.249293453030394
+    }
+  ],
+  "clearance_noise_floor": [
+    {
+      "label": "jazzy_1_vs_jazzy_2",
+      "n_ref": 830,
+      "n_matched": 830,
+      "match_rate": 1.0,
+      "err_median": 0.0,
+      "err_rms": 0.0016133562073671773,
+      "err_p90": 0.0,
+      "err_p95": 0.0,
+      "err_max": 0.0337824821472168
+    },
+    {
+      "label": "jazzy_1_vs_jazzy_3",
+      "n_ref": 830,
+      "n_matched": 793,
+      "match_rate": 0.9554216867469879,
+      "err_median": 0.0,
+      "err_rms": 0.0014269073129121205,
+      "err_p90": 0.0,
+      "err_p95": 0.0,
+      "err_max": 0.0337824821472168
+    },
+    {
+      "label": "jazzy_2_vs_jazzy_3",
+      "n_ref": 830,
+      "n_matched": 793,
+      "match_rate": 0.9554216867469879,
+      "err_median": 0.0,
+      "err_rms": 0.0012756802949250073,
+      "err_p90": 0.0,
+      "err_p95": 0.0,
+      "err_max": 0.01343536376953125
+    }
+  ],
+  "clearance_jazzy_vs_humble": [
+    {
+      "label": "jazzy_1_vs_humble",
+      "n_ref": 830,
+      "n_matched": 828,
+      "match_rate": 0.9975903614457832,
+      "err_median": 0.017178654670715332,
+      "err_rms": 0.18775280272490485,
+      "err_p90": 0.07113952636718752,
+      "err_p95": 0.09872374534606933,
+      "err_max": 2.240634560585022
+    },
+    {
+      "label": "jazzy_2_vs_humble",
+      "n_ref": 830,
+      "n_matched": 828,
+      "match_rate": 0.9975903614457832,
+      "err_median": 0.017242789268493652,
+      "err_rms": 0.18776949102945228,
+      "err_p90": 0.07113952636718752,
+      "err_p95": 0.09872374534606933,
+      "err_max": 2.240634560585022
+    },
+    {
+      "label": "jazzy_3_vs_humble",
+      "n_ref": 791,
+      "n_matched": 791,
+      "match_rate": 1.0,
+      "err_median": 0.018428683280944824,
+      "err_rms": 0.19221653081051246,
+      "err_p90": 0.07425737380981445,
+      "err_p95": 0.10165137052536011,
+      "err_max": 2.2492934465408325
+    }
+  ]
+}

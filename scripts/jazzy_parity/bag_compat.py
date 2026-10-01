@@ -11,14 +11,25 @@ so the same script runs unmodified on both distros.
 import rosbag2_py
 
 
-def make_topic_metadata(topic_id, name, type_name, serialization_format='cdr'):
+def make_topic_metadata(topic_id, name, type_name, serialization_format='cdr',
+                         offered_qos_profiles=None):
+    """offered_qos_profiles MUST be carried through for any topic whose
+    durability matters -- /tf_static is TRANSIENT_LOCAL; writing it with
+    the default (VOLATILE) profile instead produces a filtered bag that
+    `ros2 bag play` publishes with incompatible QoS against tf2's static
+    listener. Confirmed live: silent "New publisher discovered... offering
+    incompatible QoS... DURABILITY_QOS_POLICY" warning, zero static
+    transforms actually delivered, every subsequent /scan dropped by
+    slam_toolbox's message filter with "timestamp... earlier than all the
+    data in the transform cache" (no base_link->laser edge ever arrived to
+    satisfy the filter). See the Phase 2 report's Step 2 section."""
+    kwargs = dict(name=name, type=type_name, serialization_format=serialization_format)
+    if offered_qos_profiles:
+        kwargs['offered_qos_profiles'] = offered_qos_profiles
     try:
-        return rosbag2_py.TopicMetadata(
-            id=topic_id, name=name, type=type_name,
-            serialization_format=serialization_format)
+        return rosbag2_py.TopicMetadata(id=topic_id, **kwargs)
     except TypeError:
-        return rosbag2_py.TopicMetadata(
-            name=name, type=type_name, serialization_format=serialization_format)
+        return rosbag2_py.TopicMetadata(**kwargs)
 
 
 def open_reader(bag_path):
