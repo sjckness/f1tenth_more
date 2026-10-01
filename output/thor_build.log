@@ -1,0 +1,210 @@
+Starting >>> f1tenth_params
+Starting >>> f1tenth_messages
+Starting >>> zed_msgs
+Starting >>> vesc_msgs
+Starting >>> teleop_tools_msgs
+Starting >>> ackermann_mux
+Starting >>> key_teleop
+Starting >>> corridor_perception
+Starting >>> mouse_teleop
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+Finished <<< ackermann_mux [1.49s]
+Finished <<< vesc_msgs [1.56s]
+Starting >>> vesc_ackermann
+Starting >>> vesc_driver
+Finished <<< teleop_tools_msgs [1.59s]
+Finished <<< f1tenth_messages [1.63s]
+Finished <<< zed_msgs [1.65s]
+Starting >>> joy_teleop
+Starting >>> zed_components
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+Finished <<< vesc_ackermann [0.50s]
+Finished <<< vesc_driver [0.52s]
+Starting >>> vesc
+Finished <<< vesc [0.14s]
+Finished <<< zed_components [0.59s]
+Starting >>> zed_wrapper
+Starting >>> zed_debug
+Finished <<< zed_wrapper [0.16s]
+Starting >>> zed_ros2
+Finished <<< zed_debug [0.23s]
+Finished <<< zed_ros2 [0.15s]
+--- stderr: key_teleop
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+---
+Finished <<< key_teleop [3.16s]
+--- stderr: mouse_teleop
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+---
+Finished <<< mouse_teleop [3.38s]
+Finished <<< corridor_perception [3.44s]
+Finished <<< f1tenth_params [3.50s]
+Starting >>> f1tenth_perception
+Starting >>> f1tenth_diagnostics
+Starting >>> f1tenth_logger
+Starting >>> f1tenth_description
+Starting >>> f1tenth_costmap
+--- stderr: joy_teleop
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+---
+Finished <<< joy_teleop [3.24s]
+Starting >>> teleop_tools
+Finished <<< teleop_tools [0.19s]
+Finished <<< f1tenth_costmap [3.58s]
+Finished <<< f1tenth_diagnostics [3.63s]
+Finished <<< f1tenth_perception [3.67s]
+Starting >>> f1tenth_navigation
+Starting >>> f1tenth_hardware
+Finished <<< f1tenth_logger [4.02s]
+Finished <<< f1tenth_description [4.03s]
+Starting >>> f1tenth_localization
+Finished <<< f1tenth_navigation [2.65s]
+Starting >>> f1tenth_behavior
+Finished <<< f1tenth_localization [2.30s]
+Finished <<< f1tenth_hardware [3.06s]
+Starting >>> vesc_tuning
+Finished <<< f1tenth_behavior [2.17s]
+Starting >>> llm
+Finished <<< vesc_tuning [2.17s]
+Finished <<< llm [1.90s]
+Starting >>> mpc_controller
+Finished <<< mpc_controller [1.84s]
+Starting >>> f1tenth_control
+Finished <<< f1tenth_control [2.18s]
+Starting >>> f1tenth_bringup
+Finished <<< f1tenth_bringup [2.08s]
+Starting >>> f1tenth_more
+Finished <<< f1tenth_more [2.00s]
+
+Summary: 33 packages finished [22.2s]
+  3 packages had stderr output: joy_teleop key_teleop mouse_teleop

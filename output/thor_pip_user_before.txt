@@ -1,0 +1,10 @@
+Package     Version
+----------- -------
+cloudpickle 3.1.2
+Cython      3.2.5
+joblib      1.6.0
+numpy       2.5.0
+osqp        1.1.3
+pyarrow     25.0.1
+pyzed       5.4
+scipy       1.18.0
