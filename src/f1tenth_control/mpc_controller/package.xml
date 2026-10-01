@@ -42,6 +42,11 @@
   <!-- test_llm_go_to_end_to_end.py starts the same chain from the LLM
        translator and the planner's mission writer. Test only as well. -->
   <test_depend>llm</test_depend>
+  <!-- test_steering_limits.py resolves get_package_share_directory
+       ('f1tenth_hardware') to read the real steering-limit config. Test
+       only; no cycle (f1tenth_hardware does not depend back on this
+       package). -->
+  <test_depend>f1tenth_hardware</test_depend>
 
   <export>
     <build_type>ament_python</build_type>
