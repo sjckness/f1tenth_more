@@ -491,8 +491,10 @@ fixed in both files to show the real commit hashes.
 ### Addendum commit
 
 ```
-(pending commit) jazzy/p2: costmap_boundary function-level verification + SLAM map / commit-reference corrections
+bd3bd3b jazzy/p2: costmap_boundary function-level verification + SLAM map / commit-reference corrections
 ```
+
+Local, unpushed (same as `5fec439` above).
 
 `scripts/jazzy_parity/verify_costmap_boundary_logic.py` (new),
 `output/phase2/costmap_boundary_logic_verification.txt` (new),
