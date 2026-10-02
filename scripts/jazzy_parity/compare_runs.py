@@ -451,8 +451,10 @@ def compare_maps(ref_map, other_map):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('layer', choices=['relay', 'ekf_global', 'slam',
-                                       'semantic_layer', 'costmap_boundary'])
-    ap.add_argument('humble_bag')
+                                       'semantic_layer', 'costmap_boundary', 'mpc'])
+    ap.add_argument('humble_bag', help="Humble reference bag; for the mpc layer a "
+                                       "Humble REPLAY output bag (Orin), or '-' while "
+                                       "none exists (noise floor only)")
     ap.add_argument('jazzy_bags', nargs='+')
     ap.add_argument('--out', required=True)
     ap.add_argument('--skip-transient-sec', type=float, default=0.0,
@@ -463,6 +465,11 @@ def main():
                           'ekf_global cold (identity seed) -- see the '
                           'Phase 1 report Step 5 for the measured '
                           'convergence curve this value is chosen from.')
+    ap.add_argument('--recorded-humble', default=None,
+                     help='mpc only: the ORIGINAL bag, for the sanity comparison of '
+                          'a Jazzy replay against the live-recorded Humble commands '
+                          '(not a parity verdict -- different reference heading, '
+                          'see the Phase 3 report).')
     args = ap.parse_args()
 
     out_dir = Path(args.out)
@@ -635,6 +642,37 @@ def main():
         result['clearance_jazzy_vs_humble'] = [
             scalar_stats(j, humble_c, f'jazzy_{i+1}_vs_humble')
             for i, j in enumerate(jazzy_c)]
+
+    elif args.layer == 'mpc':
+        import mpc_metrics as mm
+        jazzy = [mm.load_mpc_run(b) for b in args.jazzy_bags]
+        humble = mm.load_mpc_run(args.humble_bag) if args.humble_bag != '-' else None
+        # The window: from the injected goal to /mpc/hold. The hold time is
+        # read from the input bag's own /mpc/hold (identical on every run);
+        # each replay recorded /mpc/goal_drive, so its arrival is per run.
+        hold_t = None
+        src = args.recorded_humble
+        if src:
+            holds = [t * 1e-9 for t, m in read_topic(src, '/mpc/hold') if m.data]
+            hold_t = holds[0] if holds else None
+        goal_t = max(r['goal_t'] for r in jazzy if r['goal_t'] is not None)
+        lo, hi = mm.window(jazzy[0], goal_t, hold_t)
+        result['window'] = {'goal_t': goal_t, 'hold_t': hold_t, 'lo': lo, 'hi': hi}
+        result['jazzy_summary'] = [mm.status_summary(r, lo, hi) for r in jazzy]
+        result['noise_floor'] = [
+            mm.compare_pair(jazzy[i], jazzy[j], lo, hi, f'jazzy_{i+1}_vs_jazzy_{j+1}')
+            for i in range(len(jazzy)) for j in range(i + 1, len(jazzy))]
+        if humble is not None:
+            result['humble_summary'] = mm.status_summary(humble, lo, hi)
+            result['jazzy_vs_humble'] = [
+                mm.compare_pair(j, humble, lo, hi, f'jazzy_{i+1}_vs_humble')
+                for i, j in enumerate(jazzy)]
+        if src:
+            rec = mm.load_mpc_run(src)
+            result['recorded_humble_summary'] = mm.status_summary(rec, lo, hi)
+            result['sanity_vs_recorded_humble'] = [
+                mm.compare_pair(j, rec, lo, hi, f'jazzy_{i+1}_vs_recorded_humble')
+                for i, j in enumerate(jazzy)]
 
     with open(out_dir / f'{args.layer}_metrics.json', 'w') as f:
         json.dump(result, f, indent=2, default=str)
