@@ -120,7 +120,7 @@ python3 filter_bag_for_layer.py ../bag ../mpc_input \
     --inject-after /odometry/filtered 0.5
 python3 bag_digest.py ../mpc_input | tee ../orin_input_digest.txt
 # last line must be:
-# content_sha256 b621d170574ff9198fc46dad194c1c070d15360b4eaa9fed6a6b50073984da42
+# content_sha256 c29d688e20cbfda4b5e9d0fe27b5159cd8d2cbbf6aaac9d54e0ab3ae38e9099b
 
 for i in 1 2 3; do
   bash replay_localization.sh mpc ../mpc_input ../runs/humble_$i 77

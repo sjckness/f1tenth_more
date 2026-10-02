@@ -173,7 +173,11 @@ The Orin rebuilds it with Humble's code and diffs it against Thor's (instruction
 - **Same message on both stacks:** being part of the input bag, the goal
   arrives at the same sim time on every run and on both distros. The Orin
   rebuilds the input bag itself, and `bag_digest.py` compares content hashes:
-  Thor's is `b621d170…`.
+  Thor's is `c29d688e…`. (Corrected in Phase 4: the first `bag_digest.py`
+  hashed the raw CDR bytes, including the uninitialised alignment padding
+  of the injected message, so two builds of the same bag could hash
+  differently. It now hashes message content. The earlier `b621d170…` is
+  void.)
 - **Every run anchored the same heading:** each Jazzy run logged
   `psi_init_corridor(re-anchored)=+0.3009 rad`.
 
