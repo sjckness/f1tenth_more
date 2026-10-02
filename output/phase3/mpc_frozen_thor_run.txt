@@ -1,0 +1,16 @@
+ticks solved:     419
+solve_mpc_step wall ms: mean 5.33 p50 4.73 p95 6.79 p99 7.30 max 8.34
+inputs_sha256:             e04ada09707ac42014fedcb72faa5336f17f4e2b5cf3bfa2abfaffa5bab11910
+label:                     thor
+machine:                   aarch64
+numpy:                     1.26.4
+osqp:                      1.1.3
+osqp_file:                 /home/andre/.local/lib/python3.12/site-packages/osqp/__init__.py
+platform:                  Linux-6.8.12-tegra-aarch64-with-glibc2.39
+python:                    3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+repo:                      /home/andre/dev_ws/f1tenth_more
+scipy:                     1.11.4
+sha256_mpc_solver.py:      0883e2026707f46fea15ddc1cf295e0d37d576561f3f2754a986d1b663deb0df
+sha256_object_geometry.py: 5380163fdb31277b585298cbf0eaa080853156b4f9308d2ad3a16bbeaa4d86b7
+sha256_vehicle_model.py:   64257b10b8a0de6e43e853528ef0fd7011c3aed79e019d3d7925d6b8981f4775
+wrote output/phase3/mpc_thor_outputs.npz

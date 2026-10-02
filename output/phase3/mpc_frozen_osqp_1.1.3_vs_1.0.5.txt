@@ -1,0 +1,49 @@
+=== metadata ===
+inputs_sha256            thor: e04ada09707ac42014fedcb72faa5336f17f4e2b5cf3bfa2abfaffa5bab11910
+label                    thor: thor
+                         thor-osqp-1.0.5: thor-osqp-1.0.5   <- differs
+machine                  thor: aarch64
+numpy                    thor: 1.26.4
+osqp                     thor: 1.1.3
+                         thor-osqp-1.0.5: 1.0.5   <- differs
+osqp_file                thor: /home/andre/.local/lib/python3.12/site-packages/osqp/__init__.py
+                         thor-osqp-1.0.5: <scratchpad>/osqp_target_1.0.5/osqp/__init__.py   <- differs
+platform                 thor: Linux-6.8.12-tegra-aarch64-with-glibc2.39
+python                   thor: 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+repo                     thor: /home/andre/dev_ws/f1tenth_more
+scipy                    thor: 1.11.4
+sha256_mpc_solver.py     thor: 0883e2026707f46fea15ddc1cf295e0d37d576561f3f2754a986d1b663deb0df
+sha256_object_geometry.py thor: 5380163fdb31277b585298cbf0eaa080853156b4f9308d2ad3a16bbeaa4d86b7
+sha256_vehicle_model.py  thor: 64257b10b8a0de6e43e853528ef0fd7011c3aed79e019d3d7925d6b8981f4775
+
+ticks: 419
+
+=== per-field agreement (thor vs thor-osqp-1.0.5) ===
+u0                419/419 bit-equal
+zopt              419/419 bit-equal
+x_pred            419/419 bit-equal
+cost              419/419 bit-equal
+status            419/419 bit-equal
+success           419/419 bit-equal
+iterations        419/419 bit-equal
+boundary_slack    419/419 bit-equal
+max |d steer| = 0.000e+00 rad   max |d accel| = 0.000e+00 m/s^2
+max |d zopt|  = 0.000e+00       max |d x_pred| = 0.000e+00     max rel d cost = 0.000e+00
+
+=== QP handed to OSQP ===
+P           419/419 bit-identical
+A           419/419 bit-identical
+q           419/419 bit-identical
+l           419/419 bit-identical
+u           419/419 bit-identical
+settings    419/419 bit-identical
+
+ticks whose solution differs: 0
+ticks with a status/success mismatch: 0
+
+=== OSQP-tolerance check on differing ticks (vs thor QP) ===
+worst residual / tolerance ratio: 0.000e+00
+solutions failing the termination test: 0
+
+=== verdict ===
+IDENTICAL: all 419 ticks bit-identical (u0, zopt).

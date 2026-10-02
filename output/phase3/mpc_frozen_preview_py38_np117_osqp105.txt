@@ -1,0 +1,54 @@
+=== metadata ===
+inputs_sha256            thor: e04ada09707ac42014fedcb72faa5336f17f4e2b5cf3bfa2abfaffa5bab11910
+label                    thor: thor
+                         py38-np117-scipy154-osqp105: py38-np117-scipy154-osqp105   <- differs
+machine                  thor: aarch64
+numpy                    thor: 1.26.4
+                         py38-np117-scipy154-osqp105: 1.17.4   <- differs
+osqp                     thor: 1.1.3
+                         py38-np117-scipy154-osqp105: 1.0.5   <- differs
+osqp_file                thor: /home/andre/.local/lib/python3.12/site-packages/osqp/__init__.py
+                         py38-np117-scipy154-osqp105: /out/py38osqp/osqp/__init__.py   <- differs
+platform                 thor: Linux-6.8.12-tegra-aarch64-with-glibc2.39
+                         py38-np117-scipy154-osqp105: Linux-6.8.12-tegra-aarch64-with-glibc2.29   <- differs
+python                   thor: 3.12.3 (main, Mar 23 2026, 19:04:32) [GCC 13.3.0]
+                         py38-np117-scipy154-osqp105: 3.8.10 (default, Sep 28 2021, 16:10:42)  [GCC 9.3.0]   <- differs
+repo                     thor: /home/andre/dev_ws/f1tenth_more
+                         py38-np117-scipy154-osqp105: /repo   <- differs
+scipy                    thor: 1.11.4
+                         py38-np117-scipy154-osqp105: 1.5.4   <- differs
+sha256_mpc_solver.py     thor: 0883e2026707f46fea15ddc1cf295e0d37d576561f3f2754a986d1b663deb0df
+sha256_object_geometry.py thor: 5380163fdb31277b585298cbf0eaa080853156b4f9308d2ad3a16bbeaa4d86b7
+sha256_vehicle_model.py  thor: 64257b10b8a0de6e43e853528ef0fd7011c3aed79e019d3d7925d6b8981f4775
+
+ticks: 419
+
+=== per-field agreement (thor vs py38-np117-scipy154-osqp105) ===
+u0                 72/419 bit-equal
+zopt               71/419 bit-equal
+x_pred             71/419 bit-equal
+cost               71/419 bit-equal
+status            419/419 bit-equal
+success           419/419 bit-equal
+iterations        419/419 bit-equal
+boundary_slack     72/419 bit-equal
+max |d steer| = 2.530e-12 rad   max |d accel| = 3.284e-10 m/s^2
+max |d zopt|  = 6.645e-10       max |d x_pred| = 1.095e-10     max rel d cost = 2.470e-11
+
+=== QP handed to OSQP ===
+P           292/419 bit-identical
+A           384/419 bit-identical
+q            25/419 bit-identical
+l            11/419 bit-identical
+u             9/419 bit-identical
+settings    419/419 bit-identical
+
+ticks whose solution differs: 348
+ticks with a status/success mismatch: 0
+
+=== OSQP-tolerance check on differing ticks (vs thor QP) ===
+worst residual / tolerance ratio: 8.191e-01
+solutions failing the termination test: 0
+
+=== verdict ===
+WITHIN OSQP TOLERANCE: 348 ticks differ, statuses agree on all 419, and every differing solution passes OSQP's own termination test on the same QP.
