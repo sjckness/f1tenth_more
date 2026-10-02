@@ -2,14 +2,14 @@
 <!--
   roboracer.urdf.xacro - F1TENTH vehicle description.
 
-  Ported from msauber_stack/msauber_description (ROS 2 Jazzy + Gazebo Harmonic)
-  to ROS 2 Humble + Gazebo Fortress (ignition-fortress). Key differences vs the
-  source:
+  Ported from msauber_stack/msauber_description; targets ROS 2 Jazzy + Gazebo
+  Harmonic (it went through Humble + Fortress in between). Key differences vs
+  the source:
     * Frames use the canonical F1TENTH names (base_link, laser, imu,
       zed2_camera_link, ...) so the model is a drop-in for f1tenth_bringup and
       f1tenth_perception - NOT the 'sauber_*' prefixed names.
-    * ros2_control hardware is ign_ros2_control/IgnitionSystem (was
-      gz_ros2_control/GazeboSimSystem).
+    * ros2_control hardware is gz_ros2_control/GazeboSimSystem, with the
+      controller_manager reading /sim/robot_description (see ros2_control.xacro).
     * The stereo "front camera" is replaced by a ZED2 mock (RGB + depth +
       camera_info on the zed2 optical frame).
     * A 2D Hokuyo-like LiDAR (/scan) and an IMU (/sensors/imu/raw) are added
@@ -17,16 +17,19 @@
 
   Args:
     pkg_share      - absolute path to this package's share dir (for mesh_dir).
-    use_sim        - true to emit the ign_ros2_control gazebo plugin + sensors.
-    enable_sensors - true to include the LiDAR / camera / IMU sensor links.
-    control_config - path to the ros2_control controllers.yaml (f1tenth_sim).
+    use_sim            - true to emit the gz_ros2_control + ground-truth gazebo plugins.
+    enable_sensors     - true to include the LiDAR / camera / IMU sensor links.
+    enable_camera_mock - true to also render the ZED2 RGB + depth gz sensors
+                         (sim only, off by default; see sensors.xacro).
+    control_config     - path to the ros2_control controllers.yaml (f1tenth_sim).
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
 
-  <xacro:arg name="pkg_share"      default="$(find f1tenth_description)" />
-  <xacro:arg name="use_sim"        default="true" />
-  <xacro:arg name="enable_sensors" default="true" />
-  <xacro:arg name="control_config" default="" />
+  <xacro:arg name="pkg_share"          default="$(find f1tenth_description)" />
+  <xacro:arg name="use_sim"            default="true" />
+  <xacro:arg name="enable_sensors"     default="true" />
+  <xacro:arg name="enable_camera_mock" default="false" />
+  <xacro:arg name="control_config"     default="" />
 
   <xacro:property name="pkg_share" value="$(arg pkg_share)" />
   <xacro:property name="mesh_dir"  value="${pkg_share}/meshes" />

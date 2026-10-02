@@ -1,26 +1,30 @@
 <?xml version="1.0"?>
 <!--
-  sensors.xacro - sensor links + Gazebo Fortress (ignition) sensor plugins.
+  sensors.xacro - sensor links + Gazebo Harmonic sensor plugins.
 
   NEW relative to msauber (which had only a stereo "front camera" and no LiDAR/
-  IMU in its URDF). Frame names and mount poses match the real F1TENTH stack
-  (f1tenth_description/launch/description.launch.py's static TF +
-  f1tenth_perception/camera.launch.py's static TF; Phase 9 layout, base_link
-  centered between the axles, 0.07m above the ground):
+  IMU in its URDF). Frame names and mount poses match the real F1TENTH stack:
 
-    base_link -> laser              @ (-0.12, 0, 0.15), yaw=pi  (Hokuyo, rear-facing)
+    base_link -> laser              @ ( 0.12, 0, 0.20), yaw=0   (Hokuyo, front-facing)
     base_link -> imu                @ ( 0,    0, 0   )          (VESC IMU @ base_link)
     base_link -> zed2_camera_link   @ ( 0.12, 0, 0.15), yaw=0   (ZED2, front-facing)
                  -> zed2_left_camera_frame -> zed2_left_camera_optical_frame
 
-  laser is mirrored to the camera's position (same distance from base_link, same
-  height, opposite side) but rotated 180deg in yaw so it faces backward while the
-  camera faces forward.
+  laser matches description.launch.py's real-hardware static_baselink_to_laser
+  (the front-facing remount; its numbers are ruler-measured placeholders, see
+  that file). The sim must scan from the pose the Thor's TF claims, or every
+  scan is misregistered. imu matches vesc.launch.py's identity base_link->imu.
 
-  Gazebo tags use the Fortress conventions: <ignition_frame_id> (NOT gz_frame_id)
-  and the sensors are rendered by the world's ignition::gazebo::systems::Sensors
-  / ::Imu systems. <gazebo> blocks are ignored by robot_state_publisher, so this
-  file is harmless on the real robot.
+  Gazebo tags use the Harmonic conventions: <gz_frame_id> (Fortress spelled it
+  <gz_frame_id>), rendered by the world's gz::sim::systems::Sensors / ::Imu
+  systems. <gazebo> blocks are ignored by robot_state_publisher, so this file is
+  harmless on the real robot. The IMU's gz frame id never reaches the stack:
+  f1tenth_sim's drive_bridge restamps the message with the real driver's empty
+  frame_id (output/sim_port_report.md, D3).
+
+  The ZED2 camera/depth sensors are only rendered with enable_camera_mock:=true
+  (default false): two 1280x720 streams at 30 Hz cost more than the sim host's
+  GPU and the LAN should carry, and nothing consumes them yet.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
 
@@ -38,14 +42,14 @@
     <joint name="laser_joint" type="fixed">
       <parent link="base_link"/>
       <child link="laser"/>
-      <!-- Rear-facing: yaw=pi, mirrored to zed2_camera_joint's position below. -->
-      <origin xyz="-0.12 0.0 0.15" rpy="0 0 ${pi}"/>
+      <!-- Front-facing; same values as description.launch.py's static_baselink_to_laser. -->
+      <origin xyz="0.12 0.0 0.20" rpy="0 0 0"/>
     </joint>
 
     <gazebo reference="laser">
       <sensor name="hokuyo" type="gpu_lidar">
         <topic>scan</topic>
-        <ignition_frame_id>laser</ignition_frame_id>
+        <gz_frame_id>laser</gz_frame_id>
         <update_rate>40</update_rate>
         <always_on>true</always_on>
         <visualize>true</visualize>
@@ -91,8 +95,9 @@
     <gazebo reference="imu">
       <sensor name="imu_sensor" type="imu">
         <topic>sensors/imu/raw</topic>
-        <ignition_frame_id>imu</ignition_frame_id>
-        <update_rate>100</update_rate>
+        <gz_frame_id>imu</gz_frame_id>
+        <!-- vesc_driver polls the IMU every 20 ms, so ~50 Hz on the car. -->
+        <update_rate>50</update_rate>
         <always_on>true</always_on>
       </sensor>
     </gazebo>
@@ -132,10 +137,11 @@
     </joint>
 
     <!-- RGB + depth sensors. Image headers carry the optical frame id. -->
+    <xacro:if value="$(arg enable_camera_mock)">
     <gazebo reference="zed2_left_camera_frame">
       <sensor name="zed2_rgb" type="camera">
         <topic>zed2/zed_node/rgb/image_rect_color</topic>
-        <ignition_frame_id>zed2_left_camera_optical_frame</ignition_frame_id>
+        <gz_frame_id>zed2_left_camera_optical_frame</gz_frame_id>
         <update_rate>30</update_rate>
         <always_on>true</always_on>
         <visualize>false</visualize>
@@ -155,7 +161,7 @@
       </sensor>
       <sensor name="zed2_depth" type="depth_camera">
         <topic>zed2/zed_node/depth/depth_registered</topic>
-        <ignition_frame_id>zed2_left_camera_optical_frame</ignition_frame_id>
+        <gz_frame_id>zed2_left_camera_optical_frame</gz_frame_id>
         <update_rate>30</update_rate>
         <always_on>true</always_on>
         <visualize>false</visualize>
@@ -174,6 +180,7 @@
         </camera>
       </sensor>
     </gazebo>
+    </xacro:if>
 
   </xacro:if>
 
