@@ -171,8 +171,14 @@ def read_bag(bag_dir: Path, pose_source: str):
     /camera/detection_masks, and deserializing every image would dominate the
     runtime for pixels this video never draws.
     """
+    # The storage plugin follows the bag, not a constant: mission_logger_node
+    # records mcap wherever that plugin is registered (Jazzy ships it), while
+    # the archived Humble bags are sqlite3. A hardcoded 'sqlite3' failed every
+    # mcap extract with "file is not a database".
+    is_mcap = any(p.suffix == '.mcap' for p in Path(bag_dir).iterdir())
+    storage_id = 'mcap' if is_mcap else 'sqlite3'
     reader = rosbag2_py.SequentialReader()
-    reader.open(rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id='sqlite3'),
+    reader.open(rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id=storage_id),
                 rosbag2_py.ConverterOptions('', ''))
     types = {t.name: t.type for t in reader.get_all_topics_and_types()}
     wanted = [t for t in TOPICS.values() if t in types]
