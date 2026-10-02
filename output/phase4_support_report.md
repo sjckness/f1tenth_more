@@ -505,7 +505,7 @@ de1f8d8 jazzy/p4: f1tenth_logger: RecordOptions.all -> all_topics — Jazzy rosb
 3968af0 jazzy/p4: bag_digest hashes message content — raw CDR bytes include uninitialised padding
 c437903 jazzy/p4: BT and ekf_cost_observer replay layers — Phase 4 needs both replayed identically on Jazzy and Humble
 8cba2b3 jazzy/p4: logger, diagnostics and LLM check scripts — end-to-end evidence for Phase 4 Steps 2-4
-(next)  jazzy/p4: Phase 4 results, Orin BT instructions and report — GO-WITH-NOTES, Orin BT comparison pending
+9f3d558 jazzy/p4: Phase 4 results, Orin BT instructions and report — GO-WITH-NOTES, Orin BT comparison pending
 ```
 
 All local and unpushed.
