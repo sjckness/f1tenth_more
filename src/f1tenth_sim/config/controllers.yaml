@@ -1,18 +1,20 @@
 # ros2_control configuration for the F1TENTH simulation.
 #
-# Loaded by the ign_ros2_control plugin embedded in the spawned robot (the
+# Loaded by the gz_ros2_control plugin embedded in the spawned robot (the
 # controller_manager runs INSIDE Gazebo, not as a standalone node).
 #
-# NOTE: parameter names follow the ros2_control steering_controllers_library
-# schema (as used by msauber_control/config/ackerman_config.yaml). If the
-# ackermann_steering_controller patch shipped in your Humble image expects
-# different keys (e.g. front_wheels_radius vs traction_wheels_radius), adjust
-# here -- verify in-container with:
+# Parameter names checked against the Jazzy binaries (ros2_controllers 4.42.1,
+# steering_controllers_library_parameters.hpp): traction_* / steering_* are the
+# current names, front/rear_wheels_* are the deprecated ones, and
+# use_stamped_vel no longer exists (the reference is always TwistStamped on
+# ~/reference). Confirm on a running sim with:
 #   ros2 control list_controllers
 #   ros2 param dump /ackermann_steering_controller
 controller_manager:
   ros__parameters:
-    update_rate: 100
+    # The real /odom arrives at ~50 Hz (vesc_driver polls every 20 ms), so the
+    # controller odometry that replaces it runs at the same rate.
+    update_rate: 50
     use_sim_time: true
 
     joint_state_broadcaster:
@@ -34,17 +36,27 @@ ackermann_steering_controller:
       - left_steering_hinge_joint
 
     # Geometry (matches the roboracer URDF; keep drive_bridge wheelbase in sync).
+    # The car's vesc_to_odom uses 0.305; the sim keeps the URDF value until the
+    # real wheelbase is measured (output/sim_port_report.md, P2 / D5).
     wheelbase: 0.325
     traction_track_width: 0.2
     steering_track_width: 0.2
     traction_wheels_radius: 0.05
 
-    reference_timeout: 1.0
-    use_stamped_vel: true          # reference is TwistStamped on ~/reference
+    # Same as ackermann_mux's 0.2 s timeout (f1tenth_bringup mux.yaml): if
+    # /ackermann_drive goes quiet, the car stops on the same schedule as real.
+    reference_timeout: 0.2
 
-    # The robot_localization EKF owns odom -> base_link (see ekf.yaml), so the
-    # controller must NOT also broadcast it. It still publishes the odom message
-    # (relayed to /odom by drive_bridge) for the EKF to fuse.
+    # The robot_localization EKF on the Thor owns odom -> base_link, so the
+    # controller must NOT broadcast it. Its odometry message is relayed to /odom
+    # by drive_bridge for the EKF to fuse, like vesc_to_odom's on the car.
     enable_odom_tf: false
     odom_frame_id: odom
     base_frame_id: base_link
+
+    # Same covariances the car's vesc_to_odom_node publishes
+    # (f1tenth_bringup/config/vesc.yaml: x/y/yaw_variance 0.2/0.2/0.03 and
+    # vx_variance 0.0), so the EKF weights sim odom exactly like real odom.
+    # Order: x, y, z, roll, pitch, yaw / vx, vy, vz, wx, wy, wz.
+    pose_covariance_diagonal: [0.2, 0.2, 0.0, 0.0, 0.0, 0.03]
+    twist_covariance_diagonal: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
