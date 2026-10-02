@@ -1,30 +1,41 @@
-"""Drive bridge: real-stack /drive contract <-> sim Ackermann controller.
+"""Drive bridge: makes the sim a drop-in for the car's VESC drivers.
 
-On the real F1TENTH the MPC / mux publish ackermann_msgs/AckermannDriveStamped
-on /drive (speed + steering_angle). In sim the ros2_control
-ackermann_steering_controller instead takes a body-velocity TwistStamped
-reference and publishes its odometry under its own namespace.
+On the car, ackermann_mux outputs ackermann_msgs/AckermannDriveStamped on
+/ackermann_drive, which ackermann_to_vesc turns into motor/servo commands, and
+the VESC side publishes /odom (vesc_to_odom) and /sensors/imu/raw (vesc_driver).
+In sim the ros2_control ackermann_steering_controller takes a body-velocity
+TwistStamped reference and publishes odometry under its own namespace, and the
+gz IMU arrives through ros_gz_bridge. This node adapts both directions:
 
-This node makes the simulator a drop-in for the real drive contract:
-
-  /drive (AckermannDriveStamped)
+  /ackermann_drive (AckermannDriveStamped)          [behind ackermann_mux, D1]
         --> /ackermann_steering_controller/reference (TwistStamped)
+            steering_angle clamped to the real servo envelope   [D2]
             linear.x  = speed
             angular.z = speed * tan(steering_angle) / wheelbase   (bicycle model)
 
   /ackermann_steering_controller/odometry (nav_msgs/Odometry)
-        --> /odom    (so ekf.yaml's odom0:=odom can be reused verbatim)
+        --> /odom    (what vesc_to_odom publishes on the car)
 
-The EKF owns the odom->base_link TF (the controller's enable_odom_tf is false),
-matching the real stack.
+  /sim/imu_raw (sensor_msgs/Imu, from ros_gz_bridge)
+        --> /sensors/imu/raw   frame_id "" and the vesc.yaml covariances,
+            exactly like vesc_driver on the car  [D3]
+
+Decisions D1-D3: output/sim_port_report.md. Nothing here touches /tf: the
+Thor's EKF owns odom->base_link (the controller's enable_odom_tf is false).
 """
-import math
-
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import Imu
+
+from f1tenth_sim.kinematics import (
+    ackermann_to_twist,
+    STEERING_MAX_RAD,
+    STEERING_MIN_RAD,
+)
 
 
 class DriveBridge(Node):
@@ -34,51 +45,88 @@ class DriveBridge(Node):
 
         # Must match the URDF geometry / controllers.yaml wheelbase.
         self.declare_parameter('wheelbase', 0.325)
-        self.declare_parameter('drive_topic', '/drive')
+        # Real servo envelope as steering angle; see kinematics.py for the
+        # derivation from steering_calibration.yaml.
+        self.declare_parameter('steering_min', STEERING_MIN_RAD)
+        self.declare_parameter('steering_max', STEERING_MAX_RAD)
+        self.declare_parameter('drive_topic', '/ackermann_drive')
         self.declare_parameter(
             'reference_topic', '/ackermann_steering_controller/reference')
         self.declare_parameter(
             'controller_odom_topic', '/ackermann_steering_controller/odometry')
         self.declare_parameter('odom_topic', '/odom')
 
-        self.wheelbase = self.get_parameter('wheelbase').value
+        # IMU relay. Defaults copied from f1tenth_bringup/config/vesc.yaml
+        # (gyro_variance_* / accel_variance_*), which vesc_driver writes into
+        # the covariance diagonals. imu_frame_id stays "" like the real driver,
+        # which never sets header.frame_id (backlog B1 is to fix both).
+        self.declare_parameter('sim_imu_topic', '/sim/imu_raw')
+        self.declare_parameter('imu_topic', '/sensors/imu/raw')
+        self.declare_parameter('imu_frame_id', '')
+        self.declare_parameter('gyro_variance_x', 0.030539653513912038)
+        self.declare_parameter('gyro_variance_y', 0.005006719643874733)
+        self.declare_parameter('gyro_variance_z', 1.746756e-06)
+        self.declare_parameter('accel_variance_x', 6.838468054307688e-06)
+        self.declare_parameter('accel_variance_y', 7.457561226365246e-06)
+        self.declare_parameter('accel_variance_z', 3.9237810323728924e-05)
+
+        p = self.get_parameter
+        self.wheelbase = p('wheelbase').value
+        self.steering_min = p('steering_min').value
+        self.steering_max = p('steering_max').value
+        self.imu_frame_id = p('imu_frame_id').value
+        gx, gy, gz = (p('gyro_variance_' + a).value for a in 'xyz')
+        ax, ay, az = (p('accel_variance_' + a).value for a in 'xyz')
+        self.gyro_cov = [gx, 0.0, 0.0, 0.0, gy, 0.0, 0.0, 0.0, gz]
+        self.accel_cov = [ax, 0.0, 0.0, 0.0, ay, 0.0, 0.0, 0.0, az]
 
         self.ref_pub = self.create_publisher(
-            TwistStamped,
-            self.get_parameter('reference_topic').value,
-            10)
+            TwistStamped, p('reference_topic').value, 10)
         self.create_subscription(
-            AckermannDriveStamped,
-            self.get_parameter('drive_topic').value,
-            self.on_drive,
-            10)
+            AckermannDriveStamped, p('drive_topic').value, self.on_drive, 10)
 
-        # Republish controller odometry on the canonical /odom topic for the EKF.
         self.odom_pub = self.create_publisher(
-            Odometry, self.get_parameter('odom_topic').value, 10)
+            Odometry, p('odom_topic').value, 10)
         self.create_subscription(
-            Odometry,
-            self.get_parameter('controller_odom_topic').value,
-            self.on_odom,
-            10)
+            Odometry, p('controller_odom_topic').value, self.on_odom,
+            qos_profile_sensor_data)
+
+        self.imu_pub = self.create_publisher(Imu, p('imu_topic').value, 10)
+        self.create_subscription(
+            Imu, p('sim_imu_topic').value, self.on_imu, qos_profile_sensor_data)
 
         self.get_logger().info(
-            'drive_bridge up: /drive -> reference (TwistStamped), '
-            'controller odometry -> /odom (wheelbase=%.3f m)' % self.wheelbase)
+            'drive_bridge up: %s -> reference (wheelbase=%.3f m, steering '
+            'clamped to [%.4f, %.4f] rad); controller odometry -> %s; '
+            '%s -> %s (frame_id=%r)' % (
+                p('drive_topic').value, self.wheelbase, self.steering_min,
+                self.steering_max, p('odom_topic').value,
+                p('sim_imu_topic').value, p('imu_topic').value,
+                self.imu_frame_id))
 
     def on_drive(self, msg: AckermannDriveStamped):
-        v = msg.drive.speed
-        delta = msg.drive.steering_angle
+        v, omega = ackermann_to_twist(
+            msg.drive.speed, msg.drive.steering_angle, self.wheelbase,
+            self.steering_min, self.steering_max)
         out = TwistStamped()
+        # The controller drops references older than reference_timeout, so the
+        # stamp is "now" on the sim clock, not the incoming header's.
         out.header.stamp = self.get_clock().now().to_msg()
         out.header.frame_id = 'base_link'
         out.twist.linear.x = v
-        # Bicycle model: yaw rate from forward speed + steering angle.
-        out.twist.angular.z = v * math.tan(delta) / self.wheelbase
+        out.twist.angular.z = omega
         self.ref_pub.publish(out)
 
     def on_odom(self, msg: Odometry):
         self.odom_pub.publish(msg)
+
+    def on_imu(self, msg: Imu):
+        msg.header.frame_id = self.imu_frame_id
+        msg.angular_velocity_covariance = self.gyro_cov
+        msg.linear_acceleration_covariance = self.accel_cov
+        # vesc_driver leaves orientation_covariance at its all-zero default.
+        msg.orientation_covariance = [0.0] * 9
+        self.imu_pub.publish(msg)
 
 
 def main():
