@@ -46,7 +46,7 @@ tags: plan-change | fix
   checklist in `output/sim_port_report.md` §4) not run. `f1tenth_sim/COLCON_IGNORE` deliberately still
   present until it passes. Thor-side `sim:=true` mode documented (§5), not implemented.
 - commit: 63f46d4, 4f0a3d3, cc3addd, 90cbfb1, ace37af, 66d9ff3, bd49bfc, 6739899, 8b8a83a, 0ef3500,
-  report e0a… (see `git log origin/jazzy..jazzy-sim`)
+  report 2d10bc9 (see `git log origin/jazzy..jazzy-sim`)
 
 ### 2026-10-02 — Sim-port decisions D0–D5 [decision]
 tags: decision
@@ -60,7 +60,7 @@ tags: decision
 - Finding while deciding: the Thor's discovery server listens on 127.0.0.1, so a separate sim host
   cannot join the graph until sim mode moves it to the LAN address (report §5).
 - status: resolved (decisions); the discovery change is open
-- commit: recorded in output/sim_port_report.md §D (commit below)
+- commit: 2d10bc9 (output/sim_port_report.md §D)
 
 ### 2026-09-08 — `transform_time_offset` goes to 0.08 on BOTH edges, not a 0.12/0.08 split [decision]
 tags: decision
