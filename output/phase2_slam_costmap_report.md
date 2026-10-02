@@ -9,7 +9,10 @@ no blockers for this phase. Gate read before starting.
 before trusting the two claims this paragraph originally made about
 "timing artifact, not a logic difference" and the SLAM map's size. The
 original text below is kept as the historical record of what was found
-and reasoned at the time; the addendum is what actually got tested.**
+and reasoned at the time; the addendum is what actually got tested.
+Addendum 2 (2026-10-02, frozen-input Thor-vs-Orin test) corrects
+addendum A's claim that its test "cannot contain a Jazzy-specific
+defect"; its Orin result is pending.**
 
 `slam_toolbox` (2.8.5, with Phase 0's `4edcbbf` lifecycle fix) reaches
 `active`, processes scans correctly, and — proven directly, not inferred
@@ -500,3 +503,117 @@ Local, unpushed (same as `5fec439` above).
 `output/phase2/costmap_boundary_logic_verification.txt` (new),
 `output/phase2_slam_costmap_report.md` (this addendum),
 `output/phase1_localization_report.md` (commit-reference fix only).
+
+---
+
+## Addendum 2 (2026-10-02): frozen-input boundary parity, Thor vs Orin
+
+**Status: Thor side done; Orin run pending.** Instructions are in
+`output/phase2/ORIN_BOUNDARY_INSTRUCTIONS.md`. The verdict below will be
+filled in once `boundary_orin_outputs.npz` is back.
+
+### Correction to addendum A
+
+Addendum A said its function-level test "cannot possibly contain a
+Jazzy-specific defect (no Jazzy involved at all)". **That was wrong.** The
+extraction ran under Thor's Python 3.12.3 / NumPy 1.26.4 / glibc 2.39. The
+outputs it was compared against were computed on the Orin, under Python 3.10
+and an older NumPy. Nearest-cell selection is a discrete choice. A 1-ULP
+difference in `hypot`, `arctan2`, `cos` or `sin` near a tie, or near a
+window or range edge, could pick a different cell. That would look exactly
+like the small large-error tail addendum A observed. The test could not tell
+a numerics difference apart from imperfect reconstruction of the node's
+cached inputs, so its "proven distro-independent" conclusion is withdrawn
+until the frozen-input test below settles it.
+
+### Test design
+
+1. `scripts/jazzy_parity/freeze_boundary_inputs.py` (Thor, reads the bag)
+   writes `output/phase2/boundary_frozen_inputs.npz`. For every tick it
+   stores exactly what addendum A passed to
+   `extract_boundary_constraints()`/`front_clearance_from_extraction()`:
+   - the int8 grid plus width, height, resolution and origin (9 unique maps,
+     stored once each and indexed per tick);
+   - pose x, y and the raw quaternion (yaw is recomputed on each platform by
+     the module's own `yaw_from_quaternion`, so libm `atan2` is part of what
+     gets compared);
+   - the five parameters, as the exact float64 radians and int threshold.
+
+   There are 817 ticks, the 827 recorded `/costmap/boundaries` messages minus
+   the 10 that came before any map or pose was cached. The same script also
+   writes `boundary_humble_recorded.npz`, which holds what Humble published at
+   each of those ticks.
+   **Lossless check, built in:** every tick is computed once directly from the
+   bag messages and once from the frozen arrays. The two agree bit for bit on
+   all 817 ticks.
+2. `scripts/jazzy_parity/run_boundary_frozen.py` runs those ticks with plain
+   Python and NumPy: no ROS, no rosbag2. It loads `costmap_boundary.py`
+   straight from a file path in the given repo (or `--module`). Per tick and
+   direction it outputs:
+   - the constraint (`nx`, `ny`, `off`);
+   - the raw nearest hit (`car_dx`, `car_dy`, `dist`) and the **grid cell it
+     lies in**;
+   - presence, constraint count, `front_clearance` and yaw.
+
+   It also records the Python and NumPy versions, the platform, the module's
+   sha256 and the input file's sha256.
+   Thor's run is `output/phase2/boundary_thor_outputs.npz`, with
+   `module_sha256 07a8c3da…`. That hash is identical for `bc3b049` (the bag
+   era), `e47e646` (the Orin baseline) and the current `HEAD`.
+3. `scripts/jazzy_parity/compare_boundary_frozen.py` compares two runs field
+   by field: bit-equal tick counts, max abs difference and max ULP distance.
+   It lists every differing tick with its frozen inputs, split into
+   **decision flips** (a different cell, presence or count) and float-only
+   differences. With `--humble`, it also scores each run against what Humble
+   published and checks whether the two runs agree on the tail ticks.
+
+### Already established on Thor (not the verdict)
+
+- **Thor is self-consistent.** Two Thor runs are bit-identical. Thor's
+  frozen run against Humble reproduces addendum A's numbers exactly (median
+  0.4239°, 76 ticks over 5°, 0 count mismatches), so the frozen inputs are
+  the same inputs addendum A used.
+- **Decision margins** (`scripts/jazzy_parity/boundary_decision_margins.py`,
+  output in `output/phase2/boundary_decision_margins.txt`). Across all
+  817 × 3 windows:
+  - exact ties between the two nearest candidates: **0**;
+  - smallest nearest-vs-second-nearest gap: **2.6e-6 m**;
+  - smallest bearing-to-window-edge margin over occupied in-range cells:
+    **7.4e-7 rad**;
+  - smallest distance-to-`max_range_m` margin: **7.9e-8 m**.
+
+  A few ULP at these magnitudes (a few metres or radians) is about 1e-15, so
+  every decision has at least roughly 10⁷× headroom. On these inputs, no
+  ULP-level numerics difference can change which cell is chosen.
+- **Older-stack preview, stand-in only, not the Orin.** The same runner ran
+  in the `f1tenth/focal-l4t-foxy` container (Python 3.8.10, NumPy 1.17.4,
+  glibc 2.29, aarch64), which is older than the Orin on every axis. Output is
+  in `output/phase2/boundary_preview_thor_vs_py38_np117.txt`.
+  - **0 decision flips.** Cell, presence and count agree on all 817 ticks.
+  - 590 ticks differ in float bits only, by **≤ 4 ULP**. The largest
+    difference is 4.4e-16 m.
+  - Almost all of those (250–273 per direction) are in `nx`/`ny`/`off` while
+    `car_dx`/`car_dy` are bit-identical. That isolates CPython's
+    `math.hypot`, whose algorithm changed in 3.10, inside
+    `boundary_from_nearest_point`. The rest are 1–3 ULP in `yaw`
+    (`math.atan2`) and NumPy's `hypot`/trig.
+  - Scored against Humble, both runs give the **same tail: 76 ticks, with
+    error statistics identical to 4 decimals**. A difference of a few ULP
+    cannot produce 5°–89° or 2.2 m errors.
+
+  This preview is evidence, not the requested test. The Orin run is still
+  needed, because it is the only environment that produced the recorded
+  ground truth.
+
+### Verdict
+
+**Pending the Orin run.** Decision rule:
+
+- **Bit-identical:** logic and numerics are proven equal between the two
+  platforms. The 76-tick tail is then purely a reconstruction artifact: the
+  Orin, fed the reconstructed inputs, disagrees with what the Orin itself
+  published.
+- **Float-only, 0 decision flips:** same conclusion for the tail. The float
+  differences get root-caused per field, as above.
+- **Any decision flip:** every flipped tick is listed with its inputs and
+  root-caused before any live test.

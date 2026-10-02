@@ -1,0 +1,5 @@
+=== decision margins over 817 frozen ticks x 3 windows ===
+exact distance ties between the two nearest candidates: 0
+min nearest vs 2nd-nearest distance gap:     2.555e-06 m  (tick 744, right)
+min occupied cell bearing to window edge:    7.448e-07 rad  (tick 644, front)
+min occupied cell distance to max_range_m:   7.921e-08 m  (tick 457, left)
