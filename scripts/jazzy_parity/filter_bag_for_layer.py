@@ -69,6 +69,18 @@ def main():
                           'this exact pair, dropping everything else on the '
                           'topic. Repeatable. Mutually exclusive with '
                           '--tf-drop.')
+    ap.add_argument('--rename', nargs=2, action='append', default=[],
+                     metavar=('FROM_TOPIC', 'TO_TOPIC'),
+                     help='Write FROM_TOPIC (one of --topics) under the name '
+                          'TO_TOPIC, same type, QoS and payload. Repeatable. For a '
+                          'documented stand-in input that both distros must receive '
+                          'byte-identically (Phase 4: /costmap/front_clearance as '
+                          '/perception/front_distance).')
+    ap.add_argument('--diagnostics-drop-prefix', action='append', default=[],
+                     metavar='STATUS_NAME_PREFIX',
+                     help='Drop DiagnosticStatus entries on /diagnostics whose name '
+                          'starts with this prefix (the node under test publishes '
+                          'them itself). Repeatable. Messages left empty are dropped.')
     ap.add_argument('--inject', nargs=3, metavar=('TOPIC', 'TYPE', 'YAML_FILE'),
                      help='Write one message of TYPE with the fields in YAML_FILE '
                           'on TOPIC (see --inject-after).')
@@ -81,6 +93,10 @@ def main():
 
     if args.tf_drop and args.tf_keep:
         raise SystemExit('--tf-drop and --tf-keep are mutually exclusive')
+    renames = dict(args.rename)
+    for src_topic in renames:
+        if src_topic not in args.topics:
+            raise SystemExit(f'--rename source {src_topic} is not in --topics')
     drop_pairs = {tuple(p) for p in args.tf_drop}
     keep_pairs = {tuple(p) for p in args.tf_keep}
     dst = Path(args.dst_bag)
@@ -97,7 +113,7 @@ def main():
     for topic_id, name in enumerate(args.topics):
         src_meta = all_topics[name]
         writer.create_topic(make_topic_metadata(
-            topic_id, name, src_meta.type,
+            topic_id, renames.get(name, name), src_meta.type,
             offered_qos_profiles=src_meta.offered_qos_profiles))
 
     inject = None
@@ -121,6 +137,10 @@ def main():
             set_message_fields(inj_msg, yaml.safe_load(f))
         inject = (inj_topic, serialize_message(inj_msg), anchor_t + int(round(anchor_sec * 1e9)))
         writer.create_topic(make_topic_metadata(len(args.topics), inj_topic, inj_type))
+
+    diag_prefixes = tuple(args.diagnostics_drop_prefix)
+    diag_type = get_message('diagnostic_msgs/msg/DiagnosticArray') if diag_prefixes else None
+    n_diag_dropped = 0
 
     tf_filtering = ('/tf' in args.topics) and (drop_pairs or keep_pairs)
     tf_type = get_message('tf2_msgs/msg/TFMessage') if tf_filtering else None
@@ -152,7 +172,17 @@ def main():
         if inject is not None and t >= inject[2]:
             writer.write(inject[0], inject[1], inject[2])
             inject = None
-        writer.write(topic, data, t)
+        if topic == '/diagnostics' and diag_prefixes:
+            msg = deserialize_message(data, diag_type)
+            kept = [st for st in msg.status if not st.name.startswith(diag_prefixes)]
+            n_diag_dropped += len(msg.status) - len(kept)
+            if not kept:
+                continue
+            if len(kept) != len(msg.status):
+                msg.status = kept
+                data = serialize_message(msg)
+
+        writer.write(renames.get(topic, topic), data, t)
         n_out[topic] += 1
 
     if inject is not None:  # anchor time later than every passed-through message
@@ -160,9 +190,12 @@ def main():
     if args.inject:
         print(f'  {args.inject[0]}: 1 injected at first {args.inject_after[0]} '
               f'+ {float(args.inject_after[1]):.3f} s')
+    if diag_prefixes:
+        print(f'  /diagnostics: dropped {n_diag_dropped} status entries named {list(diag_prefixes)}*')
     print(f'wrote {args.dst_bag}')
     for t in args.topics:
-        print(f'  {t}: {n_in[t]} in -> {n_out[t]} out')
+        shown = f'{t} (as {renames[t]})' if t in renames else t
+        print(f'  {shown}: {n_in[t]} in -> {n_out[t]} out')
     if drop_pairs:
         print(f'  /tf: dropped {n_tf_entries_dropped} individual transform '
               f'entries matching {sorted(drop_pairs)}')
