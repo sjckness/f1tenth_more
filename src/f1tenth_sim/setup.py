@@ -20,7 +20,7 @@ setup(
     zip_safe=True,
     maintainer='andreas',
     maintainer_email='andreas21steffens@gmail.com',
-    description='Gazebo Fortress simulation for the F1TENTH vehicle.',
+    description='Gazebo Harmonic simulation for the F1TENTH vehicle.',
     license='MIT',
     # Declares the 'test' extra colcon's ament_python test step looks for
     # before it will invoke pytest at all. Without it colcon falls back to
@@ -34,9 +34,9 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            # Adapts the real-stack /drive (AckermannDriveStamped) contract to
-            # the ros2_control Ackermann controller, and relays its odometry to
-            # /odom so ekf.yaml can be reused verbatim.
+            # Stands in for ackermann_to_vesc / vesc_to_odom / vesc_driver:
+            # /ackermann_drive -> controller reference, controller odometry
+            # -> /odom, gz IMU -> /sensors/imu/raw (see drive_bridge.py).
             'drive_bridge = f1tenth_sim.drive_bridge:main',
         ],
     },
