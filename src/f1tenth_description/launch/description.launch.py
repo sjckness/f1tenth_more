@@ -14,9 +14,6 @@ regardless). All 6 publish a static 0.0; see that Node's own comment below for
 why the steering hinges are not driven from real data and what it would take.
 
 robot_state_publisher (roboracer.urdf.xacro) is used by:
-  * f1tenth_sim (sim_bringup.launch.py includes this with use_sim:=true,
-    enable_sensors:=true) -- the URDF's own sensors.xacro is the sole source of
-    laser/imu/zed2_camera_link frames in sim.
   * f1tenth_bringup / f1tenth_localization (real hardware, use_sim:=false) -- to
     publish the vehicle body TF tree (base_footprint/chassis/wheels via core.xacro).
     enable_sensors defaults to false here (see f1tenth_params/config/stack_params.yaml)
@@ -162,13 +159,14 @@ def generate_launch_description():
     # the angle->servo mapping), not a parameter. Left as a follow-up; note it
     # would visualise COMMANDED steering, never measured.
     #
-    # UnlessCondition(use_sim), same gate and same reasoning as
-    # static_baselink_to_laser directly below: in sim, ros2_control's
-    # joint_state_broadcaster ALREADY publishes /joint_states (f1tenth_sim/
-    # config/controllers.yaml:18-19, spawned by sim_bringup.launch.py:134).
-    # Running this node there too would put two disagreeing publishers on one
-    # topic -- the identical authority collision this file already avoids for
-    # base_link->laser and localization.launch.py avoids for odom->base_link.
+    # UnlessCondition(use_sim), same gate as static_baselink_to_laser directly
+    # below. NOTE since the Jazzy sim port f1tenth_sim no longer includes this
+    # file (it runs a private, TF-silent robot_state_publisher), so nothing sets
+    # use_sim:=true here any more. In a stack run against the sim, ros2_control's
+    # joint_state_broadcaster on the sim host publishes /joint_states, so this
+    # node must not run (two disagreeing publishers on one topic), but the
+    # static base_link->laser below still must. use_sim gates both together, so
+    # it is the wrong switch for that case; see output/sim_port_report.md §5.
     joint_state_publisher = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
