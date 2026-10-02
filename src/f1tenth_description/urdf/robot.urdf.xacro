@@ -8,7 +8,7 @@
     base.xacro            - materials, base_link (+ base_footprint), chassis
     wheels.xacro          - ONE wheel macro, instantiated 4x
     sensors.xacro         - laser / imu / camera frames (fixed joints off base_link)
-    ros2_control.xacro    - ros2_control hardware + Gazebo Fortress plugin (sim)
+    ros2_control.xacro    - ros2_control hardware + Gazebo Harmonic plugins (sim)
 
   ALL vehicle dimensions are declared ONCE below as xacro:property and shared by
   both the URDF geometry and (via vesc.yaml / drive_bridge) the odometry
@@ -16,7 +16,7 @@
 
   Args:
     pkg_share         - absolute path to this package's share dir (for mesh_dir).
-    use_sim           - true to emit the ign_ros2_control gazebo plugin + sensors.
+    use_sim           - true to emit the gz_ros2_control gazebo plugin + sensors.
     enable_sensors    - true to include the laser / imu / camera mount frames.
     enable_camera_mock- true to include the ZED2 internal sub-frames + gazebo
                         camera/depth sensors (sim only). Set false on real

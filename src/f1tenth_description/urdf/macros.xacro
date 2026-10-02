@@ -2,7 +2,7 @@
 <!--
   macros.xacro - materials, inertial/geometry macros for the F1TENTH model.
   Ported verbatim (geometry + inertials) from msauber_description/urdf/macros.xacro;
-  gazebo-classic transmission macros were dropped (ign_ros2_control does not use
+  gazebo-classic transmission macros were dropped (gz_ros2_control does not use
   <transmission> tags).
 -->
 <robot name="roboracer" xmlns:xacro="http://www.ros.org/wiki/xacro">
