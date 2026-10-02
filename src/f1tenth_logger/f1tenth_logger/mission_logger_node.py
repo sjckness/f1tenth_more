@@ -709,7 +709,13 @@ class MissionLoggerNode(Node):
                     uri=bag_dir, storage_id=self.storage_id,
                     max_cache_size=100 * 1024 * 1024)
                 record_options = rosbag2_py.RecordOptions()
-                record_options.all = False
+                # Jazzy's rosbag2_py (0.26) split RecordOptions.all into
+                # all_topics/all_services and removed `all`: assigning it
+                # raises AttributeError, and no run was ever recorded.
+                if hasattr(record_options, 'all_topics'):
+                    record_options.all_topics = False
+                else:
+                    record_options.all = False
                 record_options.topics = list(self.topics)
                 record_options.is_discovery_disabled = False
                 record_options.rmw_serialization_format = 'cdr'
