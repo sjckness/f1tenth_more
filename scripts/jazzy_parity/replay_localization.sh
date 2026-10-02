@@ -62,6 +62,46 @@
 #                   report's Step 3 for the inflate_polytope confirmation
 #                   this directly supports. Records /costmap/boundaries +
 #                   /costmap/front_clearance.
+# mpc:              plays the input bag built by filter_bag_for_layer.py for
+#                   Phase 3 (/odometry/filtered, /costmap/boundaries,
+#                   /perception/obstacles_2d, /mpc/hold, /scan, /tf,
+#                   /tf_static, plus the injected /mpc/goal_drive -- see the
+#                   Phase 3 report, Steps 1 and 3) into mpc_corr started by
+#                   the PRODUCTION launch file (mpc_corr.launch.py) through
+#                   mpc_replay.launch.py, which only adds use_sim_time.
+#                   Records every MPC output topic, dumps the node's live
+#                   parameters (params.yaml, reused by mpc_capture), and
+#                   copies mpc_corr's own debug files (corridors_jsons/,
+#                   mpc_log.csv) into OUT_DIR afterwards.
+# mpc_capture:      same inputs, but mpc_corr run through
+#                   mpc_capture_node.py (records every solve_mpc_step call
+#                   for the function-level test) with MPC_PARAMS -- a
+#                   params.yaml dumped by an `mpc` run -- so its configuration
+#                   is the production one. Stopped with SIGINT so the capture
+#                   file gets written.
+# mpc/mpc_capture environment:
+#   MPC_CPU_AFFINITY  taskset core list (default 10,11 = mpc_corr.launch.py's
+#                     own production default)
+#   OSQP_TARGET       optional directory holding a different osqp, installed
+#                     with `pip install --target` (never ~/.local); prepended
+#                     to PYTHONPATH for the node only. The osqp version and
+#                     file actually imported are written to osqp_version.txt.
+#   PLAY_DELAY        seconds `ros2 bag play` waits after creating its
+#                     publishers before the first message (default 3, mpc
+#                     layers only) -- see the comment at the play call.
+#   CLOCK_HZ          /clock publish rate during playback (default 1000 for
+#                     the mpc layers). mpc_corr's 10 Hz timer runs on the sim
+#                     clock and can only fire when a /clock message arrives,
+#                     so at the 40 Hz default every tick is quantised to a
+#                     25 ms grid; at 1 kHz the ticks land within 1 ms of
+#                     their nominal times, as they do live. Same value on
+#                     both distros. NOTE: this does NOT make
+#                     /mpc/solver_status solve_dt_sec meaningful in a replay
+#                     -- the node reads it from its own clock, and the
+#                     /clock callback cannot run while control_loop holds the
+#                     single-threaded executor, so sim time does not advance
+#                     during a solve and solve_dt is 0.0. Solve timing comes
+#                     from mpc_capture (perf_counter) and run_mpc_frozen.py.
 # Both semantic_layer and costmap_boundary are launched via plain `ros2
 # run` with ONLY use_sim_time overridden -- every other parameter's node-
 # internal declare_parameter() default already matches costmap.launch.py's
@@ -78,7 +118,11 @@ export ROS_DOMAIN_ID=$DOMAIN_ID
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 unset ROS_DISCOVERY_SERVER 2>/dev/null || true
 
-REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+# F1TENTH_REPO overrides the repo root when this harness runs from a copy
+# outside the repo (the Orin at e47e646 has no scripts/jazzy_parity/).
+REPO_ROOT=${F1TENTH_REPO:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+MPC_CPU_AFFINITY=${MPC_CPU_AFFINITY:-10,11}
 EKF_GLOBAL_CONFIG="$REPO_ROOT/src/f1tenth_bringup/config/ekf_global.yaml"
 SLAM_CONFIG="$REPO_ROOT/src/f1tenth_navigation/config/slam_toolbox_params.yaml"
 
@@ -98,11 +142,13 @@ NODE_PATTERN_ekf_global="ekf_node.*ekf_global_filter_node"
 NODE_PATTERN_slam="async_slam_toolbox_node"
 NODE_PATTERN_semantic_layer="semantic_layer_node"
 NODE_PATTERN_costmap_boundary="costmap_boundary_node"
+NODE_PATTERN_mpc="lib/mpc_controller/mpc_corr|mpc_replay\.launch\.py"
+NODE_PATTERN_mpc_capture="mpc_capture_node\.py"
 
 case "$LAYER" in
-  relay|ekf_global|slam|semantic_layer|costmap_boundary) ;;
+  relay|ekf_global|slam|semantic_layer|costmap_boundary|mpc|mpc_capture) ;;
   *)
-    echo "unknown layer: $LAYER (expected relay, ekf_global, slam, semantic_layer, or costmap_boundary)" >&2
+    echo "unknown layer: $LAYER (expected relay, ekf_global, slam, semantic_layer, costmap_boundary, mpc or mpc_capture)" >&2
     exit 1
     ;;
 esac
@@ -123,6 +169,8 @@ cleanup() {
   kill_and_wait "$NODE_PATTERN_slam"
   kill_and_wait "$NODE_PATTERN_semantic_layer"
   kill_and_wait "$NODE_PATTERN_costmap_boundary"
+  kill_and_wait "$NODE_PATTERN_mpc"
+  kill_and_wait "$NODE_PATTERN_mpc_capture"
   kill_and_wait "ros2 bag play"
   kill_and_wait "ros2 bag record"
 }
@@ -132,6 +180,8 @@ cleanup  # in case a previous run didn't exit cleanly
 
 rm -rf "$OUT_DIR"
 mkdir -p "$OUT_DIR"
+OUT_DIR=$(cd "$OUT_DIR" && pwd)  # absolute: the mpc layers cd into it
+touch "$OUT_DIR/.run_start"
 
 case "$LAYER" in
   relay)
@@ -173,6 +223,31 @@ case "$LAYER" in
       -p use_sim_time:=true \
       > "$OUT_DIR/node.log" 2>&1 &
     ;;
+  mpc|mpc_capture)
+    # Every topic MPC_corr.py creates a publisher for (Phase 3 report,
+    # Step 1), plus the injected goal so its delivery is on record.
+    RECORD_TOPICS="/drive /mpc/drive_clamp /mpc/solver_status /mpc/status \
+/mpc/corridor_markers /corridor /mpc/goal_reached /mpc/min_obstacle_distance \
+/mpc/min_obstacle_distance_forward /mpc/predicted_min_clearance \
+/mpc/object_status /mpc/wall_track /mpc/goal_drive"
+    if [ -n "${OSQP_TARGET:-}" ]; then
+      export PYTHONPATH="$OSQP_TARGET${PYTHONPATH:+:$PYTHONPATH}"
+    fi
+    python3 -c "import osqp, numpy, scipy, sys; print('osqp', osqp.__version__, osqp.__file__); print('numpy', numpy.__version__); print('scipy', scipy.__version__); print('python', sys.version)" \
+      > "$OUT_DIR/osqp_version.txt" 2>&1
+    # cwd = OUT_DIR so mpc_corr's relative model_log_path (mpc_log.csv)
+    # lands with this run's outputs.
+    if [ "$LAYER" = "mpc" ]; then
+      (cd "$OUT_DIR" && exec ros2 launch "$SCRIPT_DIR/mpc_replay.launch.py" \
+        cpu_affinity:="$MPC_CPU_AFFINITY") > "$OUT_DIR/node.log" 2>&1 &
+    else
+      : "${MPC_PARAMS:?mpc_capture needs MPC_PARAMS=<params.yaml dumped by an mpc run>}"
+      (cd "$OUT_DIR" && exec taskset -c "$MPC_CPU_AFFINITY" python3 \
+        "$SCRIPT_DIR/mpc_capture_node.py" --capture-out "$OUT_DIR/capture.npz" \
+        --ros-args --params-file "$MPC_PARAMS" -p use_sim_time:=true) \
+        > "$OUT_DIR/node.log" 2>&1 &
+    fi
+    ;;
 esac
 
 case "$LAYER" in
@@ -181,6 +256,8 @@ case "$LAYER" in
   slam) NODE_PATTERN=$NODE_PATTERN_slam ;;
   semantic_layer) NODE_PATTERN=$NODE_PATTERN_semantic_layer ;;
   costmap_boundary) NODE_PATTERN=$NODE_PATTERN_costmap_boundary ;;
+  mpc) NODE_PATTERN=$NODE_PATTERN_mpc ;;
+  mpc_capture) NODE_PATTERN=$NODE_PATTERN_mpc_capture ;;
 esac
 
 # sanity: the node must actually be up before we start recording. (Not an
@@ -220,13 +297,57 @@ if [ "$LAYER" = "slam" ]; then
   esac
 fi
 
+CLOCK_ARGS="--clock"
+case "$LAYER" in
+  mpc|mpc_capture)
+    # mpc_corr imports numpy/scipy/osqp and builds its solver state before
+    # it subscribes; wait for the node itself, not just its process.
+    for _ in $(seq 1 60); do
+      ros2 node list 2>/dev/null | grep -qx "/mpc_corr" && break
+      sleep 0.5
+    done
+    ros2 node list 2>/dev/null | grep -qx "/mpc_corr" \
+      || { echo "FATAL: /mpc_corr never appeared in the graph" >&2; exit 1; }
+    if [ "$LAYER" = "mpc" ]; then
+      ros2 param dump /mpc_corr > "$OUT_DIR/params.yaml"
+    fi
+    # --delay: the player creates every publisher, then waits before the
+    # first message. Without it the injected /mpc/goal_drive -- a single
+    # volatile message 0.5 s into the bag -- can go out before DDS discovery
+    # has matched it to mpc_corr's subscription, and is then simply lost
+    # (seen in an early run: goal never received, the MPC never left
+    # "robot fermo in attesa"). The live BT publisher existed long before
+    # it published, so this restores the original condition.
+    CLOCK_ARGS="--clock ${CLOCK_HZ:-1000} --delay ${PLAY_DELAY:-3}"
+    ;;
+esac
+
 ros2 bag record -o "$OUT_DIR/bag" $RECORD_TOPICS \
   --use-sim-time > "$OUT_DIR/record.log" 2>&1 &
 RECORD_PID=$!
 sleep 1  # let the recorder subscribe before playback starts
 
-ros2 bag play "$BAG_DIR" --clock --rate 1.0 > "$OUT_DIR/play.log" 2>&1
+# mpc layers: the node's own CPU time across playback, from /proc/<pid>/stat
+# (utime+stime, all threads) -- the measured load share used for the
+# Phase 3 CPU-pinning proposal.
+proc_cpu_ticks() { awk '{print $14 + $15}' "/proc/$1/stat" 2>/dev/null || echo 0; }
+MPC_PID=""
+case "$LAYER" in
+  mpc) MPC_PID=$(pgrep -f "lib/mpc_controller/mpc_corr" | head -1 || true) ;;
+  mpc_capture) MPC_PID=$(pgrep -f "python3 .*mpc_capture_node" | head -1 || true) ;;
+esac
+[ -n "$MPC_PID" ] && { CPU0=$(proc_cpu_ticks "$MPC_PID"); WALL0=$(date +%s.%N); }
+
+set +e
+ros2 bag play "$BAG_DIR" $CLOCK_ARGS --rate 1.0 > "$OUT_DIR/play.log" 2>&1
 PLAY_STATUS=$?
+set -e
+
+if [ -n "$MPC_PID" ]; then
+  CPU1=$(proc_cpu_ticks "$MPC_PID"); WALL1=$(date +%s.%N)
+  python3 -c "import sys; c=(float(sys.argv[2])-float(sys.argv[1]))/float(sys.argv[5]); w=float(sys.argv[4])-float(sys.argv[3]); print('pid %s cpu_sec %.3f wall_sec %.3f cpu_percent_of_one_core %.1f' % (sys.argv[6], c, w, 100*c/w))" \
+    "$CPU0" "$CPU1" "$WALL0" "$WALL1" "$(getconf CLK_TCK)" "$MPC_PID" > "$OUT_DIR/cpu_usage.txt"
+fi
 
 sleep 1  # drain in-flight messages before stopping the recorder
 
@@ -241,6 +362,27 @@ sleep 1  # drain in-flight messages before stopping the recorder
 # above do -- PID tracking is correct and sufficient for it.
 kill "$RECORD_PID" 2>/dev/null || true
 wait "$RECORD_PID" 2>/dev/null || true
+
+case "$LAYER" in
+  mpc_capture)
+    # SIGINT, not the trap's SIGKILL: the capture file is written on shutdown.
+    pkill -INT -f "$NODE_PATTERN_mpc_capture" 2>/dev/null || true
+    for _ in $(seq 1 120); do
+      pgrep -f "$NODE_PATTERN_mpc_capture" >/dev/null 2>&1 || break
+      sleep 0.5
+    done
+    [ -f "$OUT_DIR/capture.npz" ] || { echo "FATAL: no capture.npz written" >&2; exit 1; }
+    ;;
+esac
+case "$LAYER" in
+  mpc|mpc_capture)
+    mkdir -p "$OUT_DIR/debug"
+    # only what THIS run wrote (corridor snapshots are per-run timestamped
+    # files that accumulate in that directory)
+    find "$REPO_ROOT/src/f1tenth_control/corridors_jsons" -maxdepth 1 -type f \
+      -newer "$OUT_DIR/.run_start" -exec cp -a {} "$OUT_DIR/debug/" \; 2>/dev/null || true
+    ;;
+esac
 
 echo "layer=$LAYER play_status=$PLAY_STATUS out=$OUT_DIR/bag"
 exit $PLAY_STATUS
