@@ -1,0 +1,14 @@
+........................................................................ [ 20%]
+........................................................................ [ 41%]
+........................................................................ [ 62%]
+........................................................................ [ 83%]
+.......................................................                  [100%]
+=============================== warnings summary ===============================
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_old_writer_leaves_a_zero_byte_file
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_atomic_writer_leaves_the_destination_absent
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_an_interrupted_write_does_not_damage_the_previous_report
+  Warning: This process (pid=263006) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+- generated xml file: /home/andre/dev_ws/f1tenth_more/output/phase4/tests/behavior_stress_run_8.xml -
+343 passed, 3 warnings in 5.47s

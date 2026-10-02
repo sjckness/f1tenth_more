@@ -1,0 +1,6 @@
+humble 3.3.21 default SIGINT (single): single RAISED KeyboardInterrupt
+jazzy default SIGINT (single): single RAISED KeyboardInterrupt
+humble 3.3.21 default SIGINT (double): double RAISED KeyboardInterrupt
+jazzy default SIGINT (double): double RAISED KeyboardInterrupt
+humble SIGINT inherited as ignored: single RAISED ExternalShutdownException
+jazzy SIGINT inherited as ignored: single RAISED ExternalShutdownException
