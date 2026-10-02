@@ -26,12 +26,26 @@ Usage:
       # slam_toolbox needs only odom->base_link, not the wheel-joint
       # frames robot_state_publisher also puts on the same topic).
       # --tf-drop and --tf-keep are mutually exclusive.
+
+  filter_bag_for_layer.py SRC_BAG DST_BAG --topics ... \
+      --inject /mpc/goal_drive f1tenth_messages/msg/DriveCommand goal.yaml \
+      --inject-after /odometry/filtered 0.5
+      # --inject writes ONE extra message (fields from a YAML file, e.g.
+      # make_mpc_goal.py's output) on a topic the source bag does not
+      # carry, timestamped --inject-after's SECONDS after the first message
+      # on that topic in the source bag. Being part of the input bag, it
+      # reaches the node under test at the same sim time on every replay
+      # and on both distros. The topic is created with no offered QoS
+      # profile, so `ros2 bag play` offers its default (reliable,
+      # volatile), which is what the original publisher used.
 """
 import argparse
 import shutil
 from pathlib import Path
 
+import yaml
 from rclpy.serialization import deserialize_message, serialize_message
+from rosidl_runtime_py import set_message_fields
 from rosidl_runtime_py.utilities import get_message
 
 from bag_compat import make_topic_metadata, open_reader, open_writer
@@ -55,7 +69,15 @@ def main():
                           'this exact pair, dropping everything else on the '
                           'topic. Repeatable. Mutually exclusive with '
                           '--tf-drop.')
+    ap.add_argument('--inject', nargs=3, metavar=('TOPIC', 'TYPE', 'YAML_FILE'),
+                     help='Write one message of TYPE with the fields in YAML_FILE '
+                          'on TOPIC (see --inject-after).')
+    ap.add_argument('--inject-after', nargs=2, metavar=('ANCHOR_TOPIC', 'SECONDS'),
+                     help='Timestamp for --inject: the first ANCHOR_TOPIC message '
+                          'in the source bag, plus SECONDS.')
     args = ap.parse_args()
+    if bool(args.inject) != bool(args.inject_after):
+        raise SystemExit('--inject and --inject-after go together')
 
     if args.tf_drop and args.tf_keep:
         raise SystemExit('--tf-drop and --tf-keep are mutually exclusive')
@@ -77,6 +99,28 @@ def main():
         writer.create_topic(make_topic_metadata(
             topic_id, name, src_meta.type,
             offered_qos_profiles=src_meta.offered_qos_profiles))
+
+    inject = None
+    if args.inject:
+        inj_topic, inj_type, inj_yaml = args.inject
+        anchor_topic, anchor_sec = args.inject_after[0], float(args.inject_after[1])
+        if inj_topic in all_topics:
+            raise SystemExit(f'--inject topic {inj_topic} already exists in the source bag')
+        anchor_reader = open_reader(args.src_bag)
+        anchor_t = None
+        while anchor_reader.has_next():
+            topic, _, t = anchor_reader.read_next()
+            if topic == anchor_topic:
+                anchor_t = t
+                break
+        del anchor_reader
+        if anchor_t is None:
+            raise SystemExit(f'--inject-after anchor topic {anchor_topic} has no messages')
+        inj_msg = get_message(inj_type)()
+        with open(inj_yaml) as f:
+            set_message_fields(inj_msg, yaml.safe_load(f))
+        inject = (inj_topic, serialize_message(inj_msg), anchor_t + int(round(anchor_sec * 1e9)))
+        writer.create_topic(make_topic_metadata(len(args.topics), inj_topic, inj_type))
 
     tf_filtering = ('/tf' in args.topics) and (drop_pairs or keep_pairs)
     tf_type = get_message('tf2_msgs/msg/TFMessage') if tf_filtering else None
@@ -105,9 +149,17 @@ def main():
             msg.transforms = kept
             data = serialize_message(msg)
 
+        if inject is not None and t >= inject[2]:
+            writer.write(inject[0], inject[1], inject[2])
+            inject = None
         writer.write(topic, data, t)
         n_out[topic] += 1
 
+    if inject is not None:  # anchor time later than every passed-through message
+        writer.write(inject[0], inject[1], inject[2])
+    if args.inject:
+        print(f'  {args.inject[0]}: 1 injected at first {args.inject_after[0]} '
+              f'+ {float(args.inject_after[1]):.3f} s')
     print(f'wrote {args.dst_bag}')
     for t in args.topics:
         print(f'  {t}: {n_in[t]} in -> {n_out[t]} out')

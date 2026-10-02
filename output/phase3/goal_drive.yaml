@@ -1,0 +1,5 @@
+mode: straight
+turn_sign: 0.0
+turn_mag_deg: 0.0
+speed: 0.4
+d_safe: -1.0
