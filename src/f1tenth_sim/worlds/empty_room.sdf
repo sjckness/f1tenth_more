@@ -1,12 +1,12 @@
 <?xml version="1.0" ?>
 <!--
-  empty_room.sdf - minimal indoor world for the F1TENTH sim (Gazebo Fortress).
+  empty_room.sdf - minimal indoor world for the F1TENTH sim (Gazebo Harmonic).
 
   A 10x10 m floor enclosed by four 1 m walls (gives the LiDAR something to see
-  and SLAM something to map). System plugins use the Fortress / Ignition names
-  (ignition-gazebo-*-system, ignition::gazebo::systems::*) - NOT the gz-sim-*
-  names used by the Harmonic-era msauber world. The Imu + Sensors systems are
-  required for the IMU / LiDAR / camera sensors in the robot URDF to publish.
+  and SLAM something to map). System plugins use the Harmonic names
+  (gz-sim-*-system, gz::sim::systems::*); Fortress spelled them
+  gz-sim-*-system / gz::sim::systems::*. The Imu + Sensors
+  systems are required for the IMU / LiDAR sensors in the robot URDF to publish.
 -->
 <sdf version="1.6">
   <world name="empty_room">
@@ -16,18 +16,18 @@
       <real_time_factor>1.0</real_time_factor>
     </physics>
 
-    <plugin filename="ignition-gazebo-physics-system"
-            name="ignition::gazebo::systems::Physics"/>
-    <plugin filename="ignition-gazebo-user-commands-system"
-            name="ignition::gazebo::systems::UserCommands"/>
-    <plugin filename="ignition-gazebo-scene-broadcaster-system"
-            name="ignition::gazebo::systems::SceneBroadcaster"/>
-    <plugin filename="ignition-gazebo-contact-system"
-            name="ignition::gazebo::systems::Contact"/>
-    <plugin filename="ignition-gazebo-imu-system"
-            name="ignition::gazebo::systems::Imu"/>
-    <plugin filename="ignition-gazebo-sensors-system"
-            name="ignition::gazebo::systems::Sensors">
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-contact-system"
+            name="gz::sim::systems::Contact"/>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
       <render_engine>ogre2</render_engine>
     </plugin>
 
