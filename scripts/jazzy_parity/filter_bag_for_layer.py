@@ -27,6 +27,18 @@ Usage:
       # frames robot_state_publisher also puts on the same topic).
       # --tf-drop and --tf-keep are mutually exclusive.
 
+  filter_bag_for_layer.py SRC_BAG DST_BAG \
+      --topics /scan /odom /tf_static \
+      --tf-static-keep base_link imu
+      # --tf-static-keep: the same allowlist for /tf_static (independent of
+      # --tf-keep, which only ever touches /tf). Phase 5: feed the full stack
+      # only the static edges whose publishers are hardware launch files that
+      # do not run on Thor, so no edge ends up with two publishers. The kept
+      # entries are merged into ONE /tf_static message (at the first one's
+      # time): `ros2 bag play` publishes every message of a topic through a
+      # single writer, and a transient-local late joiner gets only that
+      # writer's history, so separate latched messages could be lost.
+
   filter_bag_for_layer.py SRC_BAG DST_BAG --topics ... \
       --inject /mpc/goal_drive f1tenth_messages/msg/DriveCommand goal.yaml \
       --inject-after /odometry/filtered 0.5
@@ -69,6 +81,11 @@ def main():
                           'this exact pair, dropping everything else on the '
                           'topic. Repeatable. Mutually exclusive with '
                           '--tf-drop.')
+    ap.add_argument('--tf-static-keep', nargs=2, action='append', default=[],
+                     metavar=('PARENT_FRAME', 'CHILD_FRAME'),
+                     help='Keep ONLY TransformStamped entries on /tf_static with '
+                          'this exact pair. Repeatable. Messages left empty are '
+                          'dropped.')
     ap.add_argument('--rename', nargs=2, action='append', default=[],
                      metavar=('FROM_TOPIC', 'TO_TOPIC'),
                      help='Write FROM_TOPIC (one of --topics) under the name '
@@ -99,6 +116,7 @@ def main():
             raise SystemExit(f'--rename source {src_topic} is not in --topics')
     drop_pairs = {tuple(p) for p in args.tf_drop}
     keep_pairs = {tuple(p) for p in args.tf_keep}
+    static_keep_pairs = {tuple(p) for p in args.tf_static_keep}
     dst = Path(args.dst_bag)
     if dst.exists():
         shutil.rmtree(dst)
@@ -143,7 +161,11 @@ def main():
     n_diag_dropped = 0
 
     tf_filtering = ('/tf' in args.topics) and (drop_pairs or keep_pairs)
-    tf_type = get_message('tf2_msgs/msg/TFMessage') if tf_filtering else None
+    static_filtering = ('/tf_static' in args.topics) and bool(static_keep_pairs)
+    tf_type = (get_message('tf2_msgs/msg/TFMessage')
+               if tf_filtering or static_filtering else None)
+    n_static_entries_dropped = 0
+    static_merged, static_merged_t = [], None
 
     n_in = {t: 0 for t in args.topics}
     n_out = {t: 0 for t in args.topics}
@@ -169,6 +191,17 @@ def main():
             msg.transforms = kept
             data = serialize_message(msg)
 
+        if topic == '/tf_static' and static_filtering:
+            msg = deserialize_message(data, tf_type)
+            kept = [tr for tr in msg.transforms
+                    if (tr.header.frame_id, tr.child_frame_id) in static_keep_pairs]
+            n_static_entries_dropped += len(msg.transforms) - len(kept)
+            if kept:
+                static_merged.extend(kept)
+                if static_merged_t is None:
+                    static_merged_t = t
+            continue
+
         if inject is not None and t >= inject[2]:
             writer.write(inject[0], inject[1], inject[2])
             inject = None
@@ -185,6 +218,13 @@ def main():
         writer.write(renames.get(topic, topic), data, t)
         n_out[topic] += 1
 
+    if static_merged:
+        # Written last, at the first kept message's time: sqlite3/mcap readers
+        # return messages in timestamp order, not write order.
+        merged = tf_type()
+        merged.transforms = static_merged
+        writer.write('/tf_static', serialize_message(merged), static_merged_t)
+        n_out['/tf_static'] = 1
     if inject is not None:  # anchor time later than every passed-through message
         writer.write(inject[0], inject[1], inject[2])
     if args.inject:
@@ -196,6 +236,10 @@ def main():
     for t in args.topics:
         shown = f'{t} (as {renames[t]})' if t in renames else t
         print(f'  {shown}: {n_in[t]} in -> {n_out[t]} out')
+    if static_filtering:
+        print(f'  /tf_static: dropped {n_static_entries_dropped} transform entries; '
+              f'{len(static_merged)} kept, merged into one message: '
+              f'{sorted((tr.header.frame_id, tr.child_frame_id) for tr in static_merged)}')
     if drop_pairs:
         print(f'  /tf: dropped {n_tf_entries_dropped} individual transform '
               f'entries matching {sorted(drop_pairs)}')
