@@ -21,6 +21,10 @@
 #      the stack_params.yaml in effect; extract.parquet written.
 #   5. the bag's storage format (mcap/sqlite3) is what was requested.
 #   6. SIGINT shutdown releases the lock.
+#   7. (fix batch 1) the topics added to _DEFAULT_TOPICS are in the
+#      recording: publish_logger_topics.py publishes each with its production
+#      publisher's QoS while the bag plays, and each must appear in the bag's
+#      metadata with a non-zero message count.
 #
 # Isolation: ROS_DOMAIN_ID 79, localhost discovery. f1tenth-archive.service
 # (the node's post-run sync) must not exist on this machine -- checked first.
@@ -76,8 +80,11 @@ else
   fail "no active run after RUNNING"
 fi
 
+python3 "$SCRIPT_DIR/publish_logger_topics.py" "$PLAY_SEC" > "$WORK/new_topics.log" 2>&1 &
+NEW_TOPICS_PID=$!
 ros2 bag play "$SRC" --playback-duration "$PLAY_SEC" \
   --exclude-topics /mission/status /mission/move_outcome > "$WORK/play.log" 2>&1
+wait "$NEW_TOPICS_PID"
 
 # 3. COMPLETE
 python3 "$SCRIPT_DIR/publish_mission_status.py" COMPLETE "$MISSION_JSON" 2.0 > "$WORK/status_complete.log" 2>&1
@@ -121,6 +128,17 @@ res(open(sp, 'rb').read() == open(os.path.join(run_dir, run_id + '.params.yaml')
     'params snapshot byte-identical to %s' % sp)
 res(m.get('storage_id') == want and any(f.endswith('.' + ('mcap' if want == 'mcap' else 'db3')) for f in files),
     'storage %s as requested (%s)' % (m.get('storage_id'), want))
+import yaml
+meta = yaml.safe_load(open(os.path.join(bag, 'metadata.yaml')))['rosbag2_bagfile_information']
+counts = {t['topic_metadata']['name']: t['message_count'] for t in meta['topics_with_message_count']}
+qos_of = {t['topic_metadata']['name']: t['topic_metadata'].get('offered_qos_profiles', '') for t in meta['topics_with_message_count']}
+for t in ['/mpc/goal_drive', '/imu', '/joint_states', '/perception/front_distance',
+          '/perception/d_wall/psi_correction', '/mpc/status', '/sensors/imu/raw']:
+    q = qos_of.get(t) or []
+    # Jazzy writes a list of dicts; Humble a YAML string of the same list.
+    q = yaml.safe_load(q) if isinstance(q, str) else q
+    offered = ','.join(sorted({'%s/%s' % (p.get('reliability'), p.get('durability')) for p in q})) or 'none'
+    res(counts.get(t, 0) > 0, 'new default topic %s recorded: %d messages (offered %s)' % (t, counts.get(t, 0), offered))
 ex = os.path.join(run_dir, run_id + '.extract.parquet')
 res(os.path.isfile(ex), 'extract.parquet written (%s)' % ('%d bytes' % os.path.getsize(ex) if os.path.isfile(ex) else 'missing'))
 sys.exit(0 if ok else 1)

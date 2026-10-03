@@ -266,6 +266,24 @@ _DEFAULT_TOPICS = [
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',
+    # --- inputs the Jazzy migration had to reconstruct or found missing ---
+    # The drive-move goal (PublishMoveGoal); Phase 3 had to rebuild it offline.
+    '/mpc/goal_drive',
+    # MPC_corr's IMU and steering-joint inputs. Driver QoS can depend on
+    # runtime config: verify on the car in Phase 6.
+    '/imu',
+    '/joint_states',
+    # The BT's front_clearance stop input (CheckStopCondition reads it, not
+    # /costmap/front_clearance); Phase 4 found it unrecorded.
+    '/perception/front_distance',
+    # Straight-drive heading correction and per-solve OSQP status.
+    # (/test_campaign/logger_status is deliberately absent: the mission logger
+    # records nothing the test-campaign side publishes, see
+    # test_test_campaign_isolation.py.)
+    '/perception/d_wall/psi_correction',
+    '/mpc/status',
+    # The local EKF's IMU input (VESC driver). Verify QoS on the car in Phase 6.
+    '/sensors/imu/raw',
 ]
 
 # Publishers using BEST_EFFORT/VOLATILE. Recording these without an explicit
