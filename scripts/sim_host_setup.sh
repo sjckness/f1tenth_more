@@ -33,6 +33,7 @@ PKGS=(
   ros-jazzy-gz-ros2-control
   ros-jazzy-ros2-controllers
   ros-jazzy-controller-manager
+  ros-jazzy-ros2controlcli
   ros-jazzy-joint-state-broadcaster
   ros-jazzy-ackermann-steering-controller
   ros-jazzy-ackermann-msgs
