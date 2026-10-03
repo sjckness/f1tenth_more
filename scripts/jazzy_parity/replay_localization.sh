@@ -89,7 +89,8 @@
 #                   (use_sim_time only). Two graph_stub_node.py stubs named
 #                   mpc_corr and ackermann_to_vesc_node satisfy the
 #                   start_mission preflight's node-existence check without
-#                   running either (plus costmap_boundary_node, see the
+#                   running either (plus costmap_boundary_node and
+#                   front_clearance_node, see the
 #                   bt block below). bt_mission_driver.py loads and starts the
 #                   mission at bag time BT_START_AT_BAG_SEC (default 36.5).
 #                   Records every BT output; copies the mission report the
@@ -265,11 +266,14 @@ case "$LAYER" in
 /test/mission_event /drive"
     python3 "$SCRIPT_DIR/graph_stub_node.py" mpc_corr > "$OUT_DIR/stub_mpc_corr.log" 2>&1 &
     python3 "$SCRIPT_DIR/graph_stub_node.py" ackermann_to_vesc_node > "$OUT_DIR/stub_vesc.log" 2>&1 &
-    # preflight.py also requires a node NAMED costmap_boundary_node for any
-    # front_clearance stop_condition (a pre-existing stale check: the
-    # condition reads /perception/front_distance since 63a6080 -- see the
-    # Phase 4 report). Name-only stub, publishes nothing.
+    # preflight.py also requires a node by name for any front_clearance
+    # stop_condition: costmap_boundary_node up to e47e646 (the Orin's Humble
+    # reference), front_clearance_node from fix batch 1 on (the actual
+    # /perception/front_distance producer since 63a6080). Both name-only
+    # stubs run, so the same harness serves either code version; neither
+    # publishes anything.
     python3 "$SCRIPT_DIR/graph_stub_node.py" costmap_boundary_node > "$OUT_DIR/stub_costmap.log" 2>&1 &
+    python3 "$SCRIPT_DIR/graph_stub_node.py" front_clearance_node > "$OUT_DIR/stub_front_clearance.log" 2>&1 &
     (cd "$OUT_DIR" && exec ros2 launch "$SCRIPT_DIR/bt_replay.launch.py") > "$OUT_DIR/node.log" 2>&1 &
     ;;
   mpc|mpc_capture)

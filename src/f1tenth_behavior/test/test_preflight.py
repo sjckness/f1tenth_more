@@ -55,13 +55,21 @@ class TestRequiredDependencies:
     def test_plain_distance_mission_does_not_require_perception_or_costmap(self):
         config = _mission([_distance_move()])
         names = _names(required_dependencies(config))
-        assert 'costmap_boundary_node' not in names
+        assert 'front_clearance_node' not in names
         assert 'yolo_detector_node' not in names
 
-    def test_front_clearance_stop_condition_requires_costmap_boundary_node(self):
+    def test_front_clearance_stop_condition_requires_front_clearance_node(self):
+        # The condition reads /perception/front_distance (63a6080), published by
+        # front_clearance_node -- not costmap_boundary_node, which f960cf2's
+        # original check named when the condition still read /costmap/front_clearance.
         config = _mission([_distance_move(stop_type='front_clearance', stop_params={'distance': 1.0})])
-        names = _names(required_dependencies(config))
-        assert 'costmap_boundary_node' in names
+        reqs = required_dependencies(config)
+        names = _names(reqs)
+        assert 'front_clearance_node' in names
+        assert 'costmap_boundary_node' not in names
+        req = next(r for r in reqs if r.name == 'front_clearance_node')
+        assert req.node_name == 'front_clearance_node'
+        assert req.blackboard_key == FRONT_CLEARANCE_KEY
 
     def test_front_clearance_as_resume_condition_also_requires_it(self):
         move = _distance_move(
@@ -72,7 +80,7 @@ class TestRequiredDependencies:
             }],
         )
         names = _names(required_dependencies(_mission([move])))
-        assert 'costmap_boundary_node' in names
+        assert 'front_clearance_node' in names
         # on_object entries always need perception regardless of the resume
         # condition's own type -- ObjectSeen has to match the class first.
         assert 'yolo_detector_node' in names
@@ -136,13 +144,36 @@ class TestCheckLiveness:
             _distance_move(stop_type='front_clearance', stop_params={'distance': 1.0})
         ])
         reqs = required_dependencies(config)
-        live = {'mpc_corr', 'ackermann_to_vesc_node', 'costmap_boundary_node'}
-        # costmap_boundary_node is up, but FRONT_CLEARANCE_KEY has no value yet.
+        live = {'mpc_corr', 'ackermann_to_vesc_node', 'front_clearance_node'}
+        # front_clearance_node is up, but FRONT_CLEARANCE_KEY has no value yet.
         data = {CURRENT_XY_KEY: (0.0, 0.0), FRONT_CLEARANCE_KEY: None}
         failures = check_liveness(reqs, list(live), lambda k: data.get(k))
         assert len(failures) == 1
-        assert 'costmap_boundary_node' in failures[0]
+        assert 'front_clearance_node' in failures[0]
         assert 'no data received yet' in failures[0]
+
+    def test_front_clearance_with_only_costmap_boundary_node_up_is_refused(self):
+        # The case the old check let through by name: the old producer is up,
+        # the actual producer of /perception/front_distance is not.
+        config = _mission([
+            _distance_move(stop_type='front_clearance', stop_params={'distance': 1.0})
+        ])
+        reqs = required_dependencies(config)
+        live = {'mpc_corr', 'ackermann_to_vesc_node', 'costmap_boundary_node'}
+        data = {CURRENT_XY_KEY: (0.0, 0.0), FRONT_CLEARANCE_KEY: 3.0}
+        failures = check_liveness(reqs, list(live), lambda k: data.get(k))
+        assert len(failures) == 1
+        assert 'front_clearance_node' in failures[0]
+        assert 'not found in the ROS graph' in failures[0]
+
+    def test_front_clearance_node_up_and_publishing_passes(self):
+        config = _mission([
+            _distance_move(stop_type='front_clearance', stop_params={'distance': 1.0})
+        ])
+        reqs = required_dependencies(config)
+        live = {'mpc_corr', 'ackermann_to_vesc_node', 'front_clearance_node'}
+        data = {CURRENT_XY_KEY: (0.0, 0.0), FRONT_CLEARANCE_KEY: 3.0}
+        assert check_liveness(reqs, list(live), lambda k: data.get(k)) == []
 
     def test_multiple_missing_dependencies_all_reported(self):
         config = _mission([

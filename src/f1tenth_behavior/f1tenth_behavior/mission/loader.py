@@ -15,7 +15,7 @@ and four services for callers that want a synchronous result:
   (success=false, state left at LOADED, not consumed) if mission/preflight.py's
   liveness check finds a dependency THIS mission needs is not alive and/or not
   yet publishing (mpc_corr, ackermann_to_vesc_node, localization, and
-  conditionally costmap_boundary_node/yolo_detector_node depending on what the
+  conditionally front_clearance_node/yolo_detector_node depending on what the
   mission's moves/stop_conditions/on_object entries actually use) -- see that
   module's own docstring for the battery-precheck race this replaces "the car
   silently didn't move" with an explicit, actionable failure at start time.

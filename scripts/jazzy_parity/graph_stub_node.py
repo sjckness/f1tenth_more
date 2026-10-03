@@ -5,7 +5,8 @@ subscriptions, no parameters.
 Phase 4 BT replay: /mission/start_mission runs a preflight
 (f1tenth_behavior/mission/preflight.py) that refuses to start unless nodes
 named `mpc_corr` and `ackermann_to_vesc_node` (and, for a front_clearance
-stop condition, `costmap_boundary_node`) are in the graph. The BT layer is
+stop condition, `costmap_boundary_node` up to e47e646 and
+`front_clearance_node` from fix batch 1 on) are in the graph. The BT layer is
 replayed in isolation, like every other layer in this harness, and
 ackermann_to_vesc_node is a hardware driver that must never run here. A stub
 with the right name satisfies the node-existence check and nothing else; it

@@ -150,10 +150,14 @@ def required_dependencies(config: MissionConfig) -> List[Requirement]:
                 stop_condition_types.add(oo.params['resume_condition'].type)
 
     if 'front_clearance' in stop_condition_types:
+        # The condition reads /perception/front_distance, published by
+        # f1tenth_perception's front_clearance_node (since 63a6080). This
+        # check predates that swap (f960cf2) and named costmap_boundary_node,
+        # the old /costmap/front_clearance producer.
         reqs.append(Requirement(
-            name='costmap_boundary_node',
+            name='front_clearance_node',
             reason="a 'front_clearance' stop_condition (or resume_condition) is used",
-            node_name='costmap_boundary_node',
+            node_name='front_clearance_node',
             blackboard_key=FRONT_CLEARANCE_KEY,
         ))
 
