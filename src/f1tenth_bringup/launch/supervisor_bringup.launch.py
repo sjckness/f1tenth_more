@@ -158,6 +158,15 @@ def generate_launch_description():
         'restart_budget_window_sec', default_value=str(restart_budget_window_default),
         description=restart_budget_window_desc)
 
+    # Sim mode (component_supervisor_node's module docstring, "Sim mode"): no
+    # hardware drivers, every component on use_sim_time, /clock from the
+    # simulator. Default false: the car's bringup, unchanged.
+    sim_la = DeclareLaunchArgument(
+        'sim', default_value='false',
+        description='true: Gazebo simulator on the network instead of the car. Skips '
+                    'the VESC/ZED/urg driver launch files and runs every component '
+                    'on use_sim_time.')
+
     component_supervisor_node = Node(
         package='f1tenth_bringup',
         executable='component_supervisor_node',
@@ -172,6 +181,7 @@ def generate_launch_description():
             'watchdog_period_sec': LaunchConfiguration('watchdog_period_sec'),
             'max_auto_restarts': LaunchConfiguration('max_auto_restarts'),
             'restart_budget_window_sec': LaunchConfiguration('restart_budget_window_sec'),
+            'sim': LaunchConfiguration('sim'),
         }],
     )
 
@@ -188,5 +198,6 @@ def generate_launch_description():
         watchdog_period_la,
         max_auto_restarts_la,
         restart_budget_window_la,
+        sim_la,
         component_supervisor_node,
     ])
