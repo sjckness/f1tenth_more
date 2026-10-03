@@ -76,6 +76,9 @@
         <parameters>$(arg control_config)</parameters>
         <ros>
           <remapping>robot_description:=/sim/robot_description</remapping>
+          <!-- Jazzy's controller_manager publishes its own /diagnostics, which
+               no car driver does; keep it out of the stack's diagnostics. -->
+          <remapping>diagnostics:=/sim/diagnostics</remapping>
         </ros>
       </plugin>
 
