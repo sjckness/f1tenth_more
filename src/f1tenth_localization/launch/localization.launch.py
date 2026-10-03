@@ -105,6 +105,15 @@ def generate_launch_description():
             condition=IfCondition(LaunchConfiguration('enable_ekf_cost_observer')),
             prefix=['taskset -c ',
                     LaunchConfiguration('ekf_cost_observer_cpu_affinity')],
+            # Super client for this node only (not the EKFs in this launch
+            # file): it resolves its input/output topic types from the ROS
+            # graph before subscribing, and under ROS_DISCOVERY_SERVER a plain
+            # client is never told about other participants' topics. As a
+            # plain client it subscribed to nothing: ticks_selfcount,
+            # meas_delivered and the period stats all read 0 while the status
+            # stayed OK (fix batch 3). Same reason as foxglove_bridge.launch.py
+            # and mission_logger.launch.py.
+            additional_env={'ROS_SUPER_CLIENT': 'TRUE'},
         ))
     elif localization_source == 'raw_odom':
         actions.append(IncludeLaunchDescription(
