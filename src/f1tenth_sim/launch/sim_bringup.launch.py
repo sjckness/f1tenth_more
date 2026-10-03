@@ -10,7 +10,7 @@ Launches:
   1. Gazebo Harmonic with worlds/empty_room.sdf           (ros_gz_sim)
   2. sim_robot_state_publisher: private RSP whose only job is to publish the
      sim URDF on /sim/robot_description. Its TF goes to /sim/tf and
-     /sim/tf_static, never /tf (§2.3).
+     /sim/tf_static, never /tf (§2.3); it reads /sim/joint_states.
   3. ros_gz_bridge: /clock, /scan, /sim/imu_raw, /sim/ground_truth
   4. spawn the robot from /sim/robot_description          (ros_gz_sim create)
   5. once spawned: joint_state_broadcaster, then ackermann_steering_controller
@@ -20,9 +20,11 @@ Launches:
      /sim/imu_raw -> /sensors/imu/raw
   7. optional foxglove_bridge (foxglove:=true)
 
-Published on the shared graph: /clock /scan /odom /sensors/imu/raw
-/joint_states, plus /sim/* (internal and ground truth). Nothing on /tf or
-/tf_static.
+Published on the shared graph: /clock /scan /odom /sensors/imu/raw, plus
+/sim/* (internal and ground truth). Nothing on /tf or /tf_static, and nothing
+on /joint_states: on the car joint_state_publisher (static zeros, 10 Hz, kept
+by the Thor in sim:=true) owns that topic, so the sim's true joint states go to
+/sim/joint_states, like /sim/ground_truth.
 
 Args: gui (default false: server only), world, foxglove, x/y/yaw spawn pose.
 """
@@ -123,6 +125,7 @@ def generate_launch_description():
             ('/robot_description', SIM_DESCRIPTION_TOPIC),
             ('/tf', '/sim/tf'),
             ('/tf_static', '/sim/tf_static'),
+            ('/joint_states', '/sim/joint_states'),
         ],
     )
 
@@ -157,7 +160,10 @@ def generate_launch_description():
         executable='spawner',
         output='screen',
         arguments=['joint_state_broadcaster',
-                   '--controller-manager', '/controller_manager'],
+                   '--controller-manager', '/controller_manager',
+                   '--controller-ros-args', '-r /joint_states:=/sim/joint_states',
+                   '--controller-ros-args',
+                   '-r /dynamic_joint_states:=/sim/dynamic_joint_states'],
     )
     ackermann_spawner = Node(
         package='controller_manager',

@@ -5,8 +5,8 @@
   <version>0.0.0</version>
   <description>Gazebo Harmonic (ROS 2 Jazzy) simulation for the F1TENTH vehicle.
   Spawns the f1tenth_description model in an empty world and stands in for the
-  car's drivers: publishes /scan, /odom, /sensors/imu/raw, /joint_states and
-  /clock, and drives from /ackermann_drive through ros2_control and an Ackermann
+  car's drivers: publishes /scan, /odom, /sensors/imu/raw and /clock (sim
+  internals and ground truth under /sim), and drives from /ackermann_drive through ros2_control and an Ackermann
   controller. Publishes nothing on /tf; the stack on the Thor owns TF.</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>

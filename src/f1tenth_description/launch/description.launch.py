@@ -162,11 +162,11 @@ def generate_launch_description():
     # UnlessCondition(use_sim), same gate as static_baselink_to_laser directly
     # below. NOTE since the Jazzy sim port f1tenth_sim no longer includes this
     # file (it runs a private, TF-silent robot_state_publisher), so nothing sets
-    # use_sim:=true here any more. In a stack run against the sim, ros2_control's
-    # joint_state_broadcaster on the sim host publishes /joint_states, so this
-    # node must not run (two disagreeing publishers on one topic), but the
-    # static base_link->laser below still must. use_sim gates both together, so
-    # it is the wrong switch for that case; see output/sim_port_report.md §5.
+    # use_sim:=true here any more. In a stack run against the sim this node
+    # keeps running exactly as on the car: the sim publishes its true joint
+    # states on /sim/joint_states, not /joint_states. use_sim would also drop
+    # the static base_link->laser below, so it is the wrong switch for that
+    # case; see output/sim_port_report.md §5.
     joint_state_publisher = Node(
         package='joint_state_publisher',
         executable='joint_state_publisher',
