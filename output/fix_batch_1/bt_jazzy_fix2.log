@@ -1,0 +1,6 @@
+layer=bt play_status=0 out=/home/andre/dev_ws/f1tenth_more/output/fix_batch_1/bt_jazzy_fix2/bag
+scripts/jazzy_parity/replay_localization.sh: line 186: 327575 Killed                  python3 "$SCRIPT_DIR/graph_stub_node.py" costmap_boundary_node > "$OUT_DIR/stub_costmap.log" 2>&1
+scripts/jazzy_parity/replay_localization.sh: line 186: 327573 Killed                  python3 "$SCRIPT_DIR/graph_stub_node.py" mpc_corr > "$OUT_DIR/stub_mpc_corr.log" 2>&1
+scripts/jazzy_parity/replay_localization.sh: line 186: 327574 Killed                  python3 "$SCRIPT_DIR/graph_stub_node.py" ackermann_to_vesc_node > "$OUT_DIR/stub_vesc.log" 2>&1
+scripts/jazzy_parity/replay_localization.sh: line 186: 327576 Killed                  python3 "$SCRIPT_DIR/graph_stub_node.py" front_clearance_node > "$OUT_DIR/stub_front_clearance.log" 2>&1
+scripts/jazzy_parity/replay_localization.sh: line 186: 327577 Killed                  ( cd "$OUT_DIR" && exec ros2 launch "$SCRIPT_DIR/bt_replay.launch.py" ) > "$OUT_DIR/node.log" 2>&1

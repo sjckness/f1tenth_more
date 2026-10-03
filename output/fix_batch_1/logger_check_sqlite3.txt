@@ -1,0 +1,19 @@
+PASS  lock file created (331534)
+PASS  second instance rejected (exit 1): another mission logger is already running (pid 331534)
+PASS  RUNNING -> active/2026-10-03T08-35-22_mission-llm_2b356aac445f with start manifest + params snapshot
+PASS  COMPLETE -> complete/2026-10-03T08-35-22_mission-llm_2b356aac445f, active/ empty
+PASS  manifest outcome=COMPLETE end_time=2026-10-03T08:35:39.571496+00:00
+PASS  bag_sha256 recomputed and equal for 2 files (bag_0.db3, metadata.yaml)
+PASS  bag_bytes 48246994 == 48246994
+PASS  params snapshot byte-identical to /home/andre/dev_ws/f1tenth_more/src/f1tenth_params/config/stack_params.yaml
+PASS  storage sqlite3 as requested (sqlite3)
+PASS  new default topic /mpc/goal_drive recorded: 118 messages (offered reliable/volatile)
+PASS  new default topic /imu recorded: 117 messages (offered reliable/volatile)
+PASS  new default topic /joint_states recorded: 117 messages (offered reliable/volatile)
+PASS  new default topic /perception/front_distance recorded: 117 messages (offered reliable/volatile)
+PASS  new default topic /perception/d_wall/psi_correction recorded: 117 messages (offered reliable/volatile)
+PASS  new default topic /mpc/status recorded: 117 messages (offered reliable/volatile)
+PASS  new default topic /sensors/imu/raw recorded: 117 messages (offered reliable/volatile)
+PASS  extract.parquet written (180944 bytes)
+PASS  lock released on shutdown
+RESULT PASS  run=2026-10-03T08-35-22_mission-llm_2b356aac445f

@@ -1,0 +1,15 @@
+/behavior_executor_node:
+  ros__parameters:
+    bt_loop_duration_ms: 100
+    default_snapshot_blackboard_activity: false
+    default_snapshot_blackboard_data: true
+    default_snapshot_period: 2.0
+    default_snapshot_stream: false
+    mission_countdown_sec: 3.0
+    mission_file_name: ''
+    mission_state_watch_period_sec: 0.1
+    nice: 0
+    setup_timeout: 90.0
+    start_type_description_service: true
+    use_sim_time: true
+

@@ -1,0 +1,1 @@
+{"duration_s": 330.0, "gpu_zone": "/sys/devices/virtual/thermal/thermal_zone1/temp", "is_system_overheated_params": {"sys_obs_max_temp_c": 100.0, "sys_obs_max_load_percent": 95.0, "enable_sys_obs_load_trip": false, "sys_obs_load_trip_consecutive_samples": 3}, "bt_ticks_by_status": {"FAILURE": 3300}, "tripped_reasons": {}, "exceptions": [], "gpu_zone_probe": {"eagain": 329}}
