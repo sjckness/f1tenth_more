@@ -110,6 +110,10 @@ ARGUMENTS = (
     ('require_estop_publisher', 'true',
      'Refuse to run when nothing publishes /safety_stop. Set false only if you accept '
      'driving with the joystick and this node\'s own clearance check as the only stops.'),
+    ('estop_graph_wait_sec', '5.0',
+     'How long the e-stop check polls for the mux lane subscriber and the /safety_stop '
+     'publisher before refusing. A new Discovery Server super client learns the whole '
+     'graph only after a few seconds.'),
     ('min_front_clearance_m', '0.9', 'Abort if /costmap/front_clearance drops below this.'),
     ('max_lateral_excursion_m', '0.8',
      'Abort if the car strays further than this from the repetition start line.'),
