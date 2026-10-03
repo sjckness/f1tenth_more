@@ -1,0 +1,11 @@
+1791035905.7561316 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_after/ros_log/2026-10-03-15-58-25-754119-thor-436344
+1791035905.7564545 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035905.9200857 [INFO] [fastdds_discovery_server-1]: process started with pid [436375]
+1791035905.9203780 [INFO] [component_supervisor_node-2]: process started with pid [436376]
+1791036127.1967037 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791036127.2000835 [INFO] [component_supervisor_node-2]: sending signal 'SIGINT' to process[component_supervisor_node-2]
+1791036127.2007217 [INFO] [fastdds_discovery_server-1]: sending signal 'SIGINT' to process[fastdds_discovery_server-1]
+1791036129.3831310 [INFO] [component_supervisor_node-2]: process has finished cleanly [pid 436376]
+1791036132.2040379 [ERROR] [fastdds_discovery_server-1]: process[fastdds_discovery_server-1] failed to terminate '5' seconds after receiving 'SIGINT', escalating to 'SIGTERM'
+1791036132.2050157 [INFO] [fastdds_discovery_server-1]: sending signal 'SIGTERM' to process[fastdds_discovery_server-1]
+1791036132.2059791 [ERROR] [fastdds_discovery_server-1]: process has died [pid 436375, exit code -15, cmd 'python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py 127.0.0.1 11811'].

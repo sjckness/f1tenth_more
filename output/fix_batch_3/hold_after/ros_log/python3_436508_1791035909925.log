@@ -1,0 +1,19 @@
+[INFO] [1791035911.537798180] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance
+[INFO] [1791035929.462510924] [lidar_front_wall_node]: base_link <- laser: x=0.120 m y=0.000 m yaw=0.00 deg
+[WARN] [1791035929.465823058] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[INFO] [1791035929.478065560] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1791035955.128364588] [lidar_front_wall_node]: wall acquired at 8.980 m after seeded (2.003 m): jump +6.977 m, nan s since the last accepted fit
+[INFO] [1791035955.359827140] [lidar_front_wall_node]: wall acquired at 8.878 m after dead_reckoned (8.890 m): jump -0.012 m, 0.23 s since the last accepted fit
+[INFO] [1791035955.428623509] [lidar_front_wall_node]: wall acquired at 8.845 m after dead_reckoned (8.861 m): jump -0.015 m, 0.07 s since the last accepted fit
+[INFO] [1791035997.622239557] [lidar_front_wall_node]: wall acquired at 8.980 m after none (nan m): jump +nan m, 27.95 s since the last accepted fit
+[INFO] [1791035997.860616043] [lidar_front_wall_node]: wall acquired at 8.878 m after dead_reckoned (8.899 m): jump -0.021 m, 0.24 s since the last accepted fit
+[INFO] [1791035997.921161995] [lidar_front_wall_node]: wall acquired at 8.845 m after dead_reckoned (8.853 m): jump -0.007 m, 0.06 s since the last accepted fit
+[INFO] [1791036040.117980219] [lidar_front_wall_node]: wall acquired at 8.980 m after none (nan m): jump +nan m, 27.95 s since the last accepted fit
+[INFO] [1791036040.346092851] [lidar_front_wall_node]: wall acquired at 8.878 m after dead_reckoned (8.890 m): jump -0.012 m, 0.23 s since the last accepted fit
+[INFO] [1791036040.414809345] [lidar_front_wall_node]: wall acquired at 8.845 m after dead_reckoned (8.861 m): jump -0.015 m, 0.07 s since the last accepted fit
+[INFO] [1791036082.609714090] [lidar_front_wall_node]: wall acquired at 8.980 m after none (nan m): jump +nan m, 27.94 s since the last accepted fit
+[INFO] [1791036082.839528181] [lidar_front_wall_node]: wall acquired at 8.878 m after dead_reckoned (8.890 m): jump -0.012 m, 0.23 s since the last accepted fit
+[INFO] [1791036082.909182545] [lidar_front_wall_node]: wall acquired at 8.845 m after dead_reckoned (8.861 m): jump -0.015 m, 0.07 s since the last accepted fit
+[INFO] [1791036125.105735559] [lidar_front_wall_node]: wall acquired at 8.980 m after none (nan m): jump +nan m, 27.94 s since the last accepted fit
+[INFO] [1791036125.333112249] [lidar_front_wall_node]: wall acquired at 8.878 m after dead_reckoned (8.890 m): jump -0.013 m, 0.23 s since the last accepted fit
+[INFO] [1791036125.402539709] [lidar_front_wall_node]: wall acquired at 8.845 m after dead_reckoned (8.853 m): jump -0.007 m, 0.07 s since the last accepted fit

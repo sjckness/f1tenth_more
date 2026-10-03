@@ -1,0 +1,62 @@
+{
+  "ROS_SUPER_CLIENT": "<unset>",
+  "ROS_DISCOVERY_SERVER": "127.0.0.1:11811",
+  "ekf_cost_observer_diagnostics": {
+    "ekf_cost_observer: local EKF per-update cost": {
+      "level": 0,
+      "message": "0.08ms/tick, 0.82ms/meas, 0.10 meas/tick",
+      "cpu_ms_per_meas": "0.816327",
+      "cpu_ms_per_tick": "0.0795229",
+      "cpu_percent_of_core": "4.00008",
+      "meas_delivered": "49",
+      "meas_per_tick": "0.0974155",
+      "period_ms_max": "36.7854",
+      "period_ms_p50": "20.2463",
+      "period_ms_p90": "25.4354",
+      "pid": "436672",
+      "tick_count_agreement": "10.2653",
+      "tick_rate_hz": "503.01",
+      "ticks_inproc": "503",
+      "ticks_selfcount": "49",
+      "window_sec": "0.99998"
+    },
+    "ekf_cost_observer: global EKF per-update cost": {
+      "level": 0,
+      "message": "0.06ms/tick, 0.59ms/meas, 0.10 meas/tick",
+      "cpu_ms_per_meas": "0.588235",
+      "cpu_ms_per_tick": "0.0596421",
+      "cpu_percent_of_core": "3.00006",
+      "meas_delivered": "51",
+      "meas_per_tick": "0.101392",
+      "period_ms_max": "36.7854",
+      "period_ms_p50": "20.2463",
+      "period_ms_p90": "25.4354",
+      "pid": "436673",
+      "tick_count_agreement": "10.2653",
+      "tick_rate_hz": "503.01",
+      "ticks_inproc": "503",
+      "ticks_selfcount": "49",
+      "window_sec": "0.99998"
+    }
+  },
+  "generic": {
+    "node_names": 34,
+    "topic_names_and_types": 5,
+    "foreign topic /odometry/filtered in get_topic_names_and_types": false,
+    "count_publishers(/odometry/filtered), no own endpoint": 0,
+    "count_subscribers(/calibration_drive), own publisher": 1,
+    "publisher.get_subscription_count() on /calibration_drive": 1,
+    "count_publishers(/safety_stop), no own endpoint": 0,
+    "service_names_and_types": 8,
+    "/restart_component in get_service_names_and_types": false,
+    "wait_for_service(/mission/start_mission, 5 s)": true,
+    "_unused": "/fb3_probe_own"
+  },
+  "steering_offset_calibration": {
+    "participants_visible": true,
+    "count_subscribers(/calibration_drive)": 1,
+    "count_publishers(/safety_stop)": 0,
+    "require_estop_publisher": true,
+    "_check_estop_path()": false
+  }
+}

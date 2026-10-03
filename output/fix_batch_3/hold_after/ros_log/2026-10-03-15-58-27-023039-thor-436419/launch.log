@@ -1,0 +1,31 @@
+1791035907.0257936 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_after/ros_log/2026-10-03-15-58-27-023039-thor-436419
+1791035907.0262015 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035907.5648210 [INFO] [taskset-1]: process started with pid [436672]
+1791035907.5653038 [INFO] [taskset-2]: process started with pid [436673]
+1791035907.5653908 [INFO] [slam_pose_relay_node-3]: process started with pid [436674]
+1791035907.5654488 [INFO] [taskset-4]: process started with pid [436675]
+1791035907.5654924 [INFO] [robot_state_publisher-5]: process started with pid [436676]
+1791035907.5655301 [INFO] [joint_state_publisher-6]: process started with pid [436677]
+1791035907.5655634 [INFO] [static_transform_publisher-7]: process started with pid [436678]
+1791035907.6632338 [static_transform_publisher-7] [WARN] [1791035907.659072060] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791035907.7573311 [static_transform_publisher-7] [INFO] [1791035907.755768651] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791035907.7577169 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791035907.7577732 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791035907.7578053 [static_transform_publisher-7] from 'base_link' to 'laser'
+1791036128.5095866 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791036128.5138285 [INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+1791036128.5441291 [INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+1791036128.5455048 [INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+1791036128.5464203 [INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+1791036128.5646119 [INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+1791036128.5749371 [INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+1791036128.5763106 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791036128.5791056 [static_transform_publisher-7] [INFO] [1791036128.514797241] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791036128.5792391 [static_transform_publisher-7] [INFO] [1791036128.515988932] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791036128.5945134 [ERROR] [taskset-2]: process has died [pid 436673, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791036128.5950730 [ERROR] [taskset-1]: process has died [pid 436672, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+1791036128.7029436 [INFO] [static_transform_publisher-7]: process has finished cleanly [pid 436678]
+1791036128.7683108 [ERROR] [taskset-4]: process has died [pid 436675, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].
+1791036128.7740102 [ERROR] [joint_state_publisher-6]: process has died [pid 436677, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_u72j1zyw'].
+1791036128.7883897 [ERROR] [slam_pose_relay_node-3]: process has died [pid 436674, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791036128.8030124 [INFO] [robot_state_publisher-5]: process has finished cleanly [pid 436676]

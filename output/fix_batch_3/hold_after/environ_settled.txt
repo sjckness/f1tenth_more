@@ -1,0 +1,45 @@
+436344 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup supervisor_bringup.launch.py components_config:=/home/andre/dev_ws/f1tenth_m
+436375 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811 
+436376 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/lib/f1tenth_bringup/component_supervisor_node --ros-args -r __node:
+436380 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811 
+436416 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics system_observer.launch.py 
+436417 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics diagnostics_server.launch.py 
+436418 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_logger mission_logger.launch.py mission_logger_runs_dir:=/home/andre/dev_ws/f1tenth_
+436419 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_localization localization.launch.py 
+436420 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception swept_clearance.launch.py 
+436421 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception obstacle_clearance.launch.py 
+436422 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_behavior behavior_bringup.launch.py 
+436423 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_control ackermann_mux.launch.py 
+436424 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation slam.launch.py 
+436425 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_costmap costmap.launch.py 
+436426 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup foxglove_bridge.launch.py 
+436427 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception wall_distance.launch.py 
+436428 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation navigation.launch.py 
+436429 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception lidar_front_wall.launch.py 
+436473 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/wall_distance_node --ros-args -r __node:=
+436474 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /home/andre/dev_ws/f1tenth_more/install/ackermann_mux/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux --params-file /hom
+436475 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 ROS_SUPER_CLIENT=TRUE | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission
+436481 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=
+436482 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/twist_to_ackermann_node --ros-args -r __node:
+436483 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=seman
+436486 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=cos
+436487 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=cos
+436500 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 ROS_SUPER_CLIENT=TRUE | /opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge --params-file /tmp/launch_params_bso_ytwe 
+436501 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 ROS_SUPER_CLIENT=TRUE | /opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle 
+436502 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 ROS_SUPER_CLIENT=TRUE | /opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotat
+436503 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/system_observer_node --ros-args -r __no
+436508 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __nod
+436537 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node --ros-args -r __node
+436562 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r _
+436603 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-
+436607 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/lib/nav2_map_server/map_server --ros-args -r __node:=map_server --params-file /tmp/launch_params_dwkw2v52 
+436608 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_map --params-file /tmp/launch_params_7lm
+436611 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/obstacle_clearance_node --ros-args -r __n
+436672 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f
+436673 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/d
+436674 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __
+436675 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 ROS_SUPER_CLIENT=TRUE | /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __
+436676 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/lib/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_6bdb_s1l --params-file /tmp/launc
+436677 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /t
+436678 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_las
+436795 ROS_DISCOVERY_SERVER=127.0.0.1:11811 ROS_DOMAIN_ID=85 | /opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /home/andre/dev_ws/f1ten

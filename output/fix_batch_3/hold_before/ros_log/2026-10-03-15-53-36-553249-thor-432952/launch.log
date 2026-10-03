@@ -1,0 +1,5 @@
+1791035616.5557430 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_before/ros_log/2026-10-03-15-53-36-553249-thor-432952
+1791035616.5561082 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035617.3485034 [INFO] [taskset-1]: process started with pid [433331]
+1791035840.1172061 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791035840.8070977 [INFO] [taskset-1]: process has finished cleanly [pid 433331]

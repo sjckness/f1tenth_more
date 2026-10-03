@@ -1,0 +1,12 @@
+1791035906.9203546 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_after/ros_log/2026-10-03-15-58-26-916786-thor-436425
+1791035906.9209163 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035907.1134195 [INFO] [semantic_layer_node-1]: process started with pid [436483]
+1791035907.1138892 [INFO] [costmap_renderer_node-2]: process started with pid [436486]
+1791035907.1139808 [INFO] [costmap_boundary_node-3]: process started with pid [436487]
+1791036128.5107629 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791036128.5294790 [INFO] [costmap_boundary_node-3]: sending signal 'SIGINT' to process[costmap_boundary_node-3]
+1791036128.5301657 [INFO] [costmap_renderer_node-2]: sending signal 'SIGINT' to process[costmap_renderer_node-2]
+1791036128.5322080 [INFO] [semantic_layer_node-1]: sending signal 'SIGINT' to process[semantic_layer_node-1]
+1791036128.7467146 [ERROR] [costmap_renderer_node-2]: process has died [pid 436486, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node --params-file /tmp/launch_params_q0j94o31'].
+1791036128.7829616 [ERROR] [semantic_layer_node-1]: process has died [pid 436483, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node --params-file /tmp/launch_params_afboi8dj'].
+1791036128.8018880 [ERROR] [costmap_boundary_node-3]: process has died [pid 436487, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node --params-file /tmp/launch_params_lux3yo1x'].

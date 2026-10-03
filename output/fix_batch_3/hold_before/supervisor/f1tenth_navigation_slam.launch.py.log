@@ -1,0 +1,14 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_before/ros_log/2026-10-03-15-53-36-553249-thor-432952
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [433331]
+[taskset-1] [INFO] [1791035617.792571995] [slam_toolbox]: Node using stack size 40000000
+[taskset-1] [INFO] [1791035618.544484188] [slam_toolbox]: Configuring
+[taskset-1] [INFO] [1791035618.575112739] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[taskset-1] [INFO] [1791035618.575820961] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[taskset-1] [INFO] [1791035618.615127946] [slam_toolbox]: Activating
+[taskset-1] Registering sensor: [Custom Described Lidar]
+[taskset-1] [INFO] [1791035642.573735270] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791035642.372 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[taskset-1] [INFO] [1791035840.112881166] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [taskset-1]: process has finished cleanly [pid 433331]
+[taskset-1] Unregistering sensor: Custom Described Lidar
