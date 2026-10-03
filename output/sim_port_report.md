@@ -3,7 +3,9 @@
 Host: simulation PC (Ubuntu 24.04). Branch: `jazzy-sim`, created from `origin/jazzy` @ `fc1ae6f`.
 Status (2026-10-03): **Steps 0–4 done. Step 4 passed all 12 items on this PC (§4.R). `COLCON_IGNORE` is removed.
 §5 is waiting for the Thor-side Phase 5 commit `af41013` to reach `origin/jazzy`; then jazzy-sim gets rebased onto it.
-jazzy-sim has not been pushed (waiting for the user's go-ahead).**
+jazzy-sim is pushed to origin (new branch, 2026-10-03). Once `af41013` is on origin/jazzy it gets **merged** in (no
+rebase, no force-push), then §5 is reconciled against the code. Since then: the sim's joint states moved to
+`/sim/joint_states` (`66ef8e8`).**
 
 Tags used below: **[code]** = read from source in this repo, **[doc]** = official upstream docs,
 **UNVERIFIED** = an assumption not yet checked against a running system.
@@ -229,7 +231,7 @@ under the sourced environment.
 | G6 | `/odom` rate: the sim's controller update rate was 100 Hz, real is ≈50 Hz. Covariances: the controller's defaults vs. the real values 0.2/0.2/0.03/vx 0.0. | low |
 | G7 | IMU 100 Hz vs. real ≈50 Hz. Sim frame `imu` vs. real `""`. The sim gyro is true rad/s with no bias, matching the post-correction real value. | low (frame: see D3) |
 | G8 | The URDF wheelbase is 0.325; the real `vesc_to_odom` uses `wheelbase: .305`. Same-geometry rule applies: **keep 0.325 in sim**, flagged. | info |
-| G9 | `/joint_states`: real publishes static zeros at 10 Hz; sim publishes true joint states. The sim value is better, and MPC reads hinge angles from it. | info |
+| G9 | `/joint_states`: real publishes static zeros at 10 Hz; sim publishes true joint states. **Resolved 2026-10-03 (`66ef8e8`): the sim publishes them on `/sim/joint_states` only**, so the car's `joint_state_publisher` stays the single `/joint_states` source, in sim as on the car. MPC's reader (`MPC_corr.py:1255`) matches `car_1_*_steering_hinge_joint`, which neither publishes. | info |
 | G10 | The sim does not publish `/sensors/core`, `/sensors/imu`, `/sensors/servo_position_command`. They are only needed by the battery, calibration and diagnostics nodes, which a sim mode should skip anyway. | info |
 | G11 | `/model/virtual_robot/odometry` (MPC fallback) is not published by the old sim, and will **deliberately not** be published by the new one (see Plan §2.4). | info |
 | G12 | The sim had the ZED mock: 2×1280×720 at 30 Hz rendered and bridged. Out of scope, and expensive on this GPU. | – |
@@ -266,7 +268,7 @@ everything else, **including ackermann_mux**.
 | `/odom` | ackermann_steering_controller `~/odometry`, relayed to `/odom` by `drive_bridge` | `odom_frame_id: odom`, `base_frame_id: base_link`, `enable_odom_tf: false`. `pose_covariance_diagonal [0.2,0.2,0,0,0,0.03]`, `twist_covariance_diagonal [0,…]` to match vesc.yaml. `controller_manager.update_rate: 50` to match the real ≈50 Hz. |
 | `/sensors/imu/raw` | gz IMU sensor, bridged to `/sim/imu_raw`, then `drive_bridge` republishes it | 50 Hz, rad/s, **frame_id `""`, same as the real driver** (D3 option c). Covariance diagonals are the vesc.yaml values. |
 | `/scan` | gz `gpu_lidar`, bridged | frame `laser`, 40 Hz, 1081 beams over ±2.356 rad. Mount moved to the real pose (0.12, 0, 0.20, yaw 0) to fix G3. Range 0.1–10 m kept (UNVERIFIED vs. real). |
-| `/joint_states` | `joint_state_broadcaster` | 6 joints, true values. The Thor must not run `joint_state_publisher` in sim mode. |
+| `/joint_states` | **not published by the sim** (superseded 2026-10-03) | The Thor's `joint_state_publisher` (static zeros, 10 Hz) publishes it, as on the car. The broadcaster's true values go to `/sim/joint_states` (+ `/sim/dynamic_joint_states`), which the private sim RSP reads for `/sim/tf`. |
 | `/clock` | bridged | All PC nodes use `use_sim_time`. |
 | `/sim/ground_truth` | gz `OdometryPublisher` system on the model, bridged as `nav_msgs/Odometry` | Frames `sim_world` / `sim_base_link`, so it can never be mistaken for a real frame. **Never on /tf.** |
 
@@ -421,7 +423,7 @@ Run in order on the sim PC. Items marked ★ settle an UNVERIFIED point above.
 | 3 | URDF → SDF | PASS. Both plugins are present, with the `robot_description` remap. `hokuyo` is lumped onto base_link at (0.12, 0, 0.20, 0 0 0), `imu_sensor` at identity, no ZED sensors. The `gz_frame_id` "not defined in SDF" warning is expected (a custom element read by gz-sensors). |
 | 4 | Launch, controllers | PASS. CM log: "Subscribing to '/sim/robot_description' topic … Received robot description". Both controllers `active` (via the `list_controllers` service). Benign warnings: "IMU sensor not found in hardware_info" (correct, the IMU is not a ros2_control interface); update period 0.02 s > sim step 0.001 s (intended, 50 Hz). |
 | 5 | TF rule | PASS. `/tf` and `/tf_static` **do not exist on the graph**. `/sim/tf_static` has 1 publisher. Note: the controller also creates `/ackermann_steering_controller/tf_odometry` even with `enable_odom_tf: false`; it is not `/tf` and has no subscribers. |
-| 6 | Topics, rates, content | PASS. Sim-time rates over 10 s: `/scan` 40.0, `/sensors/imu/raw` 50.0, `/odom` 50.0, `/joint_states` 50.0, `/sim/ground_truth` 50.0 Hz. Scan: frame `laser`, 1081 beams over ±2.3562 rad, range 0.1–10. IMU: `frame_id ''`, gyro covariance diagonal = vesc.yaml, accel z 9.8. Odom: `odom`/`base_link`, covariance 0.2/0.2/0.03, vx 0.0. Joints: 6. gz topics are `/scan` and `/sensors/imu/raw` as assumed. **Found and fixed:** Jazzy's controller_manager publishes `/diagnostics`; remapped to `/sim/diagnostics` (`2e672a3`). **Note:** `/clock` is 1000 Hz (one per 1 ms physics step). Small messages, but it crosses the LAN to the Thor: measure in the Thor phase, and throttle if needed. |
+| 6 | Topics, rates, content | PASS. Sim-time rates over 10 s: `/scan` 40.0, `/sensors/imu/raw` 50.0, `/odom` 50.0, `/joint_states` 50.0 (since `66ef8e8`: `/sim/joint_states` 50.0, and `/joint_states` is absent from the graph; items 4/5/6/9 re-run and pass), `/sim/ground_truth` 50.0 Hz. Scan: frame `laser`, 1081 beams over ±2.3562 rad, range 0.1–10. IMU: `frame_id ''`, gyro covariance diagonal = vesc.yaml, accel z 9.8. Odom: `odom`/`base_link`, covariance 0.2/0.2/0.03, vx 0.0. Joints: 6. gz topics are `/scan` and `/sensors/imu/raw` as assumed. **Found and fixed:** Jazzy's controller_manager publishes `/diagnostics`; remapped to `/sim/diagnostics` (`2e672a3`). **Note:** `/clock` is 1000 Hz (one per 1 ms physics step). Small messages, but it crosses the LAN to the Thor: measure in the Thor phase, and throttle if needed. |
 | 7 | Controller params | PASS. `ros2 param dump`: all 13 keys from controllers.yaml applied exactly. CM `update_rate` 50. No deprecation or rejection in the log. Defaults in effect: `open_loop: false`, `position_feedback: false`, `front_steering: true`. |
 | 8 | Laser pose | PASS. **`ranges[540]` = 4.830 m**, predicted 4.83 (a rear-facing laser would read ~5.07). `ranges[0]`/`[1080]` = 7.007, consistent with the ±135° beams hitting the side walls. |
 | 9 | Signs, clamp, stop | PASS. v 0.5, δ +0.4 for 8 s: ground-truth yaw +3.19 rad and y +2.28 m (left turn). Hinges inner +0.3032 / outer +0.2566 match the Ackermann geometry of the **clamped** +0.2780 exactly. `/odom` ω 0.439 = bicycle 0.439. δ −0.4: hinges −0.3101/−0.2615, i.e. clamped to −0.2838. Reverse v −0.5 with δ +0.2: ω −0.311 (bicycle −0.312). Commands stopped: ground-truth \|v\| < 0.02 after 0.31 s sim (0.2 s timeout + braking). |
@@ -444,7 +446,7 @@ signal handler raised RCLError, and a second SIGINT (terminal Ctrl-C plus launch
 > advertises). `af41013` was **not on `origin/jazzy` as of 2026-10-03** (`git fetch`; `malformed object name`), so
 > jazzy-sim is not yet rebased and the comparison below is against that description, not the code. Points to check
 > against the code once it lands:
-> 1. **`joint_state_publisher` must be off in sim mode.** The sim publishes the real `/joint_states`, and the description
+> 1. ~~`joint_state_publisher` must be off in sim mode.~~ **Resolved the other way (`66ef8e8`):** the Thor keeps it, as on the car, and the sim moved its joint states to `/sim/joint_states`. Check only that sim mode still runs it. (Old text: the description
 >    above doesn't mention it. If description.launch.py's `use_sim` is used for that, the laser TF goes too (table below).
 > 2. **The static base_link→imu is harmless and consistent:** the sim stamps `frame_id ""`, so the EKF never looks it up (D3).
 > 3. **Nothing that waits for `/sensors/core`** (battery, startup_sequence "VESC responding", calibration) may block or
@@ -453,12 +455,12 @@ signal handler raised RCLError, and a second SIGINT (terminal Ctrl-C plus launch
 > 5. **Node-name collisions** with the sim's graph: `/controller_manager`, `/joint_state_broadcaster`,
 >    `/ackermann_steering_controller`, `/gz_ros_control`, `/sim_robot_state_publisher`, `/sim_ros_gz_bridge`,
 >    `/f1tenth_sim_drive_bridge`. None should exist on the Thor.
-> 6. `/clock` arrives at 1000 Hz over the LAN (§4.R item 6).
+> 6. `/clock` arrives at 1000 Hz over the LAN (§4.R item 6). Agreed 2026-10-03: measure it in Phase S before throttling anything.
 > 7. The PC side: `ROS_DISCOVERY_SERVER=<thor-ip>:11811`, the same RMW, and a wired link (the PC's NIC is still down).
 >
 > The original pre-implementation analysis follows unchanged.
 
-The sim PC provides `/clock /scan /odom /sensors/imu/raw /joint_states` and consumes `/ackermann_drive`. On the Thor,
+The sim PC provides `/clock /scan /odom /sensors/imu/raw` (`/joint_states` since `66ef8e8`: `/sim/joint_states` only) and consumes `/ackermann_drive`. On the Thor,
 a `sim:=true` mode of `stack_bringup.launch.py` needs:
 
 | Component | Sim mode | Why |
@@ -467,7 +469,7 @@ a `sim:=true` mode of `stack_bringup.launch.py` needs:
 | urg_node (`lidar.launch.py` via supervisor `components.yaml`, `use_lidar`) | **skip** | Sim `/scan`. |
 | ZED camera + detection | **skip** | No camera mock (§2.4). |
 | Battery / calibration / VESC diagnostics (read `/sensors/core`) | **skip or tolerate** | Not emulated (G10). The startup_sequence "VESC is responding" check must not block. |
-| `description.launch.py` | **RSP and static `base_link→laser`: keep. `joint_state_publisher`: skip.** | The sim publishes the real `/joint_states`. **`use_sim:=true` is the wrong switch**: it gates `joint_state_publisher` *and* `static_baselink_to_laser` together, and the laser TF must stay. It needs a separate condition (e.g. a `sim` arg gating only `joint_state_publisher`), and `enable_sensors` stays false. |
+| `description.launch.py` | **RSP, static `base_link→laser` and `joint_state_publisher`: keep** (updated 2026-10-03). | The sim no longer publishes `/joint_states` (`66ef8e8`). **`use_sim:=true` is the wrong switch**: it gates `joint_state_publisher` *and* `static_baselink_to_laser` together, and the laser TF must stay. It needs a separate condition (e.g. a `sim` arg gating only `joint_state_publisher`), and `enable_sensors` stays false. |
 | ackermann_mux, EKF, slam_toolbox, costmap, navigation, MPC, behavior | **keep** | That is what is under test. MPC must not get `/model/virtual_robot/odometry` (D4); the sim does not publish it. |
 | `use_sim_time` | **true for every node** | Today it is plumbed through only 4 launch files. Cheapest whole-tree switch: `launch_ros.actions.SetParameter(name='use_sim_time', value=True)` at the top of `stack_bringup.launch.py` under the `sim` condition. **But** components started by `component_supervisor_node` are separate processes and do not inherit it. They need the parameter passed by the supervisor. UNVERIFIED which nodes that covers. |
 | DDS discovery | **must change** | The Thor's Fast-DDS discovery server listens on `discovery_server_address: 127.0.0.1` (`stack_params.yaml`), which the PC cannot reach. Sim mode needs it on the Thor's LAN address, and the PC exports `ROS_DISCOVERY_SERVER=<thor-ip>:11811` (plus `ROS_SUPER_CLIENT=TRUE` for `ros2` CLI introspection). Same `RMW_IMPLEMENTATION` (fastrtps) on both. The PC's wired NIC is currently down (§0.5); a cable is needed for 40 Hz scans + clock without Wi-Fi jitter. |

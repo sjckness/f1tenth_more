@@ -20,6 +20,21 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
+### 2026-10-03 — Sim stops publishing /joint_states; jazzy-sim pushed [decision]
+tags: decision | fix
+- On the car `/joint_states` comes from joint_state_publisher (static zeros, 10 Hz), which the Thor keeps
+  in `sim:=true`. Two publishers (that one and the sim's joint_state_broadcaster) would have made the Thor
+  robot_state_publisher's wheel/hinge TF flip between them. The broadcaster now publishes
+  `/sim/joint_states` (+ dynamic), which the private sim RSP reads.
+- Code check: the only consumer, MPC_corr.py:1255, matches `car_1_*_steering_hinge_joint`. Nothing
+  publishes that name (car or sim), so `delta_real` is always None and the object exit ramp uses the last
+  command. Not changed here; worth knowing that MPC's "measured steering" path is dead on both.
+- Branch strategy: jazzy-sim pushed as a new branch; origin/jazzy (with the Thor Phase 5 `af41013`)
+  will be merged in, not rebased. `/clock` at 1000 Hz to be measured in Phase S before any throttling.
+- status: resolved (joint states); open (merge + §5 reconcile when af41013 lands; ros2controlcli still
+  not installed on TPad per apt history)
+- commit: 66ef8e8
+
 ### 2026-10-03 — Jazzy sim verified on TPad: 12/12 Step 4 checks pass, f1tenth_sim un-ignored [fix]
 tags: fix | decision
 - Ran the report §4 checklist against a live sim. TF-silent: `/tf` and `/tf_static` absent from the graph.
