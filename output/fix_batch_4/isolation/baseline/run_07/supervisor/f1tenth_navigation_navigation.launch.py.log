@@ -1,0 +1,391 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_07/ros_log/2026-10-03-16-24-46-655267-thor-461635
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [461797]
+[INFO] [map_server-2]: process started with pid [461798]
+[INFO] [lifecycle_manager-3]: process started with pid [461801]
+[lifecycle_manager-3] [INFO] [1791037487.038374509] [lifecycle_manager_map]: Creating
+[lifecycle_manager-3] [INFO] [1791037487.043652715] [lifecycle_manager_map]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[map_server-2] [INFO] [1791037487.092270516] [map_server]: 
+[map_server-2] 	map_server lifecycle node launched. 
+[map_server-2] 	Waiting on external lifecycle transitions to activate
+[map_server-2] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[map_server-2] [INFO] [1791037487.092531710] [map_server]: Creating
+[lifecycle_manager-3] [INFO] [1791037487.797302430] [lifecycle_manager_map]: [34m[1mStarting managed nodes bringup...[0m[0m
+[lifecycle_manager-3] [INFO] [1791037487.797457412] [lifecycle_manager_map]: [34m[1mConfiguring map_server[0m[0m
+[map_server-2] [INFO] [1791037488.504627868] [map_server]: Configuring
+[map_server-2] [INFO] [1791037488.504832997] [map_io]: Loading yaml file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.yaml
+[map_server-2] [INFO] [1791037488.506557936] [map_io]: resolution: 0.05
+[map_server-2] [INFO] [1791037488.506612548] [map_io]: origin[0]: -50
+[map_server-2] [INFO] [1791037488.506617325] [map_io]: origin[1]: -50
+[map_server-2] [INFO] [1791037488.506620622] [map_io]: origin[2]: 0
+[map_server-2] [INFO] [1791037488.506624307] [map_io]: free_thresh: 0.196
+[map_server-2] [INFO] [1791037488.506627844] [map_io]: occupied_thresh: 0.65
+[map_server-2] [INFO] [1791037488.506634807] [map_io]: mode: trinary
+[map_server-2] [INFO] [1791037488.506657112] [map_io]: negate: 0
+[map_server-2] [INFO] [1791037488.507199925] [map_io]: Loading image_file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm
+[map_server-2] [INFO] [1791037488.561822590] [map_io]: Read map /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm: 2000 X 2000 map @ 0.05 m/cell
+[lifecycle_manager-3] [INFO] [1791037488.579406871] [lifecycle_manager_map]: [34m[1mActivating map_server[0m[0m
+[map_server-2] [INFO] [1791037488.579673685] [map_server]: Activating
+[map_server-2] [INFO] [1791037488.582594732] [map_server]: Creating bond (map_server) to lifecycle manager.
+[lifecycle_manager-3] [INFO] [1791037488.792984348] [lifecycle_manager_map]: Server map_server connected with bond.
+[lifecycle_manager-3] [INFO] [1791037488.793112265] [lifecycle_manager_map]: [34m[1mManaged nodes are active[0m[0m
+[lifecycle_manager-3] [INFO] [1791037488.793138533] [lifecycle_manager_map]: [34m[1mCreating bond timer...[0m[0m
+[taskset-1] [INFO] [1791037488.864364821] [mpc_corr]: OBJECT CORRIDOR | startup: object_corridor_mode='off' (straight corridor pinned to the target line) -- the default
+[taskset-1] [INFO] [1791037488.869724101] [mpc_corr]: model log -> "/home/andre/dev_ws/f1tenth_more/mpc_log.csv" (t,x,y,psi,v,steer_cmd,accel_cmd; see docs/DIAGNOSTICS.md)
+[taskset-1] [INFO] [1791037488.878674352] [mpc_corr]: corridor_log_path = "/home/andre/dev_ws/f1tenth_more/src/f1tenth_control/corridors_jsons/corridor_debug_20261003T162448.jsonl"
+[taskset-1] [INFO] [1791037488.911958086] [mpc_corr]: MPC Controller STARTED (pure MPC + obstacle avoidance [fixed deflection + predicted clearance], no plan executor)
+[taskset-1] [INFO] [1791037488.913565803] [mpc_corr]: CFG | ts=0.1 N=20 vdes=0.5 dmin=0.32 wheel_radius=0.05 car_radius=0.2 avoidance_margin=0.12
+[taskset-1] [INFO] [1791037488.915073512] [mpc_corr]: CFG | limits={'delta_min': -0.283, 'delta_max': 0.278, 'a_min': -2.0, 'a_max': 3.0, 'dDeltaMin': -0.5, 'dDeltaMax': 0.5, 'dAMin': -2.0, 'dAMax': 2.0, 'vMin': -1.0, 'vMax': 3.0}
+[taskset-1] [INFO] [1791037488.916551572] [mpc_corr]: CFG | weights={'w_term': 9.0, 'w_v': 4.2857, 'w_psi': 4.5, 'w_u_a': 0.0, 'w_du_delta': 8.33, 'w_du_a': 0.0, 'w_delta0': 0.0, 'w_obs': 8.0, 'w_corr': 3.5714, 'w_line': 1.1662, 'w_psi_stage': 4.7736}
+[taskset-1] [INFO] [1791037488.918022188] [mpc_corr]: CFG | params={'L': 0.305, 'lr': 0.17}
+[taskset-1] [INFO] [1791037489.012352046] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037489.013058146] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037489.013878272] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=0
+[taskset-1] [WARN] [1791037489.014236679] [mpc_corr]: PUB /drive | nessun subscriber: il comando non raggiunge il VESC.
+[taskset-1] [WARN] [1791037489.113426902] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037489.214029141] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037489.329918439] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037489.607427982] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037489.665251389] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037489.897846664] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037489.911588215] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.013612207] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037490.016400588] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037490.026894186] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037490.113818409] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.213919035] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.313854464] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.414021300] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.512768533] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.546463571] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791037490.612063434] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.711766281] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.812748789] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037490.912530671] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.013299546] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037491.112337796] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037491.113021368] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037491.113670458] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037491.212480903] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.312215588] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.412425792] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.512404355] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.612613333] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.712584626] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.812882228] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037491.912528051] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.012456966] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.112733010] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037492.113972988] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037492.212769481] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.312523433] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.412769649] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.512969637] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.612586472] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.712516447] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.812329155] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037492.912285680] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.012351548] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.112547449] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037493.211437105] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037493.212691898] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037493.213795358] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037493.312405821] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.412377547] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.512290920] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.612402476] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.712343029] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.812341140] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037493.912428878] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.012416908] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.112365170] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.212337414] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.312314231] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037494.313381284] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037494.412540947] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.512371888] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.612341988] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.712233940] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.812334808] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037494.912439134] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.012374402] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.075743629] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037495.112404586] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037495.211446503] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037495.212448555] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.312373976] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037495.313486742] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037495.412309641] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.512488273] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.601653836] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791037495.612354573] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.712335706] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.812569579] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037495.912590400] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.012475630] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.112438684] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.215422783] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.312291257] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.412408658] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037496.413466683] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037496.512276955] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.612317481] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.712663820] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.812454047] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037496.912384315] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.012276545] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.112525315] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037497.211457683] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037497.212548634] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.312344359] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.412272390] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.512369365] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037497.513418149] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037497.612422314] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.712317344] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.812526264] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037497.912508244] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.012366891] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.112386935] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.212953847] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.312506981] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.412491660] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.512149976] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.612555769] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037498.613792210] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037498.712542084] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.812436620] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037498.912379142] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.012351822] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.112462013] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.212358521] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037499.311440808] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037499.312587907] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.412465642] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.512492729] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.612412961] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.712423590] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037499.713556864] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037499.812374802] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037499.912315135] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.012382573] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.076990014] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037500.112397225] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.212330952] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.312307932] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.412291246] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.512463360] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.612305827] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.701416779] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791037500.712312951] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037500.812304380] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037500.813352320] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037500.912309111] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.012425230] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.112337177] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.212294810] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.312282094] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037501.411457925] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037501.412653044] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.512518430] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.612355621] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.712357517] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.812275355] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037501.912404250] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037501.913524342] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037502.012340811] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.112344410] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.212327433] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.312410682] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.412372224] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.512393517] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.612356223] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.712483887] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.812380474] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037502.912296887] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.012302327] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037503.013320896] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037503.112344582] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.212439855] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.312386544] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.412335509] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037503.511466752] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037503.512463042] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.612344202] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.712390195] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.812264833] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037503.912286799] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.012276387] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.112518251] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037504.113747553] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037504.212475317] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.312332187] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.412308059] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.512333283] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.612366164] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.712360536] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.812320490] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037504.912311663] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.012240515] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.112421368] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.126145725] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037505.212354079] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037505.213422684] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037505.312322198] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.412324345] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.512373557] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037505.611429925] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037505.612483974] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.701556242] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791037505.712421612] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.812288183] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037505.912308571] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.012526504] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.112401646] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.212563283] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037506.213762437] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037506.312390686] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.412447961] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.511945099] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.611739214] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.711867277] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.812764034] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037506.911728130] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.012473922] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.112344374] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.214218305] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037507.215015287] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037507.312030719] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.412380939] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.512445711] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.612375094] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037507.711448781] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037507.712642999] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.812048384] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037507.912361447] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.012301478] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.112275248] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.212376322] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.312446765] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037508.313581954] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037508.412419331] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.512981478] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.612042106] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.712468493] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.820449014] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037508.912426680] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.012309439] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.112290336] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.212381910] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.312318075] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.411892370] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037509.412717796] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037509.512377087] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.612523764] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037509.711460166] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037509.712618236] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.812356316] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037509.912356509] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037510.012296914] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037510.112453700] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037510.177270821] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [INFO] [1791037510.188038382] [mpc_corr]: ODOM/hw | x=+0.0000 y=+0.0000 yaw=+0.0000 v=+0.0000
+[taskset-1] [INFO] [1791037510.212154045] [mpc_corr]: Odom source -> hardware
+[taskset-1] [INFO] [1791037510.212994842] [mpc_corr]: psi_init_corridor (bootstrap) = 0.000
+[taskset-1] [WARN] [1791037510.215924190] [mpc_corr]: Nessun comando su /mpc/goal_distance ancora ricevuto: robot fermo in attesa.
+[taskset-1] [INFO] [1791037510.225903011] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037510.412813509] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037510.701750197] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791037511.206552473] [mpc_corr]: ODOM/hw | x=+0.0098 y=+0.0000 yaw=+0.0067 v=-0.0000
+[taskset-1] [INFO] [1791037511.512757414] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037511.711472302] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037512.206650518] [mpc_corr]: ODOM/hw | x=+0.0098 y=+0.0000 yaw=+0.0067 v=-0.0000
+[taskset-1] [INFO] [1791037512.226136024] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037512.512816900] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037513.206669976] [mpc_corr]: ODOM/hw | x=+0.0097 y=+0.0000 yaw=+0.0067 v=-0.0000
+[taskset-1] [INFO] [1791037513.513024158] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037513.811363167] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037514.226728449] [mpc_corr]: ODOM/hw | x=+0.0152 y=+0.0001 yaw=+0.0105 v=-0.0000
+[taskset-1] [INFO] [1791037514.274410318] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037514.612804644] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037515.247678325] [mpc_corr]: ODOM/hw | x=+0.0480 y=+0.0010 yaw=+0.0477 v=+0.1364
+[taskset-1] [INFO] [1791037515.712736938] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037515.801563247] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791037515.811414565] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037516.266179167] [mpc_corr]: ODOM/hw | x=+0.1481 y=+0.0117 yaw=+0.1773 v=-0.0000
+[taskset-1] [INFO] [1791037516.274470531] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037516.812624694] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037517.266898650] [mpc_corr]: ODOM/hw | x=+0.2783 y=+0.0424 yaw=+0.2847 v=+0.1968
+[taskset-1] [INFO] [1791037517.812726741] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037517.911403243] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037518.306284770] [mpc_corr]: ODOM/hw | x=+0.4984 y=+0.1216 yaw=+0.3909 v=+0.2535
+[taskset-1] [INFO] [1791037518.324992597] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037518.912785928] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037519.347685883] [mpc_corr]: ODOM/hw | x=+0.8006 y=+0.2260 yaw=+0.2436 v=+0.3803
+[taskset-1] [INFO] [1791037520.011476073] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037520.012998156] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037520.347970887] [mpc_corr]: ODOM/hw | x=+1.1645 y=+0.2897 yaw=+0.1055 v=+0.3976
+[taskset-1] [INFO] [1791037520.374750880] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [WARN] [1791037520.801739608] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791037521.112666042] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [INFO] [1791037521.348591638] [mpc_corr]: ODOM/hw | x=+1.4304 y=+0.2457 yaw=+1.8330 v=+0.2927
+[taskset-1] [INFO] [1791037522.011507990] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037522.112901846] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [INFO] [1791037522.366119948] [mpc_corr]: ODOM/hw | x=+1.3854 y=+0.4882 yaw=+1.6919 v=+0.2364
+[taskset-1] [INFO] [1791037522.427850582] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037523.213869212] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [INFO] [1791037523.366171369] [mpc_corr]: ODOM/hw | x=+1.3704 y=+0.7031 yaw=+1.6052 v=+0.2674
+[taskset-1] [INFO] [1791037524.011534907] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037524.312941336] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [INFO] [1791037524.366347445] [mpc_corr]: ODOM/hw | x=+1.3606 y=+0.9843 yaw=+1.6214 v=+0.3235
+[taskset-1] [INFO] [1791037524.428053705] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037525.368069525] [mpc_corr]: ODOM/hw | x=+1.3421 y=+1.3478 yaw=+1.6144 v=+0.3697
+[taskset-1] [INFO] [1791037525.413019223] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037525.801792639] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791037526.111526717] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037526.387287097] [mpc_corr]: ODOM/hw | x=+1.3291 y=+1.7435 yaw=+1.5895 v=+0.3923
+[taskset-1] [INFO] [1791037526.413111428] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [INFO] [1791037526.478496532] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037527.406939947] [mpc_corr]: ODOM/hw | x=+1.3279 y=+2.1670 yaw=+1.5613 v=+0.4364
+[taskset-1] [INFO] [1791037527.512888565] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [INFO] [1791037528.111563407] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037528.427795795] [mpc_corr]: ODOM/hw | x=+1.3355 y=+2.6089 yaw=+1.5436 v=+0.4122
+[taskset-1] [INFO] [1791037528.512976512] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [INFO] [1791037528.527838928] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037529.508143430] [mpc_corr]: ODOM/hw | x=+1.3490 y=+3.0785 yaw=+1.5425 v=+0.4391
+[taskset-1] [INFO] [1791037529.612781159] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[lifecycle_manager-3] [INFO] [1791037530.162227148] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[lifecycle_manager-3] [INFO] [1791037530.162383511] [lifecycle_manager_map]: Running Nav2 LifecycleManager rcl preshutdown (lifecycle_manager_map)
+[lifecycle_manager-3] [INFO] [1791037530.162457354] [lifecycle_manager_map]: [34m[1mTerminating bond timer...[0m[0m
+[INFO] [lifecycle_manager-3]: sending signal 'SIGINT' to process[lifecycle_manager-3]
+[INFO] [map_server-2]: sending signal 'SIGINT' to process[map_server-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[map_server-2] [INFO] [1791037530.166017099] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[map_server-2] [INFO] [1791037530.166246480] [map_server]: Running Nav2 LifecycleNode rcl preshutdown (map_server)
+[map_server-2] [INFO] [1791037530.166743227] [map_server]: Deactivating
+[map_server-2] [INFO] [1791037530.167060592] [map_server]: Destroying bond (map_server) to lifecycle manager.
+[map_server-2] [INFO] [1791037530.178679083] [map_server]: Cleaning up
+[map_server-2] [INFO] [1791037530.178795298] [map_server]: Destroying bond (map_server) to lifecycle manager.
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('mpc-controller', 'console_scripts', 'mpc_corr')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/mpc_controller/mpc_controller/MPC_corr.py", line 5706, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/mpc_controller/mpc_controller/MPC_corr.py", line 1889, in destroy_node
+[taskset-1]     super().destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[map_server-2] [INFO] [1791037530.190112620] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[lifecycle_manager-3] [INFO] [1791037530.215440286] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[lifecycle_manager-3] [INFO] [1791037530.223196650] [lifecycle_manager_map]: Destroying lifecycle_manager_map
+[map_server-2] [INFO] [1791037530.234804383] [map_server]: Destroying
+[INFO] [map_server-2]: process has finished cleanly [pid 461798]
+[INFO] [lifecycle_manager-3]: process has finished cleanly [pid 461801]
+[ERROR] [taskset-1]: process has died [pid 461797, exit code -2, cmd 'taskset -c 10,11 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_0ju3m5ck'].

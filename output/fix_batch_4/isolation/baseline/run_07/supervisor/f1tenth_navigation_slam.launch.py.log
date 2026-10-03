@@ -1,0 +1,9 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_07/ros_log/2026-10-03-16-24-46-670894-thor-461639
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [461993]
+[taskset-1] [INFO] [1791037487.570597861] [slam_toolbox]: Node using stack size 40000000
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[INFO] [taskset-1]: process has finished cleanly [pid 461993]
+[taskset-1] [INFO] [1791037530.167360993] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[WARNING] [launch_ros.utilities.lifecycle_event_manager]: Abandoning wait for the '/slam_toolbox/change_state' service response, due to shutdown.

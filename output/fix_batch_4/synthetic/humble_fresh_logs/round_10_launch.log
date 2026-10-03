@@ -1,0 +1,8 @@
+[INFO] [launch]: All log files can be found below /root/.ros/log/2026-10-03-19-49-20-261085-thor-3942
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [python3-1]: process started with pid [4295]
+[python3-1] [INFO] [1791049761.611972860] [syn_lifecycle]: SYN CONFIGURED
+[python3-1] [INFO] [1791049761.615607104] [syn_lifecycle]: SYN ACTIVATED
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [python3-1]: sending signal 'SIGINT' to process[python3-1]
+[INFO] [python3-1]: process has finished cleanly [pid 4295]

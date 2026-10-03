@@ -1,0 +1,7 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_07/ros_log/2026-10-03-16-24-46-683588-thor-461643
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [mission_logger_node-1]: process started with pid [461796]
+[mission_logger_node-1] [INFO] [1791037488.556804937] [mission_logger_node]: mission_logger_node up (pid 461796, lock /tmp/mission_logger.lock): watching "/mission/status", runs -> "/home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_07/runs" (active/ -> complete/, storage=mcap), 44 topics (5 with BEST_EFFORT overrides), sweep every 300s (action=move). THIS IS THE LIVE LOGGER -- a second `ros2 run` will be refused.
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [mission_logger_node-1]: sending signal 'SIGINT' to process[mission_logger_node-1]
+[INFO] [mission_logger_node-1]: process has finished cleanly [pid 461796]

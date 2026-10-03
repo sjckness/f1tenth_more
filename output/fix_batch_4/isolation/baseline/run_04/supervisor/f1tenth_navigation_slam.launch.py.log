@@ -1,0 +1,20 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_04/ros_log/2026-10-03-16-22-06-979681-thor-456551
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [456787]
+[taskset-1] [INFO] [1791037327.725576883] [slam_toolbox]: Node using stack size 40000000
+[taskset-1] [INFO] [1791037329.790357543] [slam_toolbox]: Configuring
+[taskset-1] [INFO] [1791037329.808206569] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[taskset-1] [INFO] [1791037330.138197773] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[taskset-1] [INFO] [1791037330.191598835] [slam_toolbox]: Activating
+[taskset-1] [INFO] [1791037352.272811419] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037352.071 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791037354.801639559] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037354.601 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791037357.314259048] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037357.114 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791037359.841457913] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037359.641 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791037362.341652330] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037362.141 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791037364.841683082] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037364.641 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791037367.344278069] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037367.144 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791037369.852666939] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791037369.652 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[INFO] [taskset-1]: process has finished cleanly [pid 456787]
+[taskset-1] [INFO] [1791037370.601499677] [rclcpp]: signal_handler(SIGINT/SIGTERM)

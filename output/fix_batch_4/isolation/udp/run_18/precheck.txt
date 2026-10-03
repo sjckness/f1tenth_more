@@ -1,0 +1,1 @@
+stale lock /tmp/mission_logger.lock (dead pid 579032), left for the node to reclaim

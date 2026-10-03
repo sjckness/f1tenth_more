@@ -1,0 +1,172 @@
+{
+  "t0": 1791040045.8186235,
+  "final": [
+    "/ackermann_mux",
+    "/behavior_executor_node",
+    "/component_supervisor_node",
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/diagnostics_server_node",
+    "/ekf_cost_observer_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/ekf_global/transform_listener_impl_aaaad0d19100",
+    "/foxglove_bridge",
+    "/image_annotated_viz_throttle",
+    "/image_raw_viz_throttle",
+    "/isolation_watch",
+    "/joint_state_publisher",
+    "/launch_ros_540436",
+    "/lidar_front_wall_node",
+    "/lifecycle_manager_map",
+    "/map_server",
+    "/mission_logger_node",
+    "/mpc_corr",
+    "/obstacle_clearance_node",
+    "/robot_state_publisher",
+    "/semantic_layer_node",
+    "/slam_pose_relay_node",
+    "/slam_toolbox",
+    "/static_baselink_to_laser",
+    "/swept_clearance_node",
+    "/system_observer_node",
+    "/transform_listener_impl_aaab0d288170",
+    "/transform_listener_impl_aaab0e874fb0",
+    "/twist_to_ackermann_node",
+    "/wall_distance_node"
+  ],
+  "seen": {
+    "/isolation_watch": {
+      "first": 1.7204005718231201,
+      "last": 22.821398496627808
+    },
+    "/component_supervisor_node": {
+      "first": 2.2257566452026367,
+      "last": 22.821398496627808
+    },
+    "/foxglove_bridge": {
+      "first": 2.9821128845214844,
+      "last": 22.821398496627808
+    },
+    "/lifecycle_manager_map": {
+      "first": 2.9821128845214844,
+      "last": 22.821398496627808
+    },
+    "/map_server": {
+      "first": 2.9821128845214844,
+      "last": 22.821398496627808
+    },
+    "/image_raw_viz_throttle": {
+      "first": 2.9821128845214844,
+      "last": 22.821398496627808
+    },
+    "/launch_ros_540436": {
+      "first": 2.9821128845214844,
+      "last": 22.821398496627808
+    },
+    "/image_annotated_viz_throttle": {
+      "first": 2.9821128845214844,
+      "last": 22.821398496627808
+    },
+    "/ackermann_mux": {
+      "first": 2.9821128845214844,
+      "last": 22.821398496627808
+    },
+    "/ekf_filter_node": {
+      "first": 3.2348341941833496,
+      "last": 22.821398496627808
+    },
+    "/transform_listener_impl_aaab0d288170": {
+      "first": 3.2348341941833496,
+      "last": 22.821398496627808
+    },
+    "/twist_to_ackermann_node": {
+      "first": 3.485999822616577,
+      "last": 22.821398496627808
+    },
+    "/transform_listener_impl_aaab0e874fb0": {
+      "first": 3.7370288372039795,
+      "last": 22.821398496627808
+    },
+    "/slam_toolbox": {
+      "first": 3.7370288372039795,
+      "last": 22.821398496627808
+    },
+    "/static_baselink_to_laser": {
+      "first": 3.7370288372039795,
+      "last": 22.821398496627808
+    },
+    "/robot_state_publisher": {
+      "first": 3.7370288372039795,
+      "last": 22.821398496627808
+    },
+    "/ekf_global/ekf_global_filter_node": {
+      "first": 3.9906232357025146,
+      "last": 22.821398496627808
+    },
+    "/mission_logger_node": {
+      "first": 3.9906232357025146,
+      "last": 22.821398496627808
+    },
+    "/system_observer_node": {
+      "first": 3.9906232357025146,
+      "last": 22.821398496627808
+    },
+    "/ekf_global/transform_listener_impl_aaaad0d19100": {
+      "first": 3.9906232357025146,
+      "last": 22.821398496627808
+    },
+    "/slam_pose_relay_node": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/semantic_layer_node": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/joint_state_publisher": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/mpc_corr": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/ekf_cost_observer_node": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/costmap_boundary_node": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/diagnostics_server_node": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/costmap_renderer_node": {
+      "first": 4.492849111557007,
+      "last": 22.821398496627808
+    },
+    "/behavior_executor_node": {
+      "first": 4.743958473205566,
+      "last": 22.821398496627808
+    },
+    "/wall_distance_node": {
+      "first": 7.00309157371521,
+      "last": 22.821398496627808
+    },
+    "/swept_clearance_node": {
+      "first": 7.00309157371521,
+      "last": 22.821398496627808
+    },
+    "/lidar_front_wall_node": {
+      "first": 7.756529808044434,
+      "last": 22.821398496627808
+    },
+    "/obstacle_clearance_node": {
+      "first": 7.756529808044434,
+      "last": 22.821398496627808
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "isolated": {
+    "/costmap_boundary_node": [
+      "output: no message on /costmap/front_clearance in 8 s",
+      "starved: 2 \"no message ever received\" lines from feed start + 12 s on"
+    ],
+    "/slam_pose_relay_node": [
+      "output: no message on /slam/pose_calibrated in 8 s"
+    ],
+    "/slam_toolbox": [
+      "output: no message on /slam/pose in 8 s"
+    ]
+  },
+  "n_isolated": 3,
+  "polls": 34,
+  "topic_counts": {
+    "/slam/pose": 0,
+    "/perception/swept_clearance/lidar": 322,
+    "/diagnostics/battery_status": 16,
+    "/drive": 81,
+    "/odometry/filtered": 359,
+    "/slam/pose_calibrated": 0,
+    "/perception/d_wall/segment": 81,
+    "/ekf_global/odometry/filtered": 358,
+    "/behavior/tree_status": 78,
+    "/joint_states": 80,
+    "/costmap/front_clearance": 0,
+    "/ackermann_drive": 80,
+    "/diagnostics/system_status": 8,
+    "/perception/lidar_front_wall": 317,
+    "/obstacle_clearance": 317
+  },
+  "topics_not_in_graph": [],
+  "graph_signal": {},
+  "starvation_signal": {
+    "/costmap_boundary_node": "2 \"no message ever received\" lines from feed start + 12 s on"
+  }
+}

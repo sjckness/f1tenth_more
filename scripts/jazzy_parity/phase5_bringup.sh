@@ -291,6 +291,44 @@ hold)
   stop_stack "$RUN"
   discovery_errors "$RUN"
   ;;
+isolation)
+  # Fix batch 4 (H1): N bringups, each checked for discovery isolation by
+  # isolation_check.py (graph timeline + input-driven outputs + starvation
+  # logs). FRESH_DS=1 stops the Discovery Server before every run (the
+  # launch then starts a fresh one); default reuses the running one, as
+  # production does. FASTDDS_BUILTIN_TRANSPORTS (e.g. UDPv4) is honoured
+  # from the environment, for the stack and every tool alike.
+  N=${1:-30}
+  for i in $(seq 1 "$N"); do
+    RUN="$OUT/run_$(printf %02d "$i")"; mkdir -p "$RUN"
+    if [ "${FRESH_DS:-0}" = 1 ]; then pkill -INT -x fast-discovery- 2>/dev/null; sleep 1.5; fi
+    precheck > "$RUN/precheck.txt"
+    echo "FRESH_DS=${FRESH_DS:-0} FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-<default>} RUN_GAP=${RUN_GAP:-2} FASTRTPS_DEFAULT_PROFILES_FILE=${FASTRTPS_DEFAULT_PROFILES_FILE:-<unset>}" > "$RUN/condition.txt"
+    head -1 /proc/stat > "$RUN/cpu_t0.txt"
+    start_stack "$RUN"
+    ROS_SUPER_CLIENT=TRUE python3 "$HERE/isolation_check.py" watch --out "$RUN/graph_timeline.jsonl" > "$RUN/watch.log" 2>&1 &
+    WATCH=$!
+    wait_settled "$RUN" 150
+    snapshot_procs "$RUN" settled
+    "${SIGDFL[@]}" python3 "$HERE/restamp_play.py" "$BAG" > "$RUN/play.log" 2>&1 < /dev/null &
+    PLAY=$!
+    T_FEED=$(date +%s.%N); echo "$T_FEED" > "$RUN/t_feed.txt"
+    sleep 12
+    ROS_SUPER_CLIENT=TRUE python3 "$HERE/isolation_check.py" check --run-dir "$RUN" \
+      --timeline "$RUN/graph_timeline.jsonl" --t-feed "$T_FEED" --duration 8 \
+      --out "$RUN/isolation.json" > "$RUN/isolation.log" 2>&1
+    head -1 /proc/stat > "$RUN/cpu_t1.txt"; cat /proc/loadavg > "$RUN/loadavg.txt"
+    kill -INT $PLAY 2>/dev/null; wait $PLAY 2>/dev/null
+    stop_stack "$RUN"
+    kill -INT $WATCH 2>/dev/null; wait $WATCH 2>/dev/null
+    discovery_errors "$RUN"
+    echo "run $i: $(tail -1 "$RUN/isolation.log" | cut -c1-300)"
+    # RUN_GAP: seconds between a shutdown and the next bringup (default 2).
+    # Longer than the 20 s participant lease lets the reused server expire
+    # every participant of the previous run first.
+    sleep "${RUN_GAP:-2}"
+  done
+  ;;
 snapshot)
   precheck
   RUN=$OUT

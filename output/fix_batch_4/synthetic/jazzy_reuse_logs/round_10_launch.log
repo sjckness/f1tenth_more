@@ -1,0 +1,8 @@
+[INFO] [launch]: All log files can be found below /home/andre/.ros/log/2026-10-03-19-13-58-581440-thor-723393
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [python3-1]: process started with pid [724259]
+[python3-1] [INFO] [1791047640.644387645] [syn_lifecycle]: SYN CONFIGURED
+[python3-1] [INFO] [1791047640.649609161] [syn_lifecycle]: SYN ACTIVATED
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [python3-1]: sending signal 'SIGINT' to process[python3-1]
+[ERROR] [python3-1]: process has died [pid 724259, exit code -2, cmd '/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/scripts/fix_batch_4/synth/lc_node.py --ros-args -r __node:=syn_lifecycle -r __ns:=/'].
