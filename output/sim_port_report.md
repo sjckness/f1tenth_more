@@ -1,10 +1,9 @@
 # f1tenth_sim port: Ignition Fortress → Gazebo Harmonic (ROS 2 Jazzy)
 
 Host: simulation PC (Ubuntu 24.04). Branch: `jazzy-sim`, created from `origin/jazzy` @ `fc1ae6f`.
-Status (2026-10-02, after a session resume): **Steps 0–3 done and committed. Step 5 written (§5). Step 4 (run and
-verify) is blocked on the ROS install, which needs an interactive sudo password: run `scripts/sim_host_setup.sh`.**
-Disk is now 28 GB free (user freed space; precondition ≥ 25 GB met). `f1tenth_sim/COLCON_IGNORE` is still in place
-on purpose until Step 4 passes (§4).
+Status (2026-10-03): **Steps 0–4 done. Step 4 passed all 12 items on this PC (§4.R). `COLCON_IGNORE` is removed.
+§5 is waiting for the Thor-side Phase 5 commit `af41013` to reach `origin/jazzy`; then jazzy-sim gets rebased onto it.
+jazzy-sim has not been pushed (waiting for the user's go-ahead).**
 
 Tags used below: **[code]** = read from source in this repo, **[doc]** = official upstream docs,
 **UNVERIFIED** = an assumption not yet checked against a running system.
@@ -413,7 +412,51 @@ Run in order on the sim PC. Items marked ★ settle an UNVERIFIED point above.
 11. Load: RTF from `gz stats` with gui:=false and gui:=true on the Iris Xe. CPU and GPU in `top` / `intel_gpu_top`.
 12. If all pass: commit the `COLCON_IGNORE` removal.
 
-## 5. Thor side: running the stack against the sim (Step 5, documented, not implemented)
+### 4.R Results (2026-10-03, TPad, Jazzy from apt, gz-sim 8.15.0)
+
+| # | Item | Result |
+|---|---|---|
+| 1 | Install, `gz` resolution | PASS. All 23 packages installed by the user via `sim_host_setup.sh`. With `setup.zsh` sourced, `which gz` gives `/opt/ros/jazzy/opt/gz_tools_vendor/bin/gz` and `gz sim --versions` gives 8.15.0. The running server maps only vendor libraries (`/opt/ros/jazzy/opt/gz_sim_vendor/lib/libgz-sim8.so.8.15.0`, gz_sensors_vendor gpu_lidar, gz_rendering_vendor ogre2). The OSRF gz-sim 8.11 in `/usr` stays installed and unused. **The §0.5 coexistence worry is settled.** Setup-script bugs: the "ROS apt source: MISSING" false negative came from a `pipefail` + `grep -q` SIGPIPE race on `apt-cache policy`, not from deb822 (fixed `06a0ca1`: now reads `.list` and deb822 `.sources` directly). The script now runs from zsh (`zsh script` / `sh script` re-exec under bash) and prints `setup.zsh`. `ros2controlcli` was missing from the list (added `551fa1a`; **re-run the script to install it**). |
+| 2 | Build and test | PASS. `colcon build --packages-up-to f1tenth_sim`: 3 packages in 5 s. `colcon test`: **37 tests, 0 failures** after fixing import order (`01abfe6`, I100: the scratch-venv flake8 used in Step 3 had no import-order plugin). |
+| 3 | URDF → SDF | PASS. Both plugins are present, with the `robot_description` remap. `hokuyo` is lumped onto base_link at (0.12, 0, 0.20, 0 0 0), `imu_sensor` at identity, no ZED sensors. The `gz_frame_id` "not defined in SDF" warning is expected (a custom element read by gz-sensors). |
+| 4 | Launch, controllers | PASS. CM log: "Subscribing to '/sim/robot_description' topic … Received robot description". Both controllers `active` (via the `list_controllers` service). Benign warnings: "IMU sensor not found in hardware_info" (correct, the IMU is not a ros2_control interface); update period 0.02 s > sim step 0.001 s (intended, 50 Hz). |
+| 5 | TF rule | PASS. `/tf` and `/tf_static` **do not exist on the graph**. `/sim/tf_static` has 1 publisher. Note: the controller also creates `/ackermann_steering_controller/tf_odometry` even with `enable_odom_tf: false`; it is not `/tf` and has no subscribers. |
+| 6 | Topics, rates, content | PASS. Sim-time rates over 10 s: `/scan` 40.0, `/sensors/imu/raw` 50.0, `/odom` 50.0, `/joint_states` 50.0, `/sim/ground_truth` 50.0 Hz. Scan: frame `laser`, 1081 beams over ±2.3562 rad, range 0.1–10. IMU: `frame_id ''`, gyro covariance diagonal = vesc.yaml, accel z 9.8. Odom: `odom`/`base_link`, covariance 0.2/0.2/0.03, vx 0.0. Joints: 6. gz topics are `/scan` and `/sensors/imu/raw` as assumed. **Found and fixed:** Jazzy's controller_manager publishes `/diagnostics`; remapped to `/sim/diagnostics` (`2e672a3`). **Note:** `/clock` is 1000 Hz (one per 1 ms physics step). Small messages, but it crosses the LAN to the Thor: measure in the Thor phase, and throttle if needed. |
+| 7 | Controller params | PASS. `ros2 param dump`: all 13 keys from controllers.yaml applied exactly. CM `update_rate` 50. No deprecation or rejection in the log. Defaults in effect: `open_loop: false`, `position_feedback: false`, `front_steering: true`. |
+| 8 | Laser pose | PASS. **`ranges[540]` = 4.830 m**, predicted 4.83 (a rear-facing laser would read ~5.07). `ranges[0]`/`[1080]` = 7.007, consistent with the ±135° beams hitting the side walls. |
+| 9 | Signs, clamp, stop | PASS. v 0.5, δ +0.4 for 8 s: ground-truth yaw +3.19 rad and y +2.28 m (left turn). Hinges inner +0.3032 / outer +0.2566 match the Ackermann geometry of the **clamped** +0.2780 exactly. `/odom` ω 0.439 = bicycle 0.439. δ −0.4: hinges −0.3101/−0.2615, i.e. clamped to −0.2838. Reverse v −0.5 with δ +0.2: ω −0.311 (bicycle −0.312). Commands stopped: ground-truth \|v\| < 0.02 after 0.31 s sim (0.2 s timeout + braking). |
+| 10 | Odom drift | RECORDED. 20 s, v 0.5, δ 0.2, 9.70 m path: odom vs ground truth **0.28 m (2.9 %)**, yaw −0.175 rad. Ground-truth speed is ~3 % below command (wheel slip in gz). `/odom` integrates the commanded wheel speed, like the car's ERPM odometry. |
+| 11 | Load / RTF (i7-1165G7) | Headless (`gui:=false`, Iris Xe for the gpu_lidar): **RTF 1.00**, server ~73 % of one core. GUI on Iris Xe: **RTF 0.74**, server ~180 %, GUI ~142 %, poor. GUI on MX450 via PRIME offload (`__NV_PRIME_RENDER_OFFLOAD=1 __GLX_VENDOR_LIBRARY_NAME=nvidia`, both server and GUI on the NVIDIA GPU): **RTF 1.00 / 0.99**, server ~89 %, GUI ~59 %, GPU 19 %, 352 MiB VRAM. **Recommendation: run headless by default (the launch default); use PRIME offload whenever the GUI is on.** |
+| 12 | COLCON_IGNORE removal | Done (`9ed3785`). |
+
+Also found in Step 4: `drive_bridge` exited with code 1 on every clean shutdown. A second `rclpy.shutdown()` after Jazzy's
+signal handler raised RCLError, and a second SIGINT (terminal Ctrl-C plus launch's forwarded one) interrupted
+`destroy_node()`. Fixed in `6529fcc` and verified ("process has finished cleanly" under a group SIGINT). gz itself exits
+−2 on a double SIGINT; that is upstream behaviour, not fixed. Disk: 25 GB free before and after; build+install+log =
+4 MB.
+
+## 5. Thor side: running the stack against the sim (Step 5)
+
+> **Superseded by the Thor-side implementation, pending rebase.** Per the user (2026-10-03), Phase 5 implemented
+> `supervisor_bringup.launch.py sim:=true` in commit `af41013`. It skips vesc/camera/lidar, keeps
+> robot_state_publisher, both EKFs, base_link→laser and a static base_link→imu identical to the car's, puts every
+> component on /clock, and takes `discovery_server_address` (the server binds 0.0.0.0; the argument is what it
+> advertises). `af41013` was **not on `origin/jazzy` as of 2026-10-03** (`git fetch`; `malformed object name`), so
+> jazzy-sim is not yet rebased and the comparison below is against that description, not the code. Points to check
+> against the code once it lands:
+> 1. **`joint_state_publisher` must be off in sim mode.** The sim publishes the real `/joint_states`, and the description
+>    above doesn't mention it. If description.launch.py's `use_sim` is used for that, the laser TF goes too (table below).
+> 2. **The static base_link→imu is harmless and consistent:** the sim stamps `frame_id ""`, so the EKF never looks it up (D3).
+> 3. **Nothing that waits for `/sensors/core`** (battery, startup_sequence "VESC responding", calibration) may block or
+>    alarm, since the sim does not emulate it (G10).
+> 4. **ackermann_mux must stay in:** the sim listens on `/ackermann_drive` (D1).
+> 5. **Node-name collisions** with the sim's graph: `/controller_manager`, `/joint_state_broadcaster`,
+>    `/ackermann_steering_controller`, `/gz_ros_control`, `/sim_robot_state_publisher`, `/sim_ros_gz_bridge`,
+>    `/f1tenth_sim_drive_bridge`. None should exist on the Thor.
+> 6. `/clock` arrives at 1000 Hz over the LAN (§4.R item 6).
+> 7. The PC side: `ROS_DISCOVERY_SERVER=<thor-ip>:11811`, the same RMW, and a wired link (the PC's NIC is still down).
+>
+> The original pre-implementation analysis follows unchanged.
 
 The sim PC provides `/clock /scan /odom /sensors/imu/raw /joint_states` and consumes `/ackermann_drive`. On the Thor,
 a `sim:=true` mode of `stack_bringup.launch.py` needs:
