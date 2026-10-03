@@ -51,7 +51,7 @@ import math
 from f1tenth_diagnostics.calibration_common import resolve_source_config_path
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -153,4 +153,11 @@ def generate_launch_description():
         emulate_tty=True,
         parameters=[parameters],
     )
-    return LaunchDescription(declared + [calibration_node])
+    # Super client for this launch tree (only this node): its e-stop preflight
+    # counts publishers on /safety_stop, a topic it has no endpoint on, and
+    # under ROS_DISCOVERY_SERVER a plain client is never told about other
+    # participants' topics. As a plain client it counted 0 with the behaviour
+    # tree running and refused to run (fix batch 3). Same pattern as
+    # foxglove_bridge.launch.py and mission_logger.launch.py.
+    super_client_env = SetEnvironmentVariable('ROS_SUPER_CLIENT', 'TRUE')
+    return LaunchDescription([super_client_env] + declared + [calibration_node])
