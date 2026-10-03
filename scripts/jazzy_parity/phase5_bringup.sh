@@ -98,6 +98,11 @@ wait_settled() {
 
 snapshot_procs() {  # RUN_DIR LABEL
   stack_procs > "$1/procs_$2.txt"
+  # ROS_SUPER_CLIENT / ROS_DISCOVERY_SERVER as each process actually has them.
+  for p in $(awk '{print $1}' "$1/procs_$2.txt"); do
+    e=$(tr '\0' '\n' < /proc/"$p"/environ 2>/dev/null | grep -E '^ROS_(SUPER_CLIENT|DISCOVERY_SERVER|DOMAIN_ID)=' | sort | tr '\n' ' ')
+    printf '%s %s| %s\n' "$p" "${e:-<none>}" "$(tr '\0' ' ' < /proc/"$p"/cmdline 2>/dev/null | cut -c1-140)"
+  done > "$1/environ_$2.txt"
   for p in $(awk '{print $1}' "$1/procs_$2.txt"); do
     printf '%s %s\n' "$p" "$(taskset -pc "$p" 2>/dev/null | sed 's/.*: //')"
   done > "$1/affinity_$2.txt"
@@ -256,6 +261,7 @@ logger)
   RUN=$OUT
   start_stack "$RUN"
   wait_settled "$RUN" 150
+  snapshot_procs "$RUN" settled
   "${SIGDFL[@]}" python3 "$HERE/restamp_play.py" "$BAG" --loops 2 > "$RUN/play.log" 2>&1 < /dev/null &
   PLAY=$!
   python3 "$HERE/graph_stub_node.py" ackermann_to_vesc_node > "$RUN/stub_vesc.log" 2>&1 &
@@ -265,6 +271,22 @@ logger)
   probe --out "$RUN/mission.json" mission --path "$RUN/phase5_hold.json" --wait 60
   kill -INT $STUB; wait $STUB 2>/dev/null
   sleep 15
+  kill -INT $PLAY 2>/dev/null; wait $PLAY 2>/dev/null
+  stop_stack "$RUN"
+  discovery_errors "$RUN"
+  ;;
+hold)
+  # Bringup, feed, and keep the stack up HOLD_SEC (default 300) for checks
+  # run from outside, then shut down.
+  precheck
+  RUN=$OUT
+  start_stack "$RUN"
+  wait_settled "$RUN" 150
+  snapshot_procs "$RUN" settled
+  "${SIGDFL[@]}" python3 "$HERE/restamp_play.py" "$BAG" --loops 20 > "$RUN/play.log" 2>&1 < /dev/null &
+  PLAY=$!
+  touch "$RUN/READY"
+  sleep "${HOLD_SEC:-300}"
   kill -INT $PLAY 2>/dev/null; wait $PLAY 2>/dev/null
   stop_stack "$RUN"
   discovery_errors "$RUN"
