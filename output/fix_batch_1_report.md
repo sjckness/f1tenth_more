@@ -175,7 +175,7 @@ Output: `output/fix_batch_1/logger_check_{mcap,sqlite3,mcap_without_fix}.txt`.
 931a0eb fix/diagnostics: system_observer skips a thermal zone whose sysfs read returns None — Thor's idle GPU zone crashed the node on its first tick
 0397d6b fix/behavior: preflight requires front_clearance_node for a front_clearance condition — it checked costmap_boundary_node, the producer before 63a6080
 7155f79 fix/logger: record the drive goal, the front_clearance stop input, IMU, joint and MPC status topics — Phases 3-4 found each of them missing from every bag
-(this report and its data: next commit)
+e4d6110 fix/batch1: report and evidence for the three non-migration fixes — soak, BT replay and logger-check data behind each commit
 ```
 
 All local and unpushed.
