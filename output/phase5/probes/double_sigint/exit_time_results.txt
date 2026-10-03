@@ -1,0 +1,2 @@
+jazzy: ros2 launch exit after group SIGINT: median 0.31 s, max 0.37 s, n=10
+humble: ros2 launch exit after group SIGINT: median 0.19 s, max 0.27 s, n=10

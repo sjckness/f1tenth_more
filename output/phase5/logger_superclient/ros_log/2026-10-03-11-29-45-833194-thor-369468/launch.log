@@ -1,0 +1,9 @@
+1791019785.8359747 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/ros_log/2026-10-03-11-29-45-833194-thor-369468
+1791019785.8365493 [INFO] [launch]: Default logging verbosity is set to INFO
+1791019786.0388656 [INFO] [taskset-1]: process started with pid [369532]
+1791019786.0392959 [INFO] [map_server-2]: process started with pid [369535]
+1791019786.0393980 [INFO] [lifecycle_manager-3]: process started with pid [369536]
+1791019849.4103742 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791019849.4235444 [INFO] [lifecycle_manager-3]: sending signal 'SIGINT' to process[lifecycle_manager-3]
+1791019849.4241889 [INFO] [map_server-2]: sending signal 'SIGINT' to process[map_server-2]
+1791019849.4245653 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]

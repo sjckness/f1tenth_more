@@ -1,0 +1,12 @@
+1791019934.0766213 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_02/ros_log/2026-10-03-11-32-14-073550-thor-372784
+1791019934.0771391 [INFO] [launch]: Default logging verbosity is set to INFO
+1791019934.2737994 [INFO] [taskset-1]: process started with pid [372840]
+1791019934.2743738 [INFO] [map_server-2]: process started with pid [372841]
+1791019934.2745583 [INFO] [lifecycle_manager-3]: process started with pid [372842]
+1791019977.6588576 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791019977.6727285 [INFO] [lifecycle_manager-3]: sending signal 'SIGINT' to process[lifecycle_manager-3]
+1791019977.6732745 [INFO] [map_server-2]: sending signal 'SIGINT' to process[map_server-2]
+1791019977.6737015 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791019978.9021232 [INFO] [lifecycle_manager-3]: process has finished cleanly [pid 372842]
+1791019978.9109583 [INFO] [map_server-2]: process has finished cleanly [pid 372841]
+1791019978.9601567 [ERROR] [taskset-1]: process has died [pid 372840, exit code -2, cmd 'taskset -c 10,11 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_t93ug67k'].

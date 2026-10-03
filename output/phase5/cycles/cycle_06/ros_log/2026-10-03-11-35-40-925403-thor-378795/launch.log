@@ -1,0 +1,12 @@
+1791020140.9277842 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_06/ros_log/2026-10-03-11-35-40-925403-thor-378795
+1791020140.9281678 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020141.1224279 [INFO] [ackermann_mux-1]: process started with pid [378840]
+1791020141.2092950 [ackermann_mux-1] [INFO] [1791020141.207885509] [ackermann_mux]: Topic handler 'topics.calibration' subscribed to topic 'calibration_drive': timeout = 0.200000s , priority = 50.
+1791020141.2101939 [ackermann_mux-1] [INFO] [1791020141.210044284] [ackermann_mux]: Topic handler 'topics.joystick' subscribed to topic 'teleop': timeout = 0.200000s , priority = 100.
+1791020141.2107294 [ackermann_mux-1] [INFO] [1791020141.210623257] [ackermann_mux]: Topic handler 'topics.navigation' subscribed to topic 'drive': timeout = 0.200000s , priority = 10.
+1791020141.2117081 [ackermann_mux-1] [INFO] [1791020141.211386617] [ackermann_mux]: Topic handler 'topics.safety_stop' subscribed to topic 'safety_stop': timeout = 0.200000s , priority = 200.
+1791020182.5592799 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020182.5617788 [ackermann_mux-1] [INFO] [1791020182.558633865] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791020182.5622895 [INFO] [ackermann_mux-1]: sending signal 'SIGINT' to process[ackermann_mux-1]
+1791020182.5734951 [ackermann_mux-1] [INFO] [1791020182.568924356] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791020183.8116398 [INFO] [ackermann_mux-1]: process has finished cleanly [pid 378840]

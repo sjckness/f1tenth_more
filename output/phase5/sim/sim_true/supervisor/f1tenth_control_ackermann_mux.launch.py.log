@@ -1,0 +1,11 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_true/ros_log/2026-10-03-11-43-37-081173-thor-387850
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [ackermann_mux-1]: process started with pid [388000]
+[ackermann_mux-1] [INFO] [1791020618.360715214] [ackermann_mux]: Topic handler 'topics.calibration' subscribed to topic 'calibration_drive': timeout = 0.200000s , priority = 50.
+[ackermann_mux-1] [INFO] [1791020618.367552485] [ackermann_mux]: Topic handler 'topics.joystick' subscribed to topic 'teleop': timeout = 0.200000s , priority = 100.
+[ackermann_mux-1] [INFO] [1791020618.368218030] [ackermann_mux]: Topic handler 'topics.navigation' subscribed to topic 'drive': timeout = 0.200000s , priority = 10.
+[ackermann_mux-1] [INFO] [1791020618.368550705] [ackermann_mux]: Topic handler 'topics.safety_stop' subscribed to topic 'safety_stop': timeout = 0.200000s , priority = 200.
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [ackermann_mux-1]: sending signal 'SIGINT' to process[ackermann_mux-1]
+[ackermann_mux-1] [INFO] [1791020688.579278900] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[ERROR] [ackermann_mux-1]: process has died [pid 388000, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/ackermann_mux/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux -p use_sim_time:=True --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/mux.yaml -r ackermann_cmd:=ackermann_drive'].

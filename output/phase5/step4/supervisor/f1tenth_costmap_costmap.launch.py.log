@@ -1,0 +1,169 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-11-35-707329-thor-359805
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [semantic_layer_node-1]: process started with pid [359858]
+[INFO] [costmap_renderer_node-2]: process started with pid [359861]
+[INFO] [costmap_boundary_node-3]: process started with pid [359863]
+[costmap_boundary_node-3] [INFO] [1791018697.226007178] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=20.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[costmap_renderer_node-2] [INFO] [1791018697.231293744] [costmap_renderer_node]: costmap_renderer_node started
+[costmap_boundary_node-3] [WARN] [1791018697.259080019] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[semantic_layer_node-1] [INFO] [1791018697.313596088] [semantic_layer_node]: semantic_layer_node started
+[costmap_boundary_node-3] [WARN] [1791018702.308542030] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018707.359001745] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018712.359316575] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018717.408030379] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018722.408561348] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received
+[costmap_boundary_node-3] [INFO] [1791018722.476504946] [costmap_boundary_node]: n_constraints=3 front_clearance=2.26m
+[costmap_boundary_node-3] [INFO] [1791018724.524262196] [costmap_boundary_node]: n_constraints=3 front_clearance=2.26m
+[costmap_boundary_node-3] [INFO] [1791018726.525015273] [costmap_boundary_node]: n_constraints=3 front_clearance=2.15m
+[costmap_boundary_node-3] [INFO] [1791018728.571057395] [costmap_boundary_node]: n_constraints=3 front_clearance=1.39m
+[costmap_boundary_node-3] [INFO] [1791018730.573727627] [costmap_boundary_node]: n_constraints=3 front_clearance=1.26m
+[costmap_boundary_node-3] [INFO] [1791018732.577172762] [costmap_boundary_node]: n_constraints=3 front_clearance=2.10m
+[costmap_boundary_node-3] [INFO] [1791018734.624954280] [costmap_boundary_node]: n_constraints=3 front_clearance=1.69m
+[costmap_boundary_node-3] [INFO] [1791018736.674230047] [costmap_boundary_node]: n_constraints=3 front_clearance=1.63m
+[costmap_boundary_node-3] [INFO] [1791018738.676497242] [costmap_boundary_node]: n_constraints=3 front_clearance=3.69m
+[costmap_boundary_node-3] [INFO] [1791018740.724941158] [costmap_boundary_node]: n_constraints=3 front_clearance=2.84m
+[costmap_boundary_node-3] [INFO] [1791018742.766439376] [costmap_boundary_node]: n_constraints=3 front_clearance=2.03m
+[costmap_boundary_node-3] [INFO] [1791018744.778232521] [costmap_boundary_node]: n_constraints=3 front_clearance=2.33m
+[costmap_boundary_node-3] [INFO] [1791018746.824885578] [costmap_boundary_node]: n_constraints=3 front_clearance=3.59m
+[costmap_boundary_node-3] [INFO] [1791018748.825599322] [costmap_boundary_node]: n_constraints=3 front_clearance=3.34m
+[costmap_boundary_node-3] [INFO] [1791018750.868347764] [costmap_boundary_node]: n_constraints=3 front_clearance=2.53m
+[costmap_boundary_node-3] [INFO] [1791018752.873439330] [costmap_boundary_node]: n_constraints=3 front_clearance=2.52m
+[costmap_boundary_node-3] [INFO] [1791018754.874591809] [costmap_boundary_node]: n_constraints=3 front_clearance=2.18m
+[costmap_boundary_node-3] [INFO] [1791018756.924359888] [costmap_boundary_node]: n_constraints=3 front_clearance=2.01m
+[costmap_boundary_node-3] [INFO] [1791018758.972126155] [costmap_boundary_node]: n_constraints=3 front_clearance=2.41m
+[costmap_boundary_node-3] [INFO] [1791018761.020176830] [costmap_boundary_node]: n_constraints=3 front_clearance=2.06m
+[costmap_boundary_node-3] [INFO] [1791018763.058813668] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018765.058877807] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018767.108898929] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018769.108921381] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018771.108915785] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018773.158696056] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018775.158866708] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018777.208689723] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018779.258966192] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018781.259000242] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018783.309027832] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018785.309106962] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018787.358476764] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018789.359253268] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018791.409436403] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018793.458812595] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018795.509000930] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018797.558840885] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018799.608590683] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018801.609087151] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018803.658653704] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018805.708668247] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018807.759008285] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018809.808929825] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018811.808926995] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018813.858710177] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018815.858889659] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018817.907968351] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018819.908537965] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018821.909267098] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018823.958645975] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018825.958761059] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018827.958975378] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018830.008381338] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018832.008744055] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018834.058946903] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018836.059072218] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018838.108990861] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018840.158121036] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018842.158716723] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018844.158747572] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018846.208178884] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018848.208563067] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018850.208961737] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018852.237947542] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018854.259147842] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018856.308324712] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018858.308915687] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018860.358448693] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018862.408529589] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018864.439154460] [costmap_boundary_node]: n_constraints=3 front_clearance=1.75m
+[costmap_boundary_node-3] [INFO] [1791018866.486258672] [costmap_boundary_node]: n_constraints=3 front_clearance=2.27m
+[costmap_boundary_node-3] [INFO] [1791018868.502085053] [costmap_boundary_node]: n_constraints=3 front_clearance=1.55m
+[costmap_boundary_node-3] [INFO] [1791018870.548591313] [costmap_boundary_node]: n_constraints=3 front_clearance=1.18m
+[costmap_boundary_node-3] [INFO] [1791018872.598182884] [costmap_boundary_node]: n_constraints=3 front_clearance=0.84m
+[costmap_boundary_node-3] [INFO] [1791018874.598261175] [costmap_boundary_node]: n_constraints=3 front_clearance=1.14m
+[costmap_boundary_node-3] [INFO] [1791018876.648725171] [costmap_boundary_node]: n_constraints=3 front_clearance=0.26m
+[costmap_boundary_node-3] [INFO] [1791018878.693145931] [costmap_boundary_node]: n_constraints=3 front_clearance=0.52m
+[costmap_boundary_node-3] [INFO] [1791018880.742979881] [costmap_boundary_node]: n_constraints=3 front_clearance=1.63m
+[costmap_boundary_node-3] [INFO] [1791018882.743429005] [costmap_boundary_node]: n_constraints=3 front_clearance=0.74m
+[costmap_boundary_node-3] [INFO] [1791018884.743997091] [costmap_boundary_node]: n_constraints=3 front_clearance=0.17m
+[costmap_boundary_node-3] [INFO] [1791018886.793187876] [costmap_boundary_node]: n_constraints=3 front_clearance=0.65m
+[costmap_boundary_node-3] [INFO] [1791018888.843049728] [costmap_boundary_node]: n_constraints=3 front_clearance=4.28m
+[costmap_boundary_node-3] [INFO] [1791018890.858788866] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018892.908706394] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018894.908886246] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018896.908948361] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018898.909064947] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018900.958888301] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018902.959252444] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018905.008830885] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018907.009326882] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018909.057670892] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018911.059130839] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018913.109180834] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018915.109254218] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018917.157782744] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018919.159185974] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018921.209348429] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018923.209506926] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018925.260211858] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018927.308959610] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018929.310226444] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018931.358837703] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018933.408508447] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018935.409362950] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018937.409482294] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018939.458835123] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018941.459059682] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [costmap_boundary_node-3]: sending signal 'SIGINT' to process[costmap_boundary_node-3]
+[INFO] [costmap_renderer_node-2]: sending signal 'SIGINT' to process[costmap_renderer_node-2]
+[INFO] [semantic_layer_node-1]: sending signal 'SIGINT' to process[semantic_layer_node-1]
+[costmap_boundary_node-3] Traceback (most recent call last):
+[costmap_boundary_node-3]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node", line 33, in <module>
+[costmap_boundary_node-3]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'costmap_boundary_node')())
+[costmap_boundary_node-3]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[costmap_boundary_node-3]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_costmap/f1tenth_costmap/costmap_boundary_node.py", line 776, in main
+[costmap_boundary_node-3]     node.destroy_node()
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[costmap_boundary_node-3]     self.destroy_publisher(self._publishers[0])
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[costmap_boundary_node-3]     publisher.destroy()
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[costmap_boundary_node-3]     self.__publisher.destroy_when_not_in_use()
+[costmap_boundary_node-3] KeyboardInterrupt
+[semantic_layer_node-1] Traceback (most recent call last):
+[semantic_layer_node-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node", line 33, in <module>
+[semantic_layer_node-1]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'semantic_layer_node')())
+[semantic_layer_node-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[semantic_layer_node-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_costmap/f1tenth_costmap/semantic_layer_node.py", line 608, in main
+[semantic_layer_node-1]     node.destroy_node()
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[semantic_layer_node-1]     self.destroy_subscription(self._subscriptions[0])
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1854, in destroy_subscription
+[semantic_layer_node-1]     subscription.destroy()
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 101, in destroy
+[semantic_layer_node-1]     self.handle.destroy_when_not_in_use()
+[semantic_layer_node-1] KeyboardInterrupt
+[costmap_renderer_node-2] Traceback (most recent call last):
+[costmap_renderer_node-2]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node", line 33, in <module>
+[costmap_renderer_node-2]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'costmap_renderer_node')())
+[costmap_renderer_node-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[costmap_renderer_node-2]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_costmap/f1tenth_costmap/costmap_renderer_node.py", line 126, in main
+[costmap_renderer_node-2]     rclpy.shutdown()
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 134, in shutdown
+[costmap_renderer_node-2]     _shutdown(context=context)
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/utilities.py", line 82, in shutdown
+[costmap_renderer_node-2]     context.shutdown()
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/context.py", line 129, in shutdown
+[costmap_renderer_node-2]     self.__context.shutdown()
+[costmap_renderer_node-2] rclpy._rclpy_pybind11.RCLError: failed to shutdown: rcl_shutdown already called on the given context, at ./src/rcl/init.c:333
+[ERROR] [costmap_boundary_node-3]: process has died [pid 359863, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node --params-file /tmp/launch_params_mq4r7zka'].
+[ERROR] [semantic_layer_node-1]: process has died [pid 359858, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node --params-file /tmp/launch_params_c1r53te9'].
+[ERROR] [costmap_renderer_node-2]: process has died [pid 359861, exit code 1, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node --params-file /tmp/launch_params_gmbonkt8'].

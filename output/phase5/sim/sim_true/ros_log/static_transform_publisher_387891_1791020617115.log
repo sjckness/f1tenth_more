@@ -1,0 +1,6 @@
+[WARN] [1791020617.116189550] []: Old-style arguments are deprecated; see --help for new-style arguments
+[INFO] [1791020617.169429448] [static_baselink_to_imu]: Spinning until stopped - publishing transform
+translation: ('0.000000', '0.000000', '0.000000')
+rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+from 'base_link' to 'imu'
+[INFO] [1791020688.574419812] [rclcpp]: signal_handler(SIGINT/SIGTERM)

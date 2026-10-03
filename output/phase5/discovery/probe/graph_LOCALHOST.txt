@@ -1,0 +1,16 @@
+=== ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST, ROS_DISCOVERY_SERVER=127.0.0.1:11811
+listener received: 4 messages in 6 s
+--- ros2 node list --no-daemon, plain client:
+/ds_listener
+/ds_talker
+--- ros2 topic list --no-daemon, plain client:
+/parameter_events
+/rosout
+--- ros2 node list --no-daemon, ROS_SUPER_CLIENT=TRUE:
+/ds_listener
+/ds_talker
+--- ros2 topic list --no-daemon, ROS_SUPER_CLIENT=TRUE:
+/chatter
+/parameter_events
+/rosout
+--- no ROS_DISCOVERY_SERVER at all (a simple-discovery participant):

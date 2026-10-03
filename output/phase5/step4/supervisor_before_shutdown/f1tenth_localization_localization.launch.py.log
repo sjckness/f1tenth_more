@@ -1,0 +1,21 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-14-21-564728-thor-363482
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [363489]
+[INFO] [taskset-2]: process started with pid [363490]
+[INFO] [slam_pose_relay_node-3]: process started with pid [363491]
+[INFO] [taskset-4]: process started with pid [363492]
+[INFO] [robot_state_publisher-5]: process started with pid [363493]
+[INFO] [joint_state_publisher-6]: process started with pid [363494]
+[INFO] [static_transform_publisher-7]: process started with pid [363495]
+[static_transform_publisher-7] [WARN] [1791018861.898118879] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-7] [INFO] [1791018861.917330480] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+[static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+[static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-7] from 'base_link' to 'laser'
+[robot_state_publisher-5] [INFO] [1791018861.924007424] [robot_state_publisher]: Robot initialized
+[taskset-4] [INFO] [1791018862.303665020] [ekf_cost_observer_node]: [ekf_cost] per-update cost metric up at 1.00 Hz on /diagnostics; watching ekf_filter_node, ekf_global_filter_node
+[slam_pose_relay_node-3] [INFO] [1791018862.304336639] [slam_pose_relay_node]: slam_pose_relay_node started: "/slam/pose" -> "/slam/pose_calibrated", covariance stamped with var_x=0.100000 var_y=0.100000 var_yaw=0.050000
+[joint_state_publisher-6] [INFO] [1791018862.385916224] [joint_state_publisher]: Waiting for robot_description to be published on the robot_description topic...
+[joint_state_publisher-6] [INFO] [1791018863.637662933] [joint_state_publisher]: Got description, configuring robot
+[taskset-2] [ERROR] [1791018933.027764969] [ekf_global.ekf_global_filter_node]: Failed to meet update rate! Took 0.28169856199999998569seconds. Try decreasing the rate, limiting sensor output frequency, or limiting the number of sensors.
+[taskset-1] [ERROR] [1791018933.034285764] [ekf_filter_node]: Failed to meet update rate! Took 0.28787833800000001139seconds. Try decreasing the rate, limiting sensor output frequency, or limiting the number of sensors.

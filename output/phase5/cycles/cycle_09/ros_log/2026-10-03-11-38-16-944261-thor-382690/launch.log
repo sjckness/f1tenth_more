@@ -1,0 +1,6 @@
+1791020296.9472814 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_09/ros_log/2026-10-03-11-38-16-944261-thor-382690
+1791020296.9478049 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020297.7677245 [INFO] [taskset-1]: process started with pid [383083]
+1791020338.4288340 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020338.6519995 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791020338.6705556 [ERROR] [taskset-1]: process has died [pid 383083, exit code -2, cmd 'taskset -c 2 /opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/config/slam_toolbox_params.yaml -r /map:=/slam/map -r /map_metadata:=/slam/map_metadata -r /pose:=/slam/pose'].

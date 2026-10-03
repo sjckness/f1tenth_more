@@ -1,0 +1,475 @@
+[
+  {
+    "run": "cycle_01",
+    "nodes": 32,
+    "startup_total_s": 7.47,
+    "startup_per_component_s": {
+      "behavior": 5.21,
+      "control": 2.95,
+      "dev_tools": 2.95,
+      "diagnostics": 3.71,
+      "lidar_front_wall": 5.97,
+      "localization": 4.96,
+      "navigation": 5.72,
+      "obstacle_clearance": 5.97,
+      "slam": 4.96,
+      "swept_clearance": 5.97,
+      "wall_distance": 7.47
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 5.33,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [
+      "/tmp/mission_logger.lock"
+    ],
+    "shm_fastrtps_before": 35,
+    "shm_fastrtps_after": 23,
+    "shm_sweeps": [
+      "startup: found 50 fastrtps file(s) (16 still in use, 34 orphaned) -- removed 34/34 orphaned file(s). Sample removed: ['",
+      "shutdown: found 140 fastrtps file(s) (23 still in use, 117 orphaned) -- removed 117/117 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 14,
+    "rates_hz": {
+      "/odometry/filtered": 42.5,
+      "/ekf_global/odometry/filtered": 42.5,
+      "/slam/pose": 2.0,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 9.6,
+      "/mpc/solver_status": 0.0,
+      "/tf": 94.7
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_02",
+    "nodes": 32,
+    "startup_total_s": 7.33,
+    "startup_per_component_s": {
+      "behavior": 5.32,
+      "control": 2.81,
+      "dev_tools": 3.06,
+      "diagnostics": 3.56,
+      "lidar_front_wall": 6.33,
+      "localization": 4.57,
+      "navigation": 4.57,
+      "obstacle_clearance": 6.33,
+      "slam": 4.57,
+      "swept_clearance": 6.07,
+      "wall_distance": 7.33
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 3.56,
+    "leftover_procs": [
+      "/bin/bash -c source /home/andre/.claude/shell-snapshots/snapshot-bash-1791015860669-svm3ei",
+      "/usr/bin/python3 /opt/ros/humble/bin/ros2 launch /probe/probe.launch.py"
+    ],
+    "discovery_server_left_running": true,
+    "leftover_locks": [],
+    "shm_fastrtps_before": 23,
+    "shm_fastrtps_after": 19,
+    "shm_sweeps": [
+      "startup: found 35 fastrtps file(s) (16 still in use, 19 orphaned) -- removed 19/19 orphaned file(s). Sample removed: ['",
+      "shutdown: found 132 fastrtps file(s) (19 still in use, 113 orphaned) -- removed 113/113 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 13,
+    "rates_hz": {
+      "/odometry/filtered": 43.4,
+      "/ekf_global/odometry/filtered": 43.3,
+      "/slam/pose": 1.9,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 10.1,
+      "/mpc/solver_status": 0.0,
+      "/tf": 96.4
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_03",
+    "nodes": 31,
+    "startup_total_s": 6.99,
+    "startup_per_component_s": {
+      "behavior": 6.49,
+      "control": 2.97,
+      "dev_tools": 2.97,
+      "diagnostics": 3.72,
+      "lidar_front_wall": 6.74,
+      "localization": 3.72,
+      "navigation": 4.73,
+      "obstacle_clearance": 6.74,
+      "slam": 4.22,
+      "swept_clearance": 6.99,
+      "wall_distance": 6.49
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 3.06,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [
+      "/tmp/mission_logger.lock"
+    ],
+    "shm_fastrtps_before": 19,
+    "shm_fastrtps_after": 10,
+    "shm_sweeps": [
+      "startup: found 31 fastrtps file(s) (16 still in use, 15 orphaned) -- removed 15/15 orphaned file(s). Sample removed: ['",
+      "shutdown: found 103 fastrtps file(s) (10 still in use, 93 orphaned) -- removed 93/93 orphaned file(s). Sample removed: ["
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 15,
+    "rates_hz": {
+      "/odometry/filtered": 48.0,
+      "/ekf_global/odometry/filtered": 48.0,
+      "/slam/pose": 0.0,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 10.0,
+      "/mpc/solver_status": 0.0,
+      "/tf": 105.6
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_04",
+    "nodes": 32,
+    "startup_total_s": 6.73,
+    "startup_per_component_s": {
+      "behavior": 4.98,
+      "control": 3.22,
+      "dev_tools": 2.71,
+      "diagnostics": 3.47,
+      "lidar_front_wall": 6.73,
+      "localization": 4.22,
+      "navigation": 4.22,
+      "obstacle_clearance": 6.73,
+      "slam": 4.22,
+      "swept_clearance": 6.73,
+      "wall_distance": 6.23
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 2.8,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [],
+    "shm_fastrtps_before": 10,
+    "shm_fastrtps_after": 20,
+    "shm_sweeps": [
+      "startup: found 22 fastrtps file(s) (16 still in use, 6 orphaned) -- removed 6/6 orphaned file(s). Sample removed: ['/de",
+      "shutdown: found 134 fastrtps file(s) (20 still in use, 114 orphaned) -- removed 114/114 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 14,
+    "rates_hz": {
+      "/odometry/filtered": 44.9,
+      "/ekf_global/odometry/filtered": 44.9,
+      "/slam/pose": 1.9,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 10.0,
+      "/mpc/solver_status": 0.0,
+      "/tf": 99.7
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_05",
+    "nodes": 31,
+    "startup_total_s": 6.77,
+    "startup_per_component_s": {
+      "behavior": 5.77,
+      "control": 3.0,
+      "dev_tools": 3.25,
+      "diagnostics": 4.01,
+      "lidar_front_wall": 5.52,
+      "localization": 4.51,
+      "navigation": 4.51,
+      "obstacle_clearance": 6.77,
+      "slam": 4.51,
+      "swept_clearance": null,
+      "wall_distance": 6.52
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 2.8,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [
+      "/tmp/mission_logger.lock"
+    ],
+    "shm_fastrtps_before": 20,
+    "shm_fastrtps_after": 16,
+    "shm_sweeps": [
+      "startup: found 32 fastrtps file(s) (16 still in use, 16 orphaned) -- removed 16/16 orphaned file(s). Sample removed: ['",
+      "shutdown: found 118 fastrtps file(s) (16 still in use, 102 orphaned) -- removed 102/102 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 14,
+    "rates_hz": {
+      "/odometry/filtered": 43.1,
+      "/ekf_global/odometry/filtered": 43.2,
+      "/slam/pose": 2.0,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 9.7,
+      "/mpc/solver_status": 0.0,
+      "/tf": 96.3
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_06",
+    "nodes": 32,
+    "startup_total_s": 6.72,
+    "startup_per_component_s": {
+      "behavior": 4.71,
+      "control": 3.46,
+      "dev_tools": 2.95,
+      "diagnostics": 3.71,
+      "lidar_front_wall": 6.72,
+      "localization": 3.71,
+      "navigation": 4.71,
+      "obstacle_clearance": 5.97,
+      "slam": 4.71,
+      "swept_clearance": 5.97,
+      "wall_distance": 5.97
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 5.08,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [],
+    "shm_fastrtps_before": 16,
+    "shm_fastrtps_after": 15,
+    "shm_sweeps": [
+      "startup: found 32 fastrtps file(s) (20 still in use, 12 orphaned) -- removed 12/12 orphaned file(s). Sample removed: ['",
+      "shutdown: found 115 fastrtps file(s) (15 still in use, 100 orphaned) -- removed 100/100 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 13,
+    "rates_hz": {
+      "/odometry/filtered": 46.0,
+      "/ekf_global/odometry/filtered": 45.9,
+      "/slam/pose": 2.0,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 10.0,
+      "/mpc/solver_status": 0.0,
+      "/tf": 101.7
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_07",
+    "nodes": 32,
+    "startup_total_s": 6.98,
+    "startup_per_component_s": {
+      "behavior": 5.47,
+      "control": 2.7,
+      "dev_tools": 2.96,
+      "diagnostics": 3.72,
+      "lidar_front_wall": 6.98,
+      "localization": 4.72,
+      "navigation": 4.47,
+      "obstacle_clearance": 6.48,
+      "slam": 4.72,
+      "swept_clearance": 5.98,
+      "wall_distance": 6.98
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 1.53,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [
+      "/tmp/mission_logger.lock"
+    ],
+    "shm_fastrtps_before": 15,
+    "shm_fastrtps_after": 24,
+    "shm_sweeps": [
+      "startup: found 27 fastrtps file(s) (16 still in use, 11 orphaned) -- removed 11/11 orphaned file(s). Sample removed: ['",
+      "shutdown: found 138 fastrtps file(s) (24 still in use, 114 orphaned) -- removed 114/114 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 15,
+    "rates_hz": {
+      "/odometry/filtered": 47.1,
+      "/ekf_global/odometry/filtered": 47.1,
+      "/slam/pose": 1.9,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 9.7,
+      "/mpc/solver_status": 0.0,
+      "/tf": 103.7
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_08",
+    "nodes": 32,
+    "startup_total_s": 7.23,
+    "startup_per_component_s": {
+      "behavior": 5.73,
+      "control": 2.96,
+      "dev_tools": 2.96,
+      "diagnostics": 3.72,
+      "lidar_front_wall": 6.73,
+      "localization": 3.72,
+      "navigation": 5.47,
+      "obstacle_clearance": 7.23,
+      "slam": 5.73,
+      "swept_clearance": 6.73,
+      "wall_distance": 6.73
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 3.06,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [
+      "/tmp/mission_logger.lock"
+    ],
+    "shm_fastrtps_before": 24,
+    "shm_fastrtps_after": 20,
+    "shm_sweeps": [
+      "startup: found 36 fastrtps file(s) (16 still in use, 20 orphaned) -- removed 20/20 orphaned file(s). Sample removed: ['",
+      "shutdown: found 134 fastrtps file(s) (20 still in use, 114 orphaned) -- removed 114/114 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 13,
+    "rates_hz": {
+      "/odometry/filtered": 45.2,
+      "/ekf_global/odometry/filtered": 45.2,
+      "/slam/pose": 1.9,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 9.7,
+      "/mpc/solver_status": 0.0,
+      "/tf": 100.0
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_09",
+    "nodes": 32,
+    "startup_total_s": 6.75,
+    "startup_per_component_s": {
+      "behavior": 6.25,
+      "control": 2.98,
+      "dev_tools": 2.98,
+      "diagnostics": 3.73,
+      "lidar_front_wall": 6.75,
+      "localization": 5.49,
+      "navigation": 6.25,
+      "obstacle_clearance": 6.75,
+      "slam": 5.24,
+      "swept_clearance": 6.75,
+      "wall_distance": 6.75
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 1.79,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [],
+    "shm_fastrtps_before": 20,
+    "shm_fastrtps_after": 20,
+    "shm_sweeps": [
+      "startup: found 32 fastrtps file(s) (16 still in use, 16 orphaned) -- removed 16/16 orphaned file(s). Sample removed: ['",
+      "shutdown: found 134 fastrtps file(s) (20 still in use, 114 orphaned) -- removed 114/114 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 16,
+    "rates_hz": {
+      "/odometry/filtered": 42.0,
+      "/ekf_global/odometry/filtered": 41.9,
+      "/slam/pose": 1.9,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 9.6,
+      "/mpc/solver_status": 0.0,
+      "/tf": 93.9
+    },
+    "rates_missing": []
+  },
+  {
+    "run": "cycle_10",
+    "nodes": 32,
+    "startup_total_s": 6.59,
+    "startup_per_component_s": {
+      "behavior": 4.57,
+      "control": 3.07,
+      "dev_tools": 3.32,
+      "diagnostics": 3.57,
+      "lidar_front_wall": 6.59,
+      "localization": 4.57,
+      "navigation": 4.57,
+      "obstacle_clearance": 6.33,
+      "slam": 3.57,
+      "swept_clearance": 6.33,
+      "wall_distance": 6.33
+    },
+    "components_without_nodes": [],
+    "supervisor_crash_lines": 0,
+    "shutdown_path": "graceful",
+    "launch_exit_code": 0,
+    "shutdown_s": 3.81,
+    "leftover_procs": [],
+    "discovery_server_left_running": true,
+    "leftover_locks": [],
+    "shm_fastrtps_before": 20,
+    "shm_fastrtps_after": 14,
+    "shm_sweeps": [
+      "startup: found 32 fastrtps file(s) (16 still in use, 16 orphaned) -- removed 16/16 orphaned file(s). Sample removed: ['",
+      "shutdown: found 120 fastrtps file(s) (16 still in use, 104 orphaned) -- removed 104/104 orphaned file(s). Sample removed"
+    ],
+    "matching_unexisting_participant": 0,
+    "discovery_database_errors": 0,
+    "other_dds_errors": 0,
+    "tracebacks_in_component_logs": 13,
+    "rates_hz": {
+      "/odometry/filtered": 41.1,
+      "/ekf_global/odometry/filtered": 41.2,
+      "/slam/pose": 2.0,
+      "/diagnostics/system_status": 1.0,
+      "/behavior/tree_status": 10.0,
+      "/mpc/solver_status": 0.0,
+      "/tf": 91.8
+    },
+    "rates_missing": []
+  }
+]

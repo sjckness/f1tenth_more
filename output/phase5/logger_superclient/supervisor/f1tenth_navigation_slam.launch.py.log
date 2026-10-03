@@ -1,0 +1,10 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/ros_log/2026-10-03-11-29-45-869704-thor-369472
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [369777]
+[taskset-1] [INFO] [1791019787.031137368] [slam_toolbox]: Node using stack size 40000000
+[taskset-1] [INFO] [1791019788.141480016] [slam_toolbox]: Configuring
+[taskset-1] [INFO] [1791019788.180492512] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[taskset-1] [INFO] [1791019788.181519928] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[taskset-1] [INFO] [1791019788.544041050] [slam_toolbox]: Activating
+[taskset-1] Registering sensor: [Custom Described Lidar]
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)

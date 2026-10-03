@@ -1,0 +1,28 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_true/ros_log/2026-10-03-11-43-37-082810-thor-387842
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [387973]
+[taskset-1] [INFO] [1791020620.805580376] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance
+[taskset-1] [INFO] [1791020641.471054037] [lidar_front_wall_node]: base_link <- laser: x=0.120 m y=0.000 m yaw=0.00 deg
+[taskset-1] [WARN] [1791020641.504657336] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791020641.544677071] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [INFO] [1791020666.217421176] [lidar_front_wall_node]: wall acquired at 8.980 m after seeded (1.969 m): jump +7.011 m, nan s since the last accepted fit
+[taskset-1] [INFO] [1791020666.444966735] [lidar_front_wall_node]: wall acquired at 8.878 m after dead_reckoned (8.891 m): jump -0.013 m, 0.23 s since the last accepted fit
+[taskset-1] [INFO] [1791020666.512593079] [lidar_front_wall_node]: wall acquired at 8.845 m after dead_reckoned (8.862 m): jump -0.017 m, 0.07 s since the last accepted fit
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'lidar_front_wall_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_perception/f1tenth_perception/lidar_front_wall_node.py", line 395, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[taskset-1]     self.destroy_subscription(self._subscriptions[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1854, in destroy_subscription
+[taskset-1]     subscription.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 100, in destroy
+[taskset-1]     handler.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/event_handler.py", line 136, in destroy
+[taskset-1]     self.__event.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[ERROR] [taskset-1]: process has died [pid 387973, exit code -2, cmd 'taskset -c 5 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node -p use_sim_time:=True --params-file /tmp/launch_params_a9e9v574'].

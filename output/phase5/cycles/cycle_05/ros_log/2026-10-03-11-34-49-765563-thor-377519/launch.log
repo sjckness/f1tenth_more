@@ -1,0 +1,6 @@
+1791020089.7737808 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_05/ros_log/2026-10-03-11-34-49-765563-thor-377519
+1791020089.7744129 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020090.6387129 [INFO] [taskset-1]: process started with pid [377938]
+1791020133.1738327 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020133.5151958 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791020133.5156765 [INFO] [taskset-1]: process has finished cleanly [pid 377938]

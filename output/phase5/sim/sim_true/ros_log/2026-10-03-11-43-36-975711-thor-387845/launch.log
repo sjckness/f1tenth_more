@@ -1,0 +1,12 @@
+1791020616.9784174 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_true/ros_log/2026-10-03-11-43-36-975711-thor-387845
+1791020616.9788010 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020617.1721740 [INFO] [semantic_layer_node-1]: process started with pid [387922]
+1791020617.1725776 [INFO] [costmap_renderer_node-2]: process started with pid [387923]
+1791020617.1726735 [INFO] [costmap_boundary_node-3]: process started with pid [387924]
+1791020688.5690558 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020688.5793617 [INFO] [costmap_boundary_node-3]: sending signal 'SIGINT' to process[costmap_boundary_node-3]
+1791020688.5801823 [INFO] [costmap_renderer_node-2]: sending signal 'SIGINT' to process[costmap_renderer_node-2]
+1791020688.5806022 [INFO] [semantic_layer_node-1]: sending signal 'SIGINT' to process[semantic_layer_node-1]
+1791020688.8135808 [ERROR] [costmap_renderer_node-2]: process has died [pid 387923, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node -p use_sim_time:=True --params-file /tmp/launch_params_uhb8_4hx'].
+1791020688.8153811 [ERROR] [costmap_boundary_node-3]: process has died [pid 387924, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node -p use_sim_time:=True --params-file /tmp/launch_params_jinpwait'].
+1791020688.8309593 [ERROR] [semantic_layer_node-1]: process has died [pid 387922, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node -p use_sim_time:=True --params-file /tmp/launch_params_68y3bsan'].

@@ -1,0 +1,11 @@
+1791018887.6012356 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-14-47-599956-thor-363979
+1791018887.6014247 [INFO] [launch]: Default logging verbosity is set to INFO
+1791018887.7615323 [INFO] [taskset-1]: process started with pid [363988]
+1791018887.7617068 [INFO] [map_server-2]: process started with pid [363989]
+1791018887.7617638 [INFO] [lifecycle_manager-3]: process started with pid [363990]
+1791018943.3119421 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791018943.3242633 [INFO] [lifecycle_manager-3]: sending signal 'SIGINT' to process[lifecycle_manager-3]
+1791018943.3287256 [INFO] [map_server-2]: sending signal 'SIGINT' to process[map_server-2]
+1791018943.3293397 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791018943.3628278 [ERROR] [map_server-2]: process has died [pid 363989, exit code -2, cmd '/opt/ros/jazzy/lib/nav2_map_server/map_server --ros-args -r __node:=map_server --params-file /tmp/launch_params_m_zqvgmp'].
+1791018943.5960164 [ERROR] [taskset-1]: process has died [pid 363988, exit code -2, cmd 'taskset -c 10,11 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_s9us1_7f'].

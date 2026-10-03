@@ -1,0 +1,396 @@
+[INFO] [1791019787.678899570] [mpc_corr]: OBJECT CORRIDOR | startup: object_corridor_mode='off' (straight corridor pinned to the target line) -- the default
+[INFO] [1791019787.684984149] [mpc_corr]: model log -> "/home/andre/dev_ws/f1tenth_more/mpc_log.csv" (t,x,y,psi,v,steer_cmd,accel_cmd; see docs/DIAGNOSTICS.md)
+[INFO] [1791019787.695258032] [mpc_corr]: corridor_log_path = "/home/andre/dev_ws/f1tenth_more/src/f1tenth_control/corridors_jsons/corridor_debug_20261003T112947.jsonl"
+[INFO] [1791019787.727724855] [mpc_corr]: MPC Controller STARTED (pure MPC + obstacle avoidance [fixed deflection + predicted clearance], no plan executor)
+[INFO] [1791019787.729341142] [mpc_corr]: CFG | ts=0.1 N=20 vdes=0.5 dmin=0.32 wheel_radius=0.05 car_radius=0.2 avoidance_margin=0.12
+[INFO] [1791019787.730865919] [mpc_corr]: CFG | limits={'delta_min': -0.283, 'delta_max': 0.278, 'a_min': -2.0, 'a_max': 3.0, 'dDeltaMin': -0.5, 'dDeltaMax': 0.5, 'dAMin': -2.0, 'dAMax': 2.0, 'vMin': -1.0, 'vMax': 3.0}
+[INFO] [1791019787.732368871] [mpc_corr]: CFG | weights={'w_term': 9.0, 'w_v': 4.2857, 'w_psi': 4.5, 'w_u_a': 0.0, 'w_du_delta': 8.33, 'w_du_a': 0.0, 'w_delta0': 0.0, 'w_obs': 8.0, 'w_corr': 3.5714, 'w_line': 1.1662, 'w_psi_stage': 4.7736}
+[INFO] [1791019787.733863398] [mpc_corr]: CFG | params={'L': 0.305, 'lr': 0.17}
+[INFO] [1791019787.828048314] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019787.828721629] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019787.829476128] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=0
+[WARN] [1791019787.829826535] [mpc_corr]: PUB /drive | nessun subscriber: il comando non raggiunge il VESC.
+[WARN] [1791019787.928207041] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.028537871] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.130095616] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.228201835] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.513977837] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.530982910] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.629189646] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.729205374] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019788.829839387] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019788.832666905] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019788.930713541] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.030102092] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.217469415] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.228374668] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.328176988] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.436486729] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.528152267] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.634156303] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.729037234] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019789.846432386] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019789.859610295] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019789.860405600] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019789.865900329] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[WARN] [1791019789.876042869] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[WARN] [1791019789.928391819] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.033429701] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.128219227] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.228050685] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.329534375] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.431283083] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.527758311] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.631069074] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.729027718] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.831418976] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019790.935052535] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019790.937922969] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019791.033027523] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019791.135200350] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019791.230535802] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019791.329201151] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019791.428800369] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019791.800266016] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019791.815811619] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019791.829733739] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019791.928131472] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019791.929203481] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.028762596] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019792.029905521] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019792.128130046] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.227072505] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.327158278] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.430577160] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.530979017] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.631237706] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.730634841] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.830235587] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019792.930417805] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.030306769] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019793.031508185] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019793.130193041] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.230212341] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.329012699] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.430451036] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.530308717] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.629248416] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.729226864] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.830308361] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019793.928458005] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019794.027218038] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019794.028384852] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.128657677] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019794.129857826] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019794.228311217] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.329806656] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.430115854] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.529988423] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.628586198] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.728700221] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.830031225] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019794.923197808] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[WARN] [1791019794.925787473] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[WARN] [1791019794.928942897] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.028550448] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.129247063] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019795.130360377] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019795.228639742] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.329932093] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.429005673] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.528224993] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.628616201] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.730335389] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.830316014] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019795.928156511] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019796.029781847] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019796.030891874] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.130014591] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019796.131162906] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019796.230007439] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.329091499] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.428136361] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.528628837] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.629206673] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.729161687] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.829656432] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019796.930778556] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.028951755] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.128980056] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.229831699] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019797.230982207] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019797.328254732] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.428640504] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.528333949] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.629132924] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.729649095] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.830590746] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019797.930106371] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.030171338] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019798.129530259] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019798.130624954] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.230576772] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019798.231715900] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019798.330825980] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.430592762] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.530041961] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.630409091] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.730203186] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.829991004] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019798.930163365] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.029643495] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.130705830] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.230137251] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.330624337] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019799.331751958] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019799.430219045] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.530057550] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.630595636] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.730172177] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.828846321] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.926367151] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[WARN] [1791019799.930192444] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019799.973765334] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[WARN] [1791019800.030372677] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019800.128230014] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019800.230147359] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019800.231390294] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019800.329287836] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019800.427933757] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019800.429089450] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019800.530508750] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019800.630349586] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019800.728983045] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019800.828961448] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019800.930106312] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.028144888] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.131018704] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.228654856] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.330328748] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.430512575] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019801.431783510] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019801.529767487] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.629211908] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.730510420] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.829859387] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019801.930236623] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.030862589] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.128998785] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.229644027] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019802.327451717] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019802.328519142] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.431401579] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019802.432705736] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019802.530571426] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.628602441] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.728478713] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.828500503] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019802.930270718] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.028512834] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.128121662] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.228158535] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.328130859] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.429550843] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.528576421] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019803.529718114] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019803.628135092] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.727987771] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.828635413] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019803.928896055] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.028134958] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.128031841] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.228595325] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019804.327763487] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019804.328896652] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.428273309] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.528617173] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019804.529805691] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019804.628520657] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.728963365] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.828460424] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.929571204] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019804.974714176] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[WARN] [1791019805.025390849] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[WARN] [1791019805.028402764] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.129305544] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.230433946] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.330096560] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.428500518] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.529273073] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019805.530409285] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019805.629789028] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.730937253] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.830214219] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019805.929845695] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.028164486] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.128670832] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.229598640] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019806.328441755] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019806.329517393] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.429283248] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.529377520] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019806.530512399] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019806.629164113] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.728573458] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.829475914] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019806.929549639] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.029860244] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.131147237] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.229123741] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.328024347] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.427186129] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.527018475] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.628278375] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019807.633598696] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019807.728963107] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.829245727] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019807.930672729] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.028259613] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.128622756] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.230004275] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.328562780] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019808.427205025] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[WARN] [1791019808.428266662] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.529935600] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.630887278] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.732077651] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019808.733328178] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019808.830807765] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019808.929004996] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019809.029997693] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019809.129750224] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019809.228088032] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARN] [1791019809.330089691] [mpc_corr]: ODOM non disponibile: stato ancora None
+[INFO] [1791019809.375531923] [mpc_corr]: ODOM/hw | x=+0.0000 y=+0.0000 yaw=+0.0000 v=+0.1355
+[INFO] [1791019809.429597686] [mpc_corr]: Odom source -> hardware
+[INFO] [1791019809.430547759] [mpc_corr]: psi_init_corridor (bootstrap) = 0.000
+[WARN] [1791019809.433562794] [mpc_corr]: Nessun comando su /mpc/goal_distance ancora ricevuto: robot fermo in attesa.
+[INFO] [1791019809.473914936] [mpc_corr]: BOUNDARY/costmap | n=0
+[INFO] [1791019809.829836392] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019810.025580480] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019810.386582319] [mpc_corr]: ODOM/hw | x=+0.0925 y=+0.0021 yaw=+0.0507 v=-0.0000
+[INFO] [1791019810.427993543] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.022s sim_age=infs timeout=0.500s
+[INFO] [1791019810.928897075] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019811.386838127] [mpc_corr]: ODOM/hw | x=+0.1021 y=+0.0026 yaw=+0.0601 v=-0.0000
+[INFO] [1791019811.523255543] [mpc_corr]: BOUNDARY/costmap | n=0
+[INFO] [1791019811.928917967] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019812.407593340] [mpc_corr]: ODOM/hw | x=+0.1020 y=+0.0026 yaw=+0.0601 v=-0.0000
+[INFO] [1791019812.527708589] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019813.031011072] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019813.430528874] [mpc_corr]: ODOM/hw | x=+0.1020 y=+0.0026 yaw=+0.0601 v=-0.0000
+[INFO] [1791019813.590198404] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019814.129589512] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019814.430987499] [mpc_corr]: ODOM/hw | x=+0.1074 y=+0.0030 yaw=+0.0639 v=-0.0000
+[INFO] [1791019814.529805082] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.002s sim_age=infs timeout=0.500s
+[WARN] [1791019815.026149058] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019815.229790272] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019815.431785230] [mpc_corr]: ODOM/hw | x=+0.1277 y=+0.0045 yaw=+0.0886 v=-0.0000
+[INFO] [1791019815.634791276] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019816.329116764] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019816.447545468] [mpc_corr]: ODOM/hw | x=+0.2299 y=+0.0190 yaw=+0.2056 v=+0.1282
+[INFO] [1791019816.629291040] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.023s sim_age=infs timeout=0.500s
+[INFO] [1791019817.329240521] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019817.448131594] [mpc_corr]: ODOM/hw | x=+0.3465 y=+0.0497 yaw=+0.3076 v=+0.2035
+[INFO] [1791019817.639034465] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019818.329256796] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019818.448390220] [mpc_corr]: ODOM/hw | x=+0.5488 y=+0.1280 yaw=+0.4189 v=+0.2553
+[INFO] [1791019818.727955137] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019819.329257448] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019819.466725445] [mpc_corr]: ODOM/hw | x=+0.8225 y=+0.2416 yaw=+0.3133 v=+0.3480
+[INFO] [1791019819.688620925] [mpc_corr]: BOUNDARY/costmap | n=3
+[WARN] [1791019820.027004412] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019820.329649100] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019820.487275556] [mpc_corr]: ODOM/hw | x=+1.1835 y=+0.3286 yaw=+0.1625 v=+0.3885
+[INFO] [1791019820.826959767] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.020s sim_age=infs timeout=0.500s
+[INFO] [1791019820.856337850] [mpc_corr]: ANCHOR/capture | odom=(+1.305,+0.346,+0.1250) -> map=(+1.162,+0.290,+0.0667) tf_yaw=-0.0583
+[INFO] [1791019820.857047434] [mpc_corr]: Nuovo goal_distance=0.000 m da (1.305, 0.346)
+[INFO] [1791019820.930306100] [mpc_corr]: GOAL | traveled=0.0379/0.000 m residuo=-0.0379 m displacement=0.0379 m lateral=0.0003 m
+[INFO] [1791019820.933461311] [mpc_corr]: Goal raggiunto: traveled=0.038 m >= goal_distance=0.000 m
+[INFO] [1791019821.429473401] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019821.487682196] [mpc_corr]: ODOM/hw | x=+1.5361 y=+0.3649 yaw=+0.0309 v=+0.3281
+[INFO] [1791019821.690676420] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019822.430462577] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019822.528121477] [mpc_corr]: ODOM/hw | x=+1.8023 y=+0.3604 yaw=-0.0651 v=+0.2167
+[INFO] [1791019822.828090528] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.019s sim_age=infs timeout=0.500s
+[INFO] [1791019823.431446382] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019823.532810391] [mpc_corr]: ODOM/hw | x=+2.0115 y=+0.3360 yaw=-0.1586 v=+0.2090
+[INFO] [1791019823.740426131] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019824.531072986] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019824.533182170] [mpc_corr]: ODOM/hw | x=+2.2844 y=+0.2902 yaw=-0.1540 v=+0.3046
+[INFO] [1791019824.830429045] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.002s sim_age=infs timeout=0.500s
+[WARN] [1791019825.126738106] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019825.547268793] [mpc_corr]: ODOM/hw | x=+2.6379 y=+0.2368 yaw=-0.1556 v=+0.3905
+[INFO] [1791019825.628434535] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019825.741745876] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019826.548136872] [mpc_corr]: ODOM/hw | x=+3.0190 y=+0.1732 yaw=-0.1789 v=+0.3815
+[INFO] [1791019826.631638624] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019826.927566079] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019827.567899911] [mpc_corr]: ODOM/hw | x=+3.4296 y=+0.0923 yaw=-0.2082 v=+0.4167
+[INFO] [1791019827.732110825] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019827.790629760] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019828.587517597] [mpc_corr]: ODOM/hw | x=+3.8616 y=-0.0026 yaw=-0.2260 v=+0.4251
+[INFO] [1791019828.829647711] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019828.927574861] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019829.588428804] [mpc_corr]: ODOM/hw | x=+4.2758 y=-0.0995 yaw=-0.2303 v=+0.4512
+[INFO] [1791019829.829736001] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019829.841884058] [mpc_corr]: BOUNDARY/costmap | n=3
+[WARN] [1791019830.225836390] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019830.606620702] [mpc_corr]: ODOM/hw | x=+4.7194 y=-0.2031 yaw=-0.2294 v=+0.4505
+[INFO] [1791019830.830286039] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019830.927734384] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.041s sim_age=infs timeout=0.500s
+[INFO] [1791019831.606842656] [mpc_corr]: ODOM/hw | x=+5.1464 y=-0.3022 yaw=-0.2233 v=+0.4246
+[INFO] [1791019831.889714326] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019831.929977199] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[INFO] [1791019832.606857248] [mpc_corr]: ODOM/hw | x=+5.5729 y=-0.3967 yaw=-0.2132 v=+0.4534
+[INFO] [1791019832.858793411] [mpc_corr]: HOLD | engaged
+[INFO] [1791019832.927876431] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019833.030119513] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019833.609824542] [mpc_corr]: ODOM/hw | x=+5.9980 y=-0.4855 yaw=-0.1945 v=+0.4388
+[INFO] [1791019833.889939176] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019834.030921873] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019834.647486222] [mpc_corr]: ODOM/hw | x=+6.4457 y=-0.5678 yaw=-0.1729 v=+0.4271
+[INFO] [1791019835.027653623] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019835.130013279] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARN] [1791019835.225854457] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019835.668745449] [mpc_corr]: ODOM/hw | x=+6.8972 y=-0.6429 yaw=-0.1580 v=+0.4337
+[INFO] [1791019835.890074051] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019836.229095026] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019836.687437637] [mpc_corr]: ODOM/hw | x=+7.3428 y=-0.7112 yaw=-0.1466 v=+0.4308
+[INFO] [1791019837.127755606] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.020s sim_age=infs timeout=0.500s
+[INFO] [1791019837.328845993] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019837.687554275] [mpc_corr]: ODOM/hw | x=+7.7786 y=-0.7725 yaw=-0.1337 v=+0.4133
+[INFO] [1791019837.890762193] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019838.329577399] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019838.707684514] [mpc_corr]: ODOM/hw | x=+8.2260 y=-0.8312 yaw=-0.1275 v=+0.4310
+[INFO] [1791019839.127843806] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019839.329704703] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019839.748413792] [mpc_corr]: ODOM/hw | x=+8.6750 y=-0.8876 yaw=-0.1220 v=+0.4514
+[INFO] [1791019839.941446656] [mpc_corr]: BOUNDARY/costmap | n=3
+[WARN] [1791019840.226072826] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019840.329874171] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019840.767361557] [mpc_corr]: ODOM/hw | x=+9.1238 y=-0.9421 yaw=-0.1190 v=+0.4452
+[INFO] [1791019841.129019377] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019841.330213421] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019841.786857405] [mpc_corr]: ODOM/hw | x=+9.5721 y=-0.9942 yaw=-0.1128 v=+0.4415
+[INFO] [1791019841.989846190] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019842.428543903] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019842.806929262] [mpc_corr]: ODOM/hw | x=+10.0167 y=-1.0438 yaw=-0.1090 v=+0.4361
+[INFO] [1791019843.228126607] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.020s sim_age=infs timeout=0.500s
+[INFO] [1791019843.429556753] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019843.807832205] [mpc_corr]: ODOM/hw | x=+10.4574 y=-1.0919 yaw=-0.1098 v=+0.4213
+[INFO] [1791019844.039044080] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019844.429741259] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019844.832055551] [mpc_corr]: ODOM/hw | x=+10.9052 y=-1.1419 yaw=-0.1121 v=+0.4625
+[WARN] [1791019845.230732238] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[INFO] [1791019845.328621656] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.020s sim_age=infs timeout=0.500s
+[INFO] [1791019845.429891645] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019845.846511306] [mpc_corr]: ODOM/hw | x=+11.3542 y=-1.1933 yaw=-0.1164 v=+0.4594
+[INFO] [1791019846.042887044] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019846.529820102] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019846.868326768] [mpc_corr]: ODOM/hw | x=+11.8015 y=-1.2465 yaw=-0.1203 v=+0.4233
+[INFO] [1791019847.428024395] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.021s sim_age=infs timeout=0.500s
+[INFO] [1791019847.630377076] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019847.887393028] [mpc_corr]: ODOM/hw | x=+12.2495 y=-1.3002 yaw=-0.1185 v=+0.4284
+[INFO] [1791019848.089634543] [mpc_corr]: BOUNDARY/costmap | n=3
+[INFO] [1791019848.633218058] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[INFO] [1791019848.948312767] [mpc_corr]: ODOM/hw | x=+12.7148 y=-1.3581 yaw=-0.1317 v=+0.4303

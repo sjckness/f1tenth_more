@@ -1,0 +1,30 @@
+1791020140.9387152 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_06/ros_log/2026-10-03-11-35-40-936062-thor-378793
+1791020140.9390240 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020141.4366164 [INFO] [taskset-1]: process started with pid [378996]
+1791020141.4371660 [INFO] [taskset-2]: process started with pid [379004]
+1791020141.4373119 [INFO] [slam_pose_relay_node-3]: process started with pid [379008]
+1791020141.4373960 [INFO] [taskset-4]: process started with pid [379009]
+1791020141.4374487 [INFO] [robot_state_publisher-5]: process started with pid [379010]
+1791020141.4375014 [INFO] [joint_state_publisher-6]: process started with pid [379011]
+1791020141.4375532 [INFO] [static_transform_publisher-7]: process started with pid [379012]
+1791020141.5032558 [static_transform_publisher-7] [WARN] [1791020141.496107403] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791020141.5511520 [static_transform_publisher-7] [INFO] [1791020141.550179096] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791020141.5515344 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791020141.5516045 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791020141.5516384 [static_transform_publisher-7] from 'base_link' to 'laser'
+1791020182.5617630 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020182.5697975 [INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+1791020182.5830603 [INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+1791020182.5882597 [INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+1791020182.5899754 [ERROR] [static_transform_publisher-7]: process has died [pid 379012, exit code -2, cmd '/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser'].
+1791020182.5908427 [INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+1791020182.5914037 [INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+1791020182.5918369 [INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+1791020182.5923057 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791020182.5927181 [static_transform_publisher-7] [INFO] [1791020182.558218994] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791020182.6057484 [ERROR] [taskset-1]: process has died [pid 378996, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+1791020182.6074867 [ERROR] [taskset-2]: process has died [pid 379004, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791020183.8070261 [ERROR] [joint_state_publisher-6]: process has died [pid 379011, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_3v97a9k6'].
+1791020183.8240016 [ERROR] [slam_pose_relay_node-3]: process has died [pid 379008, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791020183.8288717 [ERROR] [taskset-4]: process has died [pid 379009, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].
+1791020184.7941091 [INFO] [robot_state_publisher-5]: process has finished cleanly [pid 379010]

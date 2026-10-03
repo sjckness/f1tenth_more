@@ -1,0 +1,545 @@
+{
+  "nodes": [
+    "/ackermann_mux",
+    "/behavior_executor_node",
+    "/component_supervisor_node",
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/diagnostics_server_node",
+    "/ekf_cost_observer_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/ekf_global/transform_listener_impl_aaaaeacd80d0",
+    "/foxglove_bridge",
+    "/image_annotated_viz_throttle",
+    "/image_raw_viz_throttle",
+    "/joint_state_publisher",
+    "/launch_ros_352093",
+    "/lidar_front_wall_node",
+    "/lifecycle_manager_map",
+    "/map_server",
+    "/mission_logger_node",
+    "/mpc_corr",
+    "/obstacle_clearance_node",
+    "/phase5_probe_graph",
+    "/robot_state_publisher",
+    "/rosbag2_player",
+    "/semantic_layer_node",
+    "/slam_pose_relay_node",
+    "/slam_toolbox",
+    "/static_baselink_to_laser",
+    "/swept_clearance_node",
+    "/system_observer_node",
+    "/transform_listener_impl_aaaae3fa85e0",
+    "/transform_listener_impl_aaab05211140",
+    "/twist_to_ackermann_node",
+    "/wall_distance_node"
+  ],
+  "topics": {
+    "/ackermann_drive": [
+      "ackermann_msgs/msg/AckermannDriveStamped"
+    ],
+    "/behavior/tree_status": [
+      "f1tenth_messages/msg/BehaviorTreeStatus"
+    ],
+    "/bond": [
+      "bond/msg/Status"
+    ],
+    "/bt/tree_visualization": [
+      "sensor_msgs/msg/CompressedImage"
+    ],
+    "/calibration/in_progress": [
+      "std_msgs/msg/Bool"
+    ],
+    "/calibration_drive": [
+      "ackermann_msgs/msg/AckermannDriveStamped"
+    ],
+    "/camera/detections": [
+      "vision_msgs/msg/Detection2DArray"
+    ],
+    "/camera/detections_3d": [
+      "vision_msgs/msg/Detection3DArray"
+    ],
+    "/cmd_vel_nav": [
+      "geometry_msgs/msg/Twist"
+    ],
+    "/corridor": [
+      "std_msgs/msg/String"
+    ],
+    "/costmap/boundaries": [
+      "f1tenth_messages/msg/BoundaryConstraintArray"
+    ],
+    "/costmap/front_clearance": [
+      "std_msgs/msg/Float32"
+    ],
+    "/costmap/safe_corridor_report": [
+      "std_msgs/msg/String"
+    ],
+    "/costmap/semantic_markers": [
+      "visualization_msgs/msg/MarkerArray"
+    ],
+    "/costmap/semantic_tracks": [
+      "vision_msgs/msg/Detection3DArray"
+    ],
+    "/costmap/visualization": [
+      "sensor_msgs/msg/Image"
+    ],
+    "/diagnostics": [
+      "diagnostic_msgs/msg/DiagnosticArray"
+    ],
+    "/diagnostics/battery_status": [
+      "f1tenth_messages/msg/BatteryStatus"
+    ],
+    "/diagnostics/system_status": [
+      "f1tenth_messages/msg/SystemStatus"
+    ],
+    "/drive": [
+      "ackermann_msgs/msg/AckermannDriveStamped"
+    ],
+    "/ekf_global/odometry/filtered": [
+      "nav_msgs/msg/Odometry"
+    ],
+    "/ekf_global/set_pose": [
+      "geometry_msgs/msg/PoseWithCovarianceStamped"
+    ],
+    "/events/read_split": [
+      "rosbag2_interfaces/msg/ReadSplitEvent"
+    ],
+    "/imu": [
+      "sensor_msgs/msg/Imu"
+    ],
+    "/joint_states": [
+      "sensor_msgs/msg/JointState"
+    ],
+    "/map": [
+      "nav_msgs/msg/OccupancyGrid"
+    ],
+    "/map_server/transition_event": [
+      "lifecycle_msgs/msg/TransitionEvent"
+    ],
+    "/mission/load_path": [
+      "std_msgs/msg/String"
+    ],
+    "/mission/move_outcome": [
+      "f1tenth_messages/msg/MoveOutcome"
+    ],
+    "/mission/status": [
+      "f1tenth_messages/msg/MissionStatus"
+    ],
+    "/model/virtual_robot/odometry": [
+      "nav_msgs/msg/Odometry"
+    ],
+    "/mpc/corridor_markers": [
+      "visualization_msgs/msg/MarkerArray"
+    ],
+    "/mpc/drive_clamp": [
+      "f1tenth_messages/msg/DriveClamp"
+    ],
+    "/mpc/goal_distance": [
+      "std_msgs/msg/Float32"
+    ],
+    "/mpc/goal_drive": [
+      "f1tenth_messages/msg/DriveCommand"
+    ],
+    "/mpc/goal_object": [
+      "f1tenth_messages/msg/ObjectGoal"
+    ],
+    "/mpc/goal_object_end": [
+      "std_msgs/msg/String"
+    ],
+    "/mpc/goal_pose": [
+      "geometry_msgs/msg/PoseStamped"
+    ],
+    "/mpc/goal_reached": [
+      "std_msgs/msg/Bool"
+    ],
+    "/mpc/goal_turn": [
+      "f1tenth_messages/msg/TurnGoal"
+    ],
+    "/mpc/hold": [
+      "std_msgs/msg/Bool"
+    ],
+    "/mpc/min_obstacle_distance": [
+      "std_msgs/msg/Float32"
+    ],
+    "/mpc/min_obstacle_distance_forward": [
+      "std_msgs/msg/Float32"
+    ],
+    "/mpc/object_status": [
+      "f1tenth_messages/msg/ObjectApproachStatus"
+    ],
+    "/mpc/predicted_min_clearance": [
+      "std_msgs/msg/Float32"
+    ],
+    "/mpc/solver_status": [
+      "f1tenth_messages/msg/MpcSolverStatus"
+    ],
+    "/mpc/status": [
+      "std_msgs/msg/String"
+    ],
+    "/mpc/wall_track": [
+      "f1tenth_messages/msg/WallTrack"
+    ],
+    "/obstacle_clearance": [
+      "std_msgs/msg/Float32"
+    ],
+    "/odom": [
+      "nav_msgs/msg/Odometry"
+    ],
+    "/odometry/filtered": [
+      "nav_msgs/msg/Odometry"
+    ],
+    "/parameter_events": [
+      "rcl_interfaces/msg/ParameterEvent"
+    ],
+    "/perception/d_wall": [
+      "f1tenth_messages/msg/WallDistance"
+    ],
+    "/perception/d_wall/gate_margin": [
+      "std_msgs/msg/Float32"
+    ],
+    "/perception/d_wall/psi_correction": [
+      "std_msgs/msg/Float32"
+    ],
+    "/perception/d_wall/segment": [
+      "f1tenth_messages/msg/WallSegment"
+    ],
+    "/perception/d_wall/swept_arc": [
+      "std_msgs/msg/Float32"
+    ],
+    "/perception/front_distance": [
+      "std_msgs/msg/Float32"
+    ],
+    "/perception/lidar_front_wall": [
+      "f1tenth_messages/msg/WallLineFit"
+    ],
+    "/perception/lidar_front_wall_virtual": [
+      "f1tenth_messages/msg/WallEstimate"
+    ],
+    "/perception/obstacles_2d": [
+      "f1tenth_messages/msg/Obstacle2DArray"
+    ],
+    "/perception/swept_clearance": [
+      "std_msgs/msg/Float32"
+    ],
+    "/perception/swept_clearance/camera": [
+      "std_msgs/msg/Float32"
+    ],
+    "/perception/swept_clearance/lidar": [
+      "std_msgs/msg/Float32"
+    ],
+    "/perception/swept_clearance/steering": [
+      "std_msgs/msg/Float32"
+    ],
+    "/robot_description": [
+      "std_msgs/msg/String"
+    ],
+    "/rosout": [
+      "rcl_interfaces/msg/Log"
+    ],
+    "/safety/event": [
+      "std_msgs/msg/String"
+    ],
+    "/safety_stop": [
+      "ackermann_msgs/msg/AckermannDriveStamped"
+    ],
+    "/scan": [
+      "sensor_msgs/msg/LaserScan"
+    ],
+    "/sensors/core": [
+      "vesc_msgs/msg/VescStateStamped"
+    ],
+    "/sensors/imu/raw": [
+      "sensor_msgs/msg/Imu"
+    ],
+    "/set_pose": [
+      "geometry_msgs/msg/PoseWithCovarianceStamped"
+    ],
+    "/slam/map": [
+      "nav_msgs/msg/OccupancyGrid"
+    ],
+    "/slam/map_metadata": [
+      "nav_msgs/msg/MapMetaData"
+    ],
+    "/slam/pose": [
+      "geometry_msgs/msg/PoseWithCovarianceStamped"
+    ],
+    "/slam/pose_calibrated": [
+      "geometry_msgs/msg/PoseWithCovarianceStamped"
+    ],
+    "/slam_toolbox/feedback": [
+      "visualization_msgs/msg/InteractiveMarkerFeedback"
+    ],
+    "/slam_toolbox/graph_visualization": [
+      "visualization_msgs/msg/MarkerArray"
+    ],
+    "/slam_toolbox/scan_visualization": [
+      "sensor_msgs/msg/LaserScan"
+    ],
+    "/slam_toolbox/transition_event": [
+      "lifecycle_msgs/msg/TransitionEvent"
+    ],
+    "/slam_toolbox/update": [
+      "visualization_msgs/msg/InteractiveMarkerUpdate"
+    ],
+    "/teleop": [
+      "ackermann_msgs/msg/AckermannDriveStamped"
+    ],
+    "/test/mission_event": [
+      "std_msgs/msg/String"
+    ],
+    "/test_campaign/logger_status": [
+      "std_msgs/msg/String"
+    ],
+    "/tf": [
+      "tf2_msgs/msg/TFMessage"
+    ],
+    "/tf_static": [
+      "tf2_msgs/msg/TFMessage"
+    ],
+    "/zed2/zed_node/depth/camera_info": [
+      "sensor_msgs/msg/CameraInfo"
+    ],
+    "/zed2/zed_node/depth/depth_registered": [
+      "sensor_msgs/msg/Image"
+    ]
+  },
+  "endpoints": {
+    "/tf": {
+      "publishers": [
+        {
+          "node": "/slam_toolbox",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/slam_toolbox",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/ekf_filter_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/ekf_global/ekf_global_filter_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/robot_state_publisher",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        }
+      ],
+      "subscribers": [
+        {
+          "node": "/mpc_corr",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/transform_listener_impl_aaaae3fa85e0",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/transform_listener_impl_aaab05211140",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/ekf_global/transform_listener_impl_aaaaeacd80d0",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/semantic_layer_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/costmap_boundary_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        }
+      ]
+    },
+    "/tf_static": {
+      "publishers": [
+        {
+          "node": "/robot_state_publisher",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/static_baselink_to_laser",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/rosbag2_player",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        }
+      ],
+      "subscribers": [
+        {
+          "node": "/mpc_corr",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/obstacle_clearance_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/transform_listener_impl_aaaae3fa85e0",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/transform_listener_impl_aaab05211140",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/ekf_global/transform_listener_impl_aaaaeacd80d0",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/wall_distance_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/lidar_front_wall_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/swept_clearance_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/semantic_layer_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/costmap_boundary_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        }
+      ]
+    },
+    "/diagnostics/system_status": {
+      "publishers": [
+        {
+          "node": "/system_observer_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        }
+      ],
+      "subscribers": [
+        {
+          "node": "/diagnostics_server_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/behavior_executor_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        }
+      ]
+    },
+    "/mission/status": {
+      "publishers": [
+        {
+          "node": "/behavior_executor_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        }
+      ],
+      "subscribers": [
+        {
+          "node": "/mission_logger_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        },
+        {
+          "node": "/behavior_executor_node",
+          "reliability": "RELIABLE",
+          "durability": "TRANSIENT_LOCAL"
+        }
+      ]
+    },
+    "/scan": {
+      "publishers": [
+        {
+          "node": "/rosbag2_player",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        }
+      ],
+      "subscribers": [
+        {
+          "node": "/mpc_corr",
+          "reliability": "BEST_EFFORT",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/obstacle_clearance_node",
+          "reliability": "BEST_EFFORT",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/slam_toolbox",
+          "reliability": "BEST_EFFORT",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/wall_distance_node",
+          "reliability": "BEST_EFFORT",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/lidar_front_wall_node",
+          "reliability": "BEST_EFFORT",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/swept_clearance_node",
+          "reliability": "BEST_EFFORT",
+          "durability": "VOLATILE"
+        },
+        {
+          "node": "/behavior_executor_node",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        }
+      ]
+    },
+    "/odom": {
+      "publishers": [
+        {
+          "node": "/rosbag2_player",
+          "reliability": "RELIABLE",
+          "durability": "VOLATILE"
+        }
+      ],
+      "subscribers": [
+        {
+          "node": "/ekf_filter_node",
+          "reliability": "BEST_EFFORT",
+          "durability": "VOLATILE"
+        }
+      ]
+    }
+  }
+}

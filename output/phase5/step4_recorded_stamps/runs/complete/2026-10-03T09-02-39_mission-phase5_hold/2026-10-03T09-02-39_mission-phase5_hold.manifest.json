@@ -1,0 +1,38 @@
+{
+  "bag_bytes": 1766,
+  "bag_path": "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/complete/2026-10-03T09-02-39_mission-phase5_hold/bag",
+  "bag_sha256": {
+    "bag_0.mcap": "f7461362fe58b96d8319c6e9e55eb0f391e071c6221c0feee12953aec5d14c6d",
+    "metadata.yaml": "eea657f07833eee4dbd98a1f2eafc173e915e684d1f792a20caeef501e71b61a"
+  },
+  "end_time": "2026-10-03T09:02:51.450293+00:00",
+  "git": {
+    "branch": "jazzy",
+    "commit": "7d3303c34fab42575fde43911ca6ddf0bea09340",
+    "dirty": true
+  },
+  "manifest_path": "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/complete/2026-10-03T09-02-39_mission-phase5_hold/2026-10-03T09-02-39_mission-phase5_hold.manifest.json",
+  "mission_id": "phase5_hold",
+  "mission_json_path": "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/phase5_hold.json",
+  "outcome": "COMPLETE",
+  "params_snapshot_path": "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/complete/2026-10-03T09-02-39_mission-phase5_hold/2026-10-03T09-02-39_mission-phase5_hold.params.yaml",
+  "resolved_params": {
+    "camera_source": "zed",
+    "confidence_threshold": 0.3,
+    "enable_intelligence": true,
+    "enable_nav2": false,
+    "enable_slam": true,
+    "enable_sys_obs": true,
+    "localization_source": "ekf",
+    "obstacle_class_margin_m": {},
+    "obstacle_radius_source": "footprint",
+    "use_behavior_tree": true,
+    "use_mask_depth": true,
+    "yolo_model": "yolo26s-seg.pt",
+    "yolo_model_task": "segment"
+  },
+  "run_dir": "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/complete/2026-10-03T09-02-39_mission-phase5_hold",
+  "run_id": "2026-10-03T09-02-39_mission-phase5_hold",
+  "start_time": "2026-10-03T09:02:39.253515+00:00",
+  "storage_id": "mcap"
+}

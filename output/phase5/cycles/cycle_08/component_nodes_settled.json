@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    "/diagnostics_server_node",
+    "/mission_logger_node",
+    "/system_observer_node"
+  ],
+  "localization": [
+    "/ekf_cost_observer_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/joint_state_publisher",
+    "/slam_pose_relay_node",
+    "/static_baselink_to_laser"
+  ],
+  "navigation": [
+    "/lifecycle_manager_map",
+    "/map_server",
+    "/mpc_corr"
+  ],
+  "wall_distance": [
+    "/wall_distance_node"
+  ],
+  "swept_clearance": [
+    "/swept_clearance_node"
+  ],
+  "dev_tools": [
+    "/foxglove_bridge",
+    "/image_annotated_viz_throttle",
+    "/image_raw_viz_throttle"
+  ],
+  "control": [
+    "/ackermann_mux"
+  ],
+  "behavior": [
+    "/behavior_executor_node",
+    "/twist_to_ackermann_node"
+  ],
+  "obstacle_clearance": [
+    "/obstacle_clearance_node"
+  ],
+  "lidar_front_wall": [
+    "/lidar_front_wall_node"
+  ],
+  "slam": [
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/semantic_layer_node",
+    "/slam_toolbox"
+  ]
+}

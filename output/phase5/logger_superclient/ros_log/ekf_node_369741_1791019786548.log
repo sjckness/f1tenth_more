@@ -1,0 +1,2 @@
+[ERROR] [1791019789.839759158] [ekf_global.ekf_global_filter_node]: Failed to meet update rate! Took 0.18030742699999999235seconds. Try decreasing the rate, limiting sensor output frequency, or limiting the number of sensors.
+[INFO] [1791019849.409767543] [rclcpp]: signal_handler(SIGINT/SIGTERM)

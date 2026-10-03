@@ -1,0 +1,45 @@
+{
+  "a": "output/phase5/step4",
+  "b": "output/phase5/sim/sim_false",
+  "processes_only_in_a": [
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup supervisor_bringup.launch.py components_config:=<RUN>/components.yaml enable_intelligence:=false log_dir:=<RUN>/supervisor\n"
+  ],
+  "processes_only_in_b": [
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup supervisor_bringup.launch.py components_config:=<RUN>/components.yaml enable_intelligence:=false log_dir:=<RUN>/supervisor sim:=false\n"
+  ],
+  "process_count": [
+    45,
+    45
+  ],
+  "nodes_only_in_a": [],
+  "nodes_only_in_b": [],
+  "param_differences": {
+    "/component_supervisor_node": {
+      "components_config": [
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/components.yaml",
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_false/components.yaml"
+      ],
+      "log_dir": [
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/supervisor",
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_false/supervisor"
+      ],
+      "sim": [
+        null,
+        false
+      ]
+    },
+    "/mission_logger_node": {
+      "runs_dir": [
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs",
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_false/runs"
+      ]
+    },
+    "/slam_toolbox": {
+      "max_laser_range": [
+        20.0,
+        null
+      ]
+    }
+  },
+  "generated_name_nodes_param_sets_equal": true
+}

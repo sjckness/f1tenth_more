@@ -1,0 +1,61 @@
+/opt/ros/jazzy/lib/python3.12/site-packages/launch/logging/__init__.py:149: UserWarning: Cannot create a symlink to latest log directory: [Errno 17] File exists: '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-454579-thor-352093' -> '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/latest'
+
+  warnings.warn(
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-454579-thor-352093
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [352344]
+[taskset-1] [INFO] [1791018054.189211955] [slam_toolbox]: Node using stack size 40000000
+[taskset-1] [INFO] [1791018055.060564157] [slam_toolbox]: Configuring
+[taskset-1] [INFO] [1791018055.085866657] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[taskset-1] [INFO] [1791018055.086283342] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[taskset-1] [INFO] [1791018055.125369276] [slam_toolbox]: Activating
+[taskset-1] Registering sensor: [Custom Described Lidar]
+[taskset-1] [INFO] [1791018077.793420917] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176693.999 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018080.307706895] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176696.629 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018082.809730548] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176699.139 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018085.310432407] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176701.639 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018087.817502589] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176704.123 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018090.324732557] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176706.648 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018092.868040740] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176709.178 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018095.379103903] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176711.708 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018097.879931723] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176714.208 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018100.409178540] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176716.738 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018102.909390518] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176719.238 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018105.428758685] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176721.758 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018107.942703505] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176724.268 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018110.443763760] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176726.767 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018112.968297907] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176729.297 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018115.469296313] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176731.797 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018117.985596740] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176734.306 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018120.496389453] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176736.822 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018123.002962516] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176739.322 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018125.503389366] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176741.832 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018128.033510809] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176744.362 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018130.540307444] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176746.862 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018133.043506566] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176749.372 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018135.553536530] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176751.871 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018138.073083113] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176754.401 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018140.593090117] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176756.921 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018143.102287276] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176759.431 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018145.622080615] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176761.951 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018148.131713767] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176764.461 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018150.651656873] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176766.981 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018153.161770679] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176769.490 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018155.663382414] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176771.990 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018158.191223392] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176774.520 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018160.756772284] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176776.951 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018163.258779591] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176779.585 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018165.766832648] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176782.095 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018168.267234274] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176784.595 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018170.776076863] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176787.105 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018173.277467209] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176789.605 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018175.785766322] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176792.115 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018178.288293499] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176794.614 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018180.815691487] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176797.144 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018183.317777127] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176799.644 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018185.845376176] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176802.174 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018188.346651420] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176804.674 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018190.865272791] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176807.194 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018193.376632094] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176809.704 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018195.908953764] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176812.234 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018198.434627760] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176814.763 for reason 'the timestamp on the message is earlier than all the data in the transform cache'

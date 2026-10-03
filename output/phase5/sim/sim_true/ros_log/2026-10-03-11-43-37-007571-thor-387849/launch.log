@@ -1,0 +1,12 @@
+1791020617.0113645 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_true/ros_log/2026-10-03-11-43-37-007571-thor-387849
+1791020617.0120325 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020617.0912926 [INFO] [static_transform_publisher-1]: process started with pid [387891]
+1791020617.1169641 [static_transform_publisher-1] [WARN] [1791020617.116189550] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791020617.1701634 [static_transform_publisher-1] [INFO] [1791020617.169429448] [static_baselink_to_imu]: Spinning until stopped - publishing transform
+1791020617.1709292 [static_transform_publisher-1] translation: ('0.000000', '0.000000', '0.000000')
+1791020617.1710396 [static_transform_publisher-1] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791020617.1710815 [static_transform_publisher-1] from 'base_link' to 'imu'
+1791020688.5714314 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020688.5739138 [INFO] [static_transform_publisher-1]: sending signal 'SIGINT' to process[static_transform_publisher-1]
+1791020688.5826051 [static_transform_publisher-1] [INFO] [1791020688.574419812] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791020688.6366048 [ERROR] [static_transform_publisher-1]: process has died [pid 387891, exit code -2, cmd '/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.0 0.0 0.0 0.0 0.0 0.0 base_link imu --ros-args -r __node:=static_baselink_to_imu -p use_sim_time:=True'].

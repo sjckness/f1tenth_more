@@ -1,0 +1,23 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/ros_log/2026-10-03-11-29-45-768682-thor-369469
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [system_observer_node-1]: process started with pid [369548]
+[system_observer_node-1] [ERROR] [1791019787.356277237] [system_observer_node]: [system_observer] jetson-stats not installed (No module named 'jtop'). gpu_percent/gpu_temp_c/emc_percent will be published as 0.0. Fix: `sudo pip3 install jetson-stats`, then reboot (or restart jtop.service).
+[system_observer_node-1] [INFO] [1791019787.357292080] [system_observer_node]: [system_observer] Publishing SystemStatus on /diagnostics/system_status at 1.00 Hz (jtop: UNAVAILABLE, see warning above).
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [system_observer_node-1]: sending signal 'SIGINT' to process[system_observer_node-1]
+[system_observer_node-1] Traceback (most recent call last):
+[system_observer_node-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/system_observer_node", line 33, in <module>
+[system_observer_node-1]     sys.exit(load_entry_point('f1tenth-diagnostics', 'console_scripts', 'system_observer_node')())
+[system_observer_node-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[system_observer_node-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_diagnostics/f1tenth_diagnostics/system_observer_node.py", line 178, in main
+[system_observer_node-1]     node.destroy_node()
+[system_observer_node-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_diagnostics/f1tenth_diagnostics/system_observer_node.py", line 90, in destroy_node
+[system_observer_node-1]     return super().destroy_node()
+[system_observer_node-1]            ^^^^^^^^^^^^^^^^^^^^^^
+[system_observer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1962, in destroy_node
+[system_observer_node-1]     self.destroy_service(self._services[0])
+[system_observer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1886, in destroy_service
+[system_observer_node-1]     service.destroy()
+[system_observer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/service.py", line 123, in destroy
+[system_observer_node-1]     self.__service.destroy_when_not_in_use()
+[system_observer_node-1] KeyboardInterrupt

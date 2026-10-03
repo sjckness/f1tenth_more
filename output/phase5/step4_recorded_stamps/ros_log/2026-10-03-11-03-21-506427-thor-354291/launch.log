@@ -1,0 +1,31 @@
+1791018201.5090263 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-03-21-506427-thor-354291
+1791018201.5094106 [INFO] [launch]: Default logging verbosity is set to INFO
+1791018201.8852689 [INFO] [taskset-1]: process started with pid [354331]
+1791018201.8858101 [INFO] [taskset-2]: process started with pid [354332]
+1791018201.8859854 [INFO] [slam_pose_relay_node-3]: process started with pid [354333]
+1791018201.8860886 [INFO] [taskset-4]: process started with pid [354334]
+1791018201.8861718 [INFO] [robot_state_publisher-5]: process started with pid [354335]
+1791018201.8862512 [INFO] [joint_state_publisher-6]: process started with pid [354336]
+1791018201.8863206 [INFO] [static_transform_publisher-7]: process started with pid [354337]
+1791018201.9098892 [static_transform_publisher-7] [WARN] [1791018201.909231700] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791018201.9390073 [static_transform_publisher-7] [INFO] [1791018201.936213465] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791018201.9393120 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791018201.9393671 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791018201.9393976 [static_transform_publisher-7] from 'base_link' to 'laser'
+1791018285.0876162 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791018285.1067548 [INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+1791018285.1092722 [INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+1791018285.1112661 [INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+1791018285.1124084 [INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+1791018285.1144533 [INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+1791018285.1161208 [INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+1791018285.1170976 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791018285.1182387 [static_transform_publisher-7] [INFO] [1791018285.096909159] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791018285.1184387 [static_transform_publisher-7] [INFO] [1791018285.109805566] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791018285.1425369 [ERROR] [taskset-2]: process has died [pid 354332, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791018285.1455753 [ERROR] [taskset-1]: process has died [pid 354331, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+1791018285.3181684 [ERROR] [slam_pose_relay_node-3]: process has died [pid 354333, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791018285.3353736 [INFO] [robot_state_publisher-5]: process has finished cleanly [pid 354335]
+1791018285.3426974 [ERROR] [joint_state_publisher-6]: process has died [pid 354336, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_e5te6ikl'].
+1791018285.3706298 [ERROR] [taskset-4]: process has died [pid 354334, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].
+1791018286.2345126 [INFO] [static_transform_publisher-7]: process has finished cleanly [pid 354337]

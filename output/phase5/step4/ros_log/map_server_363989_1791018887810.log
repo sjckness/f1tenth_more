@@ -1,0 +1,8 @@
+[INFO] [1791018887.847546326] [map_server]: 
+	map_server lifecycle node launched. 
+	Waiting on external lifecycle transitions to activate
+	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[INFO] [1791018887.847695178] [map_server]: Creating
+[INFO] [1791018943.308792544] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [1791018943.309015914] [map_server]: Running Nav2 LifecycleNode rcl preshutdown (map_server)
+[INFO] [1791018943.309113784] [map_server]: Destroying bond (map_server) to lifecycle manager.

@@ -1,0 +1,368 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-521594-thor-352094
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [semantic_layer_node-1]: process started with pid [352162]
+[INFO] [costmap_renderer_node-2]: process started with pid [352163]
+[INFO] [costmap_boundary_node-3]: process started with pid [352165]
+[costmap_renderer_node-2] [INFO] [1791018054.980100051] [costmap_renderer_node]: costmap_renderer_node started
+[semantic_layer_node-1] [INFO] [1791018055.648822858] [semantic_layer_node]: semantic_layer_node started
+[costmap_boundary_node-3] [INFO] [1791018055.649701728] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=20.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[costmap_boundary_node-3] [WARN] [1791018055.682355930] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018060.683085614] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018065.732440465] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018070.783439937] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791018075.832343925] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [INFO] [1791018080.203973471] [costmap_boundary_node]: n_constraints=3 front_clearance=1.55m
+[costmap_boundary_node-3] [INFO] [1791018082.248540378] [costmap_boundary_node]: n_constraints=3 front_clearance=1.54m
+[costmap_boundary_node-3] [INFO] [1791018084.251187092] [costmap_boundary_node]: n_constraints=3 front_clearance=1.44m
+[costmap_boundary_node-3] [INFO] [1791018086.296075740] [costmap_boundary_node]: n_constraints=3 front_clearance=1.44m
+[costmap_boundary_node-3] [INFO] [1791018088.299900296] [costmap_boundary_node]: n_constraints=3 front_clearance=1.11m
+[costmap_boundary_node-3] [INFO] [1791018090.300992527] [costmap_boundary_node]: n_constraints=3 front_clearance=1.03m
+[costmap_boundary_node-3] [INFO] [1791018092.350207157] [costmap_boundary_node]: n_constraints=3 front_clearance=0.91m
+[costmap_boundary_node-3] [INFO] [1791018094.351018068] [costmap_boundary_node]: n_constraints=3 front_clearance=0.83m
+[costmap_boundary_node-3] [INFO] [1791018096.398339344] [costmap_boundary_node]: n_constraints=3 front_clearance=0.45m
+[costmap_boundary_node-3] [INFO] [1791018098.448061186] [costmap_boundary_node]: n_constraints=3 front_clearance=0.27m
+[costmap_boundary_node-3] [INFO] [1791018100.448729556] [costmap_boundary_node]: n_constraints=3 front_clearance=0.21m
+[costmap_boundary_node-3] [INFO] [1791018102.499542715] [costmap_boundary_node]: n_constraints=3 front_clearance=0.20m
+[costmap_boundary_node-3] [INFO] [1791018104.548894858] [costmap_boundary_node]: n_constraints=3 front_clearance=0.26m
+[costmap_boundary_node-3] [INFO] [1791018106.597420770] [costmap_boundary_node]: n_constraints=3 front_clearance=0.15m
+[costmap_boundary_node-3] [INFO] [1791018108.598089079] [costmap_boundary_node]: n_constraints=3 front_clearance=0.12m
+[costmap_boundary_node-3] [INFO] [1791018110.598912673] [costmap_boundary_node]: n_constraints=3 front_clearance=2.38m
+[costmap_boundary_node-3] [INFO] [1791018112.600558478] [costmap_boundary_node]: n_constraints=3 front_clearance=2.16m
+[costmap_boundary_node-3] [INFO] [1791018114.600918775] [costmap_boundary_node]: n_constraints=3 front_clearance=1.74m
+[costmap_boundary_node-3] [INFO] [1791018116.650364287] [costmap_boundary_node]: n_constraints=3 front_clearance=1.60m
+[costmap_boundary_node-3] [INFO] [1791018118.697794811] [costmap_boundary_node]: n_constraints=3 front_clearance=3.20m
+[costmap_boundary_node-3] [INFO] [1791018120.749446975] [costmap_boundary_node]: n_constraints=3 front_clearance=3.08m
+[costmap_boundary_node-3] [INFO] [1791018122.750239310] [costmap_boundary_node]: n_constraints=3 front_clearance=3.09m
+[costmap_boundary_node-3] [INFO] [1791018124.797706418] [costmap_boundary_node]: n_constraints=3 front_clearance=3.09m
+[costmap_boundary_node-3] [INFO] [1791018126.844592190] [costmap_boundary_node]: n_constraints=3 front_clearance=1.88m
+[costmap_boundary_node-3] [INFO] [1791018128.849801161] [costmap_boundary_node]: n_constraints=3 front_clearance=1.88m
+[costmap_boundary_node-3] [INFO] [1791018130.897861675] [costmap_boundary_node]: n_constraints=3 front_clearance=1.88m
+[costmap_boundary_node-3] [INFO] [1791018132.898842739] [costmap_boundary_node]: n_constraints=3 front_clearance=1.88m
+[costmap_boundary_node-3] [INFO] [1791018134.898885314] [costmap_boundary_node]: n_constraints=3 front_clearance=2.96m
+[costmap_boundary_node-3] [INFO] [1791018136.948261169] [costmap_boundary_node]: n_constraints=3 front_clearance=2.85m
+[costmap_boundary_node-3] [INFO] [1791018138.997783387] [costmap_boundary_node]: n_constraints=3 front_clearance=2.76m
+[costmap_boundary_node-3] [INFO] [1791018140.998134594] [costmap_boundary_node]: n_constraints=3 front_clearance=2.76m
+[costmap_boundary_node-3] [INFO] [1791018142.998278215] [costmap_boundary_node]: n_constraints=3 front_clearance=2.75m
+[costmap_boundary_node-3] [INFO] [1791018145.048029828] [costmap_boundary_node]: n_constraints=3 front_clearance=2.73m
+[costmap_boundary_node-3] [INFO] [1791018147.097463747] [costmap_boundary_node]: n_constraints=3 front_clearance=2.73m
+[costmap_boundary_node-3] [INFO] [1791018149.097869788] [costmap_boundary_node]: n_constraints=3 front_clearance=2.73m
+[costmap_boundary_node-3] [INFO] [1791018151.098858326] [costmap_boundary_node]: n_constraints=3 front_clearance=2.73m
+[costmap_boundary_node-3] [INFO] [1791018153.106187176] [costmap_boundary_node]: n_constraints=3 front_clearance=2.73m
+[costmap_boundary_node-3] [INFO] [1791018155.149711224] [costmap_boundary_node]: n_constraints=3 front_clearance=2.73m
+[costmap_boundary_node-3] [INFO] [1791018157.198449756] [costmap_boundary_node]: n_constraints=3 front_clearance=2.72m
+[costmap_boundary_node-3] [INFO] [1791018159.248227953] [costmap_boundary_node]: n_constraints=3 front_clearance=2.72m
+[costmap_boundary_node-3] [INFO] [1791018161.292479950] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018163.297649581] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018165.347343045] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018167.396968880] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018169.400057308] [costmap_boundary_node]: n_constraints=3 front_clearance=0.90m
+[costmap_boundary_node-3] [INFO] [1791018171.447755341] [costmap_boundary_node]: n_constraints=3 front_clearance=0.82m
+[costmap_boundary_node-3] [INFO] [1791018173.451009466] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018175.497013473] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018177.547008030] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018179.547427864] [costmap_boundary_node]: n_constraints=3 front_clearance=1.47m
+[costmap_boundary_node-3] [INFO] [1791018181.547703386] [costmap_boundary_node]: n_constraints=3 front_clearance=1.39m
+[costmap_boundary_node-3] [INFO] [1791018183.549817457] [costmap_boundary_node]: n_constraints=3 front_clearance=1.39m
+[costmap_boundary_node-3] [INFO] [1791018185.597087037] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018187.597525138] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018189.600498332] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018191.647498006] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018193.697618164] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018195.697831571] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018197.699514495] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018199.748609793] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018201.799615520] [costmap_boundary_node]: n_constraints=2 front_clearance=6.00m
+[costmap_boundary_node-3] [WARN] [1791018203.755598390] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.457675 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.758518959] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.457675 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.774324761] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.878597 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.774758261] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.878597 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.790775580] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176819.878597 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.793276771] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.157317 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.796063174] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176819.878597 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.796955978] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.157317 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.809522849] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.157317 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.809914422] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.157317 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.813004260] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.177609 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.813067816] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.177609 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.829676255] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.177609 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.829704319] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.177609 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.833024139] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.197483 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [INFO] [1791018203.842529708] [costmap_boundary_node]: n_constraints=3 front_clearance=2.13m
+[costmap_boundary_node-3] [WARN] [1791018203.843311152] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.197483 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.849431902] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.197483 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.849746410] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.197483 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.853159766] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.217499 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.856288716] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.217499 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.870440343] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.217499 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.870555427] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.217499 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.873051470] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.237580 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.873056562] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.237580 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.890063223] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.237580 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.892562228] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.237580 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.893002617] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.253356 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.893208273] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.253356 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.909437463] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.253356 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.909534731] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.253356 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.912963522] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.277491 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.912992791] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.277491 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.929624656] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.277491 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.929803526] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.277491 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.933078419] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.297628 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.945452623] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.297628 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.949570293] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.297628 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.949884515] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.297628 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.953082464] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.317535 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.953135316] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.317535 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.969568931] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.317535 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.969607524] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.317535 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.973000315] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.337492 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.973017315] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.337492 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.989563661] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.337492 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018203.992921453] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.357476 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.997660807] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.337492 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018203.998553565] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.357476 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.009430040] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.357476 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.009467373] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.357476 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.013149682] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.377469 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.013183747] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.377469 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.029585677] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.377469 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.029579288] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.377469 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.033056931] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.397487 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.048536446] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.397487 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.049555852] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.397487 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.049688750] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.397487 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.053339337] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.417480 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.053354383] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.417480 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.069399397] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.417480 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.069461823] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.417480 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.072992632] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.437488 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.073020216] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.437488 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.089397561] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.437488 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.093012482] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.457527 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.097083643] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.437488 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.097927234] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.457527 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.109427393] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.457527 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.109434772] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.457527 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.113052869] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.477561 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.113419100] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.477561 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.129779381] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.477561 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.129794695] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.477561 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.133207505] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.492563 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.149685471] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.492563 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.150575692] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.492563 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.151649246] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.492563 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.153148290] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.517564 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.153187364] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.517564 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.169481627] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.517564 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.169667321] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.517564 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.173067742] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.541868 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.173448556] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.541868 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.189546764] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.541868 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.193086953] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.557596 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.199399573] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.541868 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.200328516] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.557596 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.209456651] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.557596 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.209697577] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.557596 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.213118313] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.577500 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.213125368] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.577500 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.229497400] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.577500 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.229607686] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.577500 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.233039534] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.592437 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.249654324] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.592437 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.249736092] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.592437 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.250720888] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.592437 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.253652263] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.617549 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.253662578] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.617549 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.269536415] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.617549 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.269682739] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.617549 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.273141336] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.637684 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.273171466] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.637684 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.289849886] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.637684 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.293335631] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.657494 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.299498937] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.637684 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.300572370] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.657494 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.309533524] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.657494 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.309940182] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.657494 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.313033325] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.672914 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.313112195] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.672914 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.329790772] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.672914 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.329795846] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.672914 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.333424989] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.697461 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.349868002] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.697461 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.350677992] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.697461 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.351685101] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.697461 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.353020943] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.717549 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.353133183] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.717549 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.369521381] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.717549 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.369614705] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.717549 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.373001284] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.732925 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.373017968] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.732925 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.389502454] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.732925 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.392925255] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.757495 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.399987670] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.732925 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.400964058] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.757495 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.409707101] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.757495 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.410113248] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.757495 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.412973494] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.772437 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.413051938] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.772437 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [WARN] [1791018204.429523998] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.772437 according to authority default_authority
+[costmap_boundary_node-3] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[semantic_layer_node-1] [WARN] [1791018204.429670285] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.772437 according to authority default_authority
+[semantic_layer_node-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[costmap_boundary_node-3] [INFO] [1791018205.882646731] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018207.932283213] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018209.932801788] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018211.932822542] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018213.983707420] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018216.032979840] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018218.254854175] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018220.282689958] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018222.332687708] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018224.332877961] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018226.382904017] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018228.384367792] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018230.433457155] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018232.483434980] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018234.532339068] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018236.532721496] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018238.532925810] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018240.582676080] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018242.583212577] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018244.632845073] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018246.683216204] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018248.732824955] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018250.784146250] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018252.832702613] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[costmap_boundary_node-3] [INFO] [1791018254.832831042] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m

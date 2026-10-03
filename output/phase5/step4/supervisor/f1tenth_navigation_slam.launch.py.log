@@ -1,0 +1,16 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-11-35-779294-thor-359804
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [360205]
+[taskset-1] [INFO] [1791018696.957850957] [slam_toolbox]: Node using stack size 40000000
+[taskset-1] [INFO] [1791018697.357521496] [slam_toolbox]: Configuring
+[taskset-1] [INFO] [1791018697.379960593] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[taskset-1] [INFO] [1791018697.380577953] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[taskset-1] [INFO] [1791018697.412768980] [slam_toolbox]: Activating
+[taskset-1] Registering sensor: [Custom Described Lidar]
+[taskset-1] [INFO] [1791018720.877733840] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791018720.676 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018861.301141762] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791018861.085 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[INFO] [taskset-1]: process has finished cleanly [pid 360205]
+[taskset-1] [INFO] [1791018943.302393859] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] Unregistering sensor: Custom Described Lidar

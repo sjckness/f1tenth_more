@@ -1,0 +1,14 @@
+[INFO] [1791020039.399325162] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=20.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[WARN] [1791020039.432342700] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020044.433177173] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020049.482562759] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020054.533312352] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020059.582186525] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020064.582305737] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received
+[INFO] [1791020065.298478468] [costmap_boundary_node]: n_constraints=3 front_clearance=2.20m
+[INFO] [1791020067.348912825] [costmap_boundary_node]: n_constraints=3 front_clearance=2.12m
+[INFO] [1791020069.349232559] [costmap_boundary_node]: n_constraints=3 front_clearance=1.45m
+[INFO] [1791020071.349624910] [costmap_boundary_node]: n_constraints=3 front_clearance=1.42m
+[INFO] [1791020073.397948895] [costmap_boundary_node]: n_constraints=3 front_clearance=1.73m
+[INFO] [1791020075.398984920] [costmap_boundary_node]: n_constraints=3 front_clearance=1.77m
+[INFO] [1791020077.449088084] [costmap_boundary_node]: n_constraints=3 front_clearance=1.66m

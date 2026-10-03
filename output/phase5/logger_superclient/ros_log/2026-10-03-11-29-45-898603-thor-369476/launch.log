@@ -1,0 +1,9 @@
+1791019785.9014220 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/ros_log/2026-10-03-11-29-45-898603-thor-369476
+1791019785.9018214 [INFO] [launch]: Default logging verbosity is set to INFO
+1791019786.0890305 [INFO] [launch.user]: [behavior_bringup] enable_nav2 is false -- skipping the Nav2 readiness gate, launching behavior_executor_node and twist_to_ackermann_node immediately (navigation lane will stay idle until enable_nav2 is turned back on).
+1791019786.1036675 [INFO] [taskset-1]: process started with pid [369590]
+1791019786.1040874 [INFO] [twist_to_ackermann_node-2]: process started with pid [369600]
+1791019849.4136236 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791019849.4308500 [INFO] [twist_to_ackermann_node-2]: sending signal 'SIGINT' to process[twist_to_ackermann_node-2]
+1791019849.4339213 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791019852.0635979 [ERROR] [taskset-1]: process has died [pid 369590, exit code -2, cmd 'taskset -c 4 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_executor_node --params-file /tmp/launch_params_lhn3as9q'].

@@ -1,0 +1,6 @@
+1791020296.7999845 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_09/ros_log/2026-10-03-11-38-16-797299-thor-382684
+1791020296.8003767 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020296.9792948 [INFO] [diagnostics_server_node-1]: process started with pid [382734]
+1791020338.4281149 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020338.4338100 [INFO] [diagnostics_server_node-1]: sending signal 'SIGINT' to process[diagnostics_server_node-1]
+1791020338.7021580 [ERROR] [diagnostics_server_node-1]: process has died [pid 382734, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r __node:=diagnostics_server_node --params-file /tmp/launch_params_qdfpx3f8'].

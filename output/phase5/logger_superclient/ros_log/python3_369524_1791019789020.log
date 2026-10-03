@@ -1,0 +1,33 @@
+[INFO] [1791019789.569143029] [swept_clearance_node]: swept_clearance_node up: lidar /scan, depth /zed2/zed_node/depth/depth_registered; steering /ackermann_drive as lagged_command (lag 0.30 s) -> /perception/swept_clearance
+[WARN] [1791019789.605088756] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019791.605094883] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019793.605381718] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019795.654626472] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019797.655085686] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019799.704967610] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019801.754748997] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019803.804420085] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019805.805016309] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791019807.805287048] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[INFO] [1791019809.536965313] [swept_clearance_node]: base_link <- laser: t=(0.120, 0.000, 0.200) m
+[WARN] [1791019809.554862821] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019811.604508242] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019813.609476957] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019815.654288791] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019817.654828770] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019819.654945419] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019821.710253464] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019823.754259724] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019825.754351942] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019827.754358440] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019829.758178463] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019831.807156888] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019833.854357302] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019835.907174326] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019837.954284735] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019839.955951009] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019842.004519597] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019844.006238805] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019846.006481097] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019848.007877967] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791019848.904663314] [swept_clearance_node]: every clearance sensor is stale (lidar 0.30 s old, camera never received); publishing 0.0

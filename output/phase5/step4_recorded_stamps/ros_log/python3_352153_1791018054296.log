@@ -1,0 +1,13 @@
+[INFO] [1791018054.764338127] [mission_logger_node]: mission_logger_node up (pid 352153, lock /tmp/mission_logger.lock): watching "/mission/status", runs -> "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs" (active/ -> complete/, storage=mcap), 44 topics (5 with BEST_EFFORT overrides), sweep every 300s (action=move). THIS IS THE LIVE LOGGER -- a second `ros2 run` will be refused.
+[INFO] [1791018159.276463504] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[INFO] [1791018159.276477097] [rosbag2_recorder]: Event publisher thread: Started
+[INFO] [1791018159.279534667] [rosbag2_recorder]: Starting recording to '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/active/2026-10-03T09-02-39_mission-phase5_hold/bag'
+[INFO] [1791018159.282367431] [rosbag2_recorder]: Listening for topics...
+[INFO] [1791018159.282404079] [rosbag2_recorder]: Recording...
+[INFO] [1791018159.282413422] [rosbag2_recorder]: Topics discovery started.
+[INFO] [1791018159.329427196] [mission_logger_node]: recording "2026-10-03T09-02-39_mission-phase5_hold" -> /home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/active/2026-10-03T09-02-39_mission-phase5_hold/bag
+[INFO] [1791018171.447438183] [rosbag2_recorder]: Topics discovery stopped.
+[INFO] [1791018171.447700711] [rosbag2_recorder]: Pausing recording.
+[INFO] [1791018171.447799007] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[INFO] [1791018171.449361125] [rosbag2_recorder]: Recording stopped
+[INFO] [1791018171.508268984] [mission_logger_node]: stopped recording "2026-10-03T09-02-39_mission-phase5_hold" (outcome=COMPLETE) -> /home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/complete/2026-10-03T09-02-39_mission-phase5_hold

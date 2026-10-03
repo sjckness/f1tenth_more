@@ -1,0 +1,3 @@
+[INFO] [1791020618.399111255] [ekf_filter_node]: Waiting for clock to start...
+[WARN] [1791020670.913385223] [rclcpp]: Failed to get parameters: parameter 'imu1' is not initialized
+[INFO] [1791020688.579901862] [rclcpp]: signal_handler(SIGINT/SIGTERM)
