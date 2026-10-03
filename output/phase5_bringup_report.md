@@ -586,7 +586,7 @@ convention.
 ```
 42b416d jazzy/p5: full-stack bringup harness — Phase 5 needs the production supervisor bringup run, fed and measured, without hardware
 af41013 jazzy/sim: supervisor_bringup sim:=true — the Gazebo phase needs the stack without hardware drivers, on simulated time
-(this report and its data: next commit)
+3978b81 jazzy/p5: Phase 5 results, env proposal and report — GO-WITH-NOTES, logger needs a super client under the Discovery Server
 ```
 
 Also on this branch from this session, none pushed:
