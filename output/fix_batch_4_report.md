@@ -357,8 +357,8 @@ slam:
 
 ```
 b31b76c fix/diagnostics: steering calibration e-stop check waits up to 5 s for the graph — a single read under a new super client refused 3 of 4 starts with the mux and the BT both up
-(next) fix/discovery: isolation investigation — scripts, profile, data
-(next) fix/batch4: report, backlog, e-stop live data
+bb76c09 fix/discovery: isolation investigation — scripts, short-lease profile and data for 150 full-stack bringups and 120 stack-free rounds
+898d7a6 fix/batch4: report, backlog, e-stop live data — H6 closed, H1 root-caused with a proposed lease fix and watchdog design
 ```
 
 None pushed.
