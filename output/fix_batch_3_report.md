@@ -169,7 +169,7 @@ updated with this evidence.
 a936c75 fix/diagnostics: ekf_cost_observer_node runs as a Discovery Server super client — as a plain client it subscribed to nothing and half its metrics read 0
 5b320a5 fix/diagnostics: steering_offset_calibration.launch.py sets ROS_SUPER_CLIENT — as a plain client its e-stop preflight never sees the /safety_stop publisher and always refuses
 d29b3e0 fix/tools: stackctl.py runs as a super client — as a plain Discovery Server client `status` reported every supervisor service MISSING on a running stack
-(this report, the backlog update and the live-check data: next commit)
+ee9b0a0 fix/batch3: report, live-check script and data, backlog update — plain-client graph audit
 ```
 
 **How each fix is scoped:**
