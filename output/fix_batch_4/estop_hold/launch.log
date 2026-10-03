@@ -1,0 +1,67 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/ros_log/2026-10-03-16-09-17-094463-thor-442823
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [fastdds_discovery_server-1]: process started with pid [442855]
+[INFO] [component_supervisor_node-2]: process started with pid [442856]
+[fastdds_discovery_server-1] [ensure_discovery_server] 127.0.0.1:11811 is free -- starting a fresh fastdds discovery server.
+[fastdds_discovery_server-1] ### Server is running ###
+[fastdds_discovery_server-1]   Participant Type:   SERVER
+[fastdds_discovery_server-1]   Security:           NO
+[fastdds_discovery_server-1]   Server ID:          0
+[fastdds_discovery_server-1]   Server GUID prefix: 44.53.00.5f.45.50.52.4f.53.49.4d.41
+[fastdds_discovery_server-1]   Server Addresses:   UDPv4:[127.0.0.1]:11811
+[component_supervisor_node-2] [WARN] [1791036557.826363339] [component_supervisor_node]: [component_supervisor] FastDDS SHM sweep (startup): found 29 fastrtps file(s) (16 still in use, 13 orphaned) -- removed 13/13 orphaned file(s). Sample removed: ['/dev/shm/fastrtps_31e66cdb98f0c2fd', '/dev/shm/fastrtps_31e66cdb98f0c2fd_el', '/dev/shm/fastrtps_f4b50d484781cefc', '/dev/shm/fastrtps_f4b50d484781cefc_el', '/dev/shm/fastrtps_port28681'].
+[component_supervisor_node-2] [INFO] [1791036557.931875758] [component_supervisor_node]: [component_supervisor] Registry: ['behavior', 'calibrate_hardware', 'control', 'dev_tools', 'diagnostics', 'hardware', 'intelligence', 'lidar_front_wall', 'localization', 'navigation', 'obstacle_clearance', 'perception', 'slam', 'startup_sequence', 'swept_clearance', 'wall_distance']. Auto-starting: ['behavior', 'control', 'dev_tools', 'diagnostics', 'hardware', 'lidar_front_wall', 'localization', 'navigation', 'obstacle_clearance', 'perception', 'slam', 'swept_clearance', 'wall_distance']. Log dir: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor
+[component_supervisor_node-2] [INFO] [1791036557.933440980] [component_supervisor_node]: [component_supervisor] Started 'control': ros2 launch f1tenth_control ackermann_mux.launch.py (pid 442897, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_control_ackermann_mux.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.934742176] [component_supervisor_node]: [component_supervisor] Started 'navigation': ros2 launch f1tenth_navigation navigation.launch.py (pid 442898, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_navigation_navigation.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.936413609] [component_supervisor_node]: [component_supervisor] Started 'dev_tools': ros2 launch f1tenth_bringup foxglove_bridge.launch.py (pid 442899, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_bringup_foxglove_bridge.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.937649149] [component_supervisor_node]: [component_supervisor] Started 'obstacle_clearance': ros2 launch f1tenth_perception obstacle_clearance.launch.py (pid 442900, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_perception_obstacle_clearance.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.939519053] [component_supervisor_node]: [component_supervisor] Started 'swept_clearance': ros2 launch f1tenth_perception swept_clearance.launch.py (pid 442901, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_perception_swept_clearance.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.940861388] [component_supervisor_node]: [component_supervisor] Started 'behavior': ros2 launch f1tenth_behavior behavior_bringup.launch.py (pid 442902, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_behavior_behavior_bringup.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.942140537] [component_supervisor_node]: [component_supervisor] Started 'diagnostics': ros2 launch f1tenth_diagnostics system_observer.launch.py (pid 442903, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_diagnostics_system_observer.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.943208437] [component_supervisor_node]: [component_supervisor] Started 'diagnostics': ros2 launch f1tenth_diagnostics diagnostics_server.launch.py (pid 442904, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_diagnostics_diagnostics_server.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.944122709] [component_supervisor_node]: [component_supervisor] Started 'diagnostics': ros2 launch f1tenth_logger mission_logger.launch.py mission_logger_runs_dir:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/runs (pid 442905, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_logger_mission_logger.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.945772394] [component_supervisor_node]: [component_supervisor] Started 'localization': ros2 launch f1tenth_localization localization.launch.py (pid 442906, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_localization_localization.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.946923766] [component_supervisor_node]: [component_supervisor] Started 'wall_distance': ros2 launch f1tenth_perception wall_distance.launch.py (pid 442907, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_perception_wall_distance.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.947922731] [component_supervisor_node]: [component_supervisor] Started 'lidar_front_wall': ros2 launch f1tenth_perception lidar_front_wall.launch.py (pid 442908, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_perception_lidar_front_wall.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.949335029] [component_supervisor_node]: [component_supervisor] Started 'slam': ros2 launch f1tenth_navigation slam.launch.py (pid 442909, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_navigation_slam.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036557.955042928] [component_supervisor_node]: [component_supervisor] Started 'slam': ros2 launch f1tenth_costmap costmap.launch.py (pid 442910, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_costmap_costmap.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036637.358173445] [component_supervisor_node]: [component_supervisor] Shutdown requested: 'behavior'
+[component_supervisor_node-2] [INFO] [1791036637.929816436] [component_supervisor_node]: [component_supervisor] 'behavior' shut down -- behavior_bringup.launch.py: clean SIGINT exit in 0.6s (will not auto-respawn until START/RESTART).
+[component_supervisor_node-2] [INFO] [1791036745.823411104] [component_supervisor_node]: [component_supervisor] Start requested: 'behavior'
+[component_supervisor_node-2] [INFO] [1791036745.826636783] [component_supervisor_node]: [component_supervisor] Started 'behavior': ros2 launch f1tenth_behavior behavior_bringup.launch.py (pid 445436, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/supervisor/f1tenth_behavior_behavior_bringup.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791036745.828711253] [component_supervisor_node]: [component_supervisor] 'behavior' started.
+[fastdds_discovery_server-1] 
+[fastdds_discovery_server-1] ### Server shut down ###
+[INFO] [fastdds_discovery_server-1]: process has finished cleanly [pid 442855]
+[INFO] [fastdds_discovery_server-1]: process started with pid [446867]
+[fastdds_discovery_server-1] [ensure_discovery_server] 127.0.0.1:11811 is free -- starting a fresh fastdds discovery server.
+[fastdds_discovery_server-1] ### Server is running ###
+[fastdds_discovery_server-1]   Participant Type:   SERVER
+[fastdds_discovery_server-1]   Security:           NO
+[fastdds_discovery_server-1]   Server ID:          0
+[fastdds_discovery_server-1]   Server GUID prefix: 44.53.00.5f.45.50.52.4f.53.49.4d.41
+[fastdds_discovery_server-1]   Server Addresses:   UDPv4:[127.0.0.1]:11811
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [component_supervisor_node-2]: sending signal 'SIGINT' to process[component_supervisor_node-2]
+[INFO] [fastdds_discovery_server-1]: sending signal 'SIGINT' to process[fastdds_discovery_server-1]
+[component_supervisor_node-2] [INFO] [1791037001.970820004] [component_supervisor_node]: [component_supervisor] Received signal 2 -- shutting down all tracked components.
+[component_supervisor_node-2] [INFO] [1791037001.971677344] [component_supervisor_node]: [component_supervisor] Shutting down -- stopping all components.
+[component_supervisor_node-2] [INFO] [1791037002.780840592] [component_supervisor_node]: [component_supervisor] 'control' (ackermann_mux.launch.py): clean SIGINT exit in 0.3s
+[component_supervisor_node-2] [INFO] [1791037002.781372701] [component_supervisor_node]: [component_supervisor] 'navigation' (navigation.launch.py): clean SIGINT exit in 0.4s
+[component_supervisor_node-2] [INFO] [1791037002.781776782] [component_supervisor_node]: [component_supervisor] 'diagnostics' (system_observer.launch.py): clean SIGINT exit in 0.4s
+[component_supervisor_node-2] [INFO] [1791037002.782168873] [component_supervisor_node]: [component_supervisor] 'diagnostics' (diagnostics_server.launch.py): clean SIGINT exit in 0.4s
+[component_supervisor_node-2] [INFO] [1791037002.782571890] [component_supervisor_node]: [component_supervisor] 'behavior' (behavior_bringup.launch.py): clean SIGINT exit in 0.5s
+[component_supervisor_node-2] [INFO] [1791037002.782960166] [component_supervisor_node]: [component_supervisor] 'diagnostics' (mission_logger.launch.py): clean SIGINT exit in 0.5s
+[component_supervisor_node-2] [INFO] [1791037002.783345147] [component_supervisor_node]: [component_supervisor] 'localization' (localization.launch.py): clean SIGINT exit in 0.5s
+[component_supervisor_node-2] [INFO] [1791037002.783733663] [component_supervisor_node]: [component_supervisor] 'slam' (slam.launch.py): clean SIGINT exit in 0.5s
+[component_supervisor_node-2] [INFO] [1791037002.784118329] [component_supervisor_node]: [component_supervisor] 'slam' (costmap.launch.py): clean SIGINT exit in 0.5s
+[component_supervisor_node-2] [INFO] [1791037002.784502419] [component_supervisor_node]: [component_supervisor] 'dev_tools' (foxglove_bridge.launch.py): clean SIGINT exit in 0.6s
+[component_supervisor_node-2] [INFO] [1791037002.784889965] [component_supervisor_node]: [component_supervisor] 'obstacle_clearance' (obstacle_clearance.launch.py): clean SIGINT exit in 0.6s
+[component_supervisor_node-2] [INFO] [1791037002.785274111] [component_supervisor_node]: [component_supervisor] 'swept_clearance' (swept_clearance.launch.py): clean SIGINT exit in 0.8s
+[component_supervisor_node-2] [INFO] [1791037002.785658832] [component_supervisor_node]: [component_supervisor] 'wall_distance' (wall_distance.launch.py): clean SIGINT exit in 0.8s
+[component_supervisor_node-2] [INFO] [1791037002.786042701] [component_supervisor_node]: [component_supervisor] 'lidar_front_wall' (lidar_front_wall.launch.py): clean SIGINT exit in 0.8s
+[component_supervisor_node-2] [WARN] [1791037002.813946980] [component_supervisor_node]: [component_supervisor] FastDDS SHM sweep (shutdown): found 149 fastrtps file(s) (28 still in use, 121 orphaned) -- removed 121/121 orphaned file(s). Sample removed: ['/dev/shm/fastrtps_2355fab060982f9f_el', '/dev/shm/fastrtps_33721e83077d5e7a_el', '/dev/shm/fastrtps_59d8b0bc44092bf2_el', '/dev/shm/fastrtps_a544a7fdca028907_el', '/dev/shm/fastrtps_aa1505d1519b09e9_el'].
+[INFO] [component_supervisor_node-2]: process has finished cleanly [pid 442856]
+[ERROR] [fastdds_discovery_server-1]: process[fastdds_discovery_server-1] failed to terminate '5' seconds after receiving 'SIGINT', escalating to 'SIGTERM'
+[INFO] [fastdds_discovery_server-1]: sending signal 'SIGTERM' to process[fastdds_discovery_server-1]
+[ERROR] [fastdds_discovery_server-1]: process has died [pid 446867, exit code -15, cmd 'python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py 127.0.0.1 11811'].

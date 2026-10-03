@@ -1,0 +1,5 @@
+settling discovery for 10s ...
+stop 'behavior' via /component_supervisor_node/control_component
+  replied in 0.6s
+  success=True
+  message='behavior' shut down -- behavior_bringup.launch.py: clean SIGINT exit in 0.6s (will not auto-respawn until START/RESTART).

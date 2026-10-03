@@ -1,0 +1,3 @@
+without_bt 1: estop_check=REFUSE(no /safety_stop publisher) | e-stop graph check after 5.00 s: 1 subscriber(s) on /calibration_drive, 0 publisher(s) on /safety_stop (gave up at the 5.0 s limit). | refused_before_command=1 preflight_passed_lines=0
+without_bt 2: estop_check=REFUSE(no /safety_stop publisher) | e-stop graph check after 5.01 s: 1 subscriber(s) on /calibration_drive, 0 publisher(s) on /safety_stop (gave up at the 5.0 s limit). | refused_before_command=1 preflight_passed_lines=0
+without_bt 3: estop_check=REFUSE(no /safety_stop publisher) | e-stop graph check after 5.00 s: 1 subscriber(s) on /calibration_drive, 0 publisher(s) on /safety_stop (gave up at the 5.0 s limit). | refused_before_command=1 preflight_passed_lines=0

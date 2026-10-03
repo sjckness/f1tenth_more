@@ -20,12 +20,11 @@ FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 
 | # | Item | Source |
 |---|---|---|
-| H1 | **Supervisor topic-liveness check.** A node can be alive but silently isolated from discovery: in Phase 5 cycle 5, `swept_clearance_node` ran but never saw `/scan` or `/tf_static` (1 in ~320 node starts, no error logged). Fix batch 3 saw it again, worse: in one full-stack run (`output/fix_batch_3/hold_before/`) `mpc_corr` never received odometry and `costmap_boundary_node` never received map or pose for the whole 3.5 min, both processes alive; both appeared in the graph at startup and had dropped out of it by the time a later participant joined. The supervisor only checks process exit. Needs a per-component "expected output topic is publishing" check that restarts or flags the component. Also run the same 10 cycles on the Orin (Humble) to learn whether the isolation is pre-existing. | P5 Finding 3, Decision 3 |
+| H1 | **Discovery isolation: root-caused, fix and watchdog awaiting approval.** Participants of the previous session that exited uncleanly stay in the reused Discovery Server for their 20 s lease; a bringup inside that window intermittently fails to match some endpoint pairs (most often launch_ros's slam_toolbox `change_state`, so slam never activates and everything on `/slam/*` starves; also topic subscriptions, e.g. localization or `mpc_corr` getting no odometry). Measured over 30 full-stack bringups each: production default 8/30, fresh server 0/30, 30 s gap 0/30, 5 s lease 0/30, UDP-only 3/30. Proposed: a 5 s participant lease profile set by the bringup launch files (fix batch 4, Decision 1), plus the supervisor topic-liveness watchdog designed in fix batch 4 B7 (Decision 2). Detection script for Phase S: `scripts/jazzy_parity/isolation_check.py`. Also open: the same full-stack measurement on the Orin (Humble) -- a stack-free reproduction lost the lifecycle 3/60 on Jazzy and 0/60 on Humble. | P5, FB3, FB4 |
 | H2 | **ABI drift on the car's Jetson / in the Docker image.** Phase 1 found `robot_localization` crashing on a `diagnostic_updater` ABI mismatch between apt packages. Phase 5 found the workspace's own `ackermann_mux` and ZED binaries broken by the same upgrade. Check the target before the first live run. Build the image against the apt snapshot it runs, then run the `ldd -r` scan (CLAUDE.md, "Rebuild policy"). | P1 Decision 1, P5 |
 | H3 | **MPC deadline overrun on the Orin.** The recorded Humble run had a mean period of 112 ms against a 100 ms deadline: 53 periods over 150 ms, worst 309 ms, all cores 78–100%. This is pre-existing, and the main timing risk for Jazzy-in-Docker on the Orin. Re-measure there. | P3 Decision 3 |
 | H4 | **Local EKF + IMU parity, live.** No archived bag has `/sensors/imu/raw`, so the local EKF's IMU fusion has never been compared. Phase 6 on the stand. | P1 Decision 3 |
 | H5 | **Review the `slam.launch.py` lifecycle fix (`4edcbbf`) before the first live SLAM test.** Before it, slam_toolbox never left `unconfigured`, silently. Also confirm `transform_publish_period: 0` (no `map→odom`) under real scan-matching load. | P0 Decision 2 |
-| H6 | **Steering calibration preflight vs super-client graph convergence.** With `ROS_SUPER_CLIENT` (fix batch 3), the e-stop check can now see `/safety_stop`, but the preflight window ends after about 2 s and a new super client needs several seconds to be told the whole graph: via the launch file the check passed in 1 of 4 runs and refused (safely, nothing commanded) in 3. Needs the check to wait for the graph (e.g. poll the two counts up to ~5 s) -- a code change in a safety preflight, awaiting decision. The rest of the plain-client audit is closed (fix batch 3). | FB3 Decision 1 |
 
 ## MEDIUM
 
@@ -43,13 +42,13 @@ FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 | M10 | **Two-machine sim checklist (TPad → Thor):**<br>- Discovery Server on Thor's LAN IP; same `ROS_DOMAIN_ID`; firewall open for UDP 11811 + RTPS ports.<br>- The TPad must not publish robot_state_publisher, EKF, `/joint_states`, `base_link→laser/imu`.<br>- It must publish `/camera/image_raw`.<br>- Push the TPad sim-port report so its network section can be cross-checked. | P5 Step 6, Decision 6 |
 | M11 | **`humble-final` tag on the Jetson** before any Jazzy commit reaches it (clean diff and cherry-pick base). Not confirmed done. | Plan Decision 4 |
 | M12 | **`mpc_controller`: 10 tests encode stale config defaults.** Pre-existing ("default moved, test not updated", see CLAUDE.md). Update the tests or the defaults deliberately. | P0 A2 |
+| M13 | **Double-SIGINT shutdown.** The supervisor's `killpg` plus launch's forwarded SIGINT interrupts Python nodes' `finally:` cleanup: tracebacks, and a stale `/tmp/mission_logger.lock` (reclaimed at the next start). Distro-independent (probe). Raised from LOW by fix batch 4: participants destroyed this way never dispose and stay in the Discovery Server for 20 s, which feeds H1. | P5 Finding 4 |
 
 ## LOW
 
 | # | Item | Source |
 |---|---|---|
 | L1 | **Shutdown force-kill path.** Seen in 2 of 15 Phase 5 runs: launch's SIGTERM arrived before `_stop_all_components` returned, although every component had exited within 0.7 s. Unexplained; one instrumented run on the Orin. | P5 Decision 5 |
-| L2 | **Double-SIGINT shutdown.** The supervisor's `killpg` plus launch's forwarded SIGINT interrupts Python nodes' `finally:` cleanup: tracebacks, and a stale `/tmp/mission_logger.lock` (reclaimed at the next start). Distro-independent (probe). | P5 Finding 4 |
 | L3 | **Record `/test_campaign/logger_status`?** Held back because `8e0d48c` pins that the mission logger records nothing the test-campaign side publishes. Needs a decision on that invariant. | FB1 Decision A |
 | L4 | **Record the mission-start window.** The Phase 3 bag began about 13.5 s into the move, so the reference heading was unrecoverable. Start recording before the move starts. | P3 Decision 2, P4 |
 | L5 | **Live llama-server check on Thor:**<br>- Build llama.cpp (CUDA, sm_110) and copy the Orin's .gguf.<br>- Judge by mission equality after translation.<br>- Use the same llama.cpp commit on the Orin. | P4 Decision 1 |
@@ -89,4 +88,4 @@ These are not post-migration work, but they block closing their phases.
 | Rebuild policy | P5 Decision 4 | FB2 `b0740ea` |
 | Plain-client audit: `ekf_cost_observer_node` measured nothing | FB2 (old H6) | FB3 `a936c75` |
 | Plain-client audit: `stackctl.py status` reported supervisor services missing | FB2 (old H6) | FB3 `d29b3e0` |
-| Plain-client audit: steering calibration never saw `/safety_stop` (super client set; preflight timing still open, H6) | FB2 (old H6) | FB3 `5b320a5` (partial) |
+| Plain-client audit: steering calibration never saw `/safety_stop` | FB2 (old H6) | FB3 `5b320a5` + FB4 `b31b76c` (graph wait; 10/10 pass with the BT, 3/3 refuse without) |
