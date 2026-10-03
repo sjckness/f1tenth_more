@@ -29,7 +29,7 @@ import os
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -81,7 +81,16 @@ def generate_launch_description():
         }],
     )
 
+    # ROS_SUPER_CLIENT for the logger only, as foxglove_bridge.launch.py does.
+    # The recorder finds its topics in the ROS graph, and under
+    # ROS_DISCOVERY_SERVER a plain client is never told about other
+    # participants' topics: with plain-client nodes the mission bag held
+    # 0 messages (Phase 5, Step 4). Scoped to this launch tree, not
+    # stack-wide.
+    super_client_env = SetEnvironmentVariable('ROS_SUPER_CLIENT', 'TRUE')
+
     return LaunchDescription([
+        super_client_env,
         enable_la,
         runs_dir_la,
         storage_id_la,
