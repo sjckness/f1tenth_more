@@ -6,13 +6,16 @@
 # native apt install, not Docker), so a second host (linus) can be set up the
 # same way. Idempotent: re-running only installs what is missing.
 #
-# Run as your normal user (it calls sudo itself, so rosdep's cache stays in
-# your home and not root's):
+# Run as your normal user, from zsh or bash (it calls sudo itself, so rosdep's
+# cache stays in your home and not root's):
 #   scripts/sim_host_setup.sh            # check, install, verify
 #   scripts/sim_host_setup.sh --check    # read-only: report what is missing
 #
 # Env overrides:
 #   MIN_FREE_GB  free space required on / before installing (default 25)
+# The shebang runs this under bash from any shell, zsh included. If someone runs
+# `zsh scripts/sim_host_setup.sh` or `sh ...` instead, re-exec under bash.
+if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -euo pipefail
 
 MIN_FREE_GB="${MIN_FREE_GB:-25}"
@@ -63,7 +66,26 @@ free_gb=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
 echo "free on /: ${free_gb} GB (required: ${MIN_FREE_GB} GB)"
 
 say "ROS apt source"
-if apt-cache policy 2>/dev/null | grep -q 'packages.ros.org/ros2/ubuntu noble'; then
+# Read the source files directly. Not `apt-cache policy | grep -q`: grep exits
+# on the first match, apt-cache dies of SIGPIPE, and under pipefail the
+# pipeline reports failure, so a configured source read as MISSING at random.
+# Handles both formats: one-line .list ("deb ... /ros2/ubuntu noble main") and
+# deb822 .sources (ros2-apt-source writes ros2.sources with URIs:/Suites: fields).
+ros_source_configured() {
+  local f
+  for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list; do
+    [[ -r "$f" ]] || continue
+    grep -Eq '^[[:space:]]*deb[[:space:]].*packages\.ros\.org/ros2/ubuntu[/[:space:]]+noble([[:space:]]|$)' "$f" && return 0
+  done
+  for f in /etc/apt/sources.list.d/*.sources; do
+    [[ -r "$f" ]] || continue
+    grep -Eq '^URIs:.*packages\.ros\.org/ros2/ubuntu' "$f" \
+      && grep -Eq '^Suites:.*([[:space:]]|^Suites:)noble([[:space:]]|$)' "$f" \
+      && ! grep -Eiq '^Enabled:[[:space:]]*no' "$f" && return 0
+  done
+  return 1
+}
+if ros_source_configured; then
   echo "packages.ros.org/ros2 noble: configured"
   have_source=true
 else
@@ -118,6 +140,8 @@ if [[ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]]; then
 fi
 rosdep update --rosdistro jazzy >/dev/null && echo "rosdep cache updated"
 
+# This script itself runs in bash, so it sources setup.bash; your zsh shell
+# uses setup.zsh (printed at the end).
 say "Verification (sourced /opt/ros/jazzy)"
 set +u
 # shellcheck disable=SC1091
@@ -131,5 +155,6 @@ for p in ros_gz_sim ros_gz_bridge gz_ros2_control ackermann_steering_controller 
 done
 
 say "Done"
-echo "Shell setup is left to you (not written to any rc file):"
-echo "  source /opt/ros/jazzy/setup.zsh   # or setup.bash"
+echo "Shell setup is left to you (not written to any rc file). In zsh:"
+echo "  source /opt/ros/jazzy/setup.zsh"
+echo "  source <workspace>/install/setup.zsh   # after colcon build"
