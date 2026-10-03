@@ -139,7 +139,7 @@ d9a7f00 fix/env: scripts/env/jazzy.sh for interactive Jazzy shells — hand-star
 84a12f1 fix/logger: mission_logger.launch.py sets ROS_SUPER_CLIENT for the logger — under the Discovery Server a plain client's recorder finds no topics and the bag is empty
 b0740ea fix/docs: CLAUDE.md rebuild policy — an apt ABI change left ackermann_mux unloadable and only a full-stack run found it
 715907c fix/docs: output/backlog.md, one list of post-migration items — they were spread over seven reports' decision sections
-(this report and its data: next commit)
+e248d33 fix/batch2: report and evidence — env script, logger super client, rebuild policy, backlog
 ```
 
 **Machine change outside the repo:** `~/.bashrc` (one line, backup kept).
