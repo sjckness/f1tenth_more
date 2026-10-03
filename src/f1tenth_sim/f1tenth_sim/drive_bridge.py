@@ -23,6 +23,8 @@ gz IMU arrives through ros_gz_bridge. This node adapts both directions:
 Decisions D1-D3: output/sim_port_report.md. Nothing here touches /tf: the
 Thor's EKF owns odom->base_link (the controller's enable_odom_tf is false).
 """
+import signal
+
 from ackermann_msgs.msg import AckermannDriveStamped
 from f1tenth_sim.kinematics import (
     ackermann_to_twist,
@@ -32,6 +34,7 @@ from f1tenth_sim.kinematics import (
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Imu
@@ -133,11 +136,18 @@ def main():
     node = DriveBridge()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
+        # A terminal Ctrl-C reaches every process in the group and ros2 launch
+        # forwards its own SIGINT on top, so a second one used to land inside
+        # destroy_node() as a KeyboardInterrupt. Teardown is short; finish it.
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         node.destroy_node()
-        rclpy.shutdown()
+        # On SIGINT/SIGTERM Jazzy's rclpy signal handler has already shut the
+        # context down, and a second rclpy.shutdown() raises RCLError, so the
+        # node exited with code 1 on every clean launch shutdown.
+        rclpy.try_shutdown()
 
 
 if __name__ == '__main__':
