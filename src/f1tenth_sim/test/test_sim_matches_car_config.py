@@ -8,14 +8,13 @@ Reads the source trees directly, so it needs no built workspace or ROS.
 import ast
 from pathlib import Path
 
-import pytest
-import yaml
-
 from f1tenth_sim.kinematics import (
     servo_envelope,
     STEERING_MAX_RAD,
     STEERING_MIN_RAD,
 )
+import pytest
+import yaml
 
 PKG = Path(__file__).resolve().parents[1]
 SRC = PKG.parent

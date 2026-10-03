@@ -1,14 +1,13 @@
 """drive_bridge's (speed, steering_angle) -> (v, omega) conversion."""
 import math
 
-import pytest
-
 from f1tenth_sim.kinematics import (
     ackermann_to_twist,
     clamp_steering,
     STEERING_MAX_RAD,
     STEERING_MIN_RAD,
 )
+import pytest
 
 L = 0.325
 
