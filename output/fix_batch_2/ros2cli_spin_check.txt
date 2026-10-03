@@ -1,0 +1,16 @@
+spin=default try1 topics=2 nodes=0
+spin=default try2 topics=44 nodes=0
+spin=default try3 topics=2 nodes=0
+spin=1 try1 topics=2 nodes=0
+spin=1 try2 topics=2 nodes=33
+spin=1 try3 topics=88 nodes=0
+spin=2 try1 topics=88 nodes=33
+spin=2 try2 topics=88 nodes=33
+spin=2 try3 topics=2 nodes=0
+spin=3 try1 topics=88 nodes=33
+spin=3 try2 topics=88 nodes=33
+spin=3 try3 topics=88 nodes=33
+spin=5 try1 topics=88 nodes=33
+spin=5 try2 topics=88 nodes=33
+spin=5 try3 topics=88 nodes=33
+plain ros2 topic list --no-daemon --spin-time 5: 2

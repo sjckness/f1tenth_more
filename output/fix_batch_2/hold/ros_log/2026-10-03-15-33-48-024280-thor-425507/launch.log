@@ -1,0 +1,30 @@
+1791034428.0275323 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/hold/ros_log/2026-10-03-15-33-48-024280-thor-425507
+1791034428.0279710 [INFO] [launch]: Default logging verbosity is set to INFO
+1791034428.5441453 [INFO] [taskset-1]: process started with pid [425726]
+1791034428.5446081 [INFO] [taskset-2]: process started with pid [425727]
+1791034428.5446992 [INFO] [slam_pose_relay_node-3]: process started with pid [425730]
+1791034428.5447614 [INFO] [taskset-4]: process started with pid [425731]
+1791034428.5448015 [INFO] [robot_state_publisher-5]: process started with pid [425732]
+1791034428.5448413 [INFO] [joint_state_publisher-6]: process started with pid [425733]
+1791034428.5448771 [INFO] [static_transform_publisher-7]: process started with pid [425734]
+1791034428.6191714 [static_transform_publisher-7] [WARN] [1791034428.614618629] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791034428.6746938 [static_transform_publisher-7] [INFO] [1791034428.668672476] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791034428.6750786 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791034428.6751451 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791034428.6751788 [static_transform_publisher-7] from 'base_link' to 'laser'
+1791034601.6182215 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791034601.6220028 [static_transform_publisher-7] [INFO] [1791034601.616840414] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791034601.6248455 [INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+1791034601.6284189 [INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+1791034601.6298668 [INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+1791034601.6312180 [INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+1791034601.6324537 [INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+1791034601.6339068 [INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+1791034601.6351142 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791034601.6392260 [ERROR] [static_transform_publisher-7]: process has died [pid 425734, exit code -2, cmd '/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser'].
+1791034601.6469121 [ERROR] [taskset-1]: process has died [pid 425726, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+1791034604.0210316 [INFO] [robot_state_publisher-5]: process has finished cleanly [pid 425732]
+1791034604.2271643 [ERROR] [taskset-4]: process has died [pid 425731, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].
+1791034604.2366629 [ERROR] [slam_pose_relay_node-3]: process has died [pid 425730, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791034604.2410984 [ERROR] [joint_state_publisher-6]: process has died [pid 425733, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_b9tbq8d1'].
+1791034604.4042599 [INFO] [taskset-2]: process has finished cleanly [pid 425727]

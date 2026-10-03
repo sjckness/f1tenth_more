@@ -1,0 +1,6 @@
+1791034428.0059004 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/hold/ros_log/2026-10-03-15-33-48-003186-thor-425495
+1791034428.0063436 [INFO] [launch]: Default logging verbosity is set to INFO
+1791034428.1871829 [INFO] [system_observer_node-1]: process started with pid [425556]
+1791034601.6164951 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791034601.6249499 [INFO] [system_observer_node-1]: sending signal 'SIGINT' to process[system_observer_node-1]
+1791034604.1765079 [ERROR] [system_observer_node-1]: process has died [pid 425556, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/system_observer_node --ros-args -r __node:=system_observer_node --params-file /tmp/launch_params_j1xoi0b5'].

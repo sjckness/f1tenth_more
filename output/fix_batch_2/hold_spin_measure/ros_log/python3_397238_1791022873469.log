@@ -1,0 +1,2 @@
+[INFO] [1791022873.965268222] [obstacle_clearance_node]: obstacle_clearance_node up: /scan -> /obstacle_clearance; footprint 0.525 x 0.272 m, x in [-0.082, +0.443] of base_link; contact events on /safety/event at <= 0.000 m
+[INFO] [1791022896.856302299] [obstacle_clearance_node]: base_link <- laser: t=(0.120, 0.000, 0.200) m

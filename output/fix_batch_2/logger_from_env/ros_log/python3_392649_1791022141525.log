@@ -1,0 +1,23 @@
+[INFO] [1791022141.769078137] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=20.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[WARN] [1791022141.799251323] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791022146.848718927] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791022151.849348416] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791022156.849706279] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791022161.899553519] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791022166.949520496] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791022171.998858317] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received
+[INFO] [1791022172.362354349] [costmap_boundary_node]: n_constraints=3 front_clearance=1.61m
+[INFO] [1791022174.365067506] [costmap_boundary_node]: n_constraints=3 front_clearance=1.32m
+[INFO] [1791022176.366206022] [costmap_boundary_node]: n_constraints=3 front_clearance=1.11m
+[INFO] [1791022178.414898252] [costmap_boundary_node]: n_constraints=3 front_clearance=1.99m
+[INFO] [1791022180.465671086] [costmap_boundary_node]: n_constraints=3 front_clearance=1.55m
+[INFO] [1791022182.515479035] [costmap_boundary_node]: n_constraints=3 front_clearance=1.74m
+[INFO] [1791022184.515492376] [costmap_boundary_node]: n_constraints=3 front_clearance=3.47m
+[INFO] [1791022186.566375219] [costmap_boundary_node]: n_constraints=3 front_clearance=2.62m
+[INFO] [1791022188.615319978] [costmap_boundary_node]: n_constraints=3 front_clearance=1.82m
+[INFO] [1791022190.615952187] [costmap_boundary_node]: n_constraints=3 front_clearance=2.10m
+[INFO] [1791022192.616310131] [costmap_boundary_node]: n_constraints=3 front_clearance=3.50m
+[INFO] [1791022194.665137171] [costmap_boundary_node]: n_constraints=3 front_clearance=3.10m
+[INFO] [1791022196.715889705] [costmap_boundary_node]: n_constraints=3 front_clearance=2.32m
+[INFO] [1791022198.764591902] [costmap_boundary_node]: n_constraints=3 front_clearance=2.49m
+[INFO] [1791022200.765327882] [costmap_boundary_node]: n_constraints=3 front_clearance=2.38m
