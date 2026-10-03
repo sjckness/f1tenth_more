@@ -20,6 +20,22 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
+### 2026-10-03 — Jazzy sim verified on TPad: 12/12 Step 4 checks pass, f1tenth_sim un-ignored [fix]
+tags: fix | decision
+- Ran the report §4 checklist against a live sim. TF-silent: `/tf` and `/tf_static` absent from the graph.
+  Rates 40/50/50/50 Hz, and `ranges[540]` = 4.830 m as predicted for the front-facing laser. Steering
+  clamp exact in both directions (hinge angles match the Ackermann geometry of ±0.2780/−0.2838). The car
+  stops 0.31 s after commands end. Odom vs ground truth: 2.9 % of path over 20 s.
+- Bugs found by running it: controller_manager publishes `/diagnostics` (remapped to `/sim/diagnostics`);
+  drive_bridge exited 1 on every shutdown (double rclpy.shutdown + second SIGINT in destroy_node); flake8
+  import order (the venv flake8 lacked the plugin); the setup script's apt-source check was a
+  pipefail/SIGPIPE race, not a deb822 problem; ros2controlcli missing from the package list.
+- RTF decision: headless 1.00 on the Iris Xe; GUI on the Xe 0.74; GUI via PRIME offload on the MX450
+  0.99–1.00. So the default stays headless, and the GUI should use PRIME offload.
+- status: resolved for the sim host. Open: rebase onto the Thor's Phase 5 `sim:=true` (`af41013`, not
+  yet on origin) and reconcile report §5. jazzy-sim not pushed.
+- commit: 06a0ca1, 01abfe6, 2e672a3, 6529fcc, 551fa1a, 9ed3785, caefd05
+
 ### 2026-10-02 — f1tenth_sim ported to Jazzy + Gazebo Harmonic as a driver drop-in; run/verify pending ROS install [plan-change]
 tags: plan-change | fix
 - Branch `jazzy-sim` (from `origin/jazzy` @ `fc1ae6f`), on the sim PC (TPad). The Fortress-era sim
