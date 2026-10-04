@@ -1,6 +1,10 @@
 # Jazzy environment for the f1tenth_more workspace, for interactive shells on
-# a Jazzy machine (Thor today; the Jazzy container on the Orin later).
-# Replaces the bare `source /opt/ros/jazzy/setup.bash` in ~/.bashrc.
+# a Jazzy machine (Thor today; the Jazzy container on the Orin later; the sim
+# host in the two-machine Phase S setup). Replaces the bare
+# `source /opt/ros/jazzy/setup.bash` in ~/.bashrc, or in ~/.zshrc:
+#   source <repo>/scripts/env/jazzy.sh
+# Works from bash and zsh; every path is taken relative to this file, so the
+# repo can live anywhere.
 #
 # The stack itself does not need any of this: supervisor_bringup.launch.py and
 # stack_bringup.launch.py start the Discovery Server and set
@@ -9,12 +13,29 @@
 # without it, a hand-started participant uses simple discovery and sees none
 # of the stack (Phase 5, Step 3: a non-DS participant lists 0 nodes).
 
-source /opt/ros/jazzy/setup.bash
-_f1tenth_ws=${F1TENTH_WS:-$HOME/dev_ws/f1tenth_more}
-if [ -f "$_f1tenth_ws/install/setup.bash" ]; then
-  source "$_f1tenth_ws/install/setup.bash"
+# This file's repo, whichever shell sources it. The zsh expansion is only
+# ever evaluated by zsh (bash never runs that branch).
+if [ -n "${ZSH_VERSION:-}" ]; then
+  _f1tenth_sh=zsh
+  _f1tenth_ws=${${(%):-%x}:A:h:h:h}
+else
+  _f1tenth_sh=bash
+  _f1tenth_ws=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 fi
-unset _f1tenth_ws
+source /opt/ros/jazzy/setup.$_f1tenth_sh
+if [ -f "$_f1tenth_ws/install/setup.$_f1tenth_sh" ]; then
+  source "$_f1tenth_ws/install/setup.$_f1tenth_sh"
+fi
+
+# Fast DDS participant profile: 5 s lease, 1 s announcement (fix batch 5, H1;
+# the file's own comment says why). The bringup launch files set it for the
+# stack; this covers every participant started by hand -- ros2 / ros2cli,
+# rosbag, scripts/stackctl.py, test harnesses, and the simulator on the sim
+# host. The lease is announced by each participant itself, so a participant
+# without it is not dropped until 20 s after it dies, however the Discovery
+# Server is configured (output/fix_batch_5_report.md, A).
+export FASTRTPS_DEFAULT_PROFILES_FILE="$_f1tenth_ws/src/f1tenth_bringup/config/fastdds_profile.xml"
+unset _f1tenth_ws _f1tenth_sh
 
 # The Discovery Server is a Fast DDS feature. rmw_fastrtps_cpp is Jazzy's
 # default already; set explicitly so a changed default cannot silently turn
@@ -72,7 +93,8 @@ ros2cli() {
 # (SUBNET and LOCALHOST gave identical graphs).
 
 # The ros2 daemon keeps the environment it was started with. After changing
-# any of the above, run `ros2 daemon stop` (or use --no-daemon).
+# any of the above (the profile included), run `ros2 daemon stop` (or use
+# --no-daemon).
 
 # Escape hatch for an ad-hoc simple-discovery session (e.g. a bag replay on an
 # isolated domain, the way scripts/jazzy_parity/*.sh do it):
