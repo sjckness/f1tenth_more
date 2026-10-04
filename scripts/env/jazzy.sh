@@ -9,12 +9,14 @@
 # without it, a hand-started participant uses simple discovery and sees none
 # of the stack (Phase 5, Step 3: a non-DS participant lists 0 nodes).
 
-source /opt/ros/jazzy/setup.bash
+# bash (Thor) or zsh (the TPad sim host): source the matching setup script.
+if [ -n "${ZSH_VERSION:-}" ]; then _f1tenth_sh=zsh; else _f1tenth_sh=bash; fi
+source /opt/ros/jazzy/setup.$_f1tenth_sh
 _f1tenth_ws=${F1TENTH_WS:-$HOME/dev_ws/f1tenth_more}
-if [ -f "$_f1tenth_ws/install/setup.bash" ]; then
-  source "$_f1tenth_ws/install/setup.bash"
+if [ -f "$_f1tenth_ws/install/setup.$_f1tenth_sh" ]; then
+  source "$_f1tenth_ws/install/setup.$_f1tenth_sh"
 fi
-unset _f1tenth_ws
+unset _f1tenth_ws _f1tenth_sh
 
 # The Discovery Server is a Fast DDS feature. rmw_fastrtps_cpp is Jazzy's
 # default already; set explicitly so a changed default cannot silently turn
@@ -27,8 +29,11 @@ export ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
 
 # Discovery Server client. Must match stack_params.yaml's
 # discovery_server_address/_port (127.0.0.1:11811). For the two-machine sim
-# setup this becomes the Thor's LAN address, on BOTH machines.
-export ROS_DISCOVERY_SERVER=127.0.0.1:11811
+# setup this becomes the Thor's LAN address, on BOTH machines: on the Thor,
+# supervisor_bringup.launch.py sim:=true discovery_server_address:=<Thor LAN IP>;
+# on the sim host, F1TENTH_DISCOVERY_SERVER=<Thor LAN IP>:11811 before sourcing
+# this file (output/sim_port_report.md §5).
+export ROS_DISCOVERY_SERVER=${F1TENTH_DISCOVERY_SERVER:-127.0.0.1:11811}
 
 # ROS_SUPER_CLIENT is deliberately NOT exported. The stack is launched from
 # this shell, and every node inherits its environment: exported here, every
