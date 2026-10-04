@@ -12,7 +12,8 @@ they are under "Done" at the bottom.
 - **LOW:** debt, cleanup, nice to have.
 
 Sources: P0 = `thor_phase0_report.md`, P1–P5 = `phase<N>_*_report.md`,
-FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
+FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`,
+SP = `sim_port_report.md`.
 
 ---
 
@@ -39,10 +40,12 @@ FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 | M7 | **pose0 rejection rate unresolved.** The 3.1% tuning baseline could not be reproduced from one bag. It needs the original 37-run archive, or a live capture with `/diagnostics` recorded. | P1 Decision 2, follow-up |
 | M8 | **`costmap_boundary_node` outlier rate.** About 2–5% of ticks are off by more than 10 cm / 5°. Pre-existing. Filter before treating `/costmap/boundaries` or `/costmap/front_clearance` as continuous signals (e.g. in the MPC). | P2 Decision 2 |
 | M9 | **torch / torchvision / ultralytics for JetPack 7.** Needed for YOLO on Thor or the sim host. Match the CUDA minor version. Never pip `nvidia-*` / PyPI torch (CUDA safety rule). | P0 Decision 4, P5 |
-| M10 | **Two-machine sim checklist (TPad → Thor):**<br>- Discovery Server on Thor's LAN IP; same `ROS_DOMAIN_ID`; firewall open for UDP 11811 + RTPS ports.<br>- The TPad must not publish robot_state_publisher, EKF, `/joint_states`, `base_link→laser/imu`.<br>- It must publish `/camera/image_raw`.<br>- Push the TPad sim-port report so its network section can be cross-checked. | P5 Step 6, Decision 6 |
+| M10 | **Two-machine sim checklist (TPad → Thor):**<br>- Discovery Server on Thor's LAN IP; same `ROS_DOMAIN_ID`; firewall open for UDP 11811 + RTPS ports.<br>- The TPad must not publish robot_state_publisher, EKF, `/joint_states`, `base_link→laser/imu`.<br>- It must publish `/camera/image_raw`.<br>- Push the TPad sim-port report so its network section can be cross-checked.<br>**Status 2026-10-04 (SP §5):** TPad side done: no `/tf`/`/tf_static`, no `/robot_description`, no `/joint_states` from the sim (its own on `/sim/*`), no EKF; report pushed and merged. `scripts/env/jazzy.sh` now takes `F1TENTH_DISCOVERY_SERVER` and works from zsh. Still open: the DS/firewall/LAN run itself (Phase S, sim host linus), and **`/camera/image_raw` is not published**: the sim's ZED mock is off (SP §2.4), so detection has no images in sim mode. | P5 Step 6, Decision 6, SP |
 | M11 | **`humble-final` tag on the Jetson** before any Jazzy commit reaches it (clean diff and cherry-pick base). Not confirmed done. | Plan Decision 4 |
 | M12 | **`mpc_controller`: 10 tests encode stale config defaults.** Pre-existing ("default moved, test not updated", see CLAUDE.md). Update the tests or the defaults deliberately. | P0 A2 |
 | M13 | **Double-SIGINT shutdown.** The supervisor's `killpg` plus launch's forwarded SIGINT interrupts Python nodes' `finally:` cleanup: tracebacks, and a stale `/tmp/mission_logger.lock` (reclaimed at the next start). Distro-independent (probe). Raised from LOW by fix batch 4: participants destroyed this way never dispose and stay in the Discovery Server for 20 s, which feeds H1. | P5 Finding 4 |
+| M14 | **MPC measured steering is dead:** `MPC_corr.py:1255` looks for `car_1_left/right_steering_hinge_joint`, which nothing publishes (car or sim); the object-exit ramp falls back to the last command (`MPC_corr.py:2379`). | SP §4 (2026-10-03 code check) |
+| M15 | **Measure the real wheelbase.** URDF, `controllers.yaml` and the sim's `drive_bridge` use 0.325 m; `vesc_to_odom_node.wheelbase` (which drives the car's `/odom` yaw rate) is 0.305 m, a 6 % gap in ω = v·tanδ/L. The sim keeps 0.325 until measured. | SP P2 / D5 |
 
 ## LOW
 
@@ -60,6 +63,7 @@ FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 | L11 | **`f1tenth_behavior` flaky test.** One failure under a whole-workspace parallel `colcon test`; not reproducible in 20+ runs, even under 2× CPU oversubscription. | P0 A3, P4 |
 | L12 | **`stack_bringup.launch.py`** (the single-process fallback) has no sim mode and was not exercised in Phase 5. Keep it working, or retire it. | P5 |
 | L13 | **QoS on bag rewriting.** Any future tool that filters or rewrites bags must carry `offered_qos_profiles` through, or `/tf_static` breaks silently. A practice note, not a code item. | P2 Decision 1 |
+| L14 | **Give `/sensors/imu/raw` a real frame (`imu`) on car and sim.** Both publish `frame_id ""` today, which robot_localization reads as `base_link` (source-checked, correct numerically). If changed, `base_link→imu` must be on TF before any publisher stamps it, or the EKF drops the IMU. | SP B1 |
 
 ---
 

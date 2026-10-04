@@ -1,11 +1,9 @@
 # f1tenth_sim port: Ignition Fortress → Gazebo Harmonic (ROS 2 Jazzy)
 
 Host: simulation PC (Ubuntu 24.04). Branch: `jazzy-sim`, created from `origin/jazzy` @ `fc1ae6f`.
-Status (2026-10-03): **Steps 0–4 done. Step 4 passed all 12 items on this PC (§4.R). `COLCON_IGNORE` is removed.
-§5 is waiting for the Thor-side Phase 5 commit `af41013` to reach `origin/jazzy`; then jazzy-sim gets rebased onto it.
-jazzy-sim is pushed to origin (new branch, 2026-10-03). Once `af41013` is on origin/jazzy it gets **merged** in (no
-rebase, no force-push), then §5 is reconciled against the code. Since then: the sim's joint states moved to
-`/sim/joint_states` (`66ef8e8`).**
+Status (2026-10-04): **Steps 0–5 done.** Step 4 passed all 12 items on the TPad (§4.R). `origin/jazzy` (Thor Phase 5,
+`af41013`) has been merged into jazzy-sim, and §5 is reconciled against the code (§5.R: two mismatches found and fixed,
+one gap logged as M10). Phase S's sim host is **linus**; the TPad is the verified backup.
 
 Tags used below: **[code]** = read from source in this repo, **[doc]** = official upstream docs,
 **UNVERIFIED** = an assumption not yet checked against a running system.
@@ -385,7 +383,7 @@ Design details worth knowing:
 - The real ERPM limit (`speed_max` 23250 → 4.23 m/s) and the low-speed velocity-correction LUT are **not** emulated.
   The sim follows the commanded speed. Follow-up if MPC runs above ~4 m/s in sim.
 
-## 4. Verification (Step 4): pending the install
+## 4. Verification (Step 4, done 2026-10-03, see §4.R)
 
 Run in order on the sim PC. Items marked ★ settle an UNVERIFIED point above.
 
@@ -439,26 +437,46 @@ signal handler raised RCLError, and a second SIGINT (terminal Ctrl-C plus launch
 
 ## 5. Thor side: running the stack against the sim (Step 5)
 
-> **Superseded by the Thor-side implementation, pending rebase.** Per the user (2026-10-03), Phase 5 implemented
-> `supervisor_bringup.launch.py sim:=true` in commit `af41013`. It skips vesc/camera/lidar, keeps
-> robot_state_publisher, both EKFs, base_link→laser and a static base_link→imu identical to the car's, puts every
-> component on /clock, and takes `discovery_server_address` (the server binds 0.0.0.0; the argument is what it
-> advertises). `af41013` was **not on `origin/jazzy` as of 2026-10-03** (`git fetch`; `malformed object name`), so
-> jazzy-sim is not yet rebased and the comparison below is against that description, not the code. Points to check
-> against the code once it lands:
-> 1. ~~`joint_state_publisher` must be off in sim mode.~~ **Resolved the other way (`66ef8e8`):** the Thor keeps it, as on the car, and the sim moved its joint states to `/sim/joint_states`. Check only that sim mode still runs it. (Old text: the description
->    above doesn't mention it. If description.launch.py's `use_sim` is used for that, the laser TF goes too (table below).
-> 2. **The static base_link→imu is harmless and consistent:** the sim stamps `frame_id ""`, so the EKF never looks it up (D3).
-> 3. **Nothing that waits for `/sensors/core`** (battery, startup_sequence "VESC responding", calibration) may block or
->    alarm, since the sim does not emulate it (G10).
-> 4. **ackermann_mux must stay in:** the sim listens on `/ackermann_drive` (D1).
-> 5. **Node-name collisions** with the sim's graph: `/controller_manager`, `/joint_state_broadcaster`,
->    `/ackermann_steering_controller`, `/gz_ros_control`, `/sim_robot_state_publisher`, `/sim_ros_gz_bridge`,
->    `/f1tenth_sim_drive_bridge`. None should exist on the Thor.
-> 6. `/clock` arrives at 1000 Hz over the LAN (§4.R item 6). Agreed 2026-10-03: measure it in Phase S before throttling anything.
-> 7. The PC side: `ROS_DISCOVERY_SERVER=<thor-ip>:11811`, the same RMW, and a wired link (the PC's NIC is still down).
->
-> The original pre-implementation analysis follows unchanged.
+### 5.R Reconciled against the Thor implementation (2026-10-04, after merging `origin/jazzy`)
+
+Thor's sim mode is `supervisor_bringup.launch.py sim:=true` (`af41013`):
+- `component_supervisor_node.apply_sim_mode()` removes `vesc.launch.py`, `camera.launch.py` and `lidar.launch.py` from
+  every component, and reduces `hardware` to `sim_hardware_tf.launch.py`.
+- Every component runs through `sim_component.launch.py`, which sets `SetParameter(use_sim_time=True)` and the launch
+  configuration `use_sim_time:=true`.
+- `discovery_server_address:=<Thor LAN IP>` is the advertised address; the socket binds 0.0.0.0.
+
+| Interface | Thor sim:=true (code) | f1tenth_sim (this branch) | Match |
+|---|---|---|---|
+| `/odom`, `/sensors/imu/raw`, `/scan`, `/clock` | consumed; VESC/urg drivers skipped | published | ✔ |
+| IMU frame | static `base_link→imu`, same node/args as `vesc.launch.py` (`test_sim_imu_tf_matches_vesc_launch`); EKF reads `""` as base_link | `frame_id ""` (D3) | ✔ consistent: the TF exists but is never looked up |
+| `/joint_states` | `joint_state_publisher` kept (`description.launch.py` with `use_sim` false) | **not published** (`/sim/joint_states`, `66ef8e8`) | ✔ single publisher, as on the car |
+| `/robot_description`, `/tf`, `/tf_static`, `base_link→laser` | stack's robot_state_publisher + static laser TF kept | none (private RSP on `/sim/*`) | ✔ |
+| `odom→base_link`, `map→odom` | both EKFs kept | no EKF, `enable_odom_tf: false` | ✔ |
+| `/ackermann_drive` | `ackermann_mux` (component `control`) kept; `ackermann_to_vesc` skipped with vesc | consumed by `drive_bridge` (D1) | ✔ |
+| `use_sim_time` | every component node; supervisor on wall time | every sim node (gz_ros2_control forces it on the CM) | ✔ |
+| `/diagnostics` | diagnostics component | not published (`/sim/diagnostics`, `2e672a3`) | ✔ |
+| `/sensors/core` | read by `diagnostics_server_node` (battery) and the BT's `is_battery_low` | **not published** (G10) | ✔ by design: with no sample, `is_battery_low` returns FAILURE ("not low", `is_battery_low.py:44`) and the battery checker reports no data. Neither blocks a mission. |
+| Camera | **docstring said the simulator publishes the camera topics; Phase 5 report: "must publish `/camera/image_raw`"** | ZED mock off (§2.4) | ✘ **mismatch.** Docstring fixed (`f86f4a7`); the gap itself is backlog M10. Detection runs with no images in sim mode. |
+| Discovery client env on the sim host | `scripts/env/jazzy.sh` hard-coded `127.0.0.1:11811` and sourced `setup.bash` | TPad runs zsh and needs the Thor's LAN address | ✘ **mismatch, fixed** (`5b9ffdc`): `F1TENTH_DISCOVERY_SERVER` overrides it, and the script sources `setup.zsh` under zsh. Default unchanged on the Thor. |
+| Node names | supervisor components | `/controller_manager`, `/joint_state_broadcaster`, `/ackermann_steering_controller`, `/gz_ros_control`, `/sim_robot_state_publisher`, `/sim_ros_gz_bridge`, `/f1tenth_sim_drive_bridge` | ✔ none exists in the Thor stack (no ros2_control there) |
+| `/clock` rate | Phase 5 tested with `ros2 bag play --clock 100` (101.6 Hz) | 1000 Hz (one per 1 ms physics step) | ⚠ not a mismatch in function; measure across the LAN in Phase S before throttling (agreed 2026-10-03) |
+| Shutdown | supervisor `killpg` + launch SIGINT (backlog M13) | `drive_bridge` already ignores the second SIGINT (`6529fcc`) | ✔ |
+
+**Hosts for Phase S:** the sim host will be **linus**. The TPad is the verified backup host: Step 4 passed there, and
+`scripts/sim_host_setup.sh` reproduces its setup on linus.
+
+**Run recipe (two machines, documented, not yet run):**
+- Thor:
+  `F1TENTH_DISCOVERY_SERVER=<Thor LAN IP>:11811 source scripts/env/jazzy.sh`, then
+  `ros2 launch f1tenth_bringup supervisor_bringup.launch.py sim:=true discovery_server_address:=<Thor LAN IP>`.
+- Sim host (zsh):
+  `F1TENTH_DISCOVERY_SERVER=<Thor LAN IP>:11811 source scripts/env/jazzy.sh`, then
+  `ros2 launch f1tenth_sim sim_bringup.launch.py`. Add `gui:=true` with PRIME offload on the TPad.
+- Both: the same `ROS_DOMAIN_ID` (0); the firewall open for UDP 11811 and the RTPS ports; a wired link.
+
+### 5.0 Original pre-implementation analysis (2026-10-02, kept for the record)
+
 
 The sim PC provides `/clock /scan /odom /sensors/imu/raw` (`/joint_states` since `66ef8e8`: `/sim/joint_states` only) and consumes `/ackermann_drive`. On the Thor,
 a `sim:=true` mode of `stack_bringup.launch.py` needs:
@@ -504,6 +522,8 @@ Order of work for the Thor phase: discovery over the LAN first (a `ros2 topic hz
 ---
 
 ## B. Post-migration backlog
+
+*(2026-10-04: these items, P2 and the MPC finding are now tracked in `output/backlog.md` as L14, M15 and M14.)*
 
 **B1. Set a proper IMU frame on both the car and the sim (low priority).** Today both publish `/sensors/imu/raw` with
 `frame_id: ""` (D3 option c). Starting options:
