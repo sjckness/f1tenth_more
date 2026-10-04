@@ -21,7 +21,9 @@
 # (ensure_discovery_server.py, 127.0.0.1:11811). Every tool here is a client
 # of it; graph queries use ROS_SUPER_CLIENT=TRUE.
 #
-# Env overrides: BAG (input bag), COMPONENTS_ARGS (phase5_components.py args).
+# Env overrides: BAG (input bag), COMPONENTS_ARGS (phase5_components.py args),
+# LAUNCH_ARGS (extra supervisor_bringup.launch.py arguments for every bringup,
+# e.g. "fastdds_profile:=... health_watchdog:=alert"; fix batch 5).
 set -uo pipefail
 MODE=$1
 OUT=$(mkdir -p "$2" && cd "$2" && pwd)
@@ -84,9 +86,11 @@ PY
   # script would.
   local sc=(); [ "${STACK_SUPER_CLIENT:-0}" = 1 ] && sc=(env ROS_SUPER_CLIENT=TRUE)
   echo "STACK_SUPER_CLIENT=${STACK_SUPER_CLIENT:-0}" > "$run/stack_env.txt"
+  echo "LAUNCH_ARGS=${LAUNCH_ARGS:-}" >> "$run/stack_env.txt"
+  # shellcheck disable=SC2086  # LAUNCH_ARGS is a list of name:=value words
   ROS_LOG_DIR="$run/ros_log" "${sc[@]}" "${SIGDFL[@]}" ros2 launch f1tenth_bringup supervisor_bringup.launch.py \
     components_config:="$run/components.yaml" enable_intelligence:=false \
-    log_dir:="$run/supervisor" "$@" > "$run/launch.log" 2>&1 < /dev/null &
+    log_dir:="$run/supervisor" "$@" ${LAUNCH_ARGS:-} > "$run/launch.log" 2>&1 < /dev/null &
   LAUNCH_PID=$!
   echo "$T0" > "$run/t0.txt"
 }
@@ -303,7 +307,7 @@ isolation)
     RUN="$OUT/run_$(printf %02d "$i")"; mkdir -p "$RUN"
     if [ "${FRESH_DS:-0}" = 1 ]; then pkill -INT -x fast-discovery- 2>/dev/null; sleep 1.5; fi
     precheck > "$RUN/precheck.txt"
-    echo "FRESH_DS=${FRESH_DS:-0} FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-<default>} RUN_GAP=${RUN_GAP:-2} FASTRTPS_DEFAULT_PROFILES_FILE=${FASTRTPS_DEFAULT_PROFILES_FILE:-<unset>}" > "$RUN/condition.txt"
+    echo "FRESH_DS=${FRESH_DS:-0} FASTDDS_BUILTIN_TRANSPORTS=${FASTDDS_BUILTIN_TRANSPORTS:-<default>} RUN_GAP=${RUN_GAP:-2} FASTRTPS_DEFAULT_PROFILES_FILE=${FASTRTPS_DEFAULT_PROFILES_FILE:-<unset>} LAUNCH_ARGS=${LAUNCH_ARGS:-}" > "$RUN/condition.txt"
     head -1 /proc/stat > "$RUN/cpu_t0.txt"
     start_stack "$RUN"
     ROS_SUPER_CLIENT=TRUE python3 "$HERE/isolation_check.py" watch --out "$RUN/graph_timeline.jsonl" > "$RUN/watch.log" 2>&1 &
@@ -326,6 +330,59 @@ isolation)
     # RUN_GAP: seconds between a shutdown and the next bringup (default 2).
     # Longer than the 20 s participant lease lets the reused server expire
     # every participant of the previous run first.
+    sleep "${RUN_GAP:-2}"
+  done
+  ;;
+simhold)
+  # Fix batch 5: the stack with sim:=true, fed by `ros2 bag play --clock` of
+  # BAG_SIM (default the 425 s bringup_input_x10, so no loop and no clock
+  # jump back), kept up HOLD_SEC (default 300) for checks run from outside --
+  # e.g. pausing /clock through /rosbag2_player/pause. hardware and
+  # perception stay registered, so sim mode itself has to skip their drivers
+  # (checked before launch, as in Phase 5's sim_true run).
+  precheck
+  RUN=$OUT
+  COMPONENTS_ARGS=${COMPONENTS_ARGS:---drop-launch detection.launch.py}
+  start_stack "$RUN" sim:=true
+  wait_settled "$RUN" 150
+  snapshot_procs "$RUN" settled
+  "${SIGDFL[@]}" ros2 bag play "${BAG_SIM:-$REPO/output/phase5/inputs/bringup_input_x10}" --clock 100 \
+    --disable-keyboard-controls > "$RUN/play.log" 2>&1 < /dev/null &
+  PLAY=$!
+  touch "$RUN/READY"
+  sleep "${HOLD_SEC:-300}"
+  kill -INT $PLAY 2>/dev/null; wait $PLAY 2>/dev/null
+  stop_stack "$RUN"
+  discovery_errors "$RUN"
+  ;;
+discload)
+  # Fix batch 5 (H1, lease fix): discovery CPU and traffic, N bringups.
+  # Per run: bringup to settled (cumulative CPU of every participant = the
+  # bringup cost), then 60 s idle (no feed: steady-state discovery only), then
+  # 30 s fed by the bag. scripts/fix_batch_5/discovery_load.py samples each
+  # boundary; the condition is whatever FASTRTPS_DEFAULT_PROFILES_FILE the
+  # launch files set.
+  N=${1:-10}
+  DL="python3 $REPO/scripts/fix_batch_5/discovery_load.py"
+  for i in $(seq 1 "$N"); do
+    RUN="$OUT/run_$(printf %02d "$i")"; mkdir -p "$RUN"
+    precheck > "$RUN/precheck.txt"
+    start_stack "$RUN"
+    wait_settled "$RUN" 150
+    snapshot_procs "$RUN" settled
+    $DL sample --out "$RUN/load_settled.json"
+    sleep "${IDLE_SEC:-60}"
+    $DL sample --out "$RUN/load_idle_end.json"
+    "${SIGDFL[@]}" python3 "$HERE/restamp_play.py" "$BAG" > "$RUN/play.log" 2>&1 < /dev/null &
+    PLAY=$!
+    sleep 30
+    $DL sample --out "$RUN/load_fed_end.json"
+    kill -INT $PLAY 2>/dev/null; wait $PLAY 2>/dev/null
+    $DL diff "$RUN/load_settled.json" "$RUN/load_idle_end.json" --out "$RUN/load_idle.json"
+    $DL diff "$RUN/load_idle_end.json" "$RUN/load_fed_end.json" --out "$RUN/load_fed.json"
+    stop_stack "$RUN"
+    discovery_errors "$RUN"
+    echo "run $i: idle $(tr -d '\n ' < "$RUN/load_idle.json" | cut -c1-200)"
     sleep "${RUN_GAP:-2}"
   done
   ;;

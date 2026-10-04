@@ -12,6 +12,14 @@ cannot drift from it).
   --logger-runs-dir DIR   pass mission_logger_runs_dir:=DIR to
                           mission_logger.launch.py (keeps test runs out of
                           ~/f1tenth_archive)
+  --health-patch FILE     YAML {health: {component: {key: value}},
+                          health_topic_types: {topic: type}} merged into
+                          those sections (fix batch 5 live tests)
+
+The health: section (fix batch 5) follows the launch files: a check naming a
+launch file that was removed is removed with it, and a component left with no
+checks moves to unwatched: (the supervisor refuses a check on a launch file
+its component does not have).
 
 Prints what was changed relative to production.
 
@@ -30,6 +38,7 @@ def main():
     ap.add_argument('--empty', nargs='*', default=[])
     ap.add_argument('--drop-launch', nargs='*', default=[])
     ap.add_argument('--logger-runs-dir')
+    ap.add_argument('--health-patch')
     a = ap.parse_args()
     src = os.path.join(get_package_share_directory('f1tenth_bringup'), 'config', 'components.yaml')
     with open(src) as f:
@@ -47,6 +56,29 @@ def main():
             if e not in kept:
                 changes.append(f'{name}: dropped {e["launch_file"]}')
         comps[name] = kept
+    health = reg.get('health') or {}
+    for name in list(health):
+        lfs = [e['launch_file'] for e in comps.get(name, [])]
+        checks = health[name].get('checks', [])
+        kept = [c for c in checks if c.get('launch_file', lfs[0] if len(lfs) == 1 else None) in lfs]
+        if len(kept) != len(checks):
+            changes.append(f'health.{name}: dropped {len(checks) - len(kept)} check(s) '
+                           'on launch files no longer registered')
+        if kept:
+            health[name]['checks'] = kept
+        else:
+            del health[name]
+            reg.setdefault('unwatched', {})[name] = 'no launch files in this harness run'
+    if a.health_patch:
+        with open(a.health_patch) as f:
+            patch = yaml.safe_load(f)
+        for name, upd in (patch.get('health') or {}).items():
+            health.setdefault(name, {}).update(upd)
+            reg.get('unwatched', {}).pop(name, None)
+            changes.append(f'health.{name}: patched {sorted(upd)}')
+        for topic, type_name in (patch.get('health_topic_types') or {}).items():
+            reg.setdefault('health_topic_types', {})[topic] = type_name
+            changes.append(f'health_topic_types: {topic} {type_name}')
     if a.logger_runs_dir:
         for e in comps['diagnostics']:
             if e['launch_file'] == 'mission_logger.launch.py':

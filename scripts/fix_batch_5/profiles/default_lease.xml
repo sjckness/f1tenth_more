@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fix batch 5 (H1), the BEFORE condition of the measurements: Fast DDS's
+     own default lease (20 s) and announcement period (3 s), written out, so
+     the stack runs the same code and loads a profile file either way and
+     only the lease differs. Passed as fastdds_profile:=<this file>.
+     lease_probe.py measures it against no profile at all. -->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <participant profile_name="default_lease" is_default_profile="true">
+    <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>20</sec></leaseDuration>
+          <leaseAnnouncement><sec>3</sec></leaseAnnouncement>
+        </discovery_config>
+      </builtin>
+    </rtps>
+  </participant>
+</profiles>
