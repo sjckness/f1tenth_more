@@ -20,6 +20,22 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
+### 2026-10-04 — jazzy-sim merged with origin/jazzy (Thor Phase 5 sim:=true); §5 reconciled; jazzy fast-forwarded [decision]
+tags: decision | fix
+- Merged origin/jazzy (31 commits incl. `af41013` sim:=true, fix batches 1–4) into jazzy-sim: no conflicts,
+  and no file touched by both sides, so nothing was combined.
+- §5 reconciled against `apply_sim_mode`, `sim_component.launch.py` and `sim_hardware_tf.launch.py`. Every
+  interface matches except two: (1) the Thor side assumed the simulator publishes camera topics, but
+  the ZED mock is off (supervisor docstring fixed `f86f4a7`; gap kept in backlog M10); (2)
+  `scripts/env/jazzy.sh` hard-coded DS 127.0.0.1 and sourced setup.bash (now `F1TENTH_DISCOVERY_SERVER`
+  + setup.zsh under zsh, `5b9ffdc`).
+- Backlog: M14 MPC measured steering is dead (car_1_* joint names), M15 wheelbase, L14 IMU frame.
+  Phase S sim host = linus, TPad = verified backup.
+- Post-merge check on TPad: 4 packages build, 37 f1tenth_sim tests pass; launch shows no /tf, /tf_static,
+  /joint_states or /robot_description from the sim; /sim/joint_states 49.9 Hz; laser 4.83 m; RTF 1.00.
+- status: resolved; open: Phase S two-machine run (DS over LAN, firewall, /clock 1000 Hz measurement)
+- commit: ab60fe4 (merge), 5b9ffdc, f86f4a7, 6a41f2b
+
 ### 2026-10-03 — Sim stops publishing /joint_states; jazzy-sim pushed [decision]
 tags: decision | fix
 - On the car `/joint_states` comes from joint_state_publisher (static zeros, 10 Hz), which the Thor keeps
