@@ -184,8 +184,8 @@ components:
 # new component cannot be added without stating how its liveness is judged.
 #
 # Each check is marked in its comment:
-#   INPUT-PROVING  a message (or a new header.stamp, or the field named in
-#                  `expect`) exists only because the node received its input
+#   INPUT-PROVING  a message (or the field named in `expect`, or the message
+#                  rate) exists only because the node received its input
 #                  recently -- a node cut off from its input fails the check;
 #   INPUT-PROVING AT START  the node publishes only once it has received its
 #                  input at least once (a subscription that never matched is
@@ -242,13 +242,16 @@ health:
 
   localization:
     checks:
-      # INPUT-PROVING via new_stamp: robot_localization keeps publishing its
-      # last estimate at 50 Hz after its inputs stop, but the header.stamp is
-      # the last measurement's time (predict_to_current_time is off), so it
-      # only changes when /odom or the IMU actually arrive.
-      - {topic: /odometry/filtered, max_age_sec: 0.5, new_stamp: true,
+      # INPUT-PROVING via the rate. robot_localization publishes nothing
+      # before its first measurement (a subscription that never matched:
+      # caught by max_age_sec), and after that keeps predicting without
+      # input -- measured in fix batch 5 with /odom cut: /odometry/filtered
+      # 48 -> about 9 Hz, /ekf_global 48 -> about 16 Hz, a new header.stamp on
+      # every message either way. So the receipt rate is the signal: below
+      # 30 Hz over 2 s while /odom is fresh = the EKF is not getting it.
+      - {topic: /odometry/filtered, max_age_sec: 0.5, min_rate_hz: 30,
          when_fresh: {/odom: 0.5}}
-      - {topic: /ekf_global/odometry/filtered, max_age_sec: 0.5, new_stamp: true,
+      - {topic: /ekf_global/odometry/filtered, max_age_sec: 0.5, min_rate_hz: 30,
          when_fresh: {/odom: 0.5}}
       # INPUT-PROVING AT START: joint_state_publisher publishes nothing until it
       # has /robot_description (fix batch 4 baseline run 4 never got it).
@@ -257,18 +260,21 @@ health:
   slam:
     grace_sec: 30
     checks:
-      # INPUT-PROVING AT START: slam_toolbox publishes the map every
-      # map_update_interval (5 s) once it is ACTIVE and has processed a scan --
-      # the lifecycle loss of fix batch 4 never produces one. /slam/pose is NOT
-      # used: slam_toolbox only publishes it when the car has moved
-      # minimum_travel_distance, so it is silent on a parked car.
-      - {topic: /slam/map, max_age_sec: 15.0, launch_file: slam.launch.py,
+      # INPUT-PROVING AT START, judged `once`: slam_toolbox publishes a map
+      # only once it is ACTIVE and has processed a scan -- the lifecycle loss
+      # of fix batch 4 never produces one. Not an age: before every publish
+      # it rebuilds the whole grid from every scan so far, under the mapper
+      # lock, so the nominal 5 s map_update_interval stretches as the session
+      # grows (18.5 s after 2 min in fix batch 5's live test, and it restarted
+      # a healthy slam). /slam/pose is NOT used either: slam_toolbox only
+      # publishes it after the car has moved minimum_travel_distance.
+      - {topic: /slam/map, once: true, launch_file: slam.launch.py,
          when_fresh: {/scan: 0.5}}
       # INPUT-PROVING AT START: costmap_boundary_node withholds front_clearance
       # until it has both a map and a pose, then republishes from cache at
-      # 20 Hz.
+      # 20 Hz. Judged once a map exists at all (.inf: received at least once).
       - {topic: /costmap/front_clearance, max_age_sec: 0.5, launch_file: costmap.launch.py,
-         when_fresh: {/slam/map: 15.0, /ekf_global/odometry/filtered: 0.5}}
+         when_fresh: {/slam/map: .inf, /ekf_global/odometry/filtered: 0.5}}
 
   lidar_front_wall:
     enabled_if: {use_lidar: true}

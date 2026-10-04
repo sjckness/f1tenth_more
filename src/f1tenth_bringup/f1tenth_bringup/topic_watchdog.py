@@ -27,8 +27,13 @@ health -- test_component_health_config.py enforces it):
           launch_file: swept_clearance.launch.py   # who is restarted (optional
                                                    # when the component has one)
           when_fresh: {/scan: 0.5}  # only judged while these inputs are fresh
-          new_stamp: false          # age counts only messages whose
-                                    # header.stamp changed (default false)
+          min_rate_hz: 30           # receipts per second over the last
+          rate_window_sec: 2.0      # rate_window_sec must reach this (node
+                                    # clock Hz: scaled by the real-time
+                                    # factor in sim). Default: no rate check.
+          once: false               # instead of an age: at least one message
+                                    # since the launch file (re)started
+                                    # (max_age_sec is then ignored; .inf)
           expect: {level: [0]}      # field -> allowed values of the LAST
                                     # message (default: none)
   unwatched:
@@ -39,7 +44,9 @@ Verdict per check, every evaluation:
          when_fresh input is stale (an upstream outage is not this
          component's fault -- this is what separates isolation from it);
   fail   the topic is older than max_age_sec (never received = infinitely
-         old), or its last message does not match `expect`;
+         old) -- or, for a `once` check, nothing arrived since the launch
+         file started -- or its last message does not match `expect`, or
+         it arrives slower than min_rate_hz;
   ok     otherwise.
 
 A launch file whose checks have failed continuously for fail_for_sec is acted
@@ -61,6 +68,7 @@ and their inputs need a moment to flow again after it restarts. On the car
 there is no /clock and the supervisor never passes paused=True.
 """
 
+import collections
 import math
 
 ACTIONS = ('restart', 'alert')
@@ -83,12 +91,14 @@ class HealthConfigError(ValueError):
 
 class Check:
     def __init__(self, topic, max_age_sec, launch_file, when_fresh=None,
-                 new_stamp=False, expect=None):
+                 expect=None, once=False, min_rate_hz=None, rate_window_sec=2.0):
         self.topic = topic
+        self.once = bool(once)
+        self.min_rate_hz = None if min_rate_hz is None else float(min_rate_hz)
+        self.rate_window_sec = float(rate_window_sec)
         self.max_age_sec = float(max_age_sec)
         self.launch_file = launch_file
         self.when_fresh = {t: float(a) for t, a in (when_fresh or {}).items()}
-        self.new_stamp = bool(new_stamp)
         self.expect = {k: list(v) if isinstance(v, (list, tuple)) else [v]
                        for k, v in (expect or {}).items()}
 
@@ -147,8 +157,15 @@ def parse_health_config(doc, registry):
                 lf = launch_files[0]
             elif lf not in launch_files:
                 raise HealthConfigError(f"{where}: {lf} is not one of {name}'s {launch_files}")
-            check = Check(c['topic'], c['max_age_sec'], lf, c.get('when_fresh'),
-                          c.get('new_stamp', False), c.get('expect'))
+            unknown = set(c) - {'topic', 'max_age_sec', 'launch_file', 'when_fresh', 'expect',
+                                'once', 'min_rate_hz', 'rate_window_sec'}
+            if unknown:
+                raise HealthConfigError(f'{where}: unknown keys {sorted(unknown)}')
+            check = Check(c['topic'], c.get('max_age_sec', math.inf), lf, c.get('when_fresh'),
+                          c.get('expect'), c.get('once', False), c.get('min_rate_hz'),
+                          c.get('rate_window_sec', 2.0))
+            if not check.once and math.isinf(check.max_age_sec):
+                raise HealthConfigError(f'{where}: max_age_sec is required unless once: true')
             for t in [check.topic, *check.when_fresh]:
                 if t not in types:
                     raise HealthConfigError(f'{where}: {t} has no entry in health_topic_types')
@@ -167,22 +184,24 @@ def parse_health_config(doc, registry):
 
 def topic_states(health):
     """{topic: TopicState} for every topic the checks of `health` read."""
-    thresholds = {}
+    thresholds, history = {}, {}
     for cfg in health.values():
         for c in cfg.checks:
             thresholds.setdefault(c.topic, set())
+            if c.min_rate_hz is not None:
+                history[c.topic] = max(history.get(c.topic, 0.0), c.rate_window_sec)
             for t, max_age in c.when_fresh.items():
                 thresholds.setdefault(t, set()).add(max_age)
-    return {t: TopicState(th) for t, th in thresholds.items()}
+    return {t: TopicState(th, history.get(t, 0.0)) for t, th in thresholds.items()}
 
 
 def needs_message(topic, health):
-    """Tell whether some check reads the message itself (new_stamp or expect).
+    """Tell whether some check reads the message itself (`expect`).
 
     Otherwise the supervisor only needs the receipt time and can subscribe raw
     (no deserialization).
     """
-    return any(c.topic == topic and (c.new_stamp or c.expect)
+    return any(c.topic == topic and c.expect
                for cfg in health.values() for c in cfg.checks)
 
 
@@ -192,31 +211,36 @@ class TopicState:
     Times are monotonic seconds (wall time, not ROS time).
     """
 
-    def __init__(self, fresh_thresholds=()):
+    def __init__(self, fresh_thresholds=(), history_sec=0.0):
         self.last_rx = None
-        self.last_new_stamp_rx = None
-        self.last_stamp = None
         self.last_msg = None
+        # Receipt times of the last history_sec, for rate checks only.
+        self.history_sec = float(history_sec)
+        self.rx_times = collections.deque()
         self.count = 0
         # max_age -> start of the current run of receipts no more than max_age
         # apart, for every max_age a when_fresh uses on this topic.
         self._fresh_since = {float(a): None for a in fresh_thresholds}
 
-    def on_message(self, now, msg=None, stamp=None):
+    def on_message(self, now, msg=None):
         self.count += 1
         for max_age, since in self._fresh_since.items():
             if since is None or now - self.last_rx > max_age:
                 self._fresh_since[max_age] = now
         self.last_rx = now
-        if stamp is None or stamp != self.last_stamp:
-            self.last_new_stamp_rx = now
-        self.last_stamp = stamp
         if msg is not None:
             self.last_msg = msg
+        if self.history_sec > 0:
+            self.rx_times.append(now)
+            while self.rx_times[0] < now - self.history_sec:
+                self.rx_times.popleft()
 
-    def age(self, now, new_stamp=False):
-        t = self.last_new_stamp_rx if new_stamp else self.last_rx
-        return math.inf if t is None else now - t
+    def age(self, now):
+        return math.inf if self.last_rx is None else now - self.last_rx
+
+    def rate(self, now, window):
+        """Receipts per second over the last `window` seconds."""
+        return sum(1 for t in self.rx_times if t > now - window) / window
 
     def fresh_since(self, max_age):
         """Start of the current run of receipts no more than max_age apart.
@@ -238,30 +262,55 @@ def _field(msg, path):
     return v
 
 
-def check_verdict(check, topics, now):
+def check_verdict(check, topics, now, started_at=None, rate_scale=1.0):
     """Judge one check against the received topics.
 
     Returns ('ok' | 'fail' | 'skip', reason). Grace and running state are the
-    monitor's business, not this function's.
+    monitor's business, not this function's; started_at (the owning launch
+    file's start, monotonic) is read by `once` and rate checks. rate_scale
+    multiplies min_rate_hz: the real-time factor in sim, 1 on the car.
     """
     inputs_fresh_since = None
     for t, max_age in check.when_fresh.items():
         age = topics[t].age(now)
-        if age > max_age:
+        # Never received is stale even against an infinite max age (.inf =
+        # "received at least once").
+        if topics[t].last_rx is None or age > max_age:
             return 'skip', f'input {t} stale ({_fmt_age(age)})'
         since = topics[t].fresh_since(max_age)
         if inputs_fresh_since is None or since > inputs_fresh_since:
             inputs_fresh_since = since
     st = topics[check.topic]
-    age = st.age(now, check.new_stamp)
+    if check.once:
+        if st.last_rx is None or (started_at is not None and st.last_rx < started_at):
+            since = 'never' if st.last_rx is None else 'not since its launch file started'
+            return 'fail', f'{check.topic}: no message {since} (must publish at least once)'
+        return 'ok', ''
+    age = st.age(now)
     if inputs_fresh_since is not None:
         # Silence from before the inputs came back is not the node's fault.
         age = min(age, now - inputs_fresh_since)
+    inputs = ', '.join(f'{t} {_fmt_age(topics[t].age(now))}' for t in check.when_fresh)
+    while_fresh = f' while its input is fresh ({inputs})' if inputs else ''
     if age > check.max_age_sec:
-        what = 'no new header.stamp' if check.new_stamp else 'no message'
-        inputs = ', '.join(f'{t} {_fmt_age(topics[t].age(now))}' for t in check.when_fresh)
-        return 'fail', (f'{check.topic}: {what} for {_fmt_age(age)} (max {check.max_age_sec:g} s)'
-                        + (f' while its input is fresh ({inputs})' if inputs else ''))
+        return 'fail', (f'{check.topic}: no message for {_fmt_age(age)} '
+                        f'(max {check.max_age_sec:g} s){while_fresh}')
+    # The node itself needs a moment to see an input that just came back
+    # (mpc_corr's level was ERROR for 0.5 s at feed start, live).
+    settling = inputs_fresh_since is not None and now - inputs_fresh_since <= check.max_age_sec
+    if check.min_rate_hz is not None:
+        window = check.rate_window_sec
+        # A full window of the node's output since its inputs came back and
+        # since it started, or the rate is not yet meaningful.
+        starts = [t for t in (inputs_fresh_since, started_at) if t is not None]
+        if not starts or now - max(starts) >= window + check.max_age_sec:
+            rate, need = st.rate(now, window), check.min_rate_hz * rate_scale
+            if rate < need:
+                scale = f' x real-time factor {rate_scale:.2f}' if rate_scale != 1.0 else ''
+                return 'fail', (f'{check.topic}: {rate:.1f} Hz over {window:g} s, below '
+                                f'{check.min_rate_hz:g} Hz{scale}{while_fresh}')
+    if check.expect and settling:
+        return 'ok', ''
     for path, allowed in check.expect.items():
         if st.last_msg is None:
             return 'fail', f'{check.topic}: no message to read {path} from'
@@ -322,13 +371,13 @@ class ComponentMonitor:
 
     # -- evaluation ----------------------------------------------------------
 
-    def evaluate(self, now, topics, procs, paused=False, stalled=False):
+    def evaluate(self, now, topics, procs, paused=False, stalled=False, rate_scale=1.0):
         """Judge every check once; return the launch files to restart now.
 
         procs: {launch_file: (running: bool, started_at: monotonic or None)}.
         paused: sim clock not advancing. stalled: the supervisor itself did not
         run for a while (blocked in a restart), so receipt ages are not
-        trustworthy this once.
+        trustworthy this once. rate_scale: see check_verdict.
         """
         cfg = self.cfg
         if paused or stalled:
@@ -349,7 +398,7 @@ class ComponentMonitor:
             elif self.resume_until is not None and now < self.resume_until:
                 verdicts.append((c, 'grace', 'sim clock resumed'))
             else:
-                v, why = check_verdict(c, topics, now)
+                v, why = check_verdict(c, topics, now, started_at, rate_scale)
                 verdicts.append((c, v, why))
 
         failing = {}

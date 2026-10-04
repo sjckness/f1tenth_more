@@ -326,7 +326,10 @@ pure and unit-tested):
     watched component: OK, STARTING, FAILING, RESTARTING, ALERT, FAILED,
     UPSTREAM_STALE, NOT_RUNNING, PAUSED) at 1 Hz and on every change, also on
     /diagnostics. scripts/stackctl.py status prints it;
-  - sim mode only: /clock not advancing for clock_pause_sec = the simulation
+  - min_rate_hz checks count receipts per wall second; in sim the threshold
+    is scaled by the real-time factor measured from /clock (nodes run on sim
+    time), 1 on the car;
+  - sim mode only: /clock not advancing for clock_pause_sec (0.5 s) = the simulation
     is paused (every use_sim_time node goes quiet with it): nothing is judged,
     and resume_grace_sec applies when the clock moves again. Without sim:=true
     there is no /clock subscription and no gate -- on the car the watchdog
@@ -336,6 +339,7 @@ pure and unit-tested):
     judging ages it could not keep up to date.
 """
 
+import collections
 import glob
 import json
 import os
@@ -665,7 +669,11 @@ class ComponentSupervisorNode(Node):
                              f"'{self.health_watchdog}'")
         self.health_period_sec = float(self.declare_parameter('health_period_sec', 0.5).value)
         # Sim mode only: /clock not advancing for this long = simulation paused.
-        self.clock_pause_sec = float(self.declare_parameter('clock_pause_sec', 1.0).value)
+        # /clock comes at 100 Hz or more from a simulator: 0.5 s of no advance
+        # is a pause. Must stay below every component's fail_for_sec, so a
+        # silence that starts with the pause is cleared before it can act
+        # (checked in _setup_health_watchdog).
+        self.clock_pause_sec = float(self.declare_parameter('clock_pause_sec', 0.5).value)
         self.resume_grace_sec = float(self.declare_parameter('resume_grace_sec', 5.0).value)
 
         # {component_name: [pid, ...]} mirror of every live process group this node
@@ -1480,6 +1488,10 @@ class ComponentSupervisorNode(Node):
                 continue
             if self.health_watchdog == 'alert':
                 cfg.action = 'alert'
+            if self.sim and cfg.fail_for_sec <= self.clock_pause_sec:
+                self.get_logger().warn(
+                    f"[health] '{name}': fail_for_sec {cfg.fail_for_sec:g} is not above "
+                    f'clock_pause_sec {self.clock_pause_sec:g}: a sim pause could restart it')
             self._monitors[name] = ComponentMonitor(cfg)
         watched = {n: self._health_cfg[n] for n in self._monitors}
         self._topic_state = topic_states(watched)
@@ -1494,6 +1506,7 @@ class ComponentSupervisorNode(Node):
         # nothing here may depend on one -- the gate does not exist there.
         self._clock_last_value = None
         self._clock_last_advance = None
+        self._clock_samples = collections.deque()
         self._paused = False
         if self.sim:
             self.create_subscription(Clock, '/clock', self._on_health_clock, self._HEALTH_QOS)
@@ -1516,16 +1529,29 @@ class ComponentSupervisorNode(Node):
             return lambda _raw: state.on_message(time.monotonic())
 
         def cb(msg):
-            header = getattr(msg, 'header', None)
-            stamp = (header.stamp.sec, header.stamp.nanosec) if header is not None else None
-            state.on_message(time.monotonic(), msg=msg, stamp=stamp)
+            state.on_message(time.monotonic(), msg=msg)
         return cb
 
     def _on_health_clock(self, msg):
         value = (msg.clock.sec, msg.clock.nanosec)
         if value != self._clock_last_value:
             self._clock_last_value = value
-            self._clock_last_advance = time.monotonic()
+            now = time.monotonic()
+            self._clock_last_advance = now
+            # (wall, sim) pairs of the last few seconds: the real-time factor
+            # that scales min_rate_hz checks (nodes count in sim time).
+            self._clock_samples.append((now, value[0] + value[1] * 1e-9))
+            while self._clock_samples[0][0] < now - 3.0:
+                self._clock_samples.popleft()
+
+    def _real_time_factor(self):
+        """Sim time per wall second over the last ~3 s; 1.0 off sim or unknown."""
+        if not self.sim or len(self._clock_samples) < 2:
+            return 1.0
+        (w0, s0), (w1, s1) = self._clock_samples[0], self._clock_samples[-1]
+        if w1 - w0 < 1.0 or s1 < s0:   # too short, or the clock jumped back
+            return 1.0
+        return (s1 - s0) / (w1 - w0)
 
     def _launch_states(self, name):
         return {p.launch_file: (p.popen is not None and p.popen.poll() is None
@@ -1555,18 +1581,21 @@ class ComponentSupervisorNode(Node):
                     for m in self._monitors.values():
                         m.resume(now, self.resume_grace_sec)
                 self._paused = paused
+        rtf = self._real_time_factor()
         changed = False
         for name, mon in self._monitors.items():
-            before = (mon.status, mon.message)
+            # A change of state, not of the ages quoted in the message (those
+            # change every tick; the 1 Hz publish carries them).
+            before = (mon.status, mon.level)
             to_restart = mon.evaluate(now, self._topic_state, self._launch_states(name),
-                                      paused=paused, stalled=stalled)
+                                      paused=paused, stalled=stalled, rate_scale=rtf)
             for level, text in mon.events:
                 log = self.get_logger().error if level >= 2 else self.get_logger().info
                 log(f'[health] {text}')
             mon.events.clear()
             for launch_file in to_restart:
                 self._health_restart(name, launch_file, mon)
-            changed = changed or before != (mon.status, mon.message)
+            changed = changed or before != (mon.status, mon.level)
         self._health_tick_count += 1
         if changed or self._health_tick_count % max(1, round(1.0 / self.health_period_sec)) == 0:
             self._publish_health()

@@ -91,17 +91,17 @@ def test_component_both_watched_and_unwatched_is_rejected():
                 {'swept_clearance': 'x'}), REGISTRY)
 
 
-def test_needs_message_only_for_stamp_or_expect_checks():
+def test_needs_message_only_for_expect_checks():
     health, _, _ = parse_health_config(doc({
         'swept_clearance': {'checks': [{'topic': '/out', 'max_age_sec': 1}]},
         'slam': {'checks': [
             {'topic': '/map', 'max_age_sec': 15, 'launch_file': 'slam.launch.py',
-             'new_stamp': True},
+             'min_rate_hz': 1},
             {'topic': '/status', 'max_age_sec': 1, 'launch_file': 'costmap.launch.py',
              'expect': {'level': [0]}}]},
     }), REGISTRY)
     assert not needs_message('/out', health)
-    assert needs_message('/map', health)
+    assert not needs_message('/map', health)     # a rate needs receipt times only
     assert needs_message('/status', health)
     assert not needs_message('/scan', health)
 
@@ -131,18 +131,56 @@ def test_stale_input_skips_the_check():
     assert v == 'skip' and '/scan' in why
 
 
-def test_new_stamp_ignores_repeats_of_the_same_stamp():
-    """An EKF that keeps publishing its last estimate without new input."""
+def _ekf(min_rate=30):
     health, _, _ = parse_health_config(doc({'swept_clearance': {'checks': [
-        {'topic': '/out', 'max_age_sec': 0.5, 'new_stamp': True}]}}), REGISTRY)
-    c = health['swept_clearance'].checks[0]
-    ts = topics('/out')
-    ts['/out'].on_message(1.0, stamp=(5, 0))
-    for t in (1.2, 1.4, 1.6, 1.8):
-        ts['/out'].on_message(t, stamp=(5, 0))
-    assert check_verdict(c, ts, 1.8)[0] == 'fail'
-    ts['/out'].on_message(1.9, stamp=(5, 100))
-    assert check_verdict(c, ts, 1.9)[0] == 'ok'
+        {'topic': '/out', 'max_age_sec': 0.5, 'min_rate_hz': min_rate,
+         'when_fresh': {'/scan': 0.5}}]}}), REGISTRY)
+    return health['swept_clearance'], topic_states(health)
+
+
+def _publish(ts, topic, t0, t1, hz):
+    n = int(round((t1 - t0) * hz))
+    for i in range(n):
+        ts[topic].on_message(t0 + i / hz)
+
+
+def test_min_rate_catches_an_ekf_predicting_without_input():
+    """Tell a starved EKF apart by its rate alone.
+
+    Measured: robot_localization keeps publishing after /odom stops, 48 Hz
+    fed, about 9 Hz starved, with a new header.stamp on every message.
+    """
+    cfg, ts = _ekf()
+    c = cfg.checks[0]
+    _publish(ts, '/scan', 0.0, 10.0, 50)      # the input, as the supervisor gets it
+    _publish(ts, '/out', 0.0, 10.0, 48)       # fed
+    assert check_verdict(c, ts, 9.99, started_at=0.0)[0] == 'ok'
+    _publish(ts, '/scan', 10.0, 20.0, 50)
+    _publish(ts, '/out', 10.0, 20.0, 9)       # starved: its subscription lost /odom
+    v, why = check_verdict(c, ts, 19.99, started_at=0.0)
+    assert v == 'fail' and '9.0 Hz' in why and 'below 30 Hz' in why
+
+
+def test_min_rate_is_scaled_by_the_real_time_factor():
+    """Scale the threshold in sim: at half real time a fed EKF gives 24 Hz."""
+    cfg, ts = _ekf()
+    _publish(ts, '/scan', 0.0, 10.0, 25)
+    _publish(ts, '/out', 0.0, 10.0, 24)
+    assert check_verdict(cfg.checks[0], ts, 9.9, started_at=0.0)[0] == 'fail'
+    assert check_verdict(cfg.checks[0], ts, 9.9, started_at=0.0, rate_scale=0.5)[0] == 'ok'
+
+
+def test_min_rate_waits_a_full_window_after_start_and_after_input_returns():
+    cfg, ts = _ekf()
+    c = cfg.checks[0]
+    _publish(ts, '/scan', 0.0, 1.0, 50)
+    _publish(ts, '/out', 0.0, 1.0, 48)
+    assert check_verdict(c, ts, 0.99, started_at=0.0)[0] == 'ok'      # half a window
+    # Input outage 1-10 s, then back: the output's rate is judged a window later.
+    _publish(ts, '/scan', 10.0, 13.0, 50)
+    _publish(ts, '/out', 10.3, 13.0, 48)
+    assert check_verdict(c, ts, 11.5, started_at=0.0)[0] == 'ok'
+    assert check_verdict(c, ts, 12.99, started_at=0.0)[0] == 'ok'     # full window: 48 Hz
 
 
 def test_expect_reads_the_last_message_and_byte_fields():
@@ -402,3 +440,62 @@ def test_topic_states_registers_every_when_fresh_threshold():
     assert ts['/scan'].fresh_since(0.5) == ts['/scan'].fresh_since(1.0) == 1.0
     ts['/map'].on_message(2.0)
     assert ts['/map'].fresh_since(15) == 2.0
+
+
+def test_once_check_needs_a_message_since_the_launch_file_started():
+    """Judge /slam/map by one message since (re)start, not by its age.
+
+    slam_toolbox rebuilds the whole grid before every publish, so its interval
+    grows with the session (18.5 s seen in a 3 min run). "Published at least
+    once since (re)start" is reliable, and is exactly the never-activated
+    failure of fix batch 4.
+    """
+    health, _, _ = parse_health_config(doc({'slam': {'grace_sec': 5, 'fail_for_sec': 3, 'checks': [
+        {'topic': '/map', 'once': True, 'launch_file': 'slam.launch.py',
+         'when_fresh': {'/scan': 0.5}}]}}), REGISTRY)
+    mon = ComponentMonitor(health['slam'])
+    ts = topics('/scan', '/map')
+    procs = {'slam.launch.py': (True, 0.0)}
+    ts['/map'].on_message(4.0)
+    # One map, then silence for minutes: fine.
+    assert run(mon, ts, procs, 0.0, 300.0, feeds=('/scan',)) == []
+    assert mon.status == 'OK'
+    # Restarted at 300: the old map does not count for the new process.
+    procs = {'slam.launch.py': (True, 300.0)}
+    res = run(mon, ts, procs, 300.5, 320.0, feeds=('/scan',))
+    assert res and res[0][0] == 308.0
+
+
+def test_once_needs_no_max_age_but_age_checks_do():
+    with pytest.raises(HealthConfigError, match='max_age_sec is required'):
+        parse_health_config(doc({'swept_clearance': {'checks': [{'topic': '/out'}]}}), REGISTRY)
+
+
+def test_infinite_when_fresh_means_received_at_least_once():
+    health, _, _ = parse_health_config(doc({'swept_clearance': {'checks': [
+        {'topic': '/out', 'max_age_sec': 0.5, 'when_fresh': {'/map': math.inf}}]}}), REGISTRY)
+    c = health['swept_clearance'].checks[0]
+    ts = {t: TopicState((math.inf,)) for t in ('/map', '/out')}
+    assert check_verdict(c, ts, 10.0)[0] == 'skip'     # no map ever: not judged
+    ts['/map'].on_message(10.0)
+    assert check_verdict(c, ts, 10.3)[0] == 'ok'       # judged from the map's arrival
+    assert check_verdict(c, ts, 500.0)[0] == 'fail'    # map long ago is still "received"
+
+
+def test_expect_waits_max_age_after_its_input_returns():
+    """Give the node max_age_sec to see an input that just came back.
+
+    Live: /odometry/filtered reached the supervisor a moment before mpc_corr's
+    own staleness test saw it, and its level was ERROR for 0.5 s.
+    """
+    health, _, _ = parse_health_config(doc({'swept_clearance': {'checks': [
+        {'topic': '/status', 'max_age_sec': 1.5, 'expect': {'level': [0]},
+         'when_fresh': {'/scan': 0.5}}]}}), REGISTRY)
+    c = health['swept_clearance'].checks[0]
+    ts = topics('/scan', '/status')
+    for i in range(30):
+        t = 10.0 + 0.1 * i
+        ts['/scan'].on_message(t)
+        ts['/status'].on_message(t, msg=SimpleNamespace(level=b'\x02'))
+    assert check_verdict(c, ts, 11.0)[0] == 'ok'      # 1.0 s after /scan returned
+    assert check_verdict(c, ts, 12.9)[0] == 'fail'    # 2.9 s: mpc_corr really has none
