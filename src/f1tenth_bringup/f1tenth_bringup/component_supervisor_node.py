@@ -275,6 +275,29 @@ its own, so it's swept explicitly here:
     shutdown-side sweep exists because this node's own components can just as
     easily leave this residue behind as anything else that's ever run on this
     machine.
+
+Sim mode (`sim` parameter, supervisor_bringup.launch.py sim:=true; default
+false, which leaves everything above exactly as it is): for the Gazebo
+simulator on another machine, which publishes /odom, /sensors/imu/raw, /scan,
+the camera topics and /clock itself.
+  - The hardware driver launch files are not run: vesc.launch.py (the VESC
+    driver group), camera.launch.py (the ZED, plus the base_link ->
+    zed2_camera_link static TF it publishes only with the ZED) and
+    lidar.launch.py (urg_node). See _SIM_SKIPPED_LAUNCH_FILES. joy.launch.py
+    is in no component, so it never runs here anyway.
+  - 'hardware' keeps the one thing vesc.launch.py publishes that is not a
+    driver: the static base_link -> imu transform (sim_hardware_tf.launch.py,
+    same node name and arguments), so the TF tree is the car's.
+  - 'calibrate_hardware' is left with no launch files, and ~/run_calibration
+    refuses: there is no VESC to calibrate.
+  - Every component launch file runs through sim_component.launch.py, which
+    puts every node on use_sim_time. The stack's own robot_state_publisher,
+    joint_state_publisher, both EKFs and everything else run unchanged.
+  - The calibration override (_apply_calibration_override) does not apply:
+    nothing left in 'hardware' calibrates, so 'localization' is never
+    deferred.
+This node itself stays on wall time: its watchdog must keep running while the
+simulator is paused.
 """
 
 import glob
@@ -347,6 +370,34 @@ _CONDITIONAL_AUTO_START = {
 # family, since all of them contain 'fastrtps' as a substring.
 _FASTRTPS_SHM_DIR = '/dev/shm'
 _FASTRTPS_SHM_GLOB_PATTERN = '*fastrtps*'
+
+# Sim mode (see module docstring): launch files that drive real hardware and are
+# skipped, as (package, launch_file); and what 'hardware' runs instead.
+_SIM_SKIPPED_LAUNCH_FILES = frozenset({
+    ('f1tenth_hardware', 'vesc.launch.py'),
+    ('f1tenth_perception', 'camera.launch.py'),
+    ('f1tenth_perception', 'lidar.launch.py'),
+})
+_SIM_HARDWARE_ENTRY = {
+    'package': 'f1tenth_bringup', 'launch_file': 'sim_hardware_tf.launch.py', 'args': {}}
+
+
+def apply_sim_mode(registry):
+    """
+    Return the registry sim mode runs.
+
+    Every _SIM_SKIPPED_LAUNCH_FILES entry is removed from every component, and
+    'hardware' is reduced to sim_hardware_tf.launch.py. Returns a new dict;
+    the input is not modified.
+    """
+    out = {}
+    for name, entries in registry.items():
+        out[name] = [dict(e, args=dict(e.get('args', {}))) for e in entries
+                     if (e['package'], e['launch_file']) not in _SIM_SKIPPED_LAUNCH_FILES]
+    if 'hardware' in out:
+        out['hardware'] = [dict(_SIM_HARDWARE_ENTRY, args={})]
+    return out
+
 
 # -- single-instance lock ------------------------------------------------------
 # See the module docstring's own "Single-instance lock" paragraph for the three
@@ -451,8 +502,9 @@ class _ComponentProcess:
     step needed.
     """
 
-    def __init__(self, package, launch_file, args, log_path):
+    def __init__(self, package, launch_file, args, log_path, sim=False):
         self.package = package
+        self.sim = sim
         self.launch_file = launch_file
         self.args = args
         self.log_path = log_path
@@ -465,7 +517,14 @@ class _ComponentProcess:
 
     @property
     def cmd(self):
-        cmd = ['ros2', 'launch', self.package, self.launch_file]
+        if self.sim:
+            # Sim mode: the same launch file and args, through
+            # sim_component.launch.py (every node on use_sim_time).
+            cmd = ['ros2', 'launch', 'f1tenth_bringup', 'sim_component.launch.py',
+                   f'component_package:={self.package}',
+                   f'component_launch_file:={self.launch_file}']
+        else:
+            cmd = ['ros2', 'launch', self.package, self.launch_file]
         cmd += [f'{k}:={v}' for k, v in self.args.items()]
         return cmd
 
@@ -542,6 +601,8 @@ class ComponentSupervisorNode(Node):
         # server_node.py's own docstring) -- fail-open backstop, not a tight bound.
         self.localization_calibration_wait_timeout_sec = float(
             self.declare_parameter('localization_calibration_wait_timeout_sec', 180.0).value)
+        # Sim mode -- see the module docstring's "Sim mode" paragraph.
+        self.sim = bool(self.declare_parameter('sim', False).value)
 
         # {component_name: [pid, ...]} mirror of every live process group this node
         # has spawned -- see module docstring's "Startup safety sweep" paragraph.
@@ -569,7 +630,14 @@ class ComponentSupervisorNode(Node):
         # it's unit-testable the same duck-typed way as the rest of this file's
         # calibration/deferred-start logic, with no rclpy context needed. Must
         # run before anything reads or launches from self._registry.
-        self._apply_calibration_override()
+        if self.sim:
+            self._registry = apply_sim_mode(self._registry)
+            self.get_logger().warn(
+                '[component_supervisor] SIM MODE: hardware drivers not started '
+                f'({sorted(f for _, f in _SIM_SKIPPED_LAUNCH_FILES)}), every '
+                'component on use_sim_time, /clock expected from the simulator.')
+        else:
+            self._apply_calibration_override()
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or
@@ -961,7 +1029,7 @@ class ComponentSupervisorNode(Node):
         for entry in self._registry[name]:
             proc = _ComponentProcess(
                 entry['package'], entry['launch_file'], entry['args'],
-                self._log_path(entry['package'], entry['launch_file']))
+                self._log_path(entry['package'], entry['launch_file']), sim=self.sim)
             proc.start()
             self.get_logger().info(
                 f"[component_supervisor] Started '{name}': {' '.join(proc.cmd)} "
@@ -1402,6 +1470,11 @@ class ComponentSupervisorNode(Node):
         reasoning (why 'hardware' is stopped first, why this doesn't wait for
         calibration to actually finish, why it doesn't auto-restart 'hardware'
         afterward)."""
+        if self.sim:
+            response.success = False
+            response.message = 'sim mode: there is no VESC to calibrate.'
+            self.get_logger().warn(f'[component_supervisor] {response.message}')
+            return response
         if 'calibrate_hardware' not in self._registry:
             response.success = False
             response.message = (

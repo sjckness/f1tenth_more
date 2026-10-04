@@ -1,0 +1,135 @@
+[INFO] [1791018055.648822858] [semantic_layer_node]: semantic_layer_node started
+[WARN] [1791018203.758518959] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.457675 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.774324761] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.878597 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.790775580] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176819.878597 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.793276771] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.157317 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.809522849] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.157317 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.813067816] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.177609 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.829704319] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.177609 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.833024139] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.197483 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.849746410] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.197483 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.853159766] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.217499 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.870555427] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.217499 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.873051470] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.237580 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.890063223] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.237580 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.893002617] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.253356 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.909534731] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.253356 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.912992791] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.277491 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.929624656] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.277491 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.933078419] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.297628 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.949884515] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.297628 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.953082464] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.317535 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.969568931] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.317535 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.973000315] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.337492 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.989563661] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.337492 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018203.992921453] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.357476 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.009430040] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.357476 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.013149682] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.377469 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.029585677] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.377469 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.033056931] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.397487 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.049688750] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.397487 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.053354383] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.417480 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.069461823] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.417480 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.073020216] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.437488 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.089397561] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.437488 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.093012482] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.457527 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.109434772] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.457527 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.113052869] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.477561 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.129779381] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.477561 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.133207505] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.492563 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.149685471] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.492563 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.153187364] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.517564 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.169481627] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.517564 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.173067742] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.541868 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.189546764] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.541868 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.193086953] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.557596 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.209697577] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.557596 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.213118313] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.577500 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.229607686] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.577500 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.233039534] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.592437 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.249654324] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.592437 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.253662578] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.617549 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.269682739] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.617549 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.273171466] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.637684 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.289849886] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.637684 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.293335631] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.657494 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.309940182] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.657494 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.313112195] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.672914 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.329790772] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.672914 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.333424989] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.697461 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.349868002] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.697461 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.353133183] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.717549 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.369614705] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.717549 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.373017968] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.732925 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.389502454] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.732925 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.392925255] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.757495 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.410113248] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.757495 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.413051938] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.772437 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[WARN] [1791018204.429670285] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.772437 according to authority default_authority
+Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained

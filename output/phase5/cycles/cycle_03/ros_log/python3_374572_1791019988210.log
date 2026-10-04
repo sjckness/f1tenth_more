@@ -1,0 +1,9 @@
+[INFO] [1791019988.389014396] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=20.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[WARN] [1791019988.421188463] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791019993.470098078] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791019998.470881341] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020003.520364217] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020008.570586270] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791020013.620296367] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received
+[WARN] [1791020018.620331676] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received
+[WARN] [1791020023.670154375] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received

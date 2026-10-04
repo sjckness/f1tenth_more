@@ -27,6 +27,7 @@ Usage:
 Exit code is 0 on success, 1 on failure, so it composes in shell scripts.
 """
 import argparse
+import os
 import sys
 import time
 
@@ -105,6 +106,12 @@ def main():
     if args.command != 'status' and not args.component:
         ap.error(f'{args.command} needs a component name')
 
+    # Super client for this process: `status` lists the services in the graph,
+    # and under ROS_DISCOVERY_SERVER a plain client is never told about other
+    # participants' services -- it reported all three supervisor services
+    # MISSING on a running stack (fix batch 3). Set here, not in the shell,
+    # so the stack started from that shell stays plain clients.
+    os.environ['ROS_SUPER_CLIENT'] = 'TRUE'
     rclpy.init()
     node = Node('stackctl')
     try:

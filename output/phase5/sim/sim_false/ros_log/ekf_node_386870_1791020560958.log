@@ -1,0 +1,2 @@
+[WARN] [1791020591.916703734] [rclcpp]: Failed to get parameters: parameter 'imu1' is not initialized
+[INFO] [1791020608.006090006] [rclcpp]: signal_handler(SIGINT/SIGTERM)

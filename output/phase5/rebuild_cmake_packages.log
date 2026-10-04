@@ -1,0 +1,40 @@
+Starting >>> zed_msgs
+Starting >>> vesc_msgs
+Starting >>> teleop_tools_msgs
+Starting >>> ackermann_mux
+Starting >>> f1tenth_messages
+Finished <<< teleop_tools_msgs [6.05s]
+Starting >>> teleop_tools
+Finished <<< teleop_tools [0.12s]
+Finished <<< vesc_msgs [6.43s]
+Starting >>> vesc_ackermann
+Starting >>> vesc_driver
+Finished <<< ackermann_mux [15.0s]
+Finished <<< zed_msgs [19.8s]
+Starting >>> zed_components
+--- stderr: vesc_driver
+In this package, headers install destination is set to `include` by ament_auto_package. It is recommended to install `include/vesc_driver` instead and will be the default behavior of ament_auto_package from ROS 2 Kilted Kaiju. On distributions before Kilted, ament_auto_package behaves the same way when you use USE_SCOPED_HEADER_INSTALL_DIR option.
+---
+Finished <<< vesc_driver [16.5s]
+--- stderr: vesc_ackermann
+In this package, headers install destination is set to `include` by ament_auto_package. It is recommended to install `include/vesc_ackermann` instead and will be the default behavior of ament_auto_package from ROS 2 Kilted Kaiju. On distributions before Kilted, ament_auto_package behaves the same way when you use USE_SCOPED_HEADER_INSTALL_DIR option.
+---
+Finished <<< vesc_ackermann [20.1s]
+Starting >>> vesc
+Finished <<< vesc [0.22s]
+Finished <<< f1tenth_messages [26.9s]
+--- stderr: zed_components
+ * Point Cloud Transport is available
+---
+[Processing: zed_components]
+[Processing: zed_components]
+Finished <<< zed_components [1min 31s]
+Starting >>> zed_wrapper
+Starting >>> zed_debug
+Finished <<< zed_wrapper [0.17s]
+Starting >>> zed_ros2
+Finished <<< zed_ros2 [0.19s]
+Finished <<< zed_debug [11.3s]
+
+Summary: 13 packages finished [2min 3s]
+  3 packages had stderr output: vesc_ackermann vesc_driver zed_components

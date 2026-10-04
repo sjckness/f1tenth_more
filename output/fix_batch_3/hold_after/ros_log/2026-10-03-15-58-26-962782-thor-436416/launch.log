@@ -1,0 +1,6 @@
+1791035906.9658537 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_after/ros_log/2026-10-03-15-58-26-962782-thor-436416
+1791035906.9664183 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035907.2034395 [INFO] [system_observer_node-1]: process started with pid [436503]
+1791036128.5101197 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791036128.5128524 [INFO] [system_observer_node-1]: sending signal 'SIGINT' to process[system_observer_node-1]
+1791036128.8822467 [INFO] [system_observer_node-1]: process has finished cleanly [pid 436503]

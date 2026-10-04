@@ -1,0 +1,45 @@
+{
+  "duration_s": 20.0,
+  "rates_hz": {
+    "/ekf_global/odometry/filtered": 10.55,
+    "/costmap/boundaries": 19.7,
+    "/costmap/front_clearance": 19.7,
+    "/diagnostics/system_status": 0.95,
+    "/diagnostics/battery_status": 1.95,
+    "/drive": 9.85,
+    "/ackermann_drive": 9.8,
+    "/diagnostics": 7.8,
+    "/joint_states": 9.85
+  },
+  "counts": {
+    "/ekf_global/odometry/filtered": 211,
+    "/costmap/boundaries": 394,
+    "/costmap/front_clearance": 394,
+    "/diagnostics/system_status": 19,
+    "/diagnostics/battery_status": 39,
+    "/drive": 197,
+    "/ackermann_drive": 196,
+    "/diagnostics": 156,
+    "/joint_states": 197
+  },
+  "not_in_graph": [
+    "/odom",
+    "/scan",
+    "/odometry/filtered",
+    "/slam/pose",
+    "/slam/pose_calibrated",
+    "/slam/map",
+    "/tf",
+    "/behavior/tree_status",
+    "/mission/status",
+    "/mpc/solver_status",
+    "/mpc/status",
+    "/perception/d_wall",
+    "/perception/d_wall/segment",
+    "/perception/swept_clearance",
+    "/obstacle_clearance",
+    "/perception/lidar_front_wall",
+    "/calibration/in_progress",
+    "/robot_description"
+  ]
+}

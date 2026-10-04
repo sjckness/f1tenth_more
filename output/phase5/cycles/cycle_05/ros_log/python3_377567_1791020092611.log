@@ -1,0 +1,3 @@
+[INFO] [1791020093.192694705] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance
+[INFO] [1791020112.559142596] [lidar_front_wall_node]: base_link <- laser: x=0.120 m y=0.000 m yaw=0.00 deg
+[INFO] [1791020112.571113225] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available

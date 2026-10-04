@@ -1,0 +1,11 @@
+ex10_go_to_person_gap_clamped                 equal=True sha256=63a1c5a4881f6a4b
+ex13_front_object_generic                     equal=True sha256=cc52ba7979f892bd
+ex1_wall_right_distance                       equal=True sha256=3103c6c76931bf74
+ex2_pass_obstacle                             equal=True sha256=bc633a115cf97a7e
+ex3_stop_at_chair                             equal=True sha256=cc52ba7979f892bd
+ex4_unsupported_jump                          equal=True sha256=e0a3186fc8e8bb88
+ex6_stop_two_metres_from_wall                 equal=True sha256=1e245feba90e4235
+ex7_go_to_person                              equal=True sha256=fc658afc390cb96b
+ex8_go_to_chair_one_metre                     equal=True sha256=d73edc9f472a4e92
+ex9_go_to_bottle_then_turn_right              equal=True sha256=20add150ee734b80
+python 3.12.3: 10/10 golden missions reproduced exactly

@@ -1,0 +1,45 @@
+ 554383  451348  554381    1500 /opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811
+ 598798  451348  554291      21 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup supervisor_bringup.launch.py components_config:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/udp/run_30/components.yaml enable_intelligence:=false log_dir:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/udp/run_30/supervisor
+ 598852  451348  598798      21 python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py 127.0.0.1 11811
+ 598853  451348  598798      21 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/lib/f1tenth_bringup/component_supervisor_node --ros-args -r __node:=component_supervisor_node --params-file /tmp/launch_params_h62f1evy
+ 598879  598879  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation slam.launch.py
+ 598880  598880  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_costmap costmap.launch.py
+ 598881  598881  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception wall_distance.launch.py
+ 598882  598882  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_localization localization.launch.py
+ 598883  598883  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception obstacle_clearance.launch.py
+ 598884  598884  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics system_observer.launch.py
+ 598885  598885  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics diagnostics_server.launch.py
+ 598886  598886  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_logger mission_logger.launch.py mission_logger_runs_dir:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/udp/run_30/runs
+ 598887  598887  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation navigation.launch.py
+ 598888  598888  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_control ackermann_mux.launch.py
+ 598889  598889  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_behavior behavior_bringup.launch.py
+ 598890  598890  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup foxglove_bridge.launch.py
+ 598891  598891  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception lidar_front_wall.launch.py
+ 598892  598892  598853      20 /usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception swept_clearance.launch.py
+ 598938  598884  598884      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/system_observer_node --ros-args -r __node:=system_observer_node --params-file /tmp/launch_params_uord16xt
+ 598939  598888  598888      19 /home/andre/dev_ws/f1tenth_more/install/ackermann_mux/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/mux.yaml -r ackermann_cmd:=ackermann_drive
+ 598942  598889  598889      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_executor_node --params-file /tmp/launch_params_qmcupole
+ 598943  598889  598889      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/twist_to_ackermann_node --ros-args -r __node:=twist_to_ackermann_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/config/twist_to_ackermann.yaml
+ 598944  598887  598887      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_5_qemrwy
+ 598945  598887  598887      19 /opt/ros/jazzy/lib/nav2_map_server/map_server --ros-args -r __node:=map_server --params-file /tmp/launch_params_zbq699bf
+ 598946  598887  598887      19 /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_map --params-file /tmp/launch_params_it6rauku
+ 598947  598885  598885      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r __node:=diagnostics_server_node --params-file /tmp/launch_params_4di6a4h1
+ 598948  598883  598883      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/obstacle_clearance_node --ros-args -r __node:=obstacle_clearance_node --params-file /tmp/launch_params_8c0w6pel
+ 598974  598881  598881      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/wall_distance_node --ros-args -r __node:=wall_distance_node --params-file /tmp/launch_params_3_0n_93j
+ 598975  598886  598886      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node --params-file /tmp/launch_params_r1wooulb
+ 598982  598890  598890      19 /opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge --params-file /tmp/launch_params_yv9t5oty
+ 598991  598890  598890      19 /opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle
+ 598995  598890  598890      19 /opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotated_viz_throttle
+ 599011  598892  598892      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node --ros-args -r __node:=swept_clearance_node --params-file /tmp/launch_params_dqay9xin
+ 599021  598880  598880      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node --params-file /tmp/launch_params_5i8qjsx7
+ 599022  598880  598880      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node --params-file /tmp/launch_params_ntytr800
+ 599023  598880  598880      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node --params-file /tmp/launch_params_1bohhlmh
+ 599024  598891  598891      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node --params-file /tmp/launch_params_8da2b8be
+ 599103  598879  598879      19 /opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/config/slam_toolbox_params.yaml -r /map:=/slam/map -r /map_metadata:=/slam/map_metadata -r /pose:=/slam/pose
+ 599131  598882  598882      19 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml
+ 599132  598882  598882      19 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml
+ 599133  598882  598882      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml
+ 599135  598882  598882      19 /usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node
+ 599136  598882  598882      19 /opt/ros/jazzy/lib/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_yd_25gxk --params-file /tmp/launch_params_4rnzcu1g
+ 599137  598882  598882      19 /usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_o1seh5pd
+ 599138  598882  598882      19 /opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser

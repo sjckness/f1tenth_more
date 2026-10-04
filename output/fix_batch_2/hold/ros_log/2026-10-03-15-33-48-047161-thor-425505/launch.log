@@ -1,0 +1,6 @@
+1791034428.0497866 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/hold/ros_log/2026-10-03-15-33-48-047161-thor-425505
+1791034428.0502300 [INFO] [launch]: Default logging verbosity is set to INFO
+1791034428.2617731 [INFO] [taskset-1]: process started with pid [425609]
+1791034601.6201169 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791034601.6297174 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791034604.4306366 [ERROR] [taskset-1]: process has died [pid 425609, exit code -2, cmd 'taskset -c 5 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node --ros-args -r __node:=swept_clearance_node --params-file /tmp/launch_params_8k061el_'].

@@ -1,0 +1,80 @@
+[INFO] [1791034429.414023395] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=20.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[WARN] [1791034429.445775494] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791034434.495789613] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791034439.544795155] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791034444.544895845] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791034449.595025567] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[WARN] [1791034454.595129630] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received
+[INFO] [1791034455.064113687] [costmap_boundary_node]: n_constraints=3 front_clearance=2.21m
+[INFO] [1791034457.108740163] [costmap_boundary_node]: n_constraints=3 front_clearance=2.21m
+[INFO] [1791034459.111776713] [costmap_boundary_node]: n_constraints=3 front_clearance=1.72m
+[INFO] [1791034461.157983547] [costmap_boundary_node]: n_constraints=3 front_clearance=1.51m
+[INFO] [1791034463.207448110] [costmap_boundary_node]: n_constraints=3 front_clearance=1.52m
+[INFO] [1791034465.211331216] [costmap_boundary_node]: n_constraints=3 front_clearance=1.28m
+[INFO] [1791034467.211973442] [costmap_boundary_node]: n_constraints=3 front_clearance=1.85m
+[INFO] [1791034469.261459630] [costmap_boundary_node]: n_constraints=3 front_clearance=1.62m
+[INFO] [1791034471.311533573] [costmap_boundary_node]: n_constraints=3 front_clearance=1.65m
+[INFO] [1791034473.311922729] [costmap_boundary_node]: n_constraints=3 front_clearance=3.15m
+[INFO] [1791034475.311933500] [costmap_boundary_node]: n_constraints=3 front_clearance=2.35m
+[INFO] [1791034477.361558029] [costmap_boundary_node]: n_constraints=3 front_clearance=2.62m
+[INFO] [1791034479.362993327] [costmap_boundary_node]: n_constraints=3 front_clearance=1.85m
+[INFO] [1791034481.411686239] [costmap_boundary_node]: n_constraints=3 front_clearance=3.68m
+[INFO] [1791034483.412287042] [costmap_boundary_node]: n_constraints=3 front_clearance=2.86m
+[INFO] [1791034485.456935603] [costmap_boundary_node]: n_constraints=3 front_clearance=2.22m
+[INFO] [1791034487.464991836] [costmap_boundary_node]: n_constraints=3 front_clearance=2.43m
+[INFO] [1791034489.513628257] [costmap_boundary_node]: n_constraints=3 front_clearance=2.34m
+[INFO] [1791034491.555301447] [costmap_boundary_node]: n_constraints=3 front_clearance=1.54m
+[INFO] [1791034493.559667457] [costmap_boundary_node]: n_constraints=3 front_clearance=2.41m
+[INFO] [1791034495.594936397] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034497.595590947] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034499.645773822] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034501.696036504] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034503.745830101] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034505.746302178] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034507.752569501] [costmap_boundary_node]: n_constraints=2 front_clearance=4.79m
+[INFO] [1791034509.795475338] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034511.845304650] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034513.845418262] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034515.845918152] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034517.895185698] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034519.895414917] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034521.896119554] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034523.945115874] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034525.945690648] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034527.995628200] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034530.045759022] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034532.059354643] [costmap_boundary_node]: n_constraints=3 front_clearance=2.25m
+[INFO] [1791034534.108901532] [costmap_boundary_node]: n_constraints=3 front_clearance=1.78m
+[INFO] [1791034536.158224987] [costmap_boundary_node]: n_constraints=3 front_clearance=2.53m
+[INFO] [1791034538.195508192] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034540.245433868] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034542.245643103] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034544.295081782] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034546.295548132] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034548.345177927] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034550.345438798] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034552.395551222] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034554.396356530] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034556.445556018] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034558.445757645] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034560.445810183] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034562.495850108] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034564.545463284] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034566.595356113] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034568.595452425] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034570.595457151] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034572.595584884] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034574.645179840] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034576.645379992] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034578.645380529] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034580.645601921] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034582.695542045] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034584.745457507] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034586.745789175] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034588.795548975] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034590.845233553] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034592.845601023] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034594.895115777] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034596.896405751] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034598.945619255] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m
+[INFO] [1791034600.945912073] [costmap_boundary_node]: n_constraints=0 front_clearance=6.00m

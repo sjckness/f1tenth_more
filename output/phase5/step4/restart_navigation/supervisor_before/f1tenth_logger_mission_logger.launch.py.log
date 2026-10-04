@@ -1,0 +1,24 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-11-35-712538-thor-359802
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [mission_logger_node-1]: process started with pid [359859]
+[mission_logger_node-1] [INFO] [1791018696.874101163] [mission_logger_node]: mission_logger_node up (pid 359859, lock /tmp/mission_logger.lock): watching "/mission/status", runs -> "/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs" (active/ -> complete/, storage=mcap), 44 topics (5 with BEST_EFFORT overrides), sweep every 300s (action=move). THIS IS THE LIVE LOGGER -- a second `ros2 run` will be refused.
+[mission_logger_node-1] stdin is not a terminal device. Keyboard handling disabled.[INFO] [1791018819.927094874] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[mission_logger_node-1] [INFO] [1791018819.927109911] [rosbag2_recorder]: Event publisher thread: Started
+[mission_logger_node-1] [INFO] [1791018819.932811782] [rosbag2_recorder]: Starting recording to '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/active/2026-10-03T09-13-39_mission-phase5_hold/bag'
+[mission_logger_node-1] [INFO] [1791018819.938584829] [rosbag2_recorder]: Listening for topics...
+[mission_logger_node-1] [INFO] [1791018819.938631523] [rosbag2_recorder]: Recording...
+[mission_logger_node-1] [INFO] [1791018819.938624736] [rosbag2_recorder]: Topics discovery started.
+[mission_logger_node-1] [INFO] [1791018819.990336402] [mission_logger_node]: recording "2026-10-03T09-13-39_mission-phase5_hold" -> /home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/active/2026-10-03T09-13-39_mission-phase5_hold/bag
+[mission_logger_node-1] [INFO] [1791018832.216959668] [rosbag2_recorder]: Topics discovery stopped.
+[mission_logger_node-1] [INFO] [1791018832.217252400] [rosbag2_recorder]: Pausing recording.
+[mission_logger_node-1] [INFO] [1791018832.220093211] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[mission_logger_node-1] [INFO] [1791018832.221749893] [rosbag2_recorder]: Recording stopped
+[mission_logger_node-1] [INFO] [1791018832.287958306] [mission_logger_node]: stopped recording "2026-10-03T09-13-39_mission-phase5_hold" (outcome=COMPLETE) -> /home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/complete/2026-10-03T09-13-39_mission-phase5_hold
+[mission_logger_node-1] [INFO] [1791018832.292704715] [rosbag2_recorder]: Event publisher thread: Exited
+[mission_logger_node-1] [WARN] [1791018832.950437411] [rosbag2_storage_mcap]: attempted to read in receive timestamp order with no message index
+[mission_logger_node-1] [WARN] [1791018832.951632659] [rosbag2_cpp]: No topics were listed in metadata.
+[mission_logger_node-1] [INFO] [1791018833.435213223] [mission_logger_node]: extract written: /home/andre/dev_ws/f1tenth_more/output/phase5/step4/runs/complete/2026-10-03T09-13-39_mission-phase5_hold/2026-10-03T09-13-39_mission-phase5_hold.extract.parquet
+[mission_logger_node-1] [WARN] [1791018833.771595808] [rosbag2_storage_mcap]: attempted to read in receive timestamp order with no message index
+[mission_logger_node-1] [WARN] [1791018833.771646465] [rosbag2_cpp]: No topics were listed in metadata.
+[mission_logger_node-1] [WARN] [1791018833.772369899] [mission_logger_node]: no /camera/image_annotated frames in "2026-10-03T09-13-39_mission-phase5_hold" -- no snapshots.
+[mission_logger_node-1] [INFO] [1791018833.774279480] [mission_logger_node]: archive sync spawned for "2026-10-03T09-13-39_mission-phase5_hold" (detached, not awaited).

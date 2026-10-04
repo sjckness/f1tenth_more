@@ -79,6 +79,32 @@
 #                   params.yaml dumped by an `mpc` run -- so its configuration
 #                   is the production one. Stopped with SIGINT so the capture
 #                   file gets written.
+# bt:               Phase 4. Plays the BT input bag (filter_bag_for_layer.py:
+#                   /odometry/filtered, /ekf_global/odometry/filtered, /scan,
+#                   /diagnostics/system_status, /camera/detections,
+#                   /costmap/semantic_tracks, and /costmap/front_clearance
+#                   renamed to /perception/front_distance as a documented
+#                   stand-in -- see the Phase 4 report) into the PRODUCTION
+#                   behavior_bringup.launch.py via bt_replay.launch.py
+#                   (use_sim_time only). Two graph_stub_node.py stubs named
+#                   mpc_corr and ackermann_to_vesc_node satisfy the
+#                   start_mission preflight's node-existence check without
+#                   running either (plus costmap_boundary_node and
+#                   front_clearance_node, see the
+#                   bt block below). bt_mission_driver.py loads and starts the
+#                   mission at bag time BT_START_AT_BAG_SEC (default 36.5).
+#                   Records every BT output; copies the mission report the
+#                   run writes.
+# ekf_cost_observer: Phase 4. Plays /odom, /odometry/filtered,
+#                   /ekf_global/odometry/filtered, /slam/pose_calibrated and
+#                   /diagnostics (robot_localization's own FrequencyStatus;
+#                   the recorded ekf_cost_observer statuses removed by
+#                   filter_bag_for_layer.py --diagnostics-drop-prefix) into
+#                   ekf_cost_observer_node with its production defaults
+#                   (localization.launch.py passes none) and NO use_sim_time:
+#                   it measures wall-clock windows, as live. No EKF process
+#                   runs, so its /proc CPU fields are unavailable by design.
+#                   Records /diagnostics.
 # mpc/mpc_capture environment:
 #   MPC_CPU_AFFINITY  taskset core list (default 10,11 = mpc_corr.launch.py's
 #                     own production default)
@@ -144,9 +170,11 @@ NODE_PATTERN_semantic_layer="semantic_layer_node"
 NODE_PATTERN_costmap_boundary="costmap_boundary_node"
 NODE_PATTERN_mpc="lib/mpc_controller/mpc_corr|mpc_replay\.launch\.py"
 NODE_PATTERN_mpc_capture="mpc_capture_node\.py"
+NODE_PATTERN_ekf_cost_observer="lib/f1tenth_diagnostics/ekf_cost_observer_node"
+NODE_PATTERN_bt="behavior_executor_node|twist_to_ackermann_node|bt_replay\.launch\.py|graph_stub_node\.py|bt_mission_driver\.py"
 
 case "$LAYER" in
-  relay|ekf_global|slam|semantic_layer|costmap_boundary|mpc|mpc_capture) ;;
+  relay|ekf_global|slam|semantic_layer|costmap_boundary|mpc|mpc_capture|bt|ekf_cost_observer) ;;
   *)
     echo "unknown layer: $LAYER (expected relay, ekf_global, slam, semantic_layer, costmap_boundary, mpc or mpc_capture)" >&2
     exit 1
@@ -171,6 +199,8 @@ cleanup() {
   kill_and_wait "$NODE_PATTERN_costmap_boundary"
   kill_and_wait "$NODE_PATTERN_mpc"
   kill_and_wait "$NODE_PATTERN_mpc_capture"
+  kill_and_wait "$NODE_PATTERN_bt"
+  kill_and_wait "$NODE_PATTERN_ekf_cost_observer"
   kill_and_wait "ros2 bag play"
   kill_and_wait "ros2 bag record"
 }
@@ -223,6 +253,29 @@ case "$LAYER" in
       -p use_sim_time:=true \
       > "$OUT_DIR/node.log" 2>&1 &
     ;;
+  ekf_cost_observer)
+    RECORD_TOPICS="/diagnostics"
+    ros2 run f1tenth_diagnostics ekf_cost_observer_node > "$OUT_DIR/node.log" 2>&1 &
+    ;;
+  bt)
+    # Every topic the BT process publishes (Phase 4 report, Step 1), except
+    # /bt/tree_visualization (PNG images, not compared).
+    RECORD_TOPICS="/mpc/hold /mpc/goal_drive /mpc/goal_distance /mpc/goal_pose \
+/mpc/goal_turn /mpc/goal_object /mpc/goal_object_end /mission/status \
+/mission/move_outcome /behavior/tree_status /safety_stop /safety/event \
+/test/mission_event /drive"
+    python3 "$SCRIPT_DIR/graph_stub_node.py" mpc_corr > "$OUT_DIR/stub_mpc_corr.log" 2>&1 &
+    python3 "$SCRIPT_DIR/graph_stub_node.py" ackermann_to_vesc_node > "$OUT_DIR/stub_vesc.log" 2>&1 &
+    # preflight.py also requires a node by name for any front_clearance
+    # stop_condition: costmap_boundary_node up to e47e646 (the Orin's Humble
+    # reference), front_clearance_node from fix batch 1 on (the actual
+    # /perception/front_distance producer since 63a6080). Both name-only
+    # stubs run, so the same harness serves either code version; neither
+    # publishes anything.
+    python3 "$SCRIPT_DIR/graph_stub_node.py" costmap_boundary_node > "$OUT_DIR/stub_costmap.log" 2>&1 &
+    python3 "$SCRIPT_DIR/graph_stub_node.py" front_clearance_node > "$OUT_DIR/stub_front_clearance.log" 2>&1 &
+    (cd "$OUT_DIR" && exec ros2 launch "$SCRIPT_DIR/bt_replay.launch.py") > "$OUT_DIR/node.log" 2>&1 &
+    ;;
   mpc|mpc_capture)
     # Every topic MPC_corr.py creates a publisher for (Phase 3 report,
     # Step 1), plus the injected goal so its delivery is on record.
@@ -258,6 +311,8 @@ case "$LAYER" in
   costmap_boundary) NODE_PATTERN=$NODE_PATTERN_costmap_boundary ;;
   mpc) NODE_PATTERN=$NODE_PATTERN_mpc ;;
   mpc_capture) NODE_PATTERN=$NODE_PATTERN_mpc_capture ;;
+  bt) NODE_PATTERN="behavior_executor_node" ;;
+  ekf_cost_observer) NODE_PATTERN=$NODE_PATTERN_ekf_cost_observer ;;
 esac
 
 # sanity: the node must actually be up before we start recording. (Not an
@@ -302,11 +357,13 @@ case "$LAYER" in
   mpc|mpc_capture)
     # mpc_corr imports numpy/scipy/osqp and builds its solver state before
     # it subscribes; wait for the node itself, not just its process.
+    # (grep without -q: with pipefail, -q's early exit SIGPIPEs `ros2 node
+    # list` and fails the pipeline even on a match once several nodes are up.)
     for _ in $(seq 1 60); do
-      ros2 node list 2>/dev/null | grep -qx "/mpc_corr" && break
+      ros2 node list 2>/dev/null | grep -x "/mpc_corr" >/dev/null && break
       sleep 0.5
     done
-    ros2 node list 2>/dev/null | grep -qx "/mpc_corr" \
+    ros2 node list 2>/dev/null | grep -x "/mpc_corr" >/dev/null \
       || { echo "FATAL: /mpc_corr never appeared in the graph" >&2; exit 1; }
     if [ "$LAYER" = "mpc" ]; then
       ros2 param dump /mpc_corr > "$OUT_DIR/params.yaml"
@@ -318,6 +375,28 @@ case "$LAYER" in
     # (seen in an early run: goal never received, the MPC never left
     # "robot fermo in attesa"). The live BT publisher existed long before
     # it published, so this restores the original condition.
+    CLOCK_ARGS="--clock ${CLOCK_HZ:-1000} --delay ${PLAY_DELAY:-3}"
+    ;;
+  bt)
+    for _ in $(seq 1 60); do
+      ros2 node list 2>/dev/null | grep -x "/behavior_executor_node" >/dev/null && break
+      sleep 0.5
+    done
+    ros2 node list 2>/dev/null | grep -x "/behavior_executor_node" >/dev/null \
+      || { echo "FATAL: /behavior_executor_node never appeared in the graph" >&2; exit 1; }
+    ros2 param dump /behavior_executor_node > "$OUT_DIR/params.yaml" 2>/dev/null || true
+    # BT_BAG_T0_NS (bag start, ns) can be passed explicitly -- the Orin
+    # instructions do, because BagMetadata.starting_time's Python type is only
+    # verified on Jazzy here.
+    if [ -z "${BT_BAG_T0_NS:-}" ]; then
+      BT_BAG_T0_NS=$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); from bag_compat import open_reader; print(open_reader('$BAG_DIR').get_metadata().starting_time.nanoseconds)")
+    fi
+    echo "$BT_BAG_T0_NS" > "$OUT_DIR/bag_t0_ns.txt"
+    python3 "$SCRIPT_DIR/bt_mission_driver.py" --repo "$REPO_ROOT" \
+      --bag-start-ns "$BT_BAG_T0_NS" \
+      --start-at-bag-sec "${BT_START_AT_BAG_SEC:-36.5}" --mission-dir "$OUT_DIR" \
+      --log "$OUT_DIR/mission_driver.json" --ros-args -p use_sim_time:=true \
+      > "$OUT_DIR/mission_driver.log" 2>&1 &
     CLOCK_ARGS="--clock ${CLOCK_HZ:-1000} --delay ${PLAY_DELAY:-3}"
     ;;
 esac
@@ -375,6 +454,11 @@ case "$LAYER" in
     ;;
 esac
 case "$LAYER" in
+  bt)
+    mkdir -p "$OUT_DIR/mission_reports"
+    find "$REPO_ROOT/src/f1tenth_behavior/mission_reports" -maxdepth 1 -type f \
+      -newer "$OUT_DIR/.run_start" -exec cp -a {} "$OUT_DIR/mission_reports/" \; 2>/dev/null || true
+    ;;
   mpc|mpc_capture)
     mkdir -p "$OUT_DIR/debug"
     # only what THIS run wrote (corridor snapshots are per-run timestamped

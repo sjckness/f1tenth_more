@@ -1,0 +1,6 @@
+1791019986.8767564 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_03/ros_log/2026-10-03-11-33-06-874371-thor-374496
+1791019986.8771000 [INFO] [launch]: Default logging verbosity is set to INFO
+1791019987.0860982 [INFO] [mission_logger_node-1]: process started with pid [374580]
+1791020028.4039211 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020028.4061048 [INFO] [mission_logger_node-1]: sending signal 'SIGINT' to process[mission_logger_node-1]
+1791020028.6417687 [ERROR] [mission_logger_node-1]: process has died [pid 374580, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node --params-file /tmp/launch_params_r2ygcmj2'].

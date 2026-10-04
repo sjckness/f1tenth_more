@@ -1,0 +1,10 @@
+shell ROS_SUPER_CLIENT=unset
+ros2cli try1: topics=88 nodes=33
+ros2cli try2: topics=88 nodes=33
+ros2cli try3: topics=88 nodes=33
+ros2cli try4: topics=88 nodes=33
+ros2cli try5: topics=88 nodes=33
+/mission/status /mpc/goal_drive /odometry/filtered /scan /tf 
+ros2cli topic hz /odometry/filtered:
+average rate: 41.759
+plain ros2 topic list --no-daemon --spin-time 5: 2

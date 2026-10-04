@@ -1,0 +1,62 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_24/ros_log/2026-10-03-16-40-05-555524-thor-490349
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [490406]
+[taskset-1] [INFO] [1791038409.654175796] [wall_distance_node]: wall_distance_node up: scan /scan, odom /odometry/filtered, phase from /mpc/wall_track (3 silent ticks -> exit) -> /perception/d_wall at 10.0 Hz. d_ref=0.60 m, k=0.333 rad/m (convergence 3.0 m), |dpsi|<=0.200 rad. coast caps 0.50 m / 0.35 rad. PHASE=UNKNOWN until /mpc/wall_track speaks.
+[taskset-1] [INFO] [1791038409.721818363] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038410.822333234] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038411.921630515] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038413.022105532] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038414.122076063] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038415.122213061] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038416.222019814] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038417.222292203] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038418.321134881] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038419.321339028] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038420.422045135] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038421.422140229] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038422.521421009] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038423.521487532] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038424.522369646] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038425.622183813] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038426.721232279] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038427.721892266] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038428.722041804] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038429.722883618] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038430.120361572] [wall_distance_node]: base_link <- laser: (0.120, 0.000) m, yaw +0.000 rad. NOTE description.launch.py calls these ruler-measured placeholders, not a calibration.
+[taskset-1] [INFO] [1791038430.743165722] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.495 heading_rel=+0.282 rms=0.0156 n=131 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038431.748214546] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.525 heading_rel=+0.289 rms=0.0071 n=45 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038432.841646865] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.492 heading_rel=+0.285 rms=0.0149 n=134 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038433.845574862] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.516 heading_rel=+0.313 rms=0.0104 n=46 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038434.846202591] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.514 heading_rel=+0.317 rms=0.0104 n=46 age=0.98 prov=PREDICTED coast=0.01m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038435.853406720] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.503 heading_rel=+0.354 rms=0.0104 n=46 age=1.98 prov=PREDICTED coast=0.04m/0.04rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038436.949860871] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.464 heading_rel=+0.436 rms=0.0098 n=42 age=0.25 prov=PREDICTED coast=0.03m/0.04rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038438.054594991] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.384 heading_rel=+0.563 rms=0.0098 n=42 age=1.35 prov=PREDICTED coast=0.20m/0.16rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038439.143885739] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.230 heading_rel=+0.644 rms=0.0098 n=42 age=2.45 prov=PREDICTED coast=0.46m/0.26rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038440.233269224] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.032 heading_rel=+0.437 rms=0.0142 n=152 age=0.09 prov=PREDICTED coast=0.04m/0.01rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038441.312041288] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.955 heading_rel=+0.328 rms=0.0141 n=164 age=0.08 prov=PREDICTED coast=0.02m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038442.343617536] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.881 heading_rel=+0.153 rms=0.0119 n=131 age=0.18 prov=PREDICTED coast=0.05m/0.02rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038443.444236009] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.878 heading_rel=+0.045 rms=0.0092 n=84 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038444.446595131] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.889 heading_rel=-0.028 rms=0.0110 n=85 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038445.550452222] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.882 heading_rel=-0.017 rms=0.0107 n=117 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038446.554398311] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.898 heading_rel=-0.006 rms=0.0085 n=128 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038447.656019917] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.889 heading_rel=-0.016 rms=0.0101 n=215 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038448.740712590] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.879 heading_rel=-0.049 rms=0.0100 n=274 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791038449.821483585] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.898 heading_rel=-0.043 rms=0.0102 n=298 age=0.57 prov=PREDICTED coast=0.25m/0.00rad dpsi=+0.0000
+[taskset-1] [WARN] [1791038450.520709798] [wall_distance_node]: COAST/cap | track 1 coasted 0.54 m / 0.00 rad past the cap (0.50 m / 0.35 rad): d_wall is no longer trusted. The caps are set by the measured odometry bias (distance 17-20% short, gyro yaw gain 0.93-1.09), not by caution -- raise them only after that calibration lands.
+[taskset-1] [INFO] [1791038450.821702565] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=False d_wall=+nan heading_rel=+nan rms=0.0102 n=298 age=1.57 prov=NONE coast=0.62m/0.00rad dpsi=+0.0000
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/wall_distance_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'wall_distance_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_perception/f1tenth_perception/wall_distance_node.py", line 559, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[ERROR] [taskset-1]: process has died [pid 490406, exit code -2, cmd 'taskset -c 5 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/wall_distance_node --ros-args -r __node:=wall_distance_node --params-file /tmp/launch_params_c91b51sb'].

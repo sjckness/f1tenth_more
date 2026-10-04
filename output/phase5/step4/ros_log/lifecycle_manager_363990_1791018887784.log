@@ -1,0 +1,4 @@
+[INFO] [1791018887.806219424] [lifecycle_manager_map]: Creating
+[INFO] [1791018887.808979549] [lifecycle_manager_map]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[INFO] [1791018889.749204377] [lifecycle_manager_map]: [34m[1mStarting managed nodes bringup...[0m[0m
+[INFO] [1791018889.749312914] [lifecycle_manager_map]: [34m[1mConfiguring map_server[0m[0m

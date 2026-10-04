@@ -1,0 +1,20 @@
+--- reuse branch: second ensure_discovery_server.py on the same port
+[ensure_discovery_server] 127.0.0.1:11811 already has a live listener (an earlier session's server, deliberately still running by design -- see stack_params.yaml's own discovery_server_address/_port comment) -- reusing it, not starting a duplicate. This process will now idle harmlessly for the life of this launch.
+second instance still alive (idling), rc n/a
+Traceback (most recent call last):
+  File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py", line 124, in <module>
+    main()
+  File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py", line 89, in main
+    signal_wait.wait()
+  File "/usr/lib/python3.12/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+second instance exit code after SIGINT: 130
+no leftover tail process

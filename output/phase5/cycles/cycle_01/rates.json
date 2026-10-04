@@ -1,0 +1,22 @@
+{
+  "duration_s": 10.0,
+  "rates_hz": {
+    "/odometry/filtered": 42.5,
+    "/ekf_global/odometry/filtered": 42.5,
+    "/slam/pose": 2.0,
+    "/diagnostics/system_status": 1.0,
+    "/behavior/tree_status": 9.6,
+    "/mpc/solver_status": 0.0,
+    "/tf": 94.7
+  },
+  "counts": {
+    "/odometry/filtered": 425,
+    "/ekf_global/odometry/filtered": 425,
+    "/slam/pose": 20,
+    "/diagnostics/system_status": 10,
+    "/behavior/tree_status": 96,
+    "/mpc/solver_status": 0,
+    "/tf": 947
+  },
+  "not_in_graph": []
+}

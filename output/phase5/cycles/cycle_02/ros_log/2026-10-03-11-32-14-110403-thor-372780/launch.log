@@ -1,0 +1,30 @@
+1791019934.1137152 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_02/ros_log/2026-10-03-11-32-14-110403-thor-372780
+1791019934.1142974 [INFO] [launch]: Default logging verbosity is set to INFO
+1791019934.7647910 [INFO] [taskset-1]: process started with pid [373055]
+1791019934.7653186 [INFO] [taskset-2]: process started with pid [373056]
+1791019934.7654245 [INFO] [slam_pose_relay_node-3]: process started with pid [373057]
+1791019934.7654893 [INFO] [taskset-4]: process started with pid [373058]
+1791019934.7655330 [INFO] [robot_state_publisher-5]: process started with pid [373059]
+1791019934.7655709 [INFO] [joint_state_publisher-6]: process started with pid [373060]
+1791019934.7656064 [INFO] [static_transform_publisher-7]: process started with pid [373061]
+1791019934.8563640 [static_transform_publisher-7] [WARN] [1791019934.848254511] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791019934.8997967 [static_transform_publisher-7] [INFO] [1791019934.899242825] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791019934.9016013 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791019934.9017823 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791019934.9018333 [static_transform_publisher-7] from 'base_link' to 'laser'
+1791019977.6562257 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791019977.6661215 [static_transform_publisher-7] [INFO] [1791019977.653633212] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791019977.6666975 [INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+1791019977.6704795 [INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+1791019977.6714218 [INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+1791019977.6719792 [INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+1791019977.6725063 [INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+1791019977.6730897 [INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+1791019977.6805241 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791019977.6869123 [ERROR] [static_transform_publisher-7]: process has died [pid 373061, exit code -2, cmd '/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser'].
+1791019977.7011671 [ERROR] [taskset-2]: process has died [pid 373056, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791019977.7017341 [ERROR] [taskset-1]: process has died [pid 373055, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+1791019978.8381307 [INFO] [robot_state_publisher-5]: process has finished cleanly [pid 373059]
+1791019978.8808520 [ERROR] [taskset-4]: process has died [pid 373058, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].
+1791019978.8908784 [ERROR] [slam_pose_relay_node-3]: process has died [pid 373057, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791019978.8958724 [ERROR] [joint_state_publisher-6]: process has died [pid 373060, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_1k9ihy0j'].

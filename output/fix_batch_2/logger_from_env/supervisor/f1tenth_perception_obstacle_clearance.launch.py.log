@@ -1,0 +1,8 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/ros_log/2026-10-03-12-09-00-434605-thor-392591
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [392645]
+[taskset-1] [INFO] [1791022144.173287161] [obstacle_clearance_node]: obstacle_clearance_node up: /scan -> /obstacle_clearance; footprint 0.525 x 0.272 m, x in [-0.082, +0.443] of base_link; contact events on /safety/event at <= 0.000 m
+[taskset-1] [INFO] [1791022167.580658267] [obstacle_clearance_node]: base_link <- laser: t=(0.120, 0.000, 0.200) m
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[INFO] [taskset-1]: process has finished cleanly [pid 392645]

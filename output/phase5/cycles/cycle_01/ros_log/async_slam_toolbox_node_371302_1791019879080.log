@@ -1,0 +1,7 @@
+[INFO] [1791019879.360543589] [slam_toolbox]: Node using stack size 40000000
+[INFO] [1791019880.498314896] [slam_toolbox]: Configuring
+[INFO] [1791019880.522619342] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[INFO] [1791019880.523218489] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[INFO] [1791019880.833411604] [slam_toolbox]: Activating
+[INFO] [1791019902.338041945] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791019902.136 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[INFO] [1791019923.722131171] [rclcpp]: signal_handler(SIGINT/SIGTERM)

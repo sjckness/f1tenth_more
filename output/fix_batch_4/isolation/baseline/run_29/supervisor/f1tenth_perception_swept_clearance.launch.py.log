@@ -1,0 +1,43 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_29/ros_log/2026-10-03-16-44-36-541314-thor-498985
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [499063]
+[taskset-1] [INFO] [1791038680.341999137] [swept_clearance_node]: swept_clearance_node up: lidar /scan, depth /zed2/zed_node/depth/depth_registered; steering /ackermann_drive as lagged_command (lag 0.30 s) -> /perception/swept_clearance
+[taskset-1] [WARN] [1791038680.345032158] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038682.389787772] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038684.439036506] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038686.488382653] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038688.488836688] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038690.538309511] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038692.538904306] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038694.588274685] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038696.589579223] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038698.639106803] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [WARN] [1791038700.639462256] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[taskset-1] [INFO] [1791038701.938884151] [swept_clearance_node]: base_link <- laser: t=(0.120, 0.000, 0.200) m
+[taskset-1] [WARN] [1791038701.941030625] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038703.988545521] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038706.038480363] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038708.038608968] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038710.088441454] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038712.139804298] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038714.189606779] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038716.190703006] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038718.238640374] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038720.238870623] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[taskset-1] [WARN] [1791038720.988857993] [swept_clearance_node]: every clearance sensor is stale (lidar 0.28 s old, camera never received); publishing 0.0
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('f1tenth-perception', 'console_scripts', 'swept_clearance_node')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_perception/f1tenth_perception/swept_clearance_node.py", line 317, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[ERROR] [taskset-1]: process has died [pid 499063, exit code -2, cmd 'taskset -c 5 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node --ros-args -r __node:=swept_clearance_node --params-file /tmp/launch_params_v3qpedrt'].

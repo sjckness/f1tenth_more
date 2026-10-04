@@ -1,0 +1,5 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-15-15-608368-thor-364435
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [system_observer_node-1]: process started with pid [364450]
+[system_observer_node-1] [ERROR] [1791018916.245091690] [system_observer_node]: [system_observer] jetson-stats not installed (No module named 'jtop'). gpu_percent/gpu_temp_c/emc_percent will be published as 0.0. Fix: `sudo pip3 install jetson-stats`, then reboot (or restart jtop.service).
+[system_observer_node-1] [INFO] [1791018916.245545605] [system_observer_node]: [system_observer] Publishing SystemStatus on /diagnostics/system_status at 1.00 Hz (jtop: UNAVAILABLE, see warning above).

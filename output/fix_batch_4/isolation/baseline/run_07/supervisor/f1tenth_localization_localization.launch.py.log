@@ -1,0 +1,82 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_07/ros_log/2026-10-03-16-24-46-623205-thor-461633
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [461916]
+[INFO] [taskset-2]: process started with pid [461917]
+[INFO] [slam_pose_relay_node-3]: process started with pid [461918]
+[INFO] [taskset-4]: process started with pid [461919]
+[INFO] [robot_state_publisher-5]: process started with pid [461920]
+[INFO] [joint_state_publisher-6]: process started with pid [461921]
+[INFO] [static_transform_publisher-7]: process started with pid [461922]
+[static_transform_publisher-7] [WARN] [1791037487.349454546] []: Old-style arguments are deprecated; see --help for new-style arguments
+[robot_state_publisher-5] [INFO] [1791037487.384008501] [robot_state_publisher]: Robot initialized
+[static_transform_publisher-7] [INFO] [1791037487.411353244] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+[static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+[static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-7] from 'base_link' to 'laser'
+[joint_state_publisher-6] [INFO] [1791037488.391601431] [joint_state_publisher]: Waiting for robot_description to be published on the robot_description topic...
+[slam_pose_relay_node-3] [INFO] [1791037488.427975844] [slam_pose_relay_node]: slam_pose_relay_node started: "/slam/pose" -> "/slam/pose_calibrated", covariance stamped with var_x=0.100000 var_y=0.100000 var_yaw=0.050000
+[taskset-4] [INFO] [1791037488.434350362] [ekf_cost_observer_node]: [ekf_cost] per-update cost metric up at 1.00 Hz on /diagnostics; watching ekf_filter_node, ekf_global_filter_node
+[joint_state_publisher-6] [INFO] [1791037489.683396178] [joint_state_publisher]: Got description, configuring robot
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+[INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+[INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+[INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+[INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+[INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[robot_state_publisher-5] [INFO] [1791037530.157282120] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-2] [INFO] [1791037530.157244990] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[static_transform_publisher-7] [INFO] [1791037530.157704894] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] [INFO] [1791037530.163159519] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[joint_state_publisher-6] Traceback (most recent call last):
+[joint_state_publisher-6]   File "/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher", line 33, in <module>
+[joint_state_publisher-6]     sys.exit(load_entry_point('joint-state-publisher==2.4.3', 'console_scripts', 'joint_state_publisher')())
+[joint_state_publisher-6]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[joint_state_publisher-6]   File "/opt/ros/jazzy/lib/python3.12/site-packages/joint_state_publisher/joint_state_publisher.py", line 571, in main
+[joint_state_publisher-6]     jsp.destroy_node()
+[joint_state_publisher-6]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[joint_state_publisher-6]     self.destroy_subscription(self._subscriptions[0])
+[joint_state_publisher-6]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1854, in destroy_subscription
+[joint_state_publisher-6]     subscription.destroy()
+[joint_state_publisher-6]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 101, in destroy
+[joint_state_publisher-6]     self.handle.destroy_when_not_in_use()
+[joint_state_publisher-6] KeyboardInterrupt
+[ERROR] [static_transform_publisher-7]: process has died [pid 461922, exit code -2, cmd '/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser'].
+[robot_state_publisher-5] [INFO] [1791037530.187307412] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-4] Traceback (most recent call last):
+[taskset-4]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node", line 33, in <module>
+[taskset-4]     sys.exit(load_entry_point('f1tenth-diagnostics', 'console_scripts', 'ekf_cost_observer_node')())
+[taskset-4]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-4]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_diagnostics/f1tenth_diagnostics/ekf_cost_observer_node.py", line 396, in main
+[taskset-4]     node.destroy_node()
+[taskset-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[taskset-4]     self.destroy_subscription(self._subscriptions[0])
+[taskset-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1854, in destroy_subscription
+[taskset-4]     subscription.destroy()
+[taskset-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 101, in destroy
+[taskset-4]     self.handle.destroy_when_not_in_use()
+[taskset-4]     ^^^^^^^^^^^
+[taskset-4]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 88, in handle
+[taskset-4]     @property
+[taskset-4] 
+[taskset-4] KeyboardInterrupt
+[slam_pose_relay_node-3] Traceback (most recent call last):
+[slam_pose_relay_node-3]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node", line 33, in <module>
+[slam_pose_relay_node-3]     sys.exit(load_entry_point('f1tenth-localization', 'console_scripts', 'slam_pose_relay_node')())
+[slam_pose_relay_node-3]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[slam_pose_relay_node-3]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_localization/f1tenth_localization/slam_pose_relay_node.py", line 98, in main
+[slam_pose_relay_node-3]     node.destroy_node()
+[slam_pose_relay_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[slam_pose_relay_node-3]     self.destroy_subscription(self._subscriptions[0])
+[slam_pose_relay_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1854, in destroy_subscription
+[slam_pose_relay_node-3]     subscription.destroy()
+[slam_pose_relay_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 101, in destroy
+[slam_pose_relay_node-3]     self.handle.destroy_when_not_in_use()
+[slam_pose_relay_node-3] KeyboardInterrupt
+[ERROR] [taskset-1]: process has died [pid 461916, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+[ERROR] [taskset-2]: process has died [pid 461917, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+[ERROR] [joint_state_publisher-6]: process has died [pid 461921, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_01ku0q_7'].
+[INFO] [robot_state_publisher-5]: process has finished cleanly [pid 461920]
+[ERROR] [slam_pose_relay_node-3]: process has died [pid 461918, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+[ERROR] [taskset-4]: process has died [pid 461919, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].

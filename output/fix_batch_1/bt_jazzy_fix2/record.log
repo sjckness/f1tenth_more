@@ -1,0 +1,29 @@
+[WARN] [ros2bag]: Positional "topics" argument deprecated. Please use optional "--topics" argument instead.
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1791016122.511577019] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[INFO] [1791016122.511588195] [rosbag2_recorder]: Event publisher thread: Started
+[INFO] [1791016122.516510373] [rosbag2_recorder]: Starting recording to '/home/andre/dev_ws/f1tenth_more/output/fix_batch_1/bt_jazzy_fix2/bag'
+[INFO] [1791016122.518839009] [rosbag2_recorder]: Listening for topics...
+[INFO] [1791016122.518906093] [rosbag2_recorder]: Recording...
+[INFO] [1791016122.518881926] [rosbag2_recorder]: Topics discovery started.
+[INFO] [1791016122.519031917] [rosbag2_recorder]: use_sim_time set, waiting for /clock before starting recording...
+[INFO] [1791016126.631921151] [rosbag2_recorder]: Sim time /clock found, starting recording.
+[INFO] [1791016126.644041616] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_turn'
+[INFO] [1791016126.646973390] [rosbag2_recorder]: Subscribed to topic '/test/mission_event'
+[INFO] [1791016126.650009654] [rosbag2_recorder]: Subscribed to topic '/behavior/tree_status'
+[INFO] [1791016126.652183235] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_drive'
+[INFO] [1791016126.655080092] [rosbag2_recorder]: Subscribed to topic '/mpc/hold'
+[INFO] [1791016126.658430614] [rosbag2_recorder]: Subscribed to topic '/drive'
+[INFO] [1791016126.660657047] [rosbag2_recorder]: Subscribed to topic '/mission/move_outcome'
+[INFO] [1791016126.662665137] [rosbag2_recorder]: Subscribed to topic '/mission/status'
+[INFO] [1791016126.664524708] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_distance'
+[INFO] [1791016126.665928160] [rosbag2_recorder]: Subscribed to topic '/safety/event'
+[INFO] [1791016126.667323149] [rosbag2_recorder]: Subscribed to topic '/safety_stop'
+[INFO] [1791016126.669994674] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_object'
+[INFO] [1791016126.671720763] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_object_end'
+[INFO] [1791016126.674955768] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_pose'
+[INFO] [1791016126.675033573] [rosbag2_recorder]: All requested topics are subscribed. Stopping discovery...
+[INFO] [1791016126.675057277] [rosbag2_recorder]: Topics discovery stopped.
+[INFO] [1791016170.375291952] [rosbag2_recorder]: Pausing recording.
+[INFO] [1791016170.375620923] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[INFO] [1791016170.393649676] [rosbag2_recorder]: Recording stopped
+[INFO] [1791016170.406217252] [rosbag2_recorder]: Event publisher thread: Exited

@@ -1,0 +1,5 @@
+[INFO] [1791020297.217555382] [ackermann_mux]: Topic handler 'topics.calibration' subscribed to topic 'calibration_drive': timeout = 0.200000s , priority = 50.
+[INFO] [1791020297.229664370] [ackermann_mux]: Topic handler 'topics.joystick' subscribed to topic 'teleop': timeout = 0.200000s , priority = 100.
+[INFO] [1791020297.230380398] [ackermann_mux]: Topic handler 'topics.navigation' subscribed to topic 'drive': timeout = 0.200000s , priority = 10.
+[INFO] [1791020297.230668925] [ackermann_mux]: Topic handler 'topics.safety_stop' subscribed to topic 'safety_stop': timeout = 0.200000s , priority = 200.
+[INFO] [1791020338.435418311] [rclcpp]: signal_handler(SIGINT/SIGTERM)

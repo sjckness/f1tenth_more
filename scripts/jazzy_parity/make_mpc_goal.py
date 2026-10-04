@@ -58,15 +58,21 @@ class _Logger:
         print('[PublishMoveGoal] ' + text)
 
 
+def build_mission(repo):
+    """Step 1: the mission dict, via translate() of the golden intent, checked
+    against the bag's mission id and the committed fixture. Also used by
+    bt_mission_driver.py (Phase 4), so the BT replay loads the same mission."""
+    golden = json.loads((Path(repo) / GOLDEN_REL).read_text())
+    mission = translate(golden['intent']).mission
+    assert mission['mission_id'] == BAG_MISSION_ID, mission['mission_id']
+    assert mission == golden['mission'], 'translation differs from the golden fixture'
+    return mission
+
+
 def main():
     out = Path(sys.argv[1])
     repo = Path(sys.argv[2]).expanduser() if len(sys.argv) > 2 else Path(__file__).resolve().parents[2]
-    golden = json.loads((repo / GOLDEN_REL).read_text())
-
-    result = translate(golden['intent'])
-    mission = result.mission
-    assert mission['mission_id'] == BAG_MISSION_ID, mission['mission_id']
-    assert mission == golden['mission'], 'translation differs from the golden fixture'
+    mission = build_mission(repo)
     print('mission %s: translate(intent) == golden fixture' % mission['mission_id'])
 
     cfg = parse_mission(mission)

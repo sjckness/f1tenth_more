@@ -1,0 +1,1646 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/estop_hold/ros_log/2026-10-03-16-09-18-421146-thor-442898
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [443047]
+[INFO] [map_server-2]: process started with pid [443048]
+[INFO] [lifecycle_manager-3]: process started with pid [443049]
+[lifecycle_manager-3] [INFO] [1791036558.769107098] [lifecycle_manager_map]: Creating
+[lifecycle_manager-3] [INFO] [1791036558.780579795] [lifecycle_manager_map]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[map_server-2] [INFO] [1791036558.782070027] [map_server]: 
+[map_server-2] 	map_server lifecycle node launched. 
+[map_server-2] 	Waiting on external lifecycle transitions to activate
+[map_server-2] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[map_server-2] [INFO] [1791036558.782299451] [map_server]: Creating
+[lifecycle_manager-3] [INFO] [1791036559.571523057] [lifecycle_manager_map]: [34m[1mStarting managed nodes bringup...[0m[0m
+[lifecycle_manager-3] [INFO] [1791036559.571678889] [lifecycle_manager_map]: [34m[1mConfiguring map_server[0m[0m
+[map_server-2] [INFO] [1791036559.575538809] [map_server]: Configuring
+[map_server-2] [INFO] [1791036559.575841196] [map_io]: Loading yaml file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.yaml
+[map_server-2] [INFO] [1791036559.576392971] [map_io]: resolution: 0.05
+[map_server-2] [INFO] [1791036559.576416851] [map_io]: origin[0]: -50
+[map_server-2] [INFO] [1791036559.576419860] [map_io]: origin[1]: -50
+[map_server-2] [INFO] [1791036559.576422277] [map_io]: origin[2]: 0
+[map_server-2] [INFO] [1791036559.576424860] [map_io]: free_thresh: 0.196
+[map_server-2] [INFO] [1791036559.576427490] [map_io]: occupied_thresh: 0.65
+[map_server-2] [INFO] [1791036559.576497377] [map_io]: mode: trinary
+[map_server-2] [INFO] [1791036559.576507016] [map_io]: negate: 0
+[map_server-2] [INFO] [1791036559.576951987] [map_io]: Loading image_file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm
+[map_server-2] [INFO] [1791036559.666025351] [map_io]: Read map /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm: 2000 X 2000 map @ 0.05 m/cell
+[lifecycle_manager-3] [INFO] [1791036559.690668162] [lifecycle_manager_map]: [34m[1mActivating map_server[0m[0m
+[map_server-2] [INFO] [1791036559.690991354] [map_server]: Activating
+[map_server-2] [INFO] [1791036559.696106711] [map_server]: Creating bond (map_server) to lifecycle manager.
+[lifecycle_manager-3] [INFO] [1791036559.802634153] [lifecycle_manager_map]: Server map_server connected with bond.
+[lifecycle_manager-3] [INFO] [1791036559.802780791] [lifecycle_manager_map]: [34m[1mManaged nodes are active[0m[0m
+[lifecycle_manager-3] [INFO] [1791036559.802802495] [lifecycle_manager_map]: [34m[1mCreating bond timer...[0m[0m
+[taskset-1] [INFO] [1791036560.670350474] [mpc_corr]: OBJECT CORRIDOR | startup: object_corridor_mode='off' (straight corridor pinned to the target line) -- the default
+[taskset-1] [INFO] [1791036560.682951942] [mpc_corr]: model log -> "/home/andre/dev_ws/f1tenth_more/mpc_log.csv" (t,x,y,psi,v,steer_cmd,accel_cmd; see docs/DIAGNOSTICS.md)
+[taskset-1] [INFO] [1791036560.697628416] [mpc_corr]: corridor_log_path = "/home/andre/dev_ws/f1tenth_more/src/f1tenth_control/corridors_jsons/corridor_debug_20261003T160920.jsonl"
+[taskset-1] [INFO] [1791036560.765177645] [mpc_corr]: MPC Controller STARTED (pure MPC + obstacle avoidance [fixed deflection + predicted clearance], no plan executor)
+[taskset-1] [INFO] [1791036560.767246828] [mpc_corr]: CFG | ts=0.1 N=20 vdes=0.5 dmin=0.32 wheel_radius=0.05 car_radius=0.2 avoidance_margin=0.12
+[taskset-1] [INFO] [1791036560.769228407] [mpc_corr]: CFG | limits={'delta_min': -0.283, 'delta_max': 0.278, 'a_min': -2.0, 'a_max': 3.0, 'dDeltaMin': -0.5, 'dDeltaMax': 0.5, 'dAMin': -2.0, 'dAMax': 2.0, 'vMin': -1.0, 'vMax': 3.0}
+[taskset-1] [INFO] [1791036560.771054730] [mpc_corr]: CFG | weights={'w_term': 9.0, 'w_v': 4.2857, 'w_psi': 4.5, 'w_u_a': 0.0, 'w_du_delta': 8.33, 'w_du_a': 0.0, 'w_delta0': 0.0, 'w_obs': 8.0, 'w_corr': 3.5714, 'w_line': 1.1662, 'w_psi_stage': 4.7736}
+[taskset-1] [INFO] [1791036560.772772302] [mpc_corr]: CFG | params={'L': 0.305, 'lr': 0.17}
+[taskset-1] [WARN] [1791036560.781589063] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791036560.789498338] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036560.864396699] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036560.865047991] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036560.865838569] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036560.966119431] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.066803031] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.165715419] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.265985948] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.365844792] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.465724273] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.565999552] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.666763707] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.765981641] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036561.865959023] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036561.867293765] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036561.966475707] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.065908390] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.165490998] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.266882391] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.366805228] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.465789570] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.565800597] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.678985676] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036562.767291677] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036562.864827714] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036562.866366881] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036562.867750316] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036562.966335717] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.066009436] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.165646850] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.265785001] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.366403076] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.465877574] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.565757383] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.665829716] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.765784636] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.865758159] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036563.965667071] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036563.966875157] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036564.065826640] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.165772580] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.265947010] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.365829802] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.465621253] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.565878007] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.665799391] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.765697282] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036564.865683868] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036564.965027691] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036564.966139147] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036564.967275529] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036565.065764544] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.165698346] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.265802416] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.365658589] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.466013277] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.565886209] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.665724846] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.765718361] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.782877126] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791036565.865746521] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036565.890562182] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791036565.965670349] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.065673216] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036566.066889300] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036566.165762249] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.265836524] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.365761845] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.465785879] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.565619276] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.665724178] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.765746472] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.865504118] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036566.965694233] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036567.064712095] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036567.065792319] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.165639197] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036567.166753903] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036567.265859999] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.365779813] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.465731394] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.565639763] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.665803825] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.765693878] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.865672691] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036567.965758205] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.066258020] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.165931697] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036568.167104828] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036568.265711104] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.365685955] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.465690037] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.565572887] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.665659784] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.765902855] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.865858447] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036568.965590382] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.065569417] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036569.164591927] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036569.165632995] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.265526670] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036569.266578294] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036569.365478689] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.465966333] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.565510761] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.665392178] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.765505167] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.865435852] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036569.965476193] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.065601488] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.165560535] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.265484143] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.365421105] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036570.366450043] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036570.465459549] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.565474993] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.665486244] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.765424170] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.831673478] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791036570.865403827] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.965525475] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036570.989220487] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791036571.065451216] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036571.165444393] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036571.264532594] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036571.265538486] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036571.365492281] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036571.366591663] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036571.465503918] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036571.565441707] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036571.665467235] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036571.765425570] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036571.865488801] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036571.965478080] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.065486553] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.165578554] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.265616092] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.365444817] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.465609455] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036572.466685227] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036572.565422833] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.665436344] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.765524900] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.865519135] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036572.965472876] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.065426008] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.165438853] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036573.264565555] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036573.265563429] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.365458311] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.465424610] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.565453167] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036573.566505735] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036573.665552230] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.765682165] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.865523992] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036573.965616550] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.065667875] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.165624759] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.265719382] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.365571524] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.465673240] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.565621984] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036574.566748653] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036574.665707727] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.765677912] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.865584174] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036574.965721805] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.065632865] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.165610489] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036575.264901692] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036575.266044241] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.365690922] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.465893591] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.565668920] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036575.566929459] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036575.665867163] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.765611410] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.832934564] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791036575.865636327] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036575.965742458] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.065631175] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.089132282] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791036576.165682799] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.265647740] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.365600967] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.465684341] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.565730744] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.665689017] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036576.666850871] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036576.765596920] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.865592934] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036576.965693677] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.065712548] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.165618869] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.265623652] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036577.364642052] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036577.365704286] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.465658116] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.565671047] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.665726635] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.765594002] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036577.766726726] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036577.865584572] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036577.965712105] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.065795525] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.165775074] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.265677376] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.365603818] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.465751999] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.565627792] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.665687076] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.765733118] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036578.766938852] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036578.865599005] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036578.965622094] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.065528444] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.165454173] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.265472852] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.365447598] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036579.464548202] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036579.465575483] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.565829849] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.665568487] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.765542401] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036579.866072174] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036579.867329527] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036579.965404333] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.065825022] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.165918714] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.265583063] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.365440890] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.464585556] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.565666878] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.665513803] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.765497449] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.865472475] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036580.881448138] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791036580.965701713] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036580.966860928] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036581.065563628] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.089312633] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [WARN] [1791036581.166426669] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.265431516] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.365482848] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036581.464552288] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036581.465570124] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.565455068] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.665738759] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.765448598] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.865509698] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036581.965519446] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036582.065396326] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036582.066419774] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036582.165888637] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036582.265844601] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036582.365460731] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791036582.465426889] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791036582.520058931] [mpc_corr]: ODOM/hw | x=+0.0020 y=+0.0000 yaw=+0.0000 v=+0.0000
+[taskset-1] [INFO] [1791036582.565185028] [mpc_corr]: Odom source -> hardware
+[taskset-1] [INFO] [1791036582.566038264] [mpc_corr]: psi_init_corridor (bootstrap) = 0.000
+[taskset-1] [WARN] [1791036582.568923303] [mpc_corr]: Nessun comando su /mpc/goal_distance ancora ricevuto: robot fermo in attesa.
+[taskset-1] [INFO] [1791036582.581382107] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036583.165794361] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036583.538118760] [mpc_corr]: ODOM/hw | x=+0.0787 y=+0.0016 yaw=+0.0443 v=-0.0000
+[taskset-1] [INFO] [1791036583.564445176] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036584.265731342] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036584.538172928] [mpc_corr]: ODOM/hw | x=+0.0884 y=+0.0021 yaw=+0.0529 v=-0.0000
+[taskset-1] [INFO] [1791036584.631062981] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036585.265881210] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036585.538371195] [mpc_corr]: ODOM/hw | x=+0.0883 y=+0.0021 yaw=+0.0529 v=-0.0000
+[taskset-1] [INFO] [1791036585.564573057] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036586.090011855] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036586.266173639] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036586.558262250] [mpc_corr]: ODOM/hw | x=+0.0883 y=+0.0021 yaw=+0.0529 v=-0.0000
+[taskset-1] [INFO] [1791036586.644943036] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036587.266262503] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036587.558306995] [mpc_corr]: ODOM/hw | x=+0.0937 y=+0.0023 yaw=+0.0567 v=-0.0000
+[taskset-1] [INFO] [1791036587.564677688] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036588.367043616] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036588.559077549] [mpc_corr]: ODOM/hw | x=+0.1255 y=+0.0048 yaw=+0.0925 v=+0.0000
+[taskset-1] [INFO] [1791036588.645521902] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036589.466074192] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036589.579956369] [mpc_corr]: ODOM/hw | x=+0.2262 y=+0.0202 yaw=+0.2233 v=+0.0000
+[taskset-1] [INFO] [1791036589.664580891] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036590.565981271] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036590.599503745] [mpc_corr]: ODOM/hw | x=+0.3526 y=+0.0563 yaw=+0.3307 v=+0.1691
+[taskset-1] [INFO] [1791036590.646786109] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [WARN] [1791036591.189760213] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036591.566372358] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036591.600356878] [mpc_corr]: ODOM/hw | x=+0.5579 y=+0.1409 yaw=+0.4356 v=+0.2429
+[taskset-1] [INFO] [1791036591.664582468] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036592.566429779] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036592.618599190] [mpc_corr]: ODOM/hw | x=+0.8433 y=+0.2585 yaw=+0.3046 v=+0.3429
+[taskset-1] [INFO] [1791036592.648626169] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036593.619707009] [mpc_corr]: ODOM/hw | x=+1.1993 y=+0.3428 yaw=+0.1642 v=+0.3823
+[taskset-1] [INFO] [1791036593.665879781] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036593.764567788] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036594.639124543] [mpc_corr]: ODOM/hw | x=+1.5530 y=+0.3784 yaw=+0.0275 v=+0.2909
+[taskset-1] [INFO] [1791036594.666007725] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036594.698879725] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036595.660223860] [mpc_corr]: ODOM/hw | x=+1.8038 y=+0.3744 yaw=-0.0646 v=+0.2004
+[taskset-1] [INFO] [1791036595.765848502] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036595.864437139] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036596.190049746] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036596.679399964] [mpc_corr]: ODOM/hw | x=+2.0209 y=+0.3491 yaw=-0.1569 v=+0.2444
+[taskset-1] [INFO] [1791036596.742357601] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036596.765848146] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036597.698580622] [mpc_corr]: ODOM/hw | x=+2.3089 y=+0.3036 yaw=-0.1423 v=+0.3235
+[taskset-1] [INFO] [1791036597.864509937] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036597.866015085] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036598.699240498] [mpc_corr]: ODOM/hw | x=+2.6643 y=+0.2528 yaw=-0.1495 v=+0.4140
+[taskset-1] [INFO] [1791036598.792465207] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036598.966288235] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036599.739121049] [mpc_corr]: ODOM/hw | x=+3.0599 y=+0.1887 yaw=-0.1748 v=+0.3923
+[taskset-1] [INFO] [1791036599.964533978] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036600.066961809] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036600.759970712] [mpc_corr]: ODOM/hw | x=+3.4757 y=+0.1081 yaw=-0.2037 v=+0.4364
+[taskset-1] [INFO] [1791036600.794710811] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036601.166047622] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036601.191581102] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036601.955040213] [mpc_corr]: ODOM/hw | x=+3.9887 y=-0.0024 yaw=-0.2242 v=+0.4560
+[taskset-1] [INFO] [1791036601.964764730] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036602.266145448] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036602.794889088] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036602.959483851] [mpc_corr]: ODOM/hw | x=+4.4005 y=-0.1387 yaw=-0.3205 v=+0.4403
+[taskset-1] [INFO] [1791036603.365230196] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036603.980170081] [mpc_corr]: ODOM/hw | x=+4.8331 y=-0.2823 yaw=-0.3208 v=+0.4503
+[taskset-1] [INFO] [1791036604.064672296] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036604.366064462] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036604.795348556] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036605.000009160] [mpc_corr]: ODOM/hw | x=+5.2505 y=-0.4190 yaw=-0.3100 v=+0.4388
+[taskset-1] [INFO] [1791036605.465998656] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036606.018456492] [mpc_corr]: ODOM/hw | x=+5.6794 y=-0.5543 yaw=-0.2991 v=+0.4242
+[taskset-1] [INFO] [1791036606.065101906] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036606.291030152] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036606.466155321] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036606.796835589] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036607.018952170] [mpc_corr]: ODOM/hw | x=+6.0980 y=-0.6788 yaw=-0.2751 v=+0.4410
+[taskset-1] [INFO] [1791036607.565507988] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036608.039401199] [mpc_corr]: ODOM/hw | x=+6.5283 y=-0.7961 yaw=-0.2584 v=+0.4260
+[taskset-1] [INFO] [1791036608.164581847] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036608.565813870] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036608.843821349] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036609.078020806] [mpc_corr]: ODOM/hw | x=+6.9828 y=-0.9126 yaw=-0.2447 v=+0.4669
+[taskset-1] [INFO] [1791036609.665853040] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036610.078543263] [mpc_corr]: ODOM/hw | x=+7.4072 y=-1.0160 yaw=-0.2339 v=+0.4215
+[taskset-1] [INFO] [1791036610.264442551] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036610.665860296] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036610.892756210] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036611.098204921] [mpc_corr]: ODOM/hw | x=+7.8420 y=-1.1163 yaw=-0.2226 v=+0.4200
+[taskset-1] [WARN] [1791036611.390030297] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036611.665866025] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036612.098848539] [mpc_corr]: ODOM/hw | x=+8.2746 y=-1.2128 yaw=-0.2173 v=+0.4346
+[taskset-1] [INFO] [1791036612.363967720] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036612.665884503] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036612.893431255] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036613.099394423] [mpc_corr]: ODOM/hw | x=+8.7044 y=-1.3063 yaw=-0.2121 v=+0.4516
+[taskset-1] [INFO] [1791036613.765835361] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036614.120624308] [mpc_corr]: ODOM/hw | x=+9.1426 y=-1.4000 yaw=-0.2082 v=+0.4512
+[taskset-1] [INFO] [1791036614.364547503] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036614.766071610] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036614.941950748] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036615.138545868] [mpc_corr]: ODOM/hw | x=+9.5898 y=-1.4931 yaw=-0.2027 v=+0.4253
+[taskset-1] [INFO] [1791036615.766297200] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036616.140825856] [mpc_corr]: ODOM/hw | x=+10.0215 y=-1.5810 yaw=-0.1991 v=+0.4605
+[taskset-1] [INFO] [1791036616.464019713] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036616.489517834] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036616.866342423] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036616.941983690] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036617.158452559] [mpc_corr]: ODOM/hw | x=+10.4550 y=-1.6690 yaw=-0.2022 v=+0.4596
+[taskset-1] [INFO] [1791036617.965870638] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036618.178550939] [mpc_corr]: ODOM/hw | x=+10.9068 y=-1.7620 yaw=-0.2041 v=+0.4556
+[taskset-1] [INFO] [1791036618.464618039] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036618.942331443] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036618.966102445] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036619.179358595] [mpc_corr]: ODOM/hw | x=+11.3314 y=-1.8510 yaw=-0.2088 v=+0.4315
+[taskset-1] [INFO] [1791036619.966148389] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036620.179746066] [mpc_corr]: ODOM/hw | x=+11.7707 y=-1.9449 yaw=-0.2113 v=+0.4623
+[taskset-1] [INFO] [1791036620.564452675] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036620.993320034] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036621.065913783] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036621.199508043] [mpc_corr]: ODOM/hw | x=+12.2127 y=-2.0393 yaw=-0.2118 v=+0.4570
+[taskset-1] [WARN] [1791036621.491506981] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036622.066015443] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036622.219413312] [mpc_corr]: ODOM/hw | x=+12.6470 y=-2.1356 yaw=-0.2242 v=+0.4680
+[taskset-1] [INFO] [1791036622.664547339] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.024s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036623.041320629] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036623.165793192] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036623.219867612] [mpc_corr]: ODOM/hw | x=+13.0818 y=-2.2371 yaw=-0.2320 v=+0.4388
+[taskset-1] [INFO] [1791036624.165820331] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036624.221173643] [mpc_corr]: ODOM/hw | x=+13.5136 y=-2.3401 yaw=-0.2389 v=+0.4620
+[taskset-1] [INFO] [1791036624.665751970] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036625.092572350] [mpc_corr]: BOUNDARY/costmap | n=3
+[taskset-1] [INFO] [1791036625.166085327] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036625.238645985] [mpc_corr]: ODOM/hw | x=+10.1215 y=-35.7758 yaw=+2.5834 v=+0.1111
+[taskset-1] [INFO] [1791036626.427699409] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036626.435863928] [mpc_corr]: ODOM/hw | x=+9.6885 y=-36.4559 yaw=+2.6240 v=-0.0429
+[taskset-1] [WARN] [1791036626.590771836] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036626.764672533] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036627.132693393] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036627.439163245] [mpc_corr]: ODOM/hw | x=+9.8847 y=-36.1246 yaw=+2.6240 v=-0.0000
+[taskset-1] [INFO] [1791036627.465900111] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036628.458405562] [mpc_corr]: ODOM/hw | x=+9.8991 y=-36.1017 yaw=+2.6240 v=-0.0000
+[taskset-1] [INFO] [1791036628.466048324] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036628.864596196] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036629.181378637] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036629.498699117] [mpc_corr]: ODOM/hw | x=+9.8992 y=-36.0912 yaw=+2.6277 v=-0.0000
+[taskset-1] [INFO] [1791036629.566251214] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036630.498761344] [mpc_corr]: ODOM/hw | x=+9.8995 y=-36.0908 yaw=+2.6277 v=-0.0000
+[taskset-1] [INFO] [1791036630.666182049] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036630.864624697] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036631.181773037] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036631.498952151] [mpc_corr]: ODOM/hw | x=+9.8368 y=-36.0562 yaw=+2.7027 v=+0.1784
+[taskset-1] [WARN] [1791036631.591424107] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036631.766025883] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036632.518404002] [mpc_corr]: ODOM/hw | x=+9.7391 y=-36.0183 yaw=+2.8347 v=+0.1483
+[taskset-1] [INFO] [1791036632.766124976] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036632.864681269] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.024s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036633.230924070] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036633.538514857] [mpc_corr]: ODOM/hw | x=+9.5630 y=-35.9747 yaw=+2.9560 v=+0.2103
+[taskset-1] [INFO] [1791036633.865893585] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036634.540205390] [mpc_corr]: ODOM/hw | x=+9.3102 y=-35.9367 yaw=+2.9888 v=+0.3257
+[taskset-1] [INFO] [1791036634.865949794] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036634.964619504] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036635.230985942] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036635.559459453] [mpc_corr]: ODOM/hw | x=+8.9782 y=-35.8511 yaw=+2.8128 v=+0.3839
+[taskset-1] [INFO] [1791036635.866076399] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036636.580003086] [mpc_corr]: ODOM/hw | x=+8.6259 y=-35.7016 yaw=+2.6719 v=+0.3358
+[taskset-1] [WARN] [1791036636.690243037] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036636.965972955] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036637.064573213] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036637.231057311] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036637.599871849] [mpc_corr]: ODOM/hw | x=+8.3616 y=-35.5461 yaw=+2.5520 v=+0.2265
+[taskset-1] [INFO] [1791036637.966531024] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036638.618104749] [mpc_corr]: ODOM/hw | x=+8.1836 y=-35.4155 yaw=+2.4534 v=+0.1970
+[taskset-1] [INFO] [1791036639.065697295] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036639.164095852] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036639.231945071] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036639.618350165] [mpc_corr]: ODOM/hw | x=+8.0036 y=-35.2575 yaw=+2.4070 v=+0.2524
+[taskset-1] [INFO] [1791036640.165917799] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036640.639000869] [mpc_corr]: ODOM/hw | x=+7.7606 y=-35.0462 yaw=+2.4325 v=+0.3578
+[taskset-1] [INFO] [1791036641.164446604] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036641.265730655] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036641.282266609] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036641.658085876] [mpc_corr]: ODOM/hw | x=+7.4685 y=-34.7910 yaw=+2.4131 v=+0.3653
+[taskset-1] [WARN] [1791036641.691228431] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036642.266241791] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036642.680005087] [mpc_corr]: ODOM/hw | x=+7.1711 y=-34.5176 yaw=+2.3826 v=+0.4244
+[taskset-1] [INFO] [1791036643.164549370] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036643.331010120] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036643.365932655] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036643.698857813] [mpc_corr]: ODOM/hw | x=+6.8560 y=-34.2120 yaw=+2.3641 v=+0.4337
+[taskset-1] [INFO] [1791036644.465967293] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036644.719190612] [mpc_corr]: ODOM/hw | x=+6.5443 y=-33.8990 yaw=+2.3493 v=+0.4512
+[taskset-1] [INFO] [1791036645.264619755] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036645.331099651] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036645.565915680] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036645.720686635] [mpc_corr]: ODOM/hw | x=+6.2376 y=-33.5884 yaw=+2.3507 v=+0.4248
+[taskset-1] [INFO] [1791036646.666057352] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036646.691427959] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036646.738225594] [mpc_corr]: ODOM/hw | x=+5.9231 y=-33.2705 yaw=+2.3521 v=+0.4558
+[taskset-1] [INFO] [1791036647.331101688] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036647.364552214] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036647.666109801] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036647.758138232] [mpc_corr]: ODOM/hw | x=+5.6084 y=-32.9569 yaw=+2.3631 v=+0.4364
+[taskset-1] [INFO] [1791036648.758183235] [mpc_corr]: ODOM/hw | x=+5.2927 y=-32.6489 yaw=+2.3758 v=+0.4505
+[taskset-1] [INFO] [1791036648.765885600] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036649.364602722] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036649.382159801] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036649.758345391] [mpc_corr]: ODOM/hw | x=+4.9727 y=-32.3491 yaw=+2.4025 v=+0.4273
+[taskset-1] [INFO] [1791036649.765914961] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036650.778608656] [mpc_corr]: ODOM/hw | x=+4.6413 y=-32.0510 yaw=+2.4177 v=+0.4620
+[taskset-1] [INFO] [1791036650.865827865] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036651.382233352] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036651.464555552] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036651.779843477] [mpc_corr]: ODOM/hw | x=+4.3060 y=-31.7578 yaw=+2.4294 v=+0.4527
+[taskset-1] [WARN] [1791036651.791492524] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036651.865833332] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036652.799844357] [mpc_corr]: ODOM/hw | x=+3.9633 y=-31.4651 yaw=+2.4428 v=+0.4412
+[taskset-1] [INFO] [1791036652.965834594] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036653.431618905] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036653.564603644] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036653.818367757] [mpc_corr]: ODOM/hw | x=+3.6189 y=-31.1780 yaw=+2.4504 v=+0.4474
+[taskset-1] [INFO] [1791036654.065945441] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036654.818853987] [mpc_corr]: ODOM/hw | x=+3.2763 y=-30.8959 yaw=+2.4558 v=+0.4545
+[taskset-1] [INFO] [1791036655.065988095] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036655.431790840] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036655.664648117] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036655.819285698] [mpc_corr]: ODOM/hw | x=+2.9354 y=-30.6182 yaw=+2.4594 v=+0.4337
+[taskset-1] [INFO] [1791036656.066039695] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036656.819387064] [mpc_corr]: ODOM/hw | x=+2.5950 y=-30.3429 yaw=+2.4643 v=+0.4295
+[taskset-1] [WARN] [1791036656.891375029] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036657.165972479] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036657.481506994] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036657.764528143] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036657.838224320] [mpc_corr]: ODOM/hw | x=+2.2425 y=-30.0610 yaw=+2.4692 v=+0.4246
+[taskset-1] [INFO] [1791036658.165988263] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036658.839355171] [mpc_corr]: ODOM/hw | x=+1.8975 y=-29.7873 yaw=+2.4717 v=+0.4448
+[taskset-1] [INFO] [1791036659.166035215] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036659.484204825] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036659.858268303] [mpc_corr]: ODOM/hw | x=+1.5435 y=-29.5060 yaw=+2.4685 v=+0.4375
+[taskset-1] [INFO] [1791036659.864587768] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036660.265924320] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036660.859313160] [mpc_corr]: ODOM/hw | x=+1.1996 y=-29.2314 yaw=+2.4667 v=+0.4519
+[taskset-1] [INFO] [1791036661.265925968] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036661.531064520] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036661.878613232] [mpc_corr]: ODOM/hw | x=+0.8473 y=-28.9480 yaw=+2.4617 v=+0.4375
+[taskset-1] [INFO] [1791036661.964574250] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036661.991473946] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036662.365892213] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036662.898569767] [mpc_corr]: ODOM/hw | x=+0.4960 y=-28.6632 yaw=+2.4607 v=+0.4306
+[taskset-1] [INFO] [1791036663.366070965] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036663.581991671] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036663.899707439] [mpc_corr]: ODOM/hw | x=+0.1527 y=-28.3850 yaw=+2.4574 v=+0.4441
+[taskset-1] [INFO] [1791036664.064850776] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036664.466540930] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036664.939156759] [mpc_corr]: ODOM/hw | x=-0.2056 y=-28.0884 yaw=+2.4434 v=+0.4643
+[taskset-1] [INFO] [1791036665.565860491] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036665.582114975] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036665.939778584] [mpc_corr]: ODOM/hw | x=-0.5409 y=-27.8054 yaw=+2.4393 v=+0.4246
+[taskset-1] [INFO] [1791036666.164713814] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036666.565876632] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036666.958273675] [mpc_corr]: ODOM/hw | x=-0.8901 y=-27.5076 yaw=+2.4325 v=+0.4605
+[taskset-1] [WARN] [1791036667.091247911] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036667.632995795] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036667.665997346] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036667.959261756] [mpc_corr]: ODOM/hw | x=-29.8441 y=+64.5366 yaw=+0.9956 v=+0.2008
+[taskset-1] [INFO] [1791036668.264518978] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036668.765792773] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036668.959275451] [mpc_corr]: ODOM/hw | x=-29.8700 y=+64.7262 yaw=+1.0239 v=-0.0000
+[taskset-1] [INFO] [1791036669.634906306] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036669.765842416] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036669.978274010] [mpc_corr]: ODOM/hw | x=-29.8885 y=+64.7752 yaw=+1.0240 v=-0.0000
+[taskset-1] [INFO] [1791036670.264605704] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036670.766033630] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036670.979251990] [mpc_corr]: ODOM/hw | x=-29.8974 y=+64.7922 yaw=+1.0240 v=-0.0000
+[taskset-1] [INFO] [1791036671.681822596] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036671.766725533] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036671.998638273] [mpc_corr]: ODOM/hw | x=-29.8965 y=+64.8015 yaw=+1.0277 v=-0.0000
+[taskset-1] [WARN] [1791036672.091542177] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036672.364572585] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036672.865810806] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036672.998901074] [mpc_corr]: ODOM/hw | x=-29.9028 y=+64.8063 yaw=+1.0277 v=-0.0000
+[taskset-1] [INFO] [1791036673.732367962] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036673.865942541] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036673.999655203] [mpc_corr]: ODOM/hw | x=-29.8657 y=+64.8672 yaw=+1.1028 v=+0.1784
+[taskset-1] [INFO] [1791036674.464533595] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036674.965953342] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036675.018378677] [mpc_corr]: ODOM/hw | x=-29.8253 y=+64.9634 yaw=+1.2349 v=+0.1483
+[taskset-1] [INFO] [1791036675.780652296] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036675.965955266] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036676.019491227] [mpc_corr]: ODOM/hw | x=-29.7779 y=+65.1333 yaw=+1.3539 v=+0.2440
+[taskset-1] [INFO] [1791036676.464558068] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036677.038324758] [mpc_corr]: ODOM/hw | x=-29.7316 y=+65.3889 yaw=+1.3866 v=+0.3257
+[taskset-1] [INFO] [1791036677.065820785] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036677.189762755] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036677.781261671] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036678.058704694] [mpc_corr]: ODOM/hw | x=-29.6357 y=+65.7183 yaw=+1.2108 v=+0.3839
+[taskset-1] [INFO] [1791036678.166342317] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036678.564496972] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036679.080215620] [mpc_corr]: ODOM/hw | x=-29.4753 y=+66.0659 yaw=+1.0702 v=+0.3358
+[taskset-1] [INFO] [1791036679.265883964] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036679.782135347] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036680.098474914] [mpc_corr]: ODOM/hw | x=-29.3117 y=+66.3252 yaw=+0.9504 v=+0.2265
+[taskset-1] [INFO] [1791036680.265892671] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036680.564614134] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036681.118413158] [mpc_corr]: ODOM/hw | x=-29.1756 y=+66.4992 yaw=+0.8516 v=+0.1970
+[taskset-1] [INFO] [1791036681.266177476] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036681.831041428] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036682.118556580] [mpc_corr]: ODOM/hw | x=-29.0122 y=+66.6743 yaw=+0.8056 v=+0.2524
+[taskset-1] [WARN] [1791036682.289641542] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036682.365784356] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036682.664819964] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036683.118890516] [mpc_corr]: ODOM/hw | x=-28.7976 y=+66.9063 yaw=+0.8316 v=+0.3932
+[taskset-1] [INFO] [1791036683.366428920] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036683.882171849] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036684.138209059] [mpc_corr]: ODOM/hw | x=-28.5339 y=+67.1905 yaw=+0.8127 v=+0.3888
+[taskset-1] [INFO] [1791036684.465958462] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036684.764587893] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036685.139240124] [mpc_corr]: ODOM/hw | x=-28.2594 y=+67.4722 yaw=+0.7828 v=+0.4125
+[taskset-1] [INFO] [1791036685.565893889] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036685.883089379] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036686.159758183] [mpc_corr]: ODOM/hw | x=-27.9449 y=+67.7782 yaw=+0.7639 v=+0.4510
+[taskset-1] [INFO] [1791036686.666169737] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036686.764615572] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036687.159901963] [mpc_corr]: ODOM/hw | x=-27.6278 y=+68.0762 yaw=+0.7493 v=+0.4350
+[taskset-1] [WARN] [1791036687.291303460] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036687.666285386] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036687.930773939] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036688.179147847] [mpc_corr]: ODOM/hw | x=-27.3043 y=+68.3774 yaw=+0.7504 v=+0.4213
+[taskset-1] [INFO] [1791036688.666345477] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036688.864566319] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036689.179699492] [mpc_corr]: ODOM/hw | x=-26.9822 y=+68.6777 yaw=+0.7508 v=+0.4585
+[taskset-1] [INFO] [1791036689.766396467] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036689.930972054] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036690.199371376] [mpc_corr]: ODOM/hw | x=-26.6606 y=+68.9815 yaw=+0.7626 v=+0.4288
+[taskset-1] [INFO] [1791036690.865845582] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036690.964581513] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036691.219463067] [mpc_corr]: ODOM/hw | x=-26.3353 y=+69.2956 yaw=+0.7752 v=+0.4561
+[taskset-1] [INFO] [1791036691.865863069] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036691.981104002] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036692.238328859] [mpc_corr]: ODOM/hw | x=-26.0200 y=+69.6124 yaw=+0.8019 v=+0.4578
+[taskset-1] [WARN] [1791036692.391443371] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036692.865937610] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036692.965360719] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.002s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036693.258255056] [mpc_corr]: ODOM/hw | x=-25.7114 y=+69.9358 yaw=+0.8172 v=+0.4268
+[taskset-1] [INFO] [1791036693.965920703] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036693.981354880] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036694.279844430] [mpc_corr]: ODOM/hw | x=-25.4045 y=+70.2664 yaw=+0.8292 v=+0.4527
+[taskset-1] [INFO] [1791036694.965973458] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036695.064514149] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036695.300077815] [mpc_corr]: ODOM/hw | x=-25.1018 y=+70.6003 yaw=+0.8425 v=+0.4412
+[taskset-1] [INFO] [1791036695.966046741] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036695.981593178] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036696.318439621] [mpc_corr]: ODOM/hw | x=-24.8046 y=+70.9363 yaw=+0.8502 v=+0.4474
+[taskset-1] [INFO] [1791036697.065820420] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036697.164710292] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036697.319439512] [mpc_corr]: ODOM/hw | x=-24.5127 y=+71.2702 yaw=+0.8555 v=+0.4545
+[taskset-1] [WARN] [1791036697.490920219] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036697.982704552] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036698.065863221] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036698.338271559] [mpc_corr]: ODOM/hw | x=-24.2197 y=+71.6090 yaw=+0.8592 v=+0.4226
+[taskset-1] [INFO] [1791036699.065884058] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036699.264520193] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036699.358105454] [mpc_corr]: ODOM/hw | x=-23.9280 y=+71.9487 yaw=+0.8643 v=+0.4496
+[taskset-1] [INFO] [1791036700.030858138] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036700.166170300] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036700.358827430] [mpc_corr]: ODOM/hw | x=-23.6420 y=+72.2857 yaw=+0.8691 v=+0.4541
+[taskset-1] [INFO] [1791036701.265813892] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036701.359059470] [mpc_corr]: ODOM/hw | x=-23.3585 y=+72.6221 yaw=+0.8713 v=+0.4508
+[taskset-1] [INFO] [1791036701.364596338] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036702.031012281] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036702.265846095] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036702.380399799] [mpc_corr]: ODOM/hw | x=-23.0675 y=+72.9669 yaw=+0.8682 v=+0.4454
+[taskset-1] [WARN] [1791036702.589713327] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036703.265967146] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036703.398656301] [mpc_corr]: ODOM/hw | x=-22.7754 y=+73.3114 yaw=+0.8661 v=+0.4215
+[taskset-1] [INFO] [1791036703.464503127] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036704.080839644] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036704.365863508] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036704.398726772] [mpc_corr]: ODOM/hw | x=-22.4897 y=+73.6457 yaw=+0.8613 v=+0.4678
+[taskset-1] [INFO] [1791036705.365968929] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036705.398815257] [mpc_corr]: ODOM/hw | x=-22.1988 y=+73.9837 yaw=+0.8604 v=+0.4306
+[taskset-1] [INFO] [1791036705.564722091] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036706.082178080] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036706.365984560] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036706.419655799] [mpc_corr]: ODOM/hw | x=-21.9047 y=+74.3254 yaw=+0.8569 v=+0.4530
+[taskset-1] [INFO] [1791036707.438714511] [mpc_corr]: ODOM/hw | x=-21.6036 y=+74.6679 yaw=+0.8431 v=+0.4643
+[taskset-1] [INFO] [1791036707.465809813] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036707.564745325] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036707.689642594] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036708.130910218] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036708.460118734] [mpc_corr]: ODOM/hw | x=-21.3041 y=+75.0022 yaw=+0.8390 v=+0.4609
+[taskset-1] [INFO] [1791036708.465977351] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036709.478441775] [mpc_corr]: ODOM/hw | x=-20.9981 y=+75.3402 yaw=+0.8321 v=+0.4647
+[taskset-1] [INFO] [1791036709.565792589] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036709.664478538] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036710.131064753] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036710.479220089] [mpc_corr]: ODOM/hw | x=-9.6721 y=+106.8393 yaw=+1.0418 v=+0.1486
+[taskset-1] [INFO] [1791036710.565892981] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036711.479733782] [mpc_corr]: ODOM/hw | x=-9.6819 y=+106.8428 yaw=+1.0677 v=-0.0000
+[taskset-1] [INFO] [1791036711.664825775] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036711.666580043] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036712.182277711] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036712.498926642] [mpc_corr]: ODOM/hw | x=-9.7146 y=+106.8461 yaw=+1.0677 v=-0.0000
+[taskset-1] [WARN] [1791036712.689981057] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036712.766025033] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036713.499267587] [mpc_corr]: ODOM/hw | x=-9.7166 y=+106.8424 yaw=+1.0677 v=-0.0000
+[taskset-1] [INFO] [1791036713.764632619] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036713.766139972] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036714.230962562] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036714.499304547] [mpc_corr]: ODOM/hw | x=-9.7152 y=+106.8463 yaw=+1.0715 v=-0.0000
+[taskset-1] [INFO] [1791036714.865820306] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036715.558395079] [mpc_corr]: ODOM/hw | x=-9.7308 y=+106.8543 yaw=+1.0715 v=-0.0000
+[taskset-1] [INFO] [1791036715.864620236] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036715.866135895] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036716.282182688] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036716.558516441] [mpc_corr]: ODOM/hw | x=-9.6832 y=+106.9198 yaw=+1.1535 v=+0.1319
+[taskset-1] [INFO] [1791036716.966467416] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036717.579923674] [mpc_corr]: ODOM/hw | x=-9.6484 y=+107.0186 yaw=+1.2865 v=+0.1691
+[taskset-1] [WARN] [1791036717.690186407] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036717.864851450] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036718.065814468] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036718.282298083] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036718.598314649] [mpc_corr]: ODOM/hw | x=-9.6079 y=+107.1985 yaw=+1.4067 v=+0.2506
+[taskset-1] [INFO] [1791036719.065905492] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036719.618662450] [mpc_corr]: ODOM/hw | x=-9.5724 y=+107.4617 yaw=+1.4161 v=+0.3097
+[taskset-1] [INFO] [1791036719.865011382] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036720.165981043] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036720.282376037] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036720.619384470] [mpc_corr]: ODOM/hw | x=-9.4875 y=+107.7921 yaw=+1.2468 v=+0.3686
+[taskset-1] [INFO] [1791036721.166065255] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036721.658368919] [mpc_corr]: ODOM/hw | x=-9.3367 y=+108.1509 yaw=+1.1019 v=+0.3531
+[taskset-1] [INFO] [1791036721.965086769] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036722.166139454] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036722.282477773] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036722.658541101] [mpc_corr]: ODOM/hw | x=-9.1886 y=+108.4049 yaw=+0.9883 v=+0.2604
+[taskset-1] [WARN] [1791036722.789846261] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036723.166667716] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036723.660476928] [mpc_corr]: ODOM/hw | x=-9.0631 y=+108.5784 yaw=+0.8906 v=+0.2088
+[taskset-1] [INFO] [1791036724.064566069] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036724.266051425] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036724.282596193] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036724.679304887] [mpc_corr]: ODOM/hw | x=-8.9027 y=+108.7651 yaw=+0.8504 v=+0.3097
+[taskset-1] [INFO] [1791036725.365885511] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036725.698374693] [mpc_corr]: ODOM/hw | x=-8.6874 y=+109.0195 yaw=+0.8734 v=+0.3699
+[taskset-1] [INFO] [1791036726.164639993] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036726.330876022] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036726.466167729] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036726.698648387] [mpc_corr]: ODOM/hw | x=-8.4435 y=+109.3054 yaw=+0.8549 v=+0.3841
+[taskset-1] [INFO] [1791036727.565846717] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036727.699595746] [mpc_corr]: ODOM/hw | x=-8.1786 y=+109.6008 yaw=+0.8248 v=+0.3998
+[taskset-1] [WARN] [1791036727.789966327] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036728.264560043] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036728.381394354] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036728.565880497] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036728.718397571] [mpc_corr]: ODOM/hw | x=-7.8744 y=+109.9228 yaw=+0.8065 v=+0.4375
+[taskset-1] [INFO] [1791036729.565887078] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036729.718692022] [mpc_corr]: ODOM/hw | x=-7.5699 y=+110.2339 yaw=+0.7919 v=+0.4078
+[taskset-1] [INFO] [1791036730.264596792] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036730.430875159] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036730.566144285] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036730.718928943] [mpc_corr]: ODOM/hw | x=-7.2675 y=+110.5407 yaw=+0.7933 v=+0.4248
+[taskset-1] [INFO] [1791036731.664904250] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036731.739518343] [mpc_corr]: ODOM/hw | x=-6.9533 y=+110.8601 yaw=+0.7967 v=+0.4558
+[taskset-1] [INFO] [1791036732.264621712] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036732.431040083] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036732.665982357] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036732.758788905] [mpc_corr]: ODOM/hw | x=-6.6454 y=+111.1790 yaw=+0.8084 v=+0.4364
+[taskset-1] [WARN] [1791036732.790153930] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036733.665992194] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036733.780362572] [mpc_corr]: ODOM/hw | x=-6.3348 y=+111.5080 yaw=+0.8214 v=+0.4426
+[taskset-1] [INFO] [1791036734.264708387] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036734.482246963] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036734.765984542] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036734.799534131] [mpc_corr]: ODOM/hw | x=-6.0367 y=+111.8371 yaw=+0.8485 v=+0.4547
+[taskset-1] [INFO] [1791036735.818809662] [mpc_corr]: ODOM/hw | x=-5.7426 y=+112.1753 yaw=+0.8639 v=+0.4474
+[taskset-1] [INFO] [1791036735.865817711] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036736.264966173] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036736.531284391] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036736.819727286] [mpc_corr]: ODOM/hw | x=-5.4568 y=+112.5134 yaw=+0.8754 v=+0.4589
+[taskset-1] [INFO] [1791036736.866251098] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036737.858314609] [mpc_corr]: ODOM/hw | x=-5.1639 y=+112.8683 yaw=+0.8890 v=+0.4319
+[taskset-1] [INFO] [1791036737.866451567] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036737.891462274] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036738.364773752] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036738.580721133] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036738.858556136] [mpc_corr]: ODOM/hw | x=-4.8884 y=+113.2102 yaw=+0.8962 v=+0.4634
+[taskset-1] [INFO] [1791036738.866672715] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036739.860168007] [mpc_corr]: ODOM/hw | x=-4.6117 y=+113.5579 yaw=+0.9016 v=+0.4618
+[taskset-1] [INFO] [1791036739.965874244] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036740.464817831] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.025s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036740.582473012] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036740.878376556] [mpc_corr]: ODOM/hw | x=-4.3352 y=+113.9089 yaw=+0.9050 v=+0.4184
+[taskset-1] [INFO] [1791036741.065735018] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036741.898441370] [mpc_corr]: ODOM/hw | x=-4.0553 y=+114.2671 yaw=+0.9104 v=+0.4364
+[taskset-1] [INFO] [1791036742.065908172] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036742.564792665] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036742.631003107] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036742.898558205] [mpc_corr]: ODOM/hw | x=-3.7873 y=+114.6138 yaw=+0.9150 v=+0.4266
+[taskset-1] [WARN] [1791036742.989854158] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036743.166711161] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036743.919457087] [mpc_corr]: ODOM/hw | x=-3.5157 y=+114.9679 yaw=+0.9169 v=+0.4242
+[taskset-1] [INFO] [1791036744.265846550] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036744.665212231] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036744.681215982] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036744.938324752] [mpc_corr]: ODOM/hw | x=-3.2392 y=+115.3276 yaw=+0.9138 v=+0.4594
+[taskset-1] [INFO] [1791036745.266397302] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036745.939536578] [mpc_corr]: ODOM/hw | x=-2.9651 y=+115.6824 yaw=+0.9115 v=+0.4350
+[taskset-1] [INFO] [1791036746.365395159] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036746.668218755] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.002s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036746.681478337] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036746.941357749] [mpc_corr]: ODOM/hw | x=-2.6986 y=+116.0247 yaw=+0.9069 v=+0.4448
+[taskset-1] [INFO] [1791036747.366057080] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036747.958821116] [mpc_corr]: ODOM/hw | x=-2.4192 y=+116.3809 yaw=+0.9063 v=+0.4131
+[taskset-1] [WARN] [1791036747.989912396] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036748.465828287] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036748.682285845] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036748.764569907] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036748.962780121] [mpc_corr]: ODOM/hw | x=-2.1467 y=+116.7284 yaw=+0.9021 v=+0.4598
+[taskset-1] [INFO] [1791036749.465944595] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036749.978426400] [mpc_corr]: ODOM/hw | x=-1.8623 y=+117.0830 yaw=+0.8881 v=+0.4390
+[taskset-1] [INFO] [1791036750.465947215] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036750.730355768] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036750.864573654] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036750.978701650] [mpc_corr]: ODOM/hw | x=-1.5810 y=+117.4273 yaw=+0.8847 v=+0.4273
+[taskset-1] [INFO] [1791036751.566112897] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036751.998879779] [mpc_corr]: ODOM/hw | x=-1.2909 y=+117.7788 yaw=+0.8778 v=+0.4350
+[taskset-1] [INFO] [1791036752.566305897] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036752.731193854] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036752.864983207] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036752.989950697] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036753.000160313] [mpc_corr]: ODOM/hw | x=+10.7128 y=+90.5081 yaw=+1.3523 v=-0.0000
+[taskset-1] [INFO] [1791036753.568911236] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036754.025379779] [mpc_corr]: ODOM/hw | x=+10.6847 y=+90.5012 yaw=+1.3776 v=-0.0000
+[taskset-1] [INFO] [1791036754.666248154] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036754.733283874] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036754.964516418] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036755.038415598] [mpc_corr]: ODOM/hw | x=+10.6738 y=+90.4873 yaw=+1.3776 v=-0.0000
+[taskset-1] [INFO] [1791036755.766559923] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036756.060335545] [mpc_corr]: ODOM/hw | x=+10.6691 y=+90.4831 yaw=+1.3776 v=-0.0000
+[taskset-1] [INFO] [1791036756.782216970] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036756.866194767] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036756.964657926] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.025s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036757.078236240] [mpc_corr]: ODOM/hw | x=+10.6698 y=+90.4869 yaw=+1.3814 v=-0.0000
+[taskset-1] [INFO] [1791036757.966109653] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036758.080410745] [mpc_corr]: ODOM/hw | x=+10.6682 y=+90.4867 yaw=+1.3814 v=-0.0000
+[taskset-1] [WARN] [1791036758.090874758] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036758.831710944] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036758.964752741] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036758.966240243] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036759.119852188] [mpc_corr]: ODOM/hw | x=+10.6799 y=+90.5766 yaw=+1.4705 v=+0.0000
+[taskset-1] [INFO] [1791036760.066064336] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036760.138465220] [mpc_corr]: ODOM/hw | x=+10.6818 y=+90.6836 yaw=+1.6063 v=+0.1326
+[taskset-1] [INFO] [1791036760.832498181] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036760.964836055] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036761.066694739] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036761.158422545] [mpc_corr]: ODOM/hw | x=+10.6628 y=+90.8743 yaw=+1.7245 v=+0.2145
+[taskset-1] [INFO] [1791036762.158531604] [mpc_corr]: ODOM/hw | x=+10.6165 y=+91.1359 yaw=+1.7124 v=+0.3266
+[taskset-1] [INFO] [1791036762.166179281] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036762.881100979] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036763.064666992] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036763.091592915] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036763.198881758] [mpc_corr]: ODOM/hw | x=+10.6000 y=+91.4885 yaw=+1.5385 v=+0.3567
+[taskset-1] [INFO] [1791036763.266175631] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036764.218592481] [mpc_corr]: ODOM/hw | x=+10.6379 y=+91.8730 yaw=+1.3990 v=+0.3624
+[taskset-1] [INFO] [1791036764.365751213] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036764.931126569] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036765.164673127] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036765.220908888] [mpc_corr]: ODOM/hw | x=+10.7019 y=+92.1497 yaw=+1.2927 v=+0.2278
+[taskset-1] [INFO] [1791036765.365970352] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036766.238544391] [mpc_corr]: ODOM/hw | x=+10.7700 y=+92.3526 yaw=+1.1935 v=+0.2066
+[taskset-1] [INFO] [1791036766.465981174] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036766.931175412] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036767.239251102] [mpc_corr]: ODOM/hw | x=+10.8683 y=+92.5840 yaw=+1.1656 v=+0.2940
+[taskset-1] [INFO] [1791036767.264727598] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036767.466107584] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036768.189277386] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036768.257620077] [mpc_corr]: ODOM/hw | x=+10.9933 y=+92.8890 yaw=+1.1844 v=+0.4018
+[taskset-1] [INFO] [1791036768.565885975] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036768.981050704] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036769.277832605] [mpc_corr]: ODOM/hw | x=+11.1462 y=+93.2545 yaw=+1.1642 v=+0.3651
+[taskset-1] [INFO] [1791036769.364581660] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036769.566031646] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036770.279754068] [mpc_corr]: ODOM/hw | x=+11.3091 y=+93.6166 yaw=+1.1338 v=+0.4217
+[taskset-1] [INFO] [1791036770.664930432] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036770.981199296] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036771.299013662] [mpc_corr]: ODOM/hw | x=+11.5011 y=+94.0166 yaw=+1.1137 v=+0.4284
+[taskset-1] [INFO] [1791036771.464577168] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036771.665475778] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036772.318527753] [mpc_corr]: ODOM/hw | x=+11.6981 y=+94.4098 yaw=+1.1030 v=+0.4229
+[taskset-1] [INFO] [1791036772.765126188] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036773.030778730] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [WARN] [1791036773.189395246] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036773.338936407] [mpc_corr]: ODOM/hw | x=+11.8990 y=+94.8085 yaw=+1.1045 v=+0.4364
+[taskset-1] [INFO] [1791036773.564487282] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036773.865937426] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036774.358389748] [mpc_corr]: ODOM/hw | x=+12.0999 y=+95.2080 yaw=+1.1070 v=+0.4527
+[taskset-1] [INFO] [1791036774.965963906] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036775.030848906] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036775.379044098] [mpc_corr]: ODOM/hw | x=+12.2967 y=+95.6076 yaw=+1.1179 v=+0.4153
+[taskset-1] [INFO] [1791036775.564516050] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036775.966093322] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036776.379656125] [mpc_corr]: ODOM/hw | x=+12.4879 y=+96.0071 yaw=+1.1311 v=+0.4450
+[taskset-1] [INFO] [1791036777.030905734] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036777.065980629] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036777.398715725] [mpc_corr]: ODOM/hw | x=+12.6709 y=+96.4122 yaw=+1.1587 v=+0.4237
+[taskset-1] [INFO] [1791036777.564533828] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036778.166080099] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036778.191527541] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036778.398827010] [mpc_corr]: ODOM/hw | x=+12.8447 y=+96.8172 yaw=+1.1735 v=+0.4665
+[taskset-1] [INFO] [1791036779.032948657] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036779.166624963] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036779.403472920] [mpc_corr]: ODOM/hw | x=+13.0136 y=+97.2254 yaw=+1.1849 v=+0.4364
+[taskset-1] [INFO] [1791036779.566009864] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036780.266203642] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036780.419298161] [mpc_corr]: ODOM/hw | x=+13.1813 y=+97.6447 yaw=+1.1983 v=+0.4563
+[taskset-1] [INFO] [1791036781.081507846] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036781.266458407] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036781.439307008] [mpc_corr]: ODOM/hw | x=+13.3430 y=+98.0629 yaw=+1.2051 v=+0.4609
+[taskset-1] [INFO] [1791036781.664666842] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036782.366055881] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036782.480361466] [mpc_corr]: ODOM/hw | x=+13.5068 y=+98.4936 yaw=+1.2111 v=+0.4286
+[taskset-1] [INFO] [1791036783.081536411] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [WARN] [1791036783.191910018] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036783.466177909] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036783.498415079] [mpc_corr]: ODOM/hw | x=+13.6631 y=+98.9114 yaw=+1.2137 v=+0.4474
+[taskset-1] [INFO] [1791036783.764717601] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036784.498458333] [mpc_corr]: ODOM/hw | x=+13.8164 y=+99.3255 yaw=+1.2197 v=+0.4598
+[taskset-1] [INFO] [1791036784.565945138] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036785.082180636] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036785.519131688] [mpc_corr]: ODOM/hw | x=+13.9703 y=+99.7488 yaw=+1.2241 v=+0.4076
+[taskset-1] [INFO] [1791036785.566143461] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036785.864610008] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036786.519454034] [mpc_corr]: ODOM/hw | x=+14.1192 y=+100.1624 yaw=+1.2250 v=+0.4255
+[taskset-1] [INFO] [1791036786.666789169] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036787.082260508] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036787.538431806] [mpc_corr]: ODOM/hw | x=+14.2727 y=+100.5865 yaw=+1.2222 v=+0.4494
+[taskset-1] [INFO] [1791036787.766029936] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036787.864642675] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036788.289748720] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036788.539236150] [mpc_corr]: ODOM/hw | x=+14.4241 y=+101.0020 yaw=+1.2194 v=+0.4386
+[taskset-1] [INFO] [1791036788.766093229] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036789.130967852] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036789.559245810] [mpc_corr]: ODOM/hw | x=+14.5816 y=+101.4285 yaw=+1.2147 v=+0.4313
+[taskset-1] [INFO] [1791036789.864673019] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036789.866294215] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036790.560174766] [mpc_corr]: ODOM/hw | x=+14.7353 y=+101.8410 yaw=+1.2150 v=+0.4567
+[taskset-1] [INFO] [1791036790.966197162] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036791.131173179] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036791.580270052] [mpc_corr]: ODOM/hw | x=+14.8934 y=+102.2647 yaw=+1.2086 v=+0.4333
+[taskset-1] [INFO] [1791036791.964526849] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036792.066000402] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036792.598626823] [mpc_corr]: ODOM/hw | x=+15.0573 y=+102.6881 yaw=+1.1955 v=+0.4255
+[taskset-1] [INFO] [1791036793.066410168] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036793.182429596] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [WARN] [1791036793.291477253] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036793.598834213] [mpc_corr]: ODOM/hw | x=+15.2191 y=+103.0967 yaw=+1.1929 v=+0.4550
+[taskset-1] [INFO] [1791036793.964575617] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036794.166520799] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036794.598840785] [mpc_corr]: ODOM/hw | x=+15.3875 y=+103.5153 yaw=+1.1853 v=+0.4561
+[taskset-1] [INFO] [1791036795.166806720] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036795.231076199] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036795.600218578] [mpc_corr]: ODOM/hw | x=+80.6376 y=+104.2310 yaw=-2.7848 v=-0.0000
+[taskset-1] [INFO] [1791036795.965278443] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036796.167182418] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036796.619547180] [mpc_corr]: ODOM/hw | x=+80.7107 y=+104.1019 yaw=-2.7601 v=-0.0000
+[taskset-1] [INFO] [1791036797.231373568] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036797.266185644] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036797.638235955] [mpc_corr]: ODOM/hw | x=+80.7367 y=+104.0866 yaw=-2.7601 v=-0.0000
+[taskset-1] [INFO] [1791036798.064452792] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036798.366561868] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036798.389951683] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036798.658571349] [mpc_corr]: ODOM/hw | x=+80.7530 y=+104.0606 yaw=-2.7601 v=-0.0000
+[taskset-1] [INFO] [1791036799.280785296] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036799.465868696] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036799.659356798] [mpc_corr]: ODOM/hw | x=+80.7499 y=+104.0584 yaw=-2.7563 v=-0.0000
+[taskset-1] [INFO] [1791036800.164616556] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036800.565911647] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036800.659534305] [mpc_corr]: ODOM/hw | x=+80.7481 y=+104.0552 yaw=-2.7537 v=+0.1253
+[taskset-1] [INFO] [1791036801.281806364] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036801.666234824] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036801.680595849] [mpc_corr]: ODOM/hw | x=+80.6695 y=+104.0174 yaw=-2.6659 v=-0.0000
+[taskset-1] [INFO] [1791036802.164635045] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036802.699334297] [mpc_corr]: ODOM/hw | x=+80.5734 y=+103.9569 yaw=-2.5273 v=+0.0000
+[taskset-1] [INFO] [1791036802.765840001] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036803.330796069] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [WARN] [1791036803.490944053] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036803.718632654] [mpc_corr]: ODOM/hw | x=+80.4189 y=+103.8321 yaw=-2.4070 v=+0.2209
+[taskset-1] [INFO] [1791036803.865934237] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036804.164661438] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036804.718748403] [mpc_corr]: ODOM/hw | x=+80.2204 y=+103.6476 yaw=-2.4390 v=+0.3013
+[taskset-1] [INFO] [1791036804.965833071] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036805.381879830] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036805.719403062] [mpc_corr]: ODOM/hw | x=+79.9356 y=+103.4473 yaw=-2.6101 v=+0.3480
+[taskset-1] [INFO] [1791036806.066882676] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036806.263955378] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036806.737722717] [mpc_corr]: ODOM/hw | x=+79.5970 y=+103.2769 yaw=-2.7476 v=+0.3168
+[taskset-1] [INFO] [1791036807.165273020] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036807.435352074] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036807.757278259] [mpc_corr]: ODOM/hw | x=+79.3270 y=+103.1817 yaw=-2.8535 v=+0.2119
+[taskset-1] [INFO] [1791036808.264571774] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036808.363782178] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036808.589941244] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036808.757759082] [mpc_corr]: ODOM/hw | x=+79.1205 y=+103.1310 yaw=-2.9543 v=+0.2431
+[taskset-1] [INFO] [1791036809.264606470] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036809.482580864] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036809.778826553] [mpc_corr]: ODOM/hw | x=+78.8697 y=+103.0893 yaw=-2.9784 v=+0.2845
+[taskset-1] [INFO] [1791036810.264635848] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036810.464589837] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036810.778935659] [mpc_corr]: ODOM/hw | x=+78.5412 y=+103.0299 yaw=-2.9615 v=+0.3919
+[taskset-1] [INFO] [1791036811.364628743] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036811.483218836] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036811.798073612] [mpc_corr]: ODOM/hw | x=+78.1580 y=+102.9640 yaw=-2.9816 v=+0.3930
+[taskset-1] [INFO] [1791036812.364681483] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036812.465285595] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036812.798700017] [mpc_corr]: ODOM/hw | x=+77.7630 y=+102.9068 yaw=-3.0119 v=+0.4120
+[taskset-1] [INFO] [1791036813.465772865] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036813.532065648] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [WARN] [1791036813.590075691] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036813.818281550] [mpc_corr]: ODOM/hw | x=+77.3219 y=+102.8540 yaw=-3.0321 v=+0.4333
+[taskset-1] [INFO] [1791036814.466329777] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036814.564469614] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036814.838041162] [mpc_corr]: ODOM/hw | x=+76.8849 y=+102.8091 yaw=-3.0422 v=+0.4412
+[taskset-1] [INFO] [1791036815.565852255] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036815.581289878] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036815.838240916] [mpc_corr]: ODOM/hw | x=+76.4503 y=+102.7653 yaw=-3.0408 v=+0.4364
+[taskset-1] [INFO] [1791036816.663885780] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036816.664915980] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036816.857582845] [mpc_corr]: ODOM/hw | x=+76.0053 y=+102.7201 yaw=-3.0382 v=+0.4527
+[taskset-1] [INFO] [1791036817.630720550] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036817.764748556] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036817.858199368] [mpc_corr]: ODOM/hw | x=+75.5713 y=+102.6724 yaw=-3.0275 v=+0.4527
+[taskset-1] [WARN] [1791036818.689071176] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036818.763803949] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036818.864675981] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036818.878973026] [mpc_corr]: ODOM/hw | x=+75.1229 y=+102.6180 yaw=-3.0141 v=+0.4450
+[taskset-1] [INFO] [1791036819.630863461] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036819.899554814] [mpc_corr]: ODOM/hw | x=+74.6829 y=+102.5547 yaw=-2.9865 v=+0.4237
+[taskset-1] [INFO] [1791036819.965788247] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036820.764109435] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036820.918375274] [mpc_corr]: ODOM/hw | x=+74.2392 y=+102.4822 yaw=-2.9714 v=+0.4279
+[taskset-1] [INFO] [1791036820.965967387] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036821.631289880] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036821.920497381] [mpc_corr]: ODOM/hw | x=+73.8052 y=+102.4053 yaw=-2.9601 v=+0.4665
+[taskset-1] [INFO] [1791036821.965981642] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036822.764601585] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036822.938311799] [mpc_corr]: ODOM/hw | x=+73.3612 y=+102.3213 yaw=-2.9466 v=+0.4319
+[taskset-1] [INFO] [1791036822.966143837] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036823.680844080] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [WARN] [1791036823.690372405] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036823.938329120] [mpc_corr]: ODOM/hw | x=+72.9296 y=+102.2346 yaw=-2.9400 v=+0.4609
+[taskset-1] [INFO] [1791036824.065978556] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036824.764724710] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036824.940227648] [mpc_corr]: ODOM/hw | x=+72.4948 y=+102.1447 yaw=-2.9343 v=+0.4547
+[taskset-1] [INFO] [1791036825.066049705] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036825.683828838] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036825.960329477] [mpc_corr]: ODOM/hw | x=+72.0587 y=+102.0522 yaw=-2.9315 v=+0.4275
+[taskset-1] [INFO] [1791036826.166647534] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036826.864579002] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036826.978778078] [mpc_corr]: ODOM/hw | x=+71.6188 y=+101.9572 yaw=-2.9256 v=+0.4561
+[taskset-1] [INFO] [1791036827.266248752] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036827.733084008] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036827.981290154] [mpc_corr]: ODOM/hw | x=+71.1886 y=+101.8618 yaw=-2.9212 v=+0.4262
+[taskset-1] [INFO] [1791036828.365936623] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036828.789982652] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036828.964590448] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036828.998449541] [mpc_corr]: ODOM/hw | x=+70.7475 y=+101.7624 yaw=-2.9201 v=+0.4516
+[taskset-1] [INFO] [1791036829.365959393] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036829.781017622] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036829.998521493] [mpc_corr]: ODOM/hw | x=+70.3173 y=+101.6662 yaw=-2.9229 v=+0.4468
+[taskset-1] [INFO] [1791036830.365985270] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036830.964689000] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036830.998592381] [mpc_corr]: ODOM/hw | x=+69.8852 y=+101.5705 yaw=-2.9256 v=+0.4508
+[taskset-1] [INFO] [1791036831.366207715] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036831.781371818] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036832.019123282] [mpc_corr]: ODOM/hw | x=+69.4455 y=+101.4751 yaw=-2.9301 v=+0.4315
+[taskset-1] [INFO] [1791036832.366340825] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036833.038336221] [mpc_corr]: ODOM/hw | x=+69.0042 y=+101.3808 yaw=-2.9302 v=+0.4242
+[taskset-1] [INFO] [1791036833.064604018] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036833.366348986] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036833.790183483] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036833.831065129] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036834.058313801] [mpc_corr]: ODOM/hw | x=+68.5613 y=+101.2863 yaw=-2.9362 v=+0.4459
+[taskset-1] [INFO] [1791036834.466005026] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036835.059394990] [mpc_corr]: ODOM/hw | x=+68.1258 y=+101.1986 yaw=-2.9492 v=+0.4191
+[taskset-1] [INFO] [1791036835.064781808] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036835.566008144] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036835.833646433] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036836.098924405] [mpc_corr]: ODOM/hw | x=+67.6759 y=+101.1118 yaw=-2.9520 v=+0.4550
+[taskset-1] [INFO] [1791036836.666462470] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036837.118406955] [mpc_corr]: ODOM/hw | x=+67.2221 y=+101.0269 yaw=-2.9598 v=+0.4585
+[taskset-1] [INFO] [1791036837.164837438] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036837.766319275] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036837.883939765] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036838.120445718] [mpc_corr]: ODOM/hw | x=+60.2456 y=+218.0632 yaw=-2.1505 v=-0.0000
+[taskset-1] [INFO] [1791036838.866163159] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036838.889989717] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036839.160615599] [mpc_corr]: ODOM/hw | x=+60.3059 y=+218.0725 yaw=-2.1262 v=-0.0000
+[taskset-1] [INFO] [1791036839.264728198] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036839.931164170] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036839.966010151] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036840.200898960] [mpc_corr]: ODOM/hw | x=+60.3186 y=+218.0916 yaw=-2.1262 v=-0.0000
+[taskset-1] [INFO] [1791036840.966827395] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036841.220305186] [mpc_corr]: ODOM/hw | x=+60.3343 y=+218.0901 yaw=-2.1262 v=-0.0000
+[taskset-1] [INFO] [1791036841.264930140] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.025s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036841.931447688] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036842.066243325] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036842.239330955] [mpc_corr]: ODOM/hw | x=+60.3330 y=+218.0872 yaw=-2.1224 v=-0.0000
+[taskset-1] [INFO] [1791036843.166971134] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036843.259588380] [mpc_corr]: ODOM/hw | x=+60.3297 y=+218.0779 yaw=-2.1096 v=+0.1497
+[taskset-1] [INFO] [1791036843.364622218] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036843.890087393] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036843.981359524] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036844.266113621] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036844.299474443] [mpc_corr]: ODOM/hw | x=+60.2878 y=+218.0019 yaw=-2.0020 v=+0.1488
+[taskset-1] [INFO] [1791036845.266753830] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036845.320428930] [mpc_corr]: ODOM/hw | x=+60.2465 y=+217.8866 yaw=-1.8808 v=+0.1209
+[taskset-1] [INFO] [1791036845.364679757] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036845.995036053] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036846.338789451] [mpc_corr]: ODOM/hw | x=+60.1954 y=+217.6827 yaw=-1.7613 v=+0.2232
+[taskset-1] [INFO] [1791036846.366042031] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036847.359379347] [mpc_corr]: ODOM/hw | x=+60.1394 y=+217.4000 yaw=-1.8366 v=+0.3155
+[taskset-1] [INFO] [1791036847.364790174] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036847.366353862] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036848.031087879] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036848.359680792] [mpc_corr]: ODOM/hw | x=+60.0198 y=+217.0670 yaw=-1.9915 v=+0.3934
+[taskset-1] [INFO] [1791036848.466082061] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036848.890108562] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036849.380232826] [mpc_corr]: ODOM/hw | x=+59.8447 y=+216.7327 yaw=-2.1280 v=+0.3037
+[taskset-1] [INFO] [1791036849.464617149] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036849.466240447] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036850.081626929] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036850.380417364] [mpc_corr]: ODOM/hw | x=+59.6949 y=+216.5165 yaw=-2.2223 v=+0.2035
+[taskset-1] [INFO] [1791036850.566322026] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036851.380476455] [mpc_corr]: ODOM/hw | x=+59.5571 y=+216.3534 yaw=-2.3230 v=+0.1939
+[taskset-1] [INFO] [1791036851.464931313] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.024s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036851.667022440] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036852.081817341] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036852.399142986] [mpc_corr]: ODOM/hw | x=+59.3721 y=+216.1614 yaw=-2.3306 v=+0.3097
+[taskset-1] [INFO] [1791036852.766202014] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036853.420349257] [mpc_corr]: ODOM/hw | x=+59.1321 y=+215.9040 yaw=-2.3239 v=+0.3872
+[taskset-1] [INFO] [1791036853.564665525] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036853.766365011] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036853.890544536] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036854.082824848] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036854.442219252] [mpc_corr]: ODOM/hw | x=+58.8641 y=+215.6238 yaw=-2.3450 v=+0.3945
+[taskset-1] [INFO] [1791036854.766519940] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036855.459025838] [mpc_corr]: ODOM/hw | x=+58.5659 y=+215.3292 yaw=-2.3766 v=+0.4164
+[taskset-1] [INFO] [1791036855.564747373] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036855.866303325] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036856.131395105] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036856.501679072] [mpc_corr]: ODOM/hw | x=+58.2422 y=+215.0238 yaw=-2.3950 v=+0.4133
+[taskset-1] [INFO] [1791036856.866624121] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036857.518887972] [mpc_corr]: ODOM/hw | x=+57.9145 y=+214.7241 yaw=-2.4021 v=+0.4220
+[taskset-1] [INFO] [1791036857.565277181] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036857.866793006] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036858.182036289] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036858.539562194] [mpc_corr]: ODOM/hw | x=+57.5832 y=+214.4212 yaw=-2.4009 v=+0.4229
+[taskset-1] [INFO] [1791036858.965961017] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036858.990937183] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036859.558791351] [mpc_corr]: ODOM/hw | x=+57.2561 y=+214.1216 yaw=-2.3968 v=+0.4592
+[taskset-1] [INFO] [1791036859.664887840] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036860.065948937] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036860.184095261] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036860.579742474] [mpc_corr]: ODOM/hw | x=+56.9309 y=+213.8178 yaw=-2.3853 v=+0.4244
+[taskset-1] [INFO] [1791036861.066812646] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036861.600445625] [mpc_corr]: ODOM/hw | x=+56.6042 y=+213.5050 yaw=-2.3661 v=+0.4388
+[taskset-1] [INFO] [1791036861.764524010] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036862.166665743] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036862.231094040] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036862.618267193] [mpc_corr]: ODOM/hw | x=+56.2913 y=+213.1903 yaw=-2.3447 v=+0.4616
+[taskset-1] [INFO] [1791036863.266310578] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036863.618616305] [mpc_corr]: ODOM/hw | x=+55.9857 y=+212.8728 yaw=-2.3302 v=+0.4302
+[taskset-1] [INFO] [1791036863.764613710] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036863.991008725] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036864.282244428] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036864.365919954] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036864.638094938] [mpc_corr]: ODOM/hw | x=+55.6761 y=+212.5428 yaw=-2.3186 v=+0.4246
+[taskset-1] [INFO] [1791036865.365990889] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036865.660085536] [mpc_corr]: ODOM/hw | x=+55.3730 y=+212.2117 yaw=-2.3055 v=+0.4384
+[taskset-1] [INFO] [1791036865.864520146] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036866.283639862] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036866.465963043] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036866.679101152] [mpc_corr]: ODOM/hw | x=+55.0719 y=+211.8763 yaw=-2.2993 v=+0.4364
+[taskset-1] [INFO] [1791036867.465973616] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036867.681368856] [mpc_corr]: ODOM/hw | x=+54.7756 y=+211.5425 yaw=-2.2938 v=+0.4589
+[taskset-1] [INFO] [1791036867.964337609] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036868.331697025] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036868.565857520] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036868.698972162] [mpc_corr]: ODOM/hw | x=+54.4839 y=+211.2111 yaw=-2.2911 v=+0.4368
+[taskset-1] [WARN] [1791036869.089599467] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036869.566945700] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036869.719479728] [mpc_corr]: ODOM/hw | x=+54.1830 y=+210.8660 yaw=-2.2846 v=+0.4583
+[taskset-1] [INFO] [1791036869.964752985] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036870.331753917] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036870.666751596] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036870.738791147] [mpc_corr]: ODOM/hw | x=+53.8941 y=+210.5313 yaw=-2.2809 v=+0.4386
+[taskset-1] [INFO] [1791036871.666824377] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036871.759932767] [mpc_corr]: ODOM/hw | x=+53.5998 y=+210.1886 yaw=-2.2813 v=+0.4443
+[taskset-1] [INFO] [1791036872.064694677] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036872.381375325] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036872.667000750] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036872.779654391] [mpc_corr]: ODOM/hw | x=+53.3016 y=+209.8431 yaw=-2.2839 v=+0.4415
+[taskset-1] [INFO] [1791036873.766774955] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036873.800538778] [mpc_corr]: ODOM/hw | x=+53.0100 y=+209.5070 yaw=-2.2880 v=+0.4521
+[taskset-1] [WARN] [1791036874.090106274] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036874.165424441] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036874.430981919] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036874.820360434] [mpc_corr]: ODOM/hw | x=+52.7094 y=+209.1638 yaw=-2.2921 v=+0.4330
+[taskset-1] [INFO] [1791036874.866109991] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036875.820526598] [mpc_corr]: ODOM/hw | x=+52.4210 y=+208.8354 yaw=-2.2903 v=+0.4645
+[taskset-1] [INFO] [1791036875.866756357] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036876.264754129] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036876.431022693] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036876.859166633] [mpc_corr]: ODOM/hw | x=+52.1106 y=+208.4844 yaw=-2.3027 v=+0.4313
+[taskset-1] [INFO] [1791036876.966394503] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036877.860795835] [mpc_corr]: ODOM/hw | x=+51.8119 y=+208.1550 yaw=-2.3119 v=+0.4545
+[taskset-1] [INFO] [1791036878.066193544] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036878.264781551] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036878.431400235] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036878.879479374] [mpc_corr]: ODOM/hw | x=+51.5051 y=+207.8205 yaw=-2.3161 v=+0.4299
+[taskset-1] [WARN] [1791036879.092228254] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036879.166866723] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036879.899672410] [mpc_corr]: ODOM/hw | x=+55.7433 y=+191.4056 yaw=-1.9686 v=+0.1220
+[taskset-1] [INFO] [1791036880.166937951] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036880.264824245] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036880.481200944] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036880.938691562] [mpc_corr]: ODOM/hw | x=+55.6633 y=+191.9344 yaw=-1.6922 v=-0.0000
+[taskset-1] [INFO] [1791036881.167076507] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036881.958360267] [mpc_corr]: ODOM/hw | x=+55.6679 y=+191.9763 yaw=-1.6836 v=-0.0000
+[taskset-1] [INFO] [1791036882.264827908] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036882.266661011] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036882.482695639] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036882.978745779] [mpc_corr]: ODOM/hw | x=+55.6861 y=+191.9894 yaw=-1.6836 v=-0.0000
+[taskset-1] [INFO] [1791036883.366008325] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036883.980162602] [mpc_corr]: ODOM/hw | x=+55.6816 y=+191.9947 yaw=-1.6836 v=-0.0000
+[taskset-1] [WARN] [1791036884.190535458] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036884.364492457] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036884.366056349] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036884.530764573] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036884.980967061] [mpc_corr]: ODOM/hw | x=+55.6810 y=+191.9909 yaw=-1.6798 v=-0.0000
+[taskset-1] [INFO] [1791036885.465922670] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036886.000652921] [mpc_corr]: ODOM/hw | x=+55.6819 y=+191.9632 yaw=-1.6463 v=+0.1532
+[taskset-1] [INFO] [1791036886.364950198] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036886.465937859] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036886.531306158] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036887.020783191] [mpc_corr]: ODOM/hw | x=+55.6809 y=+191.8606 yaw=-1.5146 v=+0.1131
+[taskset-1] [INFO] [1791036887.465940580] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036888.021029180] [mpc_corr]: ODOM/hw | x=+55.6943 y=+191.7391 yaw=-1.4132 v=+0.1616
+[taskset-1] [INFO] [1791036888.464340648] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036888.531512751] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036888.566331905] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036889.041929242] [mpc_corr]: ODOM/hw | x=+55.7432 y=+191.5191 yaw=-1.3045 v=+0.2708
+[taskset-1] [WARN] [1791036889.191182714] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036889.667025362] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036890.060385097] [mpc_corr]: ODOM/hw | x=+55.8121 y=+191.2189 yaw=-1.4313 v=+0.3423
+[taskset-1] [INFO] [1791036890.464627831] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036890.581589777] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036890.766402702] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036891.081164241] [mpc_corr]: ODOM/hw | x=+55.8361 y=+190.8418 yaw=-1.5783 v=+0.3872
+[taskset-1] [INFO] [1791036891.865897981] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036892.098580553] [mpc_corr]: ODOM/hw | x=+55.8109 y=+190.4876 yaw=-1.7144 v=+0.3097
+[taskset-1] [INFO] [1791036892.464642373] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036892.633153503] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036892.866159095] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036893.118354858] [mpc_corr]: ODOM/hw | x=+55.7647 y=+190.2427 yaw=-1.8060 v=+0.2426
+[taskset-1] [INFO] [1791036893.866184516] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036894.118728216] [mpc_corr]: ODOM/hw | x=+55.7041 y=+190.0371 yaw=-1.8963 v=+0.2444
+[taskset-1] [WARN] [1791036894.290076926] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036894.564600627] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036894.681934730] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036894.866186109] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036895.139511861] [mpc_corr]: ODOM/hw | x=+55.6122 y=+189.7650 yaw=-1.8820 v=+0.3006
+[taskset-1] [INFO] [1791036895.966085069] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036896.160174092] [mpc_corr]: ODOM/hw | x=+55.5011 y=+189.4188 yaw=-1.8885 v=+0.4140
+[taskset-1] [INFO] [1791036896.664353973] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036896.730755833] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036896.966745703] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036897.161423891] [mpc_corr]: ODOM/hw | x=+55.3755 y=+189.0501 yaw=-1.9132 v=+0.4182
+[taskset-1] [INFO] [1791036898.066094342] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036898.179109438] [mpc_corr]: ODOM/hw | x=+55.2262 y=+188.6513 yaw=-1.9417 v=+0.4565
+[taskset-1] [INFO] [1791036898.665078009] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036898.731309805] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036899.066467162] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036899.179120927] [mpc_corr]: ODOM/hw | x=+55.0660 y=+188.2485 yaw=-1.9593 v=+0.4149
+[taskset-1] [WARN] [1791036899.290561697] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036900.166759075] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036900.179211558] [mpc_corr]: ODOM/hw | x=+54.9016 y=+187.8490 yaw=-1.9608 v=+0.4220
+[taskset-1] [INFO] [1791036900.731915929] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036900.764959287] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.026s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036901.167454022] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036901.180801316] [mpc_corr]: ODOM/hw | x=+54.7344 y=+187.4418 yaw=-1.9605 v=+0.4153
+[taskset-1] [INFO] [1791036902.199235951] [mpc_corr]: ODOM/hw | x=+54.5686 y=+187.0361 yaw=-1.9529 v=+0.4527
+[taskset-1] [INFO] [1791036902.266719643] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036902.782368307] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036902.864770591] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036903.199834680] [mpc_corr]: ODOM/hw | x=+54.4040 y=+186.6210 yaw=-1.9430 v=+0.4634
+[taskset-1] [INFO] [1791036903.366358942] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036904.199909466] [mpc_corr]: ODOM/hw | x=+54.2498 y=+186.2167 yaw=-1.9209 v=+0.4169
+[taskset-1] [WARN] [1791036904.389508539] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036904.466297633] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036904.831945158] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036904.964864755] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036905.218666084] [mpc_corr]: ODOM/hw | x=+54.0994 y=+185.7917 yaw=-1.9028 v=+0.4235
+[taskset-1] [INFO] [1791036905.466332142] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036906.238533283] [mpc_corr]: ODOM/hw | x=+53.9551 y=+185.3623 yaw=-1.8886 v=+0.4669
+[taskset-1] [INFO] [1791036906.567187395] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036906.882830363] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036907.064855130] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036907.238634609] [mpc_corr]: ODOM/hw | x=+53.8199 y=+184.9429 yaw=-1.8774 v=+0.4508
+[taskset-1] [INFO] [1791036907.666326391] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036908.259634839] [mpc_corr]: ODOM/hw | x=+53.6869 y=+184.5118 yaw=-1.8645 v=+0.4576
+[taskset-1] [INFO] [1791036908.666463583] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036908.883173542] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036909.064997569] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036909.279055497] [mpc_corr]: ODOM/hw | x=+53.5576 y=+184.0794 yaw=-1.8586 v=+0.4649
+[taskset-1] [WARN] [1791036909.391811414] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036909.766212807] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036910.279661221] [mpc_corr]: ODOM/hw | x=+53.4356 y=+183.6633 yaw=-1.8532 v=+0.4350
+[taskset-1] [INFO] [1791036910.767083688] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036910.931499793] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036911.065429554] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036911.298679269] [mpc_corr]: ODOM/hw | x=+53.3102 y=+183.2290 yaw=-1.8500 v=+0.4631
+[taskset-1] [INFO] [1791036911.865519205] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036912.298920622] [mpc_corr]: ODOM/hw | x=+53.1891 y=+182.8016 yaw=-1.8440 v=+0.4310
+[taskset-1] [INFO] [1791036912.866052948] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036912.982597544] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036913.164756991] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036913.300139036] [mpc_corr]: ODOM/hw | x=+53.0716 y=+182.3792 yaw=-1.8403 v=+0.4361
+[taskset-1] [INFO] [1791036913.866170280] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036914.339076380] [mpc_corr]: ODOM/hw | x=+52.9508 y=+181.9416 yaw=-1.8411 v=+0.4313
+[taskset-1] [WARN] [1791036914.492741057] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036914.966083108] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036914.983980560] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036915.165837501] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036915.358476340] [mpc_corr]: ODOM/hw | x=+52.8278 y=+181.5002 yaw=-1.8434 v=+0.4565
+[taskset-1] [INFO] [1791036915.966124402] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036916.359409085] [mpc_corr]: ODOM/hw | x=+52.7080 y=+181.0748 yaw=-1.8477 v=+0.4195
+[taskset-1] [INFO] [1791036917.031989458] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036917.066260406] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036917.264748990] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036917.398847421] [mpc_corr]: ODOM/hw | x=+52.5824 y=+180.6363 yaw=-1.8516 v=+0.4616
+[taskset-1] [INFO] [1791036918.166359126] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036918.399767999] [mpc_corr]: ODOM/hw | x=+52.4598 y=+180.2097 yaw=-1.8499 v=+0.4649
+[taskset-1] [INFO] [1791036919.081344246] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036919.166475951] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036919.364581464] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036919.418923151] [mpc_corr]: ODOM/hw | x=+52.3320 y=+179.7726 yaw=-1.8627 v=+0.4195
+[taskset-1] [WARN] [1791036919.589701724] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036920.266228496] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036920.419672792] [mpc_corr]: ODOM/hw | x=+52.2019 y=+179.3468 yaw=-1.8716 v=+0.4601
+[taskset-1] [INFO] [1791036921.081958584] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036921.266407106] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036921.364927977] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036921.420671889] [mpc_corr]: ODOM/hw | x=+52.0698 y=+178.9224 yaw=-1.8758 v=+0.4361
+[taskset-1] [INFO] [1791036922.266451546] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036922.438318486] [mpc_corr]: ODOM/hw | x=+142.9867 y=+279.4666 yaw=-1.1377 v=+0.1521
+[taskset-1] [INFO] [1791036923.130881721] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036923.266553631] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036923.438465437] [mpc_corr]: ODOM/hw | x=+142.4986 y=+279.6367 yaw=-0.8666 v=-0.0000
+[taskset-1] [INFO] [1791036923.464564337] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036924.366197888] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036924.439629929] [mpc_corr]: ODOM/hw | x=+142.4780 y=+279.7318 yaw=-0.8579 v=-0.0000
+[taskset-1] [WARN] [1791036924.589823774] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036925.182460944] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036925.440171554] [mpc_corr]: ODOM/hw | x=+142.4665 y=+279.7615 yaw=-0.8579 v=-0.0000
+[taskset-1] [INFO] [1791036925.464647608] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.024s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036925.466168111] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036926.458522328] [mpc_corr]: ODOM/hw | x=+142.4740 y=+279.7805 yaw=-0.8579 v=-0.0000
+[taskset-1] [INFO] [1791036926.566050348] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036927.182968361] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036927.458605508] [mpc_corr]: ODOM/hw | x=+142.4756 y=+279.7788 yaw=-0.8541 v=-0.0000
+[taskset-1] [INFO] [1791036927.464697260] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036927.566075973] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036928.459074736] [mpc_corr]: ODOM/hw | x=+142.4957 y=+279.7647 yaw=-0.8228 v=+0.1638
+[taskset-1] [INFO] [1791036928.566232221] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036929.183168275] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036929.464719270] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036929.480884582] [mpc_corr]: ODOM/hw | x=+142.5697 y=+279.6944 yaw=-0.6854 v=+0.1262
+[taskset-1] [WARN] [1791036929.591909737] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036929.666559154] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036930.498874614] [mpc_corr]: ODOM/hw | x=+142.6718 y=+279.6220 yaw=-0.5797 v=+0.1616
+[taskset-1] [INFO] [1791036930.666697142] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036931.231190248] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036931.465313532] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036931.499612639] [mpc_corr]: ODOM/hw | x=+142.8624 y=+279.5129 yaw=-0.4722 v=+0.2322
+[taskset-1] [INFO] [1791036931.666833087] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036932.518419842] [mpc_corr]: ODOM/hw | x=+143.1285 y=+279.3645 yaw=-0.5936 v=+0.3257
+[taskset-1] [INFO] [1791036932.666864462] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036933.231444063] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036933.540271518] [mpc_corr]: ODOM/hw | x=+143.4193 y=+279.1347 yaw=-0.7403 v=+0.4054
+[taskset-1] [INFO] [1791036933.564630517] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036933.766388202] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036934.558337718] [mpc_corr]: ODOM/hw | x=+143.6690 y=+278.8757 yaw=-0.8775 v=+0.3263
+[taskset-1] [WARN] [1791036934.692223636] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036934.867104378] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036935.231783226] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036935.579780718] [mpc_corr]: ODOM/hw | x=+143.8211 y=+278.6755 yaw=-0.9688 v=+0.2404
+[taskset-1] [INFO] [1791036935.664969455] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036935.966145193] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036936.579907440] [mpc_corr]: ODOM/hw | x=+143.9329 y=+278.4937 yaw=-1.0609 v=+0.2444
+[taskset-1] [INFO] [1791036937.066633953] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036937.282356184] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036937.580017804] [mpc_corr]: ODOM/hw | x=+144.0686 y=+278.2495 yaw=-1.0496 v=+0.2885
+[taskset-1] [INFO] [1791036937.665297343] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036938.166563153] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036938.598704364] [mpc_corr]: ODOM/hw | x=+144.2493 y=+277.9363 yaw=-1.0542 v=+0.3837
+[taskset-1] [INFO] [1791036939.266586035] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036939.331238061] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036939.600599376] [mpc_corr]: ODOM/hw | x=+144.4372 y=+277.5976 yaw=-1.0783 v=+0.3843
+[taskset-1] [INFO] [1791036939.764680147] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791036939.789970024] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036940.366285654] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036940.600608808] [mpc_corr]: ODOM/hw | x=+144.6272 y=+277.2300 yaw=-1.1067 v=+0.4364
+[taskset-1] [INFO] [1791036941.331266495] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036941.366561581] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036941.621916571] [mpc_corr]: ODOM/hw | x=+144.8207 y=+276.8359 yaw=-1.1242 v=+0.4222
+[taskset-1] [INFO] [1791036941.864573101] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036942.465835810] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036942.638891987] [mpc_corr]: ODOM/hw | x=+145.0106 y=+276.4359 yaw=-1.1276 v=+0.4182
+[taskset-1] [INFO] [1791036943.381520833] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036943.466024668] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036943.640273725] [mpc_corr]: ODOM/hw | x=+145.1995 y=+276.0385 yaw=-1.1271 v=+0.4302
+[taskset-1] [INFO] [1791036943.964433265] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036944.565839219] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036944.660219152] [mpc_corr]: ODOM/hw | x=+145.3911 y=+275.6369 yaw=-1.1199 v=+0.4204
+[taskset-1] [WARN] [1791036944.889821540] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036945.430902162] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036945.664752797] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036945.679535615] [mpc_corr]: ODOM/hw | x=+145.5886 y=+275.2341 yaw=-1.1098 v=+0.4474
+[taskset-1] [INFO] [1791036945.964476018] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036946.666255781] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036946.699889068] [mpc_corr]: ODOM/hw | x=+145.7930 y=+274.8308 yaw=-1.0866 v=+0.4333
+[taskset-1] [INFO] [1791036947.431039060] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036947.718445105] [mpc_corr]: ODOM/hw | x=+146.0017 y=+274.4430 yaw=-1.0693 v=+0.4235
+[taskset-1] [INFO] [1791036947.766101575] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036947.964483784] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036948.720615039] [mpc_corr]: ODOM/hw | x=+146.2181 y=+274.0556 yaw=-1.0553 v=+0.4446
+[taskset-1] [INFO] [1791036948.766214499] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036949.431177797] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036949.740791411] [mpc_corr]: ODOM/hw | x=+146.4422 y=+273.6656 yaw=-1.0438 v=+0.4508
+[taskset-1] [INFO] [1791036949.866226986] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036949.890239155] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036949.964539719] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036950.758528444] [mpc_corr]: ODOM/hw | x=+146.6719 y=+273.2773 yaw=-1.0310 v=+0.4576
+[taskset-1] [INFO] [1791036950.966069700] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036951.431252082] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036951.760876026] [mpc_corr]: ODOM/hw | x=+146.9006 y=+272.8983 yaw=-1.0250 v=+0.4288
+[taskset-1] [INFO] [1791036951.964594058] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036951.966212237] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036952.761370390] [mpc_corr]: ODOM/hw | x=+147.1312 y=+272.5210 yaw=-1.0195 v=+0.4350
+[taskset-1] [INFO] [1791036953.065957830] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036953.433467376] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036953.780836365] [mpc_corr]: ODOM/hw | x=+147.3646 y=+272.1425 yaw=-1.0164 v=+0.4397
+[taskset-1] [INFO] [1791036953.964706216] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036954.165952399] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036954.781127096] [mpc_corr]: ODOM/hw | x=+147.5989 y=+271.7667 yaw=-1.0104 v=+0.4415
+[taskset-1] [WARN] [1791036954.891562810] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036955.166745416] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036955.481802967] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036955.798699158] [mpc_corr]: ODOM/hw | x=+147.8373 y=+271.3883 yaw=-1.0066 v=+0.4361
+[taskset-1] [INFO] [1791036955.965222954] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036956.266691374] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036956.801282887] [mpc_corr]: ODOM/hw | x=+148.0748 y=+271.0131 yaw=-1.0074 v=+0.4213
+[taskset-1] [INFO] [1791036957.366763908] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036957.482370499] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036957.821231658] [mpc_corr]: ODOM/hw | x=+148.3146 y=+270.6323 yaw=-1.0097 v=+0.4625
+[taskset-1] [INFO] [1791036957.965519827] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036958.467155455] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036958.840452132] [mpc_corr]: ODOM/hw | x=+148.5544 y=+270.2492 yaw=-1.0140 v=+0.4594
+[taskset-1] [INFO] [1791036959.531112303] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036959.566027253] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036959.840973434] [mpc_corr]: ODOM/hw | x=+148.7893 y=+269.8702 yaw=-1.0179 v=+0.4576
+[taskset-1] [WARN] [1791036959.891655755] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036960.064633502] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036960.566250939] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036960.860927662] [mpc_corr]: ODOM/hw | x=+149.0247 y=+269.4893 yaw=-1.0161 v=+0.4581
+[taskset-1] [INFO] [1791036961.531159658] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036961.665959279] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036961.861052955] [mpc_corr]: ODOM/hw | x=+149.2552 y=+269.1133 yaw=-1.0285 v=+0.4313
+[taskset-1] [INFO] [1791036962.164532727] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036962.765949780] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036962.861060993] [mpc_corr]: ODOM/hw | x=+149.4829 y=+268.7315 yaw=-1.0378 v=+0.4545
+[taskset-1] [INFO] [1791036963.531336086] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036963.766011436] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036963.879570979] [mpc_corr]: ODOM/hw | x=+149.7130 y=+268.3403 yaw=-1.0420 v=+0.4299
+[taskset-1] [INFO] [1791036964.164644159] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036964.866397378] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036964.899370521] [mpc_corr]: ODOM/hw | x=+104.5068 y=+154.8066 yaw=+2.5773 v=+0.1220
+[taskset-1] [WARN] [1791036964.991229904] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036965.584166082] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036965.899480523] [mpc_corr]: ODOM/hw | x=+105.0755 y=+154.8735 yaw=+2.8415 v=-0.0000
+[taskset-1] [INFO] [1791036965.966130779] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036966.165326225] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036966.919605725] [mpc_corr]: ODOM/hw | x=+104.9941 y=+154.7599 yaw=+2.8508 v=-0.0000
+[taskset-1] [INFO] [1791036966.966232479] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036967.584431408] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036967.919932149] [mpc_corr]: ODOM/hw | x=+104.9716 y=+154.7227 yaw=+2.8508 v=-0.0000
+[taskset-1] [INFO] [1791036968.066169157] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036968.264558260] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036968.920193003] [mpc_corr]: ODOM/hw | x=+104.9647 y=+154.7117 yaw=+2.8508 v=-0.0000
+[taskset-1] [INFO] [1791036969.066201448] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036969.630917802] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036969.940916231] [mpc_corr]: ODOM/hw | x=+104.9579 y=+154.7112 yaw=+2.8545 v=-0.0000
+[taskset-1] [INFO] [1791036970.066202038] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036970.090867160] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036970.364666135] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036970.958533021] [mpc_corr]: ODOM/hw | x=+104.9329 y=+154.7147 yaw=+2.8853 v=+0.1638
+[taskset-1] [INFO] [1791036971.066209058] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036971.631055828] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036971.960568759] [mpc_corr]: ODOM/hw | x=+104.8338 y=+154.7339 yaw=+3.0159 v=+0.1512
+[taskset-1] [INFO] [1791036972.066210470] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036972.464628081] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036972.980538834] [mpc_corr]: ODOM/hw | x=+104.7102 y=+154.7423 yaw=+3.1196 v=+0.2083
+[taskset-1] [INFO] [1791036973.166003797] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036973.631240936] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036974.000525720] [mpc_corr]: ODOM/hw | x=+104.4866 y=+154.7333 yaw=-3.0540 v=+0.2322
+[taskset-1] [INFO] [1791036974.166022475] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036974.464658678] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036975.020491033] [mpc_corr]: ODOM/hw | x=+104.1822 y=+154.7177 yaw=+3.1088 v=+0.3257
+[taskset-1] [INFO] [1791036975.166097750] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791036975.190232393] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036975.681371857] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036976.020735785] [mpc_corr]: ODOM/hw | x=+103.8202 y=+154.7565 yaw=+2.9636 v=+0.3649
+[taskset-1] [INFO] [1791036976.265967374] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036976.464662278] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036977.040592217] [mpc_corr]: ODOM/hw | x=+103.4712 y=+154.8421 yaw=+2.8269 v=+0.2832
+[taskset-1] [INFO] [1791036977.265971621] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036977.681484873] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036978.059653221] [mpc_corr]: ODOM/hw | x=+103.2323 y=+154.9317 yaw=+2.7360 v=+0.2006
+[taskset-1] [INFO] [1791036978.365930597] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036978.464803706] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036979.078473292] [mpc_corr]: ODOM/hw | x=+103.0383 y=+155.0274 yaw=+2.6412 v=+0.2444
+[taskset-1] [INFO] [1791036979.366027396] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036979.683686424] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036980.098722289] [mpc_corr]: ODOM/hw | x=+102.7884 y=+155.1648 yaw=+2.6530 v=+0.3299
+[taskset-1] [WARN] [1791036980.295473998] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036980.466640070] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036980.565214092] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.005s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036981.120468200] [mpc_corr]: ODOM/hw | x=+102.4673 y=+155.3348 yaw=+2.6478 v=+0.3850
+[taskset-1] [INFO] [1791036981.566151560] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036981.683712338] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036982.139196200] [mpc_corr]: ODOM/hw | x=+102.1187 y=+155.5269 yaw=+2.6238 v=+0.4040
+[taskset-1] [INFO] [1791036982.664727612] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036982.666561160] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036983.158575804] [mpc_corr]: ODOM/hw | x=+101.7563 y=+155.7411 yaw=+2.5953 v=+0.4131
+[taskset-1] [INFO] [1791036983.731059316] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036983.766188675] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036984.160804234] [mpc_corr]: ODOM/hw | x=+101.3895 y=+155.9678 yaw=+2.5779 v=+0.4461
+[taskset-1] [INFO] [1791036984.764620867] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036984.766218342] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036985.179027320] [mpc_corr]: ODOM/hw | x=+101.0160 y=+156.2052 yaw=+2.5758 v=+0.4220
+[taskset-1] [WARN] [1791036985.392107779] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036985.782240801] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036985.866083067] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036986.179122409] [mpc_corr]: ODOM/hw | x=+100.6440 y=+156.4413 yaw=+2.5761 v=+0.4153
+[taskset-1] [INFO] [1791036986.864582423] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036986.866155889] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036987.198607136] [mpc_corr]: ODOM/hw | x=+100.2657 y=+156.6803 yaw=+2.5842 v=+0.4215
+[taskset-1] [INFO] [1791036987.831055643] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036987.966066381] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036988.199021424] [mpc_corr]: ODOM/hw | x=+99.8930 y=+156.9103 yaw=+2.5938 v=+0.4634
+[taskset-1] [INFO] [1791036988.964615578] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036988.966259404] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036989.238137450] [mpc_corr]: ODOM/hw | x=+99.5012 y=+157.1448 yaw=+2.6175 v=+0.4193
+[taskset-1] [INFO] [1791036989.831161706] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036990.066332088] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036990.240299415] [mpc_corr]: ODOM/hw | x=+99.1203 y=+157.3602 yaw=+2.6346 v=+0.4439
+[taskset-1] [WARN] [1791036990.490307391] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036991.064670080] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036991.066338610] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036991.261685074] [mpc_corr]: ODOM/hw | x=+98.7240 y=+157.5761 yaw=+2.6488 v=+0.4306
+[taskset-1] [INFO] [1791036991.882962796] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036992.066369829] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036992.279719907] [mpc_corr]: ODOM/hw | x=+98.3248 y=+157.7873 yaw=+2.6603 v=+0.4293
+[taskset-1] [INFO] [1791036993.064722711] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.004s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036993.066459537] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036993.299395154] [mpc_corr]: ODOM/hw | x=+97.9209 y=+157.9945 yaw=+2.6730 v=+0.4299
+[taskset-1] [INFO] [1791036993.883627574] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036994.166802023] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036994.320371501] [mpc_corr]: ODOM/hw | x=+97.5225 y=+158.1945 yaw=+2.6788 v=+0.4443
+[taskset-1] [INFO] [1791036995.064779806] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.024s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036995.167103010] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036995.338348978] [mpc_corr]: ODOM/hw | x=+97.1200 y=+158.3939 yaw=+2.6844 v=+0.4306
+[taskset-1] [WARN] [1791036995.491711644] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791036995.931804064] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036996.266017036] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036996.360192116] [mpc_corr]: ODOM/hw | x=+96.7187 y=+158.5907 yaw=+2.6877 v=+0.4674
+[taskset-1] [INFO] [1791036997.166014511] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.007s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036997.266017670] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036997.379913618] [mpc_corr]: ODOM/hw | x=+96.3123 y=+158.7874 yaw=+2.6935 v=+0.4470
+[taskset-1] [INFO] [1791036997.981820155] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791036998.365950829] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036998.398465710] [mpc_corr]: ODOM/hw | x=+95.9093 y=+158.9801 yaw=+2.6973 v=+0.4443
+[taskset-1] [INFO] [1791036999.264619084] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.006s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791036999.365978026] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791036999.398815581] [mpc_corr]: ODOM/hw | x=+95.5103 y=+159.1702 yaw=+2.6960 v=+0.4406
+[taskset-1] [INFO] [1791036999.982602704] [mpc_corr]: BOUNDARY/costmap | n=0
+[taskset-1] [INFO] [1791037000.366443307] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [INFO] [1791037000.399294640] [mpc_corr]: ODOM/hw | x=+95.1061 y=+159.3640 yaw=+2.6938 v=+0.4330
+[taskset-1] [WARN] [1791037000.590359284] [mpc_corr]: JOINT | giunti sterzo non trovati in /joint_states: ['left_rear_wheel_joint', 'right_rear_wheel_joint', 'left_steering_hinge_joint', 'right_steering_hinge_joint', 'left_front_wheel_joint', 'right_front_wheel_joint']
+[taskset-1] [INFO] [1791037001.264755578] [mpc_corr]: ODOMSEL | src=hardware hw_age=0.064s sim_age=infs timeout=0.500s
+[taskset-1] [INFO] [1791037001.419842180] [mpc_corr]: ODOM/hw | x=+94.7096 y=+159.5546 yaw=+2.6930 v=+0.4297
+[taskset-1] [INFO] [1791037001.465972867] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [lifecycle_manager-3]: sending signal 'SIGINT' to process[lifecycle_manager-3]
+[INFO] [map_server-2]: sending signal 'SIGINT' to process[map_server-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[lifecycle_manager-3] [INFO] [1791037001.971949935] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[lifecycle_manager-3] [INFO] [1791037001.972197388] [lifecycle_manager_map]: Running Nav2 LifecycleManager rcl preshutdown (lifecycle_manager_map)
+[lifecycle_manager-3] [INFO] [1791037001.972304628] [lifecycle_manager_map]: [34m[1mTerminating bond timer...[0m[0m
+[map_server-2] [INFO] [1791037001.972361702] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[map_server-2] [INFO] [1791037001.972671090] [map_server]: Running Nav2 LifecycleNode rcl preshutdown (map_server)
+[map_server-2] [INFO] [1791037001.974081538] [map_server]: Deactivating
+[map_server-2] [INFO] [1791037001.974149806] [map_server]: Destroying bond (map_server) to lifecycle manager.
+[map_server-2] [INFO] [1791037001.987253097] [map_server]: Cleaning up
+[map_server-2] [INFO] [1791037001.987395143] [map_server]: Destroying bond (map_server) to lifecycle manager.
+[lifecycle_manager-3] [INFO] [1791037001.995003038] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('mpc-controller', 'console_scripts', 'mpc_corr')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/mpc_controller/mpc_controller/MPC_corr.py", line 5706, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/mpc_controller/mpc_controller/MPC_corr.py", line 1889, in destroy_node
+[taskset-1]     super().destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[taskset-1]     self.destroy_subscription(self._subscriptions[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1857, in destroy_subscription
+[taskset-1]     self._wake_executor()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 307, in _wake_executor
+[taskset-1]     executor.wake()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 346, in wake
+[taskset-1]     self._guard.trigger()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/guard_condition.py", line 34, in trigger
+[taskset-1]     self.__gc.trigger_guard_condition()
+[taskset-1] KeyboardInterrupt
+[lifecycle_manager-3] [INFO] [1791037002.013651067] [lifecycle_manager_map]: Destroying lifecycle_manager_map
+[map_server-2] [INFO] [1791037002.016164853] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[map_server-2] [INFO] [1791037002.050660440] [map_server]: Destroying
+[INFO] [lifecycle_manager-3]: process has finished cleanly [pid 443049]
+[INFO] [map_server-2]: process has finished cleanly [pid 443048]
+[ERROR] [taskset-1]: process has died [pid 443047, exit code -2, cmd 'taskset -c 10,11 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_w826wysf'].

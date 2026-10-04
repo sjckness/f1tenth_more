@@ -1,0 +1,30 @@
+1791022140.4856055 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/ros_log/2026-10-03-12-09-00-483087-thor-392588
+1791022140.4858980 [INFO] [launch]: Default logging verbosity is set to INFO
+1791022141.1081324 [INFO] [taskset-1]: process started with pid [392869]
+1791022141.1086042 [INFO] [taskset-2]: process started with pid [392870]
+1791022141.1087320 [INFO] [slam_pose_relay_node-3]: process started with pid [392871]
+1791022141.1087999 [INFO] [taskset-4]: process started with pid [392884]
+1791022141.1088512 [INFO] [robot_state_publisher-5]: process started with pid [392885]
+1791022141.1088984 [INFO] [joint_state_publisher-6]: process started with pid [392886]
+1791022141.1089394 [INFO] [static_transform_publisher-7]: process started with pid [392887]
+1791022141.1832147 [static_transform_publisher-7] [WARN] [1791022141.172254762] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791022141.2443371 [static_transform_publisher-7] [INFO] [1791022141.243648880] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791022141.2447517 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791022141.2448332 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791022141.2448683 [static_transform_publisher-7] from 'base_link' to 'laser'
+1791022205.9946721 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791022206.0005162 [INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+1791022206.0033977 [INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+1791022206.0043528 [INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+1791022206.0071137 [INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+1791022206.0075605 [INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+1791022206.0079527 [INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+1791022206.0108132 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791022206.0124972 [static_transform_publisher-7] [INFO] [1791022205.994506326] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791022206.0187118 [ERROR] [static_transform_publisher-7]: process has died [pid 392887, exit code -2, cmd '/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser'].
+1791022206.0349169 [ERROR] [taskset-1]: process has died [pid 392869, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+1791022206.0353754 [ERROR] [taskset-2]: process has died [pid 392870, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791022206.2259865 [INFO] [robot_state_publisher-5]: process has finished cleanly [pid 392885]
+1791022206.2322500 [ERROR] [joint_state_publisher-6]: process has died [pid 392886, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_79mo7fax'].
+1791022206.2411101 [ERROR] [taskset-4]: process has died [pid 392884, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].
+1791022206.2758083 [ERROR] [slam_pose_relay_node-3]: process has died [pid 392871, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].

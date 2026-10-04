@@ -1,0 +1,69 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_08/ros_log/2026-10-03-11-37-23-397088-thor-381396
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [semantic_layer_node-1]: process started with pid [381495]
+[INFO] [costmap_renderer_node-2]: process started with pid [381497]
+[INFO] [costmap_boundary_node-3]: process started with pid [381499]
+[costmap_renderer_node-2] [INFO] [1791020244.738514997] [costmap_renderer_node]: costmap_renderer_node started
+[costmap_boundary_node-3] [INFO] [1791020245.336106119] [costmap_boundary_node]: costmap_boundary_node started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=20.0 (periodic-publish pass: publishes every tick from whatever is currently cached, regardless of how recently either input last updated -- fail-safe empty/withheld only if a message of that kind has never arrived at all yet. See module docstring for why gating on upstream recency was removed.)
+[costmap_boundary_node-3] [WARN] [1791020245.368801247] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[semantic_layer_node-1] [INFO] [1791020245.428021543] [semantic_layer_node]: semantic_layer_node started
+[costmap_boundary_node-3] [WARN] [1791020250.418526483] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791020255.419154675] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791020260.469626713] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [WARN] [1791020265.518686662] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[costmap_boundary_node-3] [INFO] [1791020270.337288738] [costmap_boundary_node]: n_constraints=3 front_clearance=2.24m
+[costmap_boundary_node-3] [INFO] [1791020272.384251140] [costmap_boundary_node]: n_constraints=3 front_clearance=2.24m
+[costmap_boundary_node-3] [INFO] [1791020274.385330962] [costmap_boundary_node]: n_constraints=3 front_clearance=1.63m
+[costmap_boundary_node-3] [INFO] [1791020276.435701243] [costmap_boundary_node]: n_constraints=3 front_clearance=1.33m
+[costmap_boundary_node-3] [INFO] [1791020278.484087318] [costmap_boundary_node]: n_constraints=3 front_clearance=1.03m
+[costmap_boundary_node-3] [INFO] [1791020280.486404186] [costmap_boundary_node]: n_constraints=3 front_clearance=1.95m
+[costmap_boundary_node-3] [INFO] [1791020282.534983408] [costmap_boundary_node]: n_constraints=3 front_clearance=1.62m
+[costmap_boundary_node-3] [INFO] [1791020284.538257525] [costmap_boundary_node]: n_constraints=3 front_clearance=1.72m
+[costmap_boundary_node-3] [INFO] [1791020286.584512592] [costmap_boundary_node]: n_constraints=3 front_clearance=3.40m
+[costmap_boundary_node-3] [INFO] [1791020288.634260050] [costmap_boundary_node]: n_constraints=3 front_clearance=2.53m
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [costmap_boundary_node-3]: sending signal 'SIGINT' to process[costmap_boundary_node-3]
+[INFO] [costmap_renderer_node-2]: sending signal 'SIGINT' to process[costmap_renderer_node-2]
+[INFO] [semantic_layer_node-1]: sending signal 'SIGINT' to process[semantic_layer_node-1]
+[costmap_boundary_node-3] Traceback (most recent call last):
+[costmap_boundary_node-3]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node", line 33, in <module>
+[costmap_boundary_node-3]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'costmap_boundary_node')())
+[costmap_boundary_node-3]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[costmap_boundary_node-3]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_costmap/f1tenth_costmap/costmap_boundary_node.py", line 776, in main
+[costmap_boundary_node-3]     node.destroy_node()
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[costmap_boundary_node-3]     self.destroy_publisher(self._publishers[0])
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[costmap_boundary_node-3]     publisher.destroy()
+[costmap_boundary_node-3]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[costmap_boundary_node-3]     self.__publisher.destroy_when_not_in_use()
+[costmap_boundary_node-3] KeyboardInterrupt
+[costmap_renderer_node-2] Traceback (most recent call last):
+[costmap_renderer_node-2]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node", line 33, in <module>
+[costmap_renderer_node-2]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'costmap_renderer_node')())
+[costmap_renderer_node-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[costmap_renderer_node-2]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_costmap/f1tenth_costmap/costmap_renderer_node.py", line 125, in main
+[costmap_renderer_node-2]     node.destroy_node()
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[costmap_renderer_node-2]     self.destroy_publisher(self._publishers[0])
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[costmap_renderer_node-2]     publisher.destroy()
+[costmap_renderer_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[costmap_renderer_node-2]     self.__publisher.destroy_when_not_in_use()
+[costmap_renderer_node-2] KeyboardInterrupt
+[semantic_layer_node-1] Traceback (most recent call last):
+[semantic_layer_node-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node", line 33, in <module>
+[semantic_layer_node-1]     sys.exit(load_entry_point('f1tenth-costmap', 'console_scripts', 'semantic_layer_node')())
+[semantic_layer_node-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[semantic_layer_node-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_costmap/f1tenth_costmap/semantic_layer_node.py", line 608, in main
+[semantic_layer_node-1]     node.destroy_node()
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1962, in destroy_node
+[semantic_layer_node-1]     self.destroy_service(self._services[0])
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1886, in destroy_service
+[semantic_layer_node-1]     service.destroy()
+[semantic_layer_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/service.py", line 123, in destroy
+[semantic_layer_node-1]     self.__service.destroy_when_not_in_use()
+[semantic_layer_node-1] KeyboardInterrupt
+[ERROR] [costmap_boundary_node-3]: process has died [pid 381499, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node --params-file /tmp/launch_params_jh5nxifa'].
+[ERROR] [costmap_renderer_node-2]: process has died [pid 381497, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node --params-file /tmp/launch_params_xwfxdrbl'].
+[ERROR] [semantic_layer_node-1]: process has died [pid 381495, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node --params-file /tmp/launch_params_4i84n7m4'].

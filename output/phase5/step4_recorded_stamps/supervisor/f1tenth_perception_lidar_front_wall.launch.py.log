@@ -1,0 +1,497 @@
+/opt/ros/jazzy/lib/python3.12/site-packages/launch/logging/__init__.py:149: UserWarning: Cannot create a symlink to latest log directory: [Errno 2] No such file or directory: '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/latest'
+
+  warnings.warn(
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-454253-thor-352103
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [352151]
+[taskset-1] [INFO] [1791018057.338586099] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance
+[taskset-1] [INFO] [1791018077.688892152] [lidar_front_wall_node]: base_link <- laser: x=0.120 m y=0.000 m yaw=0.00 deg
+[taskset-1] [WARN] [1791018077.698264981] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018077.732840913] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018078.009113705] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018078.026083154] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018079.222634242] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018079.806671835] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018080.703680712] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018080.983015185] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018081.388680587] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018081.581737565] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018081.790476124] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018082.064153440] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018082.264071688] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018082.466276288] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018083.671860595] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018083.979975617] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018084.623126759] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018084.742891538] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018084.945391457] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018085.992453740] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018086.196624287] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018086.524333176] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018087.381120071] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018087.492005048] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018088.044203436] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018088.172790545] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018088.375762019] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018088.823202491] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018089.023596154] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018089.403939113] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018089.753814180] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018089.803183868] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018090.225185891] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018090.439537451] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018091.004743037] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018091.174591818] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018091.380739887] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018091.485313896] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018091.689997136] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018091.978223872] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018092.827644726] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018093.532932780] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018093.705548355] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018093.758289056] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018093.972866617] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018094.203676570] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018095.007403949] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018095.037937053] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018095.384043470] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018095.703031442] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018096.283883234] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018096.354568963] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018097.164490009] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018097.781183385] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018097.963628935] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018098.182677923] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018098.582441476] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018098.606338682] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018099.683187660] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018099.781860701] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018099.981717837] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018100.013044356] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018100.218444891] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018100.313217716] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018100.666211323] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018100.762780615] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018101.168037136] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018101.255347037] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018101.766763989] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018102.163607480] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018102.366818491] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018102.466061412] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018102.662944071] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018102.916473331] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [INFO] [1791018103.184721853] [lidar_front_wall_node]: wall acquired at 8.980 m after seeded (0.158 m): jump +8.822 m, nan s since the last accepted fit
+[taskset-1] [WARN] [1791018103.264634552] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018103.364024074] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [INFO] [1791018103.412048875] [lidar_front_wall_node]: wall acquired at 8.878 m after dead_reckoned (8.857 m): jump +0.021 m, 0.23 s since the last accepted fit
+[taskset-1] [INFO] [1791018103.482746689] [lidar_front_wall_node]: wall acquired at 8.845 m after dead_reckoned (8.878 m): jump -0.032 m, 0.07 s since the last accepted fit
+[taskset-1] [WARN] [1791018103.577674125] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018103.931698917] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018104.334916762] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018104.462813770] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018104.661885286] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018104.759318830] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018104.930778136] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018105.042733974] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018105.243176931] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018105.341488739] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018105.741649880] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018105.964326259] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018106.162417852] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018106.745036861] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018106.940503577] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018107.090651489] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018107.529085413] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018107.545304185] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018107.761121352] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018107.860980392] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018108.061293555] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018108.340555900] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018108.744679817] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018108.822224426] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018109.218861387] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018109.265785096] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018109.596327218] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018109.712557298] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018110.224453615] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018110.795512082] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018111.127893104] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018111.348063450] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018111.696563111] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018111.728536777] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018111.922221162] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018112.321572271] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018112.649486628] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018112.992474511] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018113.622895071] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018113.778355965] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018114.002374816] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018114.102961030] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018114.703119922] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018114.871018919] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018115.225879282] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018115.621598277] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018115.832002694] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018116.255435607] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018117.485556350] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018117.581639466] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018118.528878303] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018118.563417549] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018118.867415417] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018119.062851236] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018119.774477791] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018120.389046183] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018120.599626618] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018121.382112884] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018121.599095179] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018122.353215289] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018122.525539432] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018122.993177531] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018123.177649374] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018125.127019449] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018125.860813837] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018126.519965426] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018126.748389656] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018130.365991447] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018130.567598201] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018132.983013904] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018133.186421609] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018133.791444122] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018134.449640194] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018134.981160028] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018135.369737315] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018135.432308271] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018135.626276959] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018135.661917970] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018135.877798682] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018136.080123861] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018136.257763807] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018136.749692868] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018137.189376689] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018138.472947495] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018138.827800942] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018141.197808239] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018141.550161518] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018141.841576845] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018142.057406540] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018143.797370400] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018144.006704550] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018144.420197912] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018144.755968780] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018145.729867355] [lidar_front_wall_node]: wall acquired at 8.980 m after seeded (2.735 m): jump +6.246 m, 28.00 s since the last accepted fit
+[taskset-1] [INFO] [1791018145.956912892] [lidar_front_wall_node]: wall acquired at 8.878 m after seeded (2.735 m): jump +6.143 m, 0.23 s since the last accepted fit
+[taskset-1] [INFO] [1791018146.027244641] [lidar_front_wall_node]: wall acquired at 8.845 m after seeded (2.735 m): jump +6.111 m, 0.07 s since the last accepted fit
+[taskset-1] [INFO] [1791018149.819909263] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018150.077846879] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018151.810153416] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018151.987258252] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018153.463174926] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018153.667850781] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018155.715633068] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018155.914094525] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018157.051406840] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018157.247324824] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018159.125089792] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018160.028717060] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018160.095927342] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018161.129801473] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018161.242123134] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018161.455046995] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018162.309229143] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018162.389221314] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018162.933536360] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018163.142039353] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018163.883400261] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018164.090734876] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018164.490528055] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018164.691352327] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018164.777031397] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018164.994394524] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018165.279499051] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018165.721365206] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018167.670101271] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018168.370865371] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018169.062559937] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018169.287297333] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018169.708740058] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018169.904889245] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018170.340669574] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018170.548695198] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018172.339758946] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018172.560678079] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018172.840881213] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018173.231999358] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018174.271777730] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018174.460823503] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018175.525859172] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018175.732263140] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018176.019695306] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018176.241738034] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018176.332408856] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018176.520220176] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018176.569413030] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018176.740839429] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018176.774143815] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018176.958839130] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018177.098376808] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018177.293270706] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018177.524632091] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018177.911238436] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018177.959189663] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018178.422295958] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018178.438860202] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018178.907993658] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018179.290400872] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018179.731220633] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018181.012999441] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018181.369629802] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018183.742177687] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018184.096118769] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018184.383339306] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018184.599922334] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018184.760271416] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018184.969094427] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018186.344574788] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018186.519254859] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018186.962839899] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018187.276844433] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018187.580117487] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018187.800360186] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018188.270423170] [lidar_front_wall_node]: wall acquired at 8.980 m after none (nan m): jump +nan m, 28.00 s since the last accepted fit
+[taskset-1] [INFO] [1791018188.500561759] [lidar_front_wall_node]: wall acquired at 8.878 m after none (nan m): jump +nan m, 0.23 s since the last accepted fit
+[taskset-1] [INFO] [1791018188.569373341] [lidar_front_wall_node]: wall acquired at 8.845 m after none (nan m): jump +nan m, 0.07 s since the last accepted fit
+[taskset-1] [INFO] [1791018188.619539046] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018188.817394833] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018189.846906156] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018190.048681798] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018192.366129697] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018192.620306652] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018194.357658135] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018194.528902701] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018203.799915742] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018204.859717546] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018204.902088501] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018205.105026713] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018205.476349072] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018205.686815266] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018205.758678449] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018205.984858120] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018206.253924978] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018206.634082155] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018207.034474653] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018207.651329096] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018207.820786561] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018208.264214648] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018209.017342715] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018209.211720294] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018209.296051810] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018209.641374539] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018209.760690070] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018209.964726027] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018209.997175916] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018210.895152564] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018210.946427527] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018211.143076513] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018211.197049731] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018211.418892585] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018211.529900747] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018211.724689677] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018211.771884479] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018211.974983406] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018212.252797821] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018212.442840415] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018212.673162580] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018213.072653824] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018213.924381553] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018214.122748543] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018214.884696690] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018215.077136511] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018215.384038260] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018215.777187822] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018215.803129118] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018216.008033709] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018216.756767504] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018216.951618555] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018217.888074244] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018218.783568396] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018218.840200573] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018219.061863580] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018219.116910796] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018219.486461620] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018219.640719553] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018219.836457611] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018220.067498001] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018220.456864130] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018220.501815500] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018220.934084548] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018220.983977707] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018221.453226778] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018221.832958699] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018222.283367651] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018223.521410540] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018224.664672168] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018224.812939721] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018225.133193747] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018225.863128885] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018226.063240880] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018226.281587192] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018227.066922203] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018227.218080807] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018227.439964670] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018227.723816376] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018227.941688250] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018228.886724188] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018229.241990041] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018229.507066155] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018229.790700807] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018229.962374706] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018230.343289611] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018230.814731999] [lidar_front_wall_node]: wall acquired at 8.980 m after none (nan m): jump +nan m, 28.00 s since the last accepted fit
+[taskset-1] [INFO] [1791018231.041260429] [lidar_front_wall_node]: wall acquired at 8.878 m after none (nan m): jump +nan m, 0.23 s since the last accepted fit
+[taskset-1] [INFO] [1791018231.116290263] [lidar_front_wall_node]: wall acquired at 8.845 m after none (nan m): jump +nan m, 0.08 s since the last accepted fit
+[taskset-1] [INFO] [1791018231.160612724] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018231.366939775] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018232.391293402] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018232.593911755] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018233.827137920] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018234.024332931] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018234.200264498] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018234.423706220] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018234.640936613] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018235.176304028] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018236.897030156] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018237.073766001] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018237.722672511] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018237.923651224] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018237.980933668] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018238.202624771] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018238.776375734] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018239.203662423] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018239.223139227] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018239.426259414] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018239.603902739] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018239.802242729] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018239.877704943] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018240.101777755] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018244.537838305] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018245.042302780] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018245.520945066] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018246.213496266] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018246.332057482] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018246.543731435] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018247.395865459] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018247.648037760] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018247.724629241] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018247.928111297] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018247.946696797] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018248.496366448] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018248.780678043] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018249.153882982] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018249.428251106] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018250.177147424] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018250.362643848] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018250.756441800] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018251.025281417] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018251.475921103] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018251.560706143] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018252.157909738] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018252.186300816] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018252.686324899] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018252.755700252] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018253.873105039] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018254.072869341] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018254.988090080] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018255.064831802] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018255.389430061] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018255.422059968] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018255.745500988] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018256.196558809] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018256.666619218] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018256.998332088] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018258.596567625] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018258.829097907] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018259.144437671] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018259.250531906] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018259.446538254] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018259.645744678] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018259.980490247] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018260.276985760] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018260.779283090] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018260.924510758] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018261.279293058] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018261.381792593] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018261.783672874] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018261.798341122] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018262.030177979] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018262.183216628] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018262.379558601] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018262.580155189] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018262.923036583] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018263.043907038] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018263.377362358] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018263.524830033] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018264.225321001] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018264.243812353] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018264.447598696] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018264.525182380] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018265.008543514] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018265.123570680] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018265.326773097] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018266.061202025] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018266.378945516] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018266.410471127] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018266.727626258] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018266.807722669] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018267.206439057] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018267.223511245] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018267.655634506] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018268.137602880] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018268.605608796] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018268.656877110] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018269.155744107] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018269.178017881] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018269.957363835] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018270.271323850] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018270.485085954] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018270.761995354] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018271.088514389] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018271.257967383] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018271.888354924] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018271.985590302] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018272.437017608] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018272.505018472] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018273.185948458] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018273.359112291] [lidar_front_wall_node]: wall acquired at 8.980 m after none (nan m): jump +nan m, 28.00 s since the last accepted fit
+[taskset-1] [INFO] [1791018273.602002446] [lidar_front_wall_node]: wall acquired at 8.878 m after none (nan m): jump +nan m, 0.23 s since the last accepted fit
+[taskset-1] [INFO] [1791018273.659649492] [lidar_front_wall_node]: wall acquired at 8.845 m after none (nan m): jump +nan m, 0.07 s since the last accepted fit
+[taskset-1] [INFO] [1791018273.705245111] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018273.908496506] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018274.932640572] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018275.111074556] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018275.668749626] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018276.036247897] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018276.340294847] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018276.565564289] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018276.742974133] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018277.066446532] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018277.187085209] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018277.824043129] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018277.883645942] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018278.085149149] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018278.138604876] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018278.345674611] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018279.435388290] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018279.614523210] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018279.746672204] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018279.936261372] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018280.246817837] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018280.435049008] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018280.525495182] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018280.821176043] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018281.306862041] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018281.496358460] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[taskset-1] [INFO] [1791018281.520130009] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[taskset-1] [WARN] [1791018282.627041117] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[INFO] [taskset-1]: process has finished cleanly [pid 352151]

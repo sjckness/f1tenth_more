@@ -326,6 +326,14 @@ class SteeringOffsetCalibrationNode(Node):
             self.declare_parameter('require_estop_publisher', True).value)
         self.preflight_timeout_sec = float(
             self.declare_parameter('preflight_timeout_sec', 20.0).value)
+        # How long the e-stop path check keeps polling the two graph counts
+        # before refusing. Under ROS_DISCOVERY_SERVER this node is a super
+        # client (its launch file), and a new super client is told the whole
+        # graph only after a few seconds; the rest of preflight is usually
+        # done in about 2 s, so a single read refused 3 of 4 starts with the
+        # mux and the behaviour tree both up (fix batch 3).
+        self.estop_graph_wait_sec = float(
+            self.declare_parameter('estop_graph_wait_sec', 5.0).value)
 
         # ---- preflight nudge (mode B only) ---------------------------------
         # The one part of preflight that moves the car. Bounded in distance
@@ -654,6 +662,36 @@ class SteeringOffsetCalibrationNode(Node):
         self.get_logger().info(f'mission state is {self._mission_state!r} -- not active.')
         return True
 
+    def _wait_for_estop_graph(self):
+        """
+        Poll the two graph counts the e-stop check needs, spinning.
+
+        Stops when both are met or estop_graph_wait_sec has passed. Returns
+        (drive-lane subscribers, /safety_stop publishers, seconds waited).
+
+        Only waits; never decides. _check_estop_path() applies exactly the
+        same rules to whatever this returns, so a timeout refuses exactly as a
+        single read used to.
+        """
+        start = time.monotonic()
+        deadline = start + max(self.estop_graph_wait_sec, 0.0)
+        while True:
+            subs = self.count_subscribers(self.drive_topic)
+            estop_pubs = self.count_publishers(self.safety_stop_topic)
+            if subs >= 1 and estop_pubs >= 1:
+                break
+            if time.monotonic() >= deadline or not rclpy.ok():
+                break
+            rclpy.spin_once(self, timeout_sec=0.1)
+        waited = time.monotonic() - start
+        outcome = ('both present' if subs >= 1 and estop_pubs >= 1
+                   else f'gave up at the {self.estop_graph_wait_sec:.1f} s limit')
+        self.get_logger().info(
+            f'e-stop graph check after {waited:.2f} s: {subs} subscriber(s) on '
+            f'{self.drive_topic}, {estop_pubs} publisher(s) on '
+            f'{self.safety_stop_topic} ({outcome}).')
+        return subs, estop_pubs, waited
+
     def _check_estop_path(self):
         """Verify the e-stop path is live BEFORE the first command.
 
@@ -665,7 +703,7 @@ class SteeringOffsetCalibrationNode(Node):
             lane exists and can pre-empt us at mux priority 200. Without it
             nothing but this node's own clearance check can stop the car.
         """
-        subs = self.count_subscribers(self.drive_topic)
+        subs, estop_pubs, _waited = self._wait_for_estop_graph()
         if subs < 1:
             self.get_logger().error(
                 f'nothing is subscribed to {self.drive_topic} -- ackermann_mux is not '
@@ -675,7 +713,6 @@ class SteeringOffsetCalibrationNode(Node):
         self.get_logger().info(
             f'{subs} subscriber(s) on {self.drive_topic} (mux lane is live).')
 
-        estop_pubs = self.count_publishers(self.safety_stop_topic)
         if estop_pubs < 1:
             message = (
                 f'NO publisher on {self.safety_stop_topic} -- the behaviour tree safety '

@@ -1,0 +1,425 @@
+{
+  "duration_s": 12.0,
+  "edges": [
+    {
+      "topic": "/tf",
+      "parent": "chassis",
+      "child": "left_rear_wheel",
+      "messages": 102,
+      "writers": 1,
+      "signatures": [
+        [
+          "left_front_wheel",
+          "left_rear_wheel",
+          "left_steering_hinge",
+          "right_front_wheel",
+          "right_rear_wheel",
+          "right_steering_hinge"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf",
+      "parent": "chassis",
+      "child": "left_steering_hinge",
+      "messages": 102,
+      "writers": 1,
+      "signatures": [
+        [
+          "left_front_wheel",
+          "left_rear_wheel",
+          "left_steering_hinge",
+          "right_front_wheel",
+          "right_rear_wheel",
+          "right_steering_hinge"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf",
+      "parent": "chassis",
+      "child": "right_rear_wheel",
+      "messages": 102,
+      "writers": 1,
+      "signatures": [
+        [
+          "left_front_wheel",
+          "left_rear_wheel",
+          "left_steering_hinge",
+          "right_front_wheel",
+          "right_rear_wheel",
+          "right_steering_hinge"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf",
+      "parent": "chassis",
+      "child": "right_steering_hinge",
+      "messages": 102,
+      "writers": 1,
+      "signatures": [
+        [
+          "left_front_wheel",
+          "left_rear_wheel",
+          "left_steering_hinge",
+          "right_front_wheel",
+          "right_rear_wheel",
+          "right_steering_hinge"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf",
+      "parent": "left_steering_hinge",
+      "child": "left_front_wheel",
+      "messages": 102,
+      "writers": 1,
+      "signatures": [
+        [
+          "left_front_wheel",
+          "left_rear_wheel",
+          "left_steering_hinge",
+          "right_front_wheel",
+          "right_rear_wheel",
+          "right_steering_hinge"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf",
+      "parent": "map",
+      "child": "odom",
+      "messages": 104,
+      "writers": 1,
+      "signatures": [
+        [
+          "odom"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf",
+      "parent": "odom",
+      "child": "base_link",
+      "messages": 28,
+      "writers": 1,
+      "signatures": [
+        [
+          "base_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf",
+      "parent": "right_steering_hinge",
+      "child": "right_front_wheel",
+      "messages": 102,
+      "writers": 1,
+      "signatures": [
+        [
+          "left_front_wheel",
+          "left_rear_wheel",
+          "left_steering_hinge",
+          "right_front_wheel",
+          "right_rear_wheel",
+          "right_steering_hinge"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "base_link",
+      "child": "chassis",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "chassis",
+          "chassis_inertia"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "base_link",
+      "child": "imu",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "base_link",
+      "child": "laser",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "laser"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "base_link",
+      "child": "zed2_camera_link",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "chassis",
+      "child": "chassis_inertia",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "chassis",
+          "chassis_inertia"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_camera_center",
+      "child": "zed2_baro_link",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_camera_center",
+      "child": "zed2_left_camera_frame",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_camera_center",
+      "child": "zed2_mag_link",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_camera_center",
+      "child": "zed2_right_camera_frame",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_camera_link",
+      "child": "zed2_camera_center",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_left_camera_frame",
+      "child": "zed2_left_camera_optical_frame",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_left_camera_frame",
+      "child": "zed2_temp_left_link",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_right_camera_frame",
+      "child": "zed2_right_camera_optical_frame",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    },
+    {
+      "topic": "/tf_static",
+      "parent": "zed2_right_camera_frame",
+      "child": "zed2_temp_right_link",
+      "messages": 1,
+      "writers": 1,
+      "signatures": [
+        [
+          "imu",
+          "zed2_baro_link",
+          "zed2_camera_center",
+          "zed2_camera_link",
+          "zed2_left_camera_frame",
+          "zed2_left_camera_optical_frame",
+          "zed2_mag_link",
+          "zed2_right_camera_frame",
+          "zed2_right_camera_optical_frame",
+          "zed2_temp_left_link",
+          "zed2_temp_right_link"
+        ]
+      ]
+    }
+  ],
+  "publisher_nodes": {
+    "/tf": [
+      "/ekf_filter_node",
+      "/ekf_global/ekf_global_filter_node",
+      "/robot_state_publisher",
+      "/slam_toolbox",
+      "/slam_toolbox"
+    ],
+    "/tf_static": [
+      "/robot_state_publisher",
+      "/rosbag2_player",
+      "/static_baselink_to_laser"
+    ]
+  }
+}

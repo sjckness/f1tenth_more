@@ -1,0 +1,64 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/ros_log/2026-10-03-12-09-00-469801-thor-392582
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [mission_logger_node-1]: process started with pid [392660]
+[mission_logger_node-1] [INFO] [1791022141.561737513] [mission_logger_node]: mission_logger_node up (pid 392660, lock /tmp/mission_logger.lock): watching "/mission/status", runs -> "/home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/runs" (active/ -> complete/, storage=mcap), 44 topics (5 with BEST_EFFORT overrides), sweep every 300s (action=move). THIS IS THE LIVE LOGGER -- a second `ros2 run` will be refused.
+[mission_logger_node-1] stdin is not a terminal device. Keyboard handling disabled.[INFO] [1791022177.918081320] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[mission_logger_node-1] [INFO] [1791022177.918106756] [rosbag2_recorder]: Event publisher thread: Started
+[mission_logger_node-1] [INFO] [1791022177.920999156] [rosbag2_recorder]: Starting recording to '/home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/runs/active/2026-10-03T10-09-37_mission-phase5_hold/bag'
+[mission_logger_node-1] [INFO] [1791022177.923928382] [rosbag2_recorder]: Listening for topics...
+[mission_logger_node-1] [INFO] [1791022177.923972826] [rosbag2_recorder]: Recording...
+[mission_logger_node-1] [INFO] [1791022177.923961891] [rosbag2_recorder]: Topics discovery started.
+[mission_logger_node-1] [INFO] [1791022177.976651845] [mission_logger_node]: recording "2026-10-03T10-09-37_mission-phase5_hold" -> /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/runs/active/2026-10-03T10-09-37_mission-phase5_hold/bag
+[mission_logger_node-1] [INFO] [1791022180.165869621] [rosbag2_recorder]: Subscribed to topic '/ackermann_drive'
+[mission_logger_node-1] [INFO] [1791022180.173332194] [rosbag2_recorder]: Subscribed to topic '/behavior/tree_status'
+[mission_logger_node-1] [INFO] [1791022180.180459146] [rosbag2_recorder]: Subscribed to topic '/perception/d_wall/psi_correction'
+[mission_logger_node-1] [INFO] [1791022180.181822118] [rosbag2_recorder]: Overriding subscription profile for /odometry/filtered
+[mission_logger_node-1] [INFO] [1791022180.185392459] [rosbag2_recorder]: Subscribed to topic '/odometry/filtered'
+[mission_logger_node-1] [INFO] [1791022180.189694047] [rosbag2_recorder]: Subscribed to topic '/costmap/semantic_tracks'
+[mission_logger_node-1] [INFO] [1791022180.195847610] [rosbag2_recorder]: Subscribed to topic '/mpc/corridor_markers'
+[mission_logger_node-1] [INFO] [1791022180.197652198] [rosbag2_recorder]: Subscribed to topic '/drive'
+[mission_logger_node-1] [INFO] [1791022180.197903625] [rosbag2_recorder]: Overriding subscription profile for /costmap/front_clearance
+[mission_logger_node-1] [INFO] [1791022180.199328294] [rosbag2_recorder]: Subscribed to topic '/costmap/front_clearance'
+[mission_logger_node-1] [INFO] [1791022180.201639005] [rosbag2_recorder]: Subscribed to topic '/mpc/solver_status'
+[mission_logger_node-1] [INFO] [1791022180.204973835] [rosbag2_recorder]: Subscribed to topic '/mpc/hold'
+[mission_logger_node-1] [INFO] [1791022180.208235239] [rosbag2_recorder]: Subscribed to topic '/joint_states'
+[mission_logger_node-1] [INFO] [1791022180.211354817] [rosbag2_recorder]: Subscribed to topic '/slam/pose_calibrated'
+[mission_logger_node-1] [INFO] [1791022180.211754913] [rosbag2_recorder]: Overriding subscription profile for /ekf_global/odometry/filtered
+[mission_logger_node-1] [INFO] [1791022180.213562537] [rosbag2_recorder]: Subscribed to topic '/ekf_global/odometry/filtered'
+[mission_logger_node-1] [INFO] [1791022180.215733396] [rosbag2_recorder]: Subscribed to topic '/mission/status'
+[mission_logger_node-1] [INFO] [1791022180.218559704] [rosbag2_recorder]: Subscribed to topic '/scan'
+[mission_logger_node-1] [INFO] [1791022180.220985166] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_object_end'
+[mission_logger_node-1] [INFO] [1791022180.226192500] [rosbag2_recorder]: Subscribed to topic '/diagnostics'
+[mission_logger_node-1] [INFO] [1791022180.228321998] [rosbag2_recorder]: Subscribed to topic '/slam/pose'
+[mission_logger_node-1] [INFO] [1791022180.229228866] [rosbag2_recorder]: Overriding subscription profile for /costmap/boundaries
+[mission_logger_node-1] [INFO] [1791022180.231020620] [rosbag2_recorder]: Subscribed to topic '/costmap/boundaries'
+[mission_logger_node-1] [INFO] [1791022180.234935065] [rosbag2_recorder]: Subscribed to topic '/mission/move_outcome'
+[mission_logger_node-1] [INFO] [1791022180.237195351] [rosbag2_recorder]: Subscribed to topic '/diagnostics/system_status'
+[mission_logger_node-1] [INFO] [1791022180.239515627] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_pose'
+[mission_logger_node-1] [INFO] [1791022180.241212611] [rosbag2_recorder]: Subscribed to topic '/costmap/semantic_markers'
+[mission_logger_node-1] [INFO] [1791022180.243185986] [rosbag2_recorder]: Subscribed to topic '/mpc/drive_clamp'
+[mission_logger_node-1] [INFO] [1791022180.244552479] [rosbag2_recorder]: Subscribed to topic '/safety_stop'
+[mission_logger_node-1] [INFO] [1791022180.246859348] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_turn'
+[mission_logger_node-1] [INFO] [1791022180.248453350] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_distance'
+[mission_logger_node-1] [INFO] [1791022180.251559734] [rosbag2_recorder]: Subscribed to topic '/slam/map'
+[mission_logger_node-1] [INFO] [1791022180.254519256] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_object'
+[mission_logger_node-1] [INFO] [1791022180.257129858] [rosbag2_recorder]: Subscribed to topic '/mpc/object_status'
+[mission_logger_node-1] [INFO] [1791022180.260762755] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_drive'
+[mission_logger_node-1] [INFO] [1791022180.261111637] [rosbag2_recorder]: Overriding subscription profile for /odom
+[mission_logger_node-1] [INFO] [1791022180.263301969] [rosbag2_recorder]: Subscribed to topic '/odom'
+[mission_logger_node-1] [INFO] [1791022180.265620264] [rosbag2_recorder]: Subscribed to topic '/mpc/status'
+[mission_logger_node-1] [INFO] [1791022180.278374154] [rosbag2_recorder]: Overriding subscription profile for /tf
+[mission_logger_node-1] [INFO] [1791022180.283675415] [rosbag2_recorder]: Subscribed to topic '/tf'
+[mission_logger_node-1] [INFO] [1791022180.292070505] [rosbag2_recorder]: Subscribed to topic '/tf_static'
+[mission_logger_node-1] [INFO] [1791022190.119934141] [rosbag2_recorder]: Topics discovery stopped.
+[mission_logger_node-1] [INFO] [1791022190.120350959] [rosbag2_recorder]: Pausing recording.
+[mission_logger_node-1] [INFO] [1791022190.120469802] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[mission_logger_node-1] [INFO] [1791022190.164400789] [rosbag2_recorder]: Recording stopped
+[mission_logger_node-1] [INFO] [1791022190.223404721] [mission_logger_node]: stopped recording "2026-10-03T10-09-37_mission-phase5_hold" (outcome=COMPLETE) -> /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/runs/complete/2026-10-03T10-09-37_mission-phase5_hold
+[mission_logger_node-1] [INFO] [1791022190.229090243] [rosbag2_recorder]: Event publisher thread: Exited
+[mission_logger_node-1] [INFO] [1791022191.412406857] [mission_logger_node]: extract written: /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/logger_from_env/runs/complete/2026-10-03T10-09-37_mission-phase5_hold/2026-10-03T10-09-37_mission-phase5_hold.extract.parquet
+[mission_logger_node-1] [WARN] [1791022191.742065146] [mission_logger_node]: no /camera/image_annotated frames in "2026-10-03T10-09-37_mission-phase5_hold" -- no snapshots.
+[mission_logger_node-1] [INFO] [1791022191.743966234] [mission_logger_node]: archive sync spawned for "2026-10-03T10-09-37_mission-phase5_hold" (detached, not awaited).
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [mission_logger_node-1]: sending signal 'SIGINT' to process[mission_logger_node-1]
+[INFO] [mission_logger_node-1]: process has finished cleanly [pid 392660]

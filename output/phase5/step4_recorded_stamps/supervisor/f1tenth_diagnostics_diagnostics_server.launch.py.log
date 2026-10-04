@@ -1,0 +1,7 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-04-17-561466-thor-355020
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [diagnostics_server_node-1]: process started with pid [355048]
+[diagnostics_server_node-1] [INFO] [1791018258.409444647] [diagnostics_server_node]: [diagnostics_server] Publishing BatteryStatus on /diagnostics/battery_status at 2.00 Hz (min_battery_voltage=10.8V) and calibration/in_progress at 2.00 Hz. sys_obs enabled -- run_diagnostics service ready.
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [diagnostics_server_node-1]: sending signal 'SIGINT' to process[diagnostics_server_node-1]
+[INFO] [diagnostics_server_node-1]: process has finished cleanly [pid 355048]

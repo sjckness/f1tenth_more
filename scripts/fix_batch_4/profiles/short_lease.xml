@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fix batch 4 (H1) experiment E: every participant announces a 5 s lease
+     (default 20 s), re-announced every 1 s (default 3 s), so a participant
+     that left without disposing (killed, or interrupted in shutdown) drops
+     out of the Discovery Server's database within 5 s. Discovery protocol
+     and server address still come from ROS_DISCOVERY_SERVER. -->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <participant profile_name="short_lease" is_default_profile="true">
+    <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+      </builtin>
+    </rtps>
+  </participant>
+</profiles>

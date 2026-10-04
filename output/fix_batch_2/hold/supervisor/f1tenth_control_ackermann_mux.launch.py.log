@@ -1,0 +1,11 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/hold/ros_log/2026-10-03-15-33-48-005858-thor-425501
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [ackermann_mux-1]: process started with pid [425553]
+[ackermann_mux-1] [INFO] [1791034428.230060171] [ackermann_mux]: Topic handler 'topics.calibration' subscribed to topic 'calibration_drive': timeout = 0.200000s , priority = 50.
+[ackermann_mux-1] [INFO] [1791034428.232783854] [ackermann_mux]: Topic handler 'topics.joystick' subscribed to topic 'teleop': timeout = 0.200000s , priority = 100.
+[ackermann_mux-1] [INFO] [1791034428.233069587] [ackermann_mux]: Topic handler 'topics.navigation' subscribed to topic 'drive': timeout = 0.200000s , priority = 10.
+[ackermann_mux-1] [INFO] [1791034428.233251838] [ackermann_mux]: Topic handler 'topics.safety_stop' subscribed to topic 'safety_stop': timeout = 0.200000s , priority = 200.
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [ackermann_mux-1]: sending signal 'SIGINT' to process[ackermann_mux-1]
+[ackermann_mux-1] [INFO] [1791034601.624174022] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [ackermann_mux-1]: process has finished cleanly [pid 425553]

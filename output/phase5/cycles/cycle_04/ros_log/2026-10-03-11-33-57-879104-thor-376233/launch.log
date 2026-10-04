@@ -1,0 +1,110 @@
+1791020037.8817637 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_04/ros_log/2026-10-03-11-33-57-879104-thor-376233
+1791020037.8821318 [INFO] [launch]: Default logging verbosity is set to INFO
+1791020038.0716496 [INFO] [taskset-1]: process started with pid [376287]
+1791020038.0721629 [INFO] [throttle-2]: process started with pid [376288]
+1791020038.0722673 [INFO] [throttle-3]: process started with pid [376290]
+1791020038.1856480 [taskset-1] [INFO] [1791020038.184919974] [foxglove_bridge]: Starting foxglove_bridge (jazzy, 3.5.0@)
+1791020038.1900828 [taskset-1] [2026-10-03T09:33:58Z INFO  foxglove::websocket::server] Started server on 0.0.0.0:8765
+1791020038.1903811 [taskset-1] [INFO] [1791020038.186576083] [foxglove_bridge]: Server listening on port 8765
+1791020038.1910772 [taskset-1] [INFO] [1791020038.190906571] [foxglove_bridge]: Advertising new channel 2 for topic "/rosout"
+1791020038.1917582 [taskset-1] [INFO] [1791020038.191632885] [foxglove_bridge]: Advertising new channel 3 for topic "/parameter_events"
+1791020039.2131593 [taskset-1] [INFO] [1791020039.212306343] [foxglove_bridge]: Advertising new channel 4 for topic "/safety_stop"
+1791020039.2135229 [taskset-1] [INFO] [1791020039.212480398] [foxglove_bridge]: Advertising new channel 5 for topic "/teleop"
+1791020039.2142239 [taskset-1] [INFO] [1791020039.214071351] [foxglove_bridge]: Advertising new channel 6 for topic "/ekf_global/odometry/filtered"
+1791020039.2142975 [taskset-1] [INFO] [1791020039.214089564] [foxglove_bridge]: Advertising new channel 7 for topic "/drive"
+1791020039.2194295 [taskset-1] [INFO] [1791020039.219213689] [foxglove_bridge]: Advertising new channel 8 for topic "/map_server/transition_event"
+1791020039.2200530 [taskset-1] [INFO] [1791020039.219950624] [foxglove_bridge]: Advertising new channel 9 for topic "/diagnostics"
+1791020039.2201157 [taskset-1] [INFO] [1791020039.219971504] [foxglove_bridge]: Advertising new channel 10 for topic "/calibration_drive"
+1791020039.2202187 [taskset-1] [INFO] [1791020039.219981300] [foxglove_bridge]: Advertising new channel 11 for topic "/ackermann_drive"
+1791020040.3321664 [taskset-1] [INFO] [1791020040.331509534] [foxglove_bridge]: Advertising new channel 12 for topic "/tf"
+1791020040.3329284 [taskset-1] [INFO] [1791020040.331963988] [foxglove_bridge]: Advertising new channel 13 for topic "/test_campaign/logger_status"
+1791020040.3330507 [taskset-1] [INFO] [1791020040.331983617] [foxglove_bridge]: Advertising new channel 14 for topic "/slam_toolbox/transition_event"
+1791020040.3331184 [taskset-1] [INFO] [1791020040.332365580] [foxglove_bridge]: Advertising new channel 15 for topic "/slam_toolbox/feedback"
+1791020040.3331776 [taskset-1] [INFO] [1791020040.332651913] [foxglove_bridge]: Advertising new channel 16 for topic "/slam/pose_calibrated"
+1791020040.3332303 [taskset-1] [INFO] [1791020040.332663394] [foxglove_bridge]: Advertising new channel 17 for topic "/slam/pose"
+1791020040.3334320 [taskset-1] [INFO] [1791020040.332977811] [foxglove_bridge]: Advertising new channel 18 for topic "/slam/map_metadata"
+1791020040.3334990 [taskset-1] [INFO] [1791020040.332987996] [foxglove_bridge]: Advertising new channel 19 for topic "/tf_static"
+1791020040.3336508 [taskset-1] [INFO] [1791020040.333366218] [foxglove_bridge]: Advertising new channel 20 for topic "/scan"
+1791020040.3340721 [taskset-1] [INFO] [1791020040.333966986] [foxglove_bridge]: Advertising new channel 21 for topic "/perception/obstacles_2d"
+1791020040.3343318 [taskset-1] [INFO] [1791020040.334239569] [foxglove_bridge]: Advertising new channel 22 for topic "/perception/d_wall/psi_correction"
+1791020040.3344073 [taskset-1] [INFO] [1791020040.334255884] [foxglove_bridge]: Advertising new channel 23 for topic "/odom"
+1791020040.3345964 [taskset-1] [INFO] [1791020040.334271939] [foxglove_bridge]: Advertising new channel 24 for topic "/mpc/status"
+1791020040.3346725 [taskset-1] [INFO] [1791020040.334280513] [foxglove_bridge]: Advertising new channel 25 for topic "/robot_description"
+1791020040.3347359 [taskset-1] [INFO] [1791020040.334290958] [foxglove_bridge]: Advertising new channel 26 for topic "/mpc/predicted_min_clearance"
+1791020040.3349428 [taskset-1] [INFO] [1791020040.334788569] [foxglove_bridge]: Advertising new channel 27 for topic "/mpc/object_status"
+1791020040.3350139 [taskset-1] [INFO] [1791020040.334802439] [foxglove_bridge]: Advertising new channel 28 for topic "/slam_toolbox/scan_visualization"
+1791020040.3351877 [taskset-1] [INFO] [1791020040.335111031] [foxglove_bridge]: Advertising new channel 29 for topic "/mpc/goal_turn"
+1791020040.3356829 [taskset-1] [INFO] [1791020040.335599735] [foxglove_bridge]: Advertising new channel 30 for topic "/sensors/core"
+1791020040.3357520 [taskset-1] [INFO] [1791020040.335615077] [foxglove_bridge]: Advertising new channel 31 for topic "/odometry/filtered"
+1791020040.3360293 [taskset-1] [INFO] [1791020040.335947383] [foxglove_bridge]: Advertising new channel 32 for topic "/mpc/wall_track"
+1791020040.3362949 [taskset-1] [INFO] [1791020040.336213863] [foxglove_bridge]: Advertising new channel 33 for topic "/mpc/goal_reached"
+1791020040.3363600 [taskset-1] [INFO] [1791020040.336228900] [foxglove_bridge]: Advertising new channel 34 for topic "/mpc/goal_object_end"
+1791020040.3366950 [taskset-1] [INFO] [1791020040.336617382] [foxglove_bridge]: Advertising new channel 35 for topic "/mpc/goal_object"
+1791020040.3370397 [taskset-1] [INFO] [1791020040.336963937] [foxglove_bridge]: Advertising new channel 36 for topic "/mpc/goal_drive"
+1791020040.3373141 [taskset-1] [INFO] [1791020040.337237493] [foxglove_bridge]: Advertising new channel 37 for topic "/mpc/drive_clamp"
+1791020040.3378386 [taskset-1] [INFO] [1791020040.337760075] [foxglove_bridge]: Advertising new channel 38 for topic "/slam/map"
+1791020040.3379021 [taskset-1] [INFO] [1791020040.337774723] [foxglove_bridge]: Advertising new channel 39 for topic "/model/virtual_robot/odometry"
+1791020040.3382566 [taskset-1] [INFO] [1791020040.338166696] [foxglove_bridge]: Advertising new channel 40 for topic "/mission/status"
+1791020040.3384016 [taskset-1] [INFO] [1791020040.338186029] [foxglove_bridge]: Advertising new channel 41 for topic "/map"
+1791020040.3386004 [taskset-1] [INFO] [1791020040.338521066] [foxglove_bridge]: Advertising new channel 42 for topic "/imu"
+1791020040.3388898 [taskset-1] [INFO] [1791020040.338805602] [foxglove_bridge]: Advertising new channel 43 for topic "/mpc/goal_pose"
+1791020040.3390362 [taskset-1] [INFO] [1791020040.338821880] [foxglove_bridge]: Advertising new channel 44 for topic "/ekf_global/set_pose"
+1791020040.3390996 [taskset-1] [INFO] [1791020040.338833972] [foxglove_bridge]: Advertising new channel 45 for topic "/mpc/goal_distance"
+1791020040.3409927 [taskset-1] [INFO] [1791020040.340864471] [foxglove_bridge]: Advertising new channel 46 for topic "/mpc/corridor_markers"
+1791020040.3424125 [taskset-1] [INFO] [1791020040.342327710] [foxglove_bridge]: Advertising new channel 47 for topic "/slam_toolbox/update"
+1791020040.3427207 [taskset-1] [INFO] [1791020040.342628831] [foxglove_bridge]: Advertising new channel 48 for topic "/diagnostics/system_status"
+1791020040.3427999 [taskset-1] [INFO] [1791020040.342644581] [foxglove_bridge]: Advertising new channel 49 for topic "/set_pose"
+1791020040.3429565 [taskset-1] [INFO] [1791020040.342659858] [foxglove_bridge]: Advertising new channel 50 for topic "/mpc/min_obstacle_distance"
+1791020040.3430231 [taskset-1] [INFO] [1791020040.342670877] [foxglove_bridge]: Advertising new channel 51 for topic "/mpc/hold"
+1791020040.3431845 [taskset-1] [INFO] [1791020040.342983534] [foxglove_bridge]: Advertising new channel 52 for topic "/diagnostics/battery_status"
+1791020040.3433511 [taskset-1] [INFO] [1791020040.343277331] [foxglove_bridge]: Advertising new channel 53 for topic "/joint_states"
+1791020040.3446913 [taskset-1] [INFO] [1791020040.344608116] [foxglove_bridge]: Advertising new channel 54 for topic "/costmap/semantic_tracks"
+1791020040.3447597 [taskset-1] [INFO] [1791020040.344625893] [foxglove_bridge]: Advertising new channel 55 for topic "/costmap/semantic_markers"
+1791020040.3449340 [taskset-1] [INFO] [1791020040.344643810] [foxglove_bridge]: Advertising new channel 56 for topic "/slam_toolbox/graph_visualization"
+1791020040.3449981 [taskset-1] [INFO] [1791020040.344668106] [foxglove_bridge]: Advertising new channel 57 for topic "/costmap/safe_corridor_report"
+1791020040.3450558 [taskset-1] [INFO] [1791020040.344680375] [foxglove_bridge]: Advertising new channel 58 for topic "/costmap/front_clearance"
+1791020040.3459663 [taskset-1] [INFO] [1791020040.345252597] [foxglove_bridge]: Advertising new channel 59 for topic "/costmap/boundaries"
+1791020040.3462267 [taskset-1] [INFO] [1791020040.345270792] [foxglove_bridge]: Advertising new channel 60 for topic "/corridor"
+1791020040.3462994 [taskset-1] [INFO] [1791020040.345282745] [foxglove_bridge]: Advertising new channel 61 for topic "/mpc/min_obstacle_distance_forward"
+1791020040.3464596 [taskset-1] [INFO] [1791020040.345574727] [foxglove_bridge]: Advertising new channel 62 for topic "/cmd_vel_nav"
+1791020040.3465531 [taskset-1] [INFO] [1791020040.345978476] [foxglove_bridge]: Advertising new channel 63 for topic "/mpc/solver_status"
+1791020040.3466153 [taskset-1] [INFO] [1791020040.345992170] [foxglove_bridge]: Advertising new channel 64 for topic "/camera/detections_3d"
+1791020040.3466704 [taskset-1] [INFO] [1791020040.346005392] [foxglove_bridge]: Advertising new channel 65 for topic "/calibration/in_progress"
+1791020040.3468471 [taskset-1] [INFO] [1791020040.346311281] [foxglove_bridge]: Advertising new channel 66 for topic "/bond"
+1791020040.3469126 [taskset-1] [INFO] [1791020040.346326559] [foxglove_bridge]: Advertising new channel 67 for topic "/sensors/imu/raw"
+1791020040.3469689 [taskset-1] [INFO] [1791020040.346337976] [foxglove_bridge]: Advertising new channel 68 for topic "/perception/front_distance"
+1791020040.3470995 [taskset-1] [INFO] [1791020040.346667800] [foxglove_bridge]: Advertising new channel 69 for topic "/costmap/visualization"
+1791020041.2517078 [taskset-1] [INFO] [1791020041.250719249] [foxglove_bridge]: Advertising new channel 70 for topic "/test/mission_event"
+1791020041.2521634 [taskset-1] [INFO] [1791020041.250945147] [foxglove_bridge]: Advertising new channel 71 for topic "/mission/load_path"
+1791020041.2522488 [taskset-1] [INFO] [1791020041.250993675] [foxglove_bridge]: Advertising new channel 72 for topic "/safety/event"
+1791020041.2526391 [taskset-1] [INFO] [1791020041.251859998] [foxglove_bridge]: Advertising new channel 73 for topic "/mission/move_outcome"
+1791020041.2533879 [taskset-1] [INFO] [1791020041.253276858] [foxglove_bridge]: Advertising new channel 74 for topic "/camera/detections"
+1791020041.2538505 [taskset-1] [INFO] [1791020041.253758377] [foxglove_bridge]: Advertising new channel 75 for topic "/bt/tree_visualization"
+1791020041.2541978 [taskset-1] [INFO] [1791020041.254115867] [foxglove_bridge]: Advertising new channel 76 for topic "/behavior/tree_status"
+1791020042.3471570 [taskset-1] [INFO] [1791020042.346177856] [foxglove_bridge]: Advertising new channel 77 for topic "/perception/lidar_front_wall"
+1791020042.3475604 [taskset-1] [INFO] [1791020042.346434643] [foxglove_bridge]: Advertising new channel 78 for topic "/perception/d_wall/gate_margin"
+1791020042.3476572 [taskset-1] [INFO] [1791020042.346468116] [foxglove_bridge]: Advertising new channel 79 for topic "/obstacle_clearance"
+1791020042.3480825 [taskset-1] [INFO] [1791020042.347142420] [foxglove_bridge]: Advertising new channel 80 for topic "/perception/d_wall"
+1791020042.3481734 [taskset-1] [INFO] [1791020042.347637911] [foxglove_bridge]: Advertising new channel 81 for topic "/perception/d_wall/segment"
+1791020042.3482437 [taskset-1] [INFO] [1791020042.347700050] [foxglove_bridge]: Advertising new channel 82 for topic "/perception/d_wall/swept_arc"
+1791020042.3484430 [taskset-1] [INFO] [1791020042.348145651] [foxglove_bridge]: Advertising new channel 83 for topic "/perception/lidar_front_wall_virtual"
+1791020042.9795582 [taskset-1] [INFO] [1791020042.978580714] [foxglove_bridge]: Advertising new channel 84 for topic "/perception/swept_clearance/lidar"
+1791020042.9800196 [taskset-1] [INFO] [1791020042.978727555] [foxglove_bridge]: Advertising new channel 85 for topic "/perception/swept_clearance/camera"
+1791020042.9801149 [taskset-1] [INFO] [1791020042.978772824] [foxglove_bridge]: Advertising new channel 86 for topic "/zed2/zed_node/depth/depth_registered"
+1791020042.9801836 [taskset-1] [INFO] [1791020042.978799870] [foxglove_bridge]: Advertising new channel 87 for topic "/perception/swept_clearance"
+1791020042.9806223 [taskset-1] [INFO] [1791020042.980405823] [foxglove_bridge]: Advertising new channel 88 for topic "/zed2/zed_node/depth/camera_info"
+1791020042.9808445 [taskset-1] [INFO] [1791020042.980547721] [foxglove_bridge]: Advertising new channel 89 for topic "/perception/swept_clearance/steering"
+1791020081.5288742 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791020081.5314400 [taskset-1] [INFO] [1791020081.520753093] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791020081.5316091 [taskset-1] [INFO] [1791020081.525359774] [foxglove_bridge]: Shutting down foxglove_bridge
+1791020081.5316627 [taskset-1] Failed to publish log message to rosout: publisher's context is invalid, at ./src/rcl/publisher.c:423
+1791020081.5316935 [taskset-1] [2026-10-03T09:34:41Z INFO  foxglove::websocket::server] Shutting down
+1791020081.5317206 [taskset-1] [2026-10-03T09:34:41Z INFO  foxglove::websocket::server] Shutdown complete
+1791020081.5321431 [INFO] [throttle-3]: sending signal 'SIGINT' to process[throttle-3]
+1791020081.5324848 [INFO] [throttle-2]: sending signal 'SIGINT' to process[throttle-2]
+1791020081.5445666 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791020081.5633516 [taskset-1] [INFO] [1791020081.548025311] [foxglove_bridge]: Shutdown complete
+1791020081.5637007 [taskset-1] [INFO] [1791020081.556177526] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791020081.5781546 [ERROR] [throttle-2]: process has died [pid 376288, exit code -2, cmd '/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle'].
+1791020081.5789876 [ERROR] [throttle-3]: process has died [pid 376290, exit code -2, cmd '/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotated_viz_throttle'].
+1791020081.9564617 [INFO] [taskset-1]: process has finished cleanly [pid 376287]

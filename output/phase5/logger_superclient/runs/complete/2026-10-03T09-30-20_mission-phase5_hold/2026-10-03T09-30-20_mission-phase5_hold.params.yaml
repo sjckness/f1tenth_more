@@ -1,0 +1,2264 @@
+# Single source of truth for every launch-parameter default (and its description)
+# across the f1tenth_more workspace. Loaded via f1tenth_params' param_defaults.py
+# helper (f1tenth_params/f1tenth_params/param_defaults.py) from any launch file --
+# f1tenth_params is a deliberately dependency-free leaf package (see that module's
+# own docstring for why).
+#
+# Two kinds of entries:
+#   - Stack-Wide (below): the 4 stack-wide branching args. These are NOT
+#     DeclareLaunchArgument anywhere in the workspace -- every file that needs one
+#     reads its value directly from this yaml as a plain Python value at parse time.
+#     The ONLY way to change one of these is editing this file; passing it on the
+#     CLI (e.g. `camera_source:=webcam`) is silently ignored everywhere, since no
+#     launch argument by that name exists anymore to receive it.
+#   - Everything else: normal DeclareLaunchArgument params. Their owning launch
+#     file still declares them (so CLI overrides / ros2 launch --show-args keep
+#     working exactly as before) -- only the default value and description text
+#     are sourced from here instead of being hardcoded in the launch file.
+#
+# Path-type entries (anything whose `default` is a relative path, e.g.
+# "config/vesc.yaml") are resolved at parse time against a package's install share
+# directory via param_defaults.get_path_default(name, package=...) -- package
+# defaults to f1tenth_bringup unless a `package:` field says otherwise (see `map`
+# below, the one exception -- it resolves against f1tenth_navigation instead).
+#
+# use_sim_time is deliberately NOT here: it's declared separately (with its own
+# locally-appropriate default) in f1tenth_description/launch/description.launch.py,
+# f1tenth_navigation/launch/nav2.launch.py (both default false, real
+# hardware/no sim clock), and f1tenth_sim/launch/sim_bringup.launch.py (default
+# true, sim clock) -- real hardware and simulation are non-overlapping runtime
+# contexts, so a single shared default would just be wrong for one of them no
+# matter which value was picked.
+#
+# "Consumed by:" comments below were audited against workspace_inventory.md (since removed) and
+# cross-checked directly with every get_value()/get_default()/get_path_default()
+# call site in src/ (grep, 2026-07-18) -- they name the package(s) whose code
+# actually reads the key, not just packages that happen to be "related" to it.
+
+# ============================================================
+# Stack-Wide (the 4 branching args -- see header comment above)
+# ============================================================
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_perception
+# (camera.launch.py, detection.launch.py).
+camera_source:
+  default: zed
+  description: "'zed' | 'webcam' -- selects the camera source, mutually exclusive."
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_localization
+# (localization.launch.py).
+localization_source:
+  default: ekf
+  description: "'ekf' | 'raw_odom' -- selects the map -> odom source, mutually exclusive."
+# enable_safety_stop (the opt-in safety_stop_controller reactive corridor-stop
+# layer) was retired here -- superseded by the BT's own handle_obstacle lane
+# (IsObstacleDetected -> Stop, f1tenth_behavior), which does the same job
+# unconditionally and, unlike safety_stop_controller, actually works against
+# the current mpc_corr node (safety_stop_controller supervised a `v_ref` ROS
+# parameter that mpc_corr never declared -- confirmed broken if it had ever
+# been enabled). See obstacle_safety_margin_m below for the unified margin the
+# surviving mechanisms now share.
+#
+# enable_llm (the old stack-wide "launch llama-server" branching value,
+# previously consumed by stack_bringup.launch.py's own diagnostics/
+# intelligence section) was removed outright here, not just deprioritized --
+# enable_intelligence directly below is now the ONLY gate for llama-server
+# auto-start anywhere in the workspace (component_supervisor_node's
+# 'intelligence' component). stack_bringup.launch.py's own now-dead
+# enable_llm branching was removed rather than rewired onto
+# enable_intelligence -- that file never declared enable_intelligence as one
+# of its own launch arguments, and this pass didn't add one; see that file's
+# own module docstring for its current (llm.launch.py no longer included at
+# all) state.
+# Consumed by: f1tenth_bringup/component_supervisor_node.py, via supervisor_
+# bringup.launch.py's own `enable_intelligence` launch argument (default sourced
+# from this key, same "declared parameter, not a baked-in get_value()" pattern
+# `calibration` already uses -- see that key's own comment, and component_
+# supervisor_node.py's self.enable_intelligence/_CONDITIONAL_AUTO_START). A real
+# CLI-overridable arg, deliberately NOT one of the 4 stack-wide branching values
+# above (use_behavior_tree, enable_nav2, camera_source, localization_source):
+# unlike those, `enable_intelligence:=true`/`:=false` on the CLI actually
+# reaches component_supervisor_node, same as `calibration:=...` already does
+# for its own path. Gates ONLY whether the 'intelligence' component
+# (llama-server) auto-starts with the supervisor -- llm_planner_node itself is
+# never auto-launched regardless of this value (see llm.launch.py's own module
+# docstring); default flipped true here (component-intelligence-autostart
+# pass) -- 'intelligence' now auto-starts with the rest of an ordinary
+# supervisor bringup like every other _ALWAYS_AUTO_START component, same as
+# 'behavior'/'navigation' etc. already do, rather than needing an explicit
+# `enable_intelligence:=true` override every time. The ~20-30s GGUF
+# load-into-GPU-memory cost (up to ~58s observed cold-start, see
+# llm_planner_node.py's own _wait_for_llama_server()) is accepted as part of
+# ordinary startup now; pass `enable_intelligence:=false` explicitly to skip
+# it (e.g. a quick debug bringup with no LLM planner use planned).
+enable_intelligence:
+  default: true
+  description: "component_supervisor_node.py only: whether the 'intelligence' component (llama-server) auto-starts. llm_planner_node is never auto-launched by this or any flag -- see llm.launch.py."
+# Consumed by: f1tenth_bringup (stack_bringup.launch.py, component_supervisor_node.py).
+use_behavior_tree:
+  default: true
+  description: "true: BT + Nav2 drives the ackermann_mux 'navigation' lane. false: the BT does not run; see enable_nav2 for what drives the mux instead."
+# Consumed by: f1tenth_navigation/navigation.launch.py (owns the branch itself --
+# see that file), which is in turn included by f1tenth_bringup/stack_bringup.launch.py
+# (section 6) and f1tenth_hardware/vesc.launch.py's release_downstream path, plus
+# component_supervisor_node.py (auto-starts the 'navigation' component
+# unconditionally now, since navigation.launch.py itself branches on this value).
+enable_nav2:
+  default: false
+  description: "true: bring up the Nav2 stack (idles with no active goal, puts nothing on the mux by itself). false: navigation.launch.py brings up mpc_corr instead, which does drive the mux. Independent of use_behavior_tree."
+
+# ============================================================
+# Hardware
+# ============================================================
+# Consumed by: f1tenth_hardware/vesc.launch.py.
+vesc_config:
+  default: config/vesc.yaml
+  description: "VESC hardware calibration/config (speed/steering gains, limits), shared by all VESC-chain nodes."
+# Consumed by: f1tenth_hardware/vesc.launch.py (loaded AFTER vesc_config so it wins for
+# these keys -- see vesc.launch.py's own note), vesc_tuning/steering_calibration_node.py
+# (read directly at startup, and live-overwritten by it during calibration).
+# Package defaults to f1tenth_hardware, not f1tenth_bringup, since that's where this
+# file actually lives -- see get_path_default()'s package= argument at the call site.
+steering_calibration_config:
+  default: config/steering_calibration.yaml
+  description: "Single source of truth for servo_min/servo_max, steering_angle_to_servo_offset, and steering_angle_to_servo_gain_left/_right -- split out of vesc.yaml so vesc_tuning's steering_calibration_node.py has exactly one file to read from and live-write to. Neither vesc_driver_node nor ackermann_to_vesc_node hot-reloads this file or supports ros2 param set for these keys (params are read once at startup, no set-parameters callback registered) -- restart the driver to apply a change."
+# Consumed by: f1tenth_hardware/vesc.launch.py (stack_bringup.launch.py's own
+# `calibration` DeclareLaunchArgument defaults from this key) AND
+# supervisor_bringup.launch.py/component_supervisor_node.py (the
+# component_supervisor path -- this key is now this value's ONLY declaration:
+# component_supervisor_node declare_parameter()s 'calibration', wired from
+# supervisor_bringup.launch.py's own `calibration` launch argument (defaulting
+# from here), and injects it into 'hardware's components.yaml args at runtime
+# instead of components.yaml hardcoding a literal -- see that file's own
+# `hardware` entry comment. calibration-single-source-of-truth pass; previously
+# components.yaml hardcoded 'true' here independently, with no live override).
+calibration:
+  default: false
+  description: "false (default): driver group launches once, unchanged from the original always-on behavior, no calibration nodes at all. true: run both stationary calibrations (message-level covariance AND gyro bias, see f1tenth_diagnostics' sensor_covariance_calibration_node/gyro_bias_calibration_node) against a live driver group before releasing EKF/Nav2, then relaunch with the fresh values -- both nodes gate their own sampling on a live stationary check first and fall back silently (leave vesc.yaml untouched, do not block startup) on any calibration failure. (Earlier revisions of this description had the true/false polarity backwards in places -- verified here against f1tenth_hardware/vesc.launch.py's own 'calibration:=true sequencing' docstring section, the actual code.)"
+# Consumed by: f1tenth_hardware/vesc.launch.py (calibration:=true path) AND
+# f1tenth_diagnostics/calibration.launch.py (standalone entry point) -- both feed
+# sensor_covariance_calibration_node's sample_duration_sec param. Previously two
+# separate keys (this one plus covariance_sample_duration_sec) fed the same
+# underlying node param via two different launch paths, in agreement only by
+# coincidence -- reconciled into this single key during the safety-margin/
+# dead-config cleanup pass; both launch files now declare a launch argument
+# literally named calibration_duration_sec, sourced from here.
+calibration_duration_sec:
+  default: 60.0
+  description: "Stationary sampling window for sensor_covariance_calibration_node (both the calibration:=true path and the standalone calibration.launch.py entry point), in seconds."
+# Consumed by: f1tenth_hardware/vesc.launch.py (battery_voltage_check_node's
+# startup precheck -- ADVISORY, it warns and proceeds, it does not gate the launch;
+# see that node's own module docstring for why the old fail-closed gate was removed),
+# also f1tenth_diagnostics/diagnostics_server.launch.py (continuous monitoring
+# threshold for the BatteryStatus it publishes). Same threshold, two consumers, but
+# only one of them enforces: diagnostics_server_node's verdict feeds f1tenth_behavior's
+# BT IsBatteryLow emergency lane, which is what actually stops the car.
+min_battery_voltage:
+  default: 10.8
+  description: "Minimum VESC input_voltage (volts). Startup precheck warns below this and proceeds; the BT emergency lane stops the car if the running pack is below it."
+# Consumed by: f1tenth_hardware/vesc.launch.py (battery_voltage_check_node's
+# precheck). Ceiling for the "wait for the first telemetry sample" phase,
+# separate from sample_window_sec's (2.0s) averaging-window duration once
+# telemetry is flowing -- see battery_voltage_check_node.py's own module
+# docstring for why these two had to be split apart: the VESC serial handshake
+# can take longer than the old single fixed 2.0s window. 10.0s is real margin
+# over the ~2.9s observed (live, this hardware) as insufficient -- not a
+# round-number guess -- but note it is still exceeded in practice: 40 boots hit
+# it after it was raised to 10.0s, most recently 2026-09-08. Expiring it is no
+# longer fatal (the precheck warns and proceeds), so raising it further buys a
+# measured reading more often, nothing more.
+max_wait_for_first_sample_sec:
+  default: 10.0
+  description: "Startup-only ceiling (seconds) on how long battery_voltage_check_node waits for the FIRST /sensors/core telemetry sample; on expiry it warns that no reading was taken and proceeds. Averaging (sample_window_sec) only starts once that first sample lands."
+# Consumed by: f1tenth_hardware/vesc.launch.py.
+release_downstream:
+  default: true
+  description: "true (default): vesc.launch.py releases ekf_node/Nav2 itself once calibration:=true finishes cycling to a fresh driver group -- stack_bringup.launch.py's behavior. false: skip that release (used by component_supervisor_node's calibrate_hardware entry, which restarts localization/navigation as independently-tracked components afterward instead of having vesc.launch.py start them as its own nested includes)."
+
+# ============================================================
+# Localization/TF
+# ============================================================
+# Consumed by: f1tenth_localization/ekf.launch.py (path resolved against
+# f1tenth_bringup's install share dir, not f1tenth_localization's own).
+ekf_config:
+  default: config/ekf.yaml
+  description: "robot_localization EKF config (LOCAL instance): fuses /odom + VESC IMU, publishes odom -> base_link. world_frame: odom (reverted from map by the dual-EKF pass -- see ekf_config's own file for the full design and ekf_global_config below for its map -> odom counterpart)."
+# Consumed by: f1tenth_localization/ekf_global.launch.py (path resolved
+# against f1tenth_bringup's install share dir, same convention as ekf_config
+# above). Added by the dual-EKF pass (see that file's own docstring) --
+# GLOBAL instance: fuses the local EKF's own /odometry/filtered + slam_
+# toolbox's /slam/pose (via slam_pose_relay_node's covariance-stamped
+# /slam/pose_calibrated), publishes map -> odom. Only meaningful when
+# localization_source == 'ekf' (raw_odom mode has no /odometry/filtered to
+# feed it -- see localization.launch.py's own branching).
+ekf_global_config:
+  default: config/ekf_global.yaml
+  description: "robot_localization EKF config (GLOBAL instance): fuses the local EKF's /odometry/filtered + slam_toolbox's /slam/pose_calibrated, publishes map -> odom."
+
+# ============================================================
+# Perception
+# ============================================================
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to BOTH
+# yolo_detector_node (as Ultralytics' own conf= inference cutoff -- boxes below
+# it never get published at all, on either detections_topic or the annotated
+# image) and detection_3d_node (post-hoc score filter before Detection3DArray/
+# MarkerArray). Previously only reached detection_3d_node -- fixed; see
+# yolo_detector_node.py's own docstring.
+confidence_threshold:
+  default: 0.3
+  description: "Minimum YOLO detection score kept (both at YOLO inference in yolo_detector_node and again by detection_3d_node before publishing to Detection3DArray/MarkerArray)."
+# Consumed by: f1tenth_perception/detection.launch.py.
+yolo_device:
+  default: cuda
+  description: "Torch device yolo_detector_node runs inference on: 'cuda' or 'cpu'."
+# Consumed by: f1tenth_perception/detection.launch.py.
+# SEGMENTATION IS NOW THE DEPLOYED DEFAULT (was yolo26s.engine, the TensorRT
+# detect build). Consequences of this one key, all automatic -- nothing else
+# needs changing to switch:
+#   - use_mask_depth below auto-derives TRUE from this filename (detection.
+#     launch.py declares its default as a PythonExpression, "'-seg' in
+#     yolo_model", precisely so selecting a seg model is a SINGLE switch), so
+#     detection_3d_node samples depth from each detection's own instance mask
+#     instead of its box region -- the whole point of running a seg model.
+#   - yolo_model_task below becomes INERT: it is only ever consulted for a
+#     *.engine, and a *.pt carries its own task in the checkpoint. It stays
+#     'detect' deliberately -- that is still the correct value for every
+#     *.engine this repo ships, so switching back to yolo26s.engine remains a
+#     one-key change with no second edit to remember.
+#   - yolo_detector_node publishes /camera/detection_masks (mono8 instance-
+#     index image) and draws mask overlays instead of boxes on /camera/image_
+#     annotated -- both gated on the LOADED model's task, not on this filename.
+# TRADE-OFF, measured live on this Orin, not estimated: the seg *.pt runs the
+# whole detection chain at ~12.5Hz vs ~25Hz for the yolo26s.engine TensorRT
+# build -- roughly HALF the perception rate, since this is an unoptimized
+# PyTorch checkpoint rather than a compiled engine. Everything downstream
+# (detections_3d, detection_markers, semantic_markers) inherits that rate.
+# Building a *-seg.engine via the trtexec recipe in yolo_detector_node.py's
+# own docstring would recover the speed; until then this is the real cost of
+# the default, flagged rather than buried.
+yolo_model:
+  default: yolo26s-seg.pt
+  description: "YOLO weights filename under f1tenth_perception/models/: a .engine TensorRT build or a portable .pt checkpoint."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to yolo_detector_node
+# as the `model_task` param -- ONLY used when yolo_model is a *.engine (a raw
+# trtexec-built engine carries no embedded Ultralytics task metadata, same root
+# cause as its missing class names -- see yolo_detector_node.py's own docstring).
+# For a *.pt checkpoint the task is read from the checkpoint itself and this value
+# is ignored. 'detect' matches every engine this repo has ever shipped; set to
+# 'segment' only once a *-seg.engine is actually built and deployed.
+yolo_model_task:
+  default: segment
+  description: "Ultralytics task ('detect' or 'segment') for a *.engine yolo_model -- ignored for *.pt, which carries its own task in the checkpoint."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to detection_3d_node.
+# false (default): depth sampling is box-region-based, exactly as before this param
+# existed -- zero behavior change. true: detection_3d_node additionally subscribes to
+# yolo_detector_node's per-detection instance-mask image and, for each detection,
+# samples depth from the mask footprint (median over in-mask valid-depth pixels)
+# instead of the box region, falling back to the box-region method for any detection
+# whose mask has zero valid-depth pixels. Only meaningful when yolo_model is a
+# segmentation checkpoint (e.g. yolo26s-seg.pt) -- a detect-task model publishes no
+# mask image, so every detection falls back to box-region sampling regardless of
+# this flag.
+use_mask_depth:
+  default: true
+  description: "detection_3d_node: sample depth from the per-detection instance mask (median, box-region fallback) instead of the box region. Requires a segmentation yolo_model to have any effect."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to
+# yolo_detector_node AND (the four x/y edge fractions only, not the overlap
+# threshold) front_clearance_node -- one calibration of the same physical
+# housing, two consumers, deliberately not duplicated into a second set of
+# keys. yolo_detector_node uses it to suppress whole DETECTIONS that sit over
+# the housing; front_clearance_node cuts the same rectangle out of its depth
+# ROI before computing background statistics, since the housing is a real
+# close-range surface that would otherwise dominate a low-percentile
+# estimate. Filters out any 2D detection (its box, or -- for a segment-task
+# model -- its own mask, whichever is more accurate for that detection) that
+# overlaps this fixed rectangle above lidar_exclusion_overlap_threshold
+# below. The car's own LiDAR housing sits inside the ZED's
+# field of view (bottom-right of frame, confirmed live via a Foxglove
+# screenshot: a spurious high-confidence "chair" detection sitting exactly
+# on top of it) -- a fixed self-occlusion artifact, not a real external
+# object. Expressed as FRACTIONS of image width/height (0.0-1.0, not raw
+# pixels) so this stays correct across any camera resolution change --
+# converted to that frame's own actual pixel coordinates at runtime. Applied
+# once, in yolo_detector_node.py, on the raw Ultralytics result BEFORE
+# building Detection2DArray/masks_topic/the annotated image, so a suppressed
+# detection is invisible everywhere downstream (detection_3d_node.py never
+# even sees it) -- not a per-consumer filter repeated in multiple places.
+# Known trade-off, not risk-free: a genuine external obstacle that happens
+# to overlap this same fixed region would also go unseen by the camera-based
+# detection path. Accepted because the region is small and near-field
+# (right where the car's own hardware sits, close to the camera) -- LiDAR
+# itself, the car's actual primary proximity sensor for anything that close
+# (see f1tenth_behavior/behaviours/is_proximity_too_close.py's own front
+# cone, LiDAR-based), is the more relevant sensor for that distance anyway.
+#
+# CALIBRATED FROM A FOXGLOVE SCREENSHOT, NOT A REAL-RESOLUTION LIVE FRAME:
+# attempted live during this pass (camera-only, no mission) to measure the
+# real pixel footprint directly, as originally intended -- blocked, the
+# camera was not mounted on the car at the time (a live-captured frame
+# showed an office room, no LiDAR/car hardware visible anywhere in it). With
+# Andreas's confirmation, calibrated instead from a Foxglove screenshot
+# showing the actual spurious "chair (0.55)" detection sitting on the LiDAR
+# housing in the bottom-right corner -- NOT read as raw on-screen pixels
+# (that panel is a scaled UI render, not the real published resolution, see
+# yolo_detector_node.py's own docstring) but as FRACTIONS of the visible
+# image area within that panel (excluding toolbar/letterboxing), which
+# transfer correctly to the real frame's own resolution as long as Foxglove
+# preserves aspect ratio, which it does. Raw measured rectangle from that
+# screenshot: roughly x in [0.86, 1.0], y in [0.66, 1.0] (right ~14%, bottom
+# ~34% of frame) -- widened below with margin (mount position could shift
+# slightly if ever re-adjusted, per the original task) to x in [0.75, 1.0],
+# y in [0.55, 1.0] (right 25%, bottom 45%). Cross-checked against that same
+# screenshot's OTHER, separate "chair (0.38)" detection (a real chair
+# elsewhere in the room, x fraction roughly [0.54, 0.69]) to confirm the
+# widened x_min=0.75 does NOT also catch it -- 0.69 < 0.75, stays outside.
+# Re-measure precisely against a real frame (not a screenshot) once the
+# camera is confirmed back in its normal on-car mount, per the original
+# task's own preference -- this is a deliberately-margined estimate, not a
+# precise measurement.
+lidar_exclusion_x_min:
+  default: 0.75
+  description: "Left edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image width. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see this key's own comment above."
+lidar_exclusion_x_max:
+  default: 1.0
+  description: "Right edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image width. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see lidar_exclusion_x_min's own comment above."
+lidar_exclusion_y_min:
+  default: 0.55
+  description: "Top edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image height. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see lidar_exclusion_x_min's own comment above."
+lidar_exclusion_y_max:
+  default: 1.0
+  description: "Bottom edge of the car's-own-LiDAR exclusion rectangle in yolo_detector_node, as a fraction (0.0-1.0) of image height. Screenshot-calibrated with margin, NOT yet measured against a real-resolution frame -- see lidar_exclusion_x_min's own comment above."
+lidar_exclusion_overlap_threshold:
+  default: 0.5
+  description: "Fraction of a detection's own bounding box (or, for a segment-task model, its own mask) that must fall inside the LiDAR exclusion rectangle for that detection to be suppressed. 0.5: more than half of the detection sits over the excluded region."
+# Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
+# duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
+# lidar.launch.py with no override, so this default is what actually reaches Nav2's
+# costmap too: with use_lidar false (default), Nav2's costmap obstacle layer gets
+# zero LiDAR data unless this is explicitly overridden. Lower-severity than when
+# this was first flagged, now that enable_nav2 also defaults false (Nav2 isn't
+# the default drive path at all) -- still worth an explicit true if enable_nav2
+# is ever turned on for real driving.
+use_lidar:
+  default: true
+  description: "Start the Hokuyo LiDAR (urg_node). false to test without it."
+# Consumed by: f1tenth_perception/lidar.launch.py.
+sensors_config:
+  default: config/sensors.yaml
+  description: "Hokuyo LiDAR (urg_node) IP/port/frame config."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated -- only declared/launched when detection_3d_node itself is).
+obstacle_z_min:
+  default: -0.1
+  description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, base_link ~0.07m above ground) -- detections below this are dropped as ground-plane false positives. Untuned starting point."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated).
+obstacle_z_max:
+  default: 2.0
+  description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated).
+#
+# THE HEIGHT BUG this switch fixes: detection_3d_node sets bbox.size.x to the
+# back-projected WIDTH and bbox.size.y to the back-projected HEIGHT; size.z is
+# its default_depth_extent placeholder, not a measurement. The projector used
+# max(size.x, size.y) / 2, so any object taller than wide got a ground disk of
+# half its HEIGHT: a 1.75 m x 0.5 m person became r = 0.875 m instead of 0.25 m.
+# That radius feeds MPC_corr's obstacle cost and compute_local_target's R_safe
+# (r + car_radius + avoidance_margin), and front_clearance_node's corridor test
+# (|y| - r) and near-face distance (x - r). Every value tuned on a run before
+# 2026-09-16 saw the inflated disks; see the go-to-object Phase 1.5 inventory
+# before reading any of them as tuned for real footprints. Footprint mode
+# also means objects under 6 cm wide (r < min_obstacle_radius 0.03) are now
+# rejected, where legacy kept a tall narrow bottle via its height.
+obstacle_radius_source:
+  default: footprint
+  description: "'footprint' | 'legacy' -- obstacle_projector_node's ground-disk radius. footprint: bbox.size.x / 2, the object's width (size.z would be folded in only if detection_3d_node measured it; it is a placeholder). legacy: max(size.x, size.y) / 2, the pre-2026-09-16 rule, which used the object's HEIGHT (size.y) and inflated a standing person to r = H/2 ~ 0.87 m. The [min_obstacle_radius, max_obstacle_radius] reject filter applies in both modes."
+# Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
+# is_zed-gated), passed to the node as a JSON string.
+#
+# Added to the ground-disk radius in obstacle_projector_node, in both
+# obstacle_radius_source modes, after the radius reject filter. That is the
+# ONLY place it enters: Obstacle2D has no class label, and every downstream
+# consumer reads r once (MPC_corr's R_safe, the solver's d_front,
+# front_clearance_node). Adding it again anywhere downstream would count it
+# twice. No class has a value yet; pick one from a measured edge-to-edge gap,
+# not from a run tuned on legacy radii.
+obstacle_class_margin_m:
+  default: {}
+  description: "Per-class extra clearance [m], class_id -> metres, e.g. {\"person\": 0.3}. Added to obstacle_projector_node's ground-disk radius in both radius modes, after the min/max radius reject filter, so it reaches R_safe = r + car_radius + avoidance_margin exactly once. Classes not listed get 0. Empty by default."
+
+# ============================================================
+# Front clearance / front wall (f1tenth_perception/front_clearance_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/detection.launch.py, forwarded to front_clearance_node.
+#
+# READ THE NODE'S OWN MODULE DOCSTRING BEFORE TUNING ANY OF THESE. Two
+# distinctions there decide what a given value even means:
+#   * front_distance is BACKGROUND/wall only (detected objects are excluded
+#     from it by construction). front_clearance is the stop/slow-down signal
+#     -- min(background, nearest in-corridor obstacle). They are not
+#     interchangeable.
+#   * front_wall's latch is fed a PIXEL COUNT; front_blocked's is fed METRES.
+#     The *_px and *_m suffixes below are load-bearing, not decoration.
+#
+# EVERY VALUE BELOW IS A STARTING POINT, NOT A MEASUREMENT. They came in with
+# the node and have never been fitted to this car's own depth stream. Tune
+# them against a recorded bag with publish_debug_raw true (which exposes the
+# unsmoothed distance and the exact pixel count the latch sees) rather than by
+# guessing at the live stack -- that is what those debug topics are for.
+front_clearance_roi_half_width_px:
+  default: 90
+  description: "Half-width [px] of front_clearance_node's centered depth ROI. Untuned starting point."
+front_clearance_roi_half_height_px:
+  default: 35
+  description: "Half-height [px] of front_clearance_node's centered depth ROI. Untuned starting point."
+front_clearance_min_bg_pixels_for_reading:
+  default: 60
+  description: "Minimum background pixels in the ROI before front_clearance_node produces a distance at all. Below it the frame yields no reading and the EMA holds its last value rather than being poisoned by a tiny sample. Untuned starting point."
+front_clearance_too_close_clearance_m:
+  default: 0.2
+  description: "front_clearance [m] front_clearance_node publishes when the ROI reads -Inf (the ZED reporting something CLOSER than it can measure). Matches the ~0.2 m minimum-stereo-range floor front_depth_monitor_node/detection_3d_node spell as min_valid_depth -- a -Inf pixel means the true distance is below this, so the value is an upper bound on a distance known only by its ceiling. NOT a validated safety distance."
+front_clearance_too_close_min_pixel_fraction:
+  default: 0.02
+  description: "Fraction of front_clearance_node's ROI (excluding the car's own LiDAR housing) that must read -Inf before the too-close short-circuit fires, bypassing the percentile band, both EMAs and both latches. NOT A NOISE KNOB: it exists only to separate a real object from isolated speckle -Inf pixels, and raising it raises how large an object must be before the car notices it is touching one. If the signal is noisy, fix the ROI bounds or the camera configuration instead. Read the node's own module docstring section on -Inf vs NaN/+Inf before changing this."
+front_clearance_wall_enter_px:
+  default: 150
+  description: "Background pixel count at or above which front_clearance_node's front_wall latch proposes True. Must exceed wall_exit_px -- the gap between them is the dead band. Untuned starting point."
+front_clearance_wall_exit_px:
+  default: 50
+  description: "Background pixel count at or below which front_clearance_node's front_wall latch proposes False. Untuned starting point."
+front_clearance_wall_min_dwell_frames:
+  default: 2
+  description: "Consecutive agreeing frames required before front_clearance_node commits a front_wall flip. On top of the dead band, not instead of it. Untuned starting point."
+front_clearance_distance_ema_alpha:
+  default: 0.25
+  description: "EMA weight on the newest sample for BOTH front_distance and front_clearance in front_clearance_node. Lower is smoother and laggier. Untuned starting point."
+front_clearance_mask_time_constant:
+  default: 0.35
+  description: "Time constant [s] of front_clearance_node's per-pixel object-exclusion confidence EMA (dt-normalized, so this is wall-clock seconds and not a frame count). Governs both how long a dropped detection keeps excluding its pixels and how hard segmentation edge wobble is damped. Untuned starting point."
+front_clearance_background_weight_threshold:
+  default: 0.5
+  description: "Background weight (1 - object confidence) at or above which a pixel counts as background in front_clearance_node. Untuned starting point."
+front_clearance_background_percentile_low:
+  default: 5.0
+  description: "Lower percentile of front_clearance_node's trimmed background-depth band -- drops near-field speckle outliers a bare minimum would latch onto. Untuned starting point."
+front_clearance_background_percentile_high:
+  default: 50.0
+  description: "Upper percentile of front_clearance_node's trimmed background-depth band -- drops the far-field tail so a doorway or gap does not pull the wall estimate backwards. Untuned starting point."
+front_clearance_corridor_half_width_m:
+  default: 0.35
+  description: "Half-width [m] of the central corridor front_clearance_node tests obstacles against. An obstacle counts when its own footprint (|y| - r) reaches the corridor, not just its centre. Untuned starting point."
+front_clearance_obstacle_max_age_s:
+  default: 0.4
+  description: "Maximum age [s] of the last /perception/obstacles_2d message front_clearance_node will still fold into front_clearance. Older than this and clearance falls back to the background distance alone. Untuned starting point."
+front_clearance_clearance_enter_m:
+  default: 0.5
+  description: "front_clearance [m] at or below which front_clearance_node's front_blocked latch proposes True. Must be BELOW clearance_exit_m -- this latch is inverted (smaller distance means more triggered). Untuned starting point, and NOT a validated safety distance."
+front_clearance_clearance_exit_m:
+  default: 0.7
+  description: "front_clearance [m] at or above which front_clearance_node's front_blocked latch proposes False. Untuned starting point."
+front_clearance_clearance_min_dwell_frames:
+  default: 2
+  description: "Consecutive agreeing frames required before front_clearance_node commits a front_blocked flip. Untuned starting point."
+front_clearance_publish_debug_raw:
+  default: false
+  description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance) and /perception/debug/bg_pixel_count (the exact wall-latch input), for tuning the filters against a bag. The topics are not created at all when false."
+
+
+# ============================================================
+# LiDAR front wall (f1tenth_perception/lidar_front_wall_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/lidar_front_wall.launch.py, forwarded to
+# lidar_front_wall_node under their names without the lidar_front_wall_ prefix.
+#
+# NOT the same signal as front_clearance_node above, and not a replacement for
+# it: a LiDAR line fit (distance AND wall normal) plus a measured /
+# dead-reckoned / seeded estimate built from it, on
+# /perception/lidar_front_wall and /perception/lidar_front_wall_virtual.
+# front_clearance_node's /perception/front_wall is a camera pixel-count Bool;
+# the names differ on purpose.
+#
+# UNLIKE the block above, these values were MEASURED, on ~58k archived forward
+# scans. lidar_front_wall_node.py's module docstring carries the numbers behind
+# each one. Re-measure rather than nudge.
+lidar_front_wall_sector_half_angle_deg:
+  default: 10.0
+  description: "Half-width [deg] of the forward /scan sector lidar_front_wall_node fits a line to, centred on the car's heading. 10 (81 beams) roughly halves 5's normal-angle noise (0.43 vs 0.81 deg 1-sigma at 1.2-1.6 m). 5 holds on the noise numbers; 10 is margin for the unmeasured laser mount yaw and wall_turn timing, at the cost of more doorway/clutter in view."
+lidar_front_wall_inlier_distance_m:
+  default: 0.03
+  description: "MSAC inlier distance [m] for lidar_front_wall_node's line fit. Clean-wall acceptance was flat across 0.02/0.03/0.05 (96.6/96.7/96.9%); 0.03 is ~2.7x the p99 inlier residual (11.3 mm, median 2.8 mm)."
+lidar_front_wall_min_inlier_fraction:
+  default: 0.6
+  description: "Minimum inliers / VALID returns in the sector for a fit to count as the wall. Majority rule with margin: the line must be the dominant surface, and a 50/50 wall/object split is rejected rather than coin-flipped."
+lidar_front_wall_min_inlier_count_ratio:
+  default: 0.5
+  description: "Minimum inlier COUNT as a ratio of the sector's beam count: floor = ceil(ratio x beams), 41 at +-10 deg and 21 at +-5 deg. Catches what the fraction cannot: most beams returning nothing (glass, black surfaces) while the few that do sit on a line."
+lidar_front_wall_oblique_max_deg:
+  default: 45.0
+  description: "Largest angle [deg] between the car's heading and the fitted wall normal that still counts as a wall ahead. Past 45 the car moves along the wall more than toward it; measured fit quality holds to 50 deg and collapses at 50-60 deg."
+lidar_front_wall_max_hypothesis_pairs:
+  default: 800
+  description: "Cap on two-point line hypotheses per scan in lidar_front_wall_node (deterministic striding when the sector has more). 81 beams exhaustively is 3240 pairs, 5.0 ms/scan (20% of a core at 40 Hz); 800 is 1.3 ms (5%)."
+lidar_front_wall_wrong_surface_gate_m:
+  default: 0.3
+  description: "A fit further than this [m] from the dead-reckoned wall is rejected as a different surface (an object face) and dead reckoning continues. Sits in the valley of the recorded innovation histogram (same-wall reacquisitions -16/+6 cm p10/p90), while 28% of fit losses came back more than 2 m off. Without it snap-on-reacquisition is unsafe. Never applied against a seed."
+lidar_front_wall_stale_age_sec:
+  default: 3.0
+  description: "Longest [s] lidar_front_wall_node dead-reckons from its last accepted fit. Covers the dead-reckoned 45->90 deg half of a wall_turn at the steering limit (2.1 s at 0.4 m/s, 2.8 s at 0.3 m/s) and 97% of recorded fit losses. Error grows with it: ~25 cm over 3 s at 0.5 m/s from the known odometry scale bias."
+lidar_front_wall_odom_topic:
+  default: /odometry/filtered
+  description: "Odometry lidar_front_wall_node dead-reckons with. Deliberately NOT get_odom_topic(): /odom's servo-integrated yaw measured 0.62-0.92 gain against the LiDAR, and /ekf_global's SLAM steps (157 over 20 cm per hour) would be integrated as motion. Known bias: distance ~17% short (see the node docstring)."
+lidar_front_wall_odom_max_age_sec:
+  default: 0.2
+  description: "Odometry older than this [s] turns off lidar_front_wall_node's dead reckoning and wrong-surface gate. /odometry/filtered runs at 50 Hz; longest recorded gap 136 ms."
+lidar_front_wall_seed_max_age_sec:
+  default: 0.5
+  description: "A /costmap/front_clearance seed older than this [s] (receipt time; the topic has no header) is not used. That topic runs at 20 Hz; longest recorded gap 0.19 s."
+lidar_front_wall_seed_max_valid_m:
+  default: 5.0
+  description: "Largest /costmap/front_clearance value [m] accepted as a seed. Must equal costmap.launch.py's costmap_boundary_max_range_m: that node publishes max_range_m + 1.0 for 'nothing within range', which is not a distance."
+
+# ============================================================
+# Swept clearance (f1tenth_perception/swept_clearance_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/swept_clearance.launch.py, forwarded to
+# swept_clearance_node under their names without the swept_clearance_ prefix.
+#
+# Forward clearance along the steering arc from /scan AND ZED depth, fused, on
+# /perception/swept_clearance. A new topic: it replaces none of the three
+# existing "front clearance" signals and nothing subscribes to it yet. The
+# value is rear-axle travel before the BODY touches something, not a sensor
+# range. Geometry in swept_corridor.py's module docstring.
+#
+# Footprint values come from the URDF chassis mesh bounds, the steering lag
+# from the MPC model-check latency sweep, and the rest are untuned starting
+# points.
+swept_clearance_wheelbase_m:
+  default: 0.305
+  description: "Wheelbase [m] for kappa = tan(delta) / L. The MPC model's L (MPC_corr.py) and vesc.yaml's 'about 30.5 cm'; the URDF says 0.325 and the F1TENTH spec 0.3302 -- unmeasured on this car (docs/DIAGNOSTICS.md)."
+swept_clearance_body_front_x_m:
+  default: 0.443
+  description: "Front bumper x [m] from the rear axle. Straight-ahead clearance is the gap to this. URDF chassis mesh bounds."
+swept_clearance_body_rear_x_m:
+  default: -0.082
+  description: "Rear bumper x [m] from the rear axle (negative). Points behind it never count, not even for the floor. URDF chassis mesh bounds."
+swept_clearance_body_half_width_m:
+  default: 0.136
+  description: "Body half-width [m]. Points inside the body rectangle are the car itself and are ignored. URDF chassis mesh bounds."
+swept_clearance_margin_m:
+  default: 0.1
+  description: "Sideways widening [m] of the swept corridor on each side. Not applied to the front face, so clearance stays the real gap to the bumper. Untuned."
+swept_clearance_max_range_m:
+  default: 5.0
+  description: "Clearance [m] reported when nothing in the corridor is nearer; also the arc-length horizon. Same 5 m as costmap_boundary_max_range_m."
+swept_clearance_absolute_min_clearance_m:
+  default: 0.15
+  description: "Floor [m]: any point this close to the body (straight-line gap to the footprint rectangle, alongside included) sets clearance to that gap whatever the steering. Measured to the body, it trips at or before IsProximityTooClose's 0.15 m sensor-range cone for any point outside the footprint."
+swept_clearance_rear_axle_x_m:
+  default: 0.0
+  description: "Rear axle x [m] in base_link. 0 per the URDF (base.xacro: base_link at the rear axle). Some docstrings say base_link is between the axles (-0.1525 here); change only on a measurement."
+swept_clearance_steering_estimate:
+  default: lagged_command
+  description: "Steering the corridor follows. 'lagged_command': the command in effect steering_lag_sec ago (older, never newer). 'latest_command': the newest. 'envelope': the smallest clearance over the lagged angle and every command still in transit -- covers a newer command steering INTO something, which lagged alone reports late."
+swept_clearance_steering_lag_sec:
+  default: 0.3
+  description: "Actuator lag [s] behind the steering estimate. tools/mpc_model_check.py's latency sweep on out3_turn_left.png: minimum 230 ms in a flat 200-300 ms basin (EKF lag included). The top of the basin, so the estimate errs late."
+swept_clearance_steering_topic:
+  default: /ackermann_drive
+  description: "AckermannDriveStamped steering source. The ackermann_mux OUTPUT, so teleop and safety-lane commands count, not just the MPC's /drive."
+swept_clearance_lidar_timeout_sec:
+  default: 0.25
+  description: "LiDAR clearance older than this [s] is stale and left out of the fusion. /scan runs at 40 Hz."
+swept_clearance_camera_timeout_sec:
+  default: 0.5
+  description: "Depth clearance older than this [s] is stale and left out of the fusion. ZED depth runs at ~17 Hz (front_clearance_node's mask_time_constant comment)."
+swept_clearance_publish_rate_hz:
+  default: 20.0
+  description: "Rate [Hz] of the fused /perception/swept_clearance. Timer-driven so that both sensors going silent still publishes 0.0."
+swept_clearance_camera_stride_px:
+  default: 4
+  description: "Unproject every Nth depth pixel in each direction (640x360 -> 160x90 samples). Untuned."
+swept_clearance_camera_max_points:
+  default: 4000
+  description: "Cap on depth points per frame after the height band, decimated evenly. Untuned."
+swept_clearance_camera_min_depth_m:
+  default: 0.2
+  description: "Range [m] a -Inf ZED pixel (closer than measurable) is placed at along its ray. Same ~0.2 m floor as front_clearance_too_close_clearance_m."
+swept_clearance_camera_max_depth_m:
+  default: 6.0
+  description: "Depth [m] beyond which ZED pixels are dropped. Past max_range_m they cannot change the result. Untuned."
+swept_clearance_camera_z_min_m:
+  default: 0.08
+  description: "Lowest base_link height [m] a depth point counts as an obstacle -- above floor noise and the ZED's unmeasured mount pitch. base_link is on the ground per the URDF (other docs say 0.07 m above). Obstacles lower than this are invisible to the camera path. Untuned."
+swept_clearance_camera_z_max_m:
+  default: 0.35
+  description: "Highest base_link height [m] a depth point counts as an obstacle: just above the car's top (LiDAR at 0.20 m plus housing), so overhead structure does not register. Untuned."
+
+# ============================================================
+# Glass detection gates (f1tenth_perception/glass_detect.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/wall_distance.launch.py, forwarded to
+# wall_distance_node under their names without the glass_ prefix and
+# assembled into glass_detect.DetectorConfig / GlassTracker.
+#
+# WHY THE PREFIX IS glass_ AND NOT wall_distance_. DetectorConfig's own
+# docstring has always claimed "every gate, defaulted to stack_params.yaml's
+# glass_* values" -- and until this block existed that was false: there were
+# ZERO glass_ keys and every gate was a Python default, untunable without a
+# rebuild. The prefix keeps the promise and keeps the gates reusable if
+# glass_detect ever gets a node of its own (it has none today:
+# glass_detector_node.py does not exist, and wall_distance_node is the
+# module's first and only runtime consumer).
+#
+# WHERE THE NUMBERS COME FROM, and this matters more than usual here. The
+# capture behind them is ONE session, 2026-09-14, parked 1.10 m from a clear
+# pane with a UST-10LX. glass_detect.py's module docstring carries all four
+# measurements. Anything marked "real, 1.1 m only" is a genuine measurement
+# AT THAT RANGE AND NOWHERE ELSE -- the docstring is explicit that the pane
+# "HAS NOT BEEN RETESTED AT 3-4 M, WHERE THE BUDGET IS ~13x SMALLER AND THE
+# PANE MAY WELL VANISH", which is the whole open question Stage 3 of
+# docs/bringup_checklist.md exists to close. Everything else is SYNTHETIC:
+# chosen by reasoning against that one capture, never fitted to hardware.
+glass_cos_theta_floor:
+  default: 0.2
+  # SYNTHETIC -- retune on hardware
+  description: "Smallest incidence cosine [-] the intensity normaliser will divide by, clamping the 1/cos blow-up at grazing incidence. 0.2 is 78 deg off normal, past where any return is trustworthy. SYNTHETIC: no measurement fixed this, and the whole intensity path is inert on this glass anyway (see glass_spike_factor)."
+glass_normal_window:
+  default: 5
+  # SYNTHETIC -- retune on hardware
+  description: "Beams either side of a return used to estimate the local surface slope for the incidence cosine. 5 at 0.25 deg spacing is +-1.25 deg of arc: wide enough to average sensor noise, narrow enough not to straddle a mullion. SYNTHETIC."
+glass_intensity_range_exponent:
+  default: 0.0
+  # real, 1.1 m only
+  description: "Exponent n in the intensity range correction I * r^n. 0.0 means OFF, and that is a MEASUREMENT, not a default left unset: over 195591 valid returns a log-log fit of intensity against range gave slope -0.24 (corr -0.30) where raw amplitude would give -2.0, so urg_node's intensity is AGC-normalised or quantised and an r^2 correction would inject error rather than remove it. Set to 2.0 only if a future sensor reports raw amplitude."
+glass_spike_factor:
+  default: 6.0
+  # real, 1.1 m only
+  description: "How many times the local median normalised intensity a beam must reach to count as a Fresnel spike. 6.0 does NOT fire on this building's glass and is not what the detector rests on: measured peak/median within +-20 deg was 1.84, and intensity falls SMOOTHLY with incidence (1153 counts at 0-2 deg to 793 at 15-20 deg), i.e. diffuse behaviour. The spike path is implemented and correct and is what a genuinely specular pane needs. Lowering this to ~1.5 to make it fire on THIS pane would fire on every diffuse wall too."
+glass_spike_window:
+  default: 31
+  # SYNTHETIC -- retune on hardware
+  description: "Beams in the running median a spike is measured against. 31 at 0.25 deg is +-3.75 deg. SYNTHETIC."
+glass_max_spike_width:
+  default: 3
+  # SYNTHETIC -- retune on hardware
+  description: "Widest run of beams still counted as one spike. A genuine near-normal Fresnel return is a few beams; anything wider is a surface. SYNTHETIC."
+glass_min_gradient_ratio:
+  default: 3.0
+  # SYNTHETIC -- retune on hardware
+  description: "Minimum ratio between a spike's edge gradient and the local noise, so a slow intensity ramp across a diffuse surface cannot register as a spike. SYNTHETIC."
+glass_min_void_beams:
+  default: 3
+  # real, 1.1 m only
+  description: "Fewest consecutive beams reading past (or through) a plane to count as an opening. 3, NOT 5: the measured see-through bands on the real pane were 8, 4, 3 and 3 beams wide, so a floor of 5 caught only the widest of the four. This is the single most load-bearing measured number in the block."
+glass_void_range_jump:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Range step [m] between a beam and its neighbour that starts a 'far' void -- the beam came back from behind the plane rather than not at all. 0.5 m is well clear of surface roughness and well inside the corridor depth behind the measured pane. SYNTHETIC."
+glass_support_window_beams:
+  default: 60
+  # real, 1.1 m only
+  description: "Beams either side of an opening whose on-surface returns join the line fit. 60 (+-15 deg) because this pane returns on ~97% of forward beams, so there is abundant support next to each gap; fitting the two frame beams alone yields a two-point line through noise. NOTE this bounds how long a fitted segment can be and therefore when EVIDENCE_WIDE can fire -- see glass_detect.py's comment. A wider window starts pulling an adjoining wall across a corner into the fit."
+glass_see_through_max_gap_m:
+  default: 0.30
+  # real, 1.1 m only
+  description: "Widest see-through run [m] still read as TRANSPARENCY rather than as an actual opening. Measured: real transparency bands were 4 cm; a 0.9 m doorway at the same range is 0.9 m. 0.30 sits between them with room either side. The open-doorway control at 2/3/4 m in Stage 3 of docs/bringup_checklist.md is what tests whether that separation survives at range."
+glass_min_line_inliers:
+  default: 6
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest inliers a RANSAC line needs to be considered at all. SYNTHETIC."
+glass_line_inlier_dist:
+  default: 0.05
+  # SYNTHETIC -- retune on hardware
+  description: "Perpendicular distance [m] within which a point is an inlier of a candidate line. 0.05 is loose next to lidar_front_wall_inlier_distance_m (0.03), deliberately: a pane's support returns span a wide incidence range where range error grows. SYNTHETIC."
+glass_min_segment_length:
+  default: 0.3
+  # SYNTHETIC -- retune on hardware
+  description: "Shortest fitted segment [m] worth reporting. Below this a doorframe edge or a box corner makes a perfect two-point wall. SYNTHETIC."
+glass_max_segment_length:
+  default: 6.0
+  # SYNTHETIC -- retune on hardware
+  description: "Longest fitted segment [m]. Beyond this the fit has almost certainly welded two surfaces across a corner. SYNTHETIC."
+glass_min_range_m:
+  default: 0.8
+  # SYNTHETIC -- retune on hardware
+  description: "Nearest range [m] a return may have and still belong to a partition. Nearer than this it is the car's own structure or near-field clutter: the LiDAR sits 0.12 m ahead of base_link and the body reaches 0.443 m. SYNTHETIC, but constrained by real geometry rather than by a fit."
+glass_normal_tolerance_deg:
+  default: 2.0
+  # SYNTHETIC -- retune on hardware
+  description: "How near normal incidence a spike must be to the fitted line's normal to corroborate it. 2.0 deg brackets the ~0.2-0.4 deg theoretical Fresnel window with margin for the fit's own angular error. SYNTHETIC, and inert while glass_spike_factor does not fire."
+glass_on_line_min_beams:
+  default: 2
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest range returns landing ON the line inside an opening for EVIDENCE_ON_LINE. SYNTHETIC."
+glass_geom_min_length_m:
+  default: 1.2
+  # SYNTHETIC -- retune on hardware
+  description: "Shortest segment [m] that may be accepted on GEOMETRY ALONE (no intensity evidence). Partition-scale, so a doorframe cannot qualify. SYNTHETIC: the real capture's five-opening partition measured 2.07 m, comfortably over, which bounds this from above but does not fix it."
+glass_geom_min_voids:
+  default: 2
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest openings on one line for geometry-only acceptance. One gap is a gap; several in a plane is a glazed partition. SYNTHETIC."
+glass_max_candidates:
+  default: 4
+  # SYNTHETIC -- retune on hardware
+  description: "Most lines extracted from one scan's support set, sequentially. Bounds the per-scan cost; 4 is enough for a partition plus its returns' leftovers. SYNTHETIC."
+glass_point_spacing:
+  default: 0.025
+  # SYNTHETIC -- retune on hardware
+  description: "Spacing [m] at which a fitted segment is sampled into points -- half the costmap resolution, so a sampled segment cannot leave a gap a planner threads a path through. Also the spacing wall_distance_node uses when feeding the tracked segment to swept_corridor.clearance(), which is point-based. SYNTHETIC."
+
+# ============================================================
+# Tracked wall distance (f1tenth_perception/wall_distance_node.py)
+# ============================================================
+# All of the following are consumed by:
+# f1tenth_perception/launch/wall_distance.launch.py, forwarded to
+# wall_distance_node under their names without the wall_distance_ prefix.
+#
+# WHAT THIS NODE IS. The signed perpendicular distance to ONE tracked wall,
+# on /perception/d_wall (f1tenth_messages/WallDistance), plus that wall as a
+# segment on /perception/d_wall/segment (WallSegment), plus the phase of any
+# active wall_turn read off /mpc/wall_track. It is the first consumer of both
+# glass_detect.py and /mpc/wall_track. See docs/wall_turn_investigation.md
+# for the seam analysis and f1tenth_perception/README.md for what is
+# UNVALIDATED.
+#
+# NOT the same signal as any existing one, and the names in this stack are
+# already a documented trap (see front_clearance_node.py:36-56):
+#   /perception/d_wall             SIGNED lateral offset, left positive  <-- this
+#   /mpc/wall_track  .d_wall       UNSIGNED magnitude, MPC-internal
+#   /perception/lidar_front_wall   UNSIGNED perpendicular, forward sector
+#   /perception/front_distance     camera, straight ahead, wall only
+#   /perception/swept_clearance    rear-axle ARC LENGTH to body contact
+#
+# EVERY VALUE BELOW IS SYNTHETIC unless marked otherwise. None was fitted
+# against hardware: the LiDAR was powered down for the whole of this work and
+# no live run has ever produced a /perception/d_wall message. The node builds
+# and passes fixtures, which makes it NOT YET FALSIFIED, not "working".
+wall_distance_scan_topic:
+  default: /scan
+  description: "LaserScan the tracked wall is fitted from. Subscribed with best-effort sensor QoS, which sends urg_node no acknowledgements and so cannot back-pressure it or the e-stop (IsProximityTooClose) that reads the same topic -- the reasoning MPC_corr.py:1322-1334 already records for its own /scan subscriber."
+wall_distance_wall_track_topic:
+  default: /mpc/wall_track
+  description: "MPC_corr's per-tick wall_turn feed, the phase machine's ONLY input. 10 Hz, reliable, volatile, depth 10 -- matched deliberately: volatile means a late subscriber sees nothing until the next turn, which is why UNKNOWN is also the startup state."
+wall_distance_output_topic:
+  default: /perception/d_wall
+  description: "WallDistance output. The segment goes to this topic plus '/segment' and the swept-arc debug value to this topic plus '/swept_arc', so all three move together if this is retargeted."
+wall_distance_publish_rate_hz:
+  default: 10.0
+  # SYNTHETIC -- retune on hardware
+  description: "Publish rate [Hz] of the WallDistance/WallSegment pair, from a timer and NOT from the scan callback, so silence from /scan still produces a valid=false message rather than silence. 10.0 matches MPC_corr's control tick (ts = 0.1), which is the fastest anything can consume it; /scan arrives at 40 Hz so the track itself refits 4x faster than it publishes. SYNTHETIC."
+wall_distance_wall_track_silence_ticks:
+  default: 3
+  # SYNTHETIC -- retune on hardware
+  description: "Consecutive publish ticks with no /mpc/wall_track message before the phase leaves WALL_TURN/COMMITTED. 3 at 10 Hz is 300 ms, i.e. three missed control ticks -- long enough to ride out one dropped message on a reliable topic, short enough that a real turn exit is seen inside a third of a second. SYNTHETIC: no bag contains /mpc/wall_track, so the real jitter and drop pattern of that topic has never been observed (docs/wall_turn_investigation.md, bag inventory)."
+wall_distance_match_endpoint_tol:
+  default: 0.20
+  # SYNTHETIC -- retune on hardware
+  description: "Mean endpoint distance [m] within which a fresh candidate segment re-associates to an existing track. Above it the track_id changes and the consumer is told, rather than the step in d_wall being hidden. 0.20 is loose enough for a partly-occluded re-observation of the same pane (whose endpoints genuinely move) and tight enough to reject the next wall along. SYNTHETIC."
+wall_distance_match_angle_tol_deg:
+  default: 10.0
+  # SYNTHETIC -- retune on hardware
+  description: "Angle [deg] between a candidate's normal and a track's, folded into [0, 90] because a line fit gives the normal only up to a flip, for re-association. 10.0 is far tighter than mpc_corr's own wall_normal_tol_rad (0.39 rad = 22.5 deg) because that gate selects a wall against a heading while this one matches a wall against ITSELF one scan later, where the true change is ~0. SYNTHETIC."
+wall_distance_max_coast_distance:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Odometry travel [m] a track may be carried on prediction alone before provenance goes NONE and valid goes false. RAISE ONLY AFTER ODOM CALIBRATION: /odom and the local EKF under-report distance by ~17-20% (speed_to_erpm_gain, 2026-08-10), so 2 m of coasting misplaces the wall laterally by ~0.4 m -- larger than any margin in this design. At 0.5 m the same bias is ~0.1 m. SYNTHETIC, and bounded by a real measured bias rather than by a fit."
+wall_distance_max_coast_yaw:
+  default: 0.35
+  # SYNTHETIC -- retune on hardware
+  description: "Odometry rotation [rad] a track may be carried on prediction alone, whichever cap is hit first. RAISE ONLY AFTER ODOM CALIBRATION: the gyro yaw gain is 0.93-1.09, so a 90 deg turn can misorient the stored wall by ~6 deg. 0.35 rad (20 deg) holds that error near 1.4 deg. A 90 deg wall_turn therefore CANNOT be coasted end to end, by design -- the cap firing mid-turn is the expected behaviour, not a failure. SYNTHETIC, bounded by a real measured bias."
+wall_distance_fade_start_age:
+  default: 0.3
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] of the last direct observation at which the SOFT output (the centering correction) starts fading toward zero. Staleness pushes the two outputs in OPPOSITE directions -- see wall_distance_stale_inflate_per_s. 0.3 s is three control ticks. SYNTHETIC."
+wall_distance_fade_zero_age:
+  default: 1.0
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] at which the soft correction has faded linearly to exactly zero. A stale d_wall commands a confident heading toward a position no longer trusted; neutral is safer than wrong. Must be > wall_distance_fade_start_age, which the node asserts at startup. SYNTHETIC."
+wall_distance_stale_inflate_per_s:
+  default: 0.15
+  # SYNTHETIC -- retune on hardware
+  description: "Extra required margin [m] added per second of age on the GATE side. The opposite direction from the fade above, and the asymmetry is the point: a wall IS there and confidence in WHERE is decaying, so a gate must back off while a correction must go neutral. 0.15 m/s roughly tracks the odometry position error accumulated per second at the 0.4 m/s the wall_turn missions command. SYNTHETIC."
+wall_distance_d_ref:
+  default: 0.60
+  # SYNTHETIC -- retune on hardware
+  description: "Target |d_wall| [m] the correction converges the car to -- a FIXED single-wall offset, signed at use by whichever side the track is on. It CANNOT be derived from corridor width: the corridor is synthetic with hardcoded half-widths (corr_wmin 0.4333 / corr_wmax 0.7667 are bare literals in MPC_corr.py, not parameters) and only one wall is ever sensed. SYNTHETIC."
+wall_distance_convergence_length_m:
+  default: 3.0
+  # SYNTHETIC -- retune on hardware
+  description: "Distance [m] over which a lateral error should wash out. k = 1/this, so 3.0 gives k = 0.333 rad/m. THE GAIN IS NOT TUNED EMPIRICALLY AND MUST NOT BE: with e = d_wall - d_ref and dpsi = -k*e, the lateral dynamics are edot = -v*k*e -- first order, unconditionally stable, no oscillation, and the closed-loop behaviour in SPACE is independent of speed. Pick the convergence length, which has physical meaning; the gain follows. SYNTHETIC."
+wall_distance_max_psi_correction:
+  default: 0.20
+  # SYNTHETIC -- retune on hardware
+  description: "Saturation [rad] on |dpsi|. Beyond the small-angle regime edot = v*sin(dpsi) ~ v*dpsi fails and the stability argument with it, and the steering cannot deliver it anyway (delta_max is 0.278 rad at the wheels). Stage 4 of docs/bringup_checklist.md forces this to 0.0 so the node publishes but changes nothing; Stage 5 runs it at ~0.05. SYNTHETIC."
+wall_distance_max_psi_rate:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Rate limit [rad/s] on dpsi. Also what absorbs the handoff discontinuity at a phase transition and at a track_id change, which is why it is a rate limit and not just a filter. SYNTHETIC."
+wall_distance_deadband_floor:
+  default: 0.02
+  # SYNTHETIC -- retune on hardware
+  description: "Smallest lateral error [m] that produces any correction at all, whatever the fit quality. Floors the rms-scaled deadband below. SYNTHETIC."
+wall_distance_deadband_k:
+  default: 2.0
+  # SYNTHETIC -- retune on hardware
+  description: "Multiplier on fit_rms in deadband = max(deadband_floor, deadband_k * fit_rms). DERIVED FROM rms, NOT CONSTANT, on purpose: the 17-19 mm rms measured at 1.1 m will grow substantially at longer range with fewer inliers, and a fixed deadband would steer on noise exactly when the estimate is worst. 2.0 puts the threshold at two standard deviations of the fit. SYNTHETIC."
+wall_distance_odom_topic:
+  default: /odometry/filtered
+  description: "Pose the scan is placed in odom with, and the travel/rotation the coast caps are measured against. Local EKF at 50 Hz, the same source MPC_corr reads (localization_source: ekf), so the two cannot disagree about where the car is."
+wall_distance_odom_max_age_sec:
+  default: 0.2
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] past which the pose is not a pose. Without a fresh one a scan cannot be placed in odom and the track can only be predicted -- and prediction with no odometry is not prediction, so the node goes to provenance NONE. 0.2 s is ten EKF periods. SYNTHETIC."
+wall_distance_fov_half_angle_rad:
+  default: 1.5708
+  # SYNTHETIC -- retune on hardware
+  description: "Half-angle [rad] of the sector in which a track is considered visible, for GlassTracker's expected-return test: a miss only counts against a track that should have been seen. pi/2 (90 deg) is the forward half-plane, well inside the UST-10LX's 270 deg. SYNTHETIC."
+wall_distance_expect_return_tol_deg:
+  default: 60.0
+  # real, 1.1 m only
+  description: "How near normal incidence [deg] a pane must be for a MISS to count against its track. NEVER DECAY ON ABSENCE ALONE: absence is the normal state for glass, so a tracker that decayed on plain absence would drop every pane the moment the car turned away -- the clearing bug this whole design exists to prevent, one layer up. 60.0 is the measured limit: the real pane returned on essentially every forward beam out to 60 deg of incidence (valid fraction 0.928 in the 50-60 deg band), so inside 60 deg a miss really is evidence. Valid AT 1.1 M ONLY."
+wall_distance_max_range_m:
+  default: 5.0
+  # SYNTHETIC -- retune on hardware
+  description: "Range [m] beyond which a track is not expected to return and a miss does not count. Also the horizon of the swept-arc debug value. Same 5 m as swept_clearance_max_range_m and costmap_boundary_max_range_m. SYNTHETIC, and the range at which glass visibility is entirely unmeasured."
+wall_distance_persistence_window:
+  default: 8
+  # SYNTHETIC -- retune on hardware
+  description: "Scans over which a candidate's confirmations are counted before it may be published. SYNTHETIC."
+wall_distance_persistence_hits:
+  default: 3
+  # SYNTHETIC -- retune on hardware
+  description: "Confirmations needed inside that window with intensity evidence available. Doubled by wall_distance_geometry_only_multiplier without it. SYNTHETIC."
+wall_distance_geometry_only_multiplier:
+  default: 2
+  # SYNTHETIC -- retune on hardware
+  description: "Multiplier on persistence_hits when the intensity path was not used, because geometry-only evidence is weaker per scan. It buys confidence that the OPENING is real, NOT that it is glass -- see glass_detect.py's module docstring. On this building's pane the spike path never fires, so this multiplier is the live case, not the fallback. SYNTHETIC."
+wall_distance_track_timeout_sec:
+  default: 0.0
+  description: "Age [s] at which a track is forgotten entirely. 0.0 disables forgetting, which is the safe default for glass and is what GlassTracker.drop_stale already defaults to. NOT the same thing as the coast caps: those stop TRUSTING a track (valid goes false) while the track itself is kept, so that re-acquiring the same pane keeps its track_id instead of looking like a new wall."
+
+# ============================================================
+# Command/Control
+# ============================================================
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into mpc_controller's
+# MPC_corr.py's own already-declared ROS param (self.declare_parameter,
+# in-code default 0.5) the same way mpc.launch.py wires andre_mpc_node.py's gains.
+# The in-code default only matters if this file's value is ever overridden.
+odom_stale_timeout_sec:
+  default: 0.5
+  description: "Max age [s] of the hardware /odom message before MPC_corr.py falls back to sim odom (/model/virtual_robot/odometry), or to 'ODOM non disponibile' if both are stale. Hardware always wins while its own message is fresher than this."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own already-declared ROS param (self.declare_parameter, in-code default
+# True), same pattern as odom_stale_timeout_sec above. Added by the MPC
+# optimization pass following the frequency/bottleneck audit: true selects
+# mpc_solver.py's OSQP real-time-iteration solve path (one linearization + one
+# warm-started QP solve per tick); false selects the original from-scratch
+# nonlinear SLSQP solve every tick (kept as an explicit opt-out for rollback,
+# not removed -- see mpc_solver.py's own module docstring).
+use_rti_solver:
+  default: true
+  description: "true (default): mpc_corr.py uses the OSQP real-time-iteration solver. false: fall back to the original SLSQP solve (kept for rollback/comparison)."
+# Consumed by: f1tenth_control/mpc_corr.launch.py AND, since the single-
+# sourcing pass, by MPC_corr.py itself -- its declare_parameter() default is
+# now get_value('corridor_update_period') rather than a hand-mirrored literal.
+# THIS FILE IS THE ONLY PLACE THE NUMBER LIVES. There is no in-code copy to
+# keep in step any more, which is the point: the literal used to say 0.1 here
+# while this key said 1.0, two comments in MPC_corr.py said "1.0s by default",
+# and a test comment said "10.0 is stack_params.yaml's own default" -- four
+# spellings of one constant, three of them wrong.
+#
+# THIS KEY IS A PERIOD IN SECONDS, NOT A FREQUENCY. It reads as "seconds
+# between rebuilds", so a bigger number is a SLOWER corridor: 0.1 = 10Hz,
+# 1.0 = 1Hz, 10.0 = one rebuild every ten seconds. Worth stating outright
+# because setting it to 10.0 while intending "10Hz" is a real mistake that
+# was actually made here, and it does not fail loudly -- it also used to
+# crash mpc_corr outright, since 3x this value was packed into a marker
+# lifetime's uint32 nanosec field (fixed in MPC_corr.py's own
+# _corridor_line_marker, which now splits sec/nanosec properly, but the
+# 100x-too-slow corridor would have been silent regardless).
+#
+# WHY 1.0 AND NOT 0.1, measured rather than argued (2026-09-08, closed-loop
+# A/B, nominal model, 0.35 rad initial heading error, 8.0 s, N=20, ts=0.1,
+# vdes=0.5, shipping 7/20-scaled weights). Final heading error / final
+# lateral offset:
+#
+#   geometry                period 0.1        period 1.0
+#   both-frozen             +0.0000 / 0.110   +0.0000 / 0.089
+#   live->frozen (blend)    +0.1319 / 0.987   +0.0707 / 0.750
+#
+# The slower rebuild helps BOTH geometries, and helps the blend most (it
+# halves the 8 s heading error), which is what the "the blend concedes 24.7%
+# of the error per rebuild, so a slower rebuild lets the car actually execute
+# the concession" argument predicts. It is not, however, what decides the
+# geometry: both-frozen wins at either period. See corridor_heading_return.
+corridor_update_period:
+  default: 1.0
+  description: "Seconds between corridor rebuilds in mpc_corr.py -- a PERIOD, not a frequency (bigger = slower). Default 1.0 (1Hz). 0.1 rebuilds once per control tick; measured worse on the heading return at both corridor geometries."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own already-declared ROS param, whose declare_parameter() default is
+# get_value('corridor_heading_return'), i.e. this key. Also the default for
+# build_straight_corridor's getattr() fallback for duck-typed test stand-ins.
+#
+# WHICH END OF THE CORRIDOR'S HEADING BLEND IS FROZEN.
+#   false (default) -- BOTH ends frozen at the move's map-corrected start
+#     heading: a straight corridor through the live position along the
+#     reference direction. Demands 100% of the heading correction on every
+#     rebuild.
+#   true -- psiStart = live yaw, psiEnd = frozen anchor heading, so the
+#     S-curve blends live -> frozen across the corridor. This is what the
+#     f110_autonomy reference implementation does, and at u_start/u_end
+#     0.10/0.70 with lookahead 1.5 on L 3.0 it asks for only 24.7% of the
+#     error per rebuild.
+#
+# DEFAULT FLIPPED TO FALSE 2026-09-08 on the measurement tabled under
+# corridor_update_period above. At the shipping period of 1.0 the frozen
+# geometry returns the heading to zero inside 8 s with 0.089 m of lateral
+# offset; the reference blend is still +0.0707 rad at 8 s and has given away
+# 0.750 m sideways. Both geometries do reach zero heading error eventually
+# (the blend needs ~30 s), so the blend is SLOW, not divergent -- but the
+# lateral offset it accumulates on the way is permanent, because this
+# corridor has no lateral homing by design (see build_straight_corridor's
+# "THE PRICE" note). 0.900 m of permanent offset against 0.089 m is what the
+# flip buys. Kept as a launch arg so the reference behaviour stays reachable
+# for the MATLAB/f110_autonomy comparison without a code change.
+#
+# AND FLIPPED BACK TO TRUE, UNEXPLAINED. ace2446 ("wip: corridor tuning, front
+# clearance node, detection launch rework") changed this value from false to
+# true and changed NOTHING ELSE -- not the description below, not the
+# measurement paragraph above, which still reads as though false is what
+# ships. The value is what runs, so the BLEND geometry is live today and the
+# paragraph above describes the configuration that does NOT run.
+#
+# WHICH ONE IS INTENDED IS UNRESOLVED. The measurement above argues for false
+# (0.089 m of lateral offset against 0.900 m); nothing recorded anywhere
+# argues for true. Settle it before reading either value as deliberate. The
+# object-branch corridor work has the same trade-off at its centre: the blend
+# drifts laterally precisely because this corridor has no lateral homing, so
+# whatever is decided here should be decided together with whether that homing
+# becomes its own cost term.
+corridor_heading_return:
+  default: true
+  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false: both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true (THE CURRENT DEFAULT, see the unresolved note above): blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), no launch
+# arg. The corridor S-curve's heading ramp, as fractions of the corridor length:
+# theta(u) = psiStart + dpsi * smoothstep((u - u_start) / (u_end - u_start)).
+# At L 3.0 the ramp runs from 0.3 m to 2.1 m. These were in-code literals with
+# the same values; MPC_corr.py's own comment carries the closed-loop table on
+# what tightening them does to the straight-move heading return.
+corr_turn_u_start:
+  default: 0.00
+  description: "Corridor fraction [0-1] where build_straight_corridor's S-curve heading ramp starts (0.0 m of a 3.0 m corridor -- the ramp begins at the car). Applies to every corridor that turns, including each wall_turn increment. LOWERED from the reference implementation's 0.10 after a wall_turn drove into the wall: at 0.10/0.70 the bearing to the 1.5 m lookahead presented only 23% of the corridor's 0.763 rad ask (-0.177 rad), the QP steered the -0.059 rad that bearing deserved instead of the -0.274 rad the turn needed, and the 1 Hz rebuild re-deferred the rest from the new pose every second. See MPC_corr.py's own measured u_start/u_end table: this moves final heading error 0.1344 -> 0.0486 rad and lateral drift 1.010 -> 0.675 m. Peak ramp curvature stays at R ~1.83 m, well inside R_min 1.05 m, so neither the steering limit nor the 0.5 rad/s rate bound binds. 0.00/0.40 is the next step in the table (error ~0) but puts peak curvature AT R_min with no margin."
+corr_turn_u_end:
+  default: 0.40
+  description: "Corridor fraction [0-1] where the S-curve heading ramp ends (1.2 m of a 3.0 m corridor). Must exceed corr_turn_u_start. TIGHTENED from 0.70 with u_start already at 0.00: the bearing to the 1.5 m lookahead now presents 60.2% of the corridor's ask to the solver, up from 32.8% at 0.00/0.70 and 23.6% at the original 0.10/0.70 (measured -0.177 rad of a -0.763 rad ask on the run that drove into the wall). MPC_corr.py's own table puts final heading error at +0.0011 rad here versus +0.0486 at 0.00/0.70. NOTE the ramp span is now 1.2 m, so peak curvature is 1.5 * 0.763 / 1.2 = 0.954 rad/m, i.e. R ~1.05 m = R_min: the corridor deliberately asks for full lock at the S-curve's steepest point and LIM | delta_sat=True there is expected, not a fault. Going tighter than this asks for a curvature the car cannot physically track."
+# ------------------------------------------------------------------
+# WALL_TURN INCREMENT -- how much of a wall_turn one corridor asks for.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
+# mpc_controller/wall_turn.py, whose module docstring has the full rule. No
+# launch arg: edit here and relaunch.
+#
+# Each rebuild asks for sign * min(|still owed|, d_avail / (k_safety * R_min),
+# N * ts * v_ref / R_min) once the turn has committed, and nothing before.
+# It commits when d_avail = max(dFront - margin, 0) <= k_safety * R_min *
+# |still owed|. R_min = mpc_wheelbase_m / tan(steering bound for the
+# direction): 1.069 m left (0.278), 1.049 m right (-0.283).
+#
+# Trigger dFront for a turn started straight, at the defaults below:
+#   74.5 deg left 2.58 m / right 2.55 m      90 deg left 3.02 m / right 2.97 m
+#
+# THE TRIGGER IS NOT THE KNOB FOR "START TURNING EARLIER" -- k_safety was run
+# up to 2.75 for exactly that (90 deg trigger 5.62 m, handoff raised to 5.5 m
+# to match) and the live 90 deg turn got WORSE, capping at 42 deg and reaching
+# the wall: see corr_wall_turn_k_safety's own description for the by_dist /
+# ratchet mechanism. Two separate things were confused, and both are recorded
+# here so the same trade is not made twice:
+#
+#   1. WHERE the corridor first bends is set by when the MOVE IS ISSUED, not
+#      by this trigger -- the trigger only gates when the move arrives while
+#      dFront still EXCEEDS it. Missions that hand off inside their trigger
+#      (wall_turn_then_straight at 4.0 m under a 4.27 m trigger) commit on
+#      their first rebuild and the trigger does nothing at all.
+#   2. WHETHER THE TURN FINISHES is set by angle per rebuild, which this value
+#      divides. That is the one that was actually failing.
+#
+# At 1.5 the trigger is back down near where it started and the missions that
+# hand off at 5.5 m / drive a 2 m runup now genuinely sit OUTSIDE it, so the
+# corridor does stay straight until the trigger -- the intended behaviour,
+# reached by leaving this alone rather than raising it.
+#
+# wall_turn.json gained a 2 m runup_2m move so its turn is no longer issued at
+# mission start; it still needs ~5.5 m of room ahead at mission start for the
+# trigger to gate rather than commit on the first rebuild.
+corr_wall_turn_k_safety:
+  default: 1.50
+  description: "Distance safety factor for the wall_turn increment: a turn of dpsi is given k_safety * R_min * dpsi metres. Floor 1.5 -- smoothstep's peak slope, where the S-curve's steepest point sits exactly at 1/R_min with no margin -- and a value below it is raised to 1.5 with an error. AT THE 1.5 FLOOR DELIBERATELY, and the reason is the opposite of what the trigger table below suggests you tune this for. This value does two things at once: it sets the trigger distance (up) AND it divides the per-rebuild distance cap by_dist = d_avail / (k_safety * R_min) (down). The second is what governs whether a turn can finish. Raised to 2.75 to start the bend further out, a live 90 deg wall_turn capped at 42 deg and drove into the wall: by_dist was 0.737 rad on the first rebuild, already under the 0.763 rad horizon cap, so dpsi_this shrank faster than the car rotated, cmd_rot could never advance past its rebuild-1 value and the ratchet pinned psiRef at -0.74 for all eleven rebuilds while yaw crawled to -0.56. At 1.5, with the margin now 0.5, by_dist stays above the horizon cap until d_wall 1.70 m (margin + 1.20 m), so cmd_rot tracks turn_progress + the horizon cap and the ask keeps moving ahead of the car. Trigger distance is the thing to sacrifice here, not angle per rebuild -- the run that failed had committed at 3.13 m with room to spare."
+corr_wall_turn_safety_margin_m:
+  default: 0.5
+  description: "Metres of /perception/front_distance (or, after commit, the tracker's d_wall) the wall_turn increment keeps in reserve: d_avail = max(d - margin, 0). Inside the margin the distance cap is zero and the corridor's end heading stops advancing; the ratchet keeps the last one rather than straightening toward the wall. LOWERED from 1.0: that freeze is what capped a live 90 deg turn at 42 deg, because by_dist = d_avail / (k_safety * R_min) fell under the horizon cap almost immediately and cmd_rot could never advance again. The margin sets when the freeze starts -- by_dist holds above the horizon cap only while d >= margin + 1.20 m, so every 0.1 m of margin costs 0.1 m of free-turning distance. At 0.5 a 90 deg turn committed at d_wall 2.95 m reaches 90 deg with ~0.9 m still in hand; at 1.0 it reached 63 deg and touched the wall. NOTE this is now measured against d_wall, a BUMPER distance, so 0.5 m is 0.5 m from the bodywork, not from the lens."
+corr_wall_turn_front_distance_max_age_sec:
+  default: 0.5
+  description: "A /perception/front_distance message older than this [s], or none at all, is UNKNOWN to the wall_turn increment (as is front_clearance_node's -1.0). Once the turn has committed, unknown drops the distance cap and the turn continues within the horizon's reach; before commit it keeps the corridor straight, except on the move's first rebuild, where it commits. front_clearance_node publishes once per ZED depth frame (~17 Hz); same 0.5 s as swept_clearance_camera_timeout_sec."
+# ------------------------------------------------------------------
+# OBJECT APPROACH -- the corridor that points at a tracked object.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
+# mpc_controller/object_approach.py, whose module docstring has the design and
+# the derivations. No launch arg: edit here and relaunch.
+#
+# The mode holds the corridor heading psi_c as ABSOLUTE state across rebuilds
+# and rotates it a scheduled fraction of the way toward the bearing to the
+# target, capped by what the remaining range and the MPC horizon can fly. The
+# two radii below are that schedule; c_safety is the distance cap's margin.
+object_r_full_m:
+  default: 1.5
+  description: "Range [m] to the STANDOFF point at or beyond which the corridor tracks the target fully (k = 1). Far out there is distance in hand to absorb a turn, and refusing to track a moving target just accumulates error. Measured from the standoff, not from the target, so it means the same thing at every standoff."
+object_r_freeze_m:
+  default: 0.4
+  description: "Range [m] to the standoff at or inside which the corridor heading is FROZEN (k = 0) and the car simply flies what it was given. Exists because bearing sensitivity to target jitter grows as 1/r: 5 cm of estimate noise subtends 0.07 rad at 0.7 m and 0.12 rad at 0.4 m, so a corridor still chasing the target here would be whipped across it every rebuild. Must be below object_r_full_m; k ramps linearly between the two."
+# ------------------------------------------------------------------
+# OBJECT CORRIDOR SHAPE. Today's object corridor sets psiStart == psiEnd, so
+# dpsi is identically zero and the corridor is straight however badly the car
+# is aimed. Measured over the 24 archived go_to_object rebuilds: dpsi used was
+# 1e-5 rad while the car's heading error toward the target ran 8 to 48 degrees.
+# ------------------------------------------------------------------
+object_corridor_mode:
+  default: "off"
+  description: "'off' | 'arc' | 'arc_far'. 'off' (default) is today's geometry: centreline pinned to the target line, starting object_lead_in_m behind the car, straight by construction. 'arc': origin on the car, psiStart the live yaw, psiEnd the held bearing psi_c, so dpsi is the heading error and the existing S-curve draws the arc onto the target. 'arc_far': 'arc' outside the switch band, 'off' inside it. WHY NOT PLAIN 'arc': with the origin on the car the corridor no longer ends at the goal (measured mean 0.25 m, max 0.96 m of endpoint drift), which is harmless while the lookahead sits inside the corridor and NOT harmless once it clamps to the corridor end, since from there Pend IS the terminal position cost. Prefer 'arc_far'."
+object_arc_switch_hi_frac:
+  default: 1.24
+  description: "Enter the arc shape when the distance from the car to the corridor's end is at least this multiple of the lookahead clamp distance (MPC_corr._lookahead_clamp_length(), 1.25 m at the shipping N/ts/vdes/margin, so 1.40 m here). A MULTIPLE and not a length, so the switch follows the clamp instead of restating it: the arc is only safe while the lookahead still sits inside the corridor, which is exactly what that distance measures."
+object_arc_switch_lo_frac:
+  default: 1.00
+  description: "Leave the arc shape below this multiple of the lookahead clamp distance (1.25 m at the shipping geometry, i.e. exactly ON the clamp). Must not exceed object_arc_switch_hi_frac. THE LOWER EDGE IS ON THE CLAMP DELIBERATELY: at 0.88 the band reached BELOW it, so hysteresis held the arc for 2 of the 24 archived rebuilds into the region where Pend does feed the terminal cost (worst error there 0.101 m). Putting the edge on the clamp makes the safety argument exact -- the arc is never used where Pend is the terminal target -- at the same four shape switches, so it costs nothing. HYSTERESIS, not a second threshold: the two shapes differ by the object_lead_in_m origin offset even when dpsi is zero, so the reference step at the switch has a FLOOR (measured 0.31 m at dpsi = +1.0 deg) and a bare threshold would chatter across it every rebuild."
+# ------------------------------------------------------------------
+# THE ARC'S CROSS-TRACK TOLERANCES. ARC-SCOPED: they replace w_corr and
+# w_line only while an arc corridor is being flown (MPC_corr._weights_for).
+# Off the arc, w_corr stays the value the straight and turn branches are
+# tuned at and w_line is inert for want of a target line -- making these
+# global would retune the straight branch for a feature that is off by
+# default.
+#
+# Both obey the stage set's own identity, literal = rho / (7 sigma^2) with
+# rho 1.0, so these are tolerances and not fitted weights. They own DIFFERENT
+# curves, which is why they do not share a sigma: measured over the archived
+# rebuilds the arc departs from the target line by 0.194 m mean, 0.466 m max.
+#
+# PROVISIONAL, pending on-car tuning. Parameters so the pair can be walked
+# between runs without a rebuild.
+# ------------------------------------------------------------------
+mpc_arc_corr_sigma_m:
+  default: 0.25
+  description: "Tolerance [m] on distance to the CORRIDOR CENTRELINE while flying an arc corridor -- how far off the arc the car may sit before the cost is worth rho. Effective weight rho/(20 sigma^2) = 0.800. 0.25 m is 58% of the narrowest half-width those corridors actually have (0.4327 m measured), so the soft cost acts well before the hard half-width row. PROVISIONAL."
+mpc_arc_line_sigma_m:
+  default: 0.35
+  description: "Tolerance [m] on distance to the TARGET LINE while flying an arc corridor. Effective weight rho/(20 sigma^2) = 0.408. LOOSER than the corridor tolerance on purpose: this is a SLOW HOMING term, not path-following. The arc is re-anchored on the car every rebuild and so has no memory of accumulated lateral offset, which is the lateral homing the corridor has never had by design; this term supplies it. 0.35 m sits ABOVE the arc's own mean departure from the line (0.194 m) so it does not fight the corridor's designed shape, and BELOW the maximum (0.466 m) so it still acts on a real excursion. Total lateral stiffness 0.800 + 0.408 = 1.208, against the 1.25 the car is tuned at, with the untested term the weaker of the two on the first runs. PROVISIONAL."
+object_c_safety:
+  default: 1.5
+  description: "Margin on the per-rebuild distance cap: rotating the corridor by dpsi is given c_safety * R_min * dpsi metres of remaining range. FLOOR IS 1.0, not the 1.5 wall_turn enforces -- wall_turn needs 1.5 because its corridor bends along a smoothstep whose peak slope is 1.5, while this corridor is straight and the car flies a plain arc onto it, where the honest factor is 1.0. Shipped at 1.5 as margin; a value in [1.0, 1.5) is a tuning choice and is accepted."
+object_retarget_distance_m:
+  default: 0.2
+  description: "How far [m] the target's ODOM-frame position must move since the last corridor build before the build is repeated early, ahead of corridor_update_period. Exists because a target refresh must NOT re-anchor the corridor (that is what move_id is for), but a target that has genuinely walked away must not be chased at 1 Hz either. 0.2 m is about one car width of target motion; below roughly 0.05 m this would fire on estimate jitter alone and rebuild every tick, which is the cost corridor_update_period exists to avoid."
+object_behind_persist_sec:
+  default: 0.5
+  description: "How long [s] target_behind (the target in the car's rear half-plane) must hold CONTINUOUSLY before mpc_corr reports it TERMINAL on /mpc/object_status.target_behind_terminal, which ends the move target_unreachable. The raw flag is evaluated every control tick; persistence exists because a car circling a person who walks past it grazes 90 degrees and turns back (seen in the closed-loop rig). 0.5 s is 5 ticks at the 10 Hz loop."
+object_goal_timeout_sec:
+  default: 0.5
+  description: "mpc_corr hard-stops (zero speed AND zero steering, not ramped) when no ObjectGoal refresh for the active object move has arrived for this long [s], and resumes when refreshes return. The mission's object handler republishes every behaviour-tree tick (100 ms), so 0.5 s is five missed ticks. Target staleness is a different question, answered by the handler's lost_grace_sec and reported as target_age_s."
+object_exit_steer_rate_rad_s:
+  default: 0.6
+  description: "Steering slew limit [rad/s] when an object move ends (/mpc/goal_object_end or /mpc/hold): speed goes to zero at once and the wheels return to centre at this rate, from the measured angle when /joint_states has one. A smoothness choice, not an actuator limit: full lock (0.28 rad) to centre in about 0.5 s. Ported from the go_to_object prototype's LOST ramp."
+# Consumed by: mpc_controller/MPC_corr.py (declare default = this value).
+# THE SPEED CLAMP on every /drive command mpc_corr publishes (drive_limits.py).
+# Nothing below it is tighter: ackermann_mux has no speed limit and
+# vesc_driver clips at +-23250 ERPM = +-4.23 m/s, reverse included.
+#
+# Defaults chosen to change no requested speed. Every speed a mission, the
+# LLM translator or mpc_corr requests is <= 0.5 m/s (missions: drive 0.3-0.5,
+# turn 0.3-0.5, go_to_object 0.4; translator 0.4/0.5; mpc_corr vdes 0.5) and
+# nothing requests reverse (a negative goal_distance ends its move on the
+# first tick). What the clamp DOES change is solver-chosen speed: the archive
+# has reverse to -0.231 m/s in 13 runs and up to 1.206 m/s in 3, all against
+# references <= 0.5, and the rig reached +2.07/-1.04 m/s when a person
+# crossed close in front. See docs/analysis/2026-09-16_chase_overspeed.md.
+# Paths that do not go through mpc_corr are NOT clamped: joystick teleop
+# (joy_teleop.yaml scale 5.0 on the mux's teleop lane), calibration_drive,
+# twist_to_ackermann_node, and hand scripts publishing /drive.
+max_forward_speed_mps:
+  default: 0.5
+  description: "Largest forward speed [m/s] mpc_corr may put on /drive; larger commands are clamped and reported on /mpc/drive_clamp. FLOOR VALUE, set by the operator for the 2026-09-18 go_to floor session (was 1.0): equal to the highest speed any mission or code path requests (0.5: drive/turn moves, translator turn speed, mpc_corr's vdes default), so nothing that asks for 0.5 or less is changed, and solver overshoot above a 0.5 reference is now cut instead of reaching the car. The go_to approach runs at 0.4, leaving 0.1 m/s of headroom before a command is clamped."
+# THE OPERATING FLOOR. 0.4 m/s is the minimum commanded forward speed while
+# the car moves; below it the car is not operated, and zero is used only to
+# stop. Nothing in the stack enforced one before 2026-09-17: vesc.yaml's
+# erpm_deadband (500 ERPM = 0.091 m/s) zeroes TELEMETRY only, not commands, and
+# the low-speed velocity_correction curve is unpopulated (pass-through), while
+# its own sweep found 0.15 m/s commanded moving the car at 0.083 m/s.
+min_moving_speed_mps:
+  default: 0.4
+  description: "Minimum forward speed [m/s] commanded while the car moves; zero only to stop. ENFORCED on: go_to_object moves -- the mission loader rejects go_to_object.speed below it, mpc_corr floors the published /drive speed at it while an object approach drives, and treats an ObjectGoal speed below it as stop-and-wait. NOT YET ENFORCED on drive, turn, goal_distance and goal_pose moves: drive_turn_180.json, test_04_turn_accuracy.json, turn_90_left.json and wall_turn_then_straight.json still request 0.3 m/s, and mpc_corr's other modes still let the solver's command fall below 0.4 near a goal."
+max_reverse_speed_mps:
+  default: 0.0
+  description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
+# Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
+# declare default = this value), for the go_to_object move (schema 4.0):
+# GoToObject (mission/object_handler.py) and CheckStopCondition's
+# object_reached; object_reach_tol_m and object_stop_distance_m ALSO by
+# MPC_corr.py (declare default = this value), for the stop on arrival.
+# NONE OF THESE HAS BEEN RUN ON THE CAR.
+object_gap_settle_buffer_m:
+  default: 0.10
+  description: "Margin [m] on top of the controller's rest gap in gap_min(class) = car_radius + obstacle_safety_margin_m + class margin + this (f1tenth_params/object_geometry.py). A go_to_object gap_m below gap_min is rejected at mission load (and raised to it by the LLM translator). Since the 0.4 m/s operating floor this is a SAFETY minimum, not a reachability one: the solver can no longer slow the car, so a smaller commanded gap would be driven to (the rig brings gap 0 to about 0.1 m from the edge); the check keeps the car outside the clearance the obstacle model keeps from anything else. The default gap is gap_min rounded up to 0.1 m."
+object_follow_gate_m:
+  default: 1.5
+  description: "FOLLOW gate [m]: the target is the nearest confirmed track of the move's class within this distance of the LAST target point, whatever its track_id. semantic_layer_node re-issues ids across dropouts; a same-class track farther than this is a different object. RAISED 0.5 -> 1.5 on 2026-09-23 after P004-R003 aborted on target_lost 1.89 m short of the person: the followed id had already slid 2 -> 11 inside the gate (nine ids born in seven seconds), and the abort came when no confirmed person track sat within 0.5 m of the last target point for lost_grace_sec. 1.5 m tolerates a re-issue that also JUMPS -- a re-detected person whose new track lands up to 1.5 m away is still the same person. THE PRICE, deliberately accepted: the gate is now wider than the distance between two people standing apart, so in a multi-person scene FOLLOW can walk onto the wrong one; and the gate cannot help at all when the dropout is the whole tracks stream going stale (object_tracks_max_gap_sec), which the surviving logs could not rule out for that abort. Revisit once /costmap/semantic_tracks is recorded per test and the two causes can be told apart."
+object_tracks_max_gap_sec:
+  default: 0.5
+  description: "A /costmap/semantic_tracks message older than this [s] by receipt time counts as no tracks, so a stalled perception pipeline reads as a lost target (GRACE, then target_lost) rather than a target frozen in place."
+object_reach_tol_m:
+  default: 0.10
+  description: "Read by BOTH ends of the stop. The mission's object_reached fires when mpc_corr's live r (/mpc/object_status: centre distance minus the commanded gap + nose_reach + target radius, i.e. actual gap minus commanded gap) is at or below this [m] -- or when mpc_corr reports its stop latched and the car at rest (object_rest_speed_mps). mpc_corr latches that stop at r <= this + object_stop_distance_m, so the car comes to rest near r = this. The same key on both sides places the stop where arrival is judged."
+object_stop_distance_m:
+  default: 0.14
+  description: "MEASURED: the TRUE distance [m] the car covers after mpc_corr's command steps to zero from 0.4 m/s. mpc_corr stops an object approach (speed to zero, latched for the move) once live r <= object_reach_tol_m + this, so the car comes to rest near r = object_reach_tol_m. Taken 2026-09-17 from the six archived mid-mission stops with a usable LiDAR ground truth (tools/measure_stop_distance.py; command persistently 0 after >= 1 s of driving, last command 0.47-0.54, measured speed 0.34-0.48, dead-ahead range interpolated at the zero command and 0.5 s after rest, yaw change < 1.5 deg), each normalised to 0.4 m/s as d * (0.4 / v0)^2: median 0.111, mean 0.108, sd 0.016, range 0.083-0.133; a latency-plus-deceleration fit d = v*tau + v^2/(2a) gives tau 0.144 s, a 1.50 m/s^2, d(0.4) = 0.111. Shipped at median + 2 sd = 0.143, rounded to 0.14 (above the largest measured stop). ODOMETRY CANNOT MEASURE IT: /odometry/filtered's path over the same stops is 0.074 at 0.4, the LiDAR distance 1.45x that (1.20x when cruising, see the 2026-09-11 scale audit) -- the wheels read short while braking. End-of-mission stops (hold, goal_reached, abort) could not be used at all: the mission logger stops recording at the hold."
+object_reach_max_target_age_sec:
+  default: 1.0
+  description: "UNMEASURED -- the bench run that was to measure it did not happen (2026-09-17). object_reached also requires the target estimate being driven at to be no older than this [s] (target_age_s: now minus the track's capture stamp). The capture-to-status latency of the semantic tracks pipeline has not been measured on the car; if the floor shows target_age_s above this while tracking, the move cannot reach."
+object_status_max_gap_sec:
+  default: 0.5
+  description: "object_reached ignores a /mpc/object_status sample received more than this [s] ago (mpc_corr publishes it every control tick, 10 Hz)."
+object_rest_speed_mps:
+  default: 0.05
+  description: "object_reached also fires when mpc_corr reports stop_latched (it stopped the approach on arrival, see object_stop_distance_m) and the vehicle's measured speed on /mpc/object_status is at or below this [m/s]. 'At rest', so the status the mission records is the resting one. The speed is mpc_corr's odometry state (/odometry/filtered with localization_source ekf), which is fed by VESC telemetry that reads exactly zero below vesc.yaml's erpm_deadband (500 ERPM = 0.091 m/s); in the archived stops the filtered speed was at or below 0.02 m/s within 0.5 s of the zero command."
+# ------------------------------------------------------------------
+# WALL TRACKER -- d_wall for the wall_turn increment.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
+# mpc_controller/wall_tracker.py, whose module docstring has the full design.
+# No launch arg: edit here and relaunch.
+#
+# The increment above sizes each corridor from the distance left in which to
+# finish rotating, and that distance is governed by the wall that triggered
+# the turn. dFront cannot supply it mid-turn: it is measured along the car's
+# own heading, which rotates away from that wall, so it jumps to whatever
+# lies down the new heading. So on the rebuild a wall_turn commits, the wall
+# is SELECTED from that instant's /scan (line normal within wall_normal_tol_rad
+# of the frozen heading, within wall_dfront_slack_m of the commit dFront,
+# ahead of the car, at least wall_min_span_m of returns)
+# and held as a line in the odom frame. From the next rebuild on, d_avail runs
+# on d_wall = the FRONT BUMPER's perpendicular distance to that line -- no
+# cone, no field of view, no dependence on the current heading -- refitted
+# from returns within wall_assoc_dist_m of it on every control tick (never
+# re-gated: the car is rotating, so the selected wall fails the
+# perpendicularity test partway through the turn) and dead-reckoned from
+# odometry when the refit degrades.
+#
+# dFront keeps every job it has today: the commit decision, the safety layer,
+# and the increment's distance whenever no wall passed the gates. Result on
+# /mpc/wall_track (f1tenth_messages/WallTrack), every control tick of a
+# wall_turn. The bumper offset is swept_clearance_body_front_x_m (the same
+# physical quantity, read from that key); the LiDAR inlier distance is
+# lidar_front_wall_inlier_distance_m (measured on this Hokuyo, not a second
+# tunable). Neither is a separate key here on purpose.
+wall_track_enable:
+  default: true
+  description: "Run the wall tracker for wall_turn moves. false: no /scan subscription in mpc_corr, no /mpc/wall_track, and the increment runs on dFront alone as before."
+wall_normal_tol_rad:
+  default: 0.39
+  description: "Largest angle [rad] between a candidate line's normal (folded to [0, pi/2], a fit gives the sign only up to a flip) and the heading frozen at commit for it to count as the FRONT wall. 0.39 (22.5 deg) is wide enough for an oblique approach and narrow enough that a side wall (90 deg off) can never qualify. If real walls are being rejected, this is the first thing to tune, and mpc_corr's WALL/select rejection log (with each candidate's angle_err) is what to tune it against."
+wall_min_span_m:
+  default: 0.5
+  description: "Shortest extent [m] of a candidate's inlier returns along its line for it to be selectable, and for a tracking refit to be accepted rather than dead-reckoned. The extent is the longest run of returns with no gap over 0.25 m, not max minus min: returns scattered across a room that line up must not read as a long wall. A short cluster fits any line you like: a doorframe or a box corner makes a perfect two-point wall."
+wall_min_inliers:
+  default: 8
+  description: "Fewest returns on a candidate line for it to be selectable, and fewest returns associated to the tracked line for a refit to be accepted; below it that tick dead-reckons d_wall from odometry."
+wall_assoc_dist_m:
+  default: 0.3
+  description: "Association gate [m]: on each control tick only returns within this perpendicular distance of the tracked line (in odom) feed its refit. Proximity only, never orientation. Kept tight so the next corridor's wall is not absorbed into the current fit; the refit then tightens to the LiDAR inlier distance so an adjoining wall's corner returns cannot lever the normal."
+wall_dfront_slack_m:
+  default: 0.5
+  description: "Selection distance window [m]: a candidate's bumper distance must be within this of the dFront the turn committed on. Nearer cannot be the wall the car decided to turn for (side-wall clutter at 0.4 m), and neither can farther: on an archived run that started 1.25 m behind an obstacle, the corridor's genuine end wall 10 m away passed every other gate and would have removed the distance cap from a turn decided on 1.25 m. Relative to the commit dFront, NOT the nominal trigger distance: a wall_turn issued once dFront already reads 4.0 m commits with a 90 deg turn's 4.27 m trigger already passed, and a floor at the trigger would reject the real wall. The slack covers camera-vs-LiDAR disagreement and the lens-to-bumper offset; it is not measured (the archive has no /perception/front_distance to measure it against). dFront unknown at commit means no window (logged)."
+# ------------------------------------------------------------------
+# MPC BOUNDARY CONSTRAINTS -- the costmap wall rows in the RTI solve.
+#
+# TRUE IS NOW A CHOSEN VALUE, NOT AN INHERITED ONE (2026-09-09). It had been
+# true here the whole time while MPC_corr.py's own literal, its comment and
+# mpc_solver.py's docstring all said "False, inert" -- so the vehicle has
+# been solving WITH costmap_boundary_node's wall rows since the key was
+# added, and nobody chose that. Reviewed and kept true, because the
+# alternative is worse: with this false the RTI solve has NO wall term of any
+# kind, only the soft w_obs point-obstacle deflection cost, and nothing else
+# in the solve replaces a wall. Turning it off would be a safety reduction
+# adopted for tidiness. Set it to false only to reproduce the MATLAB /
+# f110_autonomy comparison, which has no such constraint.
+#
+# The three keys below are the SHAPE of those rows. They were code literals
+# in MPC_corr.py, withheld from this file by 69aa44a on the grounds that they
+# were "not yet reachable" -- which was wrong for the same reason as above:
+# they have been reachable and live all along. Promoted here so the shipped
+# values are recorded rather than assumed. Defaults are unchanged from those
+# literals, so this promotion alone changes no behaviour.
+use_hard_boundary_constraints:
+  default: true
+  description: "true (default, deliberate): mpc_corr.py's RTI solve enforces costmap_boundary_node's wall constraints (soft rows unless boundary_hard). false: no wall constraint of any kind, only the soft w_obs deflection cost -- the MATLAB-comparison configuration."
+boundary_hard:
+  default: false
+  description: "Wall-row form in the RTI/OSQP solve. false (default): soft rows -- one slack per face, shared across stages, penalised at boundary_slack_weight, violation reported in metres as info['boundary_slack']. true: strict rows, where an unsatisfiable wall makes the QP infeasible and _solve_rti discards the whole solve and holds the warm start, telling the caller nothing about which face was violated."
+boundary_max_sources:
+  default: 3
+  description: "Wall rows per horizon stage, i.e. QP rows per stage. 3 (default) matches costmap_boundary_node's nearest-cell front/left/right output. A convex polytope needs up to 8 (costmap_boundary_polytope_max_faces) -- set this to match, or pad_boundary_constraints TRUNCATES the extra faces silently and the survivors still look like a complete constraint set. Each extra slot costs one QP row per stage (20 at N=20)."
+boundary_slack_weight:
+  default: 10000.0
+  description: "Penalty on each wall face's worst violation over the horizon, when boundary_hard is false. Large relative to every cost weight, so the solve treats a wall as near-inviolable while still degrading to a reported violation instead of an infeasible QP. Never validated on the vehicle."
+# Consumed by: f1tenth_control/mpc_corr.launch.py -> mpc_corr's model_log_path.
+# Model-validation CSV read by tools/mpc_model_check.py; see docs/DIAGNOSTICS.md.
+# Additive instrumentation: nothing reads it back into the control path.
+mpc_model_log_path:
+  default: mpc_log.csv
+  description: "Per-control-step CSV (t,x,y,psi,v,steer_cmd,accel_cmd) written by mpc_corr on every solved control step, for tools/mpc_model_check.py. A relative path lands in mpc_corr's WORKING DIRECTORY (the shell that launched supervisor_bringup/stack_bringup), not the source tree, and is truncated on every node start, including supervisor restarts. Empty string disables it."
+# ------------------------------------------------------------------
+# MPC ACTUATOR LIMITS -- what the servo can actually reach.
+#
+# Consumed by: MPC_corr.py's self.limits dict, whose declare_parameter()
+# defaults read these through get_value(). THIS FILE IS THE ONLY PLACE THE
+# NUMBERS LIVE.
+#
+# THE DEFECT THESE REPLACE. self.limits carried delta_min/delta_max of
+# -+1.05 rad (-+60 deg) as bare literals. The servo cannot go anywhere near
+# that: the QP was optimising over a command range 3.8x wider than the
+# actuator, and the excess was silently clipped downstream by
+# vesc_driver's own servo_limit_. Silently is the operative word -- the
+# model integrates the command it asked for, so every saturated tick fed
+# the predicted trajectory a steering angle the car never applied, and
+# MPC_corr's own saturation warning (compare against self.limits) could
+# never fire because the literal it compared to was outside the servo's
+# reach in the first place.
+#
+# WHERE +-0.278/-0.283 COME FROM -- derived, and reproducible from files in
+# this repo, not measured with an instrument. The command path is
+#   ackermann_to_vesc.cpp:  servo = gain_side * steering_angle + offset
+#                           (gain_left for angle >= 0, gain_right below)
+#   vesc_driver.cpp:        servo = clip(servo, servo_min, servo_max)
+# and f1tenth_hardware/config/steering_calibration.yaml currently holds
+#   servo_min 0.15   servo_max 0.8318   offset 0.4874
+#   gain_left = gain_right = -1.2135
+# Inverting the clip bounds through that line:
+#   angle at servo_min = (0.15   - 0.4874) / -1.2135 = +0.27804 rad (+15.93 deg)
+#   angle at servo_max = (0.8318 - 0.4874) / -1.2135 = -0.28381 rad (-16.26 deg)
+# Rounded INWARD (+0.278 / -0.283) so a command at the limit is always one
+# the servo can actually produce rather than one that just reaches the clip.
+#
+# THIS IS NOT THE -0.264/+0.314 PAIR the work order cited, and that pair was
+# NOT applied. Those two numbers appear in exactly one place in this
+# repo -- steering_offset_calibration_node.py's declared parameter
+# defaults, introduced in dd843af, whose docstring calls them "the real
+# ones for this car" with no derivation recorded anywhere. They contradict
+# the calibration above: +0.314 rad maps to servo 0.1064, BELOW servo_min
+# 0.15, so it is not commandable at all -- it clips to +0.278. A mechanical
+# limit the servo clamp forbids is not a mechanical limit. They also point
+# the asymmetry the wrong way: the calibration gives slightly more travel
+# to the RIGHT (-16.26 vs +15.93 deg), not the left.
+#
+# THE ASYMMETRY IS CURRENTLY 0.006 RAD AND IS AN ARTEFACT OF THE OFFSET, not
+# of the linkage. gain_left and gain_right are both -1.2135 and
+# steering_calibration.yaml labels them "Placeholder until retuned" --
+# vesc_tuning's Mode 3 tunes them independently and has not been run. Real
+# linkage asymmetry will only appear here once it has. test_steering_
+# limits.py recomputes this envelope from steering_calibration.yaml and
+# fails if the two drift apart, so a recalibration cannot silently leave
+# these stale.
+mpc_steering_angle_min_rad:
+  default: -0.283
+  description: "Most negative steering angle [rad] mpc_corr's QP may command (-16.22 deg). Derived by inverting servo_max through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare -1.05 literal, 3.7x beyond the servo's reach."
+mpc_steering_angle_max_rad:
+  default: 0.278
+  description: "Most positive steering angle [rad] mpc_corr's QP may command (+15.93 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
+# Consumed by: MPC_corr.py's declare_parameter() default (get_value), no launch
+# arg. The bicycle model's L, and the wheelbase wall_turn.py's R_min is derived
+# from. Promoted from a bare 0.305 literal with the value unchanged.
+mpc_wheelbase_m:
+  default: 0.305
+  description: "Wheelbase [m] of mpc_corr's vehicle model (params['L']) and of the wall_turn increment's R_min = L / tan(steering bound). Unchanged from the literal it replaces, and unmeasured on this car: the URDF says 0.325 and the F1TENTH spec 0.3302 (see swept_clearance_wheelbase_m)."
+
+# ------------------------------------------------------------------
+# MPC COST WEIGHTS -- SINGLE SOURCE OF TRUTH.
+#
+# Consumed by: MPC_corr.py's self.weights dict, whose declare_parameter()
+# defaults read these through get_value(), and mpc_corr.launch.py. Until
+# this pass that dict was ten bare literals with no ROS parameter behind
+# them at all -- no launch override, no config record, and no way to change
+# a weight without a rebuild.
+#
+# READ THE "EFFECTIVE" COLUMN, NOT THE LITERAL. Every key below except
+# mpc_w_term and mpc_w_psi is a PER-STAGE weight, and solve_mpc_step
+# multiplies those by STAGE_WEIGHT_REF_HORIZON / N = 7/20 = 0.35 before the
+# solver sees them (mpc_solver.scale_stage_weights). So the number here is
+# not what the QP applies. This has already caused confusion once and the
+# code comment in MPC_corr.py says so; the descriptions below quote both.
+#
+# HOW THE NUMBERS WERE DERIVED. Normalised as w = rho / sigma^2, where
+# sigma is one unit of badness in that term's own units and rho is a
+# dimensionless priority, with the sigmas taken from this car's geometry
+# rather than picked:
+#
+#   position    sigma 0.20 m        car_radius; under half the 0.4333 m
+#                                   narrow corridor half-width
+#   heading     sigma 0.134 rad     the heading error that produces 0.20 m
+#                                   of lateral offset over the 1.5 m
+#                                   lookahead -- commensurate with the
+#                                   position sigma by construction, not by
+#                                   coincidence
+#   velocity    sigma 0.10 m/s      against vdes (0.5 in MPC_corr; the
+#                                   derivation was written against 0.45 --
+#                                   see the note at the end of this block)
+#   steer rate  sigma 0.03 rad/step full lock ~0.30 rad reachable in 1 s
+#
+#   rho:  position 1.0   heading 0.6   velocity 0.3   steering-rate 0.15
+#
+# The stage literals are then rho / (7 * sigma^2), which is exactly the
+# value that makes the TOTAL stage cost over the horizon equal rho / sigma^2
+# regardless of N:
+#
+#     total = N * literal * (7/N) = 7 * literal = rho / sigma^2
+#
+# so the set is horizon-invariant through the machinery that already exists
+# rather than by dividing by N a second time. Worked through:
+#
+#   term          rho   sigma   rho/sigma^2   literal   effective (x0.35)
+#   position      1.00  0.200        25.000    3.5714              1.2500
+#   heading       0.60  0.134        33.415    4.7736              1.6708
+#   velocity      0.30  0.100        30.000    4.2857              1.5000
+#   steer rate    0.15  0.030       166.667   23.8095              8.3333
+#
+# steer rate NO LONGER SHIPS AT ITS DERIVED VALUE -- see mpc_w_du_delta
+# below, which was moved to literal 8.5714 (effective 3.0) on 2026-09-09.
+# The row above is kept as the derivation it departs from, not as the
+# shipped number.
+#
+# WHAT CHANGED, effective values, old -> new:
+#   w_corr        0.0  -> 1.25    cross-track tracking, was OFF entirely
+#   w_psi_stage   ---  -> 1.67    new term (see the previous commit)
+#   w_v           2.8  -> 1.50
+#   w_du_delta    5.25 -> 8.33 -> 3.00  (the 3.00 is a later, deliberate
+#                                 departure from the derivation; see the
+#                                 mpc_w_du_delta key itself)
+#   w_term        3.0  -> 9.0     terminal, unscaled
+#   w_psi         1.5  -> 4.5     terminal, unscaled
+#   w_obs         2.8  -> 2.8     UNCHANGED -- less obstacle shyness was
+#                                 wanted, and 2.8 is already the rescaled
+#                                 value, so the literal 8.0 stays put
+#   w_delta0      0.0  -> 0.0     stays OFF. It penalises steering
+#                                 MAGNITUDE, and with a ~2 deg plant bias
+#                                 (steering_calibration.yaml's own
+#                                 +2.68 deg measurement) the correct steady
+#                                 command is nonzero -- this term would
+#                                 fight holding a line.
+#   w_u_a, w_du_a 0.0  -> 0.0     unchanged, still off
+#
+# NOTE ON vdes, which this derivation did not settle: the velocity sigma was
+# chosen against vdes 0.45, and MPC_corr's bootstrap self.vdes is 0.5 (and
+# every real move overwrites it from the move's own commanded speed anyway).
+# Not changed here -- vdes is a trajectory parameter, not a weight, and
+# moving it would change the car's speed in a commit that is meant to change
+# only the cost balance. The mismatch is 11% on one sigma, i.e. w_v is ~1.2x
+# tighter relative to the actual operating point than intended.
+mpc_w_term:
+  default: 9.0
+  description: "TERMINAL position weight on ||x_N - pref_nom||^2. Not stage-scaled, so 9.0 is what the solver applies. Was 3.0."
+mpc_w_psi:
+  default: 4.5
+  description: "TERMINAL heading weight on (psi_N - corridor psiRef)^2. Not stage-scaled, so 4.5 is what the solver applies. Was 1.5."
+mpc_w_psi_stage:
+  default: 4.7736
+  description: "PER-STAGE heading weight, tracking the corridor tangent at every horizon step. Effective value 1.67 after the 7/20 stage scaling. New term as of the stage-tracking commit; was 0.0 (inert) there and is turned on here."
+mpc_w_corr:
+  default: 3.5714
+  description: "PER-STAGE cross-track weight -- perpendicular distance to the corridor CENTRELINE, zero longitudinal component by construction. Effective value 1.25 after the 7/20 stage scaling; DERIVED, rho 1.0 over sigma 0.20 m, and left on its derivation when mpc_w_line split the job in two: this term used to own both errors, because on the object branch the corridor centreline WAS the target line. Under object_corridor_mode 'arc' they are different curves -- measured to disagree by up to 0.58 m mid-approach over the 24 archived rebuilds -- so w_corr holds the car on the corridor it is being asked to fly and mpc_w_line holds it on the line the target sits on. OPEN: with both at sigma 0.20 the two together put 2.5 of effective lateral stiffness on a car only ever tuned at 1.25. Lowering this one is a sigma choice (0.354 m would give 0.40) and NOT a free fit -- it would take w_corr off the rho/sigma^2 derivation that test_weight_set.py pins, and off the invariant that exactly one weight (w_du_delta) departs from it on purpose. Decide the sigma, not the literal. RETUNE ORDER: mpc_w_psi_stage first -- under 'arc' it tracks a tangent that now rotates through the corridor."
+mpc_w_line:
+  default: 1.1662
+  description: "PER-STAGE cross-track weight on the perpendicular distance to the TARGET LINE (the straight line through the target at the corridor's held heading psi_c). Effective value 0.408 after the 7/20 stage scaling, i.e. rho 1.0 over sigma 0.35 m -- the SAME pair mpc_arc_line_sigma_m expresses, so the declared literal and the arc-scoped derivation cannot disagree. In practice the arc always overrides this via MPC_corr._weights_for; it is declared so the weights dict carries the key and so a bypass would not surprise anyone. STRUCTURALLY ABSENT off the object branch and whenever the line is meaningless (no target, target lost, target behind the car): the corridor carries targetLine=None and mpc_solver adds no rows at all rather than zero-weighted ones. SYNTHETIC beyond the transfer argument -- retune on hardware with mpc_w_corr."
+mpc_w_v:
+  default: 4.2857
+  description: "PER-STAGE speed-tracking weight on (v - vdes)^2. Effective value 1.50 after the 7/20 stage scaling. Was literal 8.0, effective 2.8."
+# tuned against legacy height radii, re-validate on floor
+mpc_w_obs:
+  default: 8.0
+  description: "PER-STAGE obstacle soft-deflection weight. Effective value 2.8 after the 7/20 stage scaling -- UNCHANGED, deliberately: less obstacle shyness was wanted, not more."
+# w_du_delta IS THE ONE TERM DELIBERATELY OFF THE rho/sigma^2 SET (2026-09-09).
+# Lowered effective 8.33 -> 3.0, i.e. literal 23.8095 -> 8.5714. The derived
+# value came from sigma = 0.03 rad/step, and that sigma was chosen as "what
+# the servo can do in a step" -- so it encodes the ACTUATOR limit twice: once
+# here as a soft cost, and again as the hard dDeltaMin/dDeltaMax bound, which
+# is where a rate limit actually belongs. Double-counting it makes the solver
+# pay a large cost for motion the hard bound already forbids it from
+# exceeding, and the term that loses the trade is cross-track/heading
+# correction -- the thing the corridor set was retuned to turn ON.
+#
+# 3.0 is chosen, not derived: it leaves w_du_delta the same order as w_psi_
+# stage (1.67) and w_corr (1.25) so it still damps chatter, without being 5x
+# either of them. If the car now oscillates about the line instead of
+# holding it, this is the number to raise first.
+#
+# THIS IS THE SINGLE BIGGEST BEHAVIOURAL CHANGE IN THE CURRENT SET. During a
+# from-zero steering ramp it changes nothing at all -- the hard bound governs
+# there (see test_weight_set.py's TestTheHardRateBoundDominatesTheWeight,
+# measured) -- so any difference it makes shows up in the SUSTAINED holding
+# behaviour after the ramp, not in how fast the correction starts.
+mpc_w_du_delta:
+  default: 8.33
+  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2. Effective value 3.0 after the 7/20 stage scaling. Deliberately OFF the rho/sigma^2 derivation (which gives 23.8095, effective 8.33): that sigma double-counts the hard dDeltaMin/dDeltaMax rate bound as a soft cost. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD bound, which is not."
+mpc_w_delta0:
+  default: 0.0
+  description: "PER-STAGE steering-MAGNITUDE weight. Stays 0.0: the car has a ~2 deg steering bias, so the correct steady-state command is nonzero and this term would fight holding a straight line."
+mpc_w_u_a:
+  default: 0.0
+  description: "PER-STAGE acceleration-magnitude weight. Unchanged at 0.0."
+mpc_w_du_a:
+  default: 0.0
+  description: "PER-STAGE acceleration-RATE weight. Unchanged at 0.0."
+
+# cpu_affinity/nice (Phase A, CPU affinity/priority pinning) are deliberately
+# NOT here -- see f1tenth_control/mpc_corr.launch.py's own docstring: unlike
+# every other arg in this file, the right value is machine-specific (which
+# core ids are free of ZED depth compute / YOLO TensorRT / EKF contention on
+# THIS deployment), not a stack-wide default, so they're declared directly in
+# that launch file instead.
+# Consumed by: f1tenth_control/ackermann_mux.launch.py.
+mux_config:
+  default: config/mux.yaml
+  description: "ackermann_mux priority/lock/topic config arbitrating between drive-command sources."
+# Consumed by: f1tenth_control/joy.launch.py.
+joy_config:
+  default: config/joy_teleop.yaml
+  description: "joy_node + joy_teleop button/axis mapping config for manual joystick control."
+# mpc_node_name (previously: fully-qualified MPC node name, /mpc_corr, injected as
+# target_node's override on llm_mpc_tuner_node -- itself removed outright, see
+# git history) removed here too: llm.launch.py stopped launching any interrogation
+# node at all (component-auto-start pass, see that file's own module docstring),
+# so target_node/mpc_url had nowhere left to be injected into and became fully
+# dead code, not just currently-unconsumed data -- removed together rather than
+# left declaring a value nothing reads. If a future interrogation needs to target
+# a specific ROS node again (an MPC-tuning-style one, say), re-add this key then.
+# Consumed by: f1tenth_control/mpc.launch.py -- wired into andre_mpc_node.py's own
+# already-declared ROS params for the first time this phase (mpc.launch.py previously
+# passed no parameters=[...] at all, so these 12 gains were only ever the in-code
+# defaults in mpc_controller/andre_mpc_node.py; values here match those defaults
+# exactly, so wiring them up changes nothing behaviorally by itself).
+qn:
+  default: 50.0
+  description: "MPC rollout cost weight on radial tracking error (distance to the reference circle). High: tight radial tracking."
+# Consumed by: f1tenth_control/mpc.launch.py. Declared by andre_mpc_node.py but not
+# currently read anywhere in its own cost function or control loop (self.qv is set in
+# update_params, never used elsewhere) -- a pre-existing gap in the node itself.
+qv:
+  default: 50.0
+  description: "Declared MPC cost weight, currently unused by andre_mpc_node.py's own rollout cost."
+# Consumed by: f1tenth_control/mpc.launch.py.
+qalpha:
+  default: 30.0
+  description: "MPC rollout cost weight on heading error (deviation from tangent-to-circle). High: stay tangent to the circle."
+# Consumed by: f1tenth_control/mpc.launch.py.
+qddelta:
+  default: 2.0
+  description: "MPC rollout cost weight penalizing steering-correction rate, for smooth corrections."
+# Consumed by: f1tenth_control/mpc.launch.py.
+alat_max:
+  default: 10.0
+  description: "Lateral acceleration limit [m/s^2] enforced as a soft constraint in the MPC rollout cost."
+# Consumed by: f1tenth_control/mpc.launch.py. Declared by andre_mpc_node.py but not
+# currently read anywhere else in the node (self.a_min is set in update_params, never
+# used elsewhere) -- a pre-existing gap in the node itself.
+a_min:
+  default: -3.0
+  description: "Declared MPC deceleration limit [m/s^2], currently unused by andre_mpc_node.py's own control loop."
+# Consumed by: f1tenth_control/mpc.launch.py.
+a_max:
+  default: 3.0
+  description: "MPC acceleration limit [m/s^2] -- rate-limits the open-loop speed command toward v_ref."
+# Consumed by: f1tenth_control/mpc.launch.py.
+v_min:
+  default: -0.5
+  description: "MPC speed floor [m/s] -- clips both the state estimate used in the rollout cost and the published speed command."
+# Consumed by: f1tenth_control/mpc.launch.py.
+v_max:
+  default: 0.5
+  description: "MPC speed ceiling [m/s] -- clips the published speed command."
+# Consumed by: f1tenth_control/mpc.launch.py.
+v_ref:
+  default: 0.5
+  description: "Center [m/s] of the MPC's open-loop sine speed profile."
+# Consumed by: f1tenth_control/mpc.launch.py.
+sine_amp:
+  default: 0.0
+  description: "Amplitude [m/s] of the MPC's open-loop sine speed profile. 0.0: constant speed at v_ref."
+# Consumed by: f1tenth_control/mpc.launch.py.
+sine_period:
+  default: 4.0
+  description: "Period [s] of the MPC's open-loop sine speed profile."
+# safety_forward_v_ref / safety_stop_distance / safety_corridor_half_width /
+# safety_corridor_half_height / safety_clear_frames_required (safety_stop_controller's
+# own params) were deleted here -- that node is retired, see enable_safety_stop's
+# own comment above. The forward-corridor stop distance/dimensions the BT's
+# IsObstacleDetected uses instead are car_radius/obstacle_safety_margin_m-derived
+# now, not a separate config surface -- see those keys below.
+
+# ------------------------------------------------------------------
+# Obstacle-avoidance safety margins -- SINGLE SOURCE OF TRUTH.
+#
+# Four independent mechanisms each need a "how close is too close" distance,
+# and before this pass each hardcoded its own number rather than sharing one:
+# MPC_corr.py's car_radius/avoidance_margin (soft-avoidance deflection
+# trigger radius), the BT's IsObstacleDetected (hard-stop rectangular
+# corridor half-width/height), and the BT's IsProximityTooClose (raw-sensor
+# last-resort front/side/rear standoff distances). Two of those four had
+# already drifted out of agreement (IsObstacleDetected's corridor was
+# 0.25m, safety_stop_controller's own corridor was 0.4m, for what was
+# supposed to be the same "car's forward clearance box" concept).
+#
+# These mechanisms are NOT all checking identical geometry, though, so this
+# is a base value + per-mechanism derived formula, not one scalar force-fit
+# everywhere: MPC's is a continuous omnidirectional path-shaping buffer,
+# IsObstacleDetected's is a hard-stop box dimension, and
+# IsProximityTooClose's two thresholds are deliberately asymmetric raw
+# standoffs (front already has YOLO-lane coverage via handle_obstacle, so is
+# a tighter backstop; sides/rear have zero other coverage, so get their own,
+# less padded threshold). The two keys below are combined as follows:
+#   - MPC_corr.py: avoidance_margin <- obstacle_safety_margin_m (unchanged
+#     numeric default, 0.12); car_radius <- car_radius (unchanged numeric
+#     default, 0.20); dmin (disabled/warning-only clearance log, not a hard
+#     constraint) <- car_radius + obstacle_safety_margin_m = 0.32 (was a
+#     hardcoded, unrelated 0.9).
+#   - BT IsObstacleDetected: corridor_half_width = corridor_half_height <-
+#     car_radius + obstacle_safety_margin_m = 0.32 -- this is the fix for
+#     the 0.25-vs-0.4 drift above: both old competing hardcoded values are
+#     replaced by this one derived, justified number. stop_distance (1.0m,
+#     forward look-ahead reach, a different kind of quantity than a
+#     clearance margin) is untouched.
+#   - BT IsProximityTooClose: lidar_distance_threshold <- car_radius alone
+#     = 0.20 (trip at roughly the car's own physical radius, no extra
+#     margin -- pure contact-avoidance last resort with zero other
+#     coverage on the sides/rear; unchanged numeric default, a clean
+#     coincidence). front_distance_threshold <- car_radius +
+#     obstacle_safety_margin_m + proximity_front_extra_margin_m = 0.40
+#     (unchanged numeric default, now expressed as base + explicit extra
+#     backstop conservatism instead of a bare hardcoded number).
+#
+# Consumed by: f1tenth_control/mpc_corr.launch.py (car_radius,
+# obstacle_safety_margin_m -> MPC_corr.py's car_radius/avoidance_margin ROS
+# params) and f1tenth_behavior/behavior_bringup.launch.py (all three keys ->
+# behavior_executor_node.py's bootstrap param read -> create_root() ->
+# IsObstacleDetected/IsProximityTooClose constructor kwargs, same
+# stack-param-threading pattern IsSystemOverheated already uses).
+car_radius:
+  default: 0.20
+  description: "Car's physical footprint radius [m], promoted from MPC_corr.py's in-code-only ROS-param default to a shared stack-param -- needed here because the BT behaviours that also derive from it run in a separate process and can't read MPC_corr's own ROS param directly."
+# Consumed by: same set as car_radius above -- see that key's own comment for
+# the full derivation of each mechanism's actual threshold.
+obstacle_safety_margin_m:
+  default: 0.12
+  description: "Shared base safety-margin buffer [m] beyond car_radius, matching MPC_corr.py's pre-existing avoidance_margin ROS-param default exactly. Combined with car_radius (and, for IsProximityTooClose's front check only, proximity_front_extra_margin_m below) to derive every mechanism's actual threshold -- see car_radius's own comment."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -> IsProximityTooClose
+# only (its front_distance_threshold derivation) -- see car_radius's own comment.
+proximity_front_extra_margin_m:
+  default: 0.08
+  description: "Small extra conservatism [m] added on top of car_radius + obstacle_safety_margin_m for IsProximityTooClose's front standoff only, since that lane is a raw-sensor last resort behind an already-tighter-tuned backstop (the front direction alone also has YOLO-lane coverage via handle_obstacle) -- kept separately tunable rather than folded into obstacle_safety_margin_m so it doesn't also affect MPC/IsObstacleDetected, which have no such asymmetry."
+
+# Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into MPC_corr.py's
+# own declared ROS param, whose declare_parameter() default is
+# get_value('obstacle_target_shift_m'), i.e. this key. THIS FILE IS THE ONLY
+# PLACE THE NUMBER LIVES; there is no in-code literal to keep in step. Also
+# what test_corridor_lookahead_target.py's duck-typed stand-in reads, so the
+# test fake cannot drift from the deployed value either.
+#
+# HOW FAR SIDEWAYS THE MPC TRACKING POINT IS SHOVED PAST AN OBSTACLE.
+# compute_local_target takes the corridor-centerline lookahead point and, when
+# that point lands within R_safe = r + car_radius + obstacle_safety_margin_m
+# of an obstacle, pushes it out to the R_safe circle and then TANGENTIALLY by
+# up to this much (scaled by how far it had penetrated -- the proportional
+# shape is unchanged, this key is only its ceiling). It is what makes the car
+# steer around an obstacle rather than at it; bigger = swerve wider and earlier.
+#
+# 0.30 REPLACES A CORRIDOR-DERIVED 0.6 * mean(halfWidth), which at the
+# shipping geometry (corr_wmin 0.4333 / corr_wmax 0.7667, both bare literals
+# in MPC_corr.py) evaluated to exactly 0.36 m. The f110_autonomy reference
+# this branch was ported from uses a fixed 1.0 m step; our stack had already
+# left that behind, so this is 0.36 -> 0.30, not 1.0 -> 0.30. Reduced on
+# request so the car passes close to obstacles instead of swerving wide.
+#
+# MUST STAY INSIDE THE CORRIDOR HALF-WIDTH or the target lands outside its own
+# corridor and the corridor cost fights the terminal cost. The narrow end is
+# 0.4333 m, so 0.30 clears it with 0.13 m to spare. MPC_corr.py warns
+# (throttled) at runtime if this is ever set above the live corridor's mean
+# half-width rather than silently deflecting out of bounds.
+# tuned against legacy height radii, re-validate on floor
+obstacle_target_shift_m:
+  default: 0.30
+  description: "Max tangential displacement [m] applied to the MPC lookahead target when it falls inside an obstacle's safety radius, in compute_local_target. Scaled down by penetration depth, so this is the ceiling, not a fixed step. Was a corridor-derived 0.6 * mean(halfWidth) = 0.36 m; reduced to 0.30 so the car passes close to obstacles instead of swerving wide. Must stay under the corridor half-width (0.4333 m at the narrow end)."
+
+# --------------------------------------------------------------
+# OBSTACLE-AVOIDANCE TEST CONFIGURATION
+# Added by the 2026-09-01 mission-analysis follow-up (see
+# docs/analysis/mission_analysis_2026-09-01.md). That analysis found every unexpected stop
+# came from f1tenth_behavior's BT preempting the MPC on the ackermann_mux
+# safety_stop lane (priority 200) -- NOT from the MPC, which converged on
+# 1285/1285 solves with zero missed deadlines. These four keys move camera-seen
+# obstacles off the stop path and onto the avoidance path, while keeping a
+# tightened lidar floor.
+#
+# NOTE these deliberately do NOT derive from car_radius/obstacle_safety_margin_m
+# above. Those compose a safety margin ON TOP OF the car's radius; a last-resort
+# contact threshold is the opposite intent (deliberately INSIDE that margin), so
+# sharing the derivation would be actively misleading. Consumed by
+# f1tenth_behavior/behavior_bringup.launch.py -> behavior_executor_node.
+# --------------------------------------------------------------
+enable_camera_obstacle_stop:
+  default: false
+  description: "Whether camera detections can halt the car outright via the BT's handle_obstacle lane (IsObstacleDetected -> Stop on the safety_stop mux lane). FALSE by default as of the obstacle-avoidance pass: camera-seen obstacles now influence the car through MPC soft avoidance (/camera/detections_3d -> obstacle_projector_node -> /perception/obstacles_2d -> MPC_corr's w_obs cost term), which is unaffected by this flag, rather than by stopping. The lane is structurally absent when false (not ticked-and-failing), so a BT snapshot distinguishes 'disabled' from 'not tripping'. Set true to restore the old stop-on-sight behaviour as a comparison point or fallback. WHAT IT COSTS: in run 14-35-50 this lane was the only thing preventing a collision with a chair 0.66 m ahead, for the entire 31.8 s run."
+enable_lidar_safety_stop:
+  default: true
+  description: "Whether IsProximityTooClose (raw /scan, last-resort contact avoidance) is in the BT's emergency lane at all. TRUE by default and deliberately so: it is NOT redundant with MPC avoidance -- it is the floor that catches the case where avoidance itself is wrong (stale costmap, dropped track, or a logic bug of the kind already found once in the 2026-09-01 analysis). With both this and enable_camera_obstacle_stop false there is nothing between 'avoidance works' and 'the car drives into it'. Turn off only after a run has already shown avoidance holding up with the tightened thresholds below active."
+proximity_front_threshold_m:
+  default: 0.15
+  description: "IsProximityTooClose front-cone (+-45 deg) trip distance [m]. Tightened from the old derived 0.40 m (car_radius + obstacle_safety_margin_m + proximity_front_extra_margin_m) to a genuine last-resort contact range, so the lidar floor no longer competes with MPC avoidance for the same obstacle -- avoidance gets the whole 0.40-0.15 m band to work in, and this only fires once avoidance has already failed. Note this is INSIDE car_radius (0.20 m) by design."
+proximity_side_threshold_m:
+  default: 0.15
+  description: "IsProximityTooClose side/rear (outside the +-45 deg front cone) trip distance [m]. Was car_radius alone (0.20 m); tightened alongside the front threshold. The sides/rear have no camera or MPC-avoidance coverage at all, so this is the only protection in those directions -- tightened rather than removed for that reason."
+
+# --------------------------------------------------------------
+# IsSystemOverheated load-trip configuration
+# The 2026-09-01 analysis found this condition caused 3 of 9 stop episodes,
+# every one a false positive on the LOAD half of the check: single 1 Hz
+# gpu_percent samples of 96.8-99.1% while the car had 2.65-4.69 m of clear
+# space. Temperatures across the whole session stayed at 55 C CPU / 49 C GPU
+# against a 100 C limit -- the thermal half never fired and is untouched.
+# --------------------------------------------------------------
+enable_sys_obs_load_trip:
+  default: false
+  description: "Whether CPU/GPU UTILIZATION (sys_obs_max_load_percent) can trigger an emergency stop. FALSE by default: gpu_percent is genuinely bursty under YOLO inference (consecutive 1 Hz samples ranged 3.0-99.1% in run 15-08-12), so a utilization threshold on this board measures inference load, not distress. TEMPERATURE (sys_obs_max_temp_c) is a SEPARATE trigger and remains active and undebounced regardless of this flag -- this key does not disable thermal protection, which guards against hardware self-damage and is not downgradeable to a warning."
+sys_obs_load_trip_consecutive_samples:
+  default: 3
+  description: "How many CONSECUTIVE over-threshold /diagnostics/system_status samples the load check needs before it may trip, when enable_sys_obs_load_trip is true. Counted in SAMPLES at the publisher's 1 Hz rate (not BT ticks, which run 10x faster), so 3 means roughly 3 s of sustained high load. All three observed false positives lasted 1-2 samples and would not have tripped at this default."
+
+# --------------------------------------------------------------
+# Runtime-only interface, NOT a launch-parameter default -- documented here
+# for discoverability alongside the rest of this section, but there is no
+# get_value()/get_default() call site for it and no launch file declares it.
+# --------------------------------------------------------------
+# /mpc/goal_distance (std_msgs/Float32) -- subscribed by mpc_controller's
+# MPC_corr.py (entry point mpc_corr, launched by f1tenth_control/mpc_corr.launch.py
+# when enable_nav2:=false -- see navigation.launch.py). Publishing a Float32
+# commands the node to
+# drive straight for that many meters: on receipt it captures the car's
+# current (x, y) as the start point and stops (zero rear/steering commands,
+# latched) once the straight-line Euclidean distance traveled from that
+# point reaches the commanded value. Relative to the receipt point, not to
+# wherever autonomy was enabled -- a new message overrides any goal already
+# in progress and restarts the distance measurement from the new receipt
+# point. Straight-line only for now, no path following.
+
+# ============================================================
+# Autonomy
+# ============================================================
+# Consumed by: f1tenth_navigation/map.launch.py, via either nav2.launch.py's or
+# map_only.launch.py's forwarded 'map' launch argument (the latter is
+# navigation.launch.py's enable_nav2:=false branch -- mpc_corr drives, but map_server
+# still runs standalone so /map stays published).
+map:
+  default: maps/square_100m.yaml
+  package: f1tenth_navigation
+  description: "Absolute path to the map.yaml file map_server serves."
+# Consumed by: f1tenth_navigation/nav2.launch.py (the shared lifecycle_manager_navigation)
+# and f1tenth_navigation/map_only.launch.py (its own single-node lifecycle_manager_map) --
+# mutually exclusive, never both running (see navigation.launch.py).
+autostart:
+  default: true
+  description: "Auto-activate the lifecycle-managed Nav2 nodes on startup (lifecycle_manager_navigation's full set, or map_only.launch.py's map_server alone)."
+# Consumed by: f1tenth_navigation (controller.launch.py, planner.launch.py,
+# behavior_server.launch.py, bt_navigator.launch.py -- via nav2.launch.py's forwarded
+# 'nav2_params' launch argument). One shared params file, same convention Nav2's own
+# reference bringup uses (each node reads its own top-level key, ignores the rest).
+nav2_params_config:
+  default: config/nav2_params.yaml
+  package: f1tenth_navigation
+  description: "Nav2 controller/planner/behavior/bt_navigator + costmap params (nav2_params.yaml)."
+# Consumed by: f1tenth_navigation/nav2.launch.py -- read as a plain value (like the 6
+# stack-wide branching args above), not a DeclareLaunchArgument: it decides whether
+# map.launch.py is even included and whether 'map_server' enters the shared lifecycle
+# manager's node_names list, both parse-time decisions. Not CLI-overridable via
+# nav2.launch.py's own arguments, for the same reason enable_nav2 itself isn't.
+enable_nav2_map:
+  default: true
+  description: "Include map.launch.py (map_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_controller:
+  default: true
+  description: "Include controller.launch.py (controller_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_planner:
+  default: true
+  description: "Include planner.launch.py (planner_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_behavior_server:
+  default: true
+  description: "Include behavior_server.launch.py (behavior_server) in nav2.launch.py."
+# Consumed by: f1tenth_navigation/nav2.launch.py (see enable_nav2_map note above).
+enable_nav2_bt_navigator:
+  default: true
+  description: "Include bt_navigator.launch.py (bt_navigator) in nav2.launch.py."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py.
+nav2_readiness_service:
+  default: /lifecycle_manager_navigation/is_active
+  description: "std_srvs/Trigger service polled before starting behavior_executor_node/twist_to_ackermann_node."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py.
+nav2_readiness_timeout_sec:
+  default: 90.0
+  description: "How long to wait for nav2_readiness_service to report success before giving up (behavior tree will NOT launch)."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py.
+bt_setup_timeout_sec:
+  default: 90.0
+  description: "behavior_executor_node's own tree.setup() timeout, in seconds -- an independent safety margin on top of the readiness gate."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -- IsSystemOverheated's
+# shared CPU/GPU temp threshold (one threshold applied to both rails, not four separate
+# per-rail values -- see that behaviour's own docstring). Only reaches the BT at all if
+# enable_sys_obs is true (see that key below); unmeasured/untuned starting point, not a
+# board-specific thermal-throttle spec.
+sys_obs_max_temp_c:
+  default: 100.0
+  description: "IsSystemOverheated's shared CPU/GPU temperature threshold (deg C) -- exceeding it on either rail trips the BT emergency lane. Only active when enable_sys_obs is true."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -- IsSystemOverheated's
+# shared CPU/GPU load threshold, same one-threshold-for-both-rails rationale as
+# sys_obs_max_temp_c above.
+sys_obs_max_load_percent:
+  default: 95.0
+  description: "IsSystemOverheated's shared CPU/GPU load threshold (percent) -- exceeding it on either rail trips the BT emergency lane. Only active when enable_sys_obs is true."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py (forwarded to
+# behavior_executor_node) -- MissionLoader (mission/loader.py) resolves this at
+# startup against f1tenth_behavior's own installed missions/ share directory
+# (same bare-filename-under-a-package-dir convention as yolo_model above, resolved
+# via PathJoinSubstitution in the launch file rather than get_path_default, since
+# unlike every other path-type entry the empty default here is itself meaningful --
+# see below), then loads it exactly like a path pushed via /mission/load_path or
+# /mission/load_mission at runtime.
+mission_file_name:
+  default: ''
+  description: "Filename (not a full path) of a mission JSON under f1tenth_behavior/missions/, loaded once at behavior_executor_node startup. Empty (default): start with no mission loaded (mission.state stays IDLE until /mission/load_path or /mission/load_mission)."
+
+# ============================================================
+# SLAM (slam_toolbox)
+# ============================================================
+# Consumed by: f1tenth_navigation/slam.launch.py (IfCondition-wrapped Node -- a
+# normal per-file toggle, not one of the 5 stack-wide branching args, same
+# pattern as enable_foxglove above, not enable_nav2). First SLAM implementation
+# for this stack (slam_toolbox, lidar-primary -- chosen over RTAB-Map after two
+# feasibility NO-GOs on this Orin box, see that investigation's own reports).
+# false by default (not always-on, same deliberate opt-in precedent as other
+# per-component toggles in this file) --
+# component_supervisor_node.py always auto-starts the 'slam' component itself
+# (same as dev_tools/enable_foxglove), this flag alone decides whether the
+# actual async_slam_toolbox_node Node launches inside it. Pose-output only in
+# this pass -- NOT wired into localization_source/EKF/mpc_corr (see slam.
+# launch.py's own module docstring for the transform_publish_period=0.0 design
+# that structurally prevents a map->odom TF collision with the EKF/raw_odom
+# already publishing that same edge).
+enable_slam:
+  default: true
+  description: "Launch slam_toolbox (async, lidar-only, mapping mode). false: fully skipped, not just idle. Publishes /slam/map + /slam/pose only -- does not touch map->odom TF or any existing localization/navigation topic."
+
+# ============================================================
+# Diagnostics & Intelligence
+# ============================================================
+# Consumed by: f1tenth_diagnostics/system_observer.launch.py (decides whether to
+# include system_observer_node at all -- read via get_value() as a plain Python value
+# at parse time, same mechanism the 5 stack-wide branching args use, NOT a
+# DeclareLaunchArgument, for the same single-source-of-truth reason -- but this is not
+# one of "the 5" referenced elsewhere in the workspace's docstrings/enumerations).
+# Also consumed by f1tenth_behavior/behavior_executor_node.py the same way, to decide
+# whether IsSystemOverheated is even constructed and added to the BT emergency lane at
+# all -- deliberately NOT just "subscribe and report no data" when false, since sys_obs
+# being off must not silently look identical to "system is healthy."
+# Independent of diagnostics_server_node/BatteryStatus below -- battery safety
+# monitoring is never gated behind this.
+# Consumed by: f1tenth_logger/mission_logger.launch.py (IfCondition on
+# mission_logger_node itself -- false fully skips the node, it does not run
+# idle). Deliberately its OWN key rather than reusing enable_sys_obs: that
+# flag governs CPU/GPU/RAM telemetry, and a mission logger that silently
+# stops existing because an unrelated telemetry toggle was flipped is exactly
+# the "recording was off during the run that mattered" failure the automatic
+# logger exists to remove. Defaults TRUE for the same reason -- the whole
+# point is that nobody has to remember to turn it on.
+enable_mission_logger:
+  default: true
+  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle."
+# Consumed by: f1tenth_logger/mission_logger.launch.py AND mission_logger_node.py
+# (the node falls back to this same key when launched bare via `ros2 run`, so
+# both entry points agree without the launch file having to be involved).
+# Root of the two-state run tree: <runs_dir>/active/<run_id>/ while the bag is
+# open, moved whole to <runs_dir>/complete/<run_id>/ at finalize. The move is a
+# same-filesystem rename, so a run is atomically in one state or the other and
+# never half-copied -- which is what lets f1tenth-archive.service sync
+# complete/ unconditionally instead of filtering for "probably finished".
+# A stack-wide key rather than this launch file's local hardcoded-default
+# convention (see its own docstring) because the sync unit and the runs CLI
+# have to resolve the same location; a bag root only the logger knew about
+# would leave those two guessing.
+mission_logger_runs_dir:
+  default: "~/f1tenth_archive"
+  description: "Root of the mission run archive. Bags record into <dir>/active/<run_id>/bag/ and move whole to <dir>/complete/<run_id>/ at finalize. '~' is expanded."
+enable_sys_obs:
+  default: true
+  description: "Run system_observer_node (CPU/GPU/RAM temp+usage) and include IsSystemOverheated in the BT emergency lane. false: both are fully skipped, not just idle."
+# Consumed by: f1tenth_diagnostics (calibration.launch.py -- both
+# gyro_bias_calibration_node and sensor_covariance_calibration_node).
+imu_topic:
+  default: /sensors/imu/raw
+  description: "sensor_msgs/Imu topic sampled by the gyro-bias and covariance calibration nodes."
+# Consumed by: f1tenth_diagnostics/calibration.launch.py AND (as of the
+# automatic-startup-calibration pass) f1tenth_hardware/vesc.launch.py's
+# calibration:=true path, which now runs gyro_bias_calibration_node
+# alongside sensor_covariance_calibration_node in the same blocking sequence.
+gyro_sample_duration_sec:
+  default: 30.0
+  description: "Stationary sampling window for gyro_bias_calibration_node, in seconds."
+# Consumed by: f1tenth_diagnostics/calibration.launch.py AND (as of the
+# calibration-safety-gates pass) f1tenth_hardware/vesc.launch.py's
+# calibration:=true path -- previously only wired through calibration.launch.py,
+# so the automatic boot-time path silently ran on gyro_bias_calibration_node's
+# own node-level default (300) instead of this key. Both paths now pass it
+# explicitly, so this key is the actual single source of truth either way.
+min_samples:
+  default: 150
+  description: "HARD floor (calibration-safety-gates pass -- previously only a warning) -- gyro_bias_calibration_node aborts with EXIT_INSUFFICIENT_SAMPLES and does NOT write vesc.yaml if it collected fewer than this many samples on imu_topic."
+# Consumed by: f1tenth_diagnostics (gyro_bias_calibration_node.py, via both
+# f1tenth_hardware/launch/vesc.launch.py's calibration:=true path and
+# f1tenth_diagnostics/launch/calibration.launch.py) -- calibration-safety-gates
+# pass (Phase A). See calibration_common.check_sanity_bound's own docstring for
+# the full reasoning; the actual bad write this closes (2026-08-19 11:06:58,
+# |new|=0.0590) would have tripped this bound (0.0590 >= 0.05).
+gyro_bias_absolute_bound:
+  default: 0.05
+  description: "Sanity bound (rad/s): gyro_bias_calibration_node refuses to write a corrected gyro_bias_z whose absolute value meets or exceeds this -- exits EXIT_SANITY_VIOLATION instead, vesc.yaml left untouched. ~2.86 deg/s -- a resting VESC IMU's true static bias is expected well under this."
+# Consumed by: same as gyro_bias_absolute_bound above, same pass. The actual bad
+# write this closes (delta=-0.0523 from the previous value) would have tripped
+# this bound too (0.0523 >= 0.02) -- independent of the absolute bound above,
+# since a wrong-but-small-looking value could otherwise still slip through.
+gyro_bias_delta_bound:
+  default: 0.02
+  description: "Sanity bound (rad/s): gyro_bias_calibration_node refuses to write a corrected gyro_bias_z that differs from the value already in vesc.yaml by this much or more -- exits EXIT_SANITY_VIOLATION instead, vesc.yaml left untouched. Catches an implausible SWING even when the absolute value alone would pass gyro_bias_absolute_bound."
+# Consumed by: f1tenth_diagnostics (gyro_bias_calibration_node.py, both launch
+# paths, same as above) -- calibration-safety-gates pass (Phase A). Default
+# backed by a live 20s/965-sample stationary probe on this workspace's actual
+# hardware (this pass's own verification), NOT guessed: |ax|+|ay|+|az-1.0|
+# measured mean=0.084, stdev=0.010, max=0.153 at rest -- 0.3 is ~2x the
+# observed resting max. gravity=1.0, not 9.81: f1tenth_hardware's vendored VESC
+# IMU driver publishes linear_acceleration in units of g (vesc_packet.cpp's own
+# acc_x()/acc_y()/acc_z() "g/s" comment; az measured ~0.996 at rest, not
+# ~9.81), despite sensor_msgs/Imu's own REP-103 convention wanting m/s^2 -- a
+# pre-existing vendored-driver mismatch, out of scope to fix here.
+gyro_bias_vibration_threshold:
+  default: 0.3
+  description: "Sanity bound (dimensionless, units of g): gyro_bias_calibration_node aborts sampling (EXIT_MOTION_DURING_SAMPLING, vesc.yaml left untouched) if |accel.x|+|accel.y|+|accel.z-1.0| on imu_topic exceeds this at any point during the sampling window -- catches motion/vibration an ERPM-only check can miss."
+# Consumed by: f1tenth_diagnostics/calibration.launch.py.
+odom_topic:
+  default: /odom
+  description: "nav_msgs/Odometry topic sampled by sensor_covariance_calibration_node (pre-covariance, raw)."
+# covariance_sample_duration_sec was deleted here -- reconciled into
+# calibration_duration_sec above (see that key's own comment); both launch
+# paths that feed sensor_covariance_calibration_node's sample_duration_sec now
+# share that one key.
+# NOT consumed by any launch file (as of the light_motion stdin-hang fix) -- calibration.launch.py
+# deliberately does not expose calibration_mode/light_motion_*, since ros2 launch cannot
+# forward stdin to confirm_light_motion_start()'s input() gate. This value documents
+# sensor_covariance_calibration_node's own declare_parameter default; light_motion mode is
+# started with `ros2 run` and explicit -p flags instead -- see f1tenth_diagnostics/README.md.
+calibration_mode:
+  default: stationary
+  description: "sensor_covariance_calibration_node mode: 'stationary' measures gyro/accel/vx variance with the car at rest (vx_variance comes back structurally 0.0 -- see that node's docstring); 'light_motion' additionally drives a short, human-confirmed constant-velocity straight line to get a real non-zero vx_variance, leaving gyro/accel untouched. `ros2 run`-only -- see f1tenth_diagnostics/README.md."
+# NOT consumed by any launch file -- ros2 run -p override only, same as calibration_mode above.
+light_motion_target_speed:
+  default: 0.3
+  description: "Constant forward speed (m/s) commanded during calibration_mode: light_motion -- comfortably above vesc.yaml's erpm_deadband so the deadband never masks real motion."
+# NOT consumed by any launch file -- ros2 run -p override only, same as calibration_mode above.
+light_motion_settle_sec:
+  default: 1.0
+  description: "Driven-but-not-sampled ramp-up window (seconds) at the start of calibration_mode: light_motion, so the accelerate-from-rest transient isn't counted as steady-state vx noise."
+# NOT consumed by any launch file -- ros2 run -p override only, same as calibration_mode above.
+light_motion_duration_sec:
+  default: 5.0
+  description: "Sampled driving window (seconds) for calibration_mode: light_motion, after the settle window above."
+# Consumed by: f1tenth_diagnostics/system_observer.launch.py.
+publish_rate_hz:
+  default: 1.0
+  description: "system_observer_node's SystemStatus publish rate, in Hz."
+# Consumed by: f1tenth_diagnostics/diagnostics_server.launch.py.
+battery_check_rate_hz:
+  default: 2.0
+  description: "diagnostics_server_node's BatteryStatus publish rate, in Hz -- faster than publish_rate_hz above since this feeds a continuously-ticking BT condition, not just an observability feed."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py. Default flipped
+# true here (drop-the-start_server-override pass): llm.launch.py's only
+# remaining caller is the 'intelligence' component (components.yaml), whose
+# whole point is starting llama-server itself -- the old false default
+# ("assume one's already running elsewhere") was correct only for the
+# manually-invoked, node-launching use case that pass's own predecessor
+# (component-auto-start pass) already removed, so there was no longer any
+# real scenario left wanting false. components.yaml's own intelligence entry
+# no longer needs to override this arg as a result -- see that file's own
+# comment. Pass `start_server:=false` explicitly if you do want to attach to
+# a llama-server already running standalone elsewhere.
+start_server:
+  default: true
+  description: "true (default): llm.launch.py starts llama-server itself. false: assume one's already running elsewhere on the Jetson."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py -- but NOT as
+# that file's own `model` launch argument default any more (that's '' now,
+# meaning "auto-select from the chosen interrogation's own default_model in
+# llm/config/interrogations.yaml" -- see llm.launch.py's model_la/
+# _launch_setup() for the full model/interrogation pairing fix). This key's
+# value is now only the last-resort fallback used if an interrogation entry
+# somehow has no default_model of its own; the one entry that exists today
+# (`planner`) does, so this branch is not exercised in practice right now --
+# kept pointing at a real, currently-valid models.yaml key regardless (was
+# qwen_mpc_pruned, removed along with llm_mpc_tuner_node -- see git history --
+# now qwen25_3b_instruct, the same model `planner` itself already defaults to).
+model:
+  default: qwen25_3b_instruct
+  description: "Model name key into llm/config/models.yaml (model_path, port, extra_args)."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py. Only one valid
+# value today (`planner`) since llm_mpc_tuner_node (the `mpc_tuner` entry)
+# was removed outright -- see git history. Kept as a real, CLI-overridable
+# launch argument rather than hardcoded/simplified away: interrogations.yaml
+# is still a general registry (a second interrogation is expected to reuse
+# it, not need it rebuilt), and resolving through it still surfaces a
+# mismatched name via llm.launch.py's own "Unknown interrogation" check
+# instead of a silently-wrong hardcoded string buried in that file.
+interrogation:
+  default: planner
+  description: "Interrogation name key into llm/config/interrogations.yaml (executable, params_file)."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
+llama_server_path:
+  default: /scratch/fabiocar/llama.cpp/build/bin/llama-server
+  description: "Absolute path to the llama-server binary."
+# Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py. A separate key from
+# llama_server_path, not derived from it: llama-server's cwd needs to be the
+# llama.cpp project root (its build system expects paths relative to there), which
+# is two directory levels above the binary itself (.../llama.cpp/build/bin/
+# llama-server vs. cwd .../llama.cpp) -- not the binary's own containing directory,
+# so a simple os.path.dirname() of llama_server_path would give the wrong value.
+llama_server_cwd:
+  default: /scratch/fabiocar/llama.cpp
+  description: "Working directory llama-server is launched from (the llama.cpp project root, not the binary's own directory)."
+
+# ============================================================
+# Simulation-flavored args of f1tenth_description/launch/description.launch.py --
+# Gazebo-specific in meaning, but this file is now included by BOTH f1tenth_sim
+# (sim_bringup.launch.py, use_sim:=true) AND the real-hardware path
+# (f1tenth_bringup/f1tenth_localization, use_sim:=false, the default below) since
+# Phase 9 merged what used to be a sim-only description_launch.py with the real
+# hardware's sensor_tf_launch.py into one file. Defaults below are the real-hardware-
+# safe values; f1tenth_sim overrides both explicitly in its own include.
+# ============================================================
+# Consumed by: f1tenth_description/description.launch.py. NOT read by f1tenth_sim
+# itself -- sim_bringup.launch.py has no dependency on f1tenth_params and hardcodes
+# its own defaults independently; it's simply the only launch tree that overrides
+# this to true.
+use_sim:
+  default: false
+  description: "Emit the ign_ros2_control Gazebo plugin + sim sensors in the URDF."
+# Consumed by: f1tenth_description/description.launch.py (see use_sim note above).
+# Default changed to false in Phase 9 (was true): the URDF's laser/imu/zed2_camera_link
+# links must NOT be emitted on real hardware anymore, now that description.launch.py
+# also runs robot_state_publisher there -- those real frames come from
+# static_transform_publisher nodes instead (this file's own base_link->laser,
+# f1tenth_perception/camera.launch.py's base_link->zed2_camera_link,
+# f1tenth_hardware/vesc.launch.py's base_link->imu), which would otherwise fight the
+# URDF for authority over the exact same transforms. f1tenth_sim's own include still
+# explicitly overrides this to true (unaffected by the default change).
+enable_sensors:
+  default: false
+  description: "Include LiDAR / camera / IMU sensor links in the URDF. Real hardware must NOT set this true -- see description.launch.py's own docstring."
+# Consumed by: f1tenth_description/description.launch.py (see use_sim note above).
+control_config:
+  default: ''
+  description: "Path to the ros2_control controllers.yaml (sim only; empty outside sim)."
+
+# ============================================================
+# ============================================================
+# DDS discovery (Fast-DDS Discovery Server, EKF-pair-stall investigation
+# follow-up): replaces the RMW default SIMPLE (multicast, full-mesh
+# participant/endpoint matching on every join/leave) with a single,
+# persistent Discovery Server every node registers with as a client instead.
+# Root problem this targets: SIMPLE discovery makes every EXISTING
+# participant do O(N) matching work whenever ANY node joins or leaves --
+# confirmed live (deliberate test: restarting just the 'slam' component via
+# /restart_component) that this alone produces a ~2s stall in BOTH EKF
+# instances' own control loop (13 fresh "Failed to meet update rate!"
+# warnings from that one restart), enough to permanently wedge slam_
+# toolbox's message filter (no resync mechanism once behind -- see that
+# node's own config comments). With a Discovery Server, a join/leave only
+# updates the server's own database and notifies directly-affected peers,
+# not a mesh-wide renegotiation -- this is what should shrink or eliminate
+# that stall, not anything CPU-affinity-related (check_cpu_pinning.py
+# already confirmed the EKF pair's cores stay clean through these events;
+# this is a discovery-bookkeeping problem, not contention for cores).
+# 127.0.0.1: single machine, no multi-robot/multi-host deployment today --
+# revisit if that ever changes. 11811 is fastdds discovery's own tool
+# default (--udp-port), kept rather than picking an arbitrary port so the
+# server's own default invocation and this value never drift apart.
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py AND
+# f1tenth_bringup/supervisor_bringup.launch.py -- deliberately in BOTH (not
+# just the supervisor path this was diagnosed against): a partial rollout,
+# where only one bringup path runs the server, would leave the OTHER path's
+# nodes still on SIMPLE discovery, defeating the point.
+# Split into address/port (not one combined 'ip:port' string) so both the
+# ROS_DISCOVERY_SERVER env var (which needs them joined) and the actual
+# `fastdds discovery` process's own --udp-address/--udp-port arguments (which
+# need them separate) can be composed from the same two DeclareLaunchArgument
+# values via ordinary launch-substitution concatenation, while staying
+# independently CLI-overridable -- a single combined string would need a
+# runtime string-split substitution to feed the process args, or would stop
+# being a real DeclareLaunchArgument default for the port specifically.
+discovery_server_address:
+  default: 127.0.0.1
+  description: "Fast-DDS Discovery Server listen/connect address. Single machine, no multi-robot/multi-host deployment today -- revisit if that ever changes."
+discovery_server_port:
+  default: 11811
+  description: "Fast-DDS Discovery Server UDP port. 11811 is fastdds discovery's own tool default, kept rather than picking an arbitrary port so the server's own default invocation and this value never drift apart."
+# ============================================================
+# Component Supervisor (supervisor_bringup.launch.py / component_supervisor_node --
+# the parallel, per-component-restartable bringup path alongside stack_bringup.launch.py)
+# ============================================================
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+components_config:
+  default: config/components.yaml
+  description: "Registry mapping component name -> the ros2 launch command(s) used to bring it up. See component_supervisor_node.py."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+restart_timeout_sec:
+  default: 10.0
+  description: "How long component_supervisor_node waits for SIGINT to cleanly stop a component's process group before escalating to SIGKILL."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+log_dir:
+  default: ~/.ros/log/component_supervisor
+  description: "Directory component_supervisor_node writes each component's stdout/stderr to, one file per component (overwritten on each restart)."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+watchdog_period_sec:
+  default: 2.0
+  description: "How often component_supervisor_node's watchdog polls tracked processes for unexpected exits (crashes) to auto-respawn."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+max_auto_restarts:
+  default: 3
+  description: "Max watchdog auto-respawns allowed per process within restart_budget_window_sec before the watchdog gives up and leaves it down (manual START/RESTART resets this)."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+restart_budget_window_sec:
+  default: 60.0
+  description: "Trailing time window (seconds) max_auto_restarts is counted over -- a sliding-window crash-loop budget per tracked process."
+
+# ============================================================
+# Dev Tools / Visualization
+# ============================================================
+# Consumed by: f1tenth_bringup/foxglove_bridge.launch.py (IfCondition-wrapped Node --
+# a normal per-file toggle, not one of the 5 stack-wide branching args, since nothing
+# outside this one launch file needs to agree on the value). Also the component
+# component_supervisor_node restarts/stops/starts by name via ~/control_component --
+# see components.yaml's dev_tools entry.
+enable_foxglove:
+  default: true
+  description: "Launch foxglove_bridge (port 8765). false: fully skipped, not just idle."
+# Consumed by: f1tenth_bringup/foxglove_bridge.launch.py (topic_tools throttle
+# nodes, gated on enable_foxglove same as the bridge itself). Added by the
+# perception-optimization pass: foxglove_bridge 3.3.0 has no built-in
+# per-topic rate control (confirmed by reading its installed launch xml
+# directly), so /camera/image_raw and /camera/image_annotated (both 30Hz, the
+# real rate the perception pipeline needs) get a throttled visualization-only
+# copy on /camera/image_raw/viz and /camera/image_annotated/viz instead -- the
+# real 30Hz topics feeding yolo_detector_node/detection_3d_node are untouched.
+foxglove_image_throttle_hz:
+  default: 5.0
+  description: "Rate [Hz] of the throttled /camera/image_raw/viz and /camera/image_annotated/viz copies published for foxglove_bridge visualization -- the real /camera/image_raw and /camera/image_annotated stay at their native 30Hz for the perception pipeline."
+# Consumed by: f1tenth_behavior/behavior_executor_node.py (structurally skips
+# creating the CompressedImage publisher and registering the post_tick_handler
+# when false, not just idling it -- same "absent, not just failing/no-op"
+# pattern as enable_sys_obs) -- a normal per-node toggle, not one of the 6
+# stack-wide branching args, since nothing outside this one node needs to
+# agree on the value.
+enable_bt_visualization:
+  default: true
+  description: "Publish the running BT's live status as a colored dot-graph PNG on /bt/tree_visualization (viewable in Foxglove's Image panel). false: fully skipped, not just idle."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+startup_delay:
+  default: 5.0
+  description: "Seconds to wait before the startup steer-sweep sequence starts."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+right_duration:
+  default: 2.0
+  description: "Seconds to hold max right steering during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+left_duration:
+  default: 2.0
+  description: "Seconds to hold max left steering during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+center_duration:
+  default: 1.0
+  description: "Seconds to hold center steering during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+max_steering_angle:
+  default: 0.18
+  description: "Max steering angle in radians during the startup steer sweep."
+# Consumed by: f1tenth_bringup/startup_sequence.launch.py.
+startup_command_topic:
+  default: /teleop
+  description: "High-priority ackermann_mux input topic used for the startup steer sweep."
+
+# ============================================================
+# d_wall corridor correction (mpc_controller/MPC_corr.py)
+# ============================================================
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), no
+# launch arg -- edit here and relaunch, the same convention the corr_wall_turn_*
+# and wall_* keys use.
+#
+# WHERE THE CORRECTION LANDS, AND WHY THERE. wall_distance_node publishes a
+# heading correction on /perception/d_wall/psi_correction; mpc_corr adds it to
+# psi_base in build_straight_corridor's drive/"straight" branch and NOWHERE
+# else. Option B in docs/wall_turn_investigation.md. The three findings behind
+# that choice, short form:
+#
+#   1. The MPC does not own a turn's exit heading -- f1tenth_behavior's
+#      orientation_delta stop_condition ends the move at 90 deg of accumulated
+#      yaw, so the exit heading is move_start + 90 deg whatever the corridor
+#      asked for. Only the PATH to those 90 degrees is controllable.
+#   2. So injecting at dpsi_this was rejected: it is bounded by
+#      min(|dpsi_rem|, ...) in wall_turn.py, so its authority reaches zero
+#      exactly at turn exit, and the ratchet suppresses the sign that helps.
+#   3. The post-exit straight corridor is genuinely separate -- its own psiEnd,
+#      psiRefTurn None, no ratchet, no horizon clip. That is the seam.
+#
+# IT DOES NOTHING UNTIL A MISSION HAS A MOVE AFTER THE TURN. Every wall_turn
+# mission in the repo sets terminal: true on the turn, and on a terminal move
+# AdvanceMove publishes /mpc/hold, which returns from control_loop BEFORE the
+# corridor rebuild -- so no post-exit corridor is ever built.
+# missions/wall_turn_then_straight.json is the one that exercises this.
+corr_d_wall_correction_enable:
+  default: true
+  description: "Apply wall_distance_node's heading correction to the straight drive corridor's psi_base. false: mpc_corr still SUBSCRIBES and still logs, so a run is analysable for what the correction would have done, but psiEnd is byte-identical to before the node existed. The subscription is unconditional on purpose -- Stage 4 of docs/bringup_checklist.md records a real turn with the correction observed and not applied, and that needs the trace on the wire. NOTE the node's own wall_distance_max_psi_correction: 0.0 achieves the same thing one node earlier; this flag is the mpc_corr-side kill switch for when the node cannot be relaunched."
+corr_d_wall_max_age_sec:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Age [s] past which the correction is treated as ABSENT, i.e. zero -- never as the last value still standing. A dead or restarted wall_distance_node must decay this branch to the geometry it had before the node existed, which is the safe direction by construction; the natural implementation holds the last value and that is the bug. 0.5 s is five of the node's 10 Hz ticks, matching corr_wall_turn_front_distance_max_age_sec's own budget for the same class of failure. SYNTHETIC."
+
+# ---- wall_distance geometric candidate source ----------------------------
+# WHY THERE IS A SECOND SOURCE AT ALL, and it is not an optimisation.
+# glass_detect.detect() is not a wall fitter and was never meant to be: it
+# returns a surface only when that surface carries TRANSPARENCY evidence,
+# because its job is the marking-only glass observation a costmap must never
+# clear. It begins with `if not voids: return []`, so an ordinary opaque wall
+# produces no candidate at all.
+#
+# MEASURED ON THE ARCHIVE. Over 40 real scans from
+# 2026-09-10T13-34-09_mission-wall_turn (office corridor, opaque walls)
+# glass_detect found 690 voids and 160 candidates but ACCEPTED ONLY 4 -- about
+# one per ten scans, against a bar of wall_distance_persistence_hits *
+# wall_distance_geometry_only_multiplier = 6 hits in a window of 8. It can
+# never confirm at that rate, and wall_distance_node tracked nothing for the
+# entire run. A plain MSAC over the same first scan found a 5.29 m wall with
+# 220 inliers at 2.48 m immediately.
+#
+# So both sources run every scan, which is exactly what WallDistance.msg's
+# provenance field has always distinguished: GLASS_CONFIRMED vs GEOMETRIC.
+# Glass-confirmed is strictly better where it exists -- it survives incidence
+# angles a geometric fit never sees -- but on this car in this building it is
+# the exception, not the rule.
+wall_distance_geom_enable:
+  default: true
+  description: "Run the geometric (non-glass) line fit alongside glass_detect every scan. false: glass-confirmed surfaces only, which on measured archive data means NO TRACK AT ALL on an ordinary opaque wall -- see the note above. Set false only to reproduce that, or once glass detection is proven at range."
+wall_distance_geom_min_inliers:
+  default: 40
+  # SYNTHETIC -- retune on hardware
+  description: "Fewest inliers a geometric line needs. A short cluster fits any line you like: a doorframe or a box corner makes a perfect two-point wall. 40 is well under the 220 the archive's real corridor wall produced and well over the handful a corner does. SYNTHETIC."
+wall_distance_geom_min_span_m:
+  default: 1.0
+  # SYNTHETIC -- retune on hardware
+  description: "Shortest contiguous extent [m] along a geometric line, measured mullion-tolerantly (a 0.6 m gap does not end a surface). Partition scale, so furniture cannot qualify. The archive's corridor wall spanned 5.29 m. SYNTHETIC."
+wall_distance_geom_min_distance_m:
+  default: 0.5
+  # SYNTHETIC -- retune on hardware
+  description: "Nearest perpendicular distance [m] from base_link to an accepted geometric line. A line passing through the car's own footprint is the car, or near-field clutter, not a wall. THIS CANNOT BE DONE BY FILTERING RETURNS BY RANGE: the archive produced an oblique line through points all beyond glass_min_range_m (0.8) that still passed 0.62 m from the origin. The body reaches 0.443 m ahead of the axle. SYNTHETIC."
+wall_distance_geom_max_candidates:
+  default: 4
+  # SYNTHETIC -- retune on hardware
+  description: "Most geometric lines extracted from one scan, sequentially. Bounds the per-scan cost; 4 covers a corridor's two side walls plus an end wall plus one spare. SYNTHETIC."
+wall_distance_geom_inlier_distance_m:
+  default: 0.03
+  # real, measured on ~58k archived scans
+  description: "Perpendicular distance [m] within which a return is an inlier of a geometric line. 0.03 is this LiDAR's own measured inlier distance -- the same number and the same sensor as lidar_front_wall_inlier_distance_m, deliberately tighter than glass_line_inlier_dist (0.05), which is loose because a pane's support returns span a wide incidence range where range error grows."
+
+# ============================================================
+# mission_translator -- llm/plan_translate.translate()
+# ============================================================
+# Everything translate() is allowed to inject into a mission the LLM did not
+# author. The model emits INTENT only (schemas/intent_v1.json): no speed, no
+# timeout, no turn magnitude, no ids. Each key below is one of the four
+# permitted provenance sources -- see plan_translate.py's "INTENT v1 ->
+# mission v3.0" header for the rule, and llm/README.md for the D1-D4 record.
+#
+# TranslatorConfig duplicates these defaults so the module stays importable
+# without an ament index; test_intent_translate.py asserts the two agree, so
+# changing a value here without changing it there fails the suite.
+mission_translator_speed_straight:
+  default: 0.4
+  # real: the run-up speed of missions/wall_turn.json, run on hardware 2026-09-14
+  description: "Speed [m/s] for a straight intent phase. Not an independent guess: it is the speed missions/wall_turn.json runs its 2 m straight run-up at."
+mission_translator_speed_turn:
+  default: 0.5
+  # real: the turn speed of missions/wall_turn.json, run on hardware 2026-09-14
+  description: "Speed [m/s] for a turn intent phase. The speed missions/wall_turn.json turns at, which is deliberately higher than the straight run-up."
+mission_translator_speed_go_to:
+  default: 0.4
+  # the speed of missions/go_to_person.json / go_to_chair.json (rig-verified, not floor-run)
+  description: "go_to_object.speed [m/s] for a go_to intent phase: the approach speed missions/go_to_person.json and go_to_chair.json use. FLOOR VALUE 0.4, and it must not go lower: 0.4 m/s is the operating floor, the minimum commanded forward speed while the car moves (below it the car is not operated; zero is used only to stop). Under max_forward_speed_mps (0.5), so the approach itself is never clamped."
+mission_translator_go_to_acquire_timeout_sec:
+  default: 5.0
+  description: "go_to_object.acquire_timeout_sec [s] for a go_to intent phase: how long the handler looks for a confirmed track of the class before the move fails target_not_found. Same value as missions/go_to_person.json."
+mission_translator_go_to_lost_grace_sec:
+  default: 1.5
+  description: "go_to_object.lost_grace_sec [s] for a go_to intent phase: how long a lost target is driven toward its last point at reduced speed before the move fails target_lost. Same value as missions/go_to_person.json."
+mission_translator_turn_magnitude_deg:
+  default: 90.0
+  description: "Magnitude [deg] of every turn the translator emits, written into BOTH drive.turn_mag_deg and stop_condition.value from one variable. The behaviour tree honours any value -- condition_eval's orientation_delta ends the move on abs(turn_accum_deg) >= abs(value), nothing clamps it to 90 -- so this is a real choice. It stays 90 because 90 is the only magnitude the stack has been run at, and the MPC side of a larger turn is unverified."
+mission_translator_nominal_yaw_rate:
+  default: 0.22
+  # real, measured: mission_reports/wall_turn_20260914T160547.json
+  description: "Assumed yaw rate [rad/s] used ONLY to size a turn's timeout. Never commands anything, so a wrong value makes the timeout loose or tight and cannot steer the car. MEASURED, not synthetic: the 2026-09-14 hardware run of missions/wall_turn.json turned 1.6091 rad in 7.3747 s = 0.2182 rad/s at drive.speed 0.5. The first draft of this key said 0.6, which is 2.8x too fast and sized a 90 deg turn's timeout at 13 s against an observed 7.4 s turn."
+mission_translator_open_guard_max_distance:
+  default: 10.0
+  # SYNTHETIC -- retune on hardware
+  description: "Assumed worst-case travel [m] for the guards that have no bounded distance (wall, front_object), used to size their timeout. Without it an open guard that never fires produces a move that never ends -- which is exactly what the generated missions before this work did, since they carried no timeout at all. SYNTHETIC."
+mission_translator_timeout_factor:
+  default: 3.0
+  # SYNTHETIC -- retune on hardware
+  description: "Multiplier on the expected duration in timeout_sec = clamp(ceil(expected_s * factor + floor), 1, 300). 3x leaves room for a slow start and a guard that fires late without letting a stuck move run for minutes. SYNTHETIC."
+mission_translator_timeout_floor:
+  default: 5.0
+  # SYNTHETIC -- retune on hardware
+  description: "Constant [s] added in the timeout formula, so a very short move still gets time to start moving at all. SYNTHETIC."
+mission_translator_mission_id_prefix:
+  default: "llm"
+  description: "Prefix of the generated mission_id, which is f'{prefix}_{sha1(canonical_json(intent))[:12]}'. Deterministic on purpose: the same intent yields the same id, so golden tests are stable and a re-issued command is recognisable as the same mission. Never a timestamp."
+mission_translator_post_turn_uses_straight:
+  default: true
+  description: "Decision D1. true: a straight phase after a turn is emitted as drive.mode 'straight', which is what plan_translate has always done and what missions/wall_turn_then_straight.json exercises. false restores the old workaround (re-emit it as a wall_turn carrying the previous turn's sign and zero magnitude) for the case where a straight move after a turn turns out not to hold its heading on hardware. NOT YET CONFIRMED ON HARDWARE -- wall_turn_then_straight.json has not been run."
+
+# ============================================================
+# go_to_enabled -- llm/llm_planner_node.py (planner_path v2)
+# ============================================================
+# The single switch between the planner with and without go_to. true: the
+# prompt teaches go_to (prompts/planner_system_prompt.v2.it.txt) and a go_to
+# phase becomes a go_to_object move. false: the planner behaves as before
+# go_to_object existed -- the prompt without go_to
+# (prompts/planner_system_prompt.v2.no_go_to.it.txt), the translator's
+# UnsupportedIntentModeError refusal and the RICHIESTA NON SUPPORTATA banner.
+# Read once at node start: restart llm_planner_node after flipping it. A ROS
+# parameter of the same name overrides it for one run.
+go_to_enabled:
+  default: true
+  description: "llm_planner_node (planner_path v2): true lets the LLM plan go_to phases, translated to go_to_object moves; false restores the refusal and banner of the planner without go_to. Read at node start."

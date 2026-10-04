@@ -1,0 +1,14 @@
+{
+  "duration_s": 10.0,
+  "rates_hz": {
+    "/diagnostics/system_status": 1.0,
+    "/odometry/filtered": 47.6,
+    "/tf": 104.6
+  },
+  "counts": {
+    "/diagnostics/system_status": 10,
+    "/odometry/filtered": 476,
+    "/tf": 1046
+  },
+  "not_in_graph": []
+}

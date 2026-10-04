@@ -1,0 +1,8 @@
+1791022870.1974025 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_2/hold/ros_log/2026-10-03-12-21-10-194641-thor-397073
+1791022870.1977656 [INFO] [launch]: Default logging verbosity is set to INFO
+1791022870.4591386 [INFO] [launch.user]: [behavior_bringup] enable_nav2 is false -- skipping the Nav2 readiness gate, launching behavior_executor_node and twist_to_ackermann_node immediately (navigation lane will stay idle until enable_nav2 is turned back on).
+1791022870.4752231 [INFO] [taskset-1]: process started with pid [397181]
+1791022870.4756424 [INFO] [twist_to_ackermann_node-2]: process started with pid [397182]
+1791023133.7811320 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791023133.8058796 [INFO] [twist_to_ackermann_node-2]: sending signal 'SIGINT' to process[twist_to_ackermann_node-2]
+1791023133.8079367 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]

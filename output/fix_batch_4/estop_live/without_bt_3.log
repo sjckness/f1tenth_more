@@ -1,0 +1,18 @@
+[INFO] [launch]: All log files can be found below /home/andre/.ros/log/2026-10-03-16-11-48-552656-thor-445290
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [steering_offset_calibration_node-1]: process started with pid [445293]
+[steering_offset_calibration_node-1] [INFO] [1791036709.402013025] [steering_offset_calibration_node]: === steering_offset_calibration_node / run steer-offset-2026-10-03T16-11-49 ===
+[steering_offset_calibration_node-1] [INFO] [1791036709.402711206] [steering_offset_calibration_node]: plan: 3 repetitions x 3 segments (short) [0.6 straight, +a 0.6, -a 1.2] at 0.25 m/s, a = -5.7 deg
+[steering_offset_calibration_node-1] [INFO] [1791036709.403067825] [steering_offset_calibration_node]: geometry: 2.40 m of path per repetition, each +a segment turns ~-10.4 deg; footprint roughly 2.3 m long x 0.6 m wide. Repetitions run SEQUENTIALLY -- either clear ~7.2 m or reposition the car during the 6 s pause between them.
+[steering_offset_calibration_node-1] [INFO] [1791036709.403668803] [steering_offset_calibration_node]: discovery server reachable at 127.0.0.1:11811.
+[steering_offset_calibration_node-1] [INFO] [1791036709.403942117] [steering_offset_calibration_node]: preflight: listening for 20 s for map, mission status and clearance... (NOT for a pose -- see the module docstring: a parked car cannot produce one)
+[steering_offset_calibration_node-1] [INFO] [1791036729.431848993] [steering_offset_calibration_node]: 31 other node(s) visible on the graph.
+[steering_offset_calibration_node-1] [ERROR] [1791036729.432589248] [steering_offset_calibration_node]: amplitude_rad must be positive.
+[steering_offset_calibration_node-1] [INFO] [1791036729.433441698] [steering_offset_calibration_node]: segment plan 'short': 3 segments x 3 repetitions = 9 fitted segments, 2.40 m per repetition.
+[steering_offset_calibration_node-1] [WARN] [1791036729.433966075] [steering_offset_calibration_node]: no MissionStatus seen on /mission/status within the preflight window. The behaviour tree is probably not running, so no mission can be active -- continuing, but note that /safety_stop is published by that same tree (see the e-stop check).
+[steering_offset_calibration_node-1] [INFO] [1791036734.436486425] [steering_offset_calibration_node]: e-stop graph check after 5.00 s: 1 subscriber(s) on /calibration_drive, 0 publisher(s) on /safety_stop (gave up at the 5.0 s limit).
+[steering_offset_calibration_node-1] [INFO] [1791036734.437275874] [steering_offset_calibration_node]: 1 subscriber(s) on /calibration_drive (mux lane is live).
+[steering_offset_calibration_node-1] [ERROR] [1791036734.437901797] [steering_offset_calibration_node]: NO publisher on /safety_stop -- the behaviour tree safety lane is not running, so nothing can pre-empt this node at mux priority 200. The only remaining automatic stop is this node's own front-clearance check. Refusing to run. Start the behaviour tree, or re-run with require_estop_publisher:=false if you accept driving with only the joystick and this node's own checks.
+[steering_offset_calibration_node-1] [INFO] [1791036734.438578553] [steering_offset_calibration_node]: /slam/map received: 1150x3056 cells at 0.050 m -- slam_toolbox is up and holds a map.
+[steering_offset_calibration_node-1] [ERROR] [1791036734.439214902] [steering_offset_calibration_node]: preflight refused -- nothing was commanded.
+[ERROR] [steering_offset_calibration_node-1]: process has died [pid 445293, exit code 10, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/steering_offset_calibration_node --ros-args -r __node:=steering_offset_calibration_node --params-file /tmp/launch_params_z7jjalss'].

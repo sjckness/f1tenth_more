@@ -1,0 +1,1 @@
+[INFO] [1791022141.644156106] [diagnostics_server_node]: [diagnostics_server] Publishing BatteryStatus on /diagnostics/battery_status at 2.00 Hz (min_battery_voltage=10.8V) and calibration/in_progress at 2.00 Hz. sys_obs enabled -- run_diagnostics service ready.

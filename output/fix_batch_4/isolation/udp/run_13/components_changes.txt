@@ -1,0 +1,3 @@
+hardware: emptied (was ['vesc.launch.py'])
+perception: emptied (was ['camera.launch.py', 'lidar.launch.py', 'detection.launch.py'])
+diagnostics: mission_logger_runs_dir:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/udp/run_13/runs

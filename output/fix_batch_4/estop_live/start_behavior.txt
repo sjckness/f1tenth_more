@@ -1,0 +1,5 @@
+settling discovery for 10s ...
+start 'behavior' via /component_supervisor_node/control_component
+  replied in 0.0s
+  success=True
+  message='behavior' started.

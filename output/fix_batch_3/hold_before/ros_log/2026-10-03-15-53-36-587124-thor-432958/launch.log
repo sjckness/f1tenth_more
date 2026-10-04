@@ -1,0 +1,6 @@
+1791035616.5896511 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_before/ros_log/2026-10-03-15-53-36-587124-thor-432958
+1791035616.5900333 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035616.7611663 [INFO] [taskset-1]: process started with pid [433022]
+1791035840.1235518 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791035840.1260438 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791035840.7641828 [ERROR] [taskset-1]: process has died [pid 433022, exit code -2, cmd 'taskset -c 5 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node --params-file /tmp/launch_params_ityq32nt'].

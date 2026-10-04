@@ -1,0 +1,1 @@
+[INFO] [1791019879.665726963] [slam_pose_relay_node]: slam_pose_relay_node started: "/slam/pose" -> "/slam/pose_calibrated", covariance stamped with var_x=0.100000 var_y=0.100000 var_yaw=0.050000

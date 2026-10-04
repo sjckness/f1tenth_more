@@ -1,0 +1,36 @@
+{
+  "mission_id": "llm_2b356aac445f",
+  "final_state": "COMPLETE",
+  "timestamp": "20261003T102926",
+  "aggregate_score_percent": null,
+  "aggregate_score_method": "mean_of_scorable_moves",
+  "moves": [
+    {
+      "move_id": "move_0_straight",
+      "move_type": "drive",
+      "stop_reason": "stop_condition:front_clearance",
+      "start_time": 240866.537312157,
+      "end_time": 240869.143889421,
+      "start_global_xy": [
+        16.40077069512741,
+        0.7436526481808792
+      ],
+      "end_global_xy": [
+        17.54628047274851,
+        0.741222333613941
+      ],
+      "start_global_yaw": 2.2785067511410517e-05,
+      "end_global_yaw": 0.0031879691733096576,
+      "commanded": null,
+      "actual": null,
+      "score_percent": null,
+      "mismatch_flagged": false,
+      "note": "drive moves are not scored this pass -- see module docstring",
+      "outcome": null,
+      "arrival_bearing_error_deg": null,
+      "track_gap_m": null,
+      "target_track_id": null,
+      "wire_move_id": null
+    }
+  ]
+}

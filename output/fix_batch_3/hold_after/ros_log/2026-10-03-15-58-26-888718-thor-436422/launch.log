@@ -1,0 +1,10 @@
+1791035906.8912129 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_after/ros_log/2026-10-03-15-58-26-888718-thor-436422
+1791035906.8915260 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035907.0828972 [INFO] [launch.user]: [behavior_bringup] enable_nav2 is false -- skipping the Nav2 readiness gate, launching behavior_executor_node and twist_to_ackermann_node immediately (navigation lane will stay idle until enable_nav2 is turned back on).
+1791035907.0948012 [INFO] [taskset-1]: process started with pid [436481]
+1791035907.0951200 [INFO] [twist_to_ackermann_node-2]: process started with pid [436482]
+1791036128.5147204 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791036128.5349011 [INFO] [twist_to_ackermann_node-2]: sending signal 'SIGINT' to process[twist_to_ackermann_node-2]
+1791036128.5384316 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791036128.7556806 [ERROR] [twist_to_ackermann_node-2]: process has died [pid 436482, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/twist_to_ackermann_node --ros-args -r __node:=twist_to_ackermann_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/config/twist_to_ackermann.yaml'].
+1791036128.9101148 [ERROR] [taskset-1]: process has died [pid 436481, exit code -2, cmd 'taskset -c 4 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_executor_node --params-file /tmp/launch_params_1og9jgof'].

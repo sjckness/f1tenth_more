@@ -1,0 +1,42 @@
+[INFO] [1791020093.386426259] [wall_distance_node]: wall_distance_node up: scan /scan, odom /odometry/filtered, phase from /mpc/wall_track (3 silent ticks -> exit) -> /perception/d_wall at 10.0 Hz. d_ref=0.60 m, k=0.333 rad/m (convergence 3.0 m), |dpsi|<=0.200 rad. coast caps 0.50 m / 0.35 rad. PHASE=UNKNOWN until /mpc/wall_track speaks.
+[INFO] [1791020093.448485241] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020095.115868704] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020096.148022189] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020097.248773039] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020098.347908465] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020099.347935373] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020100.348078326] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020101.348123474] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020102.348226168] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020103.348286771] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020104.348305335] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020105.447321349] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020106.447363791] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020107.448574369] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020108.548297862] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020109.648355316] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020110.648950579] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020111.748445431] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020112.647357084] [wall_distance_node]: base_link <- laser: (0.120, 0.000) m, yaw +0.000 rad. NOTE description.launch.py calls these ruler-measured placeholders, not a calibration.
+[INFO] [1791020112.775661085] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020113.876298008] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.491 heading_rel=+0.286 rms=0.0148 n=129 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020114.877334406] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.495 heading_rel=+0.285 rms=0.0158 n=137 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020115.974903849] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.492 heading_rel=+0.285 rms=0.0142 n=132 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020116.977472600] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.483 heading_rel=+0.306 rms=0.0169 n=133 age=0.37 prov=PREDICTED coast=0.01m/0.00rad dpsi=+0.0000
+[INFO] [1791020118.078386299] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.483 heading_rel=+0.306 rms=0.0169 n=133 age=1.47 prov=PREDICTED coast=0.01m/0.00rad dpsi=+0.0000
+[INFO] [1791020119.182425078] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.466 heading_rel=+0.398 rms=0.0091 n=43 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020120.182447632] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.434 heading_rel=+0.496 rms=0.0098 n=42 age=0.77 prov=PREDICTED coast=0.10m/0.10rad dpsi=+0.0000
+[INFO] [1791020121.267862748] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.322 heading_rel=+0.623 rms=0.0098 n=42 age=1.87 prov=PREDICTED coast=0.30m/0.22rad dpsi=+0.0000
+[INFO] [1791020122.278786671] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.125 heading_rel=+0.595 rms=0.0133 n=160 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[INFO] [1791020123.380556272] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.980 heading_rel=+0.394 rms=0.0140 n=145 age=0.48 prov=PREDICTED coast=0.18m/0.06rad dpsi=+0.0000
+[WARN] [1791020124.270196308] [wall_distance_node]: COAST/cap | track 1 coasted 0.52 m / 0.19 rad past the cap (0.50 m / 0.35 rad): d_wall is no longer trusted. The caps are set by the measured odometry bias (distance 17-20% short, gyro yaw gain 0.93-1.09), not by caution -- raise them only after that calibration lands.
+[WARN] [1791020124.370992739] [wall_distance_node]: COAST/cap | track 6 coasted 1.39 m / 0.72 rad past the cap (0.50 m / 0.35 rad): d_wall is no longer trusted. The caps are set by the measured odometry bias (distance 17-20% short, gyro yaw gain 0.93-1.09), not by caution -- raise them only after that calibration lands.
+[INFO] [1791020124.478827257] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=5.77 prov=NONE coast=1.42m/0.73rad dpsi=+0.0000
+[INFO] [1791020125.573199724] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=6.87 prov=NONE coast=1.70m/0.83rad dpsi=+0.0000
+[INFO] [1791020126.671425235] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=7.97 prov=NONE coast=1.94m/0.93rad dpsi=+0.0000
+[INFO] [1791020127.671935385] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=8.97 prov=NONE coast=2.22m/0.97rad dpsi=+0.0000
+[INFO] [1791020128.677981474] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=9.97 prov=NONE coast=2.58m/0.98rad dpsi=+0.0000
+[INFO] [1791020129.681045408] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=10.97 prov=NONE coast=2.97m/1.01rad dpsi=+0.0000
+[INFO] [1791020130.683302342] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=11.97 prov=NONE coast=3.38m/1.03rad dpsi=+0.0000
+[INFO] [1791020131.748752442] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=13.07 prov=NONE coast=3.84m/1.05rad dpsi=+0.0000
+[INFO] [1791020132.847142670] [wall_distance_node]: DWALL | phase=UNKNOWN track=6 valid=False d_wall=+nan heading_rel=+nan rms=0.0103 n=46 age=14.17 prov=NONE coast=4.36m/1.06rad dpsi=+0.0000

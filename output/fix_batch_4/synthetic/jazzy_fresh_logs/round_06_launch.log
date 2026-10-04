@@ -1,0 +1,8 @@
+[INFO] [launch]: All log files can be found below /home/andre/.ros/log/2026-10-03-19-21-38-392103-thor-741130
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [python3-1]: process started with pid [741975]
+[python3-1] [INFO] [1791048100.679505584] [syn_lifecycle]: SYN CONFIGURED
+[python3-1] [INFO] [1791048100.685400574] [syn_lifecycle]: SYN ACTIVATED
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [python3-1]: sending signal 'SIGINT' to process[python3-1]
+[INFO] [python3-1]: process has finished cleanly [pid 741975]

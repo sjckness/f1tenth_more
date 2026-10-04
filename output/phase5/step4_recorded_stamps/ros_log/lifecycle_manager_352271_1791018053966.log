@@ -1,0 +1,8 @@
+[INFO] [1791018054.003219883] [lifecycle_manager_map]: Creating
+[INFO] [1791018054.009507346] [lifecycle_manager_map]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[INFO] [1791018054.762135926] [lifecycle_manager_map]: [34m[1mStarting managed nodes bringup...[0m[0m
+[INFO] [1791018054.762313584] [lifecycle_manager_map]: [34m[1mConfiguring map_server[0m[0m
+[INFO] [1791018055.494447981] [lifecycle_manager_map]: [34m[1mActivating map_server[0m[0m
+[INFO] [1791018055.657688373] [lifecycle_manager_map]: Server map_server connected with bond.
+[INFO] [1791018055.657801021] [lifecycle_manager_map]: [34m[1mManaged nodes are active[0m[0m
+[INFO] [1791018055.657822632] [lifecycle_manager_map]: [34m[1mCreating bond timer...[0m[0m

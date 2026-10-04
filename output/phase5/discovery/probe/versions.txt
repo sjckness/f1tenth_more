@@ -1,0 +1,9 @@
+--- versions
+ros-jazzy-fastrtps 2.14.6-1noble.20260902.013353
+ros-jazzy-rmw-fastrtps-cpp 8.4.4-1noble.20260902.140744
+ros-jazzy-rmw-fastrtps-shared-cpp 8.4.4-1noble.20260902.132216
+RMW_IMPLEMENTATION=<unset, Jazzy default rmw_fastrtps_cpp>
+rmw in use: rmw_fastrtps_cpp
+FASTRTPS_DEFAULT_PROFILES_FILE=<unset>
+FASTDDS_DEFAULT_PROFILES_FILE=<unset>
+ROS_AUTOMATIC_DISCOVERY_RANGE (shell default)=SUBNET

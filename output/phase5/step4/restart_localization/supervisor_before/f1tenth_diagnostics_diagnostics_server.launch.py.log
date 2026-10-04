@@ -1,0 +1,7 @@
+/opt/ros/jazzy/lib/python3.12/site-packages/launch/logging/__init__.py:149: UserWarning: Cannot create a symlink to latest log directory: [Errno 17] File exists: '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-11-35-696315-thor-359801' -> '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/latest'
+
+  warnings.warn(
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-11-35-696315-thor-359801
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [diagnostics_server_node-1]: process started with pid [359877]
+[diagnostics_server_node-1] [INFO] [1791018697.159708997] [diagnostics_server_node]: [diagnostics_server] Publishing BatteryStatus on /diagnostics/battery_status at 2.00 Hz (min_battery_voltage=10.8V) and calibration/in_progress at 2.00 Hz. sys_obs enabled -- run_diagnostics service ready.

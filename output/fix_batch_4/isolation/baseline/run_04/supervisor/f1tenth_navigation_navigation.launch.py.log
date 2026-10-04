@@ -1,0 +1,558 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_04/ros_log/2026-10-03-16-22-07-028290-thor-456554
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [456613]
+[INFO] [map_server-2]: process started with pid [456614]
+[INFO] [lifecycle_manager-3]: process started with pid [456615]
+[lifecycle_manager-3] [INFO] [1791037327.315742695] [lifecycle_manager_map]: Creating
+[lifecycle_manager-3] [INFO] [1791037327.321160150] [lifecycle_manager_map]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[map_server-2] [INFO] [1791037327.367673734] [map_server]: 
+[map_server-2] 	map_server lifecycle node launched. 
+[map_server-2] 	Waiting on external lifecycle transitions to activate
+[map_server-2] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[map_server-2] [INFO] [1791037327.367899853] [map_server]: Creating
+[lifecycle_manager-3] [INFO] [1791037328.702571360] [lifecycle_manager_map]: [34m[1mStarting managed nodes bringup...[0m[0m
+[lifecycle_manager-3] [INFO] [1791037328.702750545] [lifecycle_manager_map]: [34m[1mConfiguring map_server[0m[0m
+[map_server-2] [INFO] [1791037328.703716052] [map_server]: Configuring
+[map_server-2] [INFO] [1791037328.703911717] [map_io]: Loading yaml file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.yaml
+[map_server-2] [INFO] [1791037328.704445725] [map_io]: resolution: 0.05
+[map_server-2] [INFO] [1791037328.704463132] [map_io]: origin[0]: -50
+[map_server-2] [INFO] [1791037328.704468030] [map_io]: origin[1]: -50
+[map_server-2] [INFO] [1791037328.704471363] [map_io]: origin[2]: 0
+[map_server-2] [INFO] [1791037328.704475299] [map_io]: free_thresh: 0.196
+[map_server-2] [INFO] [1791037328.704479049] [map_io]: occupied_thresh: 0.65
+[map_server-2] [INFO] [1791037328.704485363] [map_io]: mode: trinary
+[map_server-2] [INFO] [1791037328.704491336] [map_io]: negate: 0
+[map_server-2] [INFO] [1791037328.704950261] [map_io]: Loading image_file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm
+[map_server-2] [INFO] [1791037328.747970402] [map_io]: Read map /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm: 2000 X 2000 map @ 0.05 m/cell
+[lifecycle_manager-3] [INFO] [1791037328.766411444] [lifecycle_manager_map]: [34m[1mActivating map_server[0m[0m
+[map_server-2] [INFO] [1791037328.766703869] [map_server]: Activating
+[map_server-2] [INFO] [1791037328.769940156] [map_server]: Creating bond (map_server) to lifecycle manager.
+[lifecycle_manager-3] [INFO] [1791037328.880504759] [lifecycle_manager_map]: Server map_server connected with bond.
+[lifecycle_manager-3] [INFO] [1791037328.880628091] [lifecycle_manager_map]: [34m[1mManaged nodes are active[0m[0m
+[lifecycle_manager-3] [INFO] [1791037328.880652749] [lifecycle_manager_map]: [34m[1mCreating bond timer...[0m[0m
+[taskset-1] [INFO] [1791037328.951795764] [mpc_corr]: OBJECT CORRIDOR | startup: object_corridor_mode='off' (straight corridor pinned to the target line) -- the default
+[taskset-1] [INFO] [1791037328.957350477] [mpc_corr]: model log -> "/home/andre/dev_ws/f1tenth_more/mpc_log.csv" (t,x,y,psi,v,steer_cmd,accel_cmd; see docs/DIAGNOSTICS.md)
+[taskset-1] [INFO] [1791037328.966790393] [mpc_corr]: corridor_log_path = "/home/andre/dev_ws/f1tenth_more/src/f1tenth_control/corridors_jsons/corridor_debug_20261003T162208.jsonl"
+[taskset-1] [INFO] [1791037329.000558387] [mpc_corr]: MPC Controller STARTED (pure MPC + obstacle avoidance [fixed deflection + predicted clearance], no plan executor)
+[taskset-1] [INFO] [1791037329.002165076] [mpc_corr]: CFG | ts=0.1 N=20 vdes=0.5 dmin=0.32 wheel_radius=0.05 car_radius=0.2 avoidance_margin=0.12
+[taskset-1] [INFO] [1791037329.003674497] [mpc_corr]: CFG | limits={'delta_min': -0.283, 'delta_max': 0.278, 'a_min': -2.0, 'a_max': 3.0, 'dDeltaMin': -0.5, 'dDeltaMax': 0.5, 'dAMin': -2.0, 'dAMax': 2.0, 'vMin': -1.0, 'vMax': 3.0}
+[taskset-1] [INFO] [1791037329.005169964] [mpc_corr]: CFG | weights={'w_term': 9.0, 'w_v': 4.2857, 'w_psi': 4.5, 'w_u_a': 0.0, 'w_du_delta': 8.33, 'w_du_a': 0.0, 'w_delta0': 0.0, 'w_obs': 8.0, 'w_corr': 3.5714, 'w_line': 1.1662, 'w_psi_stage': 4.7736}
+[taskset-1] [INFO] [1791037329.006658590] [mpc_corr]: CFG | params={'L': 0.305, 'lr': 0.17}
+[taskset-1] [INFO] [1791037329.100921448] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037329.101605122] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037329.102350869] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=0
+[taskset-1] [WARN] [1791037329.102725349] [mpc_corr]: PUB /drive | nessun subscriber: il comando non raggiunge il VESC.
+[taskset-1] [WARN] [1791037329.201290980] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037329.302149619] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037329.401938451] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037329.501606533] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037329.602145473] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037329.678785609] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037329.701868796] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037329.802341847] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037329.948379096] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037330.139928887] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037330.154199139] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.201320183] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.301627568] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.401388378] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.501451856] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.602052760] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.701408046] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.801572145] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037330.903430804] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.001440057] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.101418176] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037331.201116915] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037331.202283940] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037331.203516973] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037331.301700958] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.401302587] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.501000194] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.601147180] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.701038539] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.802756883] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037331.901348219] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.001095894] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.101114391] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.201150047] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.301328387] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037332.302557624] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037332.401294728] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.501087300] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.601131083] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.701111755] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.801315243] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037332.901238296] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.001518164] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.100801961] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.201659984] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037333.300593171] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037333.301840621] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037333.303126904] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037333.401667767] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.501311044] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.601427598] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.701260780] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.801163776] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037333.901304310] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.001235374] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.101325297] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.201317130] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.301491423] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.401199793] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037334.402334086] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037334.501526263] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.601554316] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.701389103] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.727527575] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037334.801362934] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037334.901393586] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.001305704] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.101205944] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.201284368] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.301247366] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037335.400486367] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037335.401879150] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037335.403148220] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037335.501590048] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.601472759] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.701270602] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.801255850] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037335.901665449] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.001589583] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.101431901] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.201547873] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.301469854] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.401420395] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.501041190] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037336.501931002] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037336.601504891] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.701579038] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.801226658] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037336.901416193] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.001188507] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.101497376] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.201768336] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.302078390] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037337.400588189] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037337.401888574] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.501542806] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037337.502845747] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037337.601260917] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.701829553] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.801312210] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037337.901481070] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.001324458] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.101221393] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.201222595] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.301339928] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.401457676] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.501306991] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.601380832] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037338.602535366] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037338.701849571] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.801360655] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037338.901461246] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.001327589] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.101495300] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.201442234] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.301262123] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.401456168] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037339.500317736] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037339.501421019] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.601356769] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.701304565] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037339.702386265] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037339.776952446] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037339.801358119] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037339.902094338] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.001312516] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.101302181] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.200479952] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.301286774] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.401289634] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.501331494] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.601221503] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.701154705] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037340.801329432] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037340.802517631] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037340.901436837] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.001257050] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.101202235] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.201180689] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.301157068] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.401291706] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037341.500388921] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037341.501644556] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.601352965] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.701152428] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.801341435] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037341.901344829] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037341.902545502] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037342.001282532] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.101163504] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.201168764] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.301311447] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.401223744] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.501297577] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.601145587] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.701274744] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.801334280] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037342.901156873] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.001215406] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037343.002339189] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037343.101289820] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.201222987] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.300358120] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.401303598] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.501255515] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037343.600391359] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037343.601531079] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.701202134] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.801295800] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037343.901217504] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.001146770] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.101310027] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037344.102438699] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037344.201314527] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.301220194] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.401153685] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.501210481] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.601227851] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.701183833] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.777067511] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037344.801292703] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037344.901202787] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.001293138] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.101187553] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.201189801] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037345.202278575] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037345.301217754] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.401152162] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.501232116] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.601231644] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037345.700205684] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037345.701239644] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.801199543] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037345.901261764] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.001257830] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.101259820] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.201201024] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.301256141] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037346.302383340] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037346.401216271] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.501320511] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.601319817] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.701301077] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.800636135] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037346.901434670] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.001088190] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.101341300] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.201474597] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.301204237] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.401209224] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037347.402128786] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037347.501736954] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.601635122] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037347.700322617] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037347.701530085] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.800444459] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037347.901304373] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.001178736] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.103382647] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.201501190] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.301201608] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.401164998] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037348.402340772] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037348.501295440] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.601429188] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.701580809] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.801205088] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037348.901321171] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.001326440] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.101478127] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.201354757] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.301304489] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.401394194] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037349.402979337] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037349.501972341] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.601412175] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037349.701206970] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037349.702717474] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.777433489] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037349.801577580] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037349.901464072] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.001368981] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.101572055] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.201381167] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.301302141] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.401349726] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.501617494] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037350.502814259] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037350.601227571] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.701566097] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.801687288] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037350.901646641] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.001510902] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.101304885] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.201256683] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.301353304] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.401404379] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.501764815] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037351.502995839] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037351.601256169] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.701313041] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037351.800450331] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037351.801509606] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037351.901122872] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.001293113] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.101258115] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.201223764] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.301244988] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.401284155] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.501683091] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.601099622] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037352.602289294] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037352.701225798] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.801270466] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037352.901181727] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.001154864] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.101126447] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.201184884] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.301405884] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.401133646] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.501918321] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.601026075] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037353.701300845] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037353.702536998] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037353.801232735] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037353.900134018] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037353.901178505] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.001136952] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.101508950] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.201439097] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.301296572] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.401434729] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.501405278] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.601946028] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.701221068] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037354.801656319] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037354.803029426] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037354.825344282] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037354.901284072] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.001501674] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.101351491] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.201444214] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.301358509] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.401527139] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.501410336] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.601627726] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.701225007] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037355.801409943] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037355.900211875] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037355.901454269] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037355.902587886] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037356.001104726] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.101199773] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.201139692] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.301188898] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.401143378] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.501170350] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.601131760] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.701195586] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.800577830] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037356.901276247] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.001188481] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037357.002356357] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037357.101172112] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.201285485] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.301346311] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.401246693] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.501058710] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.601215405] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.701187963] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.801283279] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037357.901211773] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037358.000238870] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037358.001370932] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037358.002447622] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037358.105393403] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.201110631] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.301203837] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.401197284] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.501144277] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.601032130] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.701151693] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.801220797] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037358.901180049] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.001179283] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.101036379] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037359.102121643] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037359.201083474] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.301166281] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.401165941] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.501094721] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.601120260] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.701140105] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.801224576] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037359.826834468] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037359.901311327] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.000644110] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037360.100812297] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037360.101575257] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037360.102234996] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037360.201485779] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.301462485] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.401097795] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.501153482] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.601078967] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.701193117] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.801144203] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037360.901188405] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037361.001094546] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037361.101274058] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037361.102520757] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037361.201167265] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037361.301161461] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037361.726184413] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037361.732905837] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037361.801533483] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037361.901155349] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.001099006] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.101212553] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037362.200211744] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037362.201317953] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037362.202426811] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037362.301166587] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.401180673] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.501432554] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.601603723] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.701364875] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.801182805] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037362.901344020] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.001102650] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.101217512] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.201108256] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.301193842] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037363.302368774] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037363.401187466] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.501200663] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.601074509] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.700960614] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.800811720] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037363.900993973] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.001033864] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.101035977] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.200914672] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037364.300002521] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037364.301014350] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.401084779] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037364.402237582] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037364.500959440] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.601414701] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.700997623] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.800939024] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037364.875996642] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037364.901143407] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.000931966] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.100942479] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.200980500] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.301042499] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.401056123] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.501017626] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037365.502145113] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037365.600789482] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.700923105] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.801544866] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037365.901007084] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.000951180] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.100994313] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.200969354] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037366.300013490] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037366.301010866] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.400913690] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.500965998] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.601099566] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037366.602239730] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037366.700937774] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.800930102] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037366.901264400] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.001174330] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.101030001] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.200915931] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.300901213] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.401105012] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.500960485] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.601013320] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.700936269] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037367.702158256] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037367.800937207] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037367.900934397] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.001009928] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.101081070] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.200967565] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037368.300062322] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037368.301081457] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.401091971] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.501063262] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.601009069] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.700976422] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037368.800934056] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037368.802002016] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=2
+[taskset-1] [WARN] [1791037368.900953828] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.000998239] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.101020253] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.200915701] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.301004807] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.400986690] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.501110138] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.599984294] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.699878566] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037369.801087072] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037369.802198272] [mpc_corr]: PUB /drive | speed=+0.0000 steer=+0.0000 subs=1
+[taskset-1] [WARN] [1791037369.877314177] [mpc_corr]: BOUNDARY/costmap ricevuto ma stato ancora None: frame scartato.
+[taskset-1] [WARN] [1791037369.901821212] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037370.001381069] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037370.100413900] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037370.201021338] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [INFO] [1791037370.300376752] [mpc_corr]: ODOMSEL | src=None hw_age=infs sim_age=infs timeout=0.500s
+[taskset-1] [WARN] [1791037370.301859311] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037370.401165791] [mpc_corr]: ODOM non disponibile: stato ancora None
+[taskset-1] [WARN] [1791037370.501053740] [mpc_corr]: ODOM non disponibile: stato ancora None
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[taskset-1] [WARN] [1791037370.601221798] [mpc_corr]: ODOM non disponibile: stato ancora None
+[map_server-2] [INFO] [1791037370.603608930] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[map_server-2] [INFO] [1791037370.603868661] [map_server]: Running Nav2 LifecycleNode rcl preshutdown (map_server)
+[map_server-2] [INFO] [1791037370.604053252] [map_server]: Deactivating
+[map_server-2] [INFO] [1791037370.604083836] [map_server]: Destroying bond (map_server) to lifecycle manager.
+[lifecycle_manager-3] [INFO] [1791037370.604426242] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[lifecycle_manager-3] [INFO] [1791037370.604615409] [lifecycle_manager_map]: Running Nav2 LifecycleManager rcl preshutdown (lifecycle_manager_map)
+[lifecycle_manager-3] [INFO] [1791037370.604706862] [lifecycle_manager_map]: [34m[1mTerminating bond timer...[0m[0m
+[INFO] [lifecycle_manager-3]: sending signal 'SIGINT' to process[lifecycle_manager-3]
+[INFO] [map_server-2]: sending signal 'SIGINT' to process[map_server-2]
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[map_server-2] [INFO] [1791037370.623996144] [map_server]: Cleaning up
+[map_server-2] [INFO] [1791037370.624134320] [map_server]: Destroying bond (map_server) to lifecycle manager.
+[map_server-2] [INFO] [1791037370.628671195] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] Traceback (most recent call last):
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr", line 33, in <module>
+[taskset-1]     sys.exit(load_entry_point('mpc-controller', 'console_scripts', 'mpc_corr')())
+[taskset-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/mpc_controller/mpc_controller/MPC_corr.py", line 5706, in main
+[taskset-1]     node.destroy_node()
+[taskset-1]   File "/home/andre/dev_ws/f1tenth_more/build/mpc_controller/mpc_controller/MPC_corr.py", line 1889, in destroy_node
+[taskset-1]     super().destroy_node()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[taskset-1]     self.destroy_publisher(self._publishers[0])
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[taskset-1]     publisher.destroy()
+[taskset-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[taskset-1]     self.__publisher.destroy_when_not_in_use()
+[taskset-1] KeyboardInterrupt
+[map_server-2] [INFO] [1791037370.649858703] [map_server]: Destroying
+[lifecycle_manager-3] [INFO] [1791037370.653123823] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[lifecycle_manager-3] [INFO] [1791037370.658956518] [lifecycle_manager_map]: Destroying lifecycle_manager_map
+[INFO] [lifecycle_manager-3]: process has finished cleanly [pid 456615]
+[INFO] [map_server-2]: process has finished cleanly [pid 456614]
+[ERROR] [taskset-1]: process has died [pid 456613, exit code -2, cmd 'taskset -c 10,11 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_params_mgz178fr'].

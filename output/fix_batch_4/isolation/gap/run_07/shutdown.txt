@@ -1,0 +1,2 @@
+launch exit code: 0
+shutdown duration: 3.062289862 s

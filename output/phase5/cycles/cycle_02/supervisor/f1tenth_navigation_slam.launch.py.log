@@ -1,0 +1,15 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_02/ros_log/2026-10-03-11-32-14-097659-thor-372785
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [373087]
+[taskset-1] [INFO] [1791019934.951948906] [slam_toolbox]: Node using stack size 40000000
+[taskset-1] [INFO] [1791019935.814179585] [slam_toolbox]: Configuring
+[taskset-1] [INFO] [1791019935.837326975] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[taskset-1] [INFO] [1791019935.838184604] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[taskset-1] [INFO] [1791019935.873213808] [slam_toolbox]: Activating
+[taskset-1] Registering sensor: [Custom Described Lidar]
+[taskset-1] [INFO] [1791019958.422782434] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1791019958.221 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] [INFO] [1791019977.654305766] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] Unregistering sensor: Custom Described Lidar
+[ERROR] [taskset-1]: process has died [pid 373087, exit code -2, cmd 'taskset -c 2 /opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/config/slam_toolbox_params.yaml -r /map:=/slam/map -r /map_metadata:=/slam/map_metadata -r /pose:=/slam/pose'].

@@ -1,0 +1,32 @@
+[INFO] [1791022144.196021574] [swept_clearance_node]: swept_clearance_node up: lidar /scan, depth /zed2/zed_node/depth/depth_registered; steering /ackermann_drive as lagged_command (lag 0.30 s) -> /perception/swept_clearance
+[WARN] [1791022144.202897933] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022146.244226080] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022148.244601284] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022150.294146185] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022152.294191836] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022154.344245425] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022156.394189705] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022158.394236201] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022160.444291693] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022162.445214057] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022164.494086450] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[WARN] [1791022166.494290965] [swept_clearance_node]: every clearance sensor is stale (lidar never received, camera never received); publishing 0.0
+[INFO] [1791022167.576814442] [swept_clearance_node]: base_link <- laser: t=(0.120, 0.000, 0.200) m
+[WARN] [1791022167.595523461] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022169.646738452] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022171.695678157] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022173.743929708] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022175.795055577] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022177.843996690] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022179.894018495] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022181.894153191] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022183.944344318] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022185.993996066] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022187.995762594] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022189.997855416] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022192.043944191] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022194.044030346] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022196.094217436] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022198.143987297] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022200.144345134] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)
+[WARN] [1791022202.194110283] [swept_clearance_node]: ignoring stale clearance sensor (camera never received)

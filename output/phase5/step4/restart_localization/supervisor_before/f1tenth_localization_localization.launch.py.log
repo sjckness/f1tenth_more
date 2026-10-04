@@ -1,0 +1,23 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-11-35-674723-thor-359799
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [360007]
+[INFO] [taskset-2]: process started with pid [360008]
+[INFO] [slam_pose_relay_node-3]: process started with pid [360009]
+[INFO] [taskset-4]: process started with pid [360010]
+[INFO] [robot_state_publisher-5]: process started with pid [360011]
+[INFO] [joint_state_publisher-6]: process started with pid [360012]
+[INFO] [static_transform_publisher-7]: process started with pid [360013]
+[static_transform_publisher-7] [WARN] [1791018696.234403775] []: Old-style arguments are deprecated; see --help for new-style arguments
+[robot_state_publisher-5] [INFO] [1791018696.277067268] [robot_state_publisher]: Robot initialized
+[static_transform_publisher-7] [INFO] [1791018696.294968242] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+[static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+[static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-7] from 'base_link' to 'laser'
+[joint_state_publisher-6] [INFO] [1791018697.084871439] [joint_state_publisher]: Waiting for robot_description to be published on the robot_description topic...
+[slam_pose_relay_node-3] [INFO] [1791018697.207290761] [slam_pose_relay_node]: slam_pose_relay_node started: "/slam/pose" -> "/slam/pose_calibrated", covariance stamped with var_x=0.100000 var_y=0.100000 var_yaw=0.050000
+[taskset-4] [INFO] [1791018697.243623782] [ekf_cost_observer_node]: [ekf_cost] per-update cost metric up at 1.00 Hz on /diagnostics; watching ekf_filter_node, ekf_global_filter_node
+[joint_state_publisher-6] [INFO] [1791018697.633425539] [joint_state_publisher]: Got description, configuring robot
+[taskset-2] [ERROR] [1791018700.631468225] [ekf_global.ekf_global_filter_node]: Failed to meet update rate! Took 0.29692586399999998381seconds. Try decreasing the rate, limiting sensor output frequency, or limiting the number of sensors.
+[taskset-1] [ERROR] [1791018700.634553499] [ekf_filter_node]: Failed to meet update rate! Took 0.30398546500000001025seconds. Try decreasing the rate, limiting sensor output frequency, or limiting the number of sensors.
+[taskset-1] [WARN] [1791018791.468352410] [rclcpp]: Failed to get parameters: parameter 'imu1' is not initialized
+[taskset-2] [WARN] [1791018791.477037397] [rclcpp]: Failed to get parameters: parameter 'imu0' is not initialized

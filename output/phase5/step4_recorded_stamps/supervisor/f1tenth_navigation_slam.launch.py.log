@@ -1,0 +1,233 @@
+/opt/ros/jazzy/lib/python3.12/site-packages/launch/logging/__init__.py:149: UserWarning: Cannot create a symlink to latest log directory: [Errno 17] File exists: '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-454579-thor-352093' -> '/home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/latest'
+
+  warnings.warn(
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-454579-thor-352093
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [352344]
+[taskset-1] [INFO] [1791018054.189211955] [slam_toolbox]: Node using stack size 40000000
+[taskset-1] [INFO] [1791018055.060564157] [slam_toolbox]: Configuring
+[taskset-1] [INFO] [1791018055.085866657] [slam_toolbox]: Using solver plugin solver_plugins::CeresSolver
+[taskset-1] [INFO] [1791018055.086283342] [slam_toolbox]: CeresSolver: Using SCHUR_JACOBI preconditioner.
+[taskset-1] [INFO] [1791018055.125369276] [slam_toolbox]: Activating
+[taskset-1] Registering sensor: [Custom Described Lidar]
+[taskset-1] [INFO] [1791018077.793420917] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176693.999 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018080.307706895] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176696.629 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018082.809730548] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176699.139 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018085.310432407] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176701.639 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018087.817502589] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176704.123 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018090.324732557] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176706.648 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018092.868040740] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176709.178 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018095.379103903] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176711.708 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018097.879931723] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176714.208 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018100.409178540] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176716.738 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018102.909390518] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176719.238 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018105.428758685] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176721.758 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018107.942703505] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176724.268 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018110.443763760] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176726.767 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018112.968297907] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176729.297 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018115.469296313] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176731.797 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018117.985596740] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176734.306 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018120.496389453] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176736.822 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018123.002962516] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176739.322 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018125.503389366] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176741.832 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018128.033510809] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176744.362 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018130.540307444] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176746.862 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018133.043506566] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176749.372 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018135.553536530] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176751.871 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018138.073083113] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176754.401 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018140.593090117] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176756.921 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018143.102287276] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176759.431 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018145.622080615] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176761.951 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018148.131713767] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176764.461 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018150.651656873] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176766.981 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018153.161770679] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176769.490 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018155.663382414] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176771.990 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018158.191223392] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176774.520 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018160.756772284] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176776.951 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018163.258779591] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176779.585 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018165.766832648] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176782.095 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018168.267234274] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176784.595 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018170.776076863] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176787.105 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018173.277467209] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176789.605 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018175.785766322] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176792.115 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018178.288293499] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176794.614 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018180.815691487] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176797.144 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018183.317777127] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176799.644 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018185.845376176] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176802.174 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018188.346651420] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176804.674 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018190.865272791] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176807.194 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018193.376632094] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176809.704 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018195.908953764] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176812.234 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018198.434627760] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176814.763 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018200.974154471] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176817.293 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018203.607167106] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176819.743 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [WARN] [1791018203.754869956] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.457675 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.773609891] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176819.878597 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.790286608] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176819.878597 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.793044919] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.157317 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.809326645] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.157317 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.812700871] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.177609 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.829347986] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.177609 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.832907352] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.197483 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.849274874] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.197483 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.852810721] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.217499 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.869919039] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.217499 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.872817738] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.237580 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.889384844] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.237580 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.892781913] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.253356 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.909254750] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.253356 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.912774531] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.277491 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.929286082] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.277491 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.932811225] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.297628 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.949321729] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.297628 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.952832001] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.317535 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.969263394] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.317535 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.972822334] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.337492 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.989315782] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.337492 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018203.992713323] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.357476 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.009207910] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.357476 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.012935063] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.377469 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.029266613] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.377469 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.032766042] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.397487 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.049342149] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.397487 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.053108430] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.417480 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.069199360] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.417480 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.072833188] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.437488 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.089169886] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.437488 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.092791269] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.457527 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.109171606] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.457527 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.112819508] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.477561 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.129154456] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.477561 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.132960339] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.492563 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.149288195] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.492563 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.152902023] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.517564 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.169166498] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.517564 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.172820186] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.541868 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.189149320] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.541868 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.192782305] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.557596 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.209241957] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.557596 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.212918526] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.577500 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.229249631] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.577500 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.232970747] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.592437 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.249222269] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.592437 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.254287327] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.617549 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.269203935] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.617549 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.272861022] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.637684 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.289278989] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.637684 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.292896835] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.657494 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.309790959] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.657494 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.312878954] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.672914 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.329319245] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.672914 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.332850740] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.697461 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.349364059] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.697461 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.352805730] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.717549 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.369299419] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.717549 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.372729479] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.732925 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.389209797] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.732925 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.392658709] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.757495 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.409423212] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.757495 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.412707838] []: TF_OLD_DATA ignoring data from the past for frame base_link at time 1790176820.772437 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [WARN] [1791018204.429266406] []: TF_OLD_DATA ignoring data from the past for frame odom at time 1790176820.772437 according to authority Authority undetectable
+[taskset-1] Possible reasons are listed at http://wiki.ros.org/tf/Errors%20explained
+[taskset-1] [INFO] [1791018206.130053186] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176822.458 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018208.660189878] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176824.988 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018211.169637447] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176827.498 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018213.670359876] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176829.998 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018216.199298727] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176832.528 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018218.699556426] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176835.028 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018221.211340370] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176837.528 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018223.724973327] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176840.037 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018226.232748430] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176842.557 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018228.738276435] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176845.067 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018231.238477305] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176847.567 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018233.770454355] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176850.097 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018236.288649147] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176852.617 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018238.797888073] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176855.127 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018241.298345101] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176857.627 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018243.807512719] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176860.136 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018246.324772456] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176862.636 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018248.843787155] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176865.172 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018251.352618330] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176867.681 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018253.869515822] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176870.191 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018256.393187209] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176872.721 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018258.912084241] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176875.241 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018261.414817870] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176877.721 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018263.924607938] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176880.251 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018266.425685290] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176882.751 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018268.929772306] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176885.230 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018271.448743634] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176887.730 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018273.952091997] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176890.280 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018276.461532200] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176892.790 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018278.961695895] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176895.290 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[taskset-1] [INFO] [1791018281.462039695] [slam_toolbox]: Message Filter dropping message: frame 'laser' at time 1790176897.790 for reason 'the timestamp on the message is earlier than all the data in the transform cache'
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[taskset-1] [INFO] [1791018285.086915117] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[taskset-1] Unregistering sensor: Custom Described Lidar
+[ERROR] [taskset-1]: process has died [pid 352344, exit code -2, cmd 'taskset -c 2 /opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/config/slam_toolbox_params.yaml -r /map:=/slam/map -r /map_metadata:=/slam/map_metadata -r /pose:=/slam/pose'].

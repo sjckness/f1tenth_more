@@ -1,0 +1,16 @@
+[INFO] [launch]: All log files can be found below /home/andre/.ros/log/2026-10-03-15-59-43-505837-thor-438150
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [steering_offset_calibration_node-1]: process started with pid [438155]
+[steering_offset_calibration_node-1] [0m[INFO] [1791035984.218607766] [steering_offset_calibration_node]: === steering_offset_calibration_node / run steer-offset-2026-10-03T15-59-44 ===[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035984.219123398] [steering_offset_calibration_node]: plan: 3 repetitions x 3 segments (short) [0.6 straight, +a 0.6, -a 1.2] at 0.25 m/s, a = -5.7 deg[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035984.219414394] [steering_offset_calibration_node]: geometry: 2.40 m of path per repetition, each +a segment turns ~-10.4 deg; footprint roughly 2.3 m long x 0.6 m wide. Repetitions run SEQUENTIALLY -- either clear ~7.2 m or reposition the car during the 6 s pause between them.[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035984.219919423] [steering_offset_calibration_node]: discovery server reachable at 127.0.0.1:11811.[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035984.220139466] [steering_offset_calibration_node]: preflight: listening for 20 s for map, mission status and clearance... (NOT for a pose -- see the module docstring: a parked car cannot produce one)[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035986.372427150] [steering_offset_calibration_node]: 32 other node(s) visible on the graph.[0m
+[steering_offset_calibration_node-1] [31m[ERROR] [1791035986.373203241] [steering_offset_calibration_node]: amplitude_rad must be positive.[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035986.373999534] [steering_offset_calibration_node]: segment plan 'short': 3 segments x 3 repetitions = 9 fitted segments, 2.40 m per repetition.[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035986.374635433] [steering_offset_calibration_node]: mission state is 'IDLE' -- not active.[0m
+[steering_offset_calibration_node-1] [31m[ERROR] [1791035986.375402273] [steering_offset_calibration_node]: nothing is subscribed to /calibration_drive -- ackermann_mux is not running, or /calibration_drive is not registered as a lane in mux.yaml. The car would not move. Refusing to run.[0m
+[steering_offset_calibration_node-1] [0m[INFO] [1791035986.375965182] [steering_offset_calibration_node]: /slam/map received: 992x2645 cells at 0.050 m -- slam_toolbox is up and holds a map.[0m
+[steering_offset_calibration_node-1] [31m[ERROR] [1791035986.376589395] [steering_offset_calibration_node]: preflight refused -- nothing was commanded.[0m
+[ERROR] [steering_offset_calibration_node-1]: process has died [pid 438155, exit code 10, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/steering_offset_calibration_node --ros-args -r __node:=steering_offset_calibration_node --params-file /tmp/launch_params_in_tnsrg'].

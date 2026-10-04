@@ -1,0 +1,13 @@
+settling discovery for 10s ...
+nodes in graph : 34
+services       : 288
+
+supervisor services:
+  OK       /restart_component
+  OK       /component_supervisor_node/control_component
+  OK       /component_supervisor_node/run_calibration
+
+/mission/start_mission preflight nodes:
+  OK       mpc_corr
+  MISSING  ackermann_to_vesc_node
+  -> start_mission WILL refuse: preflight needs every node above.

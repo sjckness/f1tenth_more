@@ -1,0 +1,21 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-623680-thor-352104
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [352376]
+[INFO] [taskset-2]: process started with pid [352379]
+[INFO] [slam_pose_relay_node-3]: process started with pid [352383]
+[INFO] [taskset-4]: process started with pid [352395]
+[INFO] [robot_state_publisher-5]: process started with pid [352396]
+[INFO] [joint_state_publisher-6]: process started with pid [352397]
+[INFO] [static_transform_publisher-7]: process started with pid [352398]
+[static_transform_publisher-7] [WARN] [1791018054.240291974] []: Old-style arguments are deprecated; see --help for new-style arguments
+[static_transform_publisher-7] [INFO] [1791018054.274451063] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+[static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+[static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+[static_transform_publisher-7] from 'base_link' to 'laser'
+[robot_state_publisher-5] [INFO] [1791018054.309495919] [robot_state_publisher]: Robot initialized
+[taskset-4] [INFO] [1791018054.942598643] [ekf_cost_observer_node]: [ekf_cost] per-update cost metric up at 1.00 Hz on /diagnostics; watching ekf_filter_node, ekf_global_filter_node
+[joint_state_publisher-6] [INFO] [1791018055.601050576] [joint_state_publisher]: Waiting for robot_description to be published on the robot_description topic...
+[joint_state_publisher-6] [INFO] [1791018055.618738615] [joint_state_publisher]: Got description, configuring robot
+[slam_pose_relay_node-3] [INFO] [1791018055.649480802] [slam_pose_relay_node]: slam_pose_relay_node started: "/slam/pose" -> "/slam/pose_calibrated", covariance stamped with var_x=0.100000 var_y=0.100000 var_yaw=0.050000
+[taskset-1] [WARN] [1791018135.907808603] [rclcpp]: Failed to get parameters: parameter 'imu1' is not initialized
+[taskset-2] [WARN] [1791018135.919963853] [rclcpp]: Failed to get parameters: parameter 'imu0' is not initialized

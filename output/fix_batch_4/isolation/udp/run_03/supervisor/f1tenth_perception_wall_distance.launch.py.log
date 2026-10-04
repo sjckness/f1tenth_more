@@ -1,0 +1,49 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/udp/run_03/ros_log/2026-10-03-17-16-50-283929-thor-557550
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [557701]
+[taskset-1] [INFO] [1791040614.233342479] [wall_distance_node]: wall_distance_node up: scan /scan, odom /odometry/filtered, phase from /mpc/wall_track (3 silent ticks -> exit) -> /perception/d_wall at 10.0 Hz. d_ref=0.60 m, k=0.333 rad/m (convergence 3.0 m), |dpsi|<=0.200 rad. coast caps 0.50 m / 0.35 rad. PHASE=UNKNOWN until /mpc/wall_track speaks.
+[taskset-1] [INFO] [1791040614.318204310] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040615.418588800] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040616.418644885] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040617.518066741] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040618.518316528] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040619.518375984] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040620.617166494] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040621.618317463] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040622.718585721] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040623.818250487] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040624.918656808] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040626.018152006] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040627.018259913] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040628.117454256] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040629.118459086] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040630.218114169] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040631.218695516] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040632.317348724] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040633.318027827] [wall_distance_node]: DWALL | phase=UNKNOWN track=0 valid=False d_wall=+nan heading_rel=+nan rms=nan n=0 age=nan prov=NONE coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040633.416515811] [wall_distance_node]: base_link <- laser: (0.120, 0.000) m, yaw +0.000 rad. NOTE description.launch.py calls these ruler-measured placeholders, not a calibration.
+[taskset-1] [INFO] [1791040634.341182399] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.495 heading_rel=+0.282 rms=0.0156 n=131 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040635.441488103] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.492 heading_rel=+0.284 rms=0.0146 n=127 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040636.442204848] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.492 heading_rel=+0.285 rms=0.0149 n=134 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040637.445594765] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.516 heading_rel=+0.313 rms=0.0104 n=46 age=0.00 prov=GEOMETRIC coast=0.00m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040638.541568491] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.514 heading_rel=+0.317 rms=0.0104 n=46 age=1.07 prov=PREDICTED coast=0.01m/0.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040639.547102047] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.499 heading_rel=+0.367 rms=0.0104 n=46 age=2.07 prov=PREDICTED coast=0.05m/0.06rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040640.549628969] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.464 heading_rel=+0.435 rms=0.0098 n=42 age=0.27 prov=PREDICTED coast=0.03m/0.04rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040641.647883583] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.385 heading_rel=+0.562 rms=0.0098 n=42 age=1.37 prov=PREDICTED coast=0.19m/0.16rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040642.649347862] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.249 heading_rel=+0.650 rms=0.0098 n=42 age=2.37 prov=PREDICTED coast=0.43m/0.25rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040643.732329727] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+1.045 heading_rel=+0.460 rms=0.0142 n=154 age=0.08 prov=PREDICTED coast=0.04m/0.01rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040644.736408915] [wall_distance_node]: DWALL | phase=UNKNOWN track=1 valid=True d_wall=+0.902 heading_rel=+0.325 rms=0.0142 n=154 age=1.08 prov=PREDICTED coast=0.41m/0.15rad dpsi=+0.0000
+[taskset-1] [WARN] [1791040645.038558822] [wall_distance_node]: COAST/cap | track 1 coasted 0.52 m / 0.19 rad past the cap (0.50 m / 0.35 rad): d_wall is no longer trusted. The caps are set by the measured odometry bias (distance 17-20% short, gyro yaw gain 0.93-1.09), not by caution -- raise them only after that calibration lands.
+[taskset-1] [WARN] [1791040645.136678210] [wall_distance_node]: COAST/cap | track 9 coasted 1.38 m / 0.73 rad past the cap (0.50 m / 0.35 rad): d_wall is no longer trusted. The caps are set by the measured odometry bias (distance 17-20% short, gyro yaw gain 0.93-1.09), not by caution -- raise them only after that calibration lands.
+[taskset-1] [INFO] [1791040645.740238972] [wall_distance_node]: DWALL | phase=UNKNOWN track=9 valid=False d_wall=+nan heading_rel=+nan rms=0.0087 n=46 age=6.38 prov=NONE coast=1.57m/0.80rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040646.836204021] [wall_distance_node]: DWALL | phase=UNKNOWN track=9 valid=False d_wall=+nan heading_rel=+nan rms=0.0087 n=46 age=7.48 prov=NONE coast=1.82m/0.90rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040647.838764528] [wall_distance_node]: DWALL | phase=UNKNOWN track=9 valid=False d_wall=+nan heading_rel=+nan rms=0.0087 n=46 age=8.48 prov=NONE coast=2.05m/0.97rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040648.841234353] [wall_distance_node]: DWALL | phase=UNKNOWN track=9 valid=False d_wall=+nan heading_rel=+nan rms=0.0087 n=46 age=9.48 prov=NONE coast=2.33m/1.00rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040649.846337362] [wall_distance_node]: DWALL | phase=UNKNOWN track=9 valid=False d_wall=+nan heading_rel=+nan rms=0.0087 n=46 age=10.48 prov=NONE coast=2.72m/1.01rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040650.942807953] [wall_distance_node]: DWALL | phase=UNKNOWN track=9 valid=False d_wall=+nan heading_rel=+nan rms=0.0087 n=46 age=11.58 prov=NONE coast=3.15m/1.05rad dpsi=+0.0000
+[taskset-1] [INFO] [1791040651.949854831] [wall_distance_node]: DWALL | phase=UNKNOWN track=9 valid=False d_wall=+nan heading_rel=+nan rms=0.0087 n=46 age=12.58 prov=NONE coast=3.58m/1.07rad dpsi=+0.0000
+[taskset-1] [WARN] [1791040652.745559398] [wall_distance_node]: COAST/cap | track 14 coasted 3.41 m / 0.72 rad past the cap (0.50 m / 0.35 rad): d_wall is no longer trusted. The caps are set by the measured odometry bias (distance 17-20% short, gyro yaw gain 0.93-1.09), not by caution -- raise them only after that calibration lands.
+[taskset-1] [INFO] [1791040652.953606613] [wall_distance_node]: DWALL | phase=UNKNOWN track=14 valid=False d_wall=+nan heading_rel=+nan rms=0.0128 n=153 age=10.27 prov=NONE coast=3.50m/0.72rad dpsi=+0.0000
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[INFO] [taskset-1]: process has finished cleanly [pid 557701]

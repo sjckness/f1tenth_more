@@ -1,0 +1,433 @@
+{
+  "a": "output/phase5/sim/sim_false",
+  "b": "output/phase5/sim/sim_true",
+  "processes_only_in_a": [
+    "/home/andre/dev_ws/f1tenth_more/install/ackermann_mux/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/mux.yaml -r ackermann_cmd:=ackermann_drive\n",
+    "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_map --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/nav2_map_server/map_server --ros-args -r __node:=map_server --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml\n",
+    "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml\n",
+    "/opt/ros/jazzy/lib/robot_state_publisher/robot_state_publisher --ros-args --params-file <PARAMS_TMP> --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/config/slam_toolbox_params.yaml -r /map:=/slam/map -r /map_metadata:=/slam/map_metadata -r /pose:=/slam/pose\n",
+    "/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser\n",
+    "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotated_viz_throttle\n",
+    "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_executor_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/twist_to_ackermann_node --ros-args -r __node:=twist_to_ackermann_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/config/twist_to_ackermann.yaml\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r __node:=diagnostics_server_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/system_observer_node --ros-args -r __node:=system_observer_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/obstacle_clearance_node --ros-args -r __node:=obstacle_clearance_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node --ros-args -r __node:=swept_clearance_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/wall_distance_node --ros-args -r __node:=wall_distance_node --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_behavior behavior_bringup.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup foxglove_bridge.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup supervisor_bringup.launch.py components_config:=<RUN>/components.yaml enable_intelligence:=false log_dir:=<RUN>/supervisor sim:=false\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_control ackermann_mux.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_costmap costmap.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics diagnostics_server.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_diagnostics system_observer.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_localization localization.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_logger mission_logger.launch.py mission_logger_runs_dir:=<RUN>/runs\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation navigation.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation slam.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception lidar_front_wall.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception obstacle_clearance.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception swept_clearance.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_perception wall_distance.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file <PARAMS_TMP>\n",
+    "sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811\n"
+  ],
+  "processes_only_in_b": [
+    "/home/andre/dev_ws/f1tenth_more/install/ackermann_mux/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux -p use_sim_time:=True --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/mux.yaml -r ackermann_cmd:=ackermann_drive\n",
+    "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_map -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/nav2_map_server/map_server --ros-args -r __node:=map_server -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node -p use_sim_time:=True --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml\n",
+    "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global -p use_sim_time:=True --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml\n",
+    "/opt/ros/jazzy/lib/robot_state_publisher/robot_state_publisher --ros-args -p use_sim_time:=True --params-file <PARAMS_TMP> --params-file <PARAMS_TMP>\n",
+    "/opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ -p use_sim_time:=True --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/config/slam_toolbox_params.yaml -r /map:=/slam/map -r /map_metadata:=/slam/map_metadata -r /pose:=/slam/pose\n",
+    "/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.0 0.0 0.0 0.0 0.0 0.0 base_link imu --ros-args -r __node:=static_baselink_to_imu -p use_sim_time:=True\n",
+    "/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser -p use_sim_time:=True\n",
+    "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotated_viz_throttle -p use_sim_time:=True\n",
+    "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle -p use_sim_time:=True\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_executor_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/twist_to_ackermann_node --ros-args -r __node:=twist_to_ackermann_node -p use_sim_time:=True --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/share/f1tenth_behavior/config/twist_to_ackermann.yaml\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r __node:=diagnostics_server_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node -p use_sim_time:=True\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/system_observer_node --ros-args -r __node:=system_observer_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node -p use_sim_time:=True --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/obstacle_clearance_node --ros-args -r __node:=obstacle_clearance_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node --ros-args -r __node:=swept_clearance_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/wall_distance_node --ros-args -r __node:=wall_distance_node -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_behavior component_launch_file:=behavior_bringup.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_bringup component_launch_file:=foxglove_bridge.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_bringup component_launch_file:=sim_hardware_tf.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_control component_launch_file:=ackermann_mux.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_costmap component_launch_file:=costmap.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_diagnostics component_launch_file:=diagnostics_server.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_diagnostics component_launch_file:=system_observer.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_localization component_launch_file:=localization.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_logger component_launch_file:=mission_logger.launch.py mission_logger_runs_dir:=<RUN>/runs\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_navigation component_launch_file:=navigation.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_navigation component_launch_file:=slam.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_perception component_launch_file:=lidar_front_wall.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_perception component_launch_file:=obstacle_clearance.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_perception component_launch_file:=swept_clearance.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup sim_component.launch.py component_package:=f1tenth_perception component_launch_file:=wall_distance.launch.py\n",
+    "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_bringup supervisor_bringup.launch.py components_config:=<RUN>/components.yaml enable_intelligence:=false log_dir:=<RUN>/supervisor sim:=true\n",
+    "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher -p use_sim_time:=True --params-file <PARAMS_TMP>\n",
+    "python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py 127.0.0.1 11811\n"
+  ],
+  "process_count": [
+    45,
+    47
+  ],
+  "nodes_only_in_a": [],
+  "nodes_only_in_b": [
+    "/rosbag2_player",
+    "/static_baselink_to_imu"
+  ],
+  "param_differences": {
+    "/ackermann_mux": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/behavior_executor_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/component_supervisor_node": {
+      "components_config": [
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_false/components.yaml",
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_true/components.yaml"
+      ],
+      "log_dir": [
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_false/supervisor",
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_true/supervisor"
+      ],
+      "sim": [
+        false,
+        true
+      ]
+    },
+    "/costmap_boundary_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/costmap_renderer_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/diagnostics_server_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/ekf_cost_observer_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/foxglove_bridge": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/image_annotated_viz_throttle": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/image_raw_viz_throttle": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/joint_state_publisher": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/lidar_front_wall_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/lifecycle_manager_map": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/map_server": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/mission_logger_node": {
+      "runs_dir": [
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_false/runs",
+        "/home/andre/dev_ws/f1tenth_more/output/phase5/sim/sim_true/runs"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/mpc_corr": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/obstacle_clearance_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/robot_state_publisher": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/semantic_layer_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/slam_pose_relay_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/slam_toolbox": {
+      "max_laser_range": [
+        null,
+        20.0
+      ],
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/static_baselink_to_laser": {
+      "qos_overrides./clock.subscription.depth": [
+        null,
+        1
+      ],
+      "qos_overrides./clock.subscription.durability": [
+        null,
+        "volatile"
+      ],
+      "qos_overrides./clock.subscription.history": [
+        null,
+        "keep_last"
+      ],
+      "qos_overrides./clock.subscription.reliability": [
+        null,
+        "best_effort"
+      ],
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/swept_clearance_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/system_observer_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/twist_to_ackermann_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    },
+    "/wall_distance_node": {
+      "use_sim_time": [
+        false,
+        true
+      ]
+    }
+  },
+  "generated_name_nodes_param_sets_equal": true,
+  "b_nodes_not_on_sim_time": [
+    "/component_supervisor_node",
+    "/ekf_filter_node",
+    "/ekf_global/ekf_global_filter_node",
+    "/launch_ros_387844",
+    "/rosbag2_player"
+  ],
+  "b_nodes_total": 31,
+  "b_driver_processes": []
+}

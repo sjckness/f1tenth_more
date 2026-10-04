@@ -1,0 +1,10 @@
+with_bt 1: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 2: estop_check=PASS | e-stop graph check after 0.13 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 3: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 4: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 5: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 6: estop_check=PASS | e-stop graph check after 0.16 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 7: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 8: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 9: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0
+with_bt 10: estop_check=PASS | e-stop graph check after 0.00 s: 1 subscriber(s) on /calibration_drive, 1 publisher(s) on /safety_stop (both present). | refused_before_command=1 preflight_passed_lines=0

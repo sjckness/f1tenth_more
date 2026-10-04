@@ -1,0 +1,2 @@
+[ERROR] [1791018258.223927180] [system_observer_node]: [system_observer] jetson-stats not installed (No module named 'jtop'). gpu_percent/gpu_temp_c/emc_percent will be published as 0.0. Fix: `sudo pip3 install jetson-stats`, then reboot (or restart jtop.service).
+[INFO] [1791018258.225004188] [system_observer_node]: [system_observer] Publishing SystemStatus on /diagnostics/system_status at 1.00 Hz (jtop: UNAVAILABLE, see warning above).

@@ -1,0 +1,20 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/cycles/cycle_09/ros_log/2026-10-03-11-38-16-797299-thor-382684
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [diagnostics_server_node-1]: process started with pid [382734]
+[diagnostics_server_node-1] [INFO] [1791020298.057153428] [diagnostics_server_node]: [diagnostics_server] Publishing BatteryStatus on /diagnostics/battery_status at 2.00 Hz (min_battery_voltage=10.8V) and calibration/in_progress at 2.00 Hz. sys_obs enabled -- run_diagnostics service ready.
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [diagnostics_server_node-1]: sending signal 'SIGINT' to process[diagnostics_server_node-1]
+[diagnostics_server_node-1] Traceback (most recent call last):
+[diagnostics_server_node-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node", line 33, in <module>
+[diagnostics_server_node-1]     sys.exit(load_entry_point('f1tenth-diagnostics', 'console_scripts', 'diagnostics_server_node')())
+[diagnostics_server_node-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[diagnostics_server_node-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_diagnostics/f1tenth_diagnostics/diagnostics_server_node.py", line 199, in main
+[diagnostics_server_node-1]     node.destroy_node()
+[diagnostics_server_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1958, in destroy_node
+[diagnostics_server_node-1]     self.destroy_subscription(self._subscriptions[0])
+[diagnostics_server_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1854, in destroy_subscription
+[diagnostics_server_node-1]     subscription.destroy()
+[diagnostics_server_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/subscription.py", line 101, in destroy
+[diagnostics_server_node-1]     self.handle.destroy_when_not_in_use()
+[diagnostics_server_node-1] KeyboardInterrupt
+[ERROR] [diagnostics_server_node-1]: process has died [pid 382734, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r __node:=diagnostics_server_node --params-file /tmp/launch_params_qdfpx3f8'].

@@ -1,0 +1,80 @@
+/opt/ros/jazzy/lib/python3.12/site-packages/launch/logging/__init__.py:149: UserWarning: Cannot create a symlink to latest log directory: [Errno 2] No such file or directory: '/home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/ros_log/latest'
+
+  warnings.warn(
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/ros_log/2026-10-03-11-29-45-768719-thor-369471
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [mission_logger_node-1]: process started with pid [369522]
+[mission_logger_node-1] [INFO] [1791019787.378793935] [mission_logger_node]: mission_logger_node up (pid 369522, lock /tmp/mission_logger.lock): watching "/mission/status", runs -> "/home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/runs" (active/ -> complete/, storage=mcap), 44 topics (5 with BEST_EFFORT overrides), sweep every 300s (action=move). THIS IS THE LIVE LOGGER -- a second `ros2 run` will be refused.
+[mission_logger_node-1] stdin is not a terminal device. Keyboard handling disabled.[INFO] [1791019820.790390235] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[mission_logger_node-1] [INFO] [1791019820.790404744] [rosbag2_recorder]: Event publisher thread: Started
+[mission_logger_node-1] [INFO] [1791019820.794179409] [rosbag2_recorder]: Starting recording to '/home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/runs/active/2026-10-03T09-30-20_mission-phase5_hold/bag'
+[mission_logger_node-1] [INFO] [1791019820.797614832] [rosbag2_recorder]: Listening for topics...
+[mission_logger_node-1] [INFO] [1791019820.797670109] [rosbag2_recorder]: Recording...
+[mission_logger_node-1] [INFO] [1791019820.797654082] [rosbag2_recorder]: Topics discovery started.
+[mission_logger_node-1] [INFO] [1791019820.843887812] [mission_logger_node]: recording "2026-10-03T09-30-20_mission-phase5_hold" -> /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/runs/active/2026-10-03T09-30-20_mission-phase5_hold/bag
+[mission_logger_node-1] [INFO] [1791019822.305444999] [rosbag2_recorder]: Subscribed to topic '/ackermann_drive'
+[mission_logger_node-1] [INFO] [1791019822.317898713] [rosbag2_recorder]: Subscribed to topic '/joint_states'
+[mission_logger_node-1] [INFO] [1791019822.318673629] [rosbag2_recorder]: Overriding subscription profile for /costmap/front_clearance
+[mission_logger_node-1] [INFO] [1791019822.320803646] [rosbag2_recorder]: Subscribed to topic '/costmap/front_clearance'
+[mission_logger_node-1] [INFO] [1791019822.322865126] [rosbag2_recorder]: Subscribed to topic '/mpc/hold'
+[mission_logger_node-1] [INFO] [1791019822.326683948] [rosbag2_recorder]: Subscribed to topic '/mpc/solver_status'
+[mission_logger_node-1] [INFO] [1791019822.328238336] [rosbag2_recorder]: Subscribed to topic '/drive'
+[mission_logger_node-1] [INFO] [1791019822.331867981] [rosbag2_recorder]: Subscribed to topic '/diagnostics'
+[mission_logger_node-1] [INFO] [1791019822.333501518] [rosbag2_recorder]: Subscribed to topic '/mission/status'
+[mission_logger_node-1] [INFO] [1791019822.334696137] [rosbag2_recorder]: Overriding subscription profile for /ekf_global/odometry/filtered
+[mission_logger_node-1] [INFO] [1791019822.337530876] [rosbag2_recorder]: Subscribed to topic '/ekf_global/odometry/filtered'
+[mission_logger_node-1] [INFO] [1791019822.340549624] [rosbag2_recorder]: Subscribed to topic '/costmap/semantic_tracks'
+[mission_logger_node-1] [INFO] [1791019822.344507093] [rosbag2_recorder]: Subscribed to topic '/mpc/corridor_markers'
+[mission_logger_node-1] [INFO] [1791019822.345686380] [rosbag2_recorder]: Subscribed to topic '/costmap/semantic_markers'
+[mission_logger_node-1] [INFO] [1791019822.347257592] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_object_end'
+[mission_logger_node-1] [INFO] [1791019822.347865425] [rosbag2_recorder]: Overriding subscription profile for /costmap/boundaries
+[mission_logger_node-1] [INFO] [1791019822.349085369] [rosbag2_recorder]: Subscribed to topic '/costmap/boundaries'
+[mission_logger_node-1] [INFO] [1791019822.350622294] [rosbag2_recorder]: Subscribed to topic '/behavior/tree_status'
+[mission_logger_node-1] [INFO] [1791019822.351764265] [rosbag2_recorder]: Subscribed to topic '/perception/d_wall/psi_correction'
+[mission_logger_node-1] [INFO] [1791019822.352035645] [rosbag2_recorder]: Overriding subscription profile for /odometry/filtered
+[mission_logger_node-1] [INFO] [1791019822.352986487] [rosbag2_recorder]: Subscribed to topic '/odometry/filtered'
+[mission_logger_node-1] [INFO] [1791019822.353975384] [rosbag2_recorder]: Subscribed to topic '/mpc/status'
+[mission_logger_node-1] [INFO] [1791019822.355191411] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_distance'
+[mission_logger_node-1] [INFO] [1791019822.355438531] [rosbag2_recorder]: Overriding subscription profile for /odom
+[mission_logger_node-1] [INFO] [1791019822.356329086] [rosbag2_recorder]: Subscribed to topic '/odom'
+[mission_logger_node-1] [INFO] [1791019822.358012826] [rosbag2_recorder]: Subscribed to topic '/mpc/object_status'
+[mission_logger_node-1] [INFO] [1791019822.359488214] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_drive'
+[mission_logger_node-1] [INFO] [1791019822.360987500] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_object'
+[mission_logger_node-1] [INFO] [1791019822.362936527] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_pose'
+[mission_logger_node-1] [INFO] [1791019822.364296081] [rosbag2_recorder]: Subscribed to topic '/mpc/drive_clamp'
+[mission_logger_node-1] [INFO] [1791019822.365604192] [rosbag2_recorder]: Subscribed to topic '/mpc/goal_turn'
+[mission_logger_node-1] [INFO] [1791019822.367073950] [rosbag2_recorder]: Subscribed to topic '/diagnostics/system_status'
+[mission_logger_node-1] [INFO] [1791019822.368642449] [rosbag2_recorder]: Subscribed to topic '/mission/move_outcome'
+[mission_logger_node-1] [INFO] [1791019822.410278969] [rosbag2_recorder]: Subscribed to topic '/slam/map'
+[mission_logger_node-1] [INFO] [1791019822.411866626] [rosbag2_recorder]: Subscribed to topic '/safety_stop'
+[mission_logger_node-1] [INFO] [1791019822.413481708] [rosbag2_recorder]: Subscribed to topic '/scan'
+[mission_logger_node-1] [INFO] [1791019822.415066855] [rosbag2_recorder]: Subscribed to topic '/slam/pose'
+[mission_logger_node-1] [INFO] [1791019822.416111373] [rosbag2_recorder]: Overriding subscription profile for /tf
+[mission_logger_node-1] [INFO] [1791019822.419252889] [rosbag2_recorder]: Subscribed to topic '/tf'
+[mission_logger_node-1] [INFO] [1791019822.420521953] [rosbag2_recorder]: Subscribed to topic '/slam/pose_calibrated'
+[mission_logger_node-1] [INFO] [1791019822.421856137] [rosbag2_recorder]: Subscribed to topic '/tf_static'
+[mission_logger_node-1] [INFO] [1791019832.966697934] [rosbag2_recorder]: Topics discovery stopped.
+[mission_logger_node-1] [INFO] [1791019832.967130656] [rosbag2_recorder]: Pausing recording.
+[mission_logger_node-1] [INFO] [1791019832.969652183] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[mission_logger_node-1] [INFO] [1791019833.019685511] [rosbag2_recorder]: Recording stopped
+[mission_logger_node-1] [INFO] [1791019833.073855847] [mission_logger_node]: stopped recording "2026-10-03T09-30-20_mission-phase5_hold" (outcome=COMPLETE) -> /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/runs/complete/2026-10-03T09-30-20_mission-phase5_hold
+[mission_logger_node-1] [INFO] [1791019833.080444519] [rosbag2_recorder]: Event publisher thread: Exited
+[mission_logger_node-1] [INFO] [1791019834.269669608] [mission_logger_node]: extract written: /home/andre/dev_ws/f1tenth_more/output/phase5/logger_superclient/runs/complete/2026-10-03T09-30-20_mission-phase5_hold/2026-10-03T09-30-20_mission-phase5_hold.extract.parquet
+[mission_logger_node-1] [WARN] [1791019834.593541796] [mission_logger_node]: no /camera/image_annotated frames in "2026-10-03T09-30-20_mission-phase5_hold" -- no snapshots.
+[mission_logger_node-1] [INFO] [1791019834.595141822] [mission_logger_node]: archive sync spawned for "2026-10-03T09-30-20_mission-phase5_hold" (detached, not awaited).
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [mission_logger_node-1]: sending signal 'SIGINT' to process[mission_logger_node-1]
+[mission_logger_node-1] Traceback (most recent call last):
+[mission_logger_node-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node", line 33, in <module>
+[mission_logger_node-1]     sys.exit(load_entry_point('f1tenth-logger', 'console_scripts', 'mission_logger_node')())
+[mission_logger_node-1]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[mission_logger_node-1]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_logger/f1tenth_logger/mission_logger_node.py", line 1063, in main
+[mission_logger_node-1]     node.destroy_node()
+[mission_logger_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1956, in destroy_node
+[mission_logger_node-1]     self.destroy_publisher(self._publishers[0])
+[mission_logger_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 1836, in destroy_publisher
+[mission_logger_node-1]     publisher.destroy()
+[mission_logger_node-1]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 105, in destroy
+[mission_logger_node-1]     self.__publisher.destroy_when_not_in_use()
+[mission_logger_node-1] KeyboardInterrupt
+[ERROR] [mission_logger_node-1]: process has died [pid 369522, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node --params-file /tmp/launch_params_3gnqv6vz'].

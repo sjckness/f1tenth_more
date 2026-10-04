@@ -1,0 +1,31 @@
+1791035616.5062268 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_3/hold_before/ros_log/2026-10-03-15-53-36-503650-thor-432960
+1791035616.5066526 [INFO] [launch]: Default logging verbosity is set to INFO
+1791035616.9586980 [INFO] [taskset-1]: process started with pid [433149]
+1791035616.9591944 [INFO] [taskset-2]: process started with pid [433153]
+1791035616.9592979 [INFO] [slam_pose_relay_node-3]: process started with pid [433154]
+1791035616.9593627 [INFO] [taskset-4]: process started with pid [433155]
+1791035616.9594061 [INFO] [robot_state_publisher-5]: process started with pid [433156]
+1791035616.9594436 [INFO] [joint_state_publisher-6]: process started with pid [433157]
+1791035616.9594786 [INFO] [static_transform_publisher-7]: process started with pid [433158]
+1791035617.0138171 [static_transform_publisher-7] [WARN] [1791035617.009653901] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791035617.0442512 [static_transform_publisher-7] [INFO] [1791035617.043553140] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791035617.0446110 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791035617.0446618 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791035617.0446937 [static_transform_publisher-7] from 'base_link' to 'laser'
+1791035840.1136107 [WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+1791035840.1203864 [INFO] [static_transform_publisher-7]: sending signal 'SIGINT' to process[static_transform_publisher-7]
+1791035840.1265037 [INFO] [joint_state_publisher-6]: sending signal 'SIGINT' to process[joint_state_publisher-6]
+1791035840.1286376 [INFO] [robot_state_publisher-5]: sending signal 'SIGINT' to process[robot_state_publisher-5]
+1791035840.1293139 [INFO] [taskset-4]: sending signal 'SIGINT' to process[taskset-4]
+1791035840.1315320 [INFO] [slam_pose_relay_node-3]: sending signal 'SIGINT' to process[slam_pose_relay_node-3]
+1791035840.1336584 [INFO] [taskset-2]: sending signal 'SIGINT' to process[taskset-2]
+1791035840.1342623 [INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+1791035840.1348472 [static_transform_publisher-7] [INFO] [1791035840.119354725] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791035840.1351805 [static_transform_publisher-7] [INFO] [1791035840.127472290] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+1791035840.1465459 [ERROR] [taskset-1]: process has died [pid 433149, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf.yaml'].
+1791035840.1477144 [ERROR] [taskset-2]: process has died [pid 433153, exit code -2, cmd 'taskset -c 0,1 /opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791035840.3522422 [ERROR] [joint_state_publisher-6]: process has died [pid 433157, exit code -2, cmd '/opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_gp2ye7m5'].
+1791035840.3576167 [ERROR] [slam_pose_relay_node-3]: process has died [pid 433154, exit code -2, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_relay_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/config/ekf_global.yaml'].
+1791035840.3652682 [INFO] [robot_state_publisher-5]: process has finished cleanly [pid 433156]
+1791035840.3913600 [INFO] [static_transform_publisher-7]: process has finished cleanly [pid 433158]
+1791035840.4060826 [ERROR] [taskset-4]: process has died [pid 433155, exit code -2, cmd 'taskset -c 2-11 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_observer_node'].

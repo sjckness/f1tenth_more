@@ -1,0 +1,14 @@
+1791018053.6260843 [INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/phase5/step4/ros_log/2026-10-03-11-00-53-623680-thor-352104
+1791018053.6264205 [INFO] [launch]: Default logging verbosity is set to INFO
+1791018054.1714716 [INFO] [taskset-1]: process started with pid [352376]
+1791018054.1719484 [INFO] [taskset-2]: process started with pid [352379]
+1791018054.1720407 [INFO] [slam_pose_relay_node-3]: process started with pid [352383]
+1791018054.1721039 [INFO] [taskset-4]: process started with pid [352395]
+1791018054.1721439 [INFO] [robot_state_publisher-5]: process started with pid [352396]
+1791018054.1721807 [INFO] [joint_state_publisher-6]: process started with pid [352397]
+1791018054.1722140 [INFO] [static_transform_publisher-7]: process started with pid [352398]
+1791018054.2473319 [static_transform_publisher-7] [WARN] [1791018054.240291974] []: Old-style arguments are deprecated; see --help for new-style arguments
+1791018054.2755222 [static_transform_publisher-7] [INFO] [1791018054.274451063] [static_baselink_to_laser]: Spinning until stopped - publishing transform
+1791018054.2759104 [static_transform_publisher-7] translation: ('0.120000', '0.000000', '0.200000')
+1791018054.2759893 [static_transform_publisher-7] rotation: ('0.000000', '0.000000', '0.000000', '1.000000')
+1791018054.2760262 [static_transform_publisher-7] from 'base_link' to 'laser'

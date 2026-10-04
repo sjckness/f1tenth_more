@@ -1,0 +1,10 @@
+3.12.3 gpu-thermal 37843
+3.10.12 gpu-thermal 37906
+3.12.3 gpu-thermal UNCAUGHT TypeError can't concat NoneType to bytes
+3.10.12 gpu-thermal 37812
+3.12.3 gpu-thermal UNCAUGHT TypeError can't concat NoneType to bytes
+3.10.12 gpu-thermal 38000
+right after start: 3.10.12 gpu-thermal 37812
+after 10 s idle:   3.10.12 gpu-thermal UNCAUGHT TypeError can't concat NoneType to bytes
+right after start: 3.10.12 gpu-thermal 37906
+after 10 s idle:   3.10.12 gpu-thermal UNCAUGHT TypeError can't concat NoneType to bytes

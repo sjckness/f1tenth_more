@@ -1,0 +1,9 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_4/isolation/baseline/run_04/ros_log/2026-10-03-16-22-06-988538-thor-456553
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [taskset-1]: process started with pid [456608]
+[taskset-1] [INFO] [1791037330.801144517] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance
+[taskset-1] [INFO] [1791037352.077533531] [lidar_front_wall_node]: base_link <- laser: x=0.120 m y=0.000 m yaw=0.00 deg
+[taskset-1] [WARN] [1791037352.089601864] [lidar_front_wall_node]: /odometry/filtered missing or stale: dead reckoning and the wrong-surface gate are OFF until it returns
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [taskset-1]: sending signal 'SIGINT' to process[taskset-1]
+[INFO] [taskset-1]: process has finished cleanly [pid 456608]

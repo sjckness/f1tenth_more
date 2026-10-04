@@ -1,0 +1,25 @@
+[INFO] [1791019786.211231720] [map_server]: 
+	map_server lifecycle node launched. 
+	Waiting on external lifecycle transitions to activate
+	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[INFO] [1791019786.211524757] [map_server]: Creating
+[INFO] [1791019787.270894104] [map_server]: Configuring
+[INFO] [1791019787.271117169] [map_io]: Loading yaml file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.yaml
+[INFO] [1791019787.271665262] [map_io]: resolution: 0.05
+[INFO] [1791019787.271679743] [map_io]: origin[0]: -50
+[INFO] [1791019787.271683280] [map_io]: origin[1]: -50
+[INFO] [1791019787.271685845] [map_io]: origin[2]: 0
+[INFO] [1791019787.271688576] [map_io]: free_thresh: 0.196
+[INFO] [1791019787.271691252] [map_io]: occupied_thresh: 0.65
+[INFO] [1791019787.271697965] [map_io]: mode: trinary
+[INFO] [1791019787.271703780] [map_io]: negate: 0
+[INFO] [1791019787.272125501] [map_io]: Loading image_file: /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm
+[INFO] [1791019787.369326350] [map_io]: Read map /home/andre/dev_ws/f1tenth_more/install/f1tenth_navigation/share/f1tenth_navigation/maps/square_100m.pgm: 2000 X 2000 map @ 0.05 m/cell
+[INFO] [1791019787.405549937] [map_server]: Activating
+[INFO] [1791019787.411277971] [map_server]: Creating bond (map_server) to lifecycle manager.
+[INFO] [1791019849.420201906] [rclcpp]: signal_handler(SIGINT/SIGTERM)
+[INFO] [1791019849.420436062] [map_server]: Running Nav2 LifecycleNode rcl preshutdown (map_server)
+[INFO] [1791019849.420616951] [map_server]: Deactivating
+[INFO] [1791019849.420640849] [map_server]: Destroying bond (map_server) to lifecycle manager.
+[INFO] [1791019849.431306897] [map_server]: Cleaning up
+[INFO] [1791019849.431430666] [map_server]: Destroying bond (map_server) to lifecycle manager.

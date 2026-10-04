@@ -1,0 +1,14 @@
+--- server start via ensure_discovery_server.py
+[ensure_discovery_server] 127.0.0.1:11811 is free -- starting a fresh fastdds discovery server.
+### Server is running ###
+  Participant Type:   SERVER
+  Security:           NO
+  Server ID:          0
+  Server GUID prefix: 44.53.00.5f.45.50.52.4f.53.49.4d.41
+  Server Addresses:   UDPv4:[127.0.0.1]:11811
+ 335751 sh /opt/ros/jazzy/bin/fastdds discovery --server-id 0 --udp-address 127.0.0.1 --udp-port 11811
+UNCONN 0      0            0.0.0.0:11811      0.0.0.0:*    users:(("fast-discovery-",pid=335756,fd=11))
+SIGINT to the wrapper pid 335751: fast-discovery-server still running
+
+### Server shut down ###
+server chain exit code after SIGINT to fast-discovery-server: 130
