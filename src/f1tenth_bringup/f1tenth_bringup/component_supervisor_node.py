@@ -278,8 +278,9 @@ its own, so it's swept explicitly here:
 
 Sim mode (`sim` parameter, supervisor_bringup.launch.py sim:=true; default
 false, which leaves everything above exactly as it is): for the Gazebo
-simulator on another machine, which publishes /odom, /sensors/imu/raw, /scan,
-the camera topics and /clock itself.
+simulator on another machine, which publishes /odom, /sensors/imu/raw, /scan
+and /clock itself (f1tenth_sim; no camera topics: its ZED mock is off by
+default, so detection gets no images in sim mode).
   - The hardware driver launch files are not run: vesc.launch.py (the VESC
     driver group), camera.launch.py (the ZED, plus the base_link ->
     zed2_camera_link static TF it publishes only with the ZED) and
