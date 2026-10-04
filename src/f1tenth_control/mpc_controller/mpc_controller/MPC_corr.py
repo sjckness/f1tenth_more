@@ -12,6 +12,7 @@ from rclpy.node import Node
 from rclpy.qos import (
     QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
+from diagnostic_msgs.msg import DiagnosticStatus
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool, Float32, String
 from ackermann_msgs.msg import AckermannDriveStamped
@@ -27,6 +28,7 @@ from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
     corridor_curves_to_pose, wrap_pi)
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
+from mpc_controller.input_status import odom_input_status
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
 from mpc_controller.object_approach import (
@@ -1795,6 +1797,15 @@ class MPCController(Node):
         self.solver_status_pub = self.create_publisher(
             MpcSolverStatus, '/mpc/solver_status', 10)
 
+        # Input-freshness heartbeat for the supervisor's topic-liveness
+        # watchdog (fix batch 5, H1) -- see input_status.py for why /drive
+        # cannot serve. 2 Hz, from control_loop itself.
+        self.input_status_pub = self.create_publisher(
+            DiagnosticStatus, '/mpc/input_status', 10)
+        self.input_status_period_sec = 0.5
+        self._input_status_last_sec = None
+        self._odom_ages = (math.inf, math.inf)
+
         # The test-campaign logger's two feeds (f1tenth_logger test_campaign,
         # started by hand, never with the stack): std_msgs/String JSON, built
         # by campaign_status.py from values the tick has already computed.
@@ -3060,6 +3071,7 @@ class MPCController(Node):
         hw_age = (now_sec - self.hw_odom_last_time) if self.hw_odom_last_time is not None else math.inf
         sim_age = (now_sec - self.sim_odom_last_time) if self.sim_odom_last_time is not None else math.inf
 
+        self._odom_ages = (hw_age, sim_age)
         if hw_age < self.odom_stale_timeout_sec:
             source = 'hardware'
             self.x, self.y, self.yaw, self.v = self.hw_x, self.hw_y, self.hw_yaw, self.hw_v
@@ -3461,6 +3473,16 @@ class MPCController(Node):
                 'previous odometry message (dt = 0 in the analysis)',
                 throttle_duration_sec=5.0)
 
+    def _publish_input_status(self, now_sec):
+        """/mpc/input_status at most every input_status_period_sec (see input_status.py)."""
+        last = self._input_status_last_sec
+        if last is not None and 0.0 <= now_sec - last < self.input_status_period_sec:
+            return
+        self._input_status_last_sec = now_sec
+        hw_age, sim_age = self._odom_ages
+        self.input_status_pub.publish(odom_input_status(
+            self.active_odom_source, hw_age, sim_age, self.odom_stale_timeout_sec))
+
     # ==========================================
     # LOOP CONTROLLO
     # ==========================================
@@ -3468,6 +3490,7 @@ class MPCController(Node):
         loop_t0 = self.get_clock().now().nanoseconds * 1e-9
 
         self._update_active_odom()
+        self._publish_input_status(loop_t0)
 
         # Diagnostic, independent of autonomy/goal state -- no consumer yet, but
         # cheap and useful to have live every tick regardless of what else is gating.
