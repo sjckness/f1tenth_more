@@ -20,6 +20,15 @@
   <exec_depend>f1tenth_messages</exec_depend>
   <!-- component_supervisor_node.py's ~/run_calibration service. -->
   <exec_depend>std_srvs</exec_depend>
+  <!-- Topic-liveness watchdog (component_supervisor_node, topic_watchdog.py):
+       health status, the sim pause gate, and message types by name.
+       vesc_msgs, nav_msgs, sensor_msgs: watched types (health_topic_types). -->
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>rosgraph_msgs</exec_depend>
+  <exec_depend>rosidl_runtime_py</exec_depend>
+  <exec_depend>vesc_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
   <!-- param_defaults.py / stack_params.yaml: single shared source of launch-param
        defaults, imported from every owning package's launch file. Lives in its own
        dependency-free f1tenth_params package (not here) specifically to avoid a

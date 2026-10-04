@@ -2062,6 +2062,10 @@ max_auto_restarts:
 restart_budget_window_sec:
   default: 60.0
   description: "Trailing time window (seconds) max_auto_restarts is counted over -- a sliding-window crash-loop budget per tracked process."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py.
+health_watchdog:
+  default: enforce
+  description: "component_supervisor_node's topic-liveness watchdog (components.yaml health:). enforce: each component's configured action (restart or alert); alert: report failures only, never restart (measurement runs); disabled: not run."
 
 # ============================================================
 # Dev Tools / Visualization

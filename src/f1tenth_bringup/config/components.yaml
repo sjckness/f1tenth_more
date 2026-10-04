@@ -174,3 +174,166 @@ components:
   startup_sequence:
     - package: f1tenth_bringup
       launch_file: startup_sequence.launch.py
+
+# ------------------------------------------------------------------------------
+# Topic-liveness watchdog (fix batch 5, backlog H1). See f1tenth_bringup/
+# topic_watchdog.py's module docstring for the schema and the verdict rules, and
+# component_supervisor_node.py's "Topic-liveness watchdog" paragraph for how the
+# supervisor runs it. Every component above is either in `health:` or in
+# `unwatched:` with a reason -- test_component_health_config.py enforces it, so a
+# new component cannot be added without stating how its liveness is judged.
+#
+# Each check is marked in its comment:
+#   INPUT-PROVING  a message (or a new header.stamp, or the field named in
+#                  `expect`) exists only because the node received its input
+#                  recently -- a node cut off from its input fails the check;
+#   INPUT-PROVING AT START  the node publishes only once it has received its
+#                  input at least once (a subscription that never matched is
+#                  caught), then from cache (a later loss is not);
+#   OUTPUT-ONLY    published on a timer whatever the inputs do: proves the node
+#                  runs and its publisher reaches the supervisor, nothing more.
+# `when_fresh` names the input(s) the check is judged against: while an input
+# is stale (an upstream outage), the check is skipped, not failed.
+#
+# max_age_sec is about 5x the topic's nominal period, at least 0.5 s.
+# ------------------------------------------------------------------------------
+
+health_topic_types:
+  /odom: nav_msgs/msg/Odometry
+  /sensors/core: vesc_msgs/msg/VescStateStamped
+  /scan: sensor_msgs/msg/LaserScan
+  /odometry/filtered: nav_msgs/msg/Odometry
+  /ekf_global/odometry/filtered: nav_msgs/msg/Odometry
+  /joint_states: sensor_msgs/msg/JointState
+  /slam/map: nav_msgs/msg/OccupancyGrid
+  /costmap/front_clearance: std_msgs/msg/Float32
+  /perception/lidar_front_wall: f1tenth_messages/msg/WallLineFit
+  /obstacle_clearance: std_msgs/msg/Float32
+  /perception/swept_clearance/lidar: std_msgs/msg/Float32
+  /perception/d_wall/segment: f1tenth_messages/msg/WallSegment
+  /drive: ackermann_msgs/msg/AckermannDriveStamped
+  /ackermann_drive: ackermann_msgs/msg/AckermannDriveStamped
+  /mpc/input_status: diagnostic_msgs/msg/DiagnosticStatus
+  /behavior/tree_status: f1tenth_messages/msg/BehaviorTreeStatus
+  /diagnostics/system_status: f1tenth_messages/msg/SystemStatus
+  /diagnostics/battery_status: f1tenth_messages/msg/BatteryStatus
+
+health:
+  # alert only: restarting 'hardware' restarts the VESC driver (the car's
+  # motor and steering) mid-run. The crash path already restarts it if the
+  # process dies. Not running in sim mode (sim_hardware_tf.launch.py instead).
+  hardware:
+    action: alert
+    checks:
+      # OUTPUT-ONLY with respect to the VESC serial link: the driver's own output.
+      - {topic: /sensors/core, max_age_sec: 0.5, launch_file: vesc.launch.py}
+      # INPUT-PROVING: vesc_to_odom publishes one /odom per /sensors/core message.
+      - {topic: /odom, max_age_sec: 0.5, launch_file: vesc.launch.py,
+         when_fresh: {/sensors/core: 0.5}}
+
+  # alert only: restarting 'perception' restarts urg_node, the e-stop's only
+  # /scan (see the comments on the components above). The camera is not
+  # watched: subscribing to an image stream costs a full copy per frame.
+  perception:
+    action: alert
+    checks:
+      # OUTPUT-ONLY with respect to the lidar link: the driver's own output.
+      - {topic: /scan, max_age_sec: 0.5, launch_file: lidar.launch.py}
+
+  localization:
+    checks:
+      # INPUT-PROVING via new_stamp: robot_localization keeps publishing its
+      # last estimate at 50 Hz after its inputs stop, but the header.stamp is
+      # the last measurement's time (predict_to_current_time is off), so it
+      # only changes when /odom or the IMU actually arrive.
+      - {topic: /odometry/filtered, max_age_sec: 0.5, new_stamp: true,
+         when_fresh: {/odom: 0.5}}
+      - {topic: /ekf_global/odometry/filtered, max_age_sec: 0.5, new_stamp: true,
+         when_fresh: {/odom: 0.5}}
+      # INPUT-PROVING AT START: joint_state_publisher publishes nothing until it
+      # has /robot_description (fix batch 4 baseline run 4 never got it).
+      - {topic: /joint_states, max_age_sec: 1.0}
+
+  slam:
+    grace_sec: 30
+    checks:
+      # INPUT-PROVING AT START: slam_toolbox publishes the map every
+      # map_update_interval (5 s) once it is ACTIVE and has processed a scan --
+      # the lifecycle loss of fix batch 4 never produces one. /slam/pose is NOT
+      # used: slam_toolbox only publishes it when the car has moved
+      # minimum_travel_distance, so it is silent on a parked car.
+      - {topic: /slam/map, max_age_sec: 15.0, launch_file: slam.launch.py,
+         when_fresh: {/scan: 0.5}}
+      # INPUT-PROVING AT START: costmap_boundary_node withholds front_clearance
+      # until it has both a map and a pose, then republishes from cache at
+      # 20 Hz.
+      - {topic: /costmap/front_clearance, max_age_sec: 0.5, launch_file: costmap.launch.py,
+         when_fresh: {/slam/map: 15.0, /ekf_global/odometry/filtered: 0.5}}
+
+  lidar_front_wall:
+    enabled_if: {use_lidar: true}
+    checks:
+      # INPUT-PROVING: one fit per /scan message.
+      - {topic: /perception/lidar_front_wall, max_age_sec: 0.5, when_fresh: {/scan: 0.5}}
+
+  obstacle_clearance:
+    enabled_if: {use_lidar: true}
+    checks:
+      # INPUT-PROVING: one clearance per /scan message.
+      - {topic: /obstacle_clearance, max_age_sec: 0.5, when_fresh: {/scan: 0.5}}
+
+  swept_clearance:
+    enabled_if: {use_lidar: true}
+    checks:
+      # INPUT-PROVING: one lidar clearance per /scan message.
+      - {topic: /perception/swept_clearance/lidar, max_age_sec: 0.5, when_fresh: {/scan: 0.5}}
+
+  wall_distance:
+    enabled_if: {use_lidar: true}
+    checks:
+      # OUTPUT-ONLY: published every 10 Hz tick whatever arrived; no field
+      # tells "no scan" apart from "no wall in view".
+      - {topic: /perception/d_wall/segment, max_age_sec: 0.5}
+
+  control:
+    checks:
+      # INPUT-PROVING: ackermann_mux republishes each message of its active
+      # input lane; with no lane active it publishes nothing.
+      - {topic: /ackermann_drive, max_age_sec: 0.5, when_fresh: {/drive: 0.5}}
+
+  navigation:
+    enabled_if: {enable_nav2: false}
+    checks:
+      # OUTPUT-ONLY: mpc_corr's control loop runs (published at 2 Hz from it).
+      - {topic: /mpc/input_status, max_age_sec: 1.5}
+      # INPUT-PROVING: level is OK only while mpc_corr's own odometry is fresh
+      # (its odom_stale_timeout_sec, 0.5 s). /drive is NOT a usable check: it
+      # is published every tick with or without odometry, which is exactly
+      # how fix batch 3's isolated mpc_corr looked healthy.
+      - {topic: /mpc/input_status, max_age_sec: 1.5, expect: {level: [0]},
+         when_fresh: {/odometry/filtered: 0.5}}
+
+  behavior:
+    checks:
+      # OUTPUT-ONLY: one status per BT tick, whatever its inputs do.
+      - {topic: /behavior/tree_status, max_age_sec: 0.5}
+
+  diagnostics:
+    checks:
+      # OUTPUT-ONLY: system_observer reads /proc and jtop, no ROS input.
+      - {topic: /diagnostics/system_status, max_age_sec: 5.0,
+         launch_file: system_observer.launch.py}
+      # OUTPUT-ONLY: diagnostics_server's 2 Hz battery tick.
+      - {topic: /diagnostics/battery_status, max_age_sec: 1.5,
+         launch_file: diagnostics_server.launch.py}
+      # INPUT-PROVING: has_data is true only if /sensors/core samples arrived
+      # since the previous tick.
+      - {topic: /diagnostics/battery_status, max_age_sec: 1.5,
+         launch_file: diagnostics_server.launch.py, expect: {has_data: [true]},
+         when_fresh: {/sensors/core: 0.5}}
+
+unwatched:
+  calibrate_hardware: on demand, runs for about 2 minutes and exits.
+  startup_sequence: on demand, a one-off steering sweep.
+  intelligence: llama-server, not a ROS node; nothing to watch on the graph.
+  dev_tools: foxglove_bridge is a super client and serves the operator; its failure is visible to the operator directly.

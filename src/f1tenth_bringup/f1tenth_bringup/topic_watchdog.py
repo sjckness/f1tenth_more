@@ -1,0 +1,432 @@
+"""Topic-liveness watchdog: the pure logic (no rclpy).
+
+Used by component_supervisor_node. Fix batch 5, backlog H1.
+
+Why: a component can be alive as a process and still be cut off from the
+graph -- a subscription that never matched its publisher after a bringup
+(discovery isolation, H1), a lifecycle transition that never arrived, a node
+frozen by the kernel. The process watchdog cannot see any of that. This one
+looks at what each component is FOR: its output topics, received by the
+supervisor, measured in wall time.
+
+Configuration (components.yaml, top-level `health:` and `health_topic_types:`,
+next to `components:` so a component cannot be added without stating its
+health -- test_component_health_config.py enforces it):
+
+  health_topic_types:            # every topic named below -> its message type
+    /scan: sensor_msgs/msg/LaserScan
+  health:
+    swept_clearance:
+      action: restart            # restart | alert   (default restart)
+      grace_sec: 15              # after (re)start, before checks apply
+      fail_for_sec: 3            # continuous failure before acting
+      enabled_if: {use_lidar: true}   # stack_params.yaml values; else not watched
+      checks:
+        - topic: /perception/swept_clearance/lidar
+          max_age_sec: 0.5
+          launch_file: swept_clearance.launch.py   # who is restarted (optional
+                                                   # when the component has one)
+          when_fresh: {/scan: 0.5}  # only judged while these inputs are fresh
+          new_stamp: false          # age counts only messages whose
+                                    # header.stamp changed (default false)
+          expect: {level: [0]}      # field -> allowed values of the LAST
+                                    # message (default: none)
+  unwatched:
+    dev_tools: why it has no checks
+
+Verdict per check, every evaluation:
+  skip   the owning launch file is not running, or in its grace period, or a
+         when_fresh input is stale (an upstream outage is not this
+         component's fault -- this is what separates isolation from it);
+  fail   the topic is older than max_age_sec (never received = infinitely
+         old), or its last message does not match `expect`;
+  ok     otherwise.
+
+A launch file whose checks have failed continuously for fail_for_sec is acted
+on: action 'alert' logs and reports it; action 'restart' asks the supervisor
+to restart that launch file, through the supervisor's existing restart path
+and restart budget. A component restarted max_consecutive_restarts times by
+the watchdog without being healthy (every check ok) for healthy_for_sec in
+between is given up on: FAILED, no more restarts, until a manual START or
+RESTART. That limit exists because the existing budget (3 restarts within
+60 s) cannot stop a watchdog loop on its own: one watchdog cycle (grace +
+fail_for + the restart itself) takes longer than 20 s, so a component that
+fails after every restart would never use up 3 restarts inside 60 s.
+
+Paused simulation (sim mode only): the supervisor passes paused=True while
+/clock is not advancing. Nothing is judged then, failure timers are cleared,
+and once the clock moves again every component gets resume_grace_sec before
+it is judged -- nodes on use_sim_time stop publishing when the clock stops,
+and their inputs need a moment to flow again after it restarts. On the car
+there is no /clock and the supervisor never passes paused=True.
+"""
+
+import math
+
+ACTIONS = ('restart', 'alert')
+
+# DiagnosticStatus levels, used for the per-component health status.
+OK, WARN, ERROR, STALE = 0, 1, 2, 3
+
+DEFAULTS = {
+    'action': 'restart',
+    'grace_sec': 20.0,
+    'fail_for_sec': 3.0,
+    'healthy_for_sec': 10.0,
+    'max_consecutive_restarts': 3,
+}
+
+
+class HealthConfigError(ValueError):
+    pass
+
+
+class Check:
+    def __init__(self, topic, max_age_sec, launch_file, when_fresh=None,
+                 new_stamp=False, expect=None):
+        self.topic = topic
+        self.max_age_sec = float(max_age_sec)
+        self.launch_file = launch_file
+        self.when_fresh = {t: float(a) for t, a in (when_fresh or {}).items()}
+        self.new_stamp = bool(new_stamp)
+        self.expect = {k: list(v) if isinstance(v, (list, tuple)) else [v]
+                       for k, v in (expect or {}).items()}
+
+    def label(self):
+        return f'{self.topic}' + (f' {self.expect}' if self.expect else '')
+
+
+class ComponentHealthConfig:
+    def __init__(self, name, checks, action, grace_sec, fail_for_sec,
+                 healthy_for_sec, max_consecutive_restarts, enabled_if=None):
+        self.name = name
+        self.checks = checks
+        self.action = action
+        self.grace_sec = float(grace_sec)
+        self.fail_for_sec = float(fail_for_sec)
+        self.healthy_for_sec = float(healthy_for_sec)
+        self.max_consecutive_restarts = int(max_consecutive_restarts)
+        self.enabled_if = dict(enabled_if or {})
+
+
+def parse_health_config(doc, registry):
+    """Parse components.yaml's health section.
+
+    Returns ({component: ComponentHealthConfig}, {topic: type},
+    {component: reason}) from the loaded document. Raises HealthConfigError on
+    anything inconsistent, so a broken health section fails at startup, not
+    silently.
+
+    registry: {component: [{'launch_file': ...}, ...]} as components.yaml
+    declares it (before sim mode or feature flags filter launch files out).
+    """
+    types = dict(doc.get('health_topic_types') or {})
+    unwatched = dict(doc.get('unwatched') or {})
+    health = {}
+    for name, raw in (doc.get('health') or {}).items():
+        if name not in registry:
+            raise HealthConfigError(f"health: '{name}' is not a component")
+        if name in unwatched:
+            raise HealthConfigError(f"'{name}' is both in health and unwatched")
+        opts = dict(DEFAULTS)
+        opts.update({k: v for k, v in raw.items() if k in DEFAULTS})
+        unknown = set(raw) - set(DEFAULTS) - {'checks', 'enabled_if'}
+        if unknown:
+            raise HealthConfigError(f'health.{name}: unknown keys {sorted(unknown)}')
+        if opts['action'] not in ACTIONS:
+            raise HealthConfigError(f'health.{name}.action must be one of {ACTIONS}')
+        launch_files = [e['launch_file'] for e in registry[name]]
+        checks = []
+        for i, c in enumerate(raw.get('checks') or []):
+            where = f'health.{name}.checks[{i}]'
+            lf = c.get('launch_file')
+            if lf is None:
+                if len(launch_files) != 1:
+                    raise HealthConfigError(
+                        f'{where}: launch_file is required ({name} runs {launch_files})')
+                lf = launch_files[0]
+            elif lf not in launch_files:
+                raise HealthConfigError(f"{where}: {lf} is not one of {name}'s {launch_files}")
+            check = Check(c['topic'], c['max_age_sec'], lf, c.get('when_fresh'),
+                          c.get('new_stamp', False), c.get('expect'))
+            for t in [check.topic, *check.when_fresh]:
+                if t not in types:
+                    raise HealthConfigError(f'{where}: {t} has no entry in health_topic_types')
+            checks.append(check)
+        if not checks:
+            raise HealthConfigError(f'health.{name}: no checks (use unwatched: instead)')
+        health[name] = ComponentHealthConfig(
+            name, checks, opts['action'], opts['grace_sec'], opts['fail_for_sec'],
+            opts['healthy_for_sec'], opts['max_consecutive_restarts'],
+            raw.get('enabled_if'))
+    for name in unwatched:
+        if name not in registry:
+            raise HealthConfigError(f"unwatched: '{name}' is not a component")
+    return health, types, unwatched
+
+
+def topic_states(health):
+    """{topic: TopicState} for every topic the checks of `health` read."""
+    thresholds = {}
+    for cfg in health.values():
+        for c in cfg.checks:
+            thresholds.setdefault(c.topic, set())
+            for t, max_age in c.when_fresh.items():
+                thresholds.setdefault(t, set()).add(max_age)
+    return {t: TopicState(th) for t, th in thresholds.items()}
+
+
+def needs_message(topic, health):
+    """Tell whether some check reads the message itself (new_stamp or expect).
+
+    Otherwise the supervisor only needs the receipt time and can subscribe raw
+    (no deserialization).
+    """
+    return any(c.topic == topic and (c.new_stamp or c.expect)
+               for cfg in health.values() for c in cfg.checks)
+
+
+class TopicState:
+    """What the supervisor has received on one topic.
+
+    Times are monotonic seconds (wall time, not ROS time).
+    """
+
+    def __init__(self, fresh_thresholds=()):
+        self.last_rx = None
+        self.last_new_stamp_rx = None
+        self.last_stamp = None
+        self.last_msg = None
+        self.count = 0
+        # max_age -> start of the current run of receipts no more than max_age
+        # apart, for every max_age a when_fresh uses on this topic.
+        self._fresh_since = {float(a): None for a in fresh_thresholds}
+
+    def on_message(self, now, msg=None, stamp=None):
+        self.count += 1
+        for max_age, since in self._fresh_since.items():
+            if since is None or now - self.last_rx > max_age:
+                self._fresh_since[max_age] = now
+        self.last_rx = now
+        if stamp is None or stamp != self.last_stamp:
+            self.last_new_stamp_rx = now
+        self.last_stamp = stamp
+        if msg is not None:
+            self.last_msg = msg
+
+    def age(self, now, new_stamp=False):
+        t = self.last_new_stamp_rx if new_stamp else self.last_rx
+        return math.inf if t is None else now - t
+
+    def fresh_since(self, max_age):
+        """Start of the current run of receipts no more than max_age apart.
+
+        None if nothing was ever received. A check gated on this input judges
+        its output only from here on: after an upstream outage the output gets
+        its full max age to reappear. max_age must be one of the thresholds the
+        state was built with (topic_states() does that from the config).
+        """
+        return self._fresh_since[float(max_age)]
+
+
+def _field(msg, path):
+    v = msg
+    for part in path.split('.'):
+        v = getattr(v, part)
+    if isinstance(v, (bytes, bytearray)) and len(v) == 1:
+        v = v[0]  # a `byte` field (DiagnosticStatus.level) arrives as bytes
+    return v
+
+
+def check_verdict(check, topics, now):
+    """Judge one check against the received topics.
+
+    Returns ('ok' | 'fail' | 'skip', reason). Grace and running state are the
+    monitor's business, not this function's.
+    """
+    inputs_fresh_since = None
+    for t, max_age in check.when_fresh.items():
+        age = topics[t].age(now)
+        if age > max_age:
+            return 'skip', f'input {t} stale ({_fmt_age(age)})'
+        since = topics[t].fresh_since(max_age)
+        if inputs_fresh_since is None or since > inputs_fresh_since:
+            inputs_fresh_since = since
+    st = topics[check.topic]
+    age = st.age(now, check.new_stamp)
+    if inputs_fresh_since is not None:
+        # Silence from before the inputs came back is not the node's fault.
+        age = min(age, now - inputs_fresh_since)
+    if age > check.max_age_sec:
+        what = 'no new header.stamp' if check.new_stamp else 'no message'
+        inputs = ', '.join(f'{t} {_fmt_age(topics[t].age(now))}' for t in check.when_fresh)
+        return 'fail', (f'{check.topic}: {what} for {_fmt_age(age)} (max {check.max_age_sec:g} s)'
+                        + (f' while its input is fresh ({inputs})' if inputs else ''))
+    for path, allowed in check.expect.items():
+        if st.last_msg is None:
+            return 'fail', f'{check.topic}: no message to read {path} from'
+        v = _field(st.last_msg, path)
+        if v not in allowed:
+            return 'fail', f'{check.topic}: {path} = {v!r}, expected one of {allowed}'
+    return 'ok', ''
+
+
+def _fmt_age(age):
+    return 'never received' if math.isinf(age) else f'{age:.1f} s'
+
+
+class ComponentMonitor:
+    """State of one watched component.
+
+    evaluate() is called every watchdog period and returns the launch files to
+    restart now (empty for most calls); the caller performs the restart and
+    reports back through restart_refused() if its restart budget said no.
+    """
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.status = 'NOT_RUNNING'
+        self.level = STALE
+        self.message = ''
+        self.failing_since = {}          # launch_file -> monotonic time
+        self.consecutive_restarts = 0
+        self.healthy_since = None
+        self.gave_up = False
+        self.alerted = False
+        self.failures = 0                # failure episodes acted on (alert or restart)
+        self.restarts = 0                # restarts the watchdog requested
+        self.resume_until = None
+        self.events = []                 # (level, text) for the caller to log
+
+    # -- external events -----------------------------------------------------
+
+    def reset(self):
+        """Forget failures and any give-up: a manual START/RESTART happened."""
+        self.failing_since.clear()
+        self.consecutive_restarts = 0
+        self.healthy_since = None
+        self.gave_up = False
+        self.alerted = False
+
+    def resume(self, now, resume_grace_sec):
+        self.failing_since.clear()
+        self.healthy_since = None
+        self.resume_until = now + resume_grace_sec
+
+    def restart_refused(self, why):
+        self.gave_up = True
+        self.status, self.level = 'FAILED', ERROR
+        self.message = why
+        self.events.append((ERROR, f"'{self.cfg.name}' FAILED: {why}. Not restarting it "
+                                   'again; ~/control_component START or RESTART resets this.'))
+
+    # -- evaluation ----------------------------------------------------------
+
+    def evaluate(self, now, topics, procs, paused=False, stalled=False):
+        """Judge every check once; return the launch files to restart now.
+
+        procs: {launch_file: (running: bool, started_at: monotonic or None)}.
+        paused: sim clock not advancing. stalled: the supervisor itself did not
+        run for a while (blocked in a restart), so receipt ages are not
+        trustworthy this once.
+        """
+        cfg = self.cfg
+        if paused or stalled:
+            self.failing_since.clear()
+            self.healthy_since = None
+            if paused:
+                self.status, self.level, self.message = 'PAUSED', OK, 'sim clock paused'
+            return []
+
+        verdicts = []
+        for c in cfg.checks:
+            running, started_at = procs.get(c.launch_file, (False, None))
+            if not running:
+                verdicts.append((c, 'skip', f'{c.launch_file} not running'))
+            elif started_at is not None and now - started_at < cfg.grace_sec:
+                left = cfg.grace_sec - (now - started_at)
+                verdicts.append((c, 'grace', f'grace {left:.0f} s left'))
+            elif self.resume_until is not None and now < self.resume_until:
+                verdicts.append((c, 'grace', 'sim clock resumed'))
+            else:
+                v, why = check_verdict(c, topics, now)
+                verdicts.append((c, v, why))
+
+        failing = {}
+        for c, v, why in verdicts:
+            if v == 'fail':
+                failing.setdefault(c.launch_file, []).append(why)
+        for lf in list(self.failing_since):
+            if lf not in failing:
+                del self.failing_since[lf]
+        for lf in failing:
+            self.failing_since.setdefault(lf, now)
+
+        if all(v == 'ok' for _, v, _ in verdicts):
+            if self.healthy_since is None:
+                self.healthy_since = now
+            if now - self.healthy_since >= cfg.healthy_for_sec and self.consecutive_restarts:
+                self.events.append((OK, f"'{cfg.name}' healthy again for "
+                                        f'{cfg.healthy_for_sec:g} s after '
+                                        f'{self.consecutive_restarts} watchdog restart(s)'))
+                self.consecutive_restarts = 0
+            if not failing:
+                self.alerted = False
+        else:
+            self.healthy_since = None
+
+        restart = []
+        if self.gave_up:
+            self.status, self.level = 'FAILED', ERROR
+            if failing:
+                self.message = '; '.join(w for ws in failing.values() for w in ws)
+            return []
+
+        due = [lf for lf, t0 in self.failing_since.items() if now - t0 >= cfg.fail_for_sec]
+        if due:
+            reasons = '; '.join(w for lf in due for w in failing[lf])
+            if cfg.action == 'alert':
+                if not self.alerted:
+                    self.failures += 1
+                    self.events.append((ERROR, f"'{cfg.name}' LIVENESS FAILURE (alert only, "
+                                               f'not restarted): {reasons}'))
+                    self.alerted = True
+                self.status, self.level, self.message = 'ALERT', ERROR, reasons
+                return []
+            self.failures += 1
+            if self.consecutive_restarts >= cfg.max_consecutive_restarts:
+                self.restart_refused(
+                    f'still failing after {self.consecutive_restarts} watchdog restarts '
+                    f'without being healthy for {cfg.healthy_for_sec:g} s in between: {reasons}')
+                return []
+            self.consecutive_restarts += 1
+            self.restarts += 1
+            count = f'{self.consecutive_restarts}/{cfg.max_consecutive_restarts}'
+            self.events.append((ERROR, f"'{cfg.name}' LIVENESS FAILURE: {reasons} -- restarting "
+                                       f"{', '.join(due)} (watchdog restart {count})"))
+            for lf in due:
+                del self.failing_since[lf]
+                restart.append(lf)
+            self.healthy_since = None
+            self.status, self.level, self.message = 'RESTARTING', ERROR, reasons
+            return restart
+
+        if failing:
+            self.status, self.level = 'FAILING', WARN
+            self.message = '; '.join(w for ws in failing.values() for w in ws)
+        elif any(v == 'grace' for _, v, _ in verdicts):
+            self.status, self.level = 'STARTING', OK
+            self.message = next(w for _, v, w in verdicts if v == 'grace')
+        elif all(v == 'skip' and 'not running' in w for _, v, w in verdicts):
+            self.status, self.level, self.message = 'NOT_RUNNING', STALE, ''
+        elif not any(v == 'ok' for _, v, _ in verdicts):
+            # Nothing could be judged: every input is out.
+            self.status, self.level = 'UPSTREAM_STALE', WARN
+            self.message = '; '.join(sorted({w for _, v, w in verdicts if v == 'skip'}))
+        else:
+            # Everything judged passed. Checks on an absent input (no VESC in
+            # sim: no /sensors/core) are noted, not a warning.
+            self.status, self.level = 'OK', OK
+            skipped = sorted({w for _, v, w in verdicts if v == 'skip'})
+            self.message = f'not judged: {"; ".join(skipped)}' if skipped else ''
+        return restart

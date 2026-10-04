@@ -176,6 +176,11 @@ def generate_launch_description():
         'restart_budget_window_sec', default_value=str(restart_budget_window_default),
         description=restart_budget_window_desc)
 
+    health_watchdog_default, health_watchdog_desc = get_default('health_watchdog')
+    health_watchdog_la = DeclareLaunchArgument(
+        'health_watchdog', default_value=str(health_watchdog_default),
+        description=health_watchdog_desc)
+
     # Sim mode (component_supervisor_node's module docstring, "Sim mode"): no
     # hardware drivers, every component on use_sim_time, /clock from the
     # simulator. Default false: the car's bringup, unchanged.
@@ -200,6 +205,7 @@ def generate_launch_description():
             'max_auto_restarts': LaunchConfiguration('max_auto_restarts'),
             'restart_budget_window_sec': LaunchConfiguration('restart_budget_window_sec'),
             'sim': LaunchConfiguration('sim'),
+            'health_watchdog': LaunchConfiguration('health_watchdog'),
         }],
     )
 
@@ -218,6 +224,7 @@ def generate_launch_description():
         watchdog_period_la,
         max_auto_restarts_la,
         restart_budget_window_la,
+        health_watchdog_la,
         sim_la,
         component_supervisor_node,
     ])

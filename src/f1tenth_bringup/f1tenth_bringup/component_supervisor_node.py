@@ -298,6 +298,42 @@ the camera topics and /clock itself.
     deferred.
 This node itself stays on wall time: its watchdog must keep running while the
 simulator is paused.
+
+Topic-liveness watchdog (fix batch 5, backlog H1; health_watchdog parameter,
+default enforce): the process watchdog above only sees a process exit. A component
+can be running and still useless -- a subscription that never matched after a
+bringup (discovery isolation: slam_toolbox never activated, mpc_corr never got
+odometry), a node frozen by the kernel. So every health_period_sec this node
+also checks what each component publishes, as components.yaml's `health:`
+section declares it (schema and verdict rules: topic_watchdog.py, which is
+pure and unit-tested):
+  - the supervisor subscribes to every watched topic itself, BEST_EFFORT/
+    VOLATILE depth 1 (_HEALTH_QOS: compatible with every publisher, changes
+    none), and stamps each message's RECEIPT with the monotonic clock -- wall
+    time, so it works the same with use_sim_time nodes;
+  - a check is judged only after its launch file's grace_sec, and only while
+    its `when_fresh` inputs are fresh (an upstream outage is not isolation);
+  - fail_for_sec of continuous failure -> a loud ERROR naming the topic, its
+    age and its input's age; then action 'restart' restarts THAT launch file
+    through _stop_process() and the same per-process restart budget as a crash
+    (_consume_restart_budget), or action 'alert' only reports;
+  - max_consecutive_restarts watchdog restarts without a healthy period in
+    between -> FAILED: no more restarts, still reported, until a manual
+    START/RESTART (which resets it). The restart budget alone cannot end such
+    a loop: a watchdog cycle (grace + fail_for + restart) is longer than 20 s,
+    so 3 restarts never fall inside the 60 s budget window;
+  - /supervisor/health (DiagnosticArray, transient-local, one status per
+    watched component: OK, STARTING, FAILING, RESTARTING, ALERT, FAILED,
+    UPSTREAM_STALE, NOT_RUNNING, PAUSED) at 1 Hz and on every change, also on
+    /diagnostics. scripts/stackctl.py status prints it;
+  - sim mode only: /clock not advancing for clock_pause_sec = the simulation
+    is paused (every use_sim_time node goes quiet with it): nothing is judged,
+    and resume_grace_sec applies when the clock moves again. Without sim:=true
+    there is no /clock subscription and no gate -- on the car the watchdog
+    never depends on /clock;
+  - a tick that comes more than 2 s after the previous one (this node was
+    blocked, e.g. in a restart's wait) clears the failure timers instead of
+    judging ages it could not keep up to date.
 """
 
 import glob
@@ -310,14 +346,25 @@ import time
 
 import yaml
 
+from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from f1tenth_messages.srv import ComponentControl, RestartComponent
 from f1tenth_params.param_defaults import get_value
 
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
+from rclpy.qos import (
+    QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy)
+from rosgraph_msgs.msg import Clock
+from rosidl_runtime_py.utilities import get_message
 from std_msgs.msg import Bool
 from std_srvs.srv import Trigger
+
+try:
+    from f1tenth_bringup.topic_watchdog import (
+        ComponentMonitor, needs_message, parse_health_config, topic_states)
+except ImportError:  # imported by path from the tests, without the package
+    from topic_watchdog import (
+        ComponentMonitor, needs_message, parse_health_config, topic_states)
 
 # OS-level process-teardown buffer between "'hardware' confirmed stopped" and
 # "start 'calibrate_hardware'" in ~/run_calibration (see that handler and the
@@ -510,6 +557,7 @@ class _ComponentProcess:
         self.log_path = log_path
         self.popen = None
         self.log_file = None
+        self.started_at = None
         self.manually_stopped = False
         # Monotonic timestamps of recent watchdog-triggered (not manually-requested)
         # respawns -- see ComponentSupervisorNode._consume_restart_budget.
@@ -529,6 +577,9 @@ class _ComponentProcess:
         return cmd
 
     def start(self):
+        # Monotonic start time: the topic-liveness watchdog's grace period
+        # counts from here, for a first start and every restart alike.
+        self.started_at = time.monotonic()
         self.log_file = open(self.log_path, 'w')
         self.popen = subprocess.Popen(
             self.cmd, stdout=self.log_file, stderr=subprocess.STDOUT,
@@ -603,6 +654,19 @@ class ComponentSupervisorNode(Node):
             self.declare_parameter('localization_calibration_wait_timeout_sec', 180.0).value)
         # Sim mode -- see the module docstring's "Sim mode" paragraph.
         self.sim = bool(self.declare_parameter('sim', False).value)
+        # Topic-liveness watchdog -- see the module docstring's paragraph.
+        # 'enforce': each component's configured action; 'alert': report
+        # only, never restart (measurement runs); 'disabled': not run at all.
+        # Not on/off: YAML turns those into booleans on their way through the
+        # launch parameter file.
+        self.health_watchdog = str(self.declare_parameter('health_watchdog', 'enforce').value)
+        if self.health_watchdog not in ('enforce', 'alert', 'disabled'):
+            raise ValueError('health_watchdog must be enforce, alert or disabled, not '
+                             f"'{self.health_watchdog}'")
+        self.health_period_sec = float(self.declare_parameter('health_period_sec', 0.5).value)
+        # Sim mode only: /clock not advancing for this long = simulation paused.
+        self.clock_pause_sec = float(self.declare_parameter('clock_pause_sec', 1.0).value)
+        self.resume_grace_sec = float(self.declare_parameter('resume_grace_sec', 5.0).value)
 
         # {component_name: [pid, ...]} mirror of every live process group this node
         # has spawned -- see module docstring's "Startup safety sweep" paragraph.
@@ -618,7 +682,13 @@ class ComponentSupervisorNode(Node):
         self._sweep_stale_pgids()
 
         with open(components_config) as f:
-            registry_raw = yaml.safe_load(f)['components']
+            components_doc = yaml.safe_load(f)
+        registry_raw = components_doc['components']
+        # Parsed before sim mode and the feature flags below filter launch
+        # files out: a check may name a launch file that does not run in this
+        # configuration, and is then simply never judged.
+        self._health_cfg, self._health_types, _ = parse_health_config(
+            components_doc, registry_raw)
         self._registry = {
             name: [dict(entry, args=entry.get('args', {})) for entry in entries]
             for name, entries in registry_raw.items()
@@ -750,6 +820,10 @@ class ComponentSupervisorNode(Node):
 
         self._watchdog_timer = self.create_timer(
             self.watchdog_period_sec, self._on_watchdog_tick)
+
+        self._monitors = {}
+        if self.health_watchdog != 'disabled':
+            self._setup_health_watchdog()
 
     # -- process lifecycle ----------------------------------------------------
 
@@ -1037,6 +1111,12 @@ class ComponentSupervisorNode(Node):
             procs.append(proc)
         self._processes[name] = procs
         self._write_pgid_file()
+        # A (re)start through a service or at boot: a watchdog give-up ends
+        # here (the operator took over). getattr: boot starts run before the
+        # watchdog exists.
+        monitor = getattr(self, '_monitors', {}).get(name)
+        if monitor is not None:
+            monitor.reset()
 
     # -- 'localization' deferred-start (calibration-restart gap fix) --------------
     # See module docstring's own matching paragraph for the bug this closes and
@@ -1180,38 +1260,42 @@ class ComponentSupervisorNode(Node):
         """
         if timeout is None:
             timeout = self.restart_timeout_sec
-        results = []
-        for proc in self._processes.get(name, []):
-            if proc.popen is None or proc.popen.poll() is not None:
-                results.append(f'{proc.launch_file}: was not running')
-                continue
-            # start_new_session=True made this process its own session leader, so its
-            # pgid is definitionally its own pid.
-            pgid = proc.popen.pid
-            start = time.monotonic()
-            try:
-                os.killpg(pgid, signal.SIGINT)
-            except ProcessLookupError:
-                results.append(f'{proc.launch_file}: exited before SIGINT was sent')
-                continue
-            try:
-                proc.popen.wait(timeout=timeout)
-                elapsed = time.monotonic() - start
-                results.append(f'{proc.launch_file}: clean SIGINT exit in {elapsed:.1f}s')
-            except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(pgid, signal.SIGKILL)
-                    proc.popen.wait(timeout=5.0)
-                except ProcessLookupError:
-                    pass
-                results.append(
-                    f'{proc.launch_file}: killed via SIGKILL after '
-                    f'{timeout:.1f}s timeout')
-            finally:
-                if proc.log_file:
-                    proc.log_file.close()
+        results = [self._stop_process(proc, timeout)
+                   for proc in self._processes.get(name, [])]
         self._write_pgid_file()
         return results
+
+    def _stop_process(self, proc, timeout):
+        """SIGINT one tracked process group, SIGKILL it after `timeout`.
+
+        Returns its status string (see _stop_component). Does not touch the
+        pgid file.
+        """
+        if proc.popen is None or proc.popen.poll() is not None:
+            return f'{proc.launch_file}: was not running'
+        # start_new_session=True made this process its own session leader, so its
+        # pgid is definitionally its own pid.
+        pgid = proc.popen.pid
+        start = time.monotonic()
+        try:
+            os.killpg(pgid, signal.SIGINT)
+        except ProcessLookupError:
+            return f'{proc.launch_file}: exited before SIGINT was sent'
+        try:
+            proc.popen.wait(timeout=timeout)
+            elapsed = time.monotonic() - start
+            return f'{proc.launch_file}: clean SIGINT exit in {elapsed:.1f}s'
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+                proc.popen.wait(timeout=5.0)
+            except ProcessLookupError:
+                pass
+            return (f'{proc.launch_file}: killed via SIGKILL after '
+                    f'{timeout:.1f}s timeout')
+        finally:
+            if proc.log_file:
+                proc.log_file.close()
 
     def _shutdown_component(self, name):
         """Like _stop_component, but also marks every tracked process for `name` as
@@ -1367,6 +1451,170 @@ class ComponentSupervisorNode(Node):
         # unclean-exit sweep targets the current process, not the crashed one.
         if respawned:
             self._write_pgid_file()
+
+    # -- topic-liveness watchdog --------------------------------------------------
+    # See the module docstring's "Topic-liveness watchdog" paragraph, and
+    # topic_watchdog.py for the verdict rules (unit-tested there).
+
+    # Every watched topic is read with this QoS. BEST_EFFORT/VOLATILE is
+    # compatible with every publisher (reliable or best-effort, volatile or
+    # transient-local), and a best-effort reader is never waited on: a
+    # reliable writer keeps no history and sends no repairs for it, so the
+    # publisher behaves exactly as without the watchdog. VOLATILE also means
+    # a latched (transient-local) topic's old sample is not replayed on
+    # connect, where it would read as a fresh receipt. Depth 1: only the
+    # receipt time and the latest message matter.
+    _HEALTH_QOS = QoSProfile(
+        depth=1, history=QoSHistoryPolicy.KEEP_LAST,
+        reliability=QoSReliabilityPolicy.BEST_EFFORT,
+        durability=QoSDurabilityPolicy.VOLATILE)
+
+    def _setup_health_watchdog(self):
+        for name, cfg in self._health_cfg.items():
+            if name not in self._registry:
+                continue
+            disabled = {k: v for k, v in cfg.enabled_if.items() if get_value(k) != v}
+            if disabled:
+                self.get_logger().info(
+                    f"[health] '{name}' not watched: {disabled} not met")
+                continue
+            if self.health_watchdog == 'alert':
+                cfg.action = 'alert'
+            self._monitors[name] = ComponentMonitor(cfg)
+        watched = {n: self._health_cfg[n] for n in self._monitors}
+        self._topic_state = topic_states(watched)
+        topics = sorted(self._topic_state)
+        self._health_subs = []
+        for t in topics:
+            full = needs_message(t, watched)
+            self._health_subs.append(self.create_subscription(
+                get_message(self._health_types[t]), t, self._make_health_cb(t, full),
+                self._HEALTH_QOS, raw=not full))
+        # Sim mode only: the pause gate. On the car there is no /clock, and
+        # nothing here may depend on one -- the gate does not exist there.
+        self._clock_last_value = None
+        self._clock_last_advance = None
+        self._paused = False
+        if self.sim:
+            self.create_subscription(Clock, '/clock', self._on_health_clock, self._HEALTH_QOS)
+        self._health_last_tick = None
+        self._health_tick_count = 0
+        self._health_pub = self.create_publisher(
+            DiagnosticArray, '/supervisor/health',
+            QoSProfile(depth=1, reliability=QoSReliabilityPolicy.RELIABLE,
+                       durability=QoSDurabilityPolicy.TRANSIENT_LOCAL))
+        self._diagnostics_pub = self.create_publisher(DiagnosticArray, '/diagnostics', 10)
+        self._health_timer = self.create_timer(self.health_period_sec, self._on_health_tick)
+        self.get_logger().info(
+            f'[health] topic-liveness watchdog {self.health_watchdog}: watching '
+            f'{sorted(self._monitors)} on {len(topics)} topics'
+            + (', sim pause gate on /clock' if self.sim else ''))
+
+    def _make_health_cb(self, topic, full):
+        state = self._topic_state[topic]
+        if not full:
+            return lambda _raw: state.on_message(time.monotonic())
+
+        def cb(msg):
+            header = getattr(msg, 'header', None)
+            stamp = (header.stamp.sec, header.stamp.nanosec) if header is not None else None
+            state.on_message(time.monotonic(), msg=msg, stamp=stamp)
+        return cb
+
+    def _on_health_clock(self, msg):
+        value = (msg.clock.sec, msg.clock.nanosec)
+        if value != self._clock_last_value:
+            self._clock_last_value = value
+            self._clock_last_advance = time.monotonic()
+
+    def _launch_states(self, name):
+        return {p.launch_file: (p.popen is not None and p.popen.poll() is None
+                                and not p.manually_stopped, p.started_at)
+                for p in self._processes.get(name, [])}
+
+    def _on_health_tick(self):
+        if self._shutdown_started:
+            return
+        now = time.monotonic()
+        # The supervisor itself did not run for a while (a restart blocks it
+        # for up to restart_timeout_sec): receipts were not processed, so
+        # every age is too old this once.
+        stalled = (self._health_last_tick is not None
+                   and now - self._health_last_tick > max(4 * self.health_period_sec, 2.0))
+        self._health_last_tick = now
+        paused = False
+        if self.sim:
+            paused = (self._clock_last_advance is None
+                      or now - self._clock_last_advance > self.clock_pause_sec)
+            if paused != self._paused:
+                self.get_logger().warn(
+                    '[health] sim clock ' + ('paused: liveness checks suspended' if paused
+                                             else f'running again: checks resume after '
+                                                  f'{self.resume_grace_sec:g} s'))
+                if not paused:
+                    for m in self._monitors.values():
+                        m.resume(now, self.resume_grace_sec)
+                self._paused = paused
+        changed = False
+        for name, mon in self._monitors.items():
+            before = (mon.status, mon.message)
+            to_restart = mon.evaluate(now, self._topic_state, self._launch_states(name),
+                                      paused=paused, stalled=stalled)
+            for level, text in mon.events:
+                log = self.get_logger().error if level >= 2 else self.get_logger().info
+                log(f'[health] {text}')
+            mon.events.clear()
+            for launch_file in to_restart:
+                self._health_restart(name, launch_file, mon)
+            changed = changed or before != (mon.status, mon.message)
+        self._health_tick_count += 1
+        if changed or self._health_tick_count % max(1, round(1.0 / self.health_period_sec)) == 0:
+            self._publish_health()
+
+    def _health_restart(self, name, launch_file, monitor):
+        """Restart one launch file of `name` for the liveness watchdog.
+
+        Same stop path and same per-process restart budget as a crash restart.
+        """
+        proc = next((p for p in self._processes.get(name, [])
+                     if p.launch_file == launch_file), None)
+        if proc is None:
+            return
+        if not self._consume_restart_budget(proc):
+            monitor.restart_refused(
+                f'restart budget exhausted ({self.max_auto_restarts} within '
+                f'{self.restart_budget_window_sec:.0f}s, shared with crash restarts)')
+            for level, text in monitor.events:
+                self.get_logger().error(f'[health] {text}')
+            monitor.events.clear()
+            return
+        result = self._stop_process(proc, self.restart_timeout_sec)
+        proc.start()
+        self._write_pgid_file()
+        self.get_logger().error(
+            f"[health] '{name}' ({launch_file}) restarted by the liveness watchdog -- "
+            f'{result}; new pid {proc.popen.pid}')
+
+    def _publish_health(self):
+        arr = DiagnosticArray()
+        arr.header.stamp = self.get_clock().now().to_msg()
+        for name, mon in sorted(self._monitors.items()):
+            st = DiagnosticStatus()
+            st.level = bytes([mon.level])
+            st.name = f'supervisor/health/{name}'
+            st.hardware_id = 'component_supervisor_node'
+            st.message = mon.status + (f': {mon.message}' if mon.message else '')
+            st.values = [
+                KeyValue(key='status', value=mon.status),
+                KeyValue(key='action', value=mon.cfg.action),
+                KeyValue(key='failures', value=str(mon.failures)),
+                KeyValue(key='watchdog_restarts', value=str(mon.restarts)),
+                KeyValue(key='consecutive_restarts', value=str(mon.consecutive_restarts)),
+                KeyValue(key='gave_up', value=str(mon.gave_up).lower()),
+            ]
+            arr.status.append(st)
+        self._health_pub.publish(arr)
+        self._diagnostics_pub.publish(arr)
 
     # -- service ----------------------------------------------------------------
 
