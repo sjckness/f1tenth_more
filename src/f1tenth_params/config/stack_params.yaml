@@ -2025,6 +2025,15 @@ discovery_server_address:
 discovery_server_port:
   default: 11811
   description: "Fast-DDS Discovery Server UDP port. 11811 is fastdds discovery's own tool default, kept rather than picking an arbitrary port so the server's own default invocation and this value never drift apart."
+# Consumed by: f1tenth_bringup/supervisor_bringup.launch.py and
+# stack_bringup.launch.py, which set it as FASTRTPS_DEFAULT_PROFILES_FILE
+# before anything else starts, so the Discovery Server, the supervisor and
+# every component load it (fix batch 5, backlog H1). Path relative to
+# f1tenth_bringup's share directory. scripts/env/jazzy.sh sets the same file
+# for hand-started tools and the sim host.
+fastdds_profile:
+  default: config/fastdds_profile.xml
+  description: "Fast DDS participant profile every participant of the stack loads (FASTRTPS_DEFAULT_PROFILES_FILE): 5 s participant lease, 1 s announcement, so a participant that dies without disposing leaves the Discovery Server within 5 s instead of 20 s. See the file's own comment."
 # ============================================================
 # Component Supervisor (supervisor_bringup.launch.py / component_supervisor_node --
 # the parallel, per-component-restartable bringup path alongside stack_bringup.launch.py)

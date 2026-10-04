@@ -50,11 +50,16 @@ duplicated rather than shared, since these are this workspace's two
 independent top-level bringup entry points and a partial rollout (only one
 of them running the server) would leave the other path's nodes on SIMPLE
 discovery, defeating the point.
+
+FASTRTPS_DEFAULT_PROFILES_FILE (fix batch 5, backlog H1) is set right after
+it, the same way and for the same reach: config/fastdds_profile.xml (5 s
+participant lease) for the Discovery Server and every node. Launch argument
+fastdds_profile overrides the file.
 """
 
 import os
 
-from f1tenth_params.param_defaults import get_default, get_value
+from f1tenth_params.param_defaults import get_default, get_path_default, get_value
 
 from launch import LaunchDescription
 from launch.actions import (
@@ -90,6 +95,16 @@ def generate_launch_description():
 
     discovery_server_env = SetEnvironmentVariable(
         'ROS_DISCOVERY_SERVER', [discovery_server_address, ':', discovery_server_port])
+
+    # Fast DDS participant profile (5 s lease) for every participant of this
+    # launch tree, the Discovery Server included -- see supervisor_bringup.
+    # launch.py's matching comment and config/fastdds_profile.xml.
+    fastdds_profile_default, fastdds_profile_desc = get_path_default('fastdds_profile')
+    fastdds_profile_la = DeclareLaunchArgument(
+        'fastdds_profile', default_value=fastdds_profile_default,
+        description=fastdds_profile_desc)
+    fastdds_profile_env = SetEnvironmentVariable(
+        'FASTRTPS_DEFAULT_PROFILES_FILE', LaunchConfiguration('fastdds_profile'))
 
     # cmd invokes scripts/ensure_discovery_server.py -- see supervisor_
     # bringup.launch.py's own matching comment for the full writeup: the
@@ -261,6 +276,8 @@ def generate_launch_description():
         discovery_server_address_la,
         discovery_server_port_la,
         discovery_server_env,
+        fastdds_profile_la,
+        fastdds_profile_env,
         discovery_server,
         vesc_bringup,
         localization_bringup,

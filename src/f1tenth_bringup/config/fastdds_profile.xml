@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS participant profile for EVERY participant of the f1tenth stack
+  (fix batch 5, backlog H1). Loaded through FASTRTPS_DEFAULT_PROFILES_FILE,
+  which is set by:
+    - supervisor_bringup.launch.py and stack_bringup.launch.py, for the
+      Discovery Server, the supervisor and every component (they inherit it);
+    - scripts/env/jazzy.sh, for everything started by hand (ros2 / ros2cli,
+      rosbag, scripts, the simulator on the sim host).
+
+  What it changes: the participant lease. Every participant announces a 5 s
+  lease (Fast DDS default 20 s) and re-announces itself every 1 s (default
+  3 s). A participant that disappears without disposing (killed, or
+  interrupted mid-shutdown) is dropped by the Discovery Server and by its
+  peers within 5 s instead of 20 s.
+
+  Why: a stack started while dead participants of the previous session were
+  still registered intermittently failed to match some endpoints (slam_toolbox
+  never activated, subscriptions never matched): 8 of 30 bringups with the
+  default lease, 0 of 30 with this one (output/fix_batch_4_report.md, B3).
+
+  Trade-off: a LIVE participant is dropped by mistake only if nothing from it
+  arrives for 5 s, i.e. about 4 announcements in a row are not sent (its
+  Fast DDS event thread starved) or lost. Measured under load in
+  output/fix_batch_5_report.md.
+
+  Nothing else: discovery protocol and server address still come from
+  ROS_DISCOVERY_SERVER / ROS_SUPER_CLIENT, transports stay at the defaults.
+  The lease is announced by each participant and enforced by whoever
+  receives it, so a participant without this profile still works; it is only
+  dropped after 20 s when it dies. The XML format is the same for Fast DDS
+  2.6 (Humble) and 2.14 (Jazzy).
+
+  No double hyphen anywhere inside this comment: it is illegal in an XML
+  comment (see CLAUDE.md, Packaging).
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <participant profile_name="f1tenth_stack" is_default_profile="true">
+    <rtps>
+      <builtin>
+        <discovery_config>
+          <leaseDuration><sec>5</sec></leaseDuration>
+          <leaseAnnouncement><sec>1</sec></leaseAnnouncement>
+        </discovery_config>
+      </builtin>
+    </rtps>
+  </participant>
+</profiles>

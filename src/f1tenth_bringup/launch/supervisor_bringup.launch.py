@@ -32,6 +32,12 @@ rollout, where only some nodes see this env var, would leave the untouched
 ones still on SIMPLE discovery, defeating the point (they just wouldn't be
 found by/wouldn't find the Discovery-Server nodes at all, a much worse failure
 than the stall this is meant to fix).
+
+FASTRTPS_DEFAULT_PROFILES_FILE (fix batch 5, backlog H1) is set right after
+ROS_DISCOVERY_SERVER, the same way and for the same reach: config/
+fastdds_profile.xml (5 s participant lease) for the Discovery Server, the
+supervisor and every component. Launch argument fastdds_profile overrides the
+file. scripts/env/jazzy.sh sets the same file for hand-started tools.
 """
 
 import os
@@ -65,6 +71,18 @@ def generate_launch_description():
     # before component_supervisor_node's own Node() action below.
     discovery_server_env = SetEnvironmentVariable(
         'ROS_DISCOVERY_SERVER', [discovery_server_address, ':', discovery_server_port])
+
+    # Fast DDS participant profile (5 s lease) for every participant this
+    # launch tree starts: the Discovery Server below, the supervisor, and every
+    # component it spawns (they inherit this environment, like
+    # ROS_DISCOVERY_SERVER). Overrides whatever the shell had, so the stack
+    # cannot run without it. See config/fastdds_profile.xml for why.
+    fastdds_profile_default, fastdds_profile_desc = get_path_default('fastdds_profile')
+    fastdds_profile_la = DeclareLaunchArgument(
+        'fastdds_profile', default_value=fastdds_profile_default,
+        description=fastdds_profile_desc)
+    fastdds_profile_env = SetEnvironmentVariable(
+        'FASTRTPS_DEFAULT_PROFILES_FILE', LaunchConfiguration('fastdds_profile'))
 
     # respawn=True is this action's OWN resilience (if the server process
     # itself ever dies) -- unrelated to component_supervisor_node's restart
@@ -189,6 +207,8 @@ def generate_launch_description():
         discovery_server_address_la,
         discovery_server_port_la,
         discovery_server_env,
+        fastdds_profile_la,
+        fastdds_profile_env,
         discovery_server,
         calibration_la,
         enable_intelligence_la,
