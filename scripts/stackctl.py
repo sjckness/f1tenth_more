@@ -19,6 +19,7 @@ directly. No daemon, no cache, no guessing which lie you got.
 
 Usage:
   ./scripts/stackctl.py status                 # what's actually up, incl. mission preflight
+                                               # and the supervisor's liveness watchdog
   ./scripts/stackctl.py restart navigation     # RestartComponent
   ./scripts/stackctl.py start   diagnostics    # ComponentControl START
   ./scripts/stackctl.py stop    intelligence   # ComponentControl SHUTDOWN
@@ -33,7 +34,9 @@ import time
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
 
+from diagnostic_msgs.msg import DiagnosticArray
 from f1tenth_messages.srv import ComponentControl, RestartComponent
 
 # Node names /mission/start_mission's own preflight requires -- see
@@ -68,7 +71,39 @@ def _call(node, cli, req, path, timeout):
     return fut.result()
 
 
-def cmd_status(node):
+_LEVELS = {0: 'OK', 1: 'WARN', 2: 'ERROR', 3: 'STALE'}
+
+
+def subscribe_health(node):
+    """/supervisor/health is transient-local: the latest status arrives on connect."""
+    latest = {}
+    qos = QoSProfile(depth=1, reliability=QoSReliabilityPolicy.RELIABLE,
+                     durability=QoSDurabilityPolicy.TRANSIENT_LOCAL)
+    node.create_subscription(DiagnosticArray, '/supervisor/health',
+                             lambda msg: latest.update(msg=msg), qos)
+    return latest
+
+
+def print_health(latest):
+    """The supervisor's topic-liveness watchdog, one line per watched component."""
+    print('component liveness (/supervisor/health):')
+    msg = latest.get('msg')
+    if msg is None:
+        print('  none received -- supervisor down, or its health_watchdog is disabled')
+        return True
+    ok = True
+    for st in msg.status:
+        level = st.level[0] if isinstance(st.level, (bytes, bytearray)) else int(st.level)
+        values = {kv.key: kv.value for kv in st.values}
+        name = st.name.rsplit('/', 1)[-1]
+        restarts = values.get('watchdog_restarts', '0')
+        print(f'  {_LEVELS.get(level, level):<6} {name:<20} {st.message}'
+              + (f'  [watchdog restarts: {restarts}]' if restarts != '0' else ''))
+        ok = ok and level != 2
+    return ok
+
+
+def cmd_status(node, health):
     names = {n for n, _ in node.get_node_names_and_namespaces()}
     svcs = dict(node.get_service_names_and_types())
     print(f'nodes in graph : {len(names)}')
@@ -88,7 +123,9 @@ def cmd_status(node):
         print(f'  {"OK      " if present else "MISSING "} {req}')
     if not ok:
         print('  -> start_mission WILL refuse: preflight needs every node above.')
-    return 0 if ok else 1
+    print()
+    healthy = print_health(health)
+    return 0 if ok and healthy else 1
 
 
 def main():
@@ -115,11 +152,12 @@ def main():
     rclpy.init()
     node = Node('stackctl')
     try:
+        health = subscribe_health(node) if args.command == 'status' else None
         print(f'settling discovery for {args.settle:.0f}s ...')
         _settle(node, args.settle)
 
         if args.command == 'status':
-            return cmd_status(node)
+            return cmd_status(node, health)
 
         if args.command == 'restart':
             path = '/restart_component'
