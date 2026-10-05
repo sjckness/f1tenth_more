@@ -153,3 +153,23 @@ rebuilding single packages.
 **Docker:** the image for the car must build the workspace against the same apt
 snapshot it runs. Never copy an `install/` built against a different set of
 `ros-jazzy-*` packages into it.
+
+## Thor
+
+### `~/.colcon/defaults.yaml` skips `f1tenth_sim` and `f1tenth_more`
+
+Thor runs the stack, not the simulator (`ros_gz` and `gz_ros2_control` are
+not installed here; the sim host is the TPad / linus), so `f1tenth_sim` is
+skipped for build and test.
+The `f1tenth_more` metapackage `exec_depend`s on `f1tenth_sim`, and a
+dependency that is in the workspace but skipped fails the dependent's build
+(`Failed to find ... f1tenth_sim/package.sh`), so it is skipped too. Nothing
+depends on the metapackage. This is machine config, not repo config: the
+metapackage keeps its dependency, and the sim host builds both.
+
+```yaml
+build:
+  packages-skip: [f1tenth_sim, f1tenth_more]
+test:
+  packages-skip: [f1tenth_sim, f1tenth_more]
+```
