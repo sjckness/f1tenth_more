@@ -7,11 +7,15 @@ EKF, slam_toolbox, ackermann_mux, MPC) is the stack's job on the Thor
 (output/sim_port_report.md §2.2, §5).
 
 Launches:
-  1. Gazebo Harmonic with worlds/empty_room.sdf           (ros_gz_sim)
+  1. Gazebo Harmonic with the husarion office world        (husarion_gz_worlds)
   2. sim_robot_state_publisher: private RSP whose only job is to publish the
      sim URDF on /sim/robot_description. Its TF goes to /sim/tf and
      /sim/tf_static, never /tf (§2.3); it reads /sim/joint_states.
-  3. ros_gz_bridge: /clock, /scan, /sim/imu_raw, /sim/ground_truth
+  3. ros_gz_bridge: /clock, /scan, /sim/imu_raw, /sim/ground_truth, and with
+     camera:=true the ZED 2i streams on the car's topic names:
+     /camera/image_raw, /camera/camera_info (what camera.launch.py remaps the
+     wrapper's RGB to), /zed2/zed_node/depth/depth_registered and
+     /zed2/zed_node/depth/camera_info (what detection.launch.py reads).
   4. spawn the robot from /sim/robot_description          (ros_gz_sim create)
   5. once spawned: joint_state_broadcaster, then ackermann_steering_controller
      (the controller_manager runs inside the gz_ros2_control plugin and reads
@@ -20,13 +24,16 @@ Launches:
      /sim/imu_raw -> /sensors/imu/raw
   7. optional foxglove_bridge (foxglove:=true)
 
-Published on the shared graph: /clock /scan /odom /sensors/imu/raw, plus
-/sim/* (internal and ground truth). Nothing on /tf or /tf_static, and nothing
+Published on the shared graph: /clock /scan /odom /sensors/imu/raw, the four
+camera topics above (camera:=true), plus /sim/* (internal and ground truth).
+Nothing on /tf or /tf_static, and nothing
 on /joint_states: on the car joint_state_publisher (static zeros, 10 Hz, kept
 by the Thor in sim:=true) owns that topic, so the sim's true joint states go to
 /sim/joint_states, like /sim/ground_truth.
 
-Args: gui (default false: server only), world, foxglove, x/y/yaw spawn pose.
+Args: gui (default false: server only), world, foxglove, camera (default true:
+render the ZED 2i at the car's 640x360 @ 30 Hz, about 50 MB/s raw over the LAN),
+x/y/yaw spawn pose.
 """
 import os
 
@@ -58,14 +65,16 @@ SIM_DESCRIPTION_TOPIC = '/sim/robot_description'
 def generate_launch_description():
     sim_share = get_package_share_directory('f1tenth_sim')
     desc_share = get_package_share_directory('f1tenth_description')
-    ros_gz_sim_share = get_package_share_directory('ros_gz_sim')
+    husarion_share = get_package_share_directory('husarion_gz_worlds')
 
     bridge_config = os.path.join(sim_share, 'config', 'ros_gz_bridge.yaml')
+    camera_bridge_config = os.path.join(sim_share, 'config', 'ros_gz_bridge_camera.yaml')
     controllers_file = os.path.join(sim_share, 'config', 'controllers.yaml')
 
     gui = LaunchConfiguration('gui')
     world = LaunchConfiguration('world')
     foxglove = LaunchConfiguration('foxglove')
+    camera = LaunchConfiguration('camera')
 
     args = [
         DeclareLaunchArgument(
@@ -73,11 +82,20 @@ def generate_launch_description():
             description='Start the Gazebo GUI. false = server only (sensors '
                         'still render).'),
         DeclareLaunchArgument(
-            'world', default_value=os.path.join(sim_share, 'worlds', 'empty_room.sdf'),
-            description='SDF world file.'),
+            'world',
+            default_value=PathJoinSubstitution([
+                FindPackageShare('husarion_gz_worlds'),
+                'worlds', 'husarion_office.sdf']),
+            description='SDF world file. Defaults to the husarion office world; '
+                        'pass world:=/abs/path.sdf (e.g. the old '
+                        'f1tenth_sim/worlds/empty_room.sdf) for another.'),
         DeclareLaunchArgument(
             'foxglove', default_value='false',
             description='Also start foxglove_bridge on :8765 on this host.'),
+        DeclareLaunchArgument(
+            'camera', default_value='true',
+            description='Render the ZED 2i RGB + depth and bridge them onto the '
+                        "car's topics. false = LiDAR/IMU/odom only."),
         DeclareLaunchArgument('x', default_value='0.0'),
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('yaw', default_value='0.0'),
@@ -91,15 +109,20 @@ def generate_launch_description():
                   os.path.join(desc_share, 'meshes'))
     ]
 
-    # --- 1) Gazebo Harmonic -------------------------------------------------
+    # --- 1) Gazebo Harmonic (via husarion_gz_worlds) ------------------------
+    # husarion's gz_sim.launch.py wraps ros_gz_sim and knows where its office
+    # models live (its env-hook sets GZ_SIM_RESOURCE_PATH). It takes the world
+    # on gz_world and runs server-only unless gz_headless_mode is False, so we
+    # map our gui arg onto it: gui:=false -> headless_mode True (-s, sensors
+    # still render via --headless-rendering).
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(ros_gz_sim_share, 'launch', 'gz_sim.launch.py')),
+            os.path.join(husarion_share, 'launch', 'gz_sim.launch.py')),
         launch_arguments={
-            'gz_args': [
-                PythonExpression(["'' if '", gui, "' == 'true' else '-s '"]),
-                '-r -v 3 ', world],
-            'on_exit_shutdown': 'true',
+            'gz_world': world,
+            'gz_headless_mode': PythonExpression(
+                ["'False' if '", gui, "' == 'true' else 'True'"]),
+            'gz_log_level': '3',
         }.items(),
     )
 
@@ -110,7 +133,7 @@ def generate_launch_description():
         'xacro ', xacro_file,
         ' use_sim:=true',
         ' enable_sensors:=true',
-        ' enable_camera_mock:=false',
+        ' enable_camera_mock:=', camera,
         ' pkg_share:=', desc_share,
         ' control_config:=', controllers_file,
     ]), value_type=str)
@@ -136,6 +159,14 @@ def generate_launch_description():
         name='sim_ros_gz_bridge',
         output='screen',
         parameters=[{'config_file': bridge_config, 'use_sim_time': True}],
+    )
+    camera_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='sim_ros_gz_camera_bridge',
+        output='screen',
+        parameters=[{'config_file': camera_bridge_config, 'use_sim_time': True}],
+        condition=IfCondition(camera),
     )
 
     # --- 4) spawn the robot -------------------------------------------------
@@ -180,7 +211,7 @@ def generate_launch_description():
         executable='drive_bridge',
         name='f1tenth_sim_drive_bridge',
         output='screen',
-        parameters=[{'use_sim_time': True, 'wheelbase': 0.325}],
+        parameters=[{'use_sim_time': True, 'wheelbase': 0.3302}],
     )
 
     # --- 7) foxglove (optional) ---------------------------------------------
@@ -199,6 +230,7 @@ def generate_launch_description():
         gz_sim,
         sim_rsp,
         bridge,
+        camera_bridge,
         spawn_entity,
         drive_bridge,
         foxglove_node,

@@ -16,6 +16,9 @@
   <!-- Robot model: URDF, sensors and the gz_ros2_control plugin tags. -->
   <exec_depend>f1tenth_description</exec_depend>
 
+  <!-- Default Gazebo world (office) -->
+  <exec_depend>husarion_gz_worlds</exec_depend>
+
   <!-- Gazebo Harmonic + ROS 2 bridge (Jazzy: ros-jazzy-ros-gz) -->
   <exec_depend>ros_gz_sim</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
