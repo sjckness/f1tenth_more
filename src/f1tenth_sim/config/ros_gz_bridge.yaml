@@ -1,52 +1,45 @@
-# ros_ign_bridge (parameter_bridge) config for the F1TENTH sim.
+# ros_gz_bridge (parameter_bridge) config for the F1TENTH sim.
 #
 # Loaded via:  parameter_bridge --ros-args -p config_file:=<this file>
 #
-# All entries are GZ -> ROS (sensors + clock). The drive command path and
-# /odom are pure ROS 2 (ros2_control + drive_bridge), so they are NOT bridged.
+# All entries are GZ -> ROS. The drive command path and /odom are pure ROS 2
+# (ros2_control + drive_bridge), so they are NOT bridged. Nothing here may
+# publish /tf or /tf_static (output/sim_port_report.md §2.3).
 #
-# Schema = gazebosim/ros_gz humble branch: ros_topic_name / gz_topic_name /
-# ros_type_name / gz_type_name / direction. Fortress message types are spelled
-# "ignition.msgs.*". The gz topic names are exactly the <topic> values set on
-# each sensor in f1tenth_description/urdf/sensors.xacro (camera_info is the
-# auto-published "<image topic>/camera_info").
+# Schema = ros_gz_bridge 1.0.24 (Jazzy): ros_topic_name / gz_topic_name /
+# ros_type_name / gz_type_name / direction (keys checked against the installed
+# libros_gz_bridge.so). Harmonic message types are spelled "gz.msgs.*" (Fortress:
+# "ignition.msgs.*"). The gz topic names are the <topic> values set on each sensor
+# in f1tenth_description/urdf/sensors.xacro and on the OdometryPublisher in
+# ros2_control.xacro.
 #
-# >>> VERIFY in-container: if your ros_ign_bridge build predates the YAML
-#     config_file feature, or uses ign_*/IGN_TO_ROS keys instead, see the
-#     equivalent CLI form in sim_bringup.launch.py's comment. <<<
+# The ZED2 image/depth entries were dropped with the camera mock
+# (enable_camera_mock, default false). output/sim_port_report.md §2.4 lists what
+# re-enabling them would take.
 
 - ros_topic_name: "/clock"
   gz_topic_name: "/clock"
   ros_type_name: "rosgraph_msgs/msg/Clock"
-  gz_type_name: "ignition.msgs.Clock"
+  gz_type_name: "gz.msgs.Clock"
   direction: GZ_TO_ROS
 
 - ros_topic_name: "/scan"
   gz_topic_name: "/scan"
   ros_type_name: "sensor_msgs/msg/LaserScan"
-  gz_type_name: "ignition.msgs.LaserScan"
+  gz_type_name: "gz.msgs.LaserScan"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "/sensors/imu/raw"
+# Sim-internal: drive_bridge republishes this on /sensors/imu/raw with the real
+# VESC driver's empty frame_id and covariances (decision D3).
+- ros_topic_name: "/sim/imu_raw"
   gz_topic_name: "/sensors/imu/raw"
   ros_type_name: "sensor_msgs/msg/Imu"
-  gz_type_name: "ignition.msgs.IMU"
+  gz_type_name: "gz.msgs.IMU"
   direction: GZ_TO_ROS
 
-- ros_topic_name: "/zed2/zed_node/rgb/image_rect_color"
-  gz_topic_name: "/zed2/zed_node/rgb/image_rect_color"
-  ros_type_name: "sensor_msgs/msg/Image"
-  gz_type_name: "ignition.msgs.Image"
-  direction: GZ_TO_ROS
-
-- ros_topic_name: "/zed2/zed_node/rgb/camera_info"
-  gz_topic_name: "/zed2/zed_node/rgb/image_rect_color/camera_info"
-  ros_type_name: "sensor_msgs/msg/CameraInfo"
-  gz_type_name: "ignition.msgs.CameraInfo"
-  direction: GZ_TO_ROS
-
-- ros_topic_name: "/zed2/zed_node/depth/depth_registered"
-  gz_topic_name: "/zed2/zed_node/depth/depth_registered"
-  ros_type_name: "sensor_msgs/msg/Image"
-  gz_type_name: "ignition.msgs.Image"
+# Evaluation only (frames sim_world / sim_base_link, never on /tf).
+- ros_topic_name: "/sim/ground_truth"
+  gz_topic_name: "/sim/ground_truth"
+  ros_type_name: "nav_msgs/msg/Odometry"
+  gz_type_name: "gz.msgs.Odometry"
   direction: GZ_TO_ROS

@@ -20,6 +20,95 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
+### 2026-10-04 — jazzy-sim merged with origin/jazzy (Thor Phase 5 sim:=true); §5 reconciled; jazzy fast-forwarded [decision]
+tags: decision | fix
+- Merged origin/jazzy (31 commits incl. `af41013` sim:=true, fix batches 1–4) into jazzy-sim: no conflicts,
+  and no file touched by both sides, so nothing was combined.
+- §5 reconciled against `apply_sim_mode`, `sim_component.launch.py` and `sim_hardware_tf.launch.py`. Every
+  interface matches except two: (1) the Thor side assumed the simulator publishes camera topics, but
+  the ZED mock is off (supervisor docstring fixed `f86f4a7`; gap kept in backlog M10); (2)
+  `scripts/env/jazzy.sh` hard-coded DS 127.0.0.1 and sourced setup.bash (now `F1TENTH_DISCOVERY_SERVER`
+  + setup.zsh under zsh, `5b9ffdc`).
+- Backlog: M14 MPC measured steering is dead (car_1_* joint names), M15 wheelbase, L14 IMU frame.
+  Phase S sim host = linus, TPad = verified backup.
+- Post-merge check on TPad: 4 packages build, 37 f1tenth_sim tests pass; launch shows no /tf, /tf_static,
+  /joint_states or /robot_description from the sim; /sim/joint_states 49.9 Hz; laser 4.83 m; RTF 1.00.
+- status: resolved; open: Phase S two-machine run (DS over LAN, firewall, /clock 1000 Hz measurement)
+- commit: ab60fe4 (merge), 5b9ffdc, f86f4a7, 6a41f2b
+
+### 2026-10-03 — Sim stops publishing /joint_states; jazzy-sim pushed [decision]
+tags: decision | fix
+- On the car `/joint_states` comes from joint_state_publisher (static zeros, 10 Hz), which the Thor keeps
+  in `sim:=true`. Two publishers (that one and the sim's joint_state_broadcaster) would have made the Thor
+  robot_state_publisher's wheel/hinge TF flip between them. The broadcaster now publishes
+  `/sim/joint_states` (+ dynamic), which the private sim RSP reads.
+- Code check: the only consumer, MPC_corr.py:1255, matches `car_1_*_steering_hinge_joint`. Nothing
+  publishes that name (car or sim), so `delta_real` is always None and the object exit ramp uses the last
+  command. Not changed here; worth knowing that MPC's "measured steering" path is dead on both.
+- Branch strategy: jazzy-sim pushed as a new branch; origin/jazzy (with the Thor Phase 5 `af41013`)
+  will be merged in, not rebased. `/clock` at 1000 Hz to be measured in Phase S before any throttling.
+- status: resolved (joint states); open (merge + §5 reconcile when af41013 lands; ros2controlcli still
+  not installed on TPad per apt history)
+- commit: 66ef8e8
+
+### 2026-10-03 — Jazzy sim verified on TPad: 12/12 Step 4 checks pass, f1tenth_sim un-ignored [fix]
+tags: fix | decision
+- Ran the report §4 checklist against a live sim. TF-silent: `/tf` and `/tf_static` absent from the graph.
+  Rates 40/50/50/50 Hz, and `ranges[540]` = 4.830 m as predicted for the front-facing laser. Steering
+  clamp exact in both directions (hinge angles match the Ackermann geometry of ±0.2780/−0.2838). The car
+  stops 0.31 s after commands end. Odom vs ground truth: 2.9 % of path over 20 s.
+- Bugs found by running it: controller_manager publishes `/diagnostics` (remapped to `/sim/diagnostics`);
+  drive_bridge exited 1 on every shutdown (double rclpy.shutdown + second SIGINT in destroy_node); flake8
+  import order (the venv flake8 lacked the plugin); the setup script's apt-source check was a
+  pipefail/SIGPIPE race, not a deb822 problem; ros2controlcli missing from the package list.
+- RTF decision: headless 1.00 on the Iris Xe; GUI on the Xe 0.74; GUI via PRIME offload on the MX450
+  0.99–1.00. So the default stays headless, and the GUI should use PRIME offload.
+- status: resolved for the sim host. Open: rebase onto the Thor's Phase 5 `sim:=true` (`af41013`, not
+  yet on origin) and reconcile report §5. jazzy-sim not pushed.
+- commit: 06a0ca1, 01abfe6, 2e672a3, 6529fcc, 551fa1a, 9ed3785, caefd05
+
+### 2026-10-02 — f1tenth_sim ported to Jazzy + Gazebo Harmonic as a driver drop-in; run/verify pending ROS install [plan-change]
+tags: plan-change | fix
+- Branch `jazzy-sim` (from `origin/jazzy` @ `fc1ae6f`), on the sim PC (TPad). The Fortress-era sim
+  ran its own robot_state_publisher on /tf, its own EKF + slam_toolbox, took `/drive` (bypassing
+  ackermann_mux) and had a rear-facing laser that disagrees with the stack's base_link->laser.
+  Redesigned as a drop-in for vesc_driver / vesc_to_odom / urg_node only: publishes `/clock /scan
+  /odom /sensors/imu/raw /joint_states`, consumes `/ackermann_drive`, and **nothing on /tf**.
+- Diffs: gz_ros2_control + ground-truth OdometryPublisher in `ros2_control.xacro`; laser moved to
+  (0.12, 0, 0.20, yaw 0), IMU 50 Hz, ZED mock behind `enable_camera_mock` (default false) in
+  `sensors.xacro`; `gz-sim-*` world plugins; `gz.msgs` bridge; controllers at 50 Hz with the
+  vesc.yaml odom covariances and the mux's 0.2 s timeout; `drive_bridge` on `/ackermann_drive` with
+  a servo-envelope steering clamp [-0.2838, +0.2780] rad and an IMU relay stamping `frame_id ""`
+  like the real driver; launch with a private RSP (TF -> `/sim/tf*`), no EKF/SLAM.
+- Finding (checked against the downloaded 1.2.20 debs + source tag, not a running system):
+  gz_ros2_control no longer reads the URDF from robot_state_publisher's parameter. Its
+  controller_manager waits on the relative `robot_description` topic, so the URDF carries
+  `<remapping>robot_description:=/sim/robot_description</remapping>`. Otherwise the sim's CM would
+  consume the Thor's `/robot_description`. Also: `use_stamped_vel` no longer exists in
+  ros2_controllers 4.42.1.
+- Tests: `f1tenth_sim/test/` 36 pass in a scratch venv (not yet under colcon). This includes a coupling
+  test that pins every car value the sim copies (servo envelope, IMU/odom covariances, mux timeout) to
+  its source YAML.
+- status: open — Step 4 (install via `scripts/sim_host_setup.sh`, needs sudo password; launch;
+  checklist in `output/sim_port_report.md` §4) not run. `f1tenth_sim/COLCON_IGNORE` deliberately still
+  present until it passes. Thor-side `sim:=true` mode documented (§5), not implemented.
+- commit: 63f46d4, 4f0a3d3, cc3addd, 90cbfb1, ace37af, 66d9ff3, bd49bfc, 6739899, 8b8a83a, 0ef3500,
+  report 2d10bc9 (see `git log origin/jazzy..jazzy-sim`)
+
+### 2026-10-02 — Sim-port decisions D0–D5 [decision]
+tags: decision
+- D0 native apt install (not Docker) on TPad; linus later as a second sim host via the same script.
+  D1 sim consumes `/ackermann_drive` (behind the mux). D2 clamp steering to the real servo envelope.
+  D3 option (c): the sim IMU uses the real driver's empty frame_id. robot_localization maps `""` to
+  base_link with an identity fallback (source-checked, Humble and Jazzy). So the EKF takes the same
+  path as on the car, and no TF changes are needed. D4 the sim does not publish
+  `/model/virtual_robot/odometry`, so MPC cannot silently fall back to ground truth. D5 the sim keeps
+  wheelbase 0.325.
+- Finding while deciding: the Thor's discovery server listens on 127.0.0.1, so a separate sim host
+  cannot join the graph until sim mode moves it to the LAN address (report §5).
+- status: resolved (decisions); the discovery change is open
+- commit: 2d10bc9 (output/sim_port_report.md §D)
+
 ### 2026-09-08 — `transform_time_offset` goes to 0.08 on BOTH edges, not a 0.12/0.08 split [decision]
 tags: decision
 - Context: the 50Hz -> 20Hz EKF retarget widens each filter's publish period from 20ms
@@ -693,6 +782,14 @@ tags: decision
 ---
 
 ## Standing open items (no single dated event)
+
+### Wheelbase disagrees between URDF and odometry: 0.325 vs 0.305 m [open-question]
+tags: open-question
+- The URDF, `controllers.yaml` and `drive_bridge` use 0.325 m. The `vesc_to_odom_node.wheelbase` that
+  drives the car's `/odom` yaw rate is 0.305 m (`f1tenth_bringup/config/vesc.yaml`), a 6 % gap in
+  omega = v*tan(delta)/L. The sim keeps 0.325 (D5).
+- status: open — measure the real car
+- commit: n/a (values present in the tree as of jazzy-sim)
 
 ### OPEN SAFETY FLAG — lidar static TF yaw never actually confirmed [open-question]
 tags: open-question

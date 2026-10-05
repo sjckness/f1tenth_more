@@ -1,28 +1,32 @@
-"""F1TENTH simulation bringup (Gazebo Fortress / ignition).
+"""F1TENTH simulation bringup (ROS 2 Jazzy + Gazebo Harmonic).
 
-Sim-only counterpart to f1tenth_bringup. Launches, in order:
-  1. Gazebo Fortress with worlds/empty_room.sdf       (ros_ign_gazebo)
-  2. robot_state_publisher with the roboracer xacro    (f1tenth_description)
-  3. ros_ign_bridge parameter_bridge (config/ros_gz_bridge.yaml)
-  4. spawn the robot into Gazebo                        (ros_ign_gazebo create)
-  5. ros2_control spawners: joint_state_broadcaster + ackermann_steering_controller
-  6. drive_bridge: /drive (AckermannDriveStamped) -> controller; controller odom -> /odom
-  7. foxglove_bridge (port 8765)
-  8. slam_toolbox, async mapping (reuses f1tenth_bringup/config/f1tenth_online_async.yaml)
-  9. robot_localization EKF (reuses f1tenth_bringup/config/ekf.yaml verbatim)
+The sim is a drop-in for the car's drivers (vesc_driver, vesc_to_odom,
+urg_node) and nothing else: it publishes what they publish and consumes what
+ackermann_to_vesc consumes. Everything else (robot_state_publisher on /tf,
+EKF, slam_toolbox, ackermann_mux, MPC) is the stack's job on the Thor
+(output/sim_port_report.md §2.2, §5).
 
-It deliberately does NOT launch urg_node, the VESC driver, the ZED SDK, or any
-other real-hardware node.
+Launches:
+  1. Gazebo Harmonic with worlds/empty_room.sdf           (ros_gz_sim)
+  2. sim_robot_state_publisher: private RSP whose only job is to publish the
+     sim URDF on /sim/robot_description. Its TF goes to /sim/tf and
+     /sim/tf_static, never /tf (§2.3); it reads /sim/joint_states.
+  3. ros_gz_bridge: /clock, /scan, /sim/imu_raw, /sim/ground_truth
+  4. spawn the robot from /sim/robot_description          (ros_gz_sim create)
+  5. once spawned: joint_state_broadcaster, then ackermann_steering_controller
+     (the controller_manager runs inside the gz_ros2_control plugin and reads
+     the same /sim/robot_description)
+  6. drive_bridge: /ackermann_drive -> controller, controller odom -> /odom,
+     /sim/imu_raw -> /sensors/imu/raw
+  7. optional foxglove_bridge (foxglove:=true)
 
-ros_ign_bridge note: this uses the YAML config_file feature. The equivalent
-guaranteed-CLI form (if your bridge build lacks config_file support) is:
-  parameter_bridge \
-    /clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock \
-    /scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan \
-    /sensors/imu/raw@sensor_msgs/msg/Imu[ignition.msgs.IMU \
-    /zed2/zed_node/rgb/image_rect_color@sensor_msgs/msg/Image[ignition.msgs.Image \
-    /zed2/zed_node/rgb/image_rect_color/camera_info@sensor_msgs/msg/CameraInfo[ignition.msgs.CameraInfo \
-    /zed2/zed_node/depth/depth_registered@sensor_msgs/msg/Image[ignition.msgs.Image
+Published on the shared graph: /clock /scan /odom /sensors/imu/raw, plus
+/sim/* (internal and ground truth). Nothing on /tf or /tf_static, and nothing
+on /joint_states: on the car joint_state_publisher (static zeros, 10 Hz, kept
+by the Thor in sim:=true) owns that topic, so the sim's true joint states go to
+/sim/joint_states, like /sim/ground_truth.
+
+Args: gui (default false: server only), world, foxglove, x/y/yaw spawn pose.
 """
 import os
 
@@ -33,96 +37,120 @@ from launch.actions import (
     AppendEnvironmentVariable,
     DeclareLaunchArgument,
     IncludeLaunchDescription,
-    TimerAction,
+    RegisterEventHandler,
 )
+from launch.conditions import IfCondition
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import (
+    Command,
+    LaunchConfiguration,
+    PathJoinSubstitution,
+    PythonExpression,
+)
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+
+SIM_DESCRIPTION_TOPIC = '/sim/robot_description'
 
 
 def generate_launch_description():
     sim_share = get_package_share_directory('f1tenth_sim')
     desc_share = get_package_share_directory('f1tenth_description')
-    bringup_share = get_package_share_directory('f1tenth_bringup')
-    ros_ign_gazebo_share = get_package_share_directory('ros_ign_gazebo')
+    ros_gz_sim_share = get_package_share_directory('ros_gz_sim')
 
-    world_path = os.path.join(sim_share, 'worlds', 'empty_room.sdf')
     bridge_config = os.path.join(sim_share, 'config', 'ros_gz_bridge.yaml')
     controllers_file = os.path.join(sim_share, 'config', 'controllers.yaml')
-    # Reused verbatim from the real stack (only use_sim_time is overridden).
-    ekf_config = os.path.join(bringup_share, 'config', 'ekf.yaml')
-    slam_config = os.path.join(bringup_share, 'config', 'f1tenth_online_async.yaml')
 
-    use_sim_time = LaunchConfiguration('use_sim_time')
-    declare_use_sim_time = DeclareLaunchArgument(
-        'use_sim_time', default_value='true',
-        description='Use the Gazebo sim clock (should stay true for sim).')
+    gui = LaunchConfiguration('gui')
+    world = LaunchConfiguration('world')
+    foxglove = LaunchConfiguration('foxglove')
 
-    # Let Gazebo find the world + (description) meshes if referenced by URI.
-    gz_resource_paths = [
-        os.path.join(sim_share, 'worlds'),
-        desc_share,
-        os.path.join(desc_share, 'meshes'),
+    args = [
+        DeclareLaunchArgument(
+            'gui', default_value='false',
+            description='Start the Gazebo GUI. false = server only (sensors '
+                        'still render).'),
+        DeclareLaunchArgument(
+            'world', default_value=os.path.join(sim_share, 'worlds', 'empty_room.sdf'),
+            description='SDF world file.'),
+        DeclareLaunchArgument(
+            'foxglove', default_value='false',
+            description='Also start foxglove_bridge on :8765 on this host.'),
+        DeclareLaunchArgument('x', default_value='0.0'),
+        DeclareLaunchArgument('y', default_value='0.0'),
+        DeclareLaunchArgument('yaw', default_value='0.0'),
     ]
+
+    # Let Gazebo find the world + description meshes if referenced by URI.
+    # (Fortress also needed IGN_GAZEBO_RESOURCE_PATH; Harmonic reads only this.)
     gz_env = [
-        AppendEnvironmentVariable(name=var, value=p, separator=':')
-        for var in ('IGN_GAZEBO_RESOURCE_PATH', 'GZ_SIM_RESOURCE_PATH')
-        for p in gz_resource_paths
+        AppendEnvironmentVariable(name='GZ_SIM_RESOURCE_PATH', value=p, separator=':')
+        for p in (os.path.join(sim_share, 'worlds'), desc_share,
+                  os.path.join(desc_share, 'meshes'))
     ]
 
-    # --- 1) Gazebo Fortress -------------------------------------------------
+    # --- 1) Gazebo Harmonic -------------------------------------------------
     gz_sim = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
-            os.path.join(ros_ign_gazebo_share, 'launch', 'ign_gazebo.launch.py')),
-        launch_arguments={'ign_args': f'-r -v 4 {world_path}'}.items(),
-    )
-
-    # --- 2) robot_state_publisher (RSP-only description launch) -------------
-    description = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(desc_share, 'launch', 'description.launch.py')),
+            os.path.join(ros_gz_sim_share, 'launch', 'gz_sim.launch.py')),
         launch_arguments={
-            'use_sim': 'true',
-            'use_sim_time': use_sim_time,
-            'enable_sensors': 'true',
-            'control_config': controllers_file,
+            'gz_args': [
+                PythonExpression(["'' if '", gui, "' == 'true' else '-s '"]),
+                '-r -v 3 ', world],
+            'on_exit_shutdown': 'true',
         }.items(),
     )
 
-    # Same description string used to spawn the entity (deterministic; no
-    # dependence on the /robot_description topic being up at spawn time).
+    # --- 2) private robot_state_publisher -----------------------------------
     xacro_file = PathJoinSubstitution([
         FindPackageShare('f1tenth_description'), 'urdf', 'roboracer.urdf.xacro'])
     robot_description = ParameterValue(Command([
         'xacro ', xacro_file,
         ' use_sim:=true',
         ' enable_sensors:=true',
+        ' enable_camera_mock:=false',
         ' pkg_share:=', desc_share,
         ' control_config:=', controllers_file,
     ]), value_type=str)
 
-    # --- 3) ros_ign_bridge --------------------------------------------------
-    bridge = Node(
-        package='ros_ign_bridge',
-        executable='parameter_bridge',
-        name='ros_ign_bridge',
+    sim_rsp = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        name='sim_robot_state_publisher',
         output='screen',
-        parameters=[{'use_sim_time': True}],
-        arguments=['--ros-args', '-p', f'config_file:={bridge_config}'],
+        parameters=[{'robot_description': robot_description, 'use_sim_time': True}],
+        remappings=[
+            ('/robot_description', SIM_DESCRIPTION_TOPIC),
+            ('/tf', '/sim/tf'),
+            ('/tf_static', '/sim/tf_static'),
+            ('/joint_states', '/sim/joint_states'),
+        ],
+    )
+
+    # --- 3) ros_gz_bridge ---------------------------------------------------
+    bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='sim_ros_gz_bridge',
+        output='screen',
+        parameters=[{'config_file': bridge_config, 'use_sim_time': True}],
     )
 
     # --- 4) spawn the robot -------------------------------------------------
     spawn_entity = Node(
-        package='ros_ign_gazebo',
+        package='ros_gz_sim',
         executable='create',
-        name='spawn_roboracer',
+        name='sim_spawn_roboracer',
         output='screen',
         arguments=[
             '-name', 'roboracer',
-            '-string', robot_description,
-            '-x', '0.0', '-y', '0.0', '-z', '0.1',
+            '-topic', SIM_DESCRIPTION_TOPIC,
+            '-x', LaunchConfiguration('x'),
+            '-y', LaunchConfiguration('y'),
+            '-z', '0.05',
+            '-Y', LaunchConfiguration('yaw'),
         ],
     )
 
@@ -132,7 +160,10 @@ def generate_launch_description():
         executable='spawner',
         output='screen',
         arguments=['joint_state_broadcaster',
-                   '--controller-manager', '/controller_manager'],
+                   '--controller-manager', '/controller_manager',
+                   '--controller-ros-args', '-r /joint_states:=/sim/joint_states',
+                   '--controller-ros-args',
+                   '-r /dynamic_joint_states:=/sim/dynamic_joint_states'],
     )
     ackermann_spawner = Node(
         package='controller_manager',
@@ -152,45 +183,30 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True, 'wheelbase': 0.325}],
     )
 
-    # --- 7) foxglove --------------------------------------------------------
-    foxglove = Node(
+    # --- 7) foxglove (optional) ---------------------------------------------
+    foxglove_node = Node(
         package='foxglove_bridge',
         executable='foxglove_bridge',
-        name='foxglove_bridge',
+        name='sim_foxglove_bridge',
         output='screen',
         parameters=[{'port': 8765, 'address': '0.0.0.0', 'use_sim_time': True}],
-    )
-
-    # --- 8) slam_toolbox (async mapping) -----------------------------------
-    slam = Node(
-        package='slam_toolbox',
-        executable='async_slam_toolbox_node',
-        name='slam_toolbox',
-        output='screen',
-        parameters=[slam_config, {'use_sim_time': True}],
-    )
-
-    # --- 9) robot_localization EKF -----------------------------------------
-    ekf = Node(
-        package='robot_localization',
-        executable='ekf_node',
-        name='ekf_filter_node',
-        output='screen',
-        parameters=[ekf_config, {'use_sim_time': True}],
+        condition=IfCondition(foxglove),
     )
 
     return LaunchDescription([
-        declare_use_sim_time,
+        *args,
         *gz_env,
         gz_sim,
-        description,
+        sim_rsp,
         bridge,
+        spawn_entity,
         drive_bridge,
-        foxglove,
-        ekf,
-        slam,
-        # Spawn the robot a few seconds after Gazebo is up...
-        TimerAction(period=4.0, actions=[spawn_entity]),
-        # ...then bring up the controllers once the gz controller_manager exists.
-        TimerAction(period=8.0, actions=[jsb_spawner, ackermann_spawner]),
+        foxglove_node,
+        # create exits once the model is in the world, and the plugin's
+        # controller_manager comes up with it; the spawner then waits for the
+        # CM's services on its own.
+        RegisterEventHandler(OnProcessExit(
+            target_action=spawn_entity, on_exit=[jsb_spawner])),
+        RegisterEventHandler(OnProcessExit(
+            target_action=jsb_spawner, on_exit=[ackermann_spawner])),
     ])

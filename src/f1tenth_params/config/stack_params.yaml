@@ -1952,20 +1952,17 @@ llama_server_cwd:
 
 # ============================================================
 # Simulation-flavored args of f1tenth_description/launch/description.launch.py --
-# Gazebo-specific in meaning, but this file is now included by BOTH f1tenth_sim
-# (sim_bringup.launch.py, use_sim:=true) AND the real-hardware path
-# (f1tenth_bringup/f1tenth_localization, use_sim:=false, the default below) since
-# Phase 9 merged what used to be a sim-only description_launch.py with the real
-# hardware's sensor_tf_launch.py into one file. Defaults below are the real-hardware-
-# safe values; f1tenth_sim overrides both explicitly in its own include.
+# Gazebo-specific in meaning. Since the Jazzy sim port, f1tenth_sim no longer
+# includes description.launch.py: it runs its own private robot_state_publisher
+# (TF remapped to /sim/tf, never /tf) with its xacro args hardcoded, so these
+# keys are consumed by the real-hardware path only. Defaults below are the
+# real-hardware-safe values.
 # ============================================================
 # Consumed by: f1tenth_description/description.launch.py. NOT read by f1tenth_sim
-# itself -- sim_bringup.launch.py has no dependency on f1tenth_params and hardcodes
-# its own defaults independently; it's simply the only launch tree that overrides
-# this to true.
+# (sim_bringup.launch.py has no dependency on f1tenth_params).
 use_sim:
   default: false
-  description: "Emit the ign_ros2_control Gazebo plugin + sim sensors in the URDF."
+  description: "Emit the gz_ros2_control Gazebo plugin + sim sensors in the URDF."
 # Consumed by: f1tenth_description/description.launch.py (see use_sim note above).
 # Default changed to false in Phase 9 (was true): the URDF's laser/imu/zed2_camera_link
 # links must NOT be emitted on real hardware anymore, now that description.launch.py
