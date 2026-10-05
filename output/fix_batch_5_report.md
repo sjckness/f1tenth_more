@@ -1,6 +1,6 @@
 # Fix batch 5: discovery isolation (H1) — lease fix and topic-liveness watchdog
 
-- **Where:** Thor, branch `jazzy`. Nothing has been pushed.
+- **Where:** Thor, branch `jazzy`. Pushed with the merge of origin/jazzy (sim work).
 - **Commits:** prefix `fix/<area>:`, one logical change each (list at the end).
 - **Data:** `output/fix_batch_5/`. Full-stack mission bags (`*.mcap`) are not
   committed.
@@ -613,10 +613,10 @@ dac4bef fix/env: jazzy.sh exports the Fast DDS lease profile for hand-started pa
 88fbd42 fix/tools: stackctl.py status prints the supervisor's liveness watchdog, one line per watched component, and fails on any ERROR
 725f256 fix/bringup: liveness checks corrected by the live tests — slam judged by one map per start, the EKFs by their rate, not by age or header.stamp
 009813c fix/discovery: fix batch 5 measurement harness — lease probe, discovery CPU/traffic per thread class, watchdog live tests, isolation and discovery-load batches
-(next) fix/batch5: report, backlog, data — H1 closed by the lease profile and the liveness watchdog; GO-WITH-NOTES
+39f7856 fix/batch5: report, backlog, data — H1 closed by the lease profile and the liveness watchdog; GO-WITH-NOTES
 ```
 
-None pushed.
+Pushed together with the merge of origin/jazzy.
 
 ## Open decisions for Andreas
 
