@@ -268,7 +268,11 @@ health:
       # grows (18.5 s after 2 min in fix batch 5's live test, and it restarted
       # a healthy slam). /slam/pose is NOT used either: slam_toolbox only
       # publishes it after the car has moved minimum_travel_distance.
-      - {topic: /slam/map, once: true, launch_file: slam.launch.py,
+      # settle_sec: the first map needs a scan plus one map_update_interval
+      # (5 s) and the rebuild; without it, a /scan that first appeared after
+      # the grace (late lidar, late simulator) failed the check at once and
+      # restarted a healthy slam (fix batch 5 report, B6).
+      - {topic: /slam/map, once: true, settle_sec: 15, launch_file: slam.launch.py,
          when_fresh: {/scan: 0.5}}
       # INPUT-PROVING AT START: costmap_boundary_node withholds front_clearance
       # until it has both a map and a pose, then republishes from cache at

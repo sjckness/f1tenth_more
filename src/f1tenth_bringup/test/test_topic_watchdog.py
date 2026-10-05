@@ -13,8 +13,8 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'f1tenth_bringup'))
 
 from topic_watchdog import (  # noqa: E402
-    check_verdict, ComponentMonitor, HealthConfigError, needs_message,
-    parse_health_config, topic_states, TopicState)
+    check_verdict, ComponentMonitor, ERROR, HealthConfigError, needs_message, ONCE_SETTLE_SEC,
+    parse_health_config, topic_states, TopicState, WARN)
 
 REGISTRY = {
     'swept_clearance': [{'launch_file': 'swept_clearance.launch.py'}],
@@ -499,3 +499,136 @@ def test_expect_waits_max_age_after_its_input_returns():
         ts['/status'].on_message(t, msg=SimpleNamespace(level=b'\x02'))
     assert check_verdict(c, ts, 11.0)[0] == 'ok'      # 1.0 s after /scan returned
     assert check_verdict(c, ts, 12.9)[0] == 'fail'    # 2.9 s: mpc_corr really has none
+
+
+# -- `once` settle time (backlog M19, report B6) ---------------------------------------
+#
+# Live (discload/after_watchdog/run_05): slam ACTIVE 3.6 s after bringup, /scan
+# first fed 60 s later, i.e. after slam's 30 s grace; 6 s after the feed the
+# once check restarted a healthy slam -- its first map needs a scan plus one
+# map_update_interval. A once check now waits settle_sec after its inputs
+# (and its launch file) are there before it can fail.
+
+SLAM_START = {'slam.launch.py': (True, 0.0)}
+
+
+def _slam(**check_kw):
+    check = {'topic': '/map', 'once': True, 'launch_file': 'slam.launch.py',
+             'when_fresh': {'/scan': 0.5}}
+    check.update(check_kw)
+    health, _, _ = parse_health_config(doc({'slam': {
+        'grace_sec': 30, 'fail_for_sec': 3, 'checks': [check]}}), REGISTRY)
+    return ComponentMonitor(health['slam'])
+
+
+def _slam_run(mon, ts, t0, t1, scan_from=None, map_at=None, procs=SLAM_START, **kw):
+    """Evaluate every 0.5 s; /scan from scan_from on, one /map at map_at."""
+    out = []
+    t = t0
+    while t <= t1 + 1e-9:
+        if scan_from is not None and t >= scan_from:
+            ts['/scan'].on_message(t)
+        if map_at is not None and abs(t - map_at) < 1e-9:
+            ts['/map'].on_message(t)
+        r = mon.evaluate(t, ts, procs, **kw)
+        if r:
+            out.append((t, r))
+            break
+        t += 0.5
+    return out
+
+
+def test_once_settle_defaults_and_is_only_for_once_checks():
+    assert _slam().cfg.checks[0].settle_sec == ONCE_SETTLE_SEC
+    assert _slam(settle_sec=20).cfg.checks[0].settle_sec == 20.0
+    with pytest.raises(HealthConfigError, match='settle_sec is only for once'):
+        parse_health_config(doc({'swept_clearance': {'checks': [
+            {'topic': '/out', 'max_age_sec': 0.5, 'settle_sec': 5}]}}), REGISTRY)
+    with pytest.raises(HealthConfigError, match='settle_sec must be >= 0'):
+        _slam(settle_sec=-1)
+
+
+def test_once_input_inside_the_grace_map_in_time_never_triggers():
+    mon = _slam()
+    ts = topics('/scan', '/map')
+    assert _slam_run(mon, ts, 0.0, 300.0, scan_from=2.0, map_at=8.0) == []
+    assert mon.status == 'OK' and mon.failures == 0
+
+
+def test_once_input_after_the_grace_gets_the_settle_time():
+    """The B6 case: /scan first appears 60 s after slam started -- no restart."""
+    mon = _slam()
+    ts = topics('/scan', '/map')
+    assert _slam_run(mon, ts, 0.0, 59.5) == []
+    assert mon.status == 'UPSTREAM_STALE'
+    # Map 7 s after the first scan (RTF 0.74 in sim: 5 s / 0.74 + the rebuild).
+    assert _slam_run(mon, ts, 60.0, 66.5, scan_from=60.0) == []
+    assert mon.status == 'STARTING' and 'settling' in mon.message
+    assert _slam_run(mon, ts, 67.0, 300.0, scan_from=60.0, map_at=67.0) == []
+    assert mon.status == 'OK' and mon.failures == 0
+
+
+def test_once_without_settle_reproduces_b6():
+    """settle_sec 0 is the old behaviour: the late input restarts a healthy slam."""
+    mon = _slam(settle_sec=0)
+    ts = topics('/scan', '/map')
+    _slam_run(mon, ts, 0.0, 59.5)
+    res = _slam_run(mon, ts, 60.0, 70.0, scan_from=60.0, map_at=67.0)
+    assert res == [(63.0, ['slam.launch.py'])]
+
+
+def test_once_input_never_is_upstream_stale_not_a_restart():
+    """No /scan at all: not slam's fault, so slam is never restarted.
+
+    The watchdog reports it as slam UPSTREAM_STALE (WARN, naming /scan); the
+    lidar itself is judged by perception's own /scan check (its alert).
+    """
+    mon = _slam()
+    ts = topics('/scan', '/map')
+    assert _slam_run(mon, ts, 0.0, 600.0) == []
+    assert mon.status == 'UPSTREAM_STALE' and mon.level == WARN
+    assert '/scan' in mon.message
+    lidar = ComponentMonitor(swept(checks=[{'topic': '/scan', 'max_age_sec': 0.5}],
+                                   action='alert'))
+    assert run(lidar, ts, RUNNING, 0.0, 30.0, feeds=()) == []
+    assert lidar.status == 'ALERT' and lidar.level == ERROR
+
+
+def test_once_output_never_after_settle_triggers():
+    """Input after the grace, map never: restart at input + settle + fail_for."""
+    mon = _slam()
+    ts = topics('/scan', '/map')
+    _slam_run(mon, ts, 0.0, 59.5)
+    res = _slam_run(mon, ts, 60.0, 120.0, scan_from=60.0)
+    assert res == [(60.0 + ONCE_SETTLE_SEC + 3.0, ['slam.launch.py'])]
+    assert any('/map: no message never' in e for _, e in mon.events)
+
+
+def test_once_output_never_with_input_inside_the_grace_triggers_after_the_grace():
+    """Settle runs from the input's arrival; it does not extend the grace."""
+    mon = _slam()
+    ts = topics('/scan', '/map')
+    res = _slam_run(mon, ts, 0.0, 60.0, scan_from=1.0)
+    assert res == [(33.0, ['slam.launch.py'])]
+
+
+def test_once_settle_restarts_after_an_input_outage():
+    """/scan drops out before the first map: the settle time starts again."""
+    mon = _slam()
+    ts = topics('/scan', '/map')
+    _slam_run(mon, ts, 0.0, 59.5)
+    assert _slam_run(mon, ts, 60.0, 65.0, scan_from=60.0) == []        # 5 s of scans
+    assert _slam_run(mon, ts, 65.5, 80.0) == []                         # outage
+    assert _slam_run(mon, ts, 80.5, 80.5 + ONCE_SETTLE_SEC - 0.5, scan_from=80.5) == []
+    assert mon.status == 'STARTING'
+
+
+def test_once_settle_covers_a_late_sim_clock():
+    """sim: paused until the simulator starts at 60 s, /scan with its clock."""
+    mon = _slam()
+    ts = topics('/scan', '/map')
+    assert _slam_run(mon, ts, 0.0, 59.5, paused=True) == []
+    mon.resume(60.0, 5.0)
+    assert _slam_run(mon, ts, 60.0, 67.5, scan_from=60.0) == []
+    assert _slam_run(mon, ts, 68.0, 200.0, scan_from=60.0, map_at=68.0) == []
+    assert mon.status == 'OK' and mon.failures == 0

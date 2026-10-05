@@ -34,6 +34,10 @@ health -- test_component_health_config.py enforces it):
           once: false               # instead of an age: at least one message
                                     # since the launch file (re)started
                                     # (max_age_sec is then ignored; .inf)
+          settle_sec: 15            # once checks only (default
+                                    # ONCE_SETTLE_SEC): no verdict until the
+                                    # when_fresh inputs have been fresh this
+                                    # long (an input that appears late)
           expect: {level: [0]}      # field -> allowed values of the LAST
                                     # message (default: none)
   unwatched:
@@ -43,6 +47,8 @@ Verdict per check, every evaluation:
   skip   the owning launch file is not running, or in its grace period, or a
          when_fresh input is stale (an upstream outage is not this
          component's fault -- this is what separates isolation from it);
+  grace  a `once` check whose inputs have been fresh for less than
+         settle_sec: the node has not had the time to answer yet;
   fail   the topic is older than max_age_sec (never received = infinitely
          old) -- or, for a `once` check, nothing arrived since the launch
          file started -- or its last message does not match `expect`, or
@@ -84,6 +90,16 @@ DEFAULTS = {
     'max_consecutive_restarts': 3,
 }
 
+# A `once` check's default settle_sec. An age check gets its max_age_sec after
+# its inputs return (check_verdict); a once check has no age, so without this
+# it failed the moment its input first appeared after the grace period -- live,
+# a /scan fed 60 s after bringup restarted a healthy slam 6 s later (fix batch
+# 5 report, B6). slam_toolbox's first map comes one map_update_interval (5 s
+# of ITS clock) after its first processed scan: up to 5 s / RTF in wall time
+# in sim (worst measured RTF 0.74: 6.8 s), plus the grid rebuild. Measured
+# from the first /scan to the first /slam/map: see the report's B6 table.
+ONCE_SETTLE_SEC = 15.0
+
 
 class HealthConfigError(ValueError):
     pass
@@ -91,9 +107,11 @@ class HealthConfigError(ValueError):
 
 class Check:
     def __init__(self, topic, max_age_sec, launch_file, when_fresh=None,
-                 expect=None, once=False, min_rate_hz=None, rate_window_sec=2.0):
+                 expect=None, once=False, min_rate_hz=None, rate_window_sec=2.0,
+                 settle_sec=None):
         self.topic = topic
         self.once = bool(once)
+        self.settle_sec = float(ONCE_SETTLE_SEC if settle_sec is None else settle_sec)
         self.min_rate_hz = None if min_rate_hz is None else float(min_rate_hz)
         self.rate_window_sec = float(rate_window_sec)
         self.max_age_sec = float(max_age_sec)
@@ -158,14 +176,19 @@ def parse_health_config(doc, registry):
             elif lf not in launch_files:
                 raise HealthConfigError(f"{where}: {lf} is not one of {name}'s {launch_files}")
             unknown = set(c) - {'topic', 'max_age_sec', 'launch_file', 'when_fresh', 'expect',
-                                'once', 'min_rate_hz', 'rate_window_sec'}
+                                'once', 'min_rate_hz', 'rate_window_sec', 'settle_sec'}
             if unknown:
                 raise HealthConfigError(f'{where}: unknown keys {sorted(unknown)}')
             check = Check(c['topic'], c.get('max_age_sec', math.inf), lf, c.get('when_fresh'),
                           c.get('expect'), c.get('once', False), c.get('min_rate_hz'),
-                          c.get('rate_window_sec', 2.0))
+                          c.get('rate_window_sec', 2.0), c.get('settle_sec'))
             if not check.once and math.isinf(check.max_age_sec):
                 raise HealthConfigError(f'{where}: max_age_sec is required unless once: true')
+            if 'settle_sec' in c and not check.once:
+                raise HealthConfigError(f'{where}: settle_sec is only for once checks '
+                                        '(an age check settles for its max_age_sec)')
+            if check.settle_sec < 0:
+                raise HealthConfigError(f'{where}: settle_sec must be >= 0')
             for t in [check.topic, *check.when_fresh]:
                 if t not in types:
                     raise HealthConfigError(f'{where}: {t} has no entry in health_topic_types')
@@ -265,8 +288,9 @@ def _field(msg, path):
 def check_verdict(check, topics, now, started_at=None, rate_scale=1.0):
     """Judge one check against the received topics.
 
-    Returns ('ok' | 'fail' | 'skip', reason). Grace and running state are the
-    monitor's business, not this function's; started_at (the owning launch
+    Returns ('ok' | 'fail' | 'skip' | 'grace', reason); 'grace' only from a
+    `once` check still settling. The component's grace and running state are
+    the monitor's business, not this function's; started_at (the owning launch
     file's start, monotonic) is read by `once` and rate checks. rate_scale
     multiplies min_rate_hz: the real-time factor in sim, 1 on the car.
     """
@@ -283,6 +307,14 @@ def check_verdict(check, topics, now, started_at=None, rate_scale=1.0):
     st = topics[check.topic]
     if check.once:
         if st.last_rx is None or (started_at is not None and st.last_rx < started_at):
+            # The node needs a moment to answer an input that just appeared:
+            # settle_sec from when its inputs became fresh. The node's own
+            # startup is the grace period's business; an input that has been
+            # there since before the grace ended has long settled.
+            if (inputs_fresh_since is not None
+                    and now - inputs_fresh_since < check.settle_sec):
+                return 'grace', (f'{check.topic}: settling, inputs fresh for '
+                                 f'{now - inputs_fresh_since:.0f} of {check.settle_sec:g} s')
             since = 'never' if st.last_rx is None else 'not since its launch file started'
             return 'fail', f'{check.topic}: no message {since} (must publish at least once)'
         return 'ok', ''
