@@ -1,0 +1,1 @@
+Runs 1-3: stack without any profile (pre-implementation code). Run 4 contaminated by lease_probe.py running concurrently (its own server/talkers: UDP InDatagrams 33.5/s vs 20.5); run 5 refused by the precheck because of the same probe's talker. Reference only.

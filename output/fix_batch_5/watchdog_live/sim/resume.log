@@ -1,0 +1,6 @@
+waiting for service to become available...
+requester: making request: rosbag2_interfaces.srv.Resume_Request()
+
+response:
+rosbag2_interfaces.srv.Resume_Response()
+

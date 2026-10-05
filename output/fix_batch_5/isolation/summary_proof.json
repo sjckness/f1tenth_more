@@ -1,0 +1,572 @@
+{
+  "proof": {
+    "runs": 60,
+    "runs_with_isolation": 1,
+    "runs_slam_lifecycle_hang": 0,
+    "runs_other_isolation": [
+      "run_29"
+    ],
+    "cpu_busy_pct_mean": 21.7,
+    "cpu_busy_pct_with_isolation": [
+      21.7
+    ],
+    "rows": [
+      {
+        "run": "run_01",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.3,
+        "load1": 1.34,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_02",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.5,
+        "load1": 1.58,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_03",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.1,
+        "load1": 4.9,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_04",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 4.83,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_05",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.1,
+        "load1": 3.98,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_06",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.4,
+        "load1": 5.4,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_07",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.8,
+        "load1": 5.21,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_08",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.9,
+        "load1": 3.64,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_09",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.1,
+        "load1": 2.74,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_10",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.8,
+        "load1": 4.13,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_11",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.2,
+        "load1": 3.94,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_12",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 3.95,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_13",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.2,
+        "load1": 5.76,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_14",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.0,
+        "load1": 4.93,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_15",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.5,
+        "load1": 5.76,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_16",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.9,
+        "load1": 4.68,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_17",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 3.88,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_18",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 4.24,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_19",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.0,
+        "load1": 3.27,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_20",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.3,
+        "load1": 5.95,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_21",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.1,
+        "load1": 5.3,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_22",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.4,
+        "load1": 5.19,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_23",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.5,
+        "load1": 5.34,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_24",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.6,
+        "load1": 5.23,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_25",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.1,
+        "load1": 4.23,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_26",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.0,
+        "load1": 4.17,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_27",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.1,
+        "load1": 4.39,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_28",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 3.15,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_29",
+        "isolated": {
+          "/semantic_layer_node": [
+            "graph: never in graph"
+          ]
+        },
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 3.1,
+        "matching_unexisting": 0,
+        "nodes_settled": 32
+      },
+      {
+        "run": "run_30",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 4.89,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_31",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.1,
+        "load1": 5.37,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_32",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.6,
+        "load1": 5.8,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_33",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 4.56,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_34",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.5,
+        "load1": 4.19,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_35",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 6.38,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_36",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.6,
+        "load1": 4.61,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_37",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.0,
+        "load1": 3.83,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_38",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 3.4,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_39",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 2.46,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_40",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.4,
+        "load1": 3.88,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_41",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.8,
+        "load1": 4.26,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_42",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.3,
+        "load1": 5.28,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_43",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.7,
+        "load1": 4.78,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_44",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.8,
+        "load1": 4.44,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_45",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.8,
+        "load1": 5.92,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_46",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 19.7,
+        "load1": 5.43,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_47",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 24.4,
+        "load1": 5.44,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_48",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.9,
+        "load1": 5.61,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_49",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.5,
+        "load1": 5.96,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_50",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 23.2,
+        "load1": 4.38,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_51",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.5,
+        "load1": 4.38,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_52",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.0,
+        "load1": 3.68,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_53",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.2,
+        "load1": 3.81,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_54",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.9,
+        "load1": 3.77,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_55",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.2,
+        "load1": 6.16,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_56",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.1,
+        "load1": 3.94,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_57",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.5,
+        "load1": 4.6,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_58",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 20.4,
+        "load1": 3.27,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_59",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 22.2,
+        "load1": 3.77,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_60",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 21.5,
+        "load1": 4.9,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      }
+    ],
+    "watchdog_alerts": {},
+    "vs_fb4_baseline": {
+      "baseline": "8/30",
+      "this": "1/60",
+      "fisher_one_sided_p": 0.00052,
+      "rate": 0.0167,
+      "rate_upper95": 0.0766,
+      "baseline_rate": 0.2667
+    },
+    "isolated_runs_alerted": {
+      "run_29": false
+    }
+  }
+}

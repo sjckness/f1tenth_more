@@ -1,0 +1,42 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/smoke/hold1/ros_log/2026-10-04-06-01-20-222286-thor-838384
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [fastdds_discovery_server-1]: process started with pid [838418]
+[INFO] [component_supervisor_node-2]: process started with pid [838419]
+[fastdds_discovery_server-1] [ensure_discovery_server] 127.0.0.1:11811 already has a live listener (an earlier session's server, deliberately still running by design -- see stack_params.yaml's own discovery_server_address/_port comment) -- reusing it, not starting a duplicate. This process will now idle harmlessly for the life of this launch.
+[component_supervisor_node-2] Traceback (most recent call last):
+[component_supervisor_node-2]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/lib/f1tenth_bringup/component_supervisor_node", line 33, in <module>
+[component_supervisor_node-2]     sys.exit(load_entry_point('f1tenth-bringup', 'console_scripts', 'component_supervisor_node')())
+[component_supervisor_node-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_bringup/f1tenth_bringup/component_supervisor_node.py", line 1822, in main
+[component_supervisor_node-2]     node = ComponentSupervisorNode()
+[component_supervisor_node-2]            ^^^^^^^^^^^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_bringup/f1tenth_bringup/component_supervisor_node.py", line 660, in __init__
+[component_supervisor_node-2]     self.health_watchdog = str(self.declare_parameter('health_watchdog', 'on').value)
+[component_supervisor_node-2]                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 389, in declare_parameter
+[component_supervisor_node-2]     return self.declare_parameters('', [args], ignore_override)[0]
+[component_supervisor_node-2]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 528, in declare_parameters
+[component_supervisor_node-2]     self._declare_parameter_common(
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/node.py", line 584, in _declare_parameter_common
+[component_supervisor_node-2]     raise InvalidParameterTypeException(
+[component_supervisor_node-2] rclpy.exceptions.InvalidParameterTypeException: Trying to set parameter 'health_watchdog' to 'True' of type 'BOOL', expecting type 'STRING': health_watchdog
+[ERROR] [component_supervisor_node-2]: process has died [pid 838419, exit code 1, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/lib/f1tenth_bringup/component_supervisor_node --ros-args -r __node:=component_supervisor_node --params-file /tmp/launch_params_qz21t9s6'].
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [fastdds_discovery_server-1]: sending signal 'SIGINT' to process[fastdds_discovery_server-1]
+[fastdds_discovery_server-1] Traceback (most recent call last):
+[fastdds_discovery_server-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py", line 124, in <module>
+[fastdds_discovery_server-1]     main()
+[fastdds_discovery_server-1]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py", line 89, in main
+[fastdds_discovery_server-1]     signal_wait.wait()
+[fastdds_discovery_server-1]   File "/usr/lib/python3.12/subprocess.py", line 1264, in wait
+[fastdds_discovery_server-1]     return self._wait(timeout=timeout)
+[fastdds_discovery_server-1]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[fastdds_discovery_server-1]   File "/usr/lib/python3.12/subprocess.py", line 2053, in _wait
+[fastdds_discovery_server-1]     (pid, sts) = self._try_wait(0)
+[fastdds_discovery_server-1]                  ^^^^^^^^^^^^^^^^^
+[fastdds_discovery_server-1]   File "/usr/lib/python3.12/subprocess.py", line 2011, in _try_wait
+[fastdds_discovery_server-1]     (pid, sts) = os.waitpid(self.pid, wait_flags)
+[fastdds_discovery_server-1]                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[fastdds_discovery_server-1] KeyboardInterrupt
+[ERROR] [fastdds_discovery_server-1]: process has died [pid 838418, exit code -2, cmd 'python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py 127.0.0.1 11811'].

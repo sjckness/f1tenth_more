@@ -1,0 +1,10 @@
+{
+ "profile": "none",
+ "removal_after_kill_s": [
+  19.441,
+  19.343,
+  19.45
+ ],
+ "min": 19.343,
+ "max": 19.45
+}

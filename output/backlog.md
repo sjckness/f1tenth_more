@@ -12,7 +12,7 @@ they are under "Done" at the bottom.
 - **LOW:** debt, cleanup, nice to have.
 
 Sources: P0 = `thor_phase0_report.md`, P1–P5 = `phase<N>_*_report.md`,
-FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
+FB1–FB5 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 
 ---
 
@@ -20,7 +20,6 @@ FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 
 | # | Item | Source |
 |---|---|---|
-| H1 | **Discovery isolation: root-caused, fix and watchdog awaiting approval.** Participants of the previous session that exited uncleanly stay in the reused Discovery Server for their 20 s lease; a bringup inside that window intermittently fails to match some endpoint pairs (most often launch_ros's slam_toolbox `change_state`, so slam never activates and everything on `/slam/*` starves; also topic subscriptions, e.g. localization or `mpc_corr` getting no odometry). Measured over 30 full-stack bringups each: production default 8/30, fresh server 0/30, 30 s gap 0/30, 5 s lease 0/30, UDP-only 3/30. Proposed: a 5 s participant lease profile set by the bringup launch files (fix batch 4, Decision 1), plus the supervisor topic-liveness watchdog designed in fix batch 4 B7 (Decision 2). Detection script for Phase S: `scripts/jazzy_parity/isolation_check.py`. Also open: the same full-stack measurement on the Orin (Humble) -- a stack-free reproduction lost the lifecycle 3/60 on Jazzy and 0/60 on Humble. | P5, FB3, FB4 |
 | H2 | **ABI drift on the car's Jetson / in the Docker image.** Phase 1 found `robot_localization` crashing on a `diagnostic_updater` ABI mismatch between apt packages. Phase 5 found the workspace's own `ackermann_mux` and ZED binaries broken by the same upgrade. Check the target before the first live run. Build the image against the apt snapshot it runs, then run the `ldd -r` scan (CLAUDE.md, "Rebuild policy"). | P1 Decision 1, P5 |
 | H3 | **MPC deadline overrun on the Orin.** The recorded Humble run had a mean period of 112 ms against a 100 ms deadline: 53 periods over 150 ms, worst 309 ms, all cores 78–100%. This is pre-existing, and the main timing risk for Jazzy-in-Docker on the Orin. Re-measure there. | P3 Decision 3 |
 | H4 | **Local EKF + IMU parity, live.** No archived bag has `/sensors/imu/raw`, so the local EKF's IMU fusion has never been compared. Phase 6 on the stand. | P1 Decision 3 |
@@ -39,10 +38,14 @@ FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 | M7 | **pose0 rejection rate unresolved.** The 3.1% tuning baseline could not be reproduced from one bag. It needs the original 37-run archive, or a live capture with `/diagnostics` recorded. | P1 Decision 2, follow-up |
 | M8 | **`costmap_boundary_node` outlier rate.** About 2–5% of ticks are off by more than 10 cm / 5°. Pre-existing. Filter before treating `/costmap/boundaries` or `/costmap/front_clearance` as continuous signals (e.g. in the MPC). | P2 Decision 2 |
 | M9 | **torch / torchvision / ultralytics for JetPack 7.** Needed for YOLO on Thor or the sim host. Match the CUDA minor version. Never pip `nvidia-*` / PyPI torch (CUDA safety rule). | P0 Decision 4, P5 |
-| M10 | **Two-machine sim checklist (TPad → Thor):**<br>- Discovery Server on Thor's LAN IP; same `ROS_DOMAIN_ID`; firewall open for UDP 11811 + RTPS ports.<br>- The TPad must not publish robot_state_publisher, EKF, `/joint_states`, `base_link→laser/imu`.<br>- It must publish `/camera/image_raw`.<br>- Push the TPad sim-port report so its network section can be cross-checked. | P5 Step 6, Decision 6 |
+| M10 | **Two-machine sim checklist (TPad → Thor):**<br>- Discovery Server on Thor's LAN IP; same `ROS_DOMAIN_ID`; firewall open for UDP 11811 + RTPS ports.<br>- Sim host (linus / TPad): `source <repo>/scripts/env/jazzy.sh`, then `export ROS_DISCOVERY_SERVER=<Thor LAN IP>:11811`, then start the simulator and bridge from that shell: every sim-side participant must carry the 5 s lease profile (FB5, "Phase S").<br>- The TPad must not publish robot_state_publisher, EKF, `/joint_states`, `base_link→laser/imu`.<br>- It must publish `/camera/image_raw`.<br>- Push the TPad sim-port report so its network section can be cross-checked. | P5 Step 6, Decision 6, FB5 |
 | M11 | **`humble-final` tag on the Jetson** before any Jazzy commit reaches it (clean diff and cherry-pick base). Not confirmed done. | Plan Decision 4 |
 | M12 | **`mpc_controller`: 10 tests encode stale config defaults.** Pre-existing ("default moved, test not updated", see CLAUDE.md). Update the tests or the defaults deliberately. | P0 A2 |
-| M13 | **Double-SIGINT shutdown.** The supervisor's `killpg` plus launch's forwarded SIGINT interrupts Python nodes' `finally:` cleanup: tracebacks, and a stale `/tmp/mission_logger.lock` (reclaimed at the next start). Distro-independent (probe). Raised from LOW by fix batch 4: participants destroyed this way never dispose and stay in the Discovery Server for 20 s, which feeds H1. | P5 Finding 4 |
+| M13 | **Double-SIGINT shutdown.** The supervisor's `killpg` plus launch's forwarded SIGINT interrupts Python nodes' `finally:` cleanup: tracebacks, and a stale `/tmp/mission_logger.lock` (reclaimed at the next start). Distro-independent (probe). Raised from LOW by fix batch 4: participants destroyed this way never dispose and stay in the Discovery Server until their lease runs out, which fed H1 (closed by FB5: the window is now 5 s instead of 20 s, and possibly the edge case M14). | P5 Finding 4 |
+| M14 | **Participant never in the graph: 1 bringup in 60 with the lease fix.** FB5 proof run 29: `semantic_layer_node` was running and logged `started`, but was never in the graph from bringup to shutdown, while every other node was. Not FB4's signature (single endpoint pairs of participants that were in the graph); the previous run's processes died about 4 s before it started, so the 5 s lease window may just touch. Cause open. The watchdog cannot see it: `semantic_layer_node` only publishes with detections. Data: `output/fix_batch_5/isolation/proof/run_29`. | FB5 A4 |
+| M15 | **Components the liveness watchdog judges only on "it runs".** wall_distance (`/perception/d_wall/segment`, a 10 Hz timer), behavior (`/behavior/tree_status`, every BT tick) and system_observer have no output that depends on their input; `semantic_layer_node` and `costmap_renderer` have no watchable output at all. A heartbeat like `mpc_corr`'s `/mpc/input_status` (FB5, decision 2b) would make them input-proving. Recommended first: wall_distance (its input is `/scan`). | FB5 B2 |
+| M16 | **Should the BT stop the car on `/supervisor/health` ERROR?** (FB4 decision 2c, still open.) The status exists since FB5; nothing consumes it. | FB4 B7, FB5 |
+| M17 | **Watchdog `once` check fires when its input appears after the grace.** slam's `/slam/map` check failed 6 s after `/scan` first appeared (60 s after bringup) and restarted a healthy slam: 1 of 5 enforce-mode discload runs. The input-returned settling only covers age checks. Proposed: a per-check `settle_sec` for `once` checks (slam 15 s) and a unit test. Likely in Phase S if the sim's `/scan` starts late. Data: `output/fix_batch_5/discload/after_watchdog/run_05`. | FB5 B6 |
 
 ## LOW
 
@@ -60,6 +63,7 @@ FB1/FB2 = `fix_batch_<N>_report.md`, Plan = `jazzy_migration_plan.md`.
 | L11 | **`f1tenth_behavior` flaky test.** One failure under a whole-workspace parallel `colcon test`; not reproducible in 20+ runs, even under 2× CPU oversubscription. | P0 A3, P4 |
 | L12 | **`stack_bringup.launch.py`** (the single-process fallback) has no sim mode and was not exercised in Phase 5. Keep it working, or retire it. | P5 |
 | L13 | **QoS on bag rewriting.** Any future tool that filters or rewrites bags must carry `offered_qos_profiles` through, or `/tf_static` breaks silently. A practice note, not a code item. | P2 Decision 1 |
+| L14 | **slam_toolbox's map interval grows with the session.** Before every publish it rebuilds the whole grid from every scan under the mapper lock (`updateMap()`, 2.8.5). In FB5's 10-minute looped-bag run: median gap 5 s at first, 12.5 s in the last third, one gap of **415 s**. costmap_boundary then works from a map that can be minutes old. The liveness watchdog judges `/slam/map` `once` per start for this reason. Check with a real drive; consider `map_update_interval` / map size limits. | FB5 B5 |
 
 ---
 
@@ -73,6 +77,7 @@ These are not post-migration work, but they block closing their phases.
 | Phase 3 MPC frozen/replay run and the Orin's osqp version (`output/phase3/ORIN_MPC_INSTRUCTIONS.md`) | P3 Decision 1 |
 | Phase 4 BT replays, extract and py_trees versions (`output/phase4/ORIN_BT_INSTRUCTIONS.md`) | P4 Decision 2 |
 | Phase 5 10-cycle comparison and the Orin's stack environment | P5 Decisions 2–3 |
+| The 5 s lease under the Orin's real load (78–100% CPU): `scripts/fix_batch_5/run_batches.sh` with `BATCHES="proof stress"`; and the full-stack Humble isolation rate (FB4 decision 3) | FB4, FB5 |
 
 ---
 
@@ -89,3 +94,4 @@ These are not post-migration work, but they block closing their phases.
 | Plain-client audit: `ekf_cost_observer_node` measured nothing | FB2 (old H6) | FB3 `a936c75` |
 | Plain-client audit: `stackctl.py status` reported supervisor services missing | FB2 (old H6) | FB3 `d29b3e0` |
 | Plain-client audit: steering calibration never saw `/safety_stop` | FB2 (old H6) | FB3 `5b320a5` + FB4 `b31b76c` (graph wait; 10/10 pass with the BT, 3/3 refuse without) |
+| H1 Discovery isolation (stale participants in the reused Discovery Server; slam never ACTIVE, subscriptions never matched) | P5, FB3, FB4 | FB5 `7b301b2` (5 s lease profile for every participant: isolated bringups 8/30 → 1/60, p = 0.0005; slam hang 7/30 → 0/60; 0/20 under CPU saturation) + `dac4bef` (jazzy.sh) + `96a5b12`/`725f256` (supervisor topic-liveness watchdog; 0 false triggers in 80 bringups and 10 min, SIGSTOPped node restarted and OK in 34 s) + `0f151aa` (`/mpc/input_status`). Remaining 1/60: M14. |

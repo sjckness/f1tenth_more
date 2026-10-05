@@ -1,0 +1,14 @@
+{
+ "profile": "/home/andre/dev_ws/f1tenth_more/src/f1tenth_bringup/config/fastdds_profile.xml",
+ "apply_to": [
+  "observer",
+  "server"
+ ],
+ "removal_after_kill_s": [
+  19.381,
+  19.427,
+  19.447
+ ],
+ "min": 19.381,
+ "max": 19.447
+}

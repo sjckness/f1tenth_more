@@ -1,0 +1,5 @@
+[INFO] [1791087231.966906814] [rosbag2_storage]: Opened database '/home/andre/dev_ws/f1tenth_more/output/phase5/inputs/bringup_input/bringup_input_0.db3' for READ_ONLY.
+loop 1/20 done, 3797 messages so far
+loop 2/20 done, 7593 messages so far
+loop 3/20 done, 11389 messages so far
+loop 4/20 done, 15185 messages so far

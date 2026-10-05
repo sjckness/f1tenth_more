@@ -65,6 +65,50 @@ silently downgrades the package type to plain `python`, which then shows up as
 a runtime-only "package not found" crash long after the build reported success.
 Use a single hyphen in comment prose.
 
+## DDS / discovery
+
+### Every participant loads `config/fastdds_profile.xml` (5 s lease)
+
+`src/f1tenth_bringup/config/fastdds_profile.xml` sets a 5 s participant lease
+(Fast DDS default 20 s). A participant that dies without disposing is dropped
+from the Discovery Server within 5 s; with 20 s, a stack started inside that
+window intermittently never matched some endpoints (backlog H1: 8 of 30
+bringups, slam_toolbox never activating; 0 of 90 with the profile, fix batches
+4 and 5).
+
+The lease is announced by **each participant itself** — the server and the
+other side cannot impose it (measured: profile on the server only, a killed
+node still stays 19.4 s). So it must reach every process:
+
+- the stack: `supervisor_bringup.launch.py` / `stack_bringup.launch.py` set
+  `FASTRTPS_DEFAULT_PROFILES_FILE` (launch argument `fastdds_profile`). A new
+  top-level launch entry point must set it the same way, next to
+  `ROS_DISCOVERY_SERVER`;
+- everything started by hand, the Phase S sim host included:
+  `source scripts/env/jazzy.sh` (bash or zsh). After changing it, `ros2 daemon
+  stop`;
+- the car's Docker image runs the launch files, so it is covered.
+
+Never add a second profile file or an `is_default_profile` elsewhere: Fast DDS
+loads one default profile.
+
+### Launch parameters: never `on` / `off` / `yes` / `no` as string values
+
+Launch writes parameters through a YAML file, and YAML turns `on`/`off`
+into booleans: a string parameter declared with default `'on'` received
+`True` and the node refused to start (fix batch 5, `health_watchdog`). Use
+words YAML leaves alone (`enforce`, `alert`, `disabled`).
+
+## Harness gotchas
+
+- `phase5_bringup.sh` refuses to start a run while **any** ROS process is up
+  (its precheck). A probe or talker started "on the side" during a batch
+  aborts the batch and contaminates its traffic numbers. Run nothing ROS while
+  a batch runs.
+- `pkill -f PATTERN` / `pgrep -f` inside a Bash tool call match the calling
+  shell's own command line, which contains PATTERN: `pkill -f` then kills the
+  call itself. Kill by PID, or by exact process name (`pkill -x`).
+
 ## Rebuild policy
 
 ### After any `ros-jazzy-*` apt upgrade, clean-rebuild every CMake package

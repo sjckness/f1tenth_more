@@ -1,0 +1,1 @@
+Runs on commit 96a5b12 plus the 'once' fix for /slam/map (uncommitted at the time); superseded by the runs on 725f256. Kept: they found the new_stamp premise false (normal_v2 ekf probe) and the 0.5 s expect blip (navigation at feed start).

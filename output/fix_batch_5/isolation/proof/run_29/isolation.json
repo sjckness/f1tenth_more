@@ -1,0 +1,31 @@
+{
+  "isolated": {
+    "/semantic_layer_node": [
+      "graph: never in graph"
+    ]
+  },
+  "n_isolated": 1,
+  "polls": 33,
+  "topic_counts": {
+    "/drive": 81,
+    "/ackermann_drive": 81,
+    "/odometry/filtered": 336,
+    "/obstacle_clearance": 319,
+    "/costmap/front_clearance": 162,
+    "/diagnostics/system_status": 8,
+    "/perception/lidar_front_wall": 318,
+    "/perception/d_wall/segment": 81,
+    "/behavior/tree_status": 80,
+    "/ekf_global/odometry/filtered": 331,
+    "/diagnostics/battery_status": 16,
+    "/joint_states": 80,
+    "/slam/pose": 15,
+    "/perception/swept_clearance/lidar": 316,
+    "/slam/pose_calibrated": 15
+  },
+  "topics_not_in_graph": [],
+  "graph_signal": {
+    "/semantic_layer_node": "never in graph"
+  },
+  "starvation_signal": {}
+}

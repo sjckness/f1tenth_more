@@ -1,0 +1,2 @@
+ABORT: ROS processes already running:
+ 833196  833188  833188       1 /opt/ros/jazzy/lib/demo_nodes_cpp/talker --ros-args -r __node:=lease_talker_0

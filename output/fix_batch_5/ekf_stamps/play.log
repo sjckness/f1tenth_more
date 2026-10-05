@@ -1,0 +1,9 @@
+[INFO] [1791088981.044646021] [rosbag2_storage]: Opened database '/home/andre/dev_ws/f1tenth_more/output/phase5/inputs/bringup_input/bringup_input_0.db3' for READ_ONLY.
+Traceback (most recent call last):
+  File "/home/andre/dev_ws/f1tenth_more/scripts/jazzy_parity/restamp_play.py", line 107, in <module>
+    main()
+  File "/home/andre/dev_ws/f1tenth_more/scripts/jazzy_parity/restamp_play.py", line 98, in main
+    pubs[topic].publish(msg)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/publisher.py", line 70, in publish
+    self.__publisher.publish(msg)
+rclpy._rclpy_pybind11.RCLError: Failed to publish: publisher's context is invalid, at ./src/rcl/publisher.c:423

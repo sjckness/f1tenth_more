@@ -1,0 +1,3 @@
+ 823250  823167  823248     484 /opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811
+ 833120  833120  833119       1 sh /opt/ros/jazzy/bin/fastdds discovery -i 0 -l 127.0.0.1 -p 11911
+ 833124  833120  833122       1 /opt/ros/jazzy/bin/fast-discovery-server -i 0 -l 127.0.0.1 -p 11911

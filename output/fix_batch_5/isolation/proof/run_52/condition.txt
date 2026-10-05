@@ -1,0 +1,1 @@
+FRESH_DS=0 FASTDDS_BUILTIN_TRANSPORTS=<default> RUN_GAP=2 FASTRTPS_DEFAULT_PROFILES_FILE=/home/andre/dev_ws/f1tenth_more/src/f1tenth_bringup/config/fastdds_profile.xml LAUNCH_ARGS=health_watchdog:=alert

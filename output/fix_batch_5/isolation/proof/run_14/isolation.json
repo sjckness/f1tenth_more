@@ -1,0 +1,25 @@
+{
+  "isolated": {},
+  "n_isolated": 0,
+  "polls": 35,
+  "topic_counts": {
+    "/slam/pose": 16,
+    "/perception/lidar_front_wall": 320,
+    "/ackermann_drive": 81,
+    "/perception/swept_clearance/lidar": 319,
+    "/diagnostics/battery_status": 16,
+    "/joint_states": 80,
+    "/odometry/filtered": 323,
+    "/diagnostics/system_status": 8,
+    "/perception/d_wall/segment": 80,
+    "/ekf_global/odometry/filtered": 322,
+    "/drive": 80,
+    "/slam/pose_calibrated": 16,
+    "/costmap/front_clearance": 161,
+    "/obstacle_clearance": 319,
+    "/behavior/tree_status": 77
+  },
+  "topics_not_in_graph": [],
+  "graph_signal": {},
+  "starvation_signal": {}
+}

@@ -1,0 +1,13 @@
+{
+ "profile": "/home/andre/dev_ws/f1tenth_more/src/f1tenth_bringup/config/fastdds_profile.xml",
+ "apply_to": [
+  "talker"
+ ],
+ "removal_after_kill_s": [
+  4.5,
+  4.459,
+  4.356
+ ],
+ "min": 4.356,
+ "max": 4.5
+}

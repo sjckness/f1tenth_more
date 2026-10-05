@@ -1,0 +1,350 @@
+{
+ "t": 1791095792.469089,
+ "procs": {
+  "1002772": {
+   "cmd": "/opt/ros/jazzy/bin/fast-discovery-server --server-id 0 --udp-address 127.0.0.1 --udp-port 11811 ",
+   "ds": true,
+   "cpu": {
+    "app": 0.01,
+    "dds.other": 9.58,
+    "dds.ev": 0.45,
+    "dds.udp": 0.96,
+    "dds.shm": 0.04
+   }
+  },
+  "1008838": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/lib/f1tenth_bringup/component_supervisor_node --ros-args -r __node:=component_superviso",
+   "ds": false,
+   "cpu": {
+    "app": 1.3900000000000006,
+    "dds.other": 0.01,
+    "dds.ev": 0.06,
+    "dds.udp": 0.1,
+    "dds.shm": 0.05
+   }
+  },
+  "1008878": {
+   "cmd": "/usr/bin/python3 /opt/ros/jazzy/bin/ros2 launch f1tenth_navigation slam.launch.py ",
+   "ds": false,
+   "cpu": {
+    "app": 1.1500000000000001,
+    "dds.other": 0.0,
+    "dds.ev": 0.05,
+    "dds.udp": 0.07,
+    "dds.shm": 0.04
+   }
+  },
+  "1008923": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/lidar_front_wall_node --ros-args -r __node:=lidar_front_wall_",
+   "ds": false,
+   "cpu": {
+    "app": 1.0,
+    "dds.other": 0.02,
+    "dds.ev": 0.02,
+    "dds.udp": 0.02,
+    "dds.shm": 0.01
+   }
+  },
+  "1008925": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/wall_distance_node --ros-args -r __node:=wall_distance_node -",
+   "ds": false,
+   "cpu": {
+    "app": 3.47,
+    "dds.other": 0.0,
+    "dds.ev": 0.04,
+    "dds.udp": 0.03,
+    "dds.shm": 0.02
+   }
+  },
+  "1008926": {
+   "cmd": "/opt/ros/jazzy/lib/foxglove_bridge/foxglove_bridge --ros-args -r __node:=foxglove_bridge --params-file /tmp/launch_params_m2uxyqes ",
+   "ds": false,
+   "cpu": {
+    "app": 1.4600000000000004,
+    "dds.other": 0.0,
+    "dds.ev": 0.1,
+    "dds.udp": 0.27,
+    "dds.shm": 0.060000000000000005
+   }
+  },
+  "1008927": {
+   "cmd": "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_raw 5.0 /camera/image_raw/viz --ros-args -r __node:=image_raw_viz_throttle ",
+   "ds": false,
+   "cpu": {
+    "app": 0.38,
+    "dds.other": 0.0,
+    "dds.ev": 0.06,
+    "dds.udp": 0.19,
+    "dds.shm": 0.05
+   }
+  },
+  "1008928": {
+   "cmd": "/opt/ros/jazzy/lib/topic_tools/throttle messages /camera/image_annotated 5.0 /camera/image_annotated/viz --ros-args -r __node:=image_annotated_viz_throttle ",
+   "ds": false,
+   "cpu": {
+    "app": 0.54,
+    "dds.other": 0.0,
+    "dds.ev": 0.06,
+    "dds.udp": 0.17,
+    "dds.shm": 0.06
+   }
+  },
+  "1008934": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/mpc_controller/lib/mpc_controller/mpc_corr --ros-args -r __node:=mpc_corr --params-file /tmp/launch_par",
+   "ds": false,
+   "cpu": {
+    "app": 17.29,
+    "dds.other": 0.0,
+    "dds.ev": 0.11,
+    "dds.udp": 0.06,
+    "dds.shm": 0.34
+   }
+  },
+  "1008935": {
+   "cmd": "/opt/ros/jazzy/lib/nav2_map_server/map_server --ros-args -r __node:=map_server --params-file /tmp/launch_params_p7ldflx3 ",
+   "ds": false,
+   "cpu": {
+    "app": 0.62,
+    "dds.other": 0.0,
+    "dds.ev": 0.1,
+    "dds.udp": 0.1,
+    "dds.shm": 0.14
+   }
+  },
+  "1008936": {
+   "cmd": "/opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_map --params-file /tmp/launch_params_cv6ixqwo ",
+   "ds": false,
+   "cpu": {
+    "app": 0.54,
+    "dds.other": 0.01,
+    "dds.ev": 0.1,
+    "dds.udp": 0.08,
+    "dds.shm": 0.13
+   }
+  },
+  "1008937": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/diagnostics_server_node --ros-args -r __node:=diagnostics_s",
+   "ds": false,
+   "cpu": {
+    "app": 1.4400000000000002,
+    "dds.other": 0.0,
+    "dds.ev": 0.06,
+    "dds.udp": 0.06,
+    "dds.shm": 0.05
+   }
+  },
+  "1008938": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_logger/lib/f1tenth_logger/mission_logger_node --ros-args -r __node:=mission_logger_node --param",
+   "ds": false,
+   "cpu": {
+    "app": 0.9700000000000002,
+    "dds.other": 0.0,
+    "dds.ev": 0.04,
+    "dds.udp": 0.16,
+    "dds.shm": 0.03
+   }
+  },
+  "1008939": {
+   "cmd": "/home/andre/dev_ws/f1tenth_more/install/ackermann_mux/lib/ackermann_mux/ackermann_mux --ros-args -r __node:=ackermann_mux --params-file /home/andre/dev_ws/f1ten",
+   "ds": false,
+   "cpu": {
+    "app": 0.37,
+    "dds.other": 0.0,
+    "dds.ev": 0.09,
+    "dds.udp": 0.09,
+    "dds.shm": 0.17
+   }
+  },
+  "1008945": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/behavior_executor_node --ros-args -r __node:=behavior_executor_no",
+   "ds": false,
+   "cpu": {
+    "app": 14.33,
+    "dds.other": 0.01,
+    "dds.ev": 0.04,
+    "dds.udp": 0.04,
+    "dds.shm": 0.12
+   }
+  },
+  "1008956": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/semantic_layer_node --ros-args -r __node:=semantic_layer_node --par",
+   "ds": false,
+   "cpu": {
+    "app": 2.9299999999999997,
+    "dds.other": 0.0,
+    "dds.ev": 0.04,
+    "dds.udp": 0.05,
+    "dds.shm": 0.12000000000000001
+   }
+  },
+  "1008957": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_behavior/lib/f1tenth_behavior/twist_to_ackermann_node --ros-args -r __node:=twist_to_ackermann_",
+   "ds": false,
+   "cpu": {
+    "app": 0.8100000000000002,
+    "dds.other": 0.01,
+    "dds.ev": 0.04,
+    "dds.udp": 0.06,
+    "dds.shm": 0.03
+   }
+  },
+  "1008961": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_renderer_node --ros-args -r __node:=costmap_renderer_node -",
+   "ds": false,
+   "cpu": {
+    "app": 1.3300000000000003,
+    "dds.other": 0.0,
+    "dds.ev": 0.04,
+    "dds.udp": 0.05,
+    "dds.shm": 0.02
+   }
+  },
+  "1008962": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_costmap/lib/f1tenth_costmap/costmap_boundary_node --ros-args -r __node:=costmap_boundary_node -",
+   "ds": false,
+   "cpu": {
+    "app": 6.449999999999997,
+    "dds.other": 0.0,
+    "dds.ev": 0.09,
+    "dds.udp": 0.05,
+    "dds.shm": 0.13999999999999999
+   }
+  },
+  "1009027": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/swept_clearance_node --ros-args -r __node:=swept_clearance_no",
+   "ds": false,
+   "cpu": {
+    "app": 5.0,
+    "dds.other": 0.01,
+    "dds.ev": 0.08,
+    "dds.udp": 0.03,
+    "dds.shm": 0.09
+   }
+  },
+  "1009031": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/system_observer_node --ros-args -r __node:=system_observer_",
+   "ds": false,
+   "cpu": {
+    "app": 1.1500000000000001,
+    "dds.other": 0.01,
+    "dds.ev": 0.05,
+    "dds.udp": 0.05,
+    "dds.shm": 0.04
+   }
+  },
+  "1009085": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_perception/lib/f1tenth_perception/obstacle_clearance_node --ros-args -r __node:=obstacle_cleara",
+   "ds": false,
+   "cpu": {
+    "app": 0.94,
+    "dds.other": 0.02,
+    "dds.ev": 0.02,
+    "dds.udp": 0.02,
+    "dds.shm": 0.02
+   }
+  },
+  "1009094": {
+   "cmd": "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_filter_node --params-file /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share",
+   "ds": false,
+   "cpu": {
+    "app": 0.5,
+    "dds.other": 0.0,
+    "dds.ev": 0.06,
+    "dds.udp": 0.11,
+    "dds.shm": 0.12
+   }
+  },
+  "1009095": {
+   "cmd": "/opt/ros/jazzy/lib/robot_localization/ekf_node --ros-args -r __node:=ekf_global_filter_node -r __ns:=/ekf_global --params-file /home/andre/dev_ws/f1tenth_more/i",
+   "ds": false,
+   "cpu": {
+    "app": 0.51,
+    "dds.other": 0.0,
+    "dds.ev": 0.05,
+    "dds.udp": 0.1,
+    "dds.shm": 0.12000000000000001
+   }
+  },
+  "1009096": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_localization/lib/f1tenth_localization/slam_pose_relay_node --ros-args -r __node:=slam_pose_rela",
+   "ds": false,
+   "cpu": {
+    "app": 0.8100000000000002,
+    "dds.other": 0.0,
+    "dds.ev": 0.04,
+    "dds.udp": 0.05,
+    "dds.shm": 0.02
+   }
+  },
+  "1009097": {
+   "cmd": "/usr/bin/python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_diagnostics/lib/f1tenth_diagnostics/ekf_cost_observer_node --ros-args -r __node:=ekf_cost_obser",
+   "ds": false,
+   "cpu": {
+    "app": 2.3999999999999995,
+    "dds.other": 0.0,
+    "dds.ev": 0.09,
+    "dds.udp": 0.16,
+    "dds.shm": 0.08
+   }
+  },
+  "1009098": {
+   "cmd": "/opt/ros/jazzy/lib/robot_state_publisher/robot_state_publisher --ros-args --params-file /tmp/launch_params_fmncmyiz --params-file /tmp/launch_params_0vqbpw11 ",
+   "ds": false,
+   "cpu": {
+    "app": 0.51,
+    "dds.other": 0.0,
+    "dds.ev": 0.1,
+    "dds.udp": 0.09,
+    "dds.shm": 0.18000000000000002
+   }
+  },
+  "1009099": {
+   "cmd": "/usr/bin/python3 /opt/ros/jazzy/lib/joint_state_publisher/joint_state_publisher --ros-args -r __node:=joint_state_publisher --params-file /tmp/launch_params_eb0",
+   "ds": false,
+   "cpu": {
+    "app": 1.9600000000000002,
+    "dds.other": 0.0,
+    "dds.ev": 0.07,
+    "dds.udp": 0.05,
+    "dds.shm": 0.02
+   }
+  },
+  "1009100": {
+   "cmd": "/opt/ros/jazzy/lib/tf2_ros/static_transform_publisher 0.12 0.0 0.20 0.0 0.0 0.0 base_link laser --ros-args -r __node:=static_baselink_to_laser ",
+   "ds": false,
+   "cpu": {
+    "app": 0.05,
+    "dds.other": 0.01,
+    "dds.ev": 0.05,
+    "dds.udp": 0.08,
+    "dds.shm": 0.05
+   }
+  },
+  "1009128": {
+   "cmd": "/opt/ros/jazzy/lib/slam_toolbox/async_slam_toolbox_node --ros-args -r __node:=slam_toolbox -r __ns:=/ --params-file /home/andre/dev_ws/f1tenth_more/install/f1te",
+   "ds": false,
+   "cpu": {
+    "app": 0.29,
+    "dds.other": 0.02,
+    "dds.ev": 0.05,
+    "dds.udp": 0.09,
+    "dds.shm": 0.18
+   }
+  }
+ },
+ "udp": {
+  "InDatagrams": 35319300,
+  "NoPorts": 2517429,
+  "InErrors": 1310685,
+  "OutDatagrams": 38827930,
+  "RcvbufErrors": 1310685,
+  "SndbufErrors": 0,
+  "InCsumErrors": 0,
+  "IgnoredMulti": 0,
+  "MemErrors": 0
+ },
+ "lo": {
+  "rx_packets": 43227268,
+  "rx_bytes": 22085499853
+ }
+}

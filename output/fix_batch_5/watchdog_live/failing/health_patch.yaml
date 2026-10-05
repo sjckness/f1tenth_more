@@ -1,0 +1,6 @@
+health:
+  swept_clearance:
+    checks:
+      - {topic: /perception/swept_clearance/never, max_age_sec: 0.5, when_fresh: {/scan: 0.5}}
+health_topic_types:
+  /perception/swept_clearance/never: std_msgs/msg/Float32

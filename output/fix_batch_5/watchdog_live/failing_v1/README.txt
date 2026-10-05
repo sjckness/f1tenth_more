@@ -1,0 +1,1 @@
+Pre-fix run (commit 96a5b12 code): /slam/map was judged by age (15 s) and slam was restarted once by mistake at +141 s; the status-change publish flooded health.jsonl. Kept as the evidence for both fixes.

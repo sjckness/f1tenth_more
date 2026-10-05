@@ -1,0 +1,3 @@
+Matching unexisting participant: 0
+DISCOVERY_DATABASE (any): 0
+[RTPS_ / [DISCOVERY / [PARTICIPANT errors (any): 0

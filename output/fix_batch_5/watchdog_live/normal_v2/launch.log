@@ -1,0 +1,84 @@
+[INFO] [launch]: All log files can be found below /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/ros_log/2026-10-04-06-19-17-780840-thor-847095
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [fastdds_discovery_server-1]: process started with pid [847145]
+[INFO] [component_supervisor_node-2]: process started with pid [847146]
+[fastdds_discovery_server-1] [ensure_discovery_server] 127.0.0.1:11811 is free -- starting a fresh fastdds discovery server.
+[fastdds_discovery_server-1] ### Server is running ###
+[fastdds_discovery_server-1]   Participant Type:   SERVER
+[fastdds_discovery_server-1]   Security:           NO
+[fastdds_discovery_server-1]   Server ID:          0
+[fastdds_discovery_server-1]   Server GUID prefix: 44.53.00.5f.45.50.52.4f.53.49.4d.41
+[fastdds_discovery_server-1]   Server Addresses:   UDPv4:[127.0.0.1]:11811
+[component_supervisor_node-2] [WARN] [1791087558.539115954] [component_supervisor_node]: [component_supervisor] FastDDS SHM sweep (startup): found 53 fastrtps file(s) (16 still in use, 37 orphaned) -- removed 13/37 orphaned file(s). Sample removed: ['/dev/shm/fastrtps_da5b7e0a40df54fa', '/dev/shm/fastrtps_da5b7e0a40df54fa_el', '/dev/shm/fastrtps_port28679', '/dev/shm/fastrtps_port28683', '/dev/shm/fastrtps_port28685'].
+[component_supervisor_node-2] [WARN] [1791087558.539726566] [component_supervisor_node]: [component_supervisor] FastDDS SHM sweep (startup): failed to remove 24 file(s): [('/dev/shm/fastrtps_7407d0862be81302', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_7407d0862be81302'"), ('/dev/shm/fastrtps_7407d0862be81302_el', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_7407d0862be81302_el'"), ('/dev/shm/fastrtps_9cd56be4590cf61f', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_9cd56be4590cf61f'"), ('/dev/shm/fastrtps_9cd56be4590cf61f_el', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_9cd56be4590cf61f_el'"), ('/dev/shm/fastrtps_port31165', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_port31165'")].
+[component_supervisor_node-2] [INFO] [1791087558.650857829] [component_supervisor_node]: [component_supervisor] Registry: ['behavior', 'calibrate_hardware', 'control', 'dev_tools', 'diagnostics', 'hardware', 'intelligence', 'lidar_front_wall', 'localization', 'navigation', 'obstacle_clearance', 'perception', 'slam', 'startup_sequence', 'swept_clearance', 'wall_distance']. Auto-starting: ['behavior', 'control', 'dev_tools', 'diagnostics', 'hardware', 'lidar_front_wall', 'localization', 'navigation', 'obstacle_clearance', 'perception', 'slam', 'swept_clearance', 'wall_distance']. Log dir: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor
+[component_supervisor_node-2] [INFO] [1791087558.653046590] [component_supervisor_node]: [component_supervisor] Started 'localization': ros2 launch f1tenth_localization localization.launch.py (pid 847186, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_localization_localization.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.654962964] [component_supervisor_node]: [component_supervisor] Started 'navigation': ros2 launch f1tenth_navigation navigation.launch.py (pid 847187, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_navigation_navigation.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.656921707] [component_supervisor_node]: [component_supervisor] Started 'swept_clearance': ros2 launch f1tenth_perception swept_clearance.launch.py (pid 847188, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_perception_swept_clearance.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.658843859] [component_supervisor_node]: [component_supervisor] Started 'control': ros2 launch f1tenth_control ackermann_mux.launch.py (pid 847189, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_control_ackermann_mux.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.660333536] [component_supervisor_node]: [component_supervisor] Started 'diagnostics': ros2 launch f1tenth_diagnostics system_observer.launch.py (pid 847190, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_diagnostics_system_observer.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.661133526] [component_supervisor_node]: [component_supervisor] Started 'diagnostics': ros2 launch f1tenth_diagnostics diagnostics_server.launch.py (pid 847191, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_diagnostics_diagnostics_server.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.662172133] [component_supervisor_node]: [component_supervisor] Started 'diagnostics': ros2 launch f1tenth_logger mission_logger.launch.py mission_logger_runs_dir:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/runs (pid 847192, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_logger_mission_logger.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.663626106] [component_supervisor_node]: [component_supervisor] Started 'behavior': ros2 launch f1tenth_behavior behavior_bringup.launch.py (pid 847193, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_behavior_behavior_bringup.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.664975941] [component_supervisor_node]: [component_supervisor] Started 'obstacle_clearance': ros2 launch f1tenth_perception obstacle_clearance.launch.py (pid 847194, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_perception_obstacle_clearance.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.666077075] [component_supervisor_node]: [component_supervisor] Started 'wall_distance': ros2 launch f1tenth_perception wall_distance.launch.py (pid 847195, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_perception_wall_distance.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.667153516] [component_supervisor_node]: [component_supervisor] Started 'dev_tools': ros2 launch f1tenth_bringup foxglove_bridge.launch.py (pid 847196, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_bringup_foxglove_bridge.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.668219122] [component_supervisor_node]: [component_supervisor] Started 'slam': ros2 launch f1tenth_navigation slam.launch.py (pid 847197, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_navigation_slam.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.669731401] [component_supervisor_node]: [component_supervisor] Started 'slam': ros2 launch f1tenth_costmap costmap.launch.py (pid 847198, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_costmap_costmap.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.671407797] [component_supervisor_node]: [component_supervisor] Started 'lidar_front_wall': ros2 launch f1tenth_perception lidar_front_wall.launch.py (pid 847199, log: /home/andre/dev_ws/f1tenth_more/output/fix_batch_5/watchdog_live/normal/supervisor/f1tenth_perception_lidar_front_wall.launch.py.log)
+[component_supervisor_node-2] [INFO] [1791087558.847068934] [component_supervisor_node]: [health] topic-liveness watchdog enforce: watching ['behavior', 'control', 'diagnostics', 'lidar_front_wall', 'localization', 'navigation', 'obstacle_clearance', 'slam', 'swept_clearance', 'wall_distance'] on 18 topics
+[component_supervisor_node-2] [ERROR] [1791088189.848292159] [component_supervisor_node]: [health] 'swept_clearance' LIVENESS FAILURE: /perception/swept_clearance/lidar: no message for 4.2 s (max 0.5 s) while its input is fresh (/scan 0.0 s) -- restarting swept_clearance.launch.py (watchdog restart 1/3)
+[component_supervisor_node-2] [ERROR] [1791088199.868855684] [component_supervisor_node]: [health] 'swept_clearance' (swept_clearance.launch.py) restarted by the liveness watchdog -- swept_clearance.launch.py: killed via SIGKILL after 10.0s timeout; new pid 851994
+[component_supervisor_node-2] [INFO] [1791088230.348089436] [component_supervisor_node]: [component_supervisor] Shutting down -- stopping all components.
+[component_supervisor_node-2] [INFO] [1791088231.152960744] [component_supervisor_node]: [component_supervisor] 'localization' (localization.launch.py): clean SIGINT exit in 0.4s
+[component_supervisor_node-2] [INFO] [1791088231.153738118] [component_supervisor_node]: [component_supervisor] 'navigation' (navigation.launch.py): clean SIGINT exit in 0.4s
+[component_supervisor_node-2] [INFO] [1791088231.154298327] [component_supervisor_node]: [component_supervisor] 'control' (ackermann_mux.launch.py): clean SIGINT exit in 0.4s
+[component_supervisor_node-2] [INFO] [1791088231.154861963] [component_supervisor_node]: [component_supervisor] 'diagnostics' (mission_logger.launch.py): clean SIGINT exit in 0.4s
+[component_supervisor_node-2] [INFO] [1791088231.155401098] [component_supervisor_node]: [component_supervisor] 'diagnostics' (system_observer.launch.py): clean SIGINT exit in 0.5s
+[component_supervisor_node-2] [INFO] [1791088231.155942224] [component_supervisor_node]: [component_supervisor] 'diagnostics' (diagnostics_server.launch.py): clean SIGINT exit in 0.5s
+[component_supervisor_node-2] [INFO] [1791088231.156473731] [component_supervisor_node]: [component_supervisor] 'behavior' (behavior_bringup.launch.py): clean SIGINT exit in 0.6s
+[component_supervisor_node-2] [INFO] [1791088231.157003291] [component_supervisor_node]: [component_supervisor] 'dev_tools' (foxglove_bridge.launch.py): clean SIGINT exit in 0.6s
+[component_supervisor_node-2] [INFO] [1791088231.157533677] [component_supervisor_node]: [component_supervisor] 'slam' (costmap.launch.py): clean SIGINT exit in 0.6s
+[component_supervisor_node-2] [INFO] [1791088231.158065656] [component_supervisor_node]: [component_supervisor] 'obstacle_clearance' (obstacle_clearance.launch.py): clean SIGINT exit in 0.7s
+[component_supervisor_node-2] [INFO] [1791088231.158608772] [component_supervisor_node]: [component_supervisor] 'slam' (slam.launch.py): clean SIGINT exit in 0.7s
+[component_supervisor_node-2] [INFO] [1791088231.159150112] [component_supervisor_node]: [component_supervisor] 'swept_clearance' (swept_clearance.launch.py): clean SIGINT exit in 0.8s
+[component_supervisor_node-2] [INFO] [1791088231.159677589] [component_supervisor_node]: [component_supervisor] 'wall_distance' (wall_distance.launch.py): clean SIGINT exit in 0.8s
+[component_supervisor_node-2] [INFO] [1791088231.160203318] [component_supervisor_node]: [component_supervisor] 'lidar_front_wall' (lidar_front_wall.launch.py): clean SIGINT exit in 0.8s
+[component_supervisor_node-2] [WARN] [1791088231.207599488] [component_supervisor_node]: [component_supervisor] FastDDS SHM sweep (shutdown): found 172 fastrtps file(s) (30 still in use, 142 orphaned) -- removed 118/142 orphaned file(s). Sample removed: ['/dev/shm/fastrtps_port28665', '/dev/shm/fastrtps_port28667', '/dev/shm/fastrtps_port28669', '/dev/shm/fastrtps_port28671_el', '/dev/shm/fastrtps_port28673'].
+[component_supervisor_node-2] [WARN] [1791088231.208352446] [component_supervisor_node]: [component_supervisor] FastDDS SHM sweep (shutdown): failed to remove 24 file(s): [('/dev/shm/fastrtps_7407d0862be81302', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_7407d0862be81302'"), ('/dev/shm/fastrtps_7407d0862be81302_el', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_7407d0862be81302_el'"), ('/dev/shm/fastrtps_9cd56be4590cf61f', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_9cd56be4590cf61f'"), ('/dev/shm/fastrtps_9cd56be4590cf61f_el', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_9cd56be4590cf61f_el'"), ('/dev/shm/fastrtps_port31165', "[Errno 1] Operation not permitted: '/dev/shm/fastrtps_port31165'")].
+[component_supervisor_node-2] Traceback (most recent call last):
+[component_supervisor_node-2]   File "/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/lib/f1tenth_bringup/component_supervisor_node", line 33, in <module>
+[component_supervisor_node-2]     sys.exit(load_entry_point('f1tenth-bringup', 'console_scripts', 'component_supervisor_node')())
+[component_supervisor_node-2]              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_bringup/f1tenth_bringup/component_supervisor_node.py", line 1873, in main
+[component_supervisor_node-2]     rclpy.spin(node)
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 247, in spin
+[component_supervisor_node-2]     executor.spin_once()
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 926, in spin_once
+[component_supervisor_node-2]     self._spin_once_impl(timeout_sec)
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 918, in _spin_once_impl
+[component_supervisor_node-2]     raise handler.exception()
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/task.py", line 286, in _execute_coroutine_step
+[component_supervisor_node-2]     result = coro.send(None)
+[component_supervisor_node-2]              ^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 592, in handler
+[component_supervisor_node-2]     await call_coroutine()
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 454, in _execute
+[component_supervisor_node-2]     await await_or_execute(tmr.callback)
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 115, in await_or_execute
+[component_supervisor_node-2]     return callback(*args)
+[component_supervisor_node-2]            ^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/home/andre/dev_ws/f1tenth_more/build/f1tenth_bringup/f1tenth_bringup/component_supervisor_node.py", line 1567, in _on_health_tick
+[component_supervisor_node-2]     log(f'[health] {text}')
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/impl/rcutils_logger.py", line 343, in info
+[component_supervisor_node-2]     return self.log(message, LoggingSeverity.INFO, **kwargs)
+[component_supervisor_node-2]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[component_supervisor_node-2]   File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/impl/rcutils_logger.py", line 313, in log
+[component_supervisor_node-2]     raise ValueError('Logger severity cannot be changed between calls.')
+[component_supervisor_node-2] ValueError: Logger severity cannot be changed between calls.
+[ERROR] [component_supervisor_node-2]: process has died [pid 847146, exit code 1, cmd '/home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/lib/f1tenth_bringup/component_supervisor_node --ros-args -r __node:=component_supervisor_node --params-file /tmp/launch_params_pau7l8ki'].
+[WARNING] [launch]: user interrupted with ctrl-c (SIGINT)
+[INFO] [fastdds_discovery_server-1]: sending signal 'SIGINT' to process[fastdds_discovery_server-1]
+[ERROR] [fastdds_discovery_server-1]: process[fastdds_discovery_server-1] failed to terminate '5' seconds after receiving 'SIGINT', escalating to 'SIGTERM'
+[INFO] [fastdds_discovery_server-1]: sending signal 'SIGTERM' to process[fastdds_discovery_server-1]
+[ERROR] [fastdds_discovery_server-1]: process has died [pid 847145, exit code -15, cmd 'python3 /home/andre/dev_ws/f1tenth_more/install/f1tenth_bringup/share/f1tenth_bringup/scripts/ensure_discovery_server.py 127.0.0.1 11811'].

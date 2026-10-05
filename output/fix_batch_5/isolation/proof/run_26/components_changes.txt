@@ -1,0 +1,5 @@
+hardware: emptied (was ['vesc.launch.py'])
+perception: emptied (was ['camera.launch.py', 'lidar.launch.py', 'detection.launch.py'])
+health.hardware: dropped 2 check(s) on launch files no longer registered
+health.perception: dropped 1 check(s) on launch files no longer registered
+diagnostics: mission_logger_runs_dir:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_5/isolation/proof/run_26/runs

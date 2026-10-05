@@ -1,0 +1,23 @@
+Traceback (most recent call last):
+  File "/home/andre/dev_ws/f1tenth_more/scripts/jazzy_parity/isolation_check.py", line 201, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/andre/dev_ws/f1tenth_more/scripts/jazzy_parity/isolation_check.py", line 197, in main
+    return cmd_watch(a) if a.cmd == 'watch' else cmd_check(a)
+           ^^^^^^^^^^^^
+  File "/home/andre/dev_ws/f1tenth_more/scripts/jazzy_parity/isolation_check.py", line 89, in cmd_watch
+    rclpy.spin_once(node, timeout_sec=0.1)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/__init__.py", line 226, in spin_once
+    executor.spin_once(timeout_sec=timeout_sec)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 926, in spin_once
+    self._spin_once_impl(timeout_sec)
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 907, in _spin_once_impl
+    handler, entity, node = self.wait_for_ready_callbacks(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 877, in wait_for_ready_callbacks
+    return next(self._cb_iter)
+           ^^^^^^^^^^^^^^^^^^^
+  File "/opt/ros/jazzy/lib/python3.12/site-packages/rclpy/executors.py", line 757, in _wait_for_ready_callbacks
+    wait_set = _rclpy.WaitSet(
+               ^^^^^^^^^^^^^^^
+rclpy._rclpy_pybind11.RCLError: failed to initialize wait set: the given context is not valid, either rcl_init() was not called or rcl_shutdown() was called., at ./src/rcl/wait.c:130

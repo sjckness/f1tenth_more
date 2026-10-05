@@ -495,6 +495,15 @@ From the code and Step 3:
   `ROS_DISCOVERY_SERVER=<Thor LAN IP>:11811`, the same `ROS_DOMAIN_ID`, and
   `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`. CLI shells also need
   `ROS_SUPER_CLIENT=TRUE`.
+- **Fast DDS lease profile (added by fix batch 5, backlog H1):** every
+  participant on the sim host (linus or the TPad) must load
+  `src/f1tenth_bringup/config/fastdds_profile.xml` from its own checkout
+  (5 s participant lease). `source <repo>/scripts/env/jazzy.sh` (bash or zsh)
+  sets `FASTRTPS_DEFAULT_PROFILES_FILE` to it; start the simulator, the
+  bridge and every tool from that shell. The lease is announced by each
+  participant, so Thor's settings do not cover the sim host: without the
+  profile a sim-side process that dies stays in Thor's Discovery Server for
+  20 s. Full instructions: `output/fix_batch_5_report.md`, "Phase S".
 - **Firewall:** UDP 11811 plus the RTPS unicast ports for the domain
   (7400 + 250·domain + …) must be open between the two machines.
 - **Transport:** shared memory only works within one machine, so the

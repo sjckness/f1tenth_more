@@ -1,0 +1,22 @@
+{
+ "window_s": 30.09,
+ "participants": 29,
+ "cpu_s_per_s": {
+  "app": 2.0101,
+  "dds.ev": 0.0209,
+  "dds.other": 0.0033,
+  "dds.shm": 0.0778,
+  "dds.udp": 0.004
+ },
+ "ds_cpu_s_per_s": 0.0027,
+ "udp_per_s": {
+  "InDatagrams": 67.2,
+  "OutDatagrams": 68.3,
+  "RcvbufErrors": 0.0,
+  "InErrors": 0.0
+ },
+ "lo_per_s": {
+  "rx_packets": 72.5,
+  "rx_bytes": 33028.2
+ }
+}

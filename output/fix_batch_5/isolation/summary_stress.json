@@ -1,0 +1,202 @@
+{
+  "stress": {
+    "runs": 20,
+    "runs_with_isolation": 0,
+    "runs_slam_lifecycle_hang": 0,
+    "runs_other_isolation": [],
+    "cpu_busy_pct_mean": 94.7,
+    "cpu_busy_pct_with_isolation": [],
+    "rows": [
+      {
+        "run": "run_01",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 95.1,
+        "load1": 11.28,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_02",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.9,
+        "load1": 14.29,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_03",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 95.0,
+        "load1": 17.48,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_04",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.5,
+        "load1": 17.8,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_05",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.6,
+        "load1": 18.03,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_06",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.9,
+        "load1": 16.93,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_07",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.9,
+        "load1": 17.19,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_08",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.6,
+        "load1": 16.0,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_09",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.4,
+        "load1": 16.66,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_10",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.9,
+        "load1": 17.91,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_11",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.1,
+        "load1": 17.74,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_12",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.6,
+        "load1": 18.12,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_13",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.2,
+        "load1": 17.93,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_14",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.5,
+        "load1": 16.63,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_15",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.5,
+        "load1": 15.95,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_16",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 95.2,
+        "load1": 17.91,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_17",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 95.0,
+        "load1": 18.18,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_18",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.5,
+        "load1": 16.76,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_19",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.6,
+        "load1": 18.44,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      },
+      {
+        "run": "run_20",
+        "isolated": {},
+        "slam_lifecycle_hang": false,
+        "cpu_busy_pct": 94.4,
+        "load1": 18.97,
+        "matching_unexisting": 0,
+        "nodes_settled": 33
+      }
+    ],
+    "watchdog_alerts": {},
+    "vs_fb4_baseline": {
+      "baseline": "8/30",
+      "this": "0/20",
+      "fisher_one_sided_p": 0.011,
+      "rate": 0.0,
+      "rate_upper95": 0.1391,
+      "baseline_rate": 0.2667
+    },
+    "isolated_runs_alerted": {}
+  }
+}

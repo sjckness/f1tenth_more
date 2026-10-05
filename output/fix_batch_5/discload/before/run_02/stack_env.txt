@@ -1,0 +1,2 @@
+STACK_SUPER_CLIENT=0
+LAUNCH_ARGS=fastdds_profile:=/home/andre/dev_ws/f1tenth_more/scripts/fix_batch_5/profiles/default_lease.xml health_watchdog:=disabled
