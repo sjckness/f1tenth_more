@@ -1,0 +1,2 @@
+perception: dropped detection.launch.py
+diagnostics: mission_logger_runs_dir:=/home/andre/dev_ws/f1tenth_more/output/fix_batch_5/once_settle/late_sim/run_05/runs

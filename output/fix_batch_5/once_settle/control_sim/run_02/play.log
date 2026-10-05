@@ -1,0 +1,4 @@
+[INFO] [1791200306.724185189] [rosbag2_storage]: Opened database '/home/andre/dev_ws/f1tenth_more/output/phase5/inputs/bringup_input_x10/bringup_input_x10_0.db3' for READ_ONLY.
+[INFO] [1791200306.724609179] [rosbag2_player]: Set rate to 0.74
+[INFO] [1791200306.740027066] [rosbag2_player]: Playback until timestamp: -1
+[INFO] [1791200351.129906086] [rosbag2_player]: Stopping playback.

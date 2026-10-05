@@ -386,6 +386,62 @@ discload)
     sleep "${RUN_GAP:-2}"
   done
   ;;
+latefeed)
+  # Fix batch 5 follow-up (B6, backlog M19): bringups whose /scan starts late,
+  # one per word of DELAYS (default 20 22 ... 38): the feed starts that many
+  # seconds after the launch -- a lidar that comes up late, or a simulator
+  # started after the stack. The word `settled` instead feeds once the node
+  # set is stable, as `isolation` does (a normal bringup). SIM=1 runs
+  # sim:=true and feeds with `ros2 bag play --clock` of BAG_SIM at PLAY_RATE
+  # (default 1; the TPad's worst measured RTF is 0.74), so /clock starts with
+  # the feed, as with a late simulator. FEED_SEC (default 45) of feed per run.
+  # Per run: the /supervisor/health timeline (health_recorder.py), the first
+  # /scan and /slam/map receipts (first_rx.py), and the watchdog's log lines.
+  F5=$REPO/scripts/fix_batch_5
+  i=0
+  for d in ${DELAYS:-20 22 24 26 28 30 32 34 36 38}; do
+    i=$((i + 1))
+    RUN="$OUT/run_$(printf %02d "$i")"; mkdir -p "$RUN"
+    precheck > "$RUN/precheck.txt"
+    echo "DELAY=$d SIM=${SIM:-0} PLAY_RATE=${PLAY_RATE:-1} FEED_SEC=${FEED_SEC:-45} LAUNCH_ARGS=${LAUNCH_ARGS:-}" > "$RUN/condition.txt"
+    if [ "${SIM:-0}" = 1 ]; then
+      COMPONENTS_ARGS=${COMPONENTS_ARGS_SIM:---drop-launch detection.launch.py} start_stack "$RUN" sim:=true
+    else
+      start_stack "$RUN"
+    fi
+    ROS_SUPER_CLIENT=TRUE python3 "$F5/health_recorder.py" --out "$RUN/health.jsonl" > "$RUN/health_recorder.log" 2>&1 &
+    REC=$!
+    ROS_SUPER_CLIENT=TRUE python3 "$F5/first_rx.py" --out "$RUN/first_rx.json" > "$RUN/first_rx.log" 2>&1 &
+    FRX=$!
+    if [ "$d" = settled ]; then
+      wait_settled "$RUN" 150
+    else
+      sleep "$(echo "$T0 + $d - $(date +%s.%N)" | bc)"
+    fi
+    if [ "${SIM:-0}" = 1 ]; then
+      "${SIGDFL[@]}" ros2 bag play "${BAG_SIM:-$REPO/output/phase5/inputs/bringup_input_x10}" --clock 100 \
+        --rate "${PLAY_RATE:-1}" --disable-keyboard-controls > "$RUN/play.log" 2>&1 < /dev/null &
+    else
+      "${SIGDFL[@]}" python3 "$HERE/restamp_play.py" "$BAG" --loops 20 > "$RUN/play.log" 2>&1 < /dev/null &
+    fi
+    PLAY=$!
+    T_FEED=$(date +%s.%N); echo "$T_FEED" > "$RUN/t_feed.txt"
+    sleep "${FEED_SEC:-45}"
+    kill -INT $PLAY 2>/dev/null; wait $PLAY 2>/dev/null
+    stop_stack "$RUN"
+    kill -INT $REC $FRX 2>/dev/null; wait $REC $FRX 2>/dev/null
+    discovery_errors "$RUN"
+    grep -E "\[health\].*(LIVENESS|FAILED|restarted by)" "$RUN/launch.log" > "$RUN/watchdog_events.txt"
+    echo "run $i: delay $d, feed at +$(echo "$T_FEED - $T0" | bc | cut -c1-5) s, watchdog events: $(wc -l < "$RUN/watchdog_events.txt") $(python3 -c "
+import json, sys
+s = json.load(open('$RUN/first_rx.json'))
+sc, mp = s['/scan']['first'], s['/slam/map']['first']
+print('first /scan', 'never' if sc is None else '+%.1f' % (sc - $T0),
+      '| first /slam/map', 'never' if mp is None else '+%.1f (%.1f s after /scan)' % (mp - $T0, mp - sc) if sc else '')
+")"
+    sleep "${RUN_GAP:-2}"
+  done
+  ;;
 snapshot)
   precheck
   RUN=$OUT

@@ -54,11 +54,12 @@
      input (B2 table, OUTPUT-ONLY).
   4. **The lease under real load still needs the Orin.** Thor under
      `stress` is the stand-in used here.
-  5. **One false trigger, found afterwards in the discovery-load data**
-     (B6): a `once` check fails immediately when its input appears after
-     the grace period. It restarted a healthy slam once in 5 enforce-mode
-     runs. Not seen in the 80 alert-mode bringups (fed inside the grace).
-     Fix not made; open decision 5.
+  5. **One false trigger, found afterwards in the discovery-load data,
+     now fixed** (B6, `f9e0fea`): a `once` check failed immediately when
+     its input appeared after the grace period, and restarted a healthy
+     slam once in 5 enforce-mode runs. `once` checks now wait `settle_sec`
+     (15 s) after their input appears: 0 watchdog events in 10 late-input
+     bringups (5 live, 5 sim at RTF 0.74) and 5 normal ones.
 
 ---
 
@@ -457,7 +458,7 @@ could not keep current.
 ### B4. Tests
 
 **Unit tests:**
-- `test_topic_watchdog.py` (37): config validation; verdicts; gating and the
+- `test_topic_watchdog.py` (37; 46 with B6's fix): config validation; verdicts; gating and the
   input-returned rule; `once`; rate and its sim scaling; grace; fail_for;
   alert-once; give-up and reset; pause and resume; no gate without the
   flag; stall; restarting only the failing launch file.
@@ -518,7 +519,9 @@ Fixed before any long run. The superseded runs are kept as evidence
 
 ### B6. A false trigger the live tests missed: `once` after a late input
 
-Found while writing up A5, after the batches ran; **not fixed**.
+Found while writing up A5, after the batches ran; **fixed in `f9e0fea`**
+(your decision of 2026-10-05; the fix and its tests are at the end of this
+section).
 
 - **What happened** (`discload/after_watchdog/run_05`, watchdog enforce):
   - slam_toolbox started, configured and was ACTIVE 3.6 s after bringup.
@@ -538,10 +541,78 @@ Found while writing up A5, after the batches ran; **not fixed**.
   restarts), then the check passes. 4 of 5 runs got their map just in time.
 - **Not seen before** because the proof, stress and live-test runs feed the
   bag inside slam's grace.
-- **Proposed fix:** give `once` checks the settling the age checks have: no
-  verdict until the inputs have been fresh for a settle time (a per-check
-  `settle_sec`, slam: 15 s, given the map interval measured in B5). Plus a
-  unit test for an input that appears after the grace.
+
+**The fix (`f9e0fea`).**
+- **`settle_sec`** (`once` checks only; default `ONCE_SETTLE_SEC` = 15 s;
+  slam sets it explicitly in `components.yaml`): no verdict until the
+  check's `when_fresh` inputs have been fresh that long. Meanwhile the
+  component reads STARTING, `/slam/map: settling, inputs fresh for N of
+  15 s`.
+- **Counted from the inputs only.** The node's own startup stays the grace
+  period's job: with `/scan` already flowing, a restarted slam is judged
+  when its grace ends, as before.
+- **An input outage before the first map starts the settle time again.**
+- **What it costs:** a slam that never maps after a late input is restarted
+  at input + 15 s + `fail_for_sec` (3 s) instead of input + 3 s.
+
+**Unit tests** (`test_topic_watchdog.py`, 9 new; 72 pass with the health
+config, preflight and `/mpc/input_status` tests):
+
+| Case | Expected | |
+|---|---|---|
+| Input inside the grace, map 6 s later | never triggers | pass |
+| Input after the grace (B6: `/scan` at 60 s, map at 67 s) | no restart; STARTING "settling", then OK | pass |
+| Same with `settle_sec: 0` (the old behaviour) | restart at 63 s: B6 reproduced | pass |
+| Input never | slam never restarted; UPSTREAM_STALE (WARN, naming `/scan`); the lidar's own `/scan` check goes ALERT | pass |
+| Output never after settle (input at 60 s) | restart at 60 + 15 + 3 = 78 s | pass |
+| Output never, input inside the grace | restart when the grace ends (+ `fail_for`); settle does not extend the grace | pass |
+| Input outage before the first map | settle starts again | pass |
+| sim: `/clock` and `/scan` start at 60 s | no restart (resume grace, then settle) | pass |
+| `settle_sec` on an age check / below 0 | config error at startup | pass |
+
+**"Input never" does not restart slam, by design.** A lidar that never
+publishes is not slam's fault. Restarting slam would not help and would
+hide the real cause. The watchdog reports it in two places:
+- slam: UPSTREAM_STALE (WARN);
+- the component that owns `/scan`: its own check (`perception`, alert
+  only, since restarting it restarts urg_node, the e-stop's sensor).
+
+**Live** (`phase5_bringup.sh latefeed`, new: the feed starts N s after the
+launch; `first_rx.py` records the first `/scan` and `/slam/map` receipts;
+data `output/fix_batch_5/once_settle/`):
+
+| Batch | Code | Runs | `/scan` starts (after launch) | slam restarts | Other watchdog events | First map after first scan |
+|---|---|---|---|---|---|---|
+| `control_live` | before the fix | 4 | +37 … +43 s (after the grace) | 0 | 0 | 0.1–2.6 s |
+| `control_sim` (sim:=true, `/clock` with the feed, RTF 0.74) | before the fix | 3 | +27 … +42 s | 0 | 0 | 0.1–2.2 s |
+| **`late_live`** | **fixed** | **5** | +22 … +42 s | **0** | **0** | 0.9–4.8 s |
+| **`late_sim`** (RTF 0.74) | **fixed** | **5** | +24 … +42 s | **0** | **0** | 0.2–4.7 s |
+| **`normal`** (feed once settled) | **fixed** | **5** | +25 … +28 s | **0** | **0** | 1.1–4.3 s |
+
+- **The control did not reproduce the restart in 7 runs, but it shows the
+  race.** In 3 of the 4 live control runs slam went FAILING ("no message
+  never"); each time the map arrived before `fail_for_sec` (3 s) ran out.
+  A restart needs a gap above 3 s. That happened in B6, and in 6 of the 15
+  runs with the fix (3.2–4.8 s). The unit test reproduces it every time.
+- **With the fix the settle time was used:** in `late_live` runs 3–5,
+  where `/scan` came after the grace, slam read STARTING "settling", then
+  OK. Run 3: settling at +34.6 s, map 4.4 s later, OK at +39.1 s. The old
+  code would have restarted slam about 3 s after the first scan.
+- **The sim runs did not need it.** In sim mode, the 5 s resume grace after
+  `/clock` starts already covered gaps up to 4.7 s. The settle time is the
+  margin beyond that.
+- **No non-OK state elsewhere** in the fixed runs, apart from `hardware`
+  and `perception` NOT_RUNNING in sim (their drivers are skipped there).
+
+**Why 15 s.**
+- **Measured:** over all 22 runs, the first map came a median 2.1 s and at
+  most 4.8 s after the first scan.
+- **RTF did not stretch it:** sim at RTF 0.74 gave at most 4.7 s. That fits
+  slam's map timer running on wall time.
+- **If it did run on sim time,** the worst case would be 5 s / 0.74 = 6.8 s
+  plus the rebuild.
+- **So:** 15 s is about 3× the measured maximum and 2× that theoretical
+  worst case. It holds up a real failure by 15 s only after a late input.
 
 ---
 
@@ -596,7 +667,7 @@ ros2 launch f1tenth_bringup supervisor_bringup.launch.py sim:=true discovery_ser
   - the run 29 participant miss (cause open);
   - nodes without input-proving outputs (wall_distance, behavior,
     semantic_layer): heartbeats as for `mpc_corr`, if wanted.
-  - the `once` false trigger (B6).
+  - the `once` false trigger (B6): opened as M19, closed by `f9e0fea`.
 - **New, LOW:** slam_toolbox's map interval grows with the session (415 s
   gap in a looped-bag run). `costmap_boundary` works from a map that can be
   minutes old.
@@ -616,29 +687,30 @@ dac4bef fix/env: jazzy.sh exports the Fast DDS lease profile for hand-started pa
 39f7856 fix/batch5: report, backlog, data — H1 closed by the lease profile and the liveness watchdog; GO-WITH-NOTES
 ```
 
-Pushed together with the merge of origin/jazzy.
+Pushed together with the merge of origin/jazzy (`39b2b71`). After your
+decisions of 2026-10-05:
 
-## Open decisions for Andreas
+```
+f9e0fea fix/bringup: liveness watchdog `once` checks wait settle_sec after their input appears — a /scan that first came after slam's grace restarted a healthy slam
+```
 
-1. **Decision 2c, still open:** should the BT's emergency lane stop the car
-   when `/supervisor/health` reports ERROR for a safety-relevant component
-   (localization, slam, control)? The status exists now; nothing consumes
-   it.
-2. **Heartbeats for the OUTPUT-ONLY components** (wall_distance, behavior),
-   and some output for `semantic_layer_node`. These would be node changes
-   like 2b. Recommendation: yes for wall_distance (its input is `/scan`, the
-   e-stop's sensor). Later for the rest.
-3. **A shorter stop for watchdog restarts?** A frozen node holds the
-   single-threaded supervisor for the full `restart_timeout_sec` (10 s)
-   before SIGKILL. Recommendation: keep it for now; the stall rule protects
-   the other components.
-4. **The lease on the Orin under its real load.** Run
-   `run_batches.sh` with `BATCHES="proof stress"` there.
-5. **The `once` false trigger (B6).** Fix it (`settle_sec` for `once`
-   checks, a unit test, then a discload `dl_wd` rerun), or run slam's
-   watchdog in `alert` until then. Recommendation: fix it before the sim
-   runs (Phase S), where a late `/scan` is likely. Until then the default
-   `restart` stays, since the cost is one slam restart.
-6. **The watchdog's CPU (A5):** 0.44 cores of the supervisor's one thread
-   while fed. Recommendation: re-measure on the Orin before deciding
-   whether to thin the subscriptions (e.g. rate checks on sampled topics).
+followed by the report, backlog and live-data update.
+
+## Decisions (Andreas, 2026-10-05)
+
+1. **Decision 2c: stop on `/supervisor/health` ERROR:** to be done; HIGH,
+   required before Phase 8 (ground driving). Backlog H7 (was M18).
+2. **Heartbeats for the OUTPUT-ONLY components:** to be done, wall_distance
+   first; MEDIUM. Backlog M17.
+3. **A shorter stop for watchdog restarts:** no; kept as is.
+4. **The lease on the Orin under its real load:** on the Orin session list
+   in the backlog.
+5. **The `once` false trigger (B6):** fixed now, before Phase S (`f9e0fea`,
+   B6). Backlog M19 closed.
+6. **The watchdog's CPU (A5):** on the Orin session list in the backlog.
+7. **`f1tenth_more` build failure on Thor** (merge check): Thor's
+   `~/.colcon/defaults.yaml` skips it for build and test, next to
+   `f1tenth_sim`; noted in CLAUDE.md, "Thor". No repo change to the
+   metapackage.
+8. **`test_grace_then_target_lost`** (fails on the merge base too): backlog
+   M20, MEDIUM.

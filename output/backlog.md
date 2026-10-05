@@ -25,6 +25,7 @@ SP = `sim_port_report.md`.
 | H3 | **MPC deadline overrun on the Orin.** The recorded Humble run had a mean period of 112 ms against a 100 ms deadline: 53 periods over 150 ms, worst 309 ms, all cores 78–100%. This is pre-existing, and the main timing risk for Jazzy-in-Docker on the Orin. Re-measure there. | P3 Decision 3 |
 | H4 | **Local EKF + IMU parity, live.** No archived bag has `/sensors/imu/raw`, so the local EKF's IMU fusion has never been compared. Phase 6 on the stand. | P1 Decision 3 |
 | H5 | **Review the `slam.launch.py` lifecycle fix (`4edcbbf`) before the first live SLAM test.** Before it, slam_toolbox never left `unconfigured`, silently. Also confirm `transform_publish_period: 0` (no `map→odom`) under real scan-matching load. | P0 Decision 2 |
+| H7 | **The BT must stop the car on `/supervisor/health` ERROR for a safety-relevant component** (localization, slam, control). Decided 2026-10-05 (FB4 decision 2c, FB5 open decision 1): required before Phase 8 (ground driving). The status exists since FB5; nothing consumes it yet. Was M18. | FB4 B7, FB5 |
 
 ## MEDIUM
 
@@ -46,9 +47,8 @@ SP = `sim_port_report.md`.
 | M14 | **MPC measured steering is dead:** `MPC_corr.py:1255` looks for `car_1_left/right_steering_hinge_joint`, which nothing publishes (car or sim); the object-exit ramp falls back to the last command (`MPC_corr.py:2379`). | SP §4 (2026-10-03 code check) |
 | M15 | **Measure the real wheelbase.** URDF, `controllers.yaml` and the sim's `drive_bridge` use 0.325 m; `vesc_to_odom_node.wheelbase` (which drives the car's `/odom` yaw rate) is 0.305 m, a 6 % gap in ω = v·tanδ/L. The sim keeps 0.325 until measured. | SP P2 / D5 |
 | M16 | **Participant never in the graph: 1 bringup in 60 with the lease fix.** FB5 proof run 29: `semantic_layer_node` was running and logged `started`, but was never in the graph from bringup to shutdown, while every other node was. Not FB4's signature (single endpoint pairs of participants that were in the graph); the previous run's processes died about 4 s before it started, so the 5 s lease window may just touch. Cause open. The watchdog cannot see it: `semantic_layer_node` only publishes with detections. Data: `output/fix_batch_5/isolation/proof/run_29`. | FB5 A4 |
-| M17 | **Components the liveness watchdog judges only on "it runs".** wall_distance (`/perception/d_wall/segment`, a 10 Hz timer), behavior (`/behavior/tree_status`, every BT tick) and system_observer have no output that depends on their input; `semantic_layer_node` and `costmap_renderer` have no watchable output at all. A heartbeat like `mpc_corr`'s `/mpc/input_status` (FB5, decision 2b) would make them input-proving. Recommended first: wall_distance (its input is `/scan`). | FB5 B2 |
-| M18 | **Should the BT stop the car on `/supervisor/health` ERROR?** (FB4 decision 2c, still open.) The status exists since FB5; nothing consumes it. | FB4 B7, FB5 |
-| M19 | **Watchdog `once` check fires when its input appears after the grace.** slam's `/slam/map` check failed 6 s after `/scan` first appeared (60 s after bringup) and restarted a healthy slam: 1 of 5 enforce-mode discload runs. The input-returned settling only covers age checks. Proposed: a per-check `settle_sec` for `once` checks (slam 15 s) and a unit test. Likely in Phase S if the sim's `/scan` starts late. Data: `output/fix_batch_5/discload/after_watchdog/run_05`. | FB5 B6 |
+| M17 | **Components the liveness watchdog judges only on "it runs".** wall_distance (`/perception/d_wall/segment`, a 10 Hz timer), behavior (`/behavior/tree_status`, every BT tick) and system_observer have no output that depends on their input; `semantic_layer_node` and `costmap_renderer` have no watchable output at all. A heartbeat like `mpc_corr`'s `/mpc/input_status` (FB5, decision 2b) would make them input-proving. **Decided 2026-10-05: do it, wall_distance first** (its input is `/scan`, the e-stop's sensor). | FB5 B2 |
+| M20 | **`f1tenth_behavior`: `test_go_to_object_behaviour.py::TestFailureOutcomes::test_grace_then_target_lost` fails every run** (5/5): after the GRACE window it returns SUCCESS where the test expects FAILURE (`target_lost`). Pre-existing: it fails on the merge base `8c0891d`, on origin/jazzy and on local jazzy alike, so neither the sim work nor FB5 caused it. Not the flaky L11. Found in the post-merge test run of 2026-10-05. | FB5 merge check |
 
 ## LOW
 
@@ -82,6 +82,7 @@ These are not post-migration work, but they block closing their phases.
 | Phase 4 BT replays, extract and py_trees versions (`output/phase4/ORIN_BT_INSTRUCTIONS.md`) | P4 Decision 2 |
 | Phase 5 10-cycle comparison and the Orin's stack environment | P5 Decisions 2–3 |
 | The 5 s lease under the Orin's real load (78–100% CPU): `scripts/fix_batch_5/run_batches.sh` with `BATCHES="proof stress"`; and the full-stack Humble isolation rate (FB4 decision 3) | FB4, FB5 |
+| The topic-liveness watchdog's CPU under the Orin's real load: the supervisor's thread took 0.44 cores on Thor while fed (FB5 A5). Re-measure with `run_batches.sh` `BATCHES="dl_after dl_wd"` and decide whether to thin the subscriptions. | FB5 |
 
 ---
 
@@ -99,3 +100,4 @@ These are not post-migration work, but they block closing their phases.
 | Plain-client audit: `stackctl.py status` reported supervisor services missing | FB2 (old H6) | FB3 `d29b3e0` |
 | Plain-client audit: steering calibration never saw `/safety_stop` | FB2 (old H6) | FB3 `5b320a5` + FB4 `b31b76c` (graph wait; 10/10 pass with the BT, 3/3 refuse without) |
 | H1 Discovery isolation (stale participants in the reused Discovery Server; slam never ACTIVE, subscriptions never matched) | P5, FB3, FB4 | FB5 `7b301b2` (5 s lease profile for every participant: isolated bringups 8/30 → 1/60, p = 0.0005; slam hang 7/30 → 0/60; 0/20 under CPU saturation) + `dac4bef` (jazzy.sh) + `96a5b12`/`725f256` (supervisor topic-liveness watchdog; 0 false triggers in 80 bringups and 10 min, SIGSTOPped node restarted and OK in 34 s) + `0f151aa` (`/mpc/input_status`). Remaining 1/60: M16. |
+| M19 Watchdog `once` check fired when its input appeared after the grace (restarted a healthy slam, 1 of 5 enforce runs) | FB5 B6 | `f9e0fea` (`settle_sec` for `once` checks, 15 s: 0 watchdog events in 10 late-input bringups, 5 live and 5 sim at RTF 0.74, plus 5 normal; first map 0.1–4.8 s after the first scan over 22 runs) |
