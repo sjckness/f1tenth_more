@@ -7,7 +7,7 @@ EKF, slam_toolbox, ackermann_mux, MPC) is the stack's job on the Thor
 (output/sim_port_report.md §2.2, §5).
 
 Launches:
-  1. Gazebo Harmonic with the husarion office world        (husarion_gz_worlds)
+  1. Gazebo Harmonic with the 2x husarion office world     (husarion_gz_worlds)
   2. sim_robot_state_publisher: private RSP whose only job is to publish the
      sim URDF on /sim/robot_description. Its TF goes to /sim/tf and
      /sim/tf_static, never /tf (§2.3); it reads /sim/joint_states.
@@ -83,10 +83,11 @@ def generate_launch_description():
                         'still render).'),
         DeclareLaunchArgument(
             'world',
-            default_value=PathJoinSubstitution([
-                FindPackageShare('husarion_gz_worlds'),
-                'worlds', 'husarion_office.sdf']),
-            description='SDF world file. Defaults to the husarion office world; '
+            default_value=os.path.join(sim_share, 'worlds', 'husarion_office_2x.sdf'),
+            description='SDF world file. Defaults to the husarion office world '
+                        'scaled 2x in x/y (worlds/husarion_office_2x.sdf, made by '
+                        'tools/scale_office_world.py; models come from '
+                        'husarion_gz_worlds); '
                         'pass world:=/abs/path.sdf (e.g. the old '
                         'f1tenth_sim/worlds/empty_room.sdf) for another.'),
         DeclareLaunchArgument(

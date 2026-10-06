@@ -15,3 +15,6 @@
 [submodule "zed-ros2-interfaces"]
 	path = src/f1tenth_external/zed-ros2-interfaces
 	url = https://github.com/stereolabs/zed-ros2-interfaces.git
+[submodule "src/husarion_gz_worlds"]
+	path = src/husarion_gz_worlds
+	url = https://github.com/husarion/husarion_gz_worlds.git
