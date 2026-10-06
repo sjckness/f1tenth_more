@@ -15,7 +15,7 @@ why the steering hinges are not driven from real data and what it would take.
 
 robot_state_publisher (roboracer.urdf.xacro) is used by:
   * f1tenth_bringup / f1tenth_localization (real hardware, use_sim:=false) -- to
-    publish the vehicle body TF tree (base_footprint/chassis/wheels via core.xacro).
+    publish the vehicle body TF tree (chassis/wheels/steering hinges via core.xacro).
     enable_sensors defaults to false here (see f1tenth_params/config/stack_params.yaml)
     specifically so the URDF's laser/imu/zed2_camera_link links are NOT also emitted
     on real hardware -- those real frames come from static_transform_publisher nodes
@@ -24,10 +24,22 @@ robot_state_publisher (roboracer.urdf.xacro) is used by:
     f1tenth_hardware/vesc.launch.py's base_link->imu), which would otherwise fight the
     URDF for authority over the exact same parent->child transforms.
 
-Static base_link->laser TF: gated to real hardware only (UnlessCondition(use_sim)) --
-in sim, enable_sensors:=true already gives sensors.xacro's own laser frame; running
-this static publisher there too would be a second, conflicting authority for the same
-transform.
+Static base_link->laser TF (the ONE place this edge comes from, car and sim):
+  * on the car (sim:=false, the default): the car's own mount, 0.12 0 0.20.
+  * in the Thor's sim mode (sim:=true): f1tenth_description/config/
+    sim_sensor_mounts.yaml's `laser` pose (the SAME numbers sensors.xacro gives
+    the simulated LiDAR), so the stack's TF matches where the sim scans from.
+Two static_transform_publisher nodes, one per branch (IfCondition/UnlessCondition
+on `sim`), because static_transform_publisher takes literal args.
+
+The `sim` switch is deliberately NOT `use_sim`: use_sim also gates
+joint_state_publisher below (which the Thor must keep running in sim -- the sim
+publishes its true joint states on /sim/joint_states, so the stack still needs
+static zeros on /joint_states). `sim` is a plain launch arg, default false; the
+supervisor's sim path sets it true via sim_component.launch.py (which already
+sets use_sim_time the same way), and it propagates into this file through
+localization.launch.py's include exactly as use_sim_time does. On the car this
+file is launched directly, so `sim` stays false.
 
 Frame layout (measured from base_link, which is centered between the axles and sits
 0.07m above the ground -- see f1tenth_hardware/vesc.launch.py's static_baselink_to_imu
@@ -53,17 +65,21 @@ for the identity base_link->imu TF, unaffected by this file):
     -- needs live verification once the physical remount is complete, same
     as the position numbers above.
 """
+import os
+
 from ament_index_python.packages import get_package_share_directory
 
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.conditions import UnlessCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
+
+import yaml
 
 
 def generate_launch_description():
@@ -71,6 +87,7 @@ def generate_launch_description():
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     use_sim = LaunchConfiguration('use_sim')
+    sim = LaunchConfiguration('sim')
     enable_sensors = LaunchConfiguration('enable_sensors')
     control_config = LaunchConfiguration('control_config')
 
@@ -83,6 +100,12 @@ def generate_launch_description():
     use_sim_default, use_sim_desc = get_default('use_sim')
     declare_use_sim = DeclareLaunchArgument(
         'use_sim', default_value=str(use_sim_default), description=use_sim_desc)
+    declare_sim = DeclareLaunchArgument(
+        'sim', default_value='false',
+        description='Thor sim mode: publish the sim_sensor_mounts.yaml '
+                    'base_link->laser instead of the car mount. Set true by '
+                    'sim_component.launch.py; false on the car. NOT use_sim '
+                    '(which also gates joint_state_publisher) -- see docstring.')
     enable_sensors_default, enable_sensors_desc = get_default('enable_sensors')
     declare_enable_sensors = DeclareLaunchArgument(
         'enable_sensors', default_value=str(enable_sensors_default),
@@ -176,26 +199,43 @@ def generate_launch_description():
         condition=UnlessCondition(use_sim),
     )
 
-    # Real-hardware-only: see module docstring for the front-facing-remount
-    # rationale, the placeholder/unconfirmed status of these numbers, and why
-    # this is skipped in sim. Positional args are x y z YAW PITCH ROLL
-    # (verified empirically against the --roll/--pitch/--yaw named form --
-    # NOT roll pitch yaw).
+    # base_link->laser, one node per branch (see module docstring). Positional
+    # args are x y z YAW PITCH ROLL (verified empirically against the
+    # --roll/--pitch/--yaw named form -- NOT roll pitch yaw).
+    #
+    # Car (sim:=false, default): the car's own mount. See the module docstring
+    # for the front-facing-remount rationale and the placeholder/unconfirmed
+    # status of these numbers. DO NOT change these -- they are the real TF.
     static_baselink_to_laser = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_laser',
         arguments=['0.12', '0.0', '0.20', '0.0', '0.0', '0.0',
                    'base_link', 'laser'],
-        condition=UnlessCondition(use_sim),
+        condition=UnlessCondition(sim),
+    )
+
+    # Thor sim mode (sim:=true): the simulated LiDAR mount, read from the single
+    # source of truth so it cannot drift from the pose the sim scans from.
+    sim_mounts = yaml.safe_load(
+        open(os.path.join(pkg_share, 'config', 'sim_sensor_mounts.yaml')))
+    laser_sim_xyz = [str(v) for v in sim_mounts['laser']['xyz']]
+    static_baselink_to_laser_sim = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='static_baselink_to_laser',
+        arguments=[*laser_sim_xyz, '0.0', '0.0', '0.0', 'base_link', 'laser'],
+        condition=IfCondition(sim),
     )
 
     return LaunchDescription([
         declare_use_sim_time,
         declare_use_sim,
+        declare_sim,
         declare_enable_sensors,
         declare_control_config,
         robot_state_publisher,
         joint_state_publisher,
         static_baselink_to_laser,
+        static_baselink_to_laser_sim,
     ])

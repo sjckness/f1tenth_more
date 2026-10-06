@@ -21,6 +21,13 @@ it two ways:
     global value with their own default, false. DeclareLaunchArgument never
     replaces a configuration that is already set.
 
+sim:=true is set the same way (SetLaunchConfiguration), as a single sim-mode
+flag any component below can read without the supervisor having to thread it in
+per component. description.launch.py reads it (through localization.launch.py's
+include, just like use_sim_time) to publish the sim_sensor_mounts.yaml
+base_link->laser instead of the car mount; nothing sets it on the car, where
+these files are launched directly and `sim` defaults false.
+
 No /clock publisher here: the simulator provides /clock on the network.
 """
 
@@ -47,6 +54,7 @@ def generate_launch_description():
         DeclareLaunchArgument('component_launch_file',
                               description='Component launch file, as ros2 launch finds it.'),
         SetLaunchConfiguration('use_sim_time', 'true'),
+        SetLaunchConfiguration('sim', 'true'),
         SetParameter(name='use_sim_time', value=True),
         OpaqueFunction(function=_include_component),
     ])

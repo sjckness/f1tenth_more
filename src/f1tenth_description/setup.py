@@ -16,6 +16,8 @@ setup(
         ('share/' + package_name + '/urdf', glob('urdf/*')),
         ('share/' + package_name + '/meshes', glob('meshes/*')),
         ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
+        # Sim-only sensor mount poses (single source of truth; see the file).
+        ('share/' + package_name + '/config', glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

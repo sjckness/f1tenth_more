@@ -4,9 +4,10 @@ Sim mode: what it skips, what it keeps, and that sim=false changes nothing.
 See component_supervisor_node's "Sim mode" paragraph.
 
 Plain-Python checks on apply_sim_mode() and _ComponentProcess.cmd against the
-real components.yaml, plus a source-level check that sim_hardware_tf.launch.py
-still publishes the same base_link -> imu transform as vesc.launch.py. No
-rclpy needed.
+real components.yaml, plus source-level checks that sim_hardware_tf.launch.py
+still publishes the same base_link -> imu transform as vesc.launch.py, and
+sim_camera_tf.launch.py the same camera TF as camera.launch.py. No rclpy
+needed.
 """
 import ast
 import copy
@@ -21,9 +22,18 @@ from component_supervisor_node import (  # noqa: E402,I100
 import yaml  # noqa: E402,I100
 
 COMPONENTS = os.path.join(HERE, '..', 'config', 'components.yaml')
+SRC = os.path.join(HERE, '..', '..')
 VESC_LAUNCH = os.path.join(
-    HERE, '..', '..', 'f1tenth_hardware', 'f1tenth_hardware', 'launch', 'vesc.launch.py')
+    SRC, 'f1tenth_hardware', 'f1tenth_hardware', 'launch', 'vesc.launch.py')
 SIM_TF_LAUNCH = os.path.join(HERE, '..', 'launch', 'sim_hardware_tf.launch.py')
+SIM_COMPONENT_LAUNCH = os.path.join(HERE, '..', 'launch', 'sim_component.launch.py')
+PERCEPTION_LAUNCH = os.path.join(SRC, 'f1tenth_perception', 'launch')
+CAMERA_LAUNCH = os.path.join(PERCEPTION_LAUNCH, 'camera.launch.py')
+SIM_CAMERA_TF_LAUNCH = os.path.join(PERCEPTION_LAUNCH, 'sim_camera_tf.launch.py')
+DESCRIPTION_LAUNCH = os.path.join(
+    SRC, 'f1tenth_description', 'launch', 'description.launch.py')
+SIM_MOUNTS_YAML = os.path.join(
+    SRC, 'f1tenth_description', 'config', 'sim_sensor_mounts.yaml')
 
 
 def _registry():
@@ -54,10 +64,12 @@ def test_hardware_keeps_only_the_imu_static_tf_and_calibration_nothing():
     assert sim['calibrate_hardware'] == []
 
 
-def test_perception_keeps_detection_and_everything_else_is_untouched():
+def test_perception_swaps_camera_for_its_tf_and_everything_else_is_untouched():
     reg = _registry()
     sim = apply_sim_mode(reg)
-    assert _files(sim['perception']) == [('f1tenth_perception', 'detection.launch.py')]
+    assert _files(sim['perception']) == [
+        ('f1tenth_perception', 'sim_camera_tf.launch.py'),
+        ('f1tenth_perception', 'detection.launch.py')]
     for name in set(reg) - {'hardware', 'calibrate_hardware', 'perception'}:
         assert sim[name] == reg[name], name
 
@@ -84,14 +96,22 @@ def test_cmd_with_sim_wraps_the_same_launch_file_and_args():
 
 
 def _static_tf_nodes(path):
-    """Map node name to arguments for every static_transform_publisher Node."""
+    """Map node name -> list of each matching node's LITERAL argument list.
+
+    Nodes whose `arguments` are built at runtime (e.g. splatted from the sim
+    mounts yaml) have no literal list and are skipped; a name can map to more
+    than one node (description.launch.py's car + sim laser branches).
+    """
     out = {}
     for node in ast.walk(ast.parse(open(path).read())):
         if isinstance(node, ast.Call) and getattr(node.func, 'id', None) == 'Node':
             kw = {k.arg: k.value for k in node.keywords}
             if (isinstance(kw.get('executable'), ast.Constant)
-                    and kw['executable'].value == 'static_transform_publisher'):
-                out[kw['name'].value] = [e.value for e in kw['arguments'].elts]
+                    and kw['executable'].value == 'static_transform_publisher'
+                    and isinstance(kw['arguments'], ast.List)
+                    and all(isinstance(e, ast.Constant) for e in kw['arguments'].elts)):
+                out.setdefault(kw['name'].value, []).append(
+                    [e.value for e in kw['arguments'].elts])
     return out
 
 
@@ -100,3 +120,67 @@ def test_sim_imu_tf_matches_vesc_launch():
     sim = _static_tf_nodes(SIM_TF_LAUNCH)
     assert list(sim) == ['static_baselink_to_imu']
     assert sim['static_baselink_to_imu'] == car['static_baselink_to_imu']
+
+
+def _sim_mounts():
+    with open(SIM_MOUNTS_YAML) as f:
+        return yaml.safe_load(f)
+
+
+def test_sim_component_sets_the_sim_flag():
+    # The supervisor's sim path sets `sim` true here (like use_sim_time), which
+    # propagates into description.launch.py. On the car these files run directly.
+    src = open(SIM_COMPONENT_LAUNCH).read()
+    assert "SetLaunchConfiguration('sim', 'true')" in src
+
+
+def test_sim_camera_tf_uses_the_sim_mount_not_the_cars():
+    # Car keeps its own base_link->zed2_camera_link; the sim one reads the yaml.
+    car = _static_tf_nodes(CAMERA_LAUNCH)['static_baselink_to_zed2']
+    assert car == [['0.12', '0.0', '0.15', '0.0', '0.0', '0.0',
+                    'base_link', 'zed2_camera_link']]
+    sim_src = open(SIM_CAMERA_TF_LAUNCH).read()
+    assert 'sim_sensor_mounts.yaml' in sim_src
+    assert "mounts['zed2_camera_link']" in sim_src
+    # and that is a different pose from the car's
+    assert _sim_mounts()['zed2_camera_link']['xyz'] == [0.36, 0.0, 0.25]
+
+
+def test_sim_laser_tf_uses_the_sim_mount_and_car_branch_is_unchanged():
+    # description.launch.py has two static_baselink_to_laser nodes: the car one
+    # (literal, UnlessCondition(sim)) and the sim one (yaml, IfCondition(sim)).
+    laser = _static_tf_nodes(DESCRIPTION_LAUNCH)['static_baselink_to_laser']
+    assert laser == [['0.12', '0.0', '0.20', '0.0', '0.0', '0.0',
+                      'base_link', 'laser']]           # car branch, unchanged
+    src = open(DESCRIPTION_LAUNCH).read()
+    assert 'sim_sensor_mounts.yaml' in src
+    assert "sim_mounts['laser']" in src
+    assert 'UnlessCondition(sim)' in src and 'IfCondition(sim)' in src
+    assert _sim_mounts()['laser']['xyz'] == [0.40, 0.0, 0.155]
+
+
+def _zed_wrapper_args(path):
+    """The camera_name / camera_model literals camera.launch.py passes to the wrapper."""
+    for node in ast.walk(ast.parse(open(path).read())):
+        if isinstance(node, ast.Dict):
+            keys = [k.value for k in node.keys if isinstance(k, ast.Constant)]
+            if 'camera_model' in keys:
+                return {k.value: v.value for k, v in zip(node.keys, node.values)
+                        if k.value in ('camera_name', 'camera_model')}
+    raise AssertionError('no camera_model argument in ' + path)
+
+
+def _module_constants(path):
+    out = {}
+    for node in ast.parse(open(path).read()).body:
+        if (isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+                and isinstance(node.targets[0], ast.Name)):
+            out[node.targets[0].id] = node.value.value
+    return out
+
+
+def test_sim_camera_tree_uses_the_cars_zed_name_and_model():
+    car = _zed_wrapper_args(CAMERA_LAUNCH)
+    sim = _module_constants(SIM_CAMERA_TF_LAUNCH)
+    assert (sim['CAMERA_NAME'], sim['CAMERA_MODEL']) == (car['camera_name'], car['camera_model'])
+    assert car == {'camera_name': 'zed2', 'camera_model': 'zed2i'}

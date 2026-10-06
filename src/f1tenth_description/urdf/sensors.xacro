@@ -1,49 +1,86 @@
 <?xml version="1.0"?>
 <!--
-  sensors.xacro - sensor links + Gazebo Harmonic sensor plugins.
+  sensors.xacro - LiDAR, IMU and ZED 2i links + Gazebo Harmonic sensors.
 
-  NEW relative to msauber (which had only a stereo "front camera" and no LiDAR/
-  IMU in its URDF). Frame names and mount poses match the real F1TENTH stack:
+  Sim only (enable_sensors:=true). On the car the same frames come from:
+    base_link -> laser             description.launch.py   static_baselink_to_laser
+    base_link -> imu               vesc.launch.py          static_baselink_to_imu
+    base_link -> zed2_camera_link  camera.launch.py        static_baselink_to_zed2
+    zed2_camera_link -> ...        the ZED wrapper's robot_state_publisher
+                                   (zed_macro.urdf.xacro, camera_name zed2,
+                                   camera_model zed2i)
 
-    base_link -> laser              @ ( 0.12, 0, 0.20), yaw=0   (Hokuyo, front-facing)
-    base_link -> imu                @ ( 0,    0, 0   )          (VESC IMU @ base_link)
-    base_link -> zed2_camera_link   @ ( 0.12, 0, 0.15), yaw=0   (ZED2, front-facing)
-                 -> zed2_left_camera_frame -> zed2_left_camera_optical_frame
+  The LiDAR and ZED 2i MOUNT POSES are now SIM-SPECIFIC and deliberately NOT
+  copies of the car's TFs: they come from config/sim_sensor_mounts.yaml (the
+  single source of truth), loaded below. The car's real base_link->laser
+  (0.12, 0, 0.20) and base_link->zed2_camera_link (0.12, 0, 0.15) are unchanged.
+  The IMU stays at base_link (identity) on both. test_sim_matches_car_config.py
+  checks the URDF mounts equal the yaml and that the car's TFs still hold.
 
-  laser matches description.launch.py's real-hardware static_baselink_to_laser
-  (the front-facing remount; its numbers are ruler-measured placeholders, see
-  that file). The sim must scan from the pose the Thor's TF claims, or every
-  scan is misregistered. imu matches vesc.launch.py's identity base_link->imu.
+  The mount numbers assume base_link at the rear axle on the ground (this URDF);
+  description.launch.py's docstring measured the car TFs from a "centred between
+  the axles, 0.07 m up" base_link instead. That disagreement is real-car item
+  G13 (output/sim_port_report.md); the sim follows this URDF's base_link.
 
-  Gazebo tags use the Harmonic conventions: <gz_frame_id> (Fortress spelled it
-  <gz_frame_id>), rendered by the world's gz::sim::systems::Sensors / ::Imu
-  systems. <gazebo> blocks are ignored by robot_state_publisher, so this file is
-  harmless on the real robot. The IMU's gz frame id never reaches the stack:
-  f1tenth_sim's drive_bridge restamps the message with the real driver's empty
-  frame_id (output/sim_port_report.md, D3).
+  The sim's TF never reaches the stack (f1tenth_sim's robot_state_publisher
+  publishes on /sim/tf). In sim mode the Thor publishes these frames itself, with
+  the SAME sim_sensor_mounts.yaml numbers: sim_hardware_tf.launch.py (imu),
+  description.launch.py (laser, sim branch) and
+  f1tenth_perception/sim_camera_tf.launch.py (the ZED tree).
 
-  The ZED2 camera/depth sensors are only rendered with enable_camera_mock:=true
-  (default false): two 1280x720 streams at 30 Hz cost more than the sim host's
-  GPU and the LAN should carry, and nothing consumes them yet.
+  Gazebo tags are ignored by robot_state_publisher, so nothing here affects the
+  car.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
+
+  <!-- ===== mount poses: SIM-SPECIFIC, from config/sim_sensor_mounts.yaml
+       (single source of truth; see header). NOT the car's TFs. ===== -->
+  <xacro:property name="sim_mounts"
+                  value="${xacro.load_yaml(pkg_share + '/config/sim_sensor_mounts.yaml')}" />
+  <xacro:property name="laser_xyz"
+                  value="${sim_mounts['laser']['xyz'][0]} ${sim_mounts['laser']['xyz'][1]} ${sim_mounts['laser']['xyz'][2]}" />
+  <xacro:property name="imu_xyz"   value="0.0 0.0 0.0" />     <!-- identity, like the car -->
+  <xacro:property name="zed_xyz"
+                  value="${sim_mounts['zed2_camera_link']['xyz'][0]} ${sim_mounts['zed2_camera_link']['xyz'][1]} ${sim_mounts['zed2_camera_link']['xyz'][2]}" />
+
+  <!-- ===== ZED 2i internal geometry: zed_macro.urdf.xacro, model zed2i
+       (zed-ros2-wrapper v5.4.1, the submodule's pinned commit 86171bc) ===== -->
+  <xacro:property name="zed_baseline"         value="0.12" />
+  <xacro:property name="zed_height"           value="0.03" />  <!-- macro value; mount -> centre = height/2 -->
+  <xacro:property name="zed_bottom_slope"     value="0.0" />   <!-- zed2 has 0.05; zed2i is level -->
+  <xacro:property name="zed_screw_offset_x"   value="-0.01" />
+  <xacro:property name="zed_optical_offset_x" value="-0.01" />
+  <!-- Housing 175.25 x 30.25 x 43.1 mm (Stereolabs ZED 2i datasheet) -->
+  <xacro:property name="zed_box" value="0.03025 0.17525 0.0431" />
+
+  <!-- ===== ZED 2i streams as the car publishes them (zed2_perception.yaml):
+       HD720 grab, pub_resolution CUSTOM with pub_downscale_factor 2 -> 640x360,
+       pub_frame_rate 30. HFOV of the rectified HD720 left image:
+       2*atan(640 / 528 px) = 1.762 rad (~101 deg). ===== -->
+  <xacro:property name="zed_width"      value="640" />
+  <xacro:property name="zed_height_px"  value="360" />
+  <xacro:property name="zed_rate"       value="30" />
+  <xacro:property name="zed_hfov"       value="1.762" />
+  <xacro:property name="zed_depth_min"  value="0.3" />   <!-- ZED 2i physical minimum -->
+  <xacro:property name="zed_depth_max"  value="15.0" />  <!-- wrapper zed2i.yaml depth.max_depth -->
 
   <xacro:if value="$(arg enable_sensors)">
 
     <!-- ============================ LiDAR =============================== -->
+    <!-- Hokuyo UST-10LX: 270 deg, 1081 beams (0.25 deg), 40 Hz, 0.06-10 m
+         spec (0.1 m min here so the scan never hits its own housing). -->
     <link name="laser">
       <inertial><xacro:sensor_inertial_params /></inertial>
       <visual>
         <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry><cylinder radius="0.025" length="0.05"/></geometry>
-        <material name="grey"/>
+        <geometry><mesh filename="${mesh_dir}/hokuyo.stl"/></geometry>
+        <material name="dark_grey"/>
       </visual>
     </link>
     <joint name="laser_joint" type="fixed">
       <parent link="base_link"/>
       <child link="laser"/>
-      <!-- Front-facing; same values as description.launch.py's static_baselink_to_laser. -->
-      <origin xyz="0.12 0.0 0.20" rpy="0 0 0"/>
+      <origin xyz="${laser_xyz}" rpy="0 0 0"/>
     </joint>
 
     <gazebo reference="laser">
@@ -89,7 +126,7 @@
     <joint name="imu_joint" type="fixed">
       <parent link="base_link"/>
       <child link="imu"/>
-      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+      <origin xyz="${imu_xyz}" rpy="0 0 0"/>
     </joint>
 
     <gazebo reference="imu">
@@ -102,55 +139,86 @@
       </sensor>
     </gazebo>
 
-    <!-- ====================== ZED2 mock camera ========================= -->
-    <!-- Mount link (root of the ZED URDF chain on the real robot) -->
-    <link name="zed2_camera_link">
-      <inertial><xacro:sensor_inertial_params /></inertial>
-      <visual>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry><box size="0.03 0.175 0.03"/></geometry>
-        <material name="grey"/>
-      </visual>
-    </link>
+    <!-- =========================== ZED 2i ============================== -->
+    <!-- Same links, joints and names as the wrapper's zed_macro for
+         camera_name zed2 / camera_model zed2i, so the sim tree is the car's. -->
+
+    <!-- Mounting point (the threaded hole under the camera) -->
+    <link name="zed2_camera_link"/>
     <joint name="zed2_camera_joint" type="fixed">
       <parent link="base_link"/>
       <child link="zed2_camera_link"/>
-      <origin xyz="0.12 0.0 0.15" rpy="0 0 0"/>
+      <origin xyz="${zed_xyz}" rpy="0 0 0"/>
     </joint>
 
-    <!-- Left lens frame (ZED2 baseline ~0.06 m, left = +y) -->
+    <link name="zed2_camera_center">
+      <inertial><xacro:sensor_inertial_params /></inertial>
+      <visual>
+        <!-- box bottom on the mounting plane, shifted like the wrapper's mesh -->
+        <origin xyz="${zed_screw_offset_x} 0 ${0.0431/2 - zed_height/2}" rpy="0 0 0"/>
+        <geometry><box size="${zed_box}"/></geometry>
+        <material name="dark_grey"/>
+      </visual>
+    </link>
+    <joint name="zed2_camera_center_joint" type="fixed">
+      <parent link="zed2_camera_link"/>
+      <child link="zed2_camera_center"/>
+      <origin xyz="0 0 ${zed_height/2}" rpy="0 ${zed_bottom_slope} 0"/>
+    </joint>
+
     <link name="zed2_left_camera_frame">
       <inertial><xacro:sensor_inertial_params /></inertial>
     </link>
     <joint name="zed2_left_camera_joint" type="fixed">
-      <parent link="zed2_camera_link"/>
+      <parent link="zed2_camera_center"/>
       <child link="zed2_left_camera_frame"/>
-      <origin xyz="0.0 0.06 0.0" rpy="0 0 0"/>
+      <origin xyz="${zed_optical_offset_x} ${zed_baseline/2} 0" rpy="0 0 0"/>
     </joint>
 
-    <!-- Optical frame: REP-103 optical convention (z forward, x right, y down) -->
-    <link name="zed2_left_camera_optical_frame"/>
-    <joint name="zed2_left_camera_optical_joint" type="fixed">
+    <!-- REP-103 optical convention (z forward, x right, y down). Wrapper v5
+         name: *_frame_optical (v4 called it *_optical_frame). -->
+    <link name="zed2_left_camera_frame_optical"/>
+    <joint name="zed2_left_camera_joint_optical" type="fixed">
       <parent link="zed2_left_camera_frame"/>
-      <child link="zed2_left_camera_optical_frame"/>
+      <child link="zed2_left_camera_frame_optical"/>
       <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
     </joint>
 
-    <!-- RGB + depth sensors. Image headers carry the optical frame id. -->
+    <link name="zed2_right_camera_frame"/>
+    <joint name="zed2_right_camera_joint" type="fixed">
+      <parent link="zed2_camera_center"/>
+      <child link="zed2_right_camera_frame"/>
+      <origin xyz="${zed_optical_offset_x} ${-zed_baseline/2} 0" rpy="0 0 0"/>
+    </joint>
+
+    <link name="zed2_right_camera_frame_optical"/>
+    <joint name="zed2_right_camera_joint_optical" type="fixed">
+      <parent link="zed2_right_camera_frame"/>
+      <child link="zed2_right_camera_frame_optical"/>
+      <origin xyz="0 0 0" rpy="${-pi/2} 0 ${-pi/2}"/>
+    </joint>
+
+    <!-- RGB + registered depth from the left lens, stamped with the left
+         optical frame like the wrapper. gz topics are sim-internal (/sim/zed2/*);
+         ros_gz_bridge.yaml maps them onto the topics the stack reads:
+           /sim/zed2/rgb/image         -> /camera/image_raw
+           /sim/zed2/rgb/camera_info   -> /camera/camera_info
+           /sim/zed2/depth/image       -> /zed2/zed_node/depth/depth_registered
+           /sim/zed2/depth/camera_info -> /zed2/zed_node/depth/camera_info -->
     <xacro:if value="$(arg enable_camera_mock)">
     <gazebo reference="zed2_left_camera_frame">
       <sensor name="zed2_rgb" type="camera">
-        <topic>zed2/zed_node/rgb/image_rect_color</topic>
-        <gz_frame_id>zed2_left_camera_optical_frame</gz_frame_id>
-        <update_rate>30</update_rate>
+        <topic>/sim/zed2/rgb/image</topic>
+        <gz_frame_id>zed2_left_camera_frame_optical</gz_frame_id>
+        <update_rate>${zed_rate}</update_rate>
         <always_on>true</always_on>
         <visualize>false</visualize>
         <camera>
-          <!-- ZED2 HD720 left lens: ~101 deg HFOV -->
-          <horizontal_fov>1.7633</horizontal_fov>
+          <camera_info_topic>/sim/zed2/rgb/camera_info</camera_info_topic>
+          <horizontal_fov>${zed_hfov}</horizontal_fov>
           <image>
-            <width>1280</width>
-            <height>720</height>
+            <width>${zed_width}</width>
+            <height>${zed_height_px}</height>
             <format>R8G8B8</format>
           </image>
           <clip>
@@ -160,22 +228,22 @@
         </camera>
       </sensor>
       <sensor name="zed2_depth" type="depth_camera">
-        <topic>zed2/zed_node/depth/depth_registered</topic>
-        <gz_frame_id>zed2_left_camera_optical_frame</gz_frame_id>
-        <update_rate>30</update_rate>
+        <topic>/sim/zed2/depth/image</topic>
+        <gz_frame_id>zed2_left_camera_frame_optical</gz_frame_id>
+        <update_rate>${zed_rate}</update_rate>
         <always_on>true</always_on>
         <visualize>false</visualize>
         <camera>
-          <horizontal_fov>1.7633</horizontal_fov>
+          <camera_info_topic>/sim/zed2/depth/camera_info</camera_info_topic>
+          <horizontal_fov>${zed_hfov}</horizontal_fov>
           <image>
-            <width>1280</width>
-            <height>720</height>
+            <width>${zed_width}</width>
+            <height>${zed_height_px}</height>
             <format>R_FLOAT32</format>
           </image>
           <clip>
-            <!-- ZED2 depth range -->
-            <near>0.3</near>
-            <far>20.0</far>
+            <near>${zed_depth_min}</near>
+            <far>${zed_depth_max}</far>
           </clip>
         </camera>
       </sensor>

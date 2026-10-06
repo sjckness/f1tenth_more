@@ -1,0 +1,23 @@
+# Simulated sensor mounts for f1tenth_sim -- SINGLE SOURCE OF TRUTH.
+#
+# SIM ONLY. These are NOT the car's TFs and are deliberately NOT equal to them:
+# the real base_link->laser (0.12, 0, 0.20, description.launch.py) and
+# base_link->zed2_camera_link (0.12, 0, 0.15, camera.launch.py) are unchanged.
+# Read by:
+#   * f1tenth_description/urdf/sensors.xacro  (the gz sensor link origins)
+#   * f1tenth_description/launch/description.launch.py  (base_link->laser, sim)
+#   * f1tenth_perception/launch/sim_camera_tf.launch.py (base_link->zed2_camera_link)
+# so the simulator scans/renders from exactly the pose the stack's TF claims in
+# sim mode. test_sim_matches_car_config.py / test_sim_mode.py fail on drift.
+#
+# Frame: base_link = rear axle, on the ground, laterally centred. rpy all 0
+# (level, front-facing). Geometry rationale:
+#   * LiDAR over the nose (x 0.40) and BELOW the camera so its housing stays
+#     outside the ZED's vertical FOV (half-VFOV 34.3 deg; the hokuyo housing
+#     sits >= 45 deg below the left lens -- test_sim_matches_car_config.py).
+#   * scan plane z 0.155 clears the body top (0.14) and the camera underside
+#     (0.25).
+laser:
+  xyz: [0.40, 0.0, 0.155]
+zed2_camera_link:
+  xyz: [0.36, 0.0, 0.25]
