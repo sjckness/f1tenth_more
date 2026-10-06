@@ -24,10 +24,10 @@ Launches:
   6. drive_bridge: /ackermann_drive -> controller, controller odom -> /odom,
      /sim/imu_raw -> /sensors/imu/raw
   7. optional foxglove_bridge (foxglove:=true)
-  8. clock_throttle: /sim/clock_raw -> /clock at clock_rate (default 200 Hz).
-     Physics keeps its 1 ms step; only the published clock is decimated, so
-     /clock costs 5x fewer packets per Thor subscriber on the cable
-     (output/sim_clock_fanout.md).
+  8. clock_throttle: /sim/clock_raw -> /clock at clock_rate (default 250 Hz =
+     one per 4 ms physics step). Gazebo publishes a clock per step (~250 Hz);
+     the throttle decimates on sim time, so /clock costs fewer packets per Thor
+     subscriber on the cable (output/sim_clock_fanout.md).
 
 Published on the shared graph: /clock /scan /odom /sensors/imu/raw, the four
 camera topics above (camera:=true), plus /sim/* (internal and ground truth).
@@ -38,8 +38,8 @@ by the Thor in sim:=true) owns that topic, so the sim's true joint states go to
 
 Args: gui (default false: server only), world, foxglove, camera (default true:
 render the ZED 2i at the car's 640x360 @ 30 Hz, about 50 MB/s raw over the LAN),
-clock_rate (Hz of /clock, default 200; 0 = every physics step, the old
-behaviour), x/y/yaw spawn pose.
+clock_rate (Hz of /clock, default 250 = one per 4 ms step; 0 = every physics
+step, the old behaviour), x/y/yaw spawn pose.
 """
 import os
 
@@ -105,12 +105,13 @@ def generate_launch_description():
             description='Render the ZED 2i RGB + depth and bridge them onto the '
                         "car's topics. false = LiDAR/IMU/odom only."),
         DeclareLaunchArgument(
-            'clock_rate', default_value='200.0',
+            'clock_rate', default_value='250.0',
             description='Rate of /clock in Hz of sim time. It is the time '
                         'resolution of every sim-time timer on the Thor (fastest '
-                        'are 50 Hz): 200 = 5 ms, 100 is the practical minimum. '
-                        '0 = forward every physics step (1000 Hz, floods the '
-                        'LAN with ~40 Thor subscribers).'),
+                        'are 50 Hz). Default 250 = one per 4 ms physics step '
+                        '(the current step); 200 (5 ms bins) would alias the '
+                        '4 ms steps and add 4/8 ms jitter. 0 = forward every '
+                        'physics step (floods the LAN with ~40 Thor subscribers).'),
         DeclareLaunchArgument('x', default_value='0.0'),
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('yaw', default_value='0.0'),

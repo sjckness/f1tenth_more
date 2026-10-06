@@ -89,6 +89,22 @@ Other options considered: A (coarser physics, the 2026-10-05 workaround —
 loses fidelity), C (clock relay on the Thor — same topic name on both hosts in
 one domain is awkward), D (fewer subscribers — not realistic).
 
+## Current setting (2026-10-06): 4 ms physics step, /clock 250 Hz
+
+Physics step is **4 ms** (`worlds/*.sdf`, single `<physics name="4ms">` block,
+`max_step_size 0.004`, `real_time_factor 1.0`, no `real_time_update_rate`) and
+`clock_rate` is **250 Hz**. Andreas: the 1 ms step cannot hold real time on the
+2x office world on linus (RTF collapsed and swung, the clock stuttered); 4 ms
+runs steady at RTF ≈ 1.0. 250 Hz = one forwarded clock per 4 ms step, so the
+grid is exact and there is no aliasing — 200 Hz (5 ms bins) against 4 ms steps
+would drop/keep bins unevenly and add 4/8 ms jitter. Measured on linus after the
+change: ~250 msgs/s on /clock, max_gap 5–11 ms, sim_advance ≈ wall, backwards=0.
+
+To go back to 1 ms: set `max_step_size 0.001` in both world files (and the
+generator `tools/scale_office_world.py`), and launch with `clock_rate:=1000`
+(or the previous `200`); only worthwhile if the sim host can hold real time at
+1 ms on the world in use.
+
 ## Acceptance test
 
 1. linus: rebuild `f1tenth_sim`, launch the sim (default `clock_rate:=200`).

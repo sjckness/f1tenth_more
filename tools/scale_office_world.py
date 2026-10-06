@@ -35,6 +35,16 @@ def set_pose(p_el, v):
 tree = ET.parse(SRC)
 world = tree.getroot().find("world")
 
+# Single 4 ms physics block (Andreas 2026-10-06: 1 ms can't hold real time on
+# linus with the 2x world). Upstream husarion_office.sdf ships two <physics>
+# blocks; replace them all with one so the output needs no hand-editing.
+for ph in world.findall("physics"):
+    world.remove(ph)
+ph = ET.Element("physics", {"name": "4ms", "type": "ode"})
+ET.SubElement(ph, "max_step_size").text = "0.004"
+ET.SubElement(ph, "real_time_factor").text = "1.0"
+world.insert(0, ph)
+
 # Bake the saved <state> into the model definitions, then drop it.
 # (The original file places the wall/floor links only via <state>.)
 defs = {m.get("name"): m for m in world.findall("model")}

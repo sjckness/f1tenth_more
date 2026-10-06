@@ -1,22 +1,25 @@
-"""Clock throttle: republishes Gazebo's 1 kHz clock on /clock at a lower rate.
+"""Clock throttle: republishes Gazebo's per-step clock on /clock at a set rate.
 
 Why (output/sim_clock_fanout.md): Gazebo publishes one clock message per
-physics step, 1000/s with the 1 ms step. Every node on use_sim_time subscribes
-to /clock, and between two machines Fast DDS (Discovery Server, unicast) sends
-one UDP packet per remote subscriber per message: ~40 subscribers on the Thor
-x 1000 Hz = ~40,000 packets/s for /clock alone. The bridge's writer could not
-keep up, /clock reached the Thor in waves (seconds with no clock, then
-catch-up bursts), and every sim-time timer on the Thor froze and burst with it.
+physics step. With the original 1 ms step that was 1000/s. Every node on
+use_sim_time subscribes to /clock, and between two machines Fast DDS (Discovery
+Server, unicast) sends one UDP packet per remote subscriber per message: ~40
+subscribers on the Thor x 1000 Hz = ~40,000 packets/s for /clock alone. The
+bridge's writer could not keep up, /clock reached the Thor in waves (seconds
+with no clock, then catch-up bursts), and every sim-time timer on the Thor
+froze and burst with it.
 
 So ros_gz_bridge now puts Gazebo's clock on /sim/clock_raw (subscribed only
 here, on the sim PC, through shared memory) and this node republishes it on
-/clock at rate_hz (default 200 Hz, 5 ms resolution, 5x less network traffic)
-while physics keeps its 1 ms step.
+/clock at rate_hz (default 250 Hz, 4 ms resolution). The step is now 4 ms
+(worlds/*.sdf), so Gazebo emits ~250/s and 250 Hz forwards one per step; see
+output/sim_clock_fanout.md "Current setting" for the 4 ms/250 Hz rationale.
 
 Decimation is on SIM time, not wall time, and snapped to a grid: a message is
 forwarded when its time enters a new rate_hz bin (floor(t / period) grew).
-  - With the 1 ms step and 200 Hz the forwarded stamps are exact multiples of
-    5 ms, so a 50 Hz (20 ms) sim-time timer fires exactly on its tick.
+  - With the 4 ms step and 250 Hz the forwarded stamps are exact multiples of
+    4 ms (one per step), so a 50 Hz (20 ms) sim-time timer fires exactly on its
+    tick; 200 Hz (5 ms bins) would alias the 4 ms steps and add 4/8 ms jitter.
   - The average output rate is rate_hz in sim time at any real-time factor
     (fewer messages per wall second when the sim runs slower, as before).
   - The forwarded values are Gazebo's own, never interpolated or invented: a
@@ -92,7 +95,7 @@ def main():
                 'sim_clock_throttle',
                 parameter_overrides=[
                     Parameter('use_sim_time', Parameter.Type.BOOL, False)])
-            self.declare_parameter('rate_hz', 200.0)
+            self.declare_parameter('rate_hz', 250.0)
             self.declare_parameter('input_topic', '/sim/clock_raw')
             self.declare_parameter('output_topic', '/clock')
             self.declare_parameter('stats_period_sec', 30.0)

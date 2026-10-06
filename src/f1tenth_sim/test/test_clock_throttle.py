@@ -31,8 +31,18 @@ def test_a_50hz_timer_tick_is_always_hit_exactly():
     assert all(k * 20 * MS in out for k in range(1, 51))
 
 
+def test_4ms_steps_at_250hz_forward_every_step_on_the_grid():
+    # The current setting (4 ms physics, 250 Hz): the bin IS the step, so every
+    # step is forwarded exactly on a 4 ms grid, no jitter. 200 Hz (5 ms bins)
+    # against 4 ms steps would alias, hence 250.
+    out = _forwarded(250.0, [i * 4 * MS for i in range(2500)])     # 10 s of sim
+    assert len(out) == 2500                                        # 250 Hz
+    assert all(t % (4 * MS) == 0 for t in out)                     # exact grid
+    assert all(b - a == 4 * MS for a, b in zip(out, out[1:]))      # no jitter
+
+
 def test_coarser_steps_still_average_the_target_rate():
-    # 4 ms physics (the old workaround) at 200 Hz: 4 of every 5 bins get a step
+    # 4 ms physics at 200 Hz: 4 of every 5 bins get a step (the aliasing we avoid)
     out = _forwarded(200.0, [i * 4 * MS for i in range(2500)])     # 10 s
     assert len(out) == 2000
     # 4 ms steps faster than the target: every step goes through
@@ -88,5 +98,5 @@ def test_launch_starts_the_throttle_between_raw_and_clock():
     assert "executable='clock_throttle'" in text
     assert "'input_topic': '/sim/clock_raw'" in text
     assert "'output_topic': '/clock'" in text
-    assert "'clock_rate', default_value='200.0'" in text
+    assert "'clock_rate', default_value='250.0'" in text
     assert "'clock_throttle = f1tenth_sim.clock_throttle:main'" in (PKG / 'setup.py').read_text()
