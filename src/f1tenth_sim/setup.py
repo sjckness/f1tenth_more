@@ -38,6 +38,9 @@ setup(
             # /ackermann_drive -> controller reference, controller odometry
             # -> /odom, gz IMU -> /sensors/imu/raw (see drive_bridge.py).
             'drive_bridge = f1tenth_sim.drive_bridge:main',
+            # Gazebo's 1 kHz clock (/sim/clock_raw) -> /clock at clock_rate,
+            # so /clock does not flood the LAN (see clock_throttle.py).
+            'clock_throttle = f1tenth_sim.clock_throttle:main',
         ],
     },
 )

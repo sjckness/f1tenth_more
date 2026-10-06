@@ -17,7 +17,11 @@
 # (enable_camera_mock, default false). output/sim_port_report.md §2.4 lists what
 # re-enabling them would take.
 
-- ros_topic_name: "/clock"
+# Gazebo's clock (one message per 1 ms physics step = 1000 Hz) goes to a
+# sim-PC-only topic; clock_throttle republishes it on /clock at clock_rate
+# (default 200 Hz). Bridging it straight to /clock flooded the cable: one UDP
+# packet per Thor subscriber per message (output/sim_clock_fanout.md).
+- ros_topic_name: "/sim/clock_raw"
   gz_topic_name: "/clock"
   ros_type_name: "rosgraph_msgs/msg/Clock"
   gz_type_name: "gz.msgs.Clock"

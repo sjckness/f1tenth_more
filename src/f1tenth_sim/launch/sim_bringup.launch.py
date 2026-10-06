@@ -11,7 +11,8 @@ Launches:
   2. sim_robot_state_publisher: private RSP whose only job is to publish the
      sim URDF on /sim/robot_description. Its TF goes to /sim/tf and
      /sim/tf_static, never /tf (§2.3); it reads /sim/joint_states.
-  3. ros_gz_bridge: /clock, /scan, /sim/imu_raw, /sim/ground_truth, and with
+  3. ros_gz_bridge: /sim/clock_raw (Gazebo's 1 kHz clock), /scan, /sim/imu_raw,
+     /sim/ground_truth, and with
      camera:=true the ZED 2i streams on the car's topic names:
      /camera/image_raw, /camera/camera_info (what camera.launch.py remaps the
      wrapper's RGB to), /zed2/zed_node/depth/depth_registered and
@@ -23,6 +24,10 @@ Launches:
   6. drive_bridge: /ackermann_drive -> controller, controller odom -> /odom,
      /sim/imu_raw -> /sensors/imu/raw
   7. optional foxglove_bridge (foxglove:=true)
+  8. clock_throttle: /sim/clock_raw -> /clock at clock_rate (default 200 Hz).
+     Physics keeps its 1 ms step; only the published clock is decimated, so
+     /clock costs 5x fewer packets per Thor subscriber on the cable
+     (output/sim_clock_fanout.md).
 
 Published on the shared graph: /clock /scan /odom /sensors/imu/raw, the four
 camera topics above (camera:=true), plus /sim/* (internal and ground truth).
@@ -33,7 +38,8 @@ by the Thor in sim:=true) owns that topic, so the sim's true joint states go to
 
 Args: gui (default false: server only), world, foxglove, camera (default true:
 render the ZED 2i at the car's 640x360 @ 30 Hz, about 50 MB/s raw over the LAN),
-x/y/yaw spawn pose.
+clock_rate (Hz of /clock, default 200; 0 = every physics step, the old
+behaviour), x/y/yaw spawn pose.
 """
 import os
 
@@ -75,6 +81,7 @@ def generate_launch_description():
     world = LaunchConfiguration('world')
     foxglove = LaunchConfiguration('foxglove')
     camera = LaunchConfiguration('camera')
+    clock_rate = LaunchConfiguration('clock_rate')
 
     args = [
         DeclareLaunchArgument(
@@ -97,6 +104,13 @@ def generate_launch_description():
             'camera', default_value='true',
             description='Render the ZED 2i RGB + depth and bridge them onto the '
                         "car's topics. false = LiDAR/IMU/odom only."),
+        DeclareLaunchArgument(
+            'clock_rate', default_value='200.0',
+            description='Rate of /clock in Hz of sim time. It is the time '
+                        'resolution of every sim-time timer on the Thor (fastest '
+                        'are 50 Hz): 200 = 5 ms, 100 is the practical minimum. '
+                        '0 = forward every physics step (1000 Hz, floods the '
+                        'LAN with ~40 Thor subscribers).'),
         DeclareLaunchArgument('x', default_value='0.0'),
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('yaw', default_value='0.0'),
@@ -170,6 +184,21 @@ def generate_launch_description():
         condition=IfCondition(camera),
     )
 
+    # --- 3b) /clock throttle -----------------------------------------------
+    # Wall time on purpose (the node forces use_sim_time false itself): on sim
+    # time it would subscribe to the /clock it publishes.
+    clock_throttle = Node(
+        package='f1tenth_sim',
+        executable='clock_throttle',
+        name='sim_clock_throttle',
+        output='screen',
+        parameters=[{
+            'rate_hz': ParameterValue(clock_rate, value_type=float),
+            'input_topic': '/sim/clock_raw',
+            'output_topic': '/clock',
+        }],
+    )
+
     # --- 4) spawn the robot -------------------------------------------------
     spawn_entity = Node(
         package='ros_gz_sim',
@@ -231,6 +260,7 @@ def generate_launch_description():
         gz_sim,
         sim_rsp,
         bridge,
+        clock_throttle,
         camera_bridge,
         spawn_entity,
         drive_bridge,
