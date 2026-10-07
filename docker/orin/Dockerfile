@@ -173,11 +173,17 @@ FROM cuda AS llama
 # binary has no Orin cubins and PTX-JITs every kernel at first use: ~2 min cold
 # start in a fresh container, phase5d_spike.md section 5.4). Same options as the
 # host build otherwise (CUDA, shared libs, Release, native CPU flags); tests
-# and examples off.
+# and examples off. Linked against the CUDA driver STUB: on LD_LIBRARY_PATH
+# libcuda.so.1 is the compat driver, whose own dependencies (libnvrm_gpu, ...)
+# are host L4T libs absent at build time, so linking the executables against
+# it fails. The stub carries the same SONAME; at run time the compat driver
+# is loaded, and build_checks.sh's ldd -r proves it resolves.
 ARG LLAMA_REPO=https://github.com/ggml-org/llama.cpp.git
 ARG LLAMA_COMMIT=42532afff43910e619a650c1704525b3acbbec5a
 RUN --mount=type=cache,id=f1tenth-orin-ccache-llama,target=/root/.ccache \
-    git init -q /tmp/llama.cpp && cd /tmp/llama.cpp \
+    mkdir -p /tmp/cuda-stub && ln -s /usr/local/cuda/lib64/stubs/libcuda.so /tmp/cuda-stub/libcuda.so.1 \
+ && export LD_LIBRARY_PATH=/tmp/cuda-stub:/usr/local/cuda/lib64 \
+ && git init -q /tmp/llama.cpp && cd /tmp/llama.cpp \
  && git remote add origin "${LLAMA_REPO}" \
  && git fetch -q --depth 1 origin "${LLAMA_COMMIT}" && git checkout -q FETCH_HEAD \
  && test "$(git rev-parse HEAD)" = "${LLAMA_COMMIT}" \
@@ -192,7 +198,7 @@ RUN --mount=type=cache,id=f1tenth-orin-ccache-llama,target=/root/.ccache \
  && { echo "commit ${LLAMA_COMMIT}"; echo "repo ${LLAMA_REPO}"; \
       echo "cmake -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=87 -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release"; \
       echo "nvcc $(nvcc --version | tail -1)"; } > /opt/llama.cpp/BUILD_INFO \
- && rm -rf /tmp/llama.cpp
+ && rm -rf /tmp/llama.cpp /tmp/cuda-stub
 
 # ---------------------------------------------------------------------------
 FROM zed AS ws
