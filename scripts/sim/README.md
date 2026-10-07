@@ -9,7 +9,7 @@ network env in one place and launch each side, so you don't type exports or long
 
 ```bash
 # on the Thor (starts the Discovery Server + the stack):
-scripts/sim/stack.sh
+scripts/sim/sim_stack.sh
 
 # on linus (connects to the Thor's Discovery Server, starts Gazebo):
 scripts/sim/sim.sh
@@ -25,7 +25,7 @@ when it comes up. Both are headless/standard by default. Ctrl-C to stop.
 - `--dry-run` print the resolved env + command, launch nothing
 - any `ros2 launch` arg is passed through and overrides a default, e.g.
   `scripts/sim/sim.sh gui:=true yaw:=0`,
-  `scripts/sim/stack.sh health_watchdog:=enforce`
+  `scripts/sim/sim_stack.sh health_watchdog:=enforce`
 
 ## Clear a machine
 
@@ -44,7 +44,7 @@ Defined once in `sim_net.sh`, then it sources `scripts/env/jazzy.sh`:
 | `F1TENTH_SIM_DISCOVERY_PORT` | `11811`     | Discovery Server port |
 | `ROS_DOMAIN_ID`              | `42`        | sim domain |
 
-Example: `F1TENTH_SIM_DISCOVERY_IP=10.42.0.9 scripts/sim/stack.sh`.
+Example: `F1TENTH_SIM_DISCOVERY_IP=10.42.0.9 scripts/sim/sim_stack.sh`.
 
 ## Introspecting the running graph
 

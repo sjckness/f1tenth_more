@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# stack.sh -- one-command Jazzy stack bringup in sim mode.
+# sim_stack.sh -- one-command Jazzy stack bringup in sim mode.
 # Run on the STACK HOST (the Thor). Sets the ROS network env (see sim_net.sh)
 # and launches supervisor_bringup.launch.py sim:=true with the standard args,
 # so you never type exports or the long launch line.
+# (Named sim_stack.sh so a stack.sh for the REAL car can live alongside it.)
 #
 # Usage:
-#   scripts/sim/stack.sh                       # sim mode, intelligence on, watchdog alert
-#   scripts/sim/stack.sh health_watchdog:=enforce
-#   scripts/sim/stack.sh --clean               # kill_ros2.py -y first (clean slate), then launch
-#   scripts/sim/stack.sh --dry-run             # print the env + command, launch nothing
+#   scripts/sim/sim_stack.sh                       # sim mode, intelligence on, watchdog alert
+#   scripts/sim/sim_stack.sh health_watchdog:=enforce
+#   scripts/sim/sim_stack.sh --clean               # kill_ros2.py -y first (clean slate), then launch
+#   scripts/sim/sim_stack.sh --dry-run             # print the env + command, launch nothing
 # Any ros2-launch arg for supervisor_bringup.launch.py is passed through and, if
 # it repeats a default below, overrides it (ros2 launch: last value wins).
 #

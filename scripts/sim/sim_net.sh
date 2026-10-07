@@ -8,7 +8,7 @@
 # Defaults are the Phase S sim setup: Discovery Server on the Thor
 # (10.42.0.2:11811), ROS_DOMAIN_ID 42. Override any of them by exporting before
 # launch, e.g.:
-#   F1TENTH_SIM_DISCOVERY_IP=10.42.0.9 scripts/sim/stack.sh
+#   F1TENTH_SIM_DISCOVERY_IP=10.42.0.9 scripts/sim/sim_stack.sh
 #   ROS_DOMAIN_ID=7 scripts/sim/sim.sh
 : "${F1TENTH_SIM_DISCOVERY_IP:=10.42.0.2}"     # LAN IP of the Discovery Server host (the Thor)
 : "${F1TENTH_SIM_DISCOVERY_PORT:=11811}"
