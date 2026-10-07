@@ -247,7 +247,13 @@ ARG GIT_SHA=unknown
 LABEL org.opencontainers.image.title="f1tenth Jazzy (Orin, JetPack 6 / L4T r36.5)" \
       org.opencontainers.image.revision="${GIT_SHA}" \
       org.opencontainers.image.source="f1tenth_more jazzy branch, docker/orin/Dockerfile"
-USER ${USER_UID}:${USER_GID}
+# The nvidia runtime injects the GPU devices and the host's L4T libraries only
+# when NVIDIA_VISIBLE_DEVICES is set; NVIDIA's own images set it, ubuntu:24.04
+# does not (found by image_report.sh: no libnvrm_gpu, no TensorRT import).
+ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=all
+# By name, not uid:gid: with a numeric USER Docker does not apply the user's
+# /etc/group memberships (zed, jtop, video). D2's compose passes the GIDs anyway.
+USER ${USER_NAME}
 WORKDIR /home/${USER_NAME}
 ENTRYPOINT ["/opt/f1tenth_ws/entrypoint.sh"]
 CMD ["bash"]

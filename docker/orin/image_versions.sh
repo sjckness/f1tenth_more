@@ -29,11 +29,15 @@ for name, lib in (('driver_api_compat', 'libcuda.so.1'),):
         print(name, v.value)
     except OSError as e:
         print(name, 'unavailable', e)
-import torch, tensorrt
+import torch
 print('torch', torch.__version__, 'cuda', torch.version.cuda, 'cudnn', torch.backends.cudnn.version(),
       'available', torch.cuda.is_available(),
       'device', torch.cuda.get_device_name(0) if torch.cuda.is_available() else '-')
-print('tensorrt', tensorrt.__version__)
+try:
+    import tensorrt
+    print('tensorrt', tensorrt.__version__)
+except Exception as e:  # noqa: BLE001
+    print('tensorrt import failed:', e)
 EOF
 ls /opt/tensorrt/lib/libnvinfer.so.10.*
 echo "[zed]"
