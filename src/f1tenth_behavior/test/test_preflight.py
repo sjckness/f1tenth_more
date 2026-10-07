@@ -52,6 +52,24 @@ class TestRequiredDependencies:
         assert 'ackermann_to_vesc_node' in names
         assert 'localization (/odom)' in names
 
+    def test_sim_swaps_ackermann_to_vesc_for_the_sim_drive_bridge(self):
+        # In sim there is no VESC; f1tenth_sim_drive_bridge is the actuation.
+        # mpc_corr + localization stay required, ackermann_to_vesc_node does not.
+        config = _mission([_distance_move()])
+        reqs = required_dependencies(config, sim=True)
+        names = _names(reqs)
+        assert 'mpc_corr' in names
+        assert 'localization (/odom)' in names
+        assert 'sim drive bridge' in names
+        assert 'ackermann_to_vesc_node' not in names
+        drive = next(r for r in reqs if r.name == 'sim drive bridge')
+        assert drive.node_name == 'f1tenth_sim_drive_bridge'
+
+    def test_car_mode_default_keeps_ackermann_to_vesc_and_not_the_sim_bridge(self):
+        names = _names(required_dependencies(_mission([_distance_move()]), sim=False))
+        assert 'ackermann_to_vesc_node' in names
+        assert 'sim drive bridge' not in names
+
     def test_plain_distance_mission_does_not_require_perception_or_costmap(self):
         config = _mission([_distance_move()])
         names = _names(required_dependencies(config))

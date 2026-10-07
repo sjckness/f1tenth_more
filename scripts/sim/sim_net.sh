@@ -1,6 +1,6 @@
 # sim_net.sh -- shared ROS 2 network config for the two-machine sim.
 #
-# MUST be sourced (sim.sh / stack.sh do). Sets the Discovery-Server client env
+# MUST be sourced (sim.sh / sim_stack.sh do). Sets the Discovery-Server client env
 # for THIS shell/launcher, in one place, then sources scripts/env/jazzy.sh
 # (which turns F1TENTH_DISCOVERY_SERVER into ROS_DISCOVERY_SERVER, loads the
 # Fast DDS profile, and defines the `ros2cli` introspection helper).

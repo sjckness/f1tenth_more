@@ -388,7 +388,13 @@ class MissionLoader:
             # what's missing." Leaves state at LOADED on failure (not
             # consumed/aborted) so the caller can fix the dependency and retry
             # the same /mission/start_mission call.
-            reqs = required_dependencies(state.config)
+            # sim mode (behavior node on use_sim_time): the car's
+            # ackermann_to_vesc_node is replaced by f1tenth_sim's drive_bridge,
+            # so the actuation requirement swaps to it (mission/preflight.py).
+            reqs = required_dependencies(
+                state.config,
+                sim=bool(self._node.get_parameter('use_sim_time').value),
+            )
             failures = check_liveness(
                 reqs,
                 self._node.get_node_names(),

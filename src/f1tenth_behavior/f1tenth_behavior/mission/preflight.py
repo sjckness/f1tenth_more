@@ -107,6 +107,22 @@ _ACKERMANN_TO_VESC = Requirement(
     ),
     node_name='ackermann_to_vesc_node',
 )
+# In sim there is no VESC: f1tenth_sim's drive_bridge (node
+# f1tenth_sim_drive_bridge) is what turns mpc_corr's /ackermann_drive into the
+# simulator's actuation -- exactly where ackermann_to_vesc_node sits on the car.
+# It runs on the sim host, but Fast DDS Discovery-Server participant discovery
+# propagates its node name to the stack host's get_node_names() (verified live),
+# so the same existence check works unchanged. Swapped in for _ACKERMANN_TO_VESC
+# by required_dependencies(sim=True); otherwise sim missions could never pass
+# preflight (the car's VESC converter is deliberately not launched in sim).
+_SIM_DRIVE_BRIDGE = Requirement(
+    name='sim drive bridge',
+    reason=(
+        "converts mpc_corr's drive command into the simulator's actuation -- the "
+        'sim stand-in for ackermann_to_vesc_node (there is no VESC in sim)'
+    ),
+    node_name='f1tenth_sim_drive_bridge',
+)
 # CheckStopCondition's own /odom subscription (distance_reached/
 # orientation_delta tracking) -- always required, every move needs a
 # position/heading to measure progress against.
@@ -137,11 +153,17 @@ def _uses_forward_only_obstacle_distance(config: MissionConfig) -> bool:
     return False
 
 
-def required_dependencies(config: MissionConfig) -> List[Requirement]:
+def required_dependencies(config: MissionConfig, sim: bool = False) -> List[Requirement]:
     """Pure function: what must be alive for THIS mission, specifically --
     not a blanket "everything the stack could ever need" list. Testable
-    without rclpy (see test/test_preflight.py)."""
-    reqs = [_MPC_CORR, _ACKERMANN_TO_VESC, _LOCALIZATION]
+    without rclpy (see test/test_preflight.py).
+
+    sim: True in simulation (the loader reads the behavior node's use_sim_time),
+    where the car's ackermann_to_vesc_node is replaced by f1tenth_sim's
+    drive_bridge. Default False keeps the car's requirement list unchanged.
+    """
+    actuation = _SIM_DRIVE_BRIDGE if sim else _ACKERMANN_TO_VESC
+    reqs = [_MPC_CORR, actuation, _LOCALIZATION]
 
     stop_condition_types = {m.stop_condition.type for m in config.moves}
     for m in config.moves:
