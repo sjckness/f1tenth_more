@@ -1,0 +1,21 @@
+Types: deb
+URIs: http://ports.ubuntu.com/ubuntu-ports/
+Suites: noble noble-updates noble-backports
+Components: main universe restricted multiverse
+Types: deb
+URIs: http://ports.ubuntu.com/ubuntu-ports/
+Suites: noble-security
+Components: main universe restricted multiverse
+deb [arch=amd64,arm64] https://apt.foxglove.dev/studio stable main
+deb https://repo.download.nvidia.com/jetson/common r38.4 main
+deb https://repo.download.nvidia.com/jetson/som r38.4 main
+deb https://repo.download.nvidia.com/jetson/ffmpeg r38.4 main
+deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu noble main
+deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/ubuntu noble main
+total 20
+-rw-r--r-- 1 root root  113 May 20 16:11 foxglove-studio.list
+-rw-r--r-- 1 root root  737 May 20 16:11 nvidia-l4t-apt-source.list
+-rw-r--r-- 1 root root  118 Jun 19 15:35 ros2.list
+-rw-r--r-- 1 root root  156 Jun 19 11:55 tailscale.list
+-rw-r--r-- 1 root root    0 Jul  2  2025 ubuntu.sources
+-rw-r--r-- 1 root root 2559 Aug  6  2025 ubuntu.sources.curtin.orig

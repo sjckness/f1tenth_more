@@ -1,0 +1,5 @@
+-rw-r--r-- 1 root root     4679 2026-10-06 11:01:08.000000000 +0200 packages.ros.org_ros2_ubuntu_dists_noble_InRelease
+-rw-r--r-- 1 root root  8201091 2026-10-06 11:00:42.000000000 +0200 packages.ros.org_ros2_ubuntu_dists_noble_main_binary-arm64_Packages
+Date: Tue, 06 Oct 2026 09:01:08 UTC
+-rw-r--r-- 1 root root    4679 2026-10-06 11:01:08.000000000 +0200 /var/lib/apt/lists/packages.ros.org_ros2_ubuntu_dists_noble_InRelease
+-rw-r--r-- 1 root root 8201091 2026-10-06 11:00:42.000000000 +0200 /var/lib/apt/lists/packages.ros.org_ros2_ubuntu_dists_noble_main_binary-arm64_Packages

@@ -1,0 +1,6 @@
+# pip constraints for the D1a spike image (the Thor's ~/.config/pip/constraints.txt
+# plus the JP6 torch pins).
+numpy<2
+scipy<1.18
+torch==2.8.0
+torchvision==0.23.0

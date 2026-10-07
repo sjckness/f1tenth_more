@@ -1,0 +1,8 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+talker sent 1750
+-- DS log
+  Participant Type:   SERVER
+  Security:           NO
+  Server ID:          0
+  Server GUID prefix: 44.53.00.5f.45.50.52.4f.53.49.4d.41
+  Server Addresses:   UDPv4:[127.0.0.1]:11811

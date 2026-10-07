@@ -1,0 +1,17 @@
+sdk_version 4.2.5
+devices 1
+  id 0 model ZED 2i serial 36866199 state AVAILABLE path /dev/video0
+[2026-10-07 13:44:20 UTC][ZED][INFO] Logging level INFO
+[2026-10-07 13:44:20 UTC][ZED][INFO] Logging level INFO
+[2026-10-07 13:44:21 UTC][ZED][INFO] [Init]  Depth mode: PERFORMANCE
+[2026-10-07 13:44:22 UTC][ZED][INFO] [Init]  Camera successfully opened.
+[2026-10-07 13:44:22 UTC][ZED][INFO] [Init]  Camera FW version: 1523
+[2026-10-07 13:44:22 UTC][ZED][INFO] [Init]  Video mode: HD720@60
+[2026-10-07 13:44:22 UTC][ZED][INFO] [Init]  Serial Number: S/N 36866199
+open SUCCESS (2.09 s)
+camera ZED 2i serial 36866199 fw 1523 sensors_fw 777 res 1280x720 fps 60.0
+imu first sample: accel 0.226 -9.818 -0.086 m/s2 gyro 0.112 -0.052 -0.041 deg/s
+frames_ok 300 frames_failed 0 elapsed_s 5.09 fps 58.88
+left 1280x720 depth 1280x720 center_depth_mean_m 7.274 (valid 300)
+imu reads_ok 300 of 300, distinct_timestamps 300, accel_norm_mean 9.815 m/s2
+RESULT pass

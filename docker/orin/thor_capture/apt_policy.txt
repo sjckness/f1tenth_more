@@ -1,0 +1,24 @@
+ros-jazzy-rclcpp:
+  Installed: 28.1.22-1noble.20260902.143108
+  Candidate: 28.1.22-1noble.20260911.060156
+  Version table:
+     28.1.22-1noble.20260911.060156 500
+        500 http://packages.ros.org/ros2/ubuntu noble/main arm64 Packages
+ *** 28.1.22-1noble.20260902.143108 100
+        100 /var/lib/dpkg/status
+ros-jazzy-ros-base:
+  Installed: 0.11.0-1noble.20260903.024458
+  Candidate: 0.11.0-1noble.20261006.040749
+  Version table:
+     0.11.0-1noble.20261006.040749 500
+        500 http://packages.ros.org/ros2/ubuntu noble/main arm64 Packages
+ *** 0.11.0-1noble.20260903.024458 100
+        100 /var/lib/dpkg/status
+ros-jazzy-fastrtps:
+  Installed: 2.14.6-1noble.20260902.013353
+  Candidate: 2.14.7-1noble.20260911.035410
+  Version table:
+     2.14.7-1noble.20260911.035410 500
+        500 http://packages.ros.org/ros2/ubuntu noble/main arm64 Packages
+ *** 2.14.6-1noble.20260902.013353 100
+        100 /var/lib/dpkg/status

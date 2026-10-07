@@ -1,0 +1,24 @@
+fastrtps entries in /dev/shm before: 0
+during (host view):
+  fabiocar 549408 fastrtps_b0af0ba18295e2ab
+  fabiocar 0 fastrtps_b0af0ba18295e2ab_el
+  fabiocar 549408 fastrtps_b960b30d892bb830
+  fabiocar 0 fastrtps_b960b30d892bb830_el
+  fabiocar 549408 fastrtps_e034a21bde283297
+  fabiocar 0 fastrtps_e034a21bde283297_el
+  fabiocar 52416 fastrtps_port7000
+  fabiocar 0 fastrtps_port7000_el
+  fabiocar 52416 fastrtps_port7001
+  fabiocar 0 fastrtps_port7001_el
+  fabiocar 52416 fastrtps_port7411
+  fabiocar 0 fastrtps_port7411_el
+  fabiocar 52416 fastrtps_port7413
+  fabiocar 0 fastrtps_port7413_el
+  fabiocar 52416 fastrtps_port7415
+  fabiocar 0 fastrtps_port7415_el
+  fabiocar 32 sem.fastrtps_port7000_mutex
+  fabiocar 32 sem.fastrtps_port7001_mutex
+  fabiocar 32 sem.fastrtps_port7411_mutex
+  fabiocar 32 sem.fastrtps_port7413_mutex
+  fabiocar 32 sem.fastrtps_port7415_mutex
+after: 5 fastrtps entries

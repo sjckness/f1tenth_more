@@ -1,0 +1,22 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+[10/07/2026-15:13:34] [TRT] [E] IRuntime::deserializeCudaEngine: Error Code 6: API Usage Error (The engine plan file is not compatible with this version of TensorRT, expecting library version 10.3.0.26 got 
+..)
+{
+ "tensorrt": "10.3.0",
+ "fp32": {
+  "plan_bytes": 20468,
+  "execute_ok": true,
+  "max_rel_err": 1.51869071193112e-07
+ },
+ "fp16": {
+  "plan_bytes": 20468,
+  "execute_ok": true,
+  "max_rel_err": 1.6518399674390387e-07
+ },
+ "host_engine": {
+  "file": "/spike/host_engine/yolo26s.engine",
+  "ultralytics_meta_version": null,
+  "deserialized": false,
+  "io": null
+ }
+}

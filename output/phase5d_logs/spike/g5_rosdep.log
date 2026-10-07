@@ -1,0 +1,28 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+0
+packages checked: 32
+ERROR[f1tenth_localization]: Cannot locate rosdep definition for [ament_python]
+	rosdep key : ament_python
+	OS name    : ubuntu
+	OS version : noble
+	Data:
+<no data>
+ERROR[vesc_tuning]: Cannot locate rosdep definition for [ament_python]
+	rosdep key : ament_python
+	OS name    : ubuntu
+	OS version : noble
+	Data:
+<no data>
+ERROR[f1tenth_diagnostics]: Cannot locate rosdep definition for [ament_python]
+	rosdep key : ament_python
+	OS name    : ubuntu
+	OS version : noble
+	Data:
+<no data>
+System dependencies have not been satisfied:
+apt	python3-matplotlib
+apt	python3-scipy
+apt	python3-tk
+apt	python3-requests
+apt	python3-jsonschema
+apt	python3-ruamel.yaml

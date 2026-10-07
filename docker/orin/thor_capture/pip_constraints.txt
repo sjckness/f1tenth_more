@@ -1,0 +1,5 @@
+numpy<2
+scipy<1.18
+[global]
+constraint = /home/andre/.config/pip/constraints.txt
+cat: /etc/pip.conf: No such file or directory

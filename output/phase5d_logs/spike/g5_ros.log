@@ -1,0 +1,32 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+== ros-jazzy-* versions: image vs Thor (/spike/thor/ros_jazzy_dpkg.txt)
+image 305  thor 386  common 305  version_differs 0
+image_only 0: 
+thor_only 81: ackermann-steering-controller action-tutorials-cpp action-tutorials-py cob-srvs composition controller-interface controller-manager controller-manager-msgs demo-nodes-cpp demo-nodes-cpp-native demo-nodes-py depthimage-to-laserscan desktop dummy-map-server dummy-robot-bringup dummy-sensors examples-rclcpp-minimal-action-client examples-rclcpp-minimal-action-server examples-rclcpp-minimal-client examples-rclcpp-minimal-composition examples-rclcpp-minimal-publisher examples-rclcpp-minimal-service examples-rclcpp-minimal-subscriber examples-rclcpp-minimal-timer examples-rclcpp-multithreaded-executor examples-rclpy-executors examples-rclpy-minimal-action-client examples-rclpy-minimal-action-server examples-rclpy-minimal-client examples-rclpy-minimal-publisher examples-rclpy-minimal-service examples-rclpy-minimal-subscriber gz-tools-vendor hardware-interface image-geometry image-tools intra-process-demo joint-limits joint-state-broadcaster logging-demo pcl-conversions pcl-msgs pendulum-control pendulum-msgs python-qt-binding qt-dotgraph qt-gui qt-gui-cpp qt-gui-py-common quality-of-service-demo-cpp quality-of-service-demo-py realtime-tools rqt-action rqt-bag rqt-bag-plugins rqt-common-plugins rqt-console rqt-graph rqt-gui rqt-gui-cpp rqt-gui-py rqt-image-view rqt-msg rqt-plot rqt-publisher rqt-py-common rqt-py-console rqt-reconfigure rqt-service-caller rqt-shell rqt-srv rqt-topic sdformat-urdf sdformat-vendor steering-controllers-library tango-icons-vendor teleop-twist-keyboard tlsf tlsf-cpp topic-monitor turtlesim
+== system Python versions
+python 3.12.3
+  numpy 1.26.4
+  scipy 1.17.1
+  osqp 1.1.3
+  pyarrow 25.0.1
+  cv2 4.11.0
+  torch 2.8.0
+  torchvision 0.23.0
+WARNING ⚠️ user config directory '/tmp/home/ultralytics/Ultralytics' is not writable, using '/tmp/Ultralytics'. Set YOLO_CONFIG_DIR to override.
+Creating new Ultralytics Settings v0.0.6 file ✅ 
+View Ultralytics Settings with 'yolo settings' or at '/tmp/Ultralytics/settings.json'
+Update Settings with 'yolo settings key=value', i.e. 'yolo settings runs_dir=path/to/dir'. For help see https://docs.ultralytics.com/quickstart/#ultralytics-settings.
+  ultralytics 8.4.90
+  yaml 6.0.1
+  psutil 5.9.8
+  jsonschema MISSING (ModuleNotFoundError: No module named 'jsonschema')
+  matplotlib 3.11.2
+  pydot 1.4.2
+  py_trees ?
+  requests 2.34.2
+== colcon build summary
+Summary: 32 packages finished [1min 10s]
+  8 packages had stderr output: joy_teleop key_teleop mouse_teleop teleop_tools vesc_ackermann vesc_driver zed_components zed_ros2
+packages in install: 32
+== ldd -r scan of the install space (CLAUDE.md; empty = clean)
+(scan end)

@@ -1,0 +1,21 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+{
+ "python": "3.12.3",
+ "torch": "2.8.0",
+ "torch_cuda": "12.9",
+ "cudnn": 91002,
+ "cuda_available": true,
+ "device": "Orin",
+ "capability": "8.7",
+ "matmul_float32": {
+  "ms": 10.129,
+  "tflops": 1.696,
+  "max_rel_err_vs_cpu_fp64": 9.460413743431175e-07
+ },
+ "matmul_float16": {
+  "ms": 2.228,
+  "tflops": 7.71,
+  "max_rel_err_vs_cpu_fp64": 0.0002669891619948311
+ },
+ "cudnn_conv_max_rel_err": 3.1563329148719975e-07
+}

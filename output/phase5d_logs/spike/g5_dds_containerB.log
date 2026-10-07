@@ -1,0 +1,2 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+listener received 956 span 956 gaps 0 first_rx_after_s 0.92

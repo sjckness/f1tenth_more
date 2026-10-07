@@ -1,0 +1,3 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+no-compat: available True
+matmul ok True
