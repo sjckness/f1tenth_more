@@ -279,13 +279,18 @@ its own, so it's swept explicitly here:
 Sim mode (`sim` parameter, supervisor_bringup.launch.py sim:=true; default
 false, which leaves everything above exactly as it is): for the Gazebo
 simulator on another machine, which publishes /odom, /sensors/imu/raw, /scan
-and /clock itself (f1tenth_sim; no camera topics: its ZED mock is off by
-default, so detection gets no images in sim mode).
+and /clock itself, plus (f1tenth_sim camera:=true, its default) the ZED 2i
+streams on the car's names: /camera/image_raw, /camera/camera_info and
+/zed2/zed_node/depth/{depth_registered,camera_info}.
   - The hardware driver launch files are not run: vesc.launch.py (the VESC
-    driver group), camera.launch.py (the ZED, plus the base_link ->
-    zed2_camera_link static TF it publishes only with the ZED) and
-    lidar.launch.py (urg_node). See _SIM_SKIPPED_LAUNCH_FILES. joy.launch.py
-    is in no component, so it never runs here anyway.
+    driver group), camera.launch.py (the ZED wrapper) and lidar.launch.py
+    (urg_node). See _SIM_SKIPPED_LAUNCH_FILES. joy.launch.py is in no
+    component, so it never runs here anyway.
+  - 'perception' runs sim_camera_tf.launch.py where camera.launch.py was
+    (_SIM_REPLACEMENTS): the base_link -> zed2_camera_link static TF and the
+    wrapper's robot_state_publisher for the camera's internal frames, same
+    nodes and arguments, so the simulated images resolve to base_link exactly
+    as on the car.
   - 'hardware' keeps the one thing vesc.launch.py publishes that is not a
     driver: the static base_link -> imu transform (sim_hardware_tf.launch.py,
     same node name and arguments), so the TF tree is the car's.
@@ -432,20 +437,33 @@ _SIM_SKIPPED_LAUNCH_FILES = frozenset({
 })
 _SIM_HARDWARE_ENTRY = {
     'package': 'f1tenth_bringup', 'launch_file': 'sim_hardware_tf.launch.py', 'args': {}}
+# Skipped files whose non-driver part still has to run, and what runs in their
+# place (same component, same position).
+_SIM_REPLACEMENTS = {
+    ('f1tenth_perception', 'camera.launch.py'): {
+        'package': 'f1tenth_perception', 'launch_file': 'sim_camera_tf.launch.py'},
+}
 
 
 def apply_sim_mode(registry):
     """
     Return the registry sim mode runs.
 
-    Every _SIM_SKIPPED_LAUNCH_FILES entry is removed from every component, and
+    Every _SIM_SKIPPED_LAUNCH_FILES entry is removed from every component, or
+    swapped for its _SIM_REPLACEMENTS entry (no args) if it has one, and
     'hardware' is reduced to sim_hardware_tf.launch.py. Returns a new dict;
     the input is not modified.
     """
     out = {}
     for name, entries in registry.items():
-        out[name] = [dict(e, args=dict(e.get('args', {}))) for e in entries
-                     if (e['package'], e['launch_file']) not in _SIM_SKIPPED_LAUNCH_FILES]
+        kept = []
+        for e in entries:
+            key = (e['package'], e['launch_file'])
+            if key in _SIM_REPLACEMENTS:
+                kept.append(dict(_SIM_REPLACEMENTS[key], args={}))
+            elif key not in _SIM_SKIPPED_LAUNCH_FILES:
+                kept.append(dict(e, args=dict(e.get('args', {}))))
+        out[name] = kept
     if 'hardware' in out:
         out['hardware'] = [dict(_SIM_HARDWARE_ENTRY, args={})]
     return out
