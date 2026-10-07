@@ -12,11 +12,19 @@ Launches:
      sim URDF on /sim/robot_description. Its TF goes to /sim/tf and
      /sim/tf_static, never /tf (§2.3); it reads /sim/joint_states.
   3. ros_gz_bridge: /sim/clock_raw (Gazebo's 1 kHz clock), /scan, /sim/imu_raw,
-     /sim/ground_truth, and with
-     camera:=true the ZED 2i streams on the car's topic names:
-     /camera/image_raw, /camera/camera_info (what camera.launch.py remaps the
-     wrapper's RGB to), /zed2/zed_node/depth/depth_registered and
-     /zed2/zed_node/depth/camera_info (what detection.launch.py reads).
+     /sim/ground_truth, the two camera_info streams on the car's names
+     (/camera/camera_info, /zed2/zed_node/depth/camera_info), and with
+     camera:=true the two heavy Image streams on sim-PC-local staging topics
+     (/sim/camera/image_raw RGB, /sim/camera/depth_raw depth) -- NOT the
+     canonical names, because raw frames do not survive the two-machine link
+     (see 3c and ros_gz_bridge_camera.yaml).
+  3c. camera compressors (camera:=true): image_transport republishers compress
+     the staging Image streams so only the small compressed topics cross the
+     LAN: /camera/image_raw/compressed (JPEG) and
+     /zed2/zed_node/depth/depth_registered/compressedDepth (PNG). On the Thor
+     sim_camera_tf.launch.py decompresses them back to /camera/image_raw and
+     /zed2/zed_node/depth/depth_registered, the names camera.launch.py /
+     detection.launch.py read on the car.
   4. spawn the robot from /sim/robot_description          (ros_gz_sim create)
   5. once spawned: joint_state_broadcaster, then ackermann_steering_controller
      (the controller_manager runs inside the gz_ros2_control plugin and reads
@@ -29,8 +37,9 @@ Launches:
      the throttle decimates on sim time, so /clock costs fewer packets per Thor
      subscriber on the cable (output/sim_clock_fanout.md).
 
-Published on the shared graph: /clock /scan /odom /sensors/imu/raw, the four
-camera topics above (camera:=true), plus /sim/* (internal and ground truth).
+Published on the shared graph: /clock /scan /odom /sensors/imu/raw, the two
+camera_info topics and the two compressed camera topics (camera:=true), plus
+/sim/* (internal, ground truth, and the local camera staging topics).
 Nothing on /tf or /tf_static, and nothing
 on /joint_states: on the car joint_state_publisher (static zeros, 10 Hz, kept
 by the Thor in sim:=true) owns that topic, so the sim's true joint states go to
@@ -112,9 +121,9 @@ def generate_launch_description():
                         '(the current step); 200 (5 ms bins) would alias the '
                         '4 ms steps and add 4/8 ms jitter. 0 = forward every '
                         'physics step (floods the LAN with ~40 Thor subscribers).'),
-        DeclareLaunchArgument('x', default_value='0.0'),
+        DeclareLaunchArgument('x', default_value='1.0'),    # 1 m ahead (+x world)
         DeclareLaunchArgument('y', default_value='0.0'),
-        DeclareLaunchArgument('yaw', default_value='0.0'),
+        DeclareLaunchArgument('yaw', default_value='-1.5708'),  # -pi/2 = 90 deg right
     ]
 
     # Let Gazebo find the world + description meshes if referenced by URI.
@@ -182,6 +191,43 @@ def generate_launch_description():
         name='sim_ros_gz_camera_bridge',
         output='screen',
         parameters=[{'config_file': camera_bridge_config, 'use_sim_time': True}],
+        condition=IfCondition(camera),
+    )
+
+    # --- 3c) camera compressors -------------------------------------------
+    # Raw ZED frames do not survive the two-machine link (see
+    # ros_gz_bridge_camera.yaml / output/sim_camera_compression.md): the bridge
+    # puts each Image on a sim-PC-local staging topic and these image_transport
+    # republishers compress it, so only the small compressed topics cross the
+    # cable. The Thor's sim_camera_tf.launch.py decompresses back to the
+    # canonical raw names the stack reads. republish takes the transports as
+    # PARAMETERS (not positional) and only the fully-qualified in/out topics
+    # remap (the 'in'/'out' base-name remaps are ignored).
+    rgb_compressor = Node(
+        package='image_transport',
+        executable='republish',
+        name='sim_rgb_compressor',
+        output='screen',
+        parameters=[{'in_transport': 'raw', 'out_transport': 'compressed',
+                     'use_sim_time': True}],
+        remappings=[
+            ('/in', '/sim/camera/image_raw'),
+            ('/out/compressed', '/camera/image_raw/compressed'),
+        ],
+        condition=IfCondition(camera),
+    )
+    depth_compressor = Node(
+        package='image_transport',
+        executable='republish',
+        name='sim_depth_compressor',
+        output='screen',
+        parameters=[{'in_transport': 'raw', 'out_transport': 'compressedDepth',
+                     'use_sim_time': True}],
+        remappings=[
+            ('/in', '/sim/camera/depth_raw'),
+            ('/out/compressedDepth',
+             '/zed2/zed_node/depth/depth_registered/compressedDepth'),
+        ],
         condition=IfCondition(camera),
     )
 
@@ -263,6 +309,8 @@ def generate_launch_description():
         bridge,
         clock_throttle,
         camera_bridge,
+        rgb_compressor,
+        depth_compressor,
         spawn_entity,
         drive_bridge,
         foxglove_node,

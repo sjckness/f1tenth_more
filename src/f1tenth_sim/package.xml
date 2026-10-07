@@ -24,6 +24,13 @@
   <exec_depend>ros_gz_bridge</exec_depend>
   <exec_depend>gz_ros2_control</exec_depend>
 
+  <!-- camera compressors: raw frames do not survive the two-machine link, so
+       sim_bringup.launch.py compresses the ZED streams (republish) and only
+       the compressed topics cross the LAN. See ros_gz_bridge_camera.yaml. -->
+  <exec_depend>image_transport</exec_depend>
+  <exec_depend>compressed_image_transport</exec_depend>
+  <exec_depend>compressed_depth_image_transport</exec_depend>
+
   <!-- ros2_control stack -->
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>

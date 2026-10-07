@@ -49,6 +49,15 @@
 
   <!-- Sensors brought up by camera.launch.py / perception.launch.py -->
   <exec_depend>zed_wrapper</exec_depend>
+  <!-- sim_camera_tf.launch.py: the ZED camera tree in sim mode, plus the
+       camera decompressors that turn the compressed LAN streams back into the
+       canonical raw topics (f1tenth_sim compresses them; see
+       f1tenth_sim/config/ros_gz_bridge_camera.yaml). -->
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>xacro</exec_depend>
+  <exec_depend>image_transport</exec_depend>
+  <exec_depend>compressed_image_transport</exec_depend>
+  <exec_depend>compressed_depth_image_transport</exec_depend>
   <exec_depend>urg_node</exec_depend>
   <exec_depend>v4l2_camera</exec_depend>
 

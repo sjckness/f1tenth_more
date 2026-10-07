@@ -23,6 +23,20 @@ reproduced here:
 
 f1tenth_sim's URDF (sensors.xacro) mounts its gz camera on the same chain, so
 the pixels and the TF agree. use_sim_time comes from sim_component.launch.py.
+
+This file also runs the camera DECOMPRESSORS. f1tenth_sim renders the ZED on
+linus but raw frames do not survive the two-machine Discovery-Server link, so
+sim_bringup.launch.py compresses them and only the small compressed topics
+cross the LAN (output/sim_camera_compression.md). Here, on the Thor, two
+image_transport republishers turn them back into the canonical raw topics the
+stack reads on the car, so detection.launch.py / yolo_detector_node are
+unchanged:
+    /camera/image_raw/compressed (JPEG) -> /camera/image_raw
+    .../depth/depth_registered/compressedDepth (PNG)
+                                        -> /zed2/zed_node/depth/depth_registered
+republish takes the transports as PARAMETERS (not positional), and only the
+fully-qualified in/out topics remap (the 'in'/'out' base-name remaps are
+ignored). The round-trip preserves each message's header (frame + stamp).
 """
 
 import os
@@ -59,6 +73,30 @@ def generate_launch_description():
             name='static_baselink_to_zed2',
             arguments=[*zed_xyz, '0.0', '0.0', '0.0',
                        'base_link', 'zed2_camera_link'],
+        ),
+        # Decompressors: compressed topics off the LAN -> canonical raw topics.
+        Node(
+            package='image_transport',
+            executable='republish',
+            name='sim_rgb_decompressor',
+            output='screen',
+            parameters=[{'in_transport': 'compressed', 'out_transport': 'raw'}],
+            remappings=[
+                ('/in/compressed', '/camera/image_raw/compressed'),
+                ('/out', '/camera/image_raw'),
+            ],
+        ),
+        Node(
+            package='image_transport',
+            executable='republish',
+            name='sim_depth_decompressor',
+            output='screen',
+            parameters=[{'in_transport': 'compressedDepth', 'out_transport': 'raw'}],
+            remappings=[
+                ('/in/compressedDepth',
+                 '/zed2/zed_node/depth/depth_registered/compressedDepth'),
+                ('/out', '/zed2/zed_node/depth/depth_registered'),
+            ],
         ),
         Node(
             package='robot_state_publisher',

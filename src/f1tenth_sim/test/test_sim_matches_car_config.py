@@ -257,11 +257,15 @@ def test_sim_zed_is_a_zed2i_named_zed2_like_camera_launch():
 
 
 def test_sim_camera_streams_land_on_the_topics_the_stack_reads():
+    # The two heavy Image streams are bridged onto sim-PC-local staging topics
+    # (compressed across the LAN, see the compression test below), NOT the
+    # canonical raw names. camera_info is tiny and crosses fine, so it keeps the
+    # canonical names.
     entries = _load(PKG / 'config' / 'ros_gz_bridge_camera.yaml')
     assert {e['ros_topic_name']: e['ros_type_name'] for e in entries} == {
-        '/camera/image_raw': 'sensor_msgs/msg/Image',
+        '/sim/camera/image_raw': 'sensor_msgs/msg/Image',
         '/camera/camera_info': 'sensor_msgs/msg/CameraInfo',
-        '/zed2/zed_node/depth/depth_registered': 'sensor_msgs/msg/Image',
+        '/sim/camera/depth_raw': 'sensor_msgs/msg/Image',
         '/zed2/zed_node/depth/camera_info': 'sensor_msgs/msg/CameraInfo',
     }
     # what detection.launch.py subscribes to for depth
@@ -272,6 +276,35 @@ def test_sim_camera_streams_land_on_the_topics_the_stack_reads():
     text = (URDF / 'sensors.xacro').read_text()
     for e in entries:
         assert e['gz_topic_name'] in text
+
+
+def test_camera_compression_round_trips_to_the_canonical_raw_topics():
+    """Check the compressed camera topics match end to end across the machines.
+
+    The bridge's staging topics are compressed on linus (sim_bringup) and
+    decompressed on the Thor (sim_camera_tf) back to the exact raw names
+    yolo_detector_node / detection.launch.py read on the car; the compressed
+    topic names in between must agree (output/sim_camera_compression.md).
+    """
+    bringup = (PKG / 'launch' / 'sim_bringup.launch.py').read_text()
+    simtf = (SRC / 'f1tenth_perception' / 'launch'
+             / 'sim_camera_tf.launch.py').read_text()
+
+    # linus compressors: staging raw -> compressed on the LAN topics
+    assert "('/in', '/sim/camera/image_raw')" in bringup
+    assert "('/out/compressed', '/camera/image_raw/compressed')" in bringup
+    assert "('/in', '/sim/camera/depth_raw')" in bringup
+    assert ("'/zed2/zed_node/depth/depth_registered/compressedDepth'") in bringup
+
+    # Thor decompressors: the same compressed topics -> canonical raw names
+    assert "('/in/compressed', '/camera/image_raw/compressed')" in simtf
+    assert "('/out', '/camera/image_raw')" in simtf
+    assert ("'/zed2/zed_node/depth/depth_registered/compressedDepth'") in simtf
+    assert "('/out', '/zed2/zed_node/depth/depth_registered')" in simtf
+
+    # transports are passed as parameters (positional is silently ignored)
+    for text in (bringup, simtf):
+        assert "'in_transport'" in text and "'out_transport'" in text
 
 
 def test_drive_bridge_listens_behind_ackermann_mux():

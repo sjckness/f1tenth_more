@@ -1,0 +1,53 @@
+# ros_gz_bridge config for the simulated ZED 2i (sim_bringup.launch.py camera:=true).
+#
+# Kept out of ros_gz_bridge.yaml so camera:=false bridges nothing camera-related.
+# Same schema and rules as that file: GZ -> ROS only, never /tf or /tf_static.
+#
+# The two heavy Image streams (RGB ~675 KB/frame, depth 32FC1 ~921 KB/frame) are
+# NOT bridged onto the canonical topics the stack reads. Raw frames do not
+# survive the two-machine Discovery-Server link (measured 2026-10-07: gz renders
+# ~36 Hz, but only ~3 frames/min reached the Thor's detector -- same class of
+# problem as the /clock fan-out, one notch worse). Instead:
+#   * the bridge puts each Image on a sim-PC-local staging topic (/sim/camera/*),
+#     subscribed only by the image_transport compressor in sim_bringup.launch.py
+#     (shared memory, never crosses the cable), which republishes it compressed:
+#       /sim/camera/image_raw  -> /camera/image_raw/compressed  (JPEG, ~1/15th)
+#       /sim/camera/depth_raw  -> .../depth_registered/compressedDepth (PNG)
+#   * only the small compressed topics cross the LAN; on the Thor
+#     sim_camera_tf.launch.py's decompressors reconstruct the canonical raw
+#     topics the stack reads on the car, unchanged:
+#       /camera/image_raw                          (yolo_detector_node)
+#       /zed2/zed_node/depth/depth_registered      (detection_3d / front_clearance)
+# camera_info is tiny and crosses fine, so it is bridged straight onto the
+# canonical names (/camera/camera_info, /zed2/zed_node/depth/camera_info).
+#
+# Encodings: RGB arrives as rgb8 (the wrapper sends bgra8; every consumer
+# converts with cv_bridge desired_encoding), depth as 32FC1 in metres like the
+# wrapper. Frame: zed2_left_camera_frame_optical, the v5 wrapper's name (the
+# compress/decompress round-trip preserves the message header).
+# The gz topics are the <topic> / <camera_info_topic> values in
+# f1tenth_description/urdf/sensors.xacro.
+
+- ros_topic_name: "/sim/camera/image_raw"
+  gz_topic_name: "/sim/zed2/rgb/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/camera/camera_info"
+  gz_topic_name: "/sim/zed2/rgb/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/sim/camera/depth_raw"
+  gz_topic_name: "/sim/zed2/depth/image"
+  ros_type_name: "sensor_msgs/msg/Image"
+  gz_type_name: "gz.msgs.Image"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/zed2/zed_node/depth/camera_info"
+  gz_topic_name: "/sim/zed2/depth/camera_info"
+  ros_type_name: "sensor_msgs/msg/CameraInfo"
+  gz_type_name: "gz.msgs.CameraInfo"
+  direction: GZ_TO_ROS
