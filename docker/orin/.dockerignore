@@ -1,0 +1,8 @@
+# Build context of docker/orin/Dockerfile is docker/orin itself; only these are COPYed.
+*
+!ros_packages.txt
+!constraints.txt
+!entrypoint.sh
+!set_llama_paths.py
+!build_checks.sh
+!keys/ros-snapshots.asc

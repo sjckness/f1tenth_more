@@ -63,6 +63,17 @@ committed. TensorRT engines are CUDA-only and already bound to a device at
 build time, so `Model.to(device)` is skipped for them (it would raise) and
 `device:='cpu'` is rejected outright for a `*.engine` model_path.
 
+TensorRT version guard (Phase 5d, 2026-10-07): an engine plan only loads in
+the exact TensorRT build that produced it -- the Orin's JetPack ships 10.3.0.30,
+the Jazzy container 10.3.0.26, and the Humble yolo26s.engine does not load in
+the container. Ultralytics then fails with "'NoneType' object has no attribute
+'create_execution_context'", and when `tensorrt` is not importable at all it
+tries to pip-install it. check_trt_engine() deserializes the plan with the
+local TensorRT before Ultralytics sees it; an engine that does not load, or no
+TensorRT module, is refused with one log line naming the runtime version and
+the rebuild command, and the node stays in passthrough mode (as for any other
+load failure) instead of crashing.
+
 Class names for a `*.engine` model_path (Foxglove-class-name pass): the raw
 `trtexec` step above builds a bare TensorRT engine with none of Ultralytics'
 own metadata (that only survives an engine built via `model.export(format=
@@ -131,6 +142,7 @@ Message field reference (vision_msgs, Humble == "4.x" layout):
 """
 
 import hashlib
+import json
 import os
 
 import cv2
@@ -209,6 +221,53 @@ def _mask_overlap_fraction(mask, ex1, ey1, ex2, ey2):
         return 0.0
     inside = int(np.count_nonzero(mask[cy1:cy2, cx1:cx2]))
     return inside / total
+
+
+def _strip_ultralytics_engine_metadata(data):
+    """
+    Return the TensorRT plan inside an engine file's bytes.
+
+    An engine exported by Ultralytics starts with a little-endian int32 length
+    and that many bytes of JSON metadata; a bare `trtexec` engine is the plan
+    itself. Same detection as Ultralytics' own TensorRT backend.
+    """
+    meta_len = int.from_bytes(data[:4], byteorder='little')
+    try:
+        json.loads(data[4:4 + meta_len].decode('utf-8'))
+    except ValueError:  # UnicodeDecodeError and JSONDecodeError are both ValueError
+        return data
+    return data[4 + meta_len:]
+
+
+def check_trt_engine(path, trt=None):
+    """
+    Return (ok, message): ok only if this machine's TensorRT loads the engine.
+
+    `trt` is the tensorrt module (imported here when None; tests pass a fake).
+    See module docstring's "TensorRT version guard" paragraph.
+    """
+    if trt is None:
+        try:
+            import tensorrt as trt
+        except Exception as exc:  # noqa: BLE001 - any import failure refuses the engine
+            return False, (
+                f'TensorRT engine "{path}" refused: the tensorrt Python module is '
+                f'not importable here ({exc}). Use a *.pt checkpoint, or install '
+                'the TensorRT that matches this machine.')
+    try:
+        with open(path, 'rb') as f:
+            plan = _strip_ultralytics_engine_metadata(f.read())
+    except OSError as exc:
+        return False, f'TensorRT engine "{path}" refused: cannot read it ({exc}).'
+    engine = trt.Runtime(trt.Logger(trt.Logger.ERROR)).deserialize_cuda_engine(plan)
+    if engine is None:
+        return False, (
+            f'TensorRT engine "{path}" refused: it was not built by this '
+            f'TensorRT ({trt.__version__}). An engine only loads in the exact '
+            'TensorRT build that produced it; rebuild it on this machine, e.g. '
+            '`trtexec --onnx=<model>.onnx --saveEngine=<model>.engine --fp16`.')
+    del engine
+    return True, ''
 
 
 class YoloDetectorNode(Node):
@@ -332,32 +391,39 @@ class YoloDetectorNode(Node):
                         'usually means a generic CPU-only wheel is installed '
                         'instead of a JetPack-matched CUDA build. Pass '
                         'device:=cpu to explicitly run on CPU instead.')
-                try:
-                    # *.engine has no embedded task metadata -- resolved from
-                    # model_task instead. *.pt is loaded with no task= override
-                    # so Ultralytics' own checkpoint metadata decides (forcing
-                    # 'detect' here, as this used to do unconditionally, would
-                    # silently mis-load a *-seg.pt as a detect-only model). See
-                    # module docstring's "Task resolution" paragraph.
-                    self.model = YOLO(
-                        self.model_path, task=self.model_task if is_engine else None)
-                    if not is_engine:
-                        # TensorRT engines are already device-bound at build
-                        # time; Model.to() only supports native *.pt models
-                        # and raises TypeError otherwise.
-                        self.model.to(self.device)
-                    self.names = self._resolve_class_names(YOLO, self.model_path, is_engine)
-                    self.task = self.model.task
-                    self.get_logger().info(
-                        f'Loaded YOLO model "{self.model_path}" on '
-                        f'device="{self.device}" task="{self.task}" '
-                        f'({len(self.names)} classes)')
-                except Exception as exc:  # noqa: BLE001 - stay alive in passthrough
-                    self.get_logger().error(
-                        f'Failed to load Ultralytics YOLO ("{self.model_path}") '
-                        f'on device="{self.device}": {exc} — falling back to '
-                        'passthrough mode')
-                    self.model = None
+                engine_ok, engine_why = (
+                    check_trt_engine(self.model_path) if is_engine else (True, ''))
+                if not engine_ok:
+                    # Refused before Ultralytics sees it: one clear line, then
+                    # passthrough as for any other load failure (self.model stays None).
+                    self.get_logger().error(f'{engine_why} Falling back to passthrough mode.')
+                else:
+                    try:
+                        # *.engine has no embedded task metadata -- resolved from
+                        # model_task instead. *.pt is loaded with no task= override
+                        # so Ultralytics' own checkpoint metadata decides (forcing
+                        # 'detect' here, as this used to do unconditionally, would
+                        # silently mis-load a *-seg.pt as a detect-only model). See
+                        # module docstring's "Task resolution" paragraph.
+                        self.model = YOLO(
+                            self.model_path, task=self.model_task if is_engine else None)
+                        if not is_engine:
+                            # TensorRT engines are already device-bound at build
+                            # time; Model.to() only supports native *.pt models
+                            # and raises TypeError otherwise.
+                            self.model.to(self.device)
+                        self.names = self._resolve_class_names(YOLO, self.model_path, is_engine)
+                        self.task = self.model.task
+                        self.get_logger().info(
+                            f'Loaded YOLO model "{self.model_path}" on '
+                            f'device="{self.device}" task="{self.task}" '
+                            f'({len(self.names)} classes)')
+                    except Exception as exc:  # noqa: BLE001 - stay alive in passthrough
+                        self.get_logger().error(
+                            f'Failed to load Ultralytics YOLO ("{self.model_path}") '
+                            f'on device="{self.device}": {exc} — falling back to '
+                            'passthrough mode')
+                        self.model = None
 
         # ---- ROS interfaces -----------------------------------------------
         self.bridge = CvBridge()

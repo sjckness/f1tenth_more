@@ -21,46 +21,10 @@ LOGS=$REPO/output/phase5d_logs
 CONTAINER_PREFIX=f1tenth_spike
 
 # Hard rule 2: the Humble stack and a Jazzy container never run together.
-# Scans /proc (never pgrep -f, which matches this script's own command line).
-# Processes inside this spike's own containers are not a conflict (the DDS
-# probe runs two spike containers at once); anything else is.
-in_spike_container() {
-  local id
-  for id in $spike_ids; do grep -q "$id" "/proc/$1/cgroup" 2>/dev/null && return 0; done
-  return 1
-}
-guard() {
-  local hits=() pid cmd spike_ids
-  spike_ids=$(docker ps -q --no-trunc --filter "name=^${CONTAINER_PREFIX}")
-  for d in /proc/[0-9]*; do
-    pid=${d#/proc/}
-    [ "$pid" = "$$" ] && continue
-    cmd=$( { tr '\0' ' ' < "$d/cmdline"; } 2>/dev/null) || continue
-    [ -n "$spike_ids" ] && in_spike_container "$pid" && continue
-    case "$cmd" in
-      *spike.sh*|*docker\ *|*containerd*) continue ;;
-      */opt/ros/humble/*|*dev_ws/f1tenth_more/install*|*component_supervisor_node*|*_ros2_daemon*|*ros2cli.daemon*|*fast-discovery-server*|*fastdds\ discovery*|*llama-server*|*"ros2 launch"*|*"ros2 run"*|*"ros2 bag"*)
-        hits+=("$pid: ${cmd:0:120}") ;;
-    esac
-  done
-  local binder
-  for binder in $(ss -Hulpn 'sport = :11811' 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2); do
-    [ -n "$spike_ids" ] && in_spike_container "$binder" && continue
-    hits+=("UDP 11811 is bound by pid $binder")
-  done
-  if ss -Hulpn 'sport = :11811' 2>/dev/null | grep -q . && ! ss -Hulpn 'sport = :11811' | grep -q 'pid='; then
-    hits+=("UDP 11811 is bound by a process of another user")
-  fi
-  local other
-  other=$(docker ps --format '{{.Names}} {{.Image}}' | grep -E ' f1tenth:' | grep -v "^${CONTAINER_PREFIX}" || true)
-  [ -n "$other" ] && hits+=("another f1tenth container runs: $other")
-  if [ ${#hits[@]} -gt 0 ]; then
-    echo "guard: REFUSING, a ROS stack or Discovery Server is up on the host:" >&2
-    printf '  %s\n' "${hits[@]}" >&2
-    return 1
-  fi
-  echo "guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)"
-}
+# The guard lives in docker/orin/lib_guard.sh (shared with the D1 scripts);
+# this spike's own containers (the DDS probe runs two) are not a conflict.
+source "$HERE/../lib_guard.sh"
+guard() { GUARD_OWN_PREFIX=$CONTAINER_PREFIX orin_guard; }
 
 case "${1:-}" in
   build)

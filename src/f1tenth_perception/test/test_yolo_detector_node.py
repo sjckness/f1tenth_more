@@ -48,6 +48,12 @@ Scope: three additions this pass made to this node --
      empirically, against real inference output (see this pass's own final
      report) rather than mocked, since faking Results.__getitem__ itself
      would test the fake, not the real indexing behavior this relies on.
+  5. TensorRT version guard (Phase 5d): check_trt_engine() refuses an engine
+     the local TensorRT cannot deserialize (or any engine when tensorrt is not
+     importable) before Ultralytics sees it. Exercised with a fake tensorrt
+     module (_FakeTrt) and small engine files under tmp_path -- the real
+     mismatch (a JetPack 10.3.0.30 engine in the 10.3.0.26 container) was
+     confirmed live in the Phase 5d image.
 
 TestModelTaskResolution never imports/loads a real Ultralytics model (no GPU,
 no network, no live hardware -- keeps this test file fast and independent of
@@ -82,6 +88,7 @@ from f1tenth_perception.yolo_detector_node import (
     YoloDetectorNode,
     _bbox_overlap_fraction,
     _mask_overlap_fraction,
+    check_trt_engine,
 )
 
 
@@ -209,6 +216,45 @@ class TestPublishMasks:
             node.destroy_node()
 
 
+class _FakeTrt:
+    """
+    Stand in for the tensorrt module in check_trt_engine().
+
+    Runtime(...).deserialize_cuda_engine(plan) returns an engine object, or
+    None (what real TensorRT returns for a plan from another TensorRT build).
+    Every plan it is handed is recorded.
+    """
+
+    __version__ = '10.3.0'
+
+    class Logger:
+        ERROR = 'error'
+
+        def __init__(self, level):
+            pass
+
+    def __init__(self, loads=True):
+        self.loads = loads
+        self.plans = []
+        fake = self
+
+        class _Runtime:
+            def __init__(self, logger):
+                pass
+
+            def deserialize_cuda_engine(self, plan):
+                fake.plans.append(plan)
+                return object() if fake.loads else None
+
+        self.Runtime = _Runtime
+
+
+def _engine_file(tmp_path, name='yolo26s.engine', data=b'ftrt-bare-plan'):
+    path = tmp_path / name
+    path.write_bytes(data)
+    return str(path)
+
+
 class TestModelTaskResolution:
     """See module docstring -- this is the regression coverage for the
     "*.pt task no longer force-set to 'detect'" fix."""
@@ -237,11 +283,13 @@ class TestModelTaskResolution:
         finally:
             node.destroy_node()
 
-    def test_engine_task_defaults_to_detect_matching_deployed_default(self, monkeypatch):
+    def test_engine_task_defaults_to_detect_matching_deployed_default(
+            self, monkeypatch, tmp_path):
         calls = []
         _install_fake_ultralytics(monkeypatch, calls)
+        monkeypatch.setitem(sys.modules, 'tensorrt', _FakeTrt(loads=True))
         node = _construct_with_params(
-            {'model_path': '/fake/models/yolo26s.engine', 'device': 'cuda'})
+            {'model_path': _engine_file(tmp_path), 'device': 'cuda'})
         try:
             assert calls[0]['task'] == 'detect'  # model_task's own default
             assert node.task == 'detect'
@@ -249,16 +297,86 @@ class TestModelTaskResolution:
         finally:
             node.destroy_node()
 
-    def test_engine_task_honors_model_task_override(self, monkeypatch):
+    def test_engine_task_honors_model_task_override(self, monkeypatch, tmp_path):
         calls = []
         _install_fake_ultralytics(monkeypatch, calls)
+        monkeypatch.setitem(sys.modules, 'tensorrt', _FakeTrt(loads=True))
         node = _construct_with_params({
-            'model_path': '/fake/models/yolo26s-seg.engine', 'device': 'cuda',
+            'model_path': _engine_file(tmp_path, 'yolo26s-seg.engine'), 'device': 'cuda',
             'model_task': 'segment'})
         try:
             assert calls[0]['task'] == 'segment'
             assert node.task == 'segment'
             assert node.masks_pub is not None
+        finally:
+            node.destroy_node()
+
+
+class TestTrtEngineGuard:
+    """
+    Cover check_trt_engine() and its call site.
+
+    See the node's module docstring, "TensorRT version guard". An engine the
+    local TensorRT cannot deserialize is refused before Ultralytics sees it:
+    one clear log line, passthrough mode, no crash.
+    """
+
+    def test_engine_from_this_tensorrt_is_accepted(self, tmp_path):
+        trt = _FakeTrt(loads=True)
+        assert check_trt_engine(_engine_file(tmp_path), trt) == (True, '')
+
+    def test_engine_from_another_tensorrt_is_refused_naming_the_runtime_version(
+            self, tmp_path):
+        ok, why = check_trt_engine(_engine_file(tmp_path), _FakeTrt(loads=False))
+        assert not ok
+        assert 'not built by this TensorRT (10.3.0)' in why
+        assert 'trtexec' in why
+
+    def test_ultralytics_metadata_header_is_stripped_before_deserializing(self, tmp_path):
+        meta = b'{"task": "detect"}'
+        data = len(meta).to_bytes(4, 'little') + meta + b'PLAN'
+        trt = _FakeTrt(loads=True)
+        check_trt_engine(_engine_file(tmp_path, data=data), trt)
+        assert trt.plans == [b'PLAN']
+
+    def test_bare_trtexec_plan_is_passed_whole(self, tmp_path):
+        data = b'ftrt\x00\x00\x00\x00\x01\xff\xfe binary plan'
+        trt = _FakeTrt(loads=True)
+        check_trt_engine(_engine_file(tmp_path, data=data), trt)
+        assert trt.plans == [data]
+
+    def test_unreadable_engine_is_refused(self, tmp_path):
+        ok, why = check_trt_engine(str(tmp_path / 'missing.engine'), _FakeTrt())
+        assert not ok and 'cannot read it' in why
+
+    def test_missing_tensorrt_module_is_refused_not_pip_installed(
+            self, monkeypatch, tmp_path):
+        monkeypatch.setitem(sys.modules, 'tensorrt', None)  # import raises ImportError
+        ok, why = check_trt_engine(_engine_file(tmp_path))
+        assert not ok and 'not importable' in why
+
+    def test_node_refuses_mismatched_engine_and_stays_in_passthrough(
+            self, monkeypatch, tmp_path):
+        calls = []
+        _install_fake_ultralytics(monkeypatch, calls)
+        monkeypatch.setitem(sys.modules, 'tensorrt', _FakeTrt(loads=False))
+        node = _construct_with_params(
+            {'model_path': _engine_file(tmp_path), 'device': 'cuda'})
+        try:
+            assert calls == []  # Ultralytics never saw the engine
+            assert node.model is None
+            assert node.masks_pub is None
+        finally:
+            node.destroy_node()
+
+    def test_pt_checkpoint_never_touches_tensorrt(self, monkeypatch):
+        calls = []
+        _install_fake_ultralytics(monkeypatch, calls)
+        monkeypatch.setitem(sys.modules, 'tensorrt', None)
+        node = _construct_with_params(
+            {'model_path': '/fake/models/yolo26s-seg.pt', 'device': 'cuda'})
+        try:
+            assert len(calls) == 1 and node.task == 'segment'
         finally:
             node.destroy_node()
 
