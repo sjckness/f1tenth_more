@@ -67,9 +67,13 @@ def generate_launch_description():
         'enable_slam', default_value=str(enable_default), description=enable_desc)
 
     score_threshold_la = DeclareLaunchArgument(
-        'semantic_score_threshold', default_value='0.5',
+        'semantic_score_threshold', default_value='0.35',
         description="Minimum vision_msgs detection score for semantic_layer_"
-                    "node to accumulate a detection at all.")
+                    "node to accumulate a detection at all. 0.35 (was 0.5): "
+                    "COCO on Gazebo-rendered furniture scores low (a sim chair "
+                    "detects ~0.43), so 0.5 filtered out every sim detection and "
+                    "left the semantic layer empty; 0.35 lets real sim objects "
+                    "through while still rejecting the weakest noise.")
     merge_distance_la = DeclareLaunchArgument(
         'semantic_merge_distance_m', default_value='0.5',
         description="Max distance (m, map frame) for a new same-class "
