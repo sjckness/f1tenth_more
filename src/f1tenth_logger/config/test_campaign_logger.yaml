@@ -39,3 +39,8 @@ test_campaign_logger:
     plan_result_topic: /test/plan_result
     mission_event_topic: /test/mission_event
     best_effort_sensors: true
+    # Read by export_matlab (f1tenth_logger/matlab_export/db_root.py), never
+    # by this node. Empty = not set: $F1TENTH_MATLAB_DATA, else ~/matlab_data.
+    # --db-root on the command line beats all of them.
+    matlab_export:
+      db_root: ""

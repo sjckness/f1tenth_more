@@ -794,7 +794,7 @@ wall_distance_convergence_length_m:
 wall_distance_max_psi_correction:
   default: 0.20
   # SYNTHETIC -- retune on hardware
-  description: "Saturation [rad] on |dpsi|. Beyond the small-angle regime edot = v*sin(dpsi) ~ v*dpsi fails and the stability argument with it, and the steering cannot deliver it anyway (delta_max is 0.278 rad at the wheels). Stage 4 of docs/bringup_checklist.md forces this to 0.0 so the node publishes but changes nothing; Stage 5 runs it at ~0.05. SYNTHETIC."
+  description: "Saturation [rad] on |dpsi|. Beyond the small-angle regime edot = v*sin(dpsi) ~ v*dpsi fails and the stability argument with it, and the steering cannot deliver it anyway (delta_max is 0.319 rad at the wheels). Stage 4 of docs/bringup_checklist.md forces this to 0.0 so the node publishes but changes nothing; Stage 5 runs it at ~0.05. SYNTHETIC."
 wall_distance_max_psi_rate:
   default: 0.5
   # SYNTHETIC -- retune on hardware
@@ -952,7 +952,7 @@ corridor_heading_return:
 # what tightening them does to the straight-move heading return.
 corr_turn_u_start:
   default: 0.00
-  description: "Corridor fraction [0-1] where build_straight_corridor's S-curve heading ramp starts (0.0 m of a 3.0 m corridor -- the ramp begins at the car). Applies to every corridor that turns, including each wall_turn increment. LOWERED from the reference implementation's 0.10 after a wall_turn drove into the wall: at 0.10/0.70 the bearing to the 1.5 m lookahead presented only 23% of the corridor's 0.763 rad ask (-0.177 rad), the QP steered the -0.059 rad that bearing deserved instead of the -0.274 rad the turn needed, and the 1 Hz rebuild re-deferred the rest from the new pose every second. See MPC_corr.py's own measured u_start/u_end table: this moves final heading error 0.1344 -> 0.0486 rad and lateral drift 1.010 -> 0.675 m. Peak ramp curvature stays at R ~1.83 m, well inside R_min 1.05 m, so neither the steering limit nor the 0.5 rad/s rate bound binds. 0.00/0.40 is the next step in the table (error ~0) but puts peak curvature AT R_min with no margin."
+  description: "Corridor fraction [0-1] where build_straight_corridor's S-curve heading ramp starts (0.0 m of a 3.0 m corridor -- the ramp begins at the car). Applies to every corridor that turns, including each wall_turn increment. LOWERED from the reference implementation's 0.10 after a wall_turn drove into the wall: at 0.10/0.70 the bearing to the 1.5 m lookahead presented only 23% of the corridor's 0.763 rad ask (-0.177 rad), the QP steered the -0.059 rad that bearing deserved instead of the -0.274 rad the turn needed, and the 1 Hz rebuild re-deferred the rest from the new pose every second. See MPC_corr.py's own measured u_start/u_end table: this moves final heading error 0.1344 -> 0.0486 rad and lateral drift 1.010 -> 0.675 m. Peak ramp curvature stays at R ~1.83 m, well inside R_min 1.05 m (the pre-2026-09-17 steering bounds; 0.92 m left / 0.96 m right since), so neither the steering limit nor the 0.5 rad/s rate bound binds. 0.00/0.40 is the next step in the table (error ~0) but puts peak curvature AT R_min with no margin."
 corr_turn_u_end:
   default: 0.40
   description: "Corridor fraction [0-1] where the S-curve heading ramp ends (1.2 m of a 3.0 m corridor). Must exceed corr_turn_u_start. TIGHTENED from 0.70 with u_start already at 0.00: the bearing to the 1.5 m lookahead now presents 60.2% of the corridor's ask to the solver, up from 32.8% at 0.00/0.70 and 23.6% at the original 0.10/0.70 (measured -0.177 rad of a -0.763 rad ask on the run that drove into the wall). MPC_corr.py's own table puts final heading error at +0.0011 rad here versus +0.0486 at 0.00/0.70. NOTE the ramp span is now 1.2 m, so peak curvature is 1.5 * 0.763 / 1.2 = 0.954 rad/m, i.e. R ~1.05 m = R_min: the corridor deliberately asks for full lock at the S-curve's steepest point and LIM | delta_sat=True there is expected, not a fault. Going tighter than this asks for a curvature the car cannot physically track."
@@ -967,10 +967,14 @@ corr_turn_u_end:
 # N * ts * v_ref / R_min) once the turn has committed, and nothing before.
 # It commits when d_avail = max(dFront - margin, 0) <= k_safety * R_min *
 # |still owed|. R_min = mpc_wheelbase_m / tan(steering bound for the
-# direction): 1.069 m left (0.278), 1.049 m right (-0.283).
+# direction): 0.923 m left (0.319), 0.955 m right (-0.309).
 #
 # Trigger dFront for a turn started straight, at the defaults below:
-#   74.5 deg left 2.58 m / right 2.55 m      90 deg left 3.02 m / right 2.97 m
+#   74.5 deg left 2.30 m / right 2.36 m      90 deg left 2.68 m / right 2.75 m
+# Before the 2026-09-17 steering gain change (R_min 1.069 / 1.049 m, bounds
+# +0.278/-0.283) these were 2.58 / 2.55 m and 3.02 / 2.97 m: the same turn now
+# commits ~0.3 m closer to the wall, because the model now knows the car
+# turns as tight as it physically did all along.
 #
 # THE TRIGGER IS NOT THE KNOB FOR "START TURNING EARLIER" -- k_safety was run
 # up to 2.75 for exactly that (90 deg trigger 5.62 m, handoff raised to 5.5 m
@@ -1238,45 +1242,50 @@ mpc_model_log_path:
 # never fire because the literal it compared to was outside the servo's
 # reach in the first place.
 #
-# WHERE +-0.278/-0.283 COME FROM -- derived, and reproducible from files in
+# WHERE +0.319/-0.309 COME FROM -- derived, and reproducible from files in
 # this repo, not measured with an instrument. The command path is
 #   ackermann_to_vesc.cpp:  servo = gain_side * steering_angle + offset
 #                           (gain_left for angle >= 0, gain_right below)
 #   vesc_driver.cpp:        servo = clip(servo, servo_min, servo_max)
 # and f1tenth_hardware/config/steering_calibration.yaml currently holds
 #   servo_min 0.15   servo_max 0.8318   offset 0.4874
-#   gain_left = gain_right = -1.2135
+#   gain_left -1.0552   gain_right -1.1133
 # Inverting the clip bounds through that line:
-#   angle at servo_min = (0.15   - 0.4874) / -1.2135 = +0.27804 rad (+15.93 deg)
-#   angle at servo_max = (0.8318 - 0.4874) / -1.2135 = -0.28381 rad (-16.26 deg)
-# Rounded INWARD (+0.278 / -0.283) so a command at the limit is always one
+#   angle at servo_min = (0.15   - 0.4874) / -1.0552 = +0.31975 rad (+18.32 deg)
+#   angle at servo_max = (0.8318 - 0.4874) / -1.1133 = -0.30935 rad (-17.72 deg)
+# Rounded INWARD (+0.319 / -0.309) so a command at the limit is always one
 # the servo can actually produce rather than one that just reaches the clip.
 #
-# THIS IS NOT THE -0.264/+0.314 PAIR the work order cited, and that pair was
-# NOT applied. Those two numbers appear in exactly one place in this
-# repo -- steering_offset_calibration_node.py's declared parameter
-# defaults, introduced in dd843af, whose docstring calls them "the real
-# ones for this car" with no derivation recorded anywhere. They contradict
-# the calibration above: +0.314 rad maps to servo 0.1064, BELOW servo_min
-# 0.15, so it is not commandable at all -- it clips to +0.278. A mechanical
-# limit the servo clamp forbids is not a mechanical limit. They also point
-# the asymmetry the wrong way: the calibration gives slightly more travel
-# to the RIGHT (-16.26 vs +15.93 deg), not the left.
+# 2026-09-17: WIDER THAN THE +0.278/-0.283 IT REPLACES, WITH THE SAME
+# PHYSICAL LOCK. servo_min/servo_max did not move; the gains did. Both were
+# the -1.2135 placeholder, and logged SLAM heading showed the car turning
+# 1.15x (left) and 1.09x (right) the curvature the model predicted, so the
+# old +0.278 command already put the wheels near +0.32 rad. The new gains
+# make command and wheel angle agree, and the envelope is the same servo
+# travel expressed in true angle. Everything derived from it moves with it:
+# wall_turn's R_min is now 0.923 m left / 0.955 m right.
 #
-# THE ASYMMETRY IS CURRENTLY 0.006 RAD AND IS AN ARTEFACT OF THE OFFSET, not
-# of the linkage. gain_left and gain_right are both -1.2135 and
-# steering_calibration.yaml labels them "Placeholder until retuned" --
-# vesc_tuning's Mode 3 tunes them independently and has not been run. Real
-# linkage asymmetry will only appear here once it has. test_steering_
-# limits.py recomputes this envelope from steering_calibration.yaml and
-# fails if the two drift apart, so a recalibration cannot silently leave
-# these stale.
+# THE -0.264/+0.314 PAIR steering_offset_calibration_node.py declares as
+# "the real ones for this car" (dd843af, no derivation recorded) was
+# rejected against the placeholder gains, where +0.314 rad mapped below
+# servo_min. Under the 2026-09-17 gains it maps to servo 0.156 and is
+# commandable, and the left side now does get more travel, as that pair
+# claimed. It is still not used: -0.264 is well inside the right-hand reach
+# of -0.309, and the envelope stays derived from the calibration rather
+# than transcribed.
+#
+# THE ASYMMETRY (+0.319 vs -0.309) NOW COMES FROM THE GAINS as well as the
+# offset: gain_left and gain_right were fitted separately from logged
+# turns. vesc_tuning's Mode 3 is still the instrument for tuning them
+# properly. test_steering_limits.py recomputes this envelope from
+# steering_calibration.yaml and fails if the two drift apart, so a
+# recalibration cannot silently leave these stale.
 mpc_steering_angle_min_rad:
-  default: -0.283
-  description: "Most negative steering angle [rad] mpc_corr's QP may command (-16.22 deg). Derived by inverting servo_max through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare -1.05 literal, 3.7x beyond the servo's reach."
+  default: -0.309
+  description: "Most negative steering angle [rad] mpc_corr's QP may command (-17.70 deg). Derived by inverting servo_max through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare -1.05 literal, 3.7x beyond the servo's reach."
 mpc_steering_angle_max_rad:
-  default: 0.278
-  description: "Most positive steering angle [rad] mpc_corr's QP may command (+15.93 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
+  default: 0.319
+  description: "Most positive steering angle [rad] mpc_corr's QP may command (+18.28 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
 # Consumed by: MPC_corr.py's declare_parameter() default (get_value), no launch
 # arg. The bicycle model's L, and the wheelbase wall_turn.py's R_min is derived
 # from. Promoted from a bare 0.305 literal with the value unchanged.
@@ -2076,6 +2085,99 @@ enable_foxglove:
 foxglove_image_throttle_hz:
   default: 5.0
   description: "Rate [Hz] of the throttled /camera/image_raw/viz and /camera/image_annotated/viz copies published for foxglove_bridge visualization -- the real /camera/image_raw and /camera/image_annotated stay at their native 30Hz for the perception pipeline."
+# Consumed by: f1tenth_bringup/foxglove_bridge.launch.py (the bridge's
+# topic_whitelist). An ALLOWLIST: the bridge full-matches every topic name
+# against each regex, case-insensitive, and advertises only matches, so a raw
+# full-rate topic cannot be streamed over Wi-Fi by accident. What it lets
+# through, 2026-09-22 audit:
+#   /viz/*            the rate-limited copies (f1tenth_bringup/config/
+#                     viz_relays.yaml); /viz_internal/* stays hidden.
+#   /tf, /tf_static, /robot_description, /joint_states
+#   transient_local topics, latched and sent once on connect: /slam/map,
+#                     /slam/map_metadata, /map, /calibration/in_progress,
+#                     /mission/status, /rosout
+#   published on change, so a throttle would drop events: /mission/status,
+#                     /mission/move_outcome, /safety/event, /parameter_events
+#   /costmap/semantic_markers  incremental MarkerArray: a track's DELETE rides
+#                     in one message only, so it cannot be throttled.
+# Before this, a denylist let the layout pull /camera/image_annotated/viz, a
+# raw 0.7 MB Image at ~4.3 Hz: 24 Mbit/s a client, 50.6 Mbit/s out of
+# tailscale0 with two clients connected. foxglove_raw_debug:=true on the
+# launch swaps this for '.*' without editing a file.
+foxglove_topic_whitelist:
+  default:
+    - '^/viz/.*'
+    - '^/tf$'
+    - '^/tf_static$'
+    - '^/robot_description$'
+    - '^/joint_states$'
+    - '^/slam/map$'
+    - '^/slam/map_metadata$'
+    - '^/map$'
+    - '^/calibration/in_progress$'
+    - '^/mission/status$'
+    - '^/mission/move_outcome$'
+    - '^/safety/event$'
+    - '^/rosout$'
+    - '^/parameter_events$'
+    - '^/costmap/semantic_markers$'
+  description: "Anchored regexes (full match, case-insensitive) of the topics foxglove_bridge advertises: the /viz/* copies plus the pass-through topics listed above. foxglove_raw_debug:=true replaces the list with '.*'."
+# The topics a Foxglove client may publish through the bridge. Measured
+# 2026-09-22: the only ones the connected clients advertised were the 3D
+# panel's default publish tools below; nothing publishes /drive, /teleop or a
+# mission topic through the bridge, and this keeps it that way.
+foxglove_client_topic_whitelist:
+  default:
+    - '^/clicked_point$'
+    - '^/goal_pose$'
+    - '^/initialpose$'
+    - '^/move_base_simple/goal$'
+  description: "Anchored regexes of the topics a Foxglove client may publish through foxglove_bridge (the 3D panel's publish tools)."
+# Per-connection send buffer. When it is full the bridge drops new messages
+# for that client rather than queueing stale ones. The bridge default is
+# 10,000,000 bytes, 4 s of backlog on a 20 Mbit/s link: the seconds of lag
+# seen over Wi-Fi. 2,500,000 is 1 s. The cost: a single message larger than
+# the limit never gets through, and a burst that fills it drops frames
+# instead of delaying them. /slam/map is the largest message whitelisted
+# (94 KB on 2026-09-22; a 1500 x 1500-cell map would be 2.25 MB).
+foxglove_send_buffer_limit:
+  default: 2500000
+  description: "foxglove_bridge send_buffer_limit in bytes per client: ~1 s of backlog at 20 Mbit/s (bridge default 10000000, ~4 s). A message larger than this is never delivered."
+foxglove_use_compression:
+  default: false
+  description: "foxglove_bridge use_compression: permessage-deflate on the websocket. Costs bridge CPU on core 3; see the measurement in the comment above this key."
+# Consumed by: f1tenth_bringup/viz_relays.launch.py, the dev_tools
+# component's second launch. The /viz/* relays for foxglove_bridge; they are
+# additional copies and never touch the source topics. Lazy: nothing runs
+# while no client subscribes.
+enable_viz_relays:
+  default: true
+  description: "Start the /viz/* relay container and viz_jpeg_node (f1tenth_bringup/viz_relays.launch.py). false: fully skipped."
+# Forwarding rates of the /viz relays, in Hz. A throttle forwards a message
+# once 1/rate has passed since the last one it forwarded, so a rate of exactly
+# N dips below N with timestamp jitter; each is set ~10% above its target.
+# Measured 2026-09-22: 5.5 on the 40 Hz /scan gives 4.99 Hz.
+viz_rate_scan:
+  default: 5.5
+  description: "Rate [Hz] of /viz/scan (target 5 Hz; /scan is ~40 Hz)."
+viz_rate_costmap:
+  default: 5.5
+  description: "Rate [Hz] of /viz/costmap/visualization/compressed (target 5 Hz). The source, costmap_renderer_node's rgb8 render, runs at 2 Hz, so nothing is dropped; the relay exists to JPEG it."
+viz_rate_image_annotated:
+  default: 3.3
+  description: "Rate [Hz] of /viz/camera/image_annotated/compressed (target 3 Hz; the source measured 13.7 Hz). Throttled before JPEG encoding, so only forwarded frames are encoded."
+viz_rate_default:
+  default: 5.5
+  description: "Rate [Hz] of every other /viz relay in viz_relays.yaml (target 5 Hz)."
+viz_jpeg_quality:
+  default: 75
+  description: "JPEG quality (0-100) of viz_jpeg_node's /viz/*/compressed images."
+# Every node carries six parameter services, which buried the mission and
+# supervisor services in Foxglove's service list. Parameters stay reachable
+# through the bridge's own parameters capability, which does not use this.
+foxglove_service_whitelist:
+  default: '^(?!/zed2/)(?!.*/(describe_parameters|get_parameter_types|get_parameters|list_parameters|set_parameters|set_parameters_atomically)$).*'
+  description: "Regex of the services foxglove_bridge advertises (full match, case-insensitive). Default: everything except the ZED wrapper's /zed2 services and each node's parameter services. '.*' advertises every service."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (structurally skips
 # creating the CompressedImage publisher and registering the post_tick_handler
 # when false, not just idling it -- same "absent, not just failing/no-op"

@@ -1,0 +1,6 @@
+{
+  "mission": "M02_approach_wall",
+  "prompt_num": 2,
+  "prompt_text": "approach the wall",
+  "success_criterion": "stops facing the wall at 0.5 m +- 0.2 m, no contact, no e-stop"
+}

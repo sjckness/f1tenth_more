@@ -24,6 +24,17 @@ almost certainly from topic_whitelist's default '.*' continuously introspecting
 the whole ROS graph, not from per-client data streaming. This throttle
 addresses the image-serialization/bandwidth cost a client incurs when actually
 viewing an image panel; it does not address that separate baseline cost.
+The topic and service whitelists below do: they drop the ZED wrapper's /zed2
+tree and the full-rate images, about half the graph (see stack_params.yaml's
+foxglove_topic_whitelist for the measurement).
+
+The topic whitelist is an allowlist: the rate-limited /viz/* copies that
+viz_relays.launch.py publishes (the dev_tools component's other launch), plus
+tf, latched and on-change topics. Everything else, including the *_viz
+throttle copies below, stays off the bridge unless foxglove_raw_debug:=true,
+which swaps the list for '.*' for a debugging session. Those two throttle
+nodes still run, untouched: the /viz relays were added beside them, not in
+place of them.
 
 throttle's CLI is positional argv (messages|bytes, in_topic, rate, [out_topic]),
 NOT ROS parameters -- despite "throttle_type"/"input_topic"/etc. appearing as
@@ -62,10 +73,10 @@ entirely, same reasoning slam_toolbox already gets a dedicated core
 (f1tenth_navigation/launch/slam.launch.py) rather than sharing.
 """
 
-from f1tenth_params.param_defaults import get_default
+from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
+from launch.actions import DeclareLaunchArgument, OpaqueFunction, SetEnvironmentVariable
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -122,24 +133,55 @@ def generate_launch_description():
                     "this Node's prefix= argument instead to fully disable "
                     "pinning.")
 
-    foxglove_bridge_node = Node(
-        package='foxglove_bridge',
-        executable='foxglove_bridge',
-        name='foxglove_bridge',
-        condition=IfCondition(LaunchConfiguration('enable_foxglove')),
-        prefix=['taskset -c ', LaunchConfiguration('foxglove_cpu_affinity')],
-        parameters=[{
-            'port': 8765,
-            'address': '0.0.0.0',
-            # connectionGraph capability dropped deliberately -- confirmed
-            # unrelated to the real ERROR/WARN diagnostics. Trade-off:
-            # Foxglove's connection-graph panel stops working.
-            'capabilities': [
-                'clientPublish', 'parameters', 'parametersSubscribe',
-                'services', 'assets',
-            ],
-        }]
-    )
+    raw_debug_la = DeclareLaunchArgument(
+        'foxglove_raw_debug', default_value='false',
+        description="true: advertise every topic ('.*') instead of stack_params.yaml's "
+                    "foxglove_topic_whitelist, to look at a raw topic for one session. "
+                    "Raw images over Wi-Fi will lag the link again.")
+    service_whitelist_default, service_whitelist_desc = get_default('foxglove_service_whitelist')
+    service_whitelist_la = DeclareLaunchArgument(
+        'foxglove_service_whitelist', default_value=service_whitelist_default,
+        description=service_whitelist_desc)
+    send_buffer_default, send_buffer_desc = get_default('foxglove_send_buffer_limit')
+    send_buffer_la = DeclareLaunchArgument(
+        'foxglove_send_buffer_limit', default_value=str(send_buffer_default),
+        description=send_buffer_desc)
+    compression_default, compression_desc = get_default('foxglove_use_compression')
+    compression_la = DeclareLaunchArgument(
+        'foxglove_use_compression', default_value=str(compression_default).lower(),
+        description=compression_desc)
+
+    def bridge_node(context):
+        raw_debug = LaunchConfiguration('foxglove_raw_debug').perform(context).lower() == 'true'
+        topic_whitelist = ['.*'] if raw_debug else list(get_value('foxglove_topic_whitelist'))
+        return [Node(
+            package='foxglove_bridge',
+            executable='foxglove_bridge',
+            name='foxglove_bridge',
+            condition=IfCondition(LaunchConfiguration('enable_foxglove')),
+            prefix=['taskset -c ', LaunchConfiguration('foxglove_cpu_affinity')],
+            parameters=[{
+                'port': 8765,
+                'address': '0.0.0.0',
+                # connectionGraph capability dropped deliberately -- confirmed
+                # unrelated to the real ERROR/WARN diagnostics. Trade-off:
+                # Foxglove's connection-graph panel stops working.
+                'capabilities': [
+                    'clientPublish', 'parameters', 'parametersSubscribe',
+                    'services', 'assets',
+                ],
+                'topic_whitelist': topic_whitelist,
+                'client_topic_whitelist': list(get_value('foxglove_client_topic_whitelist')),
+                # Nested list on purpose: launch_ros joins a flat list of
+                # substitutions into ONE string, and the bridge declares this
+                # as a string array. See stack_params.yaml for what it prunes.
+                'service_whitelist': [[LaunchConfiguration('foxglove_service_whitelist')]],
+                'send_buffer_limit': int(
+                    LaunchConfiguration('foxglove_send_buffer_limit').perform(context)),
+                'use_compression': LaunchConfiguration(
+                    'foxglove_use_compression').perform(context).lower() == 'true',
+            }]
+        )]
 
     # Both gated on enable_foxglove -- no point throttling a viz-only copy
     # nobody's bridging. output='screen' so a failure here is actually visible
@@ -173,6 +215,8 @@ def generate_launch_description():
 
     return LaunchDescription([
         super_client_env,
-        enable_la, throttle_hz_la, foxglove_cpu_affinity_la, foxglove_bridge_node,
+        enable_la, throttle_hz_la, foxglove_cpu_affinity_la,
+        raw_debug_la, service_whitelist_la, send_buffer_la, compression_la,
+        OpaqueFunction(function=bridge_node),
         image_raw_throttle_node, image_annotated_throttle_node,
     ])

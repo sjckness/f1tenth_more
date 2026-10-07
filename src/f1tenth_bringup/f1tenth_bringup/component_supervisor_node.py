@@ -319,10 +319,12 @@ _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 # and is never launched at boot, with no warning anywhere. That is why adding a
 # component means adding it here in the same commit, and why
 # test_wall_distance_component.py asserts membership rather than trusting it.
+# 'reset_manager' serves /reset_all, which restarts other components through
+# this node's /restart_component (never 'intelligence').
 _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
                       'lidar_front_wall', 'wall_distance', 'swept_clearance',
                       'obstacle_clearance', 'control', 'diagnostics', 'dev_tools',
-                      'slam'}
+                      'slam', 'reset_manager'}
 # Registered (restartable by name) but never auto-started -- on-demand only.
 # startup_sequence (the steering-sweep visual check) moved here on request --
 # see module docstring's own "calibrate_hardware, startup_sequence" paragraph

@@ -1,0 +1,6 @@
+{"t": 0.0184683, "event": "test_start", "mission": "M05_turn_left_wall", "prompt_num": 5, "repetition": 1, "prompt_hash": "be993abf48f00be3a89ee0b57ecbb8dbb650b436d4295ce0e618d333d7b9633a"}
+{"t": 0.0, "event": "pre_roll", "samples": 210, "seconds": 2.0}
+{"t": 0.0660672, "event": "mission_loaded", "plan_id": "llm_38d747d91edf", "reason": "", "countdown_s": 3.0}
+{"t": 3.46011, "event": "mission_started", "plan_id": "llm_38d747d91edf", "reason": "", "countdown_s": 3.0}
+{"t": 16.2259, "event": "contact", "cause": "lidar return 0.005 m inside the footprint", "clearance_m": -0.0049, "source": "obstacle_clearance_node"}
+{"t": 211.614, "event": "test_end", "auto_outcome": "aborted", "reason": "superseded by new test"}

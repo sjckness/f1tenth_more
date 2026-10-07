@@ -197,7 +197,7 @@ CAMPI OBBLIGATORI:
     - "front_object": oggetto davanti piu' vicino di "thresh" metri.
     - "distance": percorsi "thresh" metri in questa fase.
 - "thresh": soglia NUMERICA (metri per wall/front_object/distance, radianti per turned).
-  Deve essere un numero, non una stringa: 3.0 e non "3.0 metri".
+  Deve essere un numero, non una stringa: 1.0 e non "1.0 metri".
 
 CAMPI OPZIONALI:
 - "turn_sign": OBBLIGATORIO se mode e' "wall_turn". -1.0 = DESTRA, +1.0 = SINISTRA.
@@ -205,14 +205,14 @@ CAMPI OPZIONALI:
 - "stop_at_distance": SOLO ULTIMA fase. Stop dopo N metri.
 
 REGOLE:
-- "vai dritto" -> "straight". "al muro" -> guard "wall" (thresh ~3.0).
+- "vai dritto" -> "straight". "al muro" -> guard "wall" (thresh ~1.0).
 - "gira a destra/sinistra" -> wall_turn, turn_sign -1.0/+1.0, di solito con guard "turned" thresh 1.3.
 - "avanza N metri" (finale) -> guard "distance", thresh N, stop_at_distance N.
 - "fermati all'oggetto/sedia" (finale) -> guard "front_object", thresh 1.0, stop_at 1.0.
 - "supera / oltrepassa / passa accanto a X" NON e' una fermata: l'evitamento ostacoli
   e' gestito dal controllore. Usa "distance" per proseguire, NON "stop_at".
 - Ogni fase DEVE avere un "guard". Se il comando dice solo "vai avanti" senza
-  destinazione, usa guard "wall" (thresh 3.0) come default.
+  destinazione, usa guard "wall" (thresh 1.0) come default.
 
 REGOLE STRUTTURALI (violarle blocca il robot):
 1. Dopo una svolta (wall_turn), per proseguire NON usare "straight"
@@ -229,7 +229,7 @@ Rispondi ESCLUSIVAMENTE con {"plan":[...]}. NIENTE testo o markdown.
 
 ESEMPIO 1:
 comando: "vai dritto, al muro gira a destra e avanza 2 metri"
-{"plan":[{"mode":"straight","guard":"wall","thresh":3.0},{"mode":"wall_turn","turn_sign":-1.0,"guard":"turned","thresh":1.3},{"mode":"wall_turn","turn_sign":-1.0,"guard":"distance","thresh":2.0,"stop_at_distance":2.0}]}
+{"plan":[{"mode":"straight","guard":"wall","thresh":1.0},{"mode":"wall_turn","turn_sign":-1.0,"guard":"turned","thresh":1.3},{"mode":"wall_turn","turn_sign":-1.0,"guard":"distance","thresh":2.0,"stop_at_distance":2.0}]}
 
 ESEMPIO 2 (ostacolo da superare, non da raggiungere):
 comando: "vai dritto, supera l'ostacolo e avanza 3 metri"

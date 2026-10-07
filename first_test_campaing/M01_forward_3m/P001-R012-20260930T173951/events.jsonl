@@ -1,0 +1,6 @@
+{"t": 0.00261507, "event": "test_start", "mission": "M01_forward_3m", "prompt_num": 1, "repetition": 12, "prompt_hash": "a139034d7bc8905ddacdfedce1b8c932816b3da9c674be2ea493d77b4f0a5b4c"}
+{"t": 0.0, "event": "pre_roll", "samples": 217, "seconds": 2.0}
+{"t": 0.0167847, "event": "mission_loaded", "plan_id": "llm_d467d7d7ba04", "reason": "", "countdown_s": 3.0}
+{"t": 3.02355, "event": "mission_started", "plan_id": "llm_d467d7d7ba04", "reason": "", "countdown_s": 3.0}
+{"t": 15.8397, "event": "mission_finished", "plan_id": "llm_d467d7d7ba04", "reason": ""}
+{"t": 17.8949, "event": "test_end", "auto_outcome": "completed", "reason": ""}

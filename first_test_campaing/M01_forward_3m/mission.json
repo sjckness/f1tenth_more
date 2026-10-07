@@ -1,0 +1,6 @@
+{
+  "mission": "M01_forward_3m",
+  "prompt_num": 1,
+  "prompt_text": "go ahead 3 meters",
+  "success_criterion": "stops at 3.0 m +- 0.15 m from start, lateral error < 0.2 m, no contact"
+}

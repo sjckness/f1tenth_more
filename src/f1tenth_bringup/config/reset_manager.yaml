@@ -1,0 +1,80 @@
+# reset_manager -- /reset_all (std_srvs/Trigger) puts odometry, pose, map and
+# navigation state back at 0 0 0 without restarting the supervisor.
+# See f1tenth_bringup/reset_manager_node.py's docstring for why each step
+# does what it does on this stack. Every step can be switched off here.
+#
+# Loaded by launch/reset_manager.launch.py (the `reset_manager` component).
+# nav2.enabled is NOT set here: the launch file passes stack_params'
+# enable_nav2, so the two cannot disagree.
+reset_manager:
+  ros__parameters:
+    service_name: /reset_all
+    service_timeout_s: 5.0                 # every plain service call
+    supervisor_restart_service: /restart_component
+    restart_timeout_s: 45.0                # one /restart_component call (SIGINT, wait, respawn)
+    # Never restarted, whatever else is configured. The node refuses to start
+    # if a step below names one of these.
+    protected_components: [intelligence]
+    covariance:                            # of the zero pose handed to both EKFs
+      position: 1.0e-4                     # m^2  (x, y, z)
+      yaw: 1.0e-4                          # rad^2 (roll, pitch, yaw)
+    verify_timeout_s: 5.0                  # EKF output must read 0 0 0 within this
+    yaw_tolerance_rad: 0.05
+
+    stop:
+      enabled: true
+      topic: /safety_stop                  # ackermann_mux priority 200: beats /drive and /teleop
+      rate_hz: 20.0                        # held for the whole reset (mux timeout is 0.2 s)
+      abort_mission_service: /mission/abort_mission   # also latches /mpc/hold; '' to skip
+      standstill_topic: /odometry/filtered
+      standstill_speed_mps: 0.05
+      standstill_hold_s: 0.5
+      timeout_s: 5.0
+
+    wheel_odom:
+      enabled: true
+      # vesc_to_odom_node has no reset service: restarting the `hardware`
+      # component (VESC driver + odometry, ~15 s with the battery pre-check)
+      # is the only way to zero /odom. 'service' calls wheel_odom.service
+      # (std_srvs/Trigger) instead, if the node ever grows one.
+      method: restart_component
+      component: hardware
+      service: ''
+      topic: /odom
+      timeout_s: 60.0
+      tolerance_m: 0.05
+
+    ekf_local:                             # ekf_filter_node, owns odom -> base_link
+      enabled: true
+      service: /set_pose
+      frame_id: odom
+      verify_topic: /odometry/filtered
+      tolerance_m: 0.05
+
+    slam:                                  # slam_toolbox 2.6.10 has no reset: restart the component
+      enabled: true
+      component: slam                      # slam_toolbox + the three f1tenth_costmap nodes
+      ready_topic: /slam/pose
+      timeout_s: 60.0
+
+    ekf_global:                            # ekf_global_filter_node, owns map -> odom; runs after slam
+      enabled: true
+      service: /ekf_global/set_pose
+      frame_id: map
+      verify_topic: /ekf_global/odometry/filtered
+      tolerance_m: 0.15                    # its pose0 is the new map's scan-matched pose
+
+    nav2:                                  # only when enable_nav2 (see header)
+      cancel_actions: [/navigate_to_pose, /navigate_through_poses]
+      clear_costmap_services:
+        - /global_costmap/clear_entirely_global_costmap
+        - /local_costmap/clear_entirely_local_costmap
+
+    hooks:
+      # Other components holding odom/map-frame state, restarted last.
+      # wall_distance: odom-frame glass tracks and an odometer an odom jump
+      # would count as travel. Add `navigation` to also reset mpc_corr (its
+      # goal anchors are otherwise only cleared by the next goal).
+      restart_components: [wall_distance]
+      # std_srvs/Trigger reset hooks, called last. None exist in the stack yet:
+      # trigger_services: [/some_node/reset]

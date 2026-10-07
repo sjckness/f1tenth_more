@@ -1,0 +1,6 @@
+{
+  "mission": "M03_bottle",
+  "prompt_num": 3,
+  "prompt_text": "go to the potted plant",
+  "success_criterion": "stops within 0.5 m of the bottle, facing it, no contact"
+}

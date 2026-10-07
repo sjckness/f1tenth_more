@@ -5,7 +5,7 @@
       {
         "mode": "straight",
         "guard": "wall",
-        "thresh": 3.0
+        "thresh": 2.0
       }
     ],
     "unsupported": [
@@ -14,7 +14,7 @@
   },
   "requires_confirmation": true,
   "mission": {
-    "mission_id": "llm_7fd864a3a596",
+    "mission_id": "llm_a5702ecdfae3",
     "schema_version": "3.0",
     "moves": [
       {
@@ -25,7 +25,7 @@
         },
         "stop_condition": {
           "type": "front_clearance",
-          "distance": 3.0,
+          "distance": 2.0,
           "debounce_ticks": 3
         },
         "timeout_sec": 80,

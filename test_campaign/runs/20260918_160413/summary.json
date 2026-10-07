@@ -1,0 +1,550 @@
+{
+  "total": 50,
+  "per_status": {
+    "refused": 24,
+    "ok": 17,
+    "translator_error": 5,
+    "llm_error": 4
+  },
+  "per_status_cause_kind": {
+    "ok:-:-": 17,
+    "refused:-:ambiguous_after_rejection": 14,
+    "refused:-:ambiguous": 9,
+    "translator_error:rejected_llm_output:retries_exhausted": 5,
+    "llm_error:-:unreachable": 3,
+    "refused:-:unsupported_request": 1,
+    "llm_error:-:connection_lost": 1
+  },
+  "per_category": {
+    "straight_then_turn": {
+      "refused": 5,
+      "ok": 5
+    },
+    "turn_sequence": {
+      "refused": 5,
+      "ok": 3,
+      "translator_error": 2
+    },
+    "obstacle_avoidance": {
+      "translator_error": 1,
+      "ok": 8,
+      "refused": 1
+    },
+    "goal_door_opening": {
+      "refused": 10
+    },
+    "complex_landmarks": {
+      "translator_error": 2,
+      "ok": 1,
+      "refused": 3,
+      "llm_error": 4
+    }
+  },
+  "per_prompt": {
+    "straight_turn_01": {
+      "category": "straight_then_turn",
+      "prompt": "Go straight, then turn right",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "straight_turn_02": {
+      "category": "straight_then_turn",
+      "prompt": "Move forward and take the first left",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "straight_turn_03": {
+      "category": "straight_then_turn",
+      "prompt": "Go ahead to the end of the corridor, then turn right",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "straight_turn_04": {
+      "category": "straight_then_turn",
+      "prompt": "Proceed straight and turn left at the wall",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "straight_turn_05": {
+      "category": "straight_then_turn",
+      "prompt": "Go forward, then make a right turn",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "straight_turn_06": {
+      "category": "straight_then_turn",
+      "prompt": "Continue straight, then turn left",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "straight_turn_07": {
+      "category": "straight_then_turn",
+      "prompt": "Move ahead and turn right at the opening",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "straight_turn_08": {
+      "category": "straight_then_turn",
+      "prompt": "Go straight for a while, then turn left",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "straight_turn_09": {
+      "category": "straight_then_turn",
+      "prompt": "Advance forward, then take the right",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "straight_turn_10": {
+      "category": "straight_then_turn",
+      "prompt": "Head straight, then curve to the right",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "turn_seq_01": {
+      "category": "turn_sequence",
+      "prompt": "Turn left, then turn right",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "turn_seq_02": {
+      "category": "turn_sequence",
+      "prompt": "Take the first right, then the next left",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "turn_seq_03": {
+      "category": "turn_sequence",
+      "prompt": "Go right at the corridor, then left",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "turn_seq_04": {
+      "category": "turn_sequence",
+      "prompt": "Turn left, go straight, then turn left again",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "turn_seq_05": {
+      "category": "turn_sequence",
+      "prompt": "Make a right, then immediately a left",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "turn_seq_06": {
+      "category": "turn_sequence",
+      "prompt": "Turn right, then right again",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "turn_seq_07": {
+      "category": "turn_sequence",
+      "prompt": "Take a left, then a right at the opening",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "turn_seq_08": {
+      "category": "turn_sequence",
+      "prompt": "Turn left, then take the second right",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "turn_seq_09": {
+      "category": "turn_sequence",
+      "prompt": "Go right, then left at the end",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "translator_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "turn_seq_10": {
+      "category": "turn_sequence",
+      "prompt": "First turn right, then turn left at the wall",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "translator_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "obstacle_01": {
+      "category": "obstacle_avoidance",
+      "prompt": "Go straight, avoiding the object in front",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "translator_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "obstacle_02": {
+      "category": "obstacle_avoidance",
+      "prompt": "Move forward and go around the obstacle",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "obstacle_03": {
+      "category": "obstacle_avoidance",
+      "prompt": "Proceed ahead, keep clear of the box",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "obstacle_04": {
+      "category": "obstacle_avoidance",
+      "prompt": "Go straight but avoid the object on the path",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "obstacle_05": {
+      "category": "obstacle_avoidance",
+      "prompt": "Advance forward, steering around the obstacle",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "obstacle_06": {
+      "category": "obstacle_avoidance",
+      "prompt": "Continue straight, avoiding what is in front",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "obstacle_07": {
+      "category": "obstacle_avoidance",
+      "prompt": "Move ahead and pass the obstacle on the left",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "obstacle_08": {
+      "category": "obstacle_avoidance",
+      "prompt": "Go forward, keeping distance from the object",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "obstacle_09": {
+      "category": "obstacle_avoidance",
+      "prompt": "Proceed while avoiding the front object",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "obstacle_10": {
+      "category": "obstacle_avoidance",
+      "prompt": "Head straight and go around the blocking object",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "goal_01": {
+      "category": "goal_door_opening",
+      "prompt": "Go to the door",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_02": {
+      "category": "goal_door_opening",
+      "prompt": "Head towards the opening",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_03": {
+      "category": "goal_door_opening",
+      "prompt": "Go to the door on the right",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_04": {
+      "category": "goal_door_opening",
+      "prompt": "Move to the nearest opening",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_05": {
+      "category": "goal_door_opening",
+      "prompt": "Go through the door ahead",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_06": {
+      "category": "goal_door_opening",
+      "prompt": "Reach the door at the end of the corridor",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_07": {
+      "category": "goal_door_opening",
+      "prompt": "Go to the second opening",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_08": {
+      "category": "goal_door_opening",
+      "prompt": "Head to the door on the left",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_09": {
+      "category": "goal_door_opening",
+      "prompt": "Move towards the far door",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "goal_10": {
+      "category": "goal_door_opening",
+      "prompt": "Go to the opening near the wall",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_01": {
+      "category": "complex_landmarks",
+      "prompt": "Go straight past the kitchen, then turn right at the lounge",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "translator_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_02": {
+      "category": "complex_landmarks",
+      "prompt": "Move forward, avoid the trolley, then take the left towards the office",
+      "attempts": 1,
+      "ok": 1,
+      "statuses": {
+        "ok": 1
+      },
+      "score": "1/1 ok"
+    },
+    "complex_03": {
+      "category": "complex_landmarks",
+      "prompt": "Head down the corridor, pass the reception, and stop at the door",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_04": {
+      "category": "complex_landmarks",
+      "prompt": "Go ahead, turn right after the lockers, then continue straight",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "translator_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_05": {
+      "category": "complex_landmarks",
+      "prompt": "Proceed to the meeting room, avoiding the plant on the way",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_06": {
+      "category": "complex_landmarks",
+      "prompt": "Move forward, ignore the vending machine, then turn left",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "refused": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_07": {
+      "category": "complex_landmarks",
+      "prompt": "Go straight, then right, then reach the workshop door",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "llm_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_08": {
+      "category": "complex_landmarks",
+      "prompt": "Advance past the storage area and turn left at the second opening",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "llm_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_09": {
+      "category": "complex_landmarks",
+      "prompt": "Head towards the cafeteria, avoiding obstacles, then stop",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "llm_error": 1
+      },
+      "score": "0/1 ok"
+    },
+    "complex_10": {
+      "category": "complex_landmarks",
+      "prompt": "Go forward through the open space, then turn right at the exit",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "llm_error": 1
+      },
+      "score": "0/1 ok"
+    }
+  },
+  "duration_s": {
+    "total": 1621.5,
+    "mean": 32.4,
+    "max": 91.89
+  }
+}

@@ -1,0 +1,64 @@
+campaign: /home/fabiocar/dev_ws/f1tenth_more/first_test_campaing
+runs: 18   missions: 3   evaluated by hand: 0   not yet evaluated: 18
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M01_forward_3m                 0/0       -                 -    5 28169 28406 29759      5
+  P001                         0/0       -                 -    5 28169 28406 29759      5
+M02_approach_wall              0/0       -                 -    8 26080 26072 28467      8
+  P002                         0/0       -                 -    8 26080 26072 28467      8
+M04_person                     0/0       -                 -    5 25986 25864 26882      5
+  P004                         0/0       -                 -    5 25986 25864 26882      5
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -   18 26634 26579 29455     18
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M01_forward_3m
+    viol_rate_pct               -
+    min_clear_m             2.426   (2.396 .. 2.439)
+    feas_pct               87.912   (82.759 .. 92.045)
+    max_infeas_streak_s     0.590   (0.209 .. 0.761)
+    jerk_rms                0.704   (0.624 .. 0.712)
+    steer_rev_per_m         0.000   (0.000 .. 0.000)
+  M02_approach_wall
+    viol_rate_pct           0.000   (0.000 .. 0.000)
+    min_clear_m             1.695   (0.098 .. 1.799)
+    feas_pct               92.184   (65.517 .. 97.967)
+    max_infeas_streak_s     0.251   (0.160 .. 0.600)
+    jerk_rms                0.730   (0.593 .. 0.773)
+    steer_rev_per_m         0.000   (0.000 .. 0.163)
+  M04_person
+    viol_rate_pct           0.000   (0.000 .. 3.815)
+    min_clear_m             0.332   (0.061 .. 1.083)
+    feas_pct               94.681   (74.684 .. 100.000)
+    max_infeas_streak_s     0.234   (0.000 .. 2.313)
+    jerk_rms                0.718   (0.619 .. 0.738)
+    steer_rev_per_m         1.271   (0.693 .. 1.518)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 1
+  M04_person        P004-R003-20260923T145652  [unevaluated]  mission aborted
+
+not yet evaluated: 18
+  M01_forward_3m    P001-R001-20260921T145508  auto=completed
+  M01_forward_3m    P001-R002-20260921T145711  auto=completed
+  M01_forward_3m    P001-R003-20260921T145854  auto=completed
+  M01_forward_3m    P001-R004-20260921T150023  auto=completed
+  M01_forward_3m    P001-R005-20260921T150157  auto=completed
+  M02_approach_wall P002-R001-20260922T142524  auto=completed
+  M02_approach_wall P002-R002-20260922T142712  auto=completed
+  M02_approach_wall P002-R003-20260922T142859  auto=completed
+  M02_approach_wall P002-R004-20260922T143058  auto=completed
+  M02_approach_wall P002-R005-20260922T143244  auto=completed
+  M02_approach_wall P002-R006-20260923T170928  auto=completed
+  M02_approach_wall P002-R007-20260923T171225  auto=completed
+  M02_approach_wall P002-R008-20260923T171756  auto=completed
+  M04_person        P004-R001-20260922T143740  auto=completed
+  M04_person        P004-R002-20260922T143855  auto=completed
+  M04_person        P004-R003-20260923T145652  auto=aborted
+  M04_person        P004-R004-20260923T165958  auto=completed
+  M04_person        P004-R005-20260923T170639  auto=completed

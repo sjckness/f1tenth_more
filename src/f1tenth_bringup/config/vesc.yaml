@@ -2,7 +2,16 @@
   # general parameters shared by all vesc-related nodes
   ros__parameters:
     # erpm (electrical rpm) = speed_to_erpm_gain * speed (meters / second) + speed_to_erpm_offset
-    speed_to_erpm_gain: 5499.271647286143
+    # 5499.27 (set 2026-08-10, 1099733) / 1.2175, the true distance per /odom
+    # distance measured as SLAM displacement / /odom speed over 322 straight
+    # intervals in 47 archived runs (9-17 Sep). Confirmed on the car
+    # 2026-09-21: speed_tuning_node's 1 m run had raised it to 5288.68, and a
+    # 3 m mission then drove 3.8 m (tape) while /odom logged 3.287 m, which
+    # puts the gain at 5288.68 * 3.287 / 3.8 = 4575. That tuner run commands a
+    # fixed erpm for target_distance / target_speed seconds, so motor spin-up
+    # shortens a short run and the tuner raises the gain too far. If you use
+    # it, run target_distance 3.0 or more.
+    speed_to_erpm_gain: 4516.9
     speed_to_erpm_offset: 0.0
 
     # Piecewise-linear low-speed velocity correction (VESC low-speed
@@ -55,8 +64,8 @@
     # consumer (vesc_to_odom_node_backup's dead-reckoning, any future direct
     # /sensors/core reader) sees a clean zero at rest instead of each needing
     # its own deadband. 500.0 gives margin above the observed floor while
-    # staying under 0.1 m/s (500 / speed_to_erpm_gain above), so it shouldn't
-    # eat genuine slow motion.
+    # staying near 0.1 m/s (500 / speed_to_erpm_gain above = 0.11 m/s), so
+    # it shouldn't eat genuine slow motion.
     erpm_deadband: 500.0
 
     # servo value (0 to 1) =  steering_angle_to_servo_gain * steering angle (radians) + steering_angle_to_servo_offset

@@ -10,7 +10,8 @@ setup(
     version='0.0.1',
     # test_campaign is its own subpackage so no module of the test-campaign
     # logger can collide with the mission logger's (see its __init__).
-    packages=[package_name, package_name + '.test_campaign'],
+    packages=[package_name, package_name + '.test_campaign',
+              package_name + '.matlab_export'],
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
@@ -68,6 +69,9 @@ setup(
             # analyze_tests --corridor-plots calls the same code in-process.
             'test_campaign_corridor_plot = '
             'f1tenth_logger.test_campaign.corridor_plot:main',
+            # Campaign runs (+ archive bags) -> <db_root>/runs/*.mat for
+            # tools/matlab/+f1db. Needs rosbags (pip), never rclpy.
+            'export_matlab = f1tenth_logger.matlab_export.exporter:main',
         ],
     },
 )

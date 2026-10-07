@@ -1,0 +1,113 @@
+# Rate-limited copies of the topics the Foxglove layout shows, for
+# foxglove_bridge over Wi-Fi/Tailscale. Consumed by
+# f1tenth_bringup/launch/viz_relays.launch.py; test_viz_relays_config.py holds
+# this file to the rules below.
+#
+# ADDITIONAL COPIES ONLY. Every source keeps its own publisher, rate and QoS;
+# the relays only subscribe to it. Nodes and controllers keep reading the
+# sources. Each relay is a topic_tools::ThrottleNode with lazy: true, so it
+# subscribes to its source only while something subscribes to its dest, and
+# its dest publisher copies the source's reliability and durability.
+#
+# source: the full-rate topic, untouched.
+# dest:   what foxglove_bridge advertises; always under /viz/. A plain relay's
+#         dest is /viz + source. An image's dest is /viz + source +
+#         /compressed: the raw frames are throttled first onto
+#         /viz_internal + source (outside the bridge whitelist), then
+#         viz_jpeg_node encodes only those to JPEG. A raw Image never goes
+#         under /viz/.
+# type:   the source's message type, as measured on 2026-09-22.
+# rate:   the stack_params.yaml key holding the forwarding rate in Hz. The
+#         throttle forwards a message once 1/rate has passed since the last
+#         one it forwarded, so each target rate is set about 10% high.
+#
+# Not relayed, and why (see stack_params.yaml's foxglove_topic_whitelist):
+#   /tf, /tf_static, /robot_description, /joint_states, /slam/map and the
+#   other transient_local topics pass through the whitelist unthrottled;
+#   /costmap/semantic_markers too, because it DELETEs a track only in the one
+#   message after the track goes, and a throttle that drops that message
+#   leaves the marker on screen for good.
+relays:
+  # Sensors
+  - source: /scan
+    dest: /viz/scan
+    type: sensor_msgs/msg/LaserScan
+    rate: viz_rate_scan
+  - source: /sensors/core
+    dest: /viz/sensors/core
+    type: vesc_msgs/msg/VescStateStamped
+    rate: viz_rate_default
+
+  # Images
+  - source: /camera/image_annotated
+    dest: /viz/camera/image_annotated/compressed
+    type: sensor_msgs/msg/Image
+    rate: viz_rate_image_annotated
+  - source: /costmap/visualization
+    dest: /viz/costmap/visualization/compressed
+    type: sensor_msgs/msg/Image
+    rate: viz_rate_costmap
+  # Already a PNG CompressedImage from behavior_executor_node, so it is
+  # throttled as is and never decoded.
+  - source: /bt/tree_visualization
+    dest: /viz/bt/tree_visualization
+    type: sensor_msgs/msg/CompressedImage
+    rate: viz_rate_default
+
+  # Localization
+  - source: /ekf_global/odometry/filtered
+    dest: /viz/ekf_global/odometry/filtered
+    type: nav_msgs/msg/Odometry
+    rate: viz_rate_default
+  - source: /slam/pose
+    dest: /viz/slam/pose
+    type: geometry_msgs/msg/PoseWithCovarianceStamped
+    rate: viz_rate_default
+  - source: /slam/pose_calibrated
+    dest: /viz/slam/pose_calibrated
+    type: geometry_msgs/msg/PoseWithCovarianceStamped
+    rate: viz_rate_default
+
+  # Perception
+  - source: /perception/d_wall
+    dest: /viz/perception/d_wall
+    type: f1tenth_messages/msg/WallDistance
+    rate: viz_rate_default
+  - source: /perception/front_clearance
+    dest: /viz/perception/front_clearance
+    type: std_msgs/msg/Float32
+    rate: viz_rate_default
+  - source: /perception/front_distance
+    dest: /viz/perception/front_distance
+    type: std_msgs/msg/Float32
+    rate: viz_rate_default
+  - source: /perception/lidar_front_wall_virtual
+    dest: /viz/perception/lidar_front_wall_virtual
+    type: f1tenth_messages/msg/WallEstimate
+    rate: viz_rate_default
+  - source: /perception/obstacles_2d
+    dest: /viz/perception/obstacles_2d
+    type: f1tenth_messages/msg/Obstacle2DArray
+    rate: viz_rate_default
+  - source: /costmap/front_clearance
+    dest: /viz/costmap/front_clearance
+    type: std_msgs/msg/Float32
+    rate: viz_rate_default
+
+  # Control
+  - source: /drive
+    dest: /viz/drive
+    type: ackermann_msgs/msg/AckermannDriveStamped
+    rate: viz_rate_default
+  # Full state every message: three LINE_STRIPs with fixed ids and a
+  # lifetime of 3 x corridor_update_period, rebuilt at 1 Hz by default.
+  - source: /mpc/corridor_markers
+    dest: /viz/mpc/corridor_markers
+    type: visualization_msgs/msg/MarkerArray
+    rate: viz_rate_default
+
+  # Diagnostics (1 Hz at the source, so the throttle never drops one)
+  - source: /diagnostics/system_status
+    dest: /viz/diagnostics/system_status
+    type: f1tenth_messages/msg/SystemStatus
+    rate: viz_rate_default

@@ -15,12 +15,12 @@ cannot produce, and the clip is SILENT: the solver's own model integrates
 the angle it chose, not the angle the car applied.
 
 All five inputs to that inversion live in f1tenth_hardware's
-steering_calibration.yaml, and four of them are expected to move --
-steering_angle_to_servo_gain_left/_right are labelled "Placeholder until
-retuned" in that file, and the offset was already retuned once (2026-09-08,
-0.4494 -> 0.4874). A recalibration that leaves stack_params.yaml behind puts
-the QP back to optimising over commands the servo will clip, which is
-exactly the defect the limits were changed to fix -- and it would do so
+steering_calibration.yaml, and four of them are expected to move -- the
+offset was retuned 2026-09-08 (0.4494 -> 0.4874), and
+steering_angle_to_servo_gain_left/_right moved off their shared -1.2135
+placeholder on 2026-09-17 (-1.0552 / -1.1133, fitted from logged turns).
+A recalibration that leaves stack_params.yaml behind puts the QP back to
+optimising over commands the servo will clip, which is exactly the defect the limits were changed to fix -- and it would do so
 silently, because nothing else in the stack compares the two files.
 
 So this test recomputes the envelope from the calibration and fails if
@@ -107,62 +107,68 @@ class TestTheEnvelopeMatchesTheCalibration:
 
         1.05 rad was the previous hardcoded bound. Documenting the ratio
         here so the size of the mismatch survives in the test suite and not
-        only in a commit message.
+        only in a commit message. It was 3.7x against the placeholder gains;
+        the 2026-09-17 gains widened the envelope, and it is 3.3x now.
         """
         lo, hi = _envelope(_calibration())
-        assert 1.05 / hi > 3.5
-        assert 1.05 / abs(lo) > 3.5
+        assert 1.05 / hi > 3.2
+        assert 1.05 / abs(lo) > 3.2
 
 
-class TestTheWorkOrdersPairWasNotUsed:
-    """-0.264 / +0.314 rad were cited as the real limits. They are not.
+class TestTheWorkOrdersPairIsStillNotUsed:
+    """-0.264 / +0.314 rad were cited as the real limits. They are not used.
 
     They appear in this repo only as declared parameter defaults in
     f1tenth_diagnostics' steering_offset_calibration_node.py, whose docstring
-    calls them "the real ones for this car" with no derivation recorded. This
-    class pins the reason they were rejected, so the next person to find that
-    node's numbers does not have to redo the arithmetic.
+    calls them "the real ones for this car" with no derivation recorded.
+
+    Against the old -1.2135 placeholder gains they were rejected outright:
+    +0.314 mapped below servo_min, and the asymmetry pointed the other way.
+    The gains fitted from logged turns on 2026-09-17 overturned both of those
+    reasons, and this class pins what is true now, so nobody re-derives the
+    old argument from a stale comment. The envelope stays computed from the
+    calibration rather than transcribed from that pair.
     """
 
     WORK_ORDER_MIN = -0.264
     WORK_ORDER_MAX = 0.314
 
-    def test_the_claimed_positive_limit_is_not_even_commandable(self):
-        """+0.314 rad maps BELOW servo_min, so it clips -- it cannot be a
-        mechanical limit, because the software will not let the servo get
-        there in the first place."""
+    def test_the_claimed_positive_limit_is_commandable_and_inside_the_envelope(self):
+        """+0.314 rad now maps to servo 0.156, above servo_min, just inside
+        the +0.3197 rad reach."""
         cal = _calibration()
         servo = (
             float(cal['steering_angle_to_servo_gain_left']) * self.WORK_ORDER_MAX
             + float(cal['steering_angle_to_servo_offset'])
         )
-        assert servo < float(cal['servo_min'])
+        assert servo >= float(cal['servo_min'])
+        _lo, hi = _envelope(cal)
+        assert self.WORK_ORDER_MAX < hi
 
-    def test_the_claimed_asymmetry_points_the_opposite_way(self):
-        """The work order gives more travel to the left (+17.99 vs -15.13
-        deg). The calibration gives slightly more to the right."""
+    def test_the_claimed_asymmetry_now_points_the_same_way(self):
+        """Both the work order and the fitted calibration give the left more
+        travel (+18.32 vs -17.72 deg)."""
         lo, hi = _envelope(_calibration())
         assert abs(self.WORK_ORDER_MAX) > abs(self.WORK_ORDER_MIN)
-        assert abs(lo) > abs(hi)
+        assert abs(hi) > abs(lo)
 
-    def test_the_real_asymmetry_is_small_and_comes_from_the_offset(self):
-        """Both gains are still the same placeholder value, so the only
-        asymmetry the calibration can express today is the offset's. Real
-        linkage asymmetry needs vesc_tuning Mode 3, which has not been run.
-        """
+    def test_the_asymmetry_is_small_and_comes_from_the_fitted_gains(self):
+        """The two gains now differ (left 1.15x, right 1.09x of the model's
+        curvature before the fit), so the asymmetry is the gains' as well as
+        the offset's. Still about a hundredth of a radian."""
         cal = _calibration()
         assert (cal['steering_angle_to_servo_gain_left']
-                == cal['steering_angle_to_servo_gain_right'])
-        lo, hi = _envelope(_calibration())
-        assert abs(abs(lo) - abs(hi)) < 0.01
+                != cal['steering_angle_to_servo_gain_right'])
+        lo, hi = _envelope(cal)
+        assert abs(abs(lo) - abs(hi)) < 0.02
 
-    def test_the_work_order_pair_is_a_much_wider_span(self):
-        """Applying it would have re-created a milder version of the same
-        defect: a QP allowed to command past the clip."""
+    def test_the_work_order_pair_is_a_narrower_span(self):
+        """-0.264 is 45 mrad inside the right-hand reach, so applying the
+        pair would now give up steering the servo can deliver."""
         lo, hi = _envelope(_calibration())
         claimed_span = self.WORK_ORDER_MAX - self.WORK_ORDER_MIN
         real_span = hi - lo
-        assert claimed_span > real_span
+        assert claimed_span < real_span
 
 
 class TestDegreesForTheRecord:
@@ -171,5 +177,6 @@ class TestDegreesForTheRecord:
 
     def test_the_envelope_in_degrees(self):
         lo, hi = _envelope(_calibration())
-        assert math.degrees(lo) == pytest.approx(-16.26, abs=0.05)
-        assert math.degrees(hi) == pytest.approx(15.93, abs=0.05)
+        # -16.26 / +15.93 deg before the 2026-09-17 steering gains.
+        assert math.degrees(lo) == pytest.approx(-17.72, abs=0.05)
+        assert math.degrees(hi) == pytest.approx(18.32, abs=0.05)

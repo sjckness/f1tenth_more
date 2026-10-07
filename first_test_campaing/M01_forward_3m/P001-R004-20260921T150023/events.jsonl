@@ -1,0 +1,4 @@
+{"t": 0.0087847, "event": "test_start", "mission": "M01_forward_3m", "prompt_num": 1, "repetition": 4, "prompt_hash": "d6c9f7f2f609dc05b56c7afd2fd8a38820ac5dc635c0e4a1b0fcea779f3e7eda"}
+{"t": 2.95511, "event": "mission_started", "plan_id": "llm_fd5d8fd4f171", "reason": ""}
+{"t": 11.8713, "event": "mission_finished", "plan_id": "llm_fd5d8fd4f171", "reason": ""}
+{"t": 13.8863, "event": "test_end", "auto_outcome": "completed", "reason": ""}

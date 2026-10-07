@@ -190,18 +190,19 @@ class TestTheApproach(unittest.TestCase):
 class TestTheHorizonCap(unittest.TestCase):
     """Required test 5."""
 
-    def test_at_half_a_metre_per_second_a_90_degree_ask_stops_at_0_935(self):
+    def test_at_half_a_metre_per_second_a_90_degree_ask_stops_at_1_083(self):
         first = next(s for _p, s in _approach(TURN_90, FINE) if s.dpsi_this != 0.0)
         self.assertEqual(first.dpsi_this, first.dpsi_by_horizon)
         self.assertAlmostEqual(first.dpsi_this, N_STEPS * TS * 0.5 / R_LEFT, delta=1e-12)
-        self.assertAlmostEqual(first.dpsi_this, 0.935, delta=1e-3)
+        # 0.935 before the 2026-09-17 steering gains (R_min 1.069 m left).
+        self.assertAlmostEqual(first.dpsi_this, 1.083, delta=1e-3)
         self.assertLess(first.dpsi_this, TURN_90)
 
     def test_at_one_and_a_half_metres_per_second_the_horizon_cap_does_not_bind(self):
         first = next(s for _p, s in _approach(TURN_90, FINE, v_ref=1.5) if s.dpsi_this != 0.0)
         self.assertAlmostEqual(first.dpsi_by_horizon, 3.0 / R_LEFT, delta=1e-12)
         self.assertLess(abs(first.dpsi_this), first.dpsi_by_horizon)
-        self.assertGreater(first.dpsi_this, 0.935)
+        self.assertGreater(first.dpsi_this, 1.083)
 
     def test_the_cap_is_recomputed_from_the_horizon_it_is_given(self):
         base = _step(TURN_90, 0.0, 1.5).dpsi_by_horizon
@@ -216,9 +217,11 @@ class TestTheHorizonCap(unittest.TestCase):
 class TestEachDirectionUsesItsOwnSteeringBound(unittest.TestCase):
     """Required test 6."""
 
-    def test_the_radii_are_the_work_orders_numbers(self):
-        self.assertAlmostEqual(R_LEFT, 1.069, delta=5e-4)
-        self.assertAlmostEqual(R_RIGHT, 1.049, delta=5e-4)
+    def test_the_radii_are_0_923_left_and_0_955_right(self):
+        # L / tan(bound) at +0.319 / -0.309. The work order's 1.069 / 1.049
+        # were the same formula at the placeholder gains' +0.278 / -0.283.
+        self.assertAlmostEqual(R_LEFT, 0.923, delta=5e-4)
+        self.assertAlmostEqual(R_RIGHT, 0.955, delta=5e-4)
 
     def test_a_left_turn_uses_delta_max_and_a_right_turn_delta_min(self):
         self.assertEqual(_step(TURN_74, 0.0, 3.0).r_min, R_LEFT)

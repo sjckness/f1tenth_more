@@ -285,6 +285,19 @@ _DEFAULT_DEEP_QUEUE_TOPICS = [
     '/tf',
 ]
 
+# foxglove_bridge's rate-limited copies (f1tenth_bringup/config/
+# viz_relays.yaml). They carry nothing the sources above do not, at a fifth
+# of the rate, so a bag never records them, even when a `topics` override
+# names them.
+_NEVER_RECORDED_PREFIXES = ('/viz/', '/viz_internal/')
+
+
+def recordable_topics(topics):
+    """(topics to record, topics dropped because they are /viz relay copies)."""
+    kept = [t for t in topics if not t.startswith(_NEVER_RECORDED_PREFIXES)]
+    dropped = [t for t in topics if t.startswith(_NEVER_RECORDED_PREFIXES)]
+    return kept, dropped
+
 # Snapshotted into the manifest for at-a-glance run comparison. The full
 # stack_params.yaml copy is the authoritative record; this is the shortlist an
 # analysis script can group runs by without parsing yaml.
@@ -571,7 +584,10 @@ class MissionLoggerNode(Node):
         self.complete_dir = os.path.join(self.runs_dir, 'complete')
         self.incomplete_dir = os.path.join(self.runs_dir, 'incomplete')
         self.requested_storage_id = str(self.declare_parameter('storage_id', 'mcap').value)
-        self.topics = list(self.declare_parameter('topics', _DEFAULT_TOPICS).value)
+        self.topics, dropped = recordable_topics(
+            list(self.declare_parameter('topics', _DEFAULT_TOPICS).value))
+        if dropped:
+            self.get_logger().warn(f'not recording /viz relay copies: {dropped}')
         self.best_effort_topics = list(self.declare_parameter(
             'best_effort_topics', _DEFAULT_BEST_EFFORT_TOPICS).value)
         self.qos_depth = int(self.declare_parameter('qos_override_depth', 10).value)

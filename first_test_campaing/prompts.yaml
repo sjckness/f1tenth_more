@@ -20,7 +20,7 @@
 # expected_sequence: [straight distance 3.0 m, stop]
 - prompt_num: 1
   mission: M01_forward_3m
-  text: "go ahead 3 meters"
+  text: "go ahead 4 meters"
   success_criterion: "stops at 3.0 m +- 0.15 m from start, lateral error < 0.2 m, no contact"
 
 # expected_sequence: [straight until wall 0.5 m, stop]
@@ -34,7 +34,7 @@
 # expected_sequence: [go_to bottle, stop]
 - prompt_num: 3
   mission: M03_bottle
-  text: "go to the bottle"
+  text: "go to the potted plant"
   success_criterion: "stops within 0.5 m of the bottle, facing it, no contact"
 
 # expected_sequence: [go_to person 1.0 m, stop]
@@ -46,5 +46,5 @@
 # expected_sequence: [straight until wall 1.0 m, turn left 90 deg, stop]
 - prompt_num: 5
   mission: M05_turn_left_wall
-  text: "turn left at 1m from the wall"
+  text: "turn left at the wall"
   success_criterion: "starts the left turn at 1.0 m +- 0.2 m from the wall, turns about 90 deg, no contact"

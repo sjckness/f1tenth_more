@@ -431,6 +431,15 @@ GUARD_THRESH_RANGE = {
     'distance': (0.2, 20.0),
 }
 
+# Wall threshold when the command names no distance. The prompt tells the
+# model the same numbers, but the 3B model drops thresh from "approach the
+# wall" whenever the prompt's wall default changes, so translate() fills it in
+# rather than bouncing the intent back for retries. Before a turn the phase
+# ends where the turn starts, and a 90 deg wall_turn begun 1 m from the wall
+# touched it (stack_params wall_turn margin note), hence the larger value.
+WALL_THRESH_DEFAULT_M = 2.0
+WALL_THRESH_BEFORE_TURN_M = 3.0
+
 # left/right -> drive.turn_sign.
 #
 # NOT A GUESS: mission_config._parse_drive_spec states the convention
@@ -904,6 +913,32 @@ def _validate_output(mission: dict, gap_limits_for=None) -> None:
             mission)
 
 
+def _default_wall_thresh(intent):
+    """Return (intent, {phase index: thresh}) with missing wall thresh filled in.
+
+    Only a straight phase with guard "wall" and no thresh is touched; the
+    caller's dict is never mutated. Anything malformed is passed through for
+    the schema to reject as before.
+    """
+    plan = intent.get('plan') if isinstance(intent, dict) else None
+    if not isinstance(plan, list):
+        return intent, {}
+    filled = {}
+    new_plan = []
+    for i, phase in enumerate(plan):
+        if (isinstance(phase, dict) and phase.get('mode') == 'straight'
+                and phase.get('guard') == 'wall' and 'thresh' not in phase):
+            nxt = plan[i + 1] if i + 1 < len(plan) else None
+            before_turn = isinstance(nxt, dict) and nxt.get('mode') == 'turn'
+            value = WALL_THRESH_BEFORE_TURN_M if before_turn else WALL_THRESH_DEFAULT_M
+            phase = {**phase, 'thresh': value}
+            filled[i] = value
+        new_plan.append(phase)
+    if not filled:
+        return intent, {}
+    return {**intent, 'plan': new_plan}, filled
+
+
 def translate(intent, *, config=None, explain=False, go_to_enabled=True,
               gap_limits_for=None) -> TranslationResult:
     """Translate an intent_v1 document into a validated mission.
@@ -934,6 +969,7 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     the MPC side of a >90 turn is unverified -- not because anything clamps it.
     """
     cfg = config if config is not None else TranslatorConfig()
+    intent, defaulted_walls = _default_wall_thresh(intent)
 
     try:
         jsonschema.validate(intent, load_intent_schema())
@@ -959,6 +995,11 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
                                   gap_limits_for=gap_limits_for, notes=notes))
         if phase['mode'] == 'turn':
             prev_turn_sign = TURN_SIGN[phase['dir']]
+
+    for i, value in defaulted_walls.items():
+        prov[f'moves[{i}].stop_condition.distance'] = (
+            DERIVED, f'plan[{i}] wall guard had no thresh: WALL_THRESH_* default')
+        notes.append(f'fase {i + 1}: distanza dal muro non detta, uso {value:.1f} m')
 
     moves[-1]['terminal'] = True
     prov[f'moves[{len(moves) - 1}].terminal'] = (DERIVED, 'True on the last move only')
@@ -1010,7 +1051,8 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
 # parse its worked examples and check them against the schema.
 INTENT_PROMPT_FILENAME = 'planner_system_prompt.v2.it.txt'
 
-# The same prompt as it was before go_to was taught, byte for byte: go_to is
+# The prompt as it was before go_to was taught, except that it shares later
+# changes that are not about go_to (the wall default): go_to is
 # never mentioned and every named-object request goes to "unsupported".
 # llm_planner_node loads it when go_to_enabled is false, so switching go_to
 # off restores the model's behaviour and not only the translator's refusal.
