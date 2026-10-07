@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Site BuildName="(empty)"
+	BuildStamp="20261007-1433-Experimental"
+	Name="thor"
+	Generator="ctest-3.28.3"
+	CompilerName="/usr/bin/c++"
+	CompilerVersion="13.3.0"
+	OSName="Linux"
+	Hostname="thor"
+	OSRelease="6.8.12-tegra"
+	OSVersion="#1 SMP PREEMPT Tue Dec 30 15:40:41 PST 2025"
+	OSPlatform="aarch64"
+	Is64Bits="1"
+	VendorString=""
+	VendorID="Unknown Manufacturer"
+	FamilyID="8"
+	ModelID="0"
+	ProcessorCacheSize="0"
+	NumberOfLogicalCPU="14"
+	NumberOfPhysicalCPU="1"
+	TotalVirtualMemory="0"
+	TotalPhysicalMemory="125771"
+	LogicalProcessorsPerPhysical="14"
+	ProcessorClockFrequency="0"
+	>
+	<Testing>
+		<StartDateTime>Oct 07 16:33 CEST</StartDateTime>
+		<StartTestTime>1791383604</StartTestTime>
+		<TestList>
+			<Test>./copyright</Test>
+			<Test>./cppcheck</Test>
+			<Test>./lint_cmake</Test>
+			<Test>./pep257</Test>
+			<Test>./uncrustify</Test>
+			<Test>./xmllint</Test>
+		</TestList>
+		<Test Status="failed">
+			<Name>copyright</Name>
+			<Path>.</Path>
+			<FullName>./copyright</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/copyright.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_copyright/copyright.txt" "--command" "/opt/ros/jazzy/bin/ament_copyright" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/copyright.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="text/string" name="Exit Code">
+					<Value>Failed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Exit Value">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.265316</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/copyright.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_copyright/copyright.txt" "--command" "/opt/ros/jazzy/bin/ament_copyright" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/copyright.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_debug':
+ - /opt/ros/jazzy/bin/ament_copyright --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/copyright.xunit.xml
+launch/zed_camera_debug.launch.py: copyright=Stereolabs (2025), license=&lt;unknown&gt;
+1 errors, checked 2 files
+-- run_test.py: return code 1
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/copyright.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>copyright</Label>
+				<Label>linter</Label>
+			</Labels>
+		</Test>
+		<Test Status="passed">
+			<Name>cppcheck</Name>
+			<Path>.</Path>
+			<FullName>./cppcheck</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/cppcheck.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_cppcheck/cppcheck.txt" "--command" "/opt/ros/jazzy/bin/ament_cppcheck" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/cppcheck.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.191708</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/cppcheck.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_cppcheck/cppcheck.txt" "--command" "/opt/ros/jazzy/bin/ament_cppcheck" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/cppcheck.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_debug':
+ - /opt/ros/jazzy/bin/ament_cppcheck --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/cppcheck.xunit.xml
+cppcheck 2.13.0 has known performance issues and therefore will not be used, set the AMENT_CPPCHECK_ALLOW_SLOW_VERSIONS environment variable to override this.
+-- run_test.py: return code 0
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/cppcheck.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>cppcheck</Label>
+				<Label>linter</Label>
+			</Labels>
+		</Test>
+		<Test Status="failed">
+			<Name>lint_cmake</Name>
+			<Path>.</Path>
+			<FullName>./lint_cmake</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/lint_cmake.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_lint_cmake/lint_cmake.txt" "--command" "/opt/ros/jazzy/bin/ament_lint_cmake" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/lint_cmake.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="text/string" name="Exit Code">
+					<Value>Failed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Exit Value">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.231522</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/lint_cmake.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_lint_cmake/lint_cmake.txt" "--command" "/opt/ros/jazzy/bin/ament_lint_cmake" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/lint_cmake.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_debug':
+ - /opt/ros/jazzy/bin/ament_lint_cmake --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/lint_cmake.xunit.xml
+CMakeLists.txt:162: Line ends in whitespace [whitespace/eol]
+CMakeLists.txt:189: Line ends in whitespace [whitespace/eol]
+
+
+2 errors
+-- run_test.py: return code 1
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/lint_cmake.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>lint_cmake</Label>
+				<Label>linter</Label>
+			</Labels>
+		</Test>
+		<Test Status="passed">
+			<Name>pep257</Name>
+			<Path>.</Path>
+			<FullName>./pep257</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/pep257.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_pep257/pep257.txt" "--command" "/opt/ros/jazzy/bin/ament_pep257" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/pep257.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.332701</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/pep257.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_pep257/pep257.txt" "--command" "/opt/ros/jazzy/bin/ament_pep257" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/pep257.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_debug':
+ - /opt/ros/jazzy/bin/ament_pep257 --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/pep257.xunit.xml
+checking ./launch/zed_camera_debug.launch.py
+No problems found
+-- run_test.py: return code 0
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/pep257.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>linter</Label>
+				<Label>pep257</Label>
+			</Labels>
+		</Test>
+		<Test Status="passed">
+			<Name>uncrustify</Name>
+			<Path>.</Path>
+			<FullName>./uncrustify</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/uncrustify.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_uncrustify/uncrustify.txt" "--command" "/opt/ros/jazzy/bin/ament_uncrustify" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/uncrustify.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.213172</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/uncrustify.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_uncrustify/uncrustify.txt" "--command" "/opt/ros/jazzy/bin/ament_uncrustify" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/uncrustify.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_debug':
+ - /opt/ros/jazzy/bin/ament_uncrustify --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/uncrustify.xunit.xml
+No code style divergence in file 'src/zed_debug_proc.cpp'
+
+No problems found
+-- run_test.py: return code 0
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/uncrustify.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>linter</Label>
+				<Label>uncrustify</Label>
+			</Labels>
+		</Test>
+		<Test Status="passed">
+			<Name>xmllint</Name>
+			<Path>.</Path>
+			<FullName>./xmllint</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/xmllint.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_xmllint/xmllint.txt" "--command" "/opt/ros/jazzy/bin/ament_xmllint" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/xmllint.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.461775</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/xmllint.xunit.xml" "--package-name" "zed_debug" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_debug/ament_xmllint/xmllint.txt" "--command" "/opt/ros/jazzy/bin/ament_xmllint" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/xmllint.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_debug':
+ - /opt/ros/jazzy/bin/ament_xmllint --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/xmllint.xunit.xml
+File 'package.xml' is valid
+
+No problems found
+-- run_test.py: return code 0
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_debug/xmllint.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>linter</Label>
+				<Label>xmllint</Label>
+			</Labels>
+		</Test>
+		<EndDateTime>Oct 07 16:33 CEST</EndDateTime>
+		<EndTestTime>1791383606</EndTestTime>
+		<ElapsedMinutes>0</ElapsedMinutes>
+	</Testing>
+</Site>

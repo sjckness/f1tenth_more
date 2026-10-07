@@ -1,0 +1,179 @@
+image f1tenth:jazzy-orin-a515f27
+commit a515f27dbd0196435c7acaead2cddc68d9b8a2e5
+started 2026-10-07T16:28:46+02:00
+host # R36 (release), REVISION: 5.0, GCID: 43688277, BOARD: generic, EABI: aarch64, DATE: Fri Jan 16 03:50:45 UTC 2026; nvpmodel NV Power Mode: MODE_50W
+commit a515f27dbd0196435c7acaead2cddc68d9b8a2e5
+subject phase5d D1: image sets NVIDIA_VISIBLE_DEVICES, USER by name
+submodule src/f1tenth_hardware/vesc 2848a9ff208689359aae3625657c46f2e70cc0fc https://github.com/sjckness/vesc.git
+submodule src/f1tenth_external/ackermann_mux b3c0b083ac03aa8c648537d7e4d22608fcd3440c https://github.com/sjckness/ackermann_mux.git
+submodule src/f1tenth_external/teleop_tools 4337558fd38e0e1a5c08bdd3c7b4b1a9454a74a9 https://github.com/f1tenth/teleop_tools.git
+submodule src/f1tenth_external/zed_ros2_wrapper 86171bccda22de6e83ccc69b3c0e67af99dece7c https://github.com/stereolabs/zed-ros2-wrapper.git
+submodule src/f1tenth_external/zed-ros2-interfaces e97008721d56ecf3733b95265ff4deaddf3f664e https://github.com/stereolabs/zed-ros2-interfaces.git
+submodule src/husarion_gz_worlds skipped (sim only)
+tree_sha256 39d8efe3f545dcc99732ad3a00e8a8cd1983cd480d3adc02796d279d8659ddf9
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 16.19kB done
+#1 DONE 0.0s
+
+#2 resolve image config for docker-image://docker.io/docker/dockerfile:1
+#2 DONE 1.2s
+
+#3 docker-image://docker.io/docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
+#3 CACHED
+
+#4 [internal] load metadata for docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+#4 DONE 0.0s
+
+#5 [context src] load .dockerignore
+#5 transferring src: 2B done
+#5 DONE 0.0s
+
+#6 [context inputs] load .dockerignore
+#6 transferring inputs: 2B done
+#6 DONE 0.0s
+
+#7 [context l4t] load .dockerignore
+#7 transferring l4t: 2B done
+#7 DONE 0.0s
+
+#8 [internal] load .dockerignore
+#8 transferring context: 243B done
+#8 DONE 0.0s
+
+#9 [base 1/3] FROM docker.io/library/ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+#9 DONE 0.0s
+
+#10 [context src] load from client
+#10 transferring src: 942B done
+#10 DONE 0.0s
+
+#11 [context src] load from client
+#11 transferring src: 5.80kB done
+#11 DONE 0.1s
+
+#12 [internal] load build context
+#12 transferring context: 21.99kB 0.0s done
+#12 DONE 0.1s
+
+#13 [context l4t] load from client
+#13 transferring l4t: 10.67kB 0.0s done
+#13 DONE 0.1s
+
+#14 [context inputs] load from client
+#14 transferring inputs: 1.57MB 0.1s done
+#14 DONE 0.2s
+
+#15 [context inputs] load from client
+#15 transferring inputs: 81B done
+#15 DONE 0.1s
+
+#16 [context src] load from client
+#16 ...
+
+#17 [context inputs] load from client
+#17 transferring inputs: 86.39MB 1.3s done
+#17 DONE 1.3s
+
+#16 [context src] load from client
+#16 transferring src: 129.42MB 2.1s done
+#16 DONE 2.1s
+
+#18 [context inputs] load from client
+#18 ...
+
+#19 [context inputs] load from client
+#19 transferring inputs: 274.13MB 3.2s done
+#19 DONE 3.3s
+
+#18 [context inputs] load from client
+#18 ...
+
+#20 [context inputs] load from client
+#20 transferring inputs: 671.45MB 5.8s done
+#20 DONE 5.8s
+
+#18 [context inputs] load from client
+#18 transferring inputs: 1.08GB 8.3s done
+#18 DONE 8.4s
+
+#21 [ws  2/11] WORKDIR /opt/f1tenth_ws
+#21 CACHED
+
+#22 [py 1/2] COPY constraints.txt /etc/pip-constraints.txt
+#22 CACHED
+
+#23 [ws  1/11] COPY --from=llama /opt/llama.cpp /opt/llama.cpp
+#23 CACHED
+
+#24 [ws  8/11] RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia     source /opt/ros/jazzy/setup.bash && source /opt/f1tenth_ws/install/setup.bash  && ZED_GID=1005 bash /opt/f1tenth_ws/build_checks.sh
+#24 CACHED
+
+#25 [ros 1/4] COPY keys/ros-snapshots.asc /tmp/ros-snapshots.asc
+#25 CACHED
+
+#26 [py 2/2] RUN --mount=type=bind,from=inputs,source=torch-2.8.0-cp312-cp312-linux_aarch64.whl,target=/tmp/w/torch-2.8.0-cp312-cp312-linux_aarch64.whl     --mount=type=bind,from=inputs,source=torchvision-0.23.0-cp312-cp312-linux_aarch64.whl,target=/tmp/w/torchvision-0.23.0-cp312-cp312-linux_aarch64.whl     pip install /tmp/w/torch-2.8.0-cp312-cp312-linux_aarch64.whl /tmp/w/torchvision-0.23.0-cp312-cp312-linux_aarch64.whl  && pip install /opt/tensorrt/python/tensorrt-10.3.0-cp312-none-linux_aarch64.whl  && pip install osqp==1.1.3 pyarrow==25.0.1 ultralytics==8.4.90 opencv-python==4.11.0.86 jetson-stats==4.3.2  && rm -f /etc/systemd/system/jtop.service /etc/systemd/system/multi-user.target.wants/jtop.service  && pip check  && if pip list --format=freeze | grep -i -E '^(nvidia-|cuda-|triton)' | grep -v -i '^nvidia-ml-py=='; then       echo 'PyPI CUDA package pulled in - refusing' >&2; exit 1; fi
+#26 CACHED
+
+#27 [ros 2/4] RUN gpg --show-keys --with-colons /tmp/ros-snapshots.asc | grep -q '^fpr:::::::::4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA:'  && gpg --dearmor < /tmp/ros-snapshots.asc > /usr/share/keyrings/ros-snapshots-keyring.gpg  && rm /tmp/ros-snapshots.asc  && echo "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-snapshots-keyring.gpg] http://snapshots.ros.org/jazzy/2026-09-11/ubuntu noble main"       > /etc/apt/sources.list.d/ros2-snapshot.list
+#27 CACHED
+
+#28 [base 2/3] RUN apt-get update  && apt-get install -y --no-install-recommends tzdata  && apt-get install -y --no-install-recommends       ca-certificates curl wget gnupg lsb-release zstd file binutils sudo udev usbutils less jq       build-essential cmake git pkg-config ccache       python3 python3-dev python3-pip python3-venv       libusb-1.0-0-dev libopenblas0 libgomp1 libturbojpeg libjpeg-turbo8 libpng-dev libv4l-dev libegl1 libx11-6       nlohmann-json3-dev graphviz       bc iproute2 procps sqlite3 stress-ng  && rm -rf /var/lib/apt/lists/*
+#28 CACHED
+
+#29 [base 3/3] RUN groupadd -g 1005 zed  && groupadd -g 1003 jtop  && groupadd -g 1004 fabiocar  && useradd -m -d /home/fabiocar -s /bin/bash -u 1004 -g 1004 -G zed,jtop,video fabiocar
+#29 CACHED
+
+#30 [ws  4/11] COPY --from=src scripts/env /opt/f1tenth_ws/scripts/env
+#30 CACHED
+
+#31 [ws  6/11] RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia     --mount=type=cache,id=f1tenth-orin-ccache-ws,target=/root/.ccache     source /opt/ros/jazzy/setup.bash  && colcon build --merge-install       --packages-skip f1tenth_sim f1tenth_more husarion_gz_worlds       --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache       --event-handlers console_direct- console_cohesion+ summary+       2>&1 | tee /opt/f1tenth_ws/colcon_build.log  && rm -rf build log
+#31 CACHED
+
+#32 [ros 4/4] RUN apt-get update  && apt-get install -y --no-install-recommends $(cat /tmp/ros_packages.txt)       python3-colcon-common-extensions python3-rosdep python3-vcstool       python3-numpy python3-scipy python3-matplotlib python3-jsonschema python3-requests       python3-ruamel.yaml python3-tk python3-yaml python3-psutil python3-pydot python3-pytest  && rosdep init  && rm -rf /var/lib/apt/lists/* /tmp/ros_packages.txt
+#32 CACHED
+
+#33 [zed 1/1] RUN --mount=type=bind,from=inputs,source=ZED_SDK_Tegra_L4T36.5_v5.4.0.zstd.run,target=/tmp/zed.run     apt-get update  && cp /tmp/zed.run /tmp/zed_install.run && chmod +x /tmp/zed_install.run  && /tmp/zed_install.run -- silent skip_tools skip_python skip_drivers skip_cuda 2>&1 | tee /usr/local/zed_install.log  && rm -f /tmp/zed_install.run && rm -rf /var/lib/apt/lists/*  && ldconfig && ldconfig -p | grep libsl_zed.so > /dev/null  && test "$(stat -c %g /usr/local/zed)" = "1005"
+#33 CACHED
+
+#34 [ws  7/11] RUN python3 /opt/f1tenth_ws/set_llama_paths.py       /opt/f1tenth_ws/install/share/f1tenth_params/config/stack_params.yaml       /opt/llama.cpp/bin/llama-server /opt/llama.cpp
+#34 CACHED
+
+#35 [ws  3/11] COPY --from=src src /opt/f1tenth_ws/src
+#35 CACHED
+
+#36 [ros 3/4] COPY ros_packages.txt /tmp/ros_packages.txt
+#36 CACHED
+
+#37 [ws  5/11] COPY set_llama_paths.py build_checks.sh entrypoint.sh /opt/f1tenth_ws/
+#37 CACHED
+
+#38 [cuda 2/3] RUN echo "CUDA Version $(ls -d /usr/local/cuda-12.* | sed 's/.*cuda-//')" > /usr/local/cuda/version.txt
+#38 CACHED
+
+#39 [cuda 3/3] RUN --mount=type=bind,from=inputs,source=TensorRT-10.3.0.26.l4t.aarch64-gnu.cuda-12.6.tar.gz,target=/tmp/trt.tgz     tar -xzf /tmp/trt.tgz -C /opt  && ln -s /opt/TensorRT-10.3.0.26 /opt/tensorrt  && rm -rf /opt/tensorrt/data /opt/tensorrt/doc /opt/tensorrt/samples /opt/tensorrt/targets/*/lib/*.a  && echo /opt/tensorrt/lib > /etc/ld.so.conf.d/tensorrt.conf && ldconfig
+#39 CACHED
+
+#40 [llama 1/1] RUN --mount=type=cache,id=f1tenth-orin-ccache-llama,target=/root/.ccache     mkdir -p /tmp/cuda-stub && ln -s /usr/local/cuda/lib64/stubs/libcuda.so /tmp/cuda-stub/libcuda.so.1  && export LD_LIBRARY_PATH=/tmp/cuda-stub:/usr/local/cuda/lib64  && git init -q /tmp/llama.cpp && cd /tmp/llama.cpp  && git remote add origin "https://github.com/ggml-org/llama.cpp.git"  && git fetch -q --depth 1 origin "42532afff43910e619a650c1704525b3acbbec5a" && git checkout -q FETCH_HEAD  && test "$(git rev-parse HEAD)" = "42532afff43910e619a650c1704525b3acbbec5a"  && cmake -S . -B build -DCMAKE_BUILD_TYPE=Release       -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=87 -DBUILD_SHARED_LIBS=ON       -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF       -DCMAKE_INSTALL_PREFIX=/opt/llama.cpp -DCMAKE_INSTALL_RPATH='$ORIGIN/../lib'       -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache  && cmake --build build -j"$(nproc)"  && cmake --install build  && test -x /opt/llama.cpp/bin/llama-server  && { echo "commit 42532afff43910e619a650c1704525b3acbbec5a"; echo "repo https://github.com/ggml-org/llama.cpp.git";       echo "cmake -DGGML_CUDA=ON -DCMAKE_CUDA_ARCHITECTURES=87 -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=Release";       echo "nvcc $(nvcc --version | tail -1)"; } > /opt/llama.cpp/BUILD_INFO  && rm -rf /tmp/llama.cpp /tmp/cuda-stub
+#40 CACHED
+
+#41 [cuda 1/3] RUN --mount=type=bind,from=inputs,source=cuda-tegra-repo-ubuntu2204-12-9-local_12.9.1-1_arm64.deb,target=/tmp/cuda-repo.deb     --mount=type=bind,from=inputs,source=cudnn-local-tegra-repo-ubuntu2404-9.10.2_1.0-1_arm64.deb,target=/tmp/cudnn-repo.deb     dpkg -i /tmp/cuda-repo.deb /tmp/cudnn-repo.deb  && cp /var/cuda-tegra-repo-ubuntu2204-12-9-local/cuda-tegra-*-keyring.gpg        /var/cudnn-local-tegra-repo-ubuntu2404-9.10.2/cudnn-local-tegra-*-keyring.gpg /usr/share/keyrings/  && apt-get update  && apt-get install -y --no-install-recommends       cuda-libraries-12-9 cuda-nvcc-12-9 cuda-minimal-build-12-9 cuda-cupti-12-9 cuda-nvtx-12-9       cuda-cudart-dev-12-9 cuda-driver-dev-12-9 cuda-nvrtc-dev-12-9 cuda-profiler-api-12-9 cuda-cccl-12-9       libcublas-dev-12-9 libcufft-dev-12-9 libcufile-dev-12-9 libcurand-dev-12-9       libcusolver-dev-12-9 libcusparse-dev-12-9 libnpp-dev-12-9 libnvjitlink-dev-12-9       libcudnn9-cuda-12=9.10.2.21-1  && dpkg-deb -x /var/cuda-tegra-repo-ubuntu2204-12-9-local/cuda-compat-12-9_*_arm64.deb /  && test -e /usr/local/cuda-12.9/compat/libcuda.so.1  && test ! -e /usr/local/cuda-12.9/targets/aarch64-linux/lib/libnvjpeg.so  && dpkg -P cuda-tegra-repo-ubuntu2204-12-9-local cudnn-local-tegra-repo-ubuntu2404-9.10.2  && rm -rf /var/lib/apt/lists/* /var/cuda-tegra-repo-* /var/cudnn-local-*
+#41 CACHED
+
+#42 [ws  9/11] RUN mkdir -p /var/cache/f1tenth/cuda && chown -R 1004:1004 /var/cache/f1tenth  && chmod 0755 /opt/f1tenth_ws/entrypoint.sh  && echo 'source /opt/f1tenth_ws/scripts/env/jazzy.sh' >> /etc/bash.bashrc
+#42 CACHED
+
+#43 [ws 10/11] COPY --from=src SOURCES /opt/f1tenth_ws/SOURCES
+#43 DONE 1.1s
+
+#44 [ws 11/11] WORKDIR /home/fabiocar
+#44 DONE 0.1s
+
+#45 exporting to image
+#45 exporting layers 0.1s done
+#45 writing image sha256:2fef94aa0fe11127feb60c77e3f34237891a1c764bc2f6946b888b95ea436b20 done
+#45 naming to docker.io/library/f1tenth:jazzy-orin-a515f27 0.0s done
+#45 DONE 0.1s
+finished 2026-10-07T16:28:58+02:00
+build OK: f1tenth:jazzy-orin-a515f27 sha256:2fef94aa0fe11127feb60c77e3f34237891a1c764bc2f6946b888b95ea436b20 10823262420

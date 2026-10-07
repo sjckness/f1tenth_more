@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="zed_debug.lint_cmake"
+  tests="2"
+  errors="0"
+  failures="2"
+  time="0.002"
+>
+  <testcase
+    name="whitespace/eol (CMakeLists.txt:162)"
+    classname="zed_debug.lint_cmake"
+  >
+      <failure message="Line ends in whitespace"/>
+  </testcase>
+  <testcase
+    name="whitespace/eol (CMakeLists.txt:189)"
+    classname="zed_debug.lint_cmake"
+  >
+      <failure message="Line ends in whitespace"/>
+  </testcase>
+  <system-out>Checked files:
+* CMakeLists.txt</system-out>
+</testsuite>

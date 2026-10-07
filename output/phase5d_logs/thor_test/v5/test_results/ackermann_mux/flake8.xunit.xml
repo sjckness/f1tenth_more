@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="ackermann_mux.flake8"
+  tests="22"
+  errors="0"
+  failures="22"
+  time="0.271"
+>
+  <testcase
+    name="I201 (./launch/ackermann_mux_launch.py:20:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Missing newline between import groups. 'from ament_index_python.packages import get_package_share_directory' is identified as Third Party and 'import os' is identified as Stdlib.:&#10;from ament_index_python.packages import get_package_share_directory&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./scripts/joystick_relay.py:28:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import numpy' should be before 'import rclpy':&#10;import numpy as np&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./scripts/joystick_relay.py:30:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'from geometry_msgs.msg import Twist' should be before 'import numpy':&#10;from geometry_msgs.msg import Twist&#10;"/>
+  </testcase>
+  <testcase
+    name="Q000 (./scripts/joystick_relay.py:131:17)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;                "Joystick provided invalid values (%d, %d, %d), not in [-1, 1] range."&#10;'/>
+  </testcase>
+  <testcase
+    name="Q000 (./scripts/joystick_relay.py:188:40)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;        self._marker.header.frame_id = "base_footprint"&#10;'/>
+  </testcase>
+  <testcase
+    name="Q000 (./scripts/joystick_relay.py:205:33)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;            self._marker.text = "Manual" if joystick_priority else "Autonomous"&#10;'/>
+  </testcase>
+  <testcase
+    name="Q000 (./scripts/joystick_relay.py:205:68)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;            self._marker.text = "Manual" if joystick_priority else "Autonomous"&#10;'/>
+  </testcase>
+  <testcase
+    name="Q000 (./scripts/joystick_relay.py:265:32)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;        self.get_logger().info("Toggled joy_priority, current status is: %s",&#10;'/>
+  </testcase>
+  <testcase
+    name="I100 (./test/rate_publishers.py:21:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import _thread' should be before 'import sys':&#10;import _thread&#10;"/>
+  </testcase>
+  <testcase
+    name="I101 (./test/rate_publishers.py:26:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Imported names are in the wrong order. Should be QoSDurabilityPolicy, QoSProfile:&#10;from rclpy.qos import QoSProfile, QoSDurabilityPolicy&#10;"/>
+  </testcase>
+  <testcase
+    name="Q000 (./test/rate_publishers.py:156:15)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;        print("Spawning thread for TopicTestManager...")&#10;'/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system.test.py:16:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import os' should be before 'from rate_publishers import RatePublishers, TimeoutManager' and in a different group.:&#10;import os&#10;"/>
+  </testcase>
+  <testcase
+    name="I201 (./test/system.test.py:16:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Missing newline between import groups. 'import os' is identified as Stdlib and 'from rate_publishers import RatePublishers, TimeoutManager' is identified as Third Party.:&#10;import os&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system.test.py:18:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import sys' should be before 'import unittest':&#10;import sys&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system.test.py:27:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import time' should be before 'import launch_testing' and in a different group.:&#10;import time&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system.test.py:28:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import threading' should be before 'import time':&#10;import threading&#10;"/>
+  </testcase>
+  <testcase
+    name="I201 (./test/system.test.py:29:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Missing newline between import groups. 'from rclpy.executors import MultiThreadedExecutor' is identified as Third Party and 'import threading' is identified as Stdlib.:&#10;from rclpy.executors import MultiThreadedExecutor&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system.test.py:31:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import rclpy' should be before 'from rclpy.executors import MultiThreadedExecutor':&#10;import rclpy&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system.test.py:34:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'from geometry_msgs.msg import Twist' should be before 'from std_msgs.msg import Bool':&#10;from geometry_msgs.msg import Twist&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system_blackbox.py:27:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'import time' should be before 'import rospy' and in a different group.:&#10;import time&#10;"/>
+  </testcase>
+  <testcase
+    name="I201 (./test/system_blackbox.py:27:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Missing newline between import groups. 'import time' is identified as Stdlib and 'import rospy' is identified as Third Party.:&#10;import time&#10;"/>
+  </testcase>
+  <testcase
+    name="I100 (./test/system_blackbox.py:30:1)"
+    classname="ackermann_mux.flake8"
+  >
+      <failure message="Import statements are in the wrong order. 'from geometry_msgs.msg import Twist' should be before 'from std_msgs.msg import Bool':&#10;from geometry_msgs.msg import Twist&#10;"/>
+  </testcase>
+  <system-out>Checked files:
+* ./launch/ackermann_mux_launch.py
+* ./scripts/joystick_relay.py
+* ./test/system_blackbox.py
+* ./test/rate_publishers.py
+* ./test/system.test.py</system-out>
+</testsuite>

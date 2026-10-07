@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="zed_debug.copyright"
+  tests="2"
+  errors="0"
+  failures="1"
+  time="0.053"
+>
+  <testcase
+    name="launch/zed_camera_debug.launch.py"
+    classname="zed_debug.copyright"
+  >
+      <failure message="copyright=Stereolabs (2025), license=&lt;unknown&gt;"/>
+  </testcase>
+  <testcase
+    name="src/zed_debug_proc.cpp"
+    classname="zed_debug.copyright"/>
+  <system-out>Checked files:
+* launch/zed_camera_debug.launch.py
+* src/zed_debug_proc.cpp</system-out>
+</testsuite>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_ackermann.uncrustify"
+  tests="8"
+  failures="2"
+  errors="0"
+  time="0.082"
+>
+  <testcase
+    name="include/vesc_ackermann/ackermann_to_vesc.hpp"
+    classname="vesc_ackermann.uncrustify"/>
+  <testcase
+    name="include/vesc_ackermann/velocity_correction.hpp"
+    classname="vesc_ackermann.uncrustify"/>
+  <testcase
+    name="include/vesc_ackermann/vesc_to_odom.hpp"
+    classname="vesc_ackermann.uncrustify"/>
+  <testcase
+    name="include/vesc_ackermann/vesc_to_odom_backup.hpp"
+    classname="vesc_ackermann.uncrustify"/>
+  <testcase
+    name="src/ackermann_to_vesc.cpp"
+    classname="vesc_ackermann.uncrustify"
+  >
+      <failure message="Diff with 6 lines"><![CDATA[--- src/ackermann_to_vesc.cpp
++++ src/ackermann_to_vesc.cpp.uncrustify
+@@ -141 +141,2 @@
+-    (cmd->drive.steering_angle >= 0.0) ? steering_to_servo_gain_left_ : steering_to_servo_gain_right_;
++    (cmd->drive.steering_angle >=
++    0.0) ? steering_to_servo_gain_left_ : steering_to_servo_gain_right_;
+]]></failure>
+  </testcase>
+  <testcase
+    name="src/vesc_to_odom.cpp"
+    classname="vesc_ackermann.uncrustify"
+  >
+      <failure message="Diff with 21 lines"><![CDATA[--- src/vesc_to_odom.cpp
++++ src/vesc_to_odom.cpp.uncrustify
+@@ -143 +143,3 @@
+-    for (int j = 0; j < N; ++j) {F[i][j] = 0.0;}
++    for (int j = 0; j < N; ++j) {
++      F[i][j] = 0.0;
++    }
+@@ -157 +159,3 @@
+-      for (int k = 0; k < N; ++k) {s += F[i][k] * P_[k][j];}
++      for (int k = 0; k < N; ++k) {
++        s += F[i][k] * P_[k][j];
++      }
+@@ -165 +169,3 @@
+-      for (int k = 0; k < N; ++k) {s += tmp[i][k] * F[j][k];}
++      for (int k = 0; k < N; ++k) {
++        s += tmp[i][k] * F[j][k];
++      }
+@@ -309 +315,2 @@
+-  double dt = (rclcpp::Time(state->header.stamp) - rclcpp::Time(last_state_->header.stamp)).seconds();
++  double dt = (rclcpp::Time(state->header.stamp) -
++    rclcpp::Time(last_state_->header.stamp)).seconds();
+]]></failure>
+  </testcase>
+  <testcase
+    name="src/vesc_to_odom_backup.cpp"
+    classname="vesc_ackermann.uncrustify"/>
+  <testcase
+    name="test/test_velocity_correction.cpp"
+    classname="vesc_ackermann.uncrustify"/>
+  <system-out>Checked files:
+* include/vesc_ackermann/ackermann_to_vesc.hpp
+* include/vesc_ackermann/velocity_correction.hpp
+* include/vesc_ackermann/vesc_to_odom.hpp
+* include/vesc_ackermann/vesc_to_odom_backup.hpp
+* src/ackermann_to_vesc.cpp
+* src/vesc_to_odom.cpp
+* src/vesc_to_odom_backup.cpp
+* test/test_velocity_correction.cpp</system-out>
+</testsuite>

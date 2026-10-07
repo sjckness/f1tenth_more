@@ -1,0 +1,5 @@
+[2026-10-07 14:33:48] waiting for a quiet Thor
+[2026-10-07 14:51:08] restarted to record pip freeze at test time
+[2026-10-07 14:51:08] waiting for a quiet Thor
+[2026-10-07 15:36:34] waiting for a quiet Thor (v3: PYTHONNOUSERSITE=1)
+[2026-10-07 16:07:35] quiet for 5 min, starting

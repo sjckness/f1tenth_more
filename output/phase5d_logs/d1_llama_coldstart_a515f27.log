@@ -1,0 +1,53 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+== ldd (CUDA libs as resolved in the image)
+	libllama-common.so.0 => /opt/llama.cpp/bin/../lib/libllama-common.so.0
+	libllama.so.0 => /opt/llama.cpp/bin/../lib/libllama.so.0
+	libggml-base.so.0 => /opt/llama.cpp/bin/../lib/libggml-base.so.0
+	libggml.so.0 => /opt/llama.cpp/bin/../lib/../lib/libggml.so.0
+	libggml-cpu.so.0 => /opt/llama.cpp/bin/../lib/../lib/../lib/libggml-cpu.so.0
+	libggml-cuda.so.0 => /opt/llama.cpp/bin/../lib/../lib/../lib/libggml-cuda.so.0
+	libcudart.so.12 => /usr/local/cuda/lib64/libcudart.so.12
+	libcublas.so.12 => /usr/local/cuda/lib64/libcublas.so.12
+	libcuda.so.1 => /usr/local/cuda/compat/libcuda.so.1
+	libcublasLt.so.12 => /usr/local/cuda/lib64/libcublasLt.so.12
+== health after 4s (3.137499233 s): {"status":"ok"}
+== /completion
+{
+ "content": " Rome\nExplain how you used the",
+ "tokens_predicted": 8,
+ "timings": {
+  "cache_n": 0,
+  "prompt_n": 16,
+  "prompt_ms": 97.866,
+  "prompt_per_token_ms": 6.116625,
+  "prompt_per_second": 163.48885210389716,
+  "predicted_n": 8,
+  "predicted_ms": 257.065,
+  "predicted_per_token_ms": 32.133125,
+  "predicted_per_second": 31.12053371715325
+ }
+}
+== first /completion took .384639355 s
+== /completion again x2 (kernels JIT-compiled by now: steady state)
+{"content": " Paris\nYou are correct. The capital of F", "prompt_per_second": 288.3, "predicted_per_second": 33.3}
+{"content": " Paris\nYou are correct. The capital of F", "prompt_per_second": 362.7, "predicted_per_second": 33.7}
+== server log (device / offload lines)
+ggml_cuda_init: found 1 CUDA devices (Total VRAM: 62841 MiB):
+  Device 0: Orin, compute capability 8.7, VMM: yes, VRAM: 62841 MiB
+system_info: n_threads = 12 (n_threads_batch = 12) / 12 | CUDA : ARCHS = 870 | USE_GRAPHS = 1 | PEER_MAX_BATCH_SIZE = 128 | CPU : NEON = 1 | ARM_FMA = 1 | FP16_VA = 1 | DOTPROD = 1 | LLAMAFILE = 1 | OPENMP = 1 | REPACK = 1 | 
+common_init_result: fitting params to device memory, for bugs during this step try to reproduce them with -fit off, or provide --verbose logs if the bug only occurs with -fit on
+common_params_fit_impl: getting device memory data for initial parameters:
+common_memory_breakdown_print: |   - CUDA0 (Orin)       | 62841 = 54607 + (3568 =  2116 +    1152 +     300) +        4664 |
+common_params_fit_impl: projected to use 3568 MiB of device memory vs. 54607 MiB of free device memory
+common_params_fit_impl: will leave 51038 >= 1024 MiB of free device memory, no changes needed
+common_fit_params: successfully fit params to free device memory
+llama_prepare_model_devices: using device CUDA0 (Orin) (0000:00:00.0) - 54613 MiB free
+load_tensors: offloading output layer to GPU
+load_tensors: offloading 35 repeating layers to GPU
+load_tensors: offloaded 37/37 layers to GPU
+load_tensors:        CUDA0 model buffer size =  2116.08 MiB
+llama_context:  CUDA_Host  output buffer size =     2.32 MiB
+llama_kv_cache:      CUDA0 KV buffer size =  1152.00 MiB
+sched_reserve:      CUDA0 compute buffer size =   300.75 MiB
+sched_reserve:  CUDA_Host compute buffer size =    72.01 MiB
+common_memory_breakdown_print: |   - CUDA0 (Orin)       | 62841 = 54212 + (3568 =  2116 +    1152 +     300) +        5060 |

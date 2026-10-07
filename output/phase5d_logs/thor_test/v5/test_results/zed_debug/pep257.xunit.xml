@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="zed_debug.pep257"
+  tests="1"
+  errors="0"
+  failures="0"
+  time="0.015"
+>
+  <testcase
+    name="./launch/zed_camera_debug.launch.py"
+    classname="zed_debug.pep257"/>
+  <system-out>Checked files:
+* ./launch/zed_camera_debug.launch.py</system-out>
+</testsuite>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="zed_debug.uncrustify"
+  tests="1"
+  failures="0"
+  errors="0"
+  time="0.008"
+>
+  <testcase
+    name="src/zed_debug_proc.cpp"
+    classname="zed_debug.uncrustify"/>
+  <system-out>Checked files:
+* src/zed_debug_proc.cpp</system-out>
+</testsuite>

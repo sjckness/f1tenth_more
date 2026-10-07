@@ -1,0 +1,56 @@
+guard: host clear (no Humble/ROS process, UDP 11811 free, no other f1tenth container)
+== SDK header version
+#define ZED_SDK_MAJOR_VERSION 5
+#define ZED_SDK_MINOR_VERSION 4
+#define ZED_SDK_PATCH_VERSION 0
+== installer summary
+lsb-release is already the newest version (12.0-2).
+wget is already the newest version (1.21.4-1ubuntu4.5).
+less is already the newest version (590-2ubuntu2.1).
+udev is already the newest version (255.4-1ubuntu8.17).
+sudo is already the newest version (1.9.15p5-3ubuntu5.24.04.4).
+This installer targets NVIDIA Jetson (JetPack/L4T), but this system is not a Jetson.
+Container detected: platform cannot be reliably identified at image-build time, continuing.
+Skipping CUDA version check
+libjpeg-turbo8 is already the newest version (2.1.5-2ubuntu2).
+libturbojpeg is already the newest version (1:2.1.5-2ubuntu2).
+libusb-1.0-0 is already the newest version (2:1.0.27-1).
+libusb-1.0-0-dev is already the newest version (2:1.0.27-1).
+libv4l-0t64 is already the newest version (1.26.1-4build3).
+curl is already the newest version (8.5.0-2ubuntu10.15).
+zlib1g is already the newest version (1:1.3.dfsg-3.1ubuntu2.2).
+udev is already the newest version (255.4-1ubuntu8.17).
+ZED SDK installation complete, with 1 warning(s)
+== ldd -r SDK libraries (empty = clean)
+== ldd -r zed_components / zed_debug (empty = clean)
+== dlopen zed_components (RTLD_NOW)
+loaded /opt/f1tenth_ws/install/lib/libzed_camera_component.so
+loaded /opt/f1tenth_ws/install/lib/libzed_camera_one_component.so
+== rclcpp_components registration
+stereolabs::ZedCamera
+stereolabs::ZedCameraOne
+== camera grab (300 frames)
+sdk_version 5.4.0
+[2026-10-07 16:30:06 UTC][ZED][WARNING] [ZED-X][Warning] Failed to connect to zed_x_daemon.
+(Argus) Error FileOperationFailed: Connecting to nvargus-daemon failed: No such file or directory (in src/rpc/socket/client/SocketClientDispatch.cpp, function openSocketConnection(), line 205)
+(Argus) Error FileOperationFailed: Cannot create camera provider (in src/rpc/socket/client/SocketClientDispatch.cpp, function createCameraProvider(), line 107)
+(Argus) Error FileOperationFailed: Connecting to nvargus-daemon failed: No such file or directory (in src/rpc/socket/client/SocketClientDispatch.cpp, function openSocketConnection(), line 205)
+(Argus) Error FileOperationFailed: Cannot create camera provider (in src/rpc/socket/client/SocketClientDispatch.cpp, function createCameraProvider(), line 107)
+devices 1
+  id 0 model ZED 2i serial 36866199 state AVAILABLE path /dev/video0
+[2026-10-07 16:30:07 UTC][ZED][INFO] Logging level INFO
+(Argus) Error FileOperationFailed: Connecting to nvargus-daemon failed: No such file or directory (in src/rpc/socket/client/SocketClientDispatch.cpp, function openSocketConnection(), line 205)
+(Argus) Error FileOperationFailed: Cannot create camera provider (in src/rpc/socket/client/SocketClientDispatch.cpp, function createCameraProvider(), line 107)
+[2026-10-07 16:30:09 UTC][ZED][INFO] [Init]  Camera successfully opened.
+[2026-10-07 16:30:09 UTC][ZED][INFO] [Init]  Camera FW version: 1523
+[2026-10-07 16:30:09 UTC][ZED][INFO] [Init]  Video mode: HD720@60
+[2026-10-07 16:30:09 UTC][ZED][INFO] [Init]  Serial Number: S/N 36866199
+[2026-10-07 16:30:09 UTC][ZED][WARNING] [Init]  PERFORMANCE is deprecated. Please update your configuration to use NEURAL instead.
+open SUCCESS (3.22 s)
+camera ZED 2i serial 36866199 fw 1523 sensors_fw 777 res 1280x720 fps 60.0
+imu first sample: accel 0.121 -9.812 -0.117 m/s2 gyro 0.252 -0.051 -0.019 deg/s
+frames_ok 300 frames_failed 0 elapsed_s 5.03 fps 59.70
+left 1280x720 depth 1280x720 center_depth_mean_m 7.943 (valid 300)
+imu reads_ok 300 of 300, distinct_timestamps 300, accel_norm_mean 9.815 m/s2
+RESULT pass
+zed_grab exit 0

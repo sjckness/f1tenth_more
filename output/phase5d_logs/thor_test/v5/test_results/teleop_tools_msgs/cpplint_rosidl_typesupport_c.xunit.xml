@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="teleop_tools_msgs.cpplint_rosidl_typesupport_c"
+  tests="1"
+  failures="0"
+  errors="0"
+  time="0.145"
+>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_typesupport_c/teleop_tools_msgs/action/increment__type_support.cpp"
+    classname="teleop_tools_msgs.cpplint_rosidl_typesupport_c"/>
+  <system-out>Checked files:
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_typesupport_c/teleop_tools_msgs/action/increment__type_support.cpp</system-out>
+</testsuite>

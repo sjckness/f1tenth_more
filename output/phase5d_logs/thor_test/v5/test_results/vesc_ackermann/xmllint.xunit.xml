@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_ackermann.xmllint"
+  tests="3"
+  errors="0"
+  failures="0"
+  time="0.254"
+>
+  <testcase
+    name="package.xml"
+    classname="vesc_ackermann.xmllint"/>
+  <testcase
+    name="launch/ackermann_to_vesc_node.launch.xml"
+    classname="vesc_ackermann.xmllint"/>
+  <testcase
+    name="launch/vesc_to_odom_node.launch.xml"
+    classname="vesc_ackermann.xmllint"/>
+  <system-out>Checked files:
+* package.xml
+* launch/ackermann_to_vesc_node.launch.xml
+* launch/vesc_to_odom_node.launch.xml</system-out>
+</testsuite>

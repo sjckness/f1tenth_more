@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_ackermann.cpplint"
+  tests="8"
+  failures="2"
+  errors="0"
+  time="0.151"
+>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/ackermann_to_vesc.hpp"
+    classname="vesc_ackermann.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/velocity_correction.hpp"
+    classname="vesc_ackermann.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/vesc_to_odom.hpp"
+    classname="vesc_ackermann.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/vesc_to_odom_backup.hpp"
+    classname="vesc_ackermann.cpplint"/>
+  <testcase
+    name="whitespace/line_length [2] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/src/ackermann_to_vesc.cpp:141)"
+    classname="vesc_ackermann.cpplint"
+  >
+      <failure message="Lines should be &lt;= 100 characters long"/>
+  </testcase>
+  <testcase
+    name="whitespace/line_length [2] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/src/vesc_to_odom.cpp:309)"
+    classname="vesc_ackermann.cpplint"
+  >
+      <failure message="Lines should be &lt;= 100 characters long"/>
+  </testcase>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/src/vesc_to_odom_backup.cpp"
+    classname="vesc_ackermann.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/test/test_velocity_correction.cpp"
+    classname="vesc_ackermann.cpplint"/>
+  <system-out>Checked files:
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/ackermann_to_vesc.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/velocity_correction.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/vesc_to_odom.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/include/vesc_ackermann/vesc_to_odom_backup.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/src/ackermann_to_vesc.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/src/vesc_to_odom.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/src/vesc_to_odom_backup.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_ackermann/test/test_velocity_correction.cpp</system-out>
+</testsuite>

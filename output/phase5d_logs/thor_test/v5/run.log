@@ -1,0 +1,22 @@
+[2026-10-07 16:27:54] waiting for a quiet Thor (v5: PYTHONNOUSERSITE=1 + validated osqp/pyarrow)
+[2026-10-07 16:32:54] quiet for 5 min, starting
+[2026-10-07 16:32:56] python: setuptools 68.1.2 no_user_site 1
+[2026-10-07 16:32:57] build start
+[2026-10-07 16:33:14] build rc=0
+[2026-10-07 16:33:15] validated deps: Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "/home/andre/p5d_thor_test_083c8e8/pydeps_validated/joblib/__init__.py", line 114, in <module>
+    from ._cloudpickle_wrapper import wrap_non_picklable_objects
+  File "/home/andre/p5d_thor_test_083c8e8/pydeps_validated/joblib/_cloudpickle_wrapper.py", line 14, in <module>
+    from .externals.loky import wrap_non_picklable_objects
+  File "/home/andre/p5d_thor_test_083c8e8/pydeps_validated/joblib/externals/loky/__init__.py", line 22, in <module>
+    from .cloudpickle_wrapper import wrap_non_picklable_objects
+  File "/home/andre/p5d_thor_test_083c8e8/pydeps_validated/joblib/externals/loky/cloudpickle_wrapper.py", line 3, in <module>
+    from cloudpickle import dumps, loads
+ModuleNotFoundError: No module named 'cloudpickle'
+[2026-10-07 16:33:15] torch hidden: ModuleNotFoundError: No module named 'torch'
+[2026-10-07 16:33:15] python after sourcing the install: setuptools 68.1.2 no_user_site 1
+[2026-10-07 16:33:15] test start
+[2026-10-07 16:35:02] test rc=0
+[2026-10-07 16:35:03] test-result rc=1
+[2026-10-07 16:35:03] done

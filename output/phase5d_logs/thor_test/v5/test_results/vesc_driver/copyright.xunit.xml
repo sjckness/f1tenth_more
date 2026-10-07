@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_driver.copyright"
+  tests="14"
+  errors="0"
+  failures="0"
+  time="0.439"
+>
+  <testcase
+    name="include/vesc_driver/crc.hpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="include/vesc_driver/datatypes.hpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="include/vesc_driver/vesc_device_uuid_lookup.hpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="include/vesc_driver/vesc_driver.hpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="include/vesc_driver/vesc_interface.hpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="include/vesc_driver/vesc_packet.hpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="include/vesc_driver/vesc_packet_factory.hpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="launch/vesc_driver_node.launch.py"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="src/vesc_device_namer.cpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="src/vesc_device_uuid_lookup.cpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="src/vesc_driver.cpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="src/vesc_interface.cpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="src/vesc_packet.cpp"
+    classname="vesc_driver.copyright"/>
+  <testcase
+    name="src/vesc_packet_factory.cpp"
+    classname="vesc_driver.copyright"/>
+  <system-out>Checked files:
+* include/vesc_driver/crc.hpp
+* include/vesc_driver/datatypes.hpp
+* include/vesc_driver/vesc_device_uuid_lookup.hpp
+* include/vesc_driver/vesc_driver.hpp
+* include/vesc_driver/vesc_interface.hpp
+* include/vesc_driver/vesc_packet.hpp
+* include/vesc_driver/vesc_packet_factory.hpp
+* launch/vesc_driver_node.launch.py
+* src/vesc_device_namer.cpp
+* src/vesc_device_uuid_lookup.cpp
+* src/vesc_driver.cpp
+* src/vesc_interface.cpp
+* src/vesc_packet.cpp
+* src/vesc_packet_factory.cpp</system-out>
+</testsuite>

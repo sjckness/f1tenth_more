@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="ackermann_mux.cpplint"
+  tests="19"
+  failures="17"
+  errors="0"
+  time="0.106"
+>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux.hpp:43)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux.hpp:44)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux.hpp:45)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="runtime/explicit [5] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux.hpp:70)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Zero-parameter constructors should not be marked explicit."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux_diagnostics.hpp:43)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux_diagnostics.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux_diagnostics_status.hpp:44)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux_diagnostics_status.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/params_helpers.hpp:40)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: params_helpers.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/params_helpers.hpp:41)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: params_helpers.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/params_helpers.hpp:42)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: params_helpers.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/topic_handle.hpp:47)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: topic_handle.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/topic_handle.hpp:48)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: topic_handle.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/topic_handle.hpp:49)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: topic_handle.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/utils.hpp"
+    classname="ackermann_mux.cpplint"/>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux.cpp:43)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux.cpp:44)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux.cpp:45)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="whitespace/line_length [2] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux.cpp:112)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Lines should be &lt;= 100 characters long"/>
+  </testcase>
+  <testcase
+    name="build/include_order [4] (/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux_diagnostics.cpp:41)"
+    classname="ackermann_mux.cpplint"
+  >
+      <failure message="Found C++ system header after other header. Should be: ackermann_mux_diagnostics.h, c system, c++ system, other."/>
+  </testcase>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux_node.cpp"
+    classname="ackermann_mux.cpplint"/>
+  <system-out>Checked files:
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux_diagnostics.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/ackermann_mux_diagnostics_status.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/params_helpers.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/topic_handle.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/include/ackermann_mux/utils.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux_diagnostics.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/ackermann_mux/src/ackermann_mux_node.cpp</system-out>
+</testsuite>

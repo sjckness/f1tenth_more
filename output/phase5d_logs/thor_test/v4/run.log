@@ -1,0 +1,10 @@
+[2026-10-07 16:16:59] waiting for a quiet Thor (v4: PYTHONNOUSERSITE=1, set +u)
+[2026-10-07 16:21:59] quiet for 5 min, starting
+[2026-10-07 16:22:01] python: setuptools 68.1.2 no_user_site 1
+[2026-10-07 16:22:02] build start
+[2026-10-07 16:24:13] build rc=0
+[2026-10-07 16:24:13] python after sourcing the install: setuptools 68.1.2 no_user_site 1
+[2026-10-07 16:24:13] test start
+[2026-10-07 16:25:07] test rc=2
+[2026-10-07 16:25:07] test-result rc=1
+[2026-10-07 16:25:07] done

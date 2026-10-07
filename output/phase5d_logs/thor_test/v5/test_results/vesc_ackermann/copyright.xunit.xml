@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_ackermann.copyright"
+  tests="8"
+  errors="0"
+  failures="0"
+  time="0.277"
+>
+  <testcase
+    name="include/vesc_ackermann/ackermann_to_vesc.hpp"
+    classname="vesc_ackermann.copyright"/>
+  <testcase
+    name="include/vesc_ackermann/velocity_correction.hpp"
+    classname="vesc_ackermann.copyright"/>
+  <testcase
+    name="include/vesc_ackermann/vesc_to_odom.hpp"
+    classname="vesc_ackermann.copyright"/>
+  <testcase
+    name="include/vesc_ackermann/vesc_to_odom_backup.hpp"
+    classname="vesc_ackermann.copyright"/>
+  <testcase
+    name="src/ackermann_to_vesc.cpp"
+    classname="vesc_ackermann.copyright"/>
+  <testcase
+    name="src/vesc_to_odom.cpp"
+    classname="vesc_ackermann.copyright"/>
+  <testcase
+    name="src/vesc_to_odom_backup.cpp"
+    classname="vesc_ackermann.copyright"/>
+  <testcase
+    name="test/test_velocity_correction.cpp"
+    classname="vesc_ackermann.copyright"/>
+  <system-out>Checked files:
+* include/vesc_ackermann/ackermann_to_vesc.hpp
+* include/vesc_ackermann/velocity_correction.hpp
+* include/vesc_ackermann/vesc_to_odom.hpp
+* include/vesc_ackermann/vesc_to_odom_backup.hpp
+* src/ackermann_to_vesc.cpp
+* src/vesc_to_odom.cpp
+* src/vesc_to_odom_backup.cpp
+* test/test_velocity_correction.cpp</system-out>
+</testsuite>
