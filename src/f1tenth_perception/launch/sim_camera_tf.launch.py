@@ -72,7 +72,10 @@ def generate_launch_description():
 
     return LaunchDescription([
         # Pass-throughs so a test can toggle the pan behaviour without editing.
+        # The supervisor sets them from its own parameters of the same names
+        # (supervisor_bringup.launch.py arguments; apply_sim_mode).
         DeclareLaunchArgument('camera_pan_mode', default_value='track_heading'),
+        DeclareLaunchArgument('camera_pan_fixed_angle_rad', default_value='0.0'),
         DeclareLaunchArgument('camera_pan_track_when_stopped', default_value='false'),
         # base_link -> camera_pan_base -> zed2_camera_link from the MEASURED pan
         # angle (replaces the old static base_link->zed2_camera_link). The pivot
@@ -82,6 +85,7 @@ def generate_launch_description():
                 os.path.join(camera_pan_share, 'launch', 'camera_pan.launch.py')),
             launch_arguments={
                 'mode': LaunchConfiguration('camera_pan_mode'),
+                'fixed_angle_rad': LaunchConfiguration('camera_pan_fixed_angle_rad'),
                 'track_when_stopped': LaunchConfiguration('camera_pan_track_when_stopped'),
                 'pivot_x_m': pivot[0],
                 'pivot_y_m': pivot[1],

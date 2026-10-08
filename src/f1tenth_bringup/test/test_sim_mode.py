@@ -18,7 +18,7 @@ HERE = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(HERE, '..', 'f1tenth_bringup'))
 
 from component_supervisor_node import (  # noqa: E402,I100
-    _ComponentProcess, _SIM_SKIPPED_LAUNCH_FILES, apply_sim_mode)
+    _ComponentProcess, _SIM_SKIPPED_LAUNCH_FILES, apply_sim_mode, sim_camera_args)
 import yaml  # noqa: E402,I100
 
 COMPONENTS = os.path.join(HERE, '..', 'config', 'components.yaml')
@@ -32,6 +32,8 @@ CAMERA_LAUNCH = os.path.join(PERCEPTION_LAUNCH, 'camera.launch.py')
 SIM_CAMERA_TF_LAUNCH = os.path.join(PERCEPTION_LAUNCH, 'sim_camera_tf.launch.py')
 DESCRIPTION_LAUNCH = os.path.join(
     SRC, 'f1tenth_description', 'launch', 'description.launch.py')
+SUPERVISOR_LAUNCH = os.path.join(HERE, '..', 'launch', 'supervisor_bringup.launch.py')
+CAMERA_PAN_LAUNCH = os.path.join(SRC, 'f1tenth_camera_pan', 'launch', 'camera_pan.launch.py')
 SIM_MOUNTS_YAML = os.path.join(
     SRC, 'f1tenth_description', 'config', 'sim_sensor_mounts.yaml')
 
@@ -79,6 +81,81 @@ def test_apply_sim_mode_does_not_modify_its_input():
     before = copy.deepcopy(reg)
     apply_sim_mode(reg)
     assert reg == before
+
+
+# -- camera pan pass-through: supervisor_bringup -> supervisor -> sim_camera_tf
+#    -> camera_pan.launch.py -> camera_pan_controller_node ------------------
+
+PAN_ARGS = ('camera_pan_mode', 'camera_pan_fixed_angle_rad', 'camera_pan_track_when_stopped')
+
+
+def test_sim_camera_args_are_ros2_launch_strings():
+    assert sim_camera_args('fixed', 0, True) == {
+        'camera_pan_mode': 'fixed',
+        'camera_pan_fixed_angle_rad': '0.0',          # a float, never '0'
+        'camera_pan_track_when_stopped': 'true',      # lowercase, not 'True'
+    }
+    assert sim_camera_args('track_heading', -0.2, False)[
+        'camera_pan_track_when_stopped'] == 'false'
+
+
+def test_camera_args_reach_only_sim_camera_tf():
+    args = sim_camera_args('track_heading', 0.0, True)
+    sim = apply_sim_mode(_registry(), args)
+    for name, entries in sim.items():
+        for e in entries:
+            if (e['package'], e['launch_file']) == (
+                    'f1tenth_perception', 'sim_camera_tf.launch.py'):
+                assert e['args'] == args
+            else:
+                assert not set(PAN_ARGS) & set(e['args']), (name, e)
+    # The default (no camera_args) still passes none: sim_camera_tf's own defaults.
+    cam = [e for e in apply_sim_mode(_registry())['perception']
+           if e['launch_file'] == 'sim_camera_tf.launch.py']
+    assert cam[0]['args'] == {}
+
+
+def test_camera_args_end_up_on_the_component_command_line():
+    args = sim_camera_args('fixed', 0.1, True)
+    [cam] = [e for e in apply_sim_mode(_registry(), args)['perception']
+             if e['launch_file'] == 'sim_camera_tf.launch.py']
+    cmd = _ComponentProcess(cam['package'], cam['launch_file'], cam['args'],
+                            '/dev/null', sim=True).cmd
+    assert 'camera_pan_track_when_stopped:=true' in cmd
+    assert 'camera_pan_mode:=fixed' in cmd
+    assert 'camera_pan_fixed_angle_rad:=0.1' in cmd
+
+
+def _launch_arg_names(path):
+    """Names of every DeclareLaunchArgument('<name>', ...) in a launch file."""
+    out = set()
+    for node in ast.walk(ast.parse(open(path).read())):
+        if (isinstance(node, ast.Call)
+                and getattr(node.func, 'id', None) == 'DeclareLaunchArgument'
+                and isinstance(node.args[0], ast.Constant)):
+            out.add(node.args[0].value)
+    return out
+
+
+def test_supervisor_bringup_declares_and_forwards_the_pan_args():
+    assert set(PAN_ARGS) <= _launch_arg_names(SUPERVISOR_LAUNCH)
+    src = open(SUPERVISOR_LAUNCH).read()
+    for a in PAN_ARGS:
+        # passed to the supervisor as a parameter of the same name
+        assert f"'{a}': LaunchConfiguration(" in src, a
+
+
+def test_sim_camera_tf_declares_and_forwards_the_pan_args():
+    assert set(PAN_ARGS) <= _launch_arg_names(SIM_CAMERA_TF_LAUNCH)
+    src = open(SIM_CAMERA_TF_LAUNCH).read()
+    for inner in ('mode', 'fixed_angle_rad', 'track_when_stopped'):
+        assert f"'{inner}': LaunchConfiguration('camera_pan_{inner}')" in src, inner
+    # and camera_pan.launch.py declares exactly those and hands them to the node
+    assert {'mode', 'fixed_angle_rad', 'track_when_stopped'} <= _launch_arg_names(
+        CAMERA_PAN_LAUNCH)
+    pan_src = open(CAMERA_PAN_LAUNCH).read()
+    assert "'track_when_stopped': LaunchConfiguration('track_when_stopped')" in pan_src
+    assert "'fixed_angle_rad': LaunchConfiguration('fixed_angle_rad')" in pan_src
 
 
 def test_cmd_without_sim_is_the_plain_ros2_launch():

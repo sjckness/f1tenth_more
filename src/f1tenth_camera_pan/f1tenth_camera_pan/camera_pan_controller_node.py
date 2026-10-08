@@ -11,34 +11,82 @@ mode (param):
   scan           RESERVED -- logs not-implemented once, falls back to fixed 0.0
                  (the sweep generator is deliberately not implemented yet)
 
+mode, fixed_angle_rad and track_when_stopped are DYNAMIC: `ros2 param set
+/camera_pan_controller_node mode fixed` takes effect on the next tick (the
+PanSmoother still slews the command, so a switch never jumps the servo). Values
+are validated (validate_dynamic_params) at startup and on every set; a rejected
+set leaves the node unchanged and returns the reason. Every other parameter is
+read-only at runtime (the pivot and rate are fixed at launch).
+
 Inputs: local EKF odometry (v, omega_z) on get_odom_topic(), and the commanded
 steering on /ackermann_drive (the mux output; delta is only used at low speed,
 where omega_z/v is untrustworthy -- see aim_law.curvature). All aim-law tuning
 comes from stack_params.yaml so the law stays a single source of truth.
 """
+import dataclasses
+import math
+
 from ackermann_msgs.msg import AckermannDriveStamped
 from f1tenth_camera_pan.aim_law import aim_pan, AimParams, PanSmoother
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from nav_msgs.msg import Odometry
+from rcl_interfaces.msg import ParameterDescriptor, SetParametersResult
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import qos_profile_sensor_data
 from std_msgs.msg import Float64
+
+MODES = ('track_heading', 'fixed', 'scan')
+DYNAMIC_PARAMS = ('mode', 'fixed_angle_rad', 'track_when_stopped')
+
+
+def validate_dynamic_params(values: dict, max_pan_rad: float):
+    """Check proposed values of the dynamic parameters.
+
+    values: name -> value, only the names being set. Returns None if every
+    value is acceptable, else a one-line reason (the first problem found).
+    Pure, so the rules are unit-tested without a ROS graph.
+    """
+    for name, value in values.items():
+        if name == 'mode':
+            if value not in MODES:
+                return f'mode must be one of {", ".join(MODES)}, got {value!r}'
+        elif name == 'fixed_angle_rad':
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return f'fixed_angle_rad must be a number, got {value!r}'
+            if not math.isfinite(value) or abs(value) > max_pan_rad:
+                return (f'fixed_angle_rad must be within +-{max_pan_rad:.4f} rad '
+                        f'(camera_pan_max_rad), got {value!r}')
+        elif name == 'track_when_stopped':
+            if not isinstance(value, bool):
+                return f'track_when_stopped must be a bool, got {value!r}'
+    return None
 
 
 class CameraPanController(Node):
 
-    def __init__(self):
-        super().__init__('camera_pan_controller_node')
+    def __init__(self, **kwargs):
+        # kwargs go to Node (the tests pass parameter_overrides).
+        super().__init__('camera_pan_controller_node', **kwargs)
 
-        self.mode = self.declare_parameter('mode', 'track_heading').value
-        self.fixed_angle = float(self.declare_parameter('fixed_angle_rad', 0.0).value)
-        rate_hz = float(self.declare_parameter('publish_rate_hz', 50.0).value)
+        ro = ParameterDescriptor(read_only=True)
+        self.mode = self.declare_parameter(
+            'mode', 'track_heading',
+            ParameterDescriptor(description=f'{" | ".join(MODES)} (dynamic)')).value
+        self.fixed_angle = self.declare_parameter(
+            'fixed_angle_rad', 0.0,
+            ParameterDescriptor(description='fixed-mode angle [rad] (dynamic)')).value
+        track_when_stopped = self.declare_parameter(
+            'track_when_stopped', False,
+            ParameterDescriptor(
+                description='stopped -> follow steering instead of 0 (dynamic)')).value
+        rate_hz = float(self.declare_parameter('publish_rate_hz', 50.0, ro).value)
         # The pivot is per-machine (sim 0.36 vs car 0.12), so it is a launch
         # param set from the same source as camera_pan_tf_node's pivot, NOT a
         # shared stack param. Everything else below is machine-agnostic tuning.
-        pivot_x = float(self.declare_parameter('pivot_x_m', 0.12).value)
-        pivot_y = float(self.declare_parameter('pivot_y_m', 0.0).value)
+        pivot_x = float(self.declare_parameter('pivot_x_m', 0.12, ro).value)
+        pivot_y = float(self.declare_parameter('pivot_y_m', 0.0, ro).value)
 
         # Aim-law tuning: stack_params.yaml is the single source of truth.
         self.params = AimParams(
@@ -53,9 +101,14 @@ class CameraPanController(Node):
             v_curv_full_mps=float(get_value('camera_pan_v_curv_full_mps')),
             v_stop_mps=float(get_value('camera_pan_v_stop_mps')),
             reverse_aims_zero=bool(get_value('camera_pan_reverse_aims_zero')),
-            track_when_stopped=bool(
-                self.declare_parameter('track_when_stopped', False).value),
+            track_when_stopped=track_when_stopped,
         )
+        # A bad launch value fails here, loudly, not as a silently wrong aim.
+        reason = validate_dynamic_params(
+            {'mode': self.mode, 'fixed_angle_rad': self.fixed_angle,
+             'track_when_stopped': track_when_stopped}, self.params.max_pan_rad)
+        if reason is not None:
+            raise ValueError(f'camera_pan_controller: {reason}')
         self.smoother = PanSmoother(
             deadband_rad=float(get_value('camera_pan_deadband_rad')),
             lp_tau_s=float(get_value('camera_pan_lowpass_tau_s')),
@@ -74,9 +127,36 @@ class CameraPanController(Node):
                                  self._on_drive, 10)
         self._dt = 1.0 / rate_hz
         self.create_timer(self._dt, self._tick)
+        # Validate in on_set (a rejection leaves everything unchanged), apply in
+        # post_set (only once the parameters are actually committed).
+        self.add_on_set_parameters_callback(self._on_set_params)
+        self.add_post_set_parameters_callback(self._on_params_set)
         self.get_logger().info(
-            f'camera_pan_controller up: mode={self.mode}, publishing /camera_pan/command '
-            f'at {rate_hz:g} Hz (max +-{self.params.max_pan_rad:.4f} rad).')
+            f'camera_pan_controller up: mode={self.mode}, '
+            f'track_when_stopped={self.params.track_when_stopped}, '
+            f'publishing /camera_pan/command at {rate_hz:g} Hz '
+            f'(max +-{self.params.max_pan_rad:.4f} rad).')
+
+    def _on_set_params(self, params) -> SetParametersResult:
+        values = {p.name: p.value for p in params if p.name in DYNAMIC_PARAMS}
+        reason = validate_dynamic_params(values, self.params.max_pan_rad)
+        if reason is not None:
+            self.get_logger().warn(f'rejected parameter set: {reason}')
+            return SetParametersResult(successful=False, reason=reason)
+        return SetParametersResult(successful=True)
+
+    def _on_params_set(self, params: list[Parameter]):
+        for p in params:
+            if p.name == 'mode':
+                self.mode = p.value
+                self._scan_warned = False   # warn again on the next switch to scan
+            elif p.name == 'fixed_angle_rad':
+                self.fixed_angle = float(p.value)
+            elif p.name == 'track_when_stopped':
+                self.params = dataclasses.replace(self.params, track_when_stopped=p.value)
+            else:
+                continue
+            self.get_logger().info(f'{p.name} -> {p.value}')
 
     def _on_odom(self, msg: Odometry):
         self._v = msg.twist.twist.linear.x

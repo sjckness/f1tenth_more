@@ -190,6 +190,21 @@ def generate_launch_description():
                     'the VESC/ZED/urg driver launch files and runs every component '
                     'on use_sim_time.')
 
+    # Sim-mode camera pan (f1tenth_camera_pan), forwarded by the supervisor to
+    # sim_camera_tf.launch.py -> camera_pan.launch.py. Ignored when sim:=false.
+    # Initial values only: mode / fixed_angle_rad / track_when_stopped are
+    # dynamic on /camera_pan_controller_node (ros2 param set).
+    camera_pan_mode_la = DeclareLaunchArgument(
+        'camera_pan_mode', default_value='track_heading',
+        description='sim: camera pan mode, track_heading | fixed | scan (reserved).')
+    camera_pan_fixed_angle_la = DeclareLaunchArgument(
+        'camera_pan_fixed_angle_rad', default_value='0.0',
+        description='sim: camera pan angle [rad] in fixed mode (a float, e.g. 0.2).')
+    camera_pan_track_when_stopped_la = DeclareLaunchArgument(
+        'camera_pan_track_when_stopped', default_value='false',
+        description='sim: true = a stopped car aims the camera along its steering '
+                    'instead of straight ahead.')
+
     component_supervisor_node = Node(
         package='f1tenth_bringup',
         executable='component_supervisor_node',
@@ -206,6 +221,10 @@ def generate_launch_description():
             'restart_budget_window_sec': LaunchConfiguration('restart_budget_window_sec'),
             'sim': LaunchConfiguration('sim'),
             'health_watchdog': LaunchConfiguration('health_watchdog'),
+            'camera_pan_mode': LaunchConfiguration('camera_pan_mode'),
+            'camera_pan_fixed_angle_rad': LaunchConfiguration('camera_pan_fixed_angle_rad'),
+            'camera_pan_track_when_stopped': LaunchConfiguration(
+                'camera_pan_track_when_stopped'),
         }],
     )
 
@@ -226,5 +245,8 @@ def generate_launch_description():
         restart_budget_window_la,
         health_watchdog_la,
         sim_la,
+        camera_pan_mode_la,
+        camera_pan_fixed_angle_la,
+        camera_pan_track_when_stopped_la,
         component_supervisor_node,
     ])

@@ -290,7 +290,12 @@ streams on the car's names: /camera/image_raw, /camera/camera_info and
     (_SIM_REPLACEMENTS): the base_link -> zed2_camera_link static TF and the
     wrapper's robot_state_publisher for the camera's internal frames, same
     nodes and arguments, so the simulated images resolve to base_link exactly
-    as on the car.
+    as on the car. It also starts the stack-side camera pan
+    (f1tenth_camera_pan); the supervisor's camera_pan_mode,
+    camera_pan_fixed_angle_rad and camera_pan_track_when_stopped parameters
+    (supervisor_bringup.launch.py arguments of the same names) are passed to it
+    as launch arguments (sim_camera_args), so they survive a restart of
+    'perception'.
   - 'hardware' keeps the one thing vesc.launch.py publishes that is not a
     driver: the static base_link -> imu transform (sim_hardware_tf.launch.py,
     same node name and arguments), so the TF tree is the car's.
@@ -359,6 +364,7 @@ import yaml
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from f1tenth_messages.srv import ComponentControl, RestartComponent
 from f1tenth_params.param_defaults import get_value
+from rcl_interfaces.msg import ParameterDescriptor
 
 import rclpy
 from rclpy.node import Node
@@ -445,22 +451,34 @@ _SIM_REPLACEMENTS = {
 }
 
 
-def apply_sim_mode(registry):
+def sim_camera_args(mode, fixed_angle_rad, track_when_stopped):
+    """Launch args for sim_camera_tf.launch.py's camera pan, as ros2 launch strings."""
+    return {
+        'camera_pan_mode': str(mode),
+        'camera_pan_fixed_angle_rad': repr(float(fixed_angle_rad)),
+        'camera_pan_track_when_stopped': 'true' if track_when_stopped else 'false',
+    }
+
+
+def apply_sim_mode(registry, camera_args=None):
     """
     Return the registry sim mode runs.
 
     Every _SIM_SKIPPED_LAUNCH_FILES entry is removed from every component, or
-    swapped for its _SIM_REPLACEMENTS entry (no args) if it has one, and
-    'hardware' is reduced to sim_hardware_tf.launch.py. Returns a new dict;
-    the input is not modified.
+    swapped for its _SIM_REPLACEMENTS entry if it has one, and 'hardware' is
+    reduced to sim_hardware_tf.launch.py. The camera.launch.py replacement
+    (sim_camera_tf.launch.py) gets camera_args (sim_camera_args()); every other
+    replacement gets none. Returns a new dict; the input is not modified.
     """
+    camera_key = ('f1tenth_perception', 'camera.launch.py')
     out = {}
     for name, entries in registry.items():
         kept = []
         for e in entries:
             key = (e['package'], e['launch_file'])
             if key in _SIM_REPLACEMENTS:
-                kept.append(dict(_SIM_REPLACEMENTS[key], args={}))
+                args = dict(camera_args or {}) if key == camera_key else {}
+                kept.append(dict(_SIM_REPLACEMENTS[key], args=args))
             elif key not in _SIM_SKIPPED_LAUNCH_FILES:
                 kept.append(dict(e, args=dict(e.get('args', {}))))
         out[name] = kept
@@ -677,6 +695,15 @@ class ComponentSupervisorNode(Node):
             self.declare_parameter('localization_calibration_wait_timeout_sec', 180.0).value)
         # Sim mode -- see the module docstring's "Sim mode" paragraph.
         self.sim = bool(self.declare_parameter('sim', False).value)
+        # Sim only: forwarded to sim_camera_tf.launch.py -> camera_pan.launch.py
+        # (apply_sim_mode). The controller validates them; at runtime use
+        # `ros2 param set /camera_pan_controller_node ...` instead.
+        self.camera_args = sim_camera_args(
+            self.declare_parameter('camera_pan_mode', 'track_heading').value,
+            # dynamic_typing: camera_pan_fixed_angle_rad:=0 arrives as an int.
+            self.declare_parameter('camera_pan_fixed_angle_rad', 0.0,
+                                   ParameterDescriptor(dynamic_typing=True)).value,
+            bool(self.declare_parameter('camera_pan_track_when_stopped', False).value))
         # Topic-liveness watchdog -- see the module docstring's paragraph.
         # 'enforce': each component's configured action; 'alert': report
         # only, never restart (measurement runs); 'disabled': not run at all.
@@ -728,11 +755,12 @@ class ComponentSupervisorNode(Node):
         # calibration/deferred-start logic, with no rclpy context needed. Must
         # run before anything reads or launches from self._registry.
         if self.sim:
-            self._registry = apply_sim_mode(self._registry)
+            self._registry = apply_sim_mode(self._registry, self.camera_args)
             self.get_logger().warn(
                 '[component_supervisor] SIM MODE: hardware drivers not started '
                 f'({sorted(f for _, f in _SIM_SKIPPED_LAUNCH_FILES)}), every '
-                'component on use_sim_time, /clock expected from the simulator.')
+                'component on use_sim_time, /clock expected from the simulator. '
+                f'Camera pan: {self.camera_args}.')
         else:
             self._apply_calibration_override()
 

@@ -8,6 +8,9 @@
 # Usage:
 #   scripts/sim/sim_stack.sh                       # sim mode, intelligence on, watchdog alert
 #   scripts/sim/sim_stack.sh health_watchdog:=enforce
+#   scripts/sim/sim_stack.sh camera_pan_track_when_stopped:=true   # pan follows steering when parked
+#       (also camera_pan_mode:=fixed camera_pan_fixed_angle_rad:=0.2; all three are
+#        dynamic: ros2 param set /camera_pan_controller_node <mode|fixed_angle_rad|track_when_stopped> ...)
 #   scripts/sim/sim_stack.sh --clean               # kill_ros2.py -y first (clean slate), then launch
 #   scripts/sim/sim_stack.sh --dry-run             # print the env + command, launch nothing
 # Any ros2-launch arg for supervisor_bringup.launch.py is passed through and, if
@@ -27,7 +30,7 @@ while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --clean)   CLEAN=true ;;
     --dry-run) DRY=true ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
