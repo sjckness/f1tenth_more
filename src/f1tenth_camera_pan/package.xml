@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_camera_pan</name>
+  <version>0.1.0</version>
+  <description>
+    Motorized pan (yaw) for the ZED 2i. Hardware-agnostic: a controller computes
+    where to look (aim law) and publishes a pan command; the sim and the future
+    real servo driver consume the command and report the measured angle; a TF
+    publisher drives base_link -> zed2_camera_link from the MEASURED angle so
+    perception stays correct while the camera moves. This package is the
+    hardware-abstraction home: the real-servo driver will live here next to the
+    controller it already speaks to.
+  </description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <!-- aim-law params live in stack_params.yaml, read via f1tenth_params -->
+  <exec_depend>f1tenth_params</exec_depend>
+  <!-- launch can IncludeLaunchDescription / run nodes -->
+  <exec_depend>ros2launch</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

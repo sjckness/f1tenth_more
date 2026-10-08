@@ -201,24 +201,32 @@ class SweptClearanceNode(Node):
     def _depth_info_cb(self, msg):
         self._depth_info = msg
 
-    def _transform_for(self, frame_id):
-        cached = self._transforms.get(frame_id)
-        if cached is not None:
-            return cached
+    def _transform_for(self, frame_id, stamp=None):
+        # The LiDAR mount is static -> cache it (stamp=None). The camera chain
+        # crosses the camera pan joint (dynamic, f1tenth_camera_pan), so the
+        # depth path passes its message stamp: look up at THAT time and never
+        # cache -- a cached (or latest-available) moving transform is silently
+        # wrong, projecting depth onto the wrong base_link ray as the camera pans.
+        if stamp is None:
+            cached = self._transforms.get(frame_id)
+            if cached is not None:
+                return cached
+        lookup_time = Time.from_msg(stamp) if stamp is not None else Time()
         try:
-            stamped = self._tf_buffer.lookup_transform(self.base_frame, frame_id, Time())
+            stamped = self._tf_buffer.lookup_transform(self.base_frame, frame_id, lookup_time)
         except TransformException:
             self.get_logger().warn(
-                f'no {self.base_frame} <- {frame_id!r} transform on /tf_static yet; '
+                f'no {self.base_frame} <- {frame_id!r} transform yet; '
                 'skipping this sensor until it arrives', throttle_duration_sec=5.0)
             return None
         t = stamped.transform
         rotation = quaternion_to_rotation(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w)
         translation = np.array([t.translation.x, t.translation.y, t.translation.z])
-        self._transforms[frame_id] = (rotation, translation)
-        self.get_logger().info(
-            f'{self.base_frame} <- {frame_id}: t=({translation[0]:.3f}, {translation[1]:.3f}, '
-            f'{translation[2]:.3f}) m')
+        if stamp is None:
+            self._transforms[frame_id] = (rotation, translation)
+            self.get_logger().info(
+                f'{self.base_frame} <- {frame_id}: t=({translation[0]:.3f}, '
+                f'{translation[1]:.3f}, {translation[2]:.3f}) m (static, cached)')
         return rotation, translation
 
     # ---- the one clearance computation both sensors share ------------------
@@ -252,7 +260,8 @@ class SweptClearanceNode(Node):
                 f'no camera_info on {self.depth_info_topic} yet; skipping depth',
                 throttle_duration_sec=5.0)
             return
-        transform = self._transform_for(msg.header.frame_id or info.header.frame_id)
+        transform = self._transform_for(
+            msg.header.frame_id or info.header.frame_id, stamp=msg.header.stamp)
         if transform is None:
             return
         depth = depth_image_to_metres(msg)

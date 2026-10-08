@@ -538,6 +538,46 @@ lidar_front_wall_seed_max_valid_m:
 swept_clearance_wheelbase_m:
   default: 0.305
   description: "Wheelbase [m] for kappa = tan(delta) / L. The MPC model's L (MPC_corr.py) and vesc.yaml's 'about 30.5 cm'; the URDF says 0.325 and the F1TENTH spec 0.3302 -- unmeasured on this car (docs/DIAGNOSTICS.md)."
+
+# ===== Camera pan (f1tenth_camera_pan: aim law -> /camera_pan/command) =====
+# Machine-agnostic tuning for camera_pan_controller_node's 'track_heading' aim
+# law (f1tenth_camera_pan/aim_law.py). The camera pivot xyz is per-machine and
+# is a LAUNCH param (sim: sim_sensor_mounts.yaml camera_pan_pivot; car: a
+# camera.launch.py param), NOT here. The tan(delta)/L fallback reuses
+# swept_clearance_wheelbase_m above (one L, not a fourth).
+camera_pan_max_rad:
+  default: 0.2618
+  description: "Hard clamp on the pan angle [rad], +-15 deg. MUST equal the URDF revolute joint limit (sensors.xacro) and the real servo range -- changing one without the other lies between command and mechanism."
+camera_pan_lookahead_s:
+  default: 0.6
+  description: "Look-ahead time [s]; the aim point is s = |v| * this along the travel arc (clamped to min/max below). Larger looks further into the turn, smoother but leads more."
+camera_pan_lookahead_min_m:
+  default: 0.5
+  description: "Minimum look-ahead arc length [m], so at crawl speed the aim point is still a real distance ahead (not ~0, which makes the bearing ill-conditioned)."
+camera_pan_lookahead_max_m:
+  default: 4.0
+  description: "Maximum look-ahead arc length [m], so at speed the aim point does not run past the useful detection range."
+camera_pan_v_curv_min_mps:
+  default: 0.5
+  description: "Below |v| [m/s] this, measured curvature omega_z/v is untrustworthy (noisy / small-v divide), so the aim law uses tan(delta)/L only (blend weight 0)."
+camera_pan_v_curv_full_mps:
+  default: 1.2
+  description: "At/above |v| [m/s] this, the aim law trusts measured omega_z/v fully (blend weight 1). Smoothstep between v_curv_min and this -- no hard switch."
+camera_pan_v_stop_mps:
+  default: 0.1
+  description: "Below |v| [m/s] this the car is 'stopped' and the camera returns to 0 (straight ahead). Also the reverse threshold magnitude."
+camera_pan_reverse_aims_zero:
+  default: true
+  description: "If true, reversing (v < -v_stop) returns the camera to 0 rather than aiming at a look-ahead arc behind the car."
+camera_pan_deadband_rad:
+  default: 0.005
+  description: "PanSmoother deadband [rad]: ignore target changes smaller than this so the image does not dither around a near-constant aim."
+camera_pan_lowpass_tau_s:
+  default: 0.15
+  description: "PanSmoother first-order low-pass time constant [s] on the command (0 disables). Smooths the aim; the servo speed limit then caps the measured angle."
+camera_pan_cmd_rate_max_radps:
+  default: 3.0
+  description: "PanSmoother slew-rate limit [rad/s] on the COMMAND. Below the servo's physical speed limit (sim camera_pan joint velocity ~6 rad/s) so the measured angle lags the command and the TF-from-measured path is genuinely exercised."
 swept_clearance_body_front_x_m:
   default: 0.443
   description: "Front bumper x [m] from the rear axle. Straight-ahead clearance is the gap to this. URDF chassis mesh bounds."

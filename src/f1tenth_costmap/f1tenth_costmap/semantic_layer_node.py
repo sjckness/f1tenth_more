@@ -331,8 +331,12 @@ class SemanticLayerNode(Node):
             return
 
         try:
+            # Camera frame -> base_link crosses the camera pan joint (dynamic,
+            # f1tenth_camera_pan), so look up at the detection's OWN stamp, never
+            # latest-available: with a moving camera, latest is silently wrong.
             cam_to_base = self.tf_buffer.lookup_transform(
-                self.base_frame, msg.header.frame_id, rclpy.time.Time())
+                self.base_frame, msg.header.frame_id,
+                rclpy.time.Time.from_msg(msg.header.stamp))
         except (LookupException, ConnectivityException, ExtrapolationException) as exc:
             self.get_logger().warn(
                 f'tf2 lookup "{msg.header.frame_id}" -> "{self.base_frame}" failed: '
