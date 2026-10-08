@@ -44,7 +44,9 @@ import os
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.substitutions import Command
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -59,20 +61,33 @@ def generate_launch_description():
     xacro_path = os.path.join(
         get_package_share_directory('zed_wrapper'), 'urdf', 'zed_descr.urdf.xacro')
 
-    # Single source of truth for the SIM camera mount (sensors.xacro reads the
-    # same file; the car's camera.launch.py keeps its own 0.12 0 0.15).
+    # Single source of truth for the SIM camera mount / pan pivot (sensors.xacro
+    # reads the same file; the car's camera.launch.py keeps its own 0.12 0 0.15).
     mounts = yaml.safe_load(open(os.path.join(
         get_package_share_directory('f1tenth_description'),
         'config', 'sim_sensor_mounts.yaml')))
-    zed_xyz = [str(v) for v in mounts['zed2_camera_link']['xyz']]
+    pivot = [str(v) for v in mounts['camera_pan_pivot']['xyz']]
+
+    camera_pan_share = get_package_share_directory('f1tenth_camera_pan')
 
     return LaunchDescription([
-        Node(
-            package='tf2_ros',
-            executable='static_transform_publisher',
-            name='static_baselink_to_zed2',
-            arguments=[*zed_xyz, '0.0', '0.0', '0.0',
-                       'base_link', 'zed2_camera_link'],
+        # Pass-throughs so a test can toggle the pan behaviour without editing.
+        DeclareLaunchArgument('camera_pan_mode', default_value='track_heading'),
+        DeclareLaunchArgument('camera_pan_track_when_stopped', default_value='false'),
+        # base_link -> camera_pan_base -> zed2_camera_link from the MEASURED pan
+        # angle (replaces the old static base_link->zed2_camera_link). The pivot
+        # is the sim mount, so pan=0 is the old transform exactly.
+        IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(camera_pan_share, 'launch', 'camera_pan.launch.py')),
+            launch_arguments={
+                'mode': LaunchConfiguration('camera_pan_mode'),
+                'track_when_stopped': LaunchConfiguration('camera_pan_track_when_stopped'),
+                'pivot_x_m': pivot[0],
+                'pivot_y_m': pivot[1],
+                'pivot_z_m': pivot[2],
+                'use_sim_time': 'true',
+            }.items(),
         ),
         # Decompressors: compressed topics off the LAN -> canonical raw topics.
         Node(

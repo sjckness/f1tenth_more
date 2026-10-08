@@ -291,6 +291,30 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True, 'wheelbase': 0.3302}],
     )
 
+    # --- 6b) camera pan (sim side): only when the camera renders ------------
+    # The pan position controller drives camera_pan_joint; the bridge adapts the
+    # hardware-agnostic topics (/camera_pan/command, /camera_pan/joint_state) to
+    # it, the way the real Pico driver will on the car. The stack's
+    # camera_pan_controller + camera_pan_tf_node run on the Thor
+    # (sim_camera_tf.launch.py), so nothing here owns the pan TF.
+    camera_pan_spawner = Node(
+        package='controller_manager',
+        executable='spawner',
+        output='screen',
+        arguments=['camera_pan_position_controller',
+                   '--controller-manager', '/controller_manager',
+                   '--param-file', controllers_file],
+        condition=IfCondition(camera),
+    )
+    camera_pan_bridge = Node(
+        package='f1tenth_sim',
+        executable='camera_pan_bridge',
+        name='f1tenth_sim_camera_pan_bridge',
+        output='screen',
+        parameters=[{'use_sim_time': True}],
+        condition=IfCondition(camera),
+    )
+
     # --- 7) foxglove (optional) ---------------------------------------------
     foxglove_node = Node(
         package='foxglove_bridge',
@@ -313,6 +337,7 @@ def generate_launch_description():
         depth_compressor,
         spawn_entity,
         drive_bridge,
+        camera_pan_bridge,
         foxglove_node,
         # create exits once the model is in the world, and the plugin's
         # controller_manager comes up with it; the spawner then waits for the
@@ -321,4 +346,8 @@ def generate_launch_description():
             target_action=spawn_entity, on_exit=[jsb_spawner])),
         RegisterEventHandler(OnProcessExit(
             target_action=jsb_spawner, on_exit=[ackermann_spawner])),
+        # camera_pan_position_controller after ackermann (camera:=true only; the
+        # spawner Node carries its own IfCondition, so this is a no-op otherwise).
+        RegisterEventHandler(OnProcessExit(
+            target_action=ackermann_spawner, on_exit=[camera_pan_spawner])),
     ])

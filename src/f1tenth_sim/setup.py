@@ -41,6 +41,9 @@ setup(
             # Gazebo's 1 kHz clock (/sim/clock_raw) -> /clock at clock_rate,
             # so /clock does not flood the LAN (see clock_throttle.py).
             'clock_throttle = f1tenth_sim.clock_throttle:main',
+            # /camera_pan/command -> the pan position controller; the gz joint
+            # state -> /camera_pan/joint_state (see camera_pan_bridge.py).
+            'camera_pan_bridge = f1tenth_sim.camera_pan_bridge:main',
         ],
     },
 )
