@@ -53,6 +53,8 @@ class CameraPanController(Node):
             v_curv_full_mps=float(get_value('camera_pan_v_curv_full_mps')),
             v_stop_mps=float(get_value('camera_pan_v_stop_mps')),
             reverse_aims_zero=bool(get_value('camera_pan_reverse_aims_zero')),
+            track_when_stopped=bool(
+                self.declare_parameter('track_when_stopped', False).value),
         )
         self.smoother = PanSmoother(
             deadband_rad=float(get_value('camera_pan_deadband_rad')),

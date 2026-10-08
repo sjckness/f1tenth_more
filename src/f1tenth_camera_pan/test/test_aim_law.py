@@ -54,6 +54,27 @@ def test_reverse_aims_zero():
     assert aim_pan(-1.0, 0.0, 0.3, P) == 0.0
 
 
+def test_track_when_stopped_follows_steering():
+    p = AimParams(track_when_stopped=True)
+    assert aim_pan(0.0, 0.0, 0.3, p) > 0.0        # parked, steer left -> pan left
+    assert aim_pan(0.0, 0.0, -0.3, p) < 0.0       # steer right -> pan right
+    assert aim_pan(0.0, 0.0, 0.0, p) == pytest.approx(0.0)   # centred -> 0
+
+
+def test_track_when_stopped_is_clamped():
+    p = AimParams(track_when_stopped=True)
+    assert aim_pan(0.0, 0.0, 0.4, p) == pytest.approx(p.max_pan_rad, abs=1e-9)
+
+
+def test_track_when_stopped_reverse_still_zero():
+    p = AimParams(track_when_stopped=True)
+    assert aim_pan(-1.0, 0.0, 0.3, p) == 0.0      # reversing -> 0 even so
+
+
+def test_default_stopped_ignores_steering():
+    assert aim_pan(0.0, 0.0, 0.3, P) == 0.0       # track_when_stopped off (default)
+
+
 def test_curvature_kappa_zero_limit_is_a_straight_line():
     # lookahead point is continuous as kappa -> 0 (series form, no div0)
     for k in (1e-3, 1e-6, 1e-9, 0.0):

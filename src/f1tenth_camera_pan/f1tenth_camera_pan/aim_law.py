@@ -58,6 +58,7 @@ class AimParams:
     v_curv_full_mps: float = 1.2        # at/above |v| this, trust measured omega_z/v fully
     v_stop_mps: float = 0.1             # |v| below this = stopped -> aim 0
     reverse_aims_zero: bool = True      # v < -v_stop (reversing) -> aim 0
+    track_when_stopped: bool = False    # stopped -> follow steering (tan(d)/L, s_min), not 0
 
 
 _EPS = 1e-6
@@ -110,10 +111,18 @@ def aim_pan(v: float, omega_z: float, delta: float, p: AimParams) -> float:
     """Return the raw desired pan angle [rad], clamped to +-max_pan.
 
     Pure function of the instantaneous state (no history -- PanSmoother owns the
-    temporal part). Stopped or reversing -> 0 (look straight ahead).
+    temporal part). Stopped or reversing -> 0 (look straight ahead), UNLESS
+    track_when_stopped is set, in which case a stopped car follows its steering
+    (tan(delta)/L at the minimum look-ahead) so you can see where it would go
+    while parked. Reversing still returns 0 either way.
     """
     if abs(v) < p.v_stop_mps:
-        return 0.0
+        if not p.track_when_stopped:
+            return 0.0
+        kappa = math.tan(delta) / p.wheelbase_m
+        px, py = lookahead_point(kappa, p.s_min_m)
+        pan = math.atan2(py - p.pivot_y_m, px - p.pivot_x_m)
+        return min(p.max_pan_rad, max(-p.max_pan_rad, pan))
     if p.reverse_aims_zero and v < -p.v_stop_mps:
         return 0.0
     s = min(p.s_max_m, max(p.s_min_m, abs(v) * p.t_lookahead_s))

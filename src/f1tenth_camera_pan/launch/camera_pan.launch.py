@@ -28,6 +28,8 @@ def generate_launch_description():
         DeclareLaunchArgument('mode', default_value='track_heading',
                               description='track_heading | fixed | scan (reserved)'),
         DeclareLaunchArgument('fixed_angle_rad', default_value='0.0'),
+        DeclareLaunchArgument('track_when_stopped', default_value='false',
+                              description='stopped -> follow steering instead of 0'),
         DeclareLaunchArgument('pivot_x_m', default_value='0.12'),   # car default
         DeclareLaunchArgument('pivot_y_m', default_value='0.0'),
         DeclareLaunchArgument('pivot_z_m', default_value='0.15'),   # car default
@@ -42,6 +44,7 @@ def generate_launch_description():
         parameters=[{
             'mode': mode,
             'fixed_angle_rad': LaunchConfiguration('fixed_angle_rad'),
+            'track_when_stopped': LaunchConfiguration('track_when_stopped'),
             'pivot_x_m': pivot_x,
             'pivot_y_m': pivot_y,
             'use_sim_time': use_sim_time,
