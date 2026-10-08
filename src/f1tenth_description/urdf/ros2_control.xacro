@@ -67,6 +67,22 @@
       <state_interface name="velocity"/>
       <state_interface name="effort"/>
     </joint>
+
+    <!-- Camera pan: position command, driven by camera_pan_position_controller
+         (controllers.yaml) from the sim pan bridge. Only present when the camera
+         renders (enable_camera_mock), matching the revolute camera_pan_joint in
+         sensors.xacro; otherwise ros2_control would reference a joint that is
+         not in the URDF. The joint_state_broadcaster reports its measured
+         position on /sim/joint_states, which the bridge relays to
+         /camera_pan/joint_state. Servo speed is the joint's URDF velocity limit
+         (~6 rad/s), so the measured angle lags the command. -->
+    <xacro:if value="$(arg enable_camera_mock)">
+      <joint name="camera_pan_joint">
+        <command_interface name="position"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+    </xacro:if>
   </ros2_control>
 
   <xacro:if value="$(arg use_sim)">

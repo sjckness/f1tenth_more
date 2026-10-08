@@ -21,3 +21,11 @@ laser:
   xyz: [0.40, 0.0, 0.155]
 zed2_camera_link:
   xyz: [0.36, 0.0, 0.25]
+# Camera pan pivot: base_link -> camera_pan_base (fixed, this xyz) ->
+# zed2_camera_link (revolute about z). Equal to zed2_camera_link above BY DESIGN
+# -- the revolute joint has zero translation, so at pan=0 the camera link lands
+# exactly where the old fixed mount put it (pan=0 is bit-identical to today).
+# sensors.xacro uses this for the pivot joint; sim_camera_tf.launch.py passes it
+# to camera_pan_tf_node so the stack's TF pivot matches the sim's.
+camera_pan_pivot:
+  xyz: [0.36, 0.0, 0.25]

@@ -184,11 +184,17 @@ def test_urdf_sim_mounts_equal_the_sim_sensor_mounts_yaml(sim_mounts):
     # The simulated LiDAR/ZED links (sensors.xacro) must render from exactly the
     # yaml pose -- sensors.xacro loads the same file, this proves it round-trips.
     assert _urdf_joint_xyz('laser_joint') == pytest.approx(sim_mounts['laser']['xyz'])
-    assert _urdf_joint_xyz('zed2_camera_joint') == pytest.approx(
-        sim_mounts['zed2_camera_link']['xyz'])
+    # Camera mount is now a pan: base_link -> camera_pan_base (fixed, the pivot)
+    # -> zed2_camera_link (revolute, zero translation). pan=0 identity requires
+    # the pivot = the old mount and the revolute origin at 0.
+    assert _urdf_joint_xyz('camera_pan_base_joint') == pytest.approx(
+        sim_mounts['camera_pan_pivot']['xyz'])
+    assert _urdf_joint_xyz('camera_pan_joint') == pytest.approx([0.0, 0.0, 0.0])
     # The new mounts, pinned so an accidental edit to either side is caught.
     assert sim_mounts['laser']['xyz'] == [0.40, 0.0, 0.155]
-    assert sim_mounts['zed2_camera_link']['xyz'] == [0.36, 0.0, 0.25]
+    assert sim_mounts['camera_pan_pivot']['xyz'] == [0.36, 0.0, 0.25]
+    # pan=0 is bit-identical to the old fixed mount: pivot == old zed2_camera_link.
+    assert sim_mounts['camera_pan_pivot']['xyz'] == sim_mounts['zed2_camera_link']['xyz']
 
 
 @pytest.mark.parametrize('launch, node, xyz, child', [
@@ -208,39 +214,59 @@ def test_cars_static_sensor_tfs_are_unchanged(launch, node, xyz, child):
 
 
 def test_lidar_housing_is_outside_the_zed_vertical_fov(sim_mounts):
-    # The simulated LiDAR must not obscure the camera: its housing (hokuyo.stl,
-    # 50x50x70 mm centred on `laser`) has to sit below the ZED left lens's lower
-    # vertical-FOV edge. Camera faces +x, level; vertical FOV from the pinhole
-    # image size and horizontal FOV in sensors.xacro.
+    # The simulated LiDAR must not obscure the camera ACROSS THE WHOLE PAN RANGE:
+    # its housing (hokuyo.stl, 50x50x70 mm centred on `laser`) must stay below
+    # the ZED left lens's lower vertical-FOV edge for every pan angle in
+    # +-pan_limit. The pan is a yaw about z at the pivot, so the lens position
+    # rotates with it; a point's elevation below the (horizontal) optical axis
+    # must stay outside the half-VFOV. Camera level; FOV from sensors.xacro.
     props = _xacro_properties('sensors.xacro')
     w, h, hfov = (float(props['zed_width']), float(props['zed_height_px']),
                   float(props['zed_hfov']))
     half_vfov = math.atan(math.tan(hfov / 2) * h / w)       # ~34.3 deg
+    pan_limit = float(props['pan_limit'])                   # +-15 deg
 
-    # Left lens relative to the zed2_camera_link mount (zed_macro geometry:
-    # optical_offset_x -0.01, baseline/2 +0.06, mount->centre +0.015).
-    zed = sim_mounts['zed2_camera_link']['xyz']
-    lens = (zed[0] - 0.01, zed[1] + 0.06, zed[2] + 0.015)
+    # The pan pivot and the left lens offset from it (zed_macro geometry:
+    # optical_offset_x -0.01, baseline/2 +0.06, mount->centre +0.015). At pan=0
+    # the pivot == the old mount, so the lens is where it has always been.
+    pivot = sim_mounts['camera_pan_pivot']['xyz']
+    lens_off = (-0.01, 0.06, 0.015)
     laser = sim_mounts['laser']['xyz']
     half = (0.050 / 2, 0.050 / 2, 0.070 / 2)
 
-    below_angles = []
-    for sx in (-1, 1):
-        for sz in (-1, 1):
-            corner_x = laser[0] + sx * half[0]
-            corner_z = laser[2] + sz * half[2]
-            forward = corner_x - lens[0]          # along the optical axis (+x)
-            assert forward > 0, 'LiDAR housing must be ahead of the lens'
-            down = lens[2] - corner_z             # how far below the axis
-            below_angles.append(math.atan2(down, forward))
+    def _min_below_for_pan(theta):
+        c, s = math.cos(theta), math.sin(theta)
+        # lens position after yawing the offset about z at the pivot
+        lx = pivot[0] + c * lens_off[0] - s * lens_off[1]
+        ly = pivot[1] + s * lens_off[0] + c * lens_off[1]
+        lz = pivot[2] + lens_off[2]
+        angs = []
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                for sz in (-1, 1):
+                    cx = laser[0] + sx * half[0]
+                    cy = laser[1] + sy * half[1]
+                    cz = laser[2] + sz * half[2]
+                    # component along the panned optical axis (cos,sin,0)
+                    fwd = (cx - lx) * c + (cy - ly) * s
+                    if fwd <= 0:
+                        continue                      # behind the lens -> not in frame
+                    down = lz - cz                    # below the (horizontal) axis
+                    angs.append(math.atan2(down, fwd))
+        return min(angs) if angs else math.pi / 2
 
-    # Every corner is below the lower FOV edge -> the housing never enters frame.
-    min_below = min(below_angles)
-    assert min_below > half_vfov, (
-        f'LiDAR housing only {math.degrees(min_below):.1f} deg below the lens, '
-        f'inside the {math.degrees(half_vfov):.1f} deg half-VFOV')
-    # Design intent: ~45 deg below (comfortably clear of the 34.3 deg edge).
-    assert math.degrees(min_below) >= 44.0
+    # Sweep the whole range; worst case is pan=0 (yaw shrinks the forward
+    # component -> larger below-angle), but the lens also shifts, so check it.
+    sweep = [(-pan_limit + i * (2 * pan_limit) / 20) for i in range(21)]
+    worst = min(_min_below_for_pan(t) for t in sweep)
+    assert worst > half_vfov, (
+        f'LiDAR housing only {math.degrees(worst):.1f} deg below the lens over '
+        f'+-{math.degrees(pan_limit):.1f} deg pan, inside the '
+        f'{math.degrees(half_vfov):.1f} deg half-VFOV')
+    # Design intent: comfortably clear across the full pan range. The +-15 deg
+    # sweep over all 8 housing corners tightens the worst case to ~43.4 deg (was
+    # ~45 deg at pan=0, x/z corners only) -- still ~9 deg below the 34.3 deg edge.
+    assert math.degrees(worst) >= 43.0
 
 
 def test_sim_zed_is_a_zed2i_named_zed2_like_camera_launch():

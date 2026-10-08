@@ -42,6 +42,12 @@
   <xacro:property name="imu_xyz"   value="0.0 0.0 0.0" />     <!-- identity, like the car -->
   <xacro:property name="zed_xyz"
                   value="${sim_mounts['zed2_camera_link']['xyz'][0]} ${sim_mounts['zed2_camera_link']['xyz'][1]} ${sim_mounts['zed2_camera_link']['xyz'][2]}" />
+  <!-- Camera pan pivot (= zed_xyz by design, so pan=0 is identical to the old
+       fixed mount) and the revolute joint limits: +-15 deg, ~6 rad/s servo. -->
+  <xacro:property name="pan_pivot_xyz"
+                  value="${sim_mounts['camera_pan_pivot']['xyz'][0]} ${sim_mounts['camera_pan_pivot']['xyz'][1]} ${sim_mounts['camera_pan_pivot']['xyz'][2]}" />
+  <xacro:property name="pan_limit"    value="0.2618" />   <!-- +-15 deg [rad] -->
+  <xacro:property name="pan_velocity" value="6.0" />      <!-- servo speed limit [rad/s] -->
 
   <!-- ===== ZED 2i internal geometry: zed_macro.urdf.xacro, model zed2i
        (zed-ros2-wrapper v5.4.1, the submodule's pinned commit 86171bc) ===== -->
@@ -143,13 +149,41 @@
     <!-- Same links, joints and names as the wrapper's zed_macro for
          camera_name zed2 / camera_model zed2i, so the sim tree is the car's. -->
 
-    <!-- Mounting point (the threaded hole under the camera) -->
-    <link name="zed2_camera_link"/>
-    <joint name="zed2_camera_joint" type="fixed">
-      <parent link="base_link"/>
-      <child link="zed2_camera_link"/>
-      <origin xyz="${zed_xyz}" rpy="0 0 0"/>
-    </joint>
+    <!-- Camera mount. With the camera rendering (enable_camera_mock) it is a
+         PAN joint: base_link -> camera_pan_base (fixed, the pivot) ->
+         zed2_camera_link (revolute about z = the pan angle). At pan=0 this is
+         the old fixed base_link->zed2_camera_link (pivot = the old mount, zero
+         translation on the revolute), so pan=0 is bit-identical to before. The
+         whole ZED subtree below zed2_camera_link (incl. the gz camera sensors)
+         rotates with the joint, so the rendered image pans; the measured joint
+         angle drives the stack's TF via camera_pan_tf_node. SIM ONLY: on the
+         car the pan is the Pico servo. With the camera off, the mount stays the
+         original single fixed joint (no free revolute to flop). -->
+    <xacro:if value="$(arg enable_camera_mock)">
+      <link name="camera_pan_base"/>
+      <joint name="camera_pan_base_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="camera_pan_base"/>
+        <origin xyz="${pan_pivot_xyz}" rpy="0 0 0"/>
+      </joint>
+      <link name="zed2_camera_link"/>
+      <joint name="camera_pan_joint" type="revolute">
+        <parent link="camera_pan_base"/>
+        <child link="zed2_camera_link"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <axis xyz="0 0 1"/>
+        <limit lower="${-pan_limit}" upper="${pan_limit}" effort="5.0" velocity="${pan_velocity}"/>
+        <dynamics damping="0.05" friction="0.0"/>
+      </joint>
+    </xacro:if>
+    <xacro:unless value="$(arg enable_camera_mock)">
+      <link name="zed2_camera_link"/>
+      <joint name="zed2_camera_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="zed2_camera_link"/>
+        <origin xyz="${zed_xyz}" rpy="0 0 0"/>
+      </joint>
+    </xacro:unless>
 
     <link name="zed2_camera_center">
       <inertial><xacro:sensor_inertial_params /></inertial>
