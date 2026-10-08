@@ -9,6 +9,7 @@ import math
 from f1tenth_camera_pan.frames import (
     base_to_pan_base,
     compose_base_to_camera,
+    joint_state_is_fresh,
     pan_base_to_camera,
     rotate_point_to_base,
     yaw_to_quat,
@@ -68,3 +69,27 @@ def test_max_pan_rotation_magnitude():
     # yaw recovered from quaternion z,w
     yaw = 2.0 * math.atan2(quat[2], quat[3])
     assert yaw == pytest.approx(MAX_PAN)
+
+
+class TestJointStateFreshness:
+    """A2: the pan TF is published only while the measurement is fresh."""
+
+    S = 10 ** 9                      # 1 s in ns
+    MAX_STALE = int(0.2 * S)         # default 0.2 s
+
+    def test_recent_is_fresh(self):
+        now = 100 * self.S
+        assert joint_state_is_fresh(now, now - int(0.1 * self.S), self.MAX_STALE)
+
+    def test_exactly_at_threshold_is_fresh(self):
+        now = 100 * self.S
+        assert joint_state_is_fresh(now, now - self.MAX_STALE, self.MAX_STALE)
+
+    def test_too_old_is_stale(self):
+        now = 100 * self.S
+        assert not joint_state_is_fresh(now, now - int(0.3 * self.S), self.MAX_STALE)
+
+    def test_future_stamp_counts_as_fresh(self):
+        # clock skew: a stamp slightly in the future is not "stale"
+        now = 100 * self.S
+        assert joint_state_is_fresh(now, now + int(0.05 * self.S), self.MAX_STALE)

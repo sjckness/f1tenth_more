@@ -50,6 +50,17 @@ def compose_base_to_camera(pivot_xyz, yaw):
     return (tuple(float(v) for v in pivot_xyz), yaw_to_quat(yaw))
 
 
+def joint_state_is_fresh(now_ns, stamp_ns, max_stale_ns):
+    """Return True if a measurement stamped stamp_ns is still fresh at now_ns.
+
+    Older than max_stale_ns -> stale; camera_pan_tf_node then STOPS publishing
+    the pan TF rather than re-stamping an old angle (A2), so a stuck/laggy servo
+    makes the TF disappear (fail-safe) instead of lying about where the camera
+    points. A future stamp (clock skew) counts as fresh.
+    """
+    return (now_ns - stamp_ns) <= max_stale_ns
+
+
 def rotate_point_to_base(pivot_xyz, yaw, point_in_camera):
     """Map a point expressed in zed2_camera_link into base_link.
 

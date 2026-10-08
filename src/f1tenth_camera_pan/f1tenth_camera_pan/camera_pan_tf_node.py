@@ -22,6 +22,7 @@ the end of the buffer.
 from f1tenth_camera_pan.frames import (
     base_to_pan_base,
     CAMERA_FRAME,
+    joint_state_is_fresh,
     PAN_BASE_FRAME,
     pan_base_to_camera,
 )
@@ -29,6 +30,7 @@ from geometry_msgs.msg import TransformStamped
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
+from rclpy.time import Time
 from sensor_msgs.msg import JointState
 from tf2_ros import StaticTransformBroadcaster, TransformBroadcaster
 
@@ -55,7 +57,14 @@ class CameraPanTf(Node):
             float(self.declare_parameter('pivot_z_m', 0.25).value),
         )
         self.joint_name = self.declare_parameter('joint_name', 'camera_pan_joint').value
-        republish_hz = float(self.declare_parameter('republish_rate_hz', 50.0).value)
+        # A2: never re-stamp an old angle. The dynamic TF is published ONLY when
+        # a measurement arrives, with that measurement's OWN stamp, and only if
+        # it is fresher than this. A stuck/laggy servo -> no new TF -> the TF
+        # goes stale and lookups fail (A1 never falls back to latest) rather than
+        # the camera TF silently lying. There is deliberately NO watchdog
+        # re-broadcast (that would re-stamp an old angle).
+        self.max_stale_ns = int(
+            float(self.declare_parameter('max_joint_state_age_s', 0.2).value) * 1e9)
 
         self._static_bc = StaticTransformBroadcaster(self)
         self._bc = TransformBroadcaster(self)
@@ -64,15 +73,12 @@ class CameraPanTf(Node):
         self._static_bc.sendTransform(
             _to_msg(base_to_pan_base(pivot), self.get_clock().now().to_msg()))
 
-        self._yaw = 0.0
-        self._last_stamp = None
         self.create_subscription(JointState, '/camera_pan/joint_state',
                                  self._on_joint_state, qos_profile_sensor_data)
-        # watchdog: keep the dynamic TF fresh if the servo stream pauses.
-        self.create_timer(1.0 / republish_hz, self._republish)
         self.get_logger().info(
             f'camera_pan_tf up: base_link -> {PAN_BASE_FRAME} (pivot {pivot}) -> '
-            f'{CAMERA_FRAME} from measured "{self.joint_name}".')
+            f'{CAMERA_FRAME} from measured "{self.joint_name}" '
+            f'(drop if older than {self.max_stale_ns / 1e9:g} s).')
 
     def _on_joint_state(self, msg: JointState):
         yaw = None
@@ -82,18 +88,15 @@ class CameraPanTf(Node):
             yaw = msg.position[0]
         if yaw is None:
             return
-        self._yaw = float(yaw)
-        stamp = msg.header.stamp
-        self._last_stamp = stamp
-        self._bc.sendTransform(_to_msg(pan_base_to_camera(self._yaw), stamp))
-
-    def _republish(self):
-        # Only to bridge gaps; real measurements (with their own stamp) are
-        # preferred. Use "now" so the buffer always has a recent sample.
-        if self._last_stamp is None:
+        now_ns = self.get_clock().now().nanoseconds
+        stamp_ns = Time.from_msg(msg.header.stamp).nanoseconds
+        if not joint_state_is_fresh(now_ns, stamp_ns, self.max_stale_ns):
+            self.get_logger().warn(
+                f'/camera_pan/joint_state is {(now_ns - stamp_ns) / 1e9:.3f} s old '
+                f'(> {self.max_stale_ns / 1e9:g} s) -- not publishing the pan TF',
+                throttle_duration_sec=1.0)
             return
-        self._bc.sendTransform(
-            _to_msg(pan_base_to_camera(self._yaw), self.get_clock().now().to_msg()))
+        self._bc.sendTransform(_to_msg(pan_base_to_camera(float(yaw)), msg.header.stamp))
 
 
 def main():
