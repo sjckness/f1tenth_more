@@ -2410,6 +2410,12 @@ mission_translator_timeout_floor:
 mission_translator_mission_id_prefix:
   default: "llm"
   description: "Prefix of the generated mission_id, which is f'{prefix}_{sha1(canonical_json(intent))[:12]}'. Deterministic on purpose: the same intent yields the same id, so golden tests are stable and a re-issued command is recognisable as the same mission. Never a timestamp."
+mission_translator_wall_default_distance:
+  default: 0.5
+  description: "Wall stop distance [m] (front_clearance stop_condition.distance) when an 'approach the wall' command names none (campaign fix A4, 2026-10-09). Was the module constant WALL_THRESH_DEFAULT_M 2.0, which R009 ran on with nothing in the mission saying so; the mission JSON now carries stop_condition.distance_source (llm / default / default_before_turn). 0.5 is the bottom of the wall guard's allowed range [0.5, 4.0]."
+mission_translator_wall_default_distance_before_turn:
+  default: 3.0
+  description: "Wall stop distance [m] when the next phase is a turn and the command names none: the turn starts where this phase ends, and a 90 deg wall_turn begun 1 m from the wall touched it. Unchanged from the old WALL_THRESH_BEFORE_TURN_M constant; a parameter now."
 mission_translator_post_turn_uses_straight:
   default: true
   description: "Decision D1. true: a straight phase after a turn is emitted as drive.mode 'straight', which is what plan_translate has always done and what missions/wall_turn_then_straight.json exercises. false restores the old workaround (re-emit it as a wall_turn carrying the previous turn's sign and zero magnitude) for the case where a straight move after a turn turns out not to hold its heading on hardware. NOT YET CONFIRMED ON HARDWARE -- wall_turn_then_straight.json has not been run."

@@ -480,6 +480,15 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             self._blocked_record = None
             self._blocked_received = None
             self._move_ros_start = self._ros_now()
+            if move.stop_condition.type == 'front_clearance':
+                # The wall stop's distance and WHO CHOSE IT (A4), once per
+                # move: R009 stopped on a 2.0 m translator default that no
+                # log line named.
+                params = move.stop_condition.params
+                self.node.get_logger().info(
+                    f"[mission] Move '{move.id}': wall stop at "
+                    f"{params.get('distance')} m (distance_source="
+                    f"{params.get('distance_source', 'mission')})")
 
         current_xy = (self.x, self.y) if self.x is not None else None
         if state.move_start_xy is None and current_xy is not None:

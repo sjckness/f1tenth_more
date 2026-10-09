@@ -24,7 +24,8 @@
         "stop_condition": {
           "type": "front_clearance",
           "distance": 2.0,
-          "debounce_ticks": 3
+          "debounce_ticks": 3,
+          "distance_source": "llm"
         },
         "timeout_sec": 80,
         "on_timeout": "abort",

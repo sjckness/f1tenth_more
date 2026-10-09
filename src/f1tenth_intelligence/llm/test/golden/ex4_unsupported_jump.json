@@ -4,8 +4,7 @@
     "plan": [
       {
         "mode": "straight",
-        "guard": "wall",
-        "thresh": 2.0
+        "guard": "wall"
       }
     ],
     "unsupported": [
@@ -14,7 +13,7 @@
   },
   "requires_confirmation": true,
   "mission": {
-    "mission_id": "llm_a5702ecdfae3",
+    "mission_id": "llm_3b74028fd0f3",
     "schema_version": "3.0",
     "moves": [
       {
@@ -25,13 +24,17 @@
         },
         "stop_condition": {
           "type": "front_clearance",
-          "distance": 2.0,
-          "debounce_ticks": 3
+          "distance": 0.5,
+          "debounce_ticks": 3,
+          "distance_source": "default"
         },
         "timeout_sec": 80,
         "on_timeout": "abort",
         "terminal": true
       }
     ]
-  }
+  },
+  "notes": [
+    "fase 1: distanza dal muro non detta, uso 0.5 m"
+  ]
 }
