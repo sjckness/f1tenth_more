@@ -59,9 +59,14 @@ def _write_bag(path):
         '/mission/move_outcome': 'f1tenth_messages/msg/MoveOutcome',
         '/mpc/drive_clamp': 'f1tenth_messages/msg/DriveClamp',
     }
-    for name, type_name in topics.items():
-        writer.create_topic(rosbag2_py.TopicMetadata(
-            name=name, type=type_name, serialization_format='cdr'))
+    for i, (name, type_name) in enumerate(topics.items()):
+        try:  # Jazzy's rosbag2_py requires the topic id; Humble's has none
+            meta = rosbag2_py.TopicMetadata(
+                id=i, name=name, type=type_name, serialization_format='cdr')
+        except TypeError:
+            meta = rosbag2_py.TopicMetadata(
+                name=name, type=type_name, serialization_format='cdr')
+        writer.create_topic(meta)
 
     t = 1_000_000_000
 
