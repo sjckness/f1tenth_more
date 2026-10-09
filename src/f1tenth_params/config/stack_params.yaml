@@ -460,6 +460,37 @@ front_clearance_clearance_exit_m:
 front_clearance_clearance_min_dwell_frames:
   default: 2
   description: "Consecutive agreeing frames required before front_clearance_node commits a front_blocked flip. Untuned starting point."
+# LiDAR WALL CONFIRMATION (campaign fix A4, 2026-10-09). front_clearance_node
+# publishes /perception/front_wall_confirmed = front_distance only when the
+# forward /scan shows a wall-like line at that range (f1tenth_perception/
+# wall_confirm.py), else -1.0; the mission wall stop reads it when
+# wall_stop_require_lidar is true. R009: the stop fired on a person ~1.5 m
+# ahead who had leaked into front_distance. All values UNTUNED on the car.
+front_clearance_wall_confirm_enabled:
+  default: true
+  description: "Compute and publish /perception/front_wall_confirmed (needs /scan and /tf_static for the scan and depth frames)."
+front_clearance_wall_confirm_half_angle_deg:
+  default: 30.0
+  description: "Forward /scan sector [deg, +-] searched for the wall line. Wider than lidar_front_wall's 10: the segment-length test needs the wall's extent, and at 1.5 m a 10 deg sector is only 0.53 m wide."
+front_clearance_wall_confirm_search_window_m:
+  default: 0.6
+  description: "Only returns whose forward coordinate is within this [m] of the camera's wall distance (in base_link) are fitted, so the line found is the surface the camera is talking about."
+front_clearance_wall_confirm_min_inliers:
+  default: 10
+  description: "Minimum returns on the fitted line."
+front_clearance_wall_confirm_min_extent_m:
+  default: 0.8
+  description: "Minimum length [m] of the inlier segment along the line. What separates a wall from a person (legs ~0.3-0.5 m), a plant or a chair."
+front_clearance_wall_confirm_tolerance_m:
+  default: 0.30
+  description: "LiDAR forward intercept vs camera distance (both base_link) must agree within this [m] + front_clearance_wall_confirm_tolerance_frac x distance."
+front_clearance_wall_confirm_tolerance_frac:
+  default: 0.10
+  description: "Distance-proportional part of the camera/LiDAR agreement tolerance (stereo depth error grows with range)."
+# Consumed by f1tenth_behavior's behavior_executor_node (CheckStopCondition).
+wall_stop_require_lidar:
+  default: true
+  description: "The mission's front_clearance (wall) stop reads /perception/front_wall_confirmed instead of /perception/front_distance: it fires only when the camera's wall distance AND the LiDAR agree. When they disagree the stop does not fire; obstacle avoidance, BLOCKED and the move timeout still apply. false = the pre-campaign camera-only stop."
 front_clearance_publish_debug_raw:
   default: false
   description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance) and /perception/debug/bg_pixel_count (the exact wall-latch input), for tuning the filters against a bag. The topics are not created at all when false."

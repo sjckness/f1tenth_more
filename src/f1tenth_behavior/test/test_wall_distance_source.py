@@ -40,3 +40,25 @@ def test_the_field_belongs_to_front_clearance_only():
 def test_it_stays_optional():
     config = parse_mission(_mission({'type': 'front_clearance', 'distance': 0.5}))
     assert 'distance_source' not in config.moves[0].stop_condition.params
+
+
+def _check_stop_condition(root):
+    from f1tenth_behavior.behaviours.check_stop_condition import CheckStopCondition
+    found = [b for b in root.iterate() if isinstance(b, CheckStopCondition)]
+    assert len(found) == 1
+    return found[0]
+
+
+def test_the_wall_stop_reads_the_lidar_confirmed_distance_by_default():
+    """Campaign fix A4: camera AND LiDAR must agree before the wall stop fires."""
+    from f1tenth_behavior.behavior_executor_node import create_root
+    from f1tenth_params.param_defaults import get_value
+    assert get_value('wall_stop_require_lidar') is True
+    check = _check_stop_condition(create_root())
+    assert check._front_clearance_topic == '/perception/front_wall_confirmed'
+
+
+def test_the_camera_only_stop_is_one_parameter_away():
+    from f1tenth_behavior.behavior_executor_node import create_root
+    check = _check_stop_condition(create_root(wall_stop_require_lidar=False))
+    assert check._front_clearance_topic == '/perception/front_distance'

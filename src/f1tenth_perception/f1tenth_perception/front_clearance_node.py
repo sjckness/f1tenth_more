@@ -235,6 +235,7 @@ filter has never held a value at all (nothing published yet this run) --
 i.e. it means "no reading", never "a reading of -1".
 """
 
+import json
 import math
 
 import cv2
@@ -242,12 +243,21 @@ import numpy as np
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
 from rclpy.node import Node
+from rclpy.qos import (
+    DurabilityPolicy, HistoryPolicy, QoSProfile, qos_profile_sensor_data)
+from rclpy.time import Time
 
-from sensor_msgs.msg import Image
-from std_msgs.msg import Bool, Float32
+from sensor_msgs.msg import Image, LaserScan
+from std_msgs.msg import Bool, Float32, String
+from tf2_msgs.msg import TFMessage
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
 from vision_msgs.msg import Detection2DArray
 
 from f1tenth_messages.msg import Obstacle2DArray
+from f1tenth_perception.wall_confirm import (
+    REASON_NO_SCAN, WallConfirmConfig, WallConfirmation, confirm_wall,
+    scan_points_base)
 
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
@@ -473,6 +483,31 @@ class FrontClearanceNode(Node):
         self.publish_debug_raw = bool(
             self.declare_parameter('publish_debug_raw', False).value)
 
+        # ---- LiDAR wall confirmation (campaign fix A4) ---------------------
+        # /perception/front_wall_confirmed = front_distance when the forward
+        # /scan shows a wall-like line at that range, else -1.0. See
+        # wall_confirm.py. The mission's wall stop reads it (CheckStopCondition,
+        # wall_stop_require_lidar), so an object leaking into front_distance
+        # cannot end a wall move on its own (R009).
+        self.wall_confirm_enabled = bool(
+            self.declare_parameter('wall_confirm_enabled', True).value)
+        self.scan_topic = str(self.declare_parameter('scan_topic', '/scan').value)
+        self.base_frame = str(self.declare_parameter('base_frame', 'base_link').value)
+        self.wall_confirm_scan_max_age_s = float(
+            self.declare_parameter('wall_confirm_scan_max_age_s', 0.3).value)
+        self.wall_confirm_cfg = WallConfirmConfig(
+            half_angle_deg=float(self.declare_parameter(
+                'wall_confirm_half_angle_deg', 30.0).value),
+            search_window_m=float(self.declare_parameter(
+                'wall_confirm_search_window_m', 0.6).value),
+            min_inliers=int(self.declare_parameter('wall_confirm_min_inliers', 10).value),
+            min_extent_m=float(self.declare_parameter(
+                'wall_confirm_min_extent_m', 0.8).value),
+            tolerance_m=float(self.declare_parameter('wall_confirm_tolerance_m', 0.30).value),
+            tolerance_frac=float(self.declare_parameter(
+                'wall_confirm_tolerance_frac', 0.10).value),
+        )
+
         # ---- filters / latches ---------------------------------------------
         self.distance_filter = EmaFilter(self.distance_ema_alpha)
         self.clearance_filter = EmaFilter(self.distance_ema_alpha)
@@ -503,6 +538,11 @@ class FrontClearanceNode(Node):
         # would bury every other node's output in the shared console.
         self._prev_wall = None
         self._prev_blocked = None
+        self._latest_scan = None
+        self._latest_scan_time = None
+        self._tf_buffer = Buffer()
+        self._frame_poses = {}   # frame_id -> (x, y, yaw) in base_frame
+        self._last_confirmation = None
 
         # ---- ROS interfaces -------------------------------------------------
         self.front_distance_pub = self.create_publisher(
@@ -513,6 +553,8 @@ class FrontClearanceNode(Node):
             Float32, '/perception/front_clearance', 10)
         self.front_blocked_pub = self.create_publisher(
             Bool, '/perception/front_blocked', 10)
+        self.front_wall_confirmed_pub = self.create_publisher(
+            Float32, '/perception/front_wall_confirmed', 10)
 
         # Debug topics exist only when asked for: they are for tuning the
         # filters against a recorded bag (the raw value the EMA smoothed, and
@@ -526,6 +568,8 @@ class FrontClearanceNode(Node):
                 Float32, '/perception/debug/front_distance_raw', 10)
             self.bg_pixel_count_pub = self.create_publisher(
                 Float32, '/perception/debug/bg_pixel_count', 10)
+            self.front_debug_pub = self.create_publisher(
+                String, '/perception/debug/front_clearance', 10)
 
         # Depth LAST, so the first depth frame cannot arrive before the
         # publishers and the other subscriptions exist.
@@ -535,6 +579,13 @@ class FrontClearanceNode(Node):
             Image, self.masks_topic, self._masks_callback, 10)
         self.obstacles_sub = self.create_subscription(
             Obstacle2DArray, self.obstacles_topic, self._obstacles_callback, 10)
+        if self.wall_confirm_enabled:
+            self.scan_sub = self.create_subscription(
+                LaserScan, self.scan_topic, self._scan_callback, qos_profile_sensor_data)
+            self.tf_static_sub = self.create_subscription(
+                TFMessage, '/tf_static', self._tf_static_callback, QoSProfile(
+                    depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                    history=HistoryPolicy.KEEP_LAST))
         self.depth_sub = self.create_subscription(
             Image, self.depth_topic, self.depth_callback, 10)
 
@@ -564,6 +615,52 @@ class FrontClearanceNode(Node):
 
     def _now_seconds(self):
         return self.get_clock().now().nanoseconds * 1e-9
+
+    def _scan_callback(self, msg: LaserScan):
+        self._latest_scan = msg
+        self._latest_scan_time = self._now_seconds()
+
+    def _tf_static_callback(self, msg: TFMessage):
+        for transform in msg.transforms:
+            self._tf_buffer.set_transform_static(transform, 'front_clearance_node')
+
+    def _frame_pose(self, frame_id):
+        """(x, y, yaw) of frame_id in base_frame from /tf_static, cached; None if unknown."""
+        if not frame_id:
+            return None
+        pose = self._frame_poses.get(frame_id)
+        if pose is not None:
+            return pose
+        try:
+            stamped = self._tf_buffer.lookup_transform(self.base_frame, frame_id, Time())
+        except TransformException:
+            return None
+        t = stamped.transform
+        q = t.rotation
+        yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        pose = (float(t.translation.x), float(t.translation.y), yaw)
+        self._frame_poses[frame_id] = pose
+        self.get_logger().info(
+            f'{self.base_frame} <- {frame_id}: x={pose[0]:.3f} y={pose[1]:.3f} '
+            f'yaw={math.degrees(yaw):.1f} deg')
+        return pose
+
+    def _confirm_wall(self, distance, camera_frame, now):
+        """WallConfirmation for this frame's front_distance (wall_confirm.py)."""
+        cam = self._frame_pose(camera_frame)
+        if cam is None:
+            return WallConfirmation(False, 'no_camera_transform')
+        scan = self._latest_scan
+        if (scan is None or self._latest_scan_time is None
+                or now - self._latest_scan_time > self.wall_confirm_scan_max_age_s):
+            return WallConfirmation(False, REASON_NO_SCAN)
+        laser = self._frame_pose(scan.header.frame_id)
+        if laser is None:
+            return WallConfirmation(False, 'no_laser_transform')
+        points = scan_points_base(
+            scan.ranges, scan.angle_min, scan.angle_increment, scan.range_min,
+            scan.range_max, laser, math.radians(self.wall_confirm_cfg.half_angle_deg))
+        return confirm_wall(points, distance, cam[0], self.wall_confirm_cfg)
 
     # ------------------------------------------------------------------------
     # Object-exclusion mask
@@ -861,13 +958,40 @@ class FrontClearanceNode(Node):
             Float32(data=self._publishable(smoothed_clearance)))
         self.front_blocked_pub.publish(Bool(data=bool(front_blocked)))
 
+        confirmation = None
+        if self.wall_confirm_enabled:
+            confirmation = self._confirm_wall(smoothed_distance, msg.header.frame_id, now)
+            self.front_wall_confirmed_pub.publish(Float32(
+                data=self._publishable(smoothed_distance) if confirmation.confirmed
+                else -1.0))
+            if (self._last_confirmation is None
+                    or confirmation.reason != self._last_confirmation.reason):
+                self.get_logger().info(
+                    f'WALL CONFIRM | {json.dumps(confirmation.as_dict())}')
+            self._last_confirmation = confirmation
+
         if self.publish_debug_raw:
             self.front_distance_raw_pub.publish(
                 Float32(data=self._publishable(raw_distance)))
             self.bg_pixel_count_pub.publish(Float32(data=float(n_valid)))
+            self._publish_debug(msg, now, roi, valid, conf, (y0, y1, x0, x1),
+                                raw_distance, smoothed_distance, n_valid, confirmation)
 
         self._log_transitions(front_wall, front_blocked, n_valid,
                               smoothed_distance, smoothed_clearance)
+
+    def _publish_debug(self, depth_msg, now, roi, valid, conf, roi_bounds,
+                       raw_distance, smoothed_distance, n_valid, confirmation):
+        """One JSON record per depth frame on /perception/debug/front_clearance."""
+        record = {
+            'stamp': depth_msg.header.stamp.sec + depth_msg.header.stamp.nanosec * 1e-9,
+            'raw_m': None if raw_distance is None else round(float(raw_distance), 3),
+            'front_distance_m': (None if smoothed_distance is None
+                                 else round(float(smoothed_distance), 3)),
+            'bg_px': int(n_valid),
+            'wall_confirm': None if confirmation is None else confirmation.as_dict(),
+        }
+        self.front_debug_pub.publish(String(data=json.dumps(record)))
 
     def _publish_too_close(self, n_too_close, considered):
         """Publish the too-close override for this frame and nothing else.
@@ -925,6 +1049,9 @@ class FrontClearanceNode(Node):
         self.front_clearance_pub.publish(
             Float32(data=float(self.too_close_clearance_m)))
         self.front_blocked_pub.publish(Bool(data=True))
+        if self.wall_confirm_enabled:
+            # No wall distance this frame, so nothing to confirm.
+            self.front_wall_confirmed_pub.publish(Float32(data=-1.0))
 
         if self.publish_debug_raw:
             # No background reading was computed at all this frame, and no
