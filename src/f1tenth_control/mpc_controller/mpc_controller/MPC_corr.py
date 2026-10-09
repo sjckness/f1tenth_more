@@ -863,7 +863,8 @@ class MPCController(Node):
         # Corridoio MATLAB-like
         #
         # Narrowed to 1/3 width on request (2026-09-07): corr_wmin 1.3 ->
-        # 0.4333, corr_wmax 2.3 -> 0.7667. Those are kept.
+        # 0.4333, corr_wmax 2.3 -> 0.7667. SUPERSEDED 2026-10-09 by the
+        # campaign's wide fixed corridor, 0.60 / 0.60 (see below).
         #
         # corr_L_base was shortened to 1/2 (3.0 -> 1.5) in the same request and
         # has been RESTORED to 3.0 (2026-09-08). It could not stay at 1.5: the
@@ -890,10 +891,26 @@ class MPCController(Node):
         # floor/clamp on length: its goal_distance branch uses
         # max(corr_L_base, 1.0) and its goal_pose branch clips the
         # car-to-goal distance into [1.0, corr_L_base].
-        self.corr_L_base = 3.0
+        #
+        # ROS PARAMETERS SINCE THE M02 CAMPAIGN FIX (A2), read from
+        # stack_params.yaml: the Orin ran corr_L_base 1.5 from an uncommitted
+        # edit of this literal, and nothing on disk recorded it. The campaign
+        # default is a WIDE FIXED corridor, half-width 0.60 at both ends (no
+        # funnel): the rows bound the rear axle, so passing a 0.5 m person
+        # centred in the corridor needs 0.25 + car_radius 0.20 + margin 0.12
+        # = 0.57 m of lateral room for the axle. corr_L_base 3.0 >= the 2.0 m
+        # horizon reach at vdes 0.5 (A1).
+        self.corr_L_base = float(self.declare_parameter(
+            'corr_L_base', get_value('corr_L_base')).value)
         self.corr_N = 120
-        self.corr_wmin = 0.4333
-        self.corr_wmax = 0.7667
+        self.corr_wmin = float(self.declare_parameter(
+            'corr_wmin', get_value('corr_wmin')).value)
+        self.corr_wmax = float(self.declare_parameter(
+            'corr_wmax', get_value('corr_wmax')).value)
+        if not (0.0 < self.corr_wmin <= self.corr_wmax and self.corr_L_base >= 1.0):
+            raise ValueError(
+                f'corr_wmin={self.corr_wmin}, corr_wmax={self.corr_wmax}, '
+                f'corr_L_base={self.corr_L_base}: need 0 < wmin <= wmax and L >= 1.0')
 
         # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
         # It used to be a bare `lookahead = 1.5` inside compute_local_target

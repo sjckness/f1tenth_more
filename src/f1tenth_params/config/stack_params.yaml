@@ -786,7 +786,7 @@ wall_distance_stale_inflate_per_s:
 wall_distance_d_ref:
   default: 0.60
   # SYNTHETIC -- retune on hardware
-  description: "Target |d_wall| [m] the correction converges the car to -- a FIXED single-wall offset, signed at use by whichever side the track is on. It CANNOT be derived from corridor width: the corridor is synthetic with hardcoded half-widths (corr_wmin 0.4333 / corr_wmax 0.7667 are bare literals in MPC_corr.py, not parameters) and only one wall is ever sensed. SYNTHETIC."
+  description: "Target |d_wall| [m] the correction converges the car to -- a FIXED single-wall offset, signed at use by whichever side the track is on. It CANNOT be derived from corridor width: the corridor is synthetic (half-widths corr_wmin / corr_wmax, parameters since 2026-10-09, 0.60 / 0.60) and only one wall is ever sensed. SYNTHETIC."
 wall_distance_convergence_length_m:
   default: 3.0
   # SYNTHETIC -- retune on hardware
@@ -1301,6 +1301,20 @@ mpc_prediction_dt_sec:
 mpc_horizon_steps:
   default: 20
   description: "Number of prediction stages N in mpc_corr's QP. Unchanged from the old literal; the stage weights are normalised to it (mpc_solver.STAGE_WEIGHT_REF_HORIZON)."
+# CORRIDOR GEOMETRY (M02 campaign fix A2, 2026-10-09). Consumed by MPC_corr.py's
+# declare_parameter() defaults (get_value), no launch arg. Were bare literals in
+# MPC_corr.py (0.4333 / 0.7667 / 3.0); the Orin ran corr_L_base 1.5 from an
+# uncommitted edit. The corridor rows bound the REAR AXLE (the MPC state), not
+# the footprint: car_radius is not subtracted from them anywhere.
+corr_wmin:
+  default: 0.60
+  description: "Corridor HALF-width [m] at the car (start of the funnel). Wide fixed campaign corridor: a 0.5 m person centred in the corridor is passable when the rear axle can sit 0.25 + car_radius 0.20 + obstacle_safety_margin_m 0.12 = 0.57 m off the centreline, rounded to 0.60 (full width 1.2 m). Was 0.4333 (full width 0.87 m), which left no room past anything centred: R011's 0.3 m plant needed 0.15 + 0.32 = 0.47 m."
+corr_wmax:
+  default: 0.60
+  description: "Corridor HALF-width [m] at the far end; the funnel widens linearly from corr_wmin, at a rate of (wmax - wmin) / corr_L_base per metre. 0.60 = corr_wmin: a fixed-width corridor. Was 0.7667."
+corr_L_base:
+  default: 3.0
+  description: "Nominal / maximum corridor length [m]. Must stay >= the horizon reach N * mpc_prediction_dt_sec * vdes (2.0 m at 0.5 m/s) and the lookahead (corr_lookahead_frac x this) must clear 1.25 x that reach. 3.0 is the committed value; the Orin had an uncommitted 1.5."
 corr_lookahead_frac:
   default: 0.85
   description: "compute_local_target's lookahead as a fraction of the corridor length; floored at corr_lookahead_reach_margin (1.25) x the horizon reach N * dt * vdes. Was a 0.5 literal, which put the target (1.5 m on a 3.0 m corridor) INSIDE the 4.0 s horizon's 2.0 m reach once the prediction step became 0.2 s; the floor (2.5 m) then took over with a WARN every 5 s. 0.85 x 3.0 = 2.55 m sits just past the floor, so the terminal cost stays a direction pull."
