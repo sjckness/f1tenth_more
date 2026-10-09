@@ -585,7 +585,10 @@ def test_analysis_filters_and_reports(root, campaign, tmp_path):
 def test_the_upward_search_finds_the_workspace(monkeypatch):
     monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
     found = find_root()
-    assert found.name == "f1tenth_more"
+    # The workspace this test file lives in, whatever its checkout folder is
+    # called (find_root goes by the src/f1tenth_logger/package.xml marker,
+    # not by the name; a second worktree is not named f1tenth_more).
+    assert found == Path(__file__).resolve().parents[4]
     assert (found / "src" / "f1tenth_logger" / "package.xml").is_file()
 
 
@@ -664,7 +667,7 @@ def test_the_working_directory_is_never_consulted(root, monkeypatch, tmp_path):
     monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
     monkeypatch.chdir(tmp_path)
     assert find_root() == find_root(None)
-    assert find_root().name == "f1tenth_more"
+    assert find_root() == Path(__file__).resolve().parents[4]
     assert os.getcwd() != str(find_root())
 
 

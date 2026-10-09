@@ -47,6 +47,13 @@ class _StubNode:
         self._go_to_enabled = go_to_enabled
         self._logger = _StubLogger()
 
+    # dc158d2 made _plan_v2 note the LLM send/receive times on the node.
+    def _note_llm_sent(self):
+        pass
+
+    def _note_llm_received(self):
+        pass
+
     def get_logger(self):
         return self._logger
 

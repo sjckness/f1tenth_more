@@ -198,8 +198,9 @@ class TestTheMissionThatExercisesIt(unittest.TestCase):
     def test_every_other_wall_turn_mission_is_still_terminal_on_the_turn(self):
         """Not a thing to fix -- a deliberate record of why this new mission
         had to be written rather than an existing one reused."""
-        for name in ('wall_turn.json', 'turn_90_left.json', 'drive_turn_180.json',
-                     'drive_stop_2m_from_wall.json'):
+        # drive_stop_2m_from_wall.json was listed here too, but it is a single
+        # straight front_clearance move with no wall_turn in it at all.
+        for name in ('wall_turn.json', 'turn_90_left.json', 'drive_turn_180.json'):
             mission = self._load(name)
             last = mission['moves'][-1]
             self.assertEqual(last['drive']['mode'], 'wall_turn', name)
