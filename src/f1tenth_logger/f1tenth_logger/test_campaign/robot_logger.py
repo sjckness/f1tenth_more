@@ -147,7 +147,18 @@ _COMMAND_COLS = [
     "t", "cmd_speed", "cmd_steer", "cmd_yaw_rate", "cmd_throttle", "cmd_brake",
     "source",
 ]
-_MPC_COLS = ["t", "status", "solve_time_ms", "cost", "iterations"]
+# The columns after "iterations" are the campaign fixes' (A3/A5) per-solve
+# facts from /mpc/status, appended so a positional reader of the first five
+# is unaffected: did the solve succeed, was the tick feasible (a side for
+# every obstacle, a plan whose body clears them), the plan's smallest body
+# gap, how many obstacles had no side, how many keep-outs were active, the
+# first stage with the 0.4 m/s floor, the move speed, and the corridor's
+# half-width at the car and at the end.
+_MPC_COLS = ["t", "status", "solve_time_ms", "cost", "iterations",
+             "success", "status_message", "feasible", "plan_body_gap_m",
+             "no_side_fits", "n_keepouts", "v_floor_from_stage", "vdes",
+             "half_width_start", "half_width_end"]
+_MPC_EXTRA_COLS = _MPC_COLS[5:]
 _LLM_COLS = [
     "call_idx", "tag", "t_sent", "t_received", "latency_ms", "ttft_ms",
     "prompt_chars", "response_chars", "ok", "error",
@@ -709,6 +720,9 @@ class TestLogger:
             # Buffered like the horizon (it arrives at the detection rate) and
             # jsonl for the same reason: a message is a variable-length list.
             "tracks": _Stream(self.dir / "tracks.jsonl"),
+            # The wall-stop input and its debug record (A5): one line per
+            # message, tagged with its source topic. Buffered: depth rate.
+            "front": _Stream(self.dir / "front.jsonl"),
             "events": _Stream(self.dir / "events.jsonl"),
         }
 
@@ -735,6 +749,7 @@ class TestLogger:
         self._n_corridors = 0
         self._n_horizon = 0
         self._n_tracks = 0
+        self._n_front = 0
         self._llm_latencies = []
         self._n_llm = 0
         self._n_mpc = 0
@@ -1043,11 +1058,13 @@ class TestLogger:
             )
 
     def log_mpc(self, status, solve_time_ms=None, cost=None, iterations=None,
-                t=None):
+                t=None, **extra):
         """Log one MPC solve. Call after **every** solve, solved or not.
 
         ``status`` is the solver's own status string; whether it counts as
         solved is decided by ``mpc_ok_statuses``, not by this method.
+        ``extra`` fills the A3/A5 columns (``_MPC_EXTRA_COLS``) by name; an
+        unknown name is ignored, a missing one is an empty cell.
         """
         with self._lock:
             if self._closed:
@@ -1057,6 +1074,7 @@ class TestLogger:
             self._note("mpc", t)
             self._streams["mpc"].row(
                 [t, status, solve_time_ms, cost, iterations]
+                + [extra.get(name) for name in _MPC_EXTRA_COLS]
             )
 
     def log_horizon(self, x, y, yaw=None, v=None, steer=None, accel=None,
@@ -1393,6 +1411,26 @@ class TestLogger:
             })
             return len(rows)
 
+    def log_front(self, source, record, t=None):
+        """One front-distance message to ``front.jsonl`` (campaign fix A5).
+
+        ``source`` names the topic kind: ``front_distance`` and
+        ``front_wall_confirmed`` carry ``{"v": value}``; ``debug`` carries
+        front_clearance_node's per-frame JSON (ROI coverage, masked
+        detections, mask/detection age vs the depth frame, the LiDAR wall
+        confirmation). Recorded because R009's stop could not be explained
+        from the logs: front_distance was in neither the campaign log nor
+        the mission bag.
+        """
+        with self._lock:
+            if self._closed:
+                return
+            t = self._stamp(t)
+            self._n_front += 1
+            line = {"t": _round6(t), "src": str(source)}
+            line.update(record or {})
+            self._streams["front"].line(line)
+
     def log_event(self, name, t=None, **data):
         """Free-form event, one JSON object per line.
 
@@ -1420,6 +1458,7 @@ class TestLogger:
                 "corridors": self._n_corridors,
                 "horizon": self._n_horizon,
                 "tracks": self._n_tracks,
+                "front": self._n_front,
                 "llm_calls": self._n_llm,
                 "events": self._n_events,
             }

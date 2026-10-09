@@ -263,6 +263,24 @@ _DEFAULT_TOPICS = [
     '/costmap/semantic_tracks',
     # Every tick mpc_corr's /drive speed clamp changed a command.
     '/mpc/drive_clamp',
+    # --- M02 campaign fixes (A5): what R009/R011 could not be diagnosed
+    # without. The wall stop's input and its LiDAR confirmation, the
+    # front_clearance debug record (ROI coverage, masked detections, mask vs
+    # depth age) and the ROI crops tools/replay_front_distance.py recomputes
+    # front_distance from (~1 MB/s), mpc_corr's per-solve status (incl. the
+    # A3 feasibility facts) and corridors, and the BLOCKED verdict.
+    '/perception/front_distance',
+    '/perception/front_wall_confirmed',
+    '/perception/front_clearance',
+    '/perception/debug/front_distance_raw',
+    '/perception/debug/bg_pixel_count',
+    '/perception/debug/front_clearance',
+    '/perception/debug/front_roi_depth',
+    '/perception/debug/front_roi_class',
+    '/perception/lidar_front_wall',
+    '/mpc/status',
+    '/corridor',
+    '/mpc/blocked',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',

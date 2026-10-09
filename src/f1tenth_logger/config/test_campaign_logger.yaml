@@ -34,6 +34,13 @@ test_campaign_logger:
     # What perception offered, beside what the controller did with it:
     # go_to_object's own tracks topic, recorded to tracks.jsonl.
     tracks_topic: /costmap/semantic_tracks
+    # Campaign fix A5: front.jsonl (the wall-stop input, its LiDAR
+    # confirmation, front_clearance_node's per-frame debug record) and the
+    # mpc_blocked event.
+    front_distance_topic: /perception/front_distance
+    front_confirmed_topic: /perception/front_wall_confirmed
+    front_debug_topic: /perception/debug/front_clearance
+    blocked_topic: /mpc/blocked
     obstacle_clearance_topic: /obstacle_clearance
     safety_event_topic: /safety/event
     plan_result_topic: /test/plan_result

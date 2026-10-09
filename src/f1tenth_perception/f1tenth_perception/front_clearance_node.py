@@ -543,6 +543,7 @@ class FrontClearanceNode(Node):
         self._tf_buffer = Buffer()
         self._frame_poses = {}   # frame_id -> (x, y, yaw) in base_frame
         self._last_confirmation = None
+        self._mask_info = {'source': 'none', 'label_img': None, 'det_msg': None}
 
         # ---- ROS interfaces -------------------------------------------------
         self.front_distance_pub = self.create_publisher(
@@ -570,6 +571,14 @@ class FrontClearanceNode(Node):
                 Float32, '/perception/debug/bg_pixel_count', 10)
             self.front_debug_pub = self.create_publisher(
                 String, '/perception/debug/front_clearance', 10)
+            # The ROI itself, so a bag can be REPLAYED (tools/replay_front_
+            # distance.py): the depth crop (32FC1) and what each pixel was
+            # (mono8: 0 no depth, 1 object-excluded, 2 background, 3 housing).
+            # 180 x 70 px: ~63 KB per depth frame, ~1 MB/s at 17 Hz.
+            self.front_roi_depth_pub = self.create_publisher(
+                Image, '/perception/debug/front_roi_depth', 10)
+            self.front_roi_class_pub = self.create_publisher(
+                Image, '/perception/debug/front_roi_class', 10)
 
         # Depth LAST, so the first depth frame cannot arrive before the
         # publishers and the other subscriptions exist.
@@ -680,6 +689,9 @@ class FrontClearanceNode(Node):
         """
         h, w = depth_shape
         det_msg = self._latest_detections
+        # For the debug record (A5): which source this frame's mask came from,
+        # and the label image / boxes it was built from.
+        self._mask_info = {'source': 'none', 'label_img': None, 'det_msg': det_msg}
         if det_msg is None:
             return None
 
@@ -691,6 +703,7 @@ class FrontClearanceNode(Node):
             # there). Not an error, and not a reason to fall back to boxes:
             # there are none.
             if mask_msg.height == 0 or mask_msg.width == 0:
+                self._mask_info['source'] = 'mask_empty'
                 return np.zeros((h, w), dtype=np.float32)
             try:
                 label_img = self.bridge.imgmsg_to_cv2(mask_msg, desired_encoding='mono8')
@@ -699,23 +712,28 @@ class FrontClearanceNode(Node):
                     f'cv_bridge mask decode failed: {exc} -- falling back to '
                     'bounding boxes for this frame.', throttle_duration_sec=5.0)
             else:
-                raw = (label_img > 0).astype(np.float32)
-                if raw.shape[:2] != (h, w):
-                    # INTER_NEAREST: this is a binarized discrete label map,
-                    # and any blending interpolation would invent fractional
-                    # membership along every instance edge. Same choice, same
-                    # reason, as detection_3d_node's own mask resize.
-                    raw = cv2.resize(
-                        raw, (w, h), interpolation=cv2.INTER_NEAREST)
+                if label_img.shape[:2] != (h, w):
+                    # INTER_NEAREST: this is a discrete label map, and any
+                    # blending interpolation would invent fractional membership
+                    # along every instance edge. Same choice, same reason, as
+                    # detection_3d_node's own mask resize. Resized as LABELS
+                    # (not binarized first) so the debug record can still say
+                    # which instance a ROI pixel belongs to; (labels > 0) is
+                    # the same footprint either way.
                     self.get_logger().warn(
                         f'masks_topic resolution {label_img.shape[:2]} != depth '
                         f'resolution {(h, w)} -- nearest-neighbor-resized.',
                         throttle_duration_sec=5.0)
-                return raw
+                    label_img = cv2.resize(
+                        label_img, (w, h), interpolation=cv2.INTER_NEAREST)
+                self._mask_info['source'] = 'mask'
+                self._mask_info['label_img'] = label_img
+                return (label_img > 0).astype(np.float32)
 
         # Bounding-box fallback. Coordinates are used directly against the
         # depth image and clamped to it -- see the module docstring for why
         # that assumption is inherited rather than invented here.
+        self._mask_info['source'] = 'boxes'
         raw = np.zeros((h, w), dtype=np.float32)
         for det in det_msg.detections:
             cx = float(det.bbox.center.position.x)
@@ -974,24 +992,110 @@ class FrontClearanceNode(Node):
             self.front_distance_raw_pub.publish(
                 Float32(data=self._publishable(raw_distance)))
             self.bg_pixel_count_pub.publish(Float32(data=float(n_valid)))
-            self._publish_debug(msg, now, roi, valid, conf, (y0, y1, x0, x1),
+            self._publish_debug(msg, now, roi, valid, conf, housing, (y0, y1, x0, x1),
                                 raw_distance, smoothed_distance, n_valid, confirmation)
 
         self._log_transitions(front_wall, front_blocked, n_valid,
                               smoothed_distance, smoothed_clearance)
 
-    def _publish_debug(self, depth_msg, now, roi, valid, conf, roi_bounds,
+    @staticmethod
+    def _stamp_sec(stamp):
+        return stamp.sec + stamp.nanosec * 1e-9
+
+    def _masked_objects(self, roi_bounds):
+        """The detections whose pixels (mask) or box reach the ROI this frame."""
+        y0, y1, x0, x1 = roi_bounds
+        info = self._mask_info
+        det_msg = info.get('det_msg')
+        if det_msg is None:
+            return []
+        dets = list(det_msg.detections)
+
+        def describe(i):
+            det = dets[i]
+            hyp = det.results[0].hypothesis if det.results else None
+            return {'idx': i, 'id': str(det.id) or None,
+                    'class': None if hyp is None else str(hyp.class_id),
+                    'score': None if hyp is None else round(float(hyp.score), 3)}
+        if info.get('label_img') is not None:
+            labels = info['label_img'][y0:y1, x0:x1]
+            ids, counts = np.unique(labels[labels > 0], return_counts=True)
+            out = []
+            for label, n in zip(ids.tolist(), counts.tolist()):
+                if 0 < label <= len(dets):
+                    rec = describe(label - 1)
+                    rec['roi_px'] = int(n)
+                    out.append(rec)
+            return out
+        if info.get('source') == 'boxes':
+            out = []
+            for i, det in enumerate(dets):
+                cx, cy = float(det.bbox.center.position.x), float(det.bbox.center.position.y)
+                hw, hh = float(det.bbox.size_x) / 2.0, float(det.bbox.size_y) / 2.0
+                if cx + hw > x0 and cx - hw < x1 and cy + hh > y0 and cy - hh < y1:
+                    out.append(describe(i))
+            return out
+        return []
+
+    def _publish_debug(self, depth_msg, now, roi, valid, conf, housing, roi_bounds,
                        raw_distance, smoothed_distance, n_valid, confirmation):
-        """One JSON record per depth frame on /perception/debug/front_clearance."""
+        """One JSON record per depth frame on /perception/debug/front_clearance,
+        plus the ROI crops for offline replay (A5).
+
+        coverage_* are fractions of the ROI (housing excluded): pixels the
+        object exclusion removed (conf >= 1 - background_weight_threshold),
+        and pixels with no depth at all. mask_age_s / det_age_s are the depth
+        frame's stamp minus the mask's / detections' stamp: how old the
+        exclusion applied to this depth frame was -- never checked by this
+        node (see the module docstring), recorded here so it can be.
+        """
+        y0, y1, x0, x1 = roi_bounds
+        finite = np.isfinite(roi) & (roi > 0)
+        if conf is not None:
+            excluded = (1.0 - conf[y0:y1, x0:x1]) < self.bg_weight_threshold
+        else:
+            excluded = np.zeros(roi.shape, dtype=bool)
+        considered = max(int(roi.size) - int(np.count_nonzero(housing)), 1)
+        depth_t = self._stamp_sec(depth_msg.header.stamp)
+        det_msg = self._mask_info.get('det_msg')
+        mask_msg = self._latest_mask_msg
         record = {
-            'stamp': depth_msg.header.stamp.sec + depth_msg.header.stamp.nanosec * 1e-9,
+            'stamp': round(depth_t, 6),
+            'latency_s': round(now - depth_t, 4),
             'raw_m': None if raw_distance is None else round(float(raw_distance), 3),
             'front_distance_m': (None if smoothed_distance is None
                                  else round(float(smoothed_distance), 3)),
             'bg_px': int(n_valid),
+            'roi': [int(x0), int(y0), int(x1), int(y1)],
+            'coverage_excluded': round(
+                float(np.count_nonzero(excluded & ~housing)) / considered, 4),
+            'coverage_no_depth': round(
+                float(np.count_nonzero(~finite & ~housing)) / considered, 4),
+            'mask_source': self._mask_info.get('source'),
+            'det_age_s': (None if det_msg is None else
+                          round(depth_t - self._stamp_sec(det_msg.header.stamp), 4)),
+            'mask_age_s': (None if mask_msg is None else
+                           round(depth_t - self._stamp_sec(mask_msg.header.stamp), 4)),
+            'masked_objects': self._masked_objects(roi_bounds),
             'wall_confirm': None if confirmation is None else confirmation.as_dict(),
         }
         self.front_debug_pub.publish(String(data=json.dumps(record)))
+        try:
+            crop = self.bridge.cv2_to_imgmsg(
+                np.ascontiguousarray(roi, dtype=np.float32), encoding='32FC1')
+            classes = np.zeros(roi.shape, dtype=np.uint8)
+            classes[finite] = 2
+            classes[finite & excluded] = 1
+            classes[housing] = 3
+            cls_msg = self.bridge.cv2_to_imgmsg(classes, encoding='mono8')
+        except CvBridgeError as exc:
+            self.get_logger().warn(f'ROI crop encode failed: {exc}',
+                                   throttle_duration_sec=5.0)
+            return
+        crop.header = depth_msg.header
+        cls_msg.header = depth_msg.header
+        self.front_roi_depth_pub.publish(crop)
+        self.front_roi_class_pub.publish(cls_msg)
 
     def _publish_too_close(self, n_too_close, considered):
         """Publish the too-close override for this frame and nothing else.

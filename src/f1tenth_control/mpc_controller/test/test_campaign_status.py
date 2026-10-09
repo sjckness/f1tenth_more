@@ -369,3 +369,23 @@ def test_a_real_solve_publishes_a_horizon_of_the_configured_length():
     assert payload is not None
     assert payload['n'] == len(info['x_pred'])
     assert len(payload['x']) == payload['n']
+
+
+def test_the_campaign_facts_ride_along_when_given():
+    """Campaign fix A5: the A3 per-tick facts reach mpc.csv through /mpc/status."""
+    extra = {'feasible': False, 'plan_body_gap_m': -0.15, 'no_side_fits': 1,
+             'keepouts': [], 'v_floor_from_stage': 4, 'vdes': 0.4,
+             'half_width_start': 0.6, 'half_width_end': 0.6}
+    payload = mpc_status_payload({'success': False, 'status': 3}, 0.02, 'rti',
+                                 ts=0.2, extra=extra)
+    for key, value in extra.items():
+        assert payload[key] == value
+    assert payload['status'] == 'infeasible'
+
+
+def test_no_campaign_facts_adds_nothing():
+    a = mpc_status_payload({'success': True, 'status': 1}, 0.02, 'rti', ts=0.2)
+    b = mpc_status_payload({'success': True, 'status': 1}, 0.02, 'rti', ts=0.2,
+                           extra=None)
+    assert a == b
+    assert 'feasible' not in a

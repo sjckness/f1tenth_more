@@ -492,8 +492,8 @@ wall_stop_require_lidar:
   default: true
   description: "The mission's front_clearance (wall) stop reads /perception/front_wall_confirmed instead of /perception/front_distance: it fires only when the camera's wall distance AND the LiDAR agree. When they disagree the stop does not fire; obstacle avoidance, BLOCKED and the move timeout still apply. false = the pre-campaign camera-only stop."
 front_clearance_publish_debug_raw:
-  default: false
-  description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance) and /perception/debug/bg_pixel_count (the exact wall-latch input), for tuning the filters against a bag. The topics are not created at all when false."
+  default: true
+  description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance), /perception/debug/bg_pixel_count (the exact wall-latch input), /perception/debug/front_clearance (JSON per depth frame: ROI coverage by the object exclusion and by missing depth, the detections masked in the ROI with class/score, mask and detection age vs the depth frame, the LiDAR wall confirmation) and the ROI crops /perception/debug/front_roi_depth (32FC1) + front_roi_class (mono8: 0 no depth, 1 excluded, 2 background, 3 housing) that tools/replay_front_distance.py recomputes front_distance from. ON for the test campaign since 2026-10-09 (A5; was false): R009's leak could not be diagnosed from the logs. Costs ~1 MB/s in the mission bag. The topics are not created at all when false."
 
 
 # ============================================================

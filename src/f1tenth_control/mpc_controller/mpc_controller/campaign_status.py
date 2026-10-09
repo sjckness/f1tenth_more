@@ -179,7 +179,8 @@ def horizon_payload(info, ts, frame_id='odom'):
     }
 
 
-def mpc_status_payload(info, solve_dt_sec, solver, ts=None, frame_id='odom'):
+def mpc_status_payload(info, solve_dt_sec, solver, ts=None, frame_id='odom',
+                       extra=None):
     """The /mpc/status JSON object for one solve.
 
     ``cost`` and ``iterations`` are null when the backend reported none (a
@@ -192,6 +193,11 @@ def mpc_status_payload(info, solve_dt_sec, solver, ts=None, frame_id='odom'):
     ``ts`` is the caller's control period; passing it is what makes the
     horizon's steps placeable in time, and leaving it out publishes the
     geometry with a null ``ts`` rather than dropping it.
+
+    ``extra`` (campaign fix A5) is the caller's per-tick A3 facts --
+    feasible, plan_body_gap_m, no_side_fits, keepouts, v_floor_from_stage,
+    vdes, half_width_start/end -- merged in as top-level keys. None adds
+    nothing, so older callers publish exactly what they did.
     """
     iterations = info.get('iterations')
     try:
@@ -214,6 +220,7 @@ def mpc_status_payload(info, solve_dt_sec, solver, ts=None, frame_id='odom'):
         'status_code': status_code,
         'status_message': str(info.get('status_message', info.get('message', ''))),
         'horizon': horizon_payload(info, ts, frame_id),
+        **(dict(extra) if extra else {}),
     }
 
 

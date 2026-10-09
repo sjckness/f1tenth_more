@@ -4136,6 +4136,32 @@ class MPCController(Node):
         # cost is NaN when the backend reports none -- carried through as NaN
         # rather than coerced to 0.0, which would read as a converged zero-cost
         # solution.
+        # A3 feasibility facts, computed HERE (before /mpc/status goes out)
+        # and used by the speed gate and the BLOCKED detector further down.
+        plan_gap = plan_body_gap(info.get('x_pred'), obstacles_global, self.body_box)
+        no_side = bool(keepout_plan.blocked) if keepout_plan is not None else False
+        feasible = (bool(info.get('success', False)) and not no_side
+                    and not plan_gap < 0.0)
+        self.last_tick_feasible = feasible
+        self.last_plan_gap = plan_gap
+        half_w = corridor.get('halfWidth')
+        self._campaign_extra = {
+            'feasible': feasible,
+            'plan_body_gap_m': (round(plan_gap, 3) if math.isfinite(plan_gap) else None),
+            'no_side_fits': len(keepout_plan.blocked) if keepout_plan is not None else 0,
+            'keepouts': [
+                {'c': r.get('c'), 'r': r.get('r'), 'd': r.get('d'), 'side': r.get('side'),
+                 's_ahead': r.get('s_ahead')}
+                for r in (keepout_plan.report if keepout_plan is not None else [])
+                if 'skip' not in r],
+            'v_floor_from_stage': floor_kwargs.get('v_floor_from_stage'),
+            'vdes': round(float(vdes), 3),
+            'half_width_start': (None if half_w is None or len(half_w) == 0
+                                 else round(float(half_w[0]), 4)),
+            'half_width_end': (None if half_w is None or len(half_w) == 0
+                               else round(float(half_w[-1]), 4)),
+        }
+
         status_msg = MpcSolverStatus()
         status_msg.header.stamp = self.get_clock().now().to_msg()
         status_msg.success = bool(info.get('success', False))
@@ -4252,12 +4278,8 @@ class MPCController(Node):
         # commands ZERO -- never a crawl; feasible ticks of every move get
         # the floor. Persisting infeasibility, no progress, or steering lock
         # without progress ends the move BLOCKED (blocked.BlockedDetector).
-        plan_gap = plan_body_gap(info.get('x_pred'), obstacles_global, self.body_box)
-        no_side = bool(keepout_plan.blocked) if keepout_plan is not None else False
-        feasible = (bool(info.get('success', False)) and not no_side
-                    and not plan_gap < 0.0)
-        self.last_tick_feasible = feasible
-        self.last_plan_gap = plan_gap
+        # (plan_gap / no_side / feasible were computed right after the solve,
+        # so /mpc/status could carry them.)
         if self.min_speed_all_moves:
             if feasible:
                 v_cmd_now = gate_speed(v_cmd_now, self.min_moving_speed)
@@ -5545,7 +5567,8 @@ class MPCController(Node):
             # prediction step -- horizon_log places step k at t + (k+1)*ts.
             payload = mpc_status_payload(info, solve_dt, solver,
                                          ts=getattr(self, 'ts_pred', self.ts),
-                                         frame_id='odom')
+                                         frame_id='odom',
+                                         extra=getattr(self, '_campaign_extra', None))
             self.campaign_status_pub.publish(String(data=json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
             self.get_logger().warn(
