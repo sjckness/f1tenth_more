@@ -59,7 +59,7 @@ def test_a_blocked_verdict_aborts_the_mission_with_its_reason(move_type, summari
         move_id = object_move_wire_id('t', state.run_generation, 'm')
     _deliver(check, _record(move_id=move_id), state.move_start_time + 1.0)
     assert check.update() == S.FAILURE
-    assert state.state == MissionState.ABORTED
+    assert state.state == MissionState.BLOCKED      # its own outcome (review item 4)
     assert state.abort_result == 'BLOCKED'
     assert 'no_feasible_plan' in state.abort_reason
     assert check.hold_pub.msgs and check.hold_pub.msgs[-1].data is True
@@ -115,17 +115,19 @@ def test_the_reason_reaches_the_test_event(summaries):
     loader.test_event_pub.publish = loader.test_event_pub.msgs.append
     MissionLoader._publish_test_event(loader, state)
     payload = json.loads(loader.test_event_pub.msgs[-1].data)
-    assert payload['event'] == 'mission_aborted'
+    assert payload['event'] == 'mission_blocked'
     assert payload['reason'].startswith('BLOCKED: no_progress')
 
 
 def test_a_timeout_abort_now_carries_its_reason_too(summaries):
+    """And stays an ABORT, not a BLOCKED."""
     state = _state('drive')
     check = _check(state)
     check.update()
     state.move_start_time = time.monotonic() - 11.0
     assert check.update() == S.FAILURE
     assert state.abort_result == 'ABORTED'
+    assert state.state == MissionState.ABORTED
     assert state.abort_reason.startswith("timeout: move 'm'")
 
 

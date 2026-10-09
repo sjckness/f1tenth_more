@@ -1466,7 +1466,8 @@ class TestLogger:
     # -- teardown -----------------------------------------------------------
 
     def finish(self, outcome, reason=""):
-        """Close the run. ``outcome`` is ``"completed"`` or ``"aborted"``.
+        """Close the run. ``outcome`` is ``"completed"``, ``"aborted"`` or
+        ``"blocked"`` (mpc_corr ended the move itself: /mpc/blocked).
 
         This is only the **automatic hint**: it lands in ``meta.json`` and
         ``results.csv`` as ``auto_outcome`` / ``auto_success``. The verdict
@@ -1478,9 +1479,9 @@ class TestLogger:
         with self._lock:
             if self._finished:
                 return self.summary
-            if outcome not in ("completed", "aborted"):
+            if outcome not in ("completed", "aborted", "blocked"):
                 raise ValueError(
-                    f"outcome must be 'completed' or 'aborted', got {outcome!r}"
+                    f"outcome must be 'completed', 'aborted' or 'blocked', got {outcome!r}"
                 )
             self._finished = True
             self.auto_outcome = outcome

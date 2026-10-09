@@ -102,6 +102,12 @@ class MissionState(Enum):
     HOLDING = 'HOLDING'
     COMPLETE = 'COMPLETE'
     ABORTED = 'ABORTED'
+    # Ended because mpc_corr found the move could not go on (/mpc/blocked:
+    # no progress under the speed floor, steering lock without progress, no
+    # feasible plan). Its own outcome, not an ABORTED with a reason string
+    # (campaign review item 4): the campaign scores it differently -- the
+    # stack stopped itself safely -- from an operator or timeout abort.
+    BLOCKED = 'BLOCKED'
 
 
 class DetectionInfo(NamedTuple):
@@ -344,7 +350,8 @@ class MissionRuntimeState:
         self.goal_dirty = False
 
     def abort(self, reason: str = '', result: str = 'ABORTED') -> None:
-        self.state = MissionState.ABORTED
+        self.state = (MissionState.BLOCKED if result == 'BLOCKED'
+                      else MissionState.ABORTED)
         self.goal_dirty = False
         self.abort_reason = str(reason or '')
         self.abort_result = str(result or 'ABORTED')

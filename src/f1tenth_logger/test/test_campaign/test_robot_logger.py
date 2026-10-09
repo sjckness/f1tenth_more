@@ -808,3 +808,13 @@ def test_tracks_are_counted_in_the_status_line(root):
     log.log_tracks([], t=2.0)
     assert log.stream_counts()["tracks"] == 2
     log.finish("completed")
+
+
+def test_blocked_is_its_own_outcome(root):
+    """Review item 4: mpc_corr's BLOCKED is not folded into 'aborted'."""
+    log = TestLogger(1, root=root, robot_radius=0.3)
+    log.finish("blocked", "BLOCKED: no_feasible_plan on move 'm'")
+    meta = json.loads((log.dir / "meta.json").read_text())
+    assert meta["summary"]["auto_outcome"] == "blocked"
+    assert meta["summary"]["auto_success"] == 0
+    assert meta["summary"]["reason"].startswith("BLOCKED: no_feasible_plan")

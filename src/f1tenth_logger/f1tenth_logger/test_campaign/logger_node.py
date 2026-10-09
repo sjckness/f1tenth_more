@@ -132,7 +132,9 @@ STATUS_TOPIC = "/test_campaign/logger_status"
 #: asserts the two lists stay equal, so neither side can rename an event alone.
 MISSION_EVENTS = (
     "mission_loaded", "mission_started", "mission_finished", "mission_aborted",
+    "mission_blocked",
 )
+_END_EVENTS = ("mission_finished", "mission_aborted", "mission_blocked")
 CONFIG_NAME = "test_campaign_logger.yaml"
 
 
@@ -744,7 +746,7 @@ class TestLoggerNode(Node):
         # starts with its mission_loaded (or, if that was lost, its
         # mission_started), so an end event before either is stale. The
         # plan_id cannot decide it: repetitions of one prompt share one.
-        if event in ("mission_finished", "mission_aborted") and not self._lifecycle_seen:
+        if event in _END_EVENTS and not self._lifecycle_seen:
             self.get_logger().warn(
                 f"[test_campaign] {event} (plan_id {data.get('plan_id')!r}) arrived "
                 f"before this test's mission_loaded -- the previous mission's end, "
@@ -780,10 +782,15 @@ class TestLoggerNode(Node):
             self._mission_started = True
             if self._started_at is None:
                 self._started_at = self._now()
-        elif event in ("mission_finished", "mission_aborted"):
+        elif event in _END_EVENTS:
             reason = str(data.get("reason") or "")
             if event == "mission_finished":
                 outcome = "completed"
+            elif event == "mission_blocked":
+                # mpc_corr stopped the car itself and said why (/mpc/blocked):
+                # its own outcome, scored apart from an abort.
+                outcome = "blocked"
+                reason = reason or "blocked"
             else:
                 outcome = "aborted"
                 reason = reason or "mission aborted"
