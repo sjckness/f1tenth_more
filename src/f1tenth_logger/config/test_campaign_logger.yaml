@@ -13,7 +13,7 @@ test_campaign_logger:
   ros__parameters:
     campaign: first_test_campaing        # folder under <f1tenth_more>
     robot_radius: 0.3                    # circle for corridor_clearance [m]
-    pre_roll_s: 2.0
+    pre_roll_s: 10.0                     # >= 10 s: objects in view at the start (review item 5)
     post_roll_s: 2.0
     max_test_duration_s: 300.0
     status_period_s: 10.0                # status line + /test_campaign/logger_status

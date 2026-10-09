@@ -600,6 +600,17 @@ class FrontClearanceNode(Node):
 
         apply_nice(self)
 
+        # Every effective parameter, once, latched (campaign review item 5):
+        # the mission bag and the campaign logger record what actually ran.
+        self.config_pub = self.create_publisher(
+            String, '/perception/front_clearance/config',
+            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                       history=HistoryPolicy.KEEP_LAST))
+        self.config_pub.publish(String(data=json.dumps(
+            {'node': self.get_name(),
+             'ros_parameters': {n: p.value for n, p in sorted(self._parameters.items())}},
+            default=str)))
+
         self.get_logger().info(
             f'front_clearance_node up: depth "{self.depth_topic}", detections '
             f'"{self.detections_topic}", masks "{self.masks_topic}", obstacles '

@@ -156,6 +156,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 
 from ament_index_python.packages import get_package_share_directory
 
@@ -171,7 +172,11 @@ from f1tenth_messages.msg import MissionStatus
 
 # Mid-mission states: recording runs through both. HOLDING is a pause, not an
 # end -- see module docstring.
-_ACTIVE_STATES = frozenset({'RUNNING', 'HOLDING'})
+# LOADED is active since the M02 review (item 5): recording starts at mission
+# LOAD, so the countdown before the start is in the bag and anything already in
+# view when the car starts moving is too.
+_ACTIVE_STATES = frozenset({'LOADED', 'RUNNING', 'HOLDING'})
+_ARMED_PREFIX = '_armed-'
 
 # Must match f1tenth_behavior/mission/loader.py's own MISSION_STATUS_QOS --
 # durability has to match on both ends or the "late subscriber still gets the
@@ -281,6 +286,11 @@ _DEFAULT_TOPICS = [
     '/mpc/status',
     '/corridor',
     '/mpc/blocked',
+    # Every effective value of mpc_corr and front_clearance_node, latched
+    # (review item 5) -- including what used to be literals in MPC_corr.py.
+    '/mpc/config',
+    '/perception/front_clearance/config',
+    '/mpc/pass_sides',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',
@@ -621,6 +631,14 @@ class MissionLoggerNode(Node):
         # 'move' (default) relocates into <runs_dir>/incomplete/; 'delete'
         # removes outright -- opt-in only, see module docstring.
         self.sweep_action = str(self.declare_parameter('sweep_action', 'move').value)
+        # PRE-ARMED RECORDER (review item 5; output/mission_recorder_late_start.md).
+        # The recorder needs 5-14 s to discover and subscribe to the topic list
+        # under the Discovery Server -- longer than most campaign drives, so the
+        # bags started a median 8.2 s after mission start and 17 of 58 were
+        # empty. Armed = created PAUSED (RecordOptions.start_paused) right after
+        # startup and after every run, so discovery happens while nothing is
+        # going on; the mission LOAD only resumes it.
+        self.prearm = bool(self.declare_parameter('prearm_recorder', True).value)
         status_topic = str(self.declare_parameter('status_topic', '/mission/status').value)
 
         self.storage_id = self._resolve_storage_id()
@@ -634,6 +652,7 @@ class MissionLoggerNode(Node):
         self._active_bag_dir = None
         self._active_run = None      # dict -> becomes the manifest
         self._finalize_thread = None
+        self._armed = None           # dict: recorder, thread, run_dir, bag_dir
 
         self._last_state = None
         self._last_estop = False
@@ -647,6 +666,9 @@ class MissionLoggerNode(Node):
                 'will fail until this is fixed, but missions are unaffected.')
 
         self._sweep_incomplete_bags(reason='startup')
+        # Armed from the first executor tick, not here: a node that is never
+        # spun (the unit tests) never starts a recorder thread.
+        self._arm_timer = self.create_timer(0.5, self._arm_once)
         self._sweep_timer = self.create_timer(
             self.sweep_period_sec, lambda: self._sweep_incomplete_bags(reason='periodic'))
 
@@ -729,60 +751,38 @@ class MissionLoggerNode(Node):
                 'mission_json_path': str(msg.json_path),
             }
 
-            try:
-                # run_dir only: rosbag2 insists on creating bag_dir itself and
-                # refuses to open one that already exists.
-                os.makedirs(run_dir, exist_ok=True)
-                # max_cache_size MUST be passed explicitly. rosbag2_py's
-                # StorageOptions defaults it to 0, whereas `ros2 bag record`
-                # -- the path this node replaced -- defaults to 100MiB, so
-                # constructing StorageOptions without it silently gives the
-                # recorder no write cache at all. Nothing warns: rosbag2 only
-                # rejects a zero cache in snapshot mode.
-                storage_options = rosbag2_py.StorageOptions(
-                    uri=bag_dir, storage_id=self.storage_id,
-                    max_cache_size=100 * 1024 * 1024)
-                record_options = rosbag2_py.RecordOptions()
-                record_options.all = False
-                record_options.topics = list(self.topics)
-                record_options.is_discovery_disabled = False
-                record_options.rmw_serialization_format = 'cdr'
-                record_options.topic_polling_interval = datetime.timedelta(milliseconds=100)
-                # Deep-queue entries are applied after the best-effort ones
-                # so that a topic listed in both lists lands RELIABLE+deep
-                # rather than silently keeping whichever dict comprehension ran
-                # last. The two lists are disjoint by default.
-                qos_overrides = {
-                    t: _best_effort_qos(self.qos_depth) for t in self.best_effort_topics}
-                qos_overrides.update({
-                    t: _reliable_deep_qos(self.deep_queue_depth)
-                    for t in self.deep_queue_topics})
-                record_options.topic_qos_profile_overrides = qos_overrides
-
-                recorder = rosbag2_py.Recorder()
-
-                def _run():
-                    try:
-                        recorder.record(storage_options, record_options)
-                    except Exception as exc:  # noqa: BLE001
-                        self.get_logger().error(f'recorder thread failed: {exc}')
-
-                thread = threading.Thread(
-                    target=_run, name=f'mission_bag_{run_id}', daemon=True)
-                thread.start()
-
-                self._recorder = recorder
-                self._record_thread = thread
-                self._active_bag_dir = bag_dir
-                self._active_run = run
-            except Exception as exc:  # noqa: BLE001
-                self.get_logger().error(
-                    f'FAILED to start recording for "{mission_name}": {exc} -- the mission '
-                    'runs normally, but this run will not be captured.')
-                self._recorder = None
-                self._record_thread = None
-                self._active_bag_dir = None
-                self._active_run = None
+            armed, self._armed = self._armed, None
+            if armed is not None:
+                try:
+                    self._resume(armed)
+                    self._recorder = armed['recorder']
+                    self._record_thread = armed['thread']
+                    self._active_bag_dir = armed['bag_dir']
+                    # The folder keeps its armed name until the recorder has
+                    # closed the bag (_stop_recording renames it to run_id).
+                    run['armed_dir'] = armed['run_dir']
+                    run['run_dir'] = armed['run_dir']
+                    run['bag_path'] = armed['bag_dir']
+                    run['params_snapshot_path'] = os.path.join(
+                        armed['run_dir'], f'{run_id}.params.yaml')
+                    run['manifest_path'] = os.path.join(
+                        armed['run_dir'], f'{run_id}.manifest.json')
+                    run['armed_since'] = armed['since']
+                    self._active_run = run
+                except Exception as exc:  # noqa: BLE001 - fall back to a fresh recorder
+                    self.get_logger().error(
+                        f'could not resume the armed recorder ({exc}) -- starting a '
+                        'fresh one; this run will miss its first seconds.')
+                    self._discard_armed(armed)
+                    run.pop('armed_dir', None)
+                    run.update(run_dir=run_dir, bag_path=bag_dir,
+                               params_snapshot_path=os.path.join(
+                                   run_dir, f'{run_id}.params.yaml'),
+                               manifest_path=os.path.join(
+                                   run_dir, f'{run_id}.manifest.json'))
+            if self._active_run is None:
+                self._start_fresh_recorder(run, run_dir, bag_dir, mission_name)
+            if self._active_run is None:
                 return
 
         # Sidecars written outside the lock -- filesystem work, and the manifest
@@ -790,7 +790,188 @@ class MissionLoggerNode(Node):
         # mid-record still leaves an enumerable record (see module docstring).
         self._write_params_snapshot(run)
         self._write_manifest(run)
-        self.get_logger().info(f'recording "{run["run_id"]}" -> {bag_dir}')
+        # EVERY node's effective parameters, read live from their parameter
+        # services (review item 5) -- stack_params.yaml is only the defaults,
+        # and launch arguments or uncommitted code can differ from it.
+        self._start_param_dump(run)
+        self.get_logger().info(f'recording "{run["run_id"]}" -> {run["bag_path"]}')
+
+    def _start_param_dump(self, run):
+        thread = threading.Thread(target=self._dump_params, args=(run,),
+                                  name='param_dump', daemon=True)
+        run['_param_dump_thread'] = thread
+        thread.start()
+
+    def _dump_params(self, run, per_node_timeout=2.0, total_budget=20.0):
+        """{node: {param: value}} for every node in the graph, via its own
+        list_parameters / get_parameters services, on a private node + executor
+        so the logger's callbacks are never blocked."""
+        from rcl_interfaces.srv import GetParameters, ListParameters
+        from rclpy.executors import SingleThreadedExecutor
+        from rclpy.parameter import parameter_value_to_python
+        out = {}
+        helper = rclpy.create_node('mission_logger_param_dump')
+        executor = SingleThreadedExecutor()
+        executor.add_node(helper)
+        deadline = time.monotonic() + total_budget
+
+        def call(client, request):
+            if not client.wait_for_service(timeout_sec=per_node_timeout):
+                return None
+            future = client.call_async(request)
+            executor.spin_until_future_complete(future, timeout_sec=per_node_timeout)
+            return future.result() if future.done() else None
+
+        try:
+            for name, ns in sorted(helper.get_node_names_and_namespaces()):
+                if time.monotonic() > deadline:
+                    out['_truncated'] = True
+                    break
+                if name.startswith(('mission_logger', 'mission_bag_', '_ros2cli')):
+                    continue
+                full = (ns.rstrip('/') + '/' + name) if ns != '/' else '/' + name
+                lc = helper.create_client(ListParameters, f'{full}/list_parameters')
+                gc = helper.create_client(GetParameters, f'{full}/get_parameters')
+                try:
+                    listed = call(lc, ListParameters.Request(depth=0))
+                    if listed is None:
+                        out[full] = None
+                        continue
+                    names = list(listed.result.names)
+                    got = call(gc, GetParameters.Request(names=names)) if names else None
+                    values = got.values if got is not None else []
+                    out[full] = {n: parameter_value_to_python(v)
+                                 for n, v in zip(names, values)}
+                finally:
+                    helper.destroy_client(lc)
+                    helper.destroy_client(gc)
+        except Exception as exc:  # noqa: BLE001 - never fatal
+            out['_error'] = str(exc)
+        finally:
+            executor.shutdown()
+            helper.destroy_node()
+        run['_effective_params'] = out
+
+    def _make_recorder(self, bag_dir, start_paused, node_name):
+        """(recorder, thread) recording self.topics into bag_dir."""
+        storage_options = rosbag2_py.StorageOptions(
+            uri=bag_dir, storage_id=self.storage_id,
+            max_cache_size=100 * 1024 * 1024)
+        record_options = rosbag2_py.RecordOptions()
+        # 'all' on Humble's rosbag2_py, 'all_topics' on Jazzy's -- setting the
+        # missing one raises, and on Jazzy that was every recording failing.
+        if hasattr(record_options, 'all_topics'):
+            record_options.all_topics = False
+        else:
+            record_options.all = False
+        record_options.topics = list(self.topics)
+        record_options.is_discovery_disabled = False
+        record_options.rmw_serialization_format = 'cdr'
+        record_options.topic_polling_interval = datetime.timedelta(milliseconds=100)
+        if start_paused:
+            record_options.start_paused = True   # AttributeError -> cannot arm
+        qos_overrides = {
+            t: _best_effort_qos(self.qos_depth) for t in self.best_effort_topics}
+        qos_overrides.update({
+            t: _reliable_deep_qos(self.deep_queue_depth)
+            for t in self.deep_queue_topics})
+        record_options.topic_qos_profile_overrides = qos_overrides
+        # ONE Recorder for the node's lifetime, reused run after run: its
+        # constructor initialises rclcpp, and on Jazzy a second Recorder()
+        # in the same process raises "context is already initialized" --
+        # i.e. only the first mission of a session would ever be recorded.
+        if getattr(self, '_recorder_obj', None) is None:
+            self._recorder_obj = rosbag2_py.Recorder()
+        recorder = self._recorder_obj
+
+        def _run():
+            try:
+                recorder.record(storage_options, record_options, node_name)
+            except Exception as exc:  # noqa: BLE001
+                self.get_logger().error(f'recorder thread failed: {exc}')
+
+        thread = threading.Thread(target=_run, name=node_name, daemon=True)
+        thread.start()
+        return recorder, thread
+
+    def _arm(self):
+        """Create the next run's recorder, PAUSED, so its discovery is done early."""
+        if not self.prearm or getattr(self, '_shutting_down', False):
+            return
+        with self._lock:
+            if self._armed is not None or self._active_run is not None:
+                return
+            stamp = _utc_stamp()
+            run_dir = os.path.join(self.active_dir, _ARMED_PREFIX + stamp)
+            bag_dir = os.path.join(run_dir, 'bag')
+            node_name = 'mission_bag_' + ''.join(ch if ch.isalnum() else '_' for ch in stamp)
+            try:
+                os.makedirs(run_dir, exist_ok=True)
+                recorder, thread = self._make_recorder(bag_dir, True, node_name)
+            except Exception as exc:  # noqa: BLE001
+                self.get_logger().error(f'could not arm the recorder: {exc}')
+                shutil.rmtree(run_dir, ignore_errors=True)
+                return
+            self._armed = {'recorder': recorder, 'thread': thread, 'run_dir': run_dir,
+                           'bag_dir': bag_dir, 'node_name': node_name,
+                           'since': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+        self.get_logger().info(f'recorder armed (paused) -> {bag_dir}')
+
+    def _resume(self, armed):
+        """Un-pause the armed recorder: Recorder.resume() where rosbag2_py has it
+        (Jazzy), else the recorder node's ~/resume service. Raises if neither."""
+        recorder = armed['recorder']
+        if hasattr(recorder, 'resume'):
+            recorder.resume()
+            return
+        from rosbag2_interfaces.srv import Resume
+        client = self.create_client(Resume, f'/{armed["node_name"]}/resume')
+        try:
+            if not client.wait_for_service(timeout_sec=0.5):
+                raise RuntimeError(f'no /{armed["node_name"]}/resume service')
+            future = client.call_async(Resume.Request())
+            deadline = time.monotonic() + 1.0
+            while not future.done() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            if not future.done():
+                raise RuntimeError('resume service did not answer')
+        finally:
+            self.destroy_client(client)
+
+    def _arm_once(self):
+        self._arm_timer.cancel()
+        self._arm()
+
+    def _discard_armed(self, armed):
+        try:
+            armed['recorder'].cancel()
+            armed['thread'].join(timeout=15.0)
+        except Exception:  # noqa: BLE001
+            pass
+        shutil.rmtree(armed['run_dir'], ignore_errors=True)
+
+    def _start_fresh_recorder(self, run, run_dir, bag_dir, mission_name):
+        """The pre-review path: a new recorder at the transition (slow discovery).
+        Used when prearm_recorder is false or the armed one could not resume."""
+        try:
+            # run_dir only: rosbag2 insists on creating bag_dir itself and
+            # refuses to open one that already exists.
+            os.makedirs(run_dir, exist_ok=True)
+            recorder, thread = self._make_recorder(
+                bag_dir, False, 'mission_bag_' + ''.join(
+                    ch if ch.isalnum() else '_' for ch in run['run_id']))
+            self._recorder = recorder
+            self._record_thread = thread
+            self._active_bag_dir = bag_dir
+            self._active_run = run
+        except Exception as exc:  # noqa: BLE001
+            self.get_logger().error(
+                f'FAILED to start recording for "{mission_name}": {exc} -- the mission '
+                'runs normally, but this run will not be captured.')
+            self._recorder = None
+            self._record_thread = None
+            self._active_bag_dir = None
+            self._active_run = None
 
     def _stop_recording(self, outcome):
         with self._lock:
@@ -815,6 +996,30 @@ class MissionLoggerNode(Node):
         except Exception as exc:  # noqa: BLE001
             self.get_logger().error(f'error stopping recorder: {exc}')
 
+        dump = run.pop('_param_dump_thread', None)
+        if dump is not None:
+            dump.join(timeout=10.0)
+        effective = run.pop('_effective_params', None)
+        armed_dir = run.pop('armed_dir', None)
+        if armed_dir is not None:
+            final = os.path.join(self.active_dir, run['run_id'])
+            try:
+                os.rename(armed_dir, final)
+                for key, name in (('params_snapshot_path', f'{run["run_id"]}.params.yaml'),
+                                  ('manifest_path', f'{run["run_id"]}.manifest.json')):
+                    run[key] = os.path.join(final, name)
+                run['run_dir'] = final
+                run['bag_path'] = os.path.join(final, 'bag')
+            except OSError as exc:
+                self.get_logger().error(f'could not rename "{armed_dir}": {exc}')
+        if effective is not None:
+            path = os.path.join(run['run_dir'], f'{run["run_id"]}.effective_params.json')
+            try:
+                with open(path, 'w') as fh:
+                    json.dump(effective, fh, indent=1, sort_keys=True, default=str)
+                run['effective_params_path'] = path
+            except OSError as exc:
+                self.get_logger().warn(f'could not write effective params: {exc}')
         run['outcome'] = outcome
         run['end_time'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
         # Written while still in active/, so a run whose move fails below is
@@ -826,6 +1031,7 @@ class MissionLoggerNode(Node):
             f'stopped recording "{run["run_id"]}" (outcome={outcome}) -> {run["run_dir"]}')
         if moved:
             self._start_finalize(run)
+        self._arm()
 
     def _move_to_complete(self, run):
         """active/<run_id>/ -> complete/<run_id>/, whole, by rename.
@@ -859,6 +1065,9 @@ class MissionLoggerNode(Node):
         run['bag_path'] = os.path.join(dest, 'bag')
         run['params_snapshot_path'] = os.path.join(dest, f'{run_id}.params.yaml')
         run['manifest_path'] = os.path.join(dest, f'{run_id}.manifest.json')
+        if run.get('effective_params_path'):
+            run['effective_params_path'] = os.path.join(
+                dest, f'{run_id}.effective_params.json')
         return dest
 
     # -- finalize ----------------------------------------------------------
@@ -940,7 +1149,9 @@ class MissionLoggerNode(Node):
             self.get_logger().warn(f'could not snapshot stack_params.yaml: {exc}')
 
     def _write_manifest(self, run):
-        payload = dict(run)
+        # Keys starting with '_' are in-process bookkeeping (the param-dump
+        # thread and its result), never manifest content.
+        payload = {k: v for k, v in run.items() if not k.startswith('_')}
         payload['resolved_params'] = self._resolved_params()
         payload['git'] = self._git_state()
         try:
@@ -1007,6 +1218,10 @@ class MissionLoggerNode(Node):
                 bag = os.path.join(path, 'bag')
                 if active is not None and os.path.abspath(bag) == os.path.abspath(active):
                     continue  # never touch the in-progress bag
+                armed = self._armed
+                if armed is not None and os.path.abspath(path) == os.path.abspath(
+                        armed['run_dir']):
+                    continue  # nor the armed one
                 if os.path.isfile(os.path.join(bag, 'metadata.yaml')):
                     continue
                 try:
@@ -1032,8 +1247,12 @@ class MissionLoggerNode(Node):
     def on_shutdown(self):
         """Stop cleanly if the process goes down mid-mission, so the bag still
         gets its metadata.yaml instead of becoming sweep fodder."""
+        self._shutting_down = True
         with self._lock:
             active = self._active_run is not None
+            armed, self._armed = self._armed, None
+        if armed is not None:
+            self._discard_armed(armed)
         if active:
             self._stop_recording('INTERRUPTED')
         # Finalize runs on a daemon thread, which dies silently with the

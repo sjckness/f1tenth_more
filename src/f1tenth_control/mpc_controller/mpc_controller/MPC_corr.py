@@ -1946,6 +1946,7 @@ class MPCController(Node):
         self._apply_nice()
 
         self.timer = self.create_timer(self.ts, self.control_loop)
+        self._publish_config()
 
         self.get_logger().info(
             'MPC Controller STARTED (pure MPC + obstacle avoidance '
@@ -3515,6 +3516,45 @@ class MPCController(Node):
             msg.normal_yaw = math.nan
             msg.since_last_fit_sec = math.nan
         self.wall_track_pub.publish(msg)
+
+    def _publish_config(self):
+        """/mpc/config: EVERY effective value, once, latched (review item 5).
+
+        All declared ROS parameters (which now include the former literals:
+        ts / ts_pred / N, corr_wmin / corr_wmax / corr_L_base, ...) plus the
+        values that are still literals in this file (the solver's accel and
+        rate bounds, lr, corr_N, the lookahead reach margin, the footprint
+        circles). Transient-local, so the mission bag and the campaign logger
+        get it whenever they start.
+        """
+        try:
+            params = {name: p.value for name, p in sorted(self._parameters.items())}
+            config = {
+                'node': self.get_name(),
+                'ros_parameters': params,
+                'literals': {
+                    'control_period_s': self.ts, 'prediction_dt_s': self.ts_pred,
+                    'horizon_steps': self.N, 'model': dict(self.params),
+                    'limits': dict(self.limits), 'weights': dict(self.weights),
+                    'wheel_radius': self.wheel_radius, 'corr_N': self.corr_N,
+                    'corr_L_base': self.corr_L_base, 'corr_wmin': self.corr_wmin,
+                    'corr_wmax': self.corr_wmax,
+                    'corr_lookahead_frac': self.corr_lookahead_frac,
+                    'corr_lookahead_reach_margin': self.corr_lookahead_reach_margin,
+                    'vdes_default': self.vdes, 'dmin': self.dmin,
+                    'body_box': vars(self.body_box) if hasattr(self.body_box, '__dict__')
+                    else {'front': self.body_box.front, 'rear': self.body_box.rear,
+                          'half_width': self.body_box.half_width},
+                    'footprint_circles': [list(c) for c in self.footprint_circles],
+                },
+            }
+            qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                             reliability=ReliabilityPolicy.RELIABLE,
+                             history=HistoryPolicy.KEEP_LAST)
+            self.config_pub = self.create_publisher(String, '/mpc/config', qos)
+            self.config_pub.publish(String(data=json.dumps(config, default=str)))
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop the node
+            self.get_logger().warn(f'/mpc/config not published: {exc}')
 
     def _move_kind(self):
         """Which kind of move is active, for the BLOCKED record."""

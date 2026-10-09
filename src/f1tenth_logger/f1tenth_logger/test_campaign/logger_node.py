@@ -96,7 +96,7 @@ from pathlib import Path
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Float32, String
 
 from f1tenth_logger.test_campaign.robot_logger import (
@@ -299,6 +299,10 @@ class TestLoggerNode(Node):
                         self._on_front_confirmed, sensor)
         self._subscribe(String, self._front_debug_topic, self._on_front_debug, sensor)
         self._subscribe(String, self._blocked_topic, self._on_blocked, reliable)
+        self._mpc_config = None
+        latched = QoSProfile(depth=1)
+        latched.durability = DurabilityPolicy.TRANSIENT_LOCAL
+        self._subscribe(String, "/mpc/config", self._on_mpc_config, latched)
 
         self._status_pub = self.create_publisher(String, STATUS_TOPIC, 10)
         self.create_timer(0.1, self._tick)
@@ -419,6 +423,8 @@ class TestLoggerNode(Node):
 
         self._test = logger
         self._blocked_logged = False
+        if self._mpc_config is not None:
+            logger.extra_meta.setdefault("mpc_config", self._mpc_config)
         self._t0 = self._now()
         self._mission_started = False
         self._pending_close = None
@@ -590,6 +596,10 @@ class TestLoggerNode(Node):
                 self._test.log_state(**payload, t=t)
             elif kind == "command":
                 self._test.log_command(**payload, t=t)
+            elif kind == "tracks":
+                self._test.log_tracks(*payload, t=t)
+            elif kind == "front":
+                self._test.log_front(*payload, t=t)
             replayed += 1
         self._pre_roll.clear()
         if replayed:
@@ -954,8 +964,6 @@ class TestLoggerNode(Node):
         confirming) -- the two causes that were indistinguishable after
         P004-R003.
         """
-        if self._test is None:
-            return
         tracks = []
         for det in getattr(msg, "detections", []) or []:
             results = getattr(det, "results", None) or []
@@ -978,25 +986,39 @@ class TestLoggerNode(Node):
         if header is not None:
             frame = getattr(header, "frame_id", None)
             stamp = header.stamp.sec + header.stamp.nanosec * 1e-9
+        if self._test is None:
+            # Objects already in view when the test opens (review item 5):
+            # kept in the pre-roll ring and replayed with negative t.
+            self._remember("tracks", self._now(), (tracks, frame, stamp))
+            return
         self._test.log_tracks(tracks, frame_id=frame, stamp=stamp, t=self._t())
 
-    def _on_front_distance(self, msg):
+    def _front(self, source, record):
         if self._test is None:
+            self._remember("front", self._now(), (source, record))
             return
-        self._test.log_front("front_distance", {"v": float(msg.data)}, t=self._t())
+        self._test.log_front(source, record, t=self._t())
+
+    def _on_front_distance(self, msg):
+        self._front("front_distance", {"v": float(msg.data)})
 
     def _on_front_confirmed(self, msg):
-        if self._test is None:
-            return
-        self._test.log_front("front_wall_confirmed", {"v": float(msg.data)}, t=self._t())
+        self._front("front_wall_confirmed", {"v": float(msg.data)})
 
     def _on_front_debug(self, msg):
-        if self._test is None:
-            return
         data = self._payload(msg, self._front_debug_topic, self.get_logger())
         if data is None:
             return
-        self._test.log_front("debug", data, t=self._t())
+        self._front("debug", data)
+
+    def _on_mpc_config(self, msg):
+        """mpc_corr's latched effective config (review item 5): every value,
+        the former literals included, into each test's meta.json."""
+        data = self._payload(msg, "/mpc/config", self.get_logger())
+        if data is not None:
+            self._mpc_config = data
+            if self._test is not None:
+                self._test.extra_meta.setdefault("mpc_config", data)
 
     def _on_blocked(self, msg):
         """mpc_corr's BLOCKED verdict, once per test (it repeats every tick)."""
