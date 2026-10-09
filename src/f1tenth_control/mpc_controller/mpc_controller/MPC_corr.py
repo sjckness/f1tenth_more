@@ -22,6 +22,9 @@ from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
+from mpc_controller.blocked import (
+    BlockedDetector, BodyBox, first_floor_stage, gate_speed, plan_body_gap,
+    plan_keepouts)
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
@@ -582,6 +585,36 @@ class MPCController(Node):
                 'object_reach_tol_m', get_value('object_reach_tol_m')).value),
             float(self.declare_parameter(
                 'object_stop_distance_m', get_value('object_stop_distance_m')).value))
+
+        # ---- THE FLOOR ON EVERY MOVE, KEEP-OUTS, BLOCKED (campaign fix A3) --
+        # See mpc_controller/blocked.py for what each does and why R011 needed
+        # all three. All read from stack_params.yaml.
+        def _p(name):
+            return self.declare_parameter(name, get_value(name)).value
+        self.min_speed_all_moves = bool(_p('mpc_min_speed_all_moves'))
+        self.keepout_enabled = bool(_p('mpc_obstacle_keepout_enabled'))
+        self.blocked_enabled = bool(_p('mpc_blocked_enabled'))
+        self.body_box = BodyBox(
+            front=float(_p('swept_clearance_body_front_x_m')),
+            rear=float(_p('swept_clearance_body_rear_x_m')),
+            half_width=float(_p('swept_clearance_body_half_width_m')))
+        self.blocked_detector = BlockedDetector(
+            self.min_moving_speed,
+            float(_p('mpc_blocked_progress_window_sec')),
+            float(_p('mpc_blocked_min_progress_m')),
+            float(_p('mpc_blocked_lock_window_sec')),
+            float(_p('mpc_blocked_lock_fraction')),
+            float(_p('mpc_blocked_infeasible_sec')))
+        # The verdict that ended the current move, latched until the next one.
+        self.blocked_verdict = None
+        self._keepout_prev_sides = []
+        self._move_is_turn = False
+        self._floor_raised_logged = False
+        # Last tick's feasibility facts, for the log and /mpc/status (A5).
+        self.last_tick_feasible = True
+        self.last_plan_gap = math.inf
+        self.last_keepout_report = []
+        self.blocked_pub = self.create_publisher(String, '/mpc/blocked', 10)
         self.object_speed_mode = None   # object_approach SPEED_*, this tick
         # Per-tick flags (see _assess_object_tick). The heading margin is not a
         # parameter: it is derived from r_freeze, the closest range the
@@ -2047,6 +2080,12 @@ class MPCController(Node):
         # run releases the hold, before that run's first goal arrives.
         if msg.data and self.object_psi_c is not None:
             self._end_object_move('hold engaged')
+        # A hold pauses the move; standing still under it is not "stuck".
+        # A latched verdict stays until the next move.
+        if not msg.data and getattr(self, 'blocked_verdict', None) is None:
+            detector = getattr(self, 'blocked_detector', None)
+            if detector is not None:
+                detector.reset()
 
     def goal_distance_callback(self, msg: Float32):
         if self.x is None or self.y is None:
@@ -2711,6 +2750,9 @@ class MPCController(Node):
         self._no_goal_warned = False
         self._clear_drive_state()
         self._invalidate_move_state()
+        # A turn holds steering lock by design: the BLOCKED detector's
+        # steering-lock rule does not apply to it (A3).
+        self._move_is_turn = True
 
         # vdes override for the duration of the turn -- the one real
         # (non-stub) per-move vdes path in this file today. move.vdes at the
@@ -3075,6 +3117,18 @@ class MPCController(Node):
         if latch is not None:
             latch.reset()
         self.object_speed_mode = None
+        # A NEW MOVE is the only thing that clears a BLOCKED latch (A3).
+        # getattr for the duck-typed stand-ins.
+        if getattr(self, 'blocked_verdict', None) is not None:
+            self.get_logger().info(
+                f'BLOCKED | cleared by a new move (was {self.blocked_verdict.reason})')
+        self.blocked_verdict = None
+        self._keepout_prev_sides = []
+        self._move_is_turn = False
+        self._floor_raised_logged = False
+        detector = getattr(self, 'blocked_detector', None)
+        if detector is not None:
+            detector.reset()
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
         # A new move's first corridor has nothing meaningful to be a step FROM
@@ -3448,6 +3502,46 @@ class MPCController(Node):
             msg.since_last_fit_sec = math.nan
         self.wall_track_pub.publish(msg)
 
+    def _move_kind(self):
+        """Which kind of move is active, for the BLOCKED record."""
+        if self.drive_cmd is not None:
+            return f'drive:{self.drive_cmd.get("mode")}'
+        if self.goal_object_odom_xy is not None:
+            return 'go_to_object'
+        if self.goal_pose_xy is not None:
+            return 'turn' if self._move_is_turn else 'goal_pose'
+        if self.goal_distance is not None:
+            return 'goal_distance'
+        return 'none'
+
+    def _latch_blocked(self, verdict):
+        self.blocked_verdict = verdict
+        self.blocked_record = {
+            'reason': verdict.reason,
+            'detail': verdict.detail,
+            'move_kind': self._move_kind(),
+            'move_id': getattr(self, 'goal_object_move_id', None)
+            if self.goal_object_odom_xy is not None else None,
+            'x': round(float(self.x), 3), 'y': round(float(self.y), 3),
+            'yaw': round(float(self.yaw), 3),
+            't_ros': self.get_clock().now().nanoseconds * 1e-9,
+            'keepouts': self.last_keepout_report,
+        }
+        self.get_logger().error(
+            f'BLOCKED | {verdict.reason} {json.dumps(verdict.detail)} on '
+            f'{self.blocked_record["move_kind"]}: stop and hold, the mission is told '
+            'on /mpc/blocked')
+
+    def _publish_blocked(self):
+        record = getattr(self, 'blocked_record', None)
+        if record is None:
+            return
+        try:
+            self.blocked_pub.publish(String(data=json.dumps(record, default=str)))
+        except Exception as exc:  # noqa: BLE001 - the stop must not depend on it
+            self.get_logger().warn(f'/mpc/blocked not published: {exc}',
+                                   throttle_duration_sec=5.0)
+
     def _publish_drive(self, speed, steering_angle):
         requested = speed
         speed, clamped = clamp_drive_speed(
@@ -3541,6 +3635,14 @@ class MPCController(Node):
             # resumes the current move rather than restarting or skipping it.
             # Object moves are the exception: hold_callback ENDS them.
             self._publish_stop()
+            return
+
+        if self.blocked_verdict is not None:
+            # BLOCKED (A3): the move is over for this node. Zero speed,
+            # steering held where it was, and the verdict repeated every tick
+            # so the mission cannot miss it. Only a new move clears it.
+            self._publish_drive(0.0, self._last_published_steer)
+            self._publish_blocked()
             return
 
         # ONE map -> odom reprojection per tick, shared by the goal_distance
@@ -3827,6 +3929,18 @@ class MPCController(Node):
             # force for the next move.
             vdes = self._object_vdes
 
+        if (self.min_speed_all_moves and 0.0 < vdes < self.min_moving_speed):
+            # THE FLOOR ON EVERY MOVE (A3): a move asking for 0 < v < floor is
+            # driven at the floor, not refused -- drive_turn_180.json & co.
+            # still ask for 0.3. Said once per move.
+            if not self._floor_raised_logged:
+                self.get_logger().warn(
+                    f'SPEED/floor | move speed {vdes:.2f} m/s is below '
+                    f'min_moving_speed_mps {self.min_moving_speed:.2f}: driving '
+                    f'at {self.min_moving_speed:.2f}')
+                self._floor_raised_logged = True
+            vdes = self.min_moving_speed
+
         now_time = self.get_clock().now()
         now_sec = now_time.nanoseconds * 1e-9
 
@@ -3928,6 +4042,30 @@ class MPCController(Node):
         self.get_logger().info(
             f'BOUNDARY/live | n={len(live_boundaries)}', throttle_duration_sec=2.0)
 
+        # ---- A3: the floor in the QP and the obstacle keep-outs -----------
+        floor_kwargs = {}
+        if self.min_speed_all_moves:
+            floor_kwargs['v_floor'] = self.min_moving_speed
+            floor_kwargs['v_floor_from_stage'] = first_floor_stage(
+                float(x0[3]), float(self.last_u[1]), self.min_moving_speed,
+                self.limits['a_max'], self.limits['dAMax'], self.ts_pred,
+                self.ts, self.N)
+        keepout_plan = None
+        if self.keepout_enabled:
+            keepout_plan = plan_keepouts(
+                obstacles_global, corridor, (float(x0[0]), float(x0[1])),
+                self.car_radius, self.avoidance_margin, self.body_box,
+                self.N * self.ts_pred * max(vdes, self.min_moving_speed),
+                self._keepout_prev_sides)
+            self._keepout_prev_sides = [(k.ox, k.oy, k.side)
+                                        for k in keepout_plan.keepouts]
+            floor_kwargs['keepouts'] = [k.as_dict() for k in keepout_plan.keepouts]
+            self.last_keepout_report = keepout_plan.report
+            if keepout_plan.report:
+                self.get_logger().info(
+                    f'KEEPOUT | {json.dumps(keepout_plan.report)}',
+                    throttle_duration_sec=1.0)
+
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
         u0, info = solve_mpc_step(
@@ -3950,6 +4088,7 @@ class MPCController(Node):
             boundary_slack_weight=self.boundary_slack_weight,
             warm_start_z=self.warm_start_z,
             control_period=self.ts,
+            **floor_kwargs,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
@@ -4106,6 +4245,44 @@ class MPCController(Node):
             # non-driving object tick returned above, so this is only ever a
             # moving approach; the top of the range is _publish_drive's clamp.
             v_cmd_now = floor_moving_speed(v_cmd_now, self.min_moving_speed)
+
+        # ---- A3: 0 or >= the floor, and BLOCKED --------------------------
+        # Feasible = a usable solve, a side for every obstacle in the way,
+        # and a plan whose body clears every obstacle. An infeasible tick
+        # commands ZERO -- never a crawl; feasible ticks of every move get
+        # the floor. Persisting infeasibility, no progress, or steering lock
+        # without progress ends the move BLOCKED (blocked.BlockedDetector).
+        plan_gap = plan_body_gap(info.get('x_pred'), obstacles_global, self.body_box)
+        no_side = bool(keepout_plan.blocked) if keepout_plan is not None else False
+        feasible = (bool(info.get('success', False)) and not no_side
+                    and not plan_gap < 0.0)
+        self.last_tick_feasible = feasible
+        self.last_plan_gap = plan_gap
+        if self.min_speed_all_moves:
+            if feasible:
+                v_cmd_now = gate_speed(v_cmd_now, self.min_moving_speed)
+            else:
+                v_cmd_now = 0.0
+                self.get_logger().warn(
+                    f'SPEED/infeasible | stop this tick: success={info.get("success")} '
+                    f'no_side_fits={no_side} plan_body_gap={plan_gap:+.3f} m',
+                    throttle_duration_sec=0.5)
+        if self.blocked_enabled:
+            turning = self._move_is_turn or (
+                self.drive_cmd is not None and self.drive_cmd.get('mode') == 'wall_turn')
+            verdict = self.blocked_detector.update(
+                now_sec, float(self.x), float(self.y), v_cmd_now, delta_cmd,
+                self.limits['delta_min'], self.limits['delta_max'], turning,
+                corridor.get('psiRef'), feasible,
+                {'solver_success': bool(info.get('success', False)),
+                 'solver_status': str(info.get('status_message', info.get('status'))),
+                 'no_side_fits': (keepout_plan.blocked if keepout_plan is not None else []),
+                 'plan_body_gap_m': (round(plan_gap, 3) if math.isfinite(plan_gap) else None)})
+            if verdict is not None:
+                self._latch_blocked(verdict)
+                self._publish_drive(0.0, delta_cmd)
+                self._publish_blocked()
+                return
 
         v_cmd_log = self.prev_v_cmd if self.prev_v_cmd is not None else float("nan")
         self.prev_v_cmd = v_cmd_now

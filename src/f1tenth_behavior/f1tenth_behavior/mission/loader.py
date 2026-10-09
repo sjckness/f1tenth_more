@@ -725,6 +725,12 @@ class MissionLoader:
         belong to the test it currently has open.
         """
         reason, self._pending_event_reason = self._pending_event_reason, ''
+        if not reason and state.state == MissionState.ABORTED:
+            # A BT-internal abort (timeout, BLOCKED, target_lost, ...) has no
+            # service call to set _pending_event_reason; it leaves its reason
+            # on the state instead (MissionRuntimeState.abort). getattr for
+            # the duck-typed state stand-ins.
+            reason = str(getattr(state, 'abort_reason', '') or '')
         event = _TEST_EVENTS.get(state.state)
         if event is None:
             return

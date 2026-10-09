@@ -218,7 +218,7 @@ class GoToObject(py_trees.behaviour.Behaviour):
         write_mission_summary(
             state.config.mission_id, state.move_outcomes, 'ABORTED',
             state.mission_start_wall_time, self.node.get_logger())
-        state.abort()
+        state.abort(reason=f"move '{move.id}': {state.last_stop_reason}")
         return py_trees.common.Status.FAILURE
 
     def _publish_goal(self, wire_id, spec, step):

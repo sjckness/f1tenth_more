@@ -180,6 +180,14 @@ class MissionRuntimeState:
     # see each setter's own comment for the exact tag used. None only before
     # the very first move has ever ended.
     last_stop_reason: Optional[str] = None
+    # Why the mission ended ABORTED, and how to label it (campaign fix A3).
+    # Set by abort(); read by MissionLoader._publish_test_event so a
+    # BT-internal abort (timeout, BLOCKED, target_lost) reaches
+    # /test/mission_event with its reason instead of ''. abort_result is
+    # 'ABORTED' or 'BLOCKED' -- a label for the logs, not a MissionState:
+    # the state machine is still ABORTED either way.
+    abort_reason: str = ''
+    abort_result: str = 'ABORTED'
     # Per-mission-run move-by-move scoring record (mission/move_scoring.py) --
     # appended to by record_move_outcome(), read by write_mission_summary() at
     # mission end. Reset (to empty) only in load() -- NOT in goto_move(),
@@ -278,6 +286,8 @@ class MissionRuntimeState:
         self.move_start_global_xy = None
         self.move_start_global_yaw = None
         self.last_stop_reason = None
+        self.abort_reason = ''
+        self.abort_result = 'ABORTED'
         self.move_outcomes = []
         self.mission_start_wall_time = None
         self.state = MissionState.LOADED
@@ -333,6 +343,8 @@ class MissionRuntimeState:
         self.state = MissionState.COMPLETE
         self.goal_dirty = False
 
-    def abort(self) -> None:
+    def abort(self, reason: str = '', result: str = 'ABORTED') -> None:
         self.state = MissionState.ABORTED
         self.goal_dirty = False
+        self.abort_reason = str(reason or '')
+        self.abort_result = str(result or 'ABORTED')

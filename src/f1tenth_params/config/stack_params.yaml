@@ -1105,6 +1105,37 @@ max_forward_speed_mps:
 min_moving_speed_mps:
   default: 0.4
   description: "Minimum forward speed [m/s] commanded while the car moves; zero only to stop. ENFORCED on: go_to_object moves -- the mission loader rejects go_to_object.speed below it, mpc_corr floors the published /drive speed at it while an object approach drives, and treats an ObjectGoal speed below it as stop-and-wait. NOT YET ENFORCED on drive, turn, goal_distance and goal_pose moves: drive_turn_180.json, test_04_turn_accuracy.json, turn_90_left.json and wall_turn_then_straight.json still request 0.3 m/s, and mpc_corr's other modes still let the solver's command fall below 0.4 near a goal."
+# ------------------------------------------------------------------
+# THE FLOOR ON EVERY MOVE, OBSTACLE KEEP-OUTS, BLOCKED (M02 campaign fix A3,
+# 2026-10-09). Consumed by MPC_corr.py's declare_parameter() defaults
+# (get_value), no launch arg; logic in mpc_controller/blocked.py. R011: a
+# centred plant, full left lock, a = 0.9 -> v_cmd 0.09 m/s (below the
+# ~0.12-0.14 m/s the car needs), 33 s without moving, only the operator
+# ended it. UNVERIFIED ON THE CAR: nominal-model closed loop on linus only.
+mpc_min_speed_all_moves:
+  default: true
+  description: "Apply min_moving_speed_mps to EVERY move, not only go_to_object: a move speed in (0, floor) is driven at the floor, the QP gets v_k >= floor from the first stage the accel limits reach it, and a feasible tick publishes max(v_cmd, floor). An infeasible tick publishes 0. false = the pre-campaign speed path."
+mpc_obstacle_keepout_enabled:
+  default: true
+  description: "Hard one-sided lateral row per obstacle in the way, on the rear axle, at the stages whose along-track position overlaps it (blocked.plan_keepouts): pass at c + d or c - d, d = r + car_radius + obstacle_safety_margin_m. The side that fits in the corridor and needs the least lateral motion; ties keep last tick's side. No side fits = an infeasible tick. The soft w_obs cost alone has ~zero lateral gradient for an obstacle dead on the line, and the nominal-model rig drove straight through a late centred plant."
+mpc_blocked_enabled:
+  default: true
+  description: "End a move BLOCKED (stop, hold, /mpc/blocked -> the mission aborts with the reason) on no_progress, steering_lock_no_progress or no_feasible_plan, instead of waiting for the move timeout."
+mpc_blocked_progress_window_sec:
+  default: 2.5
+  description: "no_progress: commanding >= min_moving_speed_mps for this long [s] with an odometry path shorter than mpc_blocked_min_progress_m. At 0.4 m/s the car should cover 1.0 m in 2.5 s, and the start from rest takes < 0.5 s. Untuned."
+mpc_blocked_min_progress_m:
+  default: 0.15
+  description: "Progress [m] below which a window counts as no progress (odometry path for no_progress; displacement along the corridor heading for steering_lock_no_progress). Above the odometry's creep noise, far below 0.4 m/s x the windows. Untuned."
+mpc_blocked_lock_window_sec:
+  default: 2.0
+  description: "steering_lock_no_progress: a NON-turn move held at >= mpc_blocked_lock_fraction of the steering bound for this long [s] with < mpc_blocked_min_progress_m made along the corridor heading. Turns (goal_turn, drive wall_turn) are exempt. Untuned."
+mpc_blocked_lock_fraction:
+  default: 0.95
+  description: "Fraction of the steering bound (mpc_steering_angle_min/max_rad) that counts as full lock for steering_lock_no_progress."
+mpc_blocked_infeasible_sec:
+  default: 1.0
+  description: "no_feasible_plan: the solve failed, no side of an obstacle fits in the corridor, or the >= floor plan's body (swept_clearance_body_*) overlaps an obstacle, on every tick for this long [s]. Each such tick already commands 0, so this only decides how long a flickering detection gets before the move is ended. Untuned."
 max_reverse_speed_mps:
   default: 0.0
   description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."

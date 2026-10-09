@@ -124,6 +124,7 @@ sitting on the same (now-timed-out) move indefinitely, logged once via
 log_stub_once rather than every tick.
 """
 
+import json
 import math
 import time
 
@@ -139,7 +140,7 @@ from f1tenth_behavior.mission.mission_config import STUB_STOP_CONDITION_TYPES
 from f1tenth_behavior.mission.detected_classes_bridge import DETECTED_CLASSES_KEY
 from f1tenth_behavior.mission.move_scoring import record_move_outcome, write_mission_summary
 from f1tenth_behavior.mission.object_handler import (
-    OUTCOME_REACHED, OUTCOME_TIMEOUT, object_move_wire_id)
+    OUTCOME_BLOCKED, OUTCOME_REACHED, OUTCOME_TIMEOUT, object_move_wire_id)
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     CURRENT_YAW_KEY,
@@ -185,8 +186,18 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  object_reach_tol_m=0.10,
                  object_reach_max_target_age_sec=1.0,
                  object_status_max_gap_sec=0.5,
-                 object_rest_speed_mps=0.05):
+                 object_rest_speed_mps=0.05,
+                 blocked_topic='/mpc/blocked',
+                 blocked_grace_sec=0.5):
         super().__init__(name=name)
+        # mpc_corr's BLOCKED verdict (campaign fix A3): String JSON on
+        # /mpc/blocked, repeated every control tick while latched. Kept with
+        # its receipt time; update() accepts it only for the CURRENT move.
+        self._blocked_topic = blocked_topic
+        self.blocked_grace_sec = float(blocked_grace_sec)
+        self._blocked_record = None
+        self._blocked_received = None
+        self._move_ros_start = None
         self._object_status_topic = object_status_topic
         self._object_goal_end_topic = object_goal_end_topic
         self.object_reach_tol_m = float(object_reach_tol_m)
@@ -287,6 +298,50 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             ObjectApproachStatus, self._object_status_topic, self._object_status_cb, 10)
         self.object_end_pub = self.node.create_publisher(
             String, self._object_goal_end_topic, 10)
+        self.node.create_subscription(
+            String, self._blocked_topic, self._blocked_cb, 10)
+
+    def _blocked_cb(self, msg: String):
+        try:
+            record = json.loads(msg.data)
+        except (TypeError, ValueError):
+            return
+        if isinstance(record, dict) and record.get('reason'):
+            self._blocked_record = record
+            self._blocked_received = time.monotonic()
+
+    def _ros_now(self):
+        """The node's ROS time [s], or None for a node without a clock (tests)."""
+        get_clock = getattr(self.node, 'get_clock', None)
+        if get_clock is None:
+            return None
+        return get_clock().now().nanoseconds * 1e-9
+
+    def _blocked_for(self, state, move):
+        """mpc_corr's BLOCKED record if it belongs to THIS move, else None.
+
+        mpc_corr clears its latch when the next move's goal arrives, but a
+        record already in flight can land after the move changed. So: it
+        must have been received blocked_grace_sec or more after this move
+        started (mpc_corr repeats it every tick, so the grace only delays a
+        real verdict), be stamped after this move started when both clocks
+        are known, and for an object move carry this move's wire id.
+        """
+        record = self._blocked_record
+        if record is None or self._blocked_received is None:
+            return None
+        if self._blocked_received < state.move_start_time + self.blocked_grace_sec:
+            return None
+        t_ros = record.get('t_ros')
+        if (self._move_ros_start is not None and isinstance(t_ros, (int, float))
+                and t_ros <= self._move_ros_start):
+            return None
+        if getattr(move, 'go_to_object', None) is not None and record.get('move_id'):
+            wire = object_move_wire_id(
+                state.config.mission_id, getattr(state, 'run_generation', 0), move.id)
+            if record['move_id'] != wire:
+                return None
+        return record
 
     def _object_status_cb(self, msg):
         setattr(self.blackboard, OBJECT_STATUS_KEY, ObjectStatusSample(
@@ -370,7 +425,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         if msg.data:
             self._goal_reached_flag = True
 
-    def _record_and_summarize(self, state, move, stop_reason, now):
+    def _record_and_summarize(self, state, move, stop_reason, now, final_state='ABORTED'):
         """Records `move`'s outcome and writes the mission summary -- used
         only by the timeout-abort branch below, the one ending-the-mission
         path CheckStopCondition itself owns start-to-finish (unlike the
@@ -392,7 +447,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             ),
         )
         write_mission_summary(
-            state.config.mission_id, state.move_outcomes, 'ABORTED',
+            state.config.mission_id, state.move_outcomes, final_state,
             state.mission_start_wall_time, self.node.get_logger(),
         )
 
@@ -421,6 +476,10 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             # Same trigger, same reason: a front_clearance streak accumulated
             # under the PREVIOUS move must not count toward this one.
             self._debouncer.reset()
+            # And a BLOCKED verdict belongs to the move it was raised in.
+            self._blocked_record = None
+            self._blocked_received = None
+            self._move_ros_start = self._ros_now()
 
         current_xy = (self.x, self.y) if self.x is not None else None
         if state.move_start_xy is None and current_xy is not None:
@@ -443,6 +502,27 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                 f"[mission] Move '{move.id}' sets vdes={move.vdes} but mpc_corr has no "
                 'external vdes-override mechanism yet -- ignored (TODO).'
             )
+
+        # BLOCKED (campaign fix A3): mpc_corr found the move cannot go on --
+        # no progress under the speed floor, steering lock without progress,
+        # or no feasible plan at >= the floor -- and has already stopped the
+        # car. End the mission now rather than at the move timeout (R011 sat
+        # 33 s of an 80 s timeout). Same sequence as the timeout abort below:
+        # hold, record, summary (final_state BLOCKED), abort with the reason.
+        blocked = self._blocked_for(state, move)
+        if blocked is not None:
+            reason = str(blocked.get('reason'))
+            detail = blocked.get('detail') or {}
+            text = (f"BLOCKED: {reason} on move '{move.id}' "
+                    f"({blocked.get('move_kind', '?')}) {json.dumps(detail, default=str)}")
+            self.node.get_logger().error(f'[mission] {text} -- aborting mission.')
+            if getattr(move, 'go_to_object', None) is not None:
+                self._end_object_move(state, move, OUTCOME_BLOCKED, hold=False)
+            self.hold_pub.publish(Bool(data=True))
+            self._record_and_summarize(state, move, f'mpc_blocked:{reason}', now,
+                                       final_state='BLOCKED')
+            state.abort(reason=text, result='BLOCKED')
+            return py_trees.common.Status.FAILURE
 
         # timeout_sec is optional as of schema_version 2.0 -- None means no
         # cap is enforced for this move at all, so the whole block is skipped
@@ -494,7 +574,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                 self._end_object_move(state, move, OUTCOME_TIMEOUT, hold=False)
             self.hold_pub.publish(Bool(data=True))
             self._record_and_summarize(state, move, 'timeout:abort', now)
-            state.abort()
+            state.abort(reason=f"timeout: move '{move.id}' after {move.timeout_sec}s")
             return py_trees.common.Status.FAILURE
 
         min_obstacle_distance = getattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY)

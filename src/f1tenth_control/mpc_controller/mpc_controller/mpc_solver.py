@@ -320,6 +320,9 @@ def solve_mpc_step(
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     warm_start_z: Optional[np.ndarray] = None,
     control_period: Optional[float] = None,
+    v_floor: Optional[float] = None,
+    v_floor_from_stage: Optional[int] = None,
+    keepouts: Optional[List[Dict]] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -363,6 +366,18 @@ def solve_mpc_step(
     already on the car -- is rate * control_period, because that is the time
     the actuator really has between two commands. None means "same as ts",
     the original single-step behaviour. RTI-ONLY, like warm_start_z.
+
+    v_floor / v_floor_from_stage (campaign fix A3, RTI-ONLY): a hard lower
+    bound v_k >= v_floor on the predicted speed of every stage k >=
+    v_floor_from_stage (1-based state index; blocked.first_floor_stage picks
+    it from the accel limits). The car is never operated between 0 and the
+    floor, so the plan must not rely on crawling. None = no floor (the
+    original vMin box).
+
+    keepouts (campaign fix A3, RTI-ONLY): blocked.KeepOut.as_dict() records.
+    Each adds a HARD one-sided lateral row on the rear axle at every stage
+    whose reference position lies in the record's along-track window -- see
+    blocked.py. None/[] = no rows (the original QP).
     """
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
@@ -379,6 +394,9 @@ def solve_mpc_step(
             weights, obstacles, dmin, vdes, boundaries=boundaries,
             warm_start_z=warm_start_z,
             control_period=control_period,
+            v_floor=v_floor,
+            v_floor_from_stage=v_floor_from_stage,
+            keepouts=keepouts,
             boundary_max_sources=boundary_max_sources,
             boundary_hard=boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
@@ -779,6 +797,9 @@ def _solve_rti(
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     control_period: Optional[float] = None,
+    v_floor: Optional[float] = None,
+    v_floor_from_stage: Optional[int] = None,
+    keepouts: Optional[List[Dict]] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -1087,10 +1108,34 @@ def _solve_rti(
             P[xk1_idx, xk1_idx][2, 2] += 2.0 * weights["w_psi_stage"]
             q[xk1_idx][2] += weights["w_psi_stage"] * (-2.0 * psi_stage_target)
 
-        # speed bound: box on x_{k+1}[3].
+        # speed bound: box on x_{k+1}[3]. With the operating floor (A3) the
+        # lower edge is v_floor from the first stage the accel limits can
+        # reach it (state index k + 1 >= v_floor_from_stage).
         row_v = np.zeros(n_z)
         row_v[xk1_idx][3] = 1.0
-        add_row(row_v, limits["vMin"], limits["vMax"])
+        v_lo = limits["vMin"]
+        if (v_floor is not None and v_floor_from_stage is not None
+                and k + 1 >= int(v_floor_from_stage)):
+            v_lo = max(v_lo, float(v_floor))
+        add_row(row_v, v_lo, limits["vMax"])
+
+        # obstacle keep-outs (A3): hard, one-sided, on the stages whose
+        # reference position overlaps the obstacle along the corridor.
+        for ko in keepouts or ():
+            ox, oy = ko['o']
+            knx, kny = ko['n']
+            ktx, kty = ko['t']
+            s_ref = ktx * (x_ref_k1[0] - ox) + kty * (x_ref_k1[1] - oy)
+            if not (ko['s_lo'] <= s_ref <= ko['s_hi']):
+                continue
+            row_k = np.zeros(n_z)
+            row_k[xk1_idx][0] = knx
+            row_k[xk1_idx][1] = kny
+            n_dot_o = knx * ox + kny * oy
+            if ko['side'] > 0:
+                add_row(row_k, n_dot_o + ko['d'], np.inf)
+            else:
+                add_row(row_k, -np.inf, n_dot_o - ko['d'])
 
         # boundary constraints: ALWAYS exactly boundary_max_sources rows
         # (padded above), one per slot, at this stage's predicted (x, y) --

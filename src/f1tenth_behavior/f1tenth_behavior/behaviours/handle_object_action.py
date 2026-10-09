@@ -143,7 +143,8 @@ class HandleObjectAction(py_trees.behaviour.Behaviour):
         if action == 'abort_mission':
             reason = entry.params['reason']
             self._record_move(state, move, f"on_object:{entry.cls}/abort_mission")
-            state.abort()
+            state.abort(reason=f"move '{move.id}': on_object {entry.cls} abort_mission: "
+                               f"{reason}")
             self.hold_pub.publish(Bool(data=True))
             self.node.get_logger().error(
                 f"[mission] Move '{move.id}': '{entry.cls}' seen -> abort_mission: {reason}"
