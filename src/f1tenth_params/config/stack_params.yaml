@@ -1149,6 +1149,15 @@ mpc_min_speed_all_moves:
 mpc_obstacle_keepout_enabled:
   default: true
   description: "Hard one-sided lateral row per obstacle in the way, on the rear axle, at the stages whose along-track position overlaps it (blocked.plan_keepouts): pass at c + d or c - d, d = r + car_radius + obstacle_safety_margin_m. The side that fits in the corridor and needs the least lateral motion; ties keep last tick's side. No side fits = an infeasible tick. The soft w_obs cost alone has ~zero lateral gradient for an obstacle dead on the line, and the nominal-model rig drove straight through a late centred plant."
+mpc_keepout_footprint_circles:
+  default: 3
+  description: "Keep-out rows on this many circles covering the car body (swept_clearance_body_*), front bumper included, instead of on the rear axle alone (review item 1, 2026-10-09). 3 circles over the 0.525 x 0.272 m box: centres +0.006/+0.181/+0.356 m ahead of the axle, radius 0.162 m; each must stay r + 0.162 + obstacle_safety_margin_m from the obstacle centre, laterally, on the committed side. 0 = the A3 rear-axle row (d = r + car_radius + margin)."
+mpc_pass_side_match_radius_m:
+  default: 0.5
+  description: "An obstacle within this [m] (odom) of a remembered one is the same obstacle and keeps its committed pass side (mpc_controller/pass_side.py). Larger than detection jitter, smaller than two objects worth separating. Untuned."
+mpc_pass_side_forget_sec:
+  default: 2.0
+  description: "A committed pass side not seen for this long [s] is forgotten. Untuned."
 mpc_blocked_enabled:
   default: true
   description: "End a move BLOCKED (stop, hold, /mpc/blocked -> the mission aborts with the reason) on no_progress, steering_lock_no_progress or no_feasible_plan, instead of waiting for the move timeout."
@@ -1164,6 +1173,9 @@ mpc_blocked_lock_window_sec:
 mpc_blocked_lock_fraction:
   default: 0.95
   description: "Fraction of the steering bound (mpc_steering_angle_min/max_rad) that counts as full lock for steering_lock_no_progress."
+mpc_blocked_plan_check_sec:
+  default: 2.0
+  description: "How much of the plan [s] must keep the car body (swept_clearance_body_*) clear of every obstacle for a tick to count as feasible. Not the whole 4.0 s horizon: the keep-out rows come from this tick's linearisation, and a far stage that clips an obstacle is re-planned on the next ticks (the scenario harness showed a false BLOCKED with the obstacle 1.9 m away when the whole plan was checked). 2.0 s = 0.8 m at 0.4 m/s. Untuned."
 mpc_blocked_infeasible_sec:
   default: 1.0
   description: "no_feasible_plan: the solve failed, no side of an obstacle fits in the corridor, or the >= floor plan's body (swept_clearance_body_*) overlaps an obstacle, on every tick for this long [s]. Each such tick already commands 0, so this only decides how long a flickering detection gets before the move is ended. Untuned."

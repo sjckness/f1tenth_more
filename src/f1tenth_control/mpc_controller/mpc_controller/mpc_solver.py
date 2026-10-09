@@ -1125,17 +1125,50 @@ def _solve_rti(
             ox, oy = ko['o']
             knx, kny = ko['n']
             ktx, kty = ko['t']
-            s_ref = ktx * (x_ref_k1[0] - ox) + kty * (x_ref_k1[1] - oy)
-            if not (ko['s_lo'] <= s_ref <= ko['s_hi']):
-                continue
-            row_k = np.zeros(n_z)
-            row_k[xk1_idx][0] = knx
-            row_k[xk1_idx][1] = kny
             n_dot_o = knx * ox + kny * oy
-            if ko['side'] > 0:
-                add_row(row_k, n_dot_o + ko['d'], np.inf)
-            else:
-                add_row(row_k, -np.inf, n_dot_o - ko['d'])
+            circles = ko.get('circles') or ()
+            if not circles:
+                # A3 form: the rear axle, d = r + car_radius + margin.
+                s_ref = ktx * (x_ref_k1[0] - ox) + kty * (x_ref_k1[1] - oy)
+                if not (ko['s_lo'] <= s_ref <= ko['s_hi']):
+                    continue
+                row_k = np.zeros(n_z)
+                row_k[xk1_idx][0] = knx
+                row_k[xk1_idx][1] = kny
+                if ko['side'] > 0:
+                    add_row(row_k, n_dot_o + ko['d'], np.inf)
+                else:
+                    add_row(row_k, -np.inf, n_dot_o - ko['d'])
+                continue
+            # Footprint circles (review item 1): centre c = p + off * e(psi),
+            # e linearised at the reference heading psi0:
+            #   n.c ~= n.p + off * (n.e0 + (n.e0p) (psi - psi0)),
+            # e0 = (cos psi0, sin psi0), e0p = (-sin psi0, cos psi0).
+            psi0 = float(x_ref_k1[2])
+            e0 = (math.cos(psi0), math.sin(psi0))
+            e0p = (-math.sin(psi0), math.cos(psi0))
+            n_e0 = knx * e0[0] + kny * e0[1]
+            n_e0p = knx * e0p[0] + kny * e0p[1]
+            for off, rc in circles:
+                cx_ref = x_ref_k1[0] + off * e0[0]
+                cy_ref = x_ref_k1[1] + off * e0[1]
+                reach = float(ko['r']) + float(rc) + float(ko['margin'])
+                s_ref = ktx * (cx_ref - ox) + kty * (cy_ref - oy)
+                # Padded by one stage of travel at the reference speed: the
+                # window is judged on the linearisation, which can lag the
+                # solution by about that much.
+                pad = abs(float(x_ref_k1[3])) * ts
+                if not (-reach - pad <= s_ref <= reach + pad):
+                    continue
+                row_k = np.zeros(n_z)
+                row_k[xk1_idx][0] = knx
+                row_k[xk1_idx][1] = kny
+                row_k[xk1_idx][2] = off * n_e0p
+                const = off * (n_e0 - n_e0p * psi0)
+                if ko['side'] > 0:
+                    add_row(row_k, n_dot_o + reach - const, np.inf)
+                else:
+                    add_row(row_k, -np.inf, n_dot_o - reach - const)
 
         # boundary constraints: ALWAYS exactly boundary_max_sources rows
         # (padded above), one per slot, at this stage's predicted (x, y) --

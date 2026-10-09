@@ -23,8 +23,9 @@ from f1tenth_messages.msg import (
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.blocked import (
-    BlockedDetector, BodyBox, first_floor_stage, gate_speed, plan_body_gap,
-    plan_keepouts)
+    BlockedDetector, BodyBox, first_floor_stage, footprint_circles, gate_speed,
+    plan_body_gap, plan_keepouts)
+from mpc_controller.pass_side import PassSideMemory
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
@@ -605,9 +606,20 @@ class MPCController(Node):
             float(_p('mpc_blocked_lock_window_sec')),
             float(_p('mpc_blocked_lock_fraction')),
             float(_p('mpc_blocked_infeasible_sec')))
+        # Keep-out rows on N footprint circles (review item 1; 0 = the A3
+        # rear-axle row) and the committed pass side per obstacle (review
+        # item 2, pass_side.py -- the single source of truth, published on
+        # /mpc/pass_sides).
+        self.blocked_plan_check_sec = float(_p('mpc_blocked_plan_check_sec'))
+        n_circles = int(_p('mpc_keepout_footprint_circles'))
+        self.footprint_circles = (footprint_circles(self.body_box, n_circles)
+                                  if n_circles > 0 else ())
+        self.pass_side_memory = PassSideMemory(
+            match_radius_m=float(_p('mpc_pass_side_match_radius_m')),
+            forget_after_s=float(_p('mpc_pass_side_forget_sec')))
+        self.pass_sides_pub = self.create_publisher(String, '/mpc/pass_sides', 10)
         # The verdict that ended the current move, latched until the next one.
         self.blocked_verdict = None
-        self._keepout_prev_sides = []
         self._move_is_turn = False
         self._floor_raised_logged = False
         # Last tick's feasibility facts, for the log and /mpc/status (A5).
@@ -3123,7 +3135,9 @@ class MPCController(Node):
             self.get_logger().info(
                 f'BLOCKED | cleared by a new move (was {self.blocked_verdict.reason})')
         self.blocked_verdict = None
-        self._keepout_prev_sides = []
+        memory = getattr(self, 'pass_side_memory', None)
+        if memory is not None:
+            memory.reset()
         self._move_is_turn = False
         self._floor_raised_logged = False
         detector = getattr(self, 'blocked_detector', None)
@@ -4056,11 +4070,16 @@ class MPCController(Node):
                 obstacles_global, corridor, (float(x0[0]), float(x0[1])),
                 self.car_radius, self.avoidance_margin, self.body_box,
                 self.N * self.ts_pred * max(vdes, self.min_moving_speed),
-                self._keepout_prev_sides)
-            self._keepout_prev_sides = [(k.ox, k.oy, k.side)
-                                        for k in keepout_plan.keepouts]
+                memory=self.pass_side_memory, now=now_sec,
+                circles=self.footprint_circles)
             floor_kwargs['keepouts'] = [k.as_dict() for k in keepout_plan.keepouts]
             self.last_keepout_report = keepout_plan.report
+            try:
+                self.pass_sides_pub.publish(String(data=json.dumps(
+                    {'t': now_sec, 'frame_id': 'odom', 'obstacles': keepout_plan.report})))
+            except Exception as exc:  # noqa: BLE001 - diagnostics only
+                self.get_logger().warn(f'/mpc/pass_sides not published: {exc}',
+                                       throttle_duration_sec=5.0)
             if keepout_plan.report:
                 self.get_logger().info(
                     f'KEEPOUT | {json.dumps(keepout_plan.report)}',
@@ -4138,7 +4157,16 @@ class MPCController(Node):
         # solution.
         # A3 feasibility facts, computed HERE (before /mpc/status goes out)
         # and used by the speed gate and the BLOCKED detector further down.
-        plan_gap = plan_body_gap(info.get('x_pred'), obstacles_global, self.body_box)
+        # Only the NEAR part of the plan is held against the obstacles: the
+        # keep-out rows are placed from this tick's linearisation, so a stage
+        # far down the horizon can still clip an obstacle the next ticks will
+        # plan around (seen in the scenario harness: a false BLOCKED with the
+        # obstacle 1.9 m away). mpc_blocked_plan_check_sec of it must be clear.
+        x_pred_all = info.get('x_pred')
+        n_check = max(1, int(math.ceil(self.blocked_plan_check_sec / self.ts_pred)))
+        plan_gap = plan_body_gap(
+            None if x_pred_all is None else x_pred_all[:n_check + 1],
+            obstacles_global, self.body_box)
         no_side = bool(keepout_plan.blocked) if keepout_plan is not None else False
         feasible = (bool(info.get('success', False)) and not no_side
                     and not plan_gap < 0.0)

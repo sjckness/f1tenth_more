@@ -43,6 +43,8 @@ import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from mpc_controller.pass_side import PassSideMemory, decide_sides
+
 __all__ = [
     'BodyBox',
     'BlockedDetector',
@@ -50,6 +52,7 @@ __all__ = [
     'KeepOut',
     'KeepOutPlan',
     'first_floor_stage',
+    'footprint_circles',
     'gate_speed',
     'plan_body_gap',
     'plan_keepouts',
@@ -103,14 +106,35 @@ class BodyBox:
     half_width: float = 0.136
 
 
+def footprint_circles(body: 'BodyBox', n: int = 3) -> Tuple[Tuple[float, float], ...]:
+    """n circles covering the body rectangle: (offset ahead of the rear axle, radius).
+
+    The rectangle [rear, front] x [-half_width, half_width] is cut into n equal
+    slices along its length; each slice's circumscribed circle covers it, so
+    the union covers the whole body, the front bumper corners included. With
+    the URDF box (0.525 m x 0.272 m) and n = 3: centres at +0.006, +0.181,
+    +0.356 m, radius 0.162 m.
+    """
+    length = float(body.front) - float(body.rear)
+    half = length / (2.0 * n)
+    radius = math.hypot(half, float(body.half_width))
+    return tuple((float(body.rear) + half * (2 * i + 1), radius) for i in range(n))
+
+
 @dataclass(frozen=True)
 class KeepOut:
-    """One hard lateral row, as mpc_solver._solve_rti consumes it.
+    """One obstacle's hard lateral rows, as mpc_solver._solve_rti consumes them.
 
-    Stage k gets   side * (n . p_k) >= side * (n . o) + d
-    when its reference position's along-track coordinate t . (p_k - o) lies
-    in [s_lo, s_hi]. side +1 = pass with the obstacle on the car's right
-    (car to the LEFT of it), -1 = the other way.
+    Without circles (the A3 form): stage k gets
+        side * (n . p_k) >= side * (n . o) + d
+    on the REAR AXLE p_k when t . (p_k - o) lies in [s_lo, s_hi].
+    With circles (review item 1, the shipped form): one row per footprint
+    circle (offset o_i ahead of the axle, radius rc_i) on the circle CENTRE
+    p_k + o_i * (cos psi_k, sin psi_k) -- linearised in psi at the stage's
+    reference heading --
+        side * (n . c_ik) >= side * (n . o) + r + rc_i + margin
+    when t . (c_ik - o) lies in [-(r + rc_i + margin), r + rc_i + margin].
+    side +1 = the car passes on the obstacle's LEFT, -1 = its right.
     """
 
     ox: float
@@ -123,11 +147,15 @@ class KeepOut:
     s_hi: float
     d: float
     side: int
+    r: float = 0.0
+    margin: float = 0.0
+    circles: Tuple[Tuple[float, float], ...] = ()
 
     def as_dict(self) -> Dict:
         return {'o': (self.ox, self.oy), 'n': (self.nx, self.ny),
                 't': (self.tx, self.ty), 's_lo': self.s_lo, 's_hi': self.s_hi,
-                'd': self.d, 'side': self.side}
+                'd': self.d, 'side': self.side, 'r': self.r, 'margin': self.margin,
+                'circles': [list(c) for c in self.circles]}
 
 
 @dataclass
@@ -135,23 +163,8 @@ class KeepOutPlan:
     keepouts: List[KeepOut] = field(default_factory=list)
     # Obstacles in the way with no side that fits inside the corridor.
     blocked: List[Dict] = field(default_factory=list)
-    # One record per obstacle considered, for the log.
+    # One record per obstacle considered, for the log and /mpc/pass_sides.
     report: List[Dict] = field(default_factory=list)
-
-
-def _nearest_frame(px: float, py: float, corridor) -> Tuple[float, float, float, float, float]:
-    """(pcx, pcy, nx, ny, half_w) of the corridor sample nearest (px, py)."""
-    xc = corridor['xc']
-    yc = corridor['yc']
-    best = 0
-    best_d2 = math.inf
-    for i in range(len(xc)):
-        d2 = (float(xc[i]) - px) ** 2 + (float(yc[i]) - py) ** 2
-        if d2 < best_d2:
-            best_d2 = d2
-            best = i
-    return (float(xc[best]), float(yc[best]), float(corridor['nx'][best]),
-            float(corridor['ny'][best]), float(corridor['halfWidth'][best]))
 
 
 def plan_keepouts(obstacles: Sequence[Tuple[float, float, float]],
@@ -161,78 +174,45 @@ def plan_keepouts(obstacles: Sequence[Tuple[float, float, float]],
                   margin: float,
                   body: BodyBox,
                   reach_m: float,
-                  prev_sides: Optional[Sequence[Tuple[float, float, int]]] = None,
-                  side_memory_m: float = 0.5) -> KeepOutPlan:
-    """Choose a side and build one KeepOut per obstacle that is in the way.
+                  memory: Optional[PassSideMemory] = None,
+                  now: float = 0.0,
+                  circles: Optional[Sequence[Tuple[float, float]]] = None) -> KeepOutPlan:
+    """One KeepOut per obstacle in the way, on the side pass_side decides.
 
-    In the way: ahead of the car's rear bumper and within reach_m + d of the
-    axle along the corridor, and laterally close enough to the corridor to
-    matter (|c| < half_w + d, c = the obstacle's offset from the centreline).
-
-    Side: of the sides that fit inside the corridor half-width at the
-    obstacle (c + d <= hw to pass left, c - d >= -hw to pass right), the one
-    nearer the car's own lateral offset -- the less steering, and
-    self-reinforcing once the car starts to move. An exact tie keeps the side
-    chosen last tick for an obstacle within side_memory_m (prev_sides), else
-    takes the side with more room, else the left. No side fits: listed in
-    .blocked and no row is added (the caller treats the tick as infeasible).
+    In the way: ahead of the car's rear bumper and within reach_m + d + the
+    nose of the axle along the corridor, and laterally close enough to the
+    corridor to matter (|c| < half_w + d). The side and its commitment are
+    pass_side.decide_sides' -- the single source of truth B4 reuses.
+    memory None = a fresh memory (no commitment across calls; tests).
     """
     plan = KeepOutPlan()
-    if not obstacles:
-        return plan
-    cx, cy = float(car_xy[0]), float(car_xy[1])
-    pcx_c, pcy_c, nx_c, ny_c, _ = _nearest_frame(cx, cy, corridor)
-    y_car = nx_c * (cx - pcx_c) + ny_c * (cy - pcy_c)
-    for ox, oy, r in obstacles:
-        ox, oy, r = float(ox), float(oy), float(r)
-        pcx, pcy, nx, ny, hw = _nearest_frame(ox, oy, corridor)
-        tx, ty = ny, -nx  # build_straight_corridor: n = (-ty, tx)
-        d = r + float(car_radius) + float(margin)
-        c = nx * (ox - pcx) + ny * (oy - pcy)
-        s_rel = tx * (ox - cx) + ty * (oy - cy)
-        rec = {'o': [round(ox, 3), round(oy, 3)], 'r': round(r, 3),
-               'c': round(c, 3), 'd': round(d, 3), 'half_w': round(hw, 3),
-               's_ahead': round(s_rel, 3)}
-        # Along-track window for the AXLE in which the body overlaps the
-        # obstacle (plus the margin both ways).
-        s_lo = -(r + body.front + margin)
-        s_hi = r - body.rear + margin
-        if s_rel < -s_hi or s_rel > reach_m + d + body.front:
-            rec['skip'] = 'behind' if s_rel < -s_hi else 'beyond_reach'
-            plan.report.append(rec)
-            continue
+    memory = memory if memory is not None else PassSideMemory()
+
+    def relevant(s_ahead, c, d, hw):
+        r = d - car_radius - margin
+        if s_ahead < -(r - body.rear + margin):
+            return 'behind'
+        if s_ahead > reach_m + d + body.front:
+            return 'beyond_reach'
         if abs(c) >= hw + d:
-            rec['skip'] = 'outside_corridor'
-            plan.report.append(rec)
-            continue
-        fits_left = c + d <= hw + 1e-9
-        fits_right = c - d >= -hw - 1e-9
-        rec['fits'] = {'left': fits_left, 'right': fits_right}
-        if not (fits_left or fits_right):
-            rec['side'] = None
-            plan.blocked.append(rec)
-            plan.report.append(rec)
-            continue
-        if fits_left and fits_right:
-            cost_left = abs((c + d) - y_car)
-            cost_right = abs((c - d) - y_car)
-            if abs(cost_left - cost_right) > 1e-6:
-                side = 1 if cost_left < cost_right else -1
-            else:
-                side = None
-                for px, py, ps in (prev_sides or ()):
-                    if math.hypot(px - ox, py - oy) <= side_memory_m:
-                        side = int(ps)
-                        break
-                if side is None:
-                    room_left = hw - (c + d)
-                    room_right = (c - d) + hw
-                    side = 1 if room_left >= room_right else -1
-        else:
-            side = 1 if fits_left else -1
-        rec['side'] = 'left' if side > 0 else 'right'
-        plan.keepouts.append(KeepOut(ox, oy, nx, ny, tx, ty, s_lo, s_hi, d, side))
+            return 'outside_corridor'
+        return None
+
+    decisions, skipped = decide_sides(obstacles, corridor, car_xy, car_radius, margin,
+                                      relevant, memory, now)
+    plan.report.extend(skipped)
+    for dec in decisions:
+        rec = dec.as_dict()
         plan.report.append(rec)
+        if dec.side is None:
+            plan.blocked.append(rec)
+            continue
+        s_lo = -(dec.r + body.front + margin)
+        s_hi = dec.r - body.rear + margin
+        plan.keepouts.append(KeepOut(
+            dec.ox, dec.oy, dec.nx, dec.ny, dec.ny, -dec.nx, s_lo, s_hi, dec.d,
+            dec.side, r=dec.r, margin=float(margin),
+            circles=tuple(tuple(c) for c in (circles or ()))))
     return plan
 
 

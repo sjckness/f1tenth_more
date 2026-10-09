@@ -7,8 +7,9 @@ import pytest
 
 from f1tenth_params.param_defaults import get_value
 from mpc_controller.blocked import (
-    BlockedDetector, BodyBox, first_floor_stage, gate_speed, plan_body_gap,
-    plan_keepouts)
+    BlockedDetector, BodyBox, first_floor_stage, footprint_circles, gate_speed,
+    plan_body_gap, plan_keepouts)
+from mpc_controller.pass_side import PassSideMemory
 from mpc_controller.mpc_solver import solve_mpc_step
 
 import test_object_approach_closed_loop as rig
@@ -54,9 +55,10 @@ def _corridor(half_width=0.6):
     return _straight_corridor(length=4.0, half_width=half_width)
 
 
-def _keepouts(obstacles, car=(0.0, 0.0), prev=None, half_width=0.6):
+def _keepouts(obstacles, car=(0.0, 0.0), memory=None, half_width=0.6, now=0.0,
+              circles=None):
     return plan_keepouts(obstacles, _corridor(half_width), car, 0.20, 0.12, BODY,
-                         reach_m=1.6, prev_sides=prev)
+                         reach_m=1.6, memory=memory, now=now, circles=circles)
 
 
 class TestPlanKeepouts:
@@ -72,9 +74,31 @@ class TestPlanKeepouts:
         plan = _keepouts([(1.4, 0.0, 0.15)], car=(0.0, -0.1))
         assert plan.keepouts[0].side == -1
 
-    def test_a_tie_keeps_last_ticks_side(self):
-        plan = _keepouts([(1.4, 0.0, 0.15)], prev=[(1.45, 0.02, -1)])
+    def test_a_committed_side_is_kept_when_the_costs_flip(self):
+        """Review item 2: c jitters with the detection; the side must not."""
+        memory = PassSideMemory()
+        first = _keepouts([(1.4, 0.0, 0.15)], car=(0.0, -0.05), memory=memory)
+        assert first.keepouts[0].side == -1
+        # The detection jitters 0.1 m to the right: on costs alone the left
+        # would now be nearer. The commitment holds.
+        again = _keepouts([(1.4, -0.10, 0.15)], car=(0.0, -0.05), memory=memory, now=0.1)
+        assert again.keepouts[0].side == -1
+        assert [r['reason'] for r in again.report] == ['committed']
+
+    def test_a_committed_side_that_stops_fitting_switches(self):
+        memory = PassSideMemory()
+        _keepouts([(1.4, 0.0, 0.15)], memory=memory)          # left (tie -> left)
+        # It turns out to be wider and sits left: left no longer fits.
+        plan = _keepouts([(1.4, 0.25, 0.15)], memory=memory, now=0.1)
         assert plan.keepouts[0].side == -1
+        assert plan.report[0]['reason'] == 'switched'
+
+    def test_a_forgotten_obstacle_is_decided_afresh(self):
+        memory = PassSideMemory(forget_after_s=2.0)
+        _keepouts([(1.4, 0.0, 0.15)], car=(0.0, -0.05), memory=memory)
+        plan = _keepouts([(1.4, 0.0, 0.15)], car=(0.0, 0.05), memory=memory, now=3.0)
+        assert plan.keepouts[0].side == 1
+        assert plan.report[0]['reason'] == 'new'
 
     def test_an_offset_obstacle_is_passed_on_the_side_that_fits(self):
         # c = +0.3, d = 0.47: left needs +0.77 > 0.6, right needs -0.17.
@@ -96,6 +120,30 @@ class TestPlanKeepouts:
         assert plan.keepouts == [] and plan.blocked == []
         assert [r['skip'] for r in plan.report] == ['behind', 'beyond_reach',
                                                     'outside_corridor']
+
+
+class TestFootprintCircles:
+
+    def test_three_circles_cover_the_body_box(self):
+        circles = footprint_circles(BODY, 3)
+        assert [o for o, _ in circles] == pytest.approx([0.0055, 0.1805, 0.3555], abs=1e-4)
+        assert circles[0][1] == pytest.approx(0.1617, abs=1e-4)
+        # Every point of the rectangle (incl. the front bumper corners) is
+        # inside some circle.
+        for lon in np.linspace(BODY.rear, BODY.front, 41):
+            for lat in np.linspace(-BODY.half_width, BODY.half_width, 11):
+                assert any(math.hypot(lon - o, lat) <= rc + 1e-9 for o, rc in circles)
+
+    def test_the_circle_rows_keep_the_whole_body_clear(self):
+        circles = footprint_circles(BODY, 3)
+        ko = _keepouts([(2.0, 0.0, 0.15)], circles=circles).keepouts[0]
+        assert ko.circles == circles
+        corridor = _corridor()
+        corridor['obstacles_world'] = [(2.0, 0.0, 0.15)]
+        _, info = _solve((0.0, 0.0, 0.0, 0.4), keepouts=[ko.as_dict()], v_floor=0.4,
+                         from_stage=1, obstacles=[(2.0, 0.0, 0.15)])
+        assert info['success']
+        assert np.asarray(info['x_pred'])[:, 1].max() > 0.3
 
     def test_the_window_covers_the_body_overlap(self):
         ko = _keepouts([(1.4, 0.0, 0.15)]).keepouts[0]

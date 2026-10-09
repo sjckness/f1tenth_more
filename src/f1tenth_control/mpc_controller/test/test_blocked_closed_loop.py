@@ -58,7 +58,8 @@ def legacy_r011():
 
 def test_print_the_table(table, legacy_r011, capsys):
     with capsys.disabled():
-        print(f'\n{"case":<36} {"outcome":<28} {"body gap":>8} {"x-track":>7}')
+        print(f'\n{"case":<36} {"outcome":<28} {"body gap":>8} {"x-track":>7} '
+              f'{"protrude":>8}')
         rows = list(table.items()) + [('R011 on the PRE-campaign stack', legacy_r011)]
         for label, res in rows:
             if res.reached_s is not None:
@@ -68,7 +69,7 @@ def test_print_the_table(table, legacy_r011, capsys):
             else:
                 outcome = 'neither'
             print(f'{label:<36} {outcome:<28} {res.min_body_gap:>+8.3f} '
-                  f'{res.peak_cross_track:>7.2f}')
+                  f'{res.peak_cross_track:>7.2f} {res.protrusion:>8.3f}')
 
 
 @pytest.mark.parametrize('label', [c[0] for c in CASES])
@@ -101,11 +102,26 @@ def test_what_cannot_be_passed_ends_blocked(table, label):
     assert table[label].blocked_reason == 'no_feasible_plan'
 
 
-def test_r011_ends_blocked_within_two_seconds_of_appearing(table):
+def test_r011_ends_blocked_within_a_few_seconds_of_appearing(table):
+    """Footprint circles (review item 1) keep it feasible a little longer than
+    the A3 axle row did (~3.3 s vs ~1 s): the car keeps driving at 0.4 while a
+    plan exists, then stops -- never closer than 0.2 m to the plant."""
     res = table['plant centred, seen at 1.4 m (R011)']
-    # The car's rear axle reaches 3.0 - 1.4 = 1.6 m from the start: find when.
     t_appear = next(i * 0.1 for i, s in enumerate(res.xs) if math.hypot(3.0 - s[0], s[1]) <= 1.4)
-    assert res.blocked_s - t_appear <= 2.0
+    assert res.blocked_s - t_appear <= 4.0
+    assert res.min_body_gap >= 0.2
+
+
+@pytest.mark.parametrize('label', [c[0] for c in CASES])
+def test_the_side_never_flips(table, label):
+    sides = table[label].sides
+    assert all(a == b for a, b in zip(sides, sides[1:]))
+
+
+@pytest.mark.parametrize('label', [c[0] for c in CASES])
+def test_the_outline_stays_inside_the_corridor(table, label):
+    """The rows bound the rear axle; the corners must still not leave the corridor."""
+    assert table[label].protrusion <= 0.05
 
 
 def test_r011_on_the_pre_campaign_stack_neither_passes_cleanly_nor_stops(legacy_r011):

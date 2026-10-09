@@ -20,8 +20,9 @@ import numpy as np
 
 from mpc_controller.MPC_corr import MPCController, _project_onto_line
 from mpc_controller.blocked import (
-    BlockedDetector, BodyBox, first_floor_stage, gate_speed, plan_body_gap,
-    plan_keepouts)
+    BlockedDetector, BodyBox, first_floor_stage, footprint_circles, gate_speed,
+    plan_body_gap, plan_keepouts)
+from mpc_controller.pass_side import PassSideMemory
 from mpc_controller.drive_limits import clamp_drive_speed
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
@@ -69,6 +70,8 @@ class Config:
     lock_window_s: float = 2.0
     lock_fraction: float = 0.95
     infeasible_s: float = 1.0
+    circles: int = 3
+    plan_check_s: float = 2.0
 
 
 @dataclass
@@ -81,6 +84,10 @@ class Result:
     commanded: List[float] = field(default_factory=list)
     xs: List[Tuple[float, float, float, float]] = field(default_factory=list)
     stalled_s: float = 0.0
+    sides: List[int] = field(default_factory=list)
+    # How far the car OUTLINE got past the corridor walls [m] (the rows bound
+    # the rear axle only), max over the run; 0 = never outside.
+    protrusion: float = 0.0
 
 
 def body_gap(state, obstacle) -> float:
@@ -92,6 +99,22 @@ def body_gap(state, obstacle) -> float:
     qx = min(max(lon, -REAR_OVERHANG_M), NOSE_M)
     qy = min(max(lat, -HALF_WIDTH_M), HALF_WIDTH_M)
     return math.hypot(lon - qx, lat - qy) - obstacle.r
+
+
+def outline_protrusion(state, corridor) -> float:
+    """Largest lateral excess [m] of the car's four corners past the corridor walls."""
+    import numpy as _np
+    xc, yc = _np.asarray(corridor['xc']), _np.asarray(corridor['yc'])
+    worst = 0.0
+    c, s = math.cos(state[2]), math.sin(state[2])
+    for lon in (BODY.rear, BODY.front):
+        for lat in (-BODY.half_width, BODY.half_width):
+            px = state[0] + c * lon - s * lat
+            py = state[1] + s * lon + c * lat
+            i = int(_np.argmin((xc - px) ** 2 + (yc - py) ** 2))
+            off = (corridor['nx'][i] * (px - xc[i]) + corridor['ny'][i] * (py - yc[i]))
+            worst = max(worst, abs(float(off)) - float(corridor['halfWidth'][i]))
+    return worst
 
 
 def make_fake(cfg: Config):
@@ -122,7 +145,9 @@ def run(cfg: Config, obstacles: List[Obstacle]) -> Result:
     detector = BlockedDetector(cfg.min_moving_speed, cfg.progress_window_s,
                                cfg.min_progress_m, cfg.lock_window_s,
                                cfg.lock_fraction, cfg.infeasible_s)
-    prev_sides = []
+    memory = PassSideMemory()
+    circles = footprint_circles(BODY, cfg.circles) if cfg.circles > 0 else ()
+    out.protrusion = 0.0
     vdes = max(cfg.speed, cfg.min_moving_speed) if cfg.a3 else cfg.speed
     for tick in range(int(round(cfg.duration / cfg.period))):
         t = tick * cfg.period
@@ -150,8 +175,9 @@ def run(cfg: Config, obstacles: List[Obstacle]) -> Result:
                 rig.LIMITS['dAMax'], cfg.dt, cfg.period, cfg.horizon)
             ko_plan = plan_keepouts(
                 live, corridor, (x[0], x[1]), rig.CAR_RADIUS, rig.AVOIDANCE_MARGIN,
-                BODY, cfg.horizon * cfg.dt * vdes, prev_sides)
-            prev_sides = [(k.ox, k.oy, k.side) for k in ko_plan.keepouts]
+                BODY, cfg.horizon * cfg.dt * vdes, memory=memory, now=t,
+                circles=circles)
+            out.sides.extend(k.side for k in ko_plan.keepouts)
             kwargs['keepouts'] = [k.as_dict() for k in ko_plan.keepouts]
         u0, info = solve_mpc_step(
             x0=x, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
@@ -167,7 +193,9 @@ def run(cfg: Config, obstacles: List[Obstacle]) -> Result:
         v_cmd = x[3] + u0[1] * cfg.period
         steer = float(u0[0])
         if cfg.a3:
-            gap = plan_body_gap(info.get('x_pred'), live, BODY)
+            xp = info.get('x_pred')
+            n_check = int(math.ceil(cfg.plan_check_s / cfg.dt))
+            gap = plan_body_gap(None if xp is None else xp[:n_check + 1], live, BODY)
             feasible = bool(info.get('success')) and not ko_plan.blocked and gap >= 0.0
             v_cmd = gate_speed(v_cmd, cfg.min_moving_speed) if feasible else 0.0
             verdict = detector.update(
@@ -193,4 +221,5 @@ def run(cfg: Config, obstacles: List[Obstacle]) -> Result:
         out.peak_cross_track = max(out.peak_cross_track, abs(x[1]))
         for ob in obstacles:
             out.min_body_gap = min(out.min_body_gap, body_gap(x, ob))
+        out.protrusion = max(out.protrusion, outline_protrusion(x, corridor))
     return out
