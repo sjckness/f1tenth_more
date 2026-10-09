@@ -98,6 +98,7 @@ valle (invariato dalla versione originaria):
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -839,6 +840,15 @@ class LLMPlannerNode(Node):
         spec = PLANNER_PATH_SPEC[self._planner_path]
         prompt_desc = (f'prompts/{prompt_file}' if self._planner_path == 'v2'
                        else spec['prompt'])
+        # WHICH PROMPT planned this run, recorded in every /test/plan_result
+        # (and so in the campaign test's meta.json): the A4 prompt change
+        # made two prompts with the same file name, and a run is only
+        # comparable with runs planned by the same text.
+        self._prompt_file = prompt_desc
+        self._prompt_sha256 = hashlib.sha256(
+            self._system_prompt.encode('utf-8')).hexdigest()
+        self.get_logger().info(
+            f'system prompt {prompt_desc} sha256={self._prompt_sha256[:12]}')
         self.get_logger().info(
             f'planner_path={self._planner_path} -- prompt {prompt_desc}, '
             f'validazione {spec["validation"]}, traduttore {spec["translator"]}, '
@@ -956,6 +966,8 @@ class LLMPlannerNode(Node):
             'rejections': outcome.get('rejections') or [],
             'planner_status': outcome.get('status'),
             'attempts': outcome.get('attempts'),
+            'system_prompt_file': getattr(self, '_prompt_file', None),
+            'system_prompt_sha256': getattr(self, '_prompt_sha256', None),
         }
         self.test_plan_pub.publish(
             String(data=json.dumps(payload, ensure_ascii=False, default=str)))

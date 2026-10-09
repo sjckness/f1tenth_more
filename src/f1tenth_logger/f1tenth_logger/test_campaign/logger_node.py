@@ -631,6 +631,12 @@ class TestLoggerNode(Node):
         if self._open_test(data.get("prompt_num"), prompt_text,
                            data.get("plan_id")) is None:
             return
+        # Which planner prompt produced this test (campaign review item 3):
+        # meta.json says it, so runs planned by different prompt texts are
+        # never compared as repetitions of one another.
+        for key in ("system_prompt_file", "system_prompt_sha256"):
+            if data.get(key):
+                self._test.extra_meta[key] = data.get(key)
         self._record_call(data, "initial", status, error, plan, prompt_text)
         if status != "ok":
             self._close_test("aborted", f"LLM failure: {error or status}")
