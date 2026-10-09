@@ -345,13 +345,19 @@ def test_the_status_payload_survives_a_solve_with_no_horizon():
     assert payload['horizon'] is None
 
 
-def test_the_published_status_carries_the_nodes_control_period():
-    """Without ts a reader cannot place step k in time, so it must ride along."""
+def test_the_published_status_carries_the_nodes_prediction_step():
+    """Without ts a reader cannot place step k in time, so it must ride along.
+
+    It is the PREDICTION step (the spacing of x_pred), not the control period:
+    the two are separate since the campaign's 0.2 s / 0.1 s split, and
+    horizon_log places step k at t + (k + 1) * ts.
+    """
     ctrl = _FakeController()
     ctrl.ts = 0.05
+    ctrl.ts_pred = 0.2
     ctrl._publish_campaign_status(_info(3), 0.02, 'rti')
     sent = ctrl.campaign_status_pub.sent[0]
-    assert sent['horizon']['ts'] == pytest.approx(0.05)
+    assert sent['horizon']['ts'] == pytest.approx(0.2)
     assert sent['horizon']['frame_id'] == 'odom'
     assert ctrl.log.warnings == []
 

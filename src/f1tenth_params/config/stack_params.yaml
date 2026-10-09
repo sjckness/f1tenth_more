@@ -1286,6 +1286,25 @@ mpc_steering_angle_min_rad:
 mpc_steering_angle_max_rad:
   default: 0.319
   description: "Most positive steering angle [rad] mpc_corr's QP may command (+18.28 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
+# ------------------------------------------------------------------
+# MPC HORIZON: CONTROL PERIOD vs PREDICTION STEP (M02 campaign fix A1,
+# 2026-10-09). Consumed by MPC_corr.py's declare_parameter() defaults
+# (get_value), no launch arg. Were ONE bare literal, self.ts = 0.1, plus
+# self.N = 20: a 2.0 s horizon, 0.8 m at the 0.4 m/s operating floor --
+# shorter than the 1.4 m at which R011's plant first appeared.
+mpc_control_period_sec:
+  default: 0.1
+  description: "mpc_corr's control-loop timer period [s]: one solve and one /drive command per period. Also how long u_0 is applied (v_cmd = v + a * period, the first rate row) and the warm-start shift (period / prediction step, in stages). Unchanged from the old shared literal."
+mpc_prediction_dt_sec:
+  default: 0.2
+  description: "Prediction step [s] of mpc_corr's model (Euler step, stage-to-stage rate rows, x_pred spacing, horizon reach N * dt * v). Must be >= mpc_control_period_sec. 0.2 with 20 steps gives a 4.0 s horizon: 1.6 m at 0.4 m/s, 2.0 m at the 0.5 m/s vdes default. Was the shared literal 0.1 (2.0 s, 0.8 m at 0.4 m/s). UNVERIFIED ON THE CAR: solve time measured on linus only (tools/mpc_solve_benchmark.py)."
+mpc_horizon_steps:
+  default: 20
+  description: "Number of prediction stages N in mpc_corr's QP. Unchanged from the old literal; the stage weights are normalised to it (mpc_solver.STAGE_WEIGHT_REF_HORIZON)."
+corr_lookahead_frac:
+  default: 0.85
+  description: "compute_local_target's lookahead as a fraction of the corridor length; floored at corr_lookahead_reach_margin (1.25) x the horizon reach N * dt * vdes. Was a 0.5 literal, which put the target (1.5 m on a 3.0 m corridor) INSIDE the 4.0 s horizon's 2.0 m reach once the prediction step became 0.2 s; the floor (2.5 m) then took over with a WARN every 5 s. 0.85 x 3.0 = 2.55 m sits just past the floor, so the terminal cost stays a direction pull."
+
 # Consumed by: MPC_corr.py's declare_parameter() default (get_value), no launch
 # arg. The bicycle model's L, and the wheelbase wall_turn.py's R_min is derived
 # from. Promoted from a bare 0.305 literal with the value unchanged.

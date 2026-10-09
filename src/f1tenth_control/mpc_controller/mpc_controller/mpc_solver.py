@@ -319,6 +319,7 @@ def solve_mpc_step(
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     warm_start_z: Optional[np.ndarray] = None,
+    control_period: Optional[float] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -353,6 +354,15 @@ def solve_mpc_step(
     turn can end tens of degrees away from anything the solver intends to
     do -- and which changes discontinuously every tick as last_u moves. The
     QP was being built around a reference nobody was steering toward.
+
+    ts vs control_period: ts is the PREDICTION step (the model's Euler step
+    and the spacing of x_pred); control_period is how long u_0 is actually
+    applied before the next solve replaces it. They used to be one number.
+    With them split (campaign: 0.2 s stages, 0.1 s loop) the stage-to-stage
+    rate rows stay rate * ts, but the first one -- u_0 against the command
+    already on the car -- is rate * control_period, because that is the time
+    the actuator really has between two commands. None means "same as ts",
+    the original single-step behaviour. RTI-ONLY, like warm_start_z.
     """
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
@@ -368,6 +378,7 @@ def solve_mpc_step(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
             weights, obstacles, dmin, vdes, boundaries=boundaries,
             warm_start_z=warm_start_z,
+            control_period=control_period,
             boundary_max_sources=boundary_max_sources,
             boundary_hard=boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
@@ -697,7 +708,7 @@ def terminal_heading_target(corridor: Dict, psi_ref: float,
     return psi_ref_N + (float(turn) - progress)
 
 
-def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
+def shift_warm_start(zopt: np.ndarray, horizon: int, shift: float = 1.0) -> np.ndarray:
     """Shift a solved control sequence one step for the NEXT tick's warm start.
 
     z is the flat [delta_0, a_0, delta_1, a_1, ...] sequence _solve_rti
@@ -716,17 +727,36 @@ def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
     lag the plan by one period on every tick of a turn. The shift costs one
     array copy and removes that lag entirely.
 
+    A FRACTIONAL SHIFT, for a prediction step longer than the control
+    period. ``shift`` is how many PREDICTION STAGES one control period is:
+    control_period / prediction_dt, 1.0 when the two are the same (the
+    original behaviour, reproduced exactly) and 0.5 at the campaign's 0.1 s
+    loop over 0.2 s stages. The plan is a zero-order hold, u(t) = u_k on
+    [k dt, (k+1) dt); one control period later stage k covers
+    [(k + shift) dt, (k + 1 + shift) dt), which with shift = m + f straddles
+    u_{k+m} for (1 - f) of its length and u_{k+m+1} for f of it. The guess
+    for it is that time-weighted mix -- the half-step interpolation -- and
+    indices past the end repeat the last control, as the integer shift
+    always did.
+
     Returns a fresh array; the input is not modified. A zopt that is not
     2*horizon long (a truncated/garbage solve) returns None, so the caller
-    falls back to the tile rather than seeding OSQP with the wrong shape.
+    falls back to the tile rather than seeding OSQP with the wrong shape. So
+    does a non-finite or negative shift.
     """
     z = np.asarray(zopt, dtype=float).ravel()
     if z.size != 2 * horizon or not np.all(np.isfinite(z)):
         return None
-    shifted = np.empty_like(z)
-    shifted[: 2 * (horizon - 1)] = z[2:]
-    shifted[2 * (horizon - 1):] = z[2 * (horizon - 1):]
-    return shifted
+    shift = float(shift)
+    if not math.isfinite(shift) or shift < 0.0:
+        return None
+    u = z.reshape(horizon, 2)
+    m = int(math.floor(shift))
+    f = shift - m
+    idx0 = np.minimum(np.arange(horizon) + m, horizon - 1)
+    idx1 = np.minimum(idx0 + 1, horizon - 1)
+    shifted = (1.0 - f) * u[idx0] + f * u[idx1]
+    return shifted.ravel()
 
 
 def _solve_rti(
@@ -748,6 +778,7 @@ def _solve_rti(
     boundary_hard: bool = False,
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
+    control_period: Optional[float] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -895,7 +926,10 @@ def _solve_rti(
             add_row(block[r].copy(), float(rhs[r]), float(rhs[r]))
 
     # ---- Control box + rate constraints (exact, same bounds as SLSQP path).
+    # Stage-to-stage rows span one prediction step (ts); the k = 0 row spans
+    # one control period -- see solve_mpc_step's ts vs control_period note.
     u_prev = last_u
+    ts_first = float(control_period) if control_period is not None else ts
     for k in range(N):
         row_d = np.zeros(n_z)
         row_d[u_idx(k)] = [1.0, 0.0]
@@ -907,8 +941,9 @@ def _solve_rti(
 
         rate_row_d = np.zeros(n_z)
         rate_row_d[u_idx(k)] += [1.0, 0.0]
-        rate_lo_d = limits["dDeltaMin"] * ts
-        rate_hi_d = limits["dDeltaMax"] * ts
+        ts_rate = ts if k > 0 else ts_first
+        rate_lo_d = limits["dDeltaMin"] * ts_rate
+        rate_hi_d = limits["dDeltaMax"] * ts_rate
         if k > 0:
             rate_row_d[u_idx(k - 1)] += [-1.0, 0.0]
         else:
@@ -918,8 +953,8 @@ def _solve_rti(
 
         rate_row_a = np.zeros(n_z)
         rate_row_a[u_idx(k)] += [0.0, 1.0]
-        rate_lo_a = limits["dAMin"] * ts
-        rate_hi_a = limits["dAMax"] * ts
+        rate_lo_a = limits["dAMin"] * ts_rate
+        rate_hi_a = limits["dAMax"] * ts_rate
         if k > 0:
             rate_row_a[u_idx(k - 1)] += [0.0, -1.0]
         else:

@@ -724,8 +724,29 @@ class MPCController(Node):
         self.warm_start_z: Optional[np.ndarray] = None
 
         self.wheel_radius = 0.05
-        self.ts = 0.1
-        self.N = 20
+        # CONTROL PERIOD vs PREDICTION STEP -- two numbers since the M02
+        # campaign fix (A1); they were both the literal self.ts = 0.1.
+        #   self.ts       the control period: the timer, how long u_0 is on
+        #                 the car (v_cmd = v + a * ts, the k = 0 rate rows),
+        #                 the warm-start shift, and the loop-budget checks.
+        #   self.ts_pred  the prediction step: the model's Euler step, the
+        #                 stage-to-stage rate rows, x_pred's spacing, and
+        #                 every "how far does the horizon reach" product
+        #                 N * ts_pred * v.
+        # At 20 x 0.2 s the horizon is 4.0 s -- 1.6 m at 0.4 m/s, against
+        # 0.8 m at 20 x 0.1 s, which was shorter than the 1.4 m at which R011
+        # first saw its plant.
+        self.ts = float(self.declare_parameter(
+            'mpc_control_period_sec', get_value('mpc_control_period_sec')).value)
+        self.ts_pred = float(self.declare_parameter(
+            'mpc_prediction_dt_sec', get_value('mpc_prediction_dt_sec')).value)
+        self.N = int(self.declare_parameter(
+            'mpc_horizon_steps', get_value('mpc_horizon_steps')).value)
+        if not (self.ts > 0.0 and self.ts_pred >= self.ts and self.N >= 2):
+            raise ValueError(
+                f'mpc_control_period_sec={self.ts}, mpc_prediction_dt_sec='
+                f'{self.ts_pred}, mpc_horizon_steps={self.N}: need period > 0, '
+                'prediction step >= period and at least 2 steps')
 
         # UPGRADE: rough footprint radius used for the predicted-clearance check.
         # In-code default (0.20) matches stack_params.yaml's car_radius key, the
@@ -886,7 +907,13 @@ class MPCController(Node):
         # The reference implementation runs lookahead 1.5 on L 3.0 -- the
         # target sits mid-corridor and advances -- so the ratio, not the
         # absolute value, is the tuned quantity.
-        self.corr_lookahead_frac = 0.5
+        #
+        # 0.5 -> 0.85 with the 0.2 s prediction step (campaign fix A1): the
+        # 4.0 s horizon reaches 2.0 m at vdes 0.5, so 0.5 x 3.0 = 1.5 m fell
+        # inside the reach and the floor below took over with a warning.
+        # A ROS parameter now; see corr_lookahead_frac in stack_params.yaml.
+        self.corr_lookahead_frac = float(self.declare_parameter(
+            'corr_lookahead_frac', get_value('corr_lookahead_frac')).value)
         # Floor, as a multiple of the horizon's physical reach (N*ts*vdes).
         # The reference's target sat beyond its horizon's 0.28 m reach, which
         # is what makes the terminal cost behave as a direction pull
@@ -1865,7 +1892,8 @@ class MPCController(Node):
 
         # ---- DEBUG: dump della configurazione all'avvio ----
         self.get_logger().info(
-            f'CFG | ts={self.ts} N={self.N} vdes={self.vdes} dmin={self.dmin} '
+            f'CFG | control_period={self.ts} prediction_dt={self.ts_pred} N={self.N} '
+            f'horizon={self.N * self.ts_pred:.2f}s vdes={self.vdes} dmin={self.dmin} '
             f'wheel_radius={self.wheel_radius} car_radius={self.car_radius} '
             f'avoidance_margin={self.avoidance_margin}'
         )
@@ -3891,7 +3919,7 @@ class MPCController(Node):
             pref_nom=pref_nom,
             corridor=corridor,
             horizon=self.N,
-            ts=self.ts,
+            ts=self.ts_pred,
             params=self.params,
             limits=self.limits,
             weights=self._weights_for(corridor),
@@ -3904,6 +3932,7 @@ class MPCController(Node):
             boundary_hard=self.boundary_hard,
             boundary_slack_weight=self.boundary_slack_weight,
             warm_start_z=self.warm_start_z,
+            control_period=self.ts,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
@@ -3932,7 +3961,11 @@ class MPCController(Node):
         # (non-finite, infeasibility certificate), so that flag -- not the
         # status string -- is the right discriminator.
         if info.get("success", False):
-            self.warm_start_z = shift_warm_start(info.get("zopt"), self.N)
+            # One control period later the car is ts / ts_pred stages into
+            # this plan: a fractional shift when the stage is longer than the
+            # period (see shift_warm_start).
+            self.warm_start_z = shift_warm_start(
+                info.get("zopt"), self.N, shift=self.ts / self.ts_pred)
         else:
             self.warm_start_z = None
 
@@ -4333,7 +4366,8 @@ class MPCController(Node):
                     delta_max=self.limits['delta_max'],
                     k_safety=self.corr_wall_turn_k_safety,
                     safety_margin=self.corr_wall_turn_safety_margin_m,
-                    n_steps=self.N, ts=self.ts, v_ref=self.vdes,
+                    n_steps=self.N, ts=getattr(self, 'ts_pred', self.ts),
+                    v_ref=self.vdes,
                     committed=self.wall_turn_committed,
                     prev_commanded_rot=self.wall_turn_commanded_rot)
                 self.wall_turn_committed = wall_step.committed
@@ -4488,7 +4522,8 @@ class MPCController(Node):
                 wheelbase=self.params['L'],
                 delta_min=self.limits['delta_min'],
                 delta_max=self.limits['delta_max'],
-                n_steps=self.N, ts=self.ts, v_ref=self.vdes)
+                n_steps=self.N, ts=getattr(self, 'ts_pred', self.ts),
+                v_ref=self.vdes)
             self.object_psi_c = step.psi_c_new
             self.object_last_step = step
             self.object_target_at_build = object_target
@@ -4528,7 +4563,7 @@ class MPCController(Node):
                 clamp_len = float('nan')
             elif _mode == 'arc_far':
                 clamp_len = lookahead_clamp_length(
-                    self.N, self.ts, self.vdes,
+                    self.N, getattr(self, 'ts_pred', self.ts), self.vdes,
                     self.corr_lookahead_reach_margin)
                 # Hysteresis: enter the arc above hi, leave it below lo, hold
                 # in between. See the parameter block for why the band cannot
@@ -5312,8 +5347,11 @@ class MPCController(Node):
             # k in time, and 'odom' is asserted here rather than assumed
             # downstream because it is the same frame, for the same reason, as
             # the /corridor polygon this logger draws the horizon against.
+            # ts here is the spacing of the PREDICTED states, i.e. the
+            # prediction step -- horizon_log places step k at t + (k+1)*ts.
             payload = mpc_status_payload(info, solve_dt, solver,
-                                         ts=self.ts, frame_id='odom')
+                                         ts=getattr(self, 'ts_pred', self.ts),
+                                         frame_id='odom')
             self.campaign_status_pub.publish(String(data=json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
             self.get_logger().warn(
@@ -5360,7 +5398,8 @@ class MPCController(Node):
         behind the moment N, ts, vdes or the margin moved.
         """
         return lookahead_clamp_length(
-            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
+            self.N, getattr(self, 'ts_pred', self.ts), self.vdes,
+            self.corr_lookahead_reach_margin)
 
     def _corridor_lookahead(self, corridor):
         """Derive compute_local_target's lookahead from the corridor length.
@@ -5384,9 +5423,10 @@ class MPCController(Node):
         # The floor and the raw reach it is derived from: the warning below
         # quotes both, because "inside the horizon reach" and "below the floor"
         # are different statements and the fix differs.
-        horizon_reach = float(self.N) * float(self.ts) * float(self.vdes)
+        ts_pred = float(getattr(self, 'ts_pred', self.ts))
+        horizon_reach = float(self.N) * ts_pred * float(self.vdes)
         reach_floor = lookahead_clamp_length(
-            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
+            self.N, ts_pred, self.vdes, self.corr_lookahead_reach_margin)
 
         lookahead = from_length
         if from_length < reach_floor:
