@@ -5,9 +5,8 @@ included directly by stack_bringup.launch.py/component_supervisor_node.py.
 
 odom_stale_timeout_sec is MPC_corr.py's only ROS param (self.declare_parameter,
 in-code default 0.5 matching stack_params.yaml's own default) -- wired through here
-the same way mpc.launch.py wires andre_mpc_node.py's gains, so the two copies of the
-default (here and in MPC_corr.py itself) only matter if this file's value is
-overridden.
+from stack_params.yaml, so the two copies of the default (here and in MPC_corr.py
+itself) only matter if this file's value is overridden.
 
 use_rti_solver/cpu_affinity/nice added by the MPC optimization pass (frequency/
 bottleneck audit follow-up): use_rti_solver picks mpc_solver.py's OSQP real-time-

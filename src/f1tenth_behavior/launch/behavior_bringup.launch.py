@@ -1,8 +1,7 @@
 """py_trees emergency-stop + safety-stop supervisor + Twist->Ackermann bridge -- the
 part that actually drives.
 
-Included from stack_bringup.launch.py only when use_behavior_tree:=true (mutually
-exclusive with mpc.launch.py -- see stack_bringup.launch.py). This file does NOT
+Included from stack_bringup.launch.py only when use_behavior_tree:=true. This file does NOT
 launch the Nav2 stack itself -- see navigation.launch.py, which brings up either
 nav2.launch.py or mpc_corr.launch.py depending on enable_nav2, entirely independent
 of use_behavior_tree.

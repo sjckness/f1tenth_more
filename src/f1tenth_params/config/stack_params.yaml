@@ -847,7 +847,7 @@ wall_distance_track_timeout_sec:
 # ============================================================
 # Consumed by: f1tenth_control/mpc_corr.launch.py -- wired into mpc_controller's
 # MPC_corr.py's own already-declared ROS param (self.declare_parameter,
-# in-code default 0.5) the same way mpc.launch.py wires andre_mpc_node.py's gains.
+# in-code default 0.5).
 # The in-code default only matters if this file's value is ever overridden.
 odom_stale_timeout_sec:
   default: 0.5
@@ -1452,62 +1452,6 @@ joy_config:
 # dead code, not just currently-unconsumed data -- removed together rather than
 # left declaring a value nothing reads. If a future interrogation needs to target
 # a specific ROS node again (an MPC-tuning-style one, say), re-add this key then.
-# Consumed by: f1tenth_control/mpc.launch.py -- wired into andre_mpc_node.py's own
-# already-declared ROS params for the first time this phase (mpc.launch.py previously
-# passed no parameters=[...] at all, so these 12 gains were only ever the in-code
-# defaults in mpc_controller/andre_mpc_node.py; values here match those defaults
-# exactly, so wiring them up changes nothing behaviorally by itself).
-qn:
-  default: 50.0
-  description: "MPC rollout cost weight on radial tracking error (distance to the reference circle). High: tight radial tracking."
-# Consumed by: f1tenth_control/mpc.launch.py. Declared by andre_mpc_node.py but not
-# currently read anywhere in its own cost function or control loop (self.qv is set in
-# update_params, never used elsewhere) -- a pre-existing gap in the node itself.
-qv:
-  default: 50.0
-  description: "Declared MPC cost weight, currently unused by andre_mpc_node.py's own rollout cost."
-# Consumed by: f1tenth_control/mpc.launch.py.
-qalpha:
-  default: 30.0
-  description: "MPC rollout cost weight on heading error (deviation from tangent-to-circle). High: stay tangent to the circle."
-# Consumed by: f1tenth_control/mpc.launch.py.
-qddelta:
-  default: 2.0
-  description: "MPC rollout cost weight penalizing steering-correction rate, for smooth corrections."
-# Consumed by: f1tenth_control/mpc.launch.py.
-alat_max:
-  default: 10.0
-  description: "Lateral acceleration limit [m/s^2] enforced as a soft constraint in the MPC rollout cost."
-# Consumed by: f1tenth_control/mpc.launch.py. Declared by andre_mpc_node.py but not
-# currently read anywhere else in the node (self.a_min is set in update_params, never
-# used elsewhere) -- a pre-existing gap in the node itself.
-a_min:
-  default: -3.0
-  description: "Declared MPC deceleration limit [m/s^2], currently unused by andre_mpc_node.py's own control loop."
-# Consumed by: f1tenth_control/mpc.launch.py.
-a_max:
-  default: 3.0
-  description: "MPC acceleration limit [m/s^2] -- rate-limits the open-loop speed command toward v_ref."
-# Consumed by: f1tenth_control/mpc.launch.py.
-v_min:
-  default: -0.5
-  description: "MPC speed floor [m/s] -- clips both the state estimate used in the rollout cost and the published speed command."
-# Consumed by: f1tenth_control/mpc.launch.py.
-v_max:
-  default: 0.5
-  description: "MPC speed ceiling [m/s] -- clips the published speed command."
-# Consumed by: f1tenth_control/mpc.launch.py.
-v_ref:
-  default: 0.5
-  description: "Center [m/s] of the MPC's open-loop sine speed profile."
-# Consumed by: f1tenth_control/mpc.launch.py.
-sine_amp:
-  default: 0.0
-  description: "Amplitude [m/s] of the MPC's open-loop sine speed profile. 0.0: constant speed at v_ref."
-# Consumed by: f1tenth_control/mpc.launch.py.
-sine_period:
-  default: 4.0
-  description: "Period [s] of the MPC's open-loop sine speed profile."
 # safety_forward_v_ref / safety_stop_distance / safety_corridor_half_width /
 # safety_corridor_half_height / safety_clear_frames_required (safety_stop_controller's
 # own params) were deleted here -- that node is retired, see enable_safety_stop's

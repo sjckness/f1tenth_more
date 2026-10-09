@@ -1429,29 +1429,6 @@ def planner_nonlcon_corridor(
     return np.asarray(c, dtype=float)
 
 
-def min_distance_to_obstacles(
-    p: np.ndarray,
-    obstacles: List[Tuple[float, float, float]]
-) -> float:
-    """
-    Distanza firmata approssimata da ostacoli circolari:
-    d = distanza_centro - raggio
-    """
-    if len(obstacles) == 0:
-        return 1e6
-
-    px = float(p[0])
-    py = float(p[1])
-
-    dmin = 1e6
-    for ox, oy, r in obstacles:
-        d = np.hypot(px - ox, py - oy) - r
-        if d < dmin:
-            dmin = d
-
-    return float(dmin)
-
-
 def corridor_lateral_coordinates(
     p: np.ndarray,
     corridor: Dict

@@ -46,7 +46,7 @@ car -> only then MPC weight tuning).
 | `f1tenth_description` | URDF/xacro + meshes + `robot_state_publisher`. Single entry point for the robot model *and* the real-hardware static sensor TFs (`base_link→laser`). Shared by real hardware and sim. |
 | `f1tenth_localization` | `map→odom`: either `robot_localization` EKF (fuses `/odom` + VESC IMU) or a raw unfiltered mirror of `/odom` — selected by `localization_source`. |
 | `f1tenth_perception` | Camera bringup (ZED2 wrapper or `v4l2` webcam, selected by `camera_source`) + YOLO 2D/3D detection fusion. Owns the ZED2's static TF too. |
-| `f1tenth_control` | `ackermann_mux` (arbitrates drive-command sources by priority) + the MPC controller (`mpc_controller`; `MPC_corr.py`/`mpc_corr` is the drive-command source `f1tenth_navigation/navigation.launch.py` brings up when `enable_nav2:=false` — see that package's row below. `andre_mpc_node.py`'s own `mpc.launch.py` still exists but isn't included by either bringup path). `safety_stop_controller` (a reactive corridor-stop layer that used to live here) was retired — superseded by `f1tenth_behavior`'s own unconditional `handle_obstacle` lane, see below. |
+| `f1tenth_control` | `ackermann_mux` (arbitrates drive-command sources by priority) + the MPC controller (`mpc_controller`; `MPC_corr.py`/`mpc_corr` is the drive-command source `f1tenth_navigation/navigation.launch.py` brings up when `enable_nav2:=false` — see that package's row below). `safety_stop_controller` (a reactive corridor-stop layer that used to live here) was retired — superseded by `f1tenth_behavior`'s own unconditional `handle_obstacle` lane, see below. |
 | `f1tenth_navigation` | Static map server + the full Nav2 stack (planner/controller/behavior servers, `bt_navigator`, one shared lifecycle manager), split into one launch file per node plus an orchestrator (`nav2.launch.py`). `navigation.launch.py` wraps that orchestrator one level up: Nav2 when `enable_nav2:=true`, `mpc_controller`'s `mpc_corr` (see `f1tenth_control`'s row above) plus a standalone `map_server` (`map_only.launch.py`, its own single-node lifecycle manager) when `false` — `/map` stays published either way — the single site both bringup paths include instead of branching this themselves. |
 | `f1tenth_behavior` | py_trees behavior tree: emergency-stop / obstacle-stop / Nav2-goal-navigation priority lanes (see below), plus the Nav2-readiness gate and the Twist→Ackermann bridge. |
 | `f1tenth_diagnostics` | Calibration tooling (gyro bias, IMU/odom covariance) + `system_observer_node` (CPU/GPU/RAM, gated by `enable_sys_obs`) + `diagnostics_server_node` (continuous battery monitoring + on-demand diagnostics service, never gated). |
@@ -124,14 +124,6 @@ as you'd expect; only the *default value* and *description* are sourced centrall
 | `mux_config` | `config/mux.yaml` | `ackermann_mux` priority/lock/topic config. |
 | `joy_config` | `config/joy_teleop.yaml` | Joystick button/axis mapping for manual control. |
 | `mpc_node_name` | `/mpc_corr` | Fully-qualified MPC node name, used by the LLM MPC tuner for `SetParameters` calls. |
-| `qn`, `qalpha`, `qddelta` | `50.0`, `30.0`, `2.0` | MPC rollout cost weights: radial tracking error, heading error, steering-rate smoothness. |
-| `qv` | `50.0` | Declared MPC cost weight — **currently unused** by `andre_mpc_node.py`'s own cost function (pre-existing gap in the node). |
-| `alat_max` | `10.0` | Lateral acceleration soft-constraint limit [m/s²]. |
-| `a_min` | `-3.0` | Declared MPC deceleration limit — **currently unused** by the node's own control loop (pre-existing gap). |
-| `a_max` | `3.0` | Acceleration rate-limit toward `v_ref` [m/s²]. |
-| `v_min`, `v_max` | `-1.5`, `1.5` | MPC speed floor/ceiling [m/s]. |
-| `v_ref` | `1.0` | Center of the MPC's open-loop sine speed profile. |
-| `sine_amp`, `sine_period` | `0.0`, `4.0` | Amplitude/period of that sine profile (`0.0` amplitude = constant speed). |
 | `car_radius` | `0.20` | Car's physical footprint radius [m] — single source of truth shared by `MPC_corr.py` (`car_radius`/soft-avoidance trigger radius, `dmin`) and the BT's `IsObstacleDetected`/`IsProximityTooClose` (corridor + proximity thresholds, see below). Replaces `safety_stop_controller`'s now-deleted, drifted-out-of-agreement corridor params. |
 | `obstacle_safety_margin_m` | `0.12` | Shared base safety-margin buffer [m] beyond `car_radius`, combined per-mechanism (see `car_radius` above and `stack_params.yaml`'s own comment on this key for the full derivation). |
 | `proximity_front_extra_margin_m` | `0.08` | Small extra conservatism [m] added only to `IsProximityTooClose`'s front standoff (raw-sensor last resort behind the front direction's already-covered YOLO lane). |

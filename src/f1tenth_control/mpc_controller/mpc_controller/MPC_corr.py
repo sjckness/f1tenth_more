@@ -1727,9 +1727,7 @@ class MPCController(Node):
         # =========================
         # Real-hardware drive command: ackermann_mux's "navigation" lane (priority 10,
         # topic "drive" -- f1tenth_bringup/config/mux.yaml) -> ackermann_to_vesc_node ->
-        # vesc_driver_node. Same topic/QoS/message-construction pattern as
-        # andre_mpc_node.py's self.pub, so the two are interchangeable backends for the
-        # same lane. Replaces the old rear_pub/steer_pub pair, which targeted
+        # vesc_driver_node. Replaces the old rear_pub/steer_pub pair, which targeted
         # f1tenth_sim's Gazebo ros2_control bridge (/rear_wheels_controller/commands,
         # /steering_controller/commands) -- nothing on the real stack subscribes to
         # those, which is why MPC mode previously ran with no actuation.
