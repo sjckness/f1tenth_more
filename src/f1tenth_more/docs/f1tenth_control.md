@@ -56,6 +56,20 @@ basis for `dmin`, a disabled/warning-only clearance-log threshold),
 pinning, not sourced from `stack_params.yaml` — see that launch file's own
 docstring).
 
+**Code layout.** `MPC_corr.py` is the node: ROS I/O, parameter declaration,
+the control loop and the solve. The reference corridor lives in
+`mpc_controller/corridor/`: `geometry.py` (pure, no rclpy — the corridor build
+for every goal shape, the lookahead target and its obstacle displacement, the
+map↔odom pose helpers; results and log lines come back as data),
+`manager.py` (`CorridorManager` — the frozen map-frame anchor and its per-tick
+reprojection, the cached corridor and its rebuild period, invalidation on a
+new goal; the map→odom lookup is injected) and `markers.py` (the
+`/mpc/corridor_markers` MarkerArray and the corridor_debug.jsonl record). The
+curve shapes themselves are `f1tenth_params.corridor_geometry`'s, shared with
+the test-campaign plotter. `build_straight_corridor`, `compute_local_target`
+and `_corridor_lookahead` remain on `MPCController` as compatibility shims
+onto `corridor.geometry` (the stand-in tests bind them).
+
 ## Launch files
 
 | File | Purpose |

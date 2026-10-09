@@ -27,6 +27,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from mpc_controller.corridor.manager import CorridorManager
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.object_approach import TargetBehindPersistence, heading_margin_for
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
@@ -116,8 +117,6 @@ class _FakeMPC:
         # The other four goal shapes' state, which a new object move clears.
         self.goal_distance = None
         self.goal_start_xy = None
-        self.goal_anchor_map = None
-        self.goal_anchor_odom = None
         self.goal_reached = False
         self.goal_pose_xy = None
         self.goal_pose_yaw = None
@@ -131,10 +130,10 @@ class _FakeMPC:
         self.smoothed_target = None
         self.last_deflection_vec = None
         self.deflection_decay_remaining = 0
-        self.cached_corridor = None
-        self.last_corridor_time = None
-        self.last_corridor_stamp = None
-        self.cached_pref_nom = None
+        # The corridor cache and the straight-move anchor, as the node holds
+        # them since the corridor split: in its CorridorManager.
+        self.corridor = CorridorManager(
+            update_period=1.0, map_odom_max_age_sec=0.2, logger=self._logger)
         self.warm_start_z = None
 
         self.invalidations = 0
@@ -170,10 +169,10 @@ class _FakeMPC:
 
     def warm_up(self):
         """Pretend a corridor has been built and a solve has completed."""
-        self.cached_corridor = {'sentinel': 'corridor from the last rebuild'}
-        self.last_corridor_time = 100.0
-        self.last_corridor_stamp = 'stamp'
-        self.cached_pref_nom = 'pref'
+        self.corridor.cached_corridor = {'sentinel': 'corridor from the last rebuild'}
+        self.corridor.last_corridor_time = 100.0
+        self.corridor.last_corridor_stamp = 'stamp'
+        self.corridor.cached_pref_nom = 'pref'
         self.warm_start_z = 'warm start from the last solve'
         self.smoothed_target = 'smoothed'
         return self
@@ -235,8 +234,8 @@ class TestRepeatedMessagesDoNotReAnchor:
         for _ in range(200):
             _send(fake, _goal('run7:move_0', 4.0, 0.0))
 
-        assert fake.cached_corridor == {'sentinel': 'corridor from the last rebuild'}
-        assert fake.last_corridor_time == 100.0, (
+        assert fake.corridor.cached_corridor == {'sentinel': 'corridor from the last rebuild'}
+        assert fake.corridor.last_corridor_time == 100.0, (
             'last_corridor_time was nulled -- the next tick would rebuild '
             'regardless of corridor_update_period')
 
@@ -281,7 +280,7 @@ class TestANewMoveDoesReAnchor:
         _send(fake, _goal('run7:move_1', 2.0, 2.0))
 
         assert fake.invalidations == 2
-        assert fake.cached_corridor is None
+        assert fake.corridor.cached_corridor is None
         assert fake.warm_start_z is None
 
     def test_the_same_mission_re_run_is_a_new_move(self):

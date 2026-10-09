@@ -283,8 +283,8 @@ def transform_points_odom_to_map(points, tf_x: float, tf_y: float, tf_yaw: float
     (tf_x, tf_y, tf_yaw) is the map -> odom edge exactly as tf2 returns it
     for lookup_transform('map', 'odom', ...) -- the pose of odom's origin
     expressed in map -- so applying it to an odom-frame point yields the
-    map-frame one. Same direction and same formula as MPC_corr.py's own
-    _pose_odom_to_map, reimplemented rather than imported for the same
+    map-frame one. Same direction and same formula as mpc_controller's
+    corridor.geometry.pose_odom_to_map, reimplemented rather than imported for the same
     reason yaw_from_quaternion already is in this package: two lines of
     planar trigonometry are not worth a cross-package dependency on a
     control node.
@@ -545,7 +545,7 @@ class CostmapBoundaryNode(Node):
         """(tf_x, tf_y, tf_yaw) for the map -> odom edge, or None.
 
         rclpy.time.Time() means "latest available", matching MPC_corr.py's
-        own _refresh_goal_anchor lookup and semantic_layer_node.py's own
+        own _lookup_map_odom (the anchor refresh's lookup) and semantic_layer_node.py's own
         camera lookup rather than introducing a third convention. Looking it
         up at the CORRIDOR's stamp instead was considered and rejected: tf2
         would then extrapolate or fail for a corridor older than the buffer,

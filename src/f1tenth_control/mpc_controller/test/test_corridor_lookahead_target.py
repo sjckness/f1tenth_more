@@ -30,12 +30,21 @@ Run standalone: python3 -m pytest test/test_corridor_lookahead_target.py -v
 import inspect
 import math
 import re
+import tempfile
 import unittest
+from unittest import mock
 
 import numpy as np
 
 from f1tenth_params.param_defaults import get_value
+from mpc_controller.corridor.manager import CorridorManager
 from mpc_controller.MPC_corr import MPCController
+from std_msgs.msg import Float32
+# The golden replay's rig: the REAL MPCController (its own __init__, its own
+# subscription callbacks, its own timer) with only rclpy plumbing stubbed,
+# driven by the recorded input window. Used below where a property lives in
+# control_loop's ordering, which a stand-in cannot reproduce.
+import test_corridor_golden as golden  # noqa: E402
 
 
 class _FakeLogger:
@@ -322,11 +331,32 @@ class TestObstaclesReachTheTargetBeforeItIsComputed(unittest.TestCase):
                 r_safe = 0.15 + fake.car_radius + fake.avoidance_margin
                 self.assertAlmostEqual(float(target[0]), 1.5 + r_safe, places=6)
 
-    def test_no_hardcoded_deflection_ceiling_survives_in_the_source(self):
-        """The old corridor-derived literal is gone, not merely bypassed."""
-        src = inspect.getsource(MPCController.compute_local_target)
-        self.assertNotIn('0.6 * float(np.mean(', src)
-        self.assertIn('self.obstacle_target_shift', src)
+    def test_the_ceiling_does_not_follow_the_corridor_width(self):
+        """
+        The old corridor-derived ceiling is gone, not merely bypassed.
+
+        It was 0.6 * mean(halfWidth). Hold obstacle_target_shift_m fixed and
+        sweep the corridor's half-width from narrower than the shift to five
+        times wider: the tangential displacement must stay the parameter at
+        every width (same degenerate geometry as the test above, so the
+        displacement reads straight off y). Replaces a source-text check that
+        compute_local_target no longer contained the literal -- which stopped
+        meaning anything once the displacement moved to
+        corridor.geometry.deflect_target.
+        """
+        for half_width in (0.25, 0.4333, 2.0):
+            with self.subTest(half_width=half_width):
+                corridor = _straight_corridor(3.0)
+                corridor["halfWidth"] = np.full(len(corridor["xc"]), half_width)
+                corridor["obstacles_world"] = [(1.5, 0.0, 0.15)]
+                fake = _FakeMPC()
+                fake.obstacle_target_shift = 0.30
+
+                target = MPCController.compute_local_target(
+                    fake, [0.0, 0.0, 0.0, 0.5], corridor)
+
+                self.assertAlmostEqual(float(target[1]), 0.30, places=6)
+                self.assertNotAlmostEqual(float(target[1]), 0.6 * half_width, places=3)
 
     def test_the_shipping_shift_fits_inside_the_narrow_corridor(self):
         """
@@ -345,26 +375,65 @@ class TestObstaclesReachTheTargetBeforeItIsComputed(unittest.TestCase):
 
     def test_control_loop_populates_the_dict_before_taking_the_target(self):
         """
-        Pins the ORDERING in control_loop, which no geometry test can see.
+        Pin the ORDERING in control_loop, on the real node.
 
-        Reads the source: the obstacles_world/d_safe writes must appear before
-        the compute_local_target call, and both must sit OUTSIDE the
-        `if need_update:` corridor-rebuild block so they refresh every tick
-        even when the corridor is served from cache.
+        Every tick, the corridor dict compute_local_target receives must
+        already carry THIS tick's live obstacles and the safety distances --
+        including the ticks served from cache, where no rebuild ran. A
+        spy on compute_local_target records the dict at call time while the
+        real node replays the recorded window with an obstacle in the
+        corridor. Attaching after the target would hand it the previous
+        tick's list (or no list at all on a fresh rebuild); attaching inside
+        the rebuild block would freeze it between rebuilds. Replaces a
+        source-text check of the same ordering against control_loop's lines.
         """
-        src = inspect.getsource(MPCController.control_loop)
-        i_obs = src.index('corridor["obstacles_world"] = ')
-        i_safe = src.index('corridor["d_safe"] = ')
-        i_target = src.index("self.compute_local_target(")
-        i_rebuild = src.index("self.cached_corridor = self.build_straight_corridor")
-        i_uncached = src.index("corridor = self.cached_corridor")
+        seen = []
+        real = MPCController.compute_local_target
 
-        self.assertLess(i_obs, i_target)
-        self.assertLess(i_safe, i_target)
-        # After the rebuild block has been left behind, so this runs on cached
-        # corridors too.
-        self.assertLess(i_rebuild, i_uncached)
-        self.assertLess(i_uncached, i_obs)
+        def spy(node, x, corridor):
+            seen.append({
+                'k': node._golden_tick,
+                'obstacles': list(corridor['obstacles_world']),
+                'live': list(node.obstacles_global_live),
+                'd_safe': corridor['d_safe'], 'dmin': node.dmin,
+                'car_radius': corridor['car_radius'],
+                'avoidance_margin': corridor['avoidance_margin'],
+            })
+            return real(node, x, corridor)
+
+        inputs = golden.load_inputs()
+        messages = inputs['messages']
+        with tempfile.TemporaryDirectory() as tmp, \
+                golden.Rig({'model_log_path': ''}, tmp) as rig, \
+                mock.patch.object(MPCController, 'compute_local_target', spy):
+            node = rig.build(inputs['ticks'][0]['clock_ns'])
+            rebuild_ticks = []
+            for k, tick in enumerate(inputs['ticks'][:30]):
+                rig.now_ns = tick['clock_ns']
+                rig.published = []
+                rig.tf.map_odom = messages[tick['map_odom']]
+                rig.deliver('/odometry/filtered', messages[tick['odom']])
+                rig.deliver('/perception/obstacles_2d', messages[tick['synthetic_obstacle']])
+                if k == 2:
+                    rig.deliver('/mpc/goal_distance', Float32(data=6.0))
+                node._golden_tick = k
+                rig.tick_control()
+                if any(topic == '/mpc/corridor_markers' for topic, _ in rig.published):
+                    rebuild_ticks.append(k)
+
+        self.assertTrue(seen, 'no tick reached compute_local_target')
+        cached_ticks = [s for s in seen if s['k'] not in rebuild_ticks]
+        self.assertGreaterEqual(len(cached_ticks), 5, 'too few ticks served from cache')
+        for s in seen:
+            with self.subTest(tick=s['k']):
+                self.assertTrue(s['live'], 'the synthetic obstacle never reached the node')
+                self.assertEqual(s['obstacles'], s['live'])
+                self.assertEqual(s['d_safe'], s['dmin'])
+        # Teeth: on cached ticks the live list really did move since the
+        # rebuild that produced the dict, so equality above is not vacuous.
+        first_rebuild = min(rebuild_ticks)
+        at_rebuild = next(s['live'] for s in seen if s['k'] == first_rebuild)
+        self.assertTrue(any(s['live'] != at_rebuild for s in cached_ticks))
 
 
 class TestEveryGoalInvalidatesTheCorridorCache(unittest.TestCase):
@@ -372,10 +441,12 @@ class TestEveryGoalInvalidatesTheCorridorCache(unittest.TestCase):
 
     def _fake_node(self):
         fake = _FakeMPC()
-        fake.cached_corridor = {"stale": True}
-        fake.last_corridor_time = 123.0
-        fake.last_corridor_stamp = object()
-        fake.cached_pref_nom = np.array([9.0, 9.0])
+        fake.corridor = CorridorManager(
+            update_period=1.0, map_odom_max_age_sec=0.2, logger=_FakeLogger())
+        fake.corridor.cached_corridor = {"stale": True}
+        fake.corridor.last_corridor_time = 123.0
+        fake.corridor.last_corridor_stamp = object()
+        fake.corridor.cached_pref_nom = np.array([9.0, 9.0])
         fake.smoothed_target = np.array([9.0, 9.0])
         fake.last_deflection_vec = np.array([1.0, 1.0])
         fake.deflection_decay_remaining = 3
@@ -386,26 +457,52 @@ class TestEveryGoalInvalidatesTheCorridorCache(unittest.TestCase):
         fake = self._fake_node()
         MPCController._invalidate_move_state(fake)
 
-        self.assertIsNone(fake.cached_corridor)
-        self.assertIsNone(fake.last_corridor_time)
-        self.assertIsNone(fake.last_corridor_stamp)
-        self.assertIsNone(fake.cached_pref_nom)
+        self.assertIsNone(fake.corridor.cached_corridor)
+        self.assertIsNone(fake.corridor.last_corridor_time)
+        self.assertIsNone(fake.corridor.last_corridor_stamp)
+        self.assertIsNone(fake.corridor.cached_pref_nom)
         self.assertIsNone(fake.smoothed_target)
         self.assertEqual(fake.deflection_decay_remaining, 0)
         self.assertTrue(np.allclose(fake.last_deflection_vec, 0.0))
 
     def test_clearing_last_corridor_time_forces_a_rebuild_next_tick(self):
         """
-        Confirm the cleared value is the one control_loop's gate reads.
+        Confirm the cleared value is the one the rebuild gate reads.
 
-        The gate is `cached_corridor is None or last_corridor_time is None`,
-        so clearing either forces need_update -- which rebuilds AND publishes
-        the markers, the two things a silently-reused corridor skipped.
+        On the real node: a goal_distance move rebuilds at tick 2, and the
+        period (1.0 s) holds the next rebuild off for ten ticks -- so a tick
+        mid-period does NOT rebuild. A new goal at tick 5 runs
+        _invalidate_move_state, and THAT tick's control loop must rebuild
+        AND publish /mpc/corridor_markers, 0.3 s into the period -- the two
+        things a silently-reused corridor skipped. Replaces a source-text
+        check that control_loop contained the gate line itself; the gate now
+        lives in CorridorManager.needs_rebuild (see test_corridor_manager.py
+        for the gate on its own).
         """
-        src = inspect.getsource(MPCController.control_loop)
-        self.assertIn(
-            "if self.cached_corridor is None or self.last_corridor_time is None:",
-            src)
+        inputs = golden.load_inputs()
+        messages = inputs['messages']
+        rebuilt = {}
+        with tempfile.TemporaryDirectory() as tmp, \
+                golden.Rig({'model_log_path': ''}, tmp) as rig:
+            rig.build(inputs['ticks'][0]['clock_ns'])
+            for k, tick in enumerate(inputs['ticks'][:8]):
+                rig.now_ns = tick['clock_ns']
+                rig.published = []
+                rig.tf.map_odom = messages[tick['map_odom']]
+                rig.deliver('/odometry/filtered', messages[tick['odom']])
+                if k == 2:
+                    rig.deliver('/mpc/goal_distance', Float32(data=6.0))
+                if k == 5:
+                    rig.deliver('/mpc/goal_distance', Float32(data=4.0))
+                rig.tick_control()
+                rebuilt[k] = sum(1 for topic, _ in rig.published
+                                 if topic == '/mpc/corridor_markers')
+
+        self.assertEqual(rebuilt[2], 1)
+        self.assertEqual(rebuilt[3], 0, 'the period did not hold the rebuild off')
+        self.assertEqual(rebuilt[4], 0, 'the period did not hold the rebuild off')
+        self.assertEqual(rebuilt[5], 1, 'a new goal did not force the next rebuild')
+        self.assertEqual(rebuilt[6], 0)
 
     def test_all_three_goal_callbacks_invalidate(self):
         """

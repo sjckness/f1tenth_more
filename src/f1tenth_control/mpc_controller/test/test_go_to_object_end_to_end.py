@@ -55,7 +55,9 @@ from f1tenth_behavior.mission.runtime import (  # noqa: E402
     MissionRuntimeState,
 )
 
-from mpc_controller.MPC_corr import MPCController, _pose_odom_to_map  # noqa: E402
+from mpc_controller.corridor.manager import CorridorManager  # noqa: E402
+from mpc_controller.MPC_corr import MPCController  # noqa: E402
+from mpc_controller.corridor.geometry import pose_odom_to_map  # noqa: E402
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step  # noqa: E402
 from mpc_controller.object_approach import (  # noqa: E402
     SPEED_DRIVE, floor_moving_speed, object_speed_decision)
@@ -131,17 +133,17 @@ class _NodeMPC(rig._ObjectMPC):
         self.goal_object_stamp = None
         self.goal_distance = None
         self.goal_start_xy = None
-        self.goal_anchor_map = None
         self.goal_reached = False
         self.goal_pose_yaw = None
         self.pose_goal_reached = False
         self._no_goal_warned = False
         self.wall_turn_committed = False
         self.wall_turn_commanded_rot = None
-        self.cached_corridor = None
-        self.last_corridor_time = None
-        self.last_corridor_stamp = None
-        self.cached_pref_nom = None
+        # The corridor cache and the straight-move anchor live in the node's
+        # CorridorManager since the corridor split.
+        self.corridor = CorridorManager(
+            update_period=1.0, map_odom_max_age_sec=self.map_odom_max_age_sec,
+            logger=self.logger)
         self.warm_start_z = None
         self.object_ended_move_ids = collections.deque(maxlen=64)
         self.object_exit_ramp = SteeringRamp(0.6)
@@ -253,7 +255,7 @@ def _run_go_to_person(duration=40.0, mission_path=None,
     for tick in range(int(duration / TS)):
         clock.t += TS
         mpc.x, mpc.y, mpc.yaw, mpc.v = float(x[0]), float(x[1]), float(x[2]), float(x[3])
-        gx, gy, gyaw = _pose_odom_to_map(x[0], x[1], x[2], *MAP_ODOM)
+        gx, gy, gyaw = pose_odom_to_map(x[0], x[1], x[2], *MAP_ODOM)
         setattr(bb, GLOBAL_XY_KEY, (gx, gy))
         setattr(bb, GLOBAL_YAW_KEY, gyaw)
         setattr(bb, GLOBAL_TURN_ACCUM_KEY, 0.0)

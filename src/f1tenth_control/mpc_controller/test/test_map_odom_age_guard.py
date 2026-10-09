@@ -1,10 +1,11 @@
 """
 The map -> odom age guard, pinned at its CURRENT behaviour.
 
-Covers _lookup_map_odom, _refresh_goal_anchor and the anchor capture in
-goal_distance_callback. Nothing tested these before: the guard was described
-in prose (see _lookup_map_odom's "AGE GUARD" note) and never executed by the
-suite. These tests are part of the refactor's baseline, not of the refactor:
+Covers _lookup_map_odom, the per-tick reprojection (CorridorManager.
+refresh_anchor, which was MPCController._refresh_goal_anchor until the
+corridor split) and the anchor capture in goal_distance_callback. Nothing
+tested these before: the guard was described in prose (see
+_lookup_map_odom's "AGE GUARD" note) and never executed by the suite. These tests are part of the refactor's baseline, not of the refactor:
 they record what the code does today, including the parts that read as
 surprising, so a later move of this logic can be checked against them.
 
@@ -20,8 +21,9 @@ Run standalone: python3 -m pytest test/test_map_odom_age_guard.py -v
 import math
 
 from geometry_msgs.msg import TransformStamped
-from mpc_controller.MPC_corr import (
-    MPCController, _pose_map_to_odom, _pose_odom_to_map)
+from mpc_controller.corridor.geometry import pose_map_to_odom, pose_odom_to_map
+from mpc_controller.corridor.manager import CorridorManager
+from mpc_controller.MPC_corr import MPCController
 import numpy as np
 import pytest
 from rclpy.clock import ClockType
@@ -95,10 +97,13 @@ def _now(ns=_NOW_NS, clock_type=ClockType.ROS_TIME):
 
 class _Node:
     """
-    What _lookup_map_odom and _refresh_goal_anchor read, nothing else.
+    What _lookup_map_odom reads, plus the corridor manager the node owns.
 
     Defaults are the shipped ones: map/odom frame names, the feature on (what
-    localization_source 'ekf' derives), map_odom_max_age_sec 0.2.
+    localization_source 'ekf' derives), map_odom_max_age_sec 0.2. The manager
+    is wired the way MPCController.__init__ wires it: the node's
+    map_odom_max_age_sec and the node's logger; the refresh is driven the way
+    control_loop drives it, node.corridor.refresh_anchor(node._lookup_map_odom).
     """
 
     def __init__(self, buffer, now=None, use_anchor=True):
@@ -107,10 +112,11 @@ class _Node:
         self.odom_frame = 'odom'
         self.use_map_frame_goal_anchor = use_anchor
         self.map_odom_max_age_sec = 0.2
-        self.goal_anchor_map = None
-        self.goal_anchor_odom = None
         self._logger = _Logger()
         self._clock = _Clock(now if now is not None else _now())
+        self.corridor = CorridorManager(
+            update_period=1.0, map_odom_max_age_sec=self.map_odom_max_age_sec,
+            logger=self._logger)
 
     def get_logger(self):
         return self._logger
@@ -118,9 +124,12 @@ class _Node:
     def get_clock(self):
         return self._clock
 
+    def refresh(self):
+        """Run the per-tick reprojection exactly as control_loop does."""
+        self.corridor.refresh_anchor(self._lookup_map_odom)
+
     quaternion_to_yaw = staticmethod(MPCController.quaternion_to_yaw)
     _lookup_map_odom = MPCController._lookup_map_odom
-    _refresh_goal_anchor = MPCController._refresh_goal_anchor
 
 
 _TF_XYYAW = (1.25, -0.5, 0.3)
@@ -239,52 +248,51 @@ _HELD = (9.0, 9.0, 9.0)   # a previous reprojection, deliberately implausible
 
 def _anchored(age_ns, **kwargs):
     node = _aged(age_ns, **kwargs)
-    node.goal_anchor_map = _ANCHOR_MAP
-    node.goal_anchor_odom = _HELD
+    node.corridor.anchor_map = _ANCHOR_MAP
+    node.corridor.anchor_odom = _HELD
     return node
 
 
-class TestRefreshGoalAnchor:
-    """_refresh_goal_anchor: reproject when it can, hold when it cannot."""
+class TestRefreshAnchor:
+    """CorridorManager.refresh_anchor: reproject when it can, hold when it cannot."""
 
     def test_no_map_anchor_is_a_no_op_and_looks_nothing_up(self):
         node = _aged(0)
-        node.goal_anchor_odom = _HELD
-        node._refresh_goal_anchor()
-        assert node.goal_anchor_odom is _HELD
+        node.corridor.anchor_odom = _HELD
+        node.refresh()
+        assert node.corridor.anchor_odom is _HELD
         assert node.tf_buffer.calls == []
         assert node.get_logger().records == []
 
     def test_it_applies_map_odom_max_age_sec(self):
         seen = []
 
-        class _Recording(_Node):
-            def _lookup_map_odom(self, max_age_sec=None):
-                seen.append(max_age_sec)
-                return None
+        def lookup(max_age_sec=None):
+            seen.append(max_age_sec)
+            return None
 
-        node = _Recording(_Buffer())
-        node.goal_anchor_map = _ANCHOR_MAP
-        node.map_odom_max_age_sec = 0.37
-        node._refresh_goal_anchor()
+        manager = CorridorManager(update_period=1.0, map_odom_max_age_sec=0.37,
+                                  logger=_Logger())
+        manager.anchor_map = _ANCHOR_MAP
+        manager.refresh_anchor(lookup)
         assert seen == [0.37]
 
     def test_fresh_transform_reprojects_exactly(self):
         node = _anchored(50_000_000)
-        node._refresh_goal_anchor()
+        node.refresh()
         tf = node._lookup_map_odom()
-        assert node.goal_anchor_odom == _pose_map_to_odom(*_ANCHOR_MAP, *tf)
+        assert node.corridor.anchor_odom == pose_map_to_odom(*_ANCHOR_MAP, *tf)
         assert node.get_logger().texts('warn') == []
 
     def test_post_dated_transform_reprojects(self):
         node = _anchored(-50_000_000)
-        node._refresh_goal_anchor()
-        assert node.goal_anchor_odom != _HELD
+        node.refresh()
+        assert node.corridor.anchor_odom != _HELD
 
     def test_stale_transform_holds_the_last_reprojection(self):
         node = _anchored(250_000_000)
-        node._refresh_goal_anchor()
-        assert node.goal_anchor_odom is _HELD
+        node.refresh()
+        assert node.corridor.anchor_odom is _HELD
         warns = node.get_logger().texts('warn')
         assert warns == [
             'map -> odom STALE: age=250ms > 200ms -- not reprojecting through it',
@@ -295,25 +303,25 @@ class TestRefreshGoalAnchor:
 
     def test_lookup_failure_holds_the_last_reprojection(self):
         node = _Node(_Buffer(exc=LookupException('gone')))
-        node.goal_anchor_map = _ANCHOR_MAP
-        node.goal_anchor_odom = _HELD
-        node._refresh_goal_anchor()
-        assert node.goal_anchor_odom is _HELD
+        node.corridor.anchor_map = _ANCHOR_MAP
+        node.corridor.anchor_odom = _HELD
+        node.refresh()
+        assert node.corridor.anchor_odom is _HELD
 
     def test_clock_type_mismatch_reprojects_through_the_unguarded_edge(self):
         node = _anchored(10_000_000_000, now=_now(clock_type=ClockType.SYSTEM_TIME))
-        node._refresh_goal_anchor()
+        node.refresh()
         tf = node._lookup_map_odom()
-        assert node.goal_anchor_odom == _pose_map_to_odom(*_ANCHOR_MAP, *tf)
+        assert node.corridor.anchor_odom == pose_map_to_odom(*_ANCHOR_MAP, *tf)
 
     def test_hold_survives_consecutive_stale_ticks_then_recovers(self):
         node = _anchored(250_000_000)
-        node._refresh_goal_anchor()
-        node._refresh_goal_anchor()
-        assert node.goal_anchor_odom is _HELD
+        node.refresh()
+        node.refresh()
+        assert node.corridor.anchor_odom is _HELD
         node.tf_buffer.transform = _transform(*_TF_XYYAW, _NOW_NS)
-        node._refresh_goal_anchor()
-        assert node.goal_anchor_odom != _HELD
+        node.refresh()
+        assert node.corridor.anchor_odom != _HELD
 
 
 class _CaptureNode(_Node):
@@ -343,23 +351,23 @@ class TestCaptureAtMoveStart:
     def test_capture_converts_the_live_pose_through_the_edge(self):
         node = _CaptureNode(_Buffer(_transform(*_TF_XYYAW, _NOW_NS)))
         node.goal_distance_callback(_Float32(4.0))
-        assert node.goal_anchor_odom == (1.0, 2.0, 0.25)
+        assert node.corridor.anchor_odom == (1.0, 2.0, 0.25)
         tf = node._lookup_map_odom()
-        assert node.goal_anchor_map == _pose_odom_to_map(1.0, 2.0, 0.25, *tf)
+        assert node.corridor.anchor_map == pose_odom_to_map(1.0, 2.0, 0.25, *tf)
 
     def test_capture_applies_no_age_guard(self):
         # Ten seconds stale: the refresh path would refuse this edge, the
         # capture path takes it.
         node = _CaptureNode(_Buffer(_transform(*_TF_XYYAW, _NOW_NS - 10_000_000_000)))
         node.goal_distance_callback(_Float32(4.0))
-        assert node.goal_anchor_map is not None
+        assert node.corridor.anchor_map is not None
         assert not any('STALE' in t for t in node.get_logger().texts('warn'))
 
     def test_no_edge_at_move_start_keeps_the_raw_odom_anchor_and_warns(self):
         node = _CaptureNode(_Buffer(exc=LookupException('none yet')))
         node.goal_distance_callback(_Float32(4.0))
-        assert node.goal_anchor_map is None
-        assert node.goal_anchor_odom == (1.0, 2.0, 0.25)
+        assert node.corridor.anchor_map is None
+        assert node.corridor.anchor_odom == (1.0, 2.0, 0.25)
         assert ('ANCHOR/capture | no "map" -> "odom" transform at move start: '
                 'this move keeps the odom-frame-only frozen anchor (heading drift '
                 'absorbed by map -> odom will NOT be corrected for it).'
@@ -368,13 +376,13 @@ class TestCaptureAtMoveStart:
     def test_feature_off_captures_nothing_and_does_not_warn(self):
         node = _CaptureNode(_Buffer(_transform(*_TF_XYYAW, _NOW_NS)), use_anchor=False)
         node.goal_distance_callback(_Float32(4.0))
-        assert node.goal_anchor_map is None
-        assert node.goal_anchor_odom == (1.0, 2.0, 0.25)
+        assert node.corridor.anchor_map is None
+        assert node.corridor.anchor_odom == (1.0, 2.0, 0.25)
         assert not any(t.startswith('ANCHOR/') for t in node.get_logger().texts('warn'))
 
     def test_capture_then_refresh_through_the_same_edge_is_identity(self):
         node = _CaptureNode(_Buffer(_transform(*_TF_XYYAW, _NOW_NS)))
         node.goal_distance_callback(_Float32(4.0))
-        node._refresh_goal_anchor()
-        np.testing.assert_allclose(node.goal_anchor_odom, (1.0, 2.0, 0.25),
+        node.refresh()
+        np.testing.assert_allclose(node.corridor.anchor_odom, (1.0, 2.0, 0.25),
                                    rtol=0.0, atol=1e-12)

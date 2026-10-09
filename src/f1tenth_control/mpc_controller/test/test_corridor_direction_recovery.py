@@ -38,7 +38,7 @@ when no move start has been recorded yet, and is pinned as such below.
 Same "testable without constructing a real MPCController" shape as
 test_corridor_heading_reference.py and test_boundary_constraints.py: a
 duck-typed stand-in for the method, and a plain module-level pure function
-(_project_onto_line) for the projection itself.
+(project_onto_line) for the projection itself.
 
 Run standalone: python3 -m pytest test/test_corridor_direction_recovery.py -v
 """
@@ -47,7 +47,8 @@ import math
 import unittest
 
 from f1tenth_params.param_defaults import get_value
-from mpc_controller.MPC_corr import MPCController, _project_onto_line
+from mpc_controller.MPC_corr import MPCController
+from mpc_controller.corridor.geometry import project_onto_line
 
 
 class _FakeLogger:
@@ -77,8 +78,8 @@ class _FakeMPC:
         self.goal_start_xy = goal_start_xy
         # The anchor build_straight_corridor actually reads: the move's
         # start pose expressed in the CURRENT odom frame, refreshed each
-        # tick by MPCController._refresh_goal_anchor() from the map-frame
-        # capture (drift-correction pass -- see _pose_odom_to_map). Derived
+        # tick by CorridorManager.refresh_anchor() from the map-frame
+        # capture (drift-correction pass -- see pose_odom_to_map). Derived
         # here exactly the way goal_distance_callback seeds it, so passing
         # goal_start_xy/psi_init_corridor to this fake keeps selecting the
         # frozen-line path (and a None psi_init_corridor keeps selecting the
@@ -103,11 +104,11 @@ class TestProjectOntoLine(unittest.TestCase):
 
     def test_robot_exactly_on_the_line_gives_its_travelled_distance(self):
         self.assertAlmostEqual(
-            _project_onto_line((2.0, 0.0), (0.0, 0.0), 0.0), 2.0)
+            project_onto_line((2.0, 0.0), (0.0, 0.0), 0.0), 2.0)
 
     def test_robot_behind_the_origin_projects_negative(self):
         self.assertAlmostEqual(
-            _project_onto_line((-0.75, 0.0), (0.0, 0.0), 0.0), -0.75)
+            project_onto_line((-0.75, 0.0), (0.0, 0.0), 0.0), -0.75)
 
     def test_lateral_offset_does_not_count_as_progress(self):
         # 3m along, 4m sideways: straight-line displacement is 5m (the old
@@ -115,22 +116,22 @@ class TestProjectOntoLine(unittest.TestCase):
         # whole point -- the car keeps that lateral offset by design, so the
         # two metrics stay apart for the rest of the move.
         self.assertAlmostEqual(
-            _project_onto_line((3.0, 4.0), (0.0, 0.0), 0.0), 3.0)
+            project_onto_line((3.0, 4.0), (0.0, 0.0), 0.0), 3.0)
         self.assertAlmostEqual(math.hypot(3.0, 4.0), 5.0)
 
     def test_pure_lateral_motion_is_zero_progress(self):
         self.assertAlmostEqual(
-            _project_onto_line((0.0, 1.5), (0.0, 0.0), 0.0), 0.0)
+            project_onto_line((0.0, 1.5), (0.0, 0.0), 0.0), 0.0)
 
     def test_works_on_a_rotated_line(self):
         yaw = math.pi / 4.0
         point = (2.0 * math.cos(yaw) - 0.5 * math.sin(yaw),
                  2.0 * math.sin(yaw) + 0.5 * math.cos(yaw))
-        self.assertAlmostEqual(_project_onto_line(point, (0.0, 0.0), yaw), 2.0)
+        self.assertAlmostEqual(project_onto_line(point, (0.0, 0.0), yaw), 2.0)
 
     def test_origin_offset_is_subtracted(self):
         self.assertAlmostEqual(
-            _project_onto_line((5.0, 1.0), (1.0, 1.0), 0.0), 4.0)
+            project_onto_line((5.0, 1.0), (1.0, 1.0), 0.0), 4.0)
 
 
 class TestBootstrapFallbackIsStillDirectionOnly(unittest.TestCase):

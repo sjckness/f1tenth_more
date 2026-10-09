@@ -32,8 +32,8 @@ Run standalone: python3 -m pytest test/test_map_frame_anchor.py -v
 import math
 import unittest
 
-from mpc_controller.MPC_corr import (
-    MPCController, _pose_map_to_odom, _pose_odom_to_map)
+from mpc_controller.MPC_corr import MPCController
+from mpc_controller.corridor.geometry import pose_map_to_odom, pose_odom_to_map
 
 
 class _FakeLogger:
@@ -47,7 +47,7 @@ class _FakeMPC:
 
     Defaults mirror MPCController.__init__'s real ones, same as the other
     corridor test files' own _FakeMPC. goal_anchor_odom is the anchor the
-    method actually reads -- what _refresh_goal_anchor() leaves there each
+    method actually reads -- what CorridorManager.refresh_anchor() leaves there each
     tick -- so a test drives the reprojection by setting it directly, which is
     exactly what the node does.
     """
@@ -85,7 +85,7 @@ class TestFrameHelpers(unittest.TestCase):
     def test_map_and_odom_conversions_are_exact_inverses(self):
         tf = (1.3, -0.7, 0.41)
         pose = (2.0, -0.5, 0.9)
-        back = _pose_map_to_odom(*_pose_odom_to_map(*pose, *tf), *tf)
+        back = pose_map_to_odom(*pose_odom_to_map(*pose, *tf), *tf)
         for got, want in zip(back, pose):
             self.assertAlmostEqual(got, want, places=12)
 
@@ -93,20 +93,20 @@ class TestFrameHelpers(unittest.TestCase):
         """The anchor must not drift on its own while map -> odom holds still."""
         tf = (4.2, -1.1, -0.63)
         anchor_odom = (1.0, 2.0, 0.25)
-        anchor_map = _pose_odom_to_map(*anchor_odom, *tf)
-        for got, want in zip(_pose_map_to_odom(*anchor_map, *tf), anchor_odom):
+        anchor_map = pose_odom_to_map(*anchor_odom, *tf)
+        for got, want in zip(pose_map_to_odom(*anchor_map, *tf), anchor_odom):
             self.assertAlmostEqual(got, want, places=12)
 
     def test_yaw_only_transform_leaves_an_anchor_at_the_origin_in_place(self):
-        anchor_map = _pose_odom_to_map(0.0, 0.0, 0.0, *_IDENTITY_TF)
-        x, y, _ = _pose_map_to_odom(
+        anchor_map = pose_odom_to_map(0.0, 0.0, 0.0, *_IDENTITY_TF)
+        x, y, _ = pose_map_to_odom(
             *anchor_map, 0.0, 0.0, _MEASURED_DRIFT_RAD)
         self.assertAlmostEqual(x, 0.0, places=12)
         self.assertAlmostEqual(y, 0.0, places=12)
 
     def test_transform_translation_shifts_the_reprojected_anchor(self):
-        anchor_map = _pose_odom_to_map(0.0, 0.0, 0.0, *_IDENTITY_TF)
-        x, y, _ = _pose_map_to_odom(*anchor_map, 0.5, -0.25, 0.0)
+        anchor_map = pose_odom_to_map(0.0, 0.0, 0.0, *_IDENTITY_TF)
+        x, y, _ = pose_map_to_odom(*anchor_map, 0.5, -0.25, 0.0)
         self.assertAlmostEqual(x, -0.5, places=12)
         self.assertAlmostEqual(y, 0.25, places=12)
 
@@ -121,15 +121,15 @@ class TestDriftBecomesVisibleHeadingError(unittest.TestCase):
     """
 
     def test_reprojected_reference_heading_counter_rotates_by_the_drift(self):
-        anchor_map = _pose_odom_to_map(0.0, 0.0, 0.0, *_IDENTITY_TF)
-        _, _, psi_ref = _pose_map_to_odom(
+        anchor_map = pose_odom_to_map(0.0, 0.0, 0.0, *_IDENTITY_TF)
+        _, _, psi_ref = pose_map_to_odom(
             *anchor_map, 0.0, 0.0, _MEASURED_DRIFT_RAD)
         self.assertAlmostEqual(psi_ref, -_MEASURED_DRIFT_RAD, places=12)
 
     def test_heading_error_against_the_unchanged_live_yaw_equals_the_drift(self):
         live_odom_yaw = 0.0  # measured under 0.5 deg for the whole mission
-        anchor_map = _pose_odom_to_map(0.0, 0.0, live_odom_yaw, *_IDENTITY_TF)
-        _, _, psi_ref = _pose_map_to_odom(
+        anchor_map = pose_odom_to_map(0.0, 0.0, live_odom_yaw, *_IDENTITY_TF)
+        _, _, psi_ref = pose_map_to_odom(
             *anchor_map, 0.0, 0.0, _MEASURED_DRIFT_RAD)
         self.assertAlmostEqual(
             live_odom_yaw - psi_ref, _MEASURED_DRIFT_RAD, places=12)

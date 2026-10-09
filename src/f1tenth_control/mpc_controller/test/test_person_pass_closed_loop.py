@@ -35,7 +35,8 @@ import math
 import numpy as np
 import pytest
 
-from mpc_controller.MPC_corr import MPCController, _project_onto_line
+from mpc_controller.MPC_corr import MPCController
+from mpc_controller.corridor.geometry import project_onto_line
 from mpc_controller.drive_limits import clamp_drive_speed
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
@@ -98,7 +99,7 @@ def run_pass(obstacle_r, offset, *, half_fov=HALF_FOV_RAD, duration=25.0):
                 out['dropout_tick'] = tick
             obstacles = [(person[0], person[1], float(obstacle_r))] if visible else []
             next_detection += DETECTION_PERIOD_S
-        if _project_onto_line((x[0], x[1]), (0.0, 0.0), 0.0) >= GOAL_DISTANCE_M:
+        if project_onto_line((x[0], x[1]), (0.0, 0.0), 0.0) >= GOAL_DISTANCE_M:
             out['reached_s'] = t
             break
         if corridor is None or t - last_build >= 1.0:

@@ -30,6 +30,7 @@ import numpy as np
 
 import pytest
 
+from mpc_controller.corridor.manager import CorridorManager
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.mpc_solver import (
     OSQP_AVAILABLE,
@@ -208,15 +209,20 @@ class TestInvalidationRules(unittest.TestCase):
         at the old heading -- the same failure the corridor cache beside it
         was added to prevent.
         """
+        corridor = CorridorManager(update_period=1.0, map_odom_max_age_sec=0.2,
+                                   logger=None)
+        corridor.cached_corridor = object()
+        corridor.last_corridor_time = 1.0
+        corridor.last_corridor_stamp = object()
+        corridor.cached_pref_nom = object()
         fake = self._Fake(smoothed_target=object(),
                           last_deflection_vec=None,
                           deflection_decay_remaining=7,
-                          cached_corridor=object(), last_corridor_time=1.0,
-                          last_corridor_stamp=object(), cached_pref_nom=object())
+                          corridor=corridor)
         MPCController._invalidate_move_state(fake)
         self.assertIsNone(fake.warm_start_z)
         # and it goes with the corridor cache, not instead of it
-        self.assertIsNone(fake.cached_corridor)
+        self.assertIsNone(fake.corridor.cached_corridor)
 
     def test_ending_a_drive_command_drops_the_stored_plan(self):
         fake = self._Fake(drive_cmd={'mode': 'wall_turn'},
