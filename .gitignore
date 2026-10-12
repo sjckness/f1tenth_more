@@ -87,3 +87,14 @@ src/f1tenth_behavior/mission_reports/
 # the node's working directory, often the repo root. Covers any other CSV output
 # too. See docs/DIAGNOSTICS.md.
 *.csv
+
+# Bulk per-run artifacts the test harnesses write under output/ (ROS node logs,
+# per-component supervisor logs, bags, rendered videos, render/extract logs).
+# The reports (*.md), summaries and small per-run evidence files under output/
+# stay tracked; files already tracked are unaffected by these patterns.
+output/**/ros_log/
+output/**/supervisor/
+output/**/*.mcap
+output/**/*.db3
+output/**/*.mp4
+output/phase*/reports/*/*.log
