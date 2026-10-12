@@ -12,12 +12,13 @@ import math
 # f1tenth_hardware/config/steering_calibration.yaml:
 #   servo = gain * delta + offset     (ackermann_to_vesc.cpp)
 #   servo clamped to [servo_min, servo_max]   (vesc_driver.cpp servo_limit_)
-# with servo_min 0.15, servo_max 0.8318, offset 0.4874, gain -1.2135 (both
-# sides). The gain is negative, so servo_min bounds the LEFT (+) angle:
-#   delta_max = (0.15   - 0.4874) / -1.2135 = +0.2780 rad
-#   delta_min = (0.8318 - 0.4874) / -1.2135 = -0.2838 rad
-STEERING_MIN_RAD = -0.2838
-STEERING_MAX_RAD = 0.2780
+# with servo_min 0.15, servo_max 0.8318, offset 0.4874 and the per-side gains
+# gain_left -1.0552, gain_right -1.1133 (the M02 recalibration). The gains are
+# negative, so servo_min bounds the LEFT (+) angle:
+#   delta_max = (0.15   - 0.4874) / -1.0552 = +0.31975 rad
+#   delta_min = (0.8318 - 0.4874) / -1.1133 = -0.30935 rad
+STEERING_MIN_RAD = -0.30935
+STEERING_MAX_RAD = 0.31975
 
 
 def servo_envelope(servo_min, servo_max, offset, gain_left, gain_right):

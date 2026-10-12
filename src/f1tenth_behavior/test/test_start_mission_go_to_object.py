@@ -62,6 +62,12 @@ class _Node:
     def get_node_names(self):
         return self._live_node_names
 
+    def get_parameter(self, name):
+        # jazzy's preflight (279e3f4) asks use_sim_time to pick the car's or
+        # the sim's actuation node; this rig is the car.
+        assert name == 'use_sim_time', name
+        return types.SimpleNamespace(value=False)
+
 
 @pytest.fixture
 def loaded():

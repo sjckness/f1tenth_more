@@ -358,5 +358,6 @@ health:
 unwatched:
   calibrate_hardware: on demand, runs for about 2 minutes and exits.
   startup_sequence: on demand, a one-off steering sweep.
+  reset_manager: a /reset_all service; it publishes only while holding a reset (stop commands), so no topic proves it alive.
   intelligence: llama-server, not a ROS node; nothing to watch on the graph.
   dev_tools: foxglove_bridge is a super client and serves the operator; its failure is visible to the operator directly.

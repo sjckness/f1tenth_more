@@ -22,12 +22,12 @@ def test_controller_inverse_recovers_steering_inside_envelope(v, delta):
     assert math.atan(omega * L / out_v) == pytest.approx(delta, abs=1e-12)
 
 
-def test_left_steering_beyond_servo_limit_clamps_to_plus_0_2780():
-    assert clamp_steering(0.4) == STEERING_MAX_RAD == 0.2780
+def test_left_steering_beyond_servo_limit_clamps_to_plus_0_31975():
+    assert clamp_steering(0.4) == STEERING_MAX_RAD == 0.31975
 
 
-def test_right_steering_beyond_servo_limit_clamps_to_minus_0_2838():
-    assert clamp_steering(-0.4) == STEERING_MIN_RAD == -0.2838
+def test_right_steering_beyond_servo_limit_clamps_to_minus_0_30935():
+    assert clamp_steering(-0.4) == STEERING_MIN_RAD == -0.30935
 
 
 def test_clamped_steering_is_what_reaches_the_twist():
