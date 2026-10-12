@@ -120,7 +120,7 @@ class ScenarioNode(Node):
         self.res = {'scenario': self.sc.name, 'r': self.sc.r, 'y': self.sc.y,
                     'appear': None if math.isinf(self.sc.appear) else self.sc.appear,
                     'outcome': None, 't': None, 'min_body_gap': math.inf,
-                    'crawl_cmds': 0, 'sides': [], 'blocked': None}
+                    'crawl_cmds': 0, 'sides': [], 'blocked': None, 'steer_trace': []}
         self.cmd = (0.0, 0.0)
         self._settle_until = self.t0 + 1.0       # odometry first, then the goal
         self._goal_sent = False
@@ -132,6 +132,16 @@ class ScenarioNode(Node):
         sides = [s for s in self.res['sides'] if s]
         self.res['side_flips'] = sum(1 for a, b in zip(sides, sides[1:]) if a != b)
         self.res['min_body_gap'] = round(self.res['min_body_gap'], 3)
+        tr = self.res['steer_trace']
+        self.res['max_abs_steer'] = round(max((abs(d) for _, d in tr), default=0.0), 3)
+        rates = [abs(d1 - d0) / max(t1 - t0, 1e-3)
+                 for (t0, d0), (t1, d1) in zip(tr, tr[1:])]
+        self.res['max_steer_rate'] = round(max(rates, default=0.0), 3)
+        # Steering reversals: sign changes of the command's increments above
+        # 0.01 rad -- a measure of chatter after the ramp.
+        incs = [d1 - d0 for (_, d0), (_, d1) in zip(tr, tr[1:]) if abs(d1 - d0) > 0.01]
+        self.res['steer_reversals'] = sum(
+            1 for a, b in zip(incs, incs[1:]) if (a > 0) != (b > 0))
         self.results.append(self.res)
         self.hold_pub.publish(Bool(data=True))
         self.get_logger().info(json.dumps(self.res))
@@ -140,8 +150,11 @@ class ScenarioNode(Node):
     # -- callbacks -----------------------------------------------------------
     def _on_drive(self, msg):
         self.cmd = (float(msg.drive.speed), float(msg.drive.steering_angle))
-        if not self.done and self._goal_sent and 0.0 < self.cmd[0] < 0.4 - 1e-6:
-            self.res['crawl_cmds'] += 1
+        if not self.done and self._goal_sent:
+            if 0.0 < self.cmd[0] < 0.4 - 1e-6:
+                self.res['crawl_cmds'] += 1
+            self.res['steer_trace'].append(
+                (round(time.monotonic() - self.t0 - 1.0, 3), round(self.cmd[1], 4)))
 
     def _on_blocked(self, msg):
         if self.done or not self._goal_sent or self.res['outcome']:
@@ -267,11 +280,12 @@ def main(argv=None):
     with open(args.out, 'w') as fh:
         json.dump(results, fh, indent=2)
     print(f'\n{"scenario":28s} {"outcome":9s} {"t[s]":>5s} {"body gap":>8s} '
-          f'{"crawl":>5s} {"flips":>5s}  blocked')
+          f'{"crawl":>5s} {"flips":>5s} {"|d|max":>6s} {"dd/dt":>6s} {"rev":>4s}  blocked')
     for r in results:
         print(f'{r["scenario"]:28s} {r["outcome"]:9s} {r["t"]:5.1f} '
-              f'{r["min_body_gap"]:+8.3f} {r["crawl_cmds"]:5d} {r["side_flips"]:5d}  '
-              f'{r["blocked"] or ""}')
+              f'{r["min_body_gap"]:+8.3f} {r["crawl_cmds"]:5d} {r["side_flips"]:5d} '
+              f'{r["max_abs_steer"]:6.3f} {r["max_steer_rate"]:6.3f} '
+              f'{r["steer_reversals"]:4d}  {r["blocked"] or ""}')
     print(f'wrote {args.out}')
 
 

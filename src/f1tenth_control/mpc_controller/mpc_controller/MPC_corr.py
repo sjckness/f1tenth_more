@@ -3556,6 +3556,30 @@ class MPCController(Node):
         except Exception as exc:  # noqa: BLE001 - diagnostics must not stop the node
             self.get_logger().warn(f'/mpc/config not published: {exc}')
 
+    def _cold_warm_start(self):
+        """The linearisation guess when there is no previous plan (a new move,
+        a failed solve): the steering on the car RAMPED BACK TO ZERO at the
+        hard rate, zero acceleration -- not last_u held for the whole horizon.
+
+        Found with the scenario harness (2026-10-12): after a BLOCKED the car
+        sat at full lock (0.326 rad, a hair past the 0.319 bound); the solver
+        tiled that across 20 x 0.2 s, linearised the corridor rows around a
+        full circle, came back primal-infeasible on every tick of the NEXT
+        move, and ended it BLOCKED 1.1 s after it started -- with nothing in
+        the way. The ramp is dynamically feasible from where the steering
+        really is, and it is a straight-ish path the corridor can be
+        linearised along.
+        """
+        lo, hi = self.limits['delta_min'], self.limits['delta_max']
+        delta = float(np.clip(self.last_u[0], lo, hi))
+        step = self.limits['dDeltaMax'] * self.ts_pred
+        out = np.zeros(2 * self.N)
+        for k in range(self.N):
+            delta = math.copysign(max(abs(delta) - (self.limits['dDeltaMax'] * self.ts
+                                                     if k == 0 else step), 0.0), delta)
+            out[2 * k] = delta
+        return out
+
     def _move_kind(self):
         """Which kind of move is active, for the BLOCKED record."""
         if self.drive_cmd is not None:
@@ -4145,7 +4169,8 @@ class MPCController(Node):
             boundary_max_sources=self.boundary_max_sources,
             boundary_hard=self.boundary_hard,
             boundary_slack_weight=self.boundary_slack_weight,
-            warm_start_z=self.warm_start_z,
+            warm_start_z=(self.warm_start_z if self.warm_start_z is not None
+                          else self._cold_warm_start()),
             control_period=self.ts,
             **floor_kwargs,
         )
@@ -4307,7 +4332,10 @@ class MPCController(Node):
                     throttle_duration_sec=1.0
                 )
 
-        delta_cmd = float(u0[0])
+        # Clipped into the steering bounds: an inaccurate OSQP solve can
+        # return a hair (or, seen in the harness, 0.07 rad) past them, and that
+        # value went straight to /drive.
+        delta_cmd = float(np.clip(u0[0], self.limits['delta_min'], self.limits['delta_max']))
         a_cmd = float(u0[1])
         self.get_logger().info(f'INPUT MPC -> delta={delta_cmd:.4f}, a={a_cmd:.4f}')
 
@@ -4331,7 +4359,13 @@ class MPCController(Node):
             f'd_delta={d_delta:+.5f} d_a={d_a:+.5f}'
         )
 
-        self.last_u = np.array([delta_cmd, a_cmd], dtype=float)
+        # What is actually on the car: the steering clipped into its bounds
+        # (OSQP may return a hair past them -- 0.326 against 0.319 was seen)
+        # and, on a tick that commands a stop, no acceleration to carry into
+        # the next solve's rate rows.
+        self.last_u = np.array([
+            float(np.clip(delta_cmd, self.limits['delta_min'], self.limits['delta_max'])),
+            a_cmd], dtype=float)
 
         v_cmd_now = self.v + a_cmd * self.ts
         if self.goal_object_odom_xy is not None and self.object_speed_mode == SPEED_DRIVE:
@@ -4353,6 +4387,7 @@ class MPCController(Node):
                 v_cmd_now = gate_speed(v_cmd_now, self.min_moving_speed)
             else:
                 v_cmd_now = 0.0
+                self.last_u[1] = 0.0
                 self.get_logger().warn(
                     f'SPEED/infeasible | stop this tick: success={info.get("success")} '
                     f'no_side_fits={no_side} plan_body_gap={plan_gap:+.3f} m',
@@ -4369,6 +4404,7 @@ class MPCController(Node):
                  'no_side_fits': (keepout_plan.blocked if keepout_plan is not None else []),
                  'plan_body_gap_m': (round(plan_gap, 3) if math.isfinite(plan_gap) else None)})
             if verdict is not None:
+                self.last_u[1] = 0.0
                 self._latch_blocked(verdict)
                 self._publish_drive(0.0, delta_cmd)
                 self._publish_blocked()
