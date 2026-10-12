@@ -519,3 +519,34 @@ class TestFreshFrontDistanceAndReset(unittest.TestCase):
         MPCController._reset_turn_progress(fake)
         self.assertFalse(fake.wall_turn_committed)
         self.assertIsNone(fake.wall_turn_commanded_rot)
+
+
+class TestStaleOrMissingFrontDistance(unittest.TestCase):
+    """The Orin's latent crash: a wall_turn rebuild with a stale or missing
+    /perception/front_distance replaced d_front with None, and float(None)
+    in the corridor record (and a :.2f in the log) killed mpc_corr mid-turn.
+    Unknown distance is NOT a wall decision and never a crash."""
+
+    def test_a_stale_reading_builds_a_corridor_and_records_nan(self):
+        for raw in (5.0, -1.0, math.nan):
+            fake = _FakeMPC(d_front=None)
+            fake.front_distance = raw
+            for _ in range(3):
+                corridor = _build(fake, 0.2)
+            self.assertTrue(math.isnan(corridor['dFront']))
+
+    def test_no_reading_ever_builds_a_corridor(self):
+        fake = _FakeMPC(d_front=None)
+        fake.front_distance = None
+        corridor = _build(fake, 0.2)
+        self.assertTrue(math.isnan(corridor['dFront']))
+
+    def test_unknown_after_commit_keeps_turning_within_the_horizon(self):
+        """The documented unknown-distance case: once committed, the distance
+        cap drops and the turn continues within the horizon's reach."""
+        fake = _FakeMPC(d_front=2.0)
+        _build(fake, 0.2)
+        self.assertTrue(fake.wall_turn_committed)
+        fake._d_front = None
+        corridor = _build(fake, 0.2)
+        self.assertGreater(abs(corridor['dpsi']), 0.0)

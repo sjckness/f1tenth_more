@@ -4540,7 +4540,9 @@ class MPCController(Node):
         Y0 = float(x[1])
         psi0 = float(x[2])
 
-        d_front = float(self.front_distance)
+        # A distance or NaN, never None (see the dFront record below).
+        d_front = (float(self.front_distance) if self.front_distance is not None
+                   else math.nan)
 
         psiStart = psi0
 
@@ -4717,7 +4719,7 @@ class MPCController(Node):
                 else:
                     d_rule_txt = 'd_wall=none'
                 self.get_logger().info(
-                    f'CORR/wall_turn | dFront={self.front_distance:.2f} '
+                    f'CORR/wall_turn | dFront=' + ('unknown' if d_front is None else f'{d_front:.2f}') + ' '
                     f'{d_rule_txt} '
                     f'd_avail={d_avail_txt} '
                     f'rem={wall_step.dpsi_rem:+.4f}/{signed_total:+.4f} '
@@ -5350,6 +5352,7 @@ class MPCController(Node):
         dpsi = geom["dpsi"]
         p_goal = geom["Pend"]
 
+        d_front_rec = float(d_front) if d_front is not None else math.nan
         corridor = {
             "xc": xc,
             "yc": yc,
@@ -5455,7 +5458,13 @@ class MPCController(Node):
             "targetLine": target_line,
             "t": float(dpsi),
             "Pend": p_goal,
-            "dFront": float(d_front),
+            # STALE OR MISSING front distance on a wall_turn: d_front was
+            # replaced by _fresh_front_distance(), which is None then, and
+            # float(None) here (and the :.2f in the build log below) crashed
+            # the node mid-turn -- the latent crash the Orin reported. Unknown
+            # is recorded as NaN; the turn rule already treats None as "no
+            # wall decision" (wall_turn.plan_wall_turn_step).
+            "dFront": d_front_rec,
             "dpsi": float(dpsi),
         }
 
@@ -5474,7 +5483,7 @@ class MPCController(Node):
             f'CORR/build | L={L:.2f} psiStart(live)={psiStart:+.4f} '
             f'psiEnd(frozen)={psiEnd:+.4f} '
             f'dpsi={dpsi:+.4f} halfWidth=[{halfWidth[0]:.3f}..{halfWidth[-1]:.3f}] '
-            f'dFront={d_front:.2f}'
+            f'dFront={d_front_rec:.2f}'
         )
 
         return corridor
