@@ -1,0 +1,6 @@
+{"t": 0.0175773, "event": "test_start", "mission": "M02_approach_wall", "prompt_num": 2, "repetition": 4, "prompt_hash": "89bb2309048efc55344f8234c7092a47cef99d7bf29cf287c4be34faf54e3a63"}
+{"t": 0.0, "event": "pre_roll", "samples": 209, "seconds": 2.0}
+{"t": 0.035599, "event": "mission_loaded", "plan_id": "llm_926f7913d041", "reason": "", "countdown_s": 3.0}
+{"t": 3.01478, "event": "mission_started", "plan_id": "llm_926f7913d041", "reason": "", "countdown_s": 3.0}
+{"t": 9.75807, "event": "mission_finished", "plan_id": "llm_926f7913d041", "reason": ""}
+{"t": 11.8077, "event": "test_end", "auto_outcome": "completed", "reason": ""}
