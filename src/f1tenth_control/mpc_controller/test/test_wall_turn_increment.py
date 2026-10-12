@@ -28,11 +28,13 @@ carried=0.35 lags the corridor the way one 1 s rebuild period at 0.5 m/s does
 Run standalone: python3 -m pytest test/test_wall_turn_increment.py -v
 """
 
+import inspect
 import math
 import unittest
 
 from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
+from mpc_controller.blocked import WallDistanceWait
 from mpc_controller.mpc_solver import terminal_heading_target
 from mpc_controller.wall_turn import (
     min_turn_radius,
@@ -324,12 +326,36 @@ class TestChatter(unittest.TestCase):
 
 class TestUnknownFrontDistance(unittest.TestCase):
 
-    def test_on_the_first_rebuild_it_commits_and_turns_within_the_horizon(self):
+    def test_on_the_first_rebuild_it_makes_no_wall_decision(self):
+        """B8 (2026-10-12): no distance = no wall decision, on the first rebuild
+        too -- the corridor stays straight, the turn does not commit."""
         for unknown in (None, float('nan'), -1.0):
             step = _step(TURN_90, 0.0, unknown)
-            self.assertTrue(step.committed)
+            self.assertFalse(step.committed)
             self.assertIsNone(step.d_avail)
-            self.assertEqual(step.dpsi_this, step.dpsi_by_horizon)
+            self.assertEqual(step.dpsi_this, 0.0)
+
+    def test_a_distance_arriving_late_is_used_as_soon_as_it_arrives(self):
+        progress, committed, prev = 0.0, False, None
+        for d in (None, -1.0, float('nan'), None):
+            step = _step(TURN_90, progress, d, committed=committed, prev_commanded_rot=prev)
+            committed, prev = step.committed, step.commanded_rot
+            self.assertFalse(committed)
+        trigger = wall_turn_trigger_distance(TURN_90, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN)
+        far = _step(TURN_90, progress, trigger + 1.0, committed=committed,
+                    prev_commanded_rot=prev)
+        self.assertFalse(far.committed)
+        near = _step(TURN_90, progress, trigger - 0.05, committed=far.committed,
+                     prev_commanded_rot=far.commanded_rot)
+        self.assertTrue(near.committed)
+        self.assertGreater(abs(near.dpsi_this), 0.0)
+
+    def test_the_corridor_stays_straight_while_waiting(self):
+        fake = _FakeMPC(d_front=None)
+        corridor = _build(fake, 0.23)
+        self.assertFalse(fake.wall_turn_committed)
+        self.assertEqual(corridor['dpsi'], 0.0)
+        np.testing.assert_allclose(_headings(corridor), 0.23, atol=1e-9)
 
     def test_later_and_before_commit_it_changes_nothing(self):
         for unknown in (None, float('nan'), -1.0):
@@ -521,6 +547,41 @@ class TestFreshFrontDistanceAndReset(unittest.TestCase):
         self.assertIsNone(fake.wall_turn_commanded_rot)
 
 
+class TestWallDistanceTimeout(unittest.TestCase):
+    """B8: waiting for a distance is bounded -- BLOCKED no_wall_distance."""
+
+    def test_the_shipped_timeout(self):
+        self.assertEqual(get_value('wall_distance_timeout_s'), 2.0)
+
+    def test_no_distance_for_the_timeout_is_blocked(self):
+        wait = WallDistanceWait(2.0)
+        verdicts = [wait.update(0.1 * k, False) for k in range(25)]
+        first = next(i for i, v in enumerate(verdicts) if v is not None)
+        self.assertEqual(first, 20)
+        self.assertEqual(verdicts[first].reason, 'no_wall_distance')
+
+    def test_a_distance_before_the_timeout_ends_the_wait(self):
+        wait = WallDistanceWait(2.0)
+        for k in range(15):
+            self.assertIsNone(wait.update(0.1 * k, False))
+        self.assertIsNone(wait.update(1.5, True))
+        for k in range(16, 30):           # a new dropout starts a new 2 s wait
+            self.assertIsNone(wait.update(0.1 * k, False))
+
+    def test_reset_at_a_new_move(self):
+        wait = WallDistanceWait(2.0)
+        wait.update(0.0, False)
+        wait.reset()
+        self.assertIsNone(wait.update(1.9, False))
+
+    def test_mpc_corr_checks_it_only_before_the_turn_commits(self):
+        src = inspect.getsource(MPCController.control_loop)
+        i = src.index('self.wall_distance_wait.update(')
+        guard = src[src.rindex('if (', 0, i):i]
+        self.assertIn("'wall_turn'", guard)
+        self.assertIn('not self.wall_turn_committed', guard)
+
+
 class TestStaleOrMissingFrontDistance(unittest.TestCase):
     """The Orin's latent crash: a wall_turn rebuild with a stale or missing
     /perception/front_distance replaced d_front with None, and float(None)
@@ -542,8 +603,8 @@ class TestStaleOrMissingFrontDistance(unittest.TestCase):
         self.assertTrue(math.isnan(corridor['dFront']))
 
     def test_unknown_after_commit_keeps_turning_within_the_horizon(self):
-        """The documented unknown-distance case: once committed, the distance
-        cap drops and the turn continues within the horizon's reach."""
+        """Once committed on a VALID distance, a later unknown one drops the
+        distance cap and the turn continues within the horizon's reach."""
         fake = _FakeMPC(d_front=2.0)
         _build(fake, 0.2)
         self.assertTrue(fake.wall_turn_committed)

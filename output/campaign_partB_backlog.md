@@ -28,4 +28,4 @@ As of `test-campaign` after Part A and the review items, 2026-10-12. B1–B4 are
 
 **B7. Corridor limits apply to the rear axle only.** The keep-out rows already use 3 footprint circles. In the harness the outline never left the corridor by more than 0.05 m, but geometrically a car with its axle on the wall and 20° of heading puts its front corner 0.28 m outside. Consider applying the corridor rows to the front circle once B4 makes the corridor narrow again.
 
-**B8. Unknown front distance on a wall_turn.** Since `babc885` it is no longer a crash. `plan_wall_turn_step` still commits the turn on the move's first rebuild when the distance is unknown, by design and documented. Decide whether "no distance" should instead mean "no wall decision at all" on the first rebuild too.
+**B8. Unknown front distance on a wall_turn.** DONE (2026-10-12): no distance = no wall decision, also on the first rebuild; the car goes straight and the move ends BLOCKED `no_wall_distance` after `wall_distance_timeout_s` (2.0 s). The turn is never committed without a valid distance.

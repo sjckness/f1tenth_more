@@ -23,7 +23,7 @@ from f1tenth_messages.msg import (
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.blocked import (
-    BlockedDetector, BodyBox, first_floor_stage, footprint_circles, gate_speed,
+    BlockedDetector, BodyBox, WallDistanceWait, first_floor_stage, footprint_circles, gate_speed,
     plan_body_gap, plan_keepouts)
 from mpc_controller.pass_side import PassSideMemory
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
@@ -599,6 +599,9 @@ class MPCController(Node):
             front=float(_p('swept_clearance_body_front_x_m')),
             rear=float(_p('swept_clearance_body_rear_x_m')),
             half_width=float(_p('swept_clearance_body_half_width_m')))
+        # B8: a wall_turn that has no valid front distance waits, straight,
+        # this long [s] before ending BLOCKED "no_wall_distance".
+        self.wall_distance_wait = WallDistanceWait(float(_p('wall_distance_timeout_s')))
         self.blocked_detector = BlockedDetector(
             self.min_moving_speed,
             float(_p('mpc_blocked_progress_window_sec')),
@@ -3036,6 +3039,10 @@ class MPCController(Node):
         # or held to the previous turn's end heading.
         self.wall_turn_committed = False
         self.wall_turn_commanded_rot = None
+        # The B8 wait for a valid front distance is per turn too.
+        wait = getattr(self, 'wall_distance_wait', None)
+        if wait is not None:
+            wait.reset()
         # And the tracked wall: it was THAT turn's wall, gated against THAT
         # turn's commit heading. getattr for the duck-typed test stand-ins.
         tracker = getattr(self, 'wall_tracker', None)
@@ -3744,6 +3751,24 @@ class MPCController(Node):
         # every tick of a wall_turn (no-op otherwise), BEFORE the corridor
         # rebuild below reads it.
         self._wall_track_tick()
+
+        if (self.drive_cmd is not None and self.drive_cmd.get('mode') == 'wall_turn'
+                and not self.wall_turn_committed and self.blocked_enabled):
+            # B8: NO WALL DECISION WITHOUT A DISTANCE. Until the turn commits
+            # it needs a valid /perception/front_distance (fresh, >= 0); the
+            # corridor stays straight meanwhile (wall_turn.plan_wall_turn_step
+            # never commits on an unknown one). If none arrives within
+            # wall_distance_timeout_s, the move ends BLOCKED rather than
+            # driving on toward a wall it cannot see.
+            verdict = self.wall_distance_wait.update(
+                self.get_clock().now().nanoseconds * 1e-9,
+                self._fresh_front_distance() is not None)
+            if verdict is not None:
+                self._latch_blocked(verdict)
+                self.last_u[1] = 0.0
+                self._publish_drive(0.0, self._last_published_steer)
+                self._publish_blocked()
+                return
 
         if self.drive_cmd is not None:
             # DRIVE MODE -- open-ended, and the ONLY branch here with no

@@ -1149,6 +1149,9 @@ mpc_pass_side_match_radius_m:
 mpc_pass_side_forget_sec:
   default: 2.0
   description: "A committed pass side not seen for this long [s] is forgotten. Untuned."
+wall_distance_timeout_s:
+  default: 2.0
+  description: "wall_turn (review B8, 2026-10-12): with no valid /perception/front_distance (stale > corr_wall_turn_front_distance_max_age_sec, -1.0, or missing) the turn is NEVER committed -- no wall decision, the car keeps going straight. If no valid distance arrives within this [s], mpc_corr ends the move BLOCKED with reason no_wall_distance. Needs mpc_blocked_enabled. Untuned."
 mpc_blocked_enabled:
   default: true
   description: "End a move BLOCKED (stop, hold, /mpc/blocked -> the mission aborts with the reason) on no_progress, steering_lock_no_progress or no_feasible_plan, instead of waiting for the move timeout."

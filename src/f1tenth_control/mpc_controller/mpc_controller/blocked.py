@@ -49,6 +49,7 @@ __all__ = [
     'BodyBox',
     'BlockedDetector',
     'BlockedVerdict',
+    'WallDistanceWait',
     'KeepOut',
     'KeepOutPlan',
     'first_floor_stage',
@@ -337,4 +338,38 @@ class BlockedDetector:
                     return self.verdict
                 # Progress was made: slide the window.
                 self._lock_since = (t, float(x), float(y))
+        return None
+
+
+REASON_NO_WALL_DISTANCE = 'no_wall_distance'
+
+
+class WallDistanceWait:
+    """A wall_turn waiting for a valid front distance before it may commit
+    (review B8): no distance = no wall decision, the car goes straight; if
+    none arrives within timeout_s the move is BLOCKED no_wall_distance.
+
+    update(now, has_distance) -> BlockedVerdict once the wait runs out, else
+    None. A valid distance ends the wait; reset() at every new move.
+    """
+
+    def __init__(self, timeout_s: float):
+        if not timeout_s > 0.0:
+            raise ValueError('wall_distance_timeout_s must be > 0')
+        self.timeout_s = float(timeout_s)
+        self.since: Optional[float] = None
+
+    def reset(self) -> None:
+        self.since = None
+
+    def update(self, now: float, has_distance: bool) -> Optional[BlockedVerdict]:
+        if has_distance:
+            self.since = None
+            return None
+        if self.since is None:
+            self.since = float(now)
+        waited = float(now) - self.since
+        if waited >= self.timeout_s - 1e-9:
+            return BlockedVerdict(REASON_NO_WALL_DISTANCE, {
+                'waited_s': round(waited, 2), 'timeout_s': self.timeout_s})
         return None

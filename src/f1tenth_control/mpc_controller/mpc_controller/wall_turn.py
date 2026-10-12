@@ -83,9 +83,13 @@ is not a distance, and it is not a wall at zero either.
     corridor stays straight and the turn does not commit. A missing reading
     is no evidence the wall got closer, and committing on one would start the
     turn early, into whatever runs alongside the car.
-  * Not committed, on the move's FIRST rebuild: the turn commits. There is no
-    earlier reading it could have been waiting on, and a wall_turn issued
-    with the camera path down would otherwise drive on and never turn.
+  * Not committed, on the move's FIRST rebuild: the same -- NO wall decision
+    (decided 2026-10-12, review B8; it used to commit here). The car keeps
+    going straight and waits for a valid distance. A turn is never committed
+    without one. If none arrives within wall_distance_timeout_s (2.0 s),
+    MPC_corr ends the move BLOCKED with reason "no_wall_distance" -- a
+    wall_turn issued with the camera path down stops instead of turning
+    blind.
 
 WHAT THIS DOES NOT FIX. dFront is a straight-ahead measurement along the
 camera's optical axis, not along the arc. Once the car is bending, that ray
@@ -203,10 +207,10 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
         dpsi_by_dist = d_avail / (k_safety * r_min)
         committed = committed or d_avail <= k_safety * r_min * abs(dpsi_rem)
     else:
-        # Unknown distance: see the module docstring's three cases.
+        # Unknown distance: see the module docstring's three cases. Never a
+        # reason to commit -- only an already-committed turn carries on.
         d_avail = None
         dpsi_by_dist = math.inf
-        committed = committed or prev_commanded_rot is None
 
     if committed:
         dpsi_this = math.copysign(
