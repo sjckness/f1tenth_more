@@ -4,8 +4,7 @@
     "plan": [
       {
         "mode": "straight",
-        "guard": "wall",
-        "thresh": 3.0
+        "guard": "wall"
       },
       {
         "mode": "turn",
@@ -33,7 +32,8 @@
         "stop_condition": {
           "type": "front_clearance",
           "distance": 3.0,
-          "debounce_ticks": 3
+          "debounce_ticks": 3,
+          "distance_source": "default_before_turn"
         },
         "timeout_sec": 80,
         "on_timeout": "abort"
@@ -68,5 +68,8 @@
         "terminal": true
       }
     ]
-  }
+  },
+  "notes": [
+    "fase 1: distanza dal muro non detta, uso 3.0 m"
+  ]
 }

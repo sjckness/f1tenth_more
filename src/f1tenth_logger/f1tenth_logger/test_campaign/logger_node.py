@@ -96,7 +96,7 @@ from pathlib import Path
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Float32, String
 
 from f1tenth_logger.test_campaign.robot_logger import (
@@ -132,7 +132,9 @@ STATUS_TOPIC = "/test_campaign/logger_status"
 #: asserts the two lists stay equal, so neither side can rename an event alone.
 MISSION_EVENTS = (
     "mission_loaded", "mission_started", "mission_finished", "mission_aborted",
+    "mission_blocked",
 )
+_END_EVENTS = ("mission_finished", "mission_aborted", "mission_blocked")
 CONFIG_NAME = "test_campaign_logger.yaml"
 
 
@@ -207,6 +209,16 @@ class TestLoggerNode(Node):
         # topic, so the stream records the messages that actually decided the
         # move rather than a parallel copy of them.
         self._tracks_topic = param("tracks_topic", "/costmap/semantic_tracks")
+        # Campaign fix A5: the wall-stop input, its LiDAR confirmation, the
+        # front_clearance debug record, and mpc_corr's BLOCKED verdict.
+        self._front_distance_topic = param("front_distance_topic",
+                                           "/perception/front_distance")
+        self._front_confirmed_topic = param("front_confirmed_topic",
+                                            "/perception/front_wall_confirmed")
+        self._front_debug_topic = param("front_debug_topic",
+                                        "/perception/debug/front_clearance")
+        self._blocked_topic = param("blocked_topic", "/mpc/blocked")
+        self._blocked_logged = False
 
         self._post_roll_s = float(param("post_roll_s", 2.0))
         self._pre_roll_s = float(param("pre_roll_s", 0.0))
@@ -280,6 +292,17 @@ class TestLoggerNode(Node):
                 f"vision_msgs is not installed: {self._tracks_topic} will not "
                 f"be logged, so a target_lost abort will not be diagnosable",
             )
+
+        self._subscribe(Float32, self._front_distance_topic,
+                        self._on_front_distance, sensor)
+        self._subscribe(Float32, self._front_confirmed_topic,
+                        self._on_front_confirmed, sensor)
+        self._subscribe(String, self._front_debug_topic, self._on_front_debug, sensor)
+        self._subscribe(String, self._blocked_topic, self._on_blocked, reliable)
+        self._mpc_config = None
+        latched = QoSProfile(depth=1)
+        latched.durability = DurabilityPolicy.TRANSIENT_LOCAL
+        self._subscribe(String, "/mpc/config", self._on_mpc_config, latched)
 
         self._status_pub = self.create_publisher(String, STATUS_TOPIC, 10)
         self.create_timer(0.1, self._tick)
@@ -399,6 +422,9 @@ class TestLoggerNode(Node):
             return None
 
         self._test = logger
+        self._blocked_logged = False
+        if self._mpc_config is not None:
+            logger.extra_meta.setdefault("mpc_config", self._mpc_config)
         self._t0 = self._now()
         self._mission_started = False
         self._pending_close = None
@@ -570,6 +596,10 @@ class TestLoggerNode(Node):
                 self._test.log_state(**payload, t=t)
             elif kind == "command":
                 self._test.log_command(**payload, t=t)
+            elif kind == "tracks":
+                self._test.log_tracks(*payload, t=t)
+            elif kind == "front":
+                self._test.log_front(*payload, t=t)
             replayed += 1
         self._pre_roll.clear()
         if replayed:
@@ -613,6 +643,12 @@ class TestLoggerNode(Node):
         if self._open_test(data.get("prompt_num"), prompt_text,
                            data.get("plan_id")) is None:
             return
+        # Which planner prompt produced this test (campaign review item 3):
+        # meta.json says it, so runs planned by different prompt texts are
+        # never compared as repetitions of one another.
+        for key in ("system_prompt_file", "system_prompt_sha256"):
+            if data.get(key):
+                self._test.extra_meta[key] = data.get(key)
         self._record_call(data, "initial", status, error, plan, prompt_text)
         if status != "ok":
             self._close_test("aborted", f"LLM failure: {error or status}")
@@ -720,7 +756,7 @@ class TestLoggerNode(Node):
         # starts with its mission_loaded (or, if that was lost, its
         # mission_started), so an end event before either is stale. The
         # plan_id cannot decide it: repetitions of one prompt share one.
-        if event in ("mission_finished", "mission_aborted") and not self._lifecycle_seen:
+        if event in _END_EVENTS and not self._lifecycle_seen:
             self.get_logger().warn(
                 f"[test_campaign] {event} (plan_id {data.get('plan_id')!r}) arrived "
                 f"before this test's mission_loaded -- the previous mission's end, "
@@ -756,10 +792,15 @@ class TestLoggerNode(Node):
             self._mission_started = True
             if self._started_at is None:
                 self._started_at = self._now()
-        elif event in ("mission_finished", "mission_aborted"):
+        elif event in _END_EVENTS:
             reason = str(data.get("reason") or "")
             if event == "mission_finished":
                 outcome = "completed"
+            elif event == "mission_blocked":
+                # mpc_corr stopped the car itself and said why (/mpc/blocked):
+                # its own outcome, scored apart from an abort.
+                outcome = "blocked"
+                reason = reason or "blocked"
             else:
                 outcome = "aborted"
                 reason = reason or "mission aborted"
@@ -842,13 +883,29 @@ class TestLoggerNode(Node):
         # Taking self._t() twice would put them microseconds apart and make
         # every downstream join approximate for no reason.
         t = self._t()
+        keepouts = data.get("keepouts")
         self._test.log_mpc(
             data.get("status", ""),
             solve_time_ms=data.get("solve_time_ms"),
             cost=data.get("cost"),
             iterations=data.get("iterations"),
             t=t,
+            success=data.get("success"),
+            status_message=data.get("status_message"),
+            feasible=data.get("feasible"),
+            plan_body_gap_m=data.get("plan_body_gap_m"),
+            no_side_fits=data.get("no_side_fits"),
+            n_keepouts=(len(keepouts) if isinstance(keepouts, list) else None),
+            v_floor_from_stage=data.get("v_floor_from_stage"),
+            vdes=data.get("vdes"),
+            half_width_start=data.get("half_width_start"),
+            half_width_end=data.get("half_width_end"),
         )
+        if isinstance(keepouts, list) and keepouts:
+            # Which side of which obstacle the solve was held to, only on the
+            # ticks that had one -- the R011 question "did a path exist".
+            self._test.log_event("keepouts", t=t, keepouts=keepouts,
+                                 feasible=data.get("feasible"))
         self._log_horizon(data.get("horizon"), t)
 
     def _log_horizon(self, horizon, t):
@@ -907,8 +964,6 @@ class TestLoggerNode(Node):
         confirming) -- the two causes that were indistinguishable after
         P004-R003.
         """
-        if self._test is None:
-            return
         tracks = []
         for det in getattr(msg, "detections", []) or []:
             results = getattr(det, "results", None) or []
@@ -931,7 +986,51 @@ class TestLoggerNode(Node):
         if header is not None:
             frame = getattr(header, "frame_id", None)
             stamp = header.stamp.sec + header.stamp.nanosec * 1e-9
+        if self._test is None:
+            # Objects already in view when the test opens (review item 5):
+            # kept in the pre-roll ring and replayed with negative t.
+            self._remember("tracks", self._now(), (tracks, frame, stamp))
+            return
         self._test.log_tracks(tracks, frame_id=frame, stamp=stamp, t=self._t())
+
+    def _front(self, source, record):
+        if self._test is None:
+            self._remember("front", self._now(), (source, record))
+            return
+        self._test.log_front(source, record, t=self._t())
+
+    def _on_front_distance(self, msg):
+        self._front("front_distance", {"v": float(msg.data)})
+
+    def _on_front_confirmed(self, msg):
+        self._front("front_wall_confirmed", {"v": float(msg.data)})
+
+    def _on_front_debug(self, msg):
+        data = self._payload(msg, self._front_debug_topic, self.get_logger())
+        if data is None:
+            return
+        self._front("debug", data)
+
+    def _on_mpc_config(self, msg):
+        """mpc_corr's latched effective config (review item 5): every value,
+        the former literals included, into each test's meta.json."""
+        data = self._payload(msg, "/mpc/config", self.get_logger())
+        if data is not None:
+            self._mpc_config = data
+            if self._test is not None:
+                self._test.extra_meta.setdefault("mpc_config", data)
+
+    def _on_blocked(self, msg):
+        """mpc_corr's BLOCKED verdict, once per test (it repeats every tick)."""
+        if self._test is None or self._blocked_logged:
+            return
+        data = self._payload(msg, self._blocked_topic, self.get_logger())
+        if data is None:
+            return
+        self._blocked_logged = True
+        self._test.log_event("mpc_blocked", t=self._t(), **{
+            k: v for k, v in data.items() if k not in ("t", "event")})
+        self._test.extra_meta["blocked_reason"] = data.get("reason")
 
     def _on_corridor(self, msg):
         if self._test is None:

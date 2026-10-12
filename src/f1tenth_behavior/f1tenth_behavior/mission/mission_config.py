@@ -346,6 +346,11 @@ def _require(cond: bool, message: str) -> None:
         raise MissionConfigError(message)
 
 
+# Who chose a front_clearance distance (stop_condition.distance_source): the
+# model, the translator's default, or a hand-written mission.
+WALL_DISTANCE_SOURCES = frozenset({'llm', 'default', 'default_before_turn', 'mission'})
+
+
 def _parse_stop_condition(raw: object, where: str) -> StopCondition:
     _require(isinstance(raw, dict), f'{where}: stop_condition must be an object')
     t = raw.get('type')
@@ -388,6 +393,15 @@ def _parse_stop_condition(raw: object, where: str) -> StopCondition:
                 f'{where}: front_clearance debounce_ticks must be an integer >= 1 '
                 f'(got {dt!r})',
             )
+        # Optional provenance of `distance` (campaign fix A4): who chose it.
+        # Written by the LLM translator; informational only -- logged at move
+        # start and kept in the mission JSON, never read by the condition.
+        if 'distance_source' in params:
+            _require(
+                params['distance_source'] in WALL_DISTANCE_SOURCES,
+                f'{where}: front_clearance distance_source must be one of '
+                f'{sorted(WALL_DISTANCE_SOURCES)} (got {params["distance_source"]!r})',
+            )
     elif t == 'object_reached':
         # No fields: the reach tolerance and the maximum target age are
         # stack-wide (object_reach_tol_m / object_reach_max_target_age_sec in
@@ -415,6 +429,11 @@ def _parse_stop_condition(raw: object, where: str) -> StopCondition:
     # carrying one on the wrong type is far more likely a copy-paste from a
     # neighbouring condition than a deliberate no-op, and a field that
     # advertises behaviour it does not have is worse than an error.
+    _require(
+        'distance_source' not in params or t == 'front_clearance',
+        f'{where}: distance_source is only meaningful on a front_clearance '
+        f'stop_condition (got type={t!r})',
+    )
     _require(
         'debounce_ticks' not in params or t == 'front_clearance',
         f'{where}: debounce_ticks is only meaningful on a front_clearance '

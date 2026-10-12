@@ -37,6 +37,7 @@ JSONL_TOPICS = {
     "corridor": ("corridors.jsonl", "receive"),
     "corridor_dbg": ("corridor_debug.jsonl", "receive"),
     "tracks": ("tracks.jsonl", "receive"),
+    "front": ("front.jsonl", "receive"),
 }
 
 

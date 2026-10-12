@@ -231,18 +231,22 @@ class TestEachDirectionUsesItsOwnSteeringBound(unittest.TestCase):
         self.assertEqual(_step(0.5, 0.7, 3.0).r_min, R_RIGHT)
         self.assertEqual(_step(-0.5, -0.7, 3.0).r_min, R_LEFT)
 
-    def test_the_trigger_distances_are_the_work_orders_table(self):
+    def test_the_trigger_distances_at_the_shipped_geometry(self):
+        # The work order's table (3.71 / 4.27 m) used margin 1.0 and the old
+        # steering radii; stack_params has k_safety 1.50, margin 0.5 and
+        # bounds +0.319 / -0.309, which give these.
         self.assertAlmostEqual(
             wall_turn_trigger_distance(math.radians(74.5), WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN),
-            3.71, delta=5e-3)
+            2.301, delta=5e-3)
         self.assertAlmostEqual(
             wall_turn_trigger_distance(TURN_90, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN),
-            4.27, delta=5e-3)
+            2.676, delta=5e-3)
 
     def test_the_asymmetry_changes_when_the_turn_commits(self):
-        # 3.68 m sits between the right trigger (3.66) and the left one (3.71).
-        self.assertTrue(_step(TURN_74, 0.0, 3.68).committed)
-        self.assertFalse(_step(-TURN_74, 0.0, 3.68).committed)
+        # R_left 0.923 < R_right 0.955 at the shipped bounds, so the RIGHT
+        # trigger (2.36) is now beyond the left one (2.30): 2.33 m sits between.
+        self.assertTrue(_step(-TURN_74, 0.0, 2.33).committed)
+        self.assertFalse(_step(TURN_74, 0.0, 2.33).committed)
 
 
 class TestInsideTheSafetyMargin(unittest.TestCase):
@@ -431,7 +435,8 @@ class TestCorridorWiring(unittest.TestCase):
 
     def test_psi_end_psi_ref_turn_and_the_centreline_share_one_increment(self):
         for sign in (1.0, -1.0):
-            fake = _FakeMPC(sign=sign, d_front=2.5)
+            # Inside both triggers for the remaining turn (L 2.16, R 2.22 m).
+            fake = _FakeMPC(sign=sign, d_front=2.0)
             psi0 = 0.2 + sign * 0.1
             fake.turn_progress_rad = sign * 0.1
             corridor = _build(fake, psi0)
@@ -514,3 +519,34 @@ class TestFreshFrontDistanceAndReset(unittest.TestCase):
         MPCController._reset_turn_progress(fake)
         self.assertFalse(fake.wall_turn_committed)
         self.assertIsNone(fake.wall_turn_commanded_rot)
+
+
+class TestStaleOrMissingFrontDistance(unittest.TestCase):
+    """The Orin's latent crash: a wall_turn rebuild with a stale or missing
+    /perception/front_distance replaced d_front with None, and float(None)
+    in the corridor record (and a :.2f in the log) killed mpc_corr mid-turn.
+    Unknown distance is NOT a wall decision and never a crash."""
+
+    def test_a_stale_reading_builds_a_corridor_and_records_nan(self):
+        for raw in (5.0, -1.0, math.nan):
+            fake = _FakeMPC(d_front=None)
+            fake.front_distance = raw
+            for _ in range(3):
+                corridor = _build(fake, 0.2)
+            self.assertTrue(math.isnan(corridor['dFront']))
+
+    def test_no_reading_ever_builds_a_corridor(self):
+        fake = _FakeMPC(d_front=None)
+        fake.front_distance = None
+        corridor = _build(fake, 0.2)
+        self.assertTrue(math.isnan(corridor['dFront']))
+
+    def test_unknown_after_commit_keeps_turning_within_the_horizon(self):
+        """The documented unknown-distance case: once committed, the distance
+        cap drops and the turn continues within the horizon's reach."""
+        fake = _FakeMPC(d_front=2.0)
+        _build(fake, 0.2)
+        self.assertTrue(fake.wall_turn_committed)
+        fake._d_front = None
+        corridor = _build(fake, 0.2)
+        self.assertGreater(abs(corridor['dpsi']), 0.0)

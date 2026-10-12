@@ -431,14 +431,20 @@ GUARD_THRESH_RANGE = {
     'distance': (0.2, 20.0),
 }
 
-# Wall threshold when the command names no distance. The prompt tells the
-# model the same numbers, but the 3B model drops thresh from "approach the
-# wall" whenever the prompt's wall default changes, so translate() fills it in
-# rather than bouncing the intent back for retries. Before a turn the phase
-# ends where the turn starts, and a 90 deg wall_turn begun 1 m from the wall
-# touched it (stack_params wall_turn margin note), hence the larger value.
-WALL_THRESH_DEFAULT_M = 2.0
-WALL_THRESH_BEFORE_TURN_M = 3.0
+# Wall threshold when the command names no distance: TranslatorConfig's
+# wall_default_distance (0.5) / wall_default_distance_before_turn (3.0),
+# stack_params mission_translator_wall_default_distance*. They were the
+# module constants WALL_THRESH_DEFAULT_M 2.0 / WALL_THRESH_BEFORE_TURN_M 3.0
+# until the M02 campaign (A4): R009's wall stop ran on the 2.0 default and
+# nothing in the mission JSON said so. The prompt no longer quotes a number;
+# it tells the model to leave thresh out when the user gives none, and
+# translate() fills it in and records stop_condition.distance_source.
+# Before a turn the phase ends where the turn starts, and a 90 deg wall_turn
+# begun 1 m from the wall touched it (stack_params wall_turn margin note),
+# hence the larger value there.
+WALL_DISTANCE_SOURCE_LLM = 'llm'
+WALL_DISTANCE_SOURCE_DEFAULT = 'default'
+WALL_DISTANCE_SOURCE_DEFAULT_BEFORE_TURN = 'default_before_turn'
 
 # left/right -> drive.turn_sign.
 #
@@ -583,6 +589,11 @@ class TranslatorConfig:
     # sign and a zero magnitude -- for the case where a straight move after a
     # turn turns out not to hold its heading on hardware.
     post_turn_uses_straight: bool = True
+
+    # Metres. The wall stop distance when the command names none (A4, see
+    # the WALL_DISTANCE_SOURCE_* note above), and the one before a turn.
+    wall_default_distance: float = 0.5
+    wall_default_distance_before_turn: float = 3.0
 
     @classmethod
     def from_stack_params(cls):
@@ -913,13 +924,15 @@ def _validate_output(mission: dict, gap_limits_for=None) -> None:
             mission)
 
 
-def _default_wall_thresh(intent):
-    """Return (intent, {phase index: thresh}) with missing wall thresh filled in.
+def _default_wall_thresh(intent, cfg=None):
+    """Return (intent, {phase index: (thresh, source)}) with missing wall thresh filled in.
 
     Only a straight phase with guard "wall" and no thresh is touched; the
     caller's dict is never mutated. Anything malformed is passed through for
-    the schema to reject as before.
+    the schema to reject as before. source is WALL_DISTANCE_SOURCE_DEFAULT or
+    _DEFAULT_BEFORE_TURN.
     """
+    cfg = cfg if cfg is not None else TranslatorConfig()
     plan = intent.get('plan') if isinstance(intent, dict) else None
     if not isinstance(plan, list):
         return intent, {}
@@ -930,9 +943,14 @@ def _default_wall_thresh(intent):
                 and phase.get('guard') == 'wall' and 'thresh' not in phase):
             nxt = plan[i + 1] if i + 1 < len(plan) else None
             before_turn = isinstance(nxt, dict) and nxt.get('mode') == 'turn'
-            value = WALL_THRESH_BEFORE_TURN_M if before_turn else WALL_THRESH_DEFAULT_M
+            if before_turn:
+                value = float(cfg.wall_default_distance_before_turn)
+                source = WALL_DISTANCE_SOURCE_DEFAULT_BEFORE_TURN
+            else:
+                value = float(cfg.wall_default_distance)
+                source = WALL_DISTANCE_SOURCE_DEFAULT
             phase = {**phase, 'thresh': value}
-            filled[i] = value
+            filled[i] = (value, source)
         new_plan.append(phase)
     if not filled:
         return intent, {}
@@ -969,7 +987,7 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
     the MPC side of a >90 turn is unverified -- not because anything clamps it.
     """
     cfg = config if config is not None else TranslatorConfig()
-    intent, defaulted_walls = _default_wall_thresh(intent)
+    intent, defaulted_walls = _default_wall_thresh(intent, cfg)
 
     try:
         jsonschema.validate(intent, load_intent_schema())
@@ -996,10 +1014,23 @@ def translate(intent, *, config=None, explain=False, go_to_enabled=True,
         if phase['mode'] == 'turn':
             prev_turn_sign = TURN_SIGN[phase['dir']]
 
-    for i, value in defaulted_walls.items():
+    for i, (value, source) in defaulted_walls.items():
         prov[f'moves[{i}].stop_condition.distance'] = (
-            DERIVED, f'plan[{i}] wall guard had no thresh: WALL_THRESH_* default')
+            CONFIG, f'plan[{i}] wall guard had no thresh: '
+            + ('wall_default_distance_before_turn'
+               if source == WALL_DISTANCE_SOURCE_DEFAULT_BEFORE_TURN
+               else 'wall_default_distance'))
         notes.append(f'fase {i + 1}: distanza dal muro non detta, uso {value:.1f} m')
+    # WHERE THE WALL DISTANCE CAME FROM, in the mission itself (A4): the
+    # model ('llm') or the translator's default. R009's 2.0 m came from the
+    # default and nothing on disk said so.
+    for i, phase in enumerate(plan):
+        if phase.get('mode') == 'straight' and phase.get('guard') == 'wall':
+            source = (defaulted_walls[i][1] if i in defaulted_walls
+                      else WALL_DISTANCE_SOURCE_LLM)
+            moves[i]['stop_condition']['distance_source'] = source
+            prov[f'moves[{i}].stop_condition.distance_source'] = (
+                DERIVED, 'llm if the intent carried thresh, else the default used')
 
     moves[-1]['terminal'] = True
     prov[f'moves[{len(moves) - 1}].terminal'] = (DERIVED, 'True on the last move only')

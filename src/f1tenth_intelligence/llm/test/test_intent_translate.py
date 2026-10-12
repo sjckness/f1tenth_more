@@ -7,6 +7,7 @@ loader rejects. A translator that can emit an invalid mission is worse than no
 translator, because the failure surfaces later and somewhere else.
 """
 
+import dataclasses
 import json
 import math
 import pathlib
@@ -31,6 +32,7 @@ from llm.plan_translate import (
     TURN_SIGN,
     TranslatorConfig,
     TranslatorOutputError,
+    _default_wall_thresh,
     intent_prompt_examples,
     load_intent_schema,
     translate,
@@ -157,7 +159,9 @@ def test_golden_pair_still_translates_to_its_committed_mission(name):
 
 @pytest.mark.parametrize('name', sorted(p.stem for p in GOLDEN_DIR.glob('*.json')))
 def test_every_golden_intent_parses_against_the_schema(name):
-    jsonschema.validate(_golden(name)['intent'], load_intent_schema())
+    # After the same wall-thresh fill translate() applies first (A4).
+    filled, _ = _default_wall_thresh(_golden(name)['intent'])
+    jsonschema.validate(filled, load_intent_schema())
 
 
 @pytest.mark.parametrize('name', _golden_refusal_names())
@@ -260,18 +264,46 @@ def test_schema_violation_raises_intent_schema_error():
         translate({'plan': [{'mode': 'straight', 'guard': 'front_object'}], 'unsupported': []})
 
 
-def test_a_wall_guard_without_thresh_stops_two_metres_from_the_wall():
+def test_a_wall_guard_without_thresh_stops_at_the_default_and_says_so():
+    """Campaign fix A4: 0.5 m (was 2.0), and the mission records who chose it."""
     result = translate({'plan': [{'mode': 'straight', 'guard': 'wall'}], 'unsupported': []},
                        explain=True)
-    assert result.mission['moves'][0]['stop_condition']['distance'] == 2.0
-    assert result.provenance['moves[0].stop_condition.distance'][0] == 'DERIVED'
-    assert list(result.notes) == ['fase 1: distanza dal muro non detta, uso 2.0 m']
+    stop = result.mission['moves'][0]['stop_condition']
+    assert stop['distance'] == TranslatorConfig().wall_default_distance == 0.5
+    assert stop['distance_source'] == 'default'
+    assert result.provenance['moves[0].stop_condition.distance'][0] == 'CONFIG'
+    assert list(result.notes) == ['fase 1: distanza dal muro non detta, uso 0.5 m']
 
 
 def test_a_wall_guard_without_thresh_before_a_turn_leaves_room_to_turn():
     result = translate({'plan': [{'mode': 'straight', 'guard': 'wall'},
                                  {'mode': 'turn', 'dir': 'right'}], 'unsupported': []})
-    assert result.mission['moves'][0]['stop_condition']['distance'] == 3.0
+    stop = result.mission['moves'][0]['stop_condition']
+    assert stop['distance'] == 3.0
+    assert stop['distance_source'] == 'default_before_turn'
+
+
+def test_a_wall_distance_the_model_gave_is_recorded_as_the_models():
+    result = translate({'plan': [{'mode': 'straight', 'guard': 'wall', 'thresh': 1.2}],
+                        'unsupported': []})
+    stop = result.mission['moves'][0]['stop_condition']
+    assert stop['distance'] == 1.2
+    assert stop['distance_source'] == 'llm'
+
+
+def test_the_wall_default_follows_the_config():
+    cfg = dataclasses.replace(TranslatorConfig(), wall_default_distance=1.5)
+    result = translate({'plan': [{'mode': 'straight', 'guard': 'wall'}], 'unsupported': []},
+                       config=cfg)
+    assert result.mission['moves'][0]['stop_condition']['distance'] == 1.5
+
+
+def test_only_a_wall_guard_carries_a_distance_source():
+    result = translate({'plan': [{'mode': 'straight', 'guard': 'front_object', 'thresh': 1.0},
+                                 {'mode': 'straight', 'guard': 'distance', 'thresh': 2.0}],
+                        'unsupported': []})
+    for move in result.mission['moves']:
+        assert 'distance_source' not in move['stop_condition']
 
 
 def test_unknown_top_level_key_raises_intent_schema_error():
@@ -518,7 +550,11 @@ def test_every_prompt_example_is_a_valid_intent(prompt_file):
     examples = (intent_prompt_examples(prompt_file) if prompt_file
                 else intent_prompt_examples())
     for command, intent in examples:
-        jsonschema.validate(intent, load_intent_schema()), command
+        # A wall guard without thresh is legal model output since campaign
+        # fix A4 -- the prompt asks for exactly that when no distance is
+        # said -- and translate() fills it in BEFORE validating. Same here.
+        filled, _ = _default_wall_thresh(intent)
+        jsonschema.validate(filled, load_intent_schema()), command
 
 
 def test_every_executable_prompt_example_translates():

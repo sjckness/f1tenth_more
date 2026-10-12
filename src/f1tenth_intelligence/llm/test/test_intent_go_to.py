@@ -391,6 +391,13 @@ class _Stub:
         self.opts = SimpleNamespace(dry_run=True, confirm=False)
         self.written = None
 
+    # dc158d2 made _plan_v2 note the LLM send/receive times on the node.
+    def _note_llm_sent(self):
+        pass
+
+    def _note_llm_received(self):
+        pass
+
     def get_logger(self):
         return self._logger
 

@@ -460,9 +460,40 @@ front_clearance_clearance_exit_m:
 front_clearance_clearance_min_dwell_frames:
   default: 2
   description: "Consecutive agreeing frames required before front_clearance_node commits a front_blocked flip. Untuned starting point."
+# LiDAR WALL CONFIRMATION (campaign fix A4, 2026-10-09). front_clearance_node
+# publishes /perception/front_wall_confirmed = front_distance only when the
+# forward /scan shows a wall-like line at that range (f1tenth_perception/
+# wall_confirm.py), else -1.0; the mission wall stop reads it when
+# wall_stop_require_lidar is true. R009: the stop fired on a person ~1.5 m
+# ahead who had leaked into front_distance. All values UNTUNED on the car.
+front_clearance_wall_confirm_enabled:
+  default: true
+  description: "Compute and publish /perception/front_wall_confirmed (needs /scan and /tf_static for the scan and depth frames)."
+front_clearance_wall_confirm_half_angle_deg:
+  default: 30.0
+  description: "Forward /scan sector [deg, +-] searched for the wall line. Wider than lidar_front_wall's 10: the segment-length test needs the wall's extent, and at 1.5 m a 10 deg sector is only 0.53 m wide."
+front_clearance_wall_confirm_search_window_m:
+  default: 0.6
+  description: "Only returns whose forward coordinate is within this [m] of the camera's wall distance (in base_link) are fitted, so the line found is the surface the camera is talking about."
+front_clearance_wall_confirm_min_inliers:
+  default: 10
+  description: "Minimum returns on the fitted line."
+front_clearance_wall_confirm_min_extent_m:
+  default: 0.8
+  description: "Minimum length [m] of the inlier segment along the line. What separates a wall from a person (legs ~0.3-0.5 m), a plant or a chair."
+front_clearance_wall_confirm_tolerance_m:
+  default: 0.30
+  description: "LiDAR forward intercept vs camera distance (both base_link) must agree within this [m] + front_clearance_wall_confirm_tolerance_frac x distance."
+front_clearance_wall_confirm_tolerance_frac:
+  default: 0.10
+  description: "Distance-proportional part of the camera/LiDAR agreement tolerance (stereo depth error grows with range)."
+# Consumed by f1tenth_behavior's behavior_executor_node (CheckStopCondition).
+wall_stop_require_lidar:
+  default: true
+  description: "The mission's front_clearance (wall) stop reads /perception/front_wall_confirmed instead of /perception/front_distance: it fires only when the camera's wall distance AND the LiDAR agree. When they disagree the stop does not fire; obstacle avoidance, BLOCKED and the move timeout still apply. false = the pre-campaign camera-only stop."
 front_clearance_publish_debug_raw:
-  default: false
-  description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance) and /perception/debug/bg_pixel_count (the exact wall-latch input), for tuning the filters against a bag. The topics are not created at all when false."
+  default: true
+  description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance), /perception/debug/bg_pixel_count (the exact wall-latch input), /perception/debug/front_clearance (JSON per depth frame: ROI coverage by the object exclusion and by missing depth, the detections masked in the ROI with class/score, mask and detection age vs the depth frame, the LiDAR wall confirmation) and the ROI crops /perception/debug/front_roi_depth (32FC1) + front_roi_class (mono8: 0 no depth, 1 excluded, 2 background, 3 housing) that tools/replay_front_distance.py recomputes front_distance from. ON for the test campaign since 2026-10-09 (A5; was false): R009's leak could not be diagnosed from the logs. Costs ~1 MB/s in the mission bag. The topics are not created at all when false."
 
 
 # ============================================================
@@ -786,7 +817,7 @@ wall_distance_stale_inflate_per_s:
 wall_distance_d_ref:
   default: 0.60
   # SYNTHETIC -- retune on hardware
-  description: "Target |d_wall| [m] the correction converges the car to -- a FIXED single-wall offset, signed at use by whichever side the track is on. It CANNOT be derived from corridor width: the corridor is synthetic with hardcoded half-widths (corr_wmin 0.4333 / corr_wmax 0.7667 are bare literals in MPC_corr.py, not parameters) and only one wall is ever sensed. SYNTHETIC."
+  description: "Target |d_wall| [m] the correction converges the car to -- a FIXED single-wall offset, signed at use by whichever side the track is on. It CANNOT be derived from corridor width: the corridor is synthetic (half-widths corr_wmin / corr_wmax, parameters since 2026-10-09, 0.60 / 0.60) and only one wall is ever sensed. SYNTHETIC."
 wall_distance_convergence_length_m:
   default: 3.0
   # SYNTHETIC -- retune on hardware
@@ -927,23 +958,14 @@ corridor_update_period:
 # flip buys. Kept as a launch arg so the reference behaviour stays reachable
 # for the MATLAB/f110_autonomy comparison without a code change.
 #
-# AND FLIPPED BACK TO TRUE, UNEXPLAINED. ace2446 ("wip: corridor tuning, front
-# clearance node, detection launch rework") changed this value from false to
-# true and changed NOTHING ELSE -- not the description below, not the
-# measurement paragraph above, which still reads as though false is what
-# ships. The value is what runs, so the BLEND geometry is live today and the
-# paragraph above describes the configuration that does NOT run.
-#
-# WHICH ONE IS INTENDED IS UNRESOLVED. The measurement above argues for false
-# (0.089 m of lateral offset against 0.900 m); nothing recorded anywhere
-# argues for true. Settle it before reading either value as deliberate. The
-# object-branch corridor work has the same trade-off at its centre: the blend
-# drifts laterally precisely because this corridor has no lateral homing, so
-# whatever is decided here should be decided together with whether that homing
-# becomes its own cost term.
+# FALSE, DECIDED 2026-10-12 (it had been flipped to true in ace2446, "wip",
+# with no reason recorded). The reason is the measurement above: in the
+# 2026-09-08 A/B the frozen geometry beat the blend at BOTH rebuild periods,
+# lateral offset 0.09-0.11 m against 0.75-0.99 m, and the blend was the live
+# geometry in run 16-25-59 (a 60 deg heading swing, ended by the e-stop).
 corridor_heading_return:
-  default: true
-  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false: both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true (THE CURRENT DEFAULT, see the unresolved note above): blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
+  default: false
+  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false (THE DEFAULT): both ends frozen at the reference heading -- returns heading fastest and drifts least laterally (2026-09-08 A/B: 0.09-0.11 m lateral vs 0.75-0.99 m for the blend at both rebuild periods). true: blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour; it was live in run 16-25-59 (60 deg swing, e-stop)."
 # Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), no launch
 # arg. The corridor S-curve's heading ramp, as fractions of the corridor length:
 # theta(u) = psiStart + dpsi * smoothstep((u - u_start) / (u_end - u_start)).
@@ -1105,6 +1127,49 @@ max_forward_speed_mps:
 min_moving_speed_mps:
   default: 0.4
   description: "Minimum forward speed [m/s] commanded while the car moves; zero only to stop. ENFORCED on: go_to_object moves -- the mission loader rejects go_to_object.speed below it, mpc_corr floors the published /drive speed at it while an object approach drives, and treats an ObjectGoal speed below it as stop-and-wait. NOT YET ENFORCED on drive, turn, goal_distance and goal_pose moves: drive_turn_180.json, test_04_turn_accuracy.json, turn_90_left.json and wall_turn_then_straight.json still request 0.3 m/s, and mpc_corr's other modes still let the solver's command fall below 0.4 near a goal."
+# ------------------------------------------------------------------
+# THE FLOOR ON EVERY MOVE, OBSTACLE KEEP-OUTS, BLOCKED (M02 campaign fix A3,
+# 2026-10-09). Consumed by MPC_corr.py's declare_parameter() defaults
+# (get_value), no launch arg; logic in mpc_controller/blocked.py. R011: a
+# centred plant, full left lock, a = 0.9 -> v_cmd 0.09 m/s (below the
+# ~0.12-0.14 m/s the car needs), 33 s without moving, only the operator
+# ended it. UNVERIFIED ON THE CAR: nominal-model closed loop on linus only.
+mpc_min_speed_all_moves:
+  default: true
+  description: "Apply min_moving_speed_mps to EVERY move, not only go_to_object: a move speed in (0, floor) is driven at the floor, the QP gets v_k >= floor from the first stage the accel limits reach it, and a feasible tick publishes max(v_cmd, floor). An infeasible tick publishes 0. false = the pre-campaign speed path."
+mpc_obstacle_keepout_enabled:
+  default: true
+  description: "Hard one-sided lateral row per obstacle in the way, on the rear axle, at the stages whose along-track position overlaps it (blocked.plan_keepouts): pass at c + d or c - d, d = r + car_radius + obstacle_safety_margin_m. The side that fits in the corridor and needs the least lateral motion; ties keep last tick's side. No side fits = an infeasible tick. The soft w_obs cost alone has ~zero lateral gradient for an obstacle dead on the line, and the nominal-model rig drove straight through a late centred plant."
+mpc_keepout_footprint_circles:
+  default: 3
+  description: "Keep-out rows on this many circles covering the car body (swept_clearance_body_*), front bumper included, instead of on the rear axle alone (review item 1, 2026-10-09). 3 circles over the 0.525 x 0.272 m box: centres +0.006/+0.181/+0.356 m ahead of the axle, radius 0.162 m; each must stay r + 0.162 + obstacle_safety_margin_m from the obstacle centre, laterally, on the committed side. 0 = the A3 rear-axle row (d = r + car_radius + margin)."
+mpc_pass_side_match_radius_m:
+  default: 0.5
+  description: "An obstacle within this [m] (odom) of a remembered one is the same obstacle and keeps its committed pass side (mpc_controller/pass_side.py). Larger than detection jitter, smaller than two objects worth separating. Untuned."
+mpc_pass_side_forget_sec:
+  default: 2.0
+  description: "A committed pass side not seen for this long [s] is forgotten. Untuned."
+mpc_blocked_enabled:
+  default: true
+  description: "End a move BLOCKED (stop, hold, /mpc/blocked -> the mission aborts with the reason) on no_progress, steering_lock_no_progress or no_feasible_plan, instead of waiting for the move timeout."
+mpc_blocked_progress_window_sec:
+  default: 2.5
+  description: "no_progress: commanding >= min_moving_speed_mps for this long [s] with an odometry path shorter than mpc_blocked_min_progress_m. At 0.4 m/s the car should cover 1.0 m in 2.5 s, and the start from rest takes < 0.5 s. Untuned."
+mpc_blocked_min_progress_m:
+  default: 0.15
+  description: "Progress [m] below which a window counts as no progress (odometry path for no_progress; displacement along the corridor heading for steering_lock_no_progress). Above the odometry's creep noise, far below 0.4 m/s x the windows. Untuned."
+mpc_blocked_lock_window_sec:
+  default: 2.0
+  description: "steering_lock_no_progress: a NON-turn move held at >= mpc_blocked_lock_fraction of the steering bound for this long [s] with < mpc_blocked_min_progress_m made along the corridor heading. Turns (goal_turn, drive wall_turn) are exempt. Untuned."
+mpc_blocked_lock_fraction:
+  default: 0.95
+  description: "Fraction of the steering bound (mpc_steering_angle_min/max_rad) that counts as full lock for steering_lock_no_progress."
+mpc_blocked_plan_check_sec:
+  default: 2.0
+  description: "How much of the plan [s] must keep the car body (swept_clearance_body_*) clear of every obstacle for a tick to count as feasible. Not the whole 4.0 s horizon: the keep-out rows come from this tick's linearisation, and a far stage that clips an obstacle is re-planned on the next ticks (the scenario harness showed a false BLOCKED with the obstacle 1.9 m away when the whole plan was checked). 2.0 s = 0.8 m at 0.4 m/s. Untuned."
+mpc_blocked_infeasible_sec:
+  default: 1.0
+  description: "no_feasible_plan: the solve failed, no side of an obstacle fits in the corridor, or the >= floor plan's body (swept_clearance_body_*) overlaps an obstacle, on every tick for this long [s]. Each such tick already commands 0, so this only decides how long a flickering detection gets before the move is ended. Untuned."
 max_reverse_speed_mps:
   default: 0.0
   description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
@@ -1286,6 +1351,39 @@ mpc_steering_angle_min_rad:
 mpc_steering_angle_max_rad:
   default: 0.319
   description: "Most positive steering angle [rad] mpc_corr's QP may command (+18.28 deg). Derived by inverting servo_min through steering_calibration.yaml's gain/offset, rounded inward -- NOT a mechanical measurement. Was a bare +1.05 literal."
+# ------------------------------------------------------------------
+# MPC HORIZON: CONTROL PERIOD vs PREDICTION STEP (M02 campaign fix A1,
+# 2026-10-09). Consumed by MPC_corr.py's declare_parameter() defaults
+# (get_value), no launch arg. Were ONE bare literal, self.ts = 0.1, plus
+# self.N = 20: a 2.0 s horizon, 0.8 m at the 0.4 m/s operating floor --
+# shorter than the 1.4 m at which R011's plant first appeared.
+mpc_control_period_sec:
+  default: 0.1
+  description: "mpc_corr's control-loop timer period [s]: one solve and one /drive command per period. Also how long u_0 is applied (v_cmd = v + a * period, the first rate row) and the warm-start shift (period / prediction step, in stages). Unchanged from the old shared literal."
+mpc_prediction_dt_sec:
+  default: 0.2
+  description: "Prediction step [s] of mpc_corr's model (Euler step, stage-to-stage rate rows, x_pred spacing, horizon reach N * dt * v). Must be >= mpc_control_period_sec. 0.2 with 20 steps gives a 4.0 s horizon: 1.6 m at 0.4 m/s, 2.0 m at the 0.5 m/s vdes default. Was the shared literal 0.1 (2.0 s, 0.8 m at 0.4 m/s). UNVERIFIED ON THE CAR: solve time measured on linus only (tools/mpc_solve_benchmark.py)."
+mpc_horizon_steps:
+  default: 20
+  description: "Number of prediction stages N in mpc_corr's QP. Unchanged from the old literal; the stage weights are normalised to it (mpc_solver.STAGE_WEIGHT_REF_HORIZON)."
+# CORRIDOR GEOMETRY (M02 campaign fix A2, 2026-10-09). Consumed by MPC_corr.py's
+# declare_parameter() defaults (get_value), no launch arg. Were bare literals in
+# MPC_corr.py (0.4333 / 0.7667 / 3.0); the Orin ran corr_L_base 1.5 from an
+# uncommitted edit. The corridor rows bound the REAR AXLE (the MPC state), not
+# the footprint: car_radius is not subtracted from them anywhere.
+corr_wmin:
+  default: 0.60
+  description: "Corridor HALF-width [m] at the car (start of the funnel). Wide fixed campaign corridor: a 0.5 m person centred in the corridor is passable when the rear axle can sit 0.25 + car_radius 0.20 + obstacle_safety_margin_m 0.12 = 0.57 m off the centreline, rounded to 0.60 (full width 1.2 m). Was 0.4333 (full width 0.87 m), which left no room past anything centred: R011's 0.3 m plant needed 0.15 + 0.32 = 0.47 m."
+corr_wmax:
+  default: 0.60
+  description: "Corridor HALF-width [m] at the far end; the funnel widens linearly from corr_wmin, at a rate of (wmax - wmin) / corr_L_base per metre. 0.60 = corr_wmin: a fixed-width corridor. Was 0.7667."
+corr_L_base:
+  default: 3.0
+  description: "Nominal / maximum corridor length [m]. Must stay >= the horizon reach N * mpc_prediction_dt_sec * vdes (2.0 m at 0.5 m/s) and the lookahead (corr_lookahead_frac x this) must clear 1.25 x that reach. 3.0 is the committed value; the Orin had an uncommitted 1.5."
+corr_lookahead_frac:
+  default: 0.85
+  description: "compute_local_target's lookahead as a fraction of the corridor length; floored at corr_lookahead_reach_margin (1.25) x the horizon reach N * dt * vdes. Was a 0.5 literal, which put the target (1.5 m on a 3.0 m corridor) INSIDE the 4.0 s horizon's 2.0 m reach once the prediction step became 0.2 s; the floor (2.5 m) then took over with a WARN every 5 s. 0.85 x 3.0 = 2.55 m sits just past the floor, so the terminal cost stays a direction pull."
+
 # Consumed by: MPC_corr.py's declare_parameter() default (get_value), no launch
 # arg. The bicycle model's L, and the wheelbase wall_turn.py's R_min is derived
 # from. Promoted from a bare 0.305 literal with the value unchanged.
@@ -1418,8 +1516,8 @@ mpc_w_obs:
 # measured) -- so any difference it makes shows up in the SUSTAINED holding
 # behaviour after the ramp, not in how fast the correction starts.
 mpc_w_du_delta:
-  default: 8.33
-  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2. Effective value 3.0 after the 7/20 stage scaling. Deliberately OFF the rho/sigma^2 derivation (which gives 23.8095, effective 8.33): that sigma double-counts the hard dDeltaMin/dDeltaMax rate bound as a soft cost. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD bound, which is not."
+  default: 8.5714
+  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2, AS TUNED AT A 0.1 s STEP: effective 3.0 after the 7/20 stage scaling (8.5714 x 0.35). Was 8.33 (effective 2.92 against the documented 3.0), restored 2026-10-12. The solver then scales it by (0.1 / step)^2 for the step each term spans (mpc_solver.RATE_WEIGHT_REF_DT): stage-to-stage terms span mpc_prediction_dt_sec 0.2 s -> x0.25 = 0.75 effective, the first term (u_0 vs the command on the car) one control period 0.1 s -> 3.0. The same physical steering rate over a 0.2 s step is twice the change and four times the penalty, so without that correction A1 had quietly made the term 4x stiffer. Deliberately OFF the rho/sigma^2 derivation (which gives 23.8095, effective 8.33): that sigma double-counts the hard dDeltaMin/dDeltaMax rate bound as a soft cost. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD bound, which is not."
 mpc_w_delta0:
   default: 0.0
   description: "PER-STAGE steering-MAGNITUDE weight. Stays 0.0: the car has a ~2 deg steering bias, so the correct steady-state command is nonzero and this term would fight holding a straight line."
@@ -2346,6 +2444,12 @@ mission_translator_timeout_floor:
 mission_translator_mission_id_prefix:
   default: "llm"
   description: "Prefix of the generated mission_id, which is f'{prefix}_{sha1(canonical_json(intent))[:12]}'. Deterministic on purpose: the same intent yields the same id, so golden tests are stable and a re-issued command is recognisable as the same mission. Never a timestamp."
+mission_translator_wall_default_distance:
+  default: 0.5
+  description: "Wall stop distance [m] (front_clearance stop_condition.distance) when an 'approach the wall' command names none (campaign fix A4, 2026-10-09). Was the module constant WALL_THRESH_DEFAULT_M 2.0, which R009 ran on with nothing in the mission saying so; the mission JSON now carries stop_condition.distance_source (llm / default / default_before_turn). 0.5 is the bottom of the wall guard's allowed range [0.5, 4.0]."
+mission_translator_wall_default_distance_before_turn:
+  default: 3.0
+  description: "Wall stop distance [m] when the next phase is a turn and the command names none: the turn starts where this phase ends, and a 90 deg wall_turn begun 1 m from the wall touched it. Unchanged from the old WALL_THRESH_BEFORE_TURN_M constant; a parameter now."
 mission_translator_post_turn_uses_straight:
   default: true
   description: "Decision D1. true: a straight phase after a turn is emitted as drive.mode 'straight', which is what plan_translate has always done and what missions/wall_turn_then_straight.json exercises. false restores the old workaround (re-emit it as a wall_turn carrying the previous turn's sign and zero magnitude) for the case where a straight move after a turn turns out not to hold its heading on hardware. NOT YET CONFIRMED ON HARDWARE -- wall_turn_then_straight.json has not been run."

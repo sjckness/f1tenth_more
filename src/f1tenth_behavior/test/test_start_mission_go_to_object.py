@@ -46,8 +46,10 @@ class _Node:
     def create_timer(self, *a, **k):
         return None
 
-    def declare_parameter(self, _name, default):
-        return types.SimpleNamespace(value=default)
+    def declare_parameter(self, name, default):
+        # No start countdown (dc158d2's mission_countdown_sec): this stub's
+        # create_timer never fires, so a countdown would hold LOADED forever.
+        return types.SimpleNamespace(value=0.0 if name == 'mission_countdown_sec' else default)
 
     def get_logger(self):
         return types.SimpleNamespace(
