@@ -958,23 +958,14 @@ corridor_update_period:
 # flip buys. Kept as a launch arg so the reference behaviour stays reachable
 # for the MATLAB/f110_autonomy comparison without a code change.
 #
-# AND FLIPPED BACK TO TRUE, UNEXPLAINED. ace2446 ("wip: corridor tuning, front
-# clearance node, detection launch rework") changed this value from false to
-# true and changed NOTHING ELSE -- not the description below, not the
-# measurement paragraph above, which still reads as though false is what
-# ships. The value is what runs, so the BLEND geometry is live today and the
-# paragraph above describes the configuration that does NOT run.
-#
-# WHICH ONE IS INTENDED IS UNRESOLVED. The measurement above argues for false
-# (0.089 m of lateral offset against 0.900 m); nothing recorded anywhere
-# argues for true. Settle it before reading either value as deliberate. The
-# object-branch corridor work has the same trade-off at its centre: the blend
-# drifts laterally precisely because this corridor has no lateral homing, so
-# whatever is decided here should be decided together with whether that homing
-# becomes its own cost term.
+# FALSE, DECIDED 2026-10-12 (it had been flipped to true in ace2446, "wip",
+# with no reason recorded). The reason is the measurement above: in the
+# 2026-09-08 A/B the frozen geometry beat the blend at BOTH rebuild periods,
+# lateral offset 0.09-0.11 m against 0.75-0.99 m, and the blend was the live
+# geometry in run 16-25-59 (a 60 deg heading swing, ended by the e-stop).
 corridor_heading_return:
-  default: true
-  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false: both ends frozen at the reference heading -- returns heading fastest and drifts least laterally. true (THE CURRENT DEFAULT, see the unresolved note above): blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour."
+  default: false
+  description: "Corridor heading-blend geometry on a straight (goal_distance) move. false (THE DEFAULT): both ends frozen at the reference heading -- returns heading fastest and drifts least laterally (2026-09-08 A/B: 0.09-0.11 m lateral vs 0.75-0.99 m for the blend at both rebuild periods). true: blend live yaw -> frozen heading across the corridor, the f110_autonomy reference behaviour; it was live in run 16-25-59 (60 deg swing, e-stop)."
 # Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), no launch
 # arg. The corridor S-curve's heading ramp, as fractions of the corridor length:
 # theta(u) = psiStart + dpsi * smoothstep((u - u_start) / (u_end - u_start)).
@@ -1525,8 +1516,8 @@ mpc_w_obs:
 # measured) -- so any difference it makes shows up in the SUSTAINED holding
 # behaviour after the ramp, not in how fast the correction starts.
 mpc_w_du_delta:
-  default: 8.33
-  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2. Effective value 3.0 after the 7/20 stage scaling. Deliberately OFF the rho/sigma^2 derivation (which gives 23.8095, effective 8.33): that sigma double-counts the hard dDeltaMin/dDeltaMax rate bound as a soft cost. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD bound, which is not."
+  default: 8.5714
+  description: "PER-STAGE steering-RATE weight on (delta_k - delta_{k-1})^2, AS TUNED AT A 0.1 s STEP: effective 3.0 after the 7/20 stage scaling (8.5714 x 0.35). Was 8.33 (effective 2.92 against the documented 3.0), restored 2026-10-12. The solver then scales it by (0.1 / step)^2 for the step each term spans (mpc_solver.RATE_WEIGHT_REF_DT): stage-to-stage terms span mpc_prediction_dt_sec 0.2 s -> x0.25 = 0.75 effective, the first term (u_0 vs the command on the car) one control period 0.1 s -> 3.0. The same physical steering rate over a 0.2 s step is twice the change and four times the penalty, so without that correction A1 had quietly made the term 4x stiffer. Deliberately OFF the rho/sigma^2 derivation (which gives 23.8095, effective 8.33): that sigma double-counts the hard dDeltaMin/dDeltaMax rate bound as a soft cost. This is the soft rate penalty, tradeable against tracking -- distinct from the HARD bound, which is not."
 mpc_w_delta0:
   default: 0.0
   description: "PER-STAGE steering-MAGNITUDE weight. Stays 0.0: the car has a ~2 deg steering bias, so the correct steady-state command is nonzero and this term would fight holding a straight line."
