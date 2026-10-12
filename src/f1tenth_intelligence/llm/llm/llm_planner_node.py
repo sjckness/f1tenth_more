@@ -98,6 +98,7 @@ valle (invariato dalla versione originaria):
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import os
@@ -197,7 +198,7 @@ CAMPI OBBLIGATORI:
     - "front_object": oggetto davanti piu' vicino di "thresh" metri.
     - "distance": percorsi "thresh" metri in questa fase.
 - "thresh": soglia NUMERICA (metri per wall/front_object/distance, radianti per turned).
-  Deve essere un numero, non una stringa: 3.0 e non "3.0 metri".
+  Deve essere un numero, non una stringa: 1.0 e non "1.0 metri".
 
 CAMPI OPZIONALI:
 - "turn_sign": OBBLIGATORIO se mode e' "wall_turn". -1.0 = DESTRA, +1.0 = SINISTRA.
@@ -205,14 +206,14 @@ CAMPI OPZIONALI:
 - "stop_at_distance": SOLO ULTIMA fase. Stop dopo N metri.
 
 REGOLE:
-- "vai dritto" -> "straight". "al muro" -> guard "wall" (thresh ~3.0).
+- "vai dritto" -> "straight". "al muro" -> guard "wall" (thresh ~1.0).
 - "gira a destra/sinistra" -> wall_turn, turn_sign -1.0/+1.0, di solito con guard "turned" thresh 1.3.
 - "avanza N metri" (finale) -> guard "distance", thresh N, stop_at_distance N.
 - "fermati all'oggetto/sedia" (finale) -> guard "front_object", thresh 1.0, stop_at 1.0.
 - "supera / oltrepassa / passa accanto a X" NON e' una fermata: l'evitamento ostacoli
   e' gestito dal controllore. Usa "distance" per proseguire, NON "stop_at".
 - Ogni fase DEVE avere un "guard". Se il comando dice solo "vai avanti" senza
-  destinazione, usa guard "wall" (thresh 3.0) come default.
+  destinazione, usa guard "wall" (thresh 1.0) come default.
 
 REGOLE STRUTTURALI (violarle blocca il robot):
 1. Dopo una svolta (wall_turn), per proseguire NON usare "straight"
@@ -229,7 +230,7 @@ Rispondi ESCLUSIVAMENTE con {"plan":[...]}. NIENTE testo o markdown.
 
 ESEMPIO 1:
 comando: "vai dritto, al muro gira a destra e avanza 2 metri"
-{"plan":[{"mode":"straight","guard":"wall","thresh":3.0},{"mode":"wall_turn","turn_sign":-1.0,"guard":"turned","thresh":1.3},{"mode":"wall_turn","turn_sign":-1.0,"guard":"distance","thresh":2.0,"stop_at_distance":2.0}]}
+{"plan":[{"mode":"straight","guard":"wall","thresh":1.0},{"mode":"wall_turn","turn_sign":-1.0,"guard":"turned","thresh":1.3},{"mode":"wall_turn","turn_sign":-1.0,"guard":"distance","thresh":2.0,"stop_at_distance":2.0}]}
 
 ESEMPIO 2 (ostacolo da superare, non da raggiungere):
 comando: "vai dritto, supera l'ostacolo e avanza 3 metri"
@@ -839,6 +840,15 @@ class LLMPlannerNode(Node):
         spec = PLANNER_PATH_SPEC[self._planner_path]
         prompt_desc = (f'prompts/{prompt_file}' if self._planner_path == 'v2'
                        else spec['prompt'])
+        # WHICH PROMPT planned this run, recorded in every /test/plan_result
+        # (and so in the campaign test's meta.json): the A4 prompt change
+        # made two prompts with the same file name, and a run is only
+        # comparable with runs planned by the same text.
+        self._prompt_file = prompt_desc
+        self._prompt_sha256 = hashlib.sha256(
+            self._system_prompt.encode('utf-8')).hexdigest()
+        self.get_logger().info(
+            f'system prompt {prompt_desc} sha256={self._prompt_sha256[:12]}')
         self.get_logger().info(
             f'planner_path={self._planner_path} -- prompt {prompt_desc}, '
             f'validazione {spec["validation"]}, traduttore {spec["translator"]}, '
@@ -956,6 +966,8 @@ class LLMPlannerNode(Node):
             'rejections': outcome.get('rejections') or [],
             'planner_status': outcome.get('status'),
             'attempts': outcome.get('attempts'),
+            'system_prompt_file': getattr(self, '_prompt_file', None),
+            'system_prompt_sha256': getattr(self, '_prompt_sha256', None),
         }
         self.test_plan_pub.publish(
             String(data=json.dumps(payload, ensure_ascii=False, default=str)))

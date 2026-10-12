@@ -282,6 +282,30 @@ _STAGE_WEIGHT_KEYS = (
 )
 
 
+# RATE WEIGHTS ARE PER STEP, AND THE STEP CHANGED (campaign fix A1 review).
+# w_du_delta / w_du_a penalise the change of a control BETWEEN TWO STEPS,
+# (u_k - u_{k-1})^2. The 2026-09-09 set was derived with sigma = dDeltaMax *
+# ts at ts = 0.1 s: the same physical steering RATE over a 0.2 s step is twice
+# the change and four times the penalty. So the literal stays what it was
+# tuned at (the ts = 0.1 s value, stack_params' 8.5714 -> 3.0 effective) and
+# the solver scales it by (RATE_WEIGHT_REF_DT / step)^2 for the step it
+# actually spans: the stage-to-stage terms span one prediction step (0.2 s
+# -> x 0.25, 3.0 -> 0.75 effective), the first term (u_0 against the
+# command on the car) one CONTROL period (0.1 s -> x 1). Every other weight
+# is on a state or an input value, not on a difference, and needs no dt
+# correction (the 7/N stage normalisation already keeps them balanced
+# against the terminal terms).
+RATE_WEIGHT_REF_DT = 0.1
+
+
+def rate_weight_factor(step_dt: float) -> float:
+    """(RATE_WEIGHT_REF_DT / step_dt)^2: the per-step rate-weight correction."""
+    step_dt = float(step_dt)
+    if not step_dt > 0.0:
+        return 1.0
+    return (RATE_WEIGHT_REF_DT / step_dt) ** 2
+
+
 def scale_stage_weights(weights: Dict, horizon: int) -> Dict:
     """Normalise the per-stage entries of *weights* for *horizon*.
 
@@ -319,6 +343,10 @@ def solve_mpc_step(
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     warm_start_z: Optional[np.ndarray] = None,
+    control_period: Optional[float] = None,
+    v_floor: Optional[float] = None,
+    v_floor_from_stage: Optional[int] = None,
+    keepouts: Optional[List[Dict]] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -353,6 +381,27 @@ def solve_mpc_step(
     turn can end tens of degrees away from anything the solver intends to
     do -- and which changes discontinuously every tick as last_u moves. The
     QP was being built around a reference nobody was steering toward.
+
+    ts vs control_period: ts is the PREDICTION step (the model's Euler step
+    and the spacing of x_pred); control_period is how long u_0 is actually
+    applied before the next solve replaces it. They used to be one number.
+    With them split (campaign: 0.2 s stages, 0.1 s loop) the stage-to-stage
+    rate rows stay rate * ts, but the first one -- u_0 against the command
+    already on the car -- is rate * control_period, because that is the time
+    the actuator really has between two commands. None means "same as ts",
+    the original single-step behaviour. RTI-ONLY, like warm_start_z.
+
+    v_floor / v_floor_from_stage (campaign fix A3, RTI-ONLY): a hard lower
+    bound v_k >= v_floor on the predicted speed of every stage k >=
+    v_floor_from_stage (1-based state index; blocked.first_floor_stage picks
+    it from the accel limits). The car is never operated between 0 and the
+    floor, so the plan must not rely on crawling. None = no floor (the
+    original vMin box).
+
+    keepouts (campaign fix A3, RTI-ONLY): blocked.KeepOut.as_dict() records.
+    Each adds a HARD one-sided lateral row on the rear axle at every stage
+    whose reference position lies in the record's along-track window -- see
+    blocked.py. None/[] = no rows (the original QP).
     """
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
@@ -362,12 +411,16 @@ def solve_mpc_step(
     if solver == 'slsqp':
         return _solve_slsqp(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
-            weights, obstacles, dmin, vdes)
+            weights, obstacles, dmin, vdes, control_period=control_period)
     elif solver == 'rti':
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
             weights, obstacles, dmin, vdes, boundaries=boundaries,
             warm_start_z=warm_start_z,
+            control_period=control_period,
+            v_floor=v_floor,
+            v_floor_from_stage=v_floor_from_stage,
+            keepouts=keepouts,
             boundary_max_sources=boundary_max_sources,
             boundary_hard=boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
@@ -415,9 +468,11 @@ def _solve_slsqp(
     weights: Dict,
     obstacles: List[Tuple[float, float, float]],
     dmin: float,
-    vdes: float
+    vdes: float,
+    control_period: Optional[float] = None,
 ) -> Tuple[np.ndarray, Dict]:
-    """Original solver, unchanged. See module docstring."""
+    """Original solver. See module docstring. control_period: the span of the
+    first rate constraint and rate cost (u_0 vs last_u); None = ts."""
     x0 = np.asarray(x0, dtype=float)
     last_u = np.asarray(last_u, dtype=float)
     pref_nom = np.asarray(pref_nom, dtype=float)
@@ -441,7 +496,8 @@ def _solve_slsqp(
                 params=params,
                 limits=limits,
                 obstacles=obstacles,
-                dmin=dmin
+                dmin=dmin,
+                control_period=control_period,
             )
         }
     ]
@@ -457,7 +513,8 @@ def _solve_slsqp(
             ts=ts,
             params=params,
             weights=weights,
-            vdes=vdes
+            vdes=vdes,
+            control_period=control_period,
         ),
         x0=z0,
         method="SLSQP",
@@ -697,7 +754,7 @@ def terminal_heading_target(corridor: Dict, psi_ref: float,
     return psi_ref_N + (float(turn) - progress)
 
 
-def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
+def shift_warm_start(zopt: np.ndarray, horizon: int, shift: float = 1.0) -> np.ndarray:
     """Shift a solved control sequence one step for the NEXT tick's warm start.
 
     z is the flat [delta_0, a_0, delta_1, a_1, ...] sequence _solve_rti
@@ -716,17 +773,36 @@ def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
     lag the plan by one period on every tick of a turn. The shift costs one
     array copy and removes that lag entirely.
 
+    A FRACTIONAL SHIFT, for a prediction step longer than the control
+    period. ``shift`` is how many PREDICTION STAGES one control period is:
+    control_period / prediction_dt, 1.0 when the two are the same (the
+    original behaviour, reproduced exactly) and 0.5 at the campaign's 0.1 s
+    loop over 0.2 s stages. The plan is a zero-order hold, u(t) = u_k on
+    [k dt, (k+1) dt); one control period later stage k covers
+    [(k + shift) dt, (k + 1 + shift) dt), which with shift = m + f straddles
+    u_{k+m} for (1 - f) of its length and u_{k+m+1} for f of it. The guess
+    for it is that time-weighted mix -- the half-step interpolation -- and
+    indices past the end repeat the last control, as the integer shift
+    always did.
+
     Returns a fresh array; the input is not modified. A zopt that is not
     2*horizon long (a truncated/garbage solve) returns None, so the caller
-    falls back to the tile rather than seeding OSQP with the wrong shape.
+    falls back to the tile rather than seeding OSQP with the wrong shape. So
+    does a non-finite or negative shift.
     """
     z = np.asarray(zopt, dtype=float).ravel()
     if z.size != 2 * horizon or not np.all(np.isfinite(z)):
         return None
-    shifted = np.empty_like(z)
-    shifted[: 2 * (horizon - 1)] = z[2:]
-    shifted[2 * (horizon - 1):] = z[2 * (horizon - 1):]
-    return shifted
+    shift = float(shift)
+    if not math.isfinite(shift) or shift < 0.0:
+        return None
+    u = z.reshape(horizon, 2)
+    m = int(math.floor(shift))
+    f = shift - m
+    idx0 = np.minimum(np.arange(horizon) + m, horizon - 1)
+    idx1 = np.minimum(idx0 + 1, horizon - 1)
+    shifted = (1.0 - f) * u[idx0] + f * u[idx1]
+    return shifted.ravel()
 
 
 def _solve_rti(
@@ -748,6 +824,10 @@ def _solve_rti(
     boundary_hard: bool = False,
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
+    control_period: Optional[float] = None,
+    v_floor: Optional[float] = None,
+    v_floor_from_stage: Optional[int] = None,
+    keepouts: Optional[List[Dict]] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -895,7 +975,10 @@ def _solve_rti(
             add_row(block[r].copy(), float(rhs[r]), float(rhs[r]))
 
     # ---- Control box + rate constraints (exact, same bounds as SLSQP path).
+    # Stage-to-stage rows span one prediction step (ts); the k = 0 row spans
+    # one control period -- see solve_mpc_step's ts vs control_period note.
     u_prev = last_u
+    ts_first = float(control_period) if control_period is not None else ts
     for k in range(N):
         row_d = np.zeros(n_z)
         row_d[u_idx(k)] = [1.0, 0.0]
@@ -907,8 +990,9 @@ def _solve_rti(
 
         rate_row_d = np.zeros(n_z)
         rate_row_d[u_idx(k)] += [1.0, 0.0]
-        rate_lo_d = limits["dDeltaMin"] * ts
-        rate_hi_d = limits["dDeltaMax"] * ts
+        ts_rate = ts if k > 0 else ts_first
+        rate_lo_d = limits["dDeltaMin"] * ts_rate
+        rate_hi_d = limits["dDeltaMax"] * ts_rate
         if k > 0:
             rate_row_d[u_idx(k - 1)] += [-1.0, 0.0]
         else:
@@ -918,8 +1002,8 @@ def _solve_rti(
 
         rate_row_a = np.zeros(n_z)
         rate_row_a[u_idx(k)] += [0.0, 1.0]
-        rate_lo_a = limits["dAMin"] * ts
-        rate_hi_a = limits["dAMax"] * ts
+        rate_lo_a = limits["dAMin"] * ts_rate
+        rate_hi_a = limits["dAMax"] * ts_rate
         if k > 0:
             rate_row_a[u_idx(k - 1)] += [0.0, -1.0]
         else:
@@ -957,7 +1041,10 @@ def _solve_rti(
         # is itself a decision variable, so the cross-dependency is captured
         # entirely by the off-diagonal P blocks below -- no separate q term
         # (adding one too, unconditionally, would double-count it).
-        Wdu = np.diag([weights["w_du_delta"], weights["w_du_a"]])
+        # Per-step rate weights, scaled for the step this term spans -- see
+        # RATE_WEIGHT_REF_DT.
+        Wdu = np.diag([weights["w_du_delta"], weights["w_du_a"]]) * rate_weight_factor(
+            ts_first if k == 0 else ts)
         P[uk_idx, uk_idx] += 2.0 * Wdu
         if k == 0:
             q[uk_idx] += -2.0 * Wdu @ last_u
@@ -1052,10 +1139,67 @@ def _solve_rti(
             P[xk1_idx, xk1_idx][2, 2] += 2.0 * weights["w_psi_stage"]
             q[xk1_idx][2] += weights["w_psi_stage"] * (-2.0 * psi_stage_target)
 
-        # speed bound: box on x_{k+1}[3].
+        # speed bound: box on x_{k+1}[3]. With the operating floor (A3) the
+        # lower edge is v_floor from the first stage the accel limits can
+        # reach it (state index k + 1 >= v_floor_from_stage).
         row_v = np.zeros(n_z)
         row_v[xk1_idx][3] = 1.0
-        add_row(row_v, limits["vMin"], limits["vMax"])
+        v_lo = limits["vMin"]
+        if (v_floor is not None and v_floor_from_stage is not None
+                and k + 1 >= int(v_floor_from_stage)):
+            v_lo = max(v_lo, float(v_floor))
+        add_row(row_v, v_lo, limits["vMax"])
+
+        # obstacle keep-outs (A3): hard, one-sided, on the stages whose
+        # reference position overlaps the obstacle along the corridor.
+        for ko in keepouts or ():
+            ox, oy = ko['o']
+            knx, kny = ko['n']
+            ktx, kty = ko['t']
+            n_dot_o = knx * ox + kny * oy
+            circles = ko.get('circles') or ()
+            if not circles:
+                # A3 form: the rear axle, d = r + car_radius + margin.
+                s_ref = ktx * (x_ref_k1[0] - ox) + kty * (x_ref_k1[1] - oy)
+                if not (ko['s_lo'] <= s_ref <= ko['s_hi']):
+                    continue
+                row_k = np.zeros(n_z)
+                row_k[xk1_idx][0] = knx
+                row_k[xk1_idx][1] = kny
+                if ko['side'] > 0:
+                    add_row(row_k, n_dot_o + ko['d'], np.inf)
+                else:
+                    add_row(row_k, -np.inf, n_dot_o - ko['d'])
+                continue
+            # Footprint circles (review item 1): centre c = p + off * e(psi),
+            # e linearised at the reference heading psi0:
+            #   n.c ~= n.p + off * (n.e0 + (n.e0p) (psi - psi0)),
+            # e0 = (cos psi0, sin psi0), e0p = (-sin psi0, cos psi0).
+            psi0 = float(x_ref_k1[2])
+            e0 = (math.cos(psi0), math.sin(psi0))
+            e0p = (-math.sin(psi0), math.cos(psi0))
+            n_e0 = knx * e0[0] + kny * e0[1]
+            n_e0p = knx * e0p[0] + kny * e0p[1]
+            for off, rc in circles:
+                cx_ref = x_ref_k1[0] + off * e0[0]
+                cy_ref = x_ref_k1[1] + off * e0[1]
+                reach = float(ko['r']) + float(rc) + float(ko['margin'])
+                s_ref = ktx * (cx_ref - ox) + kty * (cy_ref - oy)
+                # Padded by one stage of travel at the reference speed: the
+                # window is judged on the linearisation, which can lag the
+                # solution by about that much.
+                pad = abs(float(x_ref_k1[3])) * ts
+                if not (-reach - pad <= s_ref <= reach + pad):
+                    continue
+                row_k = np.zeros(n_z)
+                row_k[xk1_idx][0] = knx
+                row_k[xk1_idx][1] = kny
+                row_k[xk1_idx][2] = off * n_e0p
+                const = off * (n_e0 - n_e0p * psi0)
+                if ko['side'] > 0:
+                    add_row(row_k, n_dot_o + reach - const, np.inf)
+                else:
+                    add_row(row_k, -np.inf, n_dot_o - reach - const)
 
         # boundary constraints: ALWAYS exactly boundary_max_sources rows
         # (padded above), one per slot, at this stage's predicted (x, y) --
@@ -1182,7 +1326,8 @@ def _solve_rti(
     # docstring.
     true_cost = planner_cost_corridor(
         z=zopt, x0=x0, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
-        horizon=N, ts=ts, params=params, weights=weights, vdes=vdes)
+        horizon=N, ts=ts, params=params, weights=weights, vdes=vdes,
+        control_period=control_period)
 
     info = {
         "success": success,
@@ -1218,11 +1363,13 @@ def planner_cost_corridor(
     ts: float,
     params: Dict,
     weights: Dict,
-    vdes: float
+    vdes: float,
+    control_period: Optional[float] = None,
 ) -> float:
     z = np.asarray(z, dtype=float)
     x = np.asarray(x0, dtype=float).copy()
     u_prev = np.asarray(last_u, dtype=float).copy()
+    ts_first = float(control_period) if control_period is not None else ts
 
     J = 0.0
 
@@ -1317,8 +1464,9 @@ def planner_cost_corridor(
 
         # ================= regolarità =================
         du = uk - u_prev
-        J += weights["w_du_delta"] * du[0] ** 2
-        J += weights["w_du_a"] * du[1] ** 2
+        f_rate = rate_weight_factor(ts_first if k == 0 else ts)
+        J += f_rate * weights["w_du_delta"] * du[0] ** 2
+        J += f_rate * weights["w_du_a"] * du[1] ** 2
 
         u_prev = uk
 
@@ -1356,18 +1504,21 @@ def planner_nonlcon_corridor(
     params: Dict,
     limits: Dict,
     obstacles: List[Tuple[float, float, float]],
-    dmin: float
+    dmin: float,
+    control_period: Optional[float] = None,
 ) -> np.ndarray:
     z = np.asarray(z, dtype=float)
     x = np.asarray(x0, dtype=float).copy()
 
     c = []
     u_prev = np.asarray(last_u, dtype=float).copy()
+    ts_first = float(control_period) if control_period is not None else ts
 
-    # rate constraints
+    # rate constraints: u_0 vs the command on the car spans one control
+    # period, stage to stage one prediction step (same as the RTI rows).
     for k in range(horizon):
         uk = z[2 * k: 2 * k + 2]
-        du = (uk - u_prev) / ts
+        du = (uk - u_prev) / (ts_first if k == 0 else ts)
 
         c.append(du[0] - limits["dDeltaMax"])
         c.append(-du[0] + limits["dDeltaMin"])

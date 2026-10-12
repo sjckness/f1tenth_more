@@ -242,9 +242,12 @@ class TestFailureOutcomes:
         _feed_tracks(rig, [('7', 'person', 3.0, 0.0)])
         _tick(rig)
         rig.goto.tracks = []
-        results = [_tick(rig)[0] for _ in range(16)]
-        assert results[:15] == [S.SUCCESS] * 15
-        self._assert_failed(rig, wire, 'target_lost', results[15])
+        # 0.125 s steps are exact in binary: 16 x 0.1 added to a clock at
+        # time.monotonic() lands on 1.4999... about 4 times in 5, and the
+        # 1.5 s grace then fired one tick late (flaky by machine uptime).
+        results = [_tick(rig, dt=0.125)[0] for _ in range(13)]
+        assert results[:12] == [S.SUCCESS] * 12
+        self._assert_failed(rig, wire, 'target_lost', results[12])
 
     def test_target_unreachable_on_the_terminal_flag_for_this_move(self):
         rig = _rig()

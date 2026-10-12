@@ -50,8 +50,11 @@ OUTCOME_NOT_FOUND = 'target_not_found'
 OUTCOME_LOST = 'target_lost'
 OUTCOME_UNREACHABLE = 'target_unreachable'
 OUTCOME_TIMEOUT = 'timeout'
+# mpc_corr ended the move BLOCKED (campaign fix A3); decided by
+# CheckStopCondition from /mpc/blocked, not by this handler.
+OUTCOME_BLOCKED = 'blocked'
 OUTCOMES = (OUTCOME_REACHED, OUTCOME_NOT_FOUND, OUTCOME_LOST,
-            OUTCOME_UNREACHABLE, OUTCOME_TIMEOUT)
+            OUTCOME_UNREACHABLE, OUTCOME_TIMEOUT, OUTCOME_BLOCKED)
 
 
 @dataclass(frozen=True)

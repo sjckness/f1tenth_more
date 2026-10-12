@@ -399,7 +399,9 @@ def write_demo(path, seed=0):
         path,
         data,
         delimiter=",",
-        header="t,t_mpc,delta_cmd,delta_real,a_cmd,v_cmd,wheel_speed_cmd,v_real,a_imu",
+        # The 7 columns actually written below, named as ModelLogWriter.HEADER
+        # and this script's own reader expect (was 9 names for 7 columns).
+        header="t,x,y,psi,v,steer_cmd,accel_cmd",
         comments="",
         fmt="%.6f",
     )

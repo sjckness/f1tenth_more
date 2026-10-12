@@ -1,0 +1,47 @@
+{
+  "run_id": "20260918_160025",
+  "started": "2026-09-18T16:00:25+02:00",
+  "command_template": "ros2 run llm llm_planner_node <prompt> --dry-run",
+  "via_shell_wrapper": false,
+  "cli_options": {
+    "repeat": 1,
+    "only": [
+      "straight_turn_01",
+      "goal_01",
+      "complex_01"
+    ],
+    "timeout": 120.0,
+    "resume": null,
+    "ros_param": []
+  },
+  "prompts_file": "/home/fabiocar/dev_ws/f1tenth_more/test_campaign/prompts.json",
+  "prompts_sha256": "1fd6ddd51d0615d4ce80239f37079003de363cfb78381df25cef55b0f5263895",
+  "prompts_count": 3,
+  "planned_runs": 3,
+  "git": {
+    "llm_package_commit": "6260f761d09e32f51f3117a535bee8a559f65974",
+    "llm_package_commit_subject": "mpc: object approach drives at the move speed, floored at 0.4, and stops on a latched trigger",
+    "workspace_head": "8cde87fb90a11be92cd49052cf7e3861e31f21ce",
+    "branch": "scene-graph",
+    "llm_package_dirty": true,
+    "llm_package_dirty_files": [
+      "M src/f1tenth_intelligence/llm/llm/llm_planner_node.py"
+    ]
+  },
+  "llm": {
+    "source": "/home/fabiocar/dev_ws/f1tenth_more/src/f1tenth_intelligence/llm/config",
+    "model_name": "qwen25_3b_instruct",
+    "model": {
+      "model_path": "~/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf",
+      "port": 8083,
+      "extra_args": [
+        "-ngl",
+        "999"
+      ]
+    },
+    "LLAMA_URL": "\"http://127.0.0.1:8083/completion\"",
+    "LLAMA_TIMEOUT": "90.0",
+    "DEFAULT_PLANNER_PATH": "'v2'",
+    "MAX_INTENT_RETRIES": "2"
+  }
+}

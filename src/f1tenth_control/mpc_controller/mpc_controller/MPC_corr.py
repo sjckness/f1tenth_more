@@ -23,6 +23,10 @@ from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
+from mpc_controller.blocked import (
+    BlockedDetector, BodyBox, WallDistanceWait, first_floor_stage, footprint_circles, gate_speed,
+    plan_body_gap, plan_keepouts)
+from mpc_controller.pass_side import PassSideMemory
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
@@ -584,6 +588,50 @@ class MPCController(Node):
                 'object_reach_tol_m', get_value('object_reach_tol_m')).value),
             float(self.declare_parameter(
                 'object_stop_distance_m', get_value('object_stop_distance_m')).value))
+
+        # ---- THE FLOOR ON EVERY MOVE, KEEP-OUTS, BLOCKED (campaign fix A3) --
+        # See mpc_controller/blocked.py for what each does and why R011 needed
+        # all three. All read from stack_params.yaml.
+        def _p(name):
+            return self.declare_parameter(name, get_value(name)).value
+        self.min_speed_all_moves = bool(_p('mpc_min_speed_all_moves'))
+        self.keepout_enabled = bool(_p('mpc_obstacle_keepout_enabled'))
+        self.blocked_enabled = bool(_p('mpc_blocked_enabled'))
+        self.body_box = BodyBox(
+            front=float(_p('swept_clearance_body_front_x_m')),
+            rear=float(_p('swept_clearance_body_rear_x_m')),
+            half_width=float(_p('swept_clearance_body_half_width_m')))
+        # B8: a wall_turn that has no valid front distance waits, straight,
+        # this long [s] before ending BLOCKED "no_wall_distance".
+        self.wall_distance_wait = WallDistanceWait(float(_p('wall_turn_distance_timeout_s')))
+        self.blocked_detector = BlockedDetector(
+            self.min_moving_speed,
+            float(_p('mpc_blocked_progress_window_sec')),
+            float(_p('mpc_blocked_min_progress_m')),
+            float(_p('mpc_blocked_lock_window_sec')),
+            float(_p('mpc_blocked_lock_fraction')),
+            float(_p('mpc_blocked_infeasible_sec')))
+        # Keep-out rows on N footprint circles (review item 1; 0 = the A3
+        # rear-axle row) and the committed pass side per obstacle (review
+        # item 2, pass_side.py -- the single source of truth, published on
+        # /mpc/pass_sides).
+        self.blocked_plan_check_sec = float(_p('mpc_blocked_plan_check_sec'))
+        n_circles = int(_p('mpc_keepout_footprint_circles'))
+        self.footprint_circles = (footprint_circles(self.body_box, n_circles)
+                                  if n_circles > 0 else ())
+        self.pass_side_memory = PassSideMemory(
+            match_radius_m=float(_p('mpc_pass_side_match_radius_m')),
+            forget_after_s=float(_p('mpc_pass_side_forget_sec')))
+        self.pass_sides_pub = self.create_publisher(String, '/mpc/pass_sides', 10)
+        # The verdict that ended the current move, latched until the next one.
+        self.blocked_verdict = None
+        self._move_is_turn = False
+        self._floor_raised_logged = False
+        # Last tick's feasibility facts, for the log and /mpc/status (A5).
+        self.last_tick_feasible = True
+        self.last_plan_gap = math.inf
+        self.last_keepout_report = []
+        self.blocked_pub = self.create_publisher(String, '/mpc/blocked', 10)
         self.object_speed_mode = None   # object_approach SPEED_*, this tick
         # Per-tick flags (see _assess_object_tick). The heading margin is not a
         # parameter: it is derived from r_freeze, the closest range the
@@ -726,8 +774,29 @@ class MPCController(Node):
         self.warm_start_z: Optional[np.ndarray] = None
 
         self.wheel_radius = 0.05
-        self.ts = 0.1
-        self.N = 20
+        # CONTROL PERIOD vs PREDICTION STEP -- two numbers since the M02
+        # campaign fix (A1); they were both the literal self.ts = 0.1.
+        #   self.ts       the control period: the timer, how long u_0 is on
+        #                 the car (v_cmd = v + a * ts, the k = 0 rate rows),
+        #                 the warm-start shift, and the loop-budget checks.
+        #   self.ts_pred  the prediction step: the model's Euler step, the
+        #                 stage-to-stage rate rows, x_pred's spacing, and
+        #                 every "how far does the horizon reach" product
+        #                 N * ts_pred * v.
+        # At 20 x 0.2 s the horizon is 4.0 s -- 1.6 m at 0.4 m/s, against
+        # 0.8 m at 20 x 0.1 s, which was shorter than the 1.4 m at which R011
+        # first saw its plant.
+        self.ts = float(self.declare_parameter(
+            'mpc_control_period_sec', get_value('mpc_control_period_sec')).value)
+        self.ts_pred = float(self.declare_parameter(
+            'mpc_prediction_dt_sec', get_value('mpc_prediction_dt_sec')).value)
+        self.N = int(self.declare_parameter(
+            'mpc_horizon_steps', get_value('mpc_horizon_steps')).value)
+        if not (self.ts > 0.0 and self.ts_pred >= self.ts and self.N >= 2):
+            raise ValueError(
+                f'mpc_control_period_sec={self.ts}, mpc_prediction_dt_sec='
+                f'{self.ts_pred}, mpc_horizon_steps={self.N}: need period > 0, '
+                'prediction step >= period and at least 2 steps')
 
         # UPGRADE: rough footprint radius used for the predicted-clearance check.
         # In-code default (0.20) matches stack_params.yaml's car_radius key, the
@@ -844,7 +913,8 @@ class MPCController(Node):
         # Corridoio MATLAB-like
         #
         # Narrowed to 1/3 width on request (2026-09-07): corr_wmin 1.3 ->
-        # 0.4333, corr_wmax 2.3 -> 0.7667. Those are kept.
+        # 0.4333, corr_wmax 2.3 -> 0.7667. SUPERSEDED 2026-10-09 by the
+        # campaign's wide fixed corridor, 0.60 / 0.60 (see below).
         #
         # corr_L_base was shortened to 1/2 (3.0 -> 1.5) in the same request and
         # has been RESTORED to 3.0 (2026-09-08). It could not stay at 1.5: the
@@ -871,10 +941,26 @@ class MPCController(Node):
         # floor/clamp on length: its goal_distance branch uses
         # max(corr_L_base, 1.0) and its goal_pose branch clips the
         # car-to-goal distance into [1.0, corr_L_base].
-        self.corr_L_base = 3.0
+        #
+        # ROS PARAMETERS SINCE THE M02 CAMPAIGN FIX (A2), read from
+        # stack_params.yaml: the Orin ran corr_L_base 1.5 from an uncommitted
+        # edit of this literal, and nothing on disk recorded it. The campaign
+        # default is a WIDE FIXED corridor, half-width 0.60 at both ends (no
+        # funnel): the rows bound the rear axle, so passing a 0.5 m person
+        # centred in the corridor needs 0.25 + car_radius 0.20 + margin 0.12
+        # = 0.57 m of lateral room for the axle. corr_L_base 3.0 >= the 2.0 m
+        # horizon reach at vdes 0.5 (A1).
+        self.corr_L_base = float(self.declare_parameter(
+            'corr_L_base', get_value('corr_L_base')).value)
         self.corr_N = 120
-        self.corr_wmin = 0.4333
-        self.corr_wmax = 0.7667
+        self.corr_wmin = float(self.declare_parameter(
+            'corr_wmin', get_value('corr_wmin')).value)
+        self.corr_wmax = float(self.declare_parameter(
+            'corr_wmax', get_value('corr_wmax')).value)
+        if not (0.0 < self.corr_wmin <= self.corr_wmax and self.corr_L_base >= 1.0):
+            raise ValueError(
+                f'corr_wmin={self.corr_wmin}, corr_wmax={self.corr_wmax}, '
+                f'corr_L_base={self.corr_L_base}: need 0 < wmin <= wmax and L >= 1.0')
 
         # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
         # It used to be a bare `lookahead = 1.5` inside compute_local_target
@@ -888,7 +974,13 @@ class MPCController(Node):
         # The reference implementation runs lookahead 1.5 on L 3.0 -- the
         # target sits mid-corridor and advances -- so the ratio, not the
         # absolute value, is the tuned quantity.
-        self.corr_lookahead_frac = 0.5
+        #
+        # 0.5 -> 0.85 with the 0.2 s prediction step (campaign fix A1): the
+        # 4.0 s horizon reaches 2.0 m at vdes 0.5, so 0.5 x 3.0 = 1.5 m fell
+        # inside the reach and the floor below took over with a warning.
+        # A ROS parameter now; see corr_lookahead_frac in stack_params.yaml.
+        self.corr_lookahead_frac = float(self.declare_parameter(
+            'corr_lookahead_frac', get_value('corr_lookahead_frac')).value)
         # Floor, as a multiple of the horizon's physical reach (N*ts*vdes).
         # The reference's target sat beyond its horizon's 0.28 m reach, which
         # is what makes the terminal cost behave as a direction pull
@@ -1868,6 +1960,7 @@ class MPCController(Node):
         self._apply_nice()
 
         self.timer = self.create_timer(self.ts, self.control_loop)
+        self._publish_config()
 
         self.get_logger().info(
             'MPC Controller STARTED (pure MPC + obstacle avoidance '
@@ -1876,7 +1969,8 @@ class MPCController(Node):
 
         # ---- DEBUG: dump della configurazione all'avvio ----
         self.get_logger().info(
-            f'CFG | ts={self.ts} N={self.N} vdes={self.vdes} dmin={self.dmin} '
+            f'CFG | control_period={self.ts} prediction_dt={self.ts_pred} N={self.N} '
+            f'horizon={self.N * self.ts_pred:.2f}s vdes={self.vdes} dmin={self.dmin} '
             f'wheel_radius={self.wheel_radius} car_radius={self.car_radius} '
             f'avoidance_margin={self.avoidance_margin}'
         )
@@ -2013,6 +2107,12 @@ class MPCController(Node):
         # run releases the hold, before that run's first goal arrives.
         if msg.data and self.object_psi_c is not None:
             self._end_object_move('hold engaged')
+        # A hold pauses the move; standing still under it is not "stuck".
+        # A latched verdict stays until the next move.
+        if not msg.data and getattr(self, 'blocked_verdict', None) is None:
+            detector = getattr(self, 'blocked_detector', None)
+            if detector is not None:
+                detector.reset()
 
     def goal_distance_callback(self, msg: Float32):
         if self.x is None or self.y is None:
@@ -2677,6 +2777,9 @@ class MPCController(Node):
         self._no_goal_warned = False
         self._clear_drive_state()
         self._invalidate_move_state()
+        # A turn holds steering lock by design: the BLOCKED detector's
+        # steering-lock rule does not apply to it (A3).
+        self._move_is_turn = True
 
         # vdes override for the duration of the turn -- the one real
         # (non-stub) per-move vdes path in this file today. move.vdes at the
@@ -2947,6 +3050,10 @@ class MPCController(Node):
         # or held to the previous turn's end heading.
         self.wall_turn_committed = False
         self.wall_turn_commanded_rot = None
+        # The B8 wait for a valid front distance is per turn too.
+        wait = getattr(self, 'wall_distance_wait', None)
+        if wait is not None:
+            wait.reset()
         # And the tracked wall: it was THAT turn's wall, gated against THAT
         # turn's commit heading. getattr for the duck-typed test stand-ins.
         tracker = getattr(self, 'wall_tracker', None)
@@ -3041,6 +3148,20 @@ class MPCController(Node):
         if latch is not None:
             latch.reset()
         self.object_speed_mode = None
+        # A NEW MOVE is the only thing that clears a BLOCKED latch (A3).
+        # getattr for the duck-typed stand-ins.
+        if getattr(self, 'blocked_verdict', None) is not None:
+            self.get_logger().info(
+                f'BLOCKED | cleared by a new move (was {self.blocked_verdict.reason})')
+        self.blocked_verdict = None
+        memory = getattr(self, 'pass_side_memory', None)
+        if memory is not None:
+            memory.reset()
+        self._move_is_turn = False
+        self._floor_raised_logged = False
+        detector = getattr(self, 'blocked_detector', None)
+        if detector is not None:
+            detector.reset()
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
         # A new move's first corridor has nothing meaningful to be a step FROM
@@ -3415,6 +3536,109 @@ class MPCController(Node):
             msg.since_last_fit_sec = math.nan
         self.wall_track_pub.publish(msg)
 
+    def _publish_config(self):
+        """/mpc/config: EVERY effective value, once, latched (review item 5).
+
+        All declared ROS parameters (which now include the former literals:
+        ts / ts_pred / N, corr_wmin / corr_wmax / corr_L_base, ...) plus the
+        values that are still literals in this file (the solver's accel and
+        rate bounds, lr, corr_N, the lookahead reach margin, the footprint
+        circles). Transient-local, so the mission bag and the campaign logger
+        get it whenever they start.
+        """
+        try:
+            params = {name: p.value for name, p in sorted(self._parameters.items())}
+            config = {
+                'node': self.get_name(),
+                'ros_parameters': params,
+                'literals': {
+                    'control_period_s': self.ts, 'prediction_dt_s': self.ts_pred,
+                    'horizon_steps': self.N, 'model': dict(self.params),
+                    'limits': dict(self.limits), 'weights': dict(self.weights),
+                    'wheel_radius': self.wheel_radius, 'corr_N': self.corr_N,
+                    'corr_L_base': self.corr_L_base, 'corr_wmin': self.corr_wmin,
+                    'corr_wmax': self.corr_wmax,
+                    'corr_lookahead_frac': self.corr_lookahead_frac,
+                    'corr_lookahead_reach_margin': self.corr_lookahead_reach_margin,
+                    'vdes_default': self.vdes, 'dmin': self.dmin,
+                    'body_box': vars(self.body_box) if hasattr(self.body_box, '__dict__')
+                    else {'front': self.body_box.front, 'rear': self.body_box.rear,
+                          'half_width': self.body_box.half_width},
+                    'footprint_circles': [list(c) for c in self.footprint_circles],
+                },
+            }
+            qos = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                             reliability=ReliabilityPolicy.RELIABLE,
+                             history=HistoryPolicy.KEEP_LAST)
+            self.config_pub = self.create_publisher(String, '/mpc/config', qos)
+            self.config_pub.publish(String(data=json.dumps(config, default=str)))
+        except Exception as exc:  # noqa: BLE001 - diagnostics must not stop the node
+            self.get_logger().warn(f'/mpc/config not published: {exc}')
+
+    def _cold_warm_start(self):
+        """The linearisation guess when there is no previous plan (a new move,
+        a failed solve): the steering on the car RAMPED BACK TO ZERO at the
+        hard rate, zero acceleration -- not last_u held for the whole horizon.
+
+        Found with the scenario harness (2026-10-12): after a BLOCKED the car
+        sat at full lock (0.326 rad, a hair past the 0.319 bound); the solver
+        tiled that across 20 x 0.2 s, linearised the corridor rows around a
+        full circle, came back primal-infeasible on every tick of the NEXT
+        move, and ended it BLOCKED 1.1 s after it started -- with nothing in
+        the way. The ramp is dynamically feasible from where the steering
+        really is, and it is a straight-ish path the corridor can be
+        linearised along.
+        """
+        lo, hi = self.limits['delta_min'], self.limits['delta_max']
+        delta = float(np.clip(self.last_u[0], lo, hi))
+        step = self.limits['dDeltaMax'] * self.ts_pred
+        out = np.zeros(2 * self.N)
+        for k in range(self.N):
+            delta = math.copysign(max(abs(delta) - (self.limits['dDeltaMax'] * self.ts
+                                                     if k == 0 else step), 0.0), delta)
+            out[2 * k] = delta
+        return out
+
+    def _move_kind(self):
+        """Which kind of move is active, for the BLOCKED record."""
+        if self.drive_cmd is not None:
+            return f'drive:{self.drive_cmd.get("mode")}'
+        if self.goal_object_odom_xy is not None:
+            return 'go_to_object'
+        if self.goal_pose_xy is not None:
+            return 'turn' if self._move_is_turn else 'goal_pose'
+        if self.goal_distance is not None:
+            return 'goal_distance'
+        return 'none'
+
+    def _latch_blocked(self, verdict):
+        self.blocked_verdict = verdict
+        self.blocked_record = {
+            'reason': verdict.reason,
+            'detail': verdict.detail,
+            'move_kind': self._move_kind(),
+            'move_id': getattr(self, 'goal_object_move_id', None)
+            if self.goal_object_odom_xy is not None else None,
+            'x': round(float(self.x), 3), 'y': round(float(self.y), 3),
+            'yaw': round(float(self.yaw), 3),
+            't_ros': self.get_clock().now().nanoseconds * 1e-9,
+            'keepouts': self.last_keepout_report,
+        }
+        self.get_logger().error(
+            f'BLOCKED | {verdict.reason} {json.dumps(verdict.detail)} on '
+            f'{self.blocked_record["move_kind"]}: stop and hold, the mission is told '
+            'on /mpc/blocked')
+
+    def _publish_blocked(self):
+        record = getattr(self, 'blocked_record', None)
+        if record is None:
+            return
+        try:
+            self.blocked_pub.publish(String(data=json.dumps(record, default=str)))
+        except Exception as exc:  # noqa: BLE001 - the stop must not depend on it
+            self.get_logger().warn(f'/mpc/blocked not published: {exc}',
+                                   throttle_duration_sec=5.0)
+
     def _publish_drive(self, speed, steering_angle):
         requested = speed
         speed, clamped = clamp_drive_speed(
@@ -3521,6 +3745,14 @@ class MPCController(Node):
             self._publish_stop()
             return
 
+        if self.blocked_verdict is not None:
+            # BLOCKED (A3): the move is over for this node. Zero speed,
+            # steering held where it was, and the verdict repeated every tick
+            # so the mission cannot miss it. Only a new move clears it.
+            self._publish_drive(0.0, self._last_published_steer)
+            self._publish_blocked()
+            return
+
         # ONE map -> odom reprojection per tick, shared by the goal_distance
         # progress check below and by build_straight_corridor's own
         # goal_distance branch further down -- see _refresh_goal_anchor's own
@@ -3542,6 +3774,24 @@ class MPCController(Node):
         # every tick of a wall_turn (no-op otherwise), BEFORE the corridor
         # rebuild below reads it.
         self._wall_track_tick()
+
+        if (self.drive_cmd is not None and self.drive_cmd.get('mode') == 'wall_turn'
+                and not self.wall_turn_committed and self.blocked_enabled):
+            # B8: NO WALL DECISION WITHOUT A DISTANCE. Until the turn commits
+            # it needs a valid /perception/front_distance (fresh, >= 0); the
+            # corridor stays straight meanwhile (wall_turn.plan_wall_turn_step
+            # never commits on an unknown one). If none arrives within
+            # wall_turn_distance_timeout_s, the move ends BLOCKED rather than
+            # driving on toward a wall it cannot see.
+            verdict = self.wall_distance_wait.update(
+                self.get_clock().now().nanoseconds * 1e-9,
+                self._fresh_front_distance() is not None)
+            if verdict is not None:
+                self._latch_blocked(verdict)
+                self.last_u[1] = 0.0
+                self._publish_drive(0.0, self._last_published_steer)
+                self._publish_blocked()
+                return
 
         if self.drive_cmd is not None:
             # DRIVE MODE -- open-ended, and the ONLY branch here with no
@@ -3805,6 +4055,18 @@ class MPCController(Node):
             # force for the next move.
             vdes = self._object_vdes
 
+        if (self.min_speed_all_moves and 0.0 < vdes < self.min_moving_speed):
+            # THE FLOOR ON EVERY MOVE (A3): a move asking for 0 < v < floor is
+            # driven at the floor, not refused -- drive_turn_180.json & co.
+            # still ask for 0.3. Said once per move.
+            if not self._floor_raised_logged:
+                self.get_logger().warn(
+                    f'SPEED/floor | move speed {vdes:.2f} m/s is below '
+                    f'min_moving_speed_mps {self.min_moving_speed:.2f}: driving '
+                    f'at {self.min_moving_speed:.2f}')
+                self._floor_raised_logged = True
+            vdes = self.min_moving_speed
+
         now_time = self.get_clock().now()
         now_sec = now_time.nanoseconds * 1e-9
 
@@ -3906,6 +4168,35 @@ class MPCController(Node):
         self.get_logger().info(
             f'BOUNDARY/live | n={len(live_boundaries)}', throttle_duration_sec=2.0)
 
+        # ---- A3: the floor in the QP and the obstacle keep-outs -----------
+        floor_kwargs = {}
+        if self.min_speed_all_moves:
+            floor_kwargs['v_floor'] = self.min_moving_speed
+            floor_kwargs['v_floor_from_stage'] = first_floor_stage(
+                float(x0[3]), float(self.last_u[1]), self.min_moving_speed,
+                self.limits['a_max'], self.limits['dAMax'], self.ts_pred,
+                self.ts, self.N)
+        keepout_plan = None
+        if self.keepout_enabled:
+            keepout_plan = plan_keepouts(
+                obstacles_global, corridor, (float(x0[0]), float(x0[1])),
+                self.car_radius, self.avoidance_margin, self.body_box,
+                self.N * self.ts_pred * max(vdes, self.min_moving_speed),
+                memory=self.pass_side_memory, now=now_sec,
+                circles=self.footprint_circles)
+            floor_kwargs['keepouts'] = [k.as_dict() for k in keepout_plan.keepouts]
+            self.last_keepout_report = keepout_plan.report
+            try:
+                self.pass_sides_pub.publish(String(data=json.dumps(
+                    {'t': now_sec, 'frame_id': 'odom', 'obstacles': keepout_plan.report})))
+            except Exception as exc:  # noqa: BLE001 - diagnostics only
+                self.get_logger().warn(f'/mpc/pass_sides not published: {exc}',
+                                       throttle_duration_sec=5.0)
+            if keepout_plan.report:
+                self.get_logger().info(
+                    f'KEEPOUT | {json.dumps(keepout_plan.report)}',
+                    throttle_duration_sec=1.0)
+
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
         u0, info = solve_mpc_step(
@@ -3914,7 +4205,7 @@ class MPCController(Node):
             pref_nom=pref_nom,
             corridor=corridor,
             horizon=self.N,
-            ts=self.ts,
+            ts=self.ts_pred,
             params=self.params,
             limits=self.limits,
             weights=self._weights_for(corridor),
@@ -3926,7 +4217,10 @@ class MPCController(Node):
             boundary_max_sources=self.boundary_max_sources,
             boundary_hard=self.boundary_hard,
             boundary_slack_weight=self.boundary_slack_weight,
-            warm_start_z=self.warm_start_z,
+            warm_start_z=(self.warm_start_z if self.warm_start_z is not None
+                          else self._cold_warm_start()),
+            control_period=self.ts,
+            **floor_kwargs,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
@@ -3955,7 +4249,11 @@ class MPCController(Node):
         # (non-finite, infeasibility certificate), so that flag -- not the
         # status string -- is the right discriminator.
         if info.get("success", False):
-            self.warm_start_z = shift_warm_start(info.get("zopt"), self.N)
+            # One control period later the car is ts / ts_pred stages into
+            # this plan: a fractional shift when the stage is longer than the
+            # period (see shift_warm_start).
+            self.warm_start_z = shift_warm_start(
+                info.get("zopt"), self.N, shift=self.ts / self.ts_pred)
         else:
             self.warm_start_z = None
 
@@ -3970,6 +4268,41 @@ class MPCController(Node):
         # cost is NaN when the backend reports none -- carried through as NaN
         # rather than coerced to 0.0, which would read as a converged zero-cost
         # solution.
+        # A3 feasibility facts, computed HERE (before /mpc/status goes out)
+        # and used by the speed gate and the BLOCKED detector further down.
+        # Only the NEAR part of the plan is held against the obstacles: the
+        # keep-out rows are placed from this tick's linearisation, so a stage
+        # far down the horizon can still clip an obstacle the next ticks will
+        # plan around (seen in the scenario harness: a false BLOCKED with the
+        # obstacle 1.9 m away). mpc_blocked_plan_check_sec of it must be clear.
+        x_pred_all = info.get('x_pred')
+        n_check = max(1, int(math.ceil(self.blocked_plan_check_sec / self.ts_pred)))
+        plan_gap = plan_body_gap(
+            None if x_pred_all is None else x_pred_all[:n_check + 1],
+            obstacles_global, self.body_box)
+        no_side = bool(keepout_plan.blocked) if keepout_plan is not None else False
+        feasible = (bool(info.get('success', False)) and not no_side
+                    and not plan_gap < 0.0)
+        self.last_tick_feasible = feasible
+        self.last_plan_gap = plan_gap
+        half_w = corridor.get('halfWidth')
+        self._campaign_extra = {
+            'feasible': feasible,
+            'plan_body_gap_m': (round(plan_gap, 3) if math.isfinite(plan_gap) else None),
+            'no_side_fits': len(keepout_plan.blocked) if keepout_plan is not None else 0,
+            'keepouts': [
+                {'c': r.get('c'), 'r': r.get('r'), 'd': r.get('d'), 'side': r.get('side'),
+                 's_ahead': r.get('s_ahead')}
+                for r in (keepout_plan.report if keepout_plan is not None else [])
+                if 'skip' not in r],
+            'v_floor_from_stage': floor_kwargs.get('v_floor_from_stage'),
+            'vdes': round(float(vdes), 3),
+            'half_width_start': (None if half_w is None or len(half_w) == 0
+                                 else round(float(half_w[0]), 4)),
+            'half_width_end': (None if half_w is None or len(half_w) == 0
+                               else round(float(half_w[-1]), 4)),
+        }
+
         status_msg = MpcSolverStatus()
         status_msg.header.stamp = self.get_clock().now().to_msg()
         status_msg.success = bool(info.get('success', False))
@@ -4047,7 +4380,10 @@ class MPCController(Node):
                     throttle_duration_sec=1.0
                 )
 
-        delta_cmd = float(u0[0])
+        # Clipped into the steering bounds: an inaccurate OSQP solve can
+        # return a hair (or, seen in the harness, 0.07 rad) past them, and that
+        # value went straight to /drive.
+        delta_cmd = float(np.clip(u0[0], self.limits['delta_min'], self.limits['delta_max']))
         a_cmd = float(u0[1])
         self.get_logger().info(f'INPUT MPC -> delta={delta_cmd:.4f}, a={a_cmd:.4f}')
 
@@ -4071,7 +4407,13 @@ class MPCController(Node):
             f'd_delta={d_delta:+.5f} d_a={d_a:+.5f}'
         )
 
-        self.last_u = np.array([delta_cmd, a_cmd], dtype=float)
+        # What is actually on the car: the steering clipped into its bounds
+        # (OSQP may return a hair past them -- 0.326 against 0.319 was seen)
+        # and, on a tick that commands a stop, no acceleration to carry into
+        # the next solve's rate rows.
+        self.last_u = np.array([
+            float(np.clip(delta_cmd, self.limits['delta_min'], self.limits['delta_max'])),
+            a_cmd], dtype=float)
 
         v_cmd_now = self.v + a_cmd * self.ts
         if self.goal_object_odom_xy is not None and self.object_speed_mode == SPEED_DRIVE:
@@ -4079,6 +4421,42 @@ class MPCController(Node):
             # non-driving object tick returned above, so this is only ever a
             # moving approach; the top of the range is _publish_drive's clamp.
             v_cmd_now = floor_moving_speed(v_cmd_now, self.min_moving_speed)
+
+        # ---- A3: 0 or >= the floor, and BLOCKED --------------------------
+        # Feasible = a usable solve, a side for every obstacle in the way,
+        # and a plan whose body clears every obstacle. An infeasible tick
+        # commands ZERO -- never a crawl; feasible ticks of every move get
+        # the floor. Persisting infeasibility, no progress, or steering lock
+        # without progress ends the move BLOCKED (blocked.BlockedDetector).
+        # (plan_gap / no_side / feasible were computed right after the solve,
+        # so /mpc/status could carry them.)
+        if self.min_speed_all_moves:
+            if feasible:
+                v_cmd_now = gate_speed(v_cmd_now, self.min_moving_speed)
+            else:
+                v_cmd_now = 0.0
+                self.last_u[1] = 0.0
+                self.get_logger().warn(
+                    f'SPEED/infeasible | stop this tick: success={info.get("success")} '
+                    f'no_side_fits={no_side} plan_body_gap={plan_gap:+.3f} m',
+                    throttle_duration_sec=0.5)
+        if self.blocked_enabled:
+            turning = self._move_is_turn or (
+                self.drive_cmd is not None and self.drive_cmd.get('mode') == 'wall_turn')
+            verdict = self.blocked_detector.update(
+                now_sec, float(self.x), float(self.y), v_cmd_now, delta_cmd,
+                self.limits['delta_min'], self.limits['delta_max'], turning,
+                corridor.get('psiRef'), feasible,
+                {'solver_success': bool(info.get('success', False)),
+                 'solver_status': str(info.get('status_message', info.get('status'))),
+                 'no_side_fits': (keepout_plan.blocked if keepout_plan is not None else []),
+                 'plan_body_gap_m': (round(plan_gap, 3) if math.isfinite(plan_gap) else None)})
+            if verdict is not None:
+                self.last_u[1] = 0.0
+                self._latch_blocked(verdict)
+                self._publish_drive(0.0, delta_cmd)
+                self._publish_blocked()
+                return
 
         v_cmd_log = self.prev_v_cmd if self.prev_v_cmd is not None else float("nan")
         self.prev_v_cmd = v_cmd_now
@@ -4210,7 +4588,9 @@ class MPCController(Node):
         Y0 = float(x[1])
         psi0 = float(x[2])
 
-        d_front = float(self.front_distance)
+        # A distance or NaN, never None (see the dFront record below).
+        d_front = (float(self.front_distance) if self.front_distance is not None
+                   else math.nan)
 
         psiStart = psi0
 
@@ -4356,7 +4736,8 @@ class MPCController(Node):
                     delta_max=self.limits['delta_max'],
                     k_safety=self.corr_wall_turn_k_safety,
                     safety_margin=self.corr_wall_turn_safety_margin_m,
-                    n_steps=self.N, ts=self.ts, v_ref=self.vdes,
+                    n_steps=self.N, ts=getattr(self, 'ts_pred', self.ts),
+                    v_ref=self.vdes,
                     committed=self.wall_turn_committed,
                     prev_commanded_rot=self.wall_turn_commanded_rot)
                 self.wall_turn_committed = wall_step.committed
@@ -4386,7 +4767,7 @@ class MPCController(Node):
                 else:
                     d_rule_txt = 'd_wall=none'
                 self.get_logger().info(
-                    f'CORR/wall_turn | dFront={self.front_distance:.2f} '
+                    f'CORR/wall_turn | dFront=' + ('unknown' if d_front is None else f'{d_front:.2f}') + ' '
                     f'{d_rule_txt} '
                     f'd_avail={d_avail_txt} '
                     f'rem={wall_step.dpsi_rem:+.4f}/{signed_total:+.4f} '
@@ -4511,7 +4892,8 @@ class MPCController(Node):
                 wheelbase=self.params['L'],
                 delta_min=self.limits['delta_min'],
                 delta_max=self.limits['delta_max'],
-                n_steps=self.N, ts=self.ts, v_ref=self.vdes)
+                n_steps=self.N, ts=getattr(self, 'ts_pred', self.ts),
+                v_ref=self.vdes)
             self.object_psi_c = step.psi_c_new
             self.object_last_step = step
             self.object_target_at_build = object_target
@@ -4551,7 +4933,7 @@ class MPCController(Node):
                 clamp_len = float('nan')
             elif _mode == 'arc_far':
                 clamp_len = lookahead_clamp_length(
-                    self.N, self.ts, self.vdes,
+                    self.N, getattr(self, 'ts_pred', self.ts), self.vdes,
                     self.corr_lookahead_reach_margin)
                 # Hysteresis: enter the arc above hi, leave it below lo, hold
                 # in between. See the parameter block for why the band cannot
@@ -5018,6 +5400,7 @@ class MPCController(Node):
         dpsi = geom["dpsi"]
         p_goal = geom["Pend"]
 
+        d_front_rec = float(d_front) if d_front is not None else math.nan
         corridor = {
             "xc": xc,
             "yc": yc,
@@ -5123,7 +5506,13 @@ class MPCController(Node):
             "targetLine": target_line,
             "t": float(dpsi),
             "Pend": p_goal,
-            "dFront": float(d_front),
+            # STALE OR MISSING front distance on a wall_turn: d_front was
+            # replaced by _fresh_front_distance(), which is None then, and
+            # float(None) here (and the :.2f in the build log below) crashed
+            # the node mid-turn -- the latent crash the Orin reported. Unknown
+            # is recorded as NaN; the turn rule already treats None as "no
+            # wall decision" (wall_turn.plan_wall_turn_step).
+            "dFront": d_front_rec,
             "dpsi": float(dpsi),
         }
 
@@ -5142,7 +5531,7 @@ class MPCController(Node):
             f'CORR/build | L={L:.2f} psiStart(live)={psiStart:+.4f} '
             f'psiEnd(frozen)={psiEnd:+.4f} '
             f'dpsi={dpsi:+.4f} halfWidth=[{halfWidth[0]:.3f}..{halfWidth[-1]:.3f}] '
-            f'dFront={d_front:.2f}'
+            f'dFront={d_front_rec:.2f}'
         )
 
         return corridor
@@ -5335,8 +5724,12 @@ class MPCController(Node):
             # k in time, and 'odom' is asserted here rather than assumed
             # downstream because it is the same frame, for the same reason, as
             # the /corridor polygon this logger draws the horizon against.
+            # ts here is the spacing of the PREDICTED states, i.e. the
+            # prediction step -- horizon_log places step k at t + (k+1)*ts.
             payload = mpc_status_payload(info, solve_dt, solver,
-                                         ts=self.ts, frame_id='odom')
+                                         ts=getattr(self, 'ts_pred', self.ts),
+                                         frame_id='odom',
+                                         extra=getattr(self, '_campaign_extra', None))
             self.campaign_status_pub.publish(String(data=json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
             self.get_logger().warn(
@@ -5383,7 +5776,8 @@ class MPCController(Node):
         behind the moment N, ts, vdes or the margin moved.
         """
         return lookahead_clamp_length(
-            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
+            self.N, getattr(self, 'ts_pred', self.ts), self.vdes,
+            self.corr_lookahead_reach_margin)
 
     def _corridor_lookahead(self, corridor):
         """Derive compute_local_target's lookahead from the corridor length.
@@ -5407,9 +5801,10 @@ class MPCController(Node):
         # The floor and the raw reach it is derived from: the warning below
         # quotes both, because "inside the horizon reach" and "below the floor"
         # are different statements and the fix differs.
-        horizon_reach = float(self.N) * float(self.ts) * float(self.vdes)
+        ts_pred = float(getattr(self, 'ts_pred', self.ts))
+        horizon_reach = float(self.N) * ts_pred * float(self.vdes)
         reach_floor = lookahead_clamp_length(
-            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
+            self.N, ts_pred, self.vdes, self.corr_lookahead_reach_margin)
 
         lookahead = from_length
         if from_length < reach_floor:

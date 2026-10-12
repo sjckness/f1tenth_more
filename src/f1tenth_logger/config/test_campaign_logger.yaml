@@ -13,7 +13,7 @@ test_campaign_logger:
   ros__parameters:
     campaign: first_test_campaing        # folder under <f1tenth_more>
     robot_radius: 0.3                    # circle for corridor_clearance [m]
-    pre_roll_s: 2.0
+    pre_roll_s: 10.0                     # >= 10 s: objects in view at the start (review item 5)
     post_roll_s: 2.0
     max_test_duration_s: 300.0
     status_period_s: 10.0                # status line + /test_campaign/logger_status
@@ -34,8 +34,20 @@ test_campaign_logger:
     # What perception offered, beside what the controller did with it:
     # go_to_object's own tracks topic, recorded to tracks.jsonl.
     tracks_topic: /costmap/semantic_tracks
+    # Campaign fix A5: front.jsonl (the wall-stop input, its LiDAR
+    # confirmation, front_clearance_node's per-frame debug record) and the
+    # mpc_blocked event.
+    front_distance_topic: /perception/front_distance
+    front_confirmed_topic: /perception/front_wall_confirmed
+    front_debug_topic: /perception/debug/front_clearance
+    blocked_topic: /mpc/blocked
     obstacle_clearance_topic: /obstacle_clearance
     safety_event_topic: /safety/event
     plan_result_topic: /test/plan_result
     mission_event_topic: /test/mission_event
     best_effort_sensors: true
+    # Read by export_matlab (f1tenth_logger/matlab_export/db_root.py), never
+    # by this node. Empty = not set: $F1TENTH_MATLAB_DATA, else ~/matlab_data.
+    # --db-root on the command line beats all of them.
+    matlab_export:
+      db_root: ""

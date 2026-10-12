@@ -458,11 +458,46 @@ def test_mpc_log(root):
         log.log_mpc(status, solve_time_ms=10.0 + i, cost=1.5, iterations=7, t=i * 0.05)
     log.finish("completed")
     rows = list(csv.DictReader(open(log.dir / "mpc.csv")))
-    assert list(rows[0]) == ["t", "status", "solve_time_ms", "cost", "iterations"]
+    # The first five columns are the original ones, in their original
+    # order; the campaign fixes' (A3/A5) columns are appended after them.
+    assert list(rows[0])[:5] == ["t", "status", "solve_time_ms", "cost", "iterations"]
+    assert list(rows[0])[5:] == [
+        "success", "status_message", "feasible", "plan_body_gap_m", "no_side_fits",
+        "n_keepouts", "v_floor_from_stage", "vdes", "half_width_start",
+        "half_width_end"]
     assert [r["status"] for r in rows] == [
         "solved", "infeasible", "infeasible", "solved_inaccurate"]
+    assert rows[0]["feasible"] == ""      # not given -> empty cell
     meta = json.loads((log.dir / "meta.json").read_text())
     assert meta["mpc_ok_statuses"] == ["solved", "solved_inaccurate"]
+
+
+def test_mpc_log_carries_the_campaign_columns(root):
+    log = TestLogger(1, root=root, robot_radius=0.3)
+    log.log_mpc("infeasible", solve_time_ms=9.0, t=0.1, success=False,
+                status_message="primal infeasible", feasible=False,
+                plan_body_gap_m=-0.15, no_side_fits=0, n_keepouts=1,
+                v_floor_from_stage=1, vdes=0.4, half_width_start=0.6,
+                half_width_end=0.6, not_a_column=1)
+    log.finish("aborted", "BLOCKED: no_feasible_plan")
+    (row,) = list(csv.DictReader(open(log.dir / "mpc.csv")))
+    assert row["feasible"] == "0"          # _fmt writes bools as 0/1
+    assert float(row["plan_body_gap_m"]) == -0.15
+    assert row["status_message"] == "primal infeasible"
+    assert float(row["half_width_start"]) == 0.6
+    assert "not_a_column" not in row
+
+
+def test_front_stream(root):
+    log = TestLogger(1, root=root, robot_radius=0.3)
+    log.log_front("front_distance", {"v": 1.42}, t=0.1)
+    log.log_front("debug", {"raw_m": 1.40, "masked_objects": [{"class": "0"}]}, t=0.2)
+    log.finish("completed")
+    lines = [json.loads(x) for x in (log.dir / "front.jsonl").read_text().splitlines()]
+    assert [x["src"] for x in lines] == ["front_distance", "debug"]
+    assert lines[0]["v"] == 1.42
+    assert lines[1]["masked_objects"][0]["class"] == "0"
+    assert log.stream_counts()["front"] == 2
 
 
 def test_an_empty_ok_status_set_is_rejected(root):
@@ -550,7 +585,10 @@ def test_analysis_filters_and_reports(root, campaign, tmp_path):
 def test_the_upward_search_finds_the_workspace(monkeypatch):
     monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
     found = find_root()
-    assert found.name == "f1tenth_more"
+    # The workspace this test file lives in, whatever its checkout folder is
+    # called (find_root goes by the src/f1tenth_logger/package.xml marker,
+    # not by the name; a second worktree is not named f1tenth_more).
+    assert found == Path(__file__).resolve().parents[4]
     assert (found / "src" / "f1tenth_logger" / "package.xml").is_file()
 
 
@@ -629,7 +667,7 @@ def test_the_working_directory_is_never_consulted(root, monkeypatch, tmp_path):
     monkeypatch.delenv("F1TENTH_MORE_ROOT", raising=False)
     monkeypatch.chdir(tmp_path)
     assert find_root() == find_root(None)
-    assert find_root().name == "f1tenth_more"
+    assert find_root() == Path(__file__).resolve().parents[4]
     assert os.getcwd() != str(find_root())
 
 
@@ -773,3 +811,13 @@ def test_tracks_are_counted_in_the_status_line(root):
     log.log_tracks([], t=2.0)
     assert log.stream_counts()["tracks"] == 2
     log.finish("completed")
+
+
+def test_blocked_is_its_own_outcome(root):
+    """Review item 4: mpc_corr's BLOCKED is not folded into 'aborted'."""
+    log = TestLogger(1, root=root, robot_radius=0.3)
+    log.finish("blocked", "BLOCKED: no_feasible_plan on move 'm'")
+    meta = json.loads((log.dir / "meta.json").read_text())
+    assert meta["summary"]["auto_outcome"] == "blocked"
+    assert meta["summary"]["auto_success"] == 0
+    assert meta["summary"]["reason"].startswith("BLOCKED: no_feasible_plan")

@@ -1,0 +1,137 @@
+{
+  "written": "2026-09-21T16:00:36",
+  "tool": "tools/test_campaign_backfill.py",
+  "note": "Values here were NOT recorded live. test_campaign_export uses them only for columns the test folders leave empty, and names them in the 'backfilled' column.",
+  "tests": {
+    "P001-R001-20260921T145508": {
+      "columns": {
+        "countdown_s": {
+          "value": 3.0,
+          "source": "/home/fabiocar/.ros/log/python3_87574_1789995278369.log @ 1789995308.372: 'start_mission OK: starting in 3.0 s'"
+        },
+        "standstill_jerk_rms": {
+          "value": 0.02675,
+          "source": "imu.csv over test_start->mission_started (0.002-2.937 s), 147 samples, cutoff 5 Hz; mission_loaded was never recorded, so the first ~0.1 s of the countdown is missing"
+        },
+        "min_clear_raw_m": {
+          "value": 2.3963,
+          "source": "obstacle_clearance_node geometry re-run over /scan of archive run 2026-09-21T12-55-11_mission-llm_fd5d8fd4f171: 146 scans at t=8.53-12.17 s of the driving window 2.94-12.18 s (39%); footprint 0.525 x 0.272 m, tail at x=-0.082; base_link <- laser t=(0.120, 0.000, 0.200) from the bag's /tf_static; bag clock tied to test t by 188 /odom poses (spread 0.1 ms); the true minimum can only be lower",
+          "tag": "partial 39%"
+        },
+        "min_clear_m": {
+          "value": 2.3963,
+          "source": "min_clear_raw_m above, with the export rule (0 on estop/contact, and on a recomputed clearance <= 0)",
+          "tag": "partial 39%"
+        }
+      },
+      "unavailable": {}
+    },
+    "P001-R002-20260921T145711": {
+      "columns": {
+        "countdown_s": {
+          "value": 3.0,
+          "source": "/home/fabiocar/.ros/log/python3_91415_1789995400333.log @ 1789995431.407: 'start_mission OK: starting in 3.0 s'"
+        },
+        "standstill_jerk_rms": {
+          "value": 0.021488,
+          "source": "imu.csv over test_start->mission_started (0.011-2.961 s), 148 samples, cutoff 5 Hz; mission_loaded was never recorded, so the first ~0.1 s of the countdown is missing"
+        },
+        "min_clear_raw_m": {
+          "value": 2.4392,
+          "source": "obstacle_clearance_node geometry re-run over /scan of archive run 2026-09-21T12-57-14_mission-llm_fd5d8fd4f171: 141 scans at t=8.73-12.23 s of the driving window 2.96-12.25 s (38%); footprint 0.525 x 0.272 m, tail at x=-0.082; base_link <- laser t=(0.120, 0.000, 0.200) from the bag's /tf_static; bag clock tied to test t by 187 /odom poses (spread 0.1 ms); the true minimum can only be lower",
+          "tag": "partial 38%"
+        },
+        "min_clear_m": {
+          "value": 2.4392,
+          "source": "min_clear_raw_m above, with the export rule (0 on estop/contact, and on a recomputed clearance <= 0)",
+          "tag": "partial 38%"
+        }
+      },
+      "unavailable": {}
+    },
+    "P001-R003-20260921T145854": {
+      "columns": {
+        "countdown_s": {
+          "value": 3.0,
+          "source": "/home/fabiocar/.ros/log/python3_94576_1789995505790.log @ 1789995534.834: 'start_mission OK: starting in 3.0 s'"
+        },
+        "standstill_jerk_rms": {
+          "value": 0.01976,
+          "source": "imu.csv over test_start->mission_started (0.014-3.057 s), 153 samples, cutoff 5 Hz; mission_loaded was never recorded, so the first ~0.1 s of the countdown is missing"
+        },
+        "min_clear_raw_m": {
+          "value": 2.4381,
+          "source": "obstacle_clearance_node geometry re-run over /scan of archive run 2026-09-21T12-58-58_mission-llm_fd5d8fd4f171: 164 scans at t=8.41-12.46 s of the driving window 3.06-12.48 s (43%); footprint 0.525 x 0.272 m, tail at x=-0.082; base_link <- laser t=(0.120, 0.000, 0.200) from the bag's /tf_static; bag clock tied to test t by 211 /odom poses (spread 0.1 ms); the true minimum can only be lower",
+          "tag": "partial 43%"
+        },
+        "min_clear_m": {
+          "value": 2.4381,
+          "source": "min_clear_raw_m above, with the export rule (0 on estop/contact, and on a recomputed clearance <= 0)",
+          "tag": "partial 43%"
+        }
+      },
+      "unavailable": {}
+    },
+    "P001-R004-20260921T150023": {
+      "columns": {
+        "countdown_s": {
+          "value": 3.0,
+          "source": "/home/fabiocar/.ros/log/python3_97422_1789995593036.log @ 1789995623.952: 'start_mission OK: starting in 3.0 s'"
+        },
+        "standstill_jerk_rms": {
+          "value": 0.023172,
+          "source": "imu.csv over test_start->mission_started (0.009-2.955 s), 147 samples, cutoff 5 Hz; mission_loaded was never recorded, so the first ~0.1 s of the countdown is missing"
+        },
+        "min_clear_raw_m": {
+          "value": 2.4261,
+          "source": "obstacle_clearance_node geometry re-run over /scan of archive run 2026-09-21T13-00-26_mission-llm_fd5d8fd4f171: 126 scans at t=8.72-11.85 s of the driving window 2.96-11.87 s (35%); footprint 0.525 x 0.272 m, tail at x=-0.082; base_link <- laser t=(0.120, 0.000, 0.200) from the bag's /tf_static; bag clock tied to test t by 158 /odom poses (spread 0.1 ms); the true minimum can only be lower",
+          "tag": "partial 35%"
+        },
+        "min_clear_m": {
+          "value": 2.4261,
+          "source": "min_clear_raw_m above, with the export rule (0 on estop/contact, and on a recomputed clearance <= 0)",
+          "tag": "partial 35%"
+        }
+      },
+      "unavailable": {}
+    },
+    "P001-R005-20260921T150157": {
+      "columns": {
+        "countdown_s": {
+          "value": 3.0,
+          "source": "/home/fabiocar/.ros/log/python3_101155_1789995690415.log @ 1789995717.502: 'start_mission OK: starting in 3.0 s'"
+        },
+        "standstill_jerk_rms": {
+          "value": 0.020614,
+          "source": "imu.csv over test_start->mission_started (0.012-3.170 s), 158 samples, cutoff 5 Hz; mission_loaded was never recorded, so the first ~0.1 s of the countdown is missing"
+        },
+        "min_clear_raw_m": {
+          "value": 2.3991,
+          "source": "obstacle_clearance_node geometry re-run over /scan of archive run 2026-09-21T13-02-00_mission-llm_fd5d8fd4f171: 142 scans at t=8.41-11.93 s of the driving window 3.17-11.93 s (40%); footprint 0.525 x 0.272 m, tail at x=-0.082; base_link <- laser t=(0.120, 0.000, 0.200) from the bag's /tf_static; bag clock tied to test t by 184 /odom poses (spread 0.1 ms); the true minimum can only be lower",
+          "tag": "partial 40%"
+        },
+        "min_clear_m": {
+          "value": 2.3991,
+          "source": "min_clear_raw_m above, with the export rule (0 on estop/contact, and on a recomputed clearance <= 0)",
+          "tag": "partial 40%"
+        }
+      },
+      "unavailable": {}
+    },
+    "P002-R001-20260921T150345": {
+      "columns": {
+        "countdown_s": {
+          "value": 3.0,
+          "source": "/home/fabiocar/.ros/log/python3_104176_1789995794713.log @ 1789995825.589: 'start_mission OK: starting in 3.0 s'"
+        },
+        "standstill_jerk_rms": {
+          "value": 0.019787,
+          "source": "imu.csv over test_start->mission_started (0.003-3.012 s), 150 samples, cutoff 5 Hz; mission_loaded was never recorded, so the first ~0.1 s of the countdown is missing"
+        }
+      },
+      "unavailable": {
+        "min_clear_raw_m": "2026-09-21T13-03-48_mission-llm_926f7913d041: the archive bag holds no /scan at all"
+      }
+    }
+  }
+}

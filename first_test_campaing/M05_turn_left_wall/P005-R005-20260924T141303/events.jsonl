@@ -1,0 +1,6 @@
+{"t": 0.00265255, "event": "test_start", "mission": "M05_turn_left_wall", "prompt_num": 5, "repetition": 5, "prompt_hash": "02e9c745faf1bd4eb3999cd2dd7d36ca772ac405704ce6de414e6c3a15cae6b1"}
+{"t": 0.0, "event": "pre_roll", "samples": 213, "seconds": 2.0}
+{"t": 0.023351, "event": "mission_loaded", "plan_id": "llm_e8f5ca47b036", "reason": "", "countdown_s": 3.0}
+{"t": 3.00569, "event": "mission_started", "plan_id": "llm_e8f5ca47b036", "reason": "", "countdown_s": 3.0}
+{"t": 30.1198, "event": "mission_aborted", "plan_id": "llm_e8f5ca47b036", "reason": ""}
+{"t": 32.1781, "event": "test_end", "auto_outcome": "aborted", "reason": "mission aborted"}

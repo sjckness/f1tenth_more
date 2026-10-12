@@ -1,0 +1,31 @@
+{
+  "total": 1,
+  "per_status": {
+    "llm_error": 1
+  },
+  "per_status_cause_kind": {
+    "llm_error:-:timeout": 1
+  },
+  "per_category": {
+    "straight_then_turn": {
+      "llm_error": 1
+    }
+  },
+  "per_prompt": {
+    "straight_turn_05": {
+      "category": "straight_then_turn",
+      "prompt": "Go forward, then make a right turn",
+      "attempts": 1,
+      "ok": 0,
+      "statuses": {
+        "llm_error": 1
+      },
+      "score": "0/1 ok"
+    }
+  },
+  "duration_s": {
+    "total": 5.5,
+    "mean": 5.5,
+    "max": 5.45
+  }
+}

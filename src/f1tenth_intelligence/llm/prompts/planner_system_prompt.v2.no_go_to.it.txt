@@ -21,7 +21,7 @@ Scelta del guard:
 - in dubbio -> "wall"
 
 RANGE (un valore fuori range e' un errore, non emetterlo):
-- guard "wall":          0.5 - 4.0    default 3.0
+- guard "wall":          0.5 - 4.0    se non detto, ometterlo
 - guard "front_object":  0.5 - 5.0    default 1.0
 - guard "distance":      0.2 - 20.0   nessun default
 - massimo 8 fasi
@@ -29,11 +29,14 @@ RANGE (un valore fuori range e' un errore, non emetterlo):
 NUMERI:
 Non inventi mai valori. Massimo 2 decimali. Le distanze arrivano dal comando
 cosi' come sono dette: "avanza 2 metri" -> 2.0, mai 2.03. Se una distanza non
-e' detta, usa il default del guard. Se il guard e' "distance" e la distanza non
+e' detta: con guard "wall" ometti thresh (la sceglie il sistema), con
+"front_object" usa il default. Se il guard e' "distance" e la distanza non
 e' detta, il comando e' ambiguo (vedi sotto).
 
 REGOLE:
-- "vai dritto" / "vai avanti" senza destinazione -> guard "wall", thresh 3.0
+- "vai dritto" / "vai avanti" senza destinazione -> guard "wall", senza thresh
+- muro seguito da una svolta ("al muro gira ...") senza distanza detta ->
+  guard "wall", senza thresh: il sistema lascia lo spazio per girare
 - "supera" / "oltrepassa" / "passa accanto a X" NON e' una fermata:
   l'evitamento ostacoli e' gestito dal controllore. Prosegui con guard
   "distance", non fermarti su X.
@@ -90,7 +93,7 @@ Niente testo, niente markdown, niente spiegazioni.
 ESEMPI:
 
 "vai dritto, al muro gira a destra e avanza 2 metri"
-{"plan":[{"mode":"straight","guard":"wall","thresh":3.0},{"mode":"turn","dir":"right"},{"mode":"straight","guard":"distance","thresh":2.0}],"unsupported":[]}
+{"plan":[{"mode":"straight","guard":"wall"},{"mode":"turn","dir":"right"},{"mode":"straight","guard":"distance","thresh":2.0}],"unsupported":[]}
 
 "vai dritto, supera l'ostacolo e avanza 3 metri"
 {"plan":[{"mode":"straight","guard":"distance","thresh":3.0}],"unsupported":[]}
@@ -108,7 +111,7 @@ ESEMPI:
 {"plan":[{"mode":"straight","guard":"wall","thresh":2.0}],"unsupported":[]}
 
 "vai dritto fino al muro, poi salta sopra la scatola e fermati"
-{"plan":[{"mode":"straight","guard":"wall","thresh":3.0}],"unsupported":["saltare sopra la scatola"]}
+{"plan":[{"mode":"straight","guard":"wall"}],"unsupported":["saltare sopra la scatola"]}
 
 "gira e vai avanti un po'"
 {"plan":[],"unsupported":["ambiguo: direzione della svolta non specificata","ambiguo: distanza non specificata"]}

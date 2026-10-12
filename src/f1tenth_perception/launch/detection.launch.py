@@ -226,6 +226,15 @@ def generate_launch_description():
         ('clearance_exit_m', float),
         ('clearance_min_dwell_frames', int),
         ('publish_debug_raw', bool),
+        ('wall_confirm_enabled', bool),
+        ('wall_confirm_half_angle_deg', float),
+        ('wall_confirm_search_window_m', float),
+        ('wall_confirm_min_inliers', int),
+        ('wall_confirm_min_extent_m', float),
+        ('wall_confirm_tolerance_m', float),
+        ('wall_confirm_tolerance_frac', float),
+        ('wall_confirm_near_extent_frac', float),
+        ('wall_confirm_latch_hold_s', float),
     ]
     front_clearance_las = []
     for _name, _type in _front_clearance_args:

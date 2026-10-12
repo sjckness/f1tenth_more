@@ -28,11 +28,13 @@ carried=0.35 lags the corridor the way one 1 s rebuild period at 0.5 m/s does
 Run standalone: python3 -m pytest test/test_wall_turn_increment.py -v
 """
 
+import inspect
 import math
 import unittest
 
 from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
+from mpc_controller.blocked import WallDistanceWait
 from mpc_controller.mpc_solver import terminal_heading_target
 from mpc_controller.wall_turn import (
     min_turn_radius,
@@ -190,18 +192,19 @@ class TestTheApproach(unittest.TestCase):
 class TestTheHorizonCap(unittest.TestCase):
     """Required test 5."""
 
-    def test_at_half_a_metre_per_second_a_90_degree_ask_stops_at_0_935(self):
+    def test_at_half_a_metre_per_second_a_90_degree_ask_stops_at_1_083(self):
         first = next(s for _p, s in _approach(TURN_90, FINE) if s.dpsi_this != 0.0)
         self.assertEqual(first.dpsi_this, first.dpsi_by_horizon)
         self.assertAlmostEqual(first.dpsi_this, N_STEPS * TS * 0.5 / R_LEFT, delta=1e-12)
-        self.assertAlmostEqual(first.dpsi_this, 0.935, delta=1e-3)
+        # 0.935 before the 2026-09-17 steering gains (R_min 1.069 m left).
+        self.assertAlmostEqual(first.dpsi_this, 1.083, delta=1e-3)
         self.assertLess(first.dpsi_this, TURN_90)
 
     def test_at_one_and_a_half_metres_per_second_the_horizon_cap_does_not_bind(self):
         first = next(s for _p, s in _approach(TURN_90, FINE, v_ref=1.5) if s.dpsi_this != 0.0)
         self.assertAlmostEqual(first.dpsi_by_horizon, 3.0 / R_LEFT, delta=1e-12)
         self.assertLess(abs(first.dpsi_this), first.dpsi_by_horizon)
-        self.assertGreater(first.dpsi_this, 0.935)
+        self.assertGreater(first.dpsi_this, 1.083)
 
     def test_the_cap_is_recomputed_from_the_horizon_it_is_given(self):
         base = _step(TURN_90, 0.0, 1.5).dpsi_by_horizon
@@ -216,9 +219,11 @@ class TestTheHorizonCap(unittest.TestCase):
 class TestEachDirectionUsesItsOwnSteeringBound(unittest.TestCase):
     """Required test 6."""
 
-    def test_the_radii_are_the_work_orders_numbers(self):
-        self.assertAlmostEqual(R_LEFT, 1.069, delta=5e-4)
-        self.assertAlmostEqual(R_RIGHT, 1.049, delta=5e-4)
+    def test_the_radii_are_0_923_left_and_0_955_right(self):
+        # L / tan(bound) at +0.319 / -0.309. The work order's 1.069 / 1.049
+        # were the same formula at the placeholder gains' +0.278 / -0.283.
+        self.assertAlmostEqual(R_LEFT, 0.923, delta=5e-4)
+        self.assertAlmostEqual(R_RIGHT, 0.955, delta=5e-4)
 
     def test_a_left_turn_uses_delta_max_and_a_right_turn_delta_min(self):
         self.assertEqual(_step(TURN_74, 0.0, 3.0).r_min, R_LEFT)
@@ -228,18 +233,22 @@ class TestEachDirectionUsesItsOwnSteeringBound(unittest.TestCase):
         self.assertEqual(_step(0.5, 0.7, 3.0).r_min, R_RIGHT)
         self.assertEqual(_step(-0.5, -0.7, 3.0).r_min, R_LEFT)
 
-    def test_the_trigger_distances_are_the_work_orders_table(self):
+    def test_the_trigger_distances_at_the_shipped_geometry(self):
+        # The work order's table (3.71 / 4.27 m) used margin 1.0 and the old
+        # steering radii; stack_params has k_safety 1.50, margin 0.5 and
+        # bounds +0.319 / -0.309, which give these.
         self.assertAlmostEqual(
             wall_turn_trigger_distance(math.radians(74.5), WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN),
-            3.71, delta=5e-3)
+            2.301, delta=5e-3)
         self.assertAlmostEqual(
             wall_turn_trigger_distance(TURN_90, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN),
-            4.27, delta=5e-3)
+            2.676, delta=5e-3)
 
     def test_the_asymmetry_changes_when_the_turn_commits(self):
-        # 3.68 m sits between the right trigger (3.66) and the left one (3.71).
-        self.assertTrue(_step(TURN_74, 0.0, 3.68).committed)
-        self.assertFalse(_step(-TURN_74, 0.0, 3.68).committed)
+        # R_left 0.923 < R_right 0.955 at the shipped bounds, so the RIGHT
+        # trigger (2.36) is now beyond the left one (2.30): 2.33 m sits between.
+        self.assertTrue(_step(-TURN_74, 0.0, 2.33).committed)
+        self.assertFalse(_step(TURN_74, 0.0, 2.33).committed)
 
 
 class TestInsideTheSafetyMargin(unittest.TestCase):
@@ -317,12 +326,36 @@ class TestChatter(unittest.TestCase):
 
 class TestUnknownFrontDistance(unittest.TestCase):
 
-    def test_on_the_first_rebuild_it_commits_and_turns_within_the_horizon(self):
+    def test_on_the_first_rebuild_it_makes_no_wall_decision(self):
+        """B8 (2026-10-12): no distance = no wall decision, on the first rebuild
+        too -- the corridor stays straight, the turn does not commit."""
         for unknown in (None, float('nan'), -1.0):
             step = _step(TURN_90, 0.0, unknown)
-            self.assertTrue(step.committed)
+            self.assertFalse(step.committed)
             self.assertIsNone(step.d_avail)
-            self.assertEqual(step.dpsi_this, step.dpsi_by_horizon)
+            self.assertEqual(step.dpsi_this, 0.0)
+
+    def test_a_distance_arriving_late_is_used_as_soon_as_it_arrives(self):
+        progress, committed, prev = 0.0, False, None
+        for d in (None, -1.0, float('nan'), None):
+            step = _step(TURN_90, progress, d, committed=committed, prev_commanded_rot=prev)
+            committed, prev = step.committed, step.commanded_rot
+            self.assertFalse(committed)
+        trigger = wall_turn_trigger_distance(TURN_90, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN)
+        far = _step(TURN_90, progress, trigger + 1.0, committed=committed,
+                    prev_commanded_rot=prev)
+        self.assertFalse(far.committed)
+        near = _step(TURN_90, progress, trigger - 0.05, committed=far.committed,
+                     prev_commanded_rot=far.commanded_rot)
+        self.assertTrue(near.committed)
+        self.assertGreater(abs(near.dpsi_this), 0.0)
+
+    def test_the_corridor_stays_straight_while_waiting(self):
+        fake = _FakeMPC(d_front=None)
+        corridor = _build(fake, 0.23)
+        self.assertFalse(fake.wall_turn_committed)
+        self.assertEqual(corridor['dpsi'], 0.0)
+        np.testing.assert_allclose(_headings(corridor), 0.23, atol=1e-9)
 
     def test_later_and_before_commit_it_changes_nothing(self):
         for unknown in (None, float('nan'), -1.0):
@@ -428,7 +461,8 @@ class TestCorridorWiring(unittest.TestCase):
 
     def test_psi_end_psi_ref_turn_and_the_centreline_share_one_increment(self):
         for sign in (1.0, -1.0):
-            fake = _FakeMPC(sign=sign, d_front=2.5)
+            # Inside both triggers for the remaining turn (L 2.16, R 2.22 m).
+            fake = _FakeMPC(sign=sign, d_front=2.0)
             psi0 = 0.2 + sign * 0.1
             fake.turn_progress_rad = sign * 0.1
             corridor = _build(fake, psi0)
@@ -511,3 +545,69 @@ class TestFreshFrontDistanceAndReset(unittest.TestCase):
         MPCController._reset_turn_progress(fake)
         self.assertFalse(fake.wall_turn_committed)
         self.assertIsNone(fake.wall_turn_commanded_rot)
+
+
+class TestWallDistanceTimeout(unittest.TestCase):
+    """B8: waiting for a distance is bounded -- BLOCKED no_wall_distance."""
+
+    def test_the_shipped_timeout(self):
+        self.assertEqual(get_value('wall_turn_distance_timeout_s'), 2.0)
+
+    def test_no_distance_for_the_timeout_is_blocked(self):
+        wait = WallDistanceWait(2.0)
+        verdicts = [wait.update(0.1 * k, False) for k in range(25)]
+        first = next(i for i, v in enumerate(verdicts) if v is not None)
+        self.assertEqual(first, 20)
+        self.assertEqual(verdicts[first].reason, 'no_wall_distance')
+
+    def test_a_distance_before_the_timeout_ends_the_wait(self):
+        wait = WallDistanceWait(2.0)
+        for k in range(15):
+            self.assertIsNone(wait.update(0.1 * k, False))
+        self.assertIsNone(wait.update(1.5, True))
+        for k in range(16, 30):           # a new dropout starts a new 2 s wait
+            self.assertIsNone(wait.update(0.1 * k, False))
+
+    def test_reset_at_a_new_move(self):
+        wait = WallDistanceWait(2.0)
+        wait.update(0.0, False)
+        wait.reset()
+        self.assertIsNone(wait.update(1.9, False))
+
+    def test_mpc_corr_checks_it_only_before_the_turn_commits(self):
+        src = inspect.getsource(MPCController.control_loop)
+        i = src.index('self.wall_distance_wait.update(')
+        guard = src[src.rindex('if (', 0, i):i]
+        self.assertIn("'wall_turn'", guard)
+        self.assertIn('not self.wall_turn_committed', guard)
+
+
+class TestStaleOrMissingFrontDistance(unittest.TestCase):
+    """The Orin's latent crash: a wall_turn rebuild with a stale or missing
+    /perception/front_distance replaced d_front with None, and float(None)
+    in the corridor record (and a :.2f in the log) killed mpc_corr mid-turn.
+    Unknown distance is NOT a wall decision and never a crash."""
+
+    def test_a_stale_reading_builds_a_corridor_and_records_nan(self):
+        for raw in (5.0, -1.0, math.nan):
+            fake = _FakeMPC(d_front=None)
+            fake.front_distance = raw
+            for _ in range(3):
+                corridor = _build(fake, 0.2)
+            self.assertTrue(math.isnan(corridor['dFront']))
+
+    def test_no_reading_ever_builds_a_corridor(self):
+        fake = _FakeMPC(d_front=None)
+        fake.front_distance = None
+        corridor = _build(fake, 0.2)
+        self.assertTrue(math.isnan(corridor['dFront']))
+
+    def test_unknown_after_commit_keeps_turning_within_the_horizon(self):
+        """Once committed on a VALID distance, a later unknown one drops the
+        distance cap and the turn continues within the horizon's reach."""
+        fake = _FakeMPC(d_front=2.0)
+        _build(fake, 0.2)
+        self.assertTrue(fake.wall_turn_committed)
+        fake._d_front = None
+        corridor = _build(fake, 0.2)
+        self.assertGreater(abs(corridor['dpsi']), 0.0)

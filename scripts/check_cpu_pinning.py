@@ -68,6 +68,11 @@ NODE_CORE_MAP = {
     'ekf_global_filter_node': ({0, 1}, 'ekf_node', ['__node:=ekf_global_filter_node']),
     'slam_toolbox': ({2}, 'async_slam_toolbox_node', []),
     'foxglove_bridge': ({3}, 'foxglove_bridge', []),
+    # f1tenth_bringup/launch/viz_relays.launch.py: visualization only, so on
+    # the bridge's core. Other component_container processes may exist, hence
+    # the __node remap as the identity.
+    'viz_relay_container': ({3}, 'component_container', ['__node:=viz_relay_container']),
+    'viz_jpeg_node': ({3}, 'viz_jpeg_node', []),
     'behavior_executor_node': ({4}, 'behavior_executor_node', []),
     'detection_3d_node': ({6, 7}, 'detection_3d_node', []),
     'obstacle_projector_node': ({6, 7}, 'obstacle_projector_node', []),

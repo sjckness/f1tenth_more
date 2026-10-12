@@ -1,0 +1,132 @@
+campaign: /home/fabiocar/dev_ws/f1tenth_more/first_test_campaing
+runs: 35   missions: 5   evaluated by hand: 0   not yet evaluated: 35
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M01_forward_3m                 0/0       -                 -   10 26490 28172 29642     10
+  P001                         0/0       -                 -   10 26490 28172 29642     10
+M02_approach_wall              0/0       -                 -    5 26250 26602 28150      5
+  P002                         0/0       -                 -    5 26250 26602 28150      5
+M03_bottle                     0/0       -                 -    5 25697 24362 28757      5
+  P003                         0/0       -                 -    5 25697 24362 28757      5
+M04_person                     0/0       -                 -   10 24385 26432 28687     10
+  P004                         0/0       -                 -   10 24385 26432 28687     10
+M05_turn_left_wall             0/0       -                 -    5 27876 29359 30007      5
+  P005                         0/0       -                 -    5 27876 29359 30007      5
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -   35 25939 27385 29765     35
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-group metrics from campaign_results_selected.csv (recomputed for these 35 tests): median (min .. max)
+  M01_forward_3m 20260921   n=5  completed=5  aborted=0
+    drive_duration_s           9.242   (8.760 .. 9.418)  n=5
+    viol_rate_pct                  -
+    min_clear_m                2.426   (2.396 .. 2.439)  n=5
+    feas_pct                  87.912   (82.759 .. 92.045)  n=5
+    max_infeas_streak_s        0.590   (0.209 .. 0.761)  n=5
+    mpc_solve_time_p95_ms     29.049   (24.088 .. 32.575)  n=5
+    jerk_rms                   0.704   (0.624 .. 0.712)  n=5
+    steer_rev_per_m            0.000   (0.000 .. 0.000)  n=5
+  M01_forward_3m 20260930   n=5  completed=4  aborted=1
+    drive_duration_s          15.205   (13.987 .. 35.173)  n=5
+    viol_rate_pct              0.000   (0.000 .. 0.000)  n=5
+    min_clear_m                0.418   (0.359 .. 0.476)  n=5
+    feas_pct                  92.754   (90.625 .. 97.714)  n=5
+    max_infeas_streak_s        0.409   (0.180 .. 0.471)  n=5
+    mpc_solve_time_p95_ms     29.113   (27.786 .. 31.470)  n=5
+    jerk_rms                   0.701   (0.315 .. 0.747)  n=5
+    steer_rev_per_m            0.487   (0.000 .. 0.908)  n=5
+  M02_approach_wall   n=5  completed=5  aborted=0
+    drive_duration_s           9.147   (9.087 .. 9.825)  n=5
+    viol_rate_pct                  -
+    min_clear_m                1.703   (1.688 .. 1.799)  n=5
+    feas_pct                  91.111   (89.691 .. 94.624)  n=5
+    max_infeas_streak_s        0.217   (0.182 .. 0.499)  n=5
+    mpc_solve_time_p95_ms     28.623   (26.736 .. 31.782)  n=5
+    jerk_rms                   0.732   (0.666 .. 0.773)  n=5
+    steer_rev_per_m            0.000   (0.000 .. 0.000)  n=5
+  M03_bottle   n=5  completed=5  aborted=0
+    drive_duration_s           5.385   (3.320 .. 10.870)  n=5
+    viol_rate_pct             15.533   (0.000 .. 77.853)  n=5
+    min_clear_m                0.303   (0.094 .. 0.321)  n=5
+    feas_pct                  95.652   (23.077 .. 96.774)  n=5
+    max_infeas_streak_s        0.187   (0.087 .. 1.953)  n=5
+    mpc_solve_time_p95_ms     34.956   (23.769 .. 66.611)  n=5
+    jerk_rms                   0.703   (0.688 .. 0.781)  n=5
+    steer_rev_per_m            1.198   (0.437 .. 2.428)  n=5
+  M04_person 20260924   n=5  completed=5  aborted=0
+    drive_duration_s          11.854   (11.584 .. 14.232)  n=5
+    viol_rate_pct              0.000   (0.000 .. 26.170)  n=5
+    min_clear_m                1.148   (0.994 .. 1.251)  n=5
+    feas_pct                  92.308   (84.259 .. 96.429)  n=5
+    max_infeas_streak_s        0.276   (0.181 .. 1.289)  n=5
+    mpc_solve_time_p95_ms     63.497   (37.039 .. 99.619)  n=5
+    jerk_rms                   0.617   (0.609 .. 0.714)  n=5
+    steer_rev_per_m            1.374   (0.985 .. 1.420)  n=5
+  M04_person 20261001   n=5  completed=5  aborted=0
+    drive_duration_s          13.471   (12.916 .. 15.083)  n=5
+    viol_rate_pct             15.135   (0.000 .. 15.755)  n=5
+    min_clear_m                0.153   (0.129 .. 0.211)  n=4
+    feas_pct                  90.511   (45.205 .. 96.748)  n=5
+    max_infeas_streak_s        0.909   (0.200 .. 2.001)  n=5
+    mpc_solve_time_p95_ms     34.093   (32.448 .. 39.386)  n=5
+    jerk_rms                   0.620   (0.602 .. 0.650)  n=5
+    steer_rev_per_m            0.888   (0.624 .. 1.218)  n=3
+  M05_turn_left_wall   n=5  completed=0  aborted=5
+    drive_duration_s          27.273   (27.114 .. 27.312)  n=5
+    viol_rate_pct              0.000   (0.000 .. 0.000)  n=5
+    min_clear_m                0.219   (0.049 .. 0.269)  n=5
+    feas_pct                  96.241   (94.118 .. 98.141)  n=5
+    max_infeas_streak_s        0.609   (0.109 .. 1.046)  n=5
+    mpc_solve_time_p95_ms     26.392   (25.951 .. 62.030)  n=5
+    jerk_rms                   0.662   (0.645 .. 0.684)  n=5
+    steer_rev_per_m            0.135   (0.124 .. 0.264)  n=5
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 6
+  M01_forward_3m    P001-R008-20260930T173125  [unevaluated]  mission aborted
+  M05_turn_left_wallP005-R003-20260924T140430  [unevaluated]  mission aborted
+  M05_turn_left_wallP005-R005-20260924T141303  [unevaluated]  mission aborted
+  M05_turn_left_wallP005-R006-20260924T141529  [unevaluated]  mission aborted
+  M05_turn_left_wallP005-R007-20260924T141924  [unevaluated]  mission aborted
+  M05_turn_left_wallP005-R008-20260924T142157  [unevaluated]  mission aborted
+
+not yet evaluated: 35
+  M01_forward_3m    P001-R001-20260921T145508  auto=completed
+  M01_forward_3m    P001-R002-20260921T145711  auto=completed
+  M01_forward_3m    P001-R003-20260921T145854  auto=completed
+  M01_forward_3m    P001-R004-20260921T150023  auto=completed
+  M01_forward_3m    P001-R005-20260921T150157  auto=completed
+  M01_forward_3m    P001-R007-20260930T173000  auto=completed
+  M01_forward_3m    P001-R008-20260930T173125  auto=aborted
+  M01_forward_3m    P001-R009-20260930T173424  auto=completed
+  M01_forward_3m    P001-R010-20260930T173632  auto=completed
+  M01_forward_3m    P001-R011-20260930T173814  auto=completed
+  M02_approach_wall P002-R001-20260922T142524  auto=completed
+  M02_approach_wall P002-R002-20260922T142712  auto=completed
+  M02_approach_wall P002-R003-20260922T142859  auto=completed
+  M02_approach_wall P002-R004-20260922T143058  auto=completed
+  M02_approach_wall P002-R005-20260922T143244  auto=completed
+  M03_bottle        P003-R004-20260928T165409  auto=completed
+  M03_bottle        P003-R005-20260928T165545  auto=completed
+  M03_bottle        P003-R006-20260928T165817  auto=completed
+  M03_bottle        P003-R009-20260928T170138  auto=completed
+  M03_bottle        P003-R010-20260928T170337  auto=completed
+  M04_person        P004-R007-20260924T134658  auto=completed
+  M04_person        P004-R008-20260924T134911  auto=completed
+  M04_person        P004-R009-20260924T135136  auto=completed
+  M04_person        P004-R010-20260924T135341  auto=completed
+  M04_person        P004-R011-20260924T135544  auto=completed
+  M04_person        P004-R014-20261001T112202  auto=completed
+  M04_person        P004-R015-20261001T112447  auto=completed
+  M04_person        P004-R016-20261001T112933  auto=completed
+  M04_person        P004-R017-20261001T113120  auto=completed
+  M04_person        P004-R018-20261001T113259  auto=completed
+  M05_turn_left_wallP005-R003-20260924T140430  auto=aborted
+  M05_turn_left_wallP005-R005-20260924T141303  auto=aborted
+  M05_turn_left_wallP005-R006-20260924T141529  auto=aborted
+  M05_turn_left_wallP005-R007-20260924T141924  auto=aborted
+  M05_turn_left_wallP005-R008-20260924T142157  auto=aborted

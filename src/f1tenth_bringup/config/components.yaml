@@ -167,9 +167,22 @@ components:
     - package: llm
       launch_file: llm.launch.py
 
+  # The bridge and the /viz/* relays it advertises restart together. The
+  # relays are gated on stack_params.yaml's enable_viz_relays, the bridge on
+  # enable_foxglove.
   dev_tools:
     - package: f1tenth_bringup
       launch_file: foxglove_bridge.launch.py
+    - package: f1tenth_bringup
+      launch_file: viz_relays.launch.py
+
+  # /reset_all: zeroes odometry, both EKFs and the SLAM map without restarting
+  # the supervisor, by restarting only `hardware`, `slam` and its configured
+  # hooks through /restart_component. Its own component so no reset it runs
+  # can restart it; it refuses to restart `intelligence` (llama-server).
+  reset_manager:
+    - package: f1tenth_bringup
+      launch_file: reset_manager.launch.py
 
   startup_sequence:
     - package: f1tenth_bringup
