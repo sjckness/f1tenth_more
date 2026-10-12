@@ -1,0 +1,5 @@
+Standing person (Gazebo Fuel model OpenRobotics/Standing person, version 1.0)
+Author: Marina Kollmitz <kollmitz@cs.uni-freiburg.de>; created with MakeHuman.
+License: Creative Commons Zero v1.0 Universal (CC0 1.0), public domain dedication,
+as published on https://app.gazebosim.org/OpenRobotics/fuel/models/Standing%20person
+Vendored into f1tenth_sim on 2026-10-12 so the simulation works offline.

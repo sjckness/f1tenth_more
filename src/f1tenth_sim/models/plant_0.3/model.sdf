@@ -1,0 +1,38 @@
+<?xml version="1.0" ?>
+<!--
+  A ~0.30 m potted plant (the R011 obstacle), primitives only: a 0.24 m terracotta
+  pot (0.25 m high) and a 0.30 m wide foliage body up to ~0.70 m. Solid for the
+  LiDAR scan plane (z 0.155, inside the pot) and the ZED (z 0.25). Primitives
+  will probably NOT be classified "potted plant" by YOLO: in the sim this obstacle
+  reaches the stack through the LiDAR / costmap, not through detection.
+-->
+<sdf version="1.9">
+  <model name="plant_0.3">
+    <static>true</static>
+    <link name="link">
+      <collision name="pot_c"><pose>0 0 0.125 0 0 0</pose>
+        <geometry><cylinder><radius>0.12</radius><length>0.25</length></cylinder></geometry></collision>
+      <visual name="pot"><pose>0 0 0.125 0 0 0</pose>
+        <geometry><cylinder><radius>0.12</radius><length>0.25</length></cylinder></geometry>
+        <material><ambient>0.55 0.27 0.15 1</ambient><diffuse>0.65 0.32 0.18 1</diffuse></material></visual>
+      <collision name="foliage_c"><pose>0 0 0.45 0 0 0</pose>
+        <geometry><sphere><radius>0.15</radius></sphere></geometry></collision>
+      <visual name="foliage"><pose>0 0 0.45 0 0 0</pose>
+        <geometry><sphere><radius>0.15</radius></sphere></geometry>
+        <material><ambient>0.10 0.40 0.10 1</ambient><diffuse>0.15 0.55 0.15 1</diffuse></material></visual>
+      <visual name="foliage_top"><pose>0 0 0.60 0 0 0</pose>
+        <geometry><sphere><radius>0.11</radius></sphere></geometry>
+        <material><ambient>0.10 0.45 0.10 1</ambient><diffuse>0.15 0.60 0.15 1</diffuse></material></visual>
+    </link>
+    <!-- Ground truth: the model's own world pose on /model/<spawned name>/pose
+         (gz.msgs.Pose, 10 Hz), bridged to /sim/ground_truth/<name> by
+         sim_bringup.launch.py. -->
+    <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+      <publish_model_pose>true</publish_model_pose>
+      <publish_link_pose>false</publish_link_pose>
+      <use_pose_vector_msg>false</use_pose_vector_msg>
+      <static_publisher>false</static_publisher>
+      <update_frequency>10</update_frequency>
+    </plugin>
+  </model>
+</sdf>

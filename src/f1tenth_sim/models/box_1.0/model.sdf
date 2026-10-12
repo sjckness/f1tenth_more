@@ -1,0 +1,26 @@
+<?xml version="1.0" ?>
+<!--
+  A 1.0 m wide obstacle: 1.0 m across (model y, i.e. across the car's path when
+  spawned with yaw 0), 0.5 m deep, 0.8 m high, matte grey. The "1.0 m object" of
+  the MPC scenarios (expected: BLOCKED when centred in the 1.2 m corridor).
+-->
+<sdf version="1.9">
+  <model name="box_1.0">
+    <static>true</static>
+    <link name="link">
+      <collision name="c"><pose>0 0 0.4 0 0 0</pose><geometry><box><size>0.5 1.0 0.8</size></box></geometry></collision>
+      <visual name="v"><pose>0 0 0.4 0 0 0</pose><geometry><box><size>0.5 1.0 0.8</size></box></geometry>
+        <material><ambient>0.45 0.45 0.48 1</ambient><diffuse>0.55 0.55 0.58 1</diffuse></material></visual>
+    </link>
+    <!-- Ground truth: the model's own world pose on /model/<spawned name>/pose
+         (gz.msgs.Pose, 10 Hz), bridged to /sim/ground_truth/<name> by
+         sim_bringup.launch.py. -->
+    <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+      <publish_model_pose>true</publish_model_pose>
+      <publish_link_pose>false</publish_link_pose>
+      <use_pose_vector_msg>false</use_pose_vector_msg>
+      <static_publisher>false</static_publisher>
+      <update_frequency>10</update_frequency>
+    </plugin>
+  </model>
+</sdf>

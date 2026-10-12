@@ -49,6 +49,21 @@ Args: gui (default false: server only), world, foxglove, camera (default true:
 render the ZED 2i at the car's 640x360 @ 30 Hz, about 50 MB/s raw over the LAN),
 clock_rate (Hz of /clock, default 250 = one per 4 ms step; 0 = every physics
 step, the old behaviour), x/y/yaw spawn pose.
+
+TEST ROOM (world:=test_room_6x6, worlds/test_room_6x6.sdf, see README.md):
+world also takes a bare NAME, resolved to f1tenth_sim/worlds/<name>.sdf.
+  car_x / car_y / car_yaw   spawn pose; '' (default) = the world's own
+                            default: (-2.5, 0, 0) in test_room_6x6, else x/y/yaw
+  person_enabled            auto (default: true in test_room_6x6 only) | true | false
+  person_x / person_y       default (0, 0), the room centre; the person always
+                            faces the car's spawn point
+  obstacle_enabled          false (default) | true
+  obstacle_type             plant_0.3 (default) | box_1.0   (f1tenth_sim/models)
+  obstacle_x / obstacle_y   default (0, 0)
+Ground truth (measuring only, never read by the stack, any world):
+/sim/ground_truth/{car,person,obstacle}, PoseStamped in the world frame. The
+person and obstacle models publish their own pose (PosePublisher); the car's
+comes from the URDF's /sim/ground_truth Odometry via ground_truth_relay.
 """
 import os
 
@@ -92,6 +107,22 @@ def generate_launch_description():
     camera = LaunchConfiguration('camera')
     clock_rate = LaunchConfiguration('clock_rate')
 
+    test_room = PythonExpression(["'", world, "' in ('test_room_6x6', '",
+                                  os.path.join(sim_share, 'worlds', 'test_room_6x6.sdf'),
+                                  "')"])
+    world_path = PythonExpression([
+        "'", world, "' if '", world, "'.endswith('.sdf') else '",
+        os.path.join(sim_share, 'worlds'), "/' + '", world, "' + '.sdf'"])
+
+    def _car(axis, room_default, fallback):
+        return PythonExpression([
+            "'", LaunchConfiguration('car_' + axis), "' if '",
+            LaunchConfiguration('car_' + axis), "' != '' else ('", room_default,
+            "' if ", test_room, " else '", LaunchConfiguration(fallback), "')"])
+    car_x = _car('x', '-2.5', 'x')
+    car_y = _car('y', '0.0', 'y')
+    car_yaw = _car('yaw', '0.0', 'yaw')
+
     args = [
         DeclareLaunchArgument(
             'gui', default_value='false',
@@ -124,14 +155,30 @@ def generate_launch_description():
         DeclareLaunchArgument('x', default_value='1.0'),    # 1 m ahead (+x world)
         DeclareLaunchArgument('y', default_value='0.0'),
         DeclareLaunchArgument('yaw', default_value='-1.5708'),  # -pi/2 = 90 deg right
+        # --- test room (see the module docstring and README.md) -------------
+        DeclareLaunchArgument('car_x', default_value='',
+                              description="'' = world default (-2.5 in test_room_6x6, else x)"),
+        DeclareLaunchArgument('car_y', default_value='',
+                              description="'' = world default (0 in test_room_6x6, else y)"),
+        DeclareLaunchArgument('car_yaw', default_value='',
+                              description="'' = world default (0 in test_room_6x6, else yaw)"),
+        DeclareLaunchArgument('person_enabled', default_value='auto',
+                              description='auto = true in test_room_6x6 only'),
+        DeclareLaunchArgument('person_x', default_value='0.0'),
+        DeclareLaunchArgument('person_y', default_value='0.0'),
+        DeclareLaunchArgument('obstacle_enabled', default_value='false'),
+        DeclareLaunchArgument('obstacle_type', default_value='plant_0.3',
+                              description='plant_0.3 | box_1.0 (f1tenth_sim/models)'),
+        DeclareLaunchArgument('obstacle_x', default_value='0.0'),
+        DeclareLaunchArgument('obstacle_y', default_value='0.0'),
     ]
 
     # Let Gazebo find the world + description meshes if referenced by URI.
     # (Fortress also needed IGN_GAZEBO_RESOURCE_PATH; Harmonic reads only this.)
     gz_env = [
         AppendEnvironmentVariable(name='GZ_SIM_RESOURCE_PATH', value=p, separator=':')
-        for p in (os.path.join(sim_share, 'worlds'), desc_share,
-                  os.path.join(desc_share, 'meshes'))
+        for p in (os.path.join(sim_share, 'worlds'), os.path.join(sim_share, 'models'),
+                  desc_share, os.path.join(desc_share, 'meshes'))
     ]
 
     # --- 1) Gazebo Harmonic (via husarion_gz_worlds) ------------------------
@@ -144,7 +191,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(husarion_share, 'launch', 'gz_sim.launch.py')),
         launch_arguments={
-            'gz_world': world,
+            'gz_world': world_path,
             'gz_headless_mode': PythonExpression(
                 ["'False' if '", gui, "' == 'true' else 'True'"]),
             'gz_log_level': '3',
@@ -255,11 +302,66 @@ def generate_launch_description():
         arguments=[
             '-name', 'roboracer',
             '-topic', SIM_DESCRIPTION_TOPIC,
-            '-x', LaunchConfiguration('x'),
-            '-y', LaunchConfiguration('y'),
+            '-x', car_x,
+            '-y', car_y,
             '-z', '0.05',
-            '-Y', LaunchConfiguration('yaw'),
+            '-Y', car_yaw,
         ],
+    )
+
+    # --- 4b) test-room person / obstacle, ground truth ---------------------
+    person_enabled = LaunchConfiguration('person_enabled')
+    person_x, person_y = LaunchConfiguration('person_x'), LaunchConfiguration('person_y')
+    # Facing the car's spawn point. The mesh's front is model -y, so the
+    # model yaw is the bearing to the car + pi/2.
+    person_yaw = PythonExpression([
+        'str(__import__("math").atan2(float(', car_y, ') - float(', person_y,
+        '), float(', car_x, ') - float(', person_x, ')) + __import__("math").pi / 2)'])
+    spawn_person = Node(
+        package='ros_gz_sim',
+        executable='create',
+        name='sim_spawn_person',
+        output='screen',
+        arguments=['-name', 'person',
+                   '-file', os.path.join(sim_share, 'models', 'person_standing', 'model.sdf'),
+                   '-x', person_x, '-y', person_y, '-z', '0.0', '-Y', person_yaw],
+        condition=IfCondition(PythonExpression([
+            "'", person_enabled, "' == 'true' or ('", person_enabled, "' == 'auto' and ",
+            test_room, ')'])),
+    )
+    spawn_obstacle = Node(
+        package='ros_gz_sim',
+        executable='create',
+        name='sim_spawn_obstacle',
+        output='screen',
+        arguments=['-name', 'obstacle',
+                   '-file', PathJoinSubstitution([
+                       FindPackageShare('f1tenth_sim'), 'models',
+                       LaunchConfiguration('obstacle_type'), 'model.sdf']),
+                   '-x', LaunchConfiguration('obstacle_x'),
+                   '-y', LaunchConfiguration('obstacle_y'), '-z', '0.0', '-Y', '0.0'],
+        condition=IfCondition(LaunchConfiguration('obstacle_enabled')),
+    )
+    # The person and obstacle models carry a PosePublisher (/model/<name>/pose).
+    # The car's world pose is the URDF's /sim/ground_truth Odometry, which
+    # ground_truth_relay republishes as /sim/ground_truth/car.
+    ground_truth_bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        name='sim_ground_truth_bridge',
+        output='screen',
+        arguments=[f'/model/{m}/pose@geometry_msgs/msg/PoseStamped[gz.msgs.Pose'
+                   for m in ('person', 'obstacle')],
+        remappings=[(f'/model/{m}/pose', f'/sim/ground_truth/{m}')
+                    for m in ('person', 'obstacle')],
+        parameters=[{'use_sim_time': True}],
+    )
+    ground_truth_relay = Node(
+        package='f1tenth_sim',
+        executable='ground_truth_relay',
+        name='sim_ground_truth_relay',
+        output='screen',
+        parameters=[{'use_sim_time': True}],
     )
 
     # --- 5) ros2_control spawners (controller_manager lives in the gz plugin) -
@@ -336,6 +438,10 @@ def generate_launch_description():
         rgb_compressor,
         depth_compressor,
         spawn_entity,
+        spawn_person,
+        spawn_obstacle,
+        ground_truth_bridge,
+        ground_truth_relay,
         drive_bridge,
         camera_pan_bridge,
         foxglove_node,

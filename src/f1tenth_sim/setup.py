@@ -1,4 +1,5 @@
 from glob import glob
+import os
 
 from setuptools import setup
 
@@ -15,6 +16,11 @@ setup(
         ('share/' + package_name + '/launch', glob('launch/*.launch.py')),
         ('share/' + package_name + '/worlds', glob('worlds/*')),
         ('share/' + package_name + '/config', glob('config/*')),
+        # Vendored models (test room person / obstacles), one data_files
+        # entry per directory so the tree is kept under share/models.
+        *[('share/' + package_name + '/' + d, [f for f in glob(d + '/*') if os.path.isfile(f)])
+          for d in sorted({os.path.dirname(f) for f in glob('models/**/*', recursive=True)
+                           if os.path.isfile(f)})],
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -44,6 +50,9 @@ setup(
             # /camera_pan/command -> the pan position controller; the gz joint
             # state -> /camera_pan/joint_state (see camera_pan_bridge.py).
             'camera_pan_bridge = f1tenth_sim.camera_pan_bridge:main',
+            # /sim/ground_truth (car Odometry) -> /sim/ground_truth/car
+            # (PoseStamped, like person/obstacle; see ground_truth_relay.py).
+            'ground_truth_relay = f1tenth_sim.ground_truth_relay:main',
         ],
     },
 )

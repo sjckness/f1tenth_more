@@ -7,6 +7,10 @@
 #   scripts/sim/sim.sh                 # headless, camera on, default spawn
 #   scripts/sim/sim.sh gui:=true       # with the Gazebo GUI
 #   scripts/sim/sim.sh yaw:=0          # face +x (at the office furniture)
+#   scripts/sim/sim.sh world:=test_room_6x6                    # test room, person at the centre
+#   scripts/sim/sim.sh world:=test_room_6x6 person_y:=0.3      # person 0.3 m off-centre
+#   scripts/sim/sim.sh world:=test_room_6x6 obstacle_enabled:=true obstacle_type:=box_1.0 person_x:=2.0
+#                                      # (scenarios: src/f1tenth_sim/README.md)
 #   scripts/sim/sim.sh --clean         # kill_ros2.py -y first (clean slate), then launch
 #   scripts/sim/sim.sh --dry-run       # print the env + command, launch nothing
 # Any ros2-launch arg for sim_bringup.launch.py is passed through and, if it
@@ -25,7 +29,7 @@ while [[ "${1:-}" == --* ]]; do
   case "$1" in
     --clean)   CLEAN=true ;;
     --dry-run) DRY=true ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,24p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
   shift
