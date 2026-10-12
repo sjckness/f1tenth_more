@@ -551,7 +551,7 @@ class TestWallDistanceTimeout(unittest.TestCase):
     """B8: waiting for a distance is bounded -- BLOCKED no_wall_distance."""
 
     def test_the_shipped_timeout(self):
-        self.assertEqual(get_value('wall_distance_timeout_s'), 2.0)
+        self.assertEqual(get_value('wall_turn_distance_timeout_s'), 2.0)
 
     def test_no_distance_for_the_timeout_is_blocked(self):
         wait = WallDistanceWait(2.0)

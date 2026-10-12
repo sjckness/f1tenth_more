@@ -86,7 +86,7 @@ is not a distance, and it is not a wall at zero either.
   * Not committed, on the move's FIRST rebuild: the same -- NO wall decision
     (decided 2026-10-12, review B8; it used to commit here). The car keeps
     going straight and waits for a valid distance. A turn is never committed
-    without one. If none arrives within wall_distance_timeout_s (2.0 s),
+    without one. If none arrives within wall_turn_distance_timeout_s (2.0 s),
     MPC_corr ends the move BLOCKED with reason "no_wall_distance" -- a
     wall_turn issued with the camera path down stops instead of turning
     blind.

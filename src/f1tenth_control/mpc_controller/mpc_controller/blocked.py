@@ -355,7 +355,7 @@ class WallDistanceWait:
 
     def __init__(self, timeout_s: float):
         if not timeout_s > 0.0:
-            raise ValueError('wall_distance_timeout_s must be > 0')
+            raise ValueError('wall_turn_distance_timeout_s must be > 0')
         self.timeout_s = float(timeout_s)
         self.since: Optional[float] = None
 

@@ -601,7 +601,7 @@ class MPCController(Node):
             half_width=float(_p('swept_clearance_body_half_width_m')))
         # B8: a wall_turn that has no valid front distance waits, straight,
         # this long [s] before ending BLOCKED "no_wall_distance".
-        self.wall_distance_wait = WallDistanceWait(float(_p('wall_distance_timeout_s')))
+        self.wall_distance_wait = WallDistanceWait(float(_p('wall_turn_distance_timeout_s')))
         self.blocked_detector = BlockedDetector(
             self.min_moving_speed,
             float(_p('mpc_blocked_progress_window_sec')),
@@ -3758,7 +3758,7 @@ class MPCController(Node):
             # it needs a valid /perception/front_distance (fresh, >= 0); the
             # corridor stays straight meanwhile (wall_turn.plan_wall_turn_step
             # never commits on an unknown one). If none arrives within
-            # wall_distance_timeout_s, the move ends BLOCKED rather than
+            # wall_turn_distance_timeout_s, the move ends BLOCKED rather than
             # driving on toward a wall it cannot see.
             verdict = self.wall_distance_wait.update(
                 self.get_clock().now().nanoseconds * 1e-9,
