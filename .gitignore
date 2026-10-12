@@ -98,3 +98,8 @@ output/**/*.mcap
 output/**/*.db3
 output/**/*.mp4
 output/phase*/reports/*/*.log
+
+# Claude Code permission rules are per machine (they name each machine's home
+# and scratch paths): kept in .claude/settings.local.json, never shared. The
+# shared .claude/settings.json was folded into it on 2026-10-12.
+.claude/settings.local.json
