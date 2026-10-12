@@ -14,6 +14,7 @@ Branch `test-campaign`, as pushed. Everything was verified on linus only: unit t
 | Harness finding | `20544fa` | No BLOCKED cascade after a BLOCKED: cold warm start ramps steering to 0; published steering and `last_u` clipped to the bounds; stop ticks carry no acceleration |
 | A1 dt review | `426eabf` | Per-step rate weights scaled by (0.1/step)²: `w_du_delta` effective 0.75 between 0.2 s steps, 3.0 on the 0.1 s first step. SLSQP first rate constraint now spans the control period. The other per-step terms needed no change (see the commit) |
 | Orin crash | `babc885` | wall_turn with a stale or missing front distance: `float(None)` → NaN / "unknown", with a test |
+| A4 wall stop at 0.5 m | see `git log` | The ±30° sector shows 2·d·tan 30° of a square-on wall: 0.57 m at the 0.5 m stop (LiDAR 0.49 m from the wall, laser at base_link x +0.12). The fixed 0.8 m lost the wall below a 0.71 m camera distance, so the stop never fired. Now a latch: the first confirmation still needs 0.8 m; frames whose line continues it need 0.7 × the visible length (0.40 m at the stop). A person or plant is not a continuation and still needs 0.8 m |
 
 **Lookahead.** `corr_lookahead_frac` stays at 0.85. In the harness, 0.85 vs 0.5 gave the same outcomes except two cases, comparable clearances, passes about 0.5 s faster, and none of the 34 geometry warnings per run that 0.5 produces. Details are in `campaign_partA_review.md`.
 

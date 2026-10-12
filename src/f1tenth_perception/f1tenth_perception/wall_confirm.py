@@ -21,6 +21,23 @@ line (the same MSAC + TLS refit lidar_front_wall uses). Confirmed when:
     base_link) within tolerance_m + tolerance_frac x distance.
 Anything else -> not confirmed, with the reason.
 
+CLOSE TO THE WALL (latch). The sector shows only 2 d tan(half_angle) of a
+square-on wall d metres from the LiDAR: 0.57 m at d = 0.49 m, which is where
+the LiDAR is (base_link -> laser x = +0.12 m, description.launch.py and the
+recorded /tf_static) when the camera reads the 0.5 m stop. A fixed 0.8 m
+could therefore never be met below ~0.69 m, and the wall stop at 0.5 m could
+never fire. WallConfirmTracker keeps the full min_extent_m for the FIRST
+confirmation, then latches the confirmed line: while the next frames' line
+continues it (forward intercept within latch_jump_m + latch_max_speed_mps x
+dt, normal within latch_normal_tol_deg + latch_max_yaw_rate_deg_s x dt, the
+last confirmation no older than latch_hold_s), the extent needed is
+min(min_extent_m, near_extent_frac x the line's length inside the sector and
+search window) -- 0.40 m at the 0.5 m stop. A person or a plant in front of
+the wall is not a continuation of the wall line (it sits a person's depth or
+more nearer), so it still needs the full 0.8 m, which it does not have. A
+surface first seen closer than ~0.69 m is never confirmed (only the
+proximity e-stop then applies).
+
 WHY NOT /perception/lidar_front_wall. That node fits a +-10 deg sector and
 accepts any line there (its own docstring lists "an object face within the
 0.3 m gate" as a known blind spot); at 1.5 m the whole sector is 0.53 m wide,
@@ -59,6 +76,13 @@ class WallConfirmConfig:
     crossing_margin_m: float = 0.15
     tolerance_m: float = 0.30
     tolerance_frac: float = 0.10
+    # Latch (WallConfirmTracker): see the module docstring.
+    near_extent_frac: float = 0.7
+    latch_hold_s: float = 0.5
+    latch_jump_m: float = 0.10
+    latch_max_speed_mps: float = 1.5
+    latch_normal_tol_deg: float = 5.0
+    latch_max_yaw_rate_deg_s: float = 60.0
 
 
 @dataclass
@@ -70,6 +94,8 @@ class WallConfirmation:
     extent_m: float = 0.0
     inliers: int = 0
     normal_angle_deg: float = math.nan
+    required_extent_m: float = math.nan
+    latched: bool = False    # the line continued a confirmed one (relaxed extent)
     detail: Dict = field(default_factory=dict)
 
     def as_dict(self) -> Dict:
@@ -79,7 +105,17 @@ class WallConfirmation:
                 'lidar_distance_m': r(self.lidar_distance_m),
                 'camera_distance_m': r(self.camera_distance_m),
                 'extent_m': r(self.extent_m), 'inliers': int(self.inliers),
-                'normal_angle_deg': r(self.normal_angle_deg)}
+                'normal_angle_deg': r(self.normal_angle_deg),
+                'required_extent_m': r(self.required_extent_m),
+                'latched': bool(self.latched)}
+
+
+@dataclass(frozen=True)
+class WallLatch:
+    """The last confirmed line: forward intercept, normal angle, time [s]."""
+    lidar_distance_m: float
+    normal_angle_deg: float
+    stamp: float
 
 
 def scan_points_base(ranges: Sequence[float], angle_min: float, angle_increment: float,
@@ -99,14 +135,59 @@ def scan_points_base(ranges: Sequence[float], angle_min: float, angle_increment:
     return np.column_stack([lx + r * np.cos(b), ly + r * np.sin(b)])
 
 
+def _half_line(a: float, b: float) -> Tuple[float, float]:
+    """The s interval where a + b s >= 0."""
+    if abs(b) < 1e-12:
+        return (-math.inf, math.inf) if a >= 0.0 else (math.inf, -math.inf)
+    return (-a / b, math.inf) if b > 0.0 else (-math.inf, -a / b)
+
+
+def visible_extent(nx: float, ny: float, offset: float, laser_xy: Tuple[float, float],
+                   half_angle_rad: float, d_cam: float, search_window_m: float) -> float:
+    """Length of the line n.p = offset that confirm_wall can see at all.
+
+    The part inside the LiDAR sector (bearing within +-half_angle_rad from
+    the laser, half_angle < 90 deg) AND inside the search window (|x - d_cam|
+    <= search_window_m), base_link. 2 d tan(half_angle) for a square-on wall
+    d ahead of the laser.
+    """
+    lx, ly = laser_xy
+    tx, ty = -ny, nx
+    px, py = nx * offset - lx, ny * offset - ly       # line point rel. laser
+    c, sn = math.cos(half_angle_rad), math.sin(half_angle_rad)
+    lo, hi = -math.inf, math.inf
+    # Inside the sector: cross(u-, q) >= 0 and cross(q, u+) >= 0, u+- = (c, +-sn).
+    for a, b in ((c * py + sn * px, c * ty + sn * tx),
+                 (px * sn - py * c, tx * sn - ty * c),
+                 # |x - d_cam| <= window, x = lx + px + s tx
+                 (search_window_m - (lx + px - d_cam), -tx),
+                 (search_window_m + (lx + px - d_cam), tx)):
+        a_lo, a_hi = _half_line(a, b)
+        lo, hi = max(lo, a_lo), min(hi, a_hi)
+    return max(0.0, hi - lo)
+
+
+def _continues(latch: Tuple[WallLatch, float], x_int: float, normal_angle: float,
+               cfg: WallConfirmConfig) -> bool:
+    ref, dt = latch
+    if abs(x_int - ref.lidar_distance_m) > cfg.latch_jump_m + cfg.latch_max_speed_mps * dt:
+        return False
+    return (abs(normal_angle - ref.normal_angle_deg)
+            <= cfg.latch_normal_tol_deg + cfg.latch_max_yaw_rate_deg_s * dt)
+
+
 def confirm_wall(points_base: Optional[np.ndarray], camera_distance_m: float,
-                 camera_x_m: float, cfg: WallConfirmConfig = WallConfirmConfig()
-                 ) -> WallConfirmation:
+                 camera_x_m: float, cfg: WallConfirmConfig = WallConfirmConfig(),
+                 laser_xy: Tuple[float, float] = (0.0, 0.0),
+                 latch: Optional[Tuple[WallLatch, float]] = None) -> WallConfirmation:
     """Confirm the camera's front distance against the forward LiDAR returns.
 
     points_base: scan_points_base() output (None = no scan). camera_distance_m:
     front_distance (along the optical axis, from the lens); camera_x_m: the
     lens' x in base_link, so the camera's wall sits at camera_x + distance.
+    latch: (the last confirmed line, seconds since) from WallConfirmTracker;
+    when this frame's line continues it, the extent needed is relaxed (module
+    docstring). laser_xy: the laser in base_link, for that relaxed extent.
     """
     if not (camera_distance_m is not None and math.isfinite(camera_distance_m)
             and camera_distance_m > 0.0):
@@ -140,7 +221,13 @@ def confirm_wall(points_base: Optional[np.ndarray], camera_distance_m: float,
     x_int = offset / nx
     out.lidar_distance_m = float(x_int)
     s_cross = float(np.array([x_int, 0.0]) @ tangent)
-    if out.extent_m < cfg.min_extent_m:
+    out.required_extent_m = cfg.min_extent_m
+    if latch is not None and _continues(latch, x_int, normal_angle, cfg):
+        out.latched = True
+        out.required_extent_m = min(cfg.min_extent_m, cfg.near_extent_frac * visible_extent(
+            nx, ny, offset, laser_xy, math.radians(cfg.half_angle_deg), d_cam,
+            cfg.search_window_m))
+    if out.extent_m < out.required_extent_m:
         out.reason = REASON_SHORT
         return out
     if not (s.min() - cfg.crossing_margin_m <= s_cross <= s.max() + cfg.crossing_margin_m):
@@ -152,3 +239,31 @@ def confirm_wall(points_base: Optional[np.ndarray], camera_distance_m: float,
     out.confirmed = True
     out.reason = REASON_OK
     return out
+
+
+class WallConfirmTracker:
+    """confirm_wall() per frame, with the latch that carries a confirmed wall
+    down to the stop distance (module docstring). Pure: time is passed in."""
+
+    def __init__(self, cfg: WallConfirmConfig = WallConfirmConfig()):
+        self.cfg = cfg
+        self.latch: Optional[WallLatch] = None
+
+    def reset(self):
+        self.latch = None
+
+    def update(self, points_base: Optional[np.ndarray], camera_distance_m: float,
+               camera_x_m: float, laser_xy: Tuple[float, float], now: float
+               ) -> WallConfirmation:
+        ref = None
+        if self.latch is not None:
+            dt = now - self.latch.stamp
+            if 0.0 <= dt <= self.cfg.latch_hold_s:
+                ref = (self.latch, dt)
+            else:
+                self.latch = None
+        out = confirm_wall(points_base, camera_distance_m, camera_x_m, self.cfg,
+                           laser_xy, ref)
+        if out.confirmed:
+            self.latch = WallLatch(out.lidar_distance_m, out.normal_angle_deg, now)
+        return out

@@ -487,6 +487,12 @@ front_clearance_wall_confirm_tolerance_m:
 front_clearance_wall_confirm_tolerance_frac:
   default: 0.10
   description: "Distance-proportional part of the camera/LiDAR agreement tolerance (stereo depth error grows with range)."
+front_clearance_wall_confirm_near_extent_frac:
+  default: 0.7
+  description: "Latch (2026-10-12): once a wall is confirmed with the full min_extent_m, following frames whose line continues it (intercept and normal within the motion possible since) need only min(min_extent_m, this x the line's length visible in the sector and search window). The +-30 deg sector shows 2 d tan30 of a square-on wall: 0.57 m when the camera reads the 0.5 m stop (LiDAR 0.49 m from the wall), so a fixed 0.8 m could never confirm below a 0.71 m camera distance and the 0.5 m wall stop never fired. 0.7 -> 0.40 m needed there vs 0.57 m seen. A person or a plant is not a continuation of the wall line and still needs the full min_extent_m. Untuned."
+front_clearance_wall_confirm_latch_hold_s:
+  default: 0.5
+  description: "The latch is dropped when the last confirmation is older than this [s] (camera or scan gaps, the car turned away). Untuned."
 # Consumed by f1tenth_behavior's behavior_executor_node (CheckStopCondition).
 wall_stop_require_lidar:
   default: true

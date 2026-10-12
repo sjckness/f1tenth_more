@@ -233,6 +233,8 @@ def generate_launch_description():
         ('wall_confirm_min_extent_m', float),
         ('wall_confirm_tolerance_m', float),
         ('wall_confirm_tolerance_frac', float),
+        ('wall_confirm_near_extent_frac', float),
+        ('wall_confirm_latch_hold_s', float),
     ]
     front_clearance_las = []
     for _name, _type in _front_clearance_args:

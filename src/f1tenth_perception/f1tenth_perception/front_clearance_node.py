@@ -256,7 +256,7 @@ from vision_msgs.msg import Detection2DArray
 
 from f1tenth_messages.msg import Obstacle2DArray
 from f1tenth_perception.wall_confirm import (
-    REASON_NO_SCAN, WallConfirmConfig, WallConfirmation, confirm_wall,
+    REASON_NO_SCAN, WallConfirmConfig, WallConfirmation, WallConfirmTracker,
     scan_points_base)
 
 from f1tenth_perception.cpu_affinity import (
@@ -506,7 +506,13 @@ class FrontClearanceNode(Node):
             tolerance_m=float(self.declare_parameter('wall_confirm_tolerance_m', 0.30).value),
             tolerance_frac=float(self.declare_parameter(
                 'wall_confirm_tolerance_frac', 0.10).value),
+            near_extent_frac=float(self.declare_parameter(
+                'wall_confirm_near_extent_frac', 0.7).value),
+            latch_hold_s=float(self.declare_parameter(
+                'wall_confirm_latch_hold_s', 0.5).value),
         )
+        # Carries a confirmed wall down to the stop distance (wall_confirm.py).
+        self.wall_confirm_tracker = WallConfirmTracker(self.wall_confirm_cfg)
 
         # ---- filters / latches ---------------------------------------------
         self.distance_filter = EmaFilter(self.distance_ema_alpha)
@@ -680,7 +686,7 @@ class FrontClearanceNode(Node):
         points = scan_points_base(
             scan.ranges, scan.angle_min, scan.angle_increment, scan.range_min,
             scan.range_max, laser, math.radians(self.wall_confirm_cfg.half_angle_deg))
-        return confirm_wall(points, distance, cam[0], self.wall_confirm_cfg)
+        return self.wall_confirm_tracker.update(points, distance, cam[0], laser[:2], now)
 
     # ------------------------------------------------------------------------
     # Object-exclusion mask
