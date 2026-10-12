@@ -1,7 +1,26 @@
-# Campaign fix — Part A review (2026-10-09)
+# Campaign fix — Part A review (final state, 2026-10-12)
 
-Branch `test-campaign`, commits `16b7b95..75ccbe6` (plan, A1, A2, A3, A4 ×2, A5).
-Everything below was verified on linus only. Nothing was run on hardware or in Gazebo.
+Branch `test-campaign`, as pushed. Part A is commits `16b7b95..75ccbe6` (plan, A1, A2, A3, A4 ×2, A5). The review items and decisions that followed are `0b9e8ee..babc885`; see `output/campaign_review_items.md`. Part B, with B5–B8 added from the Orin's R011 analysis, is in `output/campaign_partB_backlog.md`.
+
+Everything was verified on linus only: unit tests, a nominal-model rig, and the scenario harness driving the real `mpc_corr` node. Nothing was run on hardware or in Gazebo.
+
+## Final effective values (compare with the Orin after it pulls)
+
+| Value | Final | Source |
+|---|---|---|
+| prediction dt | **0.2 s** | `mpc_prediction_dt_sec` |
+| control period | **0.1 s** | `mpc_control_period_sec` |
+| N | **20** (horizon 4.0 s, 1.6 m at 0.4 m/s) | `mpc_horizon_steps` |
+| corridor half-widths | **0.60 / 0.60 m** (width 1.2 m, no funnel) | `corr_wmin` / `corr_wmax` |
+| `corr_L_base` | **3.0 m** | `corr_L_base` |
+| `corr_lookahead_frac` | **0.85** (lookahead 2.55 m on L 3.0) | `corr_lookahead_frac` |
+| `w_du_delta` raw | **8.5714** | `mpc_w_du_delta` |
+| `w_du_delta` effective | **3.0** per stage at the 0.1 s step (×7/20); in the solver ×(0.1/step)²: **0.75** stage to stage (0.2 s), **3.0** on the first step (0.1 s control period) | `mpc_solver.rate_weight_factor` |
+| `corridor_heading_return` | **false** | `corridor_heading_return` |
+| steering bounds | **−0.309 / +0.319 rad**, rate ±0.5 rad/s (hard rows: ×0.2 s stage to stage, ×0.1 s for u₀) | `mpc_steering_angle_min/max_rad`, `MPC_corr.limits` |
+| speed | 0 or ≥ 0.4 m/s, max 0.5, reverse 0 | `min_moving_speed_mps`, `max_forward/reverse_speed_mps` |
+| keep-outs | 3 footprint circles (centres +0.006 / +0.181 / +0.356 m, r 0.162), committed pass side | `mpc_keepout_footprint_circles`, `pass_side.py` |
+| BLOCKED | progress < 0.15 m in 2.5 s; steering lock with < 0.15 m in 2.0 s; infeasible for 1.0 s (plan checked over 2.0 s) | `mpc_blocked_*` |
 
 ## Parameters changed (repo value → new)
 
@@ -10,7 +29,12 @@ Everything below was verified on linus only. Nothing was run on hardware or in G
 | `mpc_control_period_sec` | stack_params | literal `ts` 0.1 | 0.1 |
 | `mpc_prediction_dt_sec` | stack_params | literal `ts` 0.1 | **0.2** |
 | `mpc_horizon_steps` | stack_params | literal 20 | 20 |
-| `corr_lookahead_frac` | stack_params | literal 0.5 | **0.85** |
+| `corr_lookahead_frac` | stack_params | literal 0.5 | **0.85** (see the lookahead note below) |
+| `mpc_w_du_delta` | stack_params | 8.33 | **8.5714** (+ dt scaling in the solver) |
+| `corridor_heading_return` | stack_params | true | **false** |
+| `mpc_keepout_footprint_circles` | stack_params | — | 3 |
+| `mpc_pass_side_match_radius_m` / `_forget_sec` | stack_params | — | 0.5 / 2.0 |
+| `mpc_blocked_plan_check_sec` | stack_params | — | 2.0 |
 | `corr_wmin` | stack_params | literal 0.4333 | **0.60** |
 | `corr_wmax` | stack_params | literal 0.7667 | **0.60** |
 | `corr_L_base` | stack_params | literal 3.0 (Orin: 1.5) | 3.0 |
@@ -40,7 +64,18 @@ The Orin's parameter snapshots from the 2026-10-08 runs (archived on linus) matc
 
 - **Horizon:** 20 × 0.2 s = 4.0 s, which is 1.6 m at 0.4 m/s (was 0.8 m).
 - **Solve time on linus (i7-9700K, mean/p95/max):** before 5.98/6.59/12.32 ms with no obstacle and 8.47/8.99/9.51 ms with one obstacle. After: 6.03/6.52/6.97 and 8.49/9.07/9.63 ms. The Orin will be slower. Run `python3 tools/mpc_solve_benchmark.py` there.
-- **Nominal-model closed loop** (`test_blocked_closed_loop.py`, 1.2 m corridor):
+- **Lookahead 0.5 vs 0.85.** A1 raised `corr_lookahead_frac` because at 0.5 the lookahead (1.5 m) falls inside the doubled horizon reach, so the reach floor (1.25 × N × dt × vdes) takes over. That floor is 2.0 m during a 0.4 m/s drive move, and the controller logs a geometry WARN every 5 s (34 per harness run). In the final-state harness (both reporting modes), 0.85 gave the same outcomes as 0.5 except:
+  - with true-centre reporting, the 0.5 m object appearing late at 1.4 m: BLOCKED at 4.7 s with gap +0.59 m (0.85) vs at 8.0 s with gap +0.17 m (0.5);
+  - with front-surface reporting, the 1.0 m object off-centre seen early: BLOCKED (0.85) vs passed (0.5). That case is Part B.
+
+  Clearances on the early-seen passes were comparable: true-centre +0.11 to +0.15 m with 0.85 vs +0.10 to +0.15 m with 0.5 (3 higher, 2 lower, 1 equal). Passes finished about 0.5 s sooner with 0.85, and the warning is gone. **Kept 0.85.**
+- **Final scenario harness** (real `mpc_corr`, `tools/run_scenarios.sh`, 16 scenarios × 2 reporting modes): every 0.1 m, 0.3 m and 0.5 m obstacle seen early passes, with min outline gap ≥ +0.11 m. Of the late (1.4 m) cases:
+  - the centred 0.3 m object ends BLOCKED with front-surface reporting and passes with true-centre reporting;
+  - the centred 0.5 m object ends BLOCKED in both modes;
+  - the off-centre 0.5 m object ends BLOCKED with front-surface reporting and passes with true-centre reporting.
+
+  1.0 m objects pass only off-centre with true-centre reporting (Part B). No command in (0, 0.4) m/s and no pass-side flip in any run.
+- **Nominal-model closed loop, as at A3 time** (`test_blocked_closed_loop.py`, 1.2 m corridor; superseded by the harness above):
 
   | Scenario | Result |
   |---|---|
@@ -71,6 +106,10 @@ From `tools/m02_orin_report.py` on that bag:
 - **From where the car stopped,** passing needed 1.13 m of travel at R_min 0.92 m, and 0.09 m was available.
 - **Detection lag:** `/camera/detections` and `/camera/detection_masks` arrive 0.44 s (p50) after their stamp, against the 0.28 s the launch file documents. That is the mask-vs-depth staleness B1 has to handle.
 - **The bags start after the plant was already in view** (logger late start), so "why it first appeared at 1.4 m" cannot be answered from these bags. The report says so.
+
+## Wall_turn with stale or missing front distance
+
+This was a crash and is fixed in `babc885`: `float(None)` in the corridor record and the log. It is now NaN / "unknown", with a test.
 
 ## Not verified
 
