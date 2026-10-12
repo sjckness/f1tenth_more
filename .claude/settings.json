@@ -157,7 +157,12 @@
       "Bash(pkill -9 -f \"ros2 topic pub -r 20 /odom\")",
       "Bash(echo \"final sweep exit: $?\")",
       "Bash(rm -f /tmp/claude-1004/-home-fabiocar-dev-ws-f1tenth-more/87765943-8525-4384-8730-b6c4450139da/scratchpad/mission_test*.log)",
-      "Bash(kill -9 9647)"
+      "Bash(kill -9 9647)",
+      "Bash(git merge *)",
+      "Bash(python3 -)",
+      "Bash(sed -i 's|^  <exec_depend>rcl_interfaces</exec_depend>$|&|' src/f1tenth_camera_pan/package.xml)",
+      "Bash(ps -eo pid,etime,cmd)",
+      "Bash(ps -eo pid,pgid,etime,cmd)"
     ],
     "additionalDirectories": [
       "/home/fabiocar"
