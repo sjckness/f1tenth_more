@@ -24,9 +24,11 @@ from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC,
     SMOOTHSTEP_PEAK_SLOPE,
     corridor_curves,
+    funnel_half_widths,
     ramp_span_for,
     wrap_pi,
 )
+from f1tenth_params.param_defaults import get_value
 
 U_START, U_END = 0.0, 0.40
 W0, W1, L_BASE = 0.4333, 0.7667, 3.0
@@ -255,3 +257,24 @@ def test_the_width_rate_never_widens_a_corridor():
 def test_the_handle_fraction_is_shared_not_per_branch():
     """One family: every branch reaches corridor_curves with the same handle."""
     assert CORRIDOR_HANDLE_FRAC == 0.55
+
+
+def test_the_funnel_far_end_is_the_start_times_the_fixed_ratio():
+    w0, w1 = funnel_half_widths(0.65, 2.3 / 1.3)
+    assert (w0, w1) == pytest.approx((0.65, 1.15))
+    assert funnel_half_widths(0.5, 1.0) == pytest.approx((0.5, 0.5))
+
+
+@pytest.mark.parametrize('w_start, ratio', [(0.0, 1.5), (-0.1, 1.5), (0.5, 0.99)])
+def test_the_funnel_refuses_a_degenerate_or_narrowing_corridor(w_start, ratio):
+    with pytest.raises(ValueError):
+        funnel_half_widths(w_start, ratio)
+
+
+def test_the_shipped_funnel_keeps_its_ratio_end_to_start():
+    """At the default params the built walls are corr_width_ratio apart, end to start."""
+    w0, w1 = funnel_half_widths(get_value('corr_wmin'), get_value('corr_width_ratio'))
+    hw = corridor_curves(0, 0, 0, 0, L_BASE, 120, w0=w0, w1=w1,
+                         length_ref=get_value('corr_L_base'))['halfWidth']
+    assert hw[-1] / hw[0] == pytest.approx(get_value('corr_width_ratio'), rel=1e-6)
+    assert hw[-1] > hw[0]

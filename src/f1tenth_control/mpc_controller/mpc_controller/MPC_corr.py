@@ -23,14 +23,17 @@ from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value
+from mpc_controller.adaptive_corridor import (
+    adaptive_start_half_width, REBUILD_EPS_M as ADAPTIVE_REBUILD_EPS_M,
+    required_start_half_width)
 from mpc_controller.blocked import (
     BlockedDetector, BodyBox, WallDistanceWait, first_floor_stage, footprint_circles, gate_speed,
-    plan_body_gap, plan_keepouts)
+    keepout_relevance, plan_body_gap, plan_keepouts)
 from mpc_controller.pass_side import PassSideMemory
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
-    corridor_curves_to_pose, wrap_pi)
+    corridor_curves_to_pose, funnel_half_widths, wrap_pi)
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.input_status import odom_input_status
 from mpc_controller.model_log import ModelLogWriter
@@ -950,17 +953,39 @@ class MPCController(Node):
         # centred in the corridor needs 0.25 + car_radius 0.20 + margin 0.12
         # = 0.57 m of lateral room for the axle. corr_L_base 3.0 >= the 2.0 m
         # horizon reach at vdes 0.5 (A1).
+        #
+        # A FUNNEL AGAIN (2026-10-12): wmin = wmax made every corridor a
+        # rectangle. The far end is corr_wmin x corr_width_ratio (2.3 / 1.3,
+        # the original funnel's shape), so corr_wmax is derived, not a
+        # parameter; corr_wmin 0.65 adds the perception tolerance to A2's
+        # 0.57 (stack_params.yaml carries the sizing). self.corr_wmax stays an
+        # attribute because build_straight_corridor and the test stand-ins
+        # read it.
         self.corr_L_base = float(self.declare_parameter(
             'corr_L_base', get_value('corr_L_base')).value)
         self.corr_N = 120
         self.corr_wmin = float(self.declare_parameter(
             'corr_wmin', get_value('corr_wmin')).value)
-        self.corr_wmax = float(self.declare_parameter(
-            'corr_wmax', get_value('corr_wmax')).value)
-        if not (0.0 < self.corr_wmin <= self.corr_wmax and self.corr_L_base >= 1.0):
-            raise ValueError(
-                f'corr_wmin={self.corr_wmin}, corr_wmax={self.corr_wmax}, '
-                f'corr_L_base={self.corr_L_base}: need 0 < wmin <= wmax and L >= 1.0')
+        self.corr_width_ratio = float(self.declare_parameter(
+            'corr_width_ratio', get_value('corr_width_ratio')).value)
+        if self.corr_L_base < 1.0:
+            raise ValueError(f'corr_L_base={self.corr_L_base}: need L >= 1.0')
+        self.corr_wmin, self.corr_wmax = funnel_half_widths(
+            self.corr_wmin, self.corr_width_ratio)
+        # ADAPTIVE CORRIDOR (B4, default off): widen the funnel's start, far
+        # end in proportion, only while an obstacle in the way needs more room
+        # than corr_wmin gives its pass side. See adaptive_corridor.py and
+        # the corridor rebuild in control_loop. _corridor_w0 is the start
+        # half-width the NEXT build uses (None = corr_wmin).
+        self.corridor_adaptive_enabled = bool(self.declare_parameter(
+            'corridor_adaptive_enabled', get_value('corridor_adaptive_enabled')).value)
+        self.corridor_adaptive_max_hw = float(self.declare_parameter(
+            'corridor_adaptive_max_half_width_m',
+            get_value('corridor_adaptive_max_half_width_m')).value)
+        self.corr_lateral_tolerance = float(self.declare_parameter(
+            'corr_perception_lateral_tolerance_m',
+            get_value('corr_perception_lateral_tolerance_m')).value)
+        self._corridor_w0 = None
 
         # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
         # It used to be a bare `lookahead = 1.5` inside compute_local_target
@@ -4085,10 +4110,36 @@ class MPCController(Node):
             # describes geometry that does not move, so none of them needs it.
             need_update = True
 
+        # ADAPTIVE CORRIDOR (B4, default off). An obstacle in the way whose
+        # pass side needs a wider start than the corridor being driven gets
+        # one AT ONCE -- the other pre-emption of the period, and only ever to
+        # WIDEN: narrowing back waits for the periodic rebuild. Judged against
+        # the corridor being driven, with the keep-out rows' own relevance
+        # test and pass side, so the two never disagree about which obstacles
+        # matter or which side the car goes. See adaptive_corridor.py.
+        adaptive_w0 = None
+        if self.corridor_adaptive_enabled and self.cached_corridor is not None:
+            need, adaptive_records = required_start_half_width(
+                obstacles_global, self.cached_corridor, (float(x0[0]), float(x0[1])),
+                self.car_radius, self.avoidance_margin, self.corr_lateral_tolerance,
+                keepout_relevance(self.car_radius, self.avoidance_margin, self.body_box,
+                                  self.N * self.ts_pred * max(vdes, self.min_moving_speed)),
+                memory=self.pass_side_memory)
+            adaptive_w0 = adaptive_start_half_width(
+                need, self.corr_wmin, self.corridor_adaptive_max_hw)
+            built_w0 = float(self.cached_corridor.get('defn', {}).get('w0', self.corr_wmin))
+            if not need_update and adaptive_w0 > built_w0 + ADAPTIVE_REBUILD_EPS_M:
+                need_update = True
+                self.get_logger().info(
+                    f'CORR/adaptive | start half-width {built_w0:.3f} -> '
+                    f'{adaptive_w0:.3f} m for {json.dumps(adaptive_records)}')
+
         # UPGRADE: corridor geometry (walls) stays on the slow cadence -- it
         # barely changes while driving straight. Obstacle-aware target
         # selection must NOT be gated by this, see below.
         if need_update:
+            # None (adaptive off, or the first build of a move) = corr_wmin.
+            self._corridor_w0 = adaptive_w0
             self.cached_corridor = self.build_straight_corridor(x0)
             self.last_corridor_time = now_sec
             # The actual computation instant, for /mpc/corridor_markers'
@@ -5302,12 +5353,20 @@ class MPCController(Node):
         # beyond 2.0 m, 8 of 9 beyond 1.55 m and 9 of 12 beyond 1.25 m -- so a
         # fallback is not an edge case, it is the final approach, and it is the
         # straight geometry the branch has always used there.
+        #
+        # THE FUNNEL'S TWO HALF-WIDTHS for this build: corr_wmin, or the
+        # adaptive corridor's wider start (control_loop sets _corridor_w0),
+        # with the far end scaled by the same factor so the shape -- the
+        # corr_width_ratio -- never changes. getattr: the test stand-ins carry
+        # corr_wmin / corr_wmax only, and get exactly those.
+        _w0 = getattr(self, '_corridor_w0', None) or self.corr_wmin
+        _w1 = self.corr_wmax * (_w0 / self.corr_wmin)
         if pose_target is not None:
             geom = corridor_curves_to_pose(
                 X0, Y0, psiStart, pose_target[0], pose_target[1], psiEnd,
                 self.corr_N,
-                w0=self.corr_wmin,
-                w1=self.corr_wmax,
+                w0=_w0,
+                w1=_w1,
                 r_min=_r_min,
                 length_ref=getattr(self, 'corr_L_base', None),
             )
@@ -5371,8 +5430,8 @@ class MPCController(Node):
                 dpsi=turn_remaining,
                 u_start=u_start_use,
                 u_end=u_end_use,
-                w0=self.corr_wmin,
-                w1=self.corr_wmax,
+                w0=_w0,
+                w1=_w1,
                 # BOTH CLAMPS APPLY TO EVERY BRANCH, not only the object one.
                 # The ramp span is a fraction of L, so peak curvature runs away
                 # as the corridor shortens; the straight branch is unprotected
@@ -5439,8 +5498,13 @@ class MPCController(Node):
                 # are different runs and only these two tell them apart.
                 "L_full": float(L_full),
                 "cut": bool(corridor_cut),
-                "w0": float(self.corr_wmin),
-                "w1": float(self.corr_wmax),
+                # The half-widths this build USED (the adaptive corridor's when
+                # it widened), so a re-evaluation reproduces these walls; the
+                # base and the ratio say whether it was widened.
+                "w0": float(_w0),
+                "w1": float(_w1),
+                'w0_base': float(self.corr_wmin),
+                'width_ratio': float(self.corr_wmax / self.corr_wmin),
                 "handle_frac": float(CORRIDOR_HANDLE_FRAC),
                 # WHICH CENTRELINE, because from here there are two kinds and
                 # they are not distinguishable from the other fields: 'ramp'

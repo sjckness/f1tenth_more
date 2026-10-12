@@ -168,6 +168,28 @@ class KeepOutPlan:
     report: List[Dict] = field(default_factory=list)
 
 
+def keepout_relevance(car_radius: float, margin: float, body: BodyBox, reach_m: float):
+    """
+    Return relevant(s_ahead, c, d, half_w) -> None (in the way) or a skip reason.
+
+    In the way: ahead of the car's rear bumper and within reach_m + d + the
+    nose of the axle along the corridor, and laterally close enough to the
+    corridor to matter (|c| < half_w + d). Shared by plan_keepouts and the
+    adaptive corridor (adaptive_corridor.py), so both consider the same
+    obstacles.
+    """
+    def relevant(s_ahead, c, d, hw):
+        r = d - car_radius - margin
+        if s_ahead < -(r - body.rear + margin):
+            return 'behind'
+        if s_ahead > reach_m + d + body.front:
+            return 'beyond_reach'
+        if abs(c) >= hw + d:
+            return 'outside_corridor'
+        return None
+    return relevant
+
+
 def plan_keepouts(obstacles: Sequence[Tuple[float, float, float]],
                   corridor,
                   car_xy: Tuple[float, float],
@@ -180,24 +202,13 @@ def plan_keepouts(obstacles: Sequence[Tuple[float, float, float]],
                   circles: Optional[Sequence[Tuple[float, float]]] = None) -> KeepOutPlan:
     """One KeepOut per obstacle in the way, on the side pass_side decides.
 
-    In the way: ahead of the car's rear bumper and within reach_m + d + the
-    nose of the axle along the corridor, and laterally close enough to the
-    corridor to matter (|c| < half_w + d). The side and its commitment are
+    In the way: see keepout_relevance. The side and its commitment are
     pass_side.decide_sides' -- the single source of truth B4 reuses.
     memory None = a fresh memory (no commitment across calls; tests).
     """
     plan = KeepOutPlan()
     memory = memory if memory is not None else PassSideMemory()
-
-    def relevant(s_ahead, c, d, hw):
-        r = d - car_radius - margin
-        if s_ahead < -(r - body.rear + margin):
-            return 'behind'
-        if s_ahead > reach_m + d + body.front:
-            return 'beyond_reach'
-        if abs(c) >= hw + d:
-            return 'outside_corridor'
-        return None
+    relevant = keepout_relevance(car_radius, margin, body, reach_m)
 
     decisions, skipped = decide_sides(obstacles, corridor, car_xy, car_radius, margin,
                                       relevant, memory, now)

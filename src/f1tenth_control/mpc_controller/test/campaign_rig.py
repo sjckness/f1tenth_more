@@ -18,10 +18,12 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
+from mpc_controller.adaptive_corridor import (
+    adaptive_start_half_width, REBUILD_EPS_M, required_start_half_width)
 from mpc_controller.MPC_corr import MPCController, _project_onto_line
 from mpc_controller.blocked import (
     BlockedDetector, BodyBox, first_floor_stage, footprint_circles, gate_speed,
-    plan_body_gap, plan_keepouts)
+    keepout_relevance, plan_body_gap, plan_keepouts)
 from mpc_controller.pass_side import PassSideMemory
 from mpc_controller.drive_limits import clamp_drive_speed
 from mpc_controller.mpc_solver import shift_warm_start, solve_mpc_step
@@ -49,6 +51,10 @@ class Obstacle:
 
 @dataclass
 class Config:
+    # The A2 fixed corridor (1.2 m) the documented A3 closed-loop results were
+    # measured on (output/campaign_partA_review.md). The shipped default is a
+    # funnel since 2026-10-12, corr_wmin -> corr_wmin x corr_width_ratio;
+    # test_wide_corridor.py runs the rig on it.
     half_width_start: float = 0.60
     half_width_end: float = 0.60
     corr_L_base: float = 3.0
@@ -72,6 +78,12 @@ class Config:
     infeasible_s: float = 1.0
     circles: int = 3
     plan_check_s: float = 2.0
+    # B4 adaptive corridor, run exactly as MPC_corr.control_loop runs it:
+    # judged every tick against the corridor being driven, an early rebuild
+    # only to widen. Off = the fixed funnel.
+    adaptive: bool = False
+    adaptive_max_w0: float = 0.90
+    lateral_tolerance: float = 0.08
 
 
 @dataclass
@@ -88,6 +100,8 @@ class Result:
     # How far the car OUTLINE got past the corridor walls [m] (the rows bound
     # the rear axle only), max over the run; 0 = never outside.
     protrusion: float = 0.0
+    # The start half-width of every corridor built, in order.
+    start_half_widths: List[float] = field(default_factory=list)
 
 
 def body_gap(state, obstacle) -> float:
@@ -158,9 +172,24 @@ def run(cfg: Config, obstacles: List[Obstacle]) -> Result:
         if _project_onto_line((x[0], x[1]), (0.0, 0.0), 0.0) >= cfg.goal_distance:
             out.reached_s = t
             break
-        if corridor is None or t - last_build >= 1.0:
+        need_build = corridor is None or t - last_build >= 1.0
+        adaptive_w0 = None
+        if cfg.adaptive and corridor is not None:
+            need, _ = required_start_half_width(
+                live, corridor, (x[0], x[1]), rig.CAR_RADIUS, rig.AVOIDANCE_MARGIN,
+                cfg.lateral_tolerance,
+                keepout_relevance(rig.CAR_RADIUS, rig.AVOIDANCE_MARGIN, BODY,
+                                  cfg.horizon * cfg.dt * vdes),
+                memory=memory)
+            adaptive_w0 = adaptive_start_half_width(
+                need, cfg.half_width_start, cfg.adaptive_max_w0)
+            if not need_build and adaptive_w0 > corridor['defn']['w0'] + REBUILD_EPS_M:
+                need_build = True
+        if need_build:
+            fake._corridor_w0 = adaptive_w0
             corridor = MPCController.build_straight_corridor(fake, x)
             last_build = t
+            out.start_half_widths.append(float(corridor['defn']['w0']))
         corridor['obstacles_world'] = live
         corridor['d_safe'] = rig.DMIN
         corridor['car_radius'] = rig.CAR_RADIUS

@@ -59,6 +59,7 @@ import numpy as np
 __all__ = [
     'corridor_curves',
     'corridor_curves_to_pose',
+    'funnel_half_widths',
     'POSE_HANDLE_FRAC',
     'bezier',
     'wrap_pi',
@@ -84,6 +85,24 @@ POSE_HANDLE_FRAC = 0.40
 def wrap_pi(angle):
     """Shortest-branch wrap to (-pi, pi]."""
     return math.atan2(math.sin(angle), math.cos(angle))
+
+
+def funnel_half_widths(w_start, width_ratio):
+    """
+    Return (w0, w1): the funnel's start and far-end half-widths [m].
+
+    The far end is a FIXED multiple of the start (stack_params
+    corr_width_ratio), so the corridor keeps one shape at any size: the
+    campaign's w0 = w1 had turned every corridor into a rectangle. Raises on a
+    non-positive start or a ratio below 1 (a corridor that narrows ahead).
+    """
+    w_start = float(w_start)
+    width_ratio = float(width_ratio)
+    if not (w_start > 0.0 and width_ratio >= 1.0):
+        raise ValueError(
+            f'corridor funnel needs w_start > 0 and width_ratio >= 1, got '
+            f'w_start={w_start}, width_ratio={width_ratio}')
+    return w_start, w_start * width_ratio
 
 
 def bezier(p0, c0, c1, p1, u):
