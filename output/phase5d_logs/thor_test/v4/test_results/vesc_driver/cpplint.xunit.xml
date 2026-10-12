@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_driver.cpplint"
+  tests="13"
+  failures="0"
+  errors="0"
+  time="0.577"
+>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/crc.hpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/datatypes.hpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_device_uuid_lookup.hpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_driver.hpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_interface.hpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_packet.hpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_packet_factory.hpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_device_namer.cpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_device_uuid_lookup.cpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_driver.cpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_interface.cpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_packet.cpp"
+    classname="vesc_driver.cpplint"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_packet_factory.cpp"
+    classname="vesc_driver.cpplint"/>
+  <system-out>Checked files:
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/crc.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/datatypes.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_device_uuid_lookup.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_driver.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_interface.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_packet.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/include/vesc_driver/vesc_packet_factory.hpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_device_namer.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_device_uuid_lookup.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_driver.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_interface.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_packet.cpp
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_hardware/vesc/vesc_driver/src/vesc_packet_factory.cpp</system-out>
+</testsuite>

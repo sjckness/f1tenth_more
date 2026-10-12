@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_driver.flake8"
+  tests="3"
+  errors="0"
+  failures="3"
+  time="0.141"
+>
+  <testcase
+    name="Q000 (./launch/vesc_driver_node.launch.py:47:18)"
+    classname="vesc_driver.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;            name="config",&#10;'/>
+  </testcase>
+  <testcase
+    name="Q000 (./launch/vesc_driver_node.launch.py:49:25)"
+    classname="vesc_driver.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;            description="VESC yaml configuration file.",&#10;'/>
+  </testcase>
+  <testcase
+    name="Q000 (./launch/vesc_driver_node.launch.py:55:45)"
+    classname="vesc_driver.flake8"
+  >
+      <failure message='Double quotes found but single quotes preferred:&#10;            parameters=[LaunchConfiguration("config")]&#10;'/>
+  </testcase>
+  <system-out>Checked files:
+* ./launch/vesc_driver_node.launch.py</system-out>
+</testsuite>

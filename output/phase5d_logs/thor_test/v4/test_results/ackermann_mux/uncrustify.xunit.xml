@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="ackermann_mux.uncrustify"
+  tests="9"
+  failures="1"
+  errors="0"
+  time="0.034"
+>
+  <testcase
+    name="include/ackermann_mux/ackermann_mux.hpp"
+    classname="ackermann_mux.uncrustify"/>
+  <testcase
+    name="include/ackermann_mux/ackermann_mux_diagnostics.hpp"
+    classname="ackermann_mux.uncrustify"/>
+  <testcase
+    name="include/ackermann_mux/ackermann_mux_diagnostics_status.hpp"
+    classname="ackermann_mux.uncrustify"/>
+  <testcase
+    name="include/ackermann_mux/params_helpers.hpp"
+    classname="ackermann_mux.uncrustify"/>
+  <testcase
+    name="include/ackermann_mux/topic_handle.hpp"
+    classname="ackermann_mux.uncrustify"/>
+  <testcase
+    name="include/ackermann_mux/utils.hpp"
+    classname="ackermann_mux.uncrustify"/>
+  <testcase
+    name="src/ackermann_mux.cpp"
+    classname="ackermann_mux.uncrustify"
+  >
+      <failure message="Diff with 9 lines"><![CDATA[--- src/ackermann_mux.cpp
++++ src/ackermann_mux.cpp.uncrustify
+@@ -65 +65 @@
+-  return (old_linear_x < new_linear_x);
++  return  old_linear_x < new_linear_x;
+@@ -112 +112,2 @@
+-void AckermannMux::publishAckermann(const ackermann_msgs::msg::AckermannDriveStamped::ConstSharedPtr & msg)
++void AckermannMux::publishAckermann(
++  const ackermann_msgs::msg::AckermannDriveStamped::ConstSharedPtr & msg)
+]]></failure>
+  </testcase>
+  <testcase
+    name="src/ackermann_mux_diagnostics.cpp"
+    classname="ackermann_mux.uncrustify"/>
+  <testcase
+    name="src/ackermann_mux_node.cpp"
+    classname="ackermann_mux.uncrustify"/>
+  <system-out>Checked files:
+* include/ackermann_mux/ackermann_mux.hpp
+* include/ackermann_mux/ackermann_mux_diagnostics.hpp
+* include/ackermann_mux/ackermann_mux_diagnostics_status.hpp
+* include/ackermann_mux/params_helpers.hpp
+* include/ackermann_mux/topic_handle.hpp
+* include/ackermann_mux/utils.hpp
+* src/ackermann_mux.cpp
+* src/ackermann_mux_diagnostics.cpp
+* src/ackermann_mux_node.cpp</system-out>
+</testsuite>

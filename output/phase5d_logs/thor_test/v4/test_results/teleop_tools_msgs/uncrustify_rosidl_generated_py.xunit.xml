@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="teleop_tools_msgs.uncrustify_rosidl_generated_py"
+  tests="4"
+  failures="0"
+  errors="0"
+  time="0.189"
+>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_c.c"
+    classname="teleop_tools_msgs.uncrustify_rosidl_generated_py"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_fastrtps_c.c"
+    classname="teleop_tools_msgs.uncrustify_rosidl_generated_py"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_introspection_c.c"
+    classname="teleop_tools_msgs.uncrustify_rosidl_generated_py"/>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/action/_increment_s.c"
+    classname="teleop_tools_msgs.uncrustify_rosidl_generated_py"/>
+  <system-out>Checked files:
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_c.c
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_fastrtps_c.c
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/_teleop_tools_msgs_s.ep.rosidl_typesupport_introspection_c.c
+* /home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_generator_py/teleop_tools_msgs/action/_increment_s.c</system-out>
+</testsuite>

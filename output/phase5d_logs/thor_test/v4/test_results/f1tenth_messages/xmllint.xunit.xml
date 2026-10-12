@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="f1tenth_messages.xmllint"
+  tests="1"
+  errors="0"
+  failures="0"
+  time="0.331"
+>
+  <testcase
+    name="package.xml"
+    classname="f1tenth_messages.xmllint"/>
+  <system-out>Checked files:
+* package.xml</system-out>
+</testsuite>

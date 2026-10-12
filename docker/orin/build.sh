@@ -34,9 +34,13 @@ if [ "$SHA" = "$(git -C "$REPO" rev-parse HEAD)" ] && [ -n "$(git -C "$REPO" sta
   echo "note: uncommitted changes under src/, scripts/env/ or docker/orin/ are NOT in the image (built from $SHORT)"
 fi
 
+case "$STAGE/" in
+  /scratch/fabiocar/*|"$HOME"/p5d_*) ;;
+  *) echo "refusing: staging dir $STAGE is not under /scratch/fabiocar/ or ~/p5d_*" >&2; exit 1 ;;
+esac
 mkdir -p "$STAGE/ctx" "$(dirname "$LOG")"
 "$HERE/stage_sources.sh" "$SHA" "$STAGE/sources" > /dev/null
-rm -rf "$STAGE/ctx/docker"
+rm -rf -- "${STAGE:?}/ctx/docker"
 git -C "$REPO" archive "$SHA" docker/orin | tar -x -C "$STAGE/ctx"
 
 {

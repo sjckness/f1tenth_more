@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="ackermann_mux.pep257"
+  tests="5"
+  errors="0"
+  failures="0"
+  time="0.035"
+>
+  <testcase
+    name="./launch/ackermann_mux_launch.py"
+    classname="ackermann_mux.pep257"/>
+  <testcase
+    name="./scripts/joystick_relay.py"
+    classname="ackermann_mux.pep257"/>
+  <testcase
+    name="./test/rate_publishers.py"
+    classname="ackermann_mux.pep257"/>
+  <testcase
+    name="./test/system.test.py"
+    classname="ackermann_mux.pep257"/>
+  <testcase
+    name="./test/system_blackbox.py"
+    classname="ackermann_mux.pep257"/>
+  <system-out>Checked files:
+* ./launch/ackermann_mux_launch.py
+* ./scripts/joystick_relay.py
+* ./test/rate_publishers.py
+* ./test/system.test.py
+* ./test/system_blackbox.py</system-out>
+</testsuite>

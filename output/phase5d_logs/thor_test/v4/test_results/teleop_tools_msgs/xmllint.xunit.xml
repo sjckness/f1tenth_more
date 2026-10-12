@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="teleop_tools_msgs.xmllint"
+  tests="1"
+  errors="0"
+  failures="0"
+  time="0.006"
+>
+  <testcase
+    name="package.xml"
+    classname="teleop_tools_msgs.xmllint"/>
+  <system-out>Checked files:
+* package.xml</system-out>
+</testsuite>

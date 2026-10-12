@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_ackermann.cppcheck"
+  tests="8"
+  errors="0"
+  failures="0"
+  time="0.000"
+  skipped="8"
+>
+  <testcase
+    name="include/vesc_ackermann/ackermann_to_vesc.hpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="include/vesc_ackermann/velocity_correction.hpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="include/vesc_ackermann/vesc_to_odom.hpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="include/vesc_ackermann/vesc_to_odom_backup.hpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="src/ackermann_to_vesc.cpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="src/vesc_to_odom.cpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="src/vesc_to_odom_backup.cpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="test/test_velocity_correction.cpp"
+    classname="vesc_ackermann.cppcheck"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <system-err>Tests Skipped due to cppcheck 2.13.0 performance issues</system-err>
+</testsuite>

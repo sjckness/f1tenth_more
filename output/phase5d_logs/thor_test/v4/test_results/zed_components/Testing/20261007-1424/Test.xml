@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Site BuildName="(empty)"
+	BuildStamp="20261007-1424-Experimental"
+	Name="thor"
+	Generator="ctest-3.28.3"
+	CompilerName="/usr/bin/c++"
+	CompilerVersion="13.3.0"
+	OSName="Linux"
+	Hostname="thor"
+	OSRelease="6.8.12-tegra"
+	OSVersion="#1 SMP PREEMPT Tue Dec 30 15:40:41 PST 2025"
+	OSPlatform="aarch64"
+	Is64Bits="1"
+	VendorString=""
+	VendorID="Unknown Manufacturer"
+	FamilyID="8"
+	ModelID="0"
+	ProcessorCacheSize="0"
+	NumberOfLogicalCPU="14"
+	NumberOfPhysicalCPU="1"
+	TotalVirtualMemory="0"
+	TotalPhysicalMemory="125771"
+	LogicalProcessorsPerPhysical="14"
+	ProcessorClockFrequency="0"
+	>
+	<Testing>
+		<StartDateTime>Oct 07 16:24 CEST</StartDateTime>
+		<StartTestTime>1791383058</StartTestTime>
+		<TestList>
+			<Test>./copyright</Test>
+			<Test>./cppcheck</Test>
+			<Test>./lint_cmake</Test>
+			<Test>./uncrustify</Test>
+			<Test>./xmllint</Test>
+		</TestList>
+		<Test Status="failed">
+			<Name>copyright</Name>
+			<Path>.</Path>
+			<FullName>./copyright</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/copyright.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_copyright/copyright.txt" "--command" "/opt/ros/jazzy/bin/ament_copyright" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/copyright.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="text/string" name="Exit Code">
+					<Value>Failed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Exit Value">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.994379</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/copyright.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_copyright/copyright.txt" "--command" "/opt/ros/jazzy/bin/ament_copyright" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/copyright.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components':
+ - /opt/ros/jazzy/bin/ament_copyright --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_components/copyright.xunit.xml
+src/tools/include/gnss_replay.hpp: could not find copyright notice
+src/tools/src/gnss_replay.cpp: could not find copyright notice
+src/zed_camera/include/cost_traversability.hpp: could not find copyright notice
+src/zed_camera/src/cost_traversability.cpp: could not find copyright notice
+4 errors, checked 23 files
+-- run_test.py: return code 1
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/copyright.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>copyright</Label>
+				<Label>linter</Label>
+			</Labels>
+		</Test>
+		<Test Status="passed">
+			<Name>cppcheck</Name>
+			<Path>.</Path>
+			<FullName>./cppcheck</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/cppcheck.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_cppcheck/cppcheck.txt" "--command" "/opt/ros/jazzy/bin/ament_cppcheck" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/cppcheck.xunit.xml" "--include_dirs" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/include" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/zed_camera/include" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/tools/include" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/zed_camera_one/include"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.289269</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/cppcheck.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_cppcheck/cppcheck.txt" "--command" "/opt/ros/jazzy/bin/ament_cppcheck" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/cppcheck.xunit.xml" "--include_dirs" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/include" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/zed_camera/include" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/tools/include" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/zed_camera_one/include"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components':
+ - /opt/ros/jazzy/bin/ament_cppcheck --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_components/cppcheck.xunit.xml --include_dirs /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/include /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/zed_camera/include /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/tools/include /home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components/src/zed_camera_one/include
+cppcheck 2.13.0 has known performance issues and therefore will not be used, set the AMENT_CPPCHECK_ALLOW_SLOW_VERSIONS environment variable to override this.
+-- run_test.py: return code 0
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/cppcheck.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>cppcheck</Label>
+				<Label>linter</Label>
+			</Labels>
+		</Test>
+		<Test Status="passed">
+			<Name>lint_cmake</Name>
+			<Path>.</Path>
+			<FullName>./lint_cmake</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/lint_cmake.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_lint_cmake/lint_cmake.txt" "--command" "/opt/ros/jazzy/bin/ament_lint_cmake" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/lint_cmake.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.292615</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/lint_cmake.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_lint_cmake/lint_cmake.txt" "--command" "/opt/ros/jazzy/bin/ament_lint_cmake" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/lint_cmake.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components':
+ - /opt/ros/jazzy/bin/ament_lint_cmake --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_components/lint_cmake.xunit.xml
+
+No problems found
+-- run_test.py: return code 0
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/lint_cmake.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>lint_cmake</Label>
+				<Label>linter</Label>
+			</Labels>
+		</Test>
+		<Test Status="failed">
+			<Name>uncrustify</Name>
+			<Path>.</Path>
+			<FullName>./uncrustify</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/uncrustify.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_uncrustify/uncrustify.txt" "--command" "/opt/ros/jazzy/bin/ament_uncrustify" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/uncrustify.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="text/string" name="Exit Code">
+					<Value>Failed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Exit Value">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>2.64448</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/uncrustify.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_uncrustify/uncrustify.txt" "--command" "/opt/ros/jazzy/bin/ament_uncrustify" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/uncrustify.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components':
+ - /opt/ros/jazzy/bin/ament_uncrustify --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_components/uncrustify.xunit.xml
+Code style divergence in file 'src/tools/include/sl_tools.hpp':
+
+--- src/tools/include/sl_tools.hpp
++++ src/tools/include/sl_tools.hpp.uncrustify
+@@ -46,3 +46,3 @@
+-  if (status != cudaSuccess) \
+-  { \
+-    RCLCPP_ERROR_STREAM( \
++    if (status != cudaSuccess) \
++    { \
++      RCLCPP_ERROR_STREAM( \
+@@ -52,2 +52,2 @@
+-    std::abort(); \
+-  }
++      std::abort(); \
++    }
+
+Code style divergence in file 'src/zed_camera/src/zed_camera_component_main.cpp':
+
+--- src/zed_camera/src/zed_camera_component_main.cpp
++++ src/zed_camera/src/zed_camera_component_main.cpp.uncrustify
+@@ -6729,7 +6729,7 @@
+-    mPosTrackingStatus.spatial_memory_status != sl::SPATIAL_MEMORY_STATUS::LOST)
+-  {
+-    mPoseLocked = true;
+-    mPoseLockCount++;
+-
+-    if (mPoseLockCount &gt; mCamGrabFrameRate) {   // &gt; 1 second
+-      RCLCPP_WARN_STREAM(
++      mPosTrackingStatus.spatial_memory_status != sl::SPATIAL_MEMORY_STATUS::LOST)
++    {
++      mPoseLocked = true;
++      mPoseLockCount++;
++
++      if (mPoseLockCount &gt; mCamGrabFrameRate) { // &gt; 1 second
++        RCLCPP_WARN_STREAM(
+@@ -6738,4 +6738,4 @@
+-          &lt;&lt; dist &lt;&lt; " m) since " &lt;&lt; mPoseLockCount &lt;&lt; " frames - Status: "
+-          &lt;&lt; sl::toString(mPosTrackingStatus.spatial_memory_status)
+-          .c_str());
+-    }
++            &lt;&lt; dist &lt;&lt; " m) since " &lt;&lt; mPoseLockCount &lt;&lt; " frames - Status: "
++            &lt;&lt; sl::toString(mPosTrackingStatus.spatial_memory_status)
++            .c_str());
++      }
+@@ -6743,2 +6743,2 @@
+-    mPoseLocked = false;
+-    mPoseLockCount = 0;
++      mPoseLocked = false;
++      mPoseLockCount = 0;
+
+Code style divergence in file 'src/zed_camera/src/zed_camera_component_video_depth.cpp':
+
+--- src/zed_camera/src/zed_camera_component_video_depth.cpp
++++ src/zed_camera/src/zed_camera_component_video_depth.cpp.uncrustify
+@@ -56 +56 @@
+-      const std::string &amp; type) {
++    const std::string &amp; type) {
+
+Code style divergence in file 'src/zed_camera_one/src/zed_camera_one_component_video.cpp':
+
+--- src/zed_camera_one/src/zed_camera_one_component_video.cpp
++++ src/zed_camera_one/src/zed_camera_one_component_video.cpp.uncrustify
+@@ -158 +158 @@
+-      const std::string &amp; type) {
++    const std::string &amp; type) {
+@@ -917 +917 @@
+-      const std::string &amp; settingName) {
++    const std::string &amp; settingName) {
+@@ -941 +941 @@
+-      const std::string &amp; settingName) {
++    const std::string &amp; settingName) {
+@@ -971 +971 @@
+-      const std::string &amp; settingName) {
++    const std::string &amp; settingName) {
+@@ -987 +987 @@
+-      int value_max, const std::string &amp; settingName_min, const std::string &amp; settingName_max) {
++    int value_max, const std::string &amp; settingName_min, const std::string &amp; settingName_max) {
+@@ -1066 +1066 @@
+-      const std::string &amp; settingName) {
++    const std::string &amp; settingName) {
+@@ -1082 +1082 @@
+-      int value_max, const std::string &amp; settingName_min, const std::string &amp; settingName_max) {
++    int value_max, const std::string &amp; settingName_min, const std::string &amp; settingName_max) {
+@@ -1160 +1160 @@
+-      const std::string &amp; settingName) {
++    const std::string &amp; settingName) {
+@@ -1176 +1176 @@
+-      int value_max, const std::string &amp; settingName_min, const std::string &amp; settingName_max) {
++    int value_max, const std::string &amp; settingName_min, const std::string &amp; settingName_max) {
+@@ -1254 +1254 @@
+-      const std::string &amp; settingName) {
++    const std::string &amp; settingName) {
+
+4 files with code style divergence
+No code style divergence in file 'src/include/sl_version.hpp'
+
+No code style divergence in file 'src/include/visibility_control.hpp'
+
+No code style divergence in file 'src/tools/include/gnss_replay.hpp'
+
+No code style divergence in file 'src/tools/include/sl_logging.hpp'
+
+No code style divergence in file 'src/tools/include/sl_type_adapter.hpp'
+
+No code style divergence in file 'src/tools/include/sl_types.hpp'
+
+No code style divergence in file 'src/tools/include/sl_win_avg.hpp'
+
+No code style divergence in file 'src/tools/src/gnss_replay.cpp'
+
+No code style divergence in file 'src/tools/src/sl_tools.cpp'
+
+No code style divergence in file 'src/tools/src/sl_types.cpp'
+
+No code style divergence in file 'src/tools/src/sl_win_avg.cpp'
+
+No code style divergence in file 'src/zed_camera/include/cost_traversability.hpp'
+
+No code style divergence in file 'src/zed_camera/include/zed_camera_component.hpp'
+
+No code style divergence in file 'src/zed_camera/src/cost_traversability.cpp'
+
+No code style divergence in file 'src/zed_camera/src/zed_camera_component_bodytrk.cpp'
+
+No code style divergence in file 'src/zed_camera/src/zed_camera_component_objdet.cpp'
+
+No code style divergence in file 'src/zed_camera_one/include/zed_camera_one_component.hpp'
+
+No code style divergence in file 'src/zed_camera_one/src/zed_camera_one_component_main.cpp'
+
+No code style divergence in file 'src/zed_camera_one/src/zed_camera_one_component_sensors.cpp'
+
+-- run_test.py: return code 1
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/uncrustify.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>linter</Label>
+				<Label>uncrustify</Label>
+			</Labels>
+		</Test>
+		<Test Status="passed">
+			<Name>xmllint</Name>
+			<Path>.</Path>
+			<FullName>./xmllint</FullName>
+			<FullCommandLine>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/xmllint.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_xmllint/xmllint.txt" "--command" "/opt/ros/jazzy/bin/ament_xmllint" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/xmllint.xunit.xml"</FullCommandLine>
+			<Results>
+				<NamedMeasurement type="numeric/double" name="Execution Time">
+					<Value>0.502113</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="numeric/double" name="Processors">
+					<Value>1</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Completion Status">
+					<Value>Completed</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Command Line">
+					<Value>/usr/bin/python3 "-u" "/opt/ros/jazzy/share/ament_cmake_test/cmake/run_test.py" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/xmllint.xunit.xml" "--package-name" "zed_components" "--output-file" "/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/zed_components/ament_xmllint/xmllint.txt" "--command" "/opt/ros/jazzy/bin/ament_xmllint" "--xunit-file" "/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/xmllint.xunit.xml"</Value>
+				</NamedMeasurement>
+				<NamedMeasurement type="text/string" name="Environment">
+					<Value>#CTEST_RESOURCE_GROUP_COUNT=</Value>
+				</NamedMeasurement>
+				<Measurement>
+					<Value>-- run_test.py: invoking following command in '/home/andre/dev_ws/f1tenth_p5d_083c8e8/src/f1tenth_external/zed_ros2_wrapper/zed_components':
+ - /opt/ros/jazzy/bin/ament_xmllint --xunit-file /home/andre/p5d_thor_test_083c8e8/test_results/zed_components/xmllint.xunit.xml
+File 'package.xml' is valid
+
+No problems found
+-- run_test.py: return code 0
+-- run_test.py: verify result file '/home/andre/p5d_thor_test_083c8e8/test_results/zed_components/xmllint.xunit.xml'
+</Value>
+				</Measurement>
+			</Results>
+			<Labels>
+				<Label>linter</Label>
+				<Label>xmllint</Label>
+			</Labels>
+		</Test>
+		<EndDateTime>Oct 07 16:24 CEST</EndDateTime>
+		<EndTestTime>1791383062</EndTestTime>
+		<ElapsedMinutes>0</ElapsedMinutes>
+	</Testing>
+</Site>

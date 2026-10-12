@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="teleop_tools_msgs.cppcheck_rosidl_typesupport_introspection_c"
+  tests="3"
+  errors="0"
+  failures="0"
+  time="0.000"
+  skipped="3"
+>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_typesupport_introspection_c/teleop_tools_msgs/action/detail/increment__rosidl_typesupport_introspection_c.h"
+    classname="teleop_tools_msgs.cppcheck_rosidl_typesupport_introspection_c"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_typesupport_introspection_c/teleop_tools_msgs/action/detail/increment__type_support.c"
+    classname="teleop_tools_msgs.cppcheck_rosidl_typesupport_introspection_c"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <testcase
+    name="/home/andre/dev_ws/f1tenth_p5d_083c8e8/build/teleop_tools_msgs/rosidl_typesupport_introspection_c/teleop_tools_msgs/msg/rosidl_typesupport_introspection_c__visibility_control.h"
+    classname="teleop_tools_msgs.cppcheck_rosidl_typesupport_introspection_c"
+  >
+    <skipped type="skip" message="">
+      ![CDATA[Test Skipped due to cppcheck 2.13.0 performance issues]]
+    </skipped>
+  </testcase>
+  <system-err>Tests Skipped due to cppcheck 2.13.0 performance issues</system-err>
+</testsuite>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="vesc_driver.uncrustify"
+  tests="13"
+  failures="1"
+  errors="0"
+  time="0.184"
+>
+  <testcase
+    name="include/vesc_driver/crc.hpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="include/vesc_driver/datatypes.hpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="include/vesc_driver/vesc_device_uuid_lookup.hpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="include/vesc_driver/vesc_driver.hpp"
+    classname="vesc_driver.uncrustify"
+  >
+      <failure message="Diff with 31 lines"><![CDATA[--- include/vesc_driver/vesc_driver.hpp
++++ include/vesc_driver/vesc_driver.hpp.uncrustify
+@@ -132 +132 @@
+-                                         ///< gyr_z() before publishing on sensors/imu/raw
++                                        ///< gyr_z() before publishing on sensors/imu/raw
+@@ -134,4 +134,4 @@
+-                                         ///< subtraction (no bias term exists for x/y
+-                                         ///< today -- see gyro_bias_z_ above) -- 1.0 =
+-                                         ///< no-op, placeholder pending same-source
+-                                         ///< suspicion confirmation for this axis
++                                        ///< subtraction (no bias term exists for x/y
++                                        ///< today -- see gyro_bias_z_ above) -- 1.0 =
++                                        ///< no-op, placeholder pending same-source
++                                        ///< suspicion confirmation for this axis
+@@ -140,8 +140,8 @@
+-                                         ///< -- empirically measured live (180deg
+-                                         ///< reference-rotation test, see that
+-                                         ///< investigation's own report) to correct a
+-                                         ///< suspected raw-units mismatch (gyr_z()'s own
+-                                         ///< "deg/s" comment vs. this field's rad/s
+-                                         ///< contract) -- 1.0 = no-op if the param is
+-                                         ///< missing, so existing configs without this
+-                                         ///< key keep working unchanged
++                                        ///< -- empirically measured live (180deg
++                                        ///< reference-rotation test, see that
++                                        ///< investigation's own report) to correct a
++                                        ///< suspected raw-units mismatch (gyr_z()'s own
++                                        ///< "deg/s" comment vs. this field's rad/s
++                                        ///< contract) -- 1.0 = no-op if the param is
++                                        ///< missing, so existing configs without this
++                                        ///< key keep working unchanged
+]]></failure>
+  </testcase>
+  <testcase
+    name="include/vesc_driver/vesc_interface.hpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="include/vesc_driver/vesc_packet.hpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="include/vesc_driver/vesc_packet_factory.hpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="src/vesc_device_namer.cpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="src/vesc_device_uuid_lookup.cpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="src/vesc_driver.cpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="src/vesc_interface.cpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="src/vesc_packet.cpp"
+    classname="vesc_driver.uncrustify"/>
+  <testcase
+    name="src/vesc_packet_factory.cpp"
+    classname="vesc_driver.uncrustify"/>
+  <system-out>Checked files:
+* include/vesc_driver/crc.hpp
+* include/vesc_driver/datatypes.hpp
+* include/vesc_driver/vesc_device_uuid_lookup.hpp
+* include/vesc_driver/vesc_driver.hpp
+* include/vesc_driver/vesc_interface.hpp
+* include/vesc_driver/vesc_packet.hpp
+* include/vesc_driver/vesc_packet_factory.hpp
+* src/vesc_device_namer.cpp
+* src/vesc_device_uuid_lookup.cpp
+* src/vesc_driver.cpp
+* src/vesc_interface.cpp
+* src/vesc_packet.cpp
+* src/vesc_packet_factory.cpp</system-out>
+</testsuite>

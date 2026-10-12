@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite
+  name="zed_components.uncrustify"
+  tests="23"
+  failures="4"
+  errors="0"
+  time="2.335"
+>
+  <testcase
+    name="src/include/sl_version.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/include/visibility_control.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/include/gnss_replay.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/include/sl_logging.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/include/sl_tools.hpp"
+    classname="zed_components.uncrustify"
+  >
+      <failure message="Diff with 14 lines"><![CDATA[--- src/tools/include/sl_tools.hpp
++++ src/tools/include/sl_tools.hpp.uncrustify
+@@ -46,3 +46,3 @@
+-  if (status != cudaSuccess) \
+-  { \
+-    RCLCPP_ERROR_STREAM( \
++    if (status != cudaSuccess) \
++    { \
++      RCLCPP_ERROR_STREAM( \
+@@ -52,2 +52,2 @@
+-    std::abort(); \
+-  }
++      std::abort(); \
++    }
+]]></failure>
+  </testcase>
+  <testcase
+    name="src/tools/include/sl_type_adapter.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/include/sl_types.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/include/sl_win_avg.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/src/gnss_replay.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/src/sl_tools.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/src/sl_types.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/tools/src/sl_win_avg.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera/include/cost_traversability.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera/include/zed_camera_component.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera/src/cost_traversability.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera/src/zed_camera_component_bodytrk.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera/src/zed_camera_component_main.cpp"
+    classname="zed_components.uncrustify"
+  >
+      <failure message="Diff with 31 lines"><![CDATA[--- src/zed_camera/src/zed_camera_component_main.cpp
++++ src/zed_camera/src/zed_camera_component_main.cpp.uncrustify
+@@ -6729,7 +6729,7 @@
+-    mPosTrackingStatus.spatial_memory_status != sl::SPATIAL_MEMORY_STATUS::LOST)
+-  {
+-    mPoseLocked = true;
+-    mPoseLockCount++;
+-
+-    if (mPoseLockCount > mCamGrabFrameRate) {   // > 1 second
+-      RCLCPP_WARN_STREAM(
++      mPosTrackingStatus.spatial_memory_status != sl::SPATIAL_MEMORY_STATUS::LOST)
++    {
++      mPoseLocked = true;
++      mPoseLockCount++;
++
++      if (mPoseLockCount > mCamGrabFrameRate) { // > 1 second
++        RCLCPP_WARN_STREAM(
+@@ -6738,4 +6738,4 @@
+-          << dist << " m) since " << mPoseLockCount << " frames - Status: "
+-          << sl::toString(mPosTrackingStatus.spatial_memory_status)
+-          .c_str());
+-    }
++            << dist << " m) since " << mPoseLockCount << " frames - Status: "
++            << sl::toString(mPosTrackingStatus.spatial_memory_status)
++            .c_str());
++      }
+@@ -6743,2 +6743,2 @@
+-    mPoseLocked = false;
+-    mPoseLockCount = 0;
++      mPoseLocked = false;
++      mPoseLockCount = 0;
+]]></failure>
+  </testcase>
+  <testcase
+    name="src/zed_camera/src/zed_camera_component_objdet.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera/src/zed_camera_component_video_depth.cpp"
+    classname="zed_components.uncrustify"
+  >
+      <failure message="Diff with 5 lines"><![CDATA[--- src/zed_camera/src/zed_camera_component_video_depth.cpp
++++ src/zed_camera/src/zed_camera_component_video_depth.cpp.uncrustify
+@@ -56 +56 @@
+-      const std::string & type) {
++    const std::string & type) {
+]]></failure>
+  </testcase>
+  <testcase
+    name="src/zed_camera_one/include/zed_camera_one_component.hpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera_one/src/zed_camera_one_component_main.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera_one/src/zed_camera_one_component_sensors.cpp"
+    classname="zed_components.uncrustify"/>
+  <testcase
+    name="src/zed_camera_one/src/zed_camera_one_component_video.cpp"
+    classname="zed_components.uncrustify"
+  >
+      <failure message="Diff with 32 lines"><![CDATA[--- src/zed_camera_one/src/zed_camera_one_component_video.cpp
++++ src/zed_camera_one/src/zed_camera_one_component_video.cpp.uncrustify
+@@ -158 +158 @@
+-      const std::string & type) {
++    const std::string & type) {
+@@ -917 +917 @@
+-      const std::string & settingName) {
++    const std::string & settingName) {
+@@ -941 +941 @@
+-      const std::string & settingName) {
++    const std::string & settingName) {
+@@ -971 +971 @@
+-      const std::string & settingName) {
++    const std::string & settingName) {
+@@ -987 +987 @@
+-      int value_max, const std::string & settingName_min, const std::string & settingName_max) {
++    int value_max, const std::string & settingName_min, const std::string & settingName_max) {
+@@ -1066 +1066 @@
+-      const std::string & settingName) {
++    const std::string & settingName) {
+@@ -1082 +1082 @@
+-      int value_max, const std::string & settingName_min, const std::string & settingName_max) {
++    int value_max, const std::string & settingName_min, const std::string & settingName_max) {
+@@ -1160 +1160 @@
+-      const std::string & settingName) {
++    const std::string & settingName) {
+@@ -1176 +1176 @@
+-      int value_max, const std::string & settingName_min, const std::string & settingName_max) {
++    int value_max, const std::string & settingName_min, const std::string & settingName_max) {
+@@ -1254 +1254 @@
+-      const std::string & settingName) {
++    const std::string & settingName) {
+]]></failure>
+  </testcase>
+  <system-out>Checked files:
+* src/include/sl_version.hpp
+* src/include/visibility_control.hpp
+* src/tools/include/gnss_replay.hpp
+* src/tools/include/sl_logging.hpp
+* src/tools/include/sl_tools.hpp
+* src/tools/include/sl_type_adapter.hpp
+* src/tools/include/sl_types.hpp
+* src/tools/include/sl_win_avg.hpp
+* src/tools/src/gnss_replay.cpp
+* src/tools/src/sl_tools.cpp
+* src/tools/src/sl_types.cpp
+* src/tools/src/sl_win_avg.cpp
+* src/zed_camera/include/cost_traversability.hpp
+* src/zed_camera/include/zed_camera_component.hpp
+* src/zed_camera/src/cost_traversability.cpp
+* src/zed_camera/src/zed_camera_component_bodytrk.cpp
+* src/zed_camera/src/zed_camera_component_main.cpp
+* src/zed_camera/src/zed_camera_component_objdet.cpp
+* src/zed_camera/src/zed_camera_component_video_depth.cpp
+* src/zed_camera_one/include/zed_camera_one_component.hpp
+* src/zed_camera_one/src/zed_camera_one_component_main.cpp
+* src/zed_camera_one/src/zed_camera_one_component_sensors.cpp
+* src/zed_camera_one/src/zed_camera_one_component_video.cpp</system-out>
+</testsuite>

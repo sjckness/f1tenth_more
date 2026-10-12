@@ -16,8 +16,14 @@ COMMON=$(cd "$REPO" && git rev-parse --path-format=absolute --git-common-dir)
 CACHE=${STAGE_CACHE:-$HOME/.cache/f1tenth_p5d/modules}
 SKIP='src/husarion_gz_worlds'
 
-rm -rf "$OUT/src" "$OUT/scripts" "$OUT/SOURCES"
+# CLAUDE.md "Harness gotchas": recursive deletes only under an expected prefix.
 mkdir -p "$OUT"
+OUT=$(cd "$OUT" && pwd)
+case "$OUT/" in
+  /scratch/fabiocar/*|"$HOME"/p5d_*|"$REPO"/*) ;;
+  *) echo "refusing: staging dir $OUT is not under /scratch/fabiocar/, ~/p5d_* or the repo" >&2; exit 1 ;;
+esac
+rm -rf -- "${OUT:?}/src" "${OUT:?}/scripts" "${OUT:?}/SOURCES"
 git -C "$REPO" archive "$SHA" src scripts/env | tar -x -C "$OUT"
 {
   echo "commit $SHA"

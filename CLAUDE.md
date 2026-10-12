@@ -108,6 +108,20 @@ words YAML leaves alone (`enforce`, `alert`, `disabled`).
 - `pkill -f PATTERN` / `pgrep -f` inside a Bash tool call match the calling
   shell's own command line, which contains PATTERN: `pkill -f` then kills the
   call itself. Kill by PID, or by exact process name (`pkill -x`).
+- **Never `rm -rf` a path built from a variable** unless the variable is
+  expanded as `${VAR:?}` (an unset or empty variable aborts instead of
+  expanding to nothing) **and** the resolved path is checked to be under an
+  expected prefix (`/scratch/fabiocar/`, `~/p5d_*`, `~/jazzy_orin/`, the repo)
+  before deleting. On every machine. Phase 5d: a broken SSH here-doc ran
+  `rm -rf $VAL` with `VAL=$OUT/pydeps_validated` and `$OUT` empty, i.e. `rm -rf /pydeps_validated` on
+  the Thor. The path did not exist; the same slip with another name wipes a
+  directory tree.
+- **Remote work goes through a script, not a here-doc typed into `ssh '…'`.**
+  Write the script locally with `set -euo pipefail` (`set +u` only around
+  sourcing ROS setup files, which read unset variables), then
+  `ssh andre@jetson-thor bash -s < script.sh`, or `scp` it and run it. Nested
+  quoting of a multi-line here-doc inside `ssh '…'` breaks silently and runs
+  the rest of the text as shell commands.
 
 ## Rebuild policy
 
