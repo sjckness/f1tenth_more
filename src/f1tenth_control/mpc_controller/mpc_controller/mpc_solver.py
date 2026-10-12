@@ -282,6 +282,30 @@ _STAGE_WEIGHT_KEYS = (
 )
 
 
+# RATE WEIGHTS ARE PER STEP, AND THE STEP CHANGED (campaign fix A1 review).
+# w_du_delta / w_du_a penalise the change of a control BETWEEN TWO STEPS,
+# (u_k - u_{k-1})^2. The 2026-09-09 set was derived with sigma = dDeltaMax *
+# ts at ts = 0.1 s: the same physical steering RATE over a 0.2 s step is twice
+# the change and four times the penalty. So the literal stays what it was
+# tuned at (the ts = 0.1 s value, stack_params' 8.5714 -> 3.0 effective) and
+# the solver scales it by (RATE_WEIGHT_REF_DT / step)^2 for the step it
+# actually spans: the stage-to-stage terms span one prediction step (0.2 s
+# -> x 0.25, 3.0 -> 0.75 effective), the first term (u_0 against the
+# command on the car) one CONTROL period (0.1 s -> x 1). Every other weight
+# is on a state or an input value, not on a difference, and needs no dt
+# correction (the 7/N stage normalisation already keeps them balanced
+# against the terminal terms).
+RATE_WEIGHT_REF_DT = 0.1
+
+
+def rate_weight_factor(step_dt: float) -> float:
+    """(RATE_WEIGHT_REF_DT / step_dt)^2: the per-step rate-weight correction."""
+    step_dt = float(step_dt)
+    if not step_dt > 0.0:
+        return 1.0
+    return (RATE_WEIGHT_REF_DT / step_dt) ** 2
+
+
 def scale_stage_weights(weights: Dict, horizon: int) -> Dict:
     """Normalise the per-stage entries of *weights* for *horizon*.
 
@@ -387,7 +411,7 @@ def solve_mpc_step(
     if solver == 'slsqp':
         return _solve_slsqp(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
-            weights, obstacles, dmin, vdes)
+            weights, obstacles, dmin, vdes, control_period=control_period)
     elif solver == 'rti':
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
@@ -444,9 +468,11 @@ def _solve_slsqp(
     weights: Dict,
     obstacles: List[Tuple[float, float, float]],
     dmin: float,
-    vdes: float
+    vdes: float,
+    control_period: Optional[float] = None,
 ) -> Tuple[np.ndarray, Dict]:
-    """Original solver, unchanged. See module docstring."""
+    """Original solver. See module docstring. control_period: the span of the
+    first rate constraint and rate cost (u_0 vs last_u); None = ts."""
     x0 = np.asarray(x0, dtype=float)
     last_u = np.asarray(last_u, dtype=float)
     pref_nom = np.asarray(pref_nom, dtype=float)
@@ -470,7 +496,8 @@ def _solve_slsqp(
                 params=params,
                 limits=limits,
                 obstacles=obstacles,
-                dmin=dmin
+                dmin=dmin,
+                control_period=control_period,
             )
         }
     ]
@@ -486,7 +513,8 @@ def _solve_slsqp(
             ts=ts,
             params=params,
             weights=weights,
-            vdes=vdes
+            vdes=vdes,
+            control_period=control_period,
         ),
         x0=z0,
         method="SLSQP",
@@ -1013,7 +1041,10 @@ def _solve_rti(
         # is itself a decision variable, so the cross-dependency is captured
         # entirely by the off-diagonal P blocks below -- no separate q term
         # (adding one too, unconditionally, would double-count it).
-        Wdu = np.diag([weights["w_du_delta"], weights["w_du_a"]])
+        # Per-step rate weights, scaled for the step this term spans -- see
+        # RATE_WEIGHT_REF_DT.
+        Wdu = np.diag([weights["w_du_delta"], weights["w_du_a"]]) * rate_weight_factor(
+            ts_first if k == 0 else ts)
         P[uk_idx, uk_idx] += 2.0 * Wdu
         if k == 0:
             q[uk_idx] += -2.0 * Wdu @ last_u
@@ -1295,7 +1326,8 @@ def _solve_rti(
     # docstring.
     true_cost = planner_cost_corridor(
         z=zopt, x0=x0, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
-        horizon=N, ts=ts, params=params, weights=weights, vdes=vdes)
+        horizon=N, ts=ts, params=params, weights=weights, vdes=vdes,
+        control_period=control_period)
 
     info = {
         "success": success,
@@ -1331,11 +1363,13 @@ def planner_cost_corridor(
     ts: float,
     params: Dict,
     weights: Dict,
-    vdes: float
+    vdes: float,
+    control_period: Optional[float] = None,
 ) -> float:
     z = np.asarray(z, dtype=float)
     x = np.asarray(x0, dtype=float).copy()
     u_prev = np.asarray(last_u, dtype=float).copy()
+    ts_first = float(control_period) if control_period is not None else ts
 
     J = 0.0
 
@@ -1430,8 +1464,9 @@ def planner_cost_corridor(
 
         # ================= regolarità =================
         du = uk - u_prev
-        J += weights["w_du_delta"] * du[0] ** 2
-        J += weights["w_du_a"] * du[1] ** 2
+        f_rate = rate_weight_factor(ts_first if k == 0 else ts)
+        J += f_rate * weights["w_du_delta"] * du[0] ** 2
+        J += f_rate * weights["w_du_a"] * du[1] ** 2
 
         u_prev = uk
 
@@ -1469,18 +1504,21 @@ def planner_nonlcon_corridor(
     params: Dict,
     limits: Dict,
     obstacles: List[Tuple[float, float, float]],
-    dmin: float
+    dmin: float,
+    control_period: Optional[float] = None,
 ) -> np.ndarray:
     z = np.asarray(z, dtype=float)
     x = np.asarray(x0, dtype=float).copy()
 
     c = []
     u_prev = np.asarray(last_u, dtype=float).copy()
+    ts_first = float(control_period) if control_period is not None else ts
 
-    # rate constraints
+    # rate constraints: u_0 vs the command on the car spans one control
+    # period, stage to stage one prediction step (same as the RTI rows).
     for k in range(horizon):
         uk = z[2 * k: 2 * k + 2]
-        du = (uk - u_prev) / ts
+        du = (uk - u_prev) / (ts_first if k == 0 else ts)
 
         c.append(du[0] - limits["dDeltaMax"])
         c.append(-du[0] + limits["dDeltaMin"])
