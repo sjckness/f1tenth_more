@@ -80,21 +80,34 @@ def generate_launch_description():
         # can broadcast the internal camera TF subtree (zed2_camera_link->zed2_left_camera_frame, etc.).
         zed_wrapper_share = get_package_share_directory('zed_wrapper')
         perception_share = get_package_share_directory('f1tenth_perception')
-        # Wrapped in a GroupAction with SetRemap so the wrapper's raw RGB image +
-        # camera_info land on the canonical /camera/image_raw + /camera/camera_info
-        # (downstream nodes stay agnostic).
+        # Wrapped in a GroupAction with SetRemap so the wrapper's rectified RGB
+        # image + camera_info land on the canonical /camera/image_raw +
+        # /camera/camera_info (downstream nodes stay agnostic).
+        #
+        # Wrapper v5 topic names (zed_camera_component_video_depth.cpp:
+        # mRgbTopic = <root> + "rgb/" + "color/" + "rect/" + "image", camera_info
+        # via image_transport::getCameraInfoTopic). The v4 names this used to
+        # remap, rgb/image_rect_color and rgb/camera_info, no longer exist on
+        # Jazzy (submodule v5.4.1), so the remap silently matched nothing.
+        # f1tenth_sim publishes the same two canonical topics in sim mode.
         actions.append(GroupAction(
             actions=[
-                SetRemap(src='/zed2/zed_node/rgb/image_rect_color',
+                SetRemap(src='/zed2/zed_node/rgb/color/rect/image',
                          dst='/camera/image_raw'),
-                SetRemap(src='/zed2/zed_node/rgb/camera_info',
+                SetRemap(src='/zed2/zed_node/rgb/color/rect/camera_info',
                          dst='/camera/camera_info'),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(
                         os.path.join(zed_wrapper_share, 'launch', 'zed_camera.launch.py')
                     ),
                     launch_arguments={
-                        'camera_model': 'zed2',
+                        # The car's camera is a ZED 2i. camera_model selects
+                        # the wrapper's zed2i.yaml and the zed2i URDF (level
+                        # camera_center; 'zed2' adds a 0.05 rad pitch the 2i
+                        # does not have). camera_name stays 'zed2' so every
+                        # topic and frame keeps its zed2_* name.
+                        # sim_camera_tf.launch.py must use the same pair.
+                        'camera_model': 'zed2i',
                         'camera_name': 'zed2',
                         'ros_params_override_path': os.path.join(
                             perception_share, 'config', 'zed2_perception.yaml'),

@@ -13,9 +13,8 @@
 # in f1tenth_description/urdf/sensors.xacro and on the OdometryPublisher in
 # ros2_control.xacro.
 #
-# The ZED2 image/depth entries were dropped with the camera mock
-# (enable_camera_mock, default false). output/sim_port_report.md §2.4 lists what
-# re-enabling them would take.
+# The ZED 2i image/depth entries live in ros_gz_bridge_camera.yaml, started
+# only with sim_bringup.launch.py camera:=true (the default).
 
 # Gazebo's clock (one message per 1 ms physics step = 1000 Hz) goes to a
 # sim-PC-only topic; clock_throttle republishes it on /clock at clock_rate

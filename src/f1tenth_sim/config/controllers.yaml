@@ -41,13 +41,16 @@ ackermann_steering_controller:
       - right_steering_hinge_joint
       - left_steering_hinge_joint
 
-    # Geometry (matches the roboracer URDF; keep drive_bridge wheelbase in sync).
-    # The car's vesc_to_odom uses 0.305; the sim keeps the URDF value until the
-    # real wheelbase is measured (output/sim_port_report.md, P2 / D5).
-    wheelbase: 0.325
-    traction_track_width: 0.2
-    steering_track_width: 0.2
-    traction_wheels_radius: 0.05
+    # Geometry: the F1TENTH reference values declared once in
+    # f1tenth_description/urdf/roboracer.urdf.xacro (wheelbase, track,
+    # wheel_radius); keep drive_bridge's wheelbase in sync.
+    # test_sim_matches_car_config.py checks all three against the xacro.
+    # The car's vesc_to_odom uses 0.305; the real wheelbase is still unmeasured
+    # (output/sim_port_report.md, P2 / D5).
+    wheelbase: 0.3302
+    traction_track_width: 0.2413
+    steering_track_width: 0.2413
+    traction_wheels_radius: 0.0508
 
     # Same as ackermann_mux's 0.2 s timeout (f1tenth_bringup mux.yaml): if
     # /ackermann_drive goes quiet, the car stops on the same schedule as real.

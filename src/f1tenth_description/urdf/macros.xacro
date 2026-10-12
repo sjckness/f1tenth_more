@@ -1,9 +1,10 @@
 <?xml version="1.0"?>
 <!--
-  macros.xacro - materials, inertial/geometry macros for the F1TENTH model.
-  Ported verbatim (geometry + inertials) from msauber_description/urdf/macros.xacro;
-  gazebo-classic transmission macros were dropped (gz_ros2_control does not use
-  <transmission> tags).
+  macros.xacro - materials, inertia helpers and the body-mesh fit.
+
+  Everything is derived from the single-source dimensions in
+  roboracer.urdf.xacro (wheelbase, track, wheel_radius, wheel_width,
+  body_bottom, body_top, body_width). Nothing here hardcodes a vehicle size.
 -->
 <robot name="roboracer" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
@@ -12,33 +13,80 @@
   <material name="blue"><color rgba="0.0 0.0 0.8 1.0"/></material>
   <material name="green"><color rgba="0.0 0.8 0.0 1.0"/></material>
   <material name="grey"><color rgba="0.2 0.2 0.2 1.0"/></material>
+  <material name="dark_grey"><color rgba="0.25 0.25 0.25 1.0"/></material>
   <material name="orange"><color rgba="${255/255} ${108/255} ${10/255} 1.0"/></material>
   <material name="red"><color rgba="0.8 0.0 0.0 1.0"/></material>
   <material name="white"><color rgba="1.0 1.0 1.0 1.0"/></material>
 
-  <!-- inertial parameter macros -->
+  <!-- ====================== body mesh (chassis.stl) ====================== -->
+  <!-- The msauber shell, in millimetres, with its own axes: X runs rear->front
+       NEGATIVE (rear hub at X=465.0, front hub at X=140.0, so its own wheelbase
+       is 325 mm), Y is up (hub centres at Y=192.42, shell Y 161.58..359.91),
+       Z is lateral (3.73..288.73, centre 146.23). Measured from the STL.
+       The fit below puts both hubs on the URDF axles and scales the shell into
+       the F1TENTH envelope: length by wheelbase, width to body_width, and
+       height to body_bottom..body_top (the hub ring then sits ~5 mm above the
+       axle, invisible behind the wheel). rpy (pi/2, 0, pi) maps mesh
+       (X, Y, Z) to car (-x, z, y). -->
+  <xacro:property name="mesh_rear_hub_x"  value="465.0" />
+  <xacro:property name="mesh_hub_dist"    value="325.0" />
+  <xacro:property name="mesh_y_min"       value="161.582" />
+  <xacro:property name="mesh_y_max"       value="359.914" />
+  <xacro:property name="mesh_z_centre"    value="146.2256" />
+  <xacro:property name="mesh_z_width"     value="285.0" />
+
+  <xacro:property name="body_sx" value="${wheelbase / mesh_hub_dist}" />
+  <xacro:property name="body_sy" value="${(body_top - body_bottom) / (mesh_y_max - mesh_y_min)}" />
+  <xacro:property name="body_sz" value="${body_width / mesh_z_width}" />
+
+  <!-- Body extents in base_link (x from the rear axle). Used for the collision
+       box; swept_clearance_body_*_x_m in stack_params.yaml describe the same
+       footprint for the car. -->
+  <xacro:property name="body_front_x" value="${(mesh_rear_hub_x - 17.508) * body_sx}" />
+  <xacro:property name="body_rear_x"  value="${(mesh_rear_hub_x - 547.254) * body_sx}" />
+
+  <!-- Visual, in the chassis frame (chassis sits at axle height). -->
+  <xacro:macro name="chassis_geometry">
+    <origin xyz="${mesh_rear_hub_x * body_sx}
+                 ${-mesh_z_centre * body_sz}
+                 ${body_bottom - wheel_radius - mesh_y_min * body_sy}"
+            rpy="${pi/2} 0 ${pi}" />
+    <geometry>
+      <mesh filename="${mesh_dir}/chassis.stl" scale="${body_sx} ${body_sy} ${body_sz}"/>
+    </geometry>
+  </xacro:macro>
+
+  <!-- ============================ inertials ============================== -->
+  <!-- Masses unchanged from msauber (chassis 4.0 kg, wheel 0.34055 kg, hinge
+       0.1 kg). The chassis CoM sits midway between the axles at the reference
+       CG height (0.074 m, f1tenth_simulator params.yaml), and its inertia is
+       the solid box of the body envelope. -->
+  <xacro:property name="chassis_mass" value="4.0" />
+  <xacro:property name="wheel_mass"   value="0.34055" />
+
+  <xacro:macro name="box_inertia" params="m x y z">
+    <inertia ixx="${m * (y*y + z*z) / 12.0}" ixy="0" ixz="0"
+             iyy="${m * (x*x + z*z) / 12.0}" iyz="0"
+             izz="${m * (x*x + y*y) / 12.0}" />
+  </xacro:macro>
+
   <xacro:macro name="chassis_inertial_params">
-    <origin xyz="0.1477 0 0" rpy="0 0 0" />
-    <mass value="4.0" />
-    <inertia ixx="0.010609" ixy="0" ixz="0"
-             iyy="0.050409" iyz="0"
-             izz="0.05865" />
+    <origin xyz="${wheelbase / 2.0} 0 ${0.074 - wheel_radius}" rpy="0 0 0" />
+    <mass value="${chassis_mass}" />
+    <xacro:box_inertia m="${chassis_mass}" x="${body_front_x - body_rear_x}"
+                       y="${body_width}" z="${body_top - body_bottom}" />
   </xacro:macro>
 
-  <xacro:macro name="left_wheels_inertial_params">
-    <origin xyz="0 0 -0.0225" rpy="0 0 0" />
-    <mass value="0.34055" />
-    <inertia ixx="0.00026046" ixy="0" ixz="0"
-             iyy="0.00026046" iyz="0"
-             izz="0.00041226" />
-  </xacro:macro>
-
-  <xacro:macro name="right_wheels_inertial_params">
-    <origin xyz="0 0 0.0225" rpy="0 0 0" />
-    <mass value="0.34055" />
-    <inertia ixx="0.00026046" ixy="0" ixz="0"
-             iyy="0.00026046" iyz="0"
-             izz="0.00041226" />
+  <!-- Solid cylinder about its own z (the wheel axle). z_off puts the CoM in
+       the middle of the tyre: the wheel mesh extends outward from the joint. -->
+  <xacro:macro name="wheel_inertial_params" params="z_off">
+    <origin xyz="0 0 ${z_off}" rpy="0 0 0" />
+    <mass value="${wheel_mass}" />
+    <inertia ixx="${wheel_mass * (3*wheel_radius*wheel_radius + wheel_width*wheel_width) / 12.0}"
+             ixy="0" ixz="0"
+             iyy="${wheel_mass * (3*wheel_radius*wheel_radius + wheel_width*wheel_width) / 12.0}"
+             iyz="0"
+             izz="${wheel_mass * wheel_radius * wheel_radius / 2.0}" />
   </xacro:macro>
 
   <xacro:macro name="steering_hinge_inertial_params">
@@ -56,54 +104,6 @@
     <inertia ixx="1e-5" ixy="0" ixz="0"
              iyy="1e-5" iyz="0"
              izz="1e-5" />
-  </xacro:macro>
-
-  <!-- geometry macros -->
-  <xacro:macro name="chassis_geometry">
-    <origin xyz="0.46 -0.135 -0.180" rpy="1.57 0 3.14" />
-    <geometry>
-      <mesh filename="${mesh_dir}/chassis.stl" scale="0.000990 0.0009375 0.0009375"/>
-    </geometry>
-  </xacro:macro>
-
-  <xacro:macro name="left_rear_wheel_geometry">
-    <origin xyz="0 0 0" rpy="0 0 0" />
-    <geometry><mesh filename="${mesh_dir}/left_wheel.stl" /></geometry>
-  </xacro:macro>
-
-  <xacro:macro name="right_rear_wheel_geometry">
-    <origin xyz="0 0 0" rpy="0 0 0" />
-    <geometry><mesh filename="${mesh_dir}/right_wheel.stl" /></geometry>
-  </xacro:macro>
-
-  <xacro:macro name="left_front_wheel_geometry">
-    <origin xyz="0 0 0" rpy="0 0 0" />
-    <geometry><mesh filename="${mesh_dir}/left_wheel.stl" /></geometry>
-  </xacro:macro>
-
-  <xacro:macro name="right_front_wheel_geometry">
-    <origin xyz="0 0 0" rpy="0 0 0" />
-    <geometry><mesh filename="${mesh_dir}/right_wheel.stl" /></geometry>
-  </xacro:macro>
-
-  <xacro:macro name="left_steering_hinge_geometry">
-    <origin xyz="0 0 0" rpy="0 0 0" />
-    <geometry><mesh filename="${mesh_dir}/hinge.stl" /></geometry>
-  </xacro:macro>
-
-  <xacro:macro name="right_steering_hinge_geometry">
-    <origin xyz="0 0 0" rpy="0 0 0" />
-    <geometry><mesh filename="${mesh_dir}/hinge.stl" /></geometry>
-  </xacro:macro>
-
-  <xacro:macro name="left_wheels_collision_geometry">
-    <origin xyz="0 0 -0.0225" rpy="0 0 0" />
-    <geometry><cylinder length="0.045" radius="0.05" /></geometry>
-  </xacro:macro>
-
-  <xacro:macro name="right_wheels_collision_geometry">
-    <origin xyz="0 0 0.0225" rpy="0 0 0" />
-    <geometry><cylinder length="0.045" radius="0.05" /></geometry>
   </xacro:macro>
 
 </robot>

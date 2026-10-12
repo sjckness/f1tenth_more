@@ -617,13 +617,13 @@ camera_pan_cmd_rate_max_radps:
   description: "PanSmoother slew-rate limit [rad/s] on the COMMAND. Below the servo's physical speed limit (sim camera_pan joint velocity ~6 rad/s) so the measured angle lags the command and the TF-from-measured path is genuinely exercised."
 swept_clearance_body_front_x_m:
   default: 0.443
-  description: "Front bumper x [m] from the rear axle. Straight-ahead clearance is the gap to this. URDF chassis mesh bounds."
+  description: "Front bumper x [m] from the rear axle. Straight-ahead clearance is the gap to this. Bounds of the msauber chassis mesh as it was scaled before the 2026-10-05 rescale to the F1TENTH reference; the URDF body now spans x -0.083..+0.455, half-width 0.140. Not a measurement either way."
 swept_clearance_body_rear_x_m:
   default: -0.082
-  description: "Rear bumper x [m] from the rear axle (negative). Points behind it never count, not even for the floor. URDF chassis mesh bounds."
+  description: "Rear bumper x [m] from the rear axle (negative). Points behind it never count, not even for the floor. Bounds of the msauber chassis mesh as it was scaled before the 2026-10-05 rescale to the F1TENTH reference; the URDF body now spans x -0.083..+0.455, half-width 0.140. Not a measurement either way."
 swept_clearance_body_half_width_m:
   default: 0.136
-  description: "Body half-width [m]. Points inside the body rectangle are the car itself and are ignored. URDF chassis mesh bounds."
+  description: "Body half-width [m]. Points inside the body rectangle are the car itself and are ignored. Bounds of the msauber chassis mesh as it was scaled before the 2026-10-05 rescale to the F1TENTH reference; the URDF body now spans x -0.083..+0.455, half-width 0.140. Not a measurement either way."
 swept_clearance_margin_m:
   default: 0.1
   description: "Sideways widening [m] of the swept corridor on each side. Not applied to the front face, so clearance stays the real gap to the bumper. Untuned."
@@ -635,7 +635,7 @@ swept_clearance_absolute_min_clearance_m:
   description: "Floor [m]: any point this close to the body (straight-line gap to the footprint rectangle, alongside included) sets clearance to that gap whatever the steering. Measured to the body, it trips at or before IsProximityTooClose's 0.15 m sensor-range cone for any point outside the footprint."
 swept_clearance_rear_axle_x_m:
   default: 0.0
-  description: "Rear axle x [m] in base_link. 0 per the URDF (base.xacro: base_link at the rear axle). Some docstrings say base_link is between the axles (-0.1525 here); change only on a measurement."
+  description: "Rear axle x [m] in base_link. 0 per the URDF (core.xacro: base_link at the rear axle). Some docstrings say base_link is between the axles (-0.1525 here); change only on a measurement."
 swept_clearance_steering_estimate:
   default: lagged_command
   description: "Steering the corridor follows. 'lagged_command': the command in effect steering_lag_sec ago (older, never newer). 'latest_command': the newest. 'envelope': the smallest clearance over the lagged angle and every command still in transit -- covers a newer command steering INTO something, which lagged alone reports late."

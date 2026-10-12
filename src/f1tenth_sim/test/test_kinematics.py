@@ -9,7 +9,7 @@ from f1tenth_sim.kinematics import (
 )
 import pytest
 
-L = 0.325
+L = 0.3302
 
 
 @pytest.mark.parametrize('delta', [-0.28, -0.1, 0.0, 0.05, 0.27])

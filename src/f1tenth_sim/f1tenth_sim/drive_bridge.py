@@ -46,7 +46,7 @@ class DriveBridge(Node):
         super().__init__('f1tenth_sim_drive_bridge')
 
         # Must match the URDF geometry / controllers.yaml wheelbase.
-        self.declare_parameter('wheelbase', 0.325)
+        self.declare_parameter('wheelbase', 0.3302)
         # Real servo envelope as steering angle; see kinematics.py for the
         # derivation from steering_calibration.yaml.
         self.declare_parameter('steering_min', STEERING_MIN_RAD)

@@ -38,7 +38,7 @@ done
 # shellcheck disable=SC1091
 source "$HERE/sim_net.sh"
 
-CMD=(ros2 launch f1tenth_sim sim_bringup.launch.py gui:=false camera:=true "$@")
+CMD=(ros2 launch f1tenth_sim sim_bringup.launch.py gui:=true camera:=true "$@")
 echo "== sim host =="
 echo "ROS_DOMAIN_ID=$ROS_DOMAIN_ID  ROS_DISCOVERY_SERVER=$ROS_DISCOVERY_SERVER"
 echo "cmd: ${CMD[*]}"

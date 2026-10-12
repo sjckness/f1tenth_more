@@ -16,7 +16,7 @@ is therefore the region the body actually sweeps.
 FRAME
 -----
 base_link, x forward, y left, rear axle at the origin. That is where the URDF
-puts base_link (f1tenth_description/urdf/base.xacro: "at the rear axle", rear
+puts base_link (f1tenth_description/urdf/core.xacro: "at the rear axle", rear
 wheels at x = 0) and the point the odometry's no-sideslip kinematics track.
 Some docstrings elsewhere (description.launch.py, sensors.xacro,
 camera.launch.py) say base_link is "centered between the axles"; the URDF's
@@ -26,10 +26,12 @@ difference if a measurement ever proves those docstrings right.
 FOOTPRINT
 ---------
 The rectangle x in [BODY_REAR_X_M, BODY_FRONT_X_M], |y| <= BODY_HALF_WIDTH_M:
-the axis-aligned bounds of the URDF chassis mesh (meshes/chassis.stl with
-base.xacro's visual origin and scale), i.e. 0.525 m long and 0.272 m wide,
-front bumper 0.118 m ahead of the 0.325 m front axle. Wheels (track 0.2 m,
-width 0.045 m) sit inside it. Not a tape-measure calibration.
+the axis-aligned bounds of the URDF chassis mesh (meshes/chassis.stl) as it
+was scaled before the 2026-10-05 rescale to the F1TENTH reference, i.e.
+0.525 m long and 0.272 m wide, front bumper 0.118 m ahead of a 0.325 m front
+axle. The URDF body is now x -0.083..+0.455, half-width 0.140 (wheelbase
+0.3302, track 0.2413); these defaults were deliberately left alone. Not a
+tape-measure calibration.
 
 `margin` widens the corridor sideways only. The front face is not moved, so
 straight-ahead clearance is the real gap to the bumper, not to a margin line.

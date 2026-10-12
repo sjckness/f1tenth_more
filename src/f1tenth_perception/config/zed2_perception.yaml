@@ -1,8 +1,10 @@
 # config/zed2_perception.yaml
 #
-# OVERRIDE-ONLY parameters for the ZED2 on the F1TENTH car. This file is passed
-# to the upstream zed_wrapper launch via its `ros_params_override_path` argument,
-# so it is applied *on top of* common_stereo.yaml + zed2.yaml — it extends, it
+# OVERRIDE-ONLY parameters for the ZED 2i on the F1TENTH car (camera_model
+# zed2i, camera_name zed2 -- the name keeps every topic and frame under zed2_*).
+# This file is passed to the upstream zed_wrapper launch via its
+# `ros_params_override_path` argument, so it is applied *on top of*
+# common_stereo.yaml + zed2i.yaml — it extends, it
 # does NOT replace, the wrapper's own configuration. Only the deltas we care
 # about for perception are listed here.
 #
@@ -12,13 +14,17 @@
 /**:
   ros__parameters:
     general:
+      # zed2i.yaml grabs at 60 fps (zed2.yaml, used until camera_model was
+      # corrected to zed2i, grabbed at 30). Depth is computed per grab, so keep
+      # 30: nothing downstream reads faster than pub_frame_rate below.
+      grab_frame_rate: 30
       pub_resolution: 'CUSTOM'
       pub_downscale_factor: 2.0    # publish at half the grab resolution
       pub_frame_rate: 30.0
       publish_status: false        # remove /status/* topics from the list
 
     video:
-      publish_rgb: true            # keep: rgb/image_rect_color for YOLO
+      publish_rgb: true            # keep: rgb/color/rect/image for YOLO
       publish_stereo: false        # remove combined stereo pair topic
 
     depth:
