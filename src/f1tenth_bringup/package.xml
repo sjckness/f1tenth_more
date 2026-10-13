@@ -20,6 +20,14 @@
   <exec_depend>f1tenth_messages</exec_depend>
   <!-- component_supervisor_node.py's ~/run_calibration service. -->
   <exec_depend>std_srvs</exec_depend>
+  <!-- reset_manager_node.py: /reset_all drives the EKFs' set_pose, reads
+       Odometry/PoseWithCovarianceStamped, cancels action goals, and clears
+       Nav2 costmaps when Nav2 runs. -->
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>action_msgs</exec_depend>
+  <exec_depend>nav2_msgs</exec_depend>
   <!-- param_defaults.py / stack_params.yaml: single shared source of launch-param
        defaults, imported from every owning package's launch file. Lives in its own
        dependency-free f1tenth_params package (not here) specifically to avoid a
@@ -45,6 +53,13 @@
        (foxglove_bridge itself has no built-in per-topic rate control,
        see foxglove_bridge.launch.py's own docstring). -->
   <exec_depend>topic_tools</exec_depend>
+  <!-- viz_relays.launch.py: the ThrottleNode components run in one
+       rclcpp_components container; viz_jpeg_node.py encodes the throttled
+       images with OpenCV. -->
+  <exec_depend>rclcpp_components</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
