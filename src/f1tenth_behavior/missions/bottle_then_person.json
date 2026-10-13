@@ -1,18 +1,19 @@
 {
-  "mission_id": "bottle_then_person",
+  "mission_id": "llm_plan_1789054103",
+  "schema_version": "3.0",
   "moves": [
     {
-      "id": "settle_before_start",
-      "goal_distance": 0.0,
-      "stop_condition": { "type": "time_elapsed", "duration_sec": 2.0 }
-    },
-    {
-      "id": "search_person",
-      "goal_distance": 3.0,
-      "vdes": 0.4,
-      "stop_condition": { "type": "distance_reached", "value": 3.0 },
-      "timeout_sec": 60,
-      "on_timeout": "abort"
+      "id": "move_0",
+      "drive": {
+        "mode": "straight",
+        "approach_d_safe": 0.9
+      },
+      "stop_condition": {
+        "type": "obstacle_distance_below",
+        "distance": 1.0,
+        "forward_only": true
+      },
+      "terminal": true
     }
   ]
 }

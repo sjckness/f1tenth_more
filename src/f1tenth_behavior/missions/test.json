@@ -1,0 +1,40 @@
+{
+  "mission_id": "test",
+  "schema_version": "3.0",
+  "moves": [
+    {
+      "id": "move_0",
+      "drive": {
+        "mode": "straight"
+      },
+      "stop_condition": {
+        "type": "front_clearance",
+        "distance": 3.0,
+        "debounce_ticks": 3
+      }
+    },
+    {
+      "id": "move_1",
+      "drive": {
+        "mode": "wall_turn",
+        "turn_sign": -1.0,
+        "turn_mag_deg": 74.48451336700703
+      },
+      "stop_condition": {
+        "type": "orientation_delta",
+        "value": 74.48451336700703
+      }
+    },
+    {
+      "id": "move_2",
+      "drive": {
+        "mode": "straight"
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+      },
+      "terminal": true
+    }
+  ]
+}
