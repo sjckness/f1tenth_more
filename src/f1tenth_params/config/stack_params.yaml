@@ -424,12 +424,52 @@ obstacle_class_margin_m:
 # them against a recorded bag with publish_debug_raw true (which exposes the
 # unsmoothed distance and the exact pixel count the latch sees) rather than by
 # guessing at the live stack -- that is what those debug topics are for.
+# 2026-10-13: ROI doubled in width and height with its BOTTOM edge kept where
+# it was (centre + 35 px): half-width 90 -> 180, half-height 35 -> 70, centre
+# raised 35 px. Rows centre-105 .. centre+35.
 front_clearance_roi_half_width_px:
-  default: 90
-  description: "Half-width [px] of front_clearance_node's centered depth ROI. Untuned starting point."
+  default: 180
+  description: "Half-width [px] of front_clearance_node's depth ROI. Was 90; doubled 2026-10-13. Untuned starting point."
 front_clearance_roi_half_height_px:
+  default: 70
+  description: "Half-height [px] of front_clearance_node's depth ROI. Was 35; doubled 2026-10-13 with front_clearance_roi_shift_up_px 35 so the bottom edge stays at image centre + 35 px."
+front_clearance_roi_shift_up_px:
   default: 35
-  description: "Half-height [px] of front_clearance_node's centered depth ROI. Untuned starting point."
+  description: "Rows [px] the ROI centre sits above the depth image centre. 0 = centred (the pre-2026-10-13 ROI). 35 with half-height 70 keeps the bottom edge of the old 35 px half-height ROI and grows it upward only."
+# GROUND REMOVAL (front_clearance_node, ground_plane.py), 2026-10-13. The
+# background "wall" is a low percentile band of the ROI, and below the horizon
+# the floor is always the nearest consistent surface: P002-R005 read the wall
+# at ~2.9 m with the LiDAR fit at 5.65 m. Floor pixels are now dropped: a plane
+# is RANSAC-fitted (normal within ground_max_tilt_deg of vertical) to the depth
+# points near ground_prior_z_m, and a pixel less than ground_height_m above it
+# is floor. No plane found -> the horizontal prior plane is used.
+front_clearance_ground_removal_enabled:
+  default: true
+  description: "Drop floor pixels from front_clearance_node's background (wall) statistics. false = the pre-2026-10-13 behaviour, floor included."
+front_clearance_ground_prior_z_m:
+  default: 0.0
+  description: "Expected floor height [m] in base_link (the URDF puts base_footprint at base_link, z 0). Only points within ground_band_m of it are plane candidates, so a wall can never be fitted as the floor."
+front_clearance_ground_band_m:
+  default: 0.15
+  description: "Half-height [m] of the band around ground_prior_z_m whose points may be floor-plane candidates. Covers an unmeasured base_link height and camera pitch."
+front_clearance_ground_inlier_m:
+  default: 0.03
+  description: "RANSAC inlier distance [m] to the candidate floor plane."
+front_clearance_ground_height_m:
+  default: 0.06
+  description: "A depth pixel whose point is less than this [m] above the fitted floor is floor and is excluded. Above stereo floor noise at 3-5 m, below anything a wall stop should ignore."
+front_clearance_ground_max_tilt_deg:
+  default: 15.0
+  description: "Maximum angle [deg] between the fitted floor normal and base_link z. Absorbs camera pitch and car pitch; a steeper plane is rejected and the prior used."
+front_clearance_ground_ransac_iters:
+  default: 60
+  description: "RANSAC iterations per depth frame for the floor plane."
+front_clearance_ground_min_inliers:
+  default: 150
+  description: "Minimum inlier count for a fitted floor plane; fewer -> the horizontal prior plane is used."
+front_clearance_ground_fit_stride_px:
+  default: 4
+  description: "Pixel stride of the sample (ROI top row to image bottom, ROI columns) the floor plane is fitted on. The mask itself is evaluated on every ROI pixel."
 front_clearance_min_bg_pixels_for_reading:
   default: 60
   description: "Minimum background pixels in the ROI before front_clearance_node produces a distance at all. Below it the frame yields no reading and the EMA holds its last value rather than being poisoned by a tiny sample. Untuned starting point."
@@ -1360,7 +1400,8 @@ mpc_wheelbase_m:
 # 0.1 s (10 Hz). 0.1 reproduces the 2.0 s single-step solver bit-for-bit
 # (closed-loop traces identical), so it is the rollback.
 mpc_prediction_dt_s:
-  default: 0.2
+  # 0.1 again 2026-10-13 on request (Part F had 0.2).
+  default: 0.1
   description: "MPC prediction step [s]: discretisation of the N = 20 horizon steps (4.0 s at 0.2) and of rate rows 1..N-1. The control loop stays at 0.1 s; the first rate row, the published speed and the solve budget use that. Also sets the lookahead floor 1.25 * N * dt * vdes (2.50 m at 0.2 and 0.5 m/s). 0.1 = the pre-2026-10 2.0 s horizon, exactly."
 
 # ------------------------------------------------------------------
@@ -2377,7 +2418,8 @@ wall_distance_geom_inlier_distance_m:
 # without an ament index; test_intent_translate.py asserts the two agree, so
 # changing a value here without changing it there fails the suite.
 mission_translator_speed_straight:
-  default: 0.4
+  # 0.5 since 2026-10-13 (was 0.4): every move defaults to 0.5 m/s.
+  default: 0.5
   # real: the run-up speed of missions/wall_turn.json, run on hardware 2026-09-14
   description: "Speed [m/s] for a straight intent phase. Not an independent guess: it is the speed missions/wall_turn.json runs its 2 m straight run-up at."
 mission_translator_speed_turn:
@@ -2385,7 +2427,8 @@ mission_translator_speed_turn:
   # real: the turn speed of missions/wall_turn.json, run on hardware 2026-09-14
   description: "Speed [m/s] for a turn intent phase. The speed missions/wall_turn.json turns at, which is deliberately higher than the straight run-up."
 mission_translator_speed_go_to:
-  default: 0.4
+  # 0.5 since 2026-10-13 (was 0.4): every move defaults to 0.5 m/s.
+  default: 0.5
   # the speed of missions/go_to_person.json / go_to_chair.json (rig-verified, not floor-run)
   description: "go_to_object.speed [m/s] for a go_to intent phase: the approach speed missions/go_to_person.json and go_to_chair.json use. FLOOR VALUE 0.4, and it must not go lower: 0.4 m/s is the operating floor, the minimum commanded forward speed while the car moves (below it the car is not operated; zero is used only to stop). Under max_forward_speed_mps (0.5), so the approach itself is never clamped."
 mission_translator_go_to_acquire_timeout_sec:

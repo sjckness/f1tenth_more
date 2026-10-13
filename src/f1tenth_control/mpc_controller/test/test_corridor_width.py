@@ -1,13 +1,14 @@
 """
-The corridor's width: a trapezoid with a fixed end-to-start ratio.
+The corridor's width: a fixed end-to-start ratio, Bezier walls.
 
 Before campaign-final the far end reached corr_wmax only on a corridor
 corr_L_base long (corridor_geometry's length_ref), so the object corridors the
 car actually built -- 0.8 to 2.5 m -- ended 1.2 to 1.6 times as wide as they
 started, and the Bezier walls did most of that widening in the middle half.
 On the car that read as two parallel lines. These pin the replacement:
-straight walls, CORRIDOR_WIDTH_RATIO at every length, the old per-metre
-opening only behind corr_width_scale_with_length.
+CORRIDOR_WIDTH_RATIO at every length, the old per-metre opening only behind
+corr_width_scale_with_length. The walls are Bezier again (2026-10-13): the
+straight trapezoid walls of Part D were reverted on request.
 
 Same duck-typed stand-in as test_corridor_turn_shape.py.
 
@@ -19,7 +20,6 @@ import unittest
 from f1tenth_params.corridor_geometry import CORRIDOR_WIDTH_RATIO
 from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
-import numpy as np
 
 
 class _FakeLogger:
@@ -56,7 +56,7 @@ def _build(fake):
     return MPCController.build_straight_corridor(fake, [0.0, 0.0, 0.0, 0.5])
 
 
-class TestTheTrapezoid(unittest.TestCase):
+class TestTheWidth(unittest.TestCase):
     """build_straight_corridor's walls and half-width."""
 
     def test_the_end_to_start_ratio_is_fixed_at_every_length(self):
@@ -69,17 +69,10 @@ class TestTheTrapezoid(unittest.TestCase):
                 self.assertAlmostEqual(corridor['defn']['w1_eff'],
                                        corridor['defn']['w1'], places=12)
 
-    def test_the_half_width_grows_linearly_along_the_corridor(self):
-        corridor = _build(_FakeMPC(goal_pose_xy=(1.2, 0.0)))
-        u = np.linspace(0.0, 1.0, 120)
-        expected = 0.65 + 0.65 * (CORRIDOR_WIDTH_RATIO - 1.0) * u
-        self.assertTrue(np.allclose(corridor['halfWidth'], expected,
-                                    atol=1e-12))
-
-    def test_the_logged_definition_names_the_trapezoid_walls(self):
+    def test_the_logged_definition_names_the_bezier_walls(self):
         defn = _build(_FakeMPC())['defn']
-        self.assertEqual(defn['walls'], 'trapezoid')
-        self.assertIsNone(defn['ctrl_left'])
+        self.assertEqual(defn['walls'], 'bezier')
+        self.assertIsNotNone(defn['ctrl_left'])
 
     def test_scale_with_length_restores_the_first_campaign_funnel(self):
         """1.5 m of a 3.0 m design length opens half of the widening."""

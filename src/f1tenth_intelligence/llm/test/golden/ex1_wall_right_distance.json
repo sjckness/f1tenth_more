@@ -28,14 +28,14 @@
         "id": "move_0_straight",
         "drive": {
           "mode": "straight",
-          "speed": 0.4
+          "speed": 0.5
         },
         "stop_condition": {
           "type": "front_clearance",
           "distance": 3.0,
           "debounce_ticks": 3
         },
-        "timeout_sec": 80,
+        "timeout_sec": 65,
         "on_timeout": "abort"
       },
       {
@@ -57,13 +57,13 @@
         "id": "move_2_straight",
         "drive": {
           "mode": "straight",
-          "speed": 0.4
+          "speed": 0.5
         },
         "stop_condition": {
           "type": "distance_reached",
           "distance": 2.0
         },
-        "timeout_sec": 20,
+        "timeout_sec": 17,
         "on_timeout": "abort",
         "terminal": true
       }

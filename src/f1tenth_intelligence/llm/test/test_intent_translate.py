@@ -222,7 +222,9 @@ def test_the_reference_mission_is_reproduced_where_it_is_reproducible():
     produced = translate(REFERENCE_INTENT).mission
     assert len(produced['moves']) == len(reference['moves'])
     for produced_move, reference_move in zip(produced['moves'], reference['moves']):
-        assert produced_move['drive'] == reference_move['drive']
+        # speed aside: see the test below.
+        assert ({k: v for k, v in produced_move['drive'].items() if k != 'speed'}
+                == {k: v for k, v in reference_move['drive'].items() if k != 'speed'})
         assert produced_move['stop_condition'] == reference_move['stop_condition']
         assert produced_move.get('terminal') == reference_move.get('terminal')
         assert produced_move['on_timeout'] == reference_move['on_timeout']
@@ -230,8 +232,8 @@ def test_the_reference_mission_is_reproduced_where_it_is_reproducible():
 
 @pytest.mark.skipif(not (MISSIONS_DIR / 'wall_turn.json').is_file(),
                     reason='f1tenth_behavior sources not beside this package')
-def test_the_reference_mission_differs_only_in_ids_and_timeouts():
-    """The two places it does NOT match, recorded rather than hidden.
+def test_the_reference_mission_differs_only_in_ids_timeouts_and_runup_speed():
+    """The three places it does NOT match, recorded rather than hidden.
 
     ids: wall_turn.json uses human names ("runup_2m"); the translator derives
     move_{i}_{mode}, because an LLM has no business naming things the operator
@@ -241,13 +243,18 @@ def test_the_reference_mission_differs_only_in_ids_and_timeouts():
     The derived ones come from the documented formula, and for the turn the
     derived value is the better one -- the observed turn took 7.37 s, so 60 s
     would let a completely stuck turn run for the best part of a minute.
+
+    speed: wall_turn.json runs its straight run-up at 0.4; the translator's
+    default for every move is 0.5 since 2026-10-13.
     """
     reference = _reference_wall_turn()
     produced = translate(REFERENCE_INTENT).mission
     assert [m['id'] for m in reference['moves']] == ['runup_2m', 'wall_turn']
     assert [m['id'] for m in produced['moves']] == ['move_0_straight', 'move_1_turn']
     assert [m['timeout_sec'] for m in reference['moves']] == [30, 60]
-    assert [m['timeout_sec'] for m in produced['moves']] == [20, 27]
+    assert [m['timeout_sec'] for m in produced['moves']] == [17, 27]
+    assert [m['drive']['speed'] for m in reference['moves']] == [0.4, 0.5]
+    assert [m['drive']['speed'] for m in produced['moves']] == [0.5, 0.5]
 
 
 # ---------------------------------------------------------------------------

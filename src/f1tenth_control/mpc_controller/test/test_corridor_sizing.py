@@ -26,6 +26,7 @@ from f1tenth_params.corridor_geometry import (
 from f1tenth_params.object_geometry import (
     class_margin_for, nominal_footprint_radius)
 from f1tenth_params.param_defaults import get_value
+from mpc_controller.MPC_corr import CORRIDOR_WALLS
 import numpy as np
 
 #: Lateral error of the person's perceived position at 1 m [m]: detection
@@ -58,7 +59,7 @@ def _shipped_half_width_at(s, length):
     geom = corridor_curves(0.0, 0.0, 0.0, 0.0, length, 120,
                            u_start=0.0, u_end=0.40,
                            w0=w0, w1=w0 * CORRIDOR_WIDTH_RATIO,
-                           walls='trapezoid')
+                           walls=CORRIDOR_WALLS)
     idx = int(np.argmin(np.abs(geom['xc'] - s)))
     return float(geom['halfWidth'][idx])
 
@@ -77,6 +78,6 @@ def test_the_old_corridor_could_not_hold_the_passing_car():
     s_person = base_front_x() + PERSON_AHEAD_OF_BUMPER_M
     geom = corridor_curves(0.0, 0.0, 0.0, 0.0, 3.0, 120,
                            w0=0.4333, w1=0.4333 * CORRIDOR_WIDTH_RATIO,
-                           walls='trapezoid')
+                           walls=CORRIDOR_WALLS)
     idx = int(np.argmin(np.abs(geom['xc'] - s_person)))
     assert float(geom['halfWidth'][idx]) < _required_half_width()

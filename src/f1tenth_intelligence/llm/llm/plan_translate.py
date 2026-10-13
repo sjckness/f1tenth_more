@@ -543,12 +543,12 @@ class TranslatorConfig:
 
     # Reference mission wall_turn.json runs its straight run-up at 0.4 and its
     # turn at 0.5 -- these are those two values, not an independent guess.
-    speed_straight: float = 0.4
+    speed_straight: float = 0.5  # 0.4 until 2026-10-13: 0.5 for every move
     speed_turn: float = 0.5
 
     # A go_to phase's go_to_object fields: the values missions/go_to_person.json
     # and go_to_chair.json run with (speed, acquire_timeout_sec, lost_grace_sec).
-    speed_go_to: float = 0.4
+    speed_go_to: float = 0.5  # 0.4 until 2026-10-13: 0.5 for every move
     go_to_acquire_timeout_sec: float = 5.0
     go_to_lost_grace_sec: float = 1.5
 

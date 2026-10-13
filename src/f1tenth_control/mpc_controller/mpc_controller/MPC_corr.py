@@ -50,6 +50,15 @@ from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
 
+#: The corridor's wall construction (corridor_geometry.CORRIDOR_WALL_SHAPES).
+#: 'bezier': each wall a cubic Bezier from the start width tangent to psi
+#: start to the end width tangent to psi end, i.e. the walls bend smoothly
+#: with the corridor. 'trapezoid' (campaign-final Part D, a6dd23e) offset the
+#: centreline by a linearly growing half-width and drew straight walls;
+#: reverted 2026-10-13 on request. The width changes of Part D stay.
+CORRIDOR_WALLS = 'bezier'
+
+
 def lookahead_clamp_length(n_steps, ts, v_des, reach_margin):
     """Corridor length at and below which the lookahead pins to the corridor end.
 
@@ -4975,7 +4984,7 @@ class MPCController(Node):
                 length_ref=(getattr(self, 'corr_L_base', None)
                             if getattr(self, 'corr_width_scale_with_length',
                                        False) else None),
-                walls='trapezoid',
+                walls=CORRIDOR_WALLS,
             )
             # THE CAP APPLIES TO THIS SHAPE TOO, and it has to be checked
             # after the fit rather than before it: the pose corridor's length
@@ -5055,7 +5064,7 @@ class MPCController(Node):
                 length_ref=(getattr(self, 'corr_L_base', None)
                             if getattr(self, 'corr_width_scale_with_length',
                                        False) else None),
-                walls='trapezoid',
+                walls=CORRIDOR_WALLS,
             )
         if not geom['feasible'] and pose_target is None:
             self.get_logger().warn(
@@ -5114,9 +5123,8 @@ class MPCController(Node):
                 "w1": float(self.corr_wmax),
                 "handle_frac": float(CORRIDOR_HANDLE_FRAC),
                 # The wall construction; its absence means the Bezier walls
-                # of every older record. corridor_def.evaluate does not read
-                # it yet, so offline re-plots still draw Bezier walls.
-                'walls': 'trapezoid',
+                # of every older record.
+                'walls': CORRIDOR_WALLS,
                 # WHICH CENTRELINE, because from here there are two kinds and
                 # they are not distinguishable from the other fields: 'ramp'
                 # is the integrated heading ramp of the given L, 'bezier' the

@@ -276,7 +276,7 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 from rclpy.time import Time
 
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CameraInfo, Image
 from std_msgs.msg import Bool, Float32, String
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformException
@@ -288,6 +288,8 @@ from f1tenth_description.vehicle_frames import (
 from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
 
 from f1tenth_perception import perception_debug
+from f1tenth_perception.ground_plane import (
+    back_project, fit_ground_plane, ground_mask, quat_to_matrix)
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -468,8 +470,35 @@ class FrontClearanceNode(Node):
         # ---- ROI -----------------------------------------------------------
         self.roi_half_w = int(self.declare_parameter('roi_half_width_px', 90).value)
         self.roi_half_h = int(self.declare_parameter('roi_half_height_px', 35).value)
+        # Rows the ROI centre sits ABOVE the image centre (0 = centred).
+        self.roi_shift_up = int(self.declare_parameter('roi_shift_up_px', 0).value)
         self.min_bg_pixels = int(
             self.declare_parameter('min_bg_pixels_for_reading', 60).value)
+
+        # ---- ground removal (ground_plane.py) -------------------------------
+        # Floor pixels are dropped from the background statistics: without
+        # this the floor below the horizon is the nearest consistent surface
+        # and the "wall" reads the floor. Default OFF here so a node built
+        # without the yaml keeps the old behaviour; stack_params turns it on.
+        self.ground_enabled = bool(
+            self.declare_parameter('ground_removal_enabled', False).value)
+        self.camera_info_topic = str(self.declare_parameter(
+            'camera_info_topic',
+            self.depth_topic.rsplit('/', 1)[0] + '/camera_info').value)
+        self.ground_prior_z = float(self.declare_parameter('ground_prior_z_m', 0.0).value)
+        self.ground_band = float(self.declare_parameter('ground_band_m', 0.15).value)
+        self.ground_inlier = float(self.declare_parameter('ground_inlier_m', 0.03).value)
+        self.ground_height = float(self.declare_parameter('ground_height_m', 0.06).value)
+        self.ground_max_tilt = float(
+            self.declare_parameter('ground_max_tilt_deg', 15.0).value)
+        self.ground_iters = int(self.declare_parameter('ground_ransac_iters', 60).value)
+        self.ground_min_inliers = int(
+            self.declare_parameter('ground_min_inliers', 150).value)
+        self.ground_stride = max(1, int(
+            self.declare_parameter('ground_fit_stride_px', 4).value))
+        self._camera_k = None      # (fx, fy, cx, cy, width, height)
+        self._ground_rng = np.random.default_rng(0)
+        self._last_ground = None   # debug: plane summary and pixel count
 
         # ---- too-close (-Inf) short-circuit --------------------------------
         # See the module docstring's own "-Inf AND NaN/+Inf ARE NOT THE SAME
@@ -585,6 +614,7 @@ class FrontClearanceNode(Node):
         # TransformListener: a handful of fixed edges, not every /tf message).
         self._tf_buffer = Buffer()
         self._frame_poses = {}   # frame_id -> (x, y, yaw) in base_frame
+        self._frame_transforms = {}   # frame_id -> (R 3x3, t 3) into base_frame
 
         # ---- ROS interfaces -------------------------------------------------
         self.front_distance_pub = self.create_publisher(
@@ -629,6 +659,9 @@ class FrontClearanceNode(Node):
             TFMessage, '/tf_static', self._tf_static_callback, QoSProfile(
                 depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
                 history=HistoryPolicy.KEEP_LAST))
+        if self.ground_enabled:
+            self.camera_info_sub = self.create_subscription(
+                CameraInfo, self.camera_info_topic, self._camera_info_callback, 10)
         self.depth_sub = self.create_subscription(
             Image, self.depth_topic, self.depth_callback, 10)
 
@@ -688,6 +721,74 @@ class FrontClearanceNode(Node):
             f'{self.base_frame} <- {frame_id}: x={pose[0]:.3f} y={pose[1]:.3f} '
             f'yaw={math.degrees(yaw):.1f} deg')
         return pose
+
+    def _frame_transform(self, frame_id):
+        """(R, t) taking frame_id points into base_frame, cached; None if unknown."""
+        if not frame_id:
+            return None
+        cached = self._frame_transforms.get(frame_id)
+        if cached is not None:
+            return cached
+        try:
+            stamped = self._tf_buffer.lookup_transform(self.base_frame, frame_id, Time())
+        except TransformException:
+            return None
+        t, q = stamped.transform.translation, stamped.transform.rotation
+        cached = (quat_to_matrix(q.x, q.y, q.z, q.w),
+                  np.array([t.x, t.y, t.z], dtype=float))
+        self._frame_transforms[frame_id] = cached
+        return cached
+
+    def _camera_info_callback(self, msg: CameraInfo):
+        k = msg.k
+        if k[0] > 0.0 and k[4] > 0.0:
+            self._camera_k = (float(k[0]), float(k[4]), float(k[2]), float(k[5]),
+                              int(msg.width), int(msg.height))
+
+    def _ground_roi_mask(self, depth, frame_id, bounds):
+        """ROI-shaped bool, True on floor pixels; None when it cannot be computed.
+
+        The plane is fitted on a strided sample of everything from the ROI's
+        top row to the image bottom (more floor than the ROI alone holds), then
+        every finite ROI pixel is tested against it.
+        """
+        if not self.ground_enabled or self._camera_k is None:
+            return None
+        tf = self._frame_transform(frame_id)
+        if tf is None:
+            return None
+        h, w = depth.shape[:2]
+        fx, fy, cx, cy, kw, kh = self._camera_k
+        if kw > 0 and kh > 0 and (kw != w or kh != h):
+            sx, sy = w / kw, h / kh
+            fx, cx, fy, cy = fx * sx, cx * sx, fy * sy, cy * sy
+        rot, trans = tf
+        y0, y1, x0, x1 = bounds
+
+        rows, cols = np.mgrid[y0:h:self.ground_stride, x0:x1:self.ground_stride]
+        rows, cols = rows.ravel(), cols.ravel()
+        z = depth[rows, cols]
+        keep = np.isfinite(z) & (z > 0)
+        plane = fit_ground_plane(
+            back_project(depth, rows[keep], cols[keep], fx, fy, cx, cy, rot, trans),
+            prior_z=self.ground_prior_z, band_m=self.ground_band,
+            inlier_m=self.ground_inlier, max_tilt_deg=self.ground_max_tilt,
+            iters=self.ground_iters, min_inliers=self.ground_min_inliers,
+            rng=self._ground_rng)
+
+        roi = depth[y0:y1, x0:x1]
+        out = np.zeros(roi.shape, dtype=bool)
+        finite = np.isfinite(roi) & (roi > 0)
+        rr, cc = np.nonzero(finite)
+        if rr.size:
+            pts = back_project(depth, rr + y0, cc + x0, fx, fy, cx, cy, rot, trans)
+            out[rr, cc] = ground_mask(pts, plane, self.ground_height)
+        self._last_ground = {
+            'fitted': plane.fitted, 'inliers': plane.inliers,
+            'tilt_deg': round(plane.tilt_deg(), 2),
+            'z0_m': round(plane.z_at_origin(), 3),
+            'px': int(np.count_nonzero(out))}
+        return out
 
     def _front_offset(self, camera_frame):
         """
@@ -926,8 +1027,8 @@ class FrontClearanceNode(Node):
         #    docstring) -- before the ROI statistics that consume it.
         conf = self._update_object_confidence(self._raw_object_mask((h, w)), now)
 
-        # 2. ROI, centered on the depth image.
-        cy, cx = h // 2, w // 2
+        # 2. ROI, centered on the depth image, raised by roi_shift_up_px.
+        cy, cx = h // 2 - self.roi_shift_up, w // 2
         y0 = max(0, cy - self.roi_half_h)
         y1 = min(h, cy + self.roi_half_h)
         x0 = max(0, cx - self.roi_half_w)
@@ -988,6 +1089,13 @@ class FrontClearanceNode(Node):
 
         # 6. Cut the housing out of the statistics -- see step 3.
         valid &= ~housing
+
+        # 6b. Cut the floor out too (ground_plane.py): the floor below the
+        #     horizon is otherwise the nearest consistent surface in the ROI.
+        self._last_ground = None
+        ground = self._ground_roi_mask(depth, msg.header.frame_id, (y0, y1, x0, x1))
+        if ground is not None:
+            valid &= ~ground
 
         bg_depths = roi[valid]
         n_valid = int(bg_depths.size)
@@ -1204,6 +1312,7 @@ class FrontClearanceNode(Node):
                 obstacle_origin=_WALL_DEBUG_OBSTACLE_ORIGIN,
                 stereo_raw_origin=_WALL_DEBUG_STEREO_RAW_ORIGIN,
                 front_offset_m=self._front_offset(header.frame_id))
+            payload['ground'] = self._last_ground
             self.wall_debug_pub.publish(String(data=perception_debug.to_json(payload)))
         except Exception as exc:  # noqa: BLE001 - debug only, never stop the guard
             self.get_logger().error(
