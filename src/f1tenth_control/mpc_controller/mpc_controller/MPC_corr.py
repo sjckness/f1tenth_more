@@ -19,6 +19,7 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
@@ -600,8 +601,10 @@ class MPCController(Node):
         self.min_speed_all_moves = bool(_p('mpc_min_speed_all_moves'))
         self.keepout_enabled = bool(_p('mpc_obstacle_keepout_enabled'))
         self.blocked_enabled = bool(_p('mpc_blocked_enabled'))
+        # front: the URDF's base_front frame, the one base_link -> front
+        # offset in the stack (f1tenth_description/urdf/base_front.xacro).
         self.body_box = BodyBox(
-            front=float(_p('swept_clearance_body_front_x_m')),
+            front=base_front_x(),
             rear=float(_p('swept_clearance_body_rear_x_m')),
             half_width=float(_p('swept_clearance_body_half_width_m')))
         # B8: a wall_turn that has no valid front distance waits, straight,
@@ -1146,9 +1149,10 @@ class MPCController(Node):
         # decision, the safety layer and the fallback. None when disabled, and
         # every consumer below checks for None rather than a flag.
         #
-        # The bumper offset is read from swept_clearance_body_front_x_m and
-        # the inlier distance from lidar_front_wall_inlier_distance_m: the
-        # same physical quantity and the same LiDAR, so one key each rather
+        # The bumper offset is the URDF's base_front frame (base_front_x(),
+        # no parameter: one base_link -> front offset for the whole stack) and
+        # the inlier distance lidar_front_wall_inlier_distance_m: the same
+        # physical quantity and the same LiDAR, so one source each rather
         # than a copy that could drift. See stack_params.yaml's WALL TRACKER
         # block.
         self.wall_track_enable = bool(
@@ -1166,8 +1170,7 @@ class MPCController(Node):
                     'wall_assoc_dist_m', get_value('wall_assoc_dist_m')).value),
                 dfront_slack_m=float(self.declare_parameter(
                     'wall_dfront_slack_m', get_value('wall_dfront_slack_m')).value),
-                bumper_x_m=float(self.declare_parameter(
-                    'wall_bumper_x_m', get_value('swept_clearance_body_front_x_m')).value),
+                bumper_x_m=base_front_x(),
                 inlier_distance_m=float(get_value('lidar_front_wall_inlier_distance_m')),
             )
 
@@ -4562,13 +4565,29 @@ class MPCController(Node):
     # ==========================================
     # DEBUG DISTANZA
     # ==========================================
+    def _front_bumper_xy(self):
+        """
+        Return (x, y) of the front bumper (base_front) in odom, None without a pose.
+
+        The MPC state is the rear axle (base_link); the bumper is
+        body_box.front -- the URDF's base_front -- ahead of it along the
+        heading. Both obstacle-distance topics are measured from here since
+        2026-10-12 (they were from the rear axle).
+        """
+        if self.x is None or self.y is None or self.yaw is None:
+            return None
+        front = float(self.body_box.front)
+        return (self.x + front * math.cos(self.yaw), self.y + front * math.sin(self.yaw))
+
     def compute_robot_obstacle_distance(self, obstacles_global):
-        if self.x is None or self.y is None:
+        """Nearest obstacle in ANY direction, surface distance from the front bumper."""
+        bumper = self._front_bumper_xy()
+        if bumper is None:
             return 1e6
 
         dmin = 1e6
         for ox, oy, r in obstacles_global:
-            d = math.hypot(self.x - ox, self.y - oy) - r
+            d = math.hypot(bumper[0] - ox, bumper[1] - oy) - r
             dmin = min(dmin, d)
         return dmin
 
@@ -4577,7 +4596,8 @@ class MPCController(Node):
     # keeps a safe margin, rather than just trusting the w_obs cost blindly.
     def compute_forward_obstacle_distance(self, obstacles_global):
         """Nearest obstacle in the FORWARD HALF-PLANE, surface distance
-        (centre distance minus radius), or 1e6 when there is nothing ahead.
+        (centre distance minus radius) from the front bumper (base_front),
+        or 1e6 when there is nothing ahead.
 
         Identical to compute_robot_obstacle_distance above except for the
         half-plane test: an obstacle counts only if it lies in front of the
@@ -4600,18 +4620,22 @@ class MPCController(Node):
         no-obstacles return so both topics carry the same "nothing to report"
         value and a consumer cannot tell them apart by sentinel alone.
         """
-        if self.x is None or self.y is None or self.yaw is None:
+        bumper = self._front_bumper_xy()
+        if bumper is None:
             return 1e6
 
         cos_yaw = math.cos(self.yaw)
         sin_yaw = math.sin(self.yaw)
 
+        # FROM THE FRONT BUMPER (2026-10-12), half-plane included: an obstacle
+        # beside the body, ahead of the rear axle but behind the bumper, is
+        # not in front of the car any more.
         dmin = 1e6
         for ox, oy, r in obstacles_global:
-            dx = ox - self.x
-            dy = oy - self.y
+            dx = ox - bumper[0]
+            dy = oy - bumper[1]
             if dx * cos_yaw + dy * sin_yaw <= 0.0:
-                continue  # behind the car (or exactly abeam) -- not in the way
+                continue  # behind the bumper (or exactly abeam) -- not in the way
             d = math.hypot(dx, dy) - r
             dmin = min(dmin, d)
         return dmin

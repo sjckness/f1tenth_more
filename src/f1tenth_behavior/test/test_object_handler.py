@@ -26,7 +26,7 @@ from f1tenth_behavior.mission.object_handler import (
 )
 
 PARAMS = HandlerParams(
-    target_class='person', gap_m=0.5, nose_reach_m=0.5525, speed=0.4, acquire_timeout_sec=5.0,
+    target_class='person', gap_m=0.5, front_x_m=0.5525, speed=0.4, acquire_timeout_sec=5.0,
     lost_grace_sec=1.5, follow_gate_m=0.5,
     tracks_max_gap_sec=0.5)
 
@@ -206,7 +206,7 @@ class TestUnreachable:
 
 
 class TestCentreStandoff:
-    """ObjectGoal.standoff is a centre distance: gap + nose_reach + target radius."""
+    """ObjectGoal.standoff is a centre distance: gap + front_x + target radius."""
 
     def test_it_uses_the_tracks_fused_width(self):
         h = ObjectHandler(PARAMS, start_sec=0.0)
@@ -263,4 +263,4 @@ class TestTheGapRule:
         h = ObjectHandler(PARAMS, start_sec=0.0)
         step = _tick(h, 0.1, [_t('7', 3.0, 0.0, width=0.6)])
         assert step.centre_standoff == pytest.approx(
-            centre_distance_for_gap(PARAMS.gap_m, PARAMS.nose_reach_m, 0.3))
+            centre_distance_for_gap(PARAMS.gap_m, PARAMS.front_x_m, 0.3))

@@ -201,8 +201,9 @@ transform arrives every scan publishes no_transform.
 
 import math
 
-import rclpy
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import WallEstimate, WallLineFit
+import rclpy
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, qos_profile_sensor_data
@@ -248,6 +249,9 @@ class LidarFrontWallNode(Node):
         self.fit_topic = str(param('fit_topic', '/perception/lidar_front_wall'))
         self.estimate_topic = str(param('estimate_topic', '/perception/lidar_front_wall_virtual'))
         self.base_frame = str(param('base_frame', 'base_link'))
+        # The seed topic is from the front bumper (the URDF's base_front); see
+        # _seed_cb.
+        self.front_x = base_front_x()
 
         self.sector_half_angle_rad = math.radians(float(param('sector_half_angle_deg', 10.0)))
         self.inlier_distance_m = float(param('inlier_distance_m', 0.03))
@@ -301,7 +305,14 @@ class LidarFrontWallNode(Node):
             self._now(), pose.position.x, pose.position.y, _yaw_from_quaternion(pose.orientation))
 
     def _seed_cb(self, msg):
-        self.estimator.update_seed(self._now(), msg.data)
+        # /costmap/front_clearance is from the front bumper since 2026-10-12;
+        # this node's distances are from the base_link ORIGIN, so the bumper's
+        # x goes back on (exact for a square-on wall). A non-positive value
+        # stays non-positive: "no reading" to the estimator either way.
+        value = float(msg.data)
+        if math.isfinite(value) and value > 0.0:
+            value += self.front_x
+        self.estimator.update_seed(self._now(), value)
 
     def _laser_pose_for(self, frame_id):
         if self._laser_pose is not None and self._laser_pose[0] == frame_id:

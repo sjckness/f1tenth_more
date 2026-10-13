@@ -29,6 +29,7 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32
 from tf2_msgs.msg import TFMessage
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_value
 from f1tenth_perception import lidar_front_wall as logic
 from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode
@@ -171,12 +172,20 @@ class TestWireContents:
 
     def test_a_seed_when_there_is_nothing_to_dead_reckon(self, node):
         node._tf_static_cb(_tf_static())
+        # /costmap/front_clearance is from the front bumper; this node's
+        # distances are from base_link's origin, so the bumper's x goes back on.
         node._seed_cb(Float32(data=1.25))
         node._scan_cb(_scan(None))
         estimate = _last(node.estimate_pub)
         assert estimate.provenance == WallEstimate.PROVENANCE_SEEDED and estimate.valid
-        assert estimate.distance == pytest.approx(1.25)
+        assert estimate.distance == pytest.approx(1.25 + base_front_x())
         assert math.isnan(estimate.normal_angle)
+
+    def test_a_no_reading_seed_stays_no_reading(self, node):
+        node._tf_static_cb(_tf_static())
+        node._seed_cb(Float32(data=-1.0))
+        node._scan_cb(_scan(None))
+        assert _last(node.estimate_pub).provenance != WallEstimate.PROVENANCE_SEEDED
 
     def test_a_contradicted_fit_goes_out_as_wrong_surface_showing_what_it_hit(self, node):
         node._tf_static_cb(_tf_static())

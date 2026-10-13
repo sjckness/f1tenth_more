@@ -43,6 +43,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from f1tenth_description.vehicle_frames import base_front_x
 from mpc_controller.pass_side import PassSideMemory, decide_sides
 
 __all__ = [
@@ -102,7 +103,8 @@ def first_floor_stage(v0: float, a_prev: float, v_floor: float, a_max: float,
 class BodyBox:
     """The car rectangle around the rear axle (the MPC state point)."""
 
-    front: float = 0.443
+    # The URDF's base_front frame: the one base_link -> front offset.
+    front: float = field(default_factory=base_front_x)
     rear: float = -0.082
     half_width: float = 0.136
 

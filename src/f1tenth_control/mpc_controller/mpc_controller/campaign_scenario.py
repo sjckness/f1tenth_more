@@ -40,6 +40,7 @@ from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import DriveCommand, Obstacle2D, Obstacle2DArray
 from f1tenth_params.param_defaults import get_value
 
@@ -89,7 +90,7 @@ class ScenarioNode(Node):
         self.true_centre = true_centre
         self.L = float(get_value('mpc_wheelbase_m'))
         self.lr = 0.17
-        self.front = float(get_value('swept_clearance_body_front_x_m'))
+        self.front = base_front_x()
         self.rear = float(get_value('swept_clearance_body_rear_x_m'))
         self.half_w = float(get_value('swept_clearance_body_half_width_m'))
         self.odom_pub = self.create_publisher(Odometry, '/odometry/filtered', 10)

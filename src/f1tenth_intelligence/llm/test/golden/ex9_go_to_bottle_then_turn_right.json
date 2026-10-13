@@ -15,14 +15,14 @@
   },
   "requires_confirmation": false,
   "mission": {
-    "mission_id": "llm_dccc1c133692",
+    "mission_id": "llm_6409e61cced7",
     "schema_version": "5.0",
     "moves": [
       {
         "id": "move_0_go_to",
         "go_to_object": {
           "target_class": "bottle",
-          "gap_m": 0.5,
+          "gap_m": 0.6,
           "speed": 0.4,
           "acquire_timeout_sec": 5.0,
           "lost_grace_sec": 1.5

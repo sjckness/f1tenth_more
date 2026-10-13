@@ -233,6 +233,30 @@ counting toward a flip in either direction. Substituting a sentinel like
 chain and drag the estimate toward it. -1.0 appears on a topic ONLY when a
 filter has never held a value at all (nothing published yet this run) --
 i.e. it means "no reading", never "a reading of -1".
+
+EVERY PUBLISHED DISTANCE IS FROM THE FRONT BUMPER (2026-10-12)
+--------------------------------------------------------------
+front_distance, front_clearance and front_wall_confirmed are measured from
+base_front, the URDF frame f1tenth_description/urdf/base_front.xacro defines
+0.443 m ahead of base_link -- not from the camera lens, and not (for the
+obstacle term of front_clearance) from base_link. They used to be both at
+once: front_clearance took the min of a lens distance and a base_link one.
+
+The depth estimate itself (the ROI, the percentile band, both EMAs on it, the
+wall latch, the LiDAR confirmation) is computed exactly as before, in the
+camera's terms. Only what is PUBLISHED is moved: minus (base_front x - the
+depth frame's x in base_link), the lens-to-bumper offset, read from /tf_static
+(the camera is a fixed mount when camera_pan_enabled is false, the default).
+No camera transform yet = no reference = -1.0 on front_distance and
+front_wall_confirmed, with a throttled warning. The obstacle term is the
+near face's x minus base_front x.
+
+A REAL READING IS NEVER PUBLISHED AT OR BELOW ZERO. Every consumer reads
+<= 0 as "no reading" (condition_eval's front_clearance guard, wall_turn), so
+a wall the offset puts at or behind the bumper -- something closer to the
+lens than the bumper is, which the geometry says is touching -- is published
+as MIN_FRONT_DISTANCE_M and the stop fires, instead of a value that would
+switch the stop off.
 """
 
 import json
@@ -254,6 +278,7 @@ from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from vision_msgs.msg import Detection2DArray
 
+from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
 from f1tenth_messages.msg import Obstacle2DArray
 from f1tenth_perception.wall_confirm import (
     REASON_NO_SCAN, WallConfirmConfig, WallConfirmation, WallConfirmTracker,
@@ -263,6 +288,19 @@ from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
 )
+
+
+def from_front(distance, offset):
+    """
+    Return a lens-referenced distance [m] re-referenced to the front bumper.
+
+    offset: base_front x minus the camera's x in base_link (how far the
+    bumper sits ahead of the lens). None stays None (no reading); a real
+    reading never comes out below MIN_FRONT_DISTANCE_M.
+    """
+    if distance is None:
+        return None
+    return max(float(distance) - float(offset), MIN_FRONT_DISTANCE_M)
 
 
 # ==============================================================================
@@ -493,6 +531,9 @@ class FrontClearanceNode(Node):
             self.declare_parameter('wall_confirm_enabled', True).value)
         self.scan_topic = str(self.declare_parameter('scan_topic', '/scan').value)
         self.base_frame = str(self.declare_parameter('base_frame', 'base_link').value)
+        # Every published distance is from here (module docstring): the URDF's
+        # base_front frame, the one base_link -> front offset in the stack.
+        self.front_x = base_front_x()
         self.wall_confirm_scan_max_age_s = float(
             self.declare_parameter('wall_confirm_scan_max_age_s', 0.3).value)
         self.wall_confirm_cfg = WallConfirmConfig(
@@ -597,10 +638,12 @@ class FrontClearanceNode(Node):
         if self.wall_confirm_enabled:
             self.scan_sub = self.create_subscription(
                 LaserScan, self.scan_topic, self._scan_callback, qos_profile_sensor_data)
-            self.tf_static_sub = self.create_subscription(
-                TFMessage, '/tf_static', self._tf_static_callback, QoSProfile(
-                    depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
-                    history=HistoryPolicy.KEEP_LAST))
+        # Always, not only for the LiDAR confirmation: the depth frame's pose is
+        # what moves every published distance from the lens to the bumper.
+        self.tf_static_sub = self.create_subscription(
+            TFMessage, '/tf_static', self._tf_static_callback, QoSProfile(
+                depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                history=HistoryPolicy.KEEP_LAST))
         self.depth_sub = self.create_subscription(
             Image, self.depth_topic, self.depth_callback, 10)
 
@@ -622,7 +665,9 @@ class FrontClearanceNode(Node):
             f'"{self.detections_topic}", masks "{self.masks_topic}", obstacles '
             f'"{self.obstacles_topic}" -> /perception/front_distance, '
             'front_wall, front_clearance, front_blocked'
-            + (' (+ /perception/debug/*)' if self.publish_debug_raw else ''))
+            + (' (+ /perception/debug/*)' if self.publish_debug_raw else '')
+            + f'; distances from base_front, {self.front_x:.3f} m ahead of '
+            f'{self.base_frame}')
 
     # ------------------------------------------------------------------------
     # Subscriptions that only cache. All the work happens on the depth frame,
@@ -670,6 +715,18 @@ class FrontClearanceNode(Node):
             f'{self.base_frame} <- {frame_id}: x={pose[0]:.3f} y={pose[1]:.3f} '
             f'yaw={math.degrees(yaw):.1f} deg')
         return pose
+
+    def _front_offset(self, camera_frame):
+        """
+        Return how far the bumper sits ahead of the depth frame's origin [m], or None.
+
+        base_front x minus the camera's x in base_frame, from /tf_static. None
+        until that transform has arrived (nothing can be re-referenced yet).
+        """
+        cam = self._frame_pose(camera_frame)
+        if cam is None:
+            return None
+        return self.front_x - cam[0]
 
     def _confirm_wall(self, distance, camera_frame, now):
         """WallConfirmation for this frame's front_distance (wall_confirm.py)."""
@@ -865,8 +922,9 @@ class FrontClearanceNode(Node):
         corridor (`|y| - r`), not merely when its centre does: a wide object
         straddling the edge blocks the car exactly as much as a narrow one
         dead ahead. The returned distance is likewise to the obstacle's near
-        FACE (`x - r`), floored at 0, so it is directly comparable with a
-        depth reading -- and obstacles behind the car (x <= 0) are skipped.
+        FACE (`x - r`), floored at 0, in base_link -- depth_callback moves it
+        to the front bumper with the background -- and obstacles behind the
+        car (x <= 0) are skipped.
         """
         msg = self._latest_obstacles
         if msg is None or self._latest_obstacles_time is None:
@@ -939,7 +997,7 @@ class FrontClearanceNode(Node):
         if considered > 0:
             n_too_close = int(np.count_nonzero(np.isneginf(roi) & ~housing))
             if (n_too_close / considered) >= self.too_close_min_fraction:
-                self._publish_too_close(n_too_close, considered)
+                self._publish_too_close(n_too_close, considered, msg.header.frame_id)
                 return
 
         # 5. Valid == finite, positive, and not covered by an object.
@@ -972,22 +1030,36 @@ class FrontClearanceNode(Node):
         #    that should drive the latch toward False.
         front_wall = self.wall_latch.update(n_valid)
 
-        # 8. Background distance: EMA, holding on a None frame.
+        # 8. Background distance: EMA, holding on a None frame. Still from the
+        #    lens, like everything above.
         self.distance_filter.update(raw_distance)
         smoothed_distance = self.distance_filter.value
 
+        # FROM HERE ON, WHAT IS PUBLISHED IS FROM THE FRONT BUMPER (module
+        # docstring). No camera transform yet: no reference, no reading.
+        offset = self._front_offset(msg.header.frame_id)
+        if offset is None:
+            self.get_logger().warn(
+                f'no {self.base_frame} <- "{msg.header.frame_id}" transform on '
+                '/tf_static yet: front_distance cannot be referenced to the front '
+                'bumper, publishing -1 (no reading).', throttle_duration_sec=5.0)
+        front_distance = None if offset is None else from_front(smoothed_distance, offset)
+
         # 9-10. Clearance: the nearer of the background and the nearest
-        #      in-corridor obstacle, smoothed, then latched on the SMOOTHED
-        #      value (see module docstring).
+        #      in-corridor obstacle, BOTH from the bumper (the obstacle term was
+        #      from base_link, the background from the lens), smoothed, then
+        #      latched on the SMOOTHED value (see module docstring).
         object_distance = self._nearest_corridor_obstacle(now)
-        candidates = [d for d in (smoothed_distance, object_distance) if d is not None]
+        object_front = (None if object_distance is None
+                        else max(object_distance - self.front_x, MIN_FRONT_DISTANCE_M))
+        candidates = [d for d in (front_distance, object_front) if d is not None]
         raw_clearance = min(candidates) if candidates else None
         self.clearance_filter.update(raw_clearance)
         smoothed_clearance = self.clearance_filter.value
         front_blocked = self.blocked_latch.update(smoothed_clearance)
 
         self.front_distance_pub.publish(
-            Float32(data=self._publishable(smoothed_distance)))
+            Float32(data=self._publishable(front_distance)))
         self.front_wall_pub.publish(Bool(data=bool(front_wall)))
         self.front_clearance_pub.publish(
             Float32(data=self._publishable(smoothed_clearance)))
@@ -995,9 +1067,12 @@ class FrontClearanceNode(Node):
 
         confirmation = None
         if self.wall_confirm_enabled:
+            # Confirmed in the camera's own terms (wall_confirm converts the
+            # lens distance to base_link itself); what is published is the
+            # bumper distance, like front_distance.
             confirmation = self._confirm_wall(smoothed_distance, msg.header.frame_id, now)
             self.front_wall_confirmed_pub.publish(Float32(
-                data=self._publishable(smoothed_distance) if confirmation.confirmed
+                data=self._publishable(front_distance) if confirmation.confirmed
                 else -1.0))
             if (self._last_confirmation is None
                     or confirmation.reason != self._last_confirmation.reason):
@@ -1010,10 +1085,11 @@ class FrontClearanceNode(Node):
                 Float32(data=self._publishable(raw_distance)))
             self.bg_pixel_count_pub.publish(Float32(data=float(n_valid)))
             self._publish_debug(msg, now, roi, valid, conf, housing, (y0, y1, x0, x1),
-                                raw_distance, smoothed_distance, n_valid, confirmation)
+                                raw_distance, smoothed_distance, n_valid, confirmation,
+                                front_distance, offset)
 
         self._log_transitions(front_wall, front_blocked, n_valid,
-                              smoothed_distance, smoothed_clearance)
+                              front_distance, smoothed_clearance)
 
     @staticmethod
     def _stamp_sec(stamp):
@@ -1055,9 +1131,15 @@ class FrontClearanceNode(Node):
         return []
 
     def _publish_debug(self, depth_msg, now, roi, valid, conf, housing, roi_bounds,
-                       raw_distance, smoothed_distance, n_valid, confirmation):
+                       raw_distance, smoothed_distance, n_valid, confirmation,
+                       front_distance=None, front_offset=None):
         """One JSON record per depth frame on /perception/debug/front_clearance,
         plus the ROI crops for offline replay (A5).
+
+        raw_m and front_distance_lens_m are from the LENS (what the ROI
+        statistics compute, and what tools/replay_front_distance.py recomputes
+        from the crops); front_distance_m is the published value, from the
+        front bumper; front_offset_m is the lens-to-bumper offset between them.
 
         coverage_* are fractions of the ROI (housing excluded): pixels the
         object exclusion removed (conf >= 1 - background_weight_threshold),
@@ -1080,8 +1162,12 @@ class FrontClearanceNode(Node):
             'stamp': round(depth_t, 6),
             'latency_s': round(now - depth_t, 4),
             'raw_m': None if raw_distance is None else round(float(raw_distance), 3),
-            'front_distance_m': (None if smoothed_distance is None
-                                 else round(float(smoothed_distance), 3)),
+            'front_distance_m': (None if front_distance is None
+                                 else round(float(front_distance), 3)),
+            'front_distance_lens_m': (None if smoothed_distance is None
+                                      else round(float(smoothed_distance), 3)),
+            'front_offset_m': (None if front_offset is None
+                               else round(float(front_offset), 4)),
             'bg_px': int(n_valid),
             'roi': [int(x0), int(y0), int(x1), int(y1)],
             'coverage_excluded': round(
@@ -1114,7 +1200,7 @@ class FrontClearanceNode(Node):
         self.front_roi_depth_pub.publish(crop)
         self.front_roi_class_pub.publish(cls_msg)
 
-    def _publish_too_close(self, n_too_close, considered):
+    def _publish_too_close(self, n_too_close, considered, camera_frame=''):
         """Publish the too-close override for this frame and nothing else.
 
         WHAT IS BYPASSED, and why each one has to be. Every stage below the
@@ -1145,7 +1231,11 @@ class FrontClearanceNode(Node):
         "every depth frame produces a message on every topic" invariant:
 
           front_clearance  the floor (`too_close_clearance_m`) -- an upper
-                           bound on a distance known only by its ceiling.
+                           bound on a distance known only by its ceiling --
+                           re-referenced to the front bumper like every other
+                           published distance, never below
+                           MIN_FRONT_DISTANCE_M (and exactly that when the
+                           camera's pose is not known yet).
           front_blocked    True, immediately.
           front_distance   -1.0, the node's own "no reading" sentinel. NOT the
                            floor: front_distance means BACKGROUND/wall, and
@@ -1165,10 +1255,12 @@ class FrontClearanceNode(Node):
         self.wall_latch.update(None)
         self.blocked_latch.update(None)
 
+        offset = self._front_offset(camera_frame)
+        too_close_front = (MIN_FRONT_DISTANCE_M if offset is None
+                           else from_front(self.too_close_clearance_m, offset))
         self.front_distance_pub.publish(Float32(data=-1.0))
         self.front_wall_pub.publish(Bool(data=False))
-        self.front_clearance_pub.publish(
-            Float32(data=float(self.too_close_clearance_m)))
+        self.front_clearance_pub.publish(Float32(data=float(too_close_front)))
         self.front_blocked_pub.publish(Bool(data=True))
         if self.wall_confirm_enabled:
             # No wall distance this frame, so nothing to confirm.
@@ -1190,11 +1282,11 @@ class FrontClearanceNode(Node):
             f'minimum measurable range ('
             f'{100.0 * n_too_close / considered:.1f}% >= '
             f'{100.0 * self.too_close_min_fraction:.1f}%): publishing '
-            f'front_clearance={self.too_close_clearance_m:.2f} m, '
+            f'front_clearance={too_close_front:.2f} m (from the front bumper), '
             'front_blocked=True, bypassing all filters.',
             throttle_duration_sec=1.0)
 
-        self._log_transitions(False, True, 0, None, self.too_close_clearance_m)
+        self._log_transitions(False, True, 0, None, too_close_front)
 
     def _lidar_exclusion_roi_mask(self, depth_shape, roi_bounds):
         """Boolean array shaped like the ROI, True where the ROI overlaps the

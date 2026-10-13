@@ -233,6 +233,7 @@ from tf2_ros import ConnectivityException, ExtrapolationException, LookupExcepti
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
+from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
 from f1tenth_messages.msg import BoundaryConstraint, BoundaryConstraintArray
 
 from f1tenth_costmap.costmap_boundary import (
@@ -731,8 +732,12 @@ class CostmapBoundaryNode(Node):
         # EVERY tick regardless of use_convex_polytope -- see that
         # parameter's own declaration comment. It feeds a live
         # mission-stopping behaviour-tree condition and is deliberately not
-        # behind this flag.
-        clearance = front_clearance_from_extraction(extraction, self.max_range_m)
+        # behind this flag. FROM THE FRONT BUMPER since 2026-10-12 (the URDF's
+        # base_front, as every front distance in the stack); max_range_m + 1.0
+        # still means "nothing within range".
+        clearance = front_clearance_from_extraction(
+            extraction, self.max_range_m, front_x=base_front_x(),
+            min_distance=MIN_FRONT_DISTANCE_M)
         self.clearance_pub.publish(Float32(data=float(clearance)))
 
         self.get_logger().info(

@@ -716,10 +716,13 @@ def _default_gap_limits(target_class):
 
     Lazily for the same reason as TranslatorConfig.from_stack_params(): it
     resolves stack_params through the ament index. Only a go_to phase needs
-    it, so a plan without one still translates without an index.
+    it, so a plan without one still translates without an index. The gap is
+    measured from the front bumper, the URDF's base_front -- the same front
+    the mission loader validates it against (mission_config).
     """
+    from f1tenth_description.vehicle_frames import base_front_x
     from f1tenth_params.object_geometry import gap_limits
-    return gap_limits(target_class)
+    return gap_limits(target_class, front_x=base_front_x())
 
 
 def _ceil_cm(value: float) -> float:
@@ -758,14 +761,18 @@ def _go_to_object_move(i, phase, cfg, prov, gap_limits_for, notes):
             gap = _ceil_cm(limits.gap_min)
             prov[f'{at}.go_to_object.gap_m'] = (
                 DERIVED, f'plan[{i}].thresh below gap_min(target): gap_min rounded up to 1 cm')
+            # The terms must add up to gap_min: from the bumper, the solver's
+            # nose beyond it is one of them (object_geometry, THE FRONT).
+            nose = (f' + muso del solver oltre il paraurti {limits.nose_beyond_front:.2f}'
+                    if limits.nose_beyond_front > 0.0 else '')
             notes.append(
                 f'fase {i}, go_to "{target}": distanza richiesta {requested:.2f} m, '
-                f'applicata {gap:.2f} m: e\' la distanza minima consentita tra il muso '
-                'e il bordo dell\'oggetto '
+                f'applicata {gap:.2f} m: e\' la distanza minima consentita tra il '
+                f'{"paraurti" if nose else "muso"} e il bordo dell\'oggetto '
                 f'(raggio auto {limits.car_radius:.2f} + margine di evitamento '
                 f'{limits.avoidance_margin:.2f} + margine di classe '
                 f'{limits.class_margin:.2f} + tolleranza d\'arresto '
-                f'{limits.settle_buffer:.2f} m).')
+                f'{limits.settle_buffer:.2f}{nose} m).')
         else:
             gap = requested
             prov[f'{at}.go_to_object.gap_m'] = (INTENT, f'plan[{i}].thresh, rounded to 2 dp')

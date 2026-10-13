@@ -176,15 +176,16 @@ class TestPublishing:
         assert last.header.frame_id == 'map'
         assert (last.point.x, last.point.y) == (3.0, pytest.approx(0.4))
         spec = rig.config.moves[0].go_to_object
-        # mpc_corr's standoff is the CENTRE distance: default gap + nose_reach +
-        # the track's 0.5 m width / 2.
-        assert spec.gap_m == pytest.approx(0.5)
-        assert last.standoff == pytest.approx(0.5 + spec.nose_reach_m + 0.25)
+        # mpc_corr's standoff is the CENTRE distance: default gap + front_x +
+        # the track's 0.5 m width / 2. The default gap is from the bumper.
+        assert spec.gap_m == pytest.approx(0.6)
+        assert spec.front_x_m == pytest.approx(0.443)
+        assert last.standoff == pytest.approx(0.6 + spec.front_x_m + 0.25)
         assert last.speed == pytest.approx(0.4)
         assert last.target_class == 'person'
         # Debug echoes for /mpc/object_status and watch_objects.py.
         assert last.track_id == '7'
-        assert last.gap_m == pytest.approx(0.5)
+        assert last.gap_m == pytest.approx(0.6)
 
     def test_nothing_is_published_before_a_track_is_acquired(self):
         rig = _rig()

@@ -489,10 +489,19 @@ def main():
     ap.add_argument('--wheelbase', type=float, default=0.305)
     ap.add_argument('--delta-max', type=float, default=0.319,
                     help='steering bound [rad] (mpc_steering_angle_max_rad)')
-    ap.add_argument('--nose', type=float, default=0.443, help='front bumper x [m]')
+    ap.add_argument('--nose', type=float, default=None,
+                    help='front bumper x [m]; default: the URDF base_front '
+                         '(f1tenth_description.vehicle_frames, workspace sourced)')
     ap.add_argument('--half-fov-deg', type=float, default=50.5,
                     help='camera half horizontal FOV (fx 262.4, 640 px)')
     args = ap.parse_args()
+    if args.nose is None:
+        try:
+            from f1tenth_description.vehicle_frames import base_front_x
+        except ImportError:
+            ap.error('--nose is required when f1tenth_description is not importable '
+                     '(source the workspace, or pass the front bumper x)')
+        args.nose = base_front_x()
     out = []
     for spec in args.run:
         label, _, rest = spec.partition('=')

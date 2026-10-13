@@ -26,9 +26,9 @@ Scoring convention (decided explicitly with the user, not guessed):
     even went backward relative to its intended heading shows up as a low
     or negative score, not a falsely-good one.
   - go_to_object moves (schema 5.0): commanded = gap_m, actual = the FINAL
-    GAP between the car's front and the object's near edge, i.e. mpc_corr's
-    last /mpc/object_status r for this move plus gap_m (r is the centre
-    distance minus gap + nose_reach + target radius) -- the same single range
+    GAP between the car's front bumper and the object's near edge, i.e.
+    mpc_corr's last /mpc/object_status r for this move plus gap_m (r is the
+    centre distance minus gap + front_x + target radius) -- the same single range
     source object_reached stops on. Mismatch uses the distance policy below. The arrival bearing
     error (|alpha| at the end, degrees) is recorded as its own field and is
     deliberately NOT part of the mismatch: a car at the right range pointing
@@ -289,7 +289,7 @@ def _object_outcome(move, stop_reason, start_time, end_time, start_global_xy,
             # global EKF pose rather than mpc_corr's odom frame.
             track_range = (math.hypot(record.target_xy[0] - end_global_xy[0],
                                       record.target_xy[1] - end_global_xy[1])
-                           - spec.nose_reach_m - record.target_radius)
+                           - spec.front_x_m - record.target_radius)
     status = record.last_status if record is not None else None
     if status is None:
         return MoveOutcome(

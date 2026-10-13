@@ -227,10 +227,12 @@ class TestTranslatorFields:
         assert result.mission['moves'][0]['go_to_object']['gap_m'] == 0.8
 
     def test_the_default_gap_comes_from_stack_params_without_an_override(self):
+        from f1tenth_description.vehicle_frames import base_front_x
         from f1tenth_params.object_geometry import gap_limits
         mission = translate(_intent({'mode': 'go_to', 'target': 'person'})).mission
+        # From the front bumper, as the mission loader validates it.
         assert mission['moves'][0]['go_to_object']['gap_m'] == pytest.approx(
-            gap_limits('person').default_gap)
+            gap_limits('person', front_x=base_front_x()).default_gap)
 
     def test_thresh_is_rounded_to_centimetres(self):
         result = translate(_intent({**GO_TO, 'thresh': 1.234}), gap_limits_for=_limits())

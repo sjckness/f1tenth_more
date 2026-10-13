@@ -167,7 +167,7 @@ class GoToObject(py_trees.behaviour.Behaviour):
             self._end_active('the next object move started')
             self.handler = ObjectHandler(HandlerParams(
                 target_class=spec.target_class, gap_m=spec.gap_m,
-                nose_reach_m=spec.nose_reach_m,
+                front_x_m=spec.front_x_m,
                 speed=spec.speed, acquire_timeout_sec=spec.acquire_timeout_sec,
                 lost_grace_sec=spec.lost_grace_sec, follow_gate_m=self.follow_gate_m,
                 tracks_max_gap_sec=self.tracks_max_gap_sec), start_sec=now)
@@ -192,7 +192,7 @@ class GoToObject(py_trees.behaviour.Behaviour):
         record.track_id = step.track_id
         record.target_radius = step.target_radius
         record.gap_m = spec.gap_m
-        record.nose_reach_m = spec.nose_reach_m
+        record.front_x_m = spec.front_x_m
         if step.phase != previous_phase:
             self.node.get_logger().info(
                 f'[go_to_object] {wire_id!r}: {previous_phase} -> {step.phase}'
@@ -229,7 +229,7 @@ class GoToObject(py_trees.behaviour.Behaviour):
         msg.target_class = spec.target_class
         msg.point.x = float(step.target_xy[0])
         msg.point.y = float(step.target_xy[1])
-        # mpc_corr's standoff is a CENTRE distance: gap + nose_reach + radius.
+        # mpc_corr's standoff is a CENTRE distance: gap + front_x + radius.
         msg.standoff = float(step.centre_standoff)
         msg.speed = float(step.speed)
         msg.track_id = str(step.track_id or '')

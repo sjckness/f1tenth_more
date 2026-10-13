@@ -58,6 +58,9 @@
        depending on it here (not f1tenth_bringup) avoids a build-order cycle,
        since f1tenth_bringup itself includes this package's launch file. -->
   <exec_depend>f1tenth_params</exec_depend>
+  <!-- vehicle_frames.base_front_x(): a go_to gap is measured from the front
+       bumper (the URDF base_front frame), as the mission loader checks it. -->
+  <exec_depend>f1tenth_description</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

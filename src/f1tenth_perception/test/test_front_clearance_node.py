@@ -26,6 +26,12 @@ The two filter classes are pure (no rclpy dependency at all) and tested
 directly rather than through the node, same discipline as
 yolo_detector_node.py's own _bbox_overlap_fraction/_mask_overlap_fraction.
 
+FROM THE FRONT BUMPER: every published distance is measured from base_front
+(module docstring there). _construct puts the depth frame AT the bumper by
+default, so the filtering tests read the depth values back unchanged;
+obstacles are placed FRONT + d so they read d. TestDistancesAreFromTheFront-
+Bumper moves the camera behind the bumper and checks the re-referencing.
+
 Run standalone: python3 -m pytest test/test_front_clearance_node.py -v
 """
 
@@ -33,19 +39,29 @@ import numpy as np
 import pytest
 import rclpy
 from cv_bridge import CvBridge
+from geometry_msgs.msg import TransformStamped
 from rclpy.parameter import Parameter
 from std_msgs.msg import Header
+from tf2_msgs.msg import TFMessage
 from unittest.mock import MagicMock
 from vision_msgs.msg import Detection2D, Detection2DArray
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import Obstacle2D, Obstacle2DArray
 
 from f1tenth_perception.front_clearance_node import (
     EmaFilter,
     FrontClearanceNode,
     HysteresisLatch,
+    MIN_FRONT_DISTANCE_M,
     _stamps_equal,
+    from_front,
 )
+
+#: The front bumper's x in base_link (the URDF's base_front).
+FRONT = base_front_x()
+#: The depth frame every _depth_msg carries; _construct places it in /tf_static.
+CAMERA_FRAME = 'test_zed2_left_camera_optical_frame'
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -56,9 +72,21 @@ def _rclpy_context():
         rclpy.shutdown()
 
 
-def _construct(param_dict=None):
+def _camera_tf(camera_x, frame=CAMERA_FRAME):
+    t = TransformStamped()
+    t.header.frame_id = 'base_link'
+    t.child_frame_id = frame
+    t.transform.translation.x = float(camera_x)
+    t.transform.rotation.w = 1.0
+    return TFMessage(transforms=[t])
+
+
+def _construct(param_dict=None, camera_x=FRONT):
+    """Build the node, publishers mocked, the depth frame at camera_x (None: no TF at all)."""
     overrides = [Parameter(k, value=v) for k, v in (param_dict or {}).items()]
     node = FrontClearanceNode(parameter_overrides=overrides)
+    if camera_x is not None:
+        node._tf_static_callback(_camera_tf(camera_x))
     node.front_distance_pub.publish = MagicMock()
     node.front_wall_pub.publish = MagicMock()
     node.front_clearance_pub.publish = MagicMock()
@@ -75,6 +103,7 @@ def _depth_msg(array, stamp_sec=1, stamp_nsec=0):
     msg.header = Header()
     msg.header.stamp.sec = stamp_sec
     msg.header.stamp.nanosec = stamp_nsec
+    msg.header.frame_id = CAMERA_FRAME
     return msg
 
 
@@ -755,7 +784,7 @@ class TestClearanceFoldsInObstacles:
         # front_distance must NOT move (it is wall-only); front_clearance must.
         node = _construct({'min_bg_pixels_for_reading': 1,
                            'distance_ema_alpha': 1.0})
-        node._latest_obstacles = _obstacles([(0.4, 0.0, 0.1)])
+        node._latest_obstacles = _obstacles([(FRONT + 0.4, 0.0, 0.1)])
         node._latest_obstacles_time = node._now_seconds()
         node.depth_callback(_depth_msg(np.full((100, 100), 6.0, dtype=np.float32)))
         distance = node.front_distance_pub.publish.call_args[0][0].data
@@ -769,7 +798,7 @@ class TestClearanceFoldsInObstacles:
                            'distance_ema_alpha': 1.0,
                            'clearance_enter_m': 0.5, 'clearance_exit_m': 0.7,
                            'clearance_min_dwell_frames': 2})
-        node._latest_obstacles = _obstacles([(0.3, 0.0, 0.0)])
+        node._latest_obstacles = _obstacles([(FRONT + 0.3, 0.0, 0.0)])
         depth = _depth_msg(np.full((100, 100), 6.0, dtype=np.float32))
         node._latest_obstacles_time = node._now_seconds()
         node.depth_callback(depth)
@@ -784,7 +813,7 @@ class TestClearanceFoldsInObstacles:
                            'distance_ema_alpha': 1.0,
                            'clearance_min_dwell_frames': 2})
         depth = _depth_msg(np.full((100, 100), 6.0, dtype=np.float32))
-        node._latest_obstacles = _obstacles([(0.2, 0.0, 0.0)])
+        node._latest_obstacles = _obstacles([(FRONT + 0.2, 0.0, 0.0)])
         node._latest_obstacles_time = node._now_seconds()
         node.depth_callback(depth)
         node._latest_obstacles = _obstacles([])
@@ -814,7 +843,7 @@ class TestClearanceFoldsInObstacles:
         assert node.front_clearance_pub.publish.call_args[0][0].data > 5.0
         assert node.front_blocked_pub.publish.call_args[0][0].data is False
 
-        node._latest_obstacles = _obstacles([(0.1, 0.0, 0.0)])
+        node._latest_obstacles = _obstacles([(FRONT + 0.1, 0.0, 0.0)])
         node._latest_obstacles_time = node._now_seconds()
         node.depth_callback(depth)
         assert node.front_blocked_pub.publish.call_args[0][0].data is False
@@ -829,7 +858,7 @@ class TestClearanceFoldsInObstacles:
         # what protect the first frame after startup.
         node = _construct({'min_bg_pixels_for_reading': 1,
                            'distance_ema_alpha': 0.1})
-        node._latest_obstacles = _obstacles([(0.1, 0.0, 0.0)])
+        node._latest_obstacles = _obstacles([(FRONT + 0.1, 0.0, 0.0)])
         node._latest_obstacles_time = node._now_seconds()
         node.depth_callback(_depth_msg(np.full((100, 100), 6.0, dtype=np.float32)))
         assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.1)
@@ -1130,4 +1159,70 @@ class TestNaNAndPosInfBehaviourIsUnchanged:
         depth[55:57, 0:70] = -np.inf      # 140 px too close, must count
         node.depth_callback(_depth_msg(depth))
         assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(0.2)
+        node.destroy_node()
+
+
+# ==============================================================================
+# Every published distance is from the front bumper (base_front)
+# ==============================================================================
+
+#: A lens 0.323 m behind the bumper -- the car's committed TF (camera at
+#: base_link x 0.12) against base_front 0.443.
+_LENS_BEHIND_M = 0.323
+
+
+class TestDistancesAreFromTheFrontBumper:
+    def test_from_front_subtracts_the_offset_and_never_reaches_zero(self):
+        assert from_front(2.0, 0.323) == pytest.approx(1.677)
+        assert from_front(0.30, 0.323) == pytest.approx(MIN_FRONT_DISTANCE_M)
+        assert from_front(None, 0.323) is None
+        assert MIN_FRONT_DISTANCE_M > 0.0
+
+    def test_front_distance_is_the_lens_reading_minus_the_lens_to_bumper_offset(self):
+        node = _construct({'min_bg_pixels_for_reading': 1},
+                          camera_x=FRONT - _LENS_BEHIND_M)
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(
+            2.0 - _LENS_BEHIND_M)
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(
+            2.0 - _LENS_BEHIND_M)
+        node.destroy_node()
+
+    def test_a_wall_at_the_bumper_still_reads_positive_so_the_stop_fires(self):
+        """<= 0 means "no reading" to every consumer; touching must not."""
+        node = _construct({'min_bg_pixels_for_reading': 1},
+                          camera_x=FRONT - _LENS_BEHIND_M)
+        node.depth_callback(_depth_msg(np.full((100, 100), 0.30, dtype=np.float32)))
+        published = node.front_distance_pub.publish.call_args[0][0].data
+        assert published == pytest.approx(MIN_FRONT_DISTANCE_M)
+        assert published > 0.0
+        node.destroy_node()
+
+    def test_no_camera_transform_means_no_reading_not_a_lens_distance(self):
+        node = _construct({'min_bg_pixels_for_reading': 1}, camera_x=None)
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(-1.0)
+        node.destroy_node()
+
+    def test_clearance_compares_background_and_obstacles_from_the_same_point(self):
+        """The old node took min(lens distance, base_link distance)."""
+        node = _construct({'min_bg_pixels_for_reading': 1, 'distance_ema_alpha': 1.0},
+                          camera_x=FRONT - _LENS_BEHIND_M)
+        # Background 2.0 m from the lens = 1.677 m from the bumper; an obstacle
+        # whose near face is 1.80 m from the bumper is FARTHER than the wall.
+        node._latest_obstacles = _obstacles([(FRONT + 1.80, 0.0, 0.0)])
+        node._latest_obstacles_time = node._now_seconds()
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(
+            2.0 - _LENS_BEHIND_M)
+        node.destroy_node()
+
+    def test_the_too_close_floor_is_referenced_to_the_bumper_too(self):
+        node = _construct({'min_bg_pixels_for_reading': 1},
+                          camera_x=FRONT - _LENS_BEHIND_M)
+        node.depth_callback(_depth_msg(_depth_with_too_close_rows(40)))
+        # 0.2 m from the lens is behind the bumper: touching, published > 0.
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(
+            MIN_FRONT_DISTANCE_M)
+        assert node.front_blocked_pub.publish.call_args[0][0].data is True
         node.destroy_node()

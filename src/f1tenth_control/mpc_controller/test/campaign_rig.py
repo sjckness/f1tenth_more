@@ -16,6 +16,8 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
+from f1tenth_description.vehicle_frames import base_front_x
+from f1tenth_params.param_defaults import get_value
 import numpy as np
 
 from mpc_controller.adaptive_corridor import (
@@ -32,8 +34,11 @@ from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 import test_object_approach_closed_loop as rig
 
 # Footprint for the body-gap metric: the URDF chassis rectangle around the
-# rear axle (the MPC state point) -- stack_params' swept_clearance_body_*.
-BODY = BodyBox(front=0.443, rear=-0.082, half_width=0.136)
+# rear axle (the MPC state point) -- the URDF's base_front for the front,
+# stack_params' swept_clearance_body_* for the rest.
+BODY = BodyBox(front=base_front_x(),
+               rear=float(get_value('swept_clearance_body_rear_x_m')),
+               half_width=float(get_value('swept_clearance_body_half_width_m')))
 REAR_OVERHANG_M = -BODY.rear
 NOSE_M = BODY.front
 HALF_WIDTH_M = BODY.half_width

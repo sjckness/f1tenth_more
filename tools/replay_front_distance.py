@@ -23,6 +23,12 @@ Compared against the recorded /perception/debug/front_distance_raw and
 /perception/front_distance when present. Prints a summary; --csv writes one
 row per depth frame.
 
+FROM THE FRONT BUMPER since 2026-10-12: /perception/front_distance is the
+lens distance minus the lens-to-bumper offset, which the debug record carries
+as front_offset_m. Crop mode applies the recorded offset to its recomputed
+value before comparing (bags without the field compare as before); full mode
+gets it from the node itself, from the bag's /tf_static.
+
 NOTE: the R009-R011 bags predate A5. Unless depth was recorded by hand they
 hold neither mode's input, and the tool says so (tools/m02_orin_report.py
 reports what CAN be recovered from them).
@@ -82,10 +88,25 @@ def _image(msg):
     return CvBridge().imgmsg_to_cv2(msg, desired_encoding='passthrough')
 
 
+def _recorded_offsets(data):
+    """{depth stamp rounded to 1 us: front_offset_m} from the debug records."""
+    import json
+    out = {}
+    for _, msg in data[REC_DEBUG]:
+        try:
+            rec = json.loads(msg.data)
+        except ValueError:
+            continue
+        if rec.get('front_offset_m') is not None and rec.get('stamp') is not None:
+            out[round(float(rec['stamp']), 6)] = float(rec['front_offset_m'])
+    return out
+
+
 def replay_crops(data, how, p):
     by_stamp = {}
     for t, msg in data[CROP_CLASS]:
         by_stamp[(msg.header.stamp.sec, msg.header.stamp.nanosec)] = msg
+    offsets = _recorded_offsets(data)
     rows = []
     ema = None
     for t, dmsg in data[CROP_DEPTH]:
@@ -103,11 +124,15 @@ def replay_crops(data, how, p):
             ema = raw if ema is None else a * raw + (1.0 - a) * ema
         rec_raw = nearest(data[REC_RAW], t)
         rec_fd = nearest(data[REC_FD], t)
+        # The published value is from the bumper when the record says how far
+        # it sits ahead of the lens (front_clearance_node.from_front).
+        offset = offsets.get(round(stamp_s(dmsg.header), 6))
+        fd = ema if (ema is None or offset is None) else max(ema - offset, 0.01)
         rows.append({
             't': t, 'stamp': stamp_s(dmsg.header), 'bg_px': int(bg.size),
             'excluded_px': int(np.count_nonzero(cls == 1)),
             'no_depth_px': int(np.count_nonzero(cls == 0)),
-            'recomputed_raw': raw, 'recomputed_fd': ema,
+            'recomputed_raw': raw, 'recomputed_fd': fd, 'front_offset_m': offset,
             'recorded_raw': None if rec_raw is None else float(rec_raw[1].data),
             'recorded_fd': None if rec_fd is None else float(rec_fd[1].data),
         })

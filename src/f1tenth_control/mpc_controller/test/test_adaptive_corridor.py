@@ -23,8 +23,8 @@ REACH = 20 * 0.2 * 0.5   # N * dt * vdes, as control_loop passes it
 
 
 def _body():
-    return BodyBox(front=float(get_value('swept_clearance_body_front_x_m')),
-                   rear=float(get_value('swept_clearance_body_rear_x_m')),
+    # front: BodyBox's default, the URDF's base_front.
+    return BodyBox(rear=float(get_value('swept_clearance_body_rear_x_m')),
                    half_width=float(get_value('swept_clearance_body_half_width_m')))
 
 

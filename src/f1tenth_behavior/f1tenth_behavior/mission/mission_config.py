@@ -219,13 +219,16 @@ class ObjectSpec:
     with `gap_m` between the car's front and the object's near edge.
 
     THE GAP, schema 5.0 (was standoff_m, a centre distance, in 4.0). The front
-    is nose_reach ahead of base_link -- the solver's own farthest front point,
-    f1tenth_params.object_geometry -- and the near edge is the track's fused
-    footprint radius from its centre, so the centre distance the controller is
-    sent is gap_m + nose_reach + r_target. gap_m may not be below
-    gap_min(target_class) = car_radius + avoidance_margin + class margin +
-    settle_buffer: the clearance the solver's obstacle term keeps from any
-    obstacle, plus a margin. Under the 0.4 m/s floor a smaller gap WOULD be
+    is the FRONT BUMPER since 2026-10-12 -- the URDF's base_front, front_x_m
+    ahead of base_link, the one base_link -> front offset of the stack (it was
+    the solver's nose, nose_reach = L/2 + 0.40, 0.11 m further out) -- and the
+    near edge is the track's fused footprint radius from its centre, so the
+    centre distance the controller is sent is gap_m + front_x_m + r_target.
+    gap_m may not be below gap_min(target_class) = car_radius +
+    avoidance_margin + class margin + settle_buffer + the solver's nose beyond
+    the bumper: the clearance the solver's obstacle term keeps from any
+    obstacle (measured from its nose), plus a margin -- the same physical
+    minimum as before. Under the 0.4 m/s floor a smaller gap WOULD be
     driven to, so this check is what keeps the car out (object_geometry's
     docstring). Absent -> the default gap,
     gap_min rounded up to 0.1 m. Both are resolved at load from the same
@@ -249,9 +252,9 @@ class ObjectSpec:
     target_class: str            # one of object_classes.OBJECT_CLASSES
     speed: float                 # [m/s], min_moving_speed_mps..max_forward_speed_mps
     acquire_timeout_sec: float   # no track of the class within this -> target_not_found
-    gap_m: float                 # car front to object near edge [m], >= gap_min_m
+    gap_m: float                 # front bumper to object near edge [m], >= gap_min_m
     gap_min_m: float             # the reachable minimum it was validated against
-    nose_reach_m: float          # base_link to the car's front, as the solver measures it
+    front_x_m: float             # base_link to the front bumper (the URDF's base_front)
     lost_grace_sec: float = 1.5  # keep the last point this long after losing the track
 
 
@@ -582,8 +585,9 @@ def _require_positive_number(raw: dict, key: str, where: str, default=None) -> f
 
 
 def _default_gap_limits(target_class):
+    from f1tenth_description.vehicle_frames import base_front_x
     from f1tenth_params.object_geometry import gap_limits
-    return gap_limits(target_class)
+    return gap_limits(target_class, front_x=base_front_x())
 
 
 def _object_speed_limits():
@@ -658,7 +662,7 @@ def _parse_object_spec(raw: object, where: str, gap_limits_for=None) -> ObjectSp
     return ObjectSpec(
         target_class=target_class, speed=speed, acquire_timeout_sec=acquire_timeout_sec,
         gap_m=float(gap_m), gap_min_m=float(limits.gap_min),
-        nose_reach_m=float(limits.nose_reach), lost_grace_sec=float(lost_grace_sec),
+        front_x_m=float(limits.front), lost_grace_sec=float(lost_grace_sec),
     )
 
 

@@ -26,21 +26,32 @@ functions in isolation -- confirming the front check is genuinely driven by
 `/scan` now and that removing the old `/perception/front_distance`
 subscription didn't leave a stray reference to it anywhere on the class.
 
+FRONT CONE FROM THE FRONT BUMPER (2026-10-12): _construct puts the laser AT
+the bumper by default (a base_link -> laser transform on the behaviour's
+/tf_static buffer), where the bumper-referenced cone and distance equal the
+raw ones, so the window tests above keep their meaning;
+TestFrontConeFromTheBumper moves the laser behind the bumper.
+
 Run standalone: python3 -m pytest test/test_is_proximity_too_close.py -v
 """
 
 import math
 from unittest.mock import MagicMock
 
+from f1tenth_behavior.behaviours.is_proximity_too_close import (
+    _in_front_cone,
+    _in_lidar_window,
+    IsProximityTooClose,
+)
+from f1tenth_description.vehicle_frames import base_front_x
+from geometry_msgs.msg import TransformStamped
 import py_trees
 import pytest
 from sensor_msgs.msg import LaserScan
+from tf2_msgs.msg import TFMessage
 
-from f1tenth_behavior.behaviours.is_proximity_too_close import (
-    IsProximityTooClose,
-    _in_front_cone,
-    _in_lidar_window,
-)
+#: The front bumper's x in base_link (the URDF's base_front).
+FRONT = base_front_x()
 
 BLIND_CONE_HALF_ANGLE_RAD = math.radians(45.0)
 FRONT_CONE_HALF_ANGLE_RAD = math.radians(45.0)
@@ -168,13 +179,30 @@ class TestInFrontCone:
 # individually correct.
 # ==============================================================================
 
-def _construct(**kwargs):
+def _laser_tf(x, yaw=0.0):
+    t = TransformStamped()
+    t.header.frame_id = 'base_link'
+    t.child_frame_id = 'laser'
+    t.transform.translation.x = float(x)
+    t.transform.rotation.z = math.sin(yaw / 2.0)
+    t.transform.rotation.w = math.cos(yaw / 2.0)
+    return TFMessage(transforms=[t])
+
+
+def _construct(laser_x=FRONT, **kwargs):
     """IsProximityTooClose with .node stubbed to a MagicMock -- __init__ has
     no rclpy dependency, and _scan_callback only ever touches self.node to
     log through it, so this is enough to call _scan_callback/update()
-    directly without a live rclpy context, subscription, or Node."""
+    directly without a live rclpy context, subscription, or Node.
+
+    laser_x: the base_link -> laser transform fed to the behaviour's
+    /tf_static buffer (None: none at all). The default puts the laser at the
+    bumper, where bumper-referenced and raw ranges coincide.
+    """
     behaviour = IsProximityTooClose(**kwargs)
     behaviour.node = MagicMock()
+    if laser_x is not None:
+        behaviour._frames.on_tf_static(_laser_tf(laser_x))
     return behaviour
 
 
@@ -201,6 +229,7 @@ def _fake_scan(samples, range_min=0.05):
     msg.range_min = range_min
     msg.range_max = 30.0
     msg.ranges = ranges
+    msg.header.frame_id = 'laser'
     return msg
 
 
@@ -284,6 +313,44 @@ class TestScanCallbackFrontCone:
         assert not hasattr(behaviour, '_front_distance_callback')
         with pytest.raises(TypeError):
             IsProximityTooClose(front_distance_topic='/perception/front_distance')
+
+
+
+#: The car's committed TF puts the laser 0.12 m ahead of base_link: 0.323 m
+#: behind the bumper.
+_LASER_BEHIND_M = 0.323
+
+
+class TestFrontConeFromTheBumper:
+
+    def test_a_return_0_40_from_the_laser_is_0_077_from_the_bumper_and_trips(self):
+        """The old raw-range check read 0.40 >= 0.15 and did not trip."""
+        behaviour = _construct(laser_x=FRONT - _LASER_BEHIND_M)
+        behaviour._scan_callback(_fake_scan([(0.0, 0.40), (math.radians(90.0), 5.0)]))
+        assert behaviour.latest_lidar_front_min == pytest.approx(0.40 - _LASER_BEHIND_M)
+        assert behaviour.update() == py_trees.common.Status.SUCCESS
+
+    def test_the_stopping_point_is_threshold_ahead_of_the_bumper(self):
+        behaviour = _construct(laser_x=FRONT - _LASER_BEHIND_M)
+        clear = _LASER_BEHIND_M + 0.15 + 0.01
+        behaviour._scan_callback(_fake_scan([(0.0, clear), (math.radians(90.0), 5.0)]))
+        assert behaviour.update() == py_trees.common.Status.FAILURE
+        behaviour._scan_callback(_fake_scan([(0.0, clear - 0.02), (math.radians(90.0), 5.0)]))
+        assert behaviour.update() == py_trees.common.Status.SUCCESS
+
+    def test_a_return_beside_the_body_is_not_front(self):
+        """80 deg off a laser 0.32 m behind the bumper lands behind the bumper."""
+        behaviour = _construct(laser_x=FRONT - _LASER_BEHIND_M)
+        behaviour._scan_callback(_fake_scan([(math.radians(80.0), 0.30)]))
+        assert behaviour.latest_lidar_front_min is None
+        assert behaviour.latest_lidar_min_in_window == pytest.approx(0.30)
+
+    def test_without_the_laser_transform_it_can_only_trip_early(self):
+        """The laser is assumed at base_link: returns read nearer the bumper."""
+        behaviour = _construct(laser_x=None)
+        behaviour._scan_callback(_fake_scan([(0.0, 0.50), (math.radians(90.0), 5.0)]))
+        assert behaviour.latest_lidar_front_min == pytest.approx(0.50 - FRONT)
+        assert behaviour.update() == py_trees.common.Status.SUCCESS
 
 
 if __name__ == '__main__':

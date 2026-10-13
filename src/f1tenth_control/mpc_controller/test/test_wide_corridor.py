@@ -13,6 +13,7 @@ keys, so retuning any of them past the design case fails here.
 import math
 
 import campaign_rig as cr
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.corridor_geometry import funnel_half_widths
 from f1tenth_params.object_geometry import NOMINAL_FOOTPRINT_WIDTH_M
 from f1tenth_params.param_defaults import get_value
@@ -115,7 +116,7 @@ def test_the_whole_car_stays_inside_the_funnel_at_the_design_persons_station():
     """
     w0, w1 = _shipped_half_widths()
     c = _goal_distance_corridor(w0, w1, 3.0)
-    station = get_value('swept_clearance_body_front_x_m') + PERSON_AHEAD_OF_FRONT_M
+    station = base_front_x() + PERSON_AHEAD_OF_FRONT_M
     i = int(np.argmin(np.abs(np.asarray(c['xc']) - station)))
     car_disk_edge = _axle_offset_to_pass_a_centred_person() + get_value('car_radius')
     assert float(c['halfWidth'][i]) >= car_disk_edge

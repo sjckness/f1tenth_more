@@ -28,6 +28,7 @@ import rosbag2_py
 from rclpy.serialization import deserialize_message
 from rosidl_runtime_py.utilities import get_message
 
+from f1tenth_description.vehicle_frames import base_front_x
 from mpc_controller.wall_tracker import (
     PROVENANCE_NAMES, WallTracker, scan_to_odom_points)
 
@@ -35,7 +36,7 @@ COMMIT_AT = float(sys.argv[2]) if len(sys.argv) > 2 else 4.0
 # Refit cadence: the control tick (0.1 s). Pass 1.0 to see the per-rebuild sawtooth.
 REBUILD_PERIOD = float(sys.argv[3]) if len(sys.argv) > 3 else 0.1
 PARAMS = dict(normal_tol_rad=0.39, min_span_m=0.5, min_inliers=8, assoc_dist_m=0.3,
-              dfront_slack_m=0.5, bumper_x_m=0.443, inlier_distance_m=0.03)
+              dfront_slack_m=0.5, bumper_x_m=base_front_x(), inlier_distance_m=0.03)
 
 
 def yaw_of(q):

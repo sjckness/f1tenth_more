@@ -231,7 +231,7 @@ def _run_go_to_person(duration=40.0, mission_path=None,
     spec = config.moves[0].go_to_object
     state = MissionRuntimeState()
     goto, check, bb = _behaviours(clock, state)
-    centre_standoff = spec.gap_m + spec.nose_reach_m + PERSON_RADIUS
+    centre_standoff = spec.gap_m + spec.front_x_m + PERSON_RADIUS
     mpc = _NodeMPC(clock, centre_standoff)
     mpc.object_status_pub = _Pub(sink=check._object_status_cb)
     goto.goal_pub.sink = mpc.goal_object_callback
@@ -339,19 +339,19 @@ class TestGoToPersonEndToEnd:
         assert run.state.object_record.outcome == 'reached'
 
     def test_it_rests_in_the_stop_window_past_the_commanded_gap(self, run):
-        """Gap = centre distance - nose_reach - the person's footprint radius.
+        """Gap = centre distance - front_x (the bumper) - the person's footprint radius.
 
         The stop latches at object_reach_tol_m + object_stop_distance_m past the
         commanded gap and the car brakes in from there, so it rests a little
         OUTSIDE the commanded gap -- never inside it.
         """
         d = math.hypot(run.person_odom[0] - run.x[0], run.person_odom[1] - run.x[1])
-        gap = d - run.spec.nose_reach_m - PERSON_RADIUS
+        gap = d - run.spec.front_x_m - PERSON_RADIUS
         lo, hi = rig.stop_window()
         assert run.spec.gap_m + lo <= gap <= run.spec.gap_m + hi
 
     def test_the_goal_carried_the_centre_distance_for_the_default_gap(self, run):
-        assert run.spec.gap_m == pytest.approx(0.5)
+        assert run.spec.gap_m == pytest.approx(0.6), 'the default gap, from the bumper'
         assert run.goto.goal_pub.msgs[-1].standoff == pytest.approx(run.centre_standoff)
 
     def test_the_person_went_through_the_map_to_odom_edge(self, run):
