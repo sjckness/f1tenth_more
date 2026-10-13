@@ -634,7 +634,7 @@ To run when it is back on, with the car on the stand and the same stand-in hardw
     follow the allowlist. It uses the 10-01 live bridge log as the reference.
 21. **Live TF check done with the LiDAR off:** static TFs don't need the sensor. Only scan alignment
     is pending. The first relaunch came up deaf (backlog 4); it was torn down and relaunched.
-22. Did not delete the 4 dummy runs in `~/f1tenth_archive/complete/` (2026-10-13T09-17-57
+22. Did not delete the 2 dummy runs in `~/f1tenth_archive/complete/` (2026-10-13T09-17-57
     `orin_standstill`, 09-19-48 `orin_solve_only`). The second and third launches recorded no
     missions.
 
