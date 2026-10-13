@@ -105,7 +105,16 @@ def generate_launch_description():
                         os.path.join(zed_wrapper_share, 'launch', 'zed_camera.launch.py')
                     ),
                     launch_arguments={
-                        'camera_model': 'zed2',
+                        # 'zed2i' since 2026-10-13 (the first test campaign
+                        # ran 'zed2'): the camera IS a ZED 2i (S/N 36866199;
+                        # the SDK warned "Camera model does not match user
+                        # parameter" at every start). The model picks the
+                        # wrapper's URDF macro: zed2's bottom_slope 0.05 rad
+                        # pitched the whole camera tree 2.9 deg down
+                        # (optical frame RPY -92.865 instead of -90), zed2i's
+                        # is 0. camera_name stays 'zed2', so every /zed2/...
+                        # topic and frame name is unchanged.
+                        'camera_model': 'zed2i',
                         'camera_name': 'zed2',
                         'ros_params_override_path': os.path.join(
                             perception_share, 'config', 'zed2_perception.yaml'),

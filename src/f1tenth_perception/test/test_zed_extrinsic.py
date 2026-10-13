@@ -35,3 +35,10 @@ def test_the_zed_front_face_sits_0_15_behind_the_bumper():
     expected = base_front_x() - ZED_FACE_BEHIND_BUMPER_M - ZED2I_SCREW_TO_FACE_M
     assert float(x) == pytest.approx(expected, abs=1e-3)
     assert (float(y), float(z), float(yaw), float(pitch), float(roll)) == (0.0, 0.15, 0.0, 0.0, 0.0)
+
+
+def test_the_wrapper_is_launched_as_the_zed2i_it_is():
+    """The 0.0151 m screw-to-face offset is the ZED 2i's; the model must match."""
+    path = os.path.join(get_package_share_directory('f1tenth_perception'),
+                        'launch', 'camera.launch.py')
+    assert re.search(r"'camera_model':\s*'zed2i'", open(path).read())
