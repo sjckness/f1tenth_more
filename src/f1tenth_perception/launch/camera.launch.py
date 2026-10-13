@@ -39,21 +39,21 @@ def generate_launch_description():
         # zed2_camera_link places the whole camera tree. Positional args are x y z
         # YAW PITCH ROLL (verified empirically -- NOT roll pitch yaw).
         #
-        # x = 0.260 (2026-10-13, MEASURED), replacing the 0.12 the first test
+        # x = 0.2399 (2026-10-13, MEASURED), replacing the 0.12 the first test
         # campaign ran with. base_link is the rear axle (the "centered between
         # the axles" above is wrong). Andreas taped the camera's front face
-        # 0.15 m behind the bumper face; the bumper is base_front_x 0.425
+        # 0.15 m behind the bumper face; the bumper is base_front_x 0.405
         # (f1tenth_description/urdf/base_front.xacro). zed2_camera_link is the
         # mounting screw, and the physical camera is a ZED 2i (S/N 36866199):
         # its body mesh (zed_description/meshes/zed2i.stl) reaches +0.0251 m in
         # x from a mesh origin at screw_offset_x -0.01 (zed_macro.urdf.xacro),
         # so the front face is 0.0151 m ahead of zed2_camera_link:
-        # 0.425 - 0.15 - 0.0151 = 0.2599. y, z and the rotation are unchanged.
+        # 0.405 - 0.15 - 0.0151 = 0.2399. y, z and the rotation are unchanged.
         actions.append(Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_baselink_to_zed2',
-            arguments=['0.260', '0.0', '0.15', '0.0', '0.0', '0.0',
+            arguments=['0.2399', '0.0', '0.15', '0.0', '0.0', '0.0',
                        'base_link', 'zed2_camera_link'],
         ))
 

@@ -245,7 +245,7 @@ i.e. it means "no reading", never "a reading of -1".
 EVERY PUBLISHED DISTANCE IS FROM THE FRONT BUMPER (2026-10-12)
 --------------------------------------------------------------
 front_distance and front_clearance are measured from base_front, the URDF
-frame f1tenth_description/urdf/base_front.xacro defines 0.425 m ahead of
+frame f1tenth_description/urdf/base_front.xacro defines 0.405 m ahead of
 base_link (measured 2026-10-13; 0.443 before) -- not from the camera lens, and not (for the obstacle term of
 front_clearance) from base_link. They used to be both at once:
 front_clearance took the min of a lens distance and a base_link one.

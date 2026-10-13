@@ -19,7 +19,7 @@ WHAT THE VALUE IS, because three nearby signals are all called something like
 (front_clearance_node.py:36-56). /perception/swept_clearance is the ARC LENGTH
 THE REAR AXLE TRAVELS before the body RECTANGLE first contacts a point: metres
 of TRAVEL, not a perpendicular gap, and not a sensor range. Straight ahead it is
-the gap to the front bumper (0.425 m ahead of the axle), not to the axle. A wall
+the gap to the front bumper (0.405 m ahead of the axle), not to the axle. A wall
 abeam at 0.6 m reports the 5 m horizon, not 0.6 m. ANY CONSUMER READING IT AS A
 DISTANCE-TO-WALL IS WRONG -- for that, read /perception/d_wall (signed lateral,
 wall_distance_node) or /perception/lidar_front_wall (unsigned perpendicular).

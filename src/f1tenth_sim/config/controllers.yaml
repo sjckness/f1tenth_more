@@ -34,7 +34,7 @@ ackermann_steering_controller:
       - left_steering_hinge_joint
 
     # Geometry (matches the roboracer URDF; keep drive_bridge wheelbase in sync).
-    wheelbase: 0.325
+    wheelbase: 0.305
     traction_track_width: 0.2
     steering_track_width: 0.2
     traction_wheels_radius: 0.05

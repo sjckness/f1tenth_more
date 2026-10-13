@@ -558,9 +558,9 @@ lidar_front_wall_seed_max_valid_m:
 # points.
 swept_clearance_wheelbase_m:
   default: 0.305
-  description: "Wheelbase [m] for kappa = tan(delta) / L. The MPC model's L (MPC_corr.py) and vesc.yaml's 'about 30.5 cm'; the URDF says 0.325 and the F1TENTH spec 0.3302 -- unmeasured on this car (docs/DIAGNOSTICS.md)."
+  description: "Wheelbase [m] for kappa = tan(delta) / L. The MPC model's L (MPC_corr.py) and vesc.yaml's 'about 30.5 cm'; the URDF agrees since 2026-10-13 (was 0.325); the F1TENTH spec says 0.3302 -- unmeasured on this car (docs/DIAGNOSTICS.md)."
 # The FRONT BUMPER x is not a key here any more (2026-10-12): it is the URDF's
-# base_front frame (f1tenth_description/urdf/base_front.xacro, 0.425 m ahead
+# base_front frame (f1tenth_description/urdf/base_front.xacro, 0.405 m ahead
 # of base_link since the 2026-10-13 tape measurement), the one base_link -> front offset every front distance in the
 # stack is measured from. Python reads it without TF through
 # f1tenth_description.vehicle_frames.base_front_x(); swept_clearance_node gets
@@ -1003,8 +1003,8 @@ corr_turn_u_end:
 # SIZED (campaign-final): a person on the centreline 1.0 m ahead of the
 # front bumper sits at s = 0.443 (base_link -> bumper, the URDF's
 # base_front) + 1.0 = 1.443 m along a 3.0 m corridor,
-# [2026-10-13: base_front is now the measured 0.425, so s = 1.425 and
-#  hw(1.425) = 1.365 * 0.64 = 0.874 m >= 0.87: 0.64 still holds.]
+# [2026-10-13: base_front is now the measured 0.405, so s = 1.405 and
+#  hw(1.405) = 1.360 * 0.64 = 0.8706 m >= 0.87: 0.64 still holds, by 0.6 mm.]
 # whose start is base_link. There the whole car must pass inside it:
 #   hw(s) >= r_person 0.25 + class margin 0 + perception 0.10
 #            + obstacle_safety_margin_m 0.12 + 2 * car_radius 0.20 = 0.87 m
@@ -1351,7 +1351,7 @@ mpc_steering_angle_max_rad:
 # from. Promoted from a bare 0.305 literal with the value unchanged.
 mpc_wheelbase_m:
   default: 0.305
-  description: "Wheelbase [m] of mpc_corr's vehicle model (params['L']) and of the wall_turn increment's R_min = L / tan(steering bound). Unchanged from the literal it replaces, and unmeasured on this car: the URDF says 0.325 and the F1TENTH spec 0.3302 (see swept_clearance_wheelbase_m)."
+  description: "Wheelbase [m] of mpc_corr's vehicle model (params['L']) and of the wall_turn increment's R_min = L / tan(steering bound). Unchanged from the literal it replaces, and unmeasured on this car: the URDF agrees since 2026-10-13 (was 0.325); the F1TENTH spec says 0.3302 (see swept_clearance_wheelbase_m)."
 
 # Consumed by: MPC_corr.py's declare_parameter() default (get_value). The
 # MPC's PREDICTION step, NOT its control period: the N = 20 model steps span

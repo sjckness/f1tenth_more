@@ -28,7 +28,8 @@ FOOTPRINT
 The rectangle x in [BODY_REAR_X_M, BODY_FRONT_X_M], |y| <= BODY_HALF_WIDTH_M:
 the axis-aligned bounds of the URDF chassis mesh (meshes/chassis.stl with
 base.xacro's visual origin and scale), i.e. 0.525 m long and 0.272 m wide,
-front bumper 0.118 m ahead of the 0.325 m front axle. Wheels (track 0.2 m,
+front bumper 0.118 m ahead of the URDF's then 0.325 m front axle (measured
+2026-10-13: wheelbase 0.305, bumper 0.405 = base_front). Wheels (track 0.2 m,
 width 0.045 m) sit inside it. Not a tape-measure calibration.
 
 `margin` widens the corridor sideways only. The front face is not moved, so

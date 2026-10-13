@@ -3,7 +3,9 @@
   core.xacro - chassis, wheels and steering hinges for the F1TENTH car.
   Ported from msauber_description/urdf/core.xacro. Link/joint names are the
   canonical unprefixed F1TENTH names (base_link is the kinematic root).
-  Geometry (wheelbase 0.325 m, track 0.2 m) is kept as-ported from msauber.
+  Geometry: track 0.2 m as ported from msauber; wheelbase 0.305 m since
+  2026-10-13 (was msauber's 0.325), the value the car's odometry
+  (vesc.yaml wheelbase) and the MPC (mpc_wheelbase_m) use.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="roboracer">
 
@@ -69,7 +71,7 @@
     <visual><xacro:left_steering_hinge_geometry /><material name="grey" /></visual>
   </link>
   <joint name="left_steering_hinge_joint" type="revolute">
-    <origin xyz="0.325 0.1 0" rpy="0 1.5708 0" />
+    <origin xyz="0.305 0.1 0" rpy="0 1.5708 0" />
     <parent link="chassis" />
     <child link="left_steering_hinge" />
     <axis xyz="-1 0 0" />
@@ -82,7 +84,7 @@
     <visual><xacro:right_steering_hinge_geometry /><material name="grey" /></visual>
   </link>
   <joint name="right_steering_hinge_joint" type="revolute">
-    <origin xyz="0.325 -0.1 0" rpy="0 1.5708 0" />
+    <origin xyz="0.305 -0.1 0" rpy="0 1.5708 0" />
     <parent link="chassis" />
     <child link="right_steering_hinge" />
     <axis xyz="-1 0 0" />

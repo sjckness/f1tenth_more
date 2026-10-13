@@ -149,7 +149,7 @@ def generate_launch_description():
         executable='drive_bridge',
         name='f1tenth_sim_drive_bridge',
         output='screen',
-        parameters=[{'use_sim_time': True, 'wheelbase': 0.325}],
+        parameters=[{'use_sim_time': True, 'wheelbase': 0.305}],
     )
 
     # --- 7) foxglove --------------------------------------------------------

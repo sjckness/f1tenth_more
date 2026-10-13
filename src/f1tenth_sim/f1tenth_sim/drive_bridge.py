@@ -33,7 +33,7 @@ class DriveBridge(Node):
         super().__init__('f1tenth_sim_drive_bridge')
 
         # Must match the URDF geometry / controllers.yaml wheelbase.
-        self.declare_parameter('wheelbase', 0.325)
+        self.declare_parameter('wheelbase', 0.305)
         self.declare_parameter('drive_topic', '/drive')
         self.declare_parameter(
             'reference_topic', '/ackermann_steering_controller/reference')

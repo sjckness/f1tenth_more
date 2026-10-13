@@ -575,7 +575,7 @@ class DetectorConfig:
     max_segment_length: float = 6.0
     # Nearer than this and it is the car's own structure or near-field
     # clutter, not a partition worth constraining the planner with. The
-    # LiDAR sits 0.325 m ahead of base_link and the body reaches 0.425 m
+    # LiDAR sits 0.305 m ahead of base_link and the body reaches 0.405 m
     # (measured 2026-10-13; 0.12 / 0.443 before).
     min_range_m: float = 0.8
     normal_tolerance_deg: float = 2.0

@@ -12,16 +12,16 @@
   f1tenth_description.vehicle_frames.base_front_xyz(), which parses THIS FILE's
   base_front_* properties. Do not copy the number anywhere else.
 
-  x = 0.425 m (2026-10-13, MEASURED): base_link is the rear axle (core.xacro,
-  and the odometry's rear-axle bicycle in vesc_to_odom.cpp); the URDF wheelbase
-  is 0.325 m (core.xacro steering hinges) and Andreas taped front axle centre ->
-  bumper face = 0.10 m on the car, so 0.325 + 0.10. Until then it was 0.443, the
-  front of the chassis mesh, never measured; the first test campaign ran with
-  0.443. z = 0: base_link's own plane.
+  x = 0.405 m (2026-10-13, MEASURED): base_link is the rear axle (core.xacro,
+  and the odometry's rear-axle bicycle in vesc_to_odom.cpp); the wheelbase is
+  0.305 m (odometry and MPC; core.xacro corrected from 0.325 the same day) and
+  Andreas taped front axle centre -> bumper face = 0.10 m on the car, so
+  0.305 + 0.10. Until then it was 0.443, the front of the chassis mesh, never
+  measured; the first test campaign ran with 0.443. z = 0: base_link's own plane.
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:property name="base_front_x" value="0.425" />
+  <xacro:property name="base_front_x" value="0.405" />
   <xacro:property name="base_front_y" value="0.0" />
   <xacro:property name="base_front_z" value="0.0" />
 

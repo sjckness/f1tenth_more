@@ -39,13 +39,13 @@ def test_the_published_frame_is_the_number_python_reads(args):
     assert xyz == pytest.approx(list(base_front_xyz()))
 
 
-def test_the_front_bumper_is_0_425_ahead_of_base_link():
-    """Wheelbase 0.325 + the taped 0.10 front axle -> bumper (2026-10-13).
+def test_the_front_bumper_is_0_405_ahead_of_base_link():
+    """Wheelbase 0.305 + the taped 0.10 front axle -> bumper (2026-10-13).
 
     Change it here and in base_front.xacro together.
     """
-    assert base_front_xyz() == pytest.approx((0.425, 0.0, 0.0))
-    assert base_front_x() == pytest.approx(0.425)
+    assert base_front_xyz() == pytest.approx((0.405, 0.0, 0.0))
+    assert base_front_x() == pytest.approx(0.405)
 
 
 def test_the_installed_file_is_the_one_parsed():

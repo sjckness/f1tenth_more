@@ -63,7 +63,7 @@ class TestTheGapIsTheHandlers:
         (row,) = watch.track_rows([_track(x=3.0, width=0.5)], pose, 100.0, FRONT)
         assert row.range_m == pytest.approx(3.0)
         assert row.gap_m == pytest.approx(gap_for_centre_distance(3.0, FRONT, 0.25))
-        assert row.gap_m == pytest.approx(3.0 - 0.425 - 0.25)
+        assert row.gap_m == pytest.approx(3.0 - 0.405 - 0.25)
 
     def test_a_track_without_a_width_uses_the_class_nominal(self, watch):
         pose = watch.Pose(0.0, 0.0, 0.0, 100.0)

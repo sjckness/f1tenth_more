@@ -36,7 +36,7 @@ Frame layout (measured from base_link, which is centered between the axles and s
 0.07m above the ground -- see f1tenth_hardware/vesc.launch.py's static_baselink_to_imu
 for the identity base_link->imu TF, unaffected by this file):
   2026-10-13: base_link is the REAR AXLE (vesc_to_odom.cpp's rear-axle bicycle,
-  core.xacro), not the centre; laser x is now 0.325 and zed2_camera_link x 0.260,
+  core.xacro), not the centre; laser x is now 0.305 and zed2_camera_link x 0.2399,
   both from tape measurements to the bumper (see the two static TFs). The
   paragraphs below are the history of the 0.12 placeholders.
   zed2_camera_link (f1tenth_perception/camera.launch.py): 0.12m ahead, 0.15m higher
@@ -188,16 +188,16 @@ def generate_launch_description():
     # (verified empirically against the --roll/--pitch/--yaw named form --
     # NOT roll pitch yaw).
     #
-    # x = 0.325 (2026-10-13, MEASURED): Andreas taped the scan centre 0.10 m
-    # behind the bumper face, and the bumper is base_front_x 0.425
-    # (f1tenth_description/urdf/base_front.xacro), so 0.425 - 0.10. Was the
+    # x = 0.305 (2026-10-13, MEASURED): Andreas taped the scan centre 0.10 m
+    # behind the bumper face, and the bumper is base_front_x 0.405
+    # (f1tenth_description/urdf/base_front.xacro), so 0.405 - 0.10. Was the
     # 0.12 placeholder described above, which the first test campaign ran with.
     # y, z and the rotation are unchanged (not measured).
     static_baselink_to_laser = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_laser',
-        arguments=['0.325', '0.0', '0.20', '0.0', '0.0', '0.0',
+        arguments=['0.305', '0.0', '0.20', '0.0', '0.0', '0.0',
                    'base_link', 'laser'],
         condition=UnlessCondition(use_sim),
     )

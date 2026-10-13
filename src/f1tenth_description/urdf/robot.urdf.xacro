@@ -36,7 +36,7 @@
 
   <!-- ===================== single-source dimensions ===================== -->
   <!-- Shared with the odometry kinematics (vesc.yaml / drive_bridge wheelbase). -->
-  <xacro:property name="wheelbase"    value="0.325" />  <!-- rear axle -> front axle -->
+  <xacro:property name="wheelbase"    value="0.305" />  <!-- rear axle -> front axle -->
   <xacro:property name="track"        value="0.2"   />  <!-- left wheel -> right wheel -->
   <xacro:property name="wheel_radius" value="0.05"  />
   <xacro:property name="wheel_width"  value="0.045" />

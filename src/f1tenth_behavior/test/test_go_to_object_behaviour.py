@@ -179,7 +179,7 @@ class TestPublishing:
         # mpc_corr's standoff is the CENTRE distance: default gap + front_x +
         # the track's 0.5 m width / 2. The default gap is from the bumper.
         assert spec.gap_m == pytest.approx(0.6)
-        assert spec.front_x_m == pytest.approx(0.425)
+        assert spec.front_x_m == pytest.approx(0.405)
         assert last.standoff == pytest.approx(0.6 + spec.front_x_m + 0.25)
         assert last.speed == pytest.approx(0.4)
         assert last.target_class == 'person'
