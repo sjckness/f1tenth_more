@@ -328,7 +328,8 @@ class TestTheHardRateBoundDominatesTheWeight:
         taken."""
         travel = abs(float(get_value('mpc_steering_angle_min_rad')))
         seconds = travel / 0.5  # dDeltaMax, rad/s
-        assert seconds == pytest.approx(0.566, abs=0.01)
+        # 0.566 s before the 2026-09-17 steering gains (delta_min -0.283).
+        assert seconds == pytest.approx(0.618, abs=0.01)
 
     def test_the_commanded_angles_stay_inside_the_servo_envelope(self):
         """End-to-end on the shipped configuration, with the tolerance the
@@ -336,8 +337,8 @@ class TestTheHardRateBoundDominatesTheWeight:
 
         OSQP satisfies its rows to a convergence tolerance, not exactly --
         this solve lands 8.6e-6 rad past delta_min. That is absorbed by the
-        yaml values being rounded INWARD from the true envelope (-0.28381 ->
-        -0.283, 0.8 mrad of slack), so the command still reaches the servo
+        yaml values being rounded INWARD from the true envelope (-0.30935 ->
+        -0.309, 0.35 mrad of slack), so the command still reaches the servo
         inside what it can produce. Checked here because it is the whole
         justification for rounding inward rather than to nearest.
         """
@@ -360,5 +361,5 @@ class TestTheHardRateBoundDominatesTheWeight:
         assert min(deltas) >= limits['delta_min'] - solver_tol
         assert max(deltas) <= limits['delta_max'] + solver_tol
         # True servo envelope, before the inward rounding.
-        assert min(deltas) >= -0.28381
-        assert max(deltas) <= 0.27804
+        assert min(deltas) >= -0.30935
+        assert max(deltas) <= 0.31975
