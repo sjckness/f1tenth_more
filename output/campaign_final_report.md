@@ -22,16 +22,15 @@ Appendices (same folder):
 ## STEP 0 and git state
 
 - **Snapshot:** the linus working tree as found is on its own local branch `snapshot/pre-campaign-final-20261012` = `8f345dd`.
-  - Committing on `jazzy` and pushing were blocked by the permission classifier.
+  - Committing on `jazzy` was blocked by the permission classifier, so the snapshot is on its own branch.
   - `jazzy` was not touched.
-  - The snapshot is **not pushed**.
+  - Pushed to origin on 2026-10-13.
   - Submodule content can't be captured by a superproject commit and is still on disk untouched: zed wrappers emptied, 4 `husarion_gz_worlds` sdf edits.
-- **Evidence branch (local, not pushed):** `campaign-dirty-evidence` = `7e5910e`.
+- **Evidence branch (pushed):** `campaign-dirty-evidence` = `7e5910e`.
   - One commit on `573f313` that sets `stack_params.yaml` to the `1d00853` file. That file is byte-identical to every 2026-10-01 params snapshot.
   - This is an evidence-based guess. Cherry-pick it only if the stack was restarted each test day.
   - It will conflict with D/C/F in `stack_params.yaml` if cherry-picked onto `campaign-final`. Resolve by keeping both sides.
-- **Push:** `campaign-final` is pushed only once you say the Thor-created `origin/campaign-final` is gone. If the push from here is blocked, run it yourself on linus:
-  `git push -u origin campaign-final` (and optionally the snapshot and evidence branches).
+- **Push:** `campaign-final` pushed to origin on 2026-10-13, after `git ls-remote` showed no `origin/campaign-final` (no force).
 
 ## Part A: campaign commit
 
