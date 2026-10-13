@@ -5,6 +5,10 @@ directly; the sim pan bridge (f1tenth_sim) or the future real driver consume
 /camera_pan/command and report the measured angle on /camera_pan/joint_state,
 and camera_pan_tf_node turns THAT into TF.
 
+enabled (param, read-only; default stack_params camera_pan_enabled, false):
+  false -> the node idles: no /camera_pan/command publisher, no timer, so no
+  servo is ever commanded. camera_pan_tf_node then holds the TF at pan 0.
+
 mode (param):
   track_heading  aim at the look-ahead point on the travel arc (aim_law.py)
   fixed          hold fixed_angle_rad (for bring-up / TF testing)
@@ -71,6 +75,10 @@ class CameraPanController(Node):
         super().__init__('camera_pan_controller_node', **kwargs)
 
         ro = ParameterDescriptor(read_only=True)
+        self.enabled = bool(self.declare_parameter(
+            'enabled', bool(get_value('camera_pan_enabled')), ParameterDescriptor(
+                read_only=True,
+                description='false: never publish /camera_pan/command')).value)
         self.mode = self.declare_parameter(
             'mode', 'track_heading',
             ParameterDescriptor(description=f'{" | ".join(MODES)} (dynamic)')).value
@@ -120,17 +128,24 @@ class CameraPanController(Node):
         self._delta = 0.0
         self._scan_warned = False
 
+        # Validate in on_set (a rejection leaves everything unchanged), apply in
+        # post_set (only once the parameters are actually committed).
+        self.add_on_set_parameters_callback(self._on_set_params)
+        self.add_post_set_parameters_callback(self._on_params_set)
+        self._dt = 1.0 / rate_hz
+        self.pub = None
+        if not self.enabled:
+            # Disabled: no publisher, no timer -- nothing can command the servo.
+            self.get_logger().info(
+                'camera_pan_controller up, DISABLED (enabled=false, stack_params '
+                'camera_pan_enabled): /camera_pan/command is never published.')
+            return
         self.pub = self.create_publisher(Float64, '/camera_pan/command', 10)
         self.create_subscription(Odometry, get_odom_topic(), self._on_odom,
                                  qos_profile_sensor_data)
         self.create_subscription(AckermannDriveStamped, '/ackermann_drive',
                                  self._on_drive, 10)
-        self._dt = 1.0 / rate_hz
         self.create_timer(self._dt, self._tick)
-        # Validate in on_set (a rejection leaves everything unchanged), apply in
-        # post_set (only once the parameters are actually committed).
-        self.add_on_set_parameters_callback(self._on_set_params)
-        self.add_post_set_parameters_callback(self._on_params_set)
         self.get_logger().info(
             f'camera_pan_controller up: mode={self.mode}, '
             f'track_when_stopped={self.params.track_when_stopped}, '

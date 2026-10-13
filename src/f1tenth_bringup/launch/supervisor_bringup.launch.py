@@ -44,7 +44,7 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 
-from f1tenth_params.param_defaults import get_default, get_path_default
+from f1tenth_params.param_defaults import get_default, get_path_default, get_value
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, SetEnvironmentVariable
@@ -194,6 +194,11 @@ def generate_launch_description():
     # sim_camera_tf.launch.py -> camera_pan.launch.py. Ignored when sim:=false.
     # Initial values only: mode / fixed_angle_rad / track_when_stopped are
     # dynamic on /camera_pan_controller_node (ros2 param set).
+    camera_pan_enabled_la = DeclareLaunchArgument(
+        'camera_pan_enabled',
+        default_value='true' if get_value('camera_pan_enabled') else 'false',
+        description='sim: false (default, stack_params camera_pan_enabled) = no pan '
+                    'command, camera TF static at pan 0.')
     camera_pan_mode_la = DeclareLaunchArgument(
         'camera_pan_mode', default_value='track_heading',
         description='sim: camera pan mode, track_heading | fixed | scan (reserved).')
@@ -221,6 +226,7 @@ def generate_launch_description():
             'restart_budget_window_sec': LaunchConfiguration('restart_budget_window_sec'),
             'sim': LaunchConfiguration('sim'),
             'health_watchdog': LaunchConfiguration('health_watchdog'),
+            'camera_pan_enabled': LaunchConfiguration('camera_pan_enabled'),
             'camera_pan_mode': LaunchConfiguration('camera_pan_mode'),
             'camera_pan_fixed_angle_rad': LaunchConfiguration('camera_pan_fixed_angle_rad'),
             'camera_pan_track_when_stopped': LaunchConfiguration(
@@ -245,6 +251,7 @@ def generate_launch_description():
         restart_budget_window_la,
         health_watchdog_la,
         sim_la,
+        camera_pan_enabled_la,
         camera_pan_mode_la,
         camera_pan_fixed_angle_la,
         camera_pan_track_when_stopped_la,

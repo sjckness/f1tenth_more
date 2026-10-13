@@ -43,6 +43,8 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 
+from f1tenth_params.param_defaults import get_value
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -74,6 +76,9 @@ def generate_launch_description():
         # Pass-throughs so a test can toggle the pan behaviour without editing.
         # The supervisor sets them from its own parameters of the same names
         # (supervisor_bringup.launch.py arguments; apply_sim_mode).
+        DeclareLaunchArgument(
+            'camera_pan_enabled',
+            default_value='true' if get_value('camera_pan_enabled') else 'false'),
         DeclareLaunchArgument('camera_pan_mode', default_value='track_heading'),
         DeclareLaunchArgument('camera_pan_fixed_angle_rad', default_value='0.0'),
         DeclareLaunchArgument('camera_pan_track_when_stopped', default_value='false'),
@@ -84,6 +89,7 @@ def generate_launch_description():
             PythonLaunchDescriptionSource(
                 os.path.join(camera_pan_share, 'launch', 'camera_pan.launch.py')),
             launch_arguments={
+                'enabled': LaunchConfiguration('camera_pan_enabled'),
                 'mode': LaunchConfiguration('camera_pan_mode'),
                 'fixed_angle_rad': LaunchConfiguration('camera_pan_fixed_angle_rad'),
                 'track_when_stopped': LaunchConfiguration('camera_pan_track_when_stopped'),

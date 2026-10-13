@@ -291,7 +291,7 @@ streams on the car's names: /camera/image_raw, /camera/camera_info and
     wrapper's robot_state_publisher for the camera's internal frames, same
     nodes and arguments, so the simulated images resolve to base_link exactly
     as on the car. It also starts the stack-side camera pan
-    (f1tenth_camera_pan); the supervisor's camera_pan_mode,
+    (f1tenth_camera_pan); the supervisor's camera_pan_enabled, camera_pan_mode,
     camera_pan_fixed_angle_rad and camera_pan_track_when_stopped parameters
     (supervisor_bringup.launch.py arguments of the same names) are passed to it
     as launch arguments (sim_camera_args), so they survive a restart of
@@ -453,9 +453,10 @@ _SIM_REPLACEMENTS = {
 }
 
 
-def sim_camera_args(mode, fixed_angle_rad, track_when_stopped):
+def sim_camera_args(mode, fixed_angle_rad, track_when_stopped, enabled=False):
     """Launch args for sim_camera_tf.launch.py's camera pan, as ros2 launch strings."""
     return {
+        'camera_pan_enabled': 'true' if enabled else 'false',
         'camera_pan_mode': str(mode),
         'camera_pan_fixed_angle_rad': repr(float(fixed_angle_rad)),
         'camera_pan_track_when_stopped': 'true' if track_when_stopped else 'false',
@@ -705,7 +706,10 @@ class ComponentSupervisorNode(Node):
             # dynamic_typing: camera_pan_fixed_angle_rad:=0 arrives as an int.
             self.declare_parameter('camera_pan_fixed_angle_rad', 0.0,
                                    ParameterDescriptor(dynamic_typing=True)).value,
-            bool(self.declare_parameter('camera_pan_track_when_stopped', False).value))
+            bool(self.declare_parameter('camera_pan_track_when_stopped', False).value),
+            # Default: stack_params camera_pan_enabled (false, pan off).
+            bool(self.declare_parameter(
+                'camera_pan_enabled', bool(get_value('camera_pan_enabled'))).value))
         # Topic-liveness watchdog -- see the module docstring's paragraph.
         # 'enforce': each component's configured action; 'alert': report
         # only, never restart (measurement runs); 'disabled': not run at all.

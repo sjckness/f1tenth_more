@@ -86,17 +86,20 @@ def test_apply_sim_mode_does_not_modify_its_input():
 # -- camera pan pass-through: supervisor_bringup -> supervisor -> sim_camera_tf
 #    -> camera_pan.launch.py -> camera_pan_controller_node ------------------
 
-PAN_ARGS = ('camera_pan_mode', 'camera_pan_fixed_angle_rad', 'camera_pan_track_when_stopped')
+PAN_ARGS = ('camera_pan_enabled', 'camera_pan_mode', 'camera_pan_fixed_angle_rad',
+            'camera_pan_track_when_stopped')
 
 
 def test_sim_camera_args_are_ros2_launch_strings():
     assert sim_camera_args('fixed', 0, True) == {
+        'camera_pan_enabled': 'false',                # default: the pan is off
         'camera_pan_mode': 'fixed',
         'camera_pan_fixed_angle_rad': '0.0',          # a float, never '0'
         'camera_pan_track_when_stopped': 'true',      # lowercase, not 'True'
     }
     assert sim_camera_args('track_heading', -0.2, False)[
         'camera_pan_track_when_stopped'] == 'false'
+    assert sim_camera_args('fixed', 0, True, enabled=True)['camera_pan_enabled'] == 'true'
 
 
 def test_camera_args_reach_only_sim_camera_tf():
@@ -148,12 +151,14 @@ def test_supervisor_bringup_declares_and_forwards_the_pan_args():
 def test_sim_camera_tf_declares_and_forwards_the_pan_args():
     assert set(PAN_ARGS) <= _launch_arg_names(SIM_CAMERA_TF_LAUNCH)
     src = open(SIM_CAMERA_TF_LAUNCH).read()
-    for inner in ('mode', 'fixed_angle_rad', 'track_when_stopped'):
+    for inner in ('enabled', 'mode', 'fixed_angle_rad', 'track_when_stopped'):
         assert f"'{inner}': LaunchConfiguration('camera_pan_{inner}')" in src, inner
     # and camera_pan.launch.py declares exactly those and hands them to the node
-    assert {'mode', 'fixed_angle_rad', 'track_when_stopped'} <= _launch_arg_names(
+    assert {'enabled', 'mode', 'fixed_angle_rad', 'track_when_stopped'} <= _launch_arg_names(
         CAMERA_PAN_LAUNCH)
     pan_src = open(CAMERA_PAN_LAUNCH).read()
+    # enabled reaches BOTH nodes: the controller and the TF node.
+    assert pan_src.count("'enabled': enabled,") == 2
     assert "'track_when_stopped': LaunchConfiguration('track_when_stopped')" in pan_src
     assert "'fixed_angle_rad': LaunchConfiguration('fixed_angle_rad')" in pan_src
 

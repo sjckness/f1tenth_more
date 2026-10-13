@@ -18,6 +18,13 @@ re-broadcast on every /camera_pan/joint_state message (the servo reports at >=
 50 Hz), so tf2 interpolates cleanly at any image stamp. A watchdog republishes
 the last angle if the measurement stream goes quiet, so lookups never run off
 the end of the buffer.
+
+enabled (param; default stack_params camera_pan_enabled, false): when false the
+camera does not pan, so camera_pan_base -> zed2_camera_link is published ONCE,
+on /tf_static, at pan 0 (identity), and /camera_pan/joint_state is not
+subscribed. The whole base_link -> zed2_camera_link chain is then static: the
+nodes that resolve the camera mount from /tf_static alone (front_clearance_node,
+the behaviours' static_frames) see it.
 """
 from f1tenth_camera_pan.frames import (
     base_to_pan_base,
@@ -26,6 +33,7 @@ from f1tenth_camera_pan.frames import (
     PAN_BASE_FRAME,
     pan_base_to_camera,
 )
+from f1tenth_params.param_defaults import get_value
 from geometry_msgs.msg import TransformStamped
 import rclpy
 from rclpy.node import Node
@@ -49,8 +57,9 @@ def _to_msg(content, stamp):
 
 class CameraPanTf(Node):
 
-    def __init__(self):
-        super().__init__('camera_pan_tf_node')
+    def __init__(self, **kwargs):
+        # kwargs go to Node (the tests pass parameter_overrides).
+        super().__init__('camera_pan_tf_node', **kwargs)
         pivot = (
             float(self.declare_parameter('pivot_x_m', 0.36).value),
             float(self.declare_parameter('pivot_y_m', 0.0).value),
@@ -69,9 +78,21 @@ class CameraPanTf(Node):
         self._static_bc = StaticTransformBroadcaster(self)
         self._bc = TransformBroadcaster(self)
 
+        self.enabled = bool(self.declare_parameter(
+            'enabled', bool(get_value('camera_pan_enabled'))).value)
+
         # base_link -> camera_pan_base: fixed, latched once.
-        self._static_bc.sendTransform(
-            _to_msg(base_to_pan_base(pivot), self.get_clock().now().to_msg()))
+        stamp = self.get_clock().now().to_msg()
+        if not self.enabled:
+            # No pan: the camera joint is static at 0, so it is latched too.
+            self._static_bc.sendTransform([
+                _to_msg(base_to_pan_base(pivot), stamp),
+                _to_msg(pan_base_to_camera(0.0), stamp)])
+            self.get_logger().info(
+                f'camera_pan_tf up, pan DISABLED: base_link -> {PAN_BASE_FRAME} (pivot '
+                f'{pivot}) -> {CAMERA_FRAME} static at pan 0 on /tf_static.')
+            return
+        self._static_bc.sendTransform(_to_msg(base_to_pan_base(pivot), stamp))
 
         self.create_subscription(JointState, '/camera_pan/joint_state',
                                  self._on_joint_state, qos_profile_sensor_data)

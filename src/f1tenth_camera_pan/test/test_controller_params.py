@@ -181,3 +181,29 @@ def test_launch_values_are_used():
         assert n.params.track_when_stopped is True
     finally:
         n.destroy_node()
+
+
+# -- camera_pan_enabled -------------------------------------------------------
+
+def test_disabled_by_default_never_commands_the_servo(node):
+    """stack_params camera_pan_enabled is false: no publisher, no timer."""
+    assert node.enabled is False
+    assert node.pub is None
+    assert '/camera_pan/command' not in [p.topic_name for p in node.publishers]
+    assert list(node.timers) == []
+
+
+def test_enabled_publishes_the_command():
+    n = CameraPanController(parameter_overrides=[Parameter('enabled', value=True)])
+    try:
+        assert n.enabled is True
+        assert '/camera_pan/command' in [p.topic_name for p in n.publishers]
+        assert len(list(n.timers)) == 1
+    finally:
+        n.destroy_node()
+
+
+def test_enabled_is_read_only(node):
+    [r] = _set(node, enabled=True)
+    assert not r.successful
+    assert node.pub is None

@@ -582,6 +582,9 @@ swept_clearance_wheelbase_m:
 # is a LAUNCH param (sim: sim_sensor_mounts.yaml camera_pan_pivot; car: a
 # camera.launch.py param), NOT here. The tan(delta)/L fallback reuses
 # swept_clearance_wheelbase_m above (one L, not a fourth).
+camera_pan_enabled:
+  default: false
+  description: "Master switch of the camera pan (2026-10-13). false (default): camera_pan_controller_node never publishes /camera_pan/command (no servo is ever commanded), and camera_pan_tf_node publishes base_link -> camera_pan_base -> zed2_camera_link once on /tf_static at pan 0 (camera facing forward) instead of following /camera_pan/joint_state. true: the aim law and the measured-angle TF. Read as each node's 'enabled' default and as the launch default (camera_pan.launch.py, sim_camera_tf.launch.py, supervisor_bringup.launch.py). There is no real pan driver yet; the car's camera.launch.py publishes its own static camera TF and does not start the pan."
 camera_pan_max_rad:
   default: 0.2618
   description: "Hard clamp on the pan angle [rad], +-15 deg. MUST equal the URDF revolute joint limit (sensors.xacro) and the real servo range -- changing one without the other lies between command and mechanism."
