@@ -560,8 +560,8 @@ swept_clearance_wheelbase_m:
   default: 0.305
   description: "Wheelbase [m] for kappa = tan(delta) / L. The MPC model's L (MPC_corr.py) and vesc.yaml's 'about 30.5 cm'; the URDF says 0.325 and the F1TENTH spec 0.3302 -- unmeasured on this car (docs/DIAGNOSTICS.md)."
 # The FRONT BUMPER x is not a key here any more (2026-10-12): it is the URDF's
-# base_front frame (f1tenth_description/urdf/base_front.xacro, 0.443 m ahead
-# of base_link), the one base_link -> front offset every front distance in the
+# base_front frame (f1tenth_description/urdf/base_front.xacro, 0.425 m ahead
+# of base_link since the 2026-10-13 tape measurement), the one base_link -> front offset every front distance in the
 # stack is measured from. Python reads it without TF through
 # f1tenth_description.vehicle_frames.base_front_x(); swept_clearance_node gets
 # it from swept_clearance.launch.py as body_front_x_m. It was
@@ -1000,6 +1000,8 @@ corr_turn_u_end:
 # SIZED (campaign-final): a person on the centreline 1.0 m ahead of the
 # front bumper sits at s = 0.443 (base_link -> bumper, the URDF's
 # base_front) + 1.0 = 1.443 m along a 3.0 m corridor,
+# [2026-10-13: base_front is now the measured 0.425, so s = 1.425 and
+#  hw(1.425) = 1.365 * 0.64 = 0.874 m >= 0.87: 0.64 still holds.]
 # whose start is base_link. There the whole car must pass inside it:
 #   hw(s) >= r_person 0.25 + class margin 0 + perception 0.10
 #            + obstacle_safety_margin_m 0.12 + 2 * car_radius 0.20 = 0.87 m

@@ -128,17 +128,19 @@ tightened rather than removed for that reason.
 THE FRONT CONE IS MEASURED FROM THE FRONT BUMPER (2026-10-12), not from the
 LiDAR. Each valid return is placed in base_link through the laser's pose from
 /tf_static; the front check is its distance from base_front (the URDF frame
-f1tenth_description/urdf/base_front.xacro, 0.443 m ahead of base_link), for
+f1tenth_description/urdf/base_front.xacro, 0.425 m ahead of base_link since
+the 2026-10-13 tape measurement, 0.443 before), for
 returns whose bearing FROM THE BUMPER is within front_cone_half_angle_deg of
 the car's heading. A return behind the bumper (beside the body) is not
 "front" any more. The side/rear window is unchanged: raw LiDAR ranges.
 
 Why: the old raw-range check put its stopping point wherever the LiDAR sits.
-With the car's committed TF (laser 0.12 m ahead of base_link) and the bumper
+With the car's TF of the time (laser 0.12 m ahead of base_link) and the bumper
 at 0.443 m, the default 0.15 m front threshold tripped only once a return was
 0.173 m INSIDE the front face -- after contact. From the bumper, the same
 0.15 m is 0.15 m of real clearance ahead of the car: the stopping point moved
-out, never in. Until the laser's transform has arrived the laser is assumed
+out, never in. (Measured 2026-10-13: laser 0.325, bumper 0.425, so the laser
+is 0.10 m behind the bumper face.) Until the laser's transform has arrived the laser is assumed
 at base_link's origin, yaw 0 -- returns then read closer to the bumper than
 they are, so the check can only trip early, never late.
 """

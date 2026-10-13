@@ -41,7 +41,7 @@ UNITS, BECAUSE THREE NEARBY SIGNALS ARE ALL CALLED SOMETHING LIKE "CLEARANCE"
   <output_topic>/swept_arc  ARC LENGTH [m] the REAR AXLE travels before the body
                             RECTANGLE first touches the wall. Metres of TRAVEL,
                             not a perpendicular gap, and straight ahead it is the
-                            gap to the front bumper (0.443 m ahead of the axle),
+                            gap to the front bumper (0.425 m ahead of the axle),
                             not to the axle. A wall abeam at 0.6 m reports the
                             5 m horizon, not 0.6 m. ANYTHING READING IT AS A
                             DISTANCE-TO-WALL IS WRONG.

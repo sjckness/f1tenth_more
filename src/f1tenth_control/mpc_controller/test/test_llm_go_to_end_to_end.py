@@ -113,8 +113,9 @@ class TestFermatiADieciCentimetri:
     def test_the_clamped_gap_is_what_the_loader_and_handler_use(self, clamped_gap):
         _case, result, _path, run = clamped_gap
         assert result.notes, 'the operator was told'
-        # gap_min from the bumper: 0.42 + the solver nose's 0.1095 lead, to 1 cm.
-        assert run.spec.gap_m == pytest.approx(0.53)
+        # gap_min from the bumper: 0.42 + the solver nose's 0.1275 lead (bumper
+        # 0.425, measured 2026-10-13), rounded up to 1 cm.
+        assert run.spec.gap_m == pytest.approx(0.55)
         assert run.spec.gap_m >= run.spec.gap_min_m - 1e-9
 
     def test_object_reached_fires_at_the_clamped_gap(self, clamped_gap):

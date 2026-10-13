@@ -39,10 +39,13 @@ def test_the_published_frame_is_the_number_python_reads(args):
     assert xyz == pytest.approx(list(base_front_xyz()))
 
 
-def test_the_front_bumper_is_0_443_ahead_of_base_link():
-    """The URDF chassis-mesh value; change it here and in base_front.xacro together."""
-    assert base_front_xyz() == pytest.approx((0.443, 0.0, 0.0))
-    assert base_front_x() == pytest.approx(0.443)
+def test_the_front_bumper_is_0_425_ahead_of_base_link():
+    """Wheelbase 0.325 + the taped 0.10 front axle -> bumper (2026-10-13).
+
+    Change it here and in base_front.xacro together.
+    """
+    assert base_front_xyz() == pytest.approx((0.425, 0.0, 0.0))
+    assert base_front_x() == pytest.approx(0.425)
 
 
 def test_the_installed_file_is_the_one_parsed():
