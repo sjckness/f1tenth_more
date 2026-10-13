@@ -1,0 +1,2478 @@
+[
+  {
+    "variant": "go_to",
+    "command": "go ahead 4 meters",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 4.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d467d7d7ba04",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 4.0
+            },
+            "timeout_sec": 35,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 4.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d467d7d7ba04",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 4.0
+            },
+            "timeout_sec": 35,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "approach the wall",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_73adebc95b1c",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 0.5,
+              "debounce_ticks": 3,
+              "distance_source": "default"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 1: distanza dal muro non detta, uso 0.5 m"
+      ],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_73adebc95b1c",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 0.5,
+              "debounce_ticks": 3,
+              "distance_source": "default"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 1: distanza dal muro non detta, uso 0.5 m"
+      ],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "go to the potted plant",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "potted plant"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_a1198dffdcdc",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "potted plant",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "potted plant"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_a1198dffdcdc",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "potted plant",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "go to the person",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "person"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_536cba700065",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "person",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "person"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_536cba700065",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "person",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "turn left at the wall",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "turn",
+            "dir": "left"
+          },
+          {
+            "mode": "straight",
+            "guard": "wall"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d817fcf6077c",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": 1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 0.5,
+              "debounce_ticks": 3,
+              "distance_source": "default"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 2: distanza dal muro non detta, uso 0.5 m"
+      ],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "turn",
+            "dir": "left"
+          },
+          {
+            "mode": "straight",
+            "guard": "wall"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d817fcf6077c",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": 1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 0.5,
+              "debounce_ticks": 3,
+              "distance_source": "default"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 2: distanza dal muro non detta, uso 0.5 m"
+      ],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall",
+            "thresh": 3.0
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          },
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_aea306d7f3c4",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 3.0,
+              "debounce_ticks": 3,
+              "distance_source": "llm"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_2_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 2.0
+            },
+            "timeout_sec": 20,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall"
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          },
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_aea306d7f3c4",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 3.0,
+              "debounce_ticks": 3,
+              "distance_source": "default_before_turn"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_2_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 2.0
+            },
+            "timeout_sec": 20,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 1: distanza dal muro non detta, uso 3.0 m"
+      ],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai dritto, supera l'ostacolo e avanza 3 metri",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 3.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_fd5d8fd4f171",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 3.0
+            },
+            "timeout_sec": 28,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 3.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_fd5d8fd4f171",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 3.0
+            },
+            "timeout_sec": 28,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai dritto e fermati a due metri dal muro",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_2b356aac445f",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 2.0,
+              "debounce_ticks": 3,
+              "distance_source": "llm"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_2b356aac445f",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 2.0,
+              "debounce_ticks": 3,
+              "distance_source": "llm"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai dritto fino al muro, poi salta sopra la scatola e fermati",
+    "verdict": "REGRESSION",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "ambiguo: distanza non specificata",
+          "saltare sopra la scatola"
+        ]
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "intent": {
+            "plan": [
+              {
+                "mode": "straight",
+                "guard": "wall",
+                "thresh": 2.0
+              },
+              {
+                "mode": "unsupported",
+                "command": "saltare sopra la scatola"
+              }
+            ],
+            "unsupported": []
+          },
+          "error": "intent does not validate: {'mode': 'unsupported', 'command': 'saltare sopra la scatola'} is not valid under any of the given schemas"
+        }
+      ]
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "tentativo precedente rifiutato: 'unsupported' è un campo obbligatorio"
+        ]
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "intent": {
+            "plan": [
+              {
+                "mode": "straight",
+                "guard": "wall"
+              },
+              {
+                "mode": "unsupported",
+                "unsupported": [
+                  "saltare sopra la scatola"
+                ]
+              }
+            ]
+          },
+          "error": "intent does not validate: 'unsupported' is a required property"
+        }
+      ]
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "gira e vai avanti un po'",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "ambiguo: direzione della svolta non specificata",
+          "ambiguo: distanza non specificata"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "ambiguo: direzione della svolta non specificata",
+          "ambiguo: distanza non specificata"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai avanti e fermati prima dell'ostacolo",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "front_object",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_3cca95181175",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "obstacle_distance_below",
+              "distance": 1.0,
+              "forward_only": true
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "front_object",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_3cca95181175",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "obstacle_distance_below",
+              "distance": 1.0,
+              "forward_only": true
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "raggiungi la sedia e fermati a un metro",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "chair",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_7432cac1b4c9",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "chair",
+              "gap_m": 1.0,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "chair",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_7432cac1b4c9",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "chair",
+              "gap_m": 1.0,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai verso la bottiglia e poi gira a destra",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "bottle"
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_dccc1c133692",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "bottle",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "bottle"
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_dccc1c133692",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "bottle",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai dalla porta",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai dalla porta"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai dalla porta"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "fermati a dieci centimetri dalla persona",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "person",
+            "thresh": 0.1
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_76c0cef4fdb7",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "person",
+              "gap_m": 0.42,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 0, go_to \"person\": distanza richiesta 0.10 m, applicata 0.42 m: e' la distanza minima consentita tra il muso e il bordo dell'oggetto (raggio auto 0.20 + margine di evitamento 0.12 + margine di classe 0.00 + tolleranza d'arresto 0.10 m)."
+      ],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "person",
+            "thresh": 0.1
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_76c0cef4fdb7",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "person",
+              "gap_m": 0.42,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 0, go_to \"person\": distanza richiesta 0.10 m, applicata 0.42 m: e' la distanza minima consentita tra il muso e il bordo dell'oggetto (raggio auto 0.20 + margine di evitamento 0.12 + margine di classe 0.00 + tolleranza d'arresto 0.10 m)."
+      ],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "fermati prima dell'ostacolo",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "front_object",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_3cca95181175",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "obstacle_distance_below",
+              "distance": 1.0,
+              "forward_only": true
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "front_object",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_3cca95181175",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "obstacle_distance_below",
+              "distance": 1.0,
+              "forward_only": true
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai verso la sedia rossa",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "chair"
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          },
+          {
+            "mode": "go_to",
+            "target": "chair"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_1370ecc6af60",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "chair",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_2_go_to",
+            "go_to_object": {
+              "target_class": "chair",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "chair"
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          },
+          {
+            "mode": "go_to",
+            "target": "chair"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_1370ecc6af60",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "chair",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_2_go_to",
+            "go_to_object": {
+              "target_class": "chair",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai dalla persona",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "person"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_536cba700065",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "person",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "go_to",
+            "target": "person"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_536cba700065",
+        "schema_version": "5.0",
+        "moves": [
+          {
+            "id": "move_0_go_to",
+            "go_to_object": {
+              "target_class": "person",
+              "gap_m": 0.5,
+              "speed": 0.4,
+              "acquire_timeout_sec": 5.0,
+              "lost_grace_sec": 1.5
+            },
+            "stop_condition": {
+              "type": "object_reached"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "go_to",
+    "command": "vai da Marco",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai da Marco"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai da Marco"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "go ahead 4 meters",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 4.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d467d7d7ba04",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 4.0
+            },
+            "timeout_sec": 35,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 4.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d467d7d7ba04",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 4.0
+            },
+            "timeout_sec": 35,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "approach the wall",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "approach the wall"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "approach the wall"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "go to the potted plant",
+    "verdict": "REGRESSION",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "go to the potted plant"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai verso la pianta in vaso"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "go to the person",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "go to the person"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "go to the person"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "turn left at the wall",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "turn",
+            "dir": "left"
+          },
+          {
+            "mode": "straight",
+            "guard": "wall"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d817fcf6077c",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": 1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 0.5,
+              "debounce_ticks": 3,
+              "distance_source": "default"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 2: distanza dal muro non detta, uso 0.5 m"
+      ],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "turn",
+            "dir": "left"
+          },
+          {
+            "mode": "straight",
+            "guard": "wall"
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_d817fcf6077c",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": 1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 0.5,
+              "debounce_ticks": 3,
+              "distance_source": "default"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 2: distanza dal muro non detta, uso 0.5 m"
+      ],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai dritto, al muro gira a destra e avanza 2 metri",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall",
+            "thresh": 3.0
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          },
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_aea306d7f3c4",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 3.0,
+              "debounce_ticks": 3,
+              "distance_source": "llm"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_2_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 2.0
+            },
+            "timeout_sec": 20,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall"
+          },
+          {
+            "mode": "turn",
+            "dir": "right"
+          },
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_aea306d7f3c4",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 3.0,
+              "debounce_ticks": 3,
+              "distance_source": "default_before_turn"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_1_turn",
+            "drive": {
+              "mode": "wall_turn",
+              "turn_sign": -1.0,
+              "turn_mag_deg": 90.0,
+              "speed": 0.5
+            },
+            "stop_condition": {
+              "type": "orientation_delta",
+              "value": 90.0
+            },
+            "timeout_sec": 27,
+            "on_timeout": "abort"
+          },
+          {
+            "id": "move_2_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 2.0
+            },
+            "timeout_sec": 20,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 1: distanza dal muro non detta, uso 3.0 m"
+      ],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai dritto, supera l'ostacolo e avanza 3 metri",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 3.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_fd5d8fd4f171",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 3.0
+            },
+            "timeout_sec": 28,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "distance",
+            "thresh": 3.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_fd5d8fd4f171",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "distance_reached",
+              "distance": 3.0
+            },
+            "timeout_sec": 28,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai dritto e fermati a due metri dal muro",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_2b356aac445f",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 2.0,
+              "debounce_ticks": 3,
+              "distance_source": "llm"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall",
+            "thresh": 2.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_2b356aac445f",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 2.0,
+              "debounce_ticks": 3,
+              "distance_source": "llm"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai dritto fino al muro, poi salta sopra la scatola e fermati",
+    "verdict": "REGRESSION",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai dritto fino al muro, poi salta sopra la scatola e fermati"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "wall"
+          }
+        ],
+        "unsupported": [
+          "salta sopra la scatola"
+        ]
+      },
+      "mission": {
+        "mission_id": "llm_6c92a1d216c9",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "front_clearance",
+              "distance": 0.5,
+              "debounce_ticks": 3,
+              "distance_source": "default"
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [
+        "fase 1: distanza dal muro non detta, uso 0.5 m"
+      ],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "gira e vai avanti un po'",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "ambiguo: direzione della svolta non specificata",
+          "ambiguo: distanza non specificata"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "ambiguo: direzione della svolta non specificata",
+          "ambiguo: distanza non specificata"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai avanti e fermati prima dell'ostacolo",
+    "verdict": "same",
+    "old": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "front_object",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_3cca95181175",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "obstacle_distance_below",
+              "distance": 1.0,
+              "forward_only": true
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    },
+    "new": {
+      "status": "ok",
+      "intent": {
+        "plan": [
+          {
+            "mode": "straight",
+            "guard": "front_object",
+            "thresh": 1.0
+          }
+        ],
+        "unsupported": []
+      },
+      "mission": {
+        "mission_id": "llm_3cca95181175",
+        "schema_version": "3.0",
+        "moves": [
+          {
+            "id": "move_0_straight",
+            "drive": {
+              "mode": "straight",
+              "speed": 0.4
+            },
+            "stop_condition": {
+              "type": "obstacle_distance_below",
+              "distance": 1.0,
+              "forward_only": true
+            },
+            "timeout_sec": 80,
+            "on_timeout": "abort",
+            "terminal": true
+          }
+        ]
+      },
+      "notes": [],
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "raggiungi la sedia e fermati a un metro",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "raggiungi la sedia e fermati a un metro"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "raggiungi la sedia e fermati a un metro"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai verso la bottiglia e poi gira a destra",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai verso la bottiglia e poi gira a destra"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai verso la bottiglia e poi gira a destra"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai dalla porta",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai dalla porta"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai dalla porta"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "fermati a dieci centimetri dalla persona",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "fermati a dieci centimetri dalla persona"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "fermati a dieci centimetri dalla persona"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "fermati prima dell'ostacolo",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "fermati prima dell'ostacolo"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "fermati prima dell'ostacolo"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai verso la sedia rossa",
+    "verdict": "same",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai verso la sedia rossa"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai verso la sedia rossa"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai dalla persona",
+    "verdict": "REGRESSION",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai dalla persona"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai verso la persona"
+        ]
+      },
+      "attempts": []
+    }
+  },
+  {
+    "variant": "no_go_to",
+    "command": "vai da Marco",
+    "verdict": "REGRESSION",
+    "old": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai da Marco"
+        ]
+      },
+      "attempts": []
+    },
+    "new": {
+      "status": "refused",
+      "intent": {
+        "plan": [],
+        "unsupported": [
+          "vai verso Marco",
+          "vai verso la persona Marco"
+        ]
+      },
+      "attempts": []
+    }
+  }
+]
