@@ -359,6 +359,7 @@ def recordable_topics(topics):
     dropped = [t for t in topics if t.startswith(_NEVER_RECORDED_PREFIXES)]
     return kept, dropped
 
+
 # Snapshotted into the manifest for at-a-glance run comparison. The full
 # stack_params.yaml copy is the authoritative record; this is the shortlist an
 # analysis script can group runs by without parsing yaml.
