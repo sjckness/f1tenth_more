@@ -230,8 +230,12 @@ class MissionLoader:
         # succeeds on RUNNING/HOLDING, so the mission subtree never ticks and no
         # goal is ever published; /mpc/hold stays engaged until the timer fires.
         # /mission/emergency_stop and /mission/abort_mission both cancel it.
+        # 15 s, not 3 s: f1tenth_logger's mission recorder starts at LOADED
+        # and needs 5-14 s of discovery (first test campaign) before its
+        # first message, so the countdown is what makes the bag cover the
+        # whole drive.
         self._countdown_s = float(
-            node.declare_parameter('mission_countdown_sec', 3.0).value)
+            node.declare_parameter('mission_countdown_sec', 15.0).value)
         # Read live at every start (see _countdown_seconds) so a campaign can
         # retune it with `ros2 param set` between tests, without a restart.
         self._countdown_timer = None

@@ -126,7 +126,7 @@ class _Node:
         self.timers = [t for t in self.timers if t is not timer]
 
     def declare_parameter(self, name, default):
-        if name == "mission_countdown_sec":
+        if name == "mission_countdown_sec" and self._countdown_s is not None:
             return _Param(self._countdown_s)
         return _Param(default)
 
@@ -443,3 +443,13 @@ def test_a_finished_mission_is_announced_by_the_state_watcher():
     state.complete()                      # what AdvanceMove does, in the tree
     loader._on_state_watch_tick()
     assert _event_names(node)[-1] == "mission_finished"
+
+
+def test_default_countdown_is_15_s_to_cover_mission_recorder_discovery():
+    """Default to 15 s, so the countdown covers mission recorder discovery."""
+    # The mission bag recorder starts at LOADED and needs 5-14 s of discovery
+    # (first test campaign) before its first message; the countdown is what
+    # makes the bag cover the drive. Coupled to the loader.py default.
+    node = _Node(live_node_names=[], countdown_s=None)
+    loader = MissionLoader(node)
+    assert loader._countdown_seconds() == 15.0

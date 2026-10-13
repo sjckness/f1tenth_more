@@ -151,18 +151,20 @@ or start then fails, a follow-up `/test/plan_result` with `kind: delivery`
 records `delivery_failed` in the test and closes it. The abort's own
 `mission_aborted` (the previous mission's end) lands in the new test before
 its `mission_loaded`; it is recorded as `stale_mission_event` and ignored. The mission waits
-`mission_countdown_sec` (default 3 s) at a standstill before it drives. That
-standstill is the noise floor every jerk number is measured against.
+`mission_countdown_sec` (default 15 s) at a standstill before it drives. That
+standstill is the noise floor every jerk number is measured against. It is 15 s
+because the mission bag recorder starts at LOADED and needs 5-14 s of discovery
+before its first message; a shorter countdown means a late bag.
 
 The countdown is a parameter of the behaviour node. It is read fresh at every
 start, so you can retune it between tests without restarting anything:
 
 ```bash
-ros2 param get /behavior_executor_node mission_countdown_sec     # 3.0 by default
+ros2 param get /behavior_executor_node mission_countdown_sec     # 15.0 by default
 ros2 param set /behavior_executor_node mission_countdown_sec 5.0
 ```
 
-It is not in `stack_params.yaml`, so a restart goes back to 3.0. Set it once
+It is not in `stack_params.yaml`, so a restart goes back to 15.0. Set it once
 per session, or add it there if you want it permanent.
 
 ### 5. Export, judge, analyse

@@ -22,6 +22,7 @@ Filesystem behaviour (sweeping, manifests) is tested for real against tmp_path
 Run standalone: python3 -m pytest test/test_mission_logger_node.py -v
 """
 
+import datetime
 import json
 import os
 import subprocess
@@ -36,8 +37,8 @@ from f1tenth_messages.msg import MissionStatus
 
 from f1tenth_logger import mission_logger_node as mission_logger_node_module
 from f1tenth_logger.mission_logger_node import (
-    MissionLoggerNode, _read_lock_pid, _snapshot_indices, acquire_singleton_lock,
-    release_singleton_lock)
+    MissionLoggerNode, _decide, _loaded_timed_out, _read_lock_pid, _snapshot_indices,
+    acquire_singleton_lock, release_singleton_lock)
 
 
 def _make_dead_pid():
@@ -90,17 +91,27 @@ class _Spy:
     def __init__(self, node):
         self.started = []
         self.stopped = []
+        self.marked = 0
         node._start_recording = self._start
         node._stop_recording = self._stop
+        node._mark_mission_started = self._mark
         self._node = node
 
     def _start(self, msg):
         self.started.append(msg)
-        self._node._active_run = {'run_id': 'stub'}  # mirrors the real state flag
+        # mirrors the real run dict's fields that dispatch reads
+        started = 'T0' if str(msg.state) in ('RUNNING', 'HOLDING') else None
+        self._node._active_run = {
+            'run_id': 'stub', 'mission_json_path': str(msg.json_path),
+            'mission_start_time': started}
 
     def _stop(self, outcome):
         self.stopped.append(outcome)
         self._node._active_run = None
+
+    def _mark(self):
+        self.marked += 1
+        self._node._active_run['mission_start_time'] = 'T1'
 
 
 class TestLifecycleDispatch:
@@ -177,6 +188,105 @@ class TestLifecycleDispatch:
 
         node._start_recording = _boom
         node._on_status(_status('RUNNING'))  # must not raise
+        node.destroy_node()
+
+
+class TestRecordFromLoaded:
+    """Recording opens at LOADED (pre-roll), RUNNING only marks the start."""
+
+    def test_loaded_starts_recording(self, tmp_path):
+        node = _make_node(tmp_path)
+        spy = _Spy(node)
+        node._on_status(_status('LOADED'))
+        assert len(spy.started) == 1 and spy.stopped == []
+        node.destroy_node()
+
+    def test_loaded_then_running_marks_start_in_the_same_run(self, tmp_path):
+        node = _make_node(tmp_path)
+        spy = _Spy(node)
+        node._on_status(_status('LOADED'))
+        node._on_status(_status('LOADED'))   # start_mission republishes LOADED
+        node._on_status(_status('RUNNING'))
+        node._on_status(_status('RUNNING'))
+        assert len(spy.started) == 1 and spy.stopped == []
+        assert spy.marked == 1
+        node.destroy_node()
+
+    def test_abort_during_countdown_stops_as_aborted(self, tmp_path):
+        node = _make_node(tmp_path)
+        spy = _Spy(node)
+        node._on_status(_status('LOADED'))
+        node._on_status(_status('ABORTED'))
+        assert spy.stopped == ['ABORTED'] and spy.marked == 0
+        node.destroy_node()
+
+    def test_reload_after_running_stops_as_loaded_and_opens_new_run(self, tmp_path):
+        node = _make_node(tmp_path)
+        spy = _Spy(node)
+        node._on_status(_status('LOADED'))
+        node._on_status(_status('RUNNING'))
+        node._on_status(_status('LOADED'))
+        assert spy.stopped == ['LOADED'] and len(spy.started) == 2
+        node.destroy_node()
+
+    def test_loading_another_mission_before_start_opens_new_run(self, tmp_path):
+        node = _make_node(tmp_path)
+        spy = _Spy(node)
+        node._on_status(_status('LOADED', json_path='/x/a.json'))
+        node._on_status(_status('LOADED', json_path='/x/b.json'))
+        assert spy.stopped == ['LOADED'] and len(spy.started) == 2
+        assert node._active_run['mission_json_path'] == '/x/b.json'
+        node.destroy_node()
+
+    def test_loaded_timeout_stops_as_not_started_and_is_not_reopened(self, tmp_path):
+        node = _make_node(tmp_path, loaded_timeout_sec=60.0)
+        spy = _Spy(node)
+        node._on_status(_status('LOADED'))
+        old = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(seconds=61)
+        node._active_run['record_start_time'] = old.isoformat()
+        node._check_loaded_timeout()
+        assert spy.stopped == ['NOT_STARTED']
+        node._on_status(_status('LOADED'))   # republish of the same load
+        assert len(spy.started) == 1
+        node._on_status(_status('RUNNING'))  # started late after all: record it
+        assert len(spy.started) == 2
+        node.destroy_node()
+
+    def test_loaded_timed_out_only_for_an_unstarted_run_past_the_limit(self):
+        now = datetime.datetime(2026, 10, 13, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        rec = (now - datetime.timedelta(seconds=30)).isoformat()
+        run = {'record_start_time': rec, 'mission_start_time': None}
+        assert _loaded_timed_out(run, now, 29.0)
+        assert not _loaded_timed_out(run, now, 31.0)
+        assert not _loaded_timed_out(run, now, 0.0), '0 disables the timeout'
+        assert not _loaded_timed_out(dict(run, mission_start_time=rec), now, 29.0)
+        assert not _loaded_timed_out(None, now, 29.0)
+
+    def test_decide_keeps_estop_priority_over_a_loaded_republish(self):
+        run = {'mission_json_path': '/x.json', 'mission_start_time': None}
+        assert _decide('LOADED', '/x.json', True, run) == ('stop', 'EMERGENCY_STOP')
+
+
+class TestMissionStartTime:
+    """start_time keeps meaning the mission (RUNNING) start in the manifest."""
+
+    def test_mark_started_moves_start_time_to_running_and_records_preroll(self, tmp_path):
+        node = _make_node(tmp_path)
+        run_dir = os.path.join(str(tmp_path), 'active', 'RUN')
+        os.makedirs(run_dir)
+        loaded = (datetime.datetime.now(datetime.timezone.utc)
+                  - datetime.timedelta(seconds=15)).isoformat()
+        node._active_run = {
+            'run_id': 'RUN', 'start_time': loaded, 'record_start_time': loaded,
+            'mission_start_time': None, 'preroll_s': None,
+            'manifest_path': os.path.join(run_dir, 'RUN.manifest.json')}
+        node._mark_mission_started()
+        with open(node._active_run['manifest_path']) as fh:
+            data = json.load(fh)
+        assert data['record_start_time'] == loaded
+        assert data['start_time'] == data['mission_start_time'] != loaded
+        assert 14.5 < data['preroll_s'] < 20.0
+        node._active_run = None
         node.destroy_node()
 
 

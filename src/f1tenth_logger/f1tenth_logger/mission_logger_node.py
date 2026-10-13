@@ -5,11 +5,26 @@ Records every mission run to its own bag with no operator action -- no manual
 f1tenth_behavior's own /mission/status (f1tenth_messages/MissionStatus,
 transient-local) and starts/stops recording on the real state transitions:
 
-    -> RUNNING                         start recording
-    RUNNING/HOLDING -> COMPLETE        stop, outcome=COMPLETE   (success)
-    RUNNING/HOLDING -> ABORTED         stop, outcome=ABORTED    (abort/e-stop)
-    RUNNING/HOLDING -> IDLE/LOADED     stop, outcome=<state>    (reload/reset)
+    -> LOADED                          start recording (pre-roll, see below)
+    LOADED -> RUNNING                  mark the mission start, keep recording
+    -> RUNNING with nothing open       start recording (logger came up late)
+    LOADED/RUNNING/HOLDING -> COMPLETE stop, outcome=COMPLETE   (success)
+    LOADED/RUNNING/HOLDING -> ABORTED  stop, outcome=ABORTED    (abort/e-stop)
+    LOADED/RUNNING/HOLDING -> IDLE     stop, outcome=IDLE       (reset)
+    RUNNING/HOLDING -> LOADED          stop, outcome=LOADED, start a new run
+    LOADED -> LOADED, other json_path  stop, outcome=LOADED, start a new run
+    LOADED for > loaded_timeout_sec    stop, outcome=NOT_STARTED
     emergency_stop_active goes True    stop, outcome=EMERGENCY_STOP
+
+PRE-ROLL: recording starts at LOADED, not at RUNNING, because the recorder
+needs 5-14 s of discovery before its first message (first test campaign,
+2026-09/10: median 8.2 s after the mission start, 17 of 58 bags empty when it
+started at RUNNING). f1tenth_behavior's mission_countdown_sec (LOADED ->
+RUNNING) was raised to cover that window. The manifest's start_time still
+means the MISSION start (the RUNNING edge): the MATLAB exporter matches runs
+on it within 2 s. record_start_time (the LOADED edge), mission_start_time and
+preroll_s are additions. A run that never reaches RUNNING keeps
+mission_start_time null and start_time = record_start_time.
 
 HOLDING deliberately does NOT stop recording -- it is a mid-mission pause
 (the BT's own hold lane), not an end state, and the hold period is usually
@@ -71,7 +86,8 @@ DISCOVERY LATENCY -- A REAL FLOOR ON USABLE MISSION LENGTH, measured live on
 this box, not theorised: rosbag2's recorder does not subscribe instantly. It
 opens the bag, logs 'Listening for topics...', and only then discovers and
 subscribes, which took 2.4-3.4s across repeated runs here before the first
-'Subscribed to topic' line appeared. A mission shorter than that records an
+'Subscribed to topic' line appeared (5-14 s on the car under the Discovery
+Server -- see PRE-ROLL above). A mission shorter than that records an
 EMPTY but otherwise perfectly valid bag -- metadata.yaml present, message
 count 0 -- which is exactly the kind of silent gap this node is supposed to
 prevent, so it is called out rather than left to be rediscovered. Found the
@@ -169,9 +185,47 @@ import rosbag2_py
 from f1tenth_messages.msg import MissionStatus
 
 
-# Mid-mission states: recording runs through both. HOLDING is a pause, not an
-# end -- see module docstring.
-_ACTIVE_STATES = frozenset({'RUNNING', 'HOLDING'})
+# States recording runs through. LOADED is the pre-roll (the start countdown),
+# HOLDING is a pause, not an end -- see module docstring.
+_RECORD_STATES = frozenset({'LOADED', 'RUNNING', 'HOLDING'})
+_STARTED_STATES = frozenset({'RUNNING', 'HOLDING'})
+
+
+def _decide(state, json_path, estop_latched, run, refused_json_path=None):
+    """
+    Return (action, outcome) for one /mission/status message.
+
+    action is one of 'none', 'start', 'mark_started', 'stop', 'restart'
+    (stop with outcome, then start). ``run`` is the open run dict or None.
+    ``refused_json_path`` is the mission whose LOADED pre-roll already timed
+    out: its LOADED republishes must not open a new run.
+    """
+    if run is None:
+        if state == 'LOADED' and json_path == refused_json_path:
+            return 'none', None
+        return ('start', None) if state in _RECORD_STATES else ('none', None)
+    if estop_latched:
+        return 'stop', 'EMERGENCY_STOP'
+    started = bool(run.get('mission_start_time'))
+    if state == 'LOADED':
+        if started or json_path != run.get('mission_json_path', json_path):
+            return 'restart', 'LOADED'
+        return 'none', None
+    if state in _STARTED_STATES:
+        return ('none', None) if started else ('mark_started', None)
+    return 'stop', state
+
+
+def _loaded_timed_out(run, now, timeout_s):
+    """Tell whether an open run has sat at LOADED past timeout_s (<= 0: never)."""
+    if run is None or timeout_s <= 0.0 or run.get('mission_start_time'):
+        return False
+    started = run.get('record_start_time')
+    if not started:
+        return False
+    waited = (now - datetime.datetime.fromisoformat(started)).total_seconds()
+    return waited > timeout_s
+
 
 # Must match f1tenth_behavior/mission/loader.py's own MISSION_STATUS_QOS --
 # durability has to match on both ends or the "late subscriber still gets the
@@ -588,6 +642,11 @@ class MissionLoggerNode(Node):
         # removes outright -- opt-in only, see module docstring.
         self.sweep_action = str(self.declare_parameter('sweep_action', 'move').value)
         status_topic = str(self.declare_parameter('status_topic', '/mission/status').value)
+        # Caps a mission loaded and never started (refused start, forgotten
+        # load): the pre-roll would otherwise record images until the next
+        # status change. 0 disables it.
+        self.loaded_timeout_sec = float(self.declare_parameter(
+            'loaded_timeout_sec', 120.0).value)
 
         self.storage_id = self._resolve_storage_id()
 
@@ -603,6 +662,7 @@ class MissionLoggerNode(Node):
 
         self._last_state = None
         self._last_estop = False
+        self._refused_json_path = None
 
         try:
             os.makedirs(self.active_dir, exist_ok=True)
@@ -615,6 +675,7 @@ class MissionLoggerNode(Node):
         self._sweep_incomplete_bags(reason='startup')
         self._sweep_timer = self.create_timer(
             self.sweep_period_sec, lambda: self._sweep_incomplete_bags(reason='periodic'))
+        self._loaded_timeout_timer = self.create_timer(1.0, self._check_loaded_timeout)
 
         self._status_sub = self.create_subscription(
             MissionStatus, status_topic, self._on_status, _MISSION_STATUS_QOS)
@@ -624,7 +685,8 @@ class MissionLoggerNode(Node):
             f'"{status_topic}", runs -> "{self.runs_dir}" (active/ -> complete/, '
             f'storage={self.storage_id}), {len(self.topics)} topics '
             f'({len(self.best_effort_topics)} with BEST_EFFORT overrides), '
-            f'sweep every {self.sweep_period_sec:.0f}s (action={self.sweep_action}). '
+            f'sweep every {self.sweep_period_sec:.0f}s (action={self.sweep_action}), '
+            f'recording from LOADED (timeout {self.loaded_timeout_sec:.0f}s). '
             'THIS IS THE LIVE LOGGER -- a second `ros2 run` will be refused.')
 
     # -- storage -----------------------------------------------------------
@@ -655,13 +717,18 @@ class MissionLoggerNode(Node):
         try:
             state = str(msg.state)
             estop_latched = bool(msg.emergency_stop_active) and not self._last_estop
+            if state != 'LOADED':
+                self._refused_json_path = None
 
-            if state in _ACTIVE_STATES and self._active_run is None:
-                self._start_recording(msg)
-            elif self._active_run is not None and (
-                    state not in _ACTIVE_STATES or estop_latched):
-                outcome = 'EMERGENCY_STOP' if estop_latched else state
+            action, outcome = _decide(
+                state, str(msg.json_path), estop_latched, self._active_run,
+                self._refused_json_path)
+            if action in ('stop', 'restart'):
                 self._stop_recording(outcome)
+            if action in ('start', 'restart'):
+                self._start_recording(msg)
+            elif action == 'mark_started':
+                self._mark_mission_started()
 
             self._last_state = state
             self._last_estop = bool(msg.emergency_stop_active)
@@ -681,10 +748,18 @@ class MissionLoggerNode(Node):
             run_dir = os.path.join(self.active_dir, run_id)
             bag_dir = os.path.join(run_dir, 'bag')
 
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            # start_time means the MISSION start (the exporter matches on it).
+            # Opened at LOADED it is provisional and _mark_mission_started
+            # moves it to the RUNNING edge; opened at RUNNING it is final.
+            started = str(msg.state) in _STARTED_STATES
             run = {
                 'mission_id': mission_name,
                 'run_id': run_id,
-                'start_time': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                'start_time': now,
+                'record_start_time': now,
+                'mission_start_time': now if started else None,
+                'preroll_s': 0.0 if started else None,
                 'end_time': None,
                 'outcome': None,
                 'run_dir': run_dir,
@@ -757,6 +832,38 @@ class MissionLoggerNode(Node):
         self._write_params_snapshot(run)
         self._write_manifest(run)
         self.get_logger().info(f'recording "{run["run_id"]}" -> {bag_dir}')
+
+    def _mark_mission_started(self):
+        """Move start_time to now: the LOADED -> RUNNING edge of an open run."""
+        with self._lock:
+            run = self._active_run
+            if run is None or run.get('mission_start_time'):
+                return
+            now = datetime.datetime.now(datetime.timezone.utc)
+            record_start = datetime.datetime.fromisoformat(run['record_start_time'])
+            run['mission_start_time'] = now.isoformat()
+            run['start_time'] = run['mission_start_time']
+            run['preroll_s'] = round((now - record_start).total_seconds(), 3)
+        self._write_manifest(run)
+        self.get_logger().info(
+            f'mission started: "{run["run_id"]}" has been recording for '
+            f'{run["preroll_s"]:.1f}s (pre-roll since LOADED).')
+
+    def _check_loaded_timeout(self):
+        """Stop a run that sat at LOADED past loaded_timeout_sec (timer)."""
+        try:
+            run = self._active_run
+            now = datetime.datetime.now(datetime.timezone.utc)
+            if not _loaded_timed_out(run, now, self.loaded_timeout_sec):
+                return
+            self.get_logger().warn(
+                f'"{run["run_id"]}" stayed LOADED for over '
+                f'{self.loaded_timeout_sec:.0f}s without starting -- stopping its '
+                'pre-roll recording (outcome=NOT_STARTED).')
+            self._refused_json_path = run.get('mission_json_path')
+            self._stop_recording('NOT_STARTED')
+        except Exception as exc:  # noqa: BLE001 - a logger must not kill anything
+            self.get_logger().error(f'LOADED timeout check failed: {exc}')
 
     def _stop_recording(self, outcome):
         with self._lock:
