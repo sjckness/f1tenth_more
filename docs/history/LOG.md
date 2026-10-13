@@ -20,6 +20,53 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
+### 2026-10-13 — Pan off by default; grey sub-threshold boxes; known pan/front_distance conflict [decision]
+tags: decision | open-question
+- `camera_pan_enabled` (stack_params, false) is now a real, read-only `enabled` param on both pan nodes
+  and a launch arg through camera_pan / sim_camera_tf / supervisor_bringup (forwarded by the supervisor).
+  Disabled: the controller creates no /camera_pan/command publisher or timer; the TF node latches
+  base_link -> camera_pan_base -> zed2_camera_link on /tf_static at pan 0. Verified live on domain 87.
+- yolo_detector runs inference at `debug_confidence_threshold` 0.10 and splits on the scores before the
+  LiDAR exclusion. Published detections and masks are byte-identical on/off (real inference, both
+  models). The 0.10–0.30 band is drawn grey on /camera/image_annotated. Cost +0–3.5 ms/frame
+  (+8 ms when split after the exclusion, which pulled sub-threshold masks to CPU).
+- Open: front_clearance_node reads the camera pose from /tf_static only. With the pan enabled the edge is
+  dynamic, so /perception/front_distance would be -1 on every frame (no wall stop, no wall_turn distance).
+  Must move to a stamped /tf lookup before enabling the pan.
+- status: resolved (pan default, grey boxes); open (pan + front_distance)
+- commit: 740ccaec, 9e21bebb (report 5f19359f: output/jazzy_test_parity_report.md)
+
+### 2026-10-13 — `base_front` frame: every front distance re-referenced to the bumper [decision]
+tags: decision | fix
+- New URDF link `base_front` (fixed, x = 0.443 from base_link, urdf/base_front.xacro), read without TF
+  through `f1tenth_description.vehicle_frames.base_front_x()`. Retired: `swept_clearance_body_front_x_m`,
+  MPC_corr's `wall_bumper_x_m`, and every literal 0.443.
+- Moved to the bumper: /perception/front_distance (was the lens, about 0.33 m on the car),
+  /costmap/front_clearance and the front_clearance obstacle term (was base_link), the proximity e-stop
+  front cone (was the raw LiDAR range: 0.15 m used to trip 0.17 m inside the front face, i.e. after
+  contact), /mpc/min_obstacle_distance(_forward) (was the rear axle), IsObstacleDetected, and the
+  go_to_object gap (was the solver nose 0.5525). A real reading at or behind the bumper is published
+  as 0.01, never <= 0 ("no reading").
+- Every safety stop moved out, except two go_to cases. gap_min adds the nose's 0.1095 lead, so it is
+  physically unchanged. The default gap is now 0.6 (9.5 mm closer). Explicit mission gaps keep their
+  values and now sit 0.11 m closer, by instruction. LLM golden fixtures were regenerated.
+- The overnight session ran out mid-step (2026-10-12 23:33); the uncommitted half was finished and
+  tested on 2026-10-13 before committing.
+- status: resolved
+- commit: 30fa1c79
+
+### 2026-10-12 — Corridor back to a funnel (fixed 2.3/1.3 ratio); adaptive widening off [decision]
+tags: decision | fix
+- The campaign's A2 shipped corr_wmin = corr_wmax = 0.60, a rectangle. Now the far end is
+  corr_wmin × corr_width_ratio (2.3/1.3), and corr_wmin is 0.65, sized for a person 1 m ahead on the
+  centreline. `corridor_adaptive_enabled` (default false) widens the start once for an obstacle,
+  capped at 0.90. R011 now passes in the rig. "1.0 m object appearing at 1.4 m" still ends BLOCKED.
+- Same night: `.claude/settings.json` folded into the git-ignored settings.local.json (27f84d37), and
+  branch `campaign-final` created on origin from test-campaign `349c881e`. Test totals:
+  baseline 3231 tests / 107 failures, final 3289 / 107 (same set, one flaky live-LLM eval swapped).
+- status: resolved
+- commit: cb5735ff, 27f84d37
+
 ### 2026-10-04 — jazzy-sim merged with origin/jazzy (Thor Phase 5 sim:=true); §5 reconciled; jazzy fast-forwarded [decision]
 tags: decision | fix
 - Merged origin/jazzy (31 commits incl. `af41013` sim:=true, fix batches 1–4) into jazzy-sim: no conflicts,
