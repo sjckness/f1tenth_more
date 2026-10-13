@@ -96,4 +96,297 @@ On 0.443 m:
 | @{3} WIP vesc-tuner-test | 2026-06-15 | 0d7714f | vesc.yaml speed_to_erpm_gain 4614->5242.73, servo gain -1.2135->-1.0860; startup_sequence off; andre/track MPC test speeds |
 | @{4} WIP stereocamera-test | 2026-06-12 | 29ad810 | llm_mpc_tuner reverse-driving bounds (v_min negative), parallel `ros2 param set`; andre_mpc CIRCLE_SPEED 1.0->0.5 |
 
-(Sections 3-6 follow below as they are completed.)
+
+## 3. What the campaign really ran (step 3)
+
+### Verdict
+
+**The 58 campaign runs (2026-09-21 .. 10-01) ran the committed HEAD of the day plus an uncommitted
+tree. 1d00853 later committed that tree unchanged. For P004-R012..R019 (2026-10-01) the state was
+`573f313` + the source part of `1d00853`.**
+- Runtime files: **high** confidence.
+- Exact bytes of the offline/tooling files: medium.
+
+It is not `573f313` alone, and it is not `573f313` + `stack_params.yaml` alone (that is `7e5910e`).
+
+Evidence, strongest first:
+
+1. **Reflog (Orin).** The tree stayed on `test-logging` and was never committed during the campaign.
+   - `573f313` committed 2026-09-30 18:25.
+   - 2026-10-07 11:27:55: checkout test-logging -> test-campaign at 573f313.
+   - 11:28:01: commit `1d00853` "7/10 tests", 6 s later, 861 files. That is a commit of the whole
+     dirty tree, not new work.
+   - No ROS launch dirs exist for 2026-10-02..10-07, so the car was not run in between.
+2. **Manifests (`~/f1tenth_archive/complete/*/*.manifest.json`).**
+   - All 58 runs say branch `test-logging`, `dirty: true`.
+   - P004-R012..R019 = `573f313b1ed5…` (also in their `meta.json` `git_commit`).
+   - No manifest or log captured a diff: the logger stores only `git status --porcelain` != "".
+   - Caveat: "dirty" would also be set by untracked run output alone, so on its own it proves nothing.
+3. **Params snapshots.** Every 09-30 and 10-01 `*.params.yaml` = blob `44f88f9` = `1d00853`'s
+   `stack_params.yaml`. `573f313`/`e47e646` have `28ba26c`. Earlier days also differ from their commits:
+   - 09-21/22: `961e7e6` vs `c009182`
+   - 09-23..28: `fcc1337` vs `08398d6`
+4. **Stack restarted for EVERY run, not just every day.**
+   - `~/.ros/log` holds one full bring-up per run (discovery server + component_supervisor + 20
+     component launches, 22 dirs within ~3 s):
+     - 09-30: 7 bring-ups (17:26..17:39) for 7 runs;
+     - 10-01: 9 bring-ups (11:14:58, 11:17:17, 11:20:41, 11:23:10, 11:28:02, 11:30:40, 11:32:09,
+       11:33:57, 11:35:25) for 9 runs, each 1-2 min before its run, each ended by ctrl-c.
+   - With symlink-install the nodes read src at launch, and the snapshot is copied at record time
+     ~1-2 min later.
+   - **So the 1d00853 yaml values were really loaded.** This is the condition linus put on `7e5910e`, and it is met.
+5. **Code new in 1d00853 ran during the campaign** (10-01 node and launch logs):
+   - `reset_manager` started 9x;
+   - viz `throttle` relays 18x;
+   - `viz_jpeg_node` ran;
+   - `foxglove_bridge` advertised only the whitelist set (`/viz/scan`,
+     `/viz/camera/image_annotated/compressed`, `/viz/costmap/visualization/compressed`, /tf, ...).
+   - `reset_manager` appears in launch logs from 09-21 on (4/54/62/50/21/14/25 launch logs on
+     09-21/22/23/24/28/30/10-01).
+   - None of these files exist at `573f313`.
+   - This settles linus's "bring-up work cannot be confirmed for 10-01": it was live.
+6. **erpm gain 4516.9 live.** /odom displacement vs /slam/pose displacement in the archived bags:
+   - 09-30 ratios 1.007, 1.005, 0.997, 0.995, 0.988, 0.993;
+   - 10-01 ratios 0.958, 0.990, 0.996, 0.983.
+   - With 5499.27 the ratio would be ~0.82 (5499.27/4516.9 = 1.2175, see vesc.yaml's own comment).
+   - Script: odom_vs_slam.py, sqlite opened read-only.
+7. **Steering gains -1.0552/-1.1133 live.** linus's servo-gain readout from the bags, plus steering
+   saturating at +0.319/-0.309 (campaign-final `output/campaign_final_report.md`, Part A).
+8. **LLM translator default live.** From 09-22 the model's raw output omits `thresh` on wall guards
+   (P002-R001..R008, P005-R002..R009 `llm_raw`) and the missions still translated. That needs
+   1d00853's `_default_wall_thresh` in `plan_translate.py`. On 10-08 at clean `e47e646` the model
+   emitted `thresh: 3.0` again.
+
+`origin/campaign-dirty-evidence` (`7e5910e`) is correct for what it covers (the yaml) but incomplete.
+It leaves out the erpm gain, the steering gains and the LLM default.
+
+### Files that differ
+
+- Orin HEAD `6ebbc8a` + working tree vs `573f313`: 1026 files, +257913/-365.
+  - 899 are `first_test_campaing/` run data.
+  - Code: src/f1tenth_control 20, f1tenth_logger 18, f1tenth_bringup 14, f1tenth_behavior 14,
+    f1tenth_intelligence 10, f1tenth_perception 5, corridor_perception 2, f1tenth_params 1,
+    f1tenth_hardware 1.
+  - Also tools 17, test_campaign 14, output 5, docs 4, scripts 2.
+- Orin HEAD `6ebbc8a` vs `1d00853`: 182 files, +72291/-262. These are the 24 post-campaign
+  commits on test-campaign (campaign fixes A1-A5, B8, M02 data). None of them is campaign state.
+- The working tree adds only `.claude/settings.json` and `pr.json` (section 2). No source edits.
+- `573f313..1d00853` restricted to runtime code and config, and what campaign-final has of it:
+
+| file(s) | campaign (1d00853) | in campaign-final 5c25ade? | runtime evidence |
+|---|---|---|---|
+| `f1tenth_bringup/config/vesc.yaml` | speed_to_erpm_gain **4516.9** | **NO** (5499.27) | odom/SLAM ratio ~1.00 |
+| `f1tenth_hardware/config/steering_calibration.yaml` | gain_left **-1.0552**, gain_right **-1.1133** | **NO** (-1.2135 both) | bag servo readout (linus) |
+| `stack_params.yaml` steering bounds | -0.309 / +0.319 | **NO** (-0.283 / +0.278) | params snapshot, saturation |
+| `llm/plan_translate.py`, prompts v2, `llm_planner_node.py` | wall thresh default 2.0/3.0 | NO (plan_translate differs only by B-F) | llm_raw without thresh |
+| bring-up: components.yaml, reset_manager, viz_relays, viz_jpeg_node, foxglove launch, supervisor (4 lines) | present | NO | 10-01 launch logs |
+| stack_params viz/foxglove keys | present | NO | snapshot |
+| mission_logger_node.py (never record `/viz/`) | present | NO | none (inert for the default topic list) |
+| missions/*.json, matlab_export, run_select, corridor_perception tracker, scripts | present | NO | offline / not launched |
+| `models/yolo26_office.pt` (45 MB) | untracked file | NO | not configured (`yolo_model: yolo26s-seg.pt`) |
+
+### stack_params.yaml (descriptions excluded; 49 more rows differ only in description text)
+
+Orin now = `6ebbc8a`; the working tree has the same yaml. campaign-final added for reference.
+
+| param | 573f313 | 1d00853 (= campaign snapshot) | Orin now 6ebbc8a | campaign-final 5c25ade |
+|---|---|---|---|---|
+| `corr_L_base` | – | – | 3.0 | – |
+| `corr_half_width_start_m` | – | – | – | 0.64 |
+| `corr_lookahead_frac` | – | – | 0.85 | – |
+| `corr_width_scale_with_length` | – | – | – | False |
+| `corr_wmax` | – | – | 0.6 | – |
+| `corr_wmin` | – | – | 0.6 | – |
+| `corridor_heading_return` | True | True | False | True |
+| `debug_image_jpeg_quality` | – | – | – | 50 |
+| `debug_image_min_confidence` | – | – | – | 0.1 |
+| `debug_image_rate_hz` | – | – | – | 5.0 |
+| `debug_image_width` | – | – | – | 480 |
+| `enable_viz_relays` | – | True | True | – |
+| `foxglove_client_topic_whitelist` | – | ['^/clicked_point$', '^/goal_pose$', '^/initialpos | ['^/clicked_point$', '^/goal_pose$', '^/initialpos | – |
+| `foxglove_send_buffer_limit` | – | 2500000 | 2500000 | – |
+| `foxglove_service_whitelist` | – | '^(?!/zed2/)(?!.*/(describe_parameters|get_paramet | '^(?!/zed2/)(?!.*/(describe_parameters|get_paramet | – |
+| `foxglove_topic_whitelist` | – | ['^/viz/.*', '^/tf$', '^/tf_static$', '^/robot_des | ['^/viz/.*', '^/tf$', '^/tf_static$', '^/robot_des | – |
+| `foxglove_use_compression` | – | False | False | – |
+| `front_clearance_publish_debug_raw` | False | False | True | False |
+| `front_clearance_publish_debug_wall` | – | – | – | True |
+| `front_clearance_wall_confirm_enabled` | – | – | True | – |
+| `front_clearance_wall_confirm_half_angle_deg` | – | – | 30.0 | – |
+| `front_clearance_wall_confirm_min_extent_m` | – | – | 0.8 | – |
+| `front_clearance_wall_confirm_min_inliers` | – | – | 10 | – |
+| `front_clearance_wall_confirm_search_window_m` | – | – | 0.6 | – |
+| `front_clearance_wall_confirm_tolerance_frac` | – | – | 0.1 | – |
+| `front_clearance_wall_confirm_tolerance_m` | – | – | 0.3 | – |
+| `mission_translator_wall_default_distance` | – | – | 0.5 | – |
+| `mission_translator_wall_default_distance_before_turn` | – | – | 3.0 | – |
+| `mpc_blocked_enabled` | – | – | True | – |
+| `mpc_blocked_infeasible_sec` | – | – | 1.0 | – |
+| `mpc_blocked_lock_fraction` | – | – | 0.95 | – |
+| `mpc_blocked_lock_window_sec` | – | – | 2.0 | – |
+| `mpc_blocked_min_progress_m` | – | – | 0.15 | – |
+| `mpc_blocked_plan_check_sec` | – | – | 2.0 | – |
+| `mpc_blocked_progress_window_sec` | – | – | 2.5 | – |
+| `mpc_control_period_sec` | – | – | 0.1 | – |
+| `mpc_horizon_steps` | – | – | 20 | – |
+| `mpc_keepout_footprint_circles` | – | – | 3 | – |
+| `mpc_min_speed_all_moves` | – | – | True | – |
+| `mpc_obstacle_keepout_enabled` | – | – | True | – |
+| `mpc_pass_side_forget_sec` | – | – | 2.0 | – |
+| `mpc_pass_side_match_radius_m` | – | – | 0.5 | – |
+| `mpc_prediction_dt_s` | – | – | – | 0.2 |
+| `mpc_prediction_dt_sec` | – | – | 0.2 | – |
+| `mpc_steering_angle_max_rad` | 0.278 | 0.319 | 0.319 | 0.278 |
+| `mpc_steering_angle_min_rad` | -0.283 | -0.309 | -0.309 | -0.283 |
+| `mpc_w_du_delta` | 8.33 | 8.33 | 8.5714 | 8.33 |
+| `swept_clearance_body_front_x_m` | 0.443 | 0.443 | 0.443 | – |
+| `viz_jpeg_quality` | – | 75 | 75 | – |
+| `viz_rate_costmap` | – | 5.5 | 5.5 | – |
+| `viz_rate_default` | – | 5.5 | 5.5 | – |
+| `viz_rate_image_annotated` | – | 3.3 | 3.3 | – |
+| `viz_rate_scan` | – | 5.5 | 5.5 | – |
+| `wall_distance_timeout_s` | – | – | 2.0 | – |
+| `wall_stop_require_lidar` | – | – | True | – |
+
+### Proposed cherry-picks onto campaign-final (NOT applied, waiting for Andreas's OK)
+
+`1d00853` is one 861-file commit with run data, so it cannot be cherry-picked whole. Each proposal
+applies the `573f313..1d00853` diff limited to the listed paths, as its own commit on campaign-final.
+**All of it applies cleanly** (`git apply --check` against campaign-final).
+
+```bash
+# P1: vehicle calibration and steering bounds as driven. REQUIRED for a like-for-like test.
+git diff 573f313 1d00853 -- \
+  src/f1tenth_bringup/config/vesc.yaml \
+  src/f1tenth_hardware/f1tenth_hardware/config/steering_calibration.yaml \
+  src/f1tenth_params/config/stack_params.yaml \
+  src/f1tenth_control/mpc_controller/test/test_steering_limits.py \
+  src/f1tenth_control/mpc_controller/test/test_wall_turn_increment.py \
+  src/f1tenth_control/mpc_controller/test/test_weight_set.py | git apply --index
+# (stack_params here carries the steering bounds plus the inert viz/foxglove keys; supersedes 7e5910e)
+
+# P2: LLM wall-guard default as run. RECOMMENDED (M02/M05-type prompts plan differently without it).
+git diff 573f313 1d00853 -- src/f1tenth_intelligence/llm | git apply --index
+
+# P3: campaign bring-up (viz relays, foxglove whitelist, reset_manager), same CPU load as the campaign. RECOMMENDED.
+git diff 573f313 1d00853 -- src/f1tenth_bringup ':!src/f1tenth_bringup/config/vesc.yaml' \
+  src/f1tenth_logger/f1tenth_logger/mission_logger_node.py \
+  src/f1tenth_logger/test/test_viz_topics_not_recorded.py | git apply --index
+# + one blank line before "# Snapshotted into the manifest" in mission_logger_node.py (flake8 E305 at the seam)
+
+# P4: offline/tooling (missions json, matlab_export, corridor_perception Step 1, scripts). NOT recommended:
+#     missions/go_to_person.json (gap_m 0.5) is rejected under Part E (gap_min 0.53 m from the bumper)
+#     and breaks ~27 go_to tests; corridor_perception carries a stale strict xfail.
+```
+
+Verified on a **local, unpushed** branch `orin-verify-campaign-dirty`: campaign-final + P1..P4 as 4
+commits (70d90d1, 703ad07, 6505420, 3ae2108). It builds, and the rest of its diff to 1d00853 is
+81 files, +4238/-293, i.e. Parts B-F.
+
+Tests on that branch vs campaign-final:
+- **P1 and P2 add no failures.** `test_steering_limits` passes 8/8 with the campaign gains and bounds.
+  `test_object_corridor_mode::test_the_straight_branch_limit_moves_with_the_ramp_span` goes from
+  failing to passing.
+- **P3** adds:
+  - logger flake8 E305 (merge seam, the one-line fix above);
+  - `test_foxglove_whitelists::test_topics_hide_the_zed_tree_and_full_rate_images_only` (TypeError,
+    the test compiles a yaml *list* as a regex). That test was already wrong in the campaign tree;
+    it is a test bug, not a runtime one.
+- **P4** adds the go_to_person and corridor_perception failures named above.
+- One more failure, `test_start_mission_go_to_object::test_start_with_every_dependency_live_runs`,
+  appears with P4 and is not further investigated. The test file comes from 1d00853; it expects
+  RUNNING immediately and probably meets Part B's 15 s countdown.
+
+## 4. Build and test (step 4)
+
+All tests: `colcon test` on the 19 workspace packages (`src/f1tenth_external` and the vesc C++
+packages skipped), with an isolated `--test-result-base` per run.
+
+| tree | build | tests | failures | skipped |
+|---|---|---|---|---|
+| baseline `573f313` (`build_base573`/`install_base573`, symlink) | 37 pkgs OK, 4 min 41 s | 2675 | 33 | 27 |
+| **campaign-final `5c25ade`** (main build/install) | 37 pkgs OK, 48 s incremental | 2827 | 36 | 27 |
+| local verify branch (campaign-final + P1..P4) | 37 pkgs OK | 2859 | 52 + 12 errors | 27 |
+
+- **campaign-final introduces no new failing test.** The 33 baseline failures are the same 33 test
+  IDs, in both directions:
+  - lint/copyright in bringup/diagnostics/logger/llm/mpc_controller;
+  - 12 llm stub `_note_llm_sent` AttributeErrors;
+  - 4 stale-expectation tests in mpc_controller (wall_turn_increment x3, weight_set w_du_delta);
+  - corridor_direction_recovery;
+  - d_wall_correction;
+  - model_log header;
+  - object_corridor_mode ramp span;
+  - go_to_object grace test.
+- The 3 extra failures are `f1tenth_messages` cppcheck/cpplint/uncrustify "No files found". That is
+  an environment artefact: the package is unchanged 573f313 -> campaign-final, but the main
+  `build/f1tenth_messages` was configured 2026-09-07 with a different linter set. The fresh baseline
+  configure registers only copyright/lint_cmake/xmllint.
+- 152 new tests come with B-F and all pass, including f1tenth_description `test_base_front`.
+- **No fix commit was needed. Nothing was pushed to campaign-final.**
+- Build note: the first campaign-final build failed on dangling symlinks left in build/ and install/
+  by files that the checkout removed (`models/yolo26_office.pt`, `viz_relays.*`,
+  `reset_manager.*`, `missions/test.json`). Removing only the broken symlinks
+  (`find build install -xtype l -delete`, 12 then 10 links) fixed it.
+
+## 5. Stationary bring-up (step 5)
+
+**Not run yet: waiting for Andreas's go-ahead (car on the stand, no motor commands).**
+Planned checks:
+- `/camera/debug_image/compressed` rate (expect ~5 Hz), message size, and the CPU of the yolo
+  process at `debug_image_rate_hz` 0 vs 5;
+- `/perception/debug/front_wall` content;
+- `tf2_echo base_link base_front|laser|zed2_camera_link`;
+- every front-distance topic against a tape-measured object distance from the bumper;
+- a short dummy mission that never drives (bag from LOADED, `preroll_s` ~15, all topics present);
+- the mpc_corr tick and solve time with dt 0.2;
+- per-core CPU for 60 s.
+
+## DECISIONS TAKEN ALONE
+
+1. **Snapshot without switching branches.** The snapshot commit was built from a temporary index
+   (`read-tree` + `commit-tree`). The Orin's working tree, index and branch were never changed, so
+   no switch back was needed.
+2. **vesc submodule untracked files.** The 2 CSVs (`vesc_tuning/speed_sweep_results`) were copied
+   into the superproject snapshot under `orin_snapshot_20261013/vesc_submodule_untracked/`
+   instead of committing inside the submodule, which would mean pushing to sjckness/vesc.
+   `__pycache__` excluded.
+3. **Pushed over SSH** (`git@github.com:sjckness/f1tenth_more.git`) because the Orin's https origin
+   has no push credentials. Only `orin-snapshot-20261013` was pushed.
+4. **Baseline built with `--symlink-install`**, the workspace default from `~/.colcon/defaults.yaml`, so
+   it is comparable with the main build. Its tests ran while 573f313 was checked out.
+   `build_base573/` and `install_base573/` are left on disk, untracked.
+5. **Test scope:** the 19 workspace packages; the `src/f1tenth_external` submodules and the
+   upstream vesc C++ packages were left out of both runs.
+6. **Removed broken symlinks** in build/ and install/ (only `-xtype l`, 22 in total over two
+   checkouts) to fix the symlink-install trap after branch switches. No other file under build/ or
+   install/ was touched.
+7. **Built and tested the cherry-pick proposal on a local branch `orin-verify-campaign-dirty`**
+   (never pushed) so the GO/NO-GO rests on evidence. campaign-final was then checked out and rebuilt
+   again. The car's install is campaign-final 5c25ade as pushed.
+8. **Local branch `campaign-final`** created to track origin/campaign-final, for building and for
+   any later fix commits.
+9. Did not pull the 3 new linus commits on `test-campaign` (`349c881`) into the Orin's local branch.
+
+## GO / NO-GO for today's test
+
+**NO-GO for campaign-final 5c25ade as pushed. GO once P1 (+ P2, P3 recommended) is applied and the
+stationary bring-up passes.**
+
+Reasons:
+- **Speed and distance calibration.** campaign-final carries `speed_to_erpm_gain` 5499.27; the car ran the campaign on
+  4516.9, which the archived bags confirm (odom/SLAM ~1.00). With 5499.27, every commanded speed
+  becomes ~1.22x faster on the floor and /odom under-reads distance by ~18 %, so distance-guarded
+  moves overshoot (3 m becomes ~3.65 m). That breaks comparability with the campaign and moves
+  every speed-dependent margin.
+- **Steering.** campaign-final carries servo gains -1.2135/-1.2135 and MPC bounds -0.283/+0.278.
+  The campaign ran -1.0552/-1.1133 and -0.309/+0.319, so today's car would steer differently than
+  the one whose runs you are comparing with.
+- Build and tests are fine: campaign-final builds on Humble and adds no failing test over 573f313.
+  Part B's recorder design is compatible with rosbag2 0.15.16.
+- Still open, needs the stand (section 5):
+  - 15 s pre-roll vs the real discovery time;
+  - debug image rate and CPU;
+  - the camera TF that Part E's front_clearance now depends on;
+  - the bumper offset 0.443 m, which is mesh-derived and not measured, and sits next to a
+    base_link docstring contradiction;
+  - MPC tick at dt 0.2.
