@@ -24,8 +24,8 @@ from f1tenth_messages.msg import (
 from f1tenth_params.param_defaults import get_odom_topic, get_value
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
-    CORRIDOR_HANDLE_FRAC, POSE_HANDLE_FRAC, corridor_curves,
-    corridor_curves_to_pose, wrap_pi)
+    CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC,
+    corridor_curves, corridor_curves_to_pose, wrap_pi)
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
@@ -842,7 +842,11 @@ class MPCController(Node):
         # Corridoio MATLAB-like
         #
         # Narrowed to 1/3 width on request (2026-09-07): corr_wmin 1.3 ->
-        # 0.4333, corr_wmax 2.3 -> 0.7667. Those are kept.
+        # 0.4333, corr_wmax 2.3 -> 0.7667. WIDENED again (campaign-final,
+        # 2026-10-12) with the 2.3 / 1.3 end-to-start ratio held fixed: the
+        # start half-width is now the parameter corr_half_width_start_m and
+        # the end is that times CORRIDOR_WIDTH_RATIO, so the shape cannot be
+        # retuned by accident when the size is. See the yaml key.
         #
         # corr_L_base was shortened to 1/2 (3.0 -> 1.5) in the same request and
         # has been RESTORED to 3.0 (2026-09-08). It could not stay at 1.5: the
@@ -853,10 +857,11 @@ class MPCController(Node):
         # is 0.75 m -- inside the reach, and short enough that the arclength
         # advance clamped to the corridor's last index on every single cycle.
         # The WIDTH request is independent of the length and is untouched.
-        # Every one of these is a bare literal with no ROS parameter behind it
-        # (unlike corridor_update_period directly below, which IS a declared
-        # param wired through stack_params.yaml), so there is no launch-time
-        # override and no config file that records what they used to be.
+        # corr_L_base and corr_N are bare literals with no ROS parameter
+        # behind them (unlike corridor_update_period directly below, which IS
+        # a declared param wired through stack_params.yaml), so there is no
+        # launch-time override and no config file that records what they used
+        # to be. The two half-widths were too, until campaign-final.
         #
         # corr_wmin/corr_wmax are HALF-widths, not full widths: build_
         # straight_corridor places the walls at C +/- w*n (see its own
@@ -871,8 +876,20 @@ class MPCController(Node):
         # car-to-goal distance into [1.0, corr_L_base].
         self.corr_L_base = 3.0
         self.corr_N = 120
-        self.corr_wmin = 0.4333
-        self.corr_wmax = 0.7667
+        self.corr_wmin = float(self.declare_parameter(
+            'corr_half_width_start_m',
+            get_value('corr_half_width_start_m')).value)
+        if not self.corr_wmin > 0.0:
+            raise ValueError(
+                f'corr_half_width_start_m must be > 0, got {self.corr_wmin}')
+        self.corr_wmax = self.corr_wmin * CORRIDOR_WIDTH_RATIO
+        # The funnel's old per-metre opening (corridor_geometry's length_ref):
+        # with it the end reaches corr_wmax only at corr_L_base and a 1 m
+        # corridor ends barely wider than it starts. OFF by default, so the
+        # end-to-start ratio is CORRIDOR_WIDTH_RATIO at every length.
+        self.corr_width_scale_with_length = bool(self.declare_parameter(
+            'corr_width_scale_with_length',
+            get_value('corr_width_scale_with_length')).value)
 
         # LOOKAHEAD IS DERIVED FROM CORRIDOR LENGTH, NOT A SECOND CONSTANT.
         # It used to be a bare `lookahead = 1.5` inside compute_local_target
@@ -4904,7 +4921,10 @@ class MPCController(Node):
                 w0=self.corr_wmin,
                 w1=self.corr_wmax,
                 r_min=_r_min,
-                length_ref=getattr(self, 'corr_L_base', None),
+                length_ref=(getattr(self, 'corr_L_base', None)
+                            if getattr(self, 'corr_width_scale_with_length',
+                                       False) else None),
+                walls='trapezoid',
             )
             # THE CAP APPLIES TO THIS SHAPE TOO, and it has to be checked
             # after the fit rather than before it: the pose corridor's length
@@ -4975,10 +4995,16 @@ class MPCController(Node):
                 # heading error at L 3.0. wall_turn caps its own dpsi
                 # separately, so there this is belt-and-braces.
                 r_min=_r_min,
-                # And the funnel opens at a fixed rate per metre rather than
-                # reaching corr_wmax whatever the length: 10 of the 24 archived
-                # object rebuilds were WIDER THAN LONG without this.
-                length_ref=getattr(self, 'corr_L_base', None),
+                # The per-metre funnel opening, only when
+                # corr_width_scale_with_length asks for it: 10 of the 24
+                # archived object rebuilds were WIDER THAN LONG without it,
+                # but with it the end/start ratio fell to 1.2-1.6 on the
+                # corridors the car actually built and the walls read as
+                # parallel. getattr: the stand-ins predate the parameter.
+                length_ref=(getattr(self, 'corr_L_base', None)
+                            if getattr(self, 'corr_width_scale_with_length',
+                                       False) else None),
+                walls='trapezoid',
             )
         if not geom['feasible'] and pose_target is None:
             self.get_logger().warn(
@@ -5036,6 +5062,10 @@ class MPCController(Node):
                 "w0": float(self.corr_wmin),
                 "w1": float(self.corr_wmax),
                 "handle_frac": float(CORRIDOR_HANDLE_FRAC),
+                # The wall construction; its absence means the Bezier walls
+                # of every older record. corridor_def.evaluate does not read
+                # it yet, so offline re-plots still draw Bezier walls.
+                'walls': 'trapezoid',
                 # WHICH CENTRELINE, because from here there are two kinds and
                 # they are not distinguishable from the other fields: 'ramp'
                 # is the integrated heading ramp of the given L, 'bezier' the
@@ -5500,7 +5530,7 @@ class MPCController(Node):
         #
         # Because the value is no longer derived from the corridor, the
         # "never leaves the corridor" property is no longer structural: it
-        # holds because 0.30 < the 0.4333 m narrow half-width, not because
+        # holds because 0.30 < the 0.64 m narrow half-width, not because
         # the arithmetic forces it. The throttled warn below is what keeps
         # that from going quiet if either number is ever retuned past the
         # other.

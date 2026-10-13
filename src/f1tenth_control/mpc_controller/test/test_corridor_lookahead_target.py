@@ -29,7 +29,6 @@ Run standalone: python3 -m pytest test/test_corridor_lookahead_target.py -v
 
 import inspect
 import math
-import re
 import unittest
 
 import numpy as np
@@ -335,12 +334,11 @@ class TestObstaclesReachTheTargetBeforeItIsComputed(unittest.TestCase):
         A deflection wider than the corridor half-width puts the terminal
         cost's own target outside the corridor the corridor cost is pulling
         the car back into -- the two costs then fight. corr_wmin is the
-        narrow end and is still a bare literal in __init__, so it is read
-        out of the source rather than copied here.
+        narrow end, read from its yaml key corr_half_width_start_m rather
+        than copied here.
         """
         shift = float(get_value('obstacle_target_shift_m'))
-        src = inspect.getsource(MPCController.__init__)
-        wmin = float(re.search(r'self\.corr_wmin\s*=\s*([0-9.]+)', src).group(1))
+        wmin = float(get_value('corr_half_width_start_m'))
         self.assertLess(shift, wmin)
 
     def test_control_loop_populates_the_dict_before_taking_the_target(self):

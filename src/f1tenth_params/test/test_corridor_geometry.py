@@ -22,8 +22,10 @@ import pytest
 
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC,
+    CORRIDOR_WIDTH_RATIO,
     SMOOTHSTEP_PEAK_SLOPE,
     corridor_curves,
+    corridor_curves_to_pose,
     ramp_span_for,
     wrap_pi,
 )
@@ -255,3 +257,85 @@ def test_the_width_rate_never_widens_a_corridor():
 def test_the_handle_fraction_is_shared_not_per_branch():
     """One family: every branch reaches corridor_curves with the same handle."""
     assert CORRIDOR_HANDLE_FRAC == 0.55
+
+
+# --------------------------------------------------------------------------
+# the trapezoid walls
+# --------------------------------------------------------------------------
+
+def test_the_width_ratio_is_the_old_corridor_pair():
+    """2.3 / 1.3 is the shape; 0.7667 / 0.4333 kept it to the 4th digit."""
+    assert CORRIDOR_WIDTH_RATIO == pytest.approx(2.3 / 1.3)
+    assert W0 * CORRIDOR_WIDTH_RATIO == pytest.approx(W1, abs=1e-3)
+
+
+def test_bezier_stays_the_default_wall_shape():
+    """A definition logged before the trapezoid re-evaluates unchanged."""
+    plain = corridor_curves(0.0, 0.0, 0.2, 0.0, 3.0, 120, w0=W0, w1=W1)
+    bez = corridor_curves(0.0, 0.0, 0.2, 0.0, 3.0, 120, w0=W0, w1=W1,
+                          walls='bezier')
+    for key in ('xL', 'yL', 'xR', 'yR', 'halfWidth'):
+        assert np.array_equal(plain[key], bez[key])
+    assert plain['ctrl_left'] is not None
+
+
+def test_trapezoid_walls_are_straight_lines_on_a_straight_corridor():
+    w1 = W0 * CORRIDOR_WIDTH_RATIO
+    geom = corridor_curves(0.0, 0.0, 0.0, 0.0, 3.0, 120, w0=W0, w1=w1,
+                           walls='trapezoid')
+    expected = W0 + (w1 - W0) * geom['xL'] / 3.0
+    assert np.allclose(geom['yL'], expected, atol=1e-12)
+    assert np.allclose(geom['yR'], -expected, atol=1e-12)
+    assert np.allclose(geom['xL'], geom['xc'], atol=1e-12)
+
+
+def test_trapezoid_half_width_grows_linearly_along_any_centreline():
+    """The solver bounds halfWidth, so it must be the trapezoid's hw."""
+    u = np.linspace(0.0, 1.0, 120)
+    for dpsi in (0.0, 0.5, -0.9):
+        geom = corridor_curves(1.0, -2.0, 0.3, 0.3 + dpsi, 2.2, 120,
+                               w0=0.6, w1=0.6 * CORRIDOR_WIDTH_RATIO,
+                               walls='trapezoid')
+        assert np.allclose(geom['halfWidth'],
+                           0.6 + 0.6 * (CORRIDOR_WIDTH_RATIO - 1.0) * u,
+                           atol=1e-12)
+
+
+@pytest.mark.parametrize('length', [0.74, 1.5, 3.0, 5.0])
+def test_trapezoid_keeps_the_end_to_start_ratio_at_every_length(length):
+    geom = corridor_curves(0.0, 0.0, 0.0, 0.0, length, 120, w0=0.6,
+                           w1=0.6 * CORRIDOR_WIDTH_RATIO, walls='trapezoid')
+    ratio = geom['halfWidth'][-1] / geom['halfWidth'][0]
+    assert ratio == pytest.approx(CORRIDOR_WIDTH_RATIO)
+
+
+def test_trapezoid_leaves_the_centreline_alone():
+    """Only the walls change: centreline, tangent and end are the ramp's."""
+    kw = {'u_start': U_START, 'u_end': U_END, 'w0': W0, 'w1': W1,
+          'r_min': RMIN_LEFT}
+    bez = corridor_curves(0.0, 0.0, 0.0, 0.6, 2.0, 120, **kw)
+    trap = corridor_curves(0.0, 0.0, 0.0, 0.6, 2.0, 120, walls='trapezoid',
+                           **kw)
+    for key in ('xc', 'yc', 'tx', 'ty', 'nx', 'ny', 'Pend'):
+        assert np.array_equal(bez[key], trap[key])
+    assert trap['kappa_max'] == bez['kappa_max']
+    assert trap['ctrl_left'] is None and trap['ctrl_right'] is None
+
+
+def test_trapezoid_walls_on_the_pose_corridor_are_offset_by_half_width():
+    geom = corridor_curves_to_pose(0.0, 0.0, 0.0, 2.0, 0.5, 0.3, 120,
+                                   w0=0.6, w1=0.6 * CORRIDOR_WIDTH_RATIO,
+                                   walls='trapezoid')
+    u = np.linspace(0.0, 1.0, 120)
+    assert np.allclose(geom['halfWidth'],
+                       0.6 + 0.6 * (CORRIDOR_WIDTH_RATIO - 1.0) * u,
+                       atol=1e-12)
+    assert geom['ctrl_left'] is None
+
+
+def test_an_unknown_wall_shape_is_refused():
+    with pytest.raises(ValueError):
+        corridor_curves(0.0, 0.0, 0.0, 0.0, 3.0, 120, walls='funnel')
+    with pytest.raises(ValueError):
+        corridor_curves_to_pose(0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 120,
+                                walls='funnel')

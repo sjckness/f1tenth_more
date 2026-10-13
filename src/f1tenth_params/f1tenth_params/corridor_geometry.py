@@ -50,6 +50,21 @@ THE BOUNDARY is the two walls. It is NOT "centreline plus a half-width": w0
 and w1 differ (the corridor is a widening funnel), and a Bezier is not a
 constant offset of an integrated clothoid, so `half_width` below is a
 DERIVED, per-sample quantity, not a parameter.
+
+THE TRAPEZOID (``walls='trapezoid'``) is the other wall construction, and the
+one the planner builds: each wall is the centreline offset along its own
+normal by a half-width that grows LINEARLY with the centreline parameter,
+
+    hw(u) = w0 + (w1 - w0) u,      wall = centreline +/- hw(u) n(u)
+
+so a straight corridor is an exact trapezoid, and ``halfWidth`` is hw(u)
+itself -- the number the solver bounds at each centreline index. The Bezier
+walls ramp as a smoothstep in u instead (flat for the first and last
+quarter, 68% of the widening in the middle half), which on the short
+corridors the car actually builds reads as two parallel lines. ``'bezier'``
+stays the default so that a logged definition without a ``walls`` key --
+every record written before the trapezoid -- re-evaluates to the walls it
+was drawn with.
 """
 
 import math
@@ -64,6 +79,8 @@ __all__ = [
     'wrap_pi',
     'ramp_span_for',
     'CORRIDOR_HANDLE_FRAC',
+    'CORRIDOR_WALL_SHAPES',
+    'CORRIDOR_WIDTH_RATIO',
     'SMOOTHSTEP_PEAK_SLOPE',
 ]
 
@@ -71,6 +88,15 @@ __all__ = [
 #: in build_straight_corridor since that code was written; named here because
 #: it now has to be logged for a corridor to be reproducible.
 CORRIDOR_HANDLE_FRAC = 0.55
+
+#: End-to-start half-width ratio of the corridor. 2.3 / 1.3 is the pair the
+#: corridor was drawn with before 2026-09-07, and the 0.7667 / 0.4333 pair
+#: after it kept it; it is the SHAPE of the corridor, so a different size
+#: scales both ends and leaves this alone.
+CORRIDOR_WIDTH_RATIO = 2.3 / 1.3
+
+#: The two wall constructions; see the module docstring.
+CORRIDOR_WALL_SHAPES = ('bezier', 'trapezoid')
 
 #: Handle length of the POSE-TO-POSE centreline, as a fraction of the straight
 #: distance between the two poses. 0.40 from a search over the 24 archived
@@ -117,7 +143,7 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
                     dpsi=None, u_start=0.0, u_end=0.40,
                     w0=0.4333, w1=0.7667,
                     handle_frac=CORRIDOR_HANDLE_FRAC,
-                    r_min=None, length_ref=None):
+                    r_min=None, length_ref=None, walls='bezier'):
     """Every array build_straight_corridor's corridor dict carries.
 
     ``dpsi`` is the SIGNED, possibly unwrapped rotation the corridor asks for.
@@ -152,12 +178,20 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
 
     identical at length == length_ref (the design point), narrower below it.
 
+    ``walls`` picks the wall construction: ``'bezier'`` (default, the walls
+    every logged record before the trapezoid was drawn with) or
+    ``'trapezoid'``, the centreline offset by a linearly growing half-width.
+    See the module docstring.
+
     Returns a dict of numpy arrays plus the Bezier control points, so a caller
-    that wants to log the definition does not have to re-derive them.
+    that wants to log the definition does not have to re-derive them. The
+    control points are None for trapezoid walls, which are not Beziers.
     """
     n = int(n)
     if n < 2:
         raise ValueError(f'a corridor needs at least 2 samples, got {n}')
+    if walls not in CORRIDOR_WALL_SHAPES:
+        raise ValueError(f'walls must be one of {CORRIDOR_WALL_SHAPES}, got {walls!r}')
     length = float(length)
 
     u = np.linspace(0.0, 1.0, n)
@@ -227,6 +261,13 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
     tx = dx / dn
     ty = dy / dn
 
+    if walls == 'trapezoid':
+        # Offset along the centreline's own unit normal (-ty, tx), so the
+        # walls are 2 hw apart at every sample and halfWidth below is hw.
+        hw = w0 + (w1_eff - w0) * u
+        x_l, y_l = xc - hw * ty, yc + hw * tx
+        x_r, y_r = xc + hw * ty, yc - hw * tx
+
     return {
         'xc': xc, 'yc': yc,
         'xL': x_l, 'yL': y_l,
@@ -246,8 +287,10 @@ def corridor_curves(x0, y0, psi_start, psi_end, length, n,
                       / max((u_end_eff - u_start) * length, 1e-9)),
         # the control points, so corridor_payload can log a definition that
         # reproduces these walls without re-deriving C1 from the centreline
-        'ctrl_left': [p_l0.tolist(), cl0.tolist(), cl1.tolist(), p_l1.tolist()],
-        'ctrl_right': [p_r0.tolist(), cr0.tolist(), cr1.tolist(), p_r1.tolist()],
+        'ctrl_left': (None if walls == 'trapezoid' else
+                      [p_l0.tolist(), cl0.tolist(), cl1.tolist(), p_l1.tolist()]),
+        'ctrl_right': (None if walls == 'trapezoid' else
+                       [p_r0.tolist(), cr0.tolist(), cr1.tolist(), p_r1.tolist()]),
     }
 
 
@@ -256,7 +299,7 @@ def corridor_curves_to_pose(x0, y0, psi_start, x1, y1, psi_end, n,
                             handle_b=POSE_HANDLE_FRAC,
                             w0=0.4333, w1=0.7667,
                             handle_frac=CORRIDOR_HANDLE_FRAC,
-                            r_min=None, length_ref=None):
+                            r_min=None, length_ref=None, walls='bezier'):
     """The same corridor dict, for a centreline that ENDS ON A GIVEN POSE.
 
     corridor_curves integrates a heading ramp for a given LENGTH: where it
@@ -294,11 +337,14 @@ def corridor_curves_to_pose(x0, y0, psi_start, x1, y1, psi_end, n,
     Returns the same keys as :func:`corridor_curves` plus ``length`` (the
     centreline's arclength, which here is an output) and ``handle_a`` /
     ``handle_b``. ``u_end_eff``/``ramp_clamped`` are reported as the ramp
-    concepts they are: not applicable, so 1.0 and False.
+    concepts they are: not applicable, so 1.0 and False. ``walls`` is
+    :func:`corridor_curves`' own.
     """
     n = int(n)
     if n < 2:
         raise ValueError(f'a corridor needs at least 2 samples, got {n}')
+    if walls not in CORRIDOR_WALL_SHAPES:
+        raise ValueError(f'walls must be one of {CORRIDOR_WALL_SHAPES}, got {walls!r}')
 
     p0 = np.array([float(x0), float(y0)])
     p3 = np.array([float(x1), float(y1)])
@@ -374,6 +420,13 @@ def corridor_curves_to_pose(x0, y0, psi_start, x1, y1, psi_end, n,
     tx = dx / dn
     ty = dy / dn
 
+    if walls == 'trapezoid':
+        # Offset along the centreline's own unit normal (-ty, tx), so the
+        # walls are 2 hw apart at every sample and halfWidth below is hw.
+        hw = w0 + (w1_eff - w0) * u
+        x_l, y_l = xc - hw * ty, yc + hw * tx
+        x_r, y_r = xc + hw * ty, yc - hw * tx
+
     return {
         'xc': xc, 'yc': yc,
         'xL': x_l, 'yL': y_l,
@@ -392,6 +445,8 @@ def corridor_curves_to_pose(x0, y0, psi_start, x1, y1, psi_end, n,
         'feasible': bool(feasible),
         'kappa_max': kappa_max,
         'ctrl_centre': [p0.tolist(), p1.tolist(), p2.tolist(), p3.tolist()],
-        'ctrl_left': [p_l0.tolist(), cl0.tolist(), cl1.tolist(), p_l1.tolist()],
-        'ctrl_right': [p_r0.tolist(), cr0.tolist(), cr1.tolist(), p_r1.tolist()],
+        'ctrl_left': (None if walls == 'trapezoid' else
+                      [p_l0.tolist(), cl0.tolist(), cl1.tolist(), p_l1.tolist()]),
+        'ctrl_right': (None if walls == 'trapezoid' else
+                       [p_r0.tolist(), cr0.tolist(), cr1.tolist(), p_r1.tolist()]),
     }
