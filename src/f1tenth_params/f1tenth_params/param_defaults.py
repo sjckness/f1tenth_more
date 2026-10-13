@@ -82,3 +82,16 @@ def get_odom_topic():
     imports get_value() the same way) since this package is dependency-free.
     """
     return '/odometry/filtered' if get_value('localization_source') == 'ekf' else '/odom'
+
+
+def get_wall_distance_topic():
+    """The single wall-truth topic every wall consumer reads (Float32, metres
+    from the front bumper, <= 0 = no reading): '/perception/virtual_wall'
+    (f1tenth_perception's lidar_front_wall_node, LiDAR + stereo WALL pixels +
+    odometry, scene_labels.py) when enable_scene_labels is true, else the
+    camera-only '/perception/front_distance' (front_clearance_node). One
+    switch, so the mission wall stop and the MPC's wall_turn can never read
+    two different walls.
+    """
+    return ('/perception/virtual_wall' if get_value('enable_scene_labels')
+            else '/perception/front_distance')

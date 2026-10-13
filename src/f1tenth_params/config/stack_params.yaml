@@ -257,6 +257,12 @@ yolo_model_task:
 # segmentation checkpoint (e.g. yolo26s-seg.pt) -- a detect-task model publishes no
 # mask image, so every detection falls back to box-region sampling regardless of
 # this flag.
+detection_3d_scene_labels_max_age_s:
+  default: 0.3
+  description: "Scene labels: oldest /perception/scene_labels [s] (stamp difference to the depth frame) detection_3d_node measures a detection's in-mask OTHER pixels against."
+detection_3d_scene_min_other_px:
+  default: 20
+  description: "Scene labels: fewest in-mask OTHER pixels for the OTHER-only median depth; fewer falls back to the whole-mask median and is counted (det_scene_fallback)."
 use_mask_depth:
   default: true
   description: "detection_3d_node: sample depth from the per-detection instance mask (median, box-region fallback) instead of the box region. Requires a segmentation yolo_model to have any effect."
@@ -524,6 +530,61 @@ front_clearance_publish_debug_raw:
 front_clearance_publish_debug_wall:
   default: true
   description: "front_clearance_node: publish /perception/debug/front_wall (std_msgs/String JSON, every depth frame: ROI, pixel counts, raw and smoothed stereo distance, objects over the ROI, front clearance, the latest /perception/lidar_front_wall fit) and subscribe /perception/lidar_front_wall for it. Logged only; nothing consumes it for control."
+# SCENE LABELS, stereo half (front_clearance_node, scene_labels.py). Only read
+# when enable_scene_labels (LiDAR front wall block below) is true. Ground uses
+# front_clearance_ground_prior_z_m / _band_m / _inlier_m / _ransac_iters /
+# _min_inliers above as its RANSAC settings; these add the scene-only gates.
+front_clearance_scene_rate_hz:
+  default: 5.0
+  description: "Scene labelling ticks per second in front_clearance_node (a depth frame is labelled when one is due). Budget: < 5% CPU and < 15 ms per tick on the Orin."
+front_clearance_scene_grid_width_px:
+  default: 160
+  description: "Columns of the depth sample the scene is labelled on (the published /perception/scene_labels width). 160 x 90 = 1/4 of the 640 x 360 depth image per axis."
+front_clearance_scene_grid_height_px:
+  default: 90
+  description: "Rows of the depth sample the scene is labelled on (the /perception/scene_labels height)."
+front_clearance_scene_wall_max_age_s:
+  default: 0.3
+  description: "Oldest [s] /perception/wall_planes a labelling tick uses (stamp difference to the depth frame); older = no LiDAR walls this tick. Also the oldest labels the ROI statistics use before falling back to floor removal."
+front_clearance_scene_ground_max_angle_deg:
+  default: 5.0
+  description: "A fitted floor plane is accepted only within this angle [deg] of the TF-predicted floor (base_link z up); otherwise the prior plane is the floor."
+front_clearance_scene_ground_max_offset_m:
+  default: 0.05
+  description: "A fitted floor plane is accepted only within this height [m] of the TF-predicted floor (front_clearance_ground_prior_z_m) under base_link; otherwise the prior plane is the floor."
+front_clearance_scene_ground_band_m:
+  default: 0.04
+  description: "A point less than this [m] above the floor is GROUND."
+front_clearance_scene_ceiling_min_m:
+  default: 2.0
+  description: "Lowest height [m above the floor] searched for the ceiling."
+front_clearance_scene_ceiling_max_m:
+  default: 4.0
+  description: "Highest height [m above the floor] searched for the ceiling. Heights are histogrammed in 0.02 m bins and the fullest bin is the ceiling."
+front_clearance_scene_ceiling_prior_m:
+  default: 0.0
+  description: "Ceiling height [m above the floor] used until one is measured. 0 = none: no CEILING label before the first measurement."
+front_clearance_scene_ceiling_band_m:
+  default: 0.08
+  description: "A point within this [m] below the ceiling height, or above it, is CEILING."
+front_clearance_scene_ceiling_alpha:
+  default: 0.3
+  description: "EMA weight of each new ceiling histogram peak."
+front_clearance_scene_ceiling_max_step_m:
+  default: 0.25
+  description: "A ceiling peak further than this [m] from the estimate is rejected (shelf, lintel) unless 10 ticks in a row agree it moved."
+front_clearance_scene_max_relevant_height_m:
+  default: 1.0
+  description: "A point higher than this [m above the floor] that is not on a YOLO mask is IGNORE. YOLO-mask points are never dropped by height."
+front_clearance_scene_wall_band_m:
+  default: 0.06
+  description: "A point within this [m] of a wall plane, inside its span, is WALL (never a YOLO-mask point). Also the inlier distance of the stereo fallback plane."
+front_clearance_scene_wall_min_span_m:
+  default: 0.8
+  description: "Smallest span [m] of a stereo fallback wall plane, the same rule as lidar_front_wall_wall_min_span_m for the LiDAR."
+front_clearance_scene_stereo_wall_min_px:
+  default: 30
+  description: "Fewest WALL samples in the ROI for a stereo wall distance on /perception/stereo_wall; fewer = no stereo distance this tick."
 
 
 # ============================================================
@@ -579,6 +640,49 @@ lidar_front_wall_seed_max_age_sec:
 lidar_front_wall_seed_max_valid_m:
   default: 5.0
   description: "Largest /costmap/front_clearance value [m] accepted as a seed. Must equal costmap.launch.py's costmap_boundary_max_range_m: that node publishes max_range_m + 1.0 for 'nothing within range', which is not a distance."
+
+# ------------------------------------------------------------
+# SCENE LABELS (scene_labels.py), 2026-10-13. M02_approach_wall P002-R005
+# stopped "2 m from the wall" with the wall ~4.1 m from the bumper: a person
+# stood in front of it, the LiDAR fit was rejected (low_inlier_fraction) and
+# the camera-only front_distance read the floor and the person's edges. With
+# the switch on: detections are cut out of the LiDAR fit, walls need a span,
+# the stereo cloud is labelled GROUND/WALL/CEILING/IGNORE/OTHER, objects are
+# measured on OTHER pixels, and /perception/virtual_wall (LiDAR + stereo WALL +
+# odometry, from the front bumper) is the ONE wall every consumer reads
+# (wall stop, wall_turn, corridor; param_defaults.get_wall_distance_topic()).
+# Off: every node behaves exactly as before.
+# ------------------------------------------------------------
+enable_scene_labels:
+  default: false
+  description: "Scene labelling and the virtual wall (scene_labels.py). true: lidar_front_wall_node cuts detections out of its fit and publishes /perception/wall_planes and /perception/virtual_wall; front_clearance_node labels the depth cloud; detection_3d_node measures objects on OTHER pixels; the BT wall stop and the MPC wall_turn read /perception/virtual_wall and the MPC's private wall tracker is bypassed. Read with get_value, no launch override. FALSE until the stereo half is validated on recorded depth (the archived bags carry none)."
+lidar_front_wall_detection_margin_deg:
+  default: 3.0
+  description: "Scene labels: each YOLO detection (/camera/detections_3d) hides its own angular half-width plus this [deg] on each side from the LiDAR wall fit."
+lidar_front_wall_detection_max_age_sec:
+  default: 0.5
+  description: "Scene labels: detections older than this [s] (receipt time) no longer cut the scan. /camera/detections_3d runs at ~5-8 Hz."
+lidar_front_wall_wall_min_span_m:
+  default: 0.8
+  description: "Scene labels: a wall line must span at least this [m] across the wide sector (inliers along the line); a shorter accepted fit is rejected as short_span. A person or a chair face is shorter."
+lidar_front_wall_wall_planes_half_angle_deg:
+  default: 60.0
+  description: "Scene labels: half-width [deg] of the forward sector the wall planes (/perception/wall_planes) and the span check use; covers the ZED's horizontal field of view."
+lidar_front_wall_wall_planes_rate_hz:
+  default: 10.0
+  description: "Scene labels: /perception/wall_planes publications per second (sequential line fits on every other beam of the wide sector)."
+lidar_front_wall_wall_planes_max_lines:
+  default: 3
+  description: "Scene labels: most wall lines extracted per /perception/wall_planes message."
+lidar_front_wall_wall_planes_min_inliers:
+  default: 15
+  description: "Scene labels: fewest returns (every other beam) on a wall line in /perception/wall_planes."
+lidar_front_wall_virtual_disagree_m:
+  default: 0.15
+  description: "Scene labels: LiDAR and stereo wall distances further apart than this [m] are not fused; the LiDAR is trusted and the virtual wall is flagged 'disagree'."
+lidar_front_wall_stereo_max_age_sec:
+  default: 0.5
+  description: "Scene labels: a /perception/stereo_wall distance older than this [s] (receipt time) is not fused; up to 1 s it is dead-reckoned on odometry when it is the only source. Labelling runs at 5 Hz."
 
 # ============================================================
 # Swept clearance (f1tenth_perception/swept_clearance_node.py)
