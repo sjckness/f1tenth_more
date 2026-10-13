@@ -1,5 +1,8 @@
 # Orin check report: campaign-final on Humble (2026-10-13)
 
+**Status 2026-10-13 ~11:30:** campaign-final is now `e9e5ade`, which adds P1-P3 (campaign calibration, LLM
+default, campaign bring-up) on Andreas's OK. Verdict: **CONDITIONAL GO**, see the last section.
+
 Written on the Orin (Jetson, Ubuntu 22.04, ROS 2 Humble) by a Claude Code
 session for linus. Facts linus needs come first. Later sections (campaign state,
 build/test, bring-up, GO/NO-GO) are added as they finish.
@@ -247,7 +250,7 @@ Orin now = `6ebbc8a`; the working tree has the same yaml. campaign-final added f
 | `wall_distance_timeout_s` | – | – | 2.0 | – |
 | `wall_stop_require_lidar` | – | – | True | – |
 
-### Proposed cherry-picks onto campaign-final (NOT applied, waiting for Andreas's OK)
+### Cherry-picks onto campaign-final: P1-P3 APPLIED 2026-10-13 on Andreas's OK (see section 4b); P4 not applied
 
 `1d00853` is one 861-file commit with run data, so it cannot be cherry-picked whole. Each proposal
 applies the `573f313..1d00853` diff limited to the listed paths, as its own commit on campaign-final.
@@ -328,18 +331,95 @@ packages skipped), with an isolated `--test-result-base` per run.
   `reset_manager.*`, `missions/test.json`). Removing only the broken symlinks
   (`find build install -xtype l -delete`, 12 then 10 links) fixed it.
 
-## 5. Stationary bring-up (step 5)
+### 4b. campaign-final after P1-P3 (`e9e5ade`, pushed, fast-forward from 5c25ade, no force)
 
-**Not run yet: waiting for Andreas's go-ahead (car on the stand, no motor commands).**
-Planned checks:
-- `/camera/debug_image/compressed` rate (expect ~5 Hz), message size, and the CPU of the yolo
-  process at `debug_image_rate_hz` 0 vs 5;
-- `/perception/debug/front_wall` content;
-- `tf2_echo base_link base_front|laser|zed2_camera_link`;
-- every front-distance topic against a tape-measured object distance from the bumper;
-- a short dummy mission that never drives (bag from LOADED, `preroll_s` ~15, all topics present);
-- the mpc_corr tick and solve time with dt 0.2;
-- per-core CPU for 60 s.
+| commit | content |
+|---|---|
+| `9b8f1b8` | P1: the campaign's calibration, in one commit: `speed_to_erpm_gain` 4516.9, servo gains -1.0552/-1.1133, `mpc_steering_angle_min/max_rad` -0.309/+0.319 (only the 4 steering hunks of the stack_params diff), and the 3 mpc tests that encode them |
+| `32bf769` | P2: LLM wall-guard default (`plan_translate.py`, v2 prompts, legacy prompt, tests and golden) |
+| `3f3cfba` | P3: viz relays, foxglove whitelist, reset_manager, supervisor (4 lines), the stack_params `foxglove_*`/`viz_*` keys (hunk 5), and mission_logger's "never record /viz/" |
+| `e9e5ade` | flake8 E305 fix at the P3 seam in `mission_logger_node.py` (one blank line) |
+
+Each commit is `git diff 573f313 1d00853 -- <paths> | git apply --index`, so the content is exactly the
+campaign tree's. The rebuild is clean (37 packages). `src/f1tenth_bringup/package.xml` has no `--`
+inside an XML comment and parses; the package type is still `ros.ament_python`.
+
+**Retest:** 2837 tests, 36 failures, 28 skipped.
+- New vs 5c25ade: only
+  `test_foxglove_whitelists::test_topics_hide_the_zed_tree_and_full_rate_images_only`.
+  - The cause is a TypeError: the test compiles the yaml `foxglove_topic_whitelist` *list* as one
+    regex.
+  - That test was already broken in the campaign tree (1d00853). It is a test bug, not a runtime
+    one: on 10-01 the bridge advertised exactly the whitelisted set.
+  - Not fixed: outside the approved commits. The fix is one line, joining the list or looping over it.
+- Fixed vs 5c25ade: `test_object_corridor_mode::test_the_straight_branch_limit_moves_with_the_ramp_span`
+  (it needed the 0.319 steering bound).
+
+## 5. Stationary bring-up (step 5), 2026-10-13 11:11-11:21, campaign-final `e9e5ade`
+
+**Setup: no path to the motor.**
+- The stack was launched the campaign way (`supervisor_bringup.launch.py`, 21 component launches,
+  llama-server included). The `hardware` component was replaced by a scratchpad stand-in,
+  `orin_standstill/hw_stub.launch.py`. It runs a zero `/odom` at 50 Hz, a do-nothing node named
+  `ackermann_to_vesc_node` (`start_mission`'s preflight only checks that the name exists,
+  `preflight.py:102-109`) and the identity base_link->imu TF.
+- No `vesc_driver` process ran, and no VESC was connected (`/dev/ttyACM*` absent).
+- `calibrate_hardware` and `startup_sequence` were removed from the config; both can move the servo.
+- A components config without `hardware` is impossible as written: the supervisor auto-starts it
+  unconditionally (`_ALWAYS_AUTO_START`) and dies with `KeyError: 'hardware'`
+  (`component_supervisor_node.py:674` -> `:963`). That first attempt was torn down before the
+  second launch.
+- **The lidar was unpowered:** `eno1` NO-CARRIER and `urg_node` "could not open ethernet port
+  192.168.0.10:10940". **Every lidar-dependent check below is therefore NOT DONE.**
+
+| check | result |
+|---|---|
+| **C: debug image** `/camera/debug_image/compressed` | **4.99-5.01 Hz**, JPEG, **21.3 kB mean / 22.1 kB max**, 480 px. Content correct: boxes and masks, wall ROI, `WALL[stereo] 5.25@front raw 5.45@camera`, `CLEAR`/`BLOCKED`, state and stamp. |
+| C: cost | Not measurable as 5 vs 0 without restarting perception (`debug_image_rate_hz` is read at init, `yolo_detector_node.py:347`). Proxy: `/camera/detections` **13.57 Hz** with the debug image on vs **12.3-13.5 Hz** in the 10-01 campaign bags, so no drop. `yolo_detector_node` uses 95 % of one core. |
+| **C: wall debug** `/perception/debug/front_wall` | ~24 Hz (camera rate), JSON v1. Values are consistent: `stereo_raw_m` 5.456 from the lens, `front_offset_m` 0.333, `front_distance_m` 5.247 from the bumper; ROI 180x70 px; pixel classes add up; `source: stereo`. `lidar: null` because the lidar was off. |
+| E: TF (`tf2` lookup from base_link) | `base_front` **0.443, 0, 0**; `laser` 0.12, 0, 0.20, yaw 0; `zed2_camera_link` 0.12, 0, 0.15; `zed2_left_camera_optical_frame` 0.110, 0.060, 0.1655; `imu` 0. All resolve, so front_clearance's new TF dependency is satisfied. |
+| E: front distances vs a measured object | **Not done**: no tape values received (the numbers came through blank) and the lidar was off. Camera side only: `/perception/front_distance` 5.23 m median (wall through the glass); `/perception/front_clearance` **0.01** with BLOCKED. That is real: a person sat beside the car's nose inside \|y\| < 0.35 m and behind the bumper face, and Part E clamps such readings to 0.01. `/mpc/min_obstacle_distance(_forward)` 0.28 m (the same person). |
+| **B: dummy mission bag** (`orin_standstill`: 20 s hold, `goal_distance` 0) | LOADED 11:17:57, start accepted ("starting in 15.0 s"), RUNNING 11:18:18, COMPLETE 11:18:38. Manifest: `record_start_time` = LOADED edge, `preroll_s` 21.1 (3 s between load and start). **The first bag message came 6.0 s after record start, i.e. 15.2 s before the mission start.** Every continuous topic had its first message more than 5 s before the start; only event topics (`/mpc/hold`, `/mpc/goal_distance`, `/mission/move_outcome`) start at or after it. 39 topics recorded, both debug topics included. Empty: the lidar-dependent topics, plus goal/solver topics a hold never uses. All 448 `/drive` messages were 0/0. Run: `~/f1tenth_archive/complete/2026-10-13T09-17-57_mission-orin_standstill`. |
+| **F: MPC with dt 0.2** (`orin_solve_only`: 2 m goal at 0.4 m/s, stopped after 20 s; no VESC process or device, so `/drive` reached nothing) | Startup `CFG \| ts=0.1 ts_pred=0.2 N=20`. **200/200 solved, solve median 21.4 ms, p95 23.3 ms, max 32.5 ms.** Tick interval median 99.9 ms, p95 110 ms, max 117 ms: there is executor jitter, but no solve came near the 100 ms budget. |
+| **CPU, 60 s, stack idle** (lidar off) | Per-core: 51.7 / 43.9 / 39.8 / 54.9 / **84.8** / 58.5 / 49.4 / 47.7 / 70.4 / 71.3 / 53.8 / 52.7 %, **mean 56.6 %**. Top processes (% of one core): yolo 94.6, mpc_corr 56.8, zed container 47.7, behavior_executor 46.0, **reset_manager 42.1**, detection_3d 41.2, ekf_cost_observer 31.7, front_clearance 30.5, costmap_boundary 28.9. |
+| CPU, 15 s, while solving | mean 60.7 %; mpc_corr 79.5 %; mission_logger 28.9 % while recording. |
+| lidar: `/scan`, `/obstacle_clearance`, swept/lidar, `lidar_front_wall`, SLAM, `/costmap/front_clearance`, e-stop front cone | **NOT DONE (lidar unpowered).** |
+
+Observations (none of them changed):
+- `reset_manager` uses ~40 % of a core while idle. It ran in the whole campaign (P3), so it does not
+  hurt comparability, but it is a lot for a manager node.
+- Readings beside the car's body but behind the bumper face clamp to 0.01 and report BLOCKED
+  (Part E design). Expect a mission `front_clearance` stop to fire immediately when someone stands
+  next to the nose at start.
+
+## 6. Where base_link is (from the code, not the docstring)
+
+- **Odometry: base_link is the rear axle.** `vesc_to_odom.cpp:300` uses omega = v*tan(delta)/L
+  (L = 0.305, `vesc.yaml:207`). The filter's predict step integrates `x += v*cos(theta)*dt`,
+  `y += v*sin(theta)*dt` (`vesc_to_odom.cpp:130-131`), with no slip angle. That is the kinematic
+  bicycle referenced at the rear axle: only the rear-axle point moves along the heading. The EKF
+  takes this /odom as `odom0` (`ekf.yaml:56`), and its `odom -> base_link` TF is what everything uses.
+- The URDF agrees: `core.xacro` puts the rear wheels at x 0 and the steering hinges at x 0.325.
+- **The MPC model assumes a different point:** `vehicle_model.py:28` uses
+  beta = atan(lr/L * tan(delta)) with `lr = 0.17` (`MPC_corr.py:856`), i.e. a centre-of-gravity
+  reference 0.17 m ahead of the rear axle. Yet it is fed the rear-axle pose. At full steer
+  (0.319 rad) beta is about 10 degrees.
+  - This mismatch was already in the campaign, so it does not affect comparability.
+  - Not changed; flagged for later.
+- The `description.launch.py` docstring ("base_link is centered between the axles") is wrong.
+- Wheelbase: 0.305 in odometry and the MPC, 0.325 in the URDF. The tape value "rear axle -> bumper"
+  checks `base_front_x` directly.
+- **Tape comparison: pending.** The four values in the message arrived blank ("__ m"). Expected,
+  if the URDF/TF is right:
+
+  | | URDF/TF says |
+  |---|---|
+  | rear axle centre -> bumper face | 0.443 |
+  | lidar centre -> bumper face | 0.443 - 0.12 = 0.323 |
+  | ZED lens -> bumper face | 0.333 (left optical frame x 0.110; base_front - 0.110) |
+  | test object -> bumper face | compare with `/perception/front_distance`, the lidar forward beam minus 0.323, `/perception/front_clearance`, `/costmap/front_clearance`, `/mpc/min_obstacle_distance_forward` |
+
+  Anything off by more than 2 cm is reported before anything is changed, as asked.
 
 ## DECISIONS TAKEN ALONE
 
@@ -366,27 +446,39 @@ Planned checks:
 8. **Local branch `campaign-final`** created to track origin/campaign-final, for building and for
    any later fix commits.
 9. Did not pull the 3 new linus commits on `test-campaign` (`349c881`) into the Orin's local branch.
+10. **P1 stack_params split by hunk.** P1 carries the 4 steering-related hunks; P3 carries the
+    foxglove/viz hunk. That way P1 is exactly "one consistent calibration" and P3 holds its own keys.
+11. **Hardware stand-in for the bring-up** instead of removing `hardware` (the supervisor cannot run
+    without it, see section 5). It lives only in the scratchpad (an `AMENT_PREFIX_PATH` overlay);
+    nothing was added to the repo.
+12. **Ran a solving mission (`orin_solve_only`)** for the MPC tick. A hold mission does not solve.
+    No VESC driver process ran and no VESC device was connected, so the non-zero `/drive` (max
+    0.15 m/s) could not reach the motor.
+13. Both dummy runs are in the real archive (`~/f1tenth_archive/complete/2026-10-13T09-17-57_mission-orin_standstill`,
+    `...09-19-48_mission-orin_solve_only`), named clearly; not deleted.
+14. Stack torn down after the measurements (SIGINT to every launch, then SIGTERM for the top-level
+    launch and discovery server); nothing left running. Lidar checks need a relaunch with the lidar
+    powered.
+15. Did not fix the foxglove whitelist test (outside the approved commits).
 
-## GO / NO-GO for today's test
+## GO / NO-GO for today's test (updated 11:30)
 
-**NO-GO for campaign-final 5c25ade as pushed. GO once P1 (+ P2, P3 recommended) is applied and the
-stationary bring-up passes.**
+**CONDITIONAL GO on campaign-final `e9e5ade`.** It becomes a GO when both of these are done on the stand:
+1. **Lidar powered and checked:** `/scan` ~40 Hz, `/obstacle_clearance`, lidar swept clearance,
+   `lidar_front_wall`, SLAM pose. The e-stop front cone (IsProximityTooClose) runs on `/scan` and
+   was re-referenced to the bumper by Part E. It is the safety layer and was not exercised today.
+2. **Tape check:** the bumper offset and the sensor offsets agree with the URDF/TF to within 2 cm
+   (section 6), and every front-distance topic agrees with the measured object distance.
 
-Reasons:
-- **Speed and distance calibration.** campaign-final carries `speed_to_erpm_gain` 5499.27; the car ran the campaign on
-  4516.9, which the archived bags confirm (odom/SLAM ~1.00). With 5499.27, every commanded speed
-  becomes ~1.22x faster on the floor and /odom under-reads distance by ~18 %, so distance-guarded
-  moves overshoot (3 m becomes ~3.65 m). That breaks comparability with the campaign and moves
-  every speed-dependent margin.
-- **Steering.** campaign-final carries servo gains -1.2135/-1.2135 and MPC bounds -0.283/+0.278.
-  The campaign ran -1.0552/-1.1133 and -0.309/+0.319, so today's car would steer differently than
-  the one whose runs you are comparing with.
-- Build and tests are fine: campaign-final builds on Humble and adds no failing test over 573f313.
-  Part B's recorder design is compatible with rosbag2 0.15.16.
-- Still open, needs the stand (section 5):
-  - 15 s pre-roll vs the real discovery time;
-  - debug image rate and CPU;
-  - the camera TF that Part E's front_clearance now depends on;
-  - the bumper offset 0.443 m, which is mesh-derived and not measured, and sits next to a
-    base_link docstring contradiction;
-  - MPC tick at dt 0.2.
+Why the earlier NO-GO is lifted:
+- campaign-final now carries the campaign's erpm gain, servo gains and MPC steering bounds (P1),
+  the LLM default (P2) and the bring-up (P3). It builds, and the only new test failure is a test bug.
+- Part B: the bag covers the whole mission on the car. Discovery took 6.0 s against the 15 s countdown.
+- Part C: 5.0 Hz, 21 kB/frame, no detection-rate drop vs the campaign.
+- Part F: dt 0.2, N 20, solve 21 ms median / 33 ms max against the 100 ms budget.
+- Part E: the TF chain resolves on the car with the configured numbers.
+
+Known differences from the campaign:
+- The intended ones: B-F.
+- The MPC's lr = 0.17 vs the rear-axle odometry, unchanged from the campaign.
+- Today's measurements had the lidar off, so CPU under full load is ~5-10 % higher than measured.
