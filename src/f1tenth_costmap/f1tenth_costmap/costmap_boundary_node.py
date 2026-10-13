@@ -233,11 +233,13 @@ from tf2_ros import ConnectivityException, ExtrapolationException, LookupExcepti
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
-from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
+from f1tenth_description.vehicle_frames import (
+    base_front_x, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_messages.msg import BoundaryConstraint, BoundaryConstraintArray
 
 from f1tenth_costmap.costmap_boundary import (
-    extract_boundary_constraints, front_clearance_from_extraction, yaw_from_quaternion)
+    boundary_from_nearest_point, extract_boundary_constraints,
+    front_clearance_from_extraction, nearest_occupied_in_window, yaw_from_quaternion)
 from f1tenth_costmap.safe_corridor import (
     MAX_FACES_DEFAULT, assert_reference_contained, build_safe_corridor, faces_to_car_frame)
 
@@ -428,6 +430,9 @@ class CostmapBoundaryNode(Node):
         p = self.get_parameter
         self.robot_frame = str(p('robot_frame').value)
         self.front_facing_max_rad = math.radians(float(p('front_facing_max_deg').value))
+        # |y| beyond which a cell behind the bumper face is beside the car
+        # (front_clearance, see _extraction_tick).
+        self.front_side_limit_m = front_side_limit_m()
         self.side_window_min_rad = math.radians(float(p('side_window_min_deg').value))
         self.side_window_max_rad = math.radians(float(p('side_window_max_deg').value))
         self.occupied_threshold = float(p('occupied_threshold').value)
@@ -735,9 +740,26 @@ class CostmapBoundaryNode(Node):
         # behind this flag. FROM THE FRONT BUMPER since 2026-10-12 (the URDF's
         # base_front, as every front distance in the stack); max_range_m + 1.0
         # still means "nothing within range".
+        #
+        # Its own nearest-cell search, not extraction['front'] (2026-10-13): a
+        # cell behind the bumper face and beside the car (|y| beyond
+        # vehicle_frames.front_side_limit_m) sits inside the +-35 deg cone from
+        # base_link, but it is not in front of the car -- it must not win, or
+        # someone standing next to the nose reads as a front obstacle. The
+        # boundary constraints above keep the unfiltered extraction.
+        front_x = base_front_x()
+        clear_hit = nearest_occupied_in_window(
+            grid.data, grid.info.width, grid.info.height, grid.info.resolution,
+            grid.info.origin.position.x, grid.info.origin.position.y,
+            robot_x, robot_y, robot_yaw,
+            -self.front_facing_max_rad, self.front_facing_max_rad,
+            self.occupied_threshold, self.max_range_m,
+            exclude_beside_body=(front_x, self.front_side_limit_m))
+        clear_front = (None if clear_hit is None
+                       else boundary_from_nearest_point(clear_hit[0], clear_hit[1]))
         clearance = front_clearance_from_extraction(
-            extraction, self.max_range_m, front_x=base_front_x(),
-            min_distance=MIN_FRONT_DISTANCE_M)
+            {'front': clear_front}, self.max_range_m, front_x=front_x,
+            min_distance=MIN_FRONT_DISTANCE_M, side_limit_m=self.front_side_limit_m)
         self.clearance_pub.publish(Float32(data=float(clearance)))
 
         self.get_logger().info(

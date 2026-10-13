@@ -283,7 +283,8 @@ from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from vision_msgs.msg import Detection2DArray
 
-from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
+from f1tenth_description.vehicle_frames import (
+    base_front_x, beside_body_behind_bumper, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
 
 from f1tenth_perception import perception_debug
@@ -525,6 +526,10 @@ class FrontClearanceNode(Node):
         # ---- front_clearance / front_blocked -------------------------------
         self.corridor_half_width_m = float(
             self.declare_parameter('corridor_half_width_m', 0.35).value)
+        # |y| beyond which an obstacle behind the bumper face is beside the
+        # car, not in front of it (_nearest_corridor_obstacle).
+        self.front_side_limit_m = float(
+            self.declare_parameter('front_side_limit_m', front_side_limit_m()).value)
         self.obstacle_max_age_s = float(
             self.declare_parameter('obstacle_max_age_s', 0.4).value)
         self.clearance_enter_m = float(
@@ -871,6 +876,15 @@ class FrontClearanceNode(Node):
         FACE (`x - r`), floored at 0, in base_link -- depth_callback moves it
         to the front bumper with the background -- and obstacles behind the
         car (x <= 0) are skipped.
+
+        BESIDE THE CAR IS NOT IN FRONT OF IT (2026-10-13): an obstacle whose
+        near face is behind the bumper face is skipped when it stays clear of
+        the car's width (|y| beyond front_side_limit_m) and does not stick out
+        into the corridor ahead of the bumper -- vehicle_frames.
+        beside_body_behind_bumper. Before, it was counted and its distance
+        clamped to MIN_FRONT_DISTANCE_M, so someone standing next to the nose
+        read 0.01 and BLOCKED. Inside the car's width it still counts and
+        clamps: that is touching.
         """
         msg = self._latest_obstacles
         if msg is None or self._latest_obstacles_time is None:
@@ -884,6 +898,10 @@ class FrontClearanceNode(Node):
             if x <= 0.0:
                 continue
             if abs(y) - r >= self.corridor_half_width_m:
+                continue
+            if beside_body_behind_bumper(
+                    x, y, r, front_x=self.front_x, side_limit_m=self.front_side_limit_m,
+                    corridor_half_width_m=self.corridor_half_width_m):
                 continue
             candidate = max(0.0, x - r)
             if nearest is None or candidate < nearest:

@@ -680,6 +680,31 @@ class TestNearestCorridorObstacle:
         assert node._nearest_corridor_obstacle(now=10.0) == pytest.approx(0.0)
         node.destroy_node()
 
+    def test_an_obstacle_beside_the_nose_behind_the_bumper_is_excluded(self):
+        # 2026-10-13: someone next to the car's nose (centre 0.30 m to the
+        # side, near face behind the bumper face, clear of the car's width)
+        # is not in front of the car. It used to count and clamp to 0.01.
+        node = _construct({'corridor_half_width_m': 0.35, 'front_side_limit_m': 0.186})
+        node._latest_obstacles = _obstacles([(FRONT - 0.10, 0.30, 0.10)])
+        node._latest_obstacles_time = 10.0
+        assert node._nearest_corridor_obstacle(now=10.0) is None
+        node.destroy_node()
+
+    def test_an_obstacle_inside_the_car_width_behind_the_bumper_still_counts(self):
+        node = _construct({'corridor_half_width_m': 0.35, 'front_side_limit_m': 0.186})
+        node._latest_obstacles = _obstacles([(FRONT - 0.10, 0.10, 0.05)])
+        node._latest_obstacles_time = 10.0
+        assert node._nearest_corridor_obstacle(now=10.0) == pytest.approx(FRONT - 0.15)
+        node.destroy_node()
+
+    def test_beside_the_nose_does_not_hide_an_obstacle_ahead(self):
+        node = _construct({'corridor_half_width_m': 0.35, 'front_side_limit_m': 0.186})
+        node._latest_obstacles = _obstacles(
+            [(FRONT - 0.10, 0.30, 0.10), (FRONT + 1.0, 0.0, 0.10)])
+        node._latest_obstacles_time = 10.0
+        assert node._nearest_corridor_obstacle(now=10.0) == pytest.approx(FRONT + 0.9)
+        node.destroy_node()
+
 
 # ==============================================================================
 # depth_callback: the publish contract
@@ -1213,6 +1238,18 @@ class TestDistancesAreFromTheFrontBumper:
         # Background 2.0 m from the lens = 1.677 m from the bumper; an obstacle
         # whose near face is 1.80 m from the bumper is FARTHER than the wall.
         node._latest_obstacles = _obstacles([(FRONT + 1.80, 0.0, 0.0)])
+        node._latest_obstacles_time = node._now_seconds()
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(
+            2.0 - _LENS_BEHIND_M)
+        node.destroy_node()
+
+    def test_someone_beside_the_nose_does_not_block_the_front(self):
+        """The 2026-10-13 bring-up: a person beside the nose read 0.01, BLOCKED."""
+        node = _construct({'min_bg_pixels_for_reading': 1, 'distance_ema_alpha': 1.0,
+                           'front_side_limit_m': 0.186},
+                          camera_x=FRONT - _LENS_BEHIND_M)
+        node._latest_obstacles = _obstacles([(FRONT - 0.15, 0.32, 0.12)])
         node._latest_obstacles_time = node._now_seconds()
         node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
         assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(

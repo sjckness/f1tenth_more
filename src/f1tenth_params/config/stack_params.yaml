@@ -571,7 +571,10 @@ swept_clearance_body_rear_x_m:
   description: "Rear bumper x [m] from the rear axle (negative). Points behind it never count, not even for the floor. URDF chassis mesh bounds."
 swept_clearance_body_half_width_m:
   default: 0.136
-  description: "Body half-width [m]. Points inside the body rectangle are the car itself and are ignored. URDF chassis mesh bounds."
+  description: "Body half-width [m]. Points inside the body rectangle are the car itself and are ignored. URDF chassis mesh bounds. Also the car width every front distance uses to tell a point beside the car from one touching it (f1tenth_description.vehicle_frames.front_side_limit_m, with front_beside_body_margin_m)."
+front_beside_body_margin_m:
+  default: 0.05
+  description: "Margin [m] added to swept_clearance_body_half_width_m to give the side limit of the front readings (2026-10-13). A point behind the bumper face with |y| beyond half-width + this is BESIDE the car and is excluded from /perception/front_clearance (camera obstacle term) and /costmap/front_clearance; inside it, it is touching and reads 0.01. Untuned starting point: covers the mesh-derived half-width's uncertainty, not a safety margin."
 swept_clearance_margin_m:
   default: 0.1
   description: "Sideways widening [m] of the swept corridor on each side. Not applied to the front face, so clearance stays the real gap to the bumper. Untuned."

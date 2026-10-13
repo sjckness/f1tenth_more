@@ -271,10 +271,11 @@ class TestFrontClearanceFromExtraction:
             result, _MAX_RANGE, front_x=0.443) == pytest.approx(4.0 - 0.443)
 
     def test_from_the_front_bumper_a_real_reading_never_reaches_zero(self):
+        # 2026-10-13: a cell behind the bumper face inside the car's width is
+        # touching -- min_distance, not its distance to the bumper's centre.
         result = {'front': (1.0, 0.0, 0.30)}   # a cell behind the bumper's x
         assert front_clearance_from_extraction(
-            result, _MAX_RANGE, front_x=0.443, min_distance=0.01) == pytest.approx(
-                math.hypot(0.30 - 0.443, 0.0))
+            result, _MAX_RANGE, front_x=0.443, min_distance=0.01) == pytest.approx(0.01)
         result = {'front': (1.0, 0.0, 0.443)}  # exactly at the bumper
         assert front_clearance_from_extraction(
             result, _MAX_RANGE, front_x=0.443, min_distance=0.01) == pytest.approx(0.01)
@@ -303,3 +304,61 @@ class TestInputFlexibility:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+# ==============================================================================
+# Beside the car is not in front of it (2026-10-13)
+# ==============================================================================
+
+class TestBesideTheCarIsNotAFrontReading:
+    """A cell behind the bumper face and outside the car's width sits inside
+    the +-35 deg cone from base_link, but it is not in front of the car."""
+
+    RES = 0.05
+    N = 80                       # 4 m x 4 m
+    FRONT = 0.425
+    SIDE = 0.186
+
+    def _grid(self, cells):
+        """cells: car-frame (x, y) points; the car sits at the grid centre, yaw 0."""
+        g = [0] * (self.N * self.N)
+        for x, y in cells:
+            col = int((x + 2.0) / self.RES)
+            row = int((y + 2.0) / self.RES)
+            g[row * self.N + col] = 100
+        return g
+
+    def _clearance(self, cells, exclude=True):
+        hit = nearest_occupied_in_window(
+            self._grid(cells), self.N, self.N, self.RES, -2.0, -2.0, 0.0, 0.0, 0.0,
+            -_FRONT_MAX, _FRONT_MAX, _OCC_THRESH, 1.9,
+            exclude_beside_body=(self.FRONT, self.SIDE) if exclude else None)
+        front = None if hit is None else boundary_from_nearest_point(hit[0], hit[1])
+        return front_clearance_from_extraction(
+            {'front': front}, 1.9, front_x=self.FRONT, min_distance=0.01,
+            side_limit_m=self.SIDE)
+
+    def test_a_cell_beside_the_nose_is_excluded(self):
+        # (0.33, 0.21) -- bearing 32 deg from base_link, inside the cone.
+        assert self._clearance([(0.33, 0.21)]) == pytest.approx(1.9 + 1.0)
+
+    def test_it_used_to_win_the_cone(self):
+        # Without the exclusion the same cell is the nearest in the cone, and
+        # the guard alone then reports nothing rather than a bogus distance.
+        assert self._clearance([(0.33, 0.21)], exclude=False) == pytest.approx(1.9 + 1.0)
+
+    def test_a_cell_beside_the_nose_does_not_hide_one_ahead(self):
+        c = self._clearance([(0.33, 0.21), (1.425, 0.0)])
+        assert c == pytest.approx(1.0, abs=self.RES)
+
+    def test_a_cell_inside_the_width_behind_the_bumper_is_touching(self):
+        assert self._clearance([(0.33, 0.05)]) == pytest.approx(0.01)
+
+    def test_the_guard_alone_excludes_a_beside_cell(self):
+        # A caller that did not filter the search still never gets a distance
+        # for a cell beside the car.
+        x, y = 0.33, 0.21
+        k = math.hypot(x, y)
+        assert front_clearance_from_extraction(
+            {'front': (x / k, y / k, k)}, _MAX_RANGE, front_x=self.FRONT,
+            min_distance=0.01, side_limit_m=self.SIDE) == pytest.approx(_MAX_RANGE + 1.0)

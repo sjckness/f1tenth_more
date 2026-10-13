@@ -120,7 +120,7 @@ def nearest_occupied_in_window(
         grid_data, width: int, height: int, resolution: float,
         origin_x: float, origin_y: float, robot_x: float, robot_y: float,
         robot_yaw: float, window_min_rad: float, window_max_rad: float,
-        occupied_threshold: float, max_range_m: float):
+        occupied_threshold: float, max_range_m: float, exclude_beside_body=None):
     """Nearest occupied cell (arr value >= occupied_threshold) whose CAR-
     FRAME bearing (0 = front, + = left, matching every other node in this
     stack's convention) falls in [window_min_rad, window_max_rad] (signed --
@@ -142,6 +142,12 @@ def nearest_occupied_in_window(
     provides, and cast via the same np.int16 (not int8, which would
     silently misinterpret slam_toolbox's own -1/0-100 convention on
     overflow) precedent that function already established.
+
+    exclude_beside_body: None, or (front_x, side_limit_m) -- then a cell
+    behind the bumper face (car_dx <= front_x) with |car_dy| > side_limit_m
+    is beside the car and never wins (the point case of
+    f1tenth_description.vehicle_frames.beside_body_behind_bumper). Used for
+    front_clearance only, never for the boundary constraints.
     """
     col_min, col_max, row_min, row_max = _crop_indices(
         width, height, resolution, origin_x, origin_y, robot_x, robot_y, max_range_m)
@@ -184,6 +190,9 @@ def nearest_occupied_in_window(
         window_mask = (car_angle >= window_min_rad) | (car_angle <= window_max_rad)
 
     combined = occupied_mask & range_mask & window_mask
+    if exclude_beside_body is not None:
+        front_x, side_limit_m = exclude_beside_body
+        combined &= ~((car_dx <= front_x) & (np.abs(car_dy) > side_limit_m))
     if not np.any(combined):
         return None
 
@@ -249,7 +258,8 @@ def extract_boundary_constraints(
 
 def front_clearance_from_extraction(extraction: dict, max_range_m: float,
                                     front_x: float = 0.0,
-                                    min_distance: float = 0.0) -> float:
+                                    min_distance: float = 0.0,
+                                    side_limit_m: float = None) -> float:
     """Scalar front_clearance (meters) from extract_boundary_constraints'
     own 'front' result -- the distance component of that same nearest-cell
     lookup, not a separate computation (single source of truth, matches
@@ -274,11 +284,25 @@ def front_clearance_from_extraction(extraction: dict, max_range_m: float,
     URDF's base_front since 2026-10-12): the distance from (front_x, 0) in
     base_link to that same nearest cell, never below min_distance (a real
     reading at the bumper must not read as "no reading", <= 0). front_x 0
-    is the base_link-origin value it used to be, exactly."""
+    is the base_link-origin value it used to be, exactly.
+
+    AT OR BEHIND THE BUMPER FACE (2026-10-13): inside the car's width the
+    cell is touching and reads min_distance (it used to read its distance to
+    the bumper's centre point, as if it were ahead of the car); beside the
+    car (|y| > side_limit_m, when given) it is not a front reading at all and
+    reads as nothing within range. The node excludes beside-the-car cells
+    from the search itself (nearest_occupied_in_window's
+    exclude_beside_body), so a nearer cell ahead still wins; this guard only
+    keeps the function safe for a caller that did not."""
     front = extraction.get('front')
     if front is None:
         return max_range_m + 1.0
     nx, ny, offset = front
     if front_x == 0.0 or not math.isfinite(offset):
         return offset
-    return max(math.hypot(nx * offset - front_x, ny * offset), min_distance)
+    px, py = nx * offset, ny * offset
+    if px <= front_x:
+        if side_limit_m is not None and abs(py) > side_limit_m:
+            return max_range_m + 1.0
+        return min_distance
+    return max(math.hypot(px - front_x, py), min_distance)
