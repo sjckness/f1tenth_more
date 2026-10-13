@@ -1,11 +1,13 @@
 """What the default foxglove_bridge whitelists hide, and what they must not.
 
 foxglove_bridge full-matches each topic and service name against the regexes
-foxglove_bridge.launch.py passes it (std::regex, ECMAScript, case-insensitive).
-The defaults live in stack_params.yaml as denylists written with negative
-lookaheads, which read the same under Python's re for these patterns. A live
-run of the bridge on the car with the same patterns advertised 101 of 213
-topics and none under /zed2 (2026-09-17).
+foxglove_bridge.launch.py passes it (std::regex, ECMAScript, case-insensitive);
+a name is advertised when ANY pattern of the list matches. The defaults live in
+stack_params.yaml: the service whitelist is one denylist pattern written with
+negative lookaheads, the topic whitelist a LIST of allowlist patterns (the /viz
+relays plus tf, latched and on-change topics). On 2026-10-01 the bridge on the
+car advertised exactly that list's topics (foxglove_bridge log of every
+campaign run that day).
 
 Plain YAML and re, no rclpy.
 """
@@ -18,17 +20,21 @@ _STACK_PARAMS = os.path.join(
     os.path.dirname(__file__), '..', '..', 'f1tenth_params', 'config', 'stack_params.yaml')
 
 
-def _pattern(name):
+def _patterns(name):
+    """The default as a list of compiled patterns: a string is a list of one."""
     with open(_STACK_PARAMS) as f:
-        return re.compile(yaml.safe_load(f)[name]['default'], re.IGNORECASE)
+        default = yaml.safe_load(f)[name]['default']
+    if isinstance(default, str):
+        default = [default]
+    return [re.compile(p, re.IGNORECASE) for p in default]
 
 
 def _advertised(name, names):
-    pattern = _pattern(name)
-    return {n for n in names if pattern.fullmatch(n)}
+    patterns = _patterns(name)
+    return {n for n in names if any(p.fullmatch(n) for p in patterns)}
 
 
-def test_topics_hide_the_zed_tree_and_full_rate_images_only():
+def test_topics_allow_only_the_viz_relays_and_latched_topics():
     hidden = [
         '/zed2/zed_node/rgb/image_rect_color/compressed',
         '/zed2/zed_node/point_cloud/cloud_registered',
@@ -36,19 +42,31 @@ def test_topics_hide_the_zed_tree_and_full_rate_images_only():
         '/camera/image_raw',
         '/camera/image_annotated',
         '/camera/detection_masks',
-    ]
-    shown = [
-        '/camera/image_raw/viz',
+        '/camera/image_raw/viz',          # the old throttle copies stay off
         '/camera/image_annotated/viz',
-        '/camera/detections',
-        '/costmap/semantic_markers',
-        '/mission/status',
-        '/mpc/goal_object',
+        '/camera/detections',             # raw, full rate: only its /viz copy
         '/scan',
+        '/mpc/goal_object',
+    ]
+    # What the bridge advertised on the car, 2026-10-01 (every campaign run).
+    shown = [
+        '/viz/scan',
+        '/viz/camera/image_annotated/compressed',
+        '/viz/costmap/visualization/compressed',
+        '/calibration/in_progress',
+        '/costmap/semantic_markers',
+        '/joint_states',
+        '/map',
+        '/mission/move_outcome',
+        '/mission/status',
+        '/parameter_events',
+        '/robot_description',
+        '/rosout',
+        '/safety/event',
+        '/slam/map',
+        '/slam/map_metadata',
         '/tf',
         '/tf_static',
-        '/slam/map',
-        '/rosout',
     ]
     assert _advertised('foxglove_topic_whitelist', hidden + shown) == set(shown)
 
