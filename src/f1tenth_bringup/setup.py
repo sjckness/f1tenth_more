@@ -44,6 +44,8 @@ setup(
         'console_scripts': [
             'stack_startup_sequence = f1tenth_bringup.stack_startup_sequence:main',
             'component_supervisor_node = f1tenth_bringup.component_supervisor_node:main',
+            'reset_manager = f1tenth_bringup.reset_manager_node:main',
+            'viz_jpeg_node = f1tenth_bringup.viz_jpeg_node:main',
         ],
     },
 )
