@@ -96,7 +96,7 @@ from tf2_ros import Buffer, TransformException
 
 from f1tenth_perception.cpu_affinity import apply_nice, declare_nice_param
 from f1tenth_perception.glass_detect import DetectorConfig, GlassTracker, detect, sample_segment
-from f1tenth_perception.swept_corridor import clearance
+from f1tenth_perception.swept_corridor import BODY_FRONT_X_M, clearance
 from f1tenth_perception.wall_distance import (
     PHASE_CORRIDOR,
     PHASE_NAMES,
@@ -231,7 +231,7 @@ class WallDistanceNode(Node):
         # two can never describe different cars.
         self.geometry = {
             'wheelbase': float(param('swept_wheelbase_m', 0.305)),
-            'front_x': float(param('swept_body_front_x_m', 0.443)),
+            'front_x': float(param('swept_body_front_x_m', BODY_FRONT_X_M)),
             'rear_x': float(param('swept_body_rear_x_m', -0.082)),
             'half_width': float(param('swept_body_half_width_m', 0.136)),
             'margin': float(param('swept_margin_m', 0.10)),

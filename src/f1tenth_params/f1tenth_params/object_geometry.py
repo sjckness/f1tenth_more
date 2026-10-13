@@ -37,10 +37,22 @@ edge. gap_min is therefore a SAFETY minimum now, enforced where the gap is
 set: the mission loader rejects a smaller gap_m and the LLM translator raises
 one to it. A go_to never asks the car to stop inside the clearance the
 obstacle model keeps from everything else.
+
+THE FRONT A GAP IS MEASURED FROM (2026-10-12). GapLimits.front_x: the mission
+loader and the LLM translator pass the URDF's base_front -- the front bumper,
+the one base_link -> front offset every front distance in the stack uses
+(f1tenth_description/urdf/base_front.xacro) -- so gap_m is bumper to the
+object's near edge and the centre distance sent is gap + front_x + r_target.
+The solver's nose (nose_reach) sits nose_reach - front_x past the bumper, and
+its w_obs clearance is measured from there, so gap_min grows by exactly that
+much: the closest the car may physically stop is unchanged. front_x None is
+the nose itself, the pre-2026-10-12 reference (this module stays dependency-
+free: f1tenth_params cannot import f1tenth_description, which depends on it).
 """
 
 import math
 from dataclasses import dataclass
+from typing import Optional
 
 __all__ = [
     'NOMINAL_FOOTPRINT_WIDTH_M',
@@ -118,12 +130,25 @@ class GapLimits:
     class_margin: float
     settle_buffer: float
     wheelbase: float
+    # base_link to the front the gap is measured from; None = the solver's
+    # nose (module docstring, THE FRONT).
+    front_x: Optional[float] = None
+
+    @property
+    def front(self) -> float:
+        """Return base_link to the front the gap is measured from [m]."""
+        return self.nose_reach if self.front_x is None else float(self.front_x)
+
+    @property
+    def nose_beyond_front(self) -> float:
+        """Return how far the solver's nose sits ahead of that front [m], >= 0."""
+        return max(0.0, self.nose_reach - self.front)
 
     @property
     def gap_min(self) -> float:
-        """Return the smallest allowed gap [m] for this class."""
+        """Return the smallest allowed gap [m] for this class, from `front`."""
         return gap_min(self.car_radius, self.avoidance_margin, self.class_margin,
-                       self.settle_buffer)
+                       self.settle_buffer) + self.nose_beyond_front
 
     @property
     def default_gap(self) -> float:
@@ -137,18 +162,23 @@ class GapLimits:
 
     def explain(self) -> str:
         """Return gap_min spelled out term by term, for rejection messages."""
+        nose = (f' + solver nose beyond the front {self.nose_beyond_front:.2f}'
+                if self.nose_beyond_front > 0.0 else '')
         return (f'gap_min({self.target_class}) = car_radius {self.car_radius:.2f} + '
                 f'avoidance_margin {self.avoidance_margin:.2f} + class_margin '
-                f'{self.class_margin:.2f} + settle_buffer {self.settle_buffer:.2f} = '
-                f'{self.gap_min:.2f} m')
+                f'{self.class_margin:.2f} + settle_buffer {self.settle_buffer:.2f}'
+                f'{nose} = {self.gap_min:.2f} m')
 
 
-def gap_limits(target_class: str, get_value=None) -> GapLimits:
+def gap_limits(target_class: str, get_value=None,
+               front_x: Optional[float] = None) -> GapLimits:
     """Build the class's GapLimits from stack_params.yaml (the solver's and projector's keys).
 
     car_radius and obstacle_safety_margin_m feed MPC_corr's car_radius and
     avoidance_margin (mpc_corr.launch.py); obstacle_class_margin_m feeds
-    obstacle_projector_node; mpc_wheelbase_m is the solver's L.
+    obstacle_projector_node; mpc_wheelbase_m is the solver's L. front_x: the
+    base_link -> front offset the gap is measured from (callers pass the
+    URDF's base_front); None = the solver's nose.
     """
     if get_value is None:
         from f1tenth_params.param_defaults import get_value
@@ -159,4 +189,5 @@ def gap_limits(target_class: str, get_value=None) -> GapLimits:
         class_margin=class_margin_for(get_value('obstacle_class_margin_m'), target_class),
         settle_buffer=float(get_value('object_gap_settle_buffer_m')),
         wheelbase=float(get_value('mpc_wheelbase_m')),
+        front_x=None if front_x is None else float(front_x),
     )

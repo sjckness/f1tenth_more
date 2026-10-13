@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<!--
+  base_front.xacro - the car's FRONT BUMPER as a frame, fixed to base_link.
+
+  THE ONE base_link -> front offset in the workspace (2026-10-12). Every front
+  distance is measured from here: the mission wall stop and wall_turn
+  (/perception/front_distance), the proximity e-stop's front cone, the
+  obstacle-distance stop (/mpc/min_obstacle_distance*), go_to_object's gap,
+  /costmap/front_clearance, and the swept / obstacle / wall-distance bodies.
+  robot_state_publisher publishes the fixed joint below on /tf_static; Python
+  code that does not use TF reads the same number through
+  f1tenth_description.vehicle_frames.base_front_xyz(), which parses THIS FILE's
+  base_front_* properties. Do not copy the number anywhere else.
+
+  x = 0.443 m: the front of the chassis mesh, from base_link at the rear axle
+  (base_link convention: core.xacro / base.xacro). Taken from the URDF chassis
+  mesh bounds, as stack_params' swept_clearance_body_front_x_m was; NOT
+  measured on the car. z = 0: base_link's own plane.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="base_front_x" value="0.443" />
+  <xacro:property name="base_front_y" value="0.0" />
+  <xacro:property name="base_front_z" value="0.0" />
+
+  <link name="base_front" />
+
+  <joint name="base_front_joint" type="fixed">
+    <origin xyz="${base_front_x} ${base_front_y} ${base_front_z}" rpy="0 0 0" />
+    <parent link="base_link" />
+    <child link="base_front" />
+  </joint>
+
+</robot>

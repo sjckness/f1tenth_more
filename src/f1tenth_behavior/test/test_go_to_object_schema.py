@@ -70,7 +70,8 @@ class TestParse:
         assert spec.target_class == 'person'
         assert spec.gap_min_m == pytest.approx(0.42)
         assert spec.gap_m == pytest.approx(0.5), 'gap_min rounded up to 0.1 m'
-        assert spec.nose_reach_m == pytest.approx(0.305 / 2 + 0.40)
+        # _limits leaves GapLimits.front_x unset: the front is the solver's nose.
+        assert spec.front_x_m == pytest.approx(0.305 / 2 + 0.40)
         assert spec.lost_grace_sec == 1.5
         assert spec.speed == 0.4
         assert spec.acquire_timeout_sec == 5.0
@@ -122,6 +123,17 @@ class TestParse:
                              gap_limits_for=lambda c: _limits(c, 0.3)).moves[0].go_to_object
         assert spec.gap_min_m == pytest.approx(0.72)
         assert spec.gap_m == pytest.approx(0.8)
+
+    def test_a_bumper_front_adds_the_nose_beyond_it_to_gap_min(self):
+        """From a bumper 0.443 m out, gap_min grows by the nose's 0.1095 m lead."""
+        def bumper_limits(target_class):
+            return GapLimits(target_class, 0.20, 0.12, 0.0, 0.10, 0.305, front_x=0.443)
+        spec = parse_mission(_mission(_object_move()),
+                             gap_limits_for=bumper_limits).moves[0].go_to_object
+        assert spec.front_x_m == pytest.approx(0.443)
+        assert spec.gap_min_m == pytest.approx(0.42 + 0.5525 - 0.443)
+        # The physical minimum (base_link to the near edge) is unchanged.
+        assert spec.gap_min_m + spec.front_x_m == pytest.approx(0.42 + 0.5525)
 
     def test_standoff_m_is_rejected_by_name(self):
         with pytest.raises(MissionConfigError, match='replaced by gap_m'):
@@ -239,7 +251,9 @@ class TestShippedMissions:
         spec = move.go_to_object
         assert spec.target_class == cls
         assert spec.speed == 0.4
-        assert spec.gap_m == pytest.approx(0.5 if gap is None else gap)
+        # Default: gap_min from the bumper (0.42 + the nose's 0.1095 lead)
+        # rounded up to 0.1 m.
+        assert spec.gap_m == pytest.approx(0.6 if gap is None else gap)
         raw = json.loads((MISSIONS / f'{name}.json').read_text())
         assert ('gap_m' in raw['moves'][0]['go_to_object']) is (gap is not None)
         assert move.goal_distance is None
@@ -254,7 +268,7 @@ class TestShippedMissions:
         assert cfg.schema_version == '5.0'
         (move,) = cfg.moves
         assert move.go_to_object.target_class == cls
-        assert move.go_to_object.gap_m == pytest.approx(0.5)
+        assert move.go_to_object.gap_m == pytest.approx(0.6), 'from the bumper'
         raw = json.loads((MISSIONS / f'{name}.json').read_text())
         assert 'gap_m' not in raw['moves'][0]['go_to_object'], 'no hardcoded distance'
         assert 'standoff_m' not in raw['moves'][0]['go_to_object']
@@ -411,7 +425,7 @@ class TestScoring:
         assert _outcome(self._record(r=0.3)).mismatch_flagged is True
 
     def test_the_track_based_gap_is_recorded_beside_it(self):
-        """centre 1.3 m - nose_reach 0.5525 - target radius 0.25."""
+        """centre 1.3 m - front_x 0.5525 (the nose, _limits) - target radius 0.25."""
         out = _outcome(self._record(target=(2.3, 0.0)), end_xy=(1.0, 0.0))
         assert out.track_gap_m == pytest.approx(1.3 - 0.5525 - 0.25)
         assert out.target_track_id == '12'

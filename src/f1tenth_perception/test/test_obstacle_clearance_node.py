@@ -28,6 +28,7 @@ from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import LaserScan
 from tf2_msgs.msg import TFMessage
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_value
 from f1tenth_perception.obstacle_clearance_node import ContactEdge, ObstacleClearanceNode
 from f1tenth_perception.swept_corridor import BODY_FRONT_X_M, BODY_HALF_WIDTH_M, BODY_REAR_X_M
@@ -206,9 +207,10 @@ class TestDecouplingAndDefaults:
             2.0 * BODY_HALF_WIDTH_M)
         assert node.get_parameter('footprint_rear_x_m').value == pytest.approx(BODY_REAR_X_M)
 
-    def test_the_module_body_agrees_with_stack_params(self):
-        # the launch file reads stack_params, the node defaults read swept_corridor
-        assert get_value('swept_clearance_body_front_x_m') == pytest.approx(BODY_FRONT_X_M)
+    def test_the_module_body_agrees_with_the_urdf_and_stack_params(self):
+        # the launch file reads the URDF front and stack_params' rear / width,
+        # the node defaults read swept_corridor
+        assert base_front_x() == pytest.approx(BODY_FRONT_X_M)
         assert get_value('swept_clearance_body_rear_x_m') == pytest.approx(BODY_REAR_X_M)
         assert get_value('swept_clearance_body_half_width_m') == pytest.approx(BODY_HALF_WIDTH_M)
 

@@ -20,6 +20,7 @@ Run standalone: python3 -m pytest test/test_corridor_sizing.py -v
 import pathlib
 import re
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.corridor_geometry import (
     corridor_curves, CORRIDOR_WIDTH_RATIO)
 from f1tenth_params.object_geometry import (
@@ -63,8 +64,7 @@ def _shipped_half_width_at(s, length):
 
 
 def test_corridor_holds_the_whole_car_passing_a_person_one_metre_ahead_of_the_bumper():
-    s_person = (float(get_value('swept_clearance_body_front_x_m'))
-                + PERSON_AHEAD_OF_BUMPER_M)
+    s_person = base_front_x() + PERSON_AHEAD_OF_BUMPER_M
     have = _shipped_half_width_at(s_person, _corr_l_base())
     need = _required_half_width()
     assert have >= need, (
@@ -74,8 +74,7 @@ def test_corridor_holds_the_whole_car_passing_a_person_one_metre_ahead_of_the_bu
 
 def test_the_old_corridor_could_not_hold_the_passing_car():
     """The 0.4333 start that ran in the first campaign falls short here."""
-    s_person = (float(get_value('swept_clearance_body_front_x_m'))
-                + PERSON_AHEAD_OF_BUMPER_M)
+    s_person = base_front_x() + PERSON_AHEAD_OF_BUMPER_M
     geom = corridor_curves(0.0, 0.0, 0.0, 0.0, 3.0, 120,
                            w0=0.4333, w1=0.4333 * CORRIDOR_WIDTH_RATIO,
                            walls='trapezoid')

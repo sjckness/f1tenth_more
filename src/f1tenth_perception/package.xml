@@ -59,6 +59,11 @@
        depending on it here (not f1tenth_bringup) avoids a build-order cycle,
        since f1tenth_bringup itself includes this package's launch file. -->
   <exec_depend>f1tenth_params</exec_depend>
+  <!-- vehicle_frames.base_front_x(): the front bumper offset, read from the
+       URDF base_front frame. Every front distance this package publishes is
+       measured from it. f1tenth_description depends only on f1tenth_params,
+       so this adds no cycle. -->
+  <exec_depend>f1tenth_description</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

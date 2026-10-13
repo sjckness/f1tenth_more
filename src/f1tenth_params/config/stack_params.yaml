@@ -538,9 +538,13 @@ lidar_front_wall_seed_max_valid_m:
 swept_clearance_wheelbase_m:
   default: 0.305
   description: "Wheelbase [m] for kappa = tan(delta) / L. The MPC model's L (MPC_corr.py) and vesc.yaml's 'about 30.5 cm'; the URDF says 0.325 and the F1TENTH spec 0.3302 -- unmeasured on this car (docs/DIAGNOSTICS.md)."
-swept_clearance_body_front_x_m:
-  default: 0.443
-  description: "Front bumper x [m] from the rear axle. Straight-ahead clearance is the gap to this. URDF chassis mesh bounds."
+# The FRONT BUMPER x is not a key here any more (2026-10-12): it is the URDF's
+# base_front frame (f1tenth_description/urdf/base_front.xacro, 0.443 m ahead
+# of base_link), the one base_link -> front offset every front distance in the
+# stack is measured from. Python reads it without TF through
+# f1tenth_description.vehicle_frames.base_front_x(); swept_clearance_node gets
+# it from swept_clearance.launch.py as body_front_x_m. It was
+# swept_clearance_body_front_x_m 0.443, the same URDF chassis-mesh value.
 swept_clearance_body_rear_x_m:
   default: -0.082
   description: "Rear bumper x [m] from the rear axle (negative). Points behind it never count, not even for the floor. URDF chassis mesh bounds."
@@ -973,8 +977,8 @@ corr_turn_u_end:
 # logged definition (w0, w1, w1_eff) is what the node actually used.
 #
 # SIZED (campaign-final): a person on the centreline 1.0 m ahead of the
-# front bumper sits at s = 0.443 (base_link -> bumper,
-# swept_clearance_body_front_x_m) + 1.0 = 1.443 m along a 3.0 m corridor,
+# front bumper sits at s = 0.443 (base_link -> bumper, the URDF's
+# base_front) + 1.0 = 1.443 m along a 3.0 m corridor,
 # whose start is base_link. There the whole car must pass inside it:
 #   hw(s) >= r_person 0.25 + class margin 0 + perception 0.10
 #            + obstacle_safety_margin_m 0.12 + 2 * car_radius 0.20 = 0.87 m
@@ -1190,8 +1194,8 @@ object_rest_speed_mps:
 # dFront keeps every job it has today: the commit decision, the safety layer,
 # and the increment's distance whenever no wall passed the gates. Result on
 # /mpc/wall_track (f1tenth_messages/WallTrack), every control tick of a
-# wall_turn. The bumper offset is swept_clearance_body_front_x_m (the same
-# physical quantity, read from that key); the LiDAR inlier distance is
+# wall_turn. The bumper offset is the URDF's base_front frame (the same
+# physical quantity, f1tenth_description.vehicle_frames); the LiDAR inlier distance is
 # lidar_front_wall_inlier_distance_m (measured on this Hokuyo, not a second
 # tunable). Neither is a separate key here on purpose.
 wall_track_enable:

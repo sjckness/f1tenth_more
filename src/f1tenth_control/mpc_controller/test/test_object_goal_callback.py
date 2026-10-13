@@ -524,7 +524,7 @@ class TestStatusFields:
         assert msg.move_id == 'm'
 
     def test_the_debug_echoes_track_id_and_the_live_gap(self):
-        """gap = live r + the goal's gap_m: centre distance - nose_reach - radius."""
+        """gap = live r + the goal's gap_m: centre distance - front_x - radius."""
         fake = _FakeMPC()
         goal = _goal('m', 4.0, 0.0, standoff=1.3, stamp=12.0)
         goal.track_id, goal.gap_m = '12', 0.5

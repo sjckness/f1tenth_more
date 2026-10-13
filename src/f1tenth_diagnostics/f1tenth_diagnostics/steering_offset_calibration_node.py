@@ -314,6 +314,10 @@ class SteeringOffsetCalibrationNode(Node):
                                    fitlib.VESC_YAML_WHEELBASE_M).value)
 
         # ---- safety --------------------------------------------------------
+        # From the FRONT BUMPER since 2026-10-12: /costmap/front_clearance is
+        # measured from the URDF's base_front (it was from base_link's
+        # origin), so the same 0.4 m now aborts 0.443 m earlier. Kept: the
+        # margin only grew.
         self.min_front_clearance_m = float(
             self.declare_parameter('min_front_clearance_m', 0.4).value)
         self.max_lateral_excursion_m = float(

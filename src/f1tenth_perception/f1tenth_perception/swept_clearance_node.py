@@ -71,7 +71,7 @@ from f1tenth_perception.swept_clearance import (
     quaternion_to_rotation,
     scan_to_points,
 )
-from f1tenth_perception.swept_corridor import clearance
+from f1tenth_perception.swept_corridor import BODY_FRONT_X_M, clearance
 
 _TF_STATIC_QOS = QoSProfile(
     depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL, history=HistoryPolicy.KEEP_LAST)
@@ -115,7 +115,7 @@ class SweptClearanceNode(Node):
 
         self.geometry = {
             'wheelbase': float(param('wheelbase_m', 0.305)),
-            'front_x': float(param('body_front_x_m', 0.443)),
+            'front_x': float(param('body_front_x_m', BODY_FRONT_X_M)),
             'rear_x': float(param('body_rear_x_m', -0.082)),
             'half_width': float(param('body_half_width_m', 0.136)),
             'margin': float(param('margin_m', 0.10)),

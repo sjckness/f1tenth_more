@@ -72,8 +72,8 @@ class HandlerParams:
     """One move's handler configuration: the move's spec plus stack tuning."""
 
     target_class: str
-    gap_m: float          # car front to object near edge
-    nose_reach_m: float   # base_link to car front, as the solver measures it
+    gap_m: float          # front bumper to object near edge
+    front_x_m: float      # base_link to the front bumper (the URDF's base_front)
     speed: float
     acquire_timeout_sec: float
     lost_grace_sec: float
@@ -94,7 +94,7 @@ class HandlerStep:
     speed: float
     outcome: Optional[str] = None
     # The target's footprint radius and the centre distance the controller is
-    # sent (ObjectGoal.standoff): gap_m + nose_reach_m + target_radius.
+    # sent (ObjectGoal.standoff): gap_m + front_x_m + target_radius.
     target_radius: Optional[float] = None
     centre_standoff: Optional[float] = None
 
@@ -112,14 +112,14 @@ def track_radius(track: Track) -> float:
     return nominal_footprint_radius(track.class_id)
 
 
-def centre_distance_for_gap(gap_m: float, nose_reach_m: float, radius_m: float) -> float:
-    """Return the base_link-to-centre distance at which the front-to-edge gap is gap_m."""
-    return float(gap_m) + float(nose_reach_m) + float(radius_m)
+def centre_distance_for_gap(gap_m: float, front_x_m: float, radius_m: float) -> float:
+    """Return the base_link-to-centre distance at which the bumper-to-edge gap is gap_m."""
+    return float(gap_m) + float(front_x_m) + float(radius_m)
 
 
-def gap_for_centre_distance(distance_m: float, nose_reach_m: float, radius_m: float) -> float:
-    """Return the front-to-edge gap [m] at a base_link-to-centre distance (the inverse)."""
-    return float(distance_m) - float(nose_reach_m) - float(radius_m)
+def gap_for_centre_distance(distance_m: float, front_x_m: float, radius_m: float) -> float:
+    """Return the bumper-to-edge gap [m] at a base_link-to-centre distance (the inverse)."""
+    return float(distance_m) - float(front_x_m) - float(radius_m)
 
 
 def nearest_track(tracks: Iterable[Track], target_class: str,
@@ -161,7 +161,7 @@ class ObjectHandler:
 
     def _step(self, speed, outcome=None):
         standoff = (None if self.target_radius is None else centre_distance_for_gap(
-            self.params.gap_m, self.params.nose_reach_m, self.target_radius))
+            self.params.gap_m, self.params.front_x_m, self.target_radius))
         return HandlerStep(self.phase, self.target_xy, self.target_stamp_sec,
                            self.track_id, speed, outcome, self.target_radius, standoff)
 

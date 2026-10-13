@@ -22,8 +22,9 @@ move_id and target_class of the latest /mpc/goal_object.
 THE SAME NUMBERS AS THE HANDLER, BY IMPORT. Tracks are parsed by GoToObject's
 own tracks_from_message; the target radius is object_handler.track_radius (the
 fused width / 2, else the class nominal); the gap is
-object_handler.gap_for_centre_distance with the handler's nose_reach
-(object_geometry via gap_limits). Nothing is re-derived here.
+object_handler.gap_for_centre_distance with the handler's front -- the front
+bumper, the URDF's base_front, through object_geometry.gap_limits exactly as
+mission_config passes it. Nothing is re-derived here.
 
 THE CAR POSE IS THE HANDLER'S: /ekf_global/odometry/filtered, the map-frame
 global EKF that CheckStopCondition writes to the blackboard and GoToObject
@@ -136,7 +137,7 @@ def locked_track_id(tracks, goal, follow_gate_m):
     return track.track_id if track is not None else None
 
 
-def track_rows(tracks, pose, now_sec, nose_reach_m, class_filter=None, target_id=None):
+def track_rows(tracks, pose, now_sec, front_x_m, class_filter=None, target_id=None):
     """Build the printed rows: one per track, nearest first when there is a pose."""
     from f1tenth_behavior.mission.object_handler import gap_for_centre_distance, track_radius
     rows = []
@@ -148,7 +149,7 @@ def track_rows(tracks, pose, now_sec, nose_reach_m, class_filter=None, target_id
             dx, dy = track.x - pose.x, track.y - pose.y
             range_m = math.hypot(dx, dy)
             bearing = math.degrees(_wrap(math.atan2(dy, dx) - pose.yaw))
-            gap = gap_for_centre_distance(range_m, nose_reach_m, track_radius(track))
+            gap = gap_for_centre_distance(range_m, front_x_m, track_radius(track))
         rows.append(TrackRow(
             track_id=str(track.track_id), class_id=track.class_id, score=track.score,
             age_s=now_sec - track.stamp_sec, range_m=range_m, bearing_deg=bearing,
@@ -260,10 +261,11 @@ def _build_node(args):
     from f1tenth_messages.msg import ObjectApproachStatus, ObjectGoal
 
     from f1tenth_behavior.behaviours.go_to_object import tracks_from_message
+    from f1tenth_description.vehicle_frames import base_front_x
     from f1tenth_params.object_geometry import gap_limits
     from f1tenth_params.param_defaults import get_value
 
-    nose_reach_m = gap_limits(args.target_class or 'person').nose_reach
+    front_x_m = gap_limits(args.target_class or 'person', front_x=base_front_x()).front
     follow_gate_m = float(get_value('object_follow_gate_m'))
 
     class WatchObjects(Node):
@@ -289,7 +291,7 @@ def _build_node(args):
                 if self.csv_file.tell() == 0:
                     self.csv_writer.writeheader()
             self.create_timer(PRINT_PERIOD_S, self._on_timer)
-            print(f'watch_objects: nose_reach {nose_reach_m:.4f} m, follow gate '
+            print(f'watch_objects: front bumper {front_x_m:.4f} m, follow gate '
                   f'{follow_gate_m:.2f} m, pose from /ekf_global/odometry/filtered'
                   + (f', class {args.target_class}' if args.target_class else '')
                   + (f', csv {args.csv}' if args.csv else '')
@@ -322,7 +324,7 @@ def _build_node(args):
             goal = (self.goal if self.goal is not None
                     and now - self.goal.received_sec <= GOAL_MAX_AGE_S else None)
             target = locked_track_id(self.tracks, goal, follow_gate_m)
-            rows = track_rows(self.tracks, pose, now, nose_reach_m,
+            rows = track_rows(self.tracks, pose, now, front_x_m,
                               args.target_class, target)
             stamp = time.strftime('%H:%M:%S', time.localtime(wall)) + f'.{int(wall * 10) % 10}'
             print(f'{stamp}  tracks {len(rows)}'

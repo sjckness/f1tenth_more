@@ -247,7 +247,9 @@ def extract_boundary_constraints(
     return results
 
 
-def front_clearance_from_extraction(extraction: dict, max_range_m: float) -> float:
+def front_clearance_from_extraction(extraction: dict, max_range_m: float,
+                                    front_x: float = 0.0,
+                                    min_distance: float = 0.0) -> float:
     """Scalar front_clearance (meters) from extract_boundary_constraints'
     own 'front' result -- the distance component of that same nearest-cell
     lookup, not a separate computation (single source of truth, matches
@@ -266,9 +268,17 @@ def front_clearance_from_extraction(extraction: dict, max_range_m: float) -> flo
     correctly on both sides: any real stop_condition threshold well under
     max_range_m still evaluates true-when-clear exactly as before, while
     the reported number stays an honest reflection of what was actually
-    searched."""
+    searched.
+
+    FROM THE FRONT BUMPER when front_x > 0 (costmap_boundary_node passes the
+    URDF's base_front since 2026-10-12): the distance from (front_x, 0) in
+    base_link to that same nearest cell, never below min_distance (a real
+    reading at the bumper must not read as "no reading", <= 0). front_x 0
+    is the base_link-origin value it used to be, exactly."""
     front = extraction.get('front')
     if front is None:
         return max_range_m + 1.0
-    _nx, _ny, offset = front
-    return offset
+    nx, ny, offset = front
+    if front_x == 0.0 or not math.isfinite(offset):
+        return offset
+    return max(math.hypot(nx * offset - front_x, ny * offset), min_distance)

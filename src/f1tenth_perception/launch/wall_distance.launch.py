@@ -63,6 +63,7 @@ the UNVALIDATED list in f1tenth_perception/README.md, to be measured in Stage 0
 of docs/bringup_checklist.md.
 """
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
@@ -143,7 +144,6 @@ GLASS_ARGS = [
 # swept_clearance_node rather than duplicated. See the module docstring.
 SWEPT_GEOMETRY_ARGS = [
     ('swept_clearance_wheelbase_m', 'swept_wheelbase_m', float),
-    ('swept_clearance_body_front_x_m', 'swept_body_front_x_m', float),
     ('swept_clearance_body_rear_x_m', 'swept_body_rear_x_m', float),
     ('swept_clearance_body_half_width_m', 'swept_body_half_width_m', float),
     ('swept_clearance_margin_m', 'swept_margin_m', float),
@@ -158,7 +158,9 @@ def generate_launch_description():
     declared = [DeclareLaunchArgument(
         'use_lidar', default_value=str(use_lidar_default), description=use_lidar_desc)]
 
-    params = {}
+    # The front bumper: the URDF's base_front frame, the one base_link -> front
+    # offset (no launch argument, so it cannot drift from swept_clearance_node's).
+    params = {'swept_body_front_x_m': base_front_x()}
     for prefix, arg_list in (('wall_distance_', WALL_DISTANCE_ARGS),
                              ('glass_', GLASS_ARGS)):
         for name, value_type in arg_list:

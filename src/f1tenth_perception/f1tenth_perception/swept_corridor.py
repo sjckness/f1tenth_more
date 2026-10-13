@@ -111,9 +111,12 @@ the old LiDAR cone check for every point outside the footprint.
 import math
 from typing import NamedTuple
 
+from f1tenth_description.vehicle_frames import base_front_x
 import numpy as np
 
-BODY_FRONT_X_M = 0.443
+# The front bumper: the URDF's base_front frame, the one base_link -> front
+# offset in the stack (f1tenth_description/urdf/base_front.xacro).
+BODY_FRONT_X_M = base_front_x()
 BODY_REAR_X_M = -0.082
 BODY_HALF_WIDTH_M = 0.136
 

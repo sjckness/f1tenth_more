@@ -27,6 +27,7 @@ cpu_affinity follows lidar_front_wall.launch.py and swept_clearance.launch.py:
 core 5, off behavior_executor_node's core 4, which hosts the e-stop.
 """
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
@@ -39,7 +40,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     use_lidar_default, use_lidar_desc = get_default('use_lidar')
-    front_x = float(get_value('swept_clearance_body_front_x_m'))
+    front_x = base_front_x()
     rear_x = float(get_value('swept_clearance_body_rear_x_m'))
     half_width = float(get_value('swept_clearance_body_half_width_m'))
 

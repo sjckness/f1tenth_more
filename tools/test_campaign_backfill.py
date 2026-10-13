@@ -69,6 +69,7 @@ from rosidl_runtime_py.utilities import get_message
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_logger.test_campaign import export_campaign_csv as exp
 from f1tenth_logger.test_campaign.robot_logger import DEFAULT_CAMPAIGN, find_root
 from f1tenth_params.param_defaults import get_value
@@ -215,7 +216,7 @@ def align_to_test(odom, kinematics_csv):
 
 
 def footprint():
-    front = float(get_value('swept_clearance_body_front_x_m'))
+    front = base_front_x()
     rear = float(get_value('swept_clearance_body_rear_x_m'))
     half_width = float(get_value('swept_clearance_body_half_width_m'))
     return front - rear, 2.0 * half_width, rear

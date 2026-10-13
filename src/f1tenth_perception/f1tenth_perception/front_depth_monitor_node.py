@@ -48,14 +48,30 @@ that frame), nothing is published for it -- silently reporting a fabricated
 "safe" or "danger" value on real sensor dropout would be worse than just not
 updating. MPC_corr.py's own front_distance handling (its sole remaining
 consumer, see above) is unaffected by this pass and out of scope here.
+
+FROM THE FRONT BUMPER (2026-10-12), like front_clearance_node, which
+publishes the same topic: the percentile is taken from the lens as before,
+then re-referenced with front_clearance_node.from_front -- minus the
+lens-to-bumper offset (base_front x, the URDF frame
+f1tenth_description/urdf/base_front.xacro, minus the depth frame's x in
+base_link from /tf_static), never below MIN_FRONT_DISTANCE_M. No camera
+transform yet: nothing is published, by the same rule as a frame with no
+valid pixels.
 """
 
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
+from f1tenth_description.vehicle_frames import base_front_x
+from f1tenth_perception.front_clearance_node import from_front
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
+from rclpy.time import Time
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32
+from tf2_msgs.msg import TFMessage
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
 
 
 class FrontDepthMonitorNode(Node):
@@ -82,10 +98,20 @@ class FrontDepthMonitorNode(Node):
         # handful of spurious near-zero pixels.
         self.front_distance_percentile = float(
             self.declare_parameter('front_distance_percentile', 5.0).value)
+        self.base_frame = str(self.declare_parameter('base_frame', 'base_link').value)
+        # What is published is from here (module docstring): the URDF's
+        # base_front frame, the one base_link -> front offset in the stack.
+        self.front_x = base_front_x()
+        self._tf_buffer = Buffer()
+        self._camera_x = {}   # depth frame_id -> its x in base_frame
 
         self.bridge = CvBridge()
         self.front_distance_pub = self.create_publisher(
             Float32, self.front_distance_topic, 10)
+        self.tf_static_sub = self.create_subscription(
+            TFMessage, '/tf_static', self._tf_static_callback, QoSProfile(
+                depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                history=HistoryPolicy.KEEP_LAST))
         self.depth_sub = self.create_subscription(
             Image, self.depth_topic, self._depth_callback, 10)
 
@@ -93,7 +119,25 @@ class FrontDepthMonitorNode(Node):
             f'front_depth_monitor_node up: "{self.depth_topic}" -> '
             f'"{self.front_distance_topic}", center_fraction={self.center_fraction}, '
             f'min_valid_depth={self.min_valid_depth} m, '
-            f'percentile={self.front_distance_percentile}')
+            f'percentile={self.front_distance_percentile}; distances from base_front, '
+            f'{self.front_x:.3f} m ahead of {self.base_frame}')
+
+    def _tf_static_callback(self, msg: TFMessage):
+        for transform in msg.transforms:
+            self._tf_buffer.set_transform_static(transform, 'front_depth_monitor_node')
+
+    def _front_offset(self, camera_frame):
+        """Return base_front x minus the depth frame's x in base_frame [m], or None."""
+        if not camera_frame:
+            return None
+        if camera_frame not in self._camera_x:
+            try:
+                stamped = self._tf_buffer.lookup_transform(
+                    self.base_frame, camera_frame, Time())
+            except TransformException:
+                return None
+            self._camera_x[camera_frame] = float(stamped.transform.translation.x)
+        return self.front_x - self._camera_x[camera_frame]
 
     def _depth_callback(self, msg: Image):
         try:
@@ -122,7 +166,15 @@ class FrontDepthMonitorNode(Node):
                 throttle_duration_sec=5.0)
             return
 
-        front_distance = float(np.percentile(valid, self.front_distance_percentile))
+        offset = self._front_offset(msg.header.frame_id)
+        if offset is None:
+            self.get_logger().warn(
+                f'no {self.base_frame} <- "{msg.header.frame_id}" transform on '
+                '/tf_static yet: cannot measure from the front bumper -- not publishing.',
+                throttle_duration_sec=5.0)
+            return
+        lens_distance = float(np.percentile(valid, self.front_distance_percentile))
+        front_distance = from_front(lens_distance, offset)
         self.front_distance_pub.publish(Float32(data=front_distance))
 
 

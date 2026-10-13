@@ -33,6 +33,8 @@
 
   <xacro:include filename="${pkg_share}/urdf/macros.xacro" />
   <xacro:include filename="${pkg_share}/urdf/core.xacro" />
+  <!-- base_front: the front bumper, the reference of every front distance. -->
+  <xacro:include filename="${pkg_share}/urdf/base_front.xacro" />
   <xacro:include filename="${pkg_share}/urdf/sensors.xacro" />
   <xacro:include filename="${pkg_share}/urdf/ros2_control.xacro" />
 

@@ -27,6 +27,7 @@ from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import CameraInfo, Image, LaserScan
 from tf2_msgs.msg import TFMessage
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_value
 from f1tenth_perception.swept_clearance import quaternion_to_rotation
 from f1tenth_perception.swept_clearance_node import SweptClearanceNode, depth_image_to_metres
@@ -42,7 +43,7 @@ FULL_LOCK = get_value('mpc_steering_angle_max_rad')
 MAX_RANGE = get_value('swept_clearance_max_range_m')
 
 STACK_PARAMS = [
-    'wheelbase_m', 'body_front_x_m', 'body_rear_x_m', 'body_half_width_m', 'margin_m',
+    'wheelbase_m', 'body_rear_x_m', 'body_half_width_m', 'margin_m',
     'max_range_m', 'absolute_min_clearance_m', 'rear_axle_x_m', 'steering_estimate',
     'steering_lag_sec', 'steering_topic', 'lidar_timeout_sec', 'camera_timeout_sec',
     'publish_rate_hz', 'camera_stride_px', 'camera_max_points', 'camera_min_depth_m',
@@ -332,3 +333,8 @@ class TestDecouplingAndDefaults:
     @pytest.mark.parametrize('name', STACK_PARAMS)
     def test_parameter_default_matches_stack_params(self, make_node, name):
         assert make_node().get_parameter(name).value == get_value('swept_clearance_' + name)
+
+    def test_the_body_front_defaults_to_the_urdf_front_bumper(self, make_node):
+        """Not a stack param since 2026-10-12: the URDF's base_front frame."""
+        assert make_node().get_parameter('body_front_x_m').value == pytest.approx(
+            base_front_x())

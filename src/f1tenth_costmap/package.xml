@@ -32,6 +32,9 @@
        stack_params.yaml) - same dependency-free-leaf-package precedent every other
        f1tenth_* package already follows. -->
   <exec_depend>f1tenth_params</exec_depend>
+  <!-- vehicle_frames.base_front_x(): /costmap/front_clearance is measured
+       from the URDF base_front frame (the front bumper). -->
+  <exec_depend>f1tenth_description</exec_depend>
   <!-- semantic_layer.py's update_tracks_batch() - scipy.optimize.linear_sum_assignment
        (Hungarian solve) for whole-frame detection<->track association (real per-frame
        tracking pass). Already a real dependency elsewhere in this workspace (e.g.

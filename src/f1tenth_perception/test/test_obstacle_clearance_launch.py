@@ -12,6 +12,7 @@ from launch import LaunchContext
 from launch.actions import DeclareLaunchArgument
 from launch_ros.actions import Node
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_value
 
 _PACKAGE_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
@@ -41,9 +42,9 @@ def test_one_node_gated_on_use_lidar():
     assert 'use_lidar' in _declared(ld)
 
 
-def test_the_footprint_defaults_to_the_swept_clearance_body_in_stack_params():
+def test_the_footprint_defaults_to_the_urdf_front_and_the_stack_params_body():
     ld = _launch_description()
-    front = get_value('swept_clearance_body_front_x_m')
+    front = base_front_x()
     rear = get_value('swept_clearance_body_rear_x_m')
     half = get_value('swept_clearance_body_half_width_m')
     assert float(_default(ld, 'obstacle_clearance_footprint_length_m')) == pytest.approx(

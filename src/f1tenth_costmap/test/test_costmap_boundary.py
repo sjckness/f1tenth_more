@@ -263,6 +263,27 @@ class TestFrontClearanceFromExtraction:
         clearance = front_clearance_from_extraction(result, _MAX_RANGE)
         assert clearance > _MAX_RANGE
 
+    def test_from_the_front_bumper_it_is_the_distance_from_there(self):
+        grid = _blank_grid()
+        grid[_idx(6, 5)] = 100  # 4.0 m straight ahead of base_link
+        result = _extract(grid)
+        assert front_clearance_from_extraction(
+            result, _MAX_RANGE, front_x=0.443) == pytest.approx(4.0 - 0.443)
+
+    def test_from_the_front_bumper_a_real_reading_never_reaches_zero(self):
+        result = {'front': (1.0, 0.0, 0.30)}   # a cell behind the bumper's x
+        assert front_clearance_from_extraction(
+            result, _MAX_RANGE, front_x=0.443, min_distance=0.01) == pytest.approx(
+                math.hypot(0.30 - 0.443, 0.0))
+        result = {'front': (1.0, 0.0, 0.443)}  # exactly at the bumper
+        assert front_clearance_from_extraction(
+            result, _MAX_RANGE, front_x=0.443, min_distance=0.01) == pytest.approx(0.01)
+
+    def test_nothing_within_range_keeps_its_sentinel_from_the_bumper_too(self):
+        result = _extract(_blank_grid())
+        assert front_clearance_from_extraction(
+            result, _MAX_RANGE, front_x=0.443) == pytest.approx(_MAX_RANGE + 1.0)
+
 
 # ==============================================================================
 # dtype/shape robustness -- OccupancyGrid.data is a real int8 array/array.array

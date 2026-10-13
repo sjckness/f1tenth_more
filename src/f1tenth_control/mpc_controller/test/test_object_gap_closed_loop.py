@@ -5,7 +5,8 @@ selection and solver, the stop latch and the floor exactly as MPC_corr's
 object branch applies them, the shipped /drive clamp, and a braking plant
 fitted to the archived stops -- with the target also in the obstacle list at
 its footprint radius (+ class margin). The controller is sent what GoToObject
-sends: centre distance = gap + nose_reach + r_target.
+sends: centre distance = gap + front_x + r_target, front_x the front bumper
+(the URDF's base_front; gap_min from it, object_geometry THE FRONT).
 
 object_reached is judged by the REAL evaluator (f1tenth_behavior's
 condition_eval) on every tick's status: live r, the stop latch and the
@@ -29,13 +30,14 @@ import pytest
 from f1tenth_behavior.mission.condition_eval import EvalContext, evaluate
 from f1tenth_behavior.mission.mission_config import StopCondition
 from f1tenth_behavior.mission.runtime import ObjectStatusSample
-from f1tenth_params.object_geometry import gap_limits, nose_reach
+from f1tenth_description.vehicle_frames import base_front_x
+from f1tenth_params.object_geometry import gap_limits
 from f1tenth_params.param_defaults import get_value
 from mpc_controller.MPC_corr import MPCController
 
 import test_object_approach_closed_loop as rig
 
-NOSE_REACH_M = nose_reach(float(get_value('mpc_wheelbase_m')))
+FRONT_X_M = base_front_x()
 REST_SPEED_MPS = float(get_value('object_rest_speed_mps'))
 CLASSES = {'person': 0.50, 'chair': 0.45}
 SCENARIOS = ('ahead 4 m', '45 deg off, 4 m', '70 deg off, 2.5 m', 'jitter 5 cm @ 12.5 Hz')
@@ -66,10 +68,10 @@ def _reached_tick(res):
 
 def approach(target_class, gap, scenario='ahead 4 m', braking='measured'):
     """Run one approach and report it the way the floor sheet reads."""
-    limits = gap_limits(target_class)
+    limits = gap_limits(target_class, front_x=FRONT_X_M)
     gap = limits.default_gap if gap is None else gap
     radius = CLASSES[target_class] / 2.0
-    res = rig.run_approach(standoff=gap + NOSE_REACH_M + radius,
+    res = rig.run_approach(standoff=gap + FRONT_X_M + radius,
                            obstacle_r=radius + limits.class_margin,
                            braking=BRAKING[braking], **rig.SCENARIOS[scenario])
     tick = _reached_tick(res)
@@ -77,14 +79,14 @@ def approach(target_class, gap, scenario='ahead 4 m', braking='measured'):
     tx, ty = res.targets[min(end, len(res.targets) - 1)]
     centre = [math.hypot(t[0] - s[0], t[1] - s[1])
               for s, t in zip(res.xs[1:], res.targets)]
-    final_gap = math.hypot(tx - res.xs[end][0], ty - res.xs[end][1]) - NOSE_REACH_M - radius
+    final_gap = math.hypot(tx - res.xs[end][0], ty - res.xs[end][1]) - FRONT_X_M - radius
     moving = sum(1 for v in res.published if v > 0.0)
     return {
         'gap': gap, 'limits': limits, 'res': res,
         'reached': tick is not None, 'reached_tick': tick,
         'final_gap': final_gap,
         'overshoot': max(0.0, gap - final_gap),
-        'min_front_gap': min(centre) - NOSE_REACH_M - radius,
+        'min_front_gap': min(centre) - FRONT_X_M - radius,
         'min_body_gap': min(centre) - radius - rig.CAR_RADIUS,
         'peak_speed': max(s[3] for s in res.xs),
         'clamps': sum(res.clamped), 'moving_ticks': moving,
@@ -97,7 +99,7 @@ def gap_table():
     """Commanded gap 0 (a probe the loader would reject), gap_min, default gap."""
     out = {}
     for cls in CLASSES:
-        limits = gap_limits(cls)
+        limits = gap_limits(cls, front_x=FRONT_X_M)
         for label, gap in (('probe (gap 0)', 0.0), ('gap_min', limits.gap_min),
                            ('default gap', limits.default_gap)):
             out[(cls, label)] = approach(cls, gap)

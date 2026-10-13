@@ -50,6 +50,7 @@ cpu_affinity/nice follow lidar_front_wall.launch.py: core 5, off the behavior
 executor's core 4 that hosts the e-stop, and shared with lidar_front_wall_node.
 """
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
@@ -61,7 +62,6 @@ from launch_ros.parameter_descriptions import ParameterValue
 # (name without the swept_clearance_ prefix, value type).
 SWEPT_CLEARANCE_ARGS = [
     ('wheelbase_m', float),
-    ('body_front_x_m', float),
     ('body_rear_x_m', float),
     ('body_half_width_m', float),
     ('margin_m', float),
@@ -93,6 +93,9 @@ def generate_launch_description():
         'use_camera': get_value('camera_source') == 'zed',
         'depth_topic': '/zed2/zed_node/depth/depth_registered',
         'depth_info_topic': '/zed2/zed_node/depth/camera_info',
+        # The front bumper: the URDF's base_front frame, not a stack param or
+        # a launch argument -- one base_link -> front offset for the stack.
+        'body_front_x_m': base_front_x(),
     }
     for name, value_type in SWEPT_CLEARANCE_ARGS:
         default, description = get_default('swept_clearance_' + name)

@@ -124,10 +124,29 @@ NOTE the sides/rear have NO camera and no MPC-avoidance coverage at all
 (obstacle_projector_node only sees what the forward-facing camera sees), so
 the side/rear threshold is the only protection in those directions. It was
 tightened rather than removed for that reason.
+
+THE FRONT CONE IS MEASURED FROM THE FRONT BUMPER (2026-10-12), not from the
+LiDAR. Each valid return is placed in base_link through the laser's pose from
+/tf_static; the front check is its distance from base_front (the URDF frame
+f1tenth_description/urdf/base_front.xacro, 0.443 m ahead of base_link), for
+returns whose bearing FROM THE BUMPER is within front_cone_half_angle_deg of
+the car's heading. A return behind the bumper (beside the body) is not
+"front" any more. The side/rear window is unchanged: raw LiDAR ranges.
+
+Why: the old raw-range check put its stopping point wherever the LiDAR sits.
+With the car's committed TF (laser 0.12 m ahead of base_link) and the bumper
+at 0.443 m, the default 0.15 m front threshold tripped only once a return was
+0.173 m INSIDE the front face -- after contact. From the bumper, the same
+0.15 m is 0.15 m of real clearance ahead of the car: the stopping point moved
+out, never in. Until the laser's transform has arrived the laser is assumed
+at base_link's origin, yaw 0 -- returns then read closer to the bumper than
+they are, so the check can only trip early, never late.
 """
 
 import math
 
+from f1tenth_behavior.behaviours.static_frames import StaticFramePoses
+from f1tenth_description.vehicle_frames import base_front_x
 import py_trees
 from sensor_msgs.msg import LaserScan
 
@@ -157,9 +176,10 @@ def _in_lidar_window(raw_angle: float, blind_cone_half_angle_rad: float) -> bool
 
 
 def _in_front_cone(raw_angle: float, front_cone_half_angle_rad: float) -> bool:
-    """True if `raw_angle` (RAW scan frame, see module docstring/
-    _in_lidar_window's own docstring) falls INSIDE the front cone, i.e.
-    should count toward this behaviour's front proximity check. The front
+    """True if `raw_angle` falls INSIDE the front cone, i.e. should count
+    toward this behaviour's front proximity check. Since 2026-10-12
+    _scan_callback passes the return's bearing FROM THE FRONT BUMPER (0 = the
+    car's heading), not the raw scan angle -- see the module docstring. The front
     cone is |raw_angle| < front_cone_half_angle_rad -- strict `<`, the exact
     complement of _in_lidar_window's `>=`, so that with equal half-angles
     (the default for both) every sample belongs to exactly one of the two
@@ -182,9 +202,13 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         lidar_distance_threshold=0.15,
         lidar_blind_cone_half_angle_deg=45.0,
         front_cone_half_angle_deg=45.0,
+        base_front_x_m=None,
     ):
         super().__init__(name=name)
         self.scan_topic = scan_topic
+        # The front cone's apex: the URDF's base_front (module docstring).
+        self.front_x = base_front_x() if base_front_x_m is None else float(base_front_x_m)
+        self._frames = StaticFramePoses()
         self.front_distance_threshold = front_distance_threshold
         self.lidar_distance_threshold = lidar_distance_threshold
         self.lidar_blind_cone_half_angle_rad = math.radians(lidar_blind_cone_half_angle_deg)
@@ -208,6 +232,8 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
                 "IsProximityTooClose.setup() didn't find 'node' in kwargs") from e
         self.scan_sub = self.node.create_subscription(
             LaserScan, self.scan_topic, self._scan_callback, 10)
+        # The laser's mount, to measure the front cone from the bumper.
+        self.tf_static_sub = self._frames.subscribe(self.node)
 
     def _scan_callback(self, msg: LaserScan):
         # ---- DIAGNOSTIC (live investigation, see chat) -- one-time raw
@@ -232,6 +258,16 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         min_in_window = None
         min_front = None
 
+        # The laser's pose in base_link, for the front cone (module docstring).
+        laser = self._frames.pose(msg.header.frame_id)
+        if laser is None:
+            laser = (0.0, 0.0, 0.0)
+            self.node.get_logger().warn(
+                f'[IsProximityTooClose] no base_link <- "{msg.header.frame_id}" on '
+                '/tf_static yet: front cone measured as if the LiDAR sat at '
+                'base_link (trips early, never late).', throttle_duration_sec=5.0)
+        lx, ly, lyaw = laser
+
         # Both windows are evaluated independently per sample (not via a
         # continue-past-one-into-the-other chain) so this stays correct even
         # if front_cone_half_angle_rad and lidar_blind_cone_half_angle_rad
@@ -243,9 +279,15 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
             angle = msg.angle_min + i * msg.angle_increment
             valid = math.isfinite(r) and r >= msg.range_min
 
-            if _in_front_cone(angle, self.front_cone_half_angle_rad):
-                if valid and (min_front is None or r < min_front):
-                    min_front = r
+            if valid:
+                # FRONT: the return's distance and bearing from the bumper.
+                dx = lx + r * math.cos(lyaw + angle) - self.front_x
+                dy = ly + r * math.sin(lyaw + angle)
+                if dx > 0.0 and _in_front_cone(math.atan2(dy, dx),
+                                               self.front_cone_half_angle_rad):
+                    d = math.hypot(dx, dy)
+                    if min_front is None or d < min_front:
+                        min_front = d
 
             if _in_lidar_window(angle, self.lidar_blind_cone_half_angle_rad):
                 in_window_count += 1
@@ -268,7 +310,7 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
             f'in_window={in_window_count} excluded_by_filter={excluded_by_filter} '
             f'min_in_window='
             + (f'{min_in_window:.3f}' if min_in_window is not None else 'none')
-            + ' front_min='
+            + ' front_min(from bumper)='
             + (f'{min_front:.3f}' if min_front is not None else 'none'),
             throttle_duration_sec=2.0,
         )

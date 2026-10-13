@@ -35,6 +35,7 @@ from nav_msgs.msg import OccupancyGrid, Odometry
 from rclpy.parameter import Parameter
 
 from f1tenth_costmap.costmap_boundary_node import CostmapBoundaryNode
+from f1tenth_description.vehicle_frames import base_front_x
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -163,7 +164,9 @@ class TestPeriodicPublishRegardlessOfAge:
                 assert arr.constraints[0].normal[0] == pytest.approx(1.0)
                 assert arr.constraints[0].offset == pytest.approx(4.0)
             for call in node.clearance_pub.publish.call_args_list:
-                assert call[0][0].data == pytest.approx(4.0)
+                # front_clearance is from the front bumper (base_front); the
+                # boundary constraint above stays in base_link.
+                assert call[0][0].data == pytest.approx(4.0 - base_front_x())
         finally:
             node.destroy_node()
 
@@ -212,7 +215,7 @@ class TestExtractionTickFreshData:
 
             node.clearance_pub.publish.assert_called_once()
             published_clearance = node.clearance_pub.publish.call_args[0][0]
-            assert published_clearance.data == pytest.approx(4.0)
+            assert published_clearance.data == pytest.approx(4.0 - base_front_x())
         finally:
             node.destroy_node()
 
