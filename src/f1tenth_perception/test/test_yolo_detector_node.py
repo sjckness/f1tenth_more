@@ -85,10 +85,12 @@ from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose
 from f1tenth_perception.yolo_detector_node import (
     MASK_OVERLAY_ALPHA,
     MAX_MASK_INSTANCES,
+    SUB_THRESHOLD_GREY,
     YoloDetectorNode,
     _bbox_overlap_fraction,
     _mask_overlap_fraction,
     check_trt_engine,
+    draw_sub_threshold,
 )
 
 
@@ -783,3 +785,57 @@ class TestLidarExclusionKeepMask:
 if __name__ == '__main__':
     import sys as _sys
     _sys.exit(pytest.main([__file__, '-v']))
+
+
+# ---------------------------------------------------------------------------
+# Sub-threshold boxes (2026-10-13): drawn grey on the annotated image, never
+# published. The split itself runs on real Ultralytics Results in
+# image_callback (checked against real inference, see the jazzy test parity
+# report); here: the parameters and the pure drawing.
+# ---------------------------------------------------------------------------
+
+class TestSubThresholdParams:
+
+    def test_default_runs_inference_below_the_threshold(self):
+        node = _construct_with_params()
+        try:
+            assert node.confidence_threshold == pytest.approx(0.3)
+            assert node.debug_confidence_threshold == pytest.approx(0.10)
+            assert node.inference_conf == pytest.approx(0.10)
+            assert node.draw_sub_threshold is True
+        finally:
+            node.destroy_node()
+
+    @pytest.mark.parametrize('debug', [0.3, 0.5])
+    def test_a_debug_threshold_at_or_above_the_threshold_switches_it_off(self, debug):
+        node = _construct_with_params({'debug_confidence_threshold': debug})
+        try:
+            assert node.inference_conf == pytest.approx(0.3)
+            assert node.draw_sub_threshold is False
+        finally:
+            node.destroy_node()
+
+
+class TestDrawSubThreshold:
+
+    def test_a_box_is_drawn_grey_inside_its_bounds(self):
+        img = np.zeros((120, 160, 3), dtype=np.uint8)
+        draw_sub_threshold(img, [(40, 50, 100, 110, 'person', 0.21)], 0.3, 0.1)
+        grey = np.all(img == SUB_THRESHOLD_GREY, axis=2)
+        ys, xs = np.nonzero(grey[45:, :])
+        assert xs.min() >= 40 and xs.max() <= 100
+        assert grey[110, 70] and grey[80, 40], 'bottom and left edges'
+        assert not grey[80, 70], 'outline only, not filled'
+
+    def test_the_threshold_is_printed_even_without_a_box(self):
+        img = np.zeros((120, 320, 3), dtype=np.uint8)
+        draw_sub_threshold(img, [], 0.3, 0.1)
+        assert np.any(img[:20, :200] > 100), 'light text in the corner'
+        # Nothing below the corner label (its anti-aliased text has greys).
+        assert not np.any(img[30:, :])
+
+    def test_a_box_past_the_frame_is_clamped_not_a_crash(self):
+        img = np.zeros((60, 80, 3), dtype=np.uint8)
+        out = draw_sub_threshold(img, [(-20, -5, 500, 400, 'chair', 0.15)], 0.3, 0.1)
+        assert out is img
+        assert np.all(img[59, 30] == SUB_THRESHOLD_GREY)

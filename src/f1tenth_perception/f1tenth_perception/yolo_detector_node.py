@@ -40,6 +40,22 @@ The input topic defaults to **/camera/image_raw** so the node is agnostic to the
 active camera source (v4l2 webcam or ZED2 wrapper); the bringup launch remaps
 whichever camera is selected onto that canonical topic.
 
+SUB-THRESHOLD BOXES IN GREY (2026-10-13). Inference runs at
+debug_confidence_threshold (stack_params, default 0.10) when that is below
+confidence_threshold; the result is split on the scores straight after
+inference (before the car's-own-LiDAR exclusion, which then only sees, and
+only pulls the masks of, what it saw before), and everything published --
+detections_topic, masks_topic, the coloured boxes/masks of the annotated
+image -- comes from the part at or above confidence_threshold, exactly as
+before. The part below is only DRAWN,
+in grey with its class and confidence, on the annotated image, with the
+threshold printed in the corner (draw_sub_threshold). debug_confidence_
+threshold >= confidence_threshold switches it off (inference at
+confidence_threshold, nothing grey). The split is on the model's own scores,
+so a box at or above the threshold is the same box it was: a lower score
+cannot suppress a higher one in NMS, and the YOLO26 end-to-end head picks
+its top-k before any confidence filter.
+
 If no model is configured (`model_path` empty) OR Ultralytics is not importable,
 the node runs in **passthrough mode**: it publishes an empty Detection2DArray and
 re-publishes the incoming frame on the annotated topic (so both topics stay live
@@ -175,6 +191,34 @@ MAX_MASK_INSTANCES = 254
 # as a plain module constant rather than a ROS param since nothing else in
 # this pass needed it tunable; bump to a declare_parameter if that changes.
 MASK_OVERLAY_ALPHA = 0.5
+
+# Sub-threshold boxes on the annotated image (draw_sub_threshold): BGR grey.
+SUB_THRESHOLD_GREY = (160, 160, 160)
+
+
+def draw_sub_threshold(image, boxes, threshold, debug_threshold):
+    """
+    Draw sub-threshold detections in grey, and the threshold, onto `image`.
+
+    boxes: (x1, y1, x2, y2, class_name, score) in pixels, the detections the
+    model scored at or above debug_threshold but below threshold -- never
+    published, only shown. The corner label states both values, so a frame
+    with no grey box still says what "below threshold" meant. Draws in place
+    and returns `image`.
+    """
+    img_h, img_w = image.shape[:2]
+    for x1, y1, x2, y2, class_name, score in boxes:
+        p1 = (max(int(x1), 0), max(int(y1), 0))
+        p2 = (min(int(x2), img_w - 1), min(int(y2), img_h - 1))
+        cv2.rectangle(image, p1, p2, SUB_THRESHOLD_GREY, thickness=1)
+        cv2.putText(image, f'{class_name} {score:.2f}', (p1[0] + 2, max(p1[1] - 4, 10)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, SUB_THRESHOLD_GREY, 1, cv2.LINE_AA)
+    text = f'conf >= {threshold:.2f}  (grey: {debug_threshold:.2f}-{threshold:.2f})'
+    (text_w, text_h), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.45, 1)
+    cv2.rectangle(image, (0, 0), (text_w + 6, text_h + baseline + 6), (0, 0, 0), thickness=-1)
+    cv2.putText(image, text, (3, text_h + 3), cv2.FONT_HERSHEY_SIMPLEX, 0.45,
+                (255, 255, 255), 1, cv2.LINE_AA)
+    return image
 
 
 # ==============================================================================
@@ -330,6 +374,12 @@ class YoloDetectorNode(Node):
         # so low-confidence boxes never even reach cv2 annotation/publishing.
         self.confidence_threshold = float(
             self.declare_parameter('confidence_threshold', 0.3).value)
+        # Sub-threshold boxes, drawn grey and never published (module
+        # docstring). Inference runs at the lower of the two.
+        self.debug_confidence_threshold = float(
+            self.declare_parameter('debug_confidence_threshold', 0.10).value)
+        self.inference_conf = min(self.confidence_threshold, self.debug_confidence_threshold)
+        self.draw_sub_threshold = self.inference_conf < self.confidence_threshold
         # Car's-own-LiDAR exclusion rectangle -- see module docstring's own
         # paragraph and stack_params.yaml's lidar_exclusion_x_min comment for
         # the full rationale/trade-off/calibration source. Fractions
@@ -568,8 +618,36 @@ class YoloDetectorNode(Node):
         # live: result.masks stays None, no error) so this is always passed.
         results = self.model(
             cv_image, verbose=False, device=self.device,
-            conf=self.confidence_threshold, retina_masks=True)
+            conf=self.inference_conf, retina_masks=True)
         result = results[0]
+
+        # Sub-threshold split (module docstring), BEFORE the exclusion: that
+        # one pulls every mask to the CPU, and a sub-threshold mask is never
+        # used. `result` keeps exactly what confidence_threshold always let
+        # through; `below` is only drawn. The exclusion is per detection, so
+        # splitting first changes nothing it keeps.
+        below = []
+        if self.draw_sub_threshold and len(result.boxes) > 0:
+            scores = result.boxes.conf.cpu().numpy()
+            above = scores >= self.confidence_threshold
+            if not above.all():
+                img_h, img_w = cv_image.shape[:2]
+                for box in result.boxes[~above]:
+                    x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
+                    # The exclusion's box test (no mask): the car's own LiDAR
+                    # is not shown in grey either.
+                    if _bbox_overlap_fraction(
+                            x1, y1, x2, y2,
+                            self.lidar_exclusion_x_min * img_w,
+                            self.lidar_exclusion_y_min * img_h,
+                            self.lidar_exclusion_x_max * img_w,
+                            self.lidar_exclusion_y_max * img_h,
+                    ) > self.lidar_exclusion_overlap_threshold:
+                        continue
+                    cls_id = int(box.cls[0].item())
+                    below.append((x1, y1, x2, y2, self.names.get(cls_id, str(cls_id)),
+                                  float(box.conf[0].item())))
+                result = result[above]
 
         # Car's-own-LiDAR exclusion -- see module docstring's own paragraph.
         # Applied here, on the raw Ultralytics result, BEFORE anything below
@@ -588,7 +666,11 @@ class YoloDetectorNode(Node):
                 result = result[keep]
 
         masks_np = None
-        if self.masks_pub is not None and result.masks is not None:
+        # len(): a frame whose every box was sub-threshold keeps an empty
+        # masks tensor after the split; it is a zero-detection frame, as
+        # before (result.masks None).
+        if (self.masks_pub is not None and result.masks is not None
+                and len(result.boxes) > 0):
             masks_np = result.masks.data.cpu().numpy()
 
         for i, box in enumerate(result.boxes):
@@ -655,6 +737,9 @@ class YoloDetectorNode(Node):
             # See _resolve_class_names()'s own docstring.
             result.names = self.names
             annotated = result.plot()
+        if self.draw_sub_threshold:
+            draw_sub_threshold(annotated, below, self.confidence_threshold,
+                               self.debug_confidence_threshold)
         self._publish_annotated(annotated, msg.header)
 
     def _publish_annotated(self, cv_image, header):

@@ -205,6 +205,9 @@ ekf_global_config:
 confidence_threshold:
   default: 0.3
   description: "Minimum YOLO detection score kept (both at YOLO inference in yolo_detector_node and again by detection_3d_node before publishing to Detection3DArray/MarkerArray)."
+debug_confidence_threshold:
+  default: 0.10
+  description: "yolo_detector_node runs inference at this score when it is below confidence_threshold; detections between the two are NEVER published, only drawn in grey with their score on /camera/image_annotated (with the threshold in the corner), to show what the threshold drops. >= confidence_threshold: off. Consumed by: f1tenth_perception/detection.launch.py."
 # Consumed by: f1tenth_perception/detection.launch.py.
 yolo_device:
   default: cuda

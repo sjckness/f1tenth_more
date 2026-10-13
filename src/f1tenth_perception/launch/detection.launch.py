@@ -115,6 +115,11 @@ def generate_launch_description():
     confidence_threshold_la = DeclareLaunchArgument(
         'confidence_threshold', default_value=str(confidence_threshold_default),
         description=confidence_threshold_desc)
+    debug_confidence_threshold_default, debug_confidence_threshold_desc = get_default(
+        'debug_confidence_threshold')
+    debug_confidence_threshold_la = DeclareLaunchArgument(
+        'debug_confidence_threshold', default_value=str(debug_confidence_threshold_default),
+        description=debug_confidence_threshold_desc)
     yolo_device_default, yolo_device_desc = get_default('yolo_device')
     yolo_device_la = DeclareLaunchArgument(
         'yolo_device', default_value=str(yolo_device_default), description=yolo_device_desc)
@@ -336,6 +341,8 @@ def generate_launch_description():
             # yolo_detector_node.py's own docstring for why that left this
             # node's own output unfiltered regardless of this value.
             'confidence_threshold': LaunchConfiguration('confidence_threshold'),
+            # Sub-threshold boxes, grey on the annotated image only.
+            'debug_confidence_threshold': LaunchConfiguration('debug_confidence_threshold'),
             # Car's-own-LiDAR exclusion -- see the declare block above.
             'lidar_exclusion_x_min': LaunchConfiguration('lidar_exclusion_x_min'),
             'lidar_exclusion_x_max': LaunchConfiguration('lidar_exclusion_x_max'),
@@ -348,7 +355,7 @@ def generate_launch_description():
     )
 
     actions = [
-        confidence_threshold_la, yolo_device_la, yolo_model_la,
+        confidence_threshold_la, debug_confidence_threshold_la, yolo_device_la, yolo_model_la,
         yolo_model_task_la, use_mask_depth_la,
         lidar_exclusion_x_min_la, lidar_exclusion_x_max_la,
         lidar_exclusion_y_min_la, lidar_exclusion_y_max_la,
