@@ -317,6 +317,89 @@ def strip_lines(frame):
     return lines
 
 
+# Scene-label tints (BGR) -- scene_labels.LABEL_* values as keys, so this
+# module still needs nothing from scene_labels at import time.
+SCENE_TINT = {1: (60, 170, 60), 2: (0, 140, 255), 3: (200, 120, 40), 4: (90, 90, 90)}
+SCENE_TINT_ALPHA = 0.35
+COLOR_WALL = (0, 140, 255)
+COLOR_OTHER = (255, 0, 255)
+COLOR_FALLBACK = (0, 0, 255)
+
+
+def draw_scene_overlay(img, scene):
+    """
+    Draw the scene labels onto img (debug px) in place.
+
+    scene keys (all optional):
+      labels      (gh, gw) uint8 label grid (scene_labels.LABEL_*): ground,
+                  wall, ceiling and ignore are tinted, OTHER is left clear
+      img_wh      (w, h) of the depth image the px coordinates below are in
+      walls       list of dicts with outline_px (4 corners, depth px) or None,
+                  and source ('lidar' or 'stereo')
+      candidates  list of dicts with bbox_px (x0, y0, x1, y1), depth px
+      virtual     /perception/virtual_wall/debug payload: distance, source
+      fallback    True when anything fell back (stereo plane, disagreement)
+    """
+    h, w = img.shape[:2]
+    labels = scene.get('labels')
+    if labels is not None:
+        big = cv2.resize(labels, (w, h), interpolation=cv2.INTER_NEAREST)
+        tint = img.copy()
+        for value, color in SCENE_TINT.items():
+            tint[big == value] = color
+        cv2.addWeighted(tint, SCENE_TINT_ALPHA, img, 1.0 - SCENE_TINT_ALPHA, 0.0, dst=img)
+    src_w, src_h = scene.get('img_wh') or (w, h)
+    sx, sy = w / float(src_w), h / float(src_h)
+    virtual = scene.get('virtual') or {}
+    for wall in scene.get('walls') or []:
+        outline = wall.get('outline_px')
+        if not outline:
+            continue
+        poly = np.array([[int(round(u * sx)), int(round(v * sy))] for u, v in outline], np.int32)
+        stereo_plane = wall.get('source') == 'stereo'
+        color = COLOR_FALLBACK if stereo_plane else COLOR_WALL
+        cv2.polylines(img, [poly], True, color, 1, cv2.LINE_AA)
+        top = poly[np.argmin(poly[:, 1])]
+        _text(img, '{} {}'.format('STEREO' if stereo_plane else 'LIDAR',
+                                  wall.get('label', '')),
+              (int(np.clip(top[0], 2, w - 60)), int(np.clip(top[1] - 3, 10, h - 3))), color)
+    for cand in scene.get('candidates') or []:
+        x0, y0, x1, y1 = cand['bbox_px']
+        cv2.rectangle(img, (int(x0 * sx), int(y0 * sy)), (int(x1 * sx), int(y1 * sy)),
+                      COLOR_OTHER, 1)
+        _text(img, 'OTHER {:.1f}m'.format(cand.get('x_min', cand.get('x', 0.0))),
+              (int(x0 * sx) + 2, max(int(y0 * sy) - 2, 10)), COLOR_OTHER)
+    head = 'VWALL {}@front [{}]'.format(_fmt_m(virtual.get('distance_m')),
+                                        virtual.get('source', '--'))
+    _text(img, head, (3, 12), COLOR_WALL)
+    if scene.get('fallback') or virtual.get('disagree') or virtual.get('stereo_fallback'):
+        flags = [n for n, on in (('DISAGREE', virtual.get('disagree')),
+                                 ('STEREO PLANE', virtual.get('stereo_fallback')
+                                  or scene.get('fallback'))) if on]
+        _text(img, 'FALLBACK ' + ' '.join(flags), (3, 25), COLOR_FALLBACK)
+        cv2.rectangle(img, (0, 0), (w - 1, h - 1), COLOR_FALLBACK, 2)
+
+
+def scene_frame(labels, scene_debug, candidates, virtual, front_x):
+    """Assemble draw_scene_overlay's dict from the scene-label topics' payloads.
+
+    scene_debug: /perception/scene_labels_debug, candidates:
+    /perception/unclassified_obstacles, virtual: /perception/virtual_wall/debug
+    (all parsed JSON, any may be None). Each wall is labelled with its
+    distance from the front bumper at front_x.
+    """
+    scene_debug = scene_debug or {}
+    walls = []
+    for wall in scene_debug.get('walls') or []:
+        wall = dict(wall)
+        if front_x is not None:
+            wall['label'] = '{:.2f}m'.format(wall['d'] - front_x * wall['nx'])
+        walls.append(wall)
+    return {'labels': labels, 'img_wh': scene_debug.get('img_wh'), 'walls': walls,
+            'candidates': (candidates or {}).get('candidates'), 'virtual': virtual,
+            'fallback': scene_debug.get('fallback')}
+
+
 def draw_debug_frame(img, frame):
     """
     Draw the overlays onto img (downscaled BGR) and return it with the text strip below.
@@ -343,6 +426,9 @@ def draw_debug_frame(img, frame):
     def sp(box):
         return (int(round(box[0] * s)), int(round(box[1] * s)),
                 int(round(box[2] * s)), int(round(box[3] * s)))
+
+    if frame.get('scene'):
+        draw_scene_overlay(img, frame['scene'])
 
     exclusion = frame.get('exclusion')
     if exclusion is not None:

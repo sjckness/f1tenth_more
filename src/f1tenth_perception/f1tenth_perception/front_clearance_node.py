@@ -242,6 +242,36 @@ chain and drag the estimate toward it. -1.0 appears on a topic ONLY when a
 filter has never held a value at all (nothing published yet this run) --
 i.e. it means "no reading", never "a reading of -1".
 
+SCENE LABELS (enable_scene_labels; default false) -- scene_labels.py
+--------------------------------------------------------------------
+With the switch on, every 1/scene_rate_hz a scene_grid_width_px x
+scene_grid_height_px sample of the depth frame is back-projected into
+base_link and labelled GROUND / WALL / CEILING / IGNORE / OTHER:
+  GROUND   the floor, RANSAC-fitted around the TF-predicted plane
+           (ground_prior_z_m) and accepted only within
+           scene_ground_max_angle_deg / scene_ground_max_offset_m of it.
+  CEILING  the histogram peak of heights in [scene_ceiling_min_m,
+           scene_ceiling_max_m], EMA'd and step-gated.
+  WALL     within scene_wall_band_m of a LiDAR wall plane from
+           /perception/wall_planes (no older than scene_wall_max_age_s) and
+           inside its span. Never a YOLO-mask pixel. With no LiDAR wall in the
+           ROI, a stereo vertical plane may stand in, flagged as fallback.
+  IGNORE   above scene_max_relevant_height_m, never a YOLO-mask pixel.
+  OTHER    the rest (objects, masked or not).
+Published: /perception/scene_labels (mono8 label image at the grid size, the
+depth header), /perception/scene_labels_debug (JSON: planes, timing, wall
+outlines in depth px), /perception/stereo_wall (JSON: the median WALL distance
+in the ROI from the bumper, scene_labels.stereo_wall_distance) and
+/perception/unclassified_obstacles (JSON: OTHER clusters outside every mask;
+log only). The background statistics (front_distance and the background term
+of front_clearance) then use WALL and OTHER pixels only, with the latest
+labels no older than scene_wall_max_age_s; the floor-removal path above is the
+fallback when there are none.
+
+front_distance is NOT the wall truth when the switch is on: the virtual wall
+(lidar_front_wall_node, /perception/virtual_wall) is, and every wall consumer
+reads that instead (f1tenth_params.param_defaults.get_wall_distance_topic()).
+
 EVERY PUBLISHED DISTANCE IS FROM THE FRONT BUMPER (2026-10-12)
 --------------------------------------------------------------
 front_distance and front_clearance are measured from base_front, the URDF
@@ -266,7 +296,9 @@ as MIN_FRONT_DISTANCE_M and the stop fires, instead of a value that would
 switch the stop off.
 """
 
+import json
 import math
+import time
 
 import cv2
 import numpy as np
@@ -287,7 +319,7 @@ from f1tenth_description.vehicle_frames import (
     base_front_x, beside_body_behind_bumper, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
 
-from f1tenth_perception import perception_debug
+from f1tenth_perception import perception_debug, scene_labels
 from f1tenth_perception.ground_plane import (
     back_project, fit_ground_plane, ground_mask, quat_to_matrix)
 from f1tenth_perception.cpu_affinity import (
@@ -500,6 +532,32 @@ class FrontClearanceNode(Node):
         self._ground_rng = np.random.default_rng(0)
         self._last_ground = None   # debug: plane summary and pixel count
 
+        # ---- scene labels (module docstring) --------------------------------
+        def p(name, default):
+            return self.declare_parameter(name, default).value
+        self.scene_enabled = bool(p('enable_scene_labels', False))
+        scene_rate = float(p('scene_rate_hz', 5.0))
+        self.scene_period = 1.0 / scene_rate if scene_rate > 0.0 else math.inf
+        self.scene_w = int(p('scene_grid_width_px', 160))
+        self.scene_h = int(p('scene_grid_height_px', 90))
+        self.scene_max_age = float(p('scene_wall_max_age_s', 0.3))
+        self.scene_ground_angle = float(p('scene_ground_max_angle_deg', 5.0))
+        self.scene_ground_offset = float(p('scene_ground_max_offset_m', 0.05))
+        self.scene_ground_band = float(p('scene_ground_band_m', 0.04))
+        self.scene_ceiling_band = float(p('scene_ceiling_band_m', 0.08))
+        self.scene_max_height = float(p('scene_max_relevant_height_m', 1.0))
+        self.scene_wall_band = float(p('scene_wall_band_m', 0.06))
+        self.scene_wall_min_span = float(p('scene_wall_min_span_m', 0.8))
+        self.scene_stereo_min_px = int(p('scene_stereo_wall_min_px', 30))
+        self._ceiling = scene_labels.CeilingTracker(
+            min_h=float(p('scene_ceiling_min_m', 2.0)), max_h=float(p('scene_ceiling_max_m', 4.0)),
+            alpha=float(p('scene_ceiling_alpha', 0.3)),
+            max_step_m=float(p('scene_ceiling_max_step_m', 0.25)),
+            prior_h=float(p('scene_ceiling_prior_m', 0.0)))
+        self._scene = None         # latest labels: {'stamp', 'labels' (h, w) uint8}
+        self._wall_planes = None   # (stamp, [WallLine]) from /perception/wall_planes
+        self._next_scene = 0.0
+
         # ---- too-close (-Inf) short-circuit --------------------------------
         # See the module docstring's own "-Inf AND NaN/+Inf ARE NOT THE SAME
         # THING" section for the ZED semantics and for why this has to bypass
@@ -659,7 +717,16 @@ class FrontClearanceNode(Node):
             TFMessage, '/tf_static', self._tf_static_callback, QoSProfile(
                 depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
                 history=HistoryPolicy.KEEP_LAST))
-        if self.ground_enabled:
+        if self.scene_enabled:
+            self.scene_labels_pub = self.create_publisher(Image, '/perception/scene_labels', 10)
+            self.scene_debug_pub = self.create_publisher(
+                String, '/perception/scene_labels_debug', 10)
+            self.stereo_wall_pub = self.create_publisher(String, '/perception/stereo_wall', 10)
+            self.unclassified_pub = self.create_publisher(
+                String, '/perception/unclassified_obstacles', 10)
+            self.create_subscription(
+                String, '/perception/wall_planes', self._wall_planes_callback, 10)
+        if self.ground_enabled or self.scene_enabled:
             self.camera_info_sub = self.create_subscription(
                 CameraInfo, self.camera_info_topic, self._camera_info_callback, 10)
         self.depth_sub = self.create_subscription(
@@ -693,6 +760,14 @@ class FrontClearanceNode(Node):
 
     def _lidar_wall_callback(self, msg: WallLineFit):
         self._latest_lidar_wall = msg
+
+    def _wall_planes_callback(self, msg: String):
+        try:
+            d = json.loads(msg.data)
+            walls = [scene_labels.WallLine.from_dict(w) for w in d.get('walls', [])]
+            self._wall_planes = (float(d['stamp']), walls)
+        except (ValueError, KeyError, TypeError):
+            return
 
     def _now_seconds(self):
         return self.get_clock().now().nanoseconds * 1e-9
@@ -789,6 +864,144 @@ class FrontClearanceNode(Node):
             'z0_m': round(plane.z_at_origin(), 3),
             'px': int(np.count_nonzero(out))}
         return out
+
+    def _intrinsics(self, w, h):
+        """(fx, fy, cx, cy) for a w x h depth image, or None before camera_info."""
+        if self._camera_k is None:
+            return None
+        fx, fy, cx, cy, kw, kh = self._camera_k
+        if kw > 0 and kh > 0 and (kw != w or kh != h):
+            sx, sy = w / kw, h / kh
+            fx, cx, fy, cy = fx * sx, cx * sx, fy * sy, cy * sy
+        return fx, fy, cx, cy
+
+    def _scene_roi_valid(self, stamp_sec, bounds, shape_hw):
+        """ROI-shaped bool, True on WALL/OTHER pixels; None without fresh labels."""
+        scene = self._scene
+        if scene is None or abs(stamp_sec - scene['stamp']) > self.scene_max_age:
+            return None
+        y0, y1, x0, x1 = bounds
+        h, w = shape_hw
+        lab = scene['labels']
+        gh, gw = lab.shape
+        roi_lab = lab[np.ix_(np.arange(y0, y1) * gh // h, np.arange(x0, x1) * gw // w)]
+        return (roi_lab == scene_labels.LABEL_WALL) | (roi_lab == scene_labels.LABEL_OTHER)
+
+    def _label_scene(self, depth, header, conf, bounds):
+        """One labelling tick (module docstring, SCENE LABELS). Publishes its
+        four topics and caches the label image for the ROI statistics."""
+        t_start = time.perf_counter()
+        stamp = perception_debug.stamp_to_sec(header.stamp)
+        tf = self._frame_transform(header.frame_id)
+        h, w = depth.shape[:2]
+        k = self._intrinsics(w, h)
+        if tf is None or k is None:
+            return
+        fx, fy, cx, cy = k
+        rot, trans = tf
+        gh, gw = self.scene_h, self.scene_w
+        rows = np.arange(gh) * h // gh + h // (2 * gh)
+        cols = np.arange(gw) * w // gw + w // (2 * gw)
+        rr, cc = np.meshgrid(rows, cols, indexing='ij')
+        rr, cc = rr.ravel(), cc.ravel()
+        z = depth[rr, cc]
+        valid = np.isfinite(z) & (z > 0)
+        rv, cv = rr[valid], cc[valid]
+        pts = back_project(depth, rv, cv, fx, fy, cx, cy, rot, trans)
+        if conf is not None:
+            in_mask = conf[rv, cv] > (1.0 - self.bg_weight_threshold)
+        else:
+            in_mask = np.zeros(rv.shape, dtype=bool)
+
+        ground, fitted = scene_labels.fit_ground(
+            pts[~in_mask], prior_z=self.ground_prior_z, candidate_band_m=self.ground_band,
+            inlier_m=self.ground_inlier, max_angle_deg=self.scene_ground_angle,
+            max_offset_m=self.scene_ground_offset, iters=self.ground_iters,
+            min_inliers=self.ground_min_inliers, rng=self._ground_rng)
+        heights = ground.height(pts)
+        ceiling_h = self._ceiling.update(heights[~in_mask])
+        planes = self._wall_planes
+        walls = []
+        planes_age = None
+        if planes is not None:
+            planes_age = stamp - planes[0]
+            if abs(planes_age) <= self.scene_max_age:
+                walls = list(planes[1])
+        labels, wall_idx = scene_labels.label_points(
+            pts, in_mask, ground, ceiling_h, walls, ground_band_m=self.scene_ground_band,
+            ceiling_band_m=self.scene_ceiling_band,
+            max_relevant_height_m=self.scene_max_height, wall_band_m=self.scene_wall_band)
+
+        y0, y1, x0, x1 = bounds
+        in_roi = (rv >= y0) & (rv < y1) & (cv >= x0) & (cv < x1)
+        fallback = False
+        if not np.any((labels == scene_labels.LABEL_WALL) & in_roi):
+            fw = scene_labels.fallback_wall(
+                pts, in_roi & (labels == scene_labels.LABEL_OTHER) & ~in_mask,
+                inlier_m=self.scene_wall_band, min_span_m=self.scene_wall_min_span)
+            if fw is not None:
+                lab2, _ = scene_labels.label_points(
+                    pts, in_mask, ground, ceiling_h, [fw], ground_band_m=self.scene_ground_band,
+                    ceiling_band_m=self.scene_ceiling_band,
+                    max_relevant_height_m=self.scene_max_height,
+                    wall_band_m=self.scene_wall_band)
+                sel = (labels == scene_labels.LABEL_OTHER) & (lab2 == scene_labels.LABEL_WALL)
+                walls.append(fw)
+                labels[sel] = scene_labels.LABEL_WALL
+                wall_idx[sel] = len(walls) - 1
+                fallback = bool(np.any(sel))
+        d_stereo, n_wall_px, k_wall = scene_labels.stereo_wall_distance(
+            pts, labels, wall_idx, walls, in_roi, self.front_x, self.scene_stereo_min_px)
+        clusters = scene_labels.cluster_other(pts, labels, in_mask)
+
+        grid = np.zeros(gh * gw, dtype=np.uint8)
+        grid[valid] = labels
+        grid = grid.reshape(gh, gw)
+        self._scene = {'stamp': stamp, 'labels': grid}
+        ms = (time.perf_counter() - t_start) * 1e3
+
+        img = self.bridge.cv2_to_imgmsg(grid, encoding='mono8')
+        img.header = header
+        self.scene_labels_pub.publish(img)
+        used_source = walls[k_wall].source if k_wall is not None else None
+        self.stereo_wall_pub.publish(String(data=json.dumps({
+            'stamp': stamp, 'origin': 'front', 'distance_m': (
+                None if d_stereo is None else round(d_stereo, 4)),
+            'n_px': n_wall_px, 'source': used_source,
+            'fallback': used_source == 'stereo'})))
+        cands = []
+        for members, summary in clusters:
+            summary['bbox_px'] = [int(cv[members].min()), int(rv[members].min()),
+                                  int(cv[members].max()), int(rv[members].max())]
+            cands.append(summary)
+        self.unclassified_pub.publish(String(data=json.dumps({
+            'stamp': stamp, 'frame_id': self.base_frame, 'candidates': cands})))
+
+        outlines = []
+        for wall in walls:
+            (ax, ay), (bx, by) = wall.endpoints()
+            z0 = -ground.d / float(ground.normal[2])
+            corners = np.array([[ax, ay, z0], [bx, by, z0],
+                                [bx, by, z0 + self.scene_max_height],
+                                [ax, ay, z0 + self.scene_max_height]])
+            opt = (corners - trans) @ rot      # base_link -> optical
+            if np.all(opt[:, 2] > 0.1):
+                outlines.append([[round(float(fx * x / zz + cx), 1),
+                                  round(float(fy * y / zz + cy), 1)] for x, y, zz in opt])
+            else:
+                outlines.append(None)
+        counts = np.bincount(grid.ravel(), minlength=6)
+        self.scene_debug_pub.publish(String(data=json.dumps({
+            'stamp': stamp, 'ms': round(ms, 2), 'grid': [gw, gh], 'img_wh': [w, h],
+            'ground': {'fitted': fitted, 'tilt_deg': round(ground.tilt_deg(), 2),
+                       'z0_m': round(ground.z_at_origin(), 3)},
+            'ceiling_m': None if ceiling_h is None else round(ceiling_h, 3),
+            'planes_age_s': None if planes_age is None else round(planes_age, 3),
+            'walls': [dict(wl.to_dict(), outline_px=o) for wl, o in zip(walls, outlines)],
+            'stereo_wall_m': None if d_stereo is None else round(d_stereo, 4),
+            'stereo_wall_px': n_wall_px, 'fallback': fallback,
+            'counts': {scene_labels.LABEL_NAMES[i]: int(c) for i, c in enumerate(counts)},
+            'n_candidates': len(cands)})))
 
     def _front_offset(self, camera_frame):
         """
@@ -1044,6 +1257,15 @@ class FrontClearanceNode(Node):
         #    computation, two consumers.
         housing = self._lidar_exclusion_roi_mask((h, w), (y0, y1, x0, x1))
 
+        # 3b. Scene labels, at scene_rate_hz (module docstring, SCENE LABELS).
+        if self.scene_enabled and now >= self._next_scene:
+            self._next_scene = now + self.scene_period
+            try:
+                self._label_scene(depth, msg.header, conf, (y0, y1, x0, x1))
+            except Exception as exc:  # noqa: BLE001 - labels must never stop the guard
+                self.get_logger().error(
+                    f'scene labelling failed: {exc}', throttle_duration_sec=5.0)
+
         # 4. TOO CLOSE -- the safety short-circuit, deliberately ahead of the
         #    validity mask and of every filter below it.
         #
@@ -1092,10 +1314,18 @@ class FrontClearanceNode(Node):
 
         # 6b. Cut the floor out too (ground_plane.py): the floor below the
         #     horizon is otherwise the nearest consistent surface in the ROI.
+        #     With scene labels on and fresh, WALL and OTHER only instead.
         self._last_ground = None
-        ground = self._ground_roi_mask(depth, msg.header.frame_id, (y0, y1, x0, x1))
-        if ground is not None:
-            valid &= ~ground
+        scene_valid = None
+        if self.scene_enabled:
+            scene_valid = self._scene_roi_valid(
+                perception_debug.stamp_to_sec(msg.header.stamp), (y0, y1, x0, x1), (h, w))
+        if scene_valid is not None:
+            valid &= scene_valid
+        else:
+            ground = self._ground_roi_mask(depth, msg.header.frame_id, (y0, y1, x0, x1))
+            if ground is not None:
+                valid &= ~ground
 
         bg_depths = roi[valid]
         n_valid = int(bg_depths.size)

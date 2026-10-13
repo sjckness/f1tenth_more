@@ -52,6 +52,14 @@ use_mask_depth true safe to leave on even against a detect-task model: every
 detection just always takes the fallback path, identical output to
 use_mask_depth false.
 
+SCENE LABELS (enable_scene_labels, default false). With the switch on and a
+/perception/scene_labels image (front_clearance_node, scene_labels.py) no more
+than scene_labels_max_age_s from the depth frame, the mask median is taken over
+the in-mask pixels labelled OTHER only: the floor at a person's feet, a wall
+the silhouette bleeds onto, the ceiling -- structure -- is left out. Fewer than
+scene_min_other_px such pixels falls back to the method below, counted as
+det_scene_fallback in the yield report.
+
 The mask image and the depth image are expected at the same resolution (both
 are ZED-published images under the same `general.pub_resolution`/
 `pub_downscale_factor` config, see zed2_perception.yaml) but this is NOT
@@ -92,6 +100,7 @@ from vision_msgs.msg import (
 )
 from visualization_msgs.msg import Marker, MarkerArray
 
+from f1tenth_perception.scene_labels import LABEL_OTHER
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -230,6 +239,14 @@ class Detection3DNode(Node):
         self.masks_topic = str(
             self.declare_parameter('masks_topic', '/camera/detection_masks').value)
 
+        # Scene labels (module docstring).
+        self.scene_enabled = bool(self.declare_parameter('enable_scene_labels', False).value)
+        self.scene_max_age = float(
+            self.declare_parameter('scene_labels_max_age_s', 0.3).value)
+        self.scene_min_other_px = int(
+            self.declare_parameter('scene_min_other_px', 20).value)
+        self._scene_labels = None   # (stamp sec, mono8 label image)
+
         # ---- intrinsics (cached from the latest camera_info) -----------
         self.fx = None
         self.fy = None
@@ -267,6 +284,9 @@ class Detection3DNode(Node):
         self.sync = message_filters.ApproximateTimeSynchronizer(
             sync_subs, queue_size=self.sync_queue_size, slop=self.sync_slop)
         self.sync.registerCallback(self._synced_callback)
+        if self.scene_enabled:
+            self.create_subscription(
+                Image, '/perception/scene_labels', self._scene_labels_callback, 10)
 
         # ---- 2D->3D yield accounting -------------------------------------
         # The 2026-09-01 mission analysis found only 55-65% of /camera/
@@ -294,6 +314,7 @@ class Detection3DNode(Node):
             'drop_no_camera_info': 0, 'drop_cv_bridge': 0, 'drop_tf2': 0,
             'det_drop_low_conf': 0, 'det_drop_bad_depth': 0,
             'det_drop_mask_fallback': 0, 'det_published': 0,
+            'det_scene_other': 0, 'det_scene_fallback': 0,
         }
         self._raw_det_sub = self.create_subscription(
             Detection2DArray, self.detections_topic, self._count_det2d, 10)
@@ -368,7 +389,9 @@ class Detection3DNode(Node):
             f'detection drops: low_conf={st["det_drop_low_conf"]} '
             f'bad_depth={st["det_drop_bad_depth"]} '
             f'mask_fallback={st["det_drop_mask_fallback"]} '
-            f'published={st["det_published"]} '
+            + (f'scene_other={st["det_scene_other"]} '
+               f'scene_fallback={st["det_scene_fallback"]} ' if self.scene_enabled else '')
+            + f'published={st["det_published"]} '
             f'(slop={self.sync_slop}s queue={self.sync_queue_size} '
             f'use_mask_depth={self.use_mask_depth})')
         for k in st:
@@ -380,6 +403,26 @@ class Detection3DNode(Node):
         self.fy = msg.k[4]
         self.cx = msg.k[2]
         self.cy = msg.k[5]
+
+    def _scene_labels_callback(self, msg):
+        try:
+            labels = self.bridge.imgmsg_to_cv2(msg, desired_encoding='mono8')
+        except CvBridgeError:
+            return
+        self._scene_labels = (msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9, labels)
+
+    def _scene_other(self, sel, depth_stamp):
+        """sel restricted to scene-label OTHER pixels, or None without fresh labels."""
+        scene = self._scene_labels
+        if scene is None or abs(depth_stamp - scene[0]) > self.scene_max_age:
+            return None
+        labels = scene[1]
+        h, w = sel.shape
+        rr, cc = np.nonzero(sel)
+        other = labels[rr * labels.shape[0] // h, cc * labels.shape[1] // w] == LABEL_OTHER
+        out = np.zeros_like(sel)
+        out[rr[other], cc[other]] = True
+        return out
 
     def _synced_callback(self, det_msg, depth_msg, mask_msg=None):
         self._stats['synced'] += 1
@@ -486,7 +529,9 @@ class Detection3DNode(Node):
             # no separate lookup/renumbering is needed here.
             if self.use_mask_depth and mask_img is not None:
                 z = self._mask_median_depth(
-                    depth, mask_img, i, cx_px, cy_px, box_w, box_h, w, h)
+                    depth, mask_img, i, cx_px, cy_px, box_w, box_h, w, h,
+                    depth_stamp=(depth_msg.header.stamp.sec
+                                 + depth_msg.header.stamp.nanosec * 1e-9))
             else:
                 z = self._median_depth(depth, cx_px, cy_px, box_w, box_h, w, h)
             if z is None or z < self.min_valid_depth:
@@ -552,7 +597,8 @@ class Detection3DNode(Node):
         return float(np.median(valid))
 
     def _mask_median_depth(
-            self, depth, mask_img, det_index, cx_px, cy_px, box_w, box_h, img_w, img_h):
+            self, depth, mask_img, det_index, cx_px, cy_px, box_w, box_h, img_w, img_h,
+            depth_stamp=None):
         """Mask-based counterpart to `_median_depth()`: median depth over the
         pixels where `mask_img` equals this detection's label (`det_index +
         1` -- see yolo_detector_node.py's masks_topic docstring for why),
@@ -599,6 +645,13 @@ class Detection3DNode(Node):
                 'box-region depth sampling for this detection.',
                 throttle_duration_sec=5.0)
             return self._median_depth(depth, cx_px, cy_px, box_w, box_h, img_w, img_h)
+
+        if self.scene_enabled and depth_stamp is not None:
+            other = self._scene_other(sel, depth_stamp)
+            if other is not None and np.count_nonzero(other) >= self.scene_min_other_px:
+                self._stats['det_scene_other'] += 1
+                return float(np.median(depth[other]))
+            self._stats['det_scene_fallback'] += 1
 
         return float(np.median(depth[sel]))
 

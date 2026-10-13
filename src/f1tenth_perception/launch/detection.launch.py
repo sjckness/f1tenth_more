@@ -252,6 +252,23 @@ def generate_launch_description():
         ('clearance_min_dwell_frames', int),
         ('publish_debug_raw', bool),
         ('publish_debug_wall', bool),
+        ('scene_rate_hz', float),
+        ('scene_grid_width_px', int),
+        ('scene_grid_height_px', int),
+        ('scene_wall_max_age_s', float),
+        ('scene_ground_max_angle_deg', float),
+        ('scene_ground_max_offset_m', float),
+        ('scene_ground_band_m', float),
+        ('scene_ceiling_min_m', float),
+        ('scene_ceiling_max_m', float),
+        ('scene_ceiling_prior_m', float),
+        ('scene_ceiling_band_m', float),
+        ('scene_ceiling_alpha', float),
+        ('scene_ceiling_max_step_m', float),
+        ('scene_max_relevant_height_m', float),
+        ('scene_wall_band_m', float),
+        ('scene_wall_min_span_m', float),
+        ('scene_stereo_wall_min_px', int),
     ]
     front_clearance_las = []
     for _name, _type in _front_clearance_args:
@@ -326,6 +343,9 @@ def generate_launch_description():
         description="Process niceness for front_clearance_node. 0: no-op.")
 
     is_zed = get_value('camera_source') == 'zed'
+    # Stack-wide scene-labels switch (stack_params.yaml): a plain get_value,
+    # the same read the MPC and the BT make, so every node agrees.
+    scene_labels_on = bool(get_value('enable_scene_labels'))
 
     yolo_detector_node = Node(
         package='f1tenth_perception',
@@ -361,6 +381,7 @@ def generate_launch_description():
             'lidar_exclusion_overlap_threshold': LaunchConfiguration(
                 'lidar_exclusion_overlap_threshold'),
             'nice': LaunchConfiguration('yolo_nice'),
+            'enable_scene_labels': scene_labels_on,
             **{_name: ParameterValue(LaunchConfiguration(_name), value_type=_type)
                for _name, _type in _debug_image_args},
         }],
@@ -404,6 +425,10 @@ def generate_launch_description():
                 'use_mask_depth': LaunchConfiguration('use_mask_depth'),
                 'confidence_threshold': LaunchConfiguration('confidence_threshold'),
                 'nice': LaunchConfiguration('detection_3d_nice'),
+                'enable_scene_labels': scene_labels_on,
+                'scene_labels_max_age_s': float(
+                    get_value('detection_3d_scene_labels_max_age_s')),
+                'scene_min_other_px': int(get_value('detection_3d_scene_min_other_px')),
             }],
         ))
 
@@ -453,6 +478,12 @@ def generate_launch_description():
             executable='front_clearance_node',
             name='front_clearance_node',
             output='screen',
+            # One OpenBLAS thread. The node is unpinned (see the nice arg
+            # above), so numpy starts a 12-thread pool, and on the loaded Orin
+            # one 7000 x 3 mat-vec then costs ~15 ms against ~0.06 ms on one
+            # thread (measured 2026-10-13). The floor RANSAC and the scene
+            # labelling are dozens of those per frame.
+            additional_env={'OPENBLAS_NUM_THREADS': '1'},
             parameters=[{
                 'depth_topic': '/zed2/zed_node/depth/depth_registered',
                 'detections_topic': '/camera/detections',
@@ -472,6 +503,7 @@ def generate_launch_description():
                 'lidar_exclusion_y_min': LaunchConfiguration('lidar_exclusion_y_min'),
                 'lidar_exclusion_y_max': LaunchConfiguration('lidar_exclusion_y_max'),
                 'nice': LaunchConfiguration('front_clearance_nice'),
+                'enable_scene_labels': scene_labels_on,
                 **front_clearance_params,
             }],
         ))

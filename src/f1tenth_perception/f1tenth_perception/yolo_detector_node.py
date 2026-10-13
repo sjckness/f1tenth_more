@@ -160,6 +160,7 @@ Message field reference (vision_msgs, Humble == "4.x" layout):
 import array
 import collections
 import hashlib
+import json
 import os
 import time
 
@@ -879,6 +880,18 @@ class YoloDetectorNode(Node):
         self._debug_tracks = collections.OrderedDict()
         self._debug_wall = None
         self._debug_mission = None
+        # Scene labels (enable_scene_labels): the label grid, its debug JSON,
+        # the OTHER candidates and the virtual wall, drawn by
+        # perception_debug.draw_scene_overlay. Latest of each, unpaired.
+        self._debug_scene = {}
+        if bool(self.declare_parameter('enable_scene_labels', False).value):
+            self.create_subscription(
+                Image, '/perception/scene_labels', self._debug_scene_labels_cb, 10)
+            for topic, key in (('/perception/scene_labels_debug', 'debug'),
+                               ('/perception/unclassified_obstacles', 'candidates'),
+                               ('/perception/virtual_wall/debug', 'virtual')):
+                self.create_subscription(
+                    String, topic, lambda m, k=key: self._debug_scene_json_cb(k, m), 10)
         # The front bumper (the URDF's base_front, the stack's one source)
         # and the camera mount from /tf_static only, like front_clearance_node
         # (no TransformListener: a handful of fixed edges). A broken URDF
@@ -931,6 +944,18 @@ class YoloDetectorNode(Node):
 
     def _debug_wall_cb(self, msg):
         self._debug_wall = msg.data
+
+    def _debug_scene_labels_cb(self, msg):
+        try:
+            self._debug_scene['labels'] = self.bridge.imgmsg_to_cv2(msg, 'mono8')
+        except Exception:  # noqa: BLE001 - debug output must never stop detection
+            pass
+
+    def _debug_scene_json_cb(self, key, msg):
+        try:
+            self._debug_scene[key] = json.loads(msg.data)
+        except ValueError:
+            pass
 
     def _debug_tf_static_cb(self, msg):
         for transform in msg.transforms:
@@ -1103,6 +1128,10 @@ class YoloDetectorNode(Node):
             'front_label': ('@front' if front_x is not None
                             and (cam_frame is None or cam_offset is not None)
                             else '@front?'),
+            'scene': (perception_debug.scene_frame(
+                self._debug_scene.get('labels'), self._debug_scene.get('debug'),
+                self._debug_scene.get('candidates'), self._debug_scene.get('virtual'),
+                front_x) if self._debug_scene else None),
         }
 
     @staticmethod
