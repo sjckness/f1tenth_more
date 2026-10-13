@@ -36,7 +36,16 @@
     # candidate wheelbases (0.3302 / 0.305). Per-bag spread sd 1.23 deg
     # over 47 bags, SEM 0.18 deg.
     steering_angle_to_servo_offset: 0.4874
-    # Placeholder until retuned -- see vesc_tuning's steering_calibration_node.py
-    # Mode 3 (gain), which tunes gain_left and gain_right independently.
-    steering_angle_to_servo_gain_left: -1.2135
-    steering_angle_to_servo_gain_right: -1.2135
+    # Scaled 2026-09-17 from the -1.2135 placeholder, by the curvature the car
+    # actually turned: 1.15x the commanded bicycle model on left turns, 1.09x
+    # on right (fit of SLAM heading change against the /ackermann_drive
+    # command, 185 intervals over 13 bags from 14-17 Sep, L = 0.305, best
+    # command lag 0.20 s; pooled 1.098 +/- 0.025, offset +0.16 +/- 0.18 deg,
+    # so the offset above stands). Hence -1.2135/1.15 and -1.2135/1.09. A
+    # proportional correction from logged data, not vesc_tuning Mode 3,
+    # which is still the instrument for tuning them properly.
+    # Changing these moves the MPC steering envelope: stack_params.yaml's
+    # mpc_steering_angle_min/max_rad are derived from these values, and
+    # mpc_controller's test_steering_limits.py fails if the two disagree.
+    steering_angle_to_servo_gain_left: -1.0552
+    steering_angle_to_servo_gain_right: -1.1133
