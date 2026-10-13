@@ -257,7 +257,21 @@ def test_the_reference_mission_differs_only_in_ids_and_timeouts():
 def test_schema_violation_raises_intent_schema_error():
     """A shape the schema forbids is a named rejection, not a KeyError."""
     with pytest.raises(IntentSchemaError):
-        translate({'plan': [{'mode': 'straight', 'guard': 'wall'}], 'unsupported': []})
+        translate({'plan': [{'mode': 'straight', 'guard': 'front_object'}], 'unsupported': []})
+
+
+def test_a_wall_guard_without_thresh_stops_two_metres_from_the_wall():
+    result = translate({'plan': [{'mode': 'straight', 'guard': 'wall'}], 'unsupported': []},
+                       explain=True)
+    assert result.mission['moves'][0]['stop_condition']['distance'] == 2.0
+    assert result.provenance['moves[0].stop_condition.distance'][0] == 'DERIVED'
+    assert list(result.notes) == ['fase 1: distanza dal muro non detta, uso 2.0 m']
+
+
+def test_a_wall_guard_without_thresh_before_a_turn_leaves_room_to_turn():
+    result = translate({'plan': [{'mode': 'straight', 'guard': 'wall'},
+                                 {'mode': 'turn', 'dir': 'right'}], 'unsupported': []})
+    assert result.mission['moves'][0]['stop_condition']['distance'] == 3.0
 
 
 def test_unknown_top_level_key_raises_intent_schema_error():

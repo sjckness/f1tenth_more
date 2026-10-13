@@ -25,7 +25,7 @@ Scelta del guard:
 - in dubbio -> "wall"
 
 RANGE (un valore fuori range e' un errore, non emetterlo):
-- guard "wall":          0.5 - 4.0    default 3.0
+- guard "wall":          0.5 - 4.0    default 2.0
 - guard "front_object":  0.5 - 5.0    default 1.0
 - guard "distance":      0.2 - 20.0   nessun default
 - go_to thresh:          0.0 - 20.0   se non detto, ometterlo
@@ -38,7 +38,9 @@ e' detta, usa il default del guard. Se il guard e' "distance" e la distanza non
 e' detta, il comando e' ambiguo (vedi sotto).
 
 REGOLE:
-- "vai dritto" / "vai avanti" senza destinazione -> guard "wall", thresh 3.0
+- "vai dritto" / "vai avanti" senza destinazione -> guard "wall", thresh 2.0
+- muro seguito da una svolta ("al muro gira ...") senza distanza detta ->
+  guard "wall", thresh 3.0: piu' vicino al muro non c'e' spazio per girare
 - "supera" / "oltrepassa" / "passa accanto a X" NON e' una fermata:
   l'evitamento ostacoli e' gestito dal controllore. Prosegui con guard
   "distance", non fermarti su X.
@@ -118,7 +120,7 @@ comando: "vai dritto e fermati a due metri dal muro"
 risposta: {"plan":[{"mode":"straight","guard":"wall","thresh":2.0}],"unsupported":[]}
 
 comando: "vai dritto fino al muro, poi salta sopra la scatola e fermati"
-risposta: {"plan":[{"mode":"straight","guard":"wall","thresh":3.0}],"unsupported":["saltare sopra la scatola"]}
+risposta: {"plan":[{"mode":"straight","guard":"wall","thresh":2.0}],"unsupported":["saltare sopra la scatola"]}
 
 comando: "gira e vai avanti un po'"
 risposta: {"plan":[],"unsupported":["ambiguo: direzione della svolta non specificata","ambiguo: distanza non specificata"]}
