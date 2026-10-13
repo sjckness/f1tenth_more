@@ -99,6 +99,8 @@ def _construct_with_params(param_dict=None):
     # Never actually sent over DDS in this test file (no spin()).
     node.det_pub.publish = MagicMock()
     node.annotated_pub.publish = MagicMock()
+    if getattr(node, 'debug_pub', None) is not None:
+        node.debug_pub.publish = MagicMock()
     return node
 
 
@@ -658,6 +660,261 @@ class TestLidarExclusionKeepMask:
             ])
             keep = node._lidar_exclusion_keep_mask(result, img_h=100, img_w=100)
             assert keep.tolist() == [True, False, True]
+        finally:
+            node.destroy_node()
+
+
+# ==============================================================================
+# Perception debug image (module docstring's "Perception debug image")
+# ==============================================================================
+
+class _FakeConf:
+    def __init__(self, scores):
+        self._scores = np.asarray(scores, dtype=np.float32)
+
+    def cpu(self):
+        return self
+
+    def numpy(self):
+        return self._scores
+
+
+class _FakeScoredBox:
+    def __init__(self, xyxy, cls, conf):
+        self.xyxy = [np.array(xyxy, dtype=float)]
+        self.cls = [np.array(cls)]
+        self.conf = [np.array(conf)]
+
+
+class _FakeBoxes(list):
+    @property
+    def conf(self):
+        return _FakeConf([float(b.conf[0]) for b in self])
+
+
+class _FakeSplitResult:
+    """Just enough of Ultralytics' Results for _debug_split: boxes, masks, [bool]."""
+
+    def __init__(self, boxes, masks=None):
+        self.boxes = _FakeBoxes(boxes)
+        self.masks = masks
+
+    def __getitem__(self, keep):
+        keep = np.asarray(keep, dtype=bool)
+        masks = None
+        if self.masks is not None:
+            masks = _FakeMasks(self.masks.data.numpy()[keep])
+        return _FakeSplitResult([b for b, k in zip(self.boxes, keep) if k], masks)
+
+
+class _FakeCallableModel:
+    """Records the conf= of every inference call and returns no detections."""
+
+    def __init__(self):
+        self.confs = []
+
+    def __call__(self, image, **kwargs):
+        self.confs.append(kwargs['conf'])
+        result = types.SimpleNamespace(
+            boxes=_FakeBoxes([]), masks=None, names={},
+            plot=lambda: image.copy())
+        return [result]
+
+
+def _bgr_msg(stamp_sec):
+    msg = CvBridge().cv2_to_imgmsg(np.zeros((36, 64, 3), dtype=np.uint8), encoding='bgr8')
+    msg.header.stamp.sec = int(stamp_sec)
+    msg.header.stamp.nanosec = int(round((stamp_sec - int(stamp_sec)) * 1e9))
+    return msg
+
+
+class TestDebugImage:
+
+    def test_rate_zero_creates_no_debug_publisher_and_never_ticks(self):
+        node = _construct_with_params({'debug_image_rate_hz': 0.0})
+        try:
+            assert not hasattr(node, 'debug_pub')
+            assert node._debug_tick(Header().stamp) is False
+        finally:
+            node.destroy_node()
+
+    def test_only_tick_frames_run_yolo_below_the_confidence_threshold(self):
+        node = _construct_with_params({'debug_image_rate_hz': 5.0,
+                                       'confidence_threshold': 0.3,
+                                       'debug_image_min_confidence': 0.1})
+        try:
+            node.model = _FakeCallableModel()
+            node._debug_capture = MagicMock()
+            for i in range(6):                       # 15 Hz -> ticks at 0 and 3
+                node.image_callback(_bgr_msg(100.0 + i / 15.0))
+            assert node.model.confs == pytest.approx([0.1, 0.3, 0.3, 0.1, 0.3, 0.3])
+            assert node._debug_capture.call_count == 2
+        finally:
+            node.destroy_node()
+
+    def test_with_the_debug_image_off_every_frame_runs_at_the_threshold(self):
+        node = _construct_with_params({'debug_image_rate_hz': 0.0,
+                                       'confidence_threshold': 0.3})
+        try:
+            node.model = _FakeCallableModel()
+            for i in range(6):
+                node.image_callback(_bgr_msg(100.0 + i / 15.0))
+            assert node.model.confs == pytest.approx([0.3] * 6)
+        finally:
+            node.destroy_node()
+
+    def test_a_failing_split_reruns_the_frame_at_the_threshold_and_disables_debug(self):
+        node = _construct_with_params({'debug_image_rate_hz': 5.0,
+                                       'confidence_threshold': 0.3,
+                                       'debug_image_min_confidence': 0.1})
+        try:
+            node.model = _FakeCallableModel()
+            node._debug_split = MagicMock(side_effect=RuntimeError('boom'))
+            node.image_callback(_bgr_msg(100.0))
+            node.image_callback(_bgr_msg(100.4))
+            assert node.model.confs == pytest.approx([0.1, 0.3, 0.3])
+            assert node._debug_enabled is False
+            assert node.det_pub.publish.call_count == 2
+        finally:
+            node.destroy_node()
+
+    def test_split_keeps_strictly_above_threshold_in_order(self):
+        node = _construct_with_params({'confidence_threshold': 0.3})
+        try:
+            node.names = {0: 'person', 1: 'tv'}
+            boxes = [_FakeScoredBox((0, 0, 10, 10), 0, 0.9),
+                     _FakeScoredBox((10, 0, 20, 10), 1, 0.2),
+                     _FakeScoredBox((20, 0, 30, 10), 0, 0.31),
+                     _FakeScoredBox((30, 0, 40, 10), 1, 0.3)]
+            kept, below = node._debug_split(_FakeSplitResult(boxes), 100, 100)
+            assert [float(b.conf[0]) for b in kept.boxes] == pytest.approx([0.9, 0.31])
+            assert [(d['class_id'], round(d['score'], 2)) for d in below] == \
+                [('tv', 0.2), ('tv', 0.3)]
+        finally:
+            node.destroy_node()
+
+    def test_split_with_nothing_above_threshold_returns_no_masks(self):
+        # What Ultralytics itself returns for a frame with nothing above conf;
+        # image_callback relies on it to publish the zero-size empty mask.
+        node = _construct_with_params({'confidence_threshold': 0.3})
+        try:
+            masks = _FakeMasks(np.ones((1, 100, 100), dtype=np.float32))
+            kept, below = node._debug_split(
+                _FakeSplitResult([_FakeScoredBox((0, 0, 10, 10), 0, 0.2)], masks), 100, 100)
+            assert len(kept.boxes) == 0
+            assert kept.masks is None
+            assert len(below) == 1
+        finally:
+            node.destroy_node()
+
+    def test_below_threshold_box_over_the_lidar_housing_is_not_drawn(self):
+        node = _construct_with_params({'confidence_threshold': 0.3})
+        try:
+            kept, below = node._debug_split(_FakeSplitResult(
+                [_FakeScoredBox((80, 80, 100, 100), 0, 0.2)]), 100, 100)
+            assert below == []
+        finally:
+            node.destroy_node()
+
+    @staticmethod
+    def _tf_static(parent, child, x, y=0.0, z=0.0):
+        from geometry_msgs.msg import TransformStamped
+        from tf2_msgs.msg import TFMessage
+        t = TransformStamped()
+        t.header.frame_id, t.child_frame_id = parent, child
+        t.transform.translation.x = float(x)
+        t.transform.translation.y = float(y)
+        t.transform.translation.z = float(z)
+        t.transform.rotation.w = 1.0
+        return TFMessage(transforms=[t])
+
+    def _publish_one_person_at(self, node, monkeypatch, x_cam):
+        from vision_msgs.msg import Detection3D, Detection3DArray
+        from f1tenth_perception import perception_debug
+        node.debug_pub.publish = MagicMock()
+        drawn = []
+        real_draw = perception_debug.draw_debug_frame
+        monkeypatch.setattr(perception_debug, 'draw_debug_frame',
+                            lambda img, frame: drawn.append(frame) or real_draw(img, frame))
+        header = _bgr_msg(100.0).header
+        det = Detection2D()
+        hyp = ObjectHypothesisWithPose()
+        hyp.hypothesis.class_id, hyp.hypothesis.score = 'person', 0.91
+        det.results.append(hyp)
+        det.bbox.center.position.x, det.bbox.center.position.y = 32.0, 18.0
+        det.bbox.size_x, det.bbox.size_y = 10.0, 20.0
+        node._debug_capture(np.zeros((36, 64, 3), dtype=np.uint8), header, [det], None, [])
+
+        def _array(frame_id, det_id, x):
+            msg = Detection3DArray()
+            msg.header.stamp = header.stamp
+            msg.header.frame_id = frame_id
+            d3 = Detection3D()
+            d3.id = det_id
+            h3 = ObjectHypothesisWithPose()
+            h3.hypothesis.class_id, h3.hypothesis.score = 'person', 0.91
+            d3.results.append(h3)
+            d3.bbox.center.position.x = x
+            msg.detections.append(d3)
+            return msg
+
+        node._debug_det3d_cb(_array('zed2_left_camera_frame', '', x_cam))
+        assert node.debug_pub.publish.call_count == 0
+        node._debug_tracks_cb(_array('map', '7', 5.0))
+        assert node.debug_pub.publish.call_count == 1
+        return node.debug_pub.publish.call_args[0][0], drawn[0], header
+
+    def test_tracks_with_the_frame_stamp_publish_one_jpeg_with_track_and_bumper_distance(
+            self, monkeypatch):
+        from f1tenth_description.vehicle_frames import base_front_x
+        node = _construct_with_params({'debug_image_rate_hz': 5.0})
+        try:
+            # base_link -> zed2_left_camera_frame, the camera position as
+            # composed from /tf_static on 2026-10-01; the bumper is the URDF's.
+            node._debug_tf_static_cb(self._tf_static(
+                'base_link', 'zed2_left_camera_frame', 0.11, 0.06, 0.165))
+            out, frame, header = self._publish_one_person_at(node, monkeypatch, 2.0)
+            assert out.format == 'jpeg'
+            assert out.header.stamp == header.stamp
+            assert bytes(out.data[:2]) == b'\xff\xd8'
+            assert frame['hi'][0]['track'] == '7'
+            assert frame['hi'][0]['d_front_m'] == pytest.approx(2.0 - (base_front_x() - 0.11))
+            assert frame['front_label'] == '@front'
+        finally:
+            node.destroy_node()
+
+    def test_a_detection_beside_the_bumper_reads_the_minimum_front_distance(
+            self, monkeypatch):
+        from f1tenth_description.vehicle_frames import MIN_FRONT_DISTANCE_M
+        node = _construct_with_params({'debug_image_rate_hz': 5.0})
+        try:
+            node._debug_tf_static_cb(self._tf_static(
+                'base_link', 'zed2_left_camera_frame', 0.11, 0.06, 0.165))
+            _out, frame, _header = self._publish_one_person_at(node, monkeypatch, 0.1)
+            assert frame['hi'][0]['d_front_m'] == pytest.approx(MIN_FRONT_DISTANCE_M)
+        finally:
+            node.destroy_node()
+
+    def test_without_the_camera_pose_the_image_shows_no_distance_from_the_front(
+            self, monkeypatch):
+        node = _construct_with_params({'debug_image_rate_hz': 5.0})
+        try:
+            out, frame, _header = self._publish_one_person_at(node, monkeypatch, 2.0)
+            assert frame['hi'][0]['d_front_m'] is None
+            assert frame['hi'][0]['track'] == '7'
+            assert frame['front_label'] == '@front?'
+        finally:
+            node.destroy_node()
+
+    def test_a_frame_whose_tracks_never_come_is_published_at_the_next_tick(self):
+        node = _construct_with_params({'debug_image_rate_hz': 5.0})
+        try:
+            node.debug_pub.publish = MagicMock()
+            image = np.zeros((36, 64, 3), dtype=np.uint8)
+            node._debug_capture(image, _bgr_msg(100.0).header, [], None, [])
+            assert node.debug_pub.publish.call_count == 0
+            node._debug_capture(image, _bgr_msg(100.2).header, [], None, [])
+            assert node.debug_pub.publish.call_count == 1
         finally:
             node.destroy_node()
 

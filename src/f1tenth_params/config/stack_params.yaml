@@ -329,6 +329,24 @@ lidar_exclusion_y_max:
 lidar_exclusion_overlap_threshold:
   default: 0.5
   description: "Fraction of a detection's own bounding box (or, for a segment-task model, its own mask) that must fall inside the LiDAR exclusion rectangle for that detection to be suppressed. 0.5: more than half of the detection sits over the excluded region."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to yolo_detector_node.
+# The perception debug video: a small JPEG on /camera/debug_image/compressed,
+# drawn only on throttle ticks from data the node already has (see
+# yolo_detector_node.py's "Perception debug image" docstring paragraph),
+# recorded by mission_logger_node and turned into an MP4 on the host by
+# f1tenth_logger's mission_debug_video -- never encoded on the car.
+debug_image_rate_hz:
+  default: 5.0
+  description: "yolo_detector_node: rate [Hz] of the debug image on /camera/debug_image/compressed. 0.0 disables it and every subscription it needs. 10.0 is allowed; the detector's own frame rate (13.4 Hz mean on 2026-10-01, P004-R018) is the ceiling."
+debug_image_width:
+  default: 480
+  description: "Width [px] of the debug image; the height follows the camera's aspect (640x360 -> 480x270) plus a 5-line text strip. Never upscaled."
+debug_image_jpeg_quality:
+  default: 50
+  description: "JPEG quality (0-100) of the debug image. 50 gives ~16 KiB per frame at 480 px (480x341 with the text strip) on the 2026-10-01 campaign frames; 75 gives ~22 KiB."
+debug_image_min_confidence:
+  default: 0.1
+  description: "YOLO confidence floor on debug-tick frames only. Detections between this and confidence_threshold are drawn grey with their score and published nowhere else; the published detections are the same as at confidence_threshold."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's
@@ -463,6 +481,9 @@ front_clearance_clearance_min_dwell_frames:
 front_clearance_publish_debug_raw:
   default: false
   description: "front_clearance_node: also publish /perception/debug/front_distance_raw (the unsmoothed distance) and /perception/debug/bg_pixel_count (the exact wall-latch input), for tuning the filters against a bag. The topics are not created at all when false."
+front_clearance_publish_debug_wall:
+  default: true
+  description: "front_clearance_node: publish /perception/debug/front_wall (std_msgs/String JSON, every depth frame: ROI, pixel counts, raw and smoothed stereo distance, objects over the ROI, front clearance, the latest /perception/lidar_front_wall fit) and subscribe /perception/lidar_front_wall for it. Logged only; nothing consumes it for control."
 
 
 # ============================================================

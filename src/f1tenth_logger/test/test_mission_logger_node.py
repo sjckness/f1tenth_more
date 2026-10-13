@@ -577,3 +577,14 @@ class TestSnapshotSpacing:
         assert _snapshot_indices(0, 10) == []
         assert _snapshot_indices(10, 0) == []
         assert _snapshot_indices(10, 1) == [0]
+
+
+class TestRecordedTopics:
+
+    def test_the_debug_video_and_its_wall_payload_are_recorded_reliably(self):
+        from f1tenth_logger.mission_logger_node import (
+            _DEFAULT_BEST_EFFORT_TOPICS, _DEFAULT_TOPICS)
+        for topic in ('/camera/debug_image/compressed', '/perception/debug/front_wall'):
+            assert topic in _DEFAULT_TOPICS
+            # Both publishers are RELIABLE (rclpy's default profile).
+            assert topic not in _DEFAULT_BEST_EFFORT_TOPICS

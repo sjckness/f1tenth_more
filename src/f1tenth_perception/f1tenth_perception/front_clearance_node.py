@@ -21,6 +21,14 @@ stops receiving cannot tell "nothing in front" from "node wedged"):
   /perception/front_clearance  Float32  EMA of min(front_distance, nearest
                                         in-corridor obstacle)
   /perception/front_blocked    Bool     hysteresis + dwell, inverted sense
+  /perception/debug/front_wall String   JSON, every intermediate of this
+                                        frame's wall/clearance decision (ROI,
+                                        pixel counts, raw and smoothed
+                                        distances, objects over the ROI, the
+                                        latest LiDAR front-wall fit). Only
+                                        when publish_debug_wall; LOGGED, never
+                                        consumed for control. Layout:
+                                        perception_debug.build_wall_debug().
 
 front_distance and front_clearance are NOT interchangeable, and conflating
 them is the mistake this node exists to make impossible:
@@ -269,15 +277,16 @@ from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 from rclpy.time import Time
 
 from sensor_msgs.msg import Image
-from std_msgs.msg import Bool, Float32
+from std_msgs.msg import Bool, Float32, String
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
 from vision_msgs.msg import Detection2DArray
 
 from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
-from f1tenth_messages.msg import Obstacle2DArray
+from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
 
+from f1tenth_perception import perception_debug
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -405,6 +414,15 @@ class HysteresisLatch:
         return self.state
 
 
+# What the distances in /perception/debug/front_wall are measured from, as
+# this node publishes them (module docstring, "EVERY PUBLISHED DISTANCE IS
+# FROM THE FRONT BUMPER"): front_distance, the obstacle term and the
+# clearance from base_front; the raw pre-EMA stereo value still from the lens.
+_WALL_DEBUG_STEREO_ORIGIN = perception_debug.ORIGIN_FRONT
+_WALL_DEBUG_OBSTACLE_ORIGIN = perception_debug.ORIGIN_FRONT
+_WALL_DEBUG_STEREO_RAW_ORIGIN = perception_debug.ORIGIN_CAMERA
+
+
 def _stamps_equal(a, b):
     """True when two builtin_interfaces/Time stamps are bit-identical.
 
@@ -518,6 +536,11 @@ class FrontClearanceNode(Node):
 
         self.publish_debug_raw = bool(
             self.declare_parameter('publish_debug_raw', False).value)
+        # /perception/debug/front_wall (see module docstring). Also the only
+        # reason this node reads /perception/lidar_front_wall: the payload
+        # carries the LiDAR's own fit next to the stereo value, for the log.
+        self.publish_debug_wall = bool(
+            self.declare_parameter('publish_debug_wall', True).value)
 
         # ---- filters / latches ---------------------------------------------
         self.distance_filter = EmaFilter(self.distance_ema_alpha)
@@ -544,6 +567,10 @@ class FrontClearanceNode(Node):
         self._latest_mask_msg = None
         self._latest_obstacles = None
         self._latest_obstacles_time = None
+        # Which object footprint the last _raw_object_mask() used, and the
+        # latest LiDAR front-wall fit -- both only for the debug payload.
+        self._latest_object_source = 'none'
+        self._latest_lidar_wall = None
         # Previous latch states, so the info log fires on TRANSITIONS only --
         # this node runs at the depth stream's rate and a per-frame info log
         # would bury every other node's output in the shared console.
@@ -576,6 +603,12 @@ class FrontClearanceNode(Node):
                 Float32, '/perception/debug/front_distance_raw', 10)
             self.bg_pixel_count_pub = self.create_publisher(
                 Float32, '/perception/debug/bg_pixel_count', 10)
+        self.wall_debug_pub = None
+        if self.publish_debug_wall:
+            self.wall_debug_pub = self.create_publisher(
+                String, '/perception/debug/front_wall', 10)
+            self.lidar_wall_sub = self.create_subscription(
+                WallLineFit, '/perception/lidar_front_wall', self._lidar_wall_callback, 10)
 
         # Depth LAST, so the first depth frame cannot arrive before the
         # publishers and the other subscriptions exist.
@@ -619,6 +652,9 @@ class FrontClearanceNode(Node):
     def _obstacles_callback(self, msg: Obstacle2DArray):
         self._latest_obstacles = msg
         self._latest_obstacles_time = self._now_seconds()
+
+    def _lidar_wall_callback(self, msg: WallLineFit):
+        self._latest_lidar_wall = msg
 
     def _now_seconds(self):
         return self.get_clock().now().nanoseconds * 1e-9
@@ -678,6 +714,7 @@ class FrontClearanceNode(Node):
         """
         h, w = depth_shape
         det_msg = self._latest_detections
+        self._latest_object_source = 'none'
         if det_msg is None:
             return None
 
@@ -689,6 +726,7 @@ class FrontClearanceNode(Node):
             # there). Not an error, and not a reason to fall back to boxes:
             # there are none.
             if mask_msg.height == 0 or mask_msg.width == 0:
+                self._latest_object_source = 'mask'
                 return np.zeros((h, w), dtype=np.float32)
             try:
                 label_img = self.bridge.imgmsg_to_cv2(mask_msg, desired_encoding='mono8')
@@ -709,11 +747,13 @@ class FrontClearanceNode(Node):
                         f'masks_topic resolution {label_img.shape[:2]} != depth '
                         f'resolution {(h, w)} -- nearest-neighbor-resized.',
                         throttle_duration_sec=5.0)
+                self._latest_object_source = 'mask'
                 return raw
 
         # Bounding-box fallback. Coordinates are used directly against the
         # depth image and clamped to it -- see the module docstring for why
         # that assumption is inherited rather than invented here.
+        self._latest_object_source = 'boxes'
         raw = np.zeros((h, w), dtype=np.float32)
         for det in det_msg.detections:
             cx = float(det.bbox.center.position.x)
@@ -903,7 +943,15 @@ class FrontClearanceNode(Node):
         if considered > 0:
             n_too_close = int(np.count_nonzero(np.isneginf(roi) & ~housing))
             if (n_too_close / considered) >= self.too_close_min_fraction:
-                self._publish_too_close(n_too_close, considered, msg.header.frame_id)
+                too_close_front = self._publish_too_close(
+                    n_too_close, considered, msg.header.frame_id)
+                self._publish_wall_debug(
+                    msg.header, (h, w), (y0, y1, x0, x1), roi, housing, conf, {
+                        'too_close': True, 'n_valid': 0, 'raw_distance': None,
+                        'front_distance': -1.0, 'front_wall': False,
+                        'object_distance': None, 'raw_clearance': None,
+                        'front_clearance': too_close_front,
+                        'front_blocked': True})
                 return
 
         # 5. Valid == finite, positive, and not covered by an object.
@@ -976,6 +1024,15 @@ class FrontClearanceNode(Node):
                 Float32(data=self._publishable(raw_distance)))
             self.bg_pixel_count_pub.publish(Float32(data=float(n_valid)))
 
+        self._publish_wall_debug(
+            msg.header, (h, w), (y0, y1, x0, x1), roi, housing, conf, {
+                'too_close': False, 'n_valid': n_valid, 'raw_distance': raw_distance,
+                'front_distance': self._publishable(front_distance),
+                'front_wall': front_wall, 'object_distance': object_front,
+                'raw_clearance': raw_clearance,
+                'front_clearance': self._publishable(smoothed_clearance),
+                'front_blocked': front_blocked})
+
         self._log_transitions(front_wall, front_blocked, n_valid,
                               front_distance, smoothed_clearance)
 
@@ -1028,6 +1085,8 @@ class FrontClearanceNode(Node):
                            answer while something is inside minimum range is
                            no. Published directly rather than through the
                            latch, so no dwell delays it.
+
+        Returns the front_clearance it published (for the debug payload).
         """
         self.distance_filter.update(None)
         self.clearance_filter.update(None)
@@ -1063,6 +1122,74 @@ class FrontClearanceNode(Node):
             throttle_duration_sec=1.0)
 
         self._log_transitions(False, True, 0, None, too_close_front)
+        return too_close_front
+
+    def _publish_wall_debug(self, header, shape_hw, bounds, roi, housing, conf, values):
+        """
+        Publish this frame's wall/clearance intermediates on /perception/debug/front_wall.
+
+        Pixel counts are recomputed here from the same ROI, housing and
+        confidence arrays depth_callback used, so the published path above
+        is untouched. Wrapped whole: a debug payload must never cost the
+        wall guard a frame.
+        """
+        if self.wall_debug_pub is None:
+            return
+        try:
+            y0, y1, x0, x1 = bounds
+            finite = np.isfinite(roi) & (roi > 0)
+            if conf is not None:
+                covered = (1.0 - conf[y0:y1, x0:x1]) < self.bg_weight_threshold
+            else:
+                covered = np.zeros(roi.shape, dtype=bool)
+            counts = {
+                'roi': int(roi.size), 'housing': int(np.count_nonzero(housing)),
+                'too_close': int(np.count_nonzero(np.isneginf(roi) & ~housing)),
+                'invalid': int(np.count_nonzero(~finite & ~housing)),
+                'object': int(np.count_nonzero(finite & ~housing & covered)),
+                'bg': int(values['n_valid']), 'min_bg': int(self.min_bg_pixels)}
+            objects = []
+            det_stamp = None
+            det_msg = self._latest_detections
+            if det_msg is not None:
+                det_stamp = perception_debug.stamp_to_sec(det_msg.header.stamp)
+                for det in det_msg.detections:
+                    cx = float(det.bbox.center.position.x)
+                    cy = float(det.bbox.center.position.y)
+                    half_w = float(det.bbox.size_x) / 2.0
+                    half_h = float(det.bbox.size_y) / 2.0
+                    n = perception_debug.box_overlap_px(
+                        (cx - half_w, cy - half_h, cx + half_w, cy + half_h),
+                        (x0, y0, x1, y1))
+                    if n > 0 and det.results:
+                        hyp = det.results[0].hypothesis
+                        objects.append((hyp.class_id, hyp.score, n))
+            lidar = None
+            fit = self._latest_lidar_wall
+            if fit is not None:
+                lidar = perception_debug.lidar_fit_summary(
+                    fit.valid, fit.reason, fit.distance, fit.inlier_count,
+                    fit.valid_returns, perception_debug.stamp_to_sec(fit.header.stamp),
+                    self._now_seconds())
+            payload = perception_debug.build_wall_debug(
+                perception_debug.stamp_to_sec(header.stamp), shape_hw, (x0, y0, x1, y1), counts,
+                {'raw_m': values['raw_distance'],
+                 'front_distance_m': values['front_distance'],
+                 'front_wall': values['front_wall']},
+                {'obstacle_m': values['object_distance'],
+                 'corridor_half_width_m': self.corridor_half_width_m,
+                 'raw_m': values['raw_clearance'],
+                 'front_clearance_m': values['front_clearance'],
+                 'front_blocked': values['front_blocked']},
+                objects, self._latest_object_source, det_stamp, lidar, values['too_close'],
+                frame_id=header.frame_id, stereo_origin=_WALL_DEBUG_STEREO_ORIGIN,
+                obstacle_origin=_WALL_DEBUG_OBSTACLE_ORIGIN,
+                stereo_raw_origin=_WALL_DEBUG_STEREO_RAW_ORIGIN,
+                front_offset_m=self._front_offset(header.frame_id))
+            self.wall_debug_pub.publish(String(data=perception_debug.to_json(payload)))
+        except Exception as exc:  # noqa: BLE001 - debug only, never stop the guard
+            self.get_logger().error(
+                f'front_wall debug payload failed: {exc}', throttle_duration_sec=5.0)
 
     def _lidar_exclusion_roi_mask(self, depth_shape, roi_bounds):
         """Boolean array shaped like the ROI, True where the ROI overlaps the

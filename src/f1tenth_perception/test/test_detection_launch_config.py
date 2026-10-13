@@ -148,3 +148,17 @@ class TestObstacleRadiusLaunchArgs:
                            'obstacle_class_margin_m': '{"person": 0.3}'})
         assert config['obstacle_radius_source'] == 'legacy'
         assert config['obstacle_class_margin_m'] == '{"person": 0.3}'
+
+
+class TestDebugImageLaunchArgs:
+    """The debug image's four knobs and the wall payload switch come from stack_params.yaml."""
+
+    def test_debug_image_defaults_are_5hz_480px_quality_50_floor_0_1(self):
+        config = _resolve({})
+        assert config['debug_image_rate_hz'] == '5.0'
+        assert config['debug_image_width'] == '480'
+        assert config['debug_image_jpeg_quality'] == '50'
+        assert config['debug_image_min_confidence'] == '0.1'
+
+    def test_front_wall_debug_payload_is_on_by_default(self):
+        assert _resolve({})['front_clearance_publish_debug_wall'] == 'True'

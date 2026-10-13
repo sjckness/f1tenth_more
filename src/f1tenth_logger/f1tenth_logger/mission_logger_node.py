@@ -259,6 +259,13 @@ _DEFAULT_TOPICS = [
     '/camera/detections_3d',
     '/camera/detection_masks',            # -seg configs only
     '/camera/detection_markers',
+    # The perception debug video (yolo_detector_node, ~16 KiB JPEG at 5 Hz)
+    # and the wall/clearance intermediates behind it (front_clearance_node,
+    # JSON per depth frame). Turned into an MP4 on the host by
+    # mission_debug_video; /perception/front_distance itself is not recorded,
+    # so the JSON is also the only record of the mission wall guard's input.
+    '/camera/debug_image/compressed',
+    '/perception/debug/front_wall',
     '/scan',
     # --- costmap / semantic ---
     '/costmap/semantic_markers',

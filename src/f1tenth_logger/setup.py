@@ -58,6 +58,9 @@ setup(
             # mission_replay_video composes both for the one-step path.
             'mission_extract = f1tenth_logger.mission_extract:main',
             'mission_render = f1tenth_logger.mission_render:main',
+            # Recorded perception debug JPEGs -> MP4, straight from the bag's
+            # sqlite3 file; needs no ROS (see its docstring).
+            'mission_debug_video = f1tenth_logger.mission_debug_video:main',
             # The test-campaign logger (f1tenth_logger/test_campaign/,
             # TEST_CAMPAIGN.md). Started by hand only, never by a bringup.
             'test_campaign_logger = f1tenth_logger.test_campaign.logger_node:main',

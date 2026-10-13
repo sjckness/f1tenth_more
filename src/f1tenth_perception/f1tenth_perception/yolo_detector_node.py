@@ -118,6 +118,33 @@ own lidar_exclusion_x_min comment for the full calibration writeup). See
 that same comment for the trade-off: a genuine external obstacle overlapping
 this same small, near-field region would also go unseen by this path.
 
+Perception debug image (debug_image_rate_hz > 0, default 5 Hz): a small,
+already-drawn JPEG on `debug_image_topic` (sensor_msgs/CompressedImage,
+default /camera/debug_image/compressed), downscaled to debug_image_width and
+drawn ONLY on throttle ticks, from data this node already has plus four small
+topics and the latched /tf_static (no second image subscription): every
+published detection with its class, confidence, semantic track id and
+distance from the car front; the detections between debug_image_min_confidence
+and confidence_threshold in grey; front_clearance_node's wall ROI, wall
+distance and its intermediates (/perception/debug/front_wall), front
+clearance and whether a detection sits in its corridor; mission state and
+capture time. Every distance on the image is from the front bumper: the
+URDF's base_front (f1tenth_description.vehicle_frames.base_front_x()) minus
+the camera's x from /tf_static (one latched subscription, no literal),
+re-referenced with front_clearance_node.from_front(), the same way the
+stack's published front distances are; while the camera's pose (or the
+bumper) is unknown the image says so ('@front?') and shows no distance from
+it. On a tick frame -- and only then -- YOLO runs at
+debug_image_min_confidence and the result is split right after inference:
+boxes above confidence_threshold continue down the unchanged path, the rest
+are only drawn. Ultralytics filters with a strict `score > conf` after a
+score-sorted top-k (end-to-end models) or score-ordered NMS, so the kept set
+is the same boxes in the same order as a call at confidence_threshold. Every
+other frame runs at confidence_threshold exactly as before. Distances are
+paired by (stamp, class_id, score) -- see perception_debug.py's module
+docstring for why that key is exact. The image is finished when this frame's
+/costmap/semantic_tracks arrives, or at the next tick if it never does.
+
 Message field reference (vision_msgs, Humble == "4.x" layout):
     Detection2DArray.detections[]            -> Detection2D
     Detection2D.results[]                     -> ObjectHypothesisWithPose
@@ -130,27 +157,42 @@ Message field reference (vision_msgs, Humble == "4.x" layout):
         .bbox.size_x / .bbox.size_y           -> bbox width / height in pixels
 """
 
+import array
+import collections
 import hashlib
 import os
+import time
 
 import cv2
 import numpy as np
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
+from rclpy.time import Time
 
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage, Image
+from std_msgs.msg import String
+from tf2_msgs.msg import TFMessage
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
 from vision_msgs.msg import (
     Detection2D,
     Detection2DArray,
+    Detection3DArray,
     ObjectHypothesisWithPose,
 )
 
 from cv_bridge import CvBridge, CvBridgeError
 
+from f1tenth_description.vehicle_frames import base_front_x
+from f1tenth_messages.msg import MissionStatus
+
+from f1tenth_perception import perception_debug
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
 )
+from f1tenth_perception.front_clearance_node import from_front
 
 # mono8 instance-index mask image: 0 is reserved for background, so at most
 # 255 distinct detections are representable and 255 itself is left unused
@@ -163,6 +205,17 @@ MAX_MASK_INSTANCES = 254
 # as a plain module constant rather than a ROS param since nothing else in
 # this pass needed it tunable; bump to a declare_parameter if that changes.
 MASK_OVERLAY_ALPHA = 0.5
+
+# Debug image inputs. /mission/status is latched (transient local), so the
+# subscriber must match or it never sees the state of a mission that started
+# first -- same profile as f1tenth_behavior/mission/loader.py's own.
+_MISSION_STATUS_QOS = QoSProfile(
+    depth=1, reliability=ReliabilityPolicy.RELIABLE,
+    durability=DurabilityPolicy.TRANSIENT_LOCAL, history=HistoryPolicy.KEEP_LAST)
+# 3D detections and tracks kept for stamp matching: ~2 s at the 13.4 Hz the
+# 2026-10-01 campaign bags show (P004-R018); the matching message lands
+# ~15 ms after the 2D detections of the frame it belongs to.
+_DEBUG_CACHE = 30
 
 
 # ==============================================================================
@@ -289,6 +342,18 @@ class YoloDetectorNode(Node):
             self.declare_parameter('lidar_exclusion_y_max', 1.0).value)
         self.lidar_exclusion_overlap_threshold = float(
             self.declare_parameter('lidar_exclusion_overlap_threshold', 0.5).value)
+        # Perception debug image -- see module docstring. 0 disables it and
+        # every input it subscribes to; defaults match stack_params.yaml.
+        self.debug_image_rate_hz = float(
+            self.declare_parameter('debug_image_rate_hz', 5.0).value)
+        self.debug_image_width = int(
+            self.declare_parameter('debug_image_width', 480).value)
+        self.debug_image_jpeg_quality = int(
+            self.declare_parameter('debug_image_jpeg_quality', 50).value)
+        self.debug_image_min_confidence = float(
+            self.declare_parameter('debug_image_min_confidence', 0.1).value)
+        self.debug_image_topic = str(self.declare_parameter(
+            'debug_image_topic', '/camera/debug_image/compressed').value)
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -371,6 +436,9 @@ class YoloDetectorNode(Node):
         self.masks_pub = (
             self.create_publisher(Image, self.masks_topic, 10)
             if self.task == 'segment' else None)
+        self._debug_enabled = self.debug_image_rate_hz > 0.0
+        if self._debug_enabled:
+            self._debug_setup()
         self.sub = self.create_subscription(
             Image, self.image_topic, self.image_callback, 10)
 
@@ -489,6 +557,12 @@ class YoloDetectorNode(Node):
             self._publish_annotated(cv_image, msg.header)
             return
 
+        # Debug tick: decided before inference, because a tick frame runs
+        # YOLO at the debug floor and splits the result (see module docstring).
+        debug_tick = self._debug_tick(msg.header.stamp)
+        conf = (min(self.debug_image_min_confidence, self.confidence_threshold)
+                if debug_tick else self.confidence_threshold)
+
         # ---- real inference ------------------------------------------------
         # retina_masks=True: for a segment-task model, makes Ultralytics itself
         # upsample result.masks.data from the internal inference resolution
@@ -502,8 +576,25 @@ class YoloDetectorNode(Node):
         # live: result.masks stays None, no error) so this is always passed.
         results = self.model(
             cv_image, verbose=False, device=self.device,
-            conf=self.confidence_threshold, retina_masks=True)
+            conf=conf, retina_masks=True)
         result = results[0]
+        below = []
+        if debug_tick:
+            try:
+                result, below = self._debug_split(result, *cv_image.shape[:2])
+            except Exception as exc:  # noqa: BLE001 - never publish a below-threshold box
+                # The result still holds boxes down to the debug floor, so it
+                # cannot be published: rerun this frame at the threshold and
+                # switch the debug image off for the rest of the run.
+                self.get_logger().error(
+                    f'debug split failed: {exc} -- debug image disabled, frame re-inferred '
+                    f'at confidence_threshold={self.confidence_threshold}')
+                self._debug_enabled = False
+                debug_tick = False
+                below = []
+                result = self.model(
+                    cv_image, verbose=False, device=self.device,
+                    conf=self.confidence_threshold, retina_masks=True)[0]
 
         # Car's-own-LiDAR exclusion -- see module docstring's own paragraph.
         # Applied here, on the raw Ultralytics result, BEFORE anything below
@@ -590,6 +681,12 @@ class YoloDetectorNode(Node):
             result.names = self.names
             annotated = result.plot()
         self._publish_annotated(annotated, msg.header)
+        if debug_tick:
+            try:
+                self._debug_capture(cv_image, msg.header, out.detections, masks_np, below)
+            except Exception as exc:  # noqa: BLE001 - debug output must never stop detection
+                self.get_logger().error(
+                    f'debug image capture failed: {exc}', throttle_duration_sec=5.0)
 
     def _publish_annotated(self, cv_image, header):
         try:
@@ -769,6 +866,244 @@ class YoloDetectorNode(Node):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
 
         return annotated
+
+    # ---- perception debug image (see module docstring) -----------------
+
+    def _debug_setup(self):
+        """Create the debug image publisher, its small inputs and its state."""
+        self.debug_pub = self.create_publisher(CompressedImage, self.debug_image_topic, 10)
+        self._debug_period = 1.0 / self.debug_image_rate_hz
+        self._debug_next_due = None
+        self._debug_pending = None
+        self._debug_det3d = collections.OrderedDict()
+        self._debug_tracks = collections.OrderedDict()
+        self._debug_wall = None
+        self._debug_mission = None
+        # The front bumper (the URDF's base_front, the stack's one source)
+        # and the camera mount from /tf_static only, like front_clearance_node
+        # (no TransformListener: a handful of fixed edges). A broken URDF
+        # read costs the image its distances, never the detector its start.
+        try:
+            self._debug_front_x = base_front_x()
+        except Exception as exc:  # noqa: BLE001 - debug output must never stop detection
+            self._debug_front_x = None
+            self.get_logger().error(f'debug image: no base_front x ({exc}); no distances')
+        self._debug_tf_buffer = Buffer()
+        self._debug_positions = {}   # frame_id -> (x, y) in base_link
+        self.create_subscription(
+            TFMessage, '/tf_static', self._debug_tf_static_cb, QoSProfile(
+                depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                history=HistoryPolicy.KEEP_LAST))
+        self.create_subscription(
+            Detection3DArray, '/camera/detections_3d', self._debug_det3d_cb, 10)
+        self.create_subscription(
+            Detection3DArray, '/costmap/semantic_tracks', self._debug_tracks_cb, 10)
+        self.create_subscription(
+            String, '/perception/debug/front_wall', self._debug_wall_cb, 10)
+        self.create_subscription(
+            MissionStatus, '/mission/status', self._debug_mission_cb, _MISSION_STATUS_QOS)
+
+    def _debug_tick(self, stamp):
+        """Return True if this frame is a debug tick (stamp-driven throttle)."""
+        if not self._debug_enabled:
+            return False
+        due, self._debug_next_due = perception_debug.tick_due(
+            perception_debug.stamp_to_sec(stamp), self._debug_next_due, self._debug_period)
+        return due
+
+    @staticmethod
+    def _debug_key(stamp):
+        return (int(stamp.sec), int(stamp.nanosec))
+
+    def _debug_remember(self, cache, msg):
+        cache[self._debug_key(msg.header.stamp)] = msg
+        while len(cache) > _DEBUG_CACHE:
+            cache.popitem(last=False)
+
+    def _debug_det3d_cb(self, msg):
+        self._debug_remember(self._debug_det3d, msg)
+
+    def _debug_tracks_cb(self, msg):
+        self._debug_remember(self._debug_tracks, msg)
+        pending = self._debug_pending
+        if pending is not None and pending['key'] == self._debug_key(msg.header.stamp):
+            self._debug_finish()
+
+    def _debug_wall_cb(self, msg):
+        self._debug_wall = msg.data
+
+    def _debug_tf_static_cb(self, msg):
+        for transform in msg.transforms:
+            self._debug_tf_buffer.set_transform_static(transform, 'yolo_detector_node')
+
+    def _debug_position(self, frame_id):
+        """(x, y) of frame_id in base_link from /tf_static, cached; None if unknown."""
+        if not frame_id:
+            return None
+        pos = self._debug_positions.get(frame_id)
+        if pos is None:
+            try:
+                t = self._debug_tf_buffer.lookup_transform(
+                    'base_link', frame_id, Time()).transform.translation
+            except TransformException:
+                return None
+            pos = self._debug_positions[frame_id] = (float(t.x), float(t.y))
+        return pos
+
+    def _debug_mission_cb(self, msg):
+        self._debug_mission = msg
+
+    def _debug_split(self, result, img_h, img_w):
+        """
+        Split a tick frame's result into (kept result, below-threshold boxes).
+
+        The kept result is what a call at confidence_threshold returns:
+        Ultralytics keeps `score > conf` (strict), and returns masks None
+        when nothing is kept, which image_callback relies on to publish the
+        zero-size empty mask. Below-threshold boxes over the car's own
+        LiDAR housing are dropped, like published ones.
+        """
+        if len(result.boxes) == 0:
+            return result, []
+        scores = result.boxes.conf.cpu().numpy()
+        above = scores > self.confidence_threshold
+        if above.all():
+            return result, []
+        ex = (self.lidar_exclusion_x_min * img_w, self.lidar_exclusion_y_min * img_h,
+              self.lidar_exclusion_x_max * img_w, self.lidar_exclusion_y_max * img_h)
+        below = []
+        for box in result[~above].boxes:
+            x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
+            if _bbox_overlap_fraction(x1, y1, x2, y2, *ex) > \
+                    self.lidar_exclusion_overlap_threshold:
+                continue
+            cls_id = int(box.cls[0].item())
+            below.append({'box': (x1, y1, x2, y2), 'score': float(box.conf[0].item()),
+                          'class_id': self.names.get(cls_id, str(cls_id))})
+        result = result[above]
+        if not above.any():
+            result.masks = None
+        return result, below
+
+    def _debug_capture(self, cv_image, header, detections, masks_np, below):
+        """Downscale this tick frame and keep it until its 3D and tracks arrive."""
+        if self._debug_pending is not None:
+            self._debug_finish()
+        img_h, img_w = cv_image.shape[:2]
+        size = perception_debug.debug_size(img_w, img_h, self.debug_image_width)
+        hi = []
+        for i, det in enumerate(detections):
+            class_id = det.results[0].hypothesis.class_id if det.results else ''
+            score = det.results[0].hypothesis.score if det.results else 0.0
+            cx, cy = det.bbox.center.position.x, det.bbox.center.position.y
+            half_w, half_h = det.bbox.size_x / 2.0, det.bbox.size_y / 2.0
+            contours = None
+            if masks_np is not None and i < len(masks_np):
+                contours = perception_debug.mask_contours(masks_np[i] > 0.5, size)
+            hi.append({'box': (cx - half_w, cy - half_h, cx + half_w, cy + half_h),
+                       'class_id': class_id, 'score': score, 'contours': contours,
+                       'color': self._class_color_bgr(class_id)})
+        self._debug_pending = {
+            'key': self._debug_key(header.stamp), 'header': header,
+            'img': cv2.resize(cv_image, size, interpolation=cv2.INTER_LINEAR),
+            'scale': size[0] / float(img_w), 'src_wh': (img_w, img_h),
+            'hi': hi, 'lo': below}
+
+    def _debug_finish(self):
+        """Pair, draw, encode and publish the pending debug frame."""
+        pending, self._debug_pending = self._debug_pending, None
+        try:
+            frame = self._debug_frame(pending)
+            canvas = perception_debug.draw_debug_frame(pending['img'], frame)
+            jpeg = perception_debug.encode_jpeg(canvas, self.debug_image_jpeg_quality)
+        except Exception as exc:  # noqa: BLE001 - debug output must never stop detection
+            self.get_logger().error(
+                f'debug image failed: {exc}', throttle_duration_sec=5.0)
+            return
+        if jpeg is None:
+            return
+        msg = CompressedImage()
+        msg.header = pending['header']
+        msg.format = 'jpeg'
+        msg.data = array.array('B', jpeg)
+        self.debug_pub.publish(msg)
+
+    def _debug_frame(self, pending):
+        """Collect everything draw_debug_frame needs for one pending frame."""
+        front_x = self._debug_front_x
+        wall = (perception_debug.parse_wall_debug(self._debug_wall)
+                if self._debug_wall is not None else None)
+        half_width = wall.get('corridor_half_width_m') if wall is not None else None
+
+        hi = pending['hi']
+        keys = [(d['class_id'], d['score']) for d in hi]
+        det3d = self._debug_det3d.get(pending['key'])
+        tracks = self._debug_tracks.get(pending['key'])
+        positions = perception_debug.match_by_class_score(keys, (
+            (d.results[0].hypothesis.class_id, d.results[0].hypothesis.score,
+             d.bbox.center.position)
+            for d in (det3d.detections if det3d is not None else []) if d.results))
+        track_ids = perception_debug.match_by_class_score(keys, (
+            (d.results[0].hypothesis.class_id, d.results[0].hypothesis.score, d.id)
+            for d in (tracks.detections if tracks is not None else []) if d.results))
+        # Distance ahead the way front_clearance_node re-references a camera
+        # range: the camera-frame x minus the lens-to-bumper offset along
+        # base_link x (from_front(), floored at MIN_FRONT_DISTANCE_M).
+        cam_frame = det3d.header.frame_id if det3d is not None else None
+        cam_pos = self._debug_position(cam_frame)
+        cam_offset = (front_x - cam_pos[0]
+                      if cam_pos is not None and front_x is not None else None)
+        for det, pos, track in zip(hi, positions, track_ids):
+            det['track'] = track
+            det['d_front_m'] = None
+            det['in_corridor'] = None
+            if pos is None:
+                continue
+            if cam_offset is not None:
+                det['d_front_m'] = from_front(pos.x, cam_offset)
+            if cam_pos is not None and half_width is not None:
+                det['in_corridor'] = abs(float(pos.y) + cam_pos[1]) <= half_width
+
+        wall_front = {}
+        if wall is not None:
+            origin_x = {
+                perception_debug.ORIGIN_CAMERA: (
+                    self._debug_position(wall.get('frame_id')) or (None,))[0],
+                perception_debug.ORIGIN_BASE_LINK: 0.0,
+                perception_debug.ORIGIN_FRONT: front_x,
+            }
+            used = wall.get('front_distance_m')
+            wall_front['used_m'] = perception_debug.distance_from_front(
+                used if used is not None and used >= 0.0 else None,
+                origin_x.get(wall.get('stereo_origin')), front_x)
+            wall_front['obstacle_m'] = perception_debug.distance_from_front(
+                wall.get('obstacle_m'), origin_x.get(wall.get('obstacle_origin')), front_x)
+            lidar = wall.get('lidar') or {}
+            wall_front['lidar_m'] = perception_debug.distance_from_front(
+                lidar.get('distance_m'), origin_x.get(lidar.get('origin')), front_x)
+
+        img_w, img_h = pending['src_wh']
+        stamp = pending['header'].stamp
+        stamp_sec = perception_debug.stamp_to_sec(stamp)
+        mission = self._debug_mission
+        return {
+            'scale': pending['scale'], 'hi': hi, 'lo': pending['lo'],
+            'threshold': self.confidence_threshold,
+            'min_confidence': min(self.debug_image_min_confidence, self.confidence_threshold),
+            'wall': wall,
+            'wall_front': wall_front,
+            'exclusion': (self.lidar_exclusion_x_min * img_w, self.lidar_exclusion_y_min * img_h,
+                          self.lidar_exclusion_x_max * img_w, self.lidar_exclusion_y_max * img_h),
+            'mission': ('MISSION --' if mission is None else '{} {}{}'.format(
+                mission.state, os.path.splitext(os.path.basename(mission.json_path))[0],
+                ' ESTOP' if mission.emergency_stop_active else '')),
+            'stamp_text': time.strftime('%H:%M:%S', time.gmtime(stamp_sec))
+            + '.{:03d}Z'.format(int(stamp.nanosec // 1000000)),
+            'lag_s': self.get_clock().now().nanoseconds * 1e-9 - stamp_sec,
+            'front_label': ('@front' if front_x is not None
+                            and (cam_frame is None or cam_offset is not None)
+                            else '@front?'),
+        }
 
     @staticmethod
     def _class_color_bgr(class_id):

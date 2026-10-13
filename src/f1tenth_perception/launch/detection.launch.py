@@ -189,6 +189,21 @@ def generate_launch_description():
         default_value=str(lidar_exclusion_overlap_threshold_default),
         description=lidar_exclusion_overlap_threshold_desc)
 
+    # Perception debug image -- see yolo_detector_node.py's own docstring.
+    # Explicit value_type per entry, for the reason _front_clearance_args
+    # below spells out.
+    _debug_image_args = [
+        ('debug_image_rate_hz', float),
+        ('debug_image_width', int),
+        ('debug_image_jpeg_quality', int),
+        ('debug_image_min_confidence', float),
+    ]
+    debug_image_las = []
+    for _name, _type in _debug_image_args:
+        _default, _desc = get_default(_name)
+        debug_image_las.append(DeclareLaunchArgument(
+            _name, default_value=str(_default), description=_desc))
+
     # front_clearance_node's own tuning params. Declared with an explicit
     # value_type per entry rather than relying on launch_ros's string
     # type-inference -- the same reasoning behavior_bringup.launch.py's own
@@ -226,6 +241,7 @@ def generate_launch_description():
         ('clearance_exit_m', float),
         ('clearance_min_dwell_frames', int),
         ('publish_debug_raw', bool),
+        ('publish_debug_wall', bool),
     ]
     front_clearance_las = []
     for _name, _type in _front_clearance_args:
@@ -335,6 +351,8 @@ def generate_launch_description():
             'lidar_exclusion_overlap_threshold': LaunchConfiguration(
                 'lidar_exclusion_overlap_threshold'),
             'nice': LaunchConfiguration('yolo_nice'),
+            **{_name: ParameterValue(LaunchConfiguration(_name), value_type=_type)
+               for _name, _type in _debug_image_args},
         }],
     )
 
@@ -351,6 +369,7 @@ def generate_launch_description():
         obstacle_projector_cpu_affinity_la, obstacle_projector_nice_la,
         front_clearance_nice_la,
         *front_clearance_las,
+        *debug_image_las,
         yolo_detector_node,
     ]
 

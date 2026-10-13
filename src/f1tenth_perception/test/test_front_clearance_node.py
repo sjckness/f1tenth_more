@@ -95,6 +95,8 @@ def _construct(param_dict=None, camera_x=FRONT):
         node.front_distance_raw_pub.publish = MagicMock()
     if node.bg_pixel_count_pub is not None:
         node.bg_pixel_count_pub.publish = MagicMock()
+    if node.wall_debug_pub is not None:
+        node.wall_debug_pub.publish = MagicMock()
     return node
 
 
@@ -1225,4 +1227,122 @@ class TestDistancesAreFromTheFrontBumper:
         assert node.front_clearance_pub.publish.call_args[0][0].data == pytest.approx(
             MIN_FRONT_DISTANCE_M)
         assert node.front_blocked_pub.publish.call_args[0][0].data is True
+        node.destroy_node()
+
+
+# ==============================================================================
+# /perception/debug/front_wall (publish_debug_wall)
+# ==============================================================================
+
+def _payload(node):
+    from f1tenth_perception import perception_debug
+    return perception_debug.parse_wall_debug(
+        node.wall_debug_pub.publish.call_args[0][0].data)
+
+
+class TestWallDebugPayload:
+
+    def test_one_payload_per_depth_frame_by_default(self):
+        node = _construct()
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert node.wall_debug_pub.publish.call_count == 2
+        assert _payload(node)['v'] == 1
+        node.destroy_node()
+
+    def test_disabled_creates_no_topic_and_no_lidar_subscription(self):
+        node = _construct({'publish_debug_wall': False})
+        assert node.wall_debug_pub is None
+        assert not hasattr(node, 'lidar_wall_sub')
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        node.destroy_node()
+
+    def test_counts_are_the_ones_the_wall_guard_used(self):
+        # 100x100 depth, default ROI 90x35 half-sizes -> x 0..100, y 15..85
+        # (7000 px); the default LiDAR-housing cut takes x 75..100, y 55..85
+        # (750 px) out of it.
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        payload = _payload(node)
+        assert payload['roi'] == [0, 15, 100, 85]
+        assert payload['px']['roi'] == 7000
+        assert payload['px']['housing'] == 750
+        assert payload['px']['bg'] == 6250
+        assert payload['stereo_raw_m'] == pytest.approx(2.0)
+        assert payload['front_distance_m'] == pytest.approx(2.0)
+        assert payload['source'] == 'stereo' and payload['fused_m'] is None
+        node.destroy_node()
+
+    def test_payload_names_what_each_distance_is_measured_from(self):
+        # Published distances are from the bumper; the raw pre-EMA stereo
+        # value stays from the lens, next to the offset that moves it.
+        node = _construct({'min_bg_pixels_for_reading': 1},
+                          camera_x=FRONT - _LENS_BEHIND_M)
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        payload = _payload(node)
+        assert payload['frame_id'] == CAMERA_FRAME
+        assert payload['stereo_origin'] == 'front'
+        assert payload['obstacle_origin'] == 'front'
+        assert payload['clearance_origin'] == 'front'
+        assert payload['stereo_raw_origin'] == 'camera'
+        assert payload['front_offset_m'] == pytest.approx(_LENS_BEHIND_M)
+        assert payload['stereo_raw_m'] == pytest.approx(2.0)
+        assert payload['front_distance_m'] == pytest.approx(2.0 - _LENS_BEHIND_M, abs=1e-4)
+        assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(
+            payload['front_distance_m'], abs=1e-4)
+        node.destroy_node()
+
+    def test_an_object_over_the_roi_is_reported_with_its_source(self):
+        from vision_msgs.msg import ObjectHypothesisWithPose
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        dets = _detections([(40, 50, 20, 20)])
+        hyp = ObjectHypothesisWithPose()
+        hyp.hypothesis.class_id, hyp.hypothesis.score = 'person', 0.9
+        dets.detections[0].results.append(hyp)
+        node._detections_callback(dets)
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        payload = _payload(node)
+        assert payload['obj_source'] == 'boxes'
+        assert payload['objects_in_roi'] == [['person', 0.9, 400]]
+        assert payload['px']['object'] == 400
+        assert payload['det_age_s'] == pytest.approx(0.0)
+        node.destroy_node()
+
+    def test_a_too_close_frame_still_publishes_a_payload_marked_so(self):
+        node = _construct()
+        depth = np.full((100, 100), 2.0, dtype=np.float32)
+        depth[20:60, 0:70] = -np.inf
+        node.depth_callback(_depth_msg(depth))
+        payload = _payload(node)
+        assert payload['too_close'] is True
+        assert payload['front_distance_m'] == pytest.approx(-1.0)
+        assert payload['front_blocked'] is True
+        # The too-close clearance exactly as published (bumper-referenced).
+        assert payload['front_clearance_m'] == pytest.approx(
+            node.front_clearance_pub.publish.call_args[0][0].data, abs=1e-4)
+        node.destroy_node()
+
+    def test_the_latest_lidar_fit_is_carried_from_base_link(self):
+        from f1tenth_messages.msg import WallLineFit
+        node = _construct()
+        fit = WallLineFit()
+        fit.valid, fit.distance, fit.inlier_count, fit.valid_returns = True, 2.5, 60, 75
+        node._lidar_wall_callback(fit)
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        lidar = _payload(node)['lidar']
+        assert lidar['distance_m'] == pytest.approx(2.5)
+        assert lidar['origin'] == 'base_link'
+        node.destroy_node()
+
+    def test_a_failing_payload_never_costs_the_wall_guard_its_frame(self, monkeypatch):
+        from f1tenth_perception import perception_debug
+
+        def _boom(*args, **kwargs):
+            raise RuntimeError('boom')
+
+        monkeypatch.setattr(perception_debug, 'build_wall_debug', _boom)
+        node = _construct({'min_bg_pixels_for_reading': 1})
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(2.0)
+        assert node.wall_debug_pub.publish.call_count == 0
         node.destroy_node()
