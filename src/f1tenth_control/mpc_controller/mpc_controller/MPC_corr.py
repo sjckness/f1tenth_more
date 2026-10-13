@@ -22,7 +22,7 @@ from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
-from f1tenth_params.param_defaults import get_odom_topic, get_value
+from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC,
@@ -1078,6 +1078,15 @@ class MPCController(Node):
         # block.
         self.wall_track_enable = bool(
             self.declare_parameter('wall_track_enable', get_value('wall_track_enable')).value)
+        # enable_scene_labels: the virtual wall is the single wall truth and is
+        # already heading-independent (the wall normal's distance, dead-reckoned
+        # on odometry through the turn, lidar_front_wall_node), so this private
+        # /scan wall fit is bypassed rather than run as a second wall.
+        if self.wall_track_enable and get_value('enable_scene_labels'):
+            self.wall_track_enable = False
+            self.get_logger().info(
+                'enable_scene_labels: wall_turn runs on /perception/virtual_wall; '
+                'the private wall tracker is bypassed')
         self.wall_tracker: Optional[WallTracker] = None
         if self.wall_track_enable:
             self.wall_tracker = WallTracker(
@@ -1713,9 +1722,12 @@ class MPCController(Node):
         # increment's staleness check. None until one arrives, so the 10.0
         # bootstrap above is never mistaken for a measurement.
         self.front_distance_stamp_sec: Optional[float] = None
+        # The one wall truth (get_wall_distance_topic): /perception/virtual_wall
+        # with enable_scene_labels, else /perception/front_distance. Same
+        # Float32 contract either way (from the bumper, <= 0 = no reading).
         self.sub_front_distance = self.create_subscription(
             Float32,
-            '/perception/front_distance',
+            get_wall_distance_topic(),
             self.front_distance_callback,
             10
         )

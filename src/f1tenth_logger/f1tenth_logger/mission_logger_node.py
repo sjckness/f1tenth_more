@@ -266,6 +266,18 @@ _DEFAULT_TOPICS = [
     # so the JSON is also the only record of the mission wall guard's input.
     '/camera/debug_image/compressed',
     '/perception/debug/front_wall',
+    # Scene labels (enable_scene_labels, f1tenth_perception/scene_labels.py):
+    # the virtual wall every wall consumer reads, its source/flags, the LiDAR
+    # wall planes, the stereo WALL distance, the label grid (160 x 90 mono8,
+    # ~14 KB at 5 Hz), its debug JSON and the unclassified OTHER clusters.
+    # Absent (harmlessly) while the switch is off.
+    '/perception/virtual_wall',
+    '/perception/virtual_wall/debug',
+    '/perception/wall_planes',
+    '/perception/stereo_wall',
+    '/perception/scene_labels',
+    '/perception/scene_labels_debug',
+    '/perception/unclassified_obstacles',
     '/scan',
     # --- costmap / semantic ---
     '/costmap/semantic_markers',

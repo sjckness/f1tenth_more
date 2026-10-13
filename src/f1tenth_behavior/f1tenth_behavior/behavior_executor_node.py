@@ -132,7 +132,7 @@ from f1tenth_behavior.safety_event import (
     active_lane as find_active_lane, emergency_trip as find_emergency_trip,
     make_safety_event_publisher)
 
-from f1tenth_params.param_defaults import get_odom_topic, get_value
+from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 
 import pydot
 from f1tenth_messages.msg import BehaviorTreeStatus
@@ -527,6 +527,10 @@ def create_root(
             tracks_max_gap_sec=op.get('object_tracks_max_gap_sec', 0.5)),
         CheckStopCondition(
             odom_topic=get_odom_topic(),
+            # The wall stop reads the one wall truth (get_wall_distance_topic):
+            # /perception/virtual_wall with enable_scene_labels, else
+            # front_clearance_node's /perception/front_distance as before.
+            front_clearance_topic=get_wall_distance_topic(),
             object_reach_tol_m=op.get('object_reach_tol_m', 0.10),
             object_reach_max_target_age_sec=op.get('object_reach_max_target_age_sec', 1.0),
             object_status_max_gap_sec=op.get('object_status_max_gap_sec', 0.5),
