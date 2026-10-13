@@ -1,7 +1,13 @@
 # Orin check report: campaign-final on Humble (2026-10-13)
 
-**Status 2026-10-13 ~11:30:** campaign-final is now `e9e5ade`, which adds P1-P3 (campaign calibration, LLM
-default, campaign bring-up) on Andreas's OK. Verdict: **CONDITIONAL GO**, see the last section.
+**Status 2026-10-13 ~12:20:** campaign-final is now **`86f249a`**:
+- `e9e5ade`: P1-P3 (campaign calibration, LLM default, campaign bring-up);
+- `bdc7c93`: **measured sensor positions** (bumper 0.425, LiDAR 0.325, ZED 0.260);
+- `d8609b5`: beside-the-car front-clearance fix;
+- `86f249a`: foxglove test fix.
+
+Verdict: **CONDITIONAL GO, pending the LiDAR checks** (last section). The LiDAR was powered off
+by Andreas before step 2 started.
 
 Written on the Orin (Jetson, Ubuntu 22.04, ROS 2 Humble) by a Claude Code
 session for linus. Facts linus needs come first. Later sections (campaign state,
@@ -44,7 +50,7 @@ build/test, bring-up, GO/NO-GO) are added as they finish.
 | scipy | 1.15.3 | ~/.local (pip) |
 | torch | 2.11.0 | ~/.local (pip) |
 
-### Vehicle geometry: base_front, lidar, ZED
+### Vehicle geometry: base_front, lidar, ZED (as found; SUPERSEDED by the measured values in section 7)
 
 The car runs `roboracer.urdf.xacro` through `f1tenth_description/launch/description.launch.py`, with
 `enable_sensors` false on hardware. The sensor frames are therefore **not** the URDF's
@@ -421,6 +427,159 @@ Observations (none of them changed):
 
   Anything off by more than 2 cm is reported before anything is changed, as asked.
 
+## 7. Sensor positions from the tape measurement (`bdc7c93`), DELIBERATE CHANGE FROM THE CAMPAIGN
+
+Andreas's tape, all to the bumper face: front axle centre 0.10 m, LiDAR scan centre 0.10 m,
+ZED front face 0.15 m.
+- Both static TFs hang directly off `base_link`: `description.launch.py` `static_baselink_to_laser`
+  and `camera.launch.py` `static_baselink_to_zed2`. Nothing is double-counted.
+- base_link stays on the rear axle (section 6).
+- ZED: the camera is a **ZED 2i** (the SDK reports `ZED 2i`, S/N 36866199).
+  - `zed2_camera_link` is its mounting screw.
+  - `zed_description/meshes/zed2i.stl` spans x -0.018..+0.0251 m, from a mesh origin at
+    `screw_offset_x` -0.01 (`zed_macro.urdf.xacro:61`).
+  - So the front face is **0.0151 m ahead of zed2_camera_link**. The mesh depth (43.1 mm) and width
+    (175 mm) match the datasheet.
+
+| frame (parent base_link) | campaign / old | **new** | derivation |
+|---|---|---|---|
+| `base_front` x | 0.443 (chassis-mesh front, never measured) | **0.425** | URDF wheelbase 0.325 (`core.xacro` hinges) + 0.10; differs by 1.8 cm (> 1 cm), so it changes |
+| `laser` x | 0.12 (placeholder) | **0.325** | 0.425 - 0.10 (y 0, z 0.20, yaw 0 unchanged) |
+| `zed2_camera_link` x | 0.12 | **0.260** | 0.425 - 0.15 - 0.0151 = 0.2599 (y 0, z 0.15, yaw 0 unchanged) |
+| left optical frame x (derived) | 0.110 | 0.250 | lens -> bumper 0.333 -> **0.175** |
+
+What it moves. Every one of these reads base_front or the static TFs at runtime; no number is
+copied elsewhere.
+- **Front distances.**
+  - `/perception/front_distance` and `/perception/front_clearance`: lens offset 0.333 -> 0.175.
+  - `/costmap/front_clearance`, `/mpc/min_obstacle_distance*`, the mission wall stop and the
+    wall_turn trigger: bumper 1.8 cm further back.
+- **E-stop front cone** (IsProximityTooClose): laser -> bumper 0.323 -> 0.10.
+- **SLAM / costmap**: every scan point moves 0.205 m forward in base_link. The map built from it
+  shifts accordingly; the scan centre is now 0.10 m behind the nose instead of 0.32 m.
+- **3D detection positions** (detection_3d / obstacle_projector through the ZED TF): 0.14 m forward.
+- **go_to gap**: gap_min(person) 0.53 -> 0.5475, so a clamped gap becomes **0.55** (was 0.53); the
+  default 0.6 is unchanged.
+- **Corridor (Part D)**: a person 1 m ahead of the bumper is now at s = 1.425; there
+  hw = 0.874 >= 0.87, so the 0.64 start still holds.
+
+Tests in the same commit:
+- `test_base_front` asserts 0.425 (renamed);
+- new `test_sensor_extrinsics` (laser = base_front - 0.10) and `test_zed_extrinsic`
+  (zed = base_front - 0.15 - 0.0151) pin the launch files to the bumper;
+- the go_to tests that encoded the old bumper were updated, and the ex10 golden was regenerated with
+  `translate()`.
+
+**Confirmed live** (stack relaunched 12:05 with the LiDAR off, `ros2 run tf2_ros tf2_echo` and an
+rclpy lookup):
+
+| | tf2_echo translation | RPY [deg] |
+|---|---|---|
+| base_link -> base_front | 0.425, 0.000, 0.000 | 0, 0, 0 |
+| base_link -> laser | 0.325, 0.000, 0.200 | 0, 0, 0 |
+| base_link -> zed2_camera_link | 0.260, 0.000, 0.150 | 0, 0, 0 |
+| base_link -> zed2_left_camera_optical_frame | 0.250, 0.060, 0.165 | -92.865, 0, -90 |
+
+`/perception/debug/front_wall` reports `front_offset_m` 0.175 (stereo 5.53 m from the lens = 5.63 m
+from the bumper).
+
+**PENDING (needs the LiDAR on): scan alignment.** The transform itself is a static publisher and is
+live as above. Whether the scan lands where the camera and the map say it does is not checked yet.
+
+Not changed: `sensors.xacro` (sim only, its stale LiDAR pose is backlog B10).
+
+## 8. Front clearance beside the car (`d8609b5`)
+
+Rule: behind the bumper face, only the car's width is "touching" (0.01). A point outside the width
+is beside the car and is **excluded**. Side limit = body half-width 0.136
+(`swept_clearance_body_half_width_m`) + new `front_beside_body_margin_m` 0.05 = **0.186 m**.
+
+Shared helper `f1tenth_description.vehicle_frames.beside_body_behind_bumper()`. It handles discs:
+a wide object beside the nose that also sticks out ahead of it in the corridor still counts.
+
+| path | before | after |
+|---|---|---|
+| camera obstacle term (`front_clearance_node._nearest_corridor_obstacle`) | anything with its footprint inside the 0.35 m corridor, near face behind the bumper face -> counted, clamped 0.01 (the 11:14 bring-up: a person beside the nose read 0.01 / BLOCKED) | beside -> skipped; inside the width -> still 0.01 |
+| camera depth ROI | central +-90 px patch | unchanged: at the ranges where it could be behind the bumper it only spans the car's width |
+| `/costmap/front_clearance` | nearest cell in the +-35 deg cone from base_link, even beside the nose, reported as its distance to the bumper centre point | its own nearest-cell search that skips beside cells; a cell behind the face inside the width reads 0.01. The MPC boundary constraints keep the unfiltered extraction |
+| e-stop front cone (IsProximityTooClose) | only returns ahead of the bumper face (`dx > 0`) | already right, unchanged |
+| `/mpc/min_obstacle_distance_forward` | centre behind the bumper face skipped | unchanged (see backlog) |
+
+Tests:
+- `test_beside_body`: points, discs, the wide-object case, and the point rule equal to the costmap's
+  vectorised mask over a grid.
+- Camera node: beside excluded, inside the width counts, beside does not hide one ahead, and the
+  bring-up case end to end through `depth_callback`.
+- Costmap: on a 5 cm grid.
+- One costmap test asserted the old 0.143 m for a cell behind the bumper inside the width; it is
+  0.01 now.
+
+No live test, as instructed.
+
+## 9. Foxglove whitelist test (`86f249a`)
+
+The default became a *list* of allowlist patterns with the viz relays, but the test compiled it as
+one regex and still expected the old denylist. It now matches any pattern, as the bridge does, and
+expects exactly what the bridge advertised on 2026-10-01.
+
+## 10. Tests on the final tree `86f249a`
+
+| tree | tests | failures | skipped | new vs 573f313 baseline |
+|---|---|---|---|---|
+| 573f313 baseline | 2675 | 33 | 27 | - |
+| campaign-final 5c25ade (B-F) | 2827 | 36 | 27 | 0 (+3 messages build-dir artefact) |
+| e9e5ade (+P1-P3) | 2837 | 36 | 28 | 1 (foxglove test bug) |
+| **86f249a (final)** | **2864** | **34** | **28** | **0** |
+
+- The 34 are the baseline's lint, stub and stale-expectation failures (31) plus the 3
+  f1tenth_messages linter "No files found" (stale `build/f1tenth_messages` configured 2026-09-07).
+- Fixed along the way:
+  - the foxglove test;
+  - `test_object_corridor_mode` ramp span (needs the 0.319 bound);
+  - `test_go_to_object_behaviour::test_grace_then_target_lost` (fails at 573f313/5c25ade/e9e5ade,
+    passes on the final tree; not investigated, it may be timing-sensitive).
+
+## 11. LiDAR checks (step 2): PENDING
+
+Not started. The LiDAR was powered off before step 2 (Andreas's addendum).
+To run when it is back on, with the car on the stand and the same stand-in hardware component:
+- `/scan` rate (~40 Hz, as in the campaign bags);
+- `/obstacle_clearance` and `/perception/swept_clearance/lidar`;
+- `/perception/lidar_front_wall`;
+- SLAM (`/slam/pose`, `/slam/map`);
+- `/costmap/front_clearance`;
+- the e-stop front cone (`front_min(from bumper)` in the behavior_executor DIAG line, now with the
+  laser 0.10 m behind the bumper);
+- scan alignment against the camera and the map with the new 0.325 laser x.
+
+## 12. Backlog (not changed today)
+
+1. **MPC model reference point.** `vehicle_model.py` uses a slip-angle bicycle with `lr = 0.17`
+   (`MPC_corr.py:856`), i.e. a centre-of-gravity reference. It is fed the rear-axle pose from
+   odometry/EKF (`vesc_to_odom.cpp:300`, `:130-131`, no slip angle). Beta reaches ~10 deg at full
+   steer. This was already the case in the campaign.
+2. **ZED model mismatch.** `camera.launch.py` launches the wrapper with `camera_model: 'zed2'`, but
+   the camera is a ZED 2i (the SDK warns about it at every start). The zed2 macro has
+   `bottom_slope` 0.05 rad, the zed2i has 0, so the published camera tree pitches the optical
+   frame **2.9 deg down** (tf2_echo: RPY -92.865 instead of -90).
+   - That tilts every depth point projected into base_link: about 0.15 m of height error at 3 m,
+     and a smaller x error.
+   - Fix: `camera_model: 'zed2i'`. That is a change from the campaign; it needs Andreas's decision.
+3. **Wheelbase disagreement:** 0.305 (odometry, MPC) vs 0.325 (URDF). base_front uses the URDF's
+   0.325 as instructed. If the true wheelbase is 0.305, the bumper is at 0.405, and the LiDAR and ZED
+   shift with it, because they are tied to the bumper. A tape value for rear axle -> bumper settles it.
+4. **Discovery server false reuse.** At the 12:00 relaunch, `ensure_discovery_server.py` found
+   127.0.0.1:11811 bound and "reused" it, but no server was running.
+   - The whole stack came up deaf (no topic data anywhere) while the supervisor reported every
+     component started.
+   - The port was free again minutes later; the cause is unknown.
+   - Before a drive: check that `fast-discovery-server` is in the process list after bring-up
+     (`pgrep -af fast-discovery-server`).
+5. `/mpc/min_obstacle_distance_forward` skips an obstacle whose centre is behind the bumper face
+   even when its footprint is inside the car's width. The omnidirectional topic still has it.
+6. `reset_manager` uses ~40 % of a core while idle (campaign code, P3).
+7. `sensors.xacro` (sim) still has the stale LiDAR pose (B10).
+
 ## DECISIONS TAKEN ALONE
 
 1. **Snapshot without switching branches.** The snapshot commit was built from a temporary index
@@ -460,25 +619,52 @@ Observations (none of them changed):
     launch and discovery server); nothing left running. Lidar checks need a relaunch with the lidar
     powered.
 15. Did not fix the foxglove whitelist test (outside the approved commits).
+16. **base_front from the URDF wheelbase 0.325** (as instructed), not the 0.305 that odometry and
+    the MPC use (backlog 3).
+17. **ZED front-face offset from the zed2i mesh** (0.0151 m) rather than the datasheet. The
+    wrapper's `camera_model` was left at `zed2` (backlog 2).
+18. **Updated the tests coupled to the bumper in the same commit:** the go_to gap 0.53 -> 0.55 and
+    the ex10 golden regenerated with `translate()` (as the golden test file instructs), and added
+    two static extrinsic tests.
+19. **Beside-the-car rule made disc-aware.** A plain box rule would drop a wide object that is
+    beside the nose and also in the corridor ahead (an existing test covers exactly that case).
+    Margin 0.05 m (new key `front_beside_body_margin_m`), untuned. The MPC boundary constraints were
+    left on the unfiltered extraction, so only front_clearance changed.
+20. **The foxglove test fix is more than one line:** besides list handling, the expected set had to
+    follow the allowlist. It uses the 10-01 live bridge log as the reference.
+21. **Live TF check done with the LiDAR off:** static TFs don't need the sensor. Only scan alignment
+    is pending. The first relaunch came up deaf (backlog 4); it was torn down and relaunched.
+22. Did not delete the 4 dummy runs in `~/f1tenth_archive/complete/` (2026-10-13T09-17-57
+    `orin_standstill`, 09-19-48 `orin_solve_only`). The second and third launches recorded no
+    missions.
 
-## GO / NO-GO for today's test (updated 11:30)
+## GO / NO-GO for today's test (updated ~12:20)
 
-**CONDITIONAL GO on campaign-final `e9e5ade`.** It becomes a GO when both of these are done on the stand:
-1. **Lidar powered and checked:** `/scan` ~40 Hz, `/obstacle_clearance`, lidar swept clearance,
-   `lidar_front_wall`, SLAM pose. The e-stop front cone (IsProximityTooClose) runs on `/scan` and
-   was re-referenced to the bumper by Part E. It is the safety layer and was not exercised today.
-2. **Tape check:** the bumper offset and the sensor offsets agree with the URDF/TF to within 2 cm
-   (section 6), and every front-distance topic agrees with the measured object distance.
+**CONDITIONAL GO on campaign-final `86f249a`, PENDING the LiDAR checks. They must pass before the
+first drive:**
+1. `/scan` publishing at ~40 Hz, with `/obstacle_clearance` and `/perception/swept_clearance/lidar`
+   live.
+2. **E-stop front cone** live and plausible: `front_min(from bumper)` in the behavior_executor DIAG
+   line, with the laser now 0.10 m behind the bumper instead of 0.32 m.
+3. SLAM pose and map up; `/costmap/front_clearance` publishing.
+4. Scan alignment with the new laser x 0.325: a wall straight ahead reads the same from the LiDAR
+   and from the camera (`/perception/debug/front_wall` `lidar` vs `stereo`).
+5. After every bring-up: `pgrep -af fast-discovery-server` shows the server (backlog 4).
 
-Why the earlier NO-GO is lifted:
-- campaign-final now carries the campaign's erpm gain, servo gains and MPC steering bounds (P1),
-  the LLM default (P2) and the bring-up (P3). It builds, and the only new test failure is a test bug.
-- Part B: the bag covers the whole mission on the car. Discovery took 6.0 s against the 15 s countdown.
-- Part C: 5.0 Hz, 21 kB/frame, no detection-rate drop vs the campaign.
-- Part F: dt 0.2, N 20, solve 21 ms median / 33 ms max against the 100 ms budget.
-- Part E: the TF chain resolves on the car with the configured numbers.
+What is in place:
+- The campaign's calibration and bring-up (P1-P3).
+- The measured sensor positions (a deliberate change from the campaign), live and confirmed by
+  tf2_echo.
+- The beside-the-car fix.
+- Build clean; tests show 0 new failures vs 573f313.
+- Part B pre-roll verified on the car (6 s discovery vs a 15 s countdown).
+- Part C at 5 Hz with no detection slowdown.
+- Part F solving in 21 ms median, 33 ms max.
 
-Known differences from the campaign:
-- The intended ones: B-F.
-- The MPC's lr = 0.17 vs the rear-axle odometry, unchanged from the campaign.
-- Today's measurements had the lidar off, so CPU under full load is ~5-10 % higher than measured.
+Differences from the campaign to keep in mind when comparing runs:
+- B-F (intended);
+- the measured sensor positions (every front distance, the e-stop cone, SLAM/costmap and 3D
+  detections move; the clamped go_to gap becomes 0.55);
+- the beside-the-car exclusion.
+
+Unchanged from the campaign: the MPC lr mismatch and the ZED model mismatch (backlog 1, 2).
