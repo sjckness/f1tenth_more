@@ -37,6 +37,9 @@ REASON_LOW_INLIER_COUNT = 3
 REASON_LOW_INLIER_FRACTION = 4
 REASON_OBLIQUE = 5
 REASON_WRONG_SURFACE = 6
+# Scene labels only (enable_scene_labels): the tracked line spans less than a
+# wall must, or does not lie under the heading beams (scene_labels.wall_ahead).
+REASON_SHORT_SPAN = 7
 REASON_NAMES = {
     REASON_OK: 'ok',
     REASON_NO_TRANSFORM: 'no_transform',
@@ -45,6 +48,7 @@ REASON_NAMES = {
     REASON_LOW_INLIER_FRACTION: 'low_inlier_fraction',
     REASON_OBLIQUE: 'oblique',
     REASON_WRONG_SURFACE: 'wrong_surface',
+    REASON_SHORT_SPAN: 'short_span',
 }
 
 # Mirror f1tenth_messages/WallEstimate.msg's PROVENANCE_* constants.

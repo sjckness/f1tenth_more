@@ -37,7 +37,7 @@ projector 6,7, YOLO 8,9, mpc_corr 10,11) -- and in particular not the behavior
 executor's core 4, which hosts the e-stop.
 """
 
-from f1tenth_params.param_defaults import get_default
+from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -62,6 +62,15 @@ LIDAR_FRONT_WALL_ARGS = [
     ('odom_max_age_sec', float),
     ('seed_max_age_sec', float),
     ('seed_max_valid_m', float),
+    ('detection_margin_deg', float),
+    ('detection_max_age_sec', float),
+    ('wall_min_span_m', float),
+    ('wall_planes_half_angle_deg', float),
+    ('wall_planes_rate_hz', float),
+    ('wall_planes_max_lines', int),
+    ('wall_planes_min_inliers', int),
+    ('virtual_disagree_m', float),
+    ('stereo_max_age_sec', float),
 ]
 
 
@@ -91,6 +100,9 @@ def generate_launch_description():
         description='Process niceness for lidar_front_wall_node. 0: no-op.'))
     params['nice'] = ParameterValue(
         LaunchConfiguration('lidar_front_wall_nice'), value_type=int)
+    # The stack-wide scene-labels switch: a plain get_value like the MPC and
+    # the BT read it, so the producer and its consumers cannot disagree.
+    params['enable_scene_labels'] = bool(get_value('enable_scene_labels'))
 
     node = Node(
         condition=IfCondition(LaunchConfiguration('use_lidar')),

@@ -19,6 +19,7 @@ uint8 REASON_LOW_INLIER_COUNT = 3     # line holds fewer inliers than the floor
 uint8 REASON_LOW_INLIER_FRACTION = 4  # line is not the dominant surface
 uint8 REASON_OBLIQUE = 5              # normal too far off the heading
 uint8 REASON_WRONG_SURFACE = 6        # disagrees with the dead-reckoned wall
+uint8 REASON_SHORT_SPAN = 7           # scene labels: too short a span, or not under the heading
 
 # The fitted line, filled whenever one could be fitted at all (also when valid
 # is false, so a rejection shows what the fit landed on). NaN when none.

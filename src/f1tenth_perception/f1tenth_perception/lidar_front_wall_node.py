@@ -189,6 +189,36 @@ acknowledgements, and cannot back-pressure it. It runs as its own supervisor
 component, never inside lidar.launch.py or the `perception` component; see
 launch/lidar_front_wall.launch.py for why that placement is load-bearing.
 
+SCENE LABELS (enable_scene_labels, stack_params.yaml; default false)
+--------------------------------------------------------------------
+With the switch on, three things change here, all in scene_labels.py:
+
+  * Every YOLO detection on /camera/detections_3d (younger than
+    detection_max_age_sec) cuts its bearing sector, widened by
+    detection_margin_deg, out of the scan BEFORE any fit. A person in front of
+    the wall no longer makes the wall a minority of the sector (M02 P002-R005:
+    low_inlier_fraction for 6.5 s while the camera stopped the car on the
+    person).
+  * The fit is not the +-sector_half_angle_deg one. Sequential wall lines are
+    extracted from the cut wide sector (wall_planes_half_angle_deg) at
+    wall_planes_rate_hz and published on /perception/wall_planes for the stereo
+    labelling in front_clearance_node; the nearest line the heading crosses
+    is tracked and refitted on every scan. It must SPAN wall_min_span_m and lie
+    under the heading beams (scene_labels.wall_ahead), else short_span: an
+    object face is short, a doorway's two side faces are not a wall ahead. It
+    must hold wall_planes_min_inliers and
+    face the car within oblique_max_deg. The WallEstimator, its odometry dead
+    reckoning and its wrong-surface gate are unchanged.
+  * /perception/virtual_wall (Float32, from the FRONT BUMPER, -1.0 = no
+    reading) and /perception/virtual_wall/debug (JSON: source, flags): the
+    estimate above fused with the stereo WALL distance on
+    /perception/stereo_wall (scene_labels.VirtualWall). It is the single wall
+    truth: with the switch on every wall consumer reads it
+    (f1tenth_params.param_defaults.get_wall_distance_topic()).
+
+With the switch off none of this is subscribed or published, and the fit is
+the one above, unchanged.
+
 LASER POSE
 ----------
 base_link <- scan frame comes from /tf_static, fed into a tf2 Buffer this node
@@ -199,12 +229,15 @@ placeholder and a recalibrated mount yaw must reach the fit. Until the
 transform arrives every scan publishes no_transform.
 """
 
+import json
 import math
 
-from f1tenth_description.vehicle_frames import base_front_x
+from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
 from f1tenth_messages.msg import WallEstimate, WallLineFit
 import rclpy
 from nav_msgs.msg import Odometry
+from std_msgs.msg import String
+from vision_msgs.msg import Detection3DArray
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, qos_profile_sensor_data
 from rclpy.time import Time
@@ -217,13 +250,19 @@ from tf2_ros.buffer import Buffer
 from f1tenth_perception.cpu_affinity import apply_nice, declare_nice_param
 from f1tenth_perception.lidar_front_wall import (
     PROVENANCE_NAMES,
+    REASON_LOW_INLIER_COUNT,
     REASON_NO_TRANSFORM,
+    REASON_OBLIQUE,
     REASON_OK,
+    REASON_SHORT_SPAN,
+    REASON_TOO_FEW_RETURNS,
     SectorFit,
     WallEstimator,
     classify_fit,
     fit_forward_line,
 )
+from f1tenth_perception import scene_labels
+from f1tenth_perception.ground_plane import quat_to_matrix
 
 # Same profile tf2_ros.TransformListener uses for /tf_static: the static
 # broadcasters latch, so a late subscriber still receives every edge.
@@ -267,6 +306,25 @@ class LidarFrontWallNode(Node):
             seed_max_valid_m=float(param('seed_max_valid_m', 5.0)),
         )
 
+        # ---- scene labels (module docstring) --------------------------------
+        self.scene_enabled = bool(param('enable_scene_labels', False))
+        self.detection_margin_rad = math.radians(float(param('detection_margin_deg', 3.0)))
+        self.detection_max_age = float(param('detection_max_age_sec', 0.5))
+        self.wall_min_span_m = float(param('wall_min_span_m', 0.8))
+        self.planes_half_angle_rad = math.radians(
+            float(param('wall_planes_half_angle_deg', 60.0)))
+        planes_rate = float(param('wall_planes_rate_hz', 10.0))
+        self.planes_period = 1.0 / planes_rate if planes_rate > 0.0 else math.inf
+        self.planes_max_lines = int(param('wall_planes_max_lines', 3))
+        self.planes_min_inliers = int(param('wall_planes_min_inliers', 15))
+        self.virtual = scene_labels.VirtualWall(
+            self.front_x,
+            disagree_m=float(param('virtual_disagree_m', 0.15)),
+            stereo_max_age_s=float(param('stereo_max_age_sec', 0.5)))
+        self._detections = None      # (receipt time, [(x, y, half_width)] base_link)
+        self._next_planes = 0.0
+        self._tracked_wall = None    # scene_labels.WallLine, base_link
+
         declare_nice_param(self)
         apply_nice(self)
 
@@ -282,6 +340,16 @@ class LidarFrontWallNode(Node):
             Odometry, self.odom_topic, self._odom_cb, qos_profile_sensor_data)
         self.seed_sub = self.create_subscription(
             Float32, self.seed_topic, self._seed_cb, 10)
+        if self.scene_enabled:
+            self.planes_pub = self.create_publisher(String, '/perception/wall_planes', 10)
+            self.virtual_pub = self.create_publisher(Float32, '/perception/virtual_wall', 10)
+            self.virtual_debug_pub = self.create_publisher(
+                String, '/perception/virtual_wall/debug', 10)
+            self.create_subscription(
+                Detection3DArray, str(param('detections_3d_topic', '/camera/detections_3d')),
+                self._detections_cb, 10)
+            self.create_subscription(
+                String, '/perception/stereo_wall', self._stereo_wall_cb, 10)
         # Best-effort on purpose -- see the module docstring's NO COUPLING TO
         # THE E-STOP section.
         self.scan_sub = self.create_subscription(
@@ -290,7 +358,9 @@ class LidarFrontWallNode(Node):
         self.get_logger().info(
             f'lidar_front_wall_node up: {self.scan_topic} -> {self.fit_topic}, '
             f'{self.estimate_topic}; sector +-{math.degrees(self.sector_half_angle_rad):.1f} deg, '
-            f'odometry {self.odom_topic}, seed {self.seed_topic}')
+            f'odometry {self.odom_topic}, seed {self.seed_topic}'
+            + ('; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, '
+               '/perception/virtual_wall' if self.scene_enabled else ''))
 
     def _now(self):
         return self.get_clock().now().nanoseconds * 1e-9
@@ -301,8 +371,40 @@ class LidarFrontWallNode(Node):
 
     def _odom_cb(self, msg):
         pose = msg.pose.pose
-        self.estimator.update_odometry(
-            self._now(), pose.position.x, pose.position.y, _yaw_from_quaternion(pose.orientation))
+        yaw = _yaw_from_quaternion(pose.orientation)
+        self.estimator.update_odometry(self._now(), pose.position.x, pose.position.y, yaw)
+        self.virtual.update_pose(pose.position.x, pose.position.y, yaw)
+
+    def _detections_cb(self, msg):
+        """Each detection's (x, y, half-width) in base_link, from /tf_static."""
+        try:
+            t = self._tf_buffer.lookup_transform(
+                self.base_frame, msg.header.frame_id, Time()).transform
+        except TransformException:
+            return
+        rot = quat_to_matrix(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w)
+        objs = []
+        for det in msg.detections:
+            p = det.bbox.center.position
+            x, y, _ = rot @ (p.x, p.y, p.z) + (t.translation.x, t.translation.y,
+                                               t.translation.z)
+            objs.append((float(x), float(y), 0.5 * float(det.bbox.size.x)))
+        self._detections = (self._now(), objs)
+
+    def _stereo_wall_cb(self, msg):
+        try:
+            d = json.loads(msg.data)
+        except ValueError:
+            return
+        if d.get('distance_m') is not None:
+            self.virtual.update_stereo(
+                self._now(), float(d['distance_m']), bool(d.get('fallback')))
+
+    def _sectors(self, now, laser_pose):
+        if self._detections is None or now - self._detections[0] > self.detection_max_age:
+            return []
+        return scene_labels.detection_sectors(
+            self._detections[1], laser_pose[:2], self.detection_margin_rad)
 
     def _seed_cb(self, msg):
         # /costmap/front_clearance is from the front bumper since 2026-10-12;
@@ -338,6 +440,8 @@ class LidarFrontWallNode(Node):
             self.get_logger().warn(
                 f'no {self.base_frame} <- {msg.header.frame_id} transform on /tf_static yet; '
                 'publishing no_transform', throttle_duration_sec=5.0)
+        elif self.scene_enabled:
+            fit, reason = self._scene_fit(msg, laser_pose, now)
         else:
             fit = fit_forward_line(
                 msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min, msg.range_max,
@@ -347,7 +451,72 @@ class LidarFrontWallNode(Node):
                 fit, self.min_inlier_fraction, self.min_inlier_count_ratio, self.oblique_max_rad)
         step = self.estimator.step(now, fit, reason)
         self._publish(msg.header.stamp, fit, step)
+        if self.scene_enabled:
+            self._publish_virtual(msg.header.stamp, now, step)
         self._log_step(step)
+
+    def _scene_fit(self, msg, laser_pose, now):
+        """The scene-labels wall fit (module docstring, SCENE LABELS).
+
+        Detection sectors are cut out of the wide forward sector first. At
+        wall_planes_rate_hz the sequential wall lines are extracted from it
+        (every other beam), published on /perception/wall_planes, and the
+        nearest one the heading crosses becomes the tracked wall; every scan
+        refits that wall on the full-resolution returns. The "sector" of the
+        published WallLineFit is the wide sector in this mode. A fit over just
+        the +-sector_half_angle_deg beams is not used: a person and a laptop
+        in front of the wall cut all but ~3 of its 81 beams in M02 P002-R005.
+        """
+        sectors = self._sectors(now, laser_pose)
+        pts, usable, _, bearings = scene_labels.scan_points(
+            msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min, msg.range_max,
+            laser_pose, self.planes_half_angle_rad, sectors, with_bearings=True)
+        if now >= self._next_planes:
+            self._next_planes = now + self.planes_period
+            lines = scene_labels.sequential_lines(
+                pts[::2], self.inlier_distance_m, self.wall_min_span_m,
+                self.planes_min_inliers, self.planes_max_lines)
+            self._tracked_wall = scene_labels.heading_wall(
+                lines, self.oblique_max_rad, pts, bearings)
+            stamp = msg.header.stamp
+            self.planes_pub.publish(String(data=json.dumps({
+                'stamp': stamp.sec + stamp.nanosec * 1e-9, 'frame_id': self.base_frame,
+                'sectors': [[round(a, 4), round(b, 4)] for a, b in sectors],
+                'walls': [w.to_dict() for w in lines]})))
+        wall = scene_labels.refit_wall(
+            pts, self._tracked_wall, self.inlier_distance_m, 3.0 * self.inlier_distance_m)
+        self._tracked_wall = wall
+        if wall is None:
+            return SectorFit(usable, len(pts)), REASON_TOO_FEW_RETURNS
+        fit = SectorFit(usable, len(pts), wall.d, wall.normal_angle, wall.inliers, wall.rms)
+        if wall.inliers < self.planes_min_inliers:
+            return fit, REASON_LOW_INLIER_COUNT
+        if (wall.span < self.wall_min_span_m
+                or not scene_labels.wall_ahead(wall, pts, bearings)):
+            return fit, REASON_SHORT_SPAN
+        if abs(wall.normal_angle) > self.oblique_max_rad:
+            return fit, REASON_OBLIQUE
+        return fit, REASON_OK
+
+    def _publish_virtual(self, stamp, now, step):
+        v = self.virtual.step(now, step.estimate)
+        value = max(v.distance, MIN_FRONT_DISTANCE_M) if v.valid else -1.0
+        self.virtual_pub.publish(Float32(data=float(value)))
+
+        def num(x):
+            return None if not math.isfinite(x) else round(x, 4)
+        self.virtual_debug_pub.publish(String(data=json.dumps({
+            'stamp': stamp.sec + stamp.nanosec * 1e-9, 'valid': v.valid,
+            'distance_m': num(v.distance), 'origin': 'front', 'source': v.source,
+            'disagree': v.disagree, 'stereo_fallback': v.stereo_fallback,
+            'lidar_m': num(v.lidar_m), 'stereo_m': num(v.stereo_m),
+            'lidar_reason': int(step.reason),
+            'lidar_provenance': PROVENANCE_NAMES[step.estimate.provenance]})))
+        if v.disagree:
+            self.get_logger().warn(
+                f'virtual wall: LiDAR {v.lidar_m:.2f} m vs stereo {v.stereo_m:.2f} m from the '
+                f'front differ by more than {self.virtual.disagree_m:.2f} m; trusting LiDAR',
+                throttle_duration_sec=2.0)
 
     def _publish(self, stamp, fit, step):
         fit_msg = WallLineFit()
