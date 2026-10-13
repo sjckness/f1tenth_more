@@ -32,6 +32,7 @@ Run standalone: python3 -m pytest test/test_mpc_corr_launch_config.py -v
 import importlib.util
 import os
 
+from f1tenth_params.param_defaults import get_value
 import pytest
 
 from launch import LaunchContext
@@ -111,3 +112,20 @@ class TestObjectCorridorModeSurvivesSubstitution:
         # mode name in stack_params.yaml that the node would reject (and
         # silently downgrade to 'off') fails here instead.
         assert _node_parameters()['object_corridor_mode'] in _VALID_MODES
+
+
+class TestPredictionStepSurvivesSubstitution:
+    """mpc_prediction_dt_s reaches the node as the float the node declares."""
+
+    def test_default_prediction_step_reaches_the_node_as_the_yaml_float(self):
+        # Read, not copied: the yaml owns the number, this owns the type.
+        value = _node_parameters()['mpc_prediction_dt_s']
+        assert isinstance(value, float), (
+            f'mpc_prediction_dt_s reached the node as {value!r} '
+            f'({type(value).__name__}); MPC_corr declares it with a float default.')
+        assert value == pytest.approx(float(get_value('mpc_prediction_dt_s')))
+
+    def test_the_rollback_override_reaches_the_node_as_a_float(self):
+        value = _node_parameters({'mpc_prediction_dt_s': '0.1'})['mpc_prediction_dt_s']
+        assert isinstance(value, float)
+        assert value == pytest.approx(0.1)

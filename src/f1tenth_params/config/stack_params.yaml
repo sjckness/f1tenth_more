@@ -1087,10 +1087,10 @@ object_corridor_mode:
   description: "'off' | 'arc' | 'arc_far'. 'off' (default) is today's geometry: centreline pinned to the target line, starting object_lead_in_m behind the car, straight by construction. 'arc': origin on the car, psiStart the live yaw, psiEnd the held bearing psi_c, so dpsi is the heading error and the existing S-curve draws the arc onto the target. 'arc_far': 'arc' outside the switch band, 'off' inside it. WHY NOT PLAIN 'arc': with the origin on the car the corridor no longer ends at the goal (measured mean 0.25 m, max 0.96 m of endpoint drift), which is harmless while the lookahead sits inside the corridor and NOT harmless once it clamps to the corridor end, since from there Pend IS the terminal position cost. Prefer 'arc_far'."
 object_arc_switch_hi_frac:
   default: 1.24
-  description: "Enter the arc shape when the distance from the car to the corridor's end is at least this multiple of the lookahead clamp distance (MPC_corr._lookahead_clamp_length(), 1.25 m at the shipping N/ts/vdes/margin, so 1.40 m here). A MULTIPLE and not a length, so the switch follows the clamp instead of restating it: the arc is only safe while the lookahead still sits inside the corridor, which is exactly what that distance measures."
+  description: "Enter the arc shape when the distance from the car to the corridor's end is at least this multiple of the lookahead clamp distance (MPC_corr._lookahead_clamp_length(), 2.50 m at the shipping N/mpc_prediction_dt_s/vdes/margin, so 3.10 m here). A MULTIPLE and not a length, so the switch follows the clamp instead of restating it: the arc is only safe while the lookahead still sits inside the corridor, which is exactly what that distance measures."
 object_arc_switch_lo_frac:
   default: 1.00
-  description: "Leave the arc shape below this multiple of the lookahead clamp distance (1.25 m at the shipping geometry, i.e. exactly ON the clamp). Must not exceed object_arc_switch_hi_frac. THE LOWER EDGE IS ON THE CLAMP DELIBERATELY: at 0.88 the band reached BELOW it, so hysteresis held the arc for 2 of the 24 archived rebuilds into the region where Pend does feed the terminal cost (worst error there 0.101 m). Putting the edge on the clamp makes the safety argument exact -- the arc is never used where Pend is the terminal target -- at the same four shape switches, so it costs nothing. HYSTERESIS, not a second threshold: the two shapes differ by the object_lead_in_m origin offset even when dpsi is zero, so the reference step at the switch has a FLOOR (measured 0.31 m at dpsi = +1.0 deg) and a bare threshold would chatter across it every rebuild."
+  description: "Leave the arc shape below this multiple of the lookahead clamp distance (2.50 m at the shipping geometry, i.e. exactly ON the clamp). Must not exceed object_arc_switch_hi_frac. THE LOWER EDGE IS ON THE CLAMP DELIBERATELY: at 0.88 the band reached BELOW it, so hysteresis held the arc for 2 of the 24 archived rebuilds into the region where Pend does feed the terminal cost (worst error there 0.101 m). Putting the edge on the clamp makes the safety argument exact -- the arc is never used where Pend is the terminal target -- at the same four shape switches, so it costs nothing. HYSTERESIS, not a second threshold: the two shapes differ by the object_lead_in_m origin offset even when dpsi is zero, so the reference step at the switch has a FLOOR (measured 0.31 m at dpsi = +1.0 deg) and a bare threshold would chatter across it every rebuild."
 # ------------------------------------------------------------------
 # THE ARC'S CROSS-TRACK TOLERANCES. ARC-SCOPED: they replace w_corr and
 # w_line only while an arc corridor is being flown (MPC_corr._weights_for).
@@ -1338,6 +1338,16 @@ mpc_steering_angle_max_rad:
 mpc_wheelbase_m:
   default: 0.305
   description: "Wheelbase [m] of mpc_corr's vehicle model (params['L']) and of the wall_turn increment's R_min = L / tan(steering bound). Unchanged from the literal it replaces, and unmeasured on this car: the URDF says 0.325 and the F1TENTH spec 0.3302 (see swept_clearance_wheelbase_m)."
+
+# Consumed by: MPC_corr.py's declare_parameter() default (get_value). The
+# MPC's PREDICTION step, NOT its control period: the N = 20 model steps span
+# N * mpc_prediction_dt_s = 4.0 s, while the loop, the published command
+# (v + a * 0.1) and the first steering/accel rate row stay on MPC_corr.ts =
+# 0.1 s (10 Hz). 0.1 reproduces the 2.0 s single-step solver bit-for-bit
+# (closed-loop traces identical), so it is the rollback.
+mpc_prediction_dt_s:
+  default: 0.2
+  description: "MPC prediction step [s]: discretisation of the N = 20 horizon steps (4.0 s at 0.2) and of rate rows 1..N-1. The control loop stays at 0.1 s; the first rate row, the published speed and the solve budget use that. Also sets the lookahead floor 1.25 * N * dt * vdes (2.50 m at 0.2 and 0.5 m/s). 0.1 = the pre-2026-10 2.0 s horizon, exactly."
 
 # ------------------------------------------------------------------
 # MPC COST WEIGHTS -- SINGLE SOURCE OF TRUTH.

@@ -35,6 +35,7 @@ from mpc_controller.object_approach import (
     SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
+from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
     SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step)
@@ -55,7 +56,9 @@ def lookahead_clamp_length(n_steps, ts, v_des, reach_margin):
     The lookahead is max(corr_lookahead_frac * L, this). The fractional term is
     0.5 * L, always inside the corridor, so it never pins; this floor is the
     only thing that can, and it does so exactly when it reaches L. At the
-    shipping geometry (N 20, ts 0.1, vdes 0.5, margin 1.25) that is 1.25 m.
+    shipping geometry (N 20, prediction step 0.2, vdes 0.5, margin 1.25) that
+    is 2.5 m. ts here is the PREDICTION step (MPC_corr.ts_pred), not the
+    control period: the floor is about where the horizon ends.
 
     A MODULE FUNCTION, not a method, because two callers need it and one of
     them is reached through the duck-typed corridor stand-ins: those bind
@@ -727,6 +730,19 @@ class MPCController(Node):
         self.wheel_radius = 0.05
         self.ts = 0.1
         self.N = 20
+        # PREDICTION step [s], separate from the control period self.ts. The
+        # timer, the published command (v + a * ts), the first rate row and
+        # the solve budget stay on self.ts; the model rollout, the later rate
+        # rows and the horizon's physical reach use this. N * ts_pred = 4.0 s
+        # at the shipped 0.2. Equal to self.ts reproduces the single-step
+        # solver bit-for-bit, so mpc_prediction_dt_s:=0.1 is the rollback.
+        self.ts_pred = float(self.declare_parameter(
+            'mpc_prediction_dt_s', get_value('mpc_prediction_dt_s')).value)
+        if not (math.isfinite(self.ts_pred) and self.ts_pred > 0.0):
+            self.get_logger().error(
+                f'mpc_prediction_dt_s={self.ts_pred} is not a positive time: '
+                f'using the control period {self.ts}.')
+            self.ts_pred = self.ts
 
         # UPGRADE: rough footprint radius used for the predicted-clearance check.
         # In-code default (0.20) matches stack_params.yaml's car_radius key, the
@@ -1883,7 +1899,8 @@ class MPCController(Node):
 
         # ---- DEBUG: dump della configurazione all'avvio ----
         self.get_logger().info(
-            f'CFG | ts={self.ts} N={self.N} vdes={self.vdes} dmin={self.dmin} '
+            f'CFG | ts={self.ts} ts_pred={self.ts_pred} N={self.N} '
+            f'vdes={self.vdes} dmin={self.dmin} '
             f'wheel_radius={self.wheel_radius} car_radius={self.car_radius} '
             f'avoidance_margin={self.avoidance_margin}'
         )
@@ -3909,7 +3926,7 @@ class MPCController(Node):
             pref_nom=pref_nom,
             corridor=corridor,
             horizon=self.N,
-            ts=self.ts,
+            ts=self.ts_pred,
             params=self.params,
             limits=self.limits,
             weights=self._weights_for(corridor),
@@ -3922,6 +3939,7 @@ class MPCController(Node):
             boundary_hard=self.boundary_hard,
             boundary_slack_weight=self.boundary_slack_weight,
             warm_start_z=self.warm_start_z,
+            control_period=self.ts,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
@@ -3950,7 +3968,8 @@ class MPCController(Node):
         # (non-finite, infeasibility certificate), so that flag -- not the
         # status string -- is the right discriminator.
         if info.get("success", False):
-            self.warm_start_z = shift_warm_start(info.get("zopt"), self.N)
+            self.warm_start_z = shift_warm_start(
+                info.get('zopt'), self.N, step_fraction=self.ts / self.ts_pred)
         else:
             self.warm_start_z = None
 
@@ -4019,7 +4038,10 @@ class MPCController(Node):
             )
 
         if "x_pred" in info and len(info["x_pred"]) > 0:
-            self.prev_predicted_state = info["x_pred"][0].copy()
+            # One CONTROL period ahead, where the next tick's ERR line
+            # compares it; x_pred[0] is one PREDICTION step ahead.
+            self.prev_predicted_state = np.asarray(f1tenth_state_fcn_dt_beta(
+                x0, u0, self.ts, self.params['L'], self.params['lr']), dtype=float)
 
             # ---- DEBUG: traiettoria di velocita' predetta sull'orizzonte ----
             v_traj = [f'{float(s[3]):.3f}' for s in info["x_pred"]]
@@ -4372,6 +4394,11 @@ class MPCController(Node):
                     delta_max=self.limits['delta_max'],
                     k_safety=self.corr_wall_turn_k_safety,
                     safety_margin=self.corr_wall_turn_safety_margin_m,
+                    # self.ts (control period), NOT ts_pred, deliberately: the
+                    # cap was tuned at N * 0.1 * vdes = 1.0 m of reach, and at
+                    # the 2.0 m of the 4 s horizon it would let one rebuild ask
+                    # for a whole 90 deg on the 1.2 m S-curve ramp (peak
+                    # curvature 1.96 1/m against 1/R_min = 1.08).
                     n_steps=self.N, ts=self.ts, v_ref=self.vdes,
                     committed=self.wall_turn_committed,
                     prev_commanded_rot=self.wall_turn_commanded_rot)
@@ -4527,6 +4554,8 @@ class MPCController(Node):
                 wheelbase=self.params['L'],
                 delta_min=self.limits['delta_min'],
                 delta_max=self.limits['delta_max'],
+                # Control period, not ts_pred: same reason as the wall_turn
+                # cap -- psi_c's per-rebuild swing stays as tuned.
                 n_steps=self.N, ts=self.ts, v_ref=self.vdes)
             self.object_psi_c = step.psi_c_new
             self.object_last_step = step
@@ -4567,7 +4596,7 @@ class MPCController(Node):
                 clamp_len = float('nan')
             elif _mode == 'arc_far':
                 clamp_len = lookahead_clamp_length(
-                    self.N, self.ts, self.vdes,
+                    self.N, getattr(self, 'ts_pred', self.ts), self.vdes,
                     self.corr_lookahead_reach_margin)
                 # Hysteresis: enter the arc above hi, leave it below lo, hold
                 # in between. See the parameter block for why the band cannot
@@ -5360,12 +5389,12 @@ class MPCController(Node):
         """
         try:
             # ts and the frame ride along so the payload's horizon is readable
-            # on its own: without the control period a reader cannot place step
-            # k in time, and 'odom' is asserted here rather than assumed
+            # on its own: without the prediction step a reader cannot place
+            # step k in time, and 'odom' is asserted here rather than assumed
             # downstream because it is the same frame, for the same reason, as
             # the /corridor polygon this logger draws the horizon against.
             payload = mpc_status_payload(info, solve_dt, solver,
-                                         ts=self.ts, frame_id='odom')
+                                         ts=self.ts_pred, frame_id='odom')
             self.campaign_status_pub.publish(String(data=json.dumps(payload)))
         except Exception as exc:  # noqa: BLE001 - diagnostics must not stop control
             self.get_logger().warn(
@@ -5402,8 +5431,9 @@ class MPCController(Node):
         The lookahead is max(corr_lookahead_frac * L, this). The fractional
         term is 0.5 * L, always inside the corridor, so it never pins; this
         floor is the only thing that can, and it does so exactly when it
-        reaches L. At the shipping geometry (N 20, ts 0.1, vdes 0.5, margin
-        1.25) that is 1.25 m.
+        reaches L. At the shipping geometry (N 20, ts_pred 0.2, vdes 0.5,
+        margin 1.25) that is 2.5 m. getattr: the duck-typed stand-ins that
+        bind this carry ts but no ts_pred, and for them the two are equal.
 
         WHY IT IS A METHOD AND NOT A CONSTANT. Two callers now need it:
         _corridor_lookahead, which applies it, and the object branch's arc
@@ -5412,7 +5442,8 @@ class MPCController(Node):
         behind the moment N, ts, vdes or the margin moved.
         """
         return lookahead_clamp_length(
-            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
+            self.N, getattr(self, 'ts_pred', self.ts), self.vdes,
+            self.corr_lookahead_reach_margin)
 
     def _corridor_lookahead(self, corridor):
         """Derive compute_local_target's lookahead from the corridor length.
@@ -5424,8 +5455,9 @@ class MPCController(Node):
            0.5 -- the reference's 1.5 on L 3.0), so the target sits inside the
            corridor and the arclength advance actually operates instead of
            clamping to the last index every cycle.
-        2. It must lie BEYOND the horizon's physical reach, N*ts*vdes, or the
-           terminal cost changes character from "steer toward" to "arrive at".
+        2. It must lie BEYOND the horizon's physical reach, N*ts_pred*vdes,
+           or the terminal cost changes character from "steer toward" to
+           "arrive at".
 
         When the two disagree the reach floor wins and the mismatch is logged:
         that is a geometry that has been mis-configured, and it should say so
@@ -5436,9 +5468,10 @@ class MPCController(Node):
         # The floor and the raw reach it is derived from: the warning below
         # quotes both, because "inside the horizon reach" and "below the floor"
         # are different statements and the fix differs.
-        horizon_reach = float(self.N) * float(self.ts) * float(self.vdes)
+        ts_pred = getattr(self, 'ts_pred', self.ts)
+        horizon_reach = float(self.N) * float(ts_pred) * float(self.vdes)
         reach_floor = lookahead_clamp_length(
-            self.N, self.ts, self.vdes, self.corr_lookahead_reach_margin)
+            self.N, ts_pred, self.vdes, self.corr_lookahead_reach_margin)
 
         lookahead = from_length
         if from_length < reach_floor:

@@ -223,9 +223,11 @@ class _FakeController:
         self.active_odom_source = 'hardware'
         self.sub_odom_hw = _Sub('/odometry/filtered')
         self.sub_odom_sim = _Sub('/model/virtual_robot/odometry')
-        # _publish_campaign_status carries the control period into the payload
-        # so a logged horizon's steps can be placed in time.
+        # _publish_campaign_status carries the PREDICTION step into the payload
+        # so a logged horizon's steps can be placed in time; the control
+        # period is a different number since mpc_prediction_dt_s.
         self.ts = 0.1
+        self.ts_pred = 0.2
         self.log = _Log()
 
     def get_logger(self):
@@ -345,13 +347,14 @@ def test_the_status_payload_survives_a_solve_with_no_horizon():
     assert payload['horizon'] is None
 
 
-def test_the_published_status_carries_the_nodes_control_period():
-    """Without ts a reader cannot place step k in time, so it must ride along."""
+def test_the_published_horizon_carries_the_prediction_step_not_the_control_period():
+    """Step k is at t + (k + 1) * ts, so ts must be the horizon's own step."""
     ctrl = _FakeController()
-    ctrl.ts = 0.05
+    ctrl.ts = 0.1
+    ctrl.ts_pred = 0.2
     ctrl._publish_campaign_status(_info(3), 0.02, 'rti')
     sent = ctrl.campaign_status_pub.sent[0]
-    assert sent['horizon']['ts'] == pytest.approx(0.05)
+    assert sent['horizon']['ts'] == pytest.approx(0.2)
     assert sent['horizon']['frame_id'] == 'odom'
     assert ctrl.log.warnings == []
 

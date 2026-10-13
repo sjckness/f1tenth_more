@@ -115,8 +115,9 @@ def horizon_payload(info, ts, frame_id='odom'):
     second rollout) and they are what separates "the MPC planned a bad path"
     from "it planned a good one and the steering never got there".
 
-    ``ts`` is the control period, carried because it is the one thing the arrays
-    cannot be read without: step k happened at the solve time + (k + 1) * ts.
+    ``ts`` is the horizon's own step (mpc_corr's prediction step, which is not
+    its control period), carried because it is the one thing the arrays cannot
+    be read without: step k is predicted for the solve time + (k + 1) * ts.
     A reader that has to guess this cannot line a horizon up against what the
     car then did, which is the entire point of logging it.
 
@@ -189,7 +190,7 @@ def mpc_status_payload(info, solve_dt_sec, solver, ts=None, frame_id='odom'):
     ``horizon`` is :func:`horizon_payload`, and is null on a solve that
     produced no usable prediction -- which is most failed solves, so a reader
     must handle the null rather than assume every status line carries a plan.
-    ``ts`` is the caller's control period; passing it is what makes the
+    ``ts`` is the caller's prediction step; passing it is what makes the
     horizon's steps placeable in time, and leaving it out publishes the
     geometry with a null ``ts`` rather than dropping it.
     """

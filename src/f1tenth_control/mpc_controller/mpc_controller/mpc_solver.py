@@ -299,6 +299,23 @@ def scale_stage_weights(weights: Dict, horizon: int) -> Dict:
     return scaled
 
 
+def rate_weight_factor(k: int, ts: float, control_period: float) -> float:
+    """
+    Multiplier on w_du_delta / w_du_a for the rate term of stage k.
+
+    The rate term charges the per-step difference u_k - u_{k-1}. Stage 0's
+    difference (u_0 - last_u) happens over the CONTROL period, every later
+    one over the PREDICTION step ts. The weights were tuned with both equal
+    to 0.1 s, so the later stages are rescaled by (control_period / ts)^2:
+    the same steering RATE costs the same at any prediction step. Exactly
+    1.0 at stage 0 and whenever ts == control_period, so a single-step
+    solve is unchanged bit-for-bit.
+    """
+    if k == 0:
+        return 1.0
+    return (float(control_period) / float(ts)) ** 2
+
+
 def solve_mpc_step(
     x0: Sequence[float],
     last_u: Sequence[float],
@@ -319,6 +336,7 @@ def solve_mpc_step(
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     warm_start_z: Optional[np.ndarray] = None,
+    control_period: Optional[float] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -344,6 +362,13 @@ def solve_mpc_step(
     this. None (default) reproduces the pre-warm-start behaviour exactly --
     _solve_rti falls back to tiling last_u across the horizon.
 
+    ts is the PREDICTION step: the model rollout, every Jacobian and the
+    rate rows of stages 1..N-1. control_period is the time between two
+    published commands, which is what the FIRST rate row (u_0 - last_u)
+    and the first rate-cost term span. None (default) means "the same as
+    ts" and reproduces the single-step solver exactly; mpc_corr passes its
+    0.1 s loop period with a 0.2 s ts. Both backends honour it.
+
     WHY THIS PARAMETER HAD TO EXIST. It is not merely OSQP's initial
     iterate: _solve_rti rolls this same sequence through the TRUE nonlinear
     model to build x_ref, the single trajectory every Jacobian, every
@@ -362,12 +387,13 @@ def solve_mpc_step(
     if solver == 'slsqp':
         return _solve_slsqp(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
-            weights, obstacles, dmin, vdes)
+            weights, obstacles, dmin, vdes, control_period=control_period)
     elif solver == 'rti':
         return _solve_rti(
             x0, last_u, pref_nom, corridor, horizon, ts, params, limits,
             weights, obstacles, dmin, vdes, boundaries=boundaries,
             warm_start_z=warm_start_z,
+            control_period=control_period,
             boundary_max_sources=boundary_max_sources,
             boundary_hard=boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
@@ -415,7 +441,8 @@ def _solve_slsqp(
     weights: Dict,
     obstacles: List[Tuple[float, float, float]],
     dmin: float,
-    vdes: float
+    vdes: float,
+    control_period: Optional[float] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """Original solver, unchanged. See module docstring."""
     x0 = np.asarray(x0, dtype=float)
@@ -441,7 +468,8 @@ def _solve_slsqp(
                 params=params,
                 limits=limits,
                 obstacles=obstacles,
-                dmin=dmin
+                dmin=dmin,
+                control_period=control_period
             )
         }
     ]
@@ -457,7 +485,8 @@ def _solve_slsqp(
             ts=ts,
             params=params,
             weights=weights,
-            vdes=vdes
+            vdes=vdes,
+            control_period=control_period
         ),
         x0=z0,
         method="SLSQP",
@@ -697,7 +726,8 @@ def terminal_heading_target(corridor: Dict, psi_ref: float,
     return psi_ref_N + (float(turn) - progress)
 
 
-def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
+def shift_warm_start(zopt: np.ndarray, horizon: int,
+                     step_fraction: float = 1.0) -> np.ndarray:
     """Shift a solved control sequence one step for the NEXT tick's warm start.
 
     z is the flat [delta_0, a_0, delta_1, a_1, ...] sequence _solve_rti
@@ -716,17 +746,31 @@ def shift_warm_start(zopt: np.ndarray, horizon: int) -> np.ndarray:
     lag the plan by one period on every tick of a turn. The shift costs one
     array copy and removes that lag entirely.
 
+    A FRACTION OF A STEP when the prediction step is longer than the control
+    period: step_fraction = control_period / prediction step (0.5 at 0.1 s /
+    0.2 s). One tick later the new stage k starts k + step_fraction old steps
+    into the old plan, so it gets the old plan linearly interpolated there --
+    which, for a zero-order hold, is exactly the time average of the old
+    controls over the span the new stage covers. Past the last stage the last
+    control is held, as before. At the default 1.0 this is the whole-step
+    shift above, value for value.
+
     Returns a fresh array; the input is not modified. A zopt that is not
-    2*horizon long (a truncated/garbage solve) returns None, so the caller
-    falls back to the tile rather than seeding OSQP with the wrong shape.
+    2*horizon long (a truncated/garbage solve) or a step_fraction that is not
+    a positive finite number returns None, so the caller falls back to the
+    tile rather than seeding OSQP with the wrong shape.
     """
     z = np.asarray(zopt, dtype=float).ravel()
     if z.size != 2 * horizon or not np.all(np.isfinite(z)):
         return None
-    shifted = np.empty_like(z)
-    shifted[: 2 * (horizon - 1)] = z[2:]
-    shifted[2 * (horizon - 1):] = z[2 * (horizon - 1):]
-    return shifted
+    if not (math.isfinite(step_fraction) and step_fraction > 0.0):
+        return None
+    stages = np.arange(horizon, dtype=float)
+    pairs = z.reshape(horizon, 2)
+    shifted = np.empty_like(pairs)
+    for j in range(2):
+        shifted[:, j] = np.interp(stages + float(step_fraction), stages, pairs[:, j])
+    return shifted.ravel()
 
 
 def _solve_rti(
@@ -748,6 +792,7 @@ def _solve_rti(
     boundary_hard: bool = False,
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
+    control_period: Optional[float] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -775,6 +820,9 @@ def _solve_rti(
     pref_nom = np.asarray(pref_nom, dtype=float)
     N = horizon
     n_x, n_u = 4, 2
+    # Stage 0's rate row spans the control period, the rest the prediction
+    # step -- see solve_mpc_step's control_period.
+    t_first = ts if control_period is None else float(control_period)
 
     # A warm start is OPTIONAL and must never be able to break a solve: a
     # wrong-length or non-finite sequence falls back to the tile rather than
@@ -907,8 +955,9 @@ def _solve_rti(
 
         rate_row_d = np.zeros(n_z)
         rate_row_d[u_idx(k)] += [1.0, 0.0]
-        rate_lo_d = limits["dDeltaMin"] * ts
-        rate_hi_d = limits["dDeltaMax"] * ts
+        t_step = t_first if k == 0 else ts
+        rate_lo_d = limits['dDeltaMin'] * t_step
+        rate_hi_d = limits['dDeltaMax'] * t_step
         if k > 0:
             rate_row_d[u_idx(k - 1)] += [-1.0, 0.0]
         else:
@@ -918,8 +967,8 @@ def _solve_rti(
 
         rate_row_a = np.zeros(n_z)
         rate_row_a[u_idx(k)] += [0.0, 1.0]
-        rate_lo_a = limits["dAMin"] * ts
-        rate_hi_a = limits["dAMax"] * ts
+        rate_lo_a = limits['dAMin'] * t_step
+        rate_hi_a = limits['dAMax'] * t_step
         if k > 0:
             rate_row_a[u_idx(k - 1)] += [0.0, -1.0]
         else:
@@ -957,7 +1006,8 @@ def _solve_rti(
         # is itself a decision variable, so the cross-dependency is captured
         # entirely by the off-diagonal P blocks below -- no separate q term
         # (adding one too, unconditionally, would double-count it).
-        Wdu = np.diag([weights["w_du_delta"], weights["w_du_a"]])
+        Wdu = rate_weight_factor(k, ts, t_first) * np.diag(
+            [weights['w_du_delta'], weights['w_du_a']])
         P[uk_idx, uk_idx] += 2.0 * Wdu
         if k == 0:
             q[uk_idx] += -2.0 * Wdu @ last_u
@@ -1182,7 +1232,8 @@ def _solve_rti(
     # docstring.
     true_cost = planner_cost_corridor(
         z=zopt, x0=x0, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
-        horizon=N, ts=ts, params=params, weights=weights, vdes=vdes)
+        horizon=N, ts=ts, params=params, weights=weights, vdes=vdes,
+        control_period=t_first)
 
     info = {
         "success": success,
@@ -1218,9 +1269,11 @@ def planner_cost_corridor(
     ts: float,
     params: Dict,
     weights: Dict,
-    vdes: float
+    vdes: float,
+    control_period: Optional[float] = None,
 ) -> float:
     z = np.asarray(z, dtype=float)
+    t_first = ts if control_period is None else float(control_period)
     x = np.asarray(x0, dtype=float).copy()
     u_prev = np.asarray(last_u, dtype=float).copy()
 
@@ -1317,8 +1370,9 @@ def planner_cost_corridor(
 
         # ================= regolarità =================
         du = uk - u_prev
-        J += weights["w_du_delta"] * du[0] ** 2
-        J += weights["w_du_a"] * du[1] ** 2
+        rate_w = rate_weight_factor(k, ts, t_first)
+        J += rate_w * weights['w_du_delta'] * du[0] ** 2
+        J += rate_w * weights['w_du_a'] * du[1] ** 2
 
         u_prev = uk
 
@@ -1356,10 +1410,12 @@ def planner_nonlcon_corridor(
     params: Dict,
     limits: Dict,
     obstacles: List[Tuple[float, float, float]],
-    dmin: float
+    dmin: float,
+    control_period: Optional[float] = None,
 ) -> np.ndarray:
     z = np.asarray(z, dtype=float)
     x = np.asarray(x0, dtype=float).copy()
+    t_first = ts if control_period is None else float(control_period)
 
     c = []
     u_prev = np.asarray(last_u, dtype=float).copy()
@@ -1367,7 +1423,7 @@ def planner_nonlcon_corridor(
     # rate constraints
     for k in range(horizon):
         uk = z[2 * k: 2 * k + 2]
-        du = (uk - u_prev) / ts
+        du = (uk - u_prev) / (t_first if k == 0 else ts)
 
         c.append(du[0] - limits["dDeltaMax"])
         c.append(-du[0] + limits["dDeltaMin"])
