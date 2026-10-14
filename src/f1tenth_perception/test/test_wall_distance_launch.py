@@ -65,7 +65,10 @@ def _text(substitutions, context):
 class TestArguments:
 
     def test_the_wall_distance_arg_list_covers_exactly_its_stack_params_block(self):
-        keys = {k for k in _stack_params() if k.startswith('wall_distance_')}
+        # wall_distance_max_age_s shares the prefix but is the BT wall stop's
+        # (f1tenth_behavior check_stop_condition.py), not this node's.
+        keys = {k for k in _stack_params()
+                if k.startswith('wall_distance_') and k != 'wall_distance_max_age_s'}
         names = {'wall_distance_' + n for n, _ in _wall_distance_launch().WALL_DISTANCE_ARGS}
         assert names == keys
 
