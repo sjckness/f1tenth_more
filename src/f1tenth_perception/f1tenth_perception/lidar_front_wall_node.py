@@ -355,6 +355,7 @@ class LidarFrontWallNode(Node):
         tracker_params = mwt.TrackerParams(
             process_noise_rho=float(param('wall_tracker_process_noise_rho', 1e-4)),
             process_noise_theta=float(param('wall_tracker_process_noise_theta', 1e-4)),
+            k_yaw=float(param('wall_tracker_k_yaw', 0.1)),
             min_overlap_m=float(param('wall_tracker_min_overlap_m', 0.2)),
             delete_after_s=float(param('wall_tracker_delete_after_sec', 3.0)),
             max_sigma_rho_m=float(param('wall_tracker_max_sigma_rho_m', 0.3)),

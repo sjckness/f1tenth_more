@@ -19,7 +19,9 @@ PER SCAN
      to base_link and to odom at the scan stamp.
   3. Tracking (MultiWallTracker.step) on (rho, theta) in odom, one Kalman
      filter per track:
-     - Static model with process noise q per second on both states.
+     - Static model with process noise q per second on both states, plus
+       noise proportional to the odometry yaw change since the last scan
+       (k_yaw), for the odometry's yaw scale error.
      - Association: Hungarian assignment of Mahalanobis distances, gated at
        chi2(2 DOF, 99%) = 9.21, and the segments must overlap by
        min_overlap_m along the line.
@@ -150,6 +152,9 @@ def extract_lines(ranges, angle_min, angle_increment, range_min, range_max, lase
 class TrackerParams:
     process_noise_rho: float = 1e-4        # [m^2 / s]
     process_noise_theta: float = 1e-4      # [rad^2 / s]
+    # Odometry yaw scale error (/odometry/filtered's yaw gain is 0.93-1.09):
+    # each scan adds (k_yaw |dyaw|)^2 to theta and (k_yaw |dyaw| rho)^2 to rho.
+    k_yaw: float = 0.1
     meas_sigma_rho_min: float = 0.02       # [m] floor on the TLS sigma (odometry error)
     meas_sigma_theta_min: float = math.radians(0.5)
     gate_chi2: float = CHI2_2DOF_99
@@ -254,6 +259,7 @@ class MultiWallTracker:
         self.tracks = []
         self._next_id = 1
         self._last_stamp = None
+        self._last_yaw = None
 
     # ---- filter -----------------------------------------------------------
 
@@ -262,10 +268,11 @@ class MultiWallTracker:
         floor = np.diag([self.p.meas_sigma_rho_min ** 2, self.p.meas_sigma_theta_min ** 2])
         return cov + floor
 
-    def _predict(self, dt):
+    def _predict(self, dt, dyaw=0.0):
         q = np.diag([self.p.process_noise_rho, self.p.process_noise_theta]) * max(dt, 0.0)
+        turn = self.p.k_yaw * abs(dyaw)
         for trk in self.tracks:
-            trk.P = trk.P + q
+            trk.P = trk.P + q + np.diag([(turn * trk.rho) ** 2, turn ** 2])
 
     def _overlap(self, trk, line):
         m = _along(trk.theta, np.vstack([line.p_start, line.p_end]))
@@ -340,7 +347,8 @@ class MultiWallTracker:
         stamp = float(stamp)
         dt = 0.0 if self._last_stamp is None else stamp - self._last_stamp
         self._last_stamp = stamp
-        self._predict(dt)
+        last_yaw, self._last_yaw = self._last_yaw, car_pose.theta
+        self._predict(dt, 0.0 if last_yaw is None else wrap_pi(car_pose.theta - last_yaw))
 
         used_lines, hit_ids = set(), set()
         if self.tracks and lines_odom:

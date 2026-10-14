@@ -4,6 +4,7 @@ The world frame is odom. The car pose is odom from base_link, and the laser
 sits at LASER = (0.305, 0, 0) in base_link, as on the car.
 """
 
+import collections
 import math
 import time
 
@@ -181,3 +182,30 @@ def test_per_scan_cost_on_this_machine():
     print(f'multi_wall_tracker per-scan ms: p50 {np.percentile(times, 50):.2f} '
           f'p95 {np.percentile(times, 95):.2f}')
     assert np.percentile(times, 50) < 25.0
+
+
+def _turn_with_yaw_scale(params, scale, deg=90.0):
+    """Rotate 90 deg in place in a room; odometry reports yaw * scale. Wall -> ids."""
+    trk = mwt.MultiWallTracker(params)
+    rng = np.random.default_rng(2)
+    room = [((ax + 10, ay + 10), (bx + 10, by + 10)) for (ax, ay), (bx, by) in ROOM]
+    mids = np.array([[(ax + bx) / 2, (ay + by) / 2] for (ax, ay), (bx, by) in room])
+    ids = collections.defaultdict(set)
+    n, dt = 60, 0.05
+    for i in range(n + 20):
+        yaw = math.radians(deg) * min(i, n) / n
+        true = Pose2D(13.0, 12.0, yaw)
+        odom = Pose2D(13.0, 12.0, yaw * scale)
+        sectors = ()
+        lines = mwt.extract_lines(raycast(true, room, rng=rng), ANGLE_MIN, INC, 0.06, 30.0,
+                                  LASER, sectors)
+        for t in trk.step([ln.transform(odom, 'odom') for ln in lines], i * dt, odom):
+            mid = 0.5 * (t.endpoints()[0] + t.endpoints()[1])
+            ids[int(np.argmin(np.linalg.norm(mids - mid, axis=1)))].add(t.id)
+    return ids
+
+
+def test_a_90_degree_turn_with_7_percent_yaw_scale_error_keeps_ids():
+    ids = _turn_with_yaw_scale(mwt.TrackerParams(), 1.07)
+    assert len(ids) >= 3
+    assert all(len(v) == 1 for v in ids.values()), dict(ids)
