@@ -34,7 +34,7 @@ def test_the_zed_front_face_sits_0_15_behind_the_bumper():
     assert (parent, child) == ('base_link', 'zed2_camera_link')
     expected = base_front_x() - ZED_FACE_BEHIND_BUMPER_M - ZED2I_SCREW_TO_FACE_M
     assert float(x) == pytest.approx(expected, abs=1e-3)
-    assert (float(y), float(z), float(yaw), float(pitch), float(roll)) == (0.0, 0.15, 0.0, 0.0, 0.0)
+    assert (float(y), float(z), float(yaw), float(pitch), float(roll)) == (0.0, 0.205, 0.0, 0.0, 0.0)
 
 
 def test_the_wrapper_is_launched_as_the_zed2i_it_is():

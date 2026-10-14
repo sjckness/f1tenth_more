@@ -49,12 +49,18 @@ def generate_launch_description():
         # its body mesh (zed_description/meshes/zed2i.stl) reaches +0.0251 m in
         # x from a mesh origin at screw_offset_x -0.01 (zed_macro.urdf.xacro),
         # so the front face is 0.0151 m ahead of zed2_camera_link:
-        # 0.405 - 0.15 - 0.0151 = 0.2399. y, z and the rotation are unchanged.
+        # 0.405 - 0.15 - 0.0151 = 0.2399.
+        #
+        # z = 0.205 (2026-10-14, MEASURED): the lens centre is 0.22 m above the
+        # floor and base_link is on the floor (base.xacro); the zed2i macro puts
+        # zed2_camera_center (the optical centre's height) 0.015 above
+        # zed2_camera_link, so 0.22 - 0.015. Was the 0.15 placeholder. y and the
+        # rotation are unchanged (not measured).
         actions.append(Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_baselink_to_zed2',
-            arguments=['0.2399', '0.0', '0.15', '0.0', '0.0', '0.0',
+            arguments=['0.2399', '0.0', '0.205', '0.0', '0.0', '0.0',
                        'base_link', 'zed2_camera_link'],
         ))
 

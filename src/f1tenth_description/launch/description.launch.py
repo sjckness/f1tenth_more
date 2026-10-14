@@ -38,8 +38,10 @@ so every z here is a height above the floor -- see f1tenth_hardware/vesc.launch.
 static_baselink_to_imu for the identity base_link->imu TF, unaffected by this file):
   2026-10-13: base_link is the REAR AXLE (vesc_to_odom.cpp's rear-axle bicycle,
   core.xacro), not the centre; laser x is now 0.305 and zed2_camera_link x 0.2399,
-  both from tape measurements to the bumper (see the two static TFs). The
-  paragraphs below are the history of the 0.12 placeholders.
+  both from tape measurements to the bumper (see the two static TFs).
+  2026-10-14: laser z 0.190 and zed2_camera_link z 0.205, measured heights above
+  the floor. Only the rotations (and y) are still unmeasured. The paragraphs
+  below are the history of the 0.12 placeholders.
   zed2_camera_link (f1tenth_perception/camera.launch.py): 0.12m ahead, 0.15m higher
     (confirmed LIVE via `ros2 run tf2_ros tf2_echo base_link zed2_camera_link`
     at the time of the remount below, not just read from that file's own
@@ -184,7 +186,7 @@ def generate_launch_description():
     )
 
     # Real-hardware-only: see module docstring for the front-facing-remount
-    # rationale, the placeholder/unconfirmed status of these numbers, and why
+    # rationale, the unmeasured status of the rotation, and why
     # this is skipped in sim. Positional args are x y z YAW PITCH ROLL
     # (verified empirically against the --roll/--pitch/--yaw named form --
     # NOT roll pitch yaw).
@@ -193,12 +195,14 @@ def generate_launch_description():
     # behind the bumper face, and the bumper is base_front_x 0.405
     # (f1tenth_description/urdf/base_front.xacro), so 0.405 - 0.10. Was the
     # 0.12 placeholder described above, which the first test campaign ran with.
-    # y, z and the rotation are unchanged (not measured).
+    # z = 0.190 (2026-10-14, MEASURED): scan-plane height above the floor, and
+    # base_link is on the floor (base.xacro), so it is the TF z directly. Was
+    # the 0.20 placeholder. y and the rotation are unchanged (not measured).
     static_baselink_to_laser = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='static_baselink_to_laser',
-        arguments=['0.305', '0.0', '0.20', '0.0', '0.0', '0.0',
+        arguments=['0.305', '0.0', '0.190', '0.0', '0.0', '0.0',
                    'base_link', 'laser'],
         condition=UnlessCondition(use_sim),
     )

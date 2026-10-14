@@ -777,7 +777,7 @@ swept_clearance_camera_z_min_m:
   description: "Lowest base_link height [m] a depth point counts as an obstacle -- above floor noise and the ZED's unmeasured mount pitch. base_link is on the ground per the URDF. Obstacles lower than this are invisible to the camera path. Untuned."
 swept_clearance_camera_z_max_m:
   default: 0.35
-  description: "Highest base_link height [m] a depth point counts as an obstacle: just above the car's top (LiDAR at 0.20 m plus housing), so overhead structure does not register. Untuned."
+  description: "Highest base_link height [m] a depth point counts as an obstacle: just above the car's top (LiDAR at 0.19 m plus housing), so overhead structure does not register. Untuned."
 
 # ============================================================
 # Glass detection gates (f1tenth_perception/glass_detect.py)
