@@ -667,6 +667,10 @@ enable_scene_labels:
 use_wall_tracker:
   default: true
   description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the confirmed front track becomes the heading wall of the virtual wall, falling back to sequential_lines. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off. TRUE since 2026-10-14, with enable_scene_labels: the calib clips of 2026-10-14 (static, square to a flat wall, bumper at 1.00 / 2.00 m) gave stereo 1.010 / 1.999 m and /perception/virtual_wall 0.996 / 1.990 m, the latter with the tracker on."
+# Consumed by: f1tenth_behavior/behavior_executor_node.py (CheckStopCondition).
+wall_distance_max_age_s:
+  default: 0.5
+  description: "Mission wall stop (stop_condition type front_clearance): a wall distance (get_wall_distance_topic) older than this [s] by receipt time, never received, or not positive (-1.0 = no wall) HOLDS the car (/mpc/hold) with a WARN every 2 s instead of driving on the last value; the first fresh positive value releases it. The move's timeout_sec still runs. /perception/virtual_wall publishes once per processed scan (nominally the scan rate; ~6 Hz with up to 0.8 s per scan was measured live on 2026-10-14, with the tracker sharing core 5 with three other /scan nodes) and /perception/front_distance once per depth frame."
 lidar_front_wall_detection_margin_deg:
   default: 3.0
   description: "Scene labels: each YOLO detection (/camera/detections_3d) hides its own angular half-width plus this [deg] on each side from the LiDAR wall fit."

@@ -343,6 +343,7 @@ def create_root(
     enable_sys_obs_load_trip=False,
     sys_obs_load_trip_consecutive_samples=3,
     object_params=None,
+    wall_distance_max_age_s=0.5,
 ) -> py_trees.behaviour.Behaviour:
     """Build the root Selector.
 
@@ -534,7 +535,8 @@ def create_root(
             object_reach_tol_m=op.get('object_reach_tol_m', 0.10),
             object_reach_max_target_age_sec=op.get('object_reach_max_target_age_sec', 1.0),
             object_status_max_gap_sec=op.get('object_status_max_gap_sec', 0.5),
-            object_rest_speed_mps=op.get('object_rest_speed_mps', 0.05)),
+            object_rest_speed_mps=op.get('object_rest_speed_mps', 0.05),
+            wall_distance_max_age_s=wall_distance_max_age_s),
         AdvanceMove(),
     ])
 
@@ -670,6 +672,10 @@ def main():
             'object_rest_speed_mps',
         )
     }
+    # The front_clearance stop holds the car on a stale or absent wall distance
+    # (check_stop_condition.py, WALL DISTANCE FRESHNESS). Same single-sourcing.
+    wall_distance_max_age_s = float(bootstrap_node.declare_parameter(
+        'wall_distance_max_age_s', get_value('wall_distance_max_age_s')).value)
     bootstrap_node.destroy_node()
 
     root = create_root(
@@ -683,6 +689,7 @@ def main():
         enable_sys_obs_load_trip=enable_sys_obs_load_trip,
         sys_obs_load_trip_consecutive_samples=sys_obs_load_trip_consecutive_samples,
         object_params=object_params,
+        wall_distance_max_age_s=wall_distance_max_age_s,
     )
     tree = py_trees_ros.trees.BehaviourTree(root=root)
 
