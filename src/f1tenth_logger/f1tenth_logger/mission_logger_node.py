@@ -496,6 +496,12 @@ def _default_runs_dir():
 # The annotated camera stream, recorded only with record_annotated_image.
 _ANNOTATED_TOPIC = '/camera/image_annotated'
 
+# Depth and the intrinsics to back-project it, recorded with record_depth.
+# The depth is the 5 Hz copy mission_logger.launch.py's topic_tools throttle
+# publishes: the 30 Hz original is ~27.6 MB/s.
+_DEPTH_TOPICS = ['/zed2/zed_node/depth/depth_registered_5hz',
+                 '/zed2/zed_node/depth/camera_info', '/camera/camera_info']
+
 # -- post-hoc snapshots -----------------------------------------------------
 # The annotated stream when the bag has it, else the debug video's JPEGs.
 _SNAPSHOT_TOPICS = (_ANNOTATED_TOPIC, '/camera/debug_image/compressed')
@@ -683,6 +689,8 @@ class MissionLoggerNode(Node):
         if (bool(self.declare_parameter('record_annotated_image', False).value)
                 and _ANNOTATED_TOPIC not in topics):
             topics.append(_ANNOTATED_TOPIC)
+        if bool(self.declare_parameter('record_depth', False).value):
+            topics += [t for t in _DEPTH_TOPICS if t not in topics]
         self.topics, dropped = recordable_topics(topics)
         if dropped:
             self.get_logger().warn(f'not recording /viz relay copies: {dropped}')

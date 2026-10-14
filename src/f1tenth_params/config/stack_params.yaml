@@ -2023,6 +2023,11 @@ enable_slam:
 enable_mission_logger:
   default: true
   description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle."
+# Consumed by: f1tenth_logger/mission_logger.launch.py: starts the 5 Hz depth
+# throttle (topic_tools) and forwards record_depth to mission_logger_node.
+mission_logger_record_depth:
+  default: true
+  description: "Record ZED depth in mission bags: a topic_tools throttle republishes /zed2/zed_node/depth/depth_registered at 5 Hz on /zed2/zed_node/depth/depth_registered_5hz (~4.6 MB/s of 32FC1 640x360), recorded with /zed2/zed_node/depth/camera_info and /camera/camera_info. Needed to validate the stereo half of scene labels and the camera-vs-LiDAR wall distance offline. false: no throttle node, none of the three recorded."
 # Consumed by: f1tenth_logger/mission_logger.launch.py, forwarded to
 # mission_logger_node as record_annotated_image.
 mission_logger_record_annotated_image:

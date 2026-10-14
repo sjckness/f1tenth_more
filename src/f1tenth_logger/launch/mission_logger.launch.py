@@ -31,7 +31,7 @@ from f1tenth_params.param_defaults import get_default
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -73,6 +73,26 @@ def generate_launch_description():
         'mission_logger_record_annotated_image', default_value=str(annotated_default),
         description=annotated_desc)
 
+    depth_default, depth_desc = get_default('mission_logger_record_depth')
+    depth_la = DeclareLaunchArgument(
+        'mission_logger_record_depth', default_value=str(depth_default),
+        description=depth_desc)
+    logger_on = LaunchConfiguration('enable_mission_logger')
+    depth_on = LaunchConfiguration('mission_logger_record_depth')
+    # 5 Hz copy of the ZED depth for the bags (mission_logger_record_depth).
+    # topic_tools relays serialized messages, so the 30 Hz input is not
+    # deserialized here.
+    depth_throttle = Node(
+        package='topic_tools',
+        executable='throttle',
+        name='depth_throttle_5hz',
+        output='screen',
+        arguments=['messages', '/zed2/zed_node/depth/depth_registered', '5.0',
+                   '/zed2/zed_node/depth/depth_registered_5hz'],
+        condition=IfCondition(PythonExpression([
+            "'", logger_on, "'.lower() == 'true' and '", depth_on, "'.lower() == 'true'"])),
+    )
+
     mission_logger_node = Node(
         package='f1tenth_logger',
         executable='mission_logger_node',
@@ -84,6 +104,7 @@ def generate_launch_description():
             'storage_id': LaunchConfiguration('mission_bag_storage_id'),
             'sweep_period_sec': LaunchConfiguration('mission_bag_sweep_period_sec'),
             'sweep_action': LaunchConfiguration('mission_bag_sweep_action'),
+            'record_depth': ParameterValue(depth_on, value_type=bool),
             'record_annotated_image': ParameterValue(
                 LaunchConfiguration('mission_logger_record_annotated_image'), value_type=bool),
         }],
@@ -96,5 +117,7 @@ def generate_launch_description():
         sweep_period_la,
         sweep_action_la,
         annotated_la,
+        depth_la,
+        depth_throttle,
         mission_logger_node,
     ])
