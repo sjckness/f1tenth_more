@@ -72,6 +72,7 @@ logs a throttled warning so a real, persistent mismatch stays visible rather
 than silently degrading accuracy every frame.
 """
 
+import collections
 import hashlib
 import time
 
@@ -112,6 +113,11 @@ from f1tenth_perception.cpu_affinity import (
 # Fixed offset applied to a box marker's id to get its paired text-label marker's id,
 # so both live in the same MarkerArray/topic without id collisions.
 LABEL_ID_OFFSET = 10000
+
+# How much /perception/scene_labels history is kept for pairing by stamp [s].
+# It covers the detector latency (~0.45 s measured with the old input queue on
+# 2026-10-14, ~0.15 s expected now) plus a label period at 5 Hz.
+SCENE_LABELS_BUFFER_S = 0.6
 
 
 class Detection3DNode(Node):
@@ -255,7 +261,11 @@ class Detection3DNode(Node):
             self.declare_parameter('scene_labels_max_age_s', 0.3).value)
         self.scene_min_other_px = int(
             self.declare_parameter('scene_min_other_px', 20).value)
-        self._scene_labels = None   # (stamp sec, mono8 label image)
+        # Recent /perception/scene_labels, oldest first: [(stamp sec, mono8)].
+        # A detection is measured on the depth frame of ITS image, which is
+        # older than the newest labels by the detector's latency, so the
+        # labels nearest that depth stamp are used, not the newest.
+        self._scene_labels = collections.deque()
 
         # ---- intrinsics (cached from the latest camera_info) -----------
         self.fx = None
@@ -495,12 +505,17 @@ class Detection3DNode(Node):
             labels = self.bridge.imgmsg_to_cv2(msg, desired_encoding='mono8')
         except CvBridgeError:
             return
-        self._scene_labels = (msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9, labels)
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        self._scene_labels.append((stamp, labels))
+        while self._scene_labels and stamp - self._scene_labels[0][0] > SCENE_LABELS_BUFFER_S:
+            self._scene_labels.popleft()
 
     def _scene_other(self, sel, depth_stamp):
         """sel restricted to scene-label OTHER pixels, or None without fresh labels."""
-        scene = self._scene_labels
-        if scene is None or abs(depth_stamp - scene[0]) > self.scene_max_age:
+        if not self._scene_labels:
+            return None
+        scene = min(self._scene_labels, key=lambda entry: abs(depth_stamp - entry[0]))
+        if abs(depth_stamp - scene[0]) > self.scene_max_age:
             return None
         labels = scene[1]
         h, w = sel.shape
