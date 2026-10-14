@@ -922,3 +922,16 @@ class TestDebugImage:
 if __name__ == '__main__':
     import sys as _sys
     _sys.exit(pytest.main([__file__, '-v']))
+
+
+def test_image_input_holds_only_the_newest_frame():
+    """KEEP_LAST 1 best effort: the callback always gets the newest frame (latest_frame_qos.py)."""
+    from rclpy.qos import HistoryPolicy, ReliabilityPolicy
+    node = _construct_with_params()
+    try:
+        qos = node.sub.qos_profile
+        assert qos.history == HistoryPolicy.KEEP_LAST
+        assert qos.depth == 1
+        assert qos.reliability == ReliabilityPolicy.BEST_EFFORT
+    finally:
+        node.destroy_node()

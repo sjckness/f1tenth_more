@@ -194,6 +194,7 @@ from f1tenth_perception.cpu_affinity import (
     declare_nice_param,
 )
 from f1tenth_perception.front_clearance_node import from_front
+from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 from f1tenth_perception.stage_timing import StageTimer
 
 # mono8 instance-index mask image: 0 is reserved for background, so at most
@@ -442,8 +443,11 @@ class YoloDetectorNode(Node):
         if self._debug_enabled:
             self._debug_setup()
         self._timing_setup()
+        # Newest frame only (latest_frame_qos.py): with the default KEEP_LAST
+        # 10, a 30 Hz camera and a ~15 Hz callback, every frame waited ~320 ms
+        # behind nine older ones before inference started.
         self.sub = self.create_subscription(
-            Image, self.image_topic, self.image_callback, 10)
+            Image, self.image_topic, self.image_callback, LATEST_FRAME_QOS)
 
         apply_nice(self)
 
