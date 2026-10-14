@@ -25,6 +25,7 @@ import rclpy
 from f1tenth_messages.msg import WallEstimate, WallLineFit
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
+from rclpy.parameter import Parameter
 from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32
@@ -63,7 +64,11 @@ class _Clock:
 
 @pytest.fixture
 def node():
-    n = LidarFrontWallNode()
+    # The plain sector fit's wire contract: scene labels (and so the tracker)
+    # off explicitly, since both default on in stack_params.yaml.
+    n = LidarFrontWallNode(parameter_overrides=[
+        Parameter('enable_scene_labels', value=False),
+        Parameter('use_wall_tracker', value=False)])
     n.fit_pub.publish = MagicMock()
     n.estimate_pub.publish = MagicMock()
     clock = _Clock()
@@ -239,9 +244,17 @@ class TestInSync:
 class TestMultiWallTracker:
     """use_wall_tracker: gated on enable_scene_labels, feeds the heading wall."""
 
+    def test_both_switches_default_to_stack_params(self):
+        n = LidarFrontWallNode()
+        try:
+            assert n.scene_enabled is bool(get_value('enable_scene_labels'))
+            assert n.use_wall_tracker is bool(get_value('use_wall_tracker'))
+            assert (n.wall_tracker is not None) is bool(get_value('use_wall_tracker'))
+        finally:
+            n.destroy_node()
+
     @staticmethod
     def _make(scene, tracker):
-        from rclpy.parameter import Parameter
         n = LidarFrontWallNode(parameter_overrides=[
             Parameter('enable_scene_labels', value=scene),
             Parameter('use_wall_tracker', value=tracker)])

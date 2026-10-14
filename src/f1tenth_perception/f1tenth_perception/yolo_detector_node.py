@@ -168,6 +168,7 @@ import time
 import cv2
 import numpy as np
 import rclpy
+from f1tenth_params.param_defaults import get_value
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time
@@ -996,7 +997,8 @@ class YoloDetectorNode(Node):
         # the OTHER candidates and the virtual wall, drawn by
         # perception_debug.draw_scene_overlay. Latest of each, unpaired.
         self._debug_scene = {}
-        if bool(self.declare_parameter('enable_scene_labels', False).value):
+        if bool(self.declare_parameter(
+                'enable_scene_labels', get_value('enable_scene_labels')).value):
             self.create_subscription(
                 Image, '/perception/scene_labels', self._debug_scene_labels_cb, LATEST_FRAME_QOS)
             for topic, key in (('/perception/scene_labels_debug', 'debug'),

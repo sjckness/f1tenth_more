@@ -189,7 +189,7 @@ acknowledgements, and cannot back-pressure it. It runs as its own supervisor
 component, never inside lidar.launch.py or the `perception` component; see
 launch/lidar_front_wall.launch.py for why that placement is load-bearing.
 
-SCENE LABELS (enable_scene_labels, stack_params.yaml; default false)
+SCENE LABELS (enable_scene_labels, stack_params.yaml; default true)
 --------------------------------------------------------------------
 With the switch on, three things change here, all in scene_labels.py:
 
@@ -219,7 +219,7 @@ With the switch on, three things change here, all in scene_labels.py:
 With the switch off none of this is subscribed or published, and the fit is
 the one above, unchanged.
 
-MULTI-WALL TRACKER (use_wall_tracker, stack_params.yaml; default false)
+MULTI-WALL TRACKER (use_wall_tracker, stack_params.yaml; default true)
 -----------------------------------------------------------------------
 multi_wall_tracker.py runs on every scan. It needs enable_scene_labels: set
 without it, the node logs an ERROR at startup and the tracker stays off.
@@ -255,6 +255,7 @@ import time
 
 from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
 from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray, WallEstimate, WallLineFit
+from f1tenth_params.param_defaults import get_value
 from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker, MarkerArray
 import rclpy
@@ -331,7 +332,7 @@ class LidarFrontWallNode(Node):
         )
 
         # ---- scene labels (module docstring) --------------------------------
-        self.scene_enabled = bool(param('enable_scene_labels', False))
+        self.scene_enabled = bool(param('enable_scene_labels', get_value('enable_scene_labels')))
         self.detection_margin_rad = math.radians(float(param('detection_margin_deg', 3.0)))
         self.detection_max_age = float(param('detection_max_age_sec', 0.5))
         self.wall_min_span_m = float(param('wall_min_span_m', 0.8))
@@ -350,7 +351,7 @@ class LidarFrontWallNode(Node):
         self._tracked_wall = None    # scene_labels.WallLine, base_link
 
         # ---- multi-wall tracker (module docstring) --------------------------
-        self.use_wall_tracker = bool(param('use_wall_tracker', False))
+        self.use_wall_tracker = bool(param('use_wall_tracker', get_value('use_wall_tracker')))
         self.tracker_det_max_age = float(param('wall_tracker_detection_max_age_sec', 1.0))
         tracker_params = mwt.TrackerParams(
             process_noise_rho=float(param('wall_tracker_process_noise_rho', 1e-4)),

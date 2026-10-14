@@ -242,7 +242,7 @@ chain and drag the estimate toward it. -1.0 appears on a topic ONLY when a
 filter has never held a value at all (nothing published yet this run) --
 i.e. it means "no reading", never "a reading of -1".
 
-SCENE LABELS (enable_scene_labels; default false) -- scene_labels.py
+SCENE LABELS (enable_scene_labels; default true) -- scene_labels.py
 --------------------------------------------------------------------
 With the switch on, every 1/scene_rate_hz a scene_grid_width_px x
 scene_grid_height_px sample of the depth frame is back-projected into
@@ -304,6 +304,7 @@ import cv2
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
+from f1tenth_params.param_defaults import get_value
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 from rclpy.time import Time
@@ -536,7 +537,7 @@ class FrontClearanceNode(Node):
         # ---- scene labels (module docstring) --------------------------------
         def p(name, default):
             return self.declare_parameter(name, default).value
-        self.scene_enabled = bool(p('enable_scene_labels', False))
+        self.scene_enabled = bool(p('enable_scene_labels', get_value('enable_scene_labels')))
         scene_rate = float(p('scene_rate_hz', 5.0))
         self.scene_period = 1.0 / scene_rate if scene_rate > 0.0 else math.inf
         self.scene_w = int(p('scene_grid_width_px', 160))

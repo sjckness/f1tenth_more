@@ -52,7 +52,7 @@ use_mask_depth true safe to leave on even against a detect-task model: every
 detection just always takes the fallback path, identical output to
 use_mask_depth false.
 
-SCENE LABELS (enable_scene_labels, default false). With the switch on and a
+SCENE LABELS (enable_scene_labels, default true). With the switch on and a
 /perception/scene_labels image (front_clearance_node, scene_labels.py) no more
 than scene_labels_max_age_s from the depth frame, the mask median is taken over
 the in-mask pixels labelled OTHER only: the floor at a person's feet, a wall
@@ -82,6 +82,7 @@ import numpy as np
 import rclpy
 import tf2_geometry_msgs  # noqa: F401 - registers Pose transform support
 from cv_bridge import CvBridge, CvBridgeError
+from f1tenth_params.param_defaults import get_value
 from geometry_msgs.msg import Pose
 from rclpy.node import Node
 from sensor_msgs.msg import CameraInfo, Image
@@ -256,7 +257,8 @@ class Detection3DNode(Node):
             self.declare_parameter('masks_topic', '/camera/detection_masks').value)
 
         # Scene labels (module docstring).
-        self.scene_enabled = bool(self.declare_parameter('enable_scene_labels', False).value)
+        self.scene_enabled = bool(self.declare_parameter(
+            'enable_scene_labels', get_value('enable_scene_labels')).value)
         self.scene_max_age = float(
             self.declare_parameter('scene_labels_max_age_s', 0.3).value)
         self.scene_min_other_px = int(

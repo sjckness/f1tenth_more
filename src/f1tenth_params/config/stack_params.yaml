@@ -657,16 +657,16 @@ lidar_front_wall_seed_max_valid_m:
 # measured on OTHER pixels, and /perception/virtual_wall (LiDAR + stereo WALL +
 # odometry, from the front bumper) is the ONE wall every consumer reads
 # (wall stop, wall_turn, corridor; param_defaults.get_wall_distance_topic()).
-# Off: every node behaves exactly as before.
+# Off: every node behaves exactly as before. ON by default since 2026-10-14.
 # ------------------------------------------------------------
 enable_scene_labels:
-  default: false
-  description: "Scene labelling and the virtual wall (scene_labels.py). true: lidar_front_wall_node cuts detections out of its fit and publishes /perception/wall_planes and /perception/virtual_wall; front_clearance_node labels the depth cloud; detection_3d_node measures objects on OTHER pixels; the BT wall stop and the MPC wall_turn read /perception/virtual_wall and the MPC's private wall tracker is bypassed. Read with get_value, no launch override. FALSE until the stereo half is validated on recorded depth (the archived bags carry none)."
+  default: true
+  description: "Scene labelling and the virtual wall (scene_labels.py). true: lidar_front_wall_node cuts detections out of its fit and publishes /perception/wall_planes and /perception/virtual_wall; front_clearance_node labels the depth cloud; detection_3d_node measures objects on OTHER pixels; the BT wall stop and the MPC wall_turn read /perception/virtual_wall and the MPC's private wall tracker is bypassed. Read with get_value, no launch override. TRUE since 2026-10-14: validated on the static calib clips of 2026-10-14 (raw ZED SVO2 + bag, square to a flat wall, bumper at 1.00 / 2.00 m, replayed with tools/replay_raw.launch.py, measured with tools/calib_wall_check.py): stereo wall 1.010 / 1.999 m, /perception/virtual_wall 0.996 / 1.990 m."
 # Consumed by: f1tenth_perception/lidar_front_wall.launch.py (get_value, no launch
 # override, like enable_scene_labels).
 use_wall_tracker:
-  default: false
-  description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the confirmed front track becomes the heading wall of the virtual wall, falling back to sequential_lines. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off."
+  default: true
+  description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the confirmed front track becomes the heading wall of the virtual wall, falling back to sequential_lines. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off. TRUE since 2026-10-14, with enable_scene_labels: the calib clips of 2026-10-14 (static, square to a flat wall, bumper at 1.00 / 2.00 m) gave stereo 1.010 / 1.999 m and /perception/virtual_wall 0.996 / 1.990 m, the latter with the tracker on."
 lidar_front_wall_detection_margin_deg:
   default: 3.0
   description: "Scene labels: each YOLO detection (/camera/detections_3d) hides its own angular half-width plus this [deg] on each side from the LiDAR wall fit."
