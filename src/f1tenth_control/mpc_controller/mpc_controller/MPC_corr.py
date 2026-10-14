@@ -2999,13 +2999,14 @@ class MPCController(Node):
             tracker.reset()
 
     def _fresh_front_distance(self):
-        """/perception/front_distance as a distance, or None when it is not one.
+        """The wall distance (get_wall_distance_topic) as a distance, or None when it is not one.
 
         None when no message has arrived, when the last one is older than
-        corr_wall_turn_front_distance_max_age_sec, or when it is negative or
-        non-finite (front_clearance_node's -1.0 means "no reading" or "inside
-        the ZED's minimum range", never a distance). wall_turn.py treats None
-        as unknown rather than as a wall at zero.
+        corr_wall_turn_front_distance_max_age_sec, or when it is not positive
+        or non-finite (-1.0 is "no reading" on both wall topics:
+        /perception/virtual_wall with no valid wall, front_clearance_node with
+        none or inside the ZED's minimum range; never a distance). wall_turn.py
+        treats None as unknown rather than as a wall at zero.
         """
         stamp = self.front_distance_stamp_sec
         if stamp is None:
@@ -3014,7 +3015,9 @@ class MPCController(Node):
         if age > self.corr_wall_turn_front_distance_max_age_sec:
             return None
         d_front = float(self.front_distance)
-        if not math.isfinite(d_front) or d_front < 0.0:
+        # <= 0, not < 0: the wire contract (get_wall_distance_topic) is "<= 0
+        # = no reading", for /perception/virtual_wall's -1.0 as for this one's.
+        if not math.isfinite(d_front) or d_front <= 0.0:
             return None
         return d_front
 
@@ -4400,6 +4403,10 @@ class MPCController(Node):
                 # dFront, exactly as before the tracker existed. getattr for
                 # the duck-typed corridor test stand-ins, as with drive_cmd.
                 d_front = self._fresh_front_distance()
+                # None (no usable distance) for the rule below; the corridor
+                # debug and the CORR/build log further down take -1.0, the
+                # wire's own "no reading" (float(None) used to raise out of the
+                # control loop on every wall_turn rebuild without a wall).
                 tracker = getattr(self, 'wall_tracker', None)
                 d_wall = None
                 if tracker is not None and tracker.has_wall:
@@ -5092,6 +5099,8 @@ class MPCController(Node):
         halfWidth = geom["halfWidth"]
         dpsi = geom["dpsi"]
         p_goal = geom["Pend"]
+        if d_front is None:
+            d_front = -1.0      # see the wall_turn branch: debug and log only
 
         corridor = {
             "xc": xc,
