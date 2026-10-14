@@ -198,6 +198,11 @@ def generate_launch_description():
         ('debug_image_jpeg_quality', int),
         ('debug_image_min_confidence', float),
     ]
+    stage_timing_default, stage_timing_desc = get_default('perception_stage_timing')
+    stage_timing_la = DeclareLaunchArgument(
+        'perception_stage_timing', default_value=str(stage_timing_default),
+        description=stage_timing_desc)
+    stage_timing = ParameterValue(LaunchConfiguration('perception_stage_timing'), value_type=bool)
     debug_image_las = []
     for _name, _type in _debug_image_args:
         _default, _desc = get_default(_name)
@@ -382,6 +387,7 @@ def generate_launch_description():
                 'lidar_exclusion_overlap_threshold'),
             'nice': LaunchConfiguration('yolo_nice'),
             'enable_scene_labels': scene_labels_on,
+            'stage_timing': stage_timing,
             **{_name: ParameterValue(LaunchConfiguration(_name), value_type=_type)
                for _name, _type in _debug_image_args},
         }],
@@ -401,6 +407,7 @@ def generate_launch_description():
         front_clearance_nice_la,
         *front_clearance_las,
         *debug_image_las,
+        stage_timing_la,
         yolo_detector_node,
     ]
 
@@ -429,6 +436,7 @@ def generate_launch_description():
                 'scene_labels_max_age_s': float(
                     get_value('detection_3d_scene_labels_max_age_s')),
                 'scene_min_other_px': int(get_value('detection_3d_scene_min_other_px')),
+                'stage_timing': stage_timing,
             }],
         ))
 

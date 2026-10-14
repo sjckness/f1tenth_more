@@ -353,6 +353,12 @@ debug_image_jpeg_quality:
 debug_image_min_confidence:
   default: 0.1
   description: "YOLO confidence floor on debug-tick frames only. Detections between this and confidence_threshold are drawn grey with their score and published nowhere else; the published detections are the same as at confidence_threshold."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to yolo_detector_node
+# and detection_3d_node as their stage_timing param. Temporary measurement switch of
+# the 2026-10-14 detection-latency audit (f1tenth_perception/stage_timing.py).
+perception_stage_timing:
+  default: false
+  description: "Per-stage latency of the camera pipeline: yolo_detector_node and detection_3d_node log a STAGE_TIMING line (p50/p95/max per stage, ages from header.stamp) every 30 s. Off: no timestamps are taken."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's

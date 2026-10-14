@@ -73,6 +73,7 @@ than silently degrading accuracy every frame.
 """
 
 import hashlib
+import time
 
 import cv2
 import message_filters
@@ -101,6 +102,7 @@ from vision_msgs.msg import (
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_perception.scene_labels import LABEL_OTHER
+from f1tenth_perception.stage_timing import StageTimer
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -336,6 +338,8 @@ class Detection3DNode(Node):
             self._yield_timer = self.create_timer(
                 self.yield_report_period_sec, self._report_yield)
 
+        self._timing_setup()
+
         apply_nice(self)
 
         self.get_logger().info(
@@ -347,6 +351,79 @@ class Detection3DNode(Node):
             f'"{self.detections_3d_topic}" and markers on "{self.markers_topic}" '
             f'in frame "{self.output_frame}", confidence_threshold='
             f'{self.confidence_threshold}, use_mask_depth={self.use_mask_depth}')
+
+    # ---- per-stage timing (stage_timing; temporary, default off) --------
+    # Milliseconds, see stage_timing.py. Each input's arrival (executor
+    # receipt) is remembered per stamp by callbacks registered on the
+    # synchronizer's own subscribers. The synchronizer's own input callback
+    # was registered first, so the input that completes a set fires
+    # _synced_callback BEFORE its arrival is recorded: a missing arrival is
+    # that input, and it arrived at callback entry.
+    #   age.arrive_<input>  arrival minus header.stamp
+    #   dur.sync_wait       entry minus the EARLIEST input's arrival: how
+    #                       long the first input of the set sat in the queue
+    #   dur.convert         cv_bridge depth (+ mask) and the tf2 lookup
+    #   dur.process         entry to publish
+    #   age.publish         publish minus header.stamp
+
+    def _timing_setup(self):
+        self._timer = None
+        if not bool(self.declare_parameter('stage_timing', False).value):
+            return
+        self._timer = StageTimer(self.get_name(), float(
+            self.declare_parameter('stage_timing_period_s', 30.0).value))
+        self._arrivals = {}   # (input, stamp key) -> arrival time [s]
+        self._t_entry = self._t_stamp = 0.0
+        inputs = [('det', self.det_sub), ('depth', self.depth_sub)]
+        if self.mask_sub is not None:
+            inputs.append(('mask', self.mask_sub))
+        for name, sub in inputs:
+            sub.registerCallback(lambda msg, n=name: self._timing_arrival(n, msg))
+        self.create_timer(1.0, self._timing_report)
+        self.get_logger().warn('stage_timing ON: per-stage latency logged as STAGE_TIMING')
+
+    @staticmethod
+    def _stamp_key(stamp):
+        return (int(stamp.sec), int(stamp.nanosec))
+
+    def _timing_arrival(self, name, msg):
+        now = time.time()
+        self._arrivals.setdefault((name, self._stamp_key(msg.header.stamp)), now)
+        if len(self._arrivals) > 600:
+            cutoff = now - 5.0
+            self._arrivals = {k: v for k, v in self._arrivals.items() if v >= cutoff}
+
+    def _timing_entry(self, det_msg, depth_msg, mask_msg):
+        if self._timer is None:
+            return
+        now = time.time()
+        stamp = det_msg.header.stamp
+        self._t_entry = now
+        self._t_stamp = stamp.sec + stamp.nanosec * 1e-9
+        self._timer.add('age.entry', (now - self._t_stamp) * 1e3)
+        self._timer.count('synced')
+        arrivals = []
+        for name, msg in (('det', det_msg), ('depth', depth_msg), ('mask', mask_msg)):
+            if msg is None:
+                continue
+            t = self._arrivals.pop((name, self._stamp_key(msg.header.stamp)), now)
+            s = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+            self._timer.add('age.arrive_' + name, (t - s) * 1e3)
+            arrivals.append(t)
+        self._timer.add('dur.sync_wait', (now - min(arrivals)) * 1e3)
+
+    def _timing_mark(self, stage):
+        if self._timer is None:
+            return
+        now = time.time()
+        self._timer.add('dur.' + stage, (now - self._t_entry) * 1e3)
+        if stage == 'process':
+            self._timer.add('age.publish', (now - self._t_stamp) * 1e3)
+
+    def _timing_report(self):
+        report = self._timer.report(time.time())
+        if report is not None:
+            self.get_logger().info(StageTimer.format(report))
 
     def _count_det2d(self, msg):
         self._stats['det2d_in'] += 1
@@ -425,6 +502,7 @@ class Detection3DNode(Node):
         return out
 
     def _synced_callback(self, det_msg, depth_msg, mask_msg=None):
+        self._timing_entry(det_msg, depth_msg, mask_msg)
         self._stats['synced'] += 1
         # mask_msg is only ever non-None when use_mask_depth is true (only
         # then is mask_sub registered with the synchronizer at all -- see
@@ -504,6 +582,7 @@ class Detection3DNode(Node):
             self._stats['drop_tf2'] += 1
             return
 
+        self._timing_mark('convert')
         out_header = Header(stamp=depth_msg.header.stamp, frame_id=self.output_frame)
 
         det3d_array = Detection3DArray()
@@ -574,6 +653,7 @@ class Detection3DNode(Node):
         self._stats['det_published'] += len(det3d_array.detections)
         self.det3d_pub.publish(det3d_array)
         self.marker_pub.publish(markers)
+        self._timing_mark('process')
 
     def _median_depth(self, depth, cx_px, cy_px, box_w, box_h, img_w, img_h):
         # Sample only the center `center_fraction` of the box (in each axis) to

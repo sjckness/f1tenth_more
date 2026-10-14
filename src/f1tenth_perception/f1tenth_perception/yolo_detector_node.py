@@ -194,6 +194,7 @@ from f1tenth_perception.cpu_affinity import (
     declare_nice_param,
 )
 from f1tenth_perception.front_clearance_node import from_front
+from f1tenth_perception.stage_timing import StageTimer
 
 # mono8 instance-index mask image: 0 is reserved for background, so at most
 # 255 distinct detections are representable and 255 itself is left unused
@@ -440,6 +441,7 @@ class YoloDetectorNode(Node):
         self._debug_enabled = self.debug_image_rate_hz > 0.0
         if self._debug_enabled:
             self._debug_setup()
+        self._timing_setup()
         self.sub = self.create_subscription(
             Image, self.image_topic, self.image_callback, 10)
 
@@ -540,6 +542,7 @@ class YoloDetectorNode(Node):
         return keep
 
     def image_callback(self, msg: Image):
+        self._mark_entry(msg.header.stamp)
         # Convert ROS Image -> OpenCV BGR (3-channel) for inference/drawing.
         # cv_bridge handles rgb8 (webcam) and bgra8 (ZED) -> bgr8 conversion.
         try:
@@ -547,6 +550,7 @@ class YoloDetectorNode(Node):
         except CvBridgeError as exc:
             self.get_logger().error(f'cv_bridge conversion failed: {exc}')
             return
+        self._mark('convert')
 
         out = Detection2DArray()
         out.header = msg.header  # keep detections time/frame aligned to the image
@@ -575,10 +579,12 @@ class YoloDetectorNode(Node):
         # result.masks.data.shape[1:] == cv_image.shape[:2] exactly, no manual
         # resize needed in this node. A no-op for a detect-task model (verified
         # live: result.masks stays None, no error) so this is always passed.
+        self._mask_ms = 0.0
         results = self.model(
             cv_image, verbose=False, device=self.device,
             conf=conf, retina_masks=True)
         result = results[0]
+        self._mark_model(result)
         below = []
         if debug_tick:
             try:
@@ -613,9 +619,11 @@ class YoloDetectorNode(Node):
                     'above lidar_exclusion_overlap_threshold.')
                 result = result[keep]
 
+        self._mark('split_exclusion')
         masks_np = None
         if self.masks_pub is not None and result.masks is not None:
             masks_np = result.masks.data.cpu().numpy()
+        self._mark('masks_to_cpu')
 
         for i, box in enumerate(result.boxes):
             x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
@@ -626,8 +634,10 @@ class YoloDetectorNode(Node):
             out.detections.append(self._build_detection(
                 class_id=self.names.get(cls_id, str(cls_id)), score=score,
                 cx=cx, cy=cy, w=(x2 - x1), h=(y2 - y1)))
+        self._mark('build')
 
         self.det_pub.publish(out)
+        self._mark('pub_det')
 
         # PER-FRAME MASK INVARIANT (2026-09-02 stale-track fix)
         # ----------------------------------------------------------------
@@ -663,6 +673,7 @@ class YoloDetectorNode(Node):
                 # be built still has to emit something, or it silently becomes
                 # another never-aged-out gap of exactly the kind above.
                 self._publish_empty_mask(msg.header)
+            self._mark('pub_masks')
             # Segment-task model, this frame had detections: masks instead
             # of boxes -- see module docstring / _draw_mask_overlay()'s own
             # docstring. out.detections is already in the same order/index
@@ -681,13 +692,17 @@ class YoloDetectorNode(Node):
             # See _resolve_class_names()'s own docstring.
             result.names = self.names
             annotated = result.plot()
+        self._mark('annotate_draw')
         self._publish_annotated(annotated, msg.header)
+        self._mark('pub_annotated')
         if debug_tick:
             try:
                 self._debug_capture(cv_image, msg.header, out.detections, masks_np, below)
             except Exception as exc:  # noqa: BLE001 - debug output must never stop detection
                 self.get_logger().error(
                     f'debug image capture failed: {exc}', throttle_duration_sec=5.0)
+            self._mark('debug_capture')
+        self._mark_exit()
 
     def _publish_annotated(self, cv_image, header):
         try:
@@ -868,6 +883,90 @@ class YoloDetectorNode(Node):
 
         return annotated
 
+    # ---- per-stage timing (stage_timing; temporary, default off) --------
+    # Every sample is milliseconds: age.<stage> is now minus header.stamp at
+    # the end of the stage, dur.<stage> the stage's own duration. See
+    # stage_timing.py. preprocess / inference / postprocess come from
+    # Ultralytics' own CUDA-synchronised Profile (result.speed);
+    # post_mask is ops.process_mask_native (the retina_masks upsampling),
+    # timed by a CUDA-synchronised wrapper installed only with timing on,
+    # and post_nms_other is the rest of postprocess. Skipped input frames are
+    # counted from gaps between consecutive processed stamps, against
+    # stage_timing_frame_period_s.
+
+    def _timing_setup(self):
+        self._timer = None
+        if not bool(self.declare_parameter('stage_timing', False).value):
+            return
+        self._timer = StageTimer(self.get_name(), float(
+            self.declare_parameter('stage_timing_period_s', 30.0).value))
+        self._timing_frame_period = float(
+            self.declare_parameter('stage_timing_frame_period_s', 1.0 / 30.0).value)
+        self._t_stamp = self._t_last = 0.0
+        self._t_prev_stamp = None
+        self._mask_ms = 0.0
+        if self.model is not None and self.device.startswith('cuda'):
+            import torch
+            from ultralytics.utils import ops
+            original = ops.process_mask_native
+
+            def timed_process_mask_native(*args, **kwargs):
+                torch.cuda.synchronize()
+                t0 = time.perf_counter()
+                out = original(*args, **kwargs)
+                torch.cuda.synchronize()
+                self._mask_ms += (time.perf_counter() - t0) * 1e3
+                return out
+            ops.process_mask_native = timed_process_mask_native
+        self.create_timer(1.0, self._timing_report)
+        self.get_logger().warn('stage_timing ON: per-stage latency logged as STAGE_TIMING')
+
+    def _mark_entry(self, stamp):
+        if self._timer is None:
+            return
+        now = time.time()
+        stamp_s = perception_debug.stamp_to_sec(stamp)
+        self._t_stamp, self._t_last = stamp_s, now
+        self._timer.add('age.entry', (now - stamp_s) * 1e3)
+        self._timer.count('frames_processed')
+        if self._t_prev_stamp is not None:
+            gap = stamp_s - self._t_prev_stamp
+            self._timer.add('gap_between_processed', gap * 1e3)
+            self._timer.count('frames_skipped', max(
+                int(round(gap / self._timing_frame_period)) - 1, 0))
+        self._t_prev_stamp = stamp_s
+
+    def _mark(self, stage):
+        if self._timer is None:
+            return
+        now = time.time()
+        self._timer.add('age.' + stage, (now - self._t_stamp) * 1e3)
+        self._timer.add('dur.' + stage, (now - self._t_last) * 1e3)
+        self._t_last = now
+
+    def _mark_model(self, result):
+        if self._timer is None:
+            return
+        self._mark('model')
+        speed = getattr(result, 'speed', None) or {}
+        for key in ('preprocess', 'inference', 'postprocess'):
+            if speed.get(key) is not None:
+                self._timer.add('dur.' + key, speed[key])
+        self._timer.add('dur.post_mask', self._mask_ms)
+        if speed.get('postprocess') is not None:
+            self._timer.add('dur.post_nms_other', speed['postprocess'] - self._mask_ms)
+
+    def _mark_exit(self):
+        if self._timer is None:
+            return
+        now = time.time()
+        self._timer.add('age.exit', (now - self._t_stamp) * 1e3)
+
+    def _timing_report(self):
+        report = self._timer.report(time.time())
+        if report is not None:
+            self.get_logger().info(StageTimer.format(report))
+
     # ---- perception debug image (see module docstring) -----------------
 
     def _debug_setup(self):
@@ -1037,6 +1136,7 @@ class YoloDetectorNode(Node):
     def _debug_finish(self):
         """Pair, draw, encode and publish the pending debug frame."""
         pending, self._debug_pending = self._debug_pending, None
+        t_start = time.time() if self._timer is not None else None
         try:
             frame = self._debug_frame(pending)
             canvas = perception_debug.draw_debug_frame(pending['img'], frame)
@@ -1052,6 +1152,8 @@ class YoloDetectorNode(Node):
         msg.format = 'jpeg'
         msg.data = array.array('B', jpeg)
         self.debug_pub.publish(msg)
+        if t_start is not None:
+            self._timer.add('dur.debug_finish', (time.time() - t_start) * 1e3)
 
     def _debug_frame(self, pending):
         """Collect everything draw_debug_frame needs for one pending frame."""
