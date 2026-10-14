@@ -71,6 +71,7 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_planes_min_inliers', int),
     ('virtual_disagree_m', float),
     ('stereo_max_age_sec', float),
+    ('wall_tracker_front_max_coast_sec', float),
 ]
 
 

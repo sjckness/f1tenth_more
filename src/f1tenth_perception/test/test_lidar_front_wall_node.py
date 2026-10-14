@@ -45,7 +45,7 @@ TUNING_PARAMS = [
     'sector_half_angle_deg', 'inlier_distance_m', 'min_inlier_fraction',
     'min_inlier_count_ratio', 'oblique_max_deg', 'max_hypothesis_pairs',
     'wrong_surface_gate_m', 'stale_age_sec', 'odom_topic', 'odom_max_age_sec',
-    'seed_max_age_sec', 'seed_max_valid_m',
+    'seed_max_age_sec', 'seed_max_valid_m', 'wall_tracker_front_max_coast_sec',
 ]
 
 
@@ -269,6 +269,42 @@ class TestMultiWallTracker:
         try:
             assert n.use_wall_tracker is False and n.wall_tracker is None
             assert not hasattr(n, 'walls_pub')
+        finally:
+            n.destroy_node()
+
+    def test_a_front_track_coasting_past_the_limit_makes_the_virtual_wall_minus_one(self):
+        n = self._make(True, True)
+        limit = n.wall_tracker.p.front_max_coast_s
+
+        def feed(t, distance):
+            odom = _odom(0.0)
+            odom.header.stamp.sec, odom.header.stamp.nanosec = int(t), int(t % 1 * 1e9)
+            n._odom_cb(odom)
+            scan = _scan(distance, stamp_sec=int(t))
+            scan.header.stamp.nanosec = int(t % 1 * 1e9)
+            n._scan_cb(scan)
+            return _last(n.virtual_pub).data, json.loads(_last(n.virtual_debug_pub).data)
+
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(8):
+                value, debug = feed(7.0 + 0.05 * k, 3.0)
+            assert debug['wall_source'] == 'tracker' and value > 0.0
+            last_hit = 7.0 + 0.05 * 7
+            # Unseen, but within the limit: still the heading wall, still a wall.
+            value, debug = feed(last_hit + 0.5 * limit, None)
+            assert value > 0.0 and debug['wall_source'] == 'tracker'
+            # Past the limit: no wall, on every scan, whatever else is left.
+            for dt in (1.5 * limit, 2.0 * limit, 3.0 * limit):
+                value, debug = feed(last_hit + dt, None)
+                assert value == -1.0
+                assert debug['valid'] is False
+                assert debug['wall_source'] == 'front_coast_expired'
+            # The wall is seen again: a front track again, a wall again.
+            for k in range(3):
+                value, debug = feed(last_hit + 3.0 * limit + 0.05 * (k + 1), 3.0)
+            assert debug['wall_source'] == 'tracker'
+            assert value == pytest.approx(3.0 - 0.405, abs=0.02)
         finally:
             n.destroy_node()
 

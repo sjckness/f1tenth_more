@@ -231,11 +231,20 @@ without it, the node logs an ERROR at startup and the tracker stays off.
   * Up to 4 wall tracks in odom go out on /perception/walls
     (f1tenth_messages/MultiWallTrackArray), with line and text markers on
     /perception/walls/markers.
-  * The heading wall: the confirmed track labelled front is the wall that
+  * The heading wall: the front track (multi_wall_tracker.front_track: the
+    published track labelled front, matched on this scan or coasting for at
+    most wall_tracker_front_max_coast_sec, 0.3 s) is the wall that
     refit_wall, WallEstimator (wrong-surface gate included) and VirtualWall
     consume. With no front track, it is the sequential_lines wall, as before.
-    /perception/virtual_wall/debug says which: wall_source 'tracker' or
-    'sequential_lines'. It also carries tracker_ms.
+  * Coast limit: when the front track is dropped because it has coasted
+    longer than that (or was deleted while coasting), /perception/virtual_wall
+    publishes -1.0 (no wall) on every scan until the tracker has a front track
+    again; neither the sequential_lines wall nor the dead-reckoned or stereo
+    value stands in for it meanwhile. A front track that stops being the
+    front one for another reason (relabelled as the car turns, the heading
+    ray misses it) falls back to sequential_lines as before.
+  * /perception/virtual_wall/debug says which: wall_source 'tracker',
+    'sequential_lines' or 'front_coast_expired'. It also carries tracker_ms.
   * The scan pose is /odometry/filtered interpolated at the scan stamp, the
     pose the EKF also publishes as odom -> base_link.
 
@@ -360,7 +369,8 @@ class LidarFrontWallNode(Node):
             min_overlap_m=float(param('wall_tracker_min_overlap_m', 0.2)),
             delete_after_s=float(param('wall_tracker_delete_after_sec', 3.0)),
             max_sigma_rho_m=float(param('wall_tracker_max_sigma_rho_m', 0.3)),
-            max_published=int(param('wall_tracker_max_tracks', 4)))
+            max_published=int(param('wall_tracker_max_tracks', 4)),
+            front_max_coast_s=float(param('wall_tracker_front_max_coast_sec', 0.3)))
         if self.use_wall_tracker and not self.scene_enabled:
             self.get_logger().error(
                 'use_wall_tracker needs enable_scene_labels (the virtual wall it feeds '
@@ -370,6 +380,8 @@ class LidarFrontWallNode(Node):
         self._poses = mwt.PoseHistory()
         self._odom_frame = 'odom'
         self._wall_source = 'sequential_lines'
+        self._front_id = None       # id of the tracker's current front track
+        self._front_coast_expired = False   # module docstring, coast limit
         self._seq_wall = None       # the latest sequential_lines heading wall
         self._tracker_ms = math.nan
         self._tracker_cost = []     # per-scan tracker ms, logged every 30 s
@@ -580,19 +592,22 @@ class LidarFrontWallNode(Node):
 
     def _publish_virtual(self, stamp, now, step):
         v = self.virtual.step(now, step.estimate)
-        value = max(v.distance, MIN_FRONT_DISTANCE_M) if v.valid else -1.0
+        expired = self.wall_tracker is not None and self._front_coast_expired
+        valid = v.valid and not expired
+        value = max(v.distance, MIN_FRONT_DISTANCE_M) if valid else -1.0
         self.virtual_pub.publish(Float32(data=float(value)))
 
         def num(x):
             return None if not math.isfinite(x) else round(x, 4)
         self.virtual_debug_pub.publish(String(data=json.dumps({
-            'stamp': stamp.sec + stamp.nanosec * 1e-9, 'valid': v.valid,
+            'stamp': stamp.sec + stamp.nanosec * 1e-9, 'valid': valid,
             'distance_m': num(v.distance), 'origin': 'front', 'source': v.source,
             'disagree': v.disagree, 'stereo_fallback': v.stereo_fallback,
             'lidar_m': num(v.lidar_m), 'stereo_m': num(v.stereo_m),
             'lidar_reason': int(step.reason),
             'lidar_provenance': PROVENANCE_NAMES[step.estimate.provenance],
-            'wall_source': self._wall_source if self.wall_tracker is not None else None,
+            'wall_source': (None if self.wall_tracker is None
+                            else 'front_coast_expired' if expired else self._wall_source),
             'tracker_ms': num(self._tracker_ms)})))
         if v.disagree:
             self.get_logger().warn(
@@ -615,6 +630,19 @@ class LidarFrontWallNode(Node):
         tracks = self.wall_tracker.step(
             [ln.transform(car, self._odom_frame) for ln in lines], scan_stamp, car)
         front = self.wall_tracker.front_track(car, self.front_x)
+        if front is not None:
+            self._front_id, self._front_coast_expired = front.id, False
+        elif self._front_id is not None:
+            # The front track went away: past the coast limit (or deleted)
+            # means no wall until a new front track; anything else falls back.
+            lost = self.wall_tracker.track(self._front_id)
+            if lost is None or self.wall_tracker.coast_expired(lost):
+                self._front_coast_expired = True
+                self.get_logger().warn(
+                    f'wall tracker: front track {self._front_id} unseen for more than '
+                    f'{self.wall_tracker.p.front_max_coast_s:.2f} s: virtual wall -1 until '
+                    'a new front track')
+            self._front_id = None
         self._tracker_ms = (time.perf_counter() - t0) * 1e3
         self._log_tracker_cost(scan_stamp)
         self._publish_walls(msg.header.stamp, tracks, car)

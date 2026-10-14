@@ -35,6 +35,11 @@ PER SCAN
        ranked by length * hits / distance.
      - Label: front, left, right or back, from the car-to-wall normal against
        the heading (+-45 deg sectors). Ids are never reused.
+     - Front track (front_track): the published track labelled front that the
+       heading ray from the bumper meets nearest, if it was matched on this
+       scan or has been coasting for at most front_max_coast_s (0.3 s). A
+       front track that coasts longer stops being the front wall
+       (coast_expired) although it lives on until delete_after_s.
 
 FRAMES. A line is rho = x cos(theta) + y sin(theta) with rho >= 0
 (corridor_perception.geometry.Line), the convention scene_labels.WallLine
@@ -166,6 +171,7 @@ class TrackerParams:
     max_published: int = 4
     label_half_sector_rad: float = math.radians(45.0)
     ray_margin_m: float = 0.3               # extent slack for d_ray_front
+    front_max_coast_s: float = 0.3          # a coasting front track's last say
 
 
 @dataclass
@@ -401,11 +407,27 @@ class MultiWallTracker:
     def label(self, trk, car_pose):
         return line_label(trk.theta, trk.rho, car_pose, self.p.label_half_sector_rad)
 
+    def coast_expired(self, trk):
+        """True once trk has gone unseen for longer than front_max_coast_s."""
+        return (self._last_stamp is not None
+                and self._last_stamp - trk.last_seen > self.p.front_max_coast_s)
+
+    def track(self, track_id):
+        """The live track with this id, or None (deleted or merged away)."""
+        for trk in self.tracks:
+            if trk.id == track_id:
+                return trk
+        return None
+
     def front_track(self, car_pose, front_x):
-        """Return the published front track the heading ray meets nearest, or None."""
+        """Return the published front track the heading ray meets nearest, or None.
+
+        Only a track matched on this scan or coasting for at most
+        front_max_coast_s qualifies (module docstring).
+        """
         best, best_d = None, math.inf
         for trk in self.published(car_pose):
-            if self.label(trk, car_pose) != 'front':
+            if self.label(trk, car_pose) != 'front' or self.coast_expired(trk):
                 continue
             d_perp, d_ray = front_distances(trk, car_pose, front_x, self.p.ray_margin_m)
             d = d_ray if math.isfinite(d_ray) else math.inf

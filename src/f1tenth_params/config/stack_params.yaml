@@ -666,11 +666,14 @@ enable_scene_labels:
 # override, like enable_scene_labels).
 use_wall_tracker:
   default: true
-  description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the confirmed front track becomes the heading wall of the virtual wall, falling back to sequential_lines. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off. TRUE since 2026-10-14, with enable_scene_labels: the calib clips of 2026-10-14 (static, square to a flat wall, bumper at 1.00 / 2.00 m) gave stereo 1.010 / 1.999 m and /perception/virtual_wall 0.996 / 1.990 m, the latter with the tracker on."
+  description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the front track (matched on this scan, or coasting for at most lidar_front_wall_wall_tracker_front_max_coast_sec) becomes the heading wall of the virtual wall, falling back to sequential_lines when there is none; a front track that coasts past that limit makes /perception/virtual_wall -1 until there is a front track again. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off. TRUE since 2026-10-14, with enable_scene_labels: the calib clips of 2026-10-14 (static, square to a flat wall, bumper at 1.00 / 2.00 m) gave stereo 1.010 / 1.999 m and /perception/virtual_wall 0.996 / 1.990 m, the latter with the tracker on."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (CheckStopCondition).
 wall_distance_max_age_s:
   default: 0.5
   description: "Mission wall stop (stop_condition type front_clearance): a wall distance (get_wall_distance_topic) older than this [s] by receipt time, never received, or not positive (-1.0 = no wall) HOLDS the car (/mpc/hold) with a WARN every 2 s instead of driving on the last value; the first fresh positive value releases it. The move's timeout_sec still runs. /perception/virtual_wall publishes once per processed scan (nominally the scan rate; ~6 Hz with up to 0.8 s per scan was measured live on 2026-10-14, with the tracker sharing core 5 with three other /scan nodes) and /perception/front_distance once per depth frame."
+lidar_front_wall_wall_tracker_front_max_coast_sec:
+  default: 0.3
+  description: "Multi-wall tracker: the longest [s] a front track may go unmatched (COASTING, its line only predicted) and still be the heading wall of the virtual wall. Past it the track stops being the front wall and /perception/virtual_wall publishes -1.0 (no wall) until the tracker has a front track again, so the mission wall stop holds (check_stop_condition.py, WALL DISTANCE FRESHNESS) rather than run on a prediction. 0.3 s is ~10 scans at the nominal scan rate. The track itself lives on until wall_tracker_delete_after_sec (3 s)."
 lidar_front_wall_detection_margin_deg:
   default: 3.0
   description: "Scene labels: each YOLO detection (/camera/detections_3d) hides its own angular half-width plus this [deg] on each side from the LiDAR wall fit."

@@ -157,6 +157,24 @@ def test_unseen_track_coasts_then_is_deleted():
     assert trk.tracks == []
 
 
+def test_a_coasting_front_track_is_the_front_wall_only_up_to_the_coast_limit():
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    wall = [((4.0, -3.0), (4.0, 3.0))]
+    run(trk, car, wall)                      # last hit at t = 0.45
+    limit = trk.p.front_max_coast_s
+    trk.step([], 0.45 + 0.5 * limit, car)
+    front = trk.front_track(car, FRONT_X)
+    assert front is not None and front.state == mwt.STATE_COASTING
+    assert not trk.coast_expired(front)
+    trk.step([], 0.45 + 1.5 * limit, car)
+    assert trk.front_track(car, FRONT_X) is None
+    (coasting,) = trk.tracks                 # still alive, just not the front wall
+    assert trk.coast_expired(coasting) and trk.track(coasting.id) is coasting
+    run(trk, car, wall, n=1, t0=0.45 + 2.0 * limit)
+    assert trk.front_track(car, FRONT_X) is coasting
+
+
 def test_object_is_carried_to_the_scan_stamp_on_odometry():
     hist = mwt.PoseHistory()
     hist.add(0.0, 0.0, 0.0, 0.0)
