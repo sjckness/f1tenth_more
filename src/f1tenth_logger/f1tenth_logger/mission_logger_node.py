@@ -276,6 +276,11 @@ _DEFAULT_TOPICS = [
     '/perception/virtual_wall',
     '/perception/virtual_wall/debug',
     '/perception/wall_planes',
+    # The multi-wall tracker (use_wall_tracker): up to 4 wall tracks in odom
+    # (f1tenth_messages/MultiWallTrackArray, its front track is the heading
+    # wall of the virtual wall) and their line/text markers.
+    '/perception/walls',
+    '/perception/walls/markers',
     '/perception/stereo_wall',
     '/perception/scene_labels',
     '/perception/scene_labels_debug',
