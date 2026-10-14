@@ -42,7 +42,7 @@ from f1tenth_logger.test_campaign.robot_logger import parse_test_id  # noqa: E40
 
 pytestmark = requires_rclpy
 
-CAMPAIGN = "first_test_campaing"
+CAMPAIGN = "first_test_campaign"
 POST_ROLL_S = 0.5
 # EVERY WAIT IN THIS FILE IS SCALED BY THIS. The scenarios here drive a REAL
 # logger node in a subprocess and wait on real wall-clock behaviour, so the

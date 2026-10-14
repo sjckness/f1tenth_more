@@ -10,7 +10,7 @@ mission_logger.launch.py, which the supervisor starts with the stack, is a
 separate logger with its own node name, output folder and topics. Running
 both at once is the normal case.
 
-ROOT. The campaign must land in <f1tenth_more>/first_test_campaing however
+ROOT. The campaign must land in <f1tenth_more>/first_test_campaign however
 this package was built. From an install, the recorder's own upward search
 starts under install/ or build/, so the root is resolved here once:
 F1TENTH_MORE_ROOT if set, otherwise the workspace holding

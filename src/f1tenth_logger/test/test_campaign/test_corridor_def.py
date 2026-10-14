@@ -203,7 +203,7 @@ def test_a_record_with_no_centreline_key_is_a_ramp():
 
 
 def test_a_v1_polygon_only_file_still_loads(tmp_path):
-    """Every run in first_test_campaing/ is this shape. It must load, report
+    """Every run in first_test_campaign/ is this shape. It must load, report
     v1, and refuse to invent curves it does not have."""
     v1 = {
         "t": 3.07, "id": 1, "source": "mpc_corr",

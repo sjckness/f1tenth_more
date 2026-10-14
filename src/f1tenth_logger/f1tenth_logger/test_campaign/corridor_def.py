@@ -4,7 +4,7 @@ TWO SCHEMAS, and a reader has to tell them apart or it will report confident
 nonsense:
 
 ``v1`` (everything logged before the schema change, including all 13 runs in
-first_test_campaing/) carries ONLY a sampled boundary polygon. The two walls
+first_test_campaign/) carries ONLY a sampled boundary polygon. The two walls
 are in it; the centreline is not, and neither are the parameters the curves
 were built from. A v1 corridor can be drawn as a filled band and measured
 against, and that is all -- its centreline is genuinely not recoverable, and

@@ -27,7 +27,7 @@ curve from the one the car drove (see corridor_def).
 
 For a v1 record there is no definition, so the sampled boundary polygon is all
 there is. It is drawn as a filled band with no centreline, and the figure says
-so. Every run in first_test_campaing/ is v1.
+so. Every run in first_test_campaign/ is v1.
 
 THE HORIZONS, and why only some of them. A horizon is logged every solve --
 hundreds per test -- so drawing them all would be a solid orange field that
@@ -53,8 +53,8 @@ centreline). The numeric form of the same question is the prediction error in
 the campaign export.
 
     test_campaign_corridor_plot <test folder>
-    test_campaign_corridor_plot --mission first_test_campaing/M02_approach_wall
-    test_campaign_corridor_plot --campaign first_test_campaing --dpi 200
+    test_campaign_corridor_plot --mission first_test_campaign/M02_approach_wall
+    test_campaign_corridor_plot --campaign first_test_campaign --dpi 200
     test_campaign_corridor_plot <test folder> --split --show
     test_campaign_corridor_plot <test folder> --horizon-every 20
     test_campaign_corridor_plot <test folder> --no-horizons

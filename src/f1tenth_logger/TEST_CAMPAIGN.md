@@ -77,7 +77,7 @@ ros2 launch f1tenth_logger test_campaign_logger.launch.py
 ```
 
 Parameters come from `config/test_campaign_logger.yaml`: campaign
-`first_test_campaing`, robot radius, pre/post roll, timeout, robot and model
+`first_test_campaign`, robot radius, pre/post roll, timeout, robot and model
 names, and the topics. Override any of them with `config:=<your.yaml>`.
 
 A bare `ros2 run f1tenth_logger test_campaign_logger` loads the same yaml by
@@ -88,7 +88,7 @@ poses from raw `/odom`, robot radius 0, no pre-roll -- which is how the whole
 
 At startup it prints:
 - the absolute campaign folder, which is always
-  `<f1tenth_more>/first_test_campaing`;
+  `<f1tenth_more>/first_test_campaign`;
 - every subscription with its QoS.
 
 While a test is open, it logs one status line every 10 s: test id, seconds
@@ -106,7 +106,7 @@ The same answer comes out whether the package was built with `colcon build`,
 with `--symlink-install`, or is run from source. With no root, for example
 from an install outside the workspace, the node refuses to start and says so.
 
-The prompt table is `<f1tenth_more>/first_test_campaing/prompts.yaml` and is
+The prompt table is `<f1tenth_more>/first_test_campaign/prompts.yaml` and is
 committed. Each entry looks like this:
 
 ```yaml
@@ -178,7 +178,7 @@ ros2 run f1tenth_logger test_campaign_export                   # Excel-EU: ';' a
 ros2 run f1tenth_logger test_campaign_export --plain           # ',' and decimal point
 ```
 
-Open `first_test_campaing/campaign_results.csv` in Excel. Fill in **`success`**
+Open `first_test_campaign/campaign_results.csv` in Excel. Fill in **`success`**
 (1/0), and optionally `transl_ok` and `notes`. Save and close.
 
 You can re-run the export whenever you like:
@@ -200,7 +200,7 @@ The test folders are never modified.
 ros2 run f1tenth_logger test_campaign_analyze --footprints 2.0
 ```
 
-This prints the report and writes `first_test_campaing/analysis/`:
+This prints the report and writes `first_test_campaign/analysis/`:
 - `summary.csv`
 - `report.txt`
 - one `overview_map_<MISSION>.png` per mission
@@ -225,7 +225,7 @@ Running both loggers at once is the normal case, and they cannot collide:
 | started by | the supervisor, with the stack | you, by hand, only |
 | reads | `/mission/status`, and records 37 topics into the bag | the topics in the table above |
 | publishes | nothing | `/test_campaign/logger_status` only |
-| writes | `~/f1tenth_archive/{active,complete,incomplete}/`, `runs.db`, lock `/tmp/mission_logger.lock` | `<f1tenth_more>/first_test_campaing/` only |
+| writes | `~/f1tenth_archive/{active,complete,incomplete}/`, `runs.db`, lock `/tmp/mission_logger.lock` | `<f1tenth_more>/first_test_campaign/` only |
 | code | `f1tenth_logger/*.py` | `f1tenth_logger/test_campaign/*.py` |
 
 `test/test_campaign/test_test_campaign_isolation.py` checks each row.
@@ -235,7 +235,7 @@ Running both loggers at once is the normal case, and they cannot collide:
 ## Folder structure
 
 ```
-<f1tenth_more>/first_test_campaing/
+<f1tenth_more>/first_test_campaign/
 ├── campaign.json              created, robot, llm model, git commit
 ├── prompts.yaml               the prompt table -- the only source of mission names
 ├── results.csv                one row per finished test, written by the logger

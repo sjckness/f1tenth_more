@@ -102,7 +102,7 @@ __all__ = [
 ]
 
 ROOT_NAME = "f1tenth_more"
-DEFAULT_CAMPAIGN = "first_test_campaing"
+DEFAULT_CAMPAIGN = "first_test_campaign"
 TEST_ID_RE = re.compile(r"^P(\d{3})-R(\d{3})-(\d{8}T\d{6})$")
 _TS_FMT = "%Y%m%dT%H%M%S"
 _FLUSH_PERIOD_S = 0.5
@@ -367,7 +367,7 @@ def signed_wall_clearance(px, py, left, right, robot_radius=0.0):
     ``min_corridor_clearance`` came out as 0.0 for every run with
     robot_radius 0 and as exactly -robot_radius for every run with a radius --
     a number produced entirely by the cap, never by a wall. Both values are in
-    the 13 archived runs of first_test_campaing/.
+    the 13 archived runs of first_test_campaign/.
 
     WHAT IS MEASURED. The distance is taken to the two wall polylines only;
     neither cap is an edge here, because neither is an obstacle -- the corridor
