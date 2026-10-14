@@ -156,9 +156,16 @@ class Detection3DNode(Node):
         # covers ~0.4s of depth history at 25Hz, which is shorter than that
         # inference latency, so every detection's matching depth frame had
         # already been evicted before the detection arrived -- nothing ever
-        # matched. 60 covers ~2.4s, comfortably above observed latency.
+        # matched. 60 covered ~2.4s.
+        #
+        # 15 since 2026-10-14: depth is 30 Hz, so 15 is 0.5 s of history. On
+        # the car the detections arrived 433 ms (p50) / 455 ms (p95) after
+        # capture behind yolo_detector_node's KEEP_LAST 10 input backlog. With
+        # that input now newest-frame-only they are expected at ~120-150 ms.
+        # Waiting longer than 0.5 s means the detector is stalled, and a stale
+        # match is not worth holding 60 depth images for.
         self.sync_queue_size = int(
-            self.declare_parameter('sync_queue_size', 60).value)
+            self.declare_parameter('sync_queue_size', 15).value)
         self.default_depth_extent = float(
             self.declare_parameter('default_depth_extent', 0.3).value)
         self.marker_lifetime = float(
