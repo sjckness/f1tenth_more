@@ -1548,6 +1548,13 @@ class FrontClearanceNode(Node):
                 stereo_raw_origin=_WALL_DEBUG_STEREO_RAW_ORIGIN,
                 front_offset_m=self._front_offset(header.frame_id))
             payload['ground'] = self._last_ground
+            # How much older the object mask is than the depth frame it was
+            # applied to [ms]: the latest mask is used on every depth frame
+            # (module docstring, OBJECT-EXCLUSION SOURCE), so this is the lag.
+            mask_msg = self._latest_mask_msg
+            payload['mask_age_ms'] = (None if mask_msg is None else round(
+                (perception_debug.stamp_to_sec(header.stamp)
+                 - perception_debug.stamp_to_sec(mask_msg.header.stamp)) * 1e3, 1))
             self.wall_debug_pub.publish(String(data=perception_debug.to_json(payload)))
         except Exception as exc:  # noqa: BLE001 - debug only, never stop the guard
             self.get_logger().error(

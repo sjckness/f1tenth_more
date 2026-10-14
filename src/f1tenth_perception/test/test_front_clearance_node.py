@@ -1279,6 +1279,18 @@ def _payload(node):
 
 class TestWallDebugPayload:
 
+    def test_mask_age_is_the_depth_stamp_minus_the_mask_stamp(self):
+        node = _construct()
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert _payload(node)['mask_age_ms'] is None
+        from sensor_msgs.msg import Image
+        mask = Image()
+        mask.header.stamp.sec, mask.header.stamp.nanosec = 1, 880_000_000
+        node._masks_callback(mask)
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32), 2, 0))
+        assert _payload(node)['mask_age_ms'] == pytest.approx(120.0)
+        node.destroy_node()
+
     def test_one_payload_per_depth_frame_by_default(self):
         node = _construct()
         node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
