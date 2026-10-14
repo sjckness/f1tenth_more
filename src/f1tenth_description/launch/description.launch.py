@@ -32,9 +32,10 @@ in sim, enable_sensors:=true already gives sensors.xacro's own laser frame; runn
 this static publisher there too would be a second, conflicting authority for the same
 transform.
 
-Frame layout (measured from base_link, which is centered between the axles and sits
-0.07m above the ground -- see f1tenth_hardware/vesc.launch.py's static_baselink_to_imu
-for the identity base_link->imu TF, unaffected by this file):
+Frame layout (measured from base_link, which is the REAR AXLE projected onto the
+floor: base.xacro / core.xacro put base_link on the ground plane, z = 0 is the floor,
+so every z here is a height above the floor -- see f1tenth_hardware/vesc.launch.py's
+static_baselink_to_imu for the identity base_link->imu TF, unaffected by this file):
   2026-10-13: base_link is the REAR AXLE (vesc_to_odom.cpp's rear-axle bicycle,
   core.xacro), not the centre; laser x is now 0.305 and zed2_camera_link x 0.2399,
   both from tape measurements to the bumper (see the two static TFs). The

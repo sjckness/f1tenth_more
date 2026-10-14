@@ -30,9 +30,10 @@ def generate_launch_description():
     actions = []
 
     if is_zed:
-        # Phase 9 layout: base_link is centered between the axles, 0.07m above the
-        # ground. ZED2 sits 0.12m ahead of base_link, 0.15m higher, facing forward
-        # (yaw=0). Mirrored by f1tenth_description/launch/description.launch.py's
+        # base_link is the rear axle ON THE FLOOR (base.xacro / core.xacro), so z
+        # is a height above the floor. Phase 9 history: ZED2 sat 0.12m ahead of
+        # base_link, 0.15m higher, facing forward (yaw=0). Mirrored by
+        # f1tenth_description/launch/description.launch.py's
         # base_link->laser TF (0.12m behind instead of ahead, same 0.15m higher,
         # rear-facing -- yaw = this yaw + pi). zed2_camera_link is the root of the
         # ZED URDF chain (the mounting point), so attaching base_link ->

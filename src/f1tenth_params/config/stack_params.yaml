@@ -378,12 +378,12 @@ sensors_config:
 # is_zed-gated -- only declared/launched when detection_3d_node itself is).
 obstacle_z_min:
   default: -0.1
-  description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, base_link ~0.07m above ground) -- detections below this are dropped as ground-plane false positives. Untuned starting point."
+  description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, z = 0 is the floor: base_link is on the ground per base.xacro) -- detections whose centre is below this are dropped as ground-plane false positives. Untuned starting point."
 # Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
 # is_zed-gated).
 obstacle_z_max:
   default: 2.0
-  description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+  description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame, height above the floor) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
 # Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
 # is_zed-gated).
 #
@@ -769,7 +769,7 @@ swept_clearance_camera_max_depth_m:
   description: "Depth [m] beyond which ZED pixels are dropped. Past max_range_m they cannot change the result. Untuned."
 swept_clearance_camera_z_min_m:
   default: 0.08
-  description: "Lowest base_link height [m] a depth point counts as an obstacle -- above floor noise and the ZED's unmeasured mount pitch. base_link is on the ground per the URDF (other docs say 0.07 m above). Obstacles lower than this are invisible to the camera path. Untuned."
+  description: "Lowest base_link height [m] a depth point counts as an obstacle -- above floor noise and the ZED's unmeasured mount pitch. base_link is on the ground per the URDF. Obstacles lower than this are invisible to the camera path. Untuned."
 swept_clearance_camera_z_max_m:
   default: 0.35
   description: "Highest base_link height [m] a depth point counts as an obstacle: just above the car's top (LiDAR at 0.20 m plus housing), so overhead structure does not register. Untuned."
