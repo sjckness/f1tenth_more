@@ -19,12 +19,15 @@ import sys
 import time
 
 import rclpy
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import DurabilityPolicy, QoSProfile, qos_profile_sensor_data
 from rosidl_runtime_py.utilities import get_message
 from std_srvs.srv import Trigger
 from zed_msgs.srv import StartSvoRec
 
 NODE = '/zed2/zed_node'
+# /tf_static is latched: its publishers send once, TRANSIENT_LOCAL. A volatile
+# best-effort reader joining later never sees a message.
+LATCHED = {'/tf_static': QoSProfile(depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL)}
 MODES = [('H265_LOSSLESS', 4, 0), ('H265', 2, 60000)]
 
 
@@ -69,7 +72,7 @@ def check(node, topics):
             continue
         subs.append(node.create_subscription(
             get_message(types[0]), topic, lambda _m, t=topic: seen.add(t),
-            qos_profile_sensor_data))
+            LATCHED.get(topic, qos_profile_sensor_data)))
     end = time.time() + 5.0
     while time.time() < end and len(seen) < len(topics):
         rclpy.spin_once(node, timeout_sec=0.1)
