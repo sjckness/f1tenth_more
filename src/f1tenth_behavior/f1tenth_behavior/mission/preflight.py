@@ -50,6 +50,7 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional
 
 from f1tenth_behavior.mission.mission_config import MissionConfig
+from f1tenth_params.param_defaults import get_value
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     FRONT_CLEARANCE_KEY,
@@ -137,7 +138,28 @@ def _uses_forward_only_obstacle_distance(config: MissionConfig) -> bool:
     return False
 
 
-def required_dependencies(config: MissionConfig) -> List[Requirement]:
+def wall_distance_requirement(scene_labels: Optional[bool] = None) -> Requirement:
+    """The node that publishes the wall topic the front_clearance stop reads.
+
+    get_wall_distance_topic(): /perception/virtual_wall from
+    lidar_front_wall_node with enable_scene_labels, else
+    /perception/front_distance from front_clearance_node. scene_labels
+    defaults to stack_params.yaml's enable_scene_labels.
+    """
+    if scene_labels is None:
+        scene_labels = bool(get_value('enable_scene_labels'))
+    node = 'lidar_front_wall_node' if scene_labels else 'front_clearance_node'
+    topic = '/perception/virtual_wall' if scene_labels else '/perception/front_distance'
+    return Requirement(
+        name=f'{node} ({topic})',
+        reason="a 'front_clearance' stop_condition (or resume_condition) is used",
+        node_name=node,
+        blackboard_key=FRONT_CLEARANCE_KEY,
+    )
+
+
+def required_dependencies(config: MissionConfig,
+                          scene_labels: Optional[bool] = None) -> List[Requirement]:
     """Pure function: what must be alive for THIS mission, specifically --
     not a blanket "everything the stack could ever need" list. Testable
     without rclpy (see test/test_preflight.py)."""
@@ -150,12 +172,10 @@ def required_dependencies(config: MissionConfig) -> List[Requirement]:
                 stop_condition_types.add(oo.params['resume_condition'].type)
 
     if 'front_clearance' in stop_condition_types:
-        reqs.append(Requirement(
-            name='costmap_boundary_node',
-            reason="a 'front_clearance' stop_condition (or resume_condition) is used",
-            node_name='costmap_boundary_node',
-            blackboard_key=FRONT_CLEARANCE_KEY,
-        ))
+        # The node behind get_wall_distance_topic(), the topic CheckStopCondition
+        # subscribes (behavior_executor_node.py). Was costmap_boundary_node, the
+        # publisher of /costmap/front_clearance, which this stop no longer reads.
+        reqs.append(wall_distance_requirement(scene_labels))
 
     if 'obstacle_distance_below' in stop_condition_types:
         # Published by mpc_corr itself (see check_stop_condition.py's own
