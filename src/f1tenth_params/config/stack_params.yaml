@@ -2023,6 +2023,11 @@ enable_slam:
 enable_mission_logger:
   default: true
   description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle."
+# Consumed by: f1tenth_logger/mission_logger.launch.py, forwarded to
+# mission_logger_node as record_annotated_image.
+mission_logger_record_annotated_image:
+  default: false
+  description: "Record /camera/image_annotated (raw bgr8 at the detector rate, 134 of the 179 MB of the 2026-10-13 R007 bag) in mission bags. false: not recorded; the 5 Hz /camera/debug_image/compressed shows the same detections, and snapshots come from it."
 # Consumed by: f1tenth_logger/mission_logger.launch.py AND mission_logger_node.py
 # (the node falls back to this same key when launched bare via `ros2 run`, so
 # both entry points agree without the launch file having to be involved).

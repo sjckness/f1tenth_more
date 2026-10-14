@@ -33,6 +33,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -67,6 +68,11 @@ def generate_launch_description():
                     "opt-in, since a partial bag is often still readable "
                     "directly and run data cannot be re-collected.")
 
+    annotated_default, annotated_desc = get_default('mission_logger_record_annotated_image')
+    annotated_la = DeclareLaunchArgument(
+        'mission_logger_record_annotated_image', default_value=str(annotated_default),
+        description=annotated_desc)
+
     mission_logger_node = Node(
         package='f1tenth_logger',
         executable='mission_logger_node',
@@ -78,6 +84,8 @@ def generate_launch_description():
             'storage_id': LaunchConfiguration('mission_bag_storage_id'),
             'sweep_period_sec': LaunchConfiguration('mission_bag_sweep_period_sec'),
             'sweep_action': LaunchConfiguration('mission_bag_sweep_action'),
+            'record_annotated_image': ParameterValue(
+                LaunchConfiguration('mission_logger_record_annotated_image'), value_type=bool),
         }],
     )
 
@@ -87,5 +95,6 @@ def generate_launch_description():
         storage_id_la,
         sweep_period_la,
         sweep_action_la,
+        annotated_la,
         mission_logger_node,
     ])

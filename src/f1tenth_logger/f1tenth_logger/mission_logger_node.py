@@ -254,7 +254,9 @@ _DEFAULT_TOPICS = [
     '/tf',
     '/tf_static',
     # --- perception ---
-    '/camera/image_annotated',
+    # /camera/image_annotated (raw bgr8, 75% of a bag) is NOT in this list:
+    # the 5 Hz debug video below shows the same detections. The
+    # record_annotated_image param adds it back.
     '/camera/detections',
     '/camera/detections_3d',
     '/camera/detection_masks',            # -seg configs only
@@ -491,8 +493,12 @@ def _default_runs_dir():
         return os.path.join(os.path.expanduser('~'), 'f1tenth_archive')
 
 
+# The annotated camera stream, recorded only with record_annotated_image.
+_ANNOTATED_TOPIC = '/camera/image_annotated'
+
 # -- post-hoc snapshots -----------------------------------------------------
-_SNAPSHOT_TOPIC = '/camera/image_annotated'
+# The annotated stream when the bag has it, else the debug video's JPEGs.
+_SNAPSHOT_TOPICS = (_ANNOTATED_TOPIC, '/camera/debug_image/compressed')
 _SNAPSHOT_MAX = 10
 
 
@@ -524,8 +530,11 @@ def _open_snapshot_reader(bag_dir, storage_id, topic):
 
 
 def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
-                       topic=_SNAPSHOT_TOPIC, limit=_SNAPSHOT_MAX):
-    """Up to `limit` evenly spaced JPEGs from `topic`. Returns the paths written.
+                       topics=_SNAPSHOT_TOPICS, limit=_SNAPSHOT_MAX):
+    """Up to `limit` evenly spaced JPEGs from the first of `topics` in the bag.
+
+    Returns (paths written, topic used or None). A sensor_msgs/Image topic is
+    re-encoded and a CompressedImage JPEG is written as it is.
 
     Two passes over the bag: the first only counts messages (raw, never
     deserialized) because rosbag2's sequential reader cannot seek or report a
@@ -536,11 +545,16 @@ def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
     import cv2
     from cv_bridge import CvBridge
     from rclpy.serialization import deserialize_message
-    from sensor_msgs.msg import Image
+    from sensor_msgs.msg import CompressedImage, Image
 
-    reader = _open_snapshot_reader(bag_dir, storage_id, topic)
+    reader = topic = None
+    for topic in topics:
+        reader = _open_snapshot_reader(bag_dir, storage_id, topic)
+        if reader is not None:
+            break
     if reader is None:
-        return []
+        return [], None
+    compressed = topic.endswith('/compressed')
     total = 0
     while reader.has_next():
         reader.read_next()
@@ -548,7 +562,7 @@ def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
 
     wanted = set(_snapshot_indices(total, limit))
     if not wanted:
-        return []
+        return [], topic
 
     reader = _open_snapshot_reader(bag_dir, storage_id, topic)
     bridge = CvBridge()
@@ -560,12 +574,17 @@ def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
         _t, raw, _stamp = reader.read_next()
         if idx not in wanted:
             continue
+        path = os.path.join(out_dir, f'{run_id}.{len(written):03d}.jpg')
+        if compressed:
+            with open(path, 'wb') as f:
+                f.write(bytes(deserialize_message(raw, CompressedImage).data))
+            written.append(path)
+            continue
         image = bridge.imgmsg_to_cv2(
             deserialize_message(raw, Image), desired_encoding='bgr8')
-        path = os.path.join(out_dir, f'{run_id}.{len(written):03d}.jpg')
         if cv2.imwrite(path, image):
             written.append(path)
-    return written
+    return written, topic
 
 
 def _best_effort_qos(depth):
@@ -658,8 +677,13 @@ class MissionLoggerNode(Node):
         self.complete_dir = os.path.join(self.runs_dir, 'complete')
         self.incomplete_dir = os.path.join(self.runs_dir, 'incomplete')
         self.requested_storage_id = str(self.declare_parameter('storage_id', 'mcap').value)
-        self.topics, dropped = recordable_topics(
-            list(self.declare_parameter('topics', _DEFAULT_TOPICS).value))
+        topics = list(self.declare_parameter('topics', _DEFAULT_TOPICS).value)
+        # Off by default: the raw annotated stream was 134 of the 179 MB of
+        # the 2026-10-13 R007 bag, and the debug video covers it.
+        if (bool(self.declare_parameter('record_annotated_image', False).value)
+                and _ANNOTATED_TOPIC not in topics):
+            topics.append(_ANNOTATED_TOPIC)
+        self.topics, dropped = recordable_topics(topics)
         if dropped:
             self.get_logger().warn(f'not recording /viz relay copies: {dropped}')
         self.best_effort_topics = list(self.declare_parameter(
@@ -1019,16 +1043,17 @@ class MissionLoggerNode(Node):
         of the finished bag rather than tapped live -- the recorder already
         captured those frames, and decoding them during the mission would cost
         CPU exactly when the car needs it."""
-        written = _extract_snapshots(
+        written, topic = _extract_snapshots(
             run['bag_path'], os.path.join(run['run_dir'], 'snapshots'),
             run['run_id'], self.storage_id)
         if written:
             self.get_logger().info(
-                f'{len(written)} snapshot(s) from {_SNAPSHOT_TOPIC} -> '
+                f'{len(written)} snapshot(s) from {topic} -> '
                 f'{os.path.join(run["run_dir"], "snapshots")}')
         else:
             self.get_logger().warn(
-                f'no {_SNAPSHOT_TOPIC} frames in "{run["run_id"]}" -- no snapshots.')
+                f'no {" or ".join(_SNAPSHOT_TOPICS)} frames in "{run["run_id"]}" '
+                '-- no snapshots.')
 
     def _spawn_sync(self, run):
         """Detached, never waited on. A failed sync is not a failed run: the

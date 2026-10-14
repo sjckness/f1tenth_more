@@ -4,7 +4,8 @@
 Subscribes to a raw RGB image stream, runs an Ultralytics YOLO model, and
 publishes:
   * vision_msgs/Detection2DArray on `detections_topic` (default /camera/detections)
-  * sensor_msgs/Image           on `annotated_topic`  (default /camera/image_annotated)
+  * sensor_msgs/Image           on `annotated_topic`  (default /camera/image_annotated),
+    drawn and published only while it has a subscriber,
     with, for every detection, class name + confidence drawn on the frame, PLUS
     either a bounding box (detect-task model, e.g. the deployed yolo26s.engine)
     OR a semi-transparent per-instance mask overlay (segment-task model, e.g.
@@ -563,7 +564,8 @@ class YoloDetectorNode(Node):
             # Passthrough: empty detections, re-publish the frame unmodified so
             # the annotated topic stays live.
             self.det_pub.publish(out)
-            self._publish_annotated(cv_image, msg.header)
+            if self.annotated_pub.get_subscription_count() > 0:
+                self._publish_annotated(cv_image, msg.header)
             return
 
         # Debug tick: decided before inference, because a tick frame runs
@@ -678,27 +680,33 @@ class YoloDetectorNode(Node):
                 # another never-aged-out gap of exactly the kind above.
                 self._publish_empty_mask(msg.header)
             self._mark('pub_masks')
-            # Segment-task model, this frame had detections: masks instead
-            # of boxes -- see module docstring / _draw_mask_overlay()'s own
-            # docstring. out.detections is already in the same order/index
-            # as masks_np (both built from this same `result`, same i).
-            annotated = self._draw_mask_overlay(cv_image, masks_np, out.detections)
-        else:
-            # Detect-task model (the deployed default), OR a segment-task
-            # model's own zero-detection frame (result.masks is None then
-            # too, identical to the detect-task case -- see module
-            # docstring) -- unchanged from before this pass either way.
-            # result.plot() reads result.names (copied from the model at
-            # inference time) to draw its own "class conf" labels --
-            # overwritten here so the annotated image's on-frame labels use
-            # the same resolved self.names as Detection2DArray above, not
-            # the model's own (possibly-placeholder, *.engine case) names.
-            # See _resolve_class_names()'s own docstring.
-            result.names = self.names
-            annotated = result.plot()
-        self._mark('annotate_draw')
-        self._publish_annotated(annotated, msg.header)
-        self._mark('pub_annotated')
+        # The annotated image is drawn and published only while something
+        # subscribes (Foxglove through the lazy /viz relay, or a bag with
+        # mission_logger_record_annotated_image): drawing and converting it
+        # was ~7 ms of every frame on the car (2026-10-14, stage_timing).
+        if self.annotated_pub.get_subscription_count() > 0:
+            if self.masks_pub is not None:
+                # Segment-task model, this frame had detections: masks instead
+                # of boxes -- see module docstring / _draw_mask_overlay()'s own
+                # docstring. out.detections is already in the same order/index
+                # as masks_np (both built from this same `result`, same i).
+                annotated = self._draw_mask_overlay(cv_image, masks_np, out.detections)
+            else:
+                # Detect-task model (the deployed default), OR a segment-task
+                # model's own zero-detection frame (result.masks is None then
+                # too, identical to the detect-task case -- see module
+                # docstring) -- unchanged from before this pass either way.
+                # result.plot() reads result.names (copied from the model at
+                # inference time) to draw its own "class conf" labels --
+                # overwritten here so the annotated image's on-frame labels use
+                # the same resolved self.names as Detection2DArray above, not
+                # the model's own (possibly-placeholder, *.engine case) names.
+                # See _resolve_class_names()'s own docstring.
+                result.names = self.names
+                annotated = result.plot()
+            self._mark('annotate_draw')
+            self._publish_annotated(annotated, msg.header)
+            self._mark('pub_annotated')
         if debug_tick:
             try:
                 self._debug_capture(cv_image, msg.header, out.detections, masks_np, below)
