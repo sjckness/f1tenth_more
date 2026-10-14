@@ -322,6 +322,7 @@ from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
 from f1tenth_perception import perception_debug, scene_labels
 from f1tenth_perception.ground_plane import (
     back_project, fit_ground_plane, ground_mask, quat_to_matrix)
+from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -708,7 +709,7 @@ class FrontClearanceNode(Node):
         self.detections_sub = self.create_subscription(
             Detection2DArray, self.detections_topic, self._detections_callback, 10)
         self.masks_sub = self.create_subscription(
-            Image, self.masks_topic, self._masks_callback, 10)
+            Image, self.masks_topic, self._masks_callback, LATEST_FRAME_QOS)
         self.obstacles_sub = self.create_subscription(
             Obstacle2DArray, self.obstacles_topic, self._obstacles_callback, 10)
         # The depth frame's pose is what moves every published distance from
@@ -729,8 +730,12 @@ class FrontClearanceNode(Node):
         if self.ground_enabled or self.scene_enabled:
             self.camera_info_sub = self.create_subscription(
                 CameraInfo, self.camera_info_topic, self._camera_info_callback, 10)
+        # Newest depth frame only (latest_frame_qos.py): the callback does
+        # the work, and with KEEP_LAST 10 a slow tick made every later frame
+        # queue behind the backlog (the front_wall payload was 164 ms old on
+        # the 2026-10-13 bags against 52-55 ms for the depth itself).
         self.depth_sub = self.create_subscription(
-            Image, self.depth_topic, self.depth_callback, 10)
+            Image, self.depth_topic, self.depth_callback, LATEST_FRAME_QOS)
 
         apply_nice(self)
 

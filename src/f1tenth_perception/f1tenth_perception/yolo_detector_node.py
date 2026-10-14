@@ -989,7 +989,7 @@ class YoloDetectorNode(Node):
         self._debug_scene = {}
         if bool(self.declare_parameter('enable_scene_labels', False).value):
             self.create_subscription(
-                Image, '/perception/scene_labels', self._debug_scene_labels_cb, 10)
+                Image, '/perception/scene_labels', self._debug_scene_labels_cb, LATEST_FRAME_QOS)
             for topic, key in (('/perception/scene_labels_debug', 'debug'),
                                ('/perception/unclassified_obstacles', 'candidates'),
                                ('/perception/virtual_wall/debug', 'virtual')):

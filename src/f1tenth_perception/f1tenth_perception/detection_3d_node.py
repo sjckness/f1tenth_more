@@ -102,6 +102,7 @@ from vision_msgs.msg import (
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_perception.scene_labels import LABEL_OTHER
+from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 from f1tenth_perception.stage_timing import StageTimer
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
@@ -288,7 +289,8 @@ class Detection3DNode(Node):
         self.sync.registerCallback(self._synced_callback)
         if self.scene_enabled:
             self.create_subscription(
-                Image, '/perception/scene_labels', self._scene_labels_callback, 10)
+                Image, '/perception/scene_labels', self._scene_labels_callback,
+                LATEST_FRAME_QOS)
 
         # ---- 2D->3D yield accounting -------------------------------------
         # The 2026-09-01 mission analysis found only 55-65% of /camera/

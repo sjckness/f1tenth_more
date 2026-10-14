@@ -1383,3 +1383,16 @@ class TestWallDebugPayload:
         assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(2.0)
         assert node.wall_debug_pub.publish.call_count == 0
         node.destroy_node()
+
+
+def test_depth_and_mask_inputs_hold_only_the_newest_frame():
+    """KEEP_LAST 1 best effort on depth and masks: no backlog behind a slow tick."""
+    from rclpy.qos import HistoryPolicy, ReliabilityPolicy
+    node = _construct()
+    try:
+        for sub in (node.depth_sub, node.masks_sub):
+            qos = sub.qos_profile
+            assert qos.history == HistoryPolicy.KEEP_LAST and qos.depth == 1
+            assert qos.reliability == ReliabilityPolicy.BEST_EFFORT
+    finally:
+        node.destroy_node()
