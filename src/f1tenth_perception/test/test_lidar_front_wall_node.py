@@ -15,6 +15,7 @@ These defend the wire contract; test_lidar_front_wall.py covers the maths.
 Run standalone: python3 -m pytest test/test_lidar_front_wall_node.py -v
 """
 
+import json
 import math
 from unittest.mock import MagicMock
 
@@ -233,3 +234,46 @@ class TestInSync:
     @pytest.mark.parametrize('name', TUNING_PARAMS)
     def test_parameter_default_matches_stack_params(self, node, name):
         assert node.get_parameter(name).value == get_value('lidar_front_wall_' + name)
+
+
+class TestMultiWallTracker:
+    """use_wall_tracker: gated on enable_scene_labels, feeds the heading wall."""
+
+    @staticmethod
+    def _make(scene, tracker):
+        from rclpy.parameter import Parameter
+        n = LidarFrontWallNode(parameter_overrides=[
+            Parameter('enable_scene_labels', value=scene),
+            Parameter('use_wall_tracker', value=tracker)])
+        for name in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                     'virtual_debug_pub', 'walls_pub', 'walls_markers_pub'):
+            if hasattr(n, name):
+                getattr(n, name).publish = MagicMock()
+        return n
+
+    def test_without_scene_labels_the_tracker_stays_off_with_an_error(self):
+        n = self._make(False, True)
+        try:
+            assert n.use_wall_tracker is False and n.wall_tracker is None
+            assert not hasattr(n, 'walls_pub')
+        finally:
+            n.destroy_node()
+
+    def test_the_front_track_becomes_the_heading_wall(self):
+        n = self._make(True, True)
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(8):
+                stamp = 7 + k
+                odom = _odom(0.0)
+                odom.header.stamp.sec = stamp
+                n._odom_cb(odom)
+                n._scan_cb(_scan(3.0, stamp_sec=stamp))
+            walls = _last(n.walls_pub)
+            assert [t.label for t in walls.tracks] == ['front']
+            assert walls.tracks[0].d_ray_front == pytest.approx(3.0 - 0.405, abs=0.02)
+            debug = json.loads(_last(n.virtual_debug_pub).data)
+            assert debug['wall_source'] == 'tracker'
+            assert debug['distance_m'] == pytest.approx(3.0 - 0.405, abs=0.02)
+        finally:
+            n.destroy_node()

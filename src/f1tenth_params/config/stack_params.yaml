@@ -662,6 +662,11 @@ lidar_front_wall_seed_max_valid_m:
 enable_scene_labels:
   default: false
   description: "Scene labelling and the virtual wall (scene_labels.py). true: lidar_front_wall_node cuts detections out of its fit and publishes /perception/wall_planes and /perception/virtual_wall; front_clearance_node labels the depth cloud; detection_3d_node measures objects on OTHER pixels; the BT wall stop and the MPC wall_turn read /perception/virtual_wall and the MPC's private wall tracker is bypassed. Read with get_value, no launch override. FALSE until the stereo half is validated on recorded depth (the archived bags carry none)."
+# Consumed by: f1tenth_perception/lidar_front_wall.launch.py (get_value, no launch
+# override, like enable_scene_labels).
+use_wall_tracker:
+  default: false
+  description: "Multi-wall tracker (multi_wall_tracker.py) in lidar_front_wall_node: up to 4 wall tracks in odom on /perception/walls; the confirmed front track becomes the heading wall of the virtual wall, falling back to sequential_lines. REQUIRES enable_scene_labels: without it the node logs an ERROR and the tracker stays off."
 lidar_front_wall_detection_margin_deg:
   default: 3.0
   description: "Scene labels: each YOLO detection (/camera/detections_3d) hides its own angular half-width plus this [deg] on each side from the LiDAR wall fit."

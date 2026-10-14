@@ -64,6 +64,9 @@
        measured from it. f1tenth_description depends only on f1tenth_params,
        so this adds no cycle. -->
   <exec_depend>f1tenth_description</exec_depend>
+  <!-- multi_wall_tracker.py: line extraction from corridor_perception. -->
+  <exec_depend>corridor_perception</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

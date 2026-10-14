@@ -103,6 +103,7 @@ def generate_launch_description():
     # The stack-wide scene-labels switch: a plain get_value like the MPC and
     # the BT read it, so the producer and its consumers cannot disagree.
     params['enable_scene_labels'] = bool(get_value('enable_scene_labels'))
+    params['use_wall_tracker'] = bool(get_value('use_wall_tracker'))
 
     node = Node(
         condition=IfCondition(LaunchConfiguration('use_lidar')),

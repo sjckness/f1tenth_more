@@ -172,7 +172,7 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.time import Time
 
-from sensor_msgs.msg import CompressedImage, Image
+from sensor_msgs.msg import CameraInfo, CompressedImage, Image
 from std_msgs.msg import String
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformException
@@ -187,7 +187,7 @@ from vision_msgs.msg import (
 from cv_bridge import CvBridge, CvBridgeError
 
 from f1tenth_description.vehicle_frames import base_front_x
-from f1tenth_messages.msg import MissionStatus
+from f1tenth_messages.msg import MissionStatus, MultiWallTrackArray
 
 from f1tenth_perception import perception_debug
 from f1tenth_perception.cpu_affinity import (
@@ -195,6 +195,7 @@ from f1tenth_perception.cpu_affinity import (
     declare_nice_param,
 )
 from f1tenth_perception.front_clearance_node import from_front
+from f1tenth_perception.ground_plane import quat_to_matrix
 from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 from f1tenth_perception.stage_timing import StageTimer
 
@@ -1003,6 +1004,14 @@ class YoloDetectorNode(Node):
                                ('/perception/virtual_wall/debug', 'virtual')):
                 self.create_subscription(
                     String, topic, lambda m, k=key: self._debug_scene_json_cb(k, m), 10)
+            # Multi-wall tracker tracks (use_wall_tracker), projected as floor
+            # lines with the image's own intrinsics. Latest of each.
+            self._debug_walls = None
+            self._debug_k = None
+            self.create_subscription(
+                MultiWallTrackArray, '/perception/walls', self._debug_walls_cb, LATEST_FRAME_QOS)
+            self.create_subscription(
+                CameraInfo, '/camera/camera_info', self._debug_camera_info_cb, LATEST_FRAME_QOS)
         # The front bumper (the URDF's base_front, the stack's one source)
         # and the camera mount from /tf_static only, like front_clearance_node
         # (no TransformListener: a handful of fixed edges). A broken URDF
@@ -1061,6 +1070,38 @@ class YoloDetectorNode(Node):
             self._debug_scene['labels'] = self.bridge.imgmsg_to_cv2(msg, 'mono8')
         except Exception:  # noqa: BLE001 - debug output must never stop detection
             pass
+
+    def _debug_walls_cb(self, msg):
+        self._debug_walls = msg
+
+    def _debug_camera_info_cb(self, msg):
+        if msg.k[0] > 0.0:
+            self._debug_k = (msg.k[0], msg.k[4], msg.k[2], msg.k[5], msg.width, msg.height)
+
+    def _debug_track_walls(self, frame_id, src_wh):
+        """scene['walls'] entries for the latest wall tracks, or [] when unknown."""
+        walls, k = getattr(self, '_debug_walls', None), getattr(self, '_debug_k', None)
+        if walls is None or k is None or not frame_id:
+            return []
+        try:
+            tr = self._debug_tf_buffer.lookup_transform('base_link', frame_id, Time()).transform
+        except TransformException:
+            return []
+        q, p = tr.rotation, tr.translation
+        rot = quat_to_matrix(q.x, q.y, q.z, q.w)
+        fx, fy, cx, cy, kw, kh = k
+        if kw and kh and (kw, kh) != tuple(src_wh):
+            sx, sy = src_wh[0] / float(kw), src_wh[1] / float(kh)
+            fx, cx, fy, cy = fx * sx, cx * sx, fy * sy, cy * sy
+        out = []
+        for t in walls.tracks:
+            px = perception_debug.project_floor_segment(
+                (t.p0_bl.x, t.p0_bl.y), (t.p1_bl.x, t.p1_bl.y), rot, (p.x, p.y, p.z),
+                (fx, fy, cx, cy))
+            if px is not None:
+                out.append({'line_px': px, 'source': 'tracker',
+                            'label': '{}:{} d={:.2f}'.format(t.id, t.label, t.d_perp_front)})
+        return out
 
     def _debug_scene_json_cb(self, key, msg):
         try:
@@ -1242,11 +1283,20 @@ class YoloDetectorNode(Node):
             'front_label': ('@front' if front_x is not None
                             and (cam_frame is None or cam_offset is not None)
                             else '@front?'),
-            'scene': (perception_debug.scene_frame(
-                self._debug_scene.get('labels'), self._debug_scene.get('debug'),
-                self._debug_scene.get('candidates'), self._debug_scene.get('virtual'),
-                front_x) if self._debug_scene else None),
+            'scene': self._debug_scene_frame(front_x, pending),
         }
+
+    def _debug_scene_frame(self, front_x, pending):
+        tracks = self._debug_track_walls(pending['header'].frame_id, pending['src_wh'])
+        if not self._debug_scene and not tracks:
+            return None
+        scene = perception_debug.scene_frame(
+            self._debug_scene.get('labels'), self._debug_scene.get('debug'),
+            self._debug_scene.get('candidates'), self._debug_scene.get('virtual'), front_x)
+        if tracks:
+            scene['walls'] = scene['walls'] + tracks
+            scene['img_wh'] = scene['img_wh'] or list(pending['src_wh'])
+        return scene
 
     @staticmethod
     def _class_color_bgr(class_id):

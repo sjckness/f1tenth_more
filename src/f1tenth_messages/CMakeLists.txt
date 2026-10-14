@@ -23,6 +23,8 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/WallTrack.msg"
   "msg/WallDistance.msg"
   "msg/WallSegment.msg"
+  "msg/MultiWallTrack.msg"
+  "msg/MultiWallTrackArray.msg"
   "msg/ObjectGoal.msg"
   "msg/ObjectApproachStatus.msg"
   "msg/DriveClamp.msg"
