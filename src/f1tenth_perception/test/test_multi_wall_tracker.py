@@ -85,13 +85,25 @@ def by_label(tracker, tracks, car):
     return {tracker.label(t, car): t for t in tracks}
 
 
-def test_room_from_two_poses_four_walls_correct_and_ids_kept():
+def test_room_from_two_poses_walls_correct_and_ids_kept():
+    """The three walls the laser can actually SEE as walls, and their ids.
+
+    Not four. The wall directly behind the car is outside the +-135 deg FOV
+    except for two 0.70 m arcs near its corners, and since the span gate
+    (min_span_birth_m) a 0.70 m arc does not start a wall track. It is born as
+    soon as the car turns enough to see it properly, which the second pose
+    below is: the x = 0 wall comes in at 4.65 m as track 4, and the three
+    already-tracked walls keep their ids. That is the gate working as intended
+    -- a wall is born when it is seen as a wall -- and it is the one behaviour
+    it changed on a scan with nothing wrong with it, so it is asserted here
+    rather than left as a surprise.
+    """
     trk = mwt.MultiWallTracker()
     a = Pose2D(2.0, 3.0, 0.0)
     tracks = run(trk, a, ROOM)
-    assert len(tracks) == 4
+    assert len(tracks) == 3
     labels = by_label(trk, tracks, a)
-    assert set(labels) == {'front', 'back', 'left', 'right'}
+    assert set(labels) == {'front', 'left', 'right'}
     assert labels['front'].rho == pytest.approx(6.0, abs=0.03)
     assert labels['left'].rho == pytest.approx(6.0, abs=0.03)
     for t in tracks:
@@ -101,8 +113,13 @@ def test_room_from_two_poses_four_walls_correct_and_ids_kept():
     ids = {t.id for t in tracks}
     b = Pose2D(4.0, 2.0, 1.0)
     tracks_b = run(trk, b, ROOM, t0=1.0)
-    assert {t.id for t in tracks_b} == ids
+    assert ids < {t.id for t in tracks_b}
+    assert len(tracks_b) == 4
     assert by_label(trk, tracks_b, b)['front'].rho == pytest.approx(6.0, abs=0.03)
+    # The late arrival is the wall that was behind the car at pose a.
+    late = next(t for t in tracks_b if t.id not in ids)
+    assert late.rho == pytest.approx(0.0, abs=0.05)
+    assert late.length > 4.0
 
 
 def test_corner_gives_two_tracks_at_ninety_degrees():
@@ -152,9 +169,15 @@ def test_slow_full_rotation_keeps_ids_and_the_cap():
 
 
 def test_cap_holds_with_more_than_four_walls():
+    """The extras are 2 m partitions, not 0.8 m stubs.
+
+    They used to be 0.8 and 1.0 m, which the span gate (min_span_birth_m) now
+    refuses to born at all -- so the test was no longer about the publish cap.
+    A partition the cap has to rank has to be a wall in the first place.
+    """
     trk = mwt.MultiWallTracker()
     car = Pose2D(3.0, 3.0, 0.0)
-    extra = [((4.5, 2.0), (4.5, 2.8)), ((4.0, 4.5), (5.0, 4.5))]
+    extra = [((4.5, 1.0), (4.5, 3.0)), ((3.5, 4.5), (5.5, 4.5))]
     tracks = run(trk, car, ROOM + extra)
     assert len(tracks) == 4
     assert len([t for t in trk.tracks if t.ever_confirmed]) > 4
@@ -455,3 +478,171 @@ def test_the_side_distance_never_goes_negative():
     trk = mwt.MultiWallTracker()
     feed(trk, [obs(wall(0.05, nx=0.0, ny=-1.0, t0=0.0, t1=4.0))], 4)
     assert mwt.side_distance(trk.tracks[0], ORIGIN, 0.136) == 0.0
+
+
+# ===========================================================================
+# Minimum width for a wall: the hysteretic span gate
+# ===========================================================================
+
+def line_of_span(span_m, d=2.0, y_centre=0.0, n_points=40, rms=0.01):
+    """A base_link WallLine straight across the heading, `span_m` long."""
+    from f1tenth_perception.scene_labels import WallLine
+    return WallLine(1.0, 0.0, float(d), y_centre - span_m / 2.0, y_centre + span_m / 2.0,
+                    n_points, rms, 'lidar')
+
+
+def obs_of_span(span_m, **kw):
+    return [wall_fusion.Observation(line_of_span(span_m, **kw), 0.0, 2.5, False,
+                                    wall_fusion.SOURCE_LIDAR, 0.8)]
+
+
+def test_a_short_segment_never_starts_a_wall_track():
+    """The corridor phantom: a 1.39 m face 2 m ahead became a 'front' wall and
+    sat there for 30 s of an empty corridor (corridor10m, track 8)."""
+    trk = mwt.MultiWallTracker(mwt.TrackerParams(min_span_birth_m=1.5))
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(10):
+        trk.step(obs_of_span(1.39), i * 0.05, car)
+    assert trk.tracks == []
+    assert trk.published(car) == []
+    assert trk.n_short_dropped == 0        # 1.39 >= min_span_update_m: not dropped
+
+
+def test_a_segment_shorter_than_the_update_floor_never_reaches_the_tracker():
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    out = trk.step(obs_of_span(0.3), 0.0, car)
+    assert out == []
+    assert trk.tracks == []
+    assert trk.n_short_dropped == 1
+
+
+def test_a_long_segment_starts_a_track_as_before():
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(5):
+        tracks = trk.step(obs_of_span(2.0), i * 0.05, car)
+    assert len(tracks) == 1
+    assert tracks[0].length == pytest.approx(2.0, abs=0.01)
+
+
+def test_a_confirmed_wall_seen_short_keeps_being_updated():
+    """The whole point of the hysteresis: a wall half-hidden behind someone is
+    still that wall, and must not be dropped and re-born (a new id, a new
+    tentative lifecycle, and no FRONT wall meanwhile)."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(5):
+        tracks = trk.step(obs_of_span(2.0), i * 0.05, car)
+    first_id, hits = tracks[0].id, tracks[0].hits
+    for i in range(5, 15):
+        tracks = trk.step(obs_of_span(0.6), i * 0.05, car)
+    assert len(tracks) == 1
+    assert tracks[0].id == first_id
+    assert tracks[0].hits > hits
+    assert tracks[0].state == mwt.STATE_CONFIRMED
+
+
+def test_a_short_segment_cannot_feed_a_tentative_track():
+    """A maybe fed only by short segments must stay a maybe and die.
+
+    Without this a 0.6 m face could be confirmed by three 0.6 m faces: the
+    birth gate would be the only thing standing in the way, and it would be
+    bypassed by whichever of them happened to arrive first.
+    """
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    # One long observation starts a TENTATIVE track...
+    trk.step(obs_of_span(1.2), 0.0, car)
+    assert len(trk.tracks) == 1 and not trk.tracks[0].ever_confirmed
+    # ...and short ones may not confirm it.
+    for i in range(1, 6):
+        trk.step(obs_of_span(0.6), i * 0.05, car)
+    assert all(not t.ever_confirmed for t in trk.tracks)
+    assert trk.published(car) == []
+
+
+def test_a_short_segment_does_not_consume_the_assignment_a_long_one_needs():
+    """Gated in the cost matrix, not after the assignment: the Hungarian
+    solver would otherwise be free to hand the track to the short segment and
+    leave the long one to start a duplicate."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(5):
+        trk.step(obs_of_span(2.0), i * 0.05, car)
+    assert len(trk.tracks) == 1
+    confirmed = trk.tracks[0].id
+    # The same wall, reported twice in one cycle: once short, once long.
+    both = obs_of_span(0.6) + obs_of_span(2.0)
+    trk.step(both, 0.3, car)
+    assert [t.id for t in trk.tracks] == [confirmed]
+
+
+def test_the_span_is_the_observations_own_extent_not_the_tracks():
+    """A track's extent only ever grows, so gating on it would be a one-way
+    door: the first long observation would license every later short one."""
+    trk = mwt.MultiWallTracker(mwt.TrackerParams(min_span_birth_m=1.0,
+                                                 min_span_update_m=0.5))
+    car = Pose2D(0.0, 0.0, 0.0)
+    trk.step(obs_of_span(3.0), 0.0, car)
+    long_track = trk.tracks[0]
+    assert long_track.length == pytest.approx(3.0, abs=0.01)
+    # A 0.3 m observation of the SAME line is still dropped, although the
+    # track it would match is 3 m long.
+    trk.step(obs_of_span(0.3), 0.05, car)
+    assert trk.n_short_dropped == 1
+    assert trk.tracks[0].hits == 1
+
+
+def test_the_real_walls_of_a_room_still_survive_the_gate():
+    """The gate must not cost the pipeline what it exists to track.
+
+    Every wall the laser sees along its whole length is still tracked; what it
+    costs is the wall BEHIND the car, which the +-135 deg FOV only ever shows
+    as two 0.70 m arcs (test_room_from_two_poses_... says the rest).
+    """
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(2.0, 3.0, 0.0)
+    tracks = run(trk, car, ROOM)
+    assert len(tracks) == 3
+    assert set(by_label(trk, tracks, car)) == {'front', 'left', 'right'}
+    assert all(t.length > 5.0 for t in tracks)
+
+
+def test_a_chair_leg_in_an_otherwise_empty_room_starts_no_wall():
+    """Raycast, not a hand-built line: the extraction's own output through the
+    gate. A 0.12 m radius circle 1.5 m ahead is about 0.3 m of visible arc."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(12):
+        tracks = step(trk, car, i * 0.05, [], circles=[((1.5, 0.0), 0.12)])
+    assert tracks == []
+
+
+def test_the_collinear_merge_gap_is_a_parameter_and_defaults_to_the_extraction():
+    from corridor_perception.extraction import ExtractionParams
+    assert mwt.extraction_params(None).merge_gap == ExtractionParams().merge_gap
+    assert mwt.extraction_params(0.5).merge_gap == pytest.approx(0.5)
+    assert mwt.TrackerParams().merge_max_gap_m == pytest.approx(
+        ExtractionParams().merge_gap)
+
+
+def test_a_wall_with_a_person_in_front_of_it_is_merged_before_it_is_measured():
+    """Why the merge gap is 1.5 m and not the 0.5 m a span gate alone suggests.
+
+    A person 1 m in front of a 6 m wall hides about 0.6 m of it at 2 m range
+    and splits it in two. Both halves are long here, but the merge is what
+    makes the span the WALL's: with the gap tightened below the hole the
+    tracker sees two shorter walls instead of one.
+    """
+    car = Pose2D(0.0, 0.0, 0.0)
+    wall = [((4.0, -3.0), (4.0, 3.0))]
+    person = [((3.0, -0.25), 0.25)]
+    wide = mwt.extract_lines(raycast(car, wall, person), ANGLE_MIN, INC, 0.06, 30.0,
+                             LASER, params=mwt.extraction_params(1.5))
+    tight = mwt.extract_lines(raycast(car, wall, person), ANGLE_MIN, INC, 0.06, 30.0,
+                              LASER, params=mwt.extraction_params(0.05))
+    wide_wall = [ln for ln in wide if abs(ln.rho - 4.0) < 0.2]
+    tight_wall = [ln for ln in tight if abs(ln.rho - 4.0) < 0.2]
+    assert len(wide_wall) == 1
+    assert max(ln.length for ln in wide_wall) > max(ln.length for ln in tight_wall)

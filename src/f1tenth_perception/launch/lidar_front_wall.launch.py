@@ -91,6 +91,10 @@ LIDAR_FRONT_WALL_ARGS = [
     ('stereo_front_max_normal_rad', float),
     ('front_strip_half_width_m', float),
     ('wall_marker_thickness_m', float),
+    # Minimum width for a LiDAR wall (multi_wall_tracker's span gate).
+    ('wall_min_span_birth_m', float),
+    ('wall_min_span_update_m', float),
+    ('wall_merge_max_gap_m', float),
 ]
 
 

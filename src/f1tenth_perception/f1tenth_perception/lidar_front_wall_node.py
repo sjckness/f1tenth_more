@@ -246,6 +246,15 @@ without it, the node logs an ERROR at startup and the tracker stays off.
     on /odometry/filtered instead of the receipt-age window, and are dropped
     after wall_tracker_detection_max_age_sec. The cut applies to the
     sequential lines too.
+  * Minimum width for a wall. An observation shorter than
+    wall_min_span_update_m is not a wall and never reaches the tracker;
+    one shorter than wall_min_span_birth_m may only UPDATE an already
+    confirmed track, never start one or feed a tentative one. The
+    extraction's collinear merge (wall_merge_max_gap_m) reunifies a wall
+    broken by an occluder first, so the span is the wall's, not the
+    visible piece's. multi_wall_tracker's "WHY THE SPAN GATE IS
+    HYSTERETIC" has the reasoning; the count of dropped observations is
+    `short_obs` in /perception/virtual_wall/debug.
   * Up to 4 wall tracks in odom go out on /perception/walls
     (f1tenth_messages/MultiWallTrackArray), with line and text markers on
     /perception/walls/markers.
@@ -447,13 +456,22 @@ class LidarFrontWallNode(Node):
                 param('stereo_front_max_normal_rad', math.radians(30.0))),
             strip_half_width_m=float(
                 param('front_strip_half_width_m', front_side_limit_m())),
-            side_edge_half_width_m=float(get_value('swept_clearance_body_half_width_m')))
+            side_edge_half_width_m=float(get_value('swept_clearance_body_half_width_m')),
+            # Minimum width for a wall: see multi_wall_tracker's own
+            # "WHY THE SPAN GATE IS HYSTERETIC".
+            min_span_birth_m=float(param('wall_min_span_birth_m', 1.0)),
+            min_span_update_m=float(param('wall_min_span_update_m', 0.5)),
+            merge_max_gap_m=float(param('wall_merge_max_gap_m', 1.5)))
         if self.use_wall_tracker and not self.scene_enabled:
             self.get_logger().error(
                 'use_wall_tracker needs enable_scene_labels (the virtual wall it feeds '
                 'exists only with scene labels): the multi-wall tracker stays OFF')
             self.use_wall_tracker = False
         self.wall_tracker = mwt.MultiWallTracker(tracker_params) if self.use_wall_tracker else None
+        # The extraction's collinear merge has to reunify a wall broken by an
+        # occluder BEFORE its span is measured, so its gap is set from the same
+        # parameter block as the span thresholds.
+        self.extraction_params = mwt.extraction_params(tracker_params.merge_max_gap_m)
         self._poses = mwt.PoseHistory()
         self._odom_frame = 'odom'
         self._wall_source = 'sequential_lines'
@@ -940,6 +958,11 @@ class LidarFrontWallNode(Node):
             'wall_source': (None if self.wall_tracker is None
                             else 'front_coast_expired' if self._front_coast_expired
                             else self._wall_source),
+            # Observations the span gate dropped as too short to be a wall. A
+            # run of these says the room is full of short faces, or that
+            # wall_merge_max_gap_m is too tight to reunify one wall.
+            'short_obs': (None if self.wall_tracker is None
+                          else int(self.wall_tracker.n_short_dropped)),
             'tracker_ms': num(self._tracker_ms)})))
         return state
 
@@ -965,7 +988,7 @@ class LidarFrontWallNode(Node):
         t0 = time.perf_counter()
         lines = mwt.extract_lines(
             msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min, msg.range_max,
-            laser_pose, sectors)
+            laser_pose, sectors, params=self.extraction_params)
         observations = self._publish_observations(
             stamp, scan_stamp, [mwt.line_to_wall_line(ln) for ln in lines], pts)
         tracks = self.wall_tracker.step(observations, scan_stamp, car)

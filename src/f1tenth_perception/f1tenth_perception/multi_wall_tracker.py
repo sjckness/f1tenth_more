@@ -17,7 +17,12 @@ PER SCAN
      (rho, alpha) covariance, collinear merge 6 deg / 0.05 m, and segments of at
      least 10 points and 0.5 m. Lines are found in the laser frame, then moved
      to base_link and to odom at the scan stamp.
-  3. Tracking (MultiWallTracker.step) on (rho, theta) in odom, one Kalman
+  3. Span gate (min_span_update_m / min_span_birth_m). An observation shorter
+     than min_span_update_m is not a wall at all and is dropped before the
+     tracker sees it. One between that and min_span_birth_m may only UPDATE a
+     track that is already confirmed: it can neither start a track nor feed a
+     tentative one. See WHY THE SPAN GATE IS HYSTERETIC below.
+  4. Tracking (MultiWallTracker.step) on (rho, theta) in odom, one Kalman
      filter per track:
      - Static model with process noise q per second on both states, plus
        noise proportional to the odometry yaw change since the last scan
@@ -40,6 +45,38 @@ PER SCAN
        scan or has been coasting for at most front_max_coast_s (0.3 s). A
        front track that coasts longer stops being the front wall
        (coast_expired) although it lives on until delete_after_s.
+
+WHY THE SPAN GATE IS HYSTERETIC
+------------------------------
+A wall is long. An object face, a chair leg, the end of a counter, a doorframe
+reveal and a person's two legs are all short, and the extraction cannot tell
+them apart from a wall fragment: it reports geometry, not semantics. The
+single-threshold version of this rule has to choose between two failures --
+set it high and a wall seen edge-on or mostly occluded stops being tracked
+every time it shortens; set it low and every short face in the room starts a
+wall track, which is how a 1.39 m "front" wall sat 2 m ahead of the car for 30
+s of an empty corridor (corridor10m_20261015T171753, track 8).
+
+Birth and maintenance are different questions, so they get different
+thresholds. STARTING a wall is a claim about the world and needs real extent:
+min_span_birth_m. KEEPING one is a claim about a wall that has already proven
+itself over confirm_hits scans, and a confirmed wall briefly seen short --
+someone walks past it, the car turns and grazes it, half of it leaves the
+sector -- is still that wall: min_span_update_m. The asymmetry is the same
+shape as HysteresisLatch's in front_clearance_node and the role hysteresis
+below, and for the same reason: the cost of being wrong is not symmetric.
+
+Note the gate is on the OBSERVATION's span, not the track's. A track's extent
+only ever grows (`_update` takes min/max), so gating on the track would be a
+one-way door.
+
+THE COLLINEAR MERGE COMES FIRST, and it already exists: step 2's extraction
+reunifies fragments of one wall across a gap of up to merge_max_gap_m with the
+same 6 deg / 5 cm tolerances it uses everywhere (corridor_perception.
+extraction._merge_clusters), globally rather than only between scan-adjacent
+groups, which is what survives an occluder standing in front of a wall. So a
+span is measured on the whole wall, not on whichever piece of it a person left
+visible -- which has to be true before any span threshold means anything.
 
 FRAMES. A line is rho = x cos(theta) + y sin(theta) with rho >= 0
 (corridor_perception.geometry.Line), the convention scene_labels.WallLine
@@ -129,13 +166,28 @@ def propagate_objects(objects_xyr, pose_then, pose_now):
 # Extraction
 # ============================================================================
 
+def extraction_params(merge_max_gap_m=None):
+    """The extraction's own defaults, with the collinear merge gap overridden.
+
+    The merge is what makes a span mean "the length of this wall" rather than
+    "the length of the piece of it nothing was standing in front of", so the
+    one tolerance a wall-span threshold has to be set together with is this
+    gap. Everything else stays corridor_perception's own default.
+    """
+    p = ExtractionParams()
+    if merge_max_gap_m is not None:
+        p.merge_gap = float(merge_max_gap_m)
+    return p
+
+
 def extract_lines(ranges, angle_min, angle_increment, range_min, range_max, laser_pose,
                   sectors=(), params=None):
     """Wall segments of one scan as corridor_perception Lines in base_link.
 
     laser_pose: (x, y, yaw) of the laser in base_link. sectors: bearing
     sectors [(lo, hi)] in base_link (scene_labels.detection_sectors) whose
-    beams are treated as no-returns.
+    beams are treated as no-returns. params: ExtractionParams, normally built
+    by `extraction_params` from the node's merge-gap parameter.
     """
     r = clean_ranges(ranges, range_min, range_max)
     lx, ly, lyaw = laser_pose
@@ -183,6 +235,10 @@ class TrackerParams:
     # --- lifecycle: stereo-only evidence is weaker, so it needs more of it --
     stereo_confirm_hits: int = 5
     stereo_confirm_window: int = 7
+    # --- minimum width for a wall (see WHY THE SPAN GATE IS HYSTERETIC) ---
+    min_span_birth_m: float = 1.0           # to START a track
+    min_span_update_m: float = 0.5          # to keep a CONFIRMED one
+    merge_max_gap_m: float = 1.5            # extraction's collinear merge gap
     # --- what may be called FRONT -----------------------------------------
     strip_half_width_m: float = 0.186       # vehicle_frames.front_side_limit_m()
     side_edge_half_width_m: float = 0.136   # swept_clearance_body_half_width_m
@@ -420,6 +476,10 @@ class MultiWallTracker:
         self._next_id = 1
         self._last_stamp = None
         self._last_yaw = None
+        #: Observations the span gate dropped on the last step, for the debug
+        #: payload: a run of these is the signal that the room is full of short
+        #: faces, or that the merge gap is too tight to reunify a wall.
+        self.n_short_dropped = 0
 
     # ---- filter -----------------------------------------------------------
 
@@ -438,8 +498,18 @@ class MultiWallTracker:
         m = _along(trk.theta, np.vstack([line.p_start, line.p_end]))
         return min(trk.t1, m.max()) - max(trk.t0, m.min())
 
-    def _cost(self, trk, line):
-        """Mahalanobis distance squared, or inf when gated out."""
+    def _cost(self, trk, line, may_birth=True):
+        """Mahalanobis distance squared, or inf when gated out.
+
+        `may_birth` False means the observation is shorter than
+        min_span_birth_m: it may only reach a track that is ALREADY confirmed
+        (module docstring, WHY THE SPAN GATE IS HYSTERETIC). Gating it here
+        rather than after the assignment matters -- a short segment that was
+        allowed to compete for a tentative track would both feed that track
+        and consume the assignment a long segment needed.
+        """
+        if not may_birth and not trk.ever_confirmed:
+            return math.inf
         v = _innovation(trk.x, line.rho, line.alpha)
         S = trk.P + self._meas_cov(line)
         d2 = float(v @ np.linalg.solve(S, v))
@@ -535,6 +605,21 @@ class MultiWallTracker:
         a fallback distance behind its back.
         """
         stamp = float(stamp)
+        # The span gate, before anything persistent is built on an observation
+        # (module docstring, WHY THE SPAN GATE IS HYSTERETIC). The span is the
+        # observation's own extent: its inliers projected onto its line, which
+        # is what WallLine.span is and what the extraction's collinear merge
+        # has already reunified across occluders.
+        kept, may_birth = [], []
+        self.n_short_dropped = 0
+        for obs in observations:
+            span = float(obs.line.span)
+            if span < self.p.min_span_update_m:
+                self.n_short_dropped += 1
+                continue
+            kept.append(obs)
+            may_birth.append(span >= self.p.min_span_birth_m)
+        observations = kept
         lines_odom = [observation_line(o, car_pose, self.p) for o in observations]
         dt = 0.0 if self._last_stamp is None else stamp - self._last_stamp
         self._last_stamp = stamp
@@ -543,7 +628,8 @@ class MultiWallTracker:
 
         used_lines, hit_ids = set(), set()
         if self.tracks and lines_odom:
-            cost = np.array([[self._cost(t, ln) for ln in lines_odom] for t in self.tracks])
+            cost = np.array([[self._cost(t, ln, may_birth[j])
+                              for j, ln in enumerate(lines_odom)] for t in self.tracks])
             finite = np.isfinite(cost)
             if finite.any():
                 big = cost[finite].max() * 10.0 + 1e6
@@ -564,7 +650,11 @@ class MultiWallTracker:
             else:
                 trk.state = STATE_TENTATIVE
         for j, line in enumerate(lines_odom):
-            if j not in used_lines:
+            # Only a segment with real extent may START a wall. A shorter one
+            # that matched nothing is simply not evidence of a new wall: it is
+            # dropped here, not held as a tentative track that a later long
+            # segment could confirm.
+            if j not in used_lines and may_birth[j]:
                 self._spawn(line, stamp, observations[j])
 
         self.tracks = [t for t in self.tracks if not self._expired(t, stamp)]
