@@ -100,8 +100,9 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 
-from nav_msgs.msg import Odometry
-from std_msgs.msg import ColorRGBA
+import numpy as np
+from nav_msgs.msg import OccupancyGrid, Odometry
+from std_msgs.msg import ColorRGBA, Int32MultiArray
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
@@ -112,7 +113,9 @@ from vision_msgs.msg import (
 )
 from visualization_msgs.msg import Marker, MarkerArray
 
+from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray
 from f1tenth_params.object_geometry import footprint_radius
+from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
 
 from f1tenth_costmap.semantic_layer import (
     compose_base_link_to_map, find_nearest_pose_by_stamp, pose_to_xytheta,
@@ -275,6 +278,29 @@ class SemanticLayerNode(Node):
         self.tracks_pub = self.create_publisher(
             Detection3DArray, p('tracks_topic').value, 10)
 
+        # --- the wall layer (step 7) -------------------------------------
+        # Confirmed walls from the tracker, rasterised into the SAME semantic
+        # layer this node already owns: a tracked wall is "a thing of class
+        # wall is here", which is this layer's kind of truth, not the
+        # occupancy grid's "something reflected here once". The grid value is
+        # the ROLE (wall_raster.ROLE_VALUE) so it reads on its own; the ids
+        # go out beside it, because an int8 cell cannot hold both.
+        self.declare_parameter('wall_tracks_topic', '/perception/walls')
+        self.declare_parameter('wall_cells_topic', '/costmap/wall_cells')
+        self.declare_parameter('wall_ids_topic', '/costmap/wall_cell_ids')
+        self.declare_parameter('wall_layer_size_m', 12.0)
+        self.declare_parameter('wall_layer_resolution_m', 0.05)
+        self.declare_parameter('wall_thickness_m', 0.06)
+        self.wall_layer_size_m = float(p('wall_layer_size_m').value)
+        self.wall_layer_res_m = float(p('wall_layer_resolution_m').value)
+        self.wall_thickness_m = float(p('wall_thickness_m').value)
+        self.wall_cells_pub = self.create_publisher(
+            OccupancyGrid, p('wall_cells_topic').value, 1)
+        self.wall_ids_pub = self.create_publisher(
+            Int32MultiArray, p('wall_ids_topic').value, 1)
+        self.wall_sub = self.create_subscription(
+            MultiWallTrackArray, p('wall_tracks_topic').value, self._walls_cb, 10)
+
         self._pose_history: list = []  # [(stamp_sec, (x, y, yaw)), ...]
         self._objects: list = []       # [SemanticObject, ...] (tracks, confirmed + tentative)
         # Caller-owned, never-reused id source for update_tracks_batch()'s
@@ -289,6 +315,55 @@ class SemanticLayerNode(Node):
         self._last_published_marker_keys: set = set()
 
         self.get_logger().info('semantic_layer_node started')
+
+    # ------------------------------------------------------------------
+    def _walls_cb(self, msg):
+        """Rasterise this cycle's CONFIRMED walls into the map-frame layer.
+
+        Rebuilt from scratch every message, never accumulated: that is what
+        makes a track the lifecycle deleted or merged simply stop having
+        cells. An accumulating layer would need its own deletion logic, a
+        second lifecycle to keep in step with the tracker's, and the one that
+        drifts is the one that leaves a wall on the map after the tracker
+        decided it was never there.
+
+        The segments are taken in BASE_LINK (p0_bl/p1_bl) and placed with the
+        pose nearest the message's own stamp, the same "where the car was when
+        it saw this" rule the object tracks already follow -- not whatever
+        pose happens to be latest when this callback runs.
+        """
+        stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        pose = find_nearest_pose_by_stamp(self._pose_history, stamp_sec)
+        if pose is None:
+            return
+        walls = []
+        for track in msg.tracks:
+            if track.state != MultiWallTrack.STATE_CONFIRMED:
+                continue        # a tentative or coasting wall is not a fact
+            p0, p1 = transform_segment(
+                (track.p0_bl.x, track.p0_bl.y), (track.p1_bl.x, track.p1_bl.y), pose)
+            walls.append((int(track.id), str(track.role or track.label), p0, p1))
+
+        cells = max(1, int(round(self.wall_layer_size_m / self.wall_layer_res_m)))
+        origin_x = pose[0] - 0.5 * self.wall_layer_size_m
+        origin_y = pose[1] - 0.5 * self.wall_layer_size_m
+        roles, ids = rasterize_walls(
+            walls, origin_x, origin_y, self.wall_layer_res_m, cells, cells,
+            self.wall_thickness_m)
+
+        grid = OccupancyGrid()
+        grid.header.stamp = msg.header.stamp
+        grid.header.frame_id = self.get_parameter('map_frame').value
+        grid.info.resolution = self.wall_layer_res_m
+        grid.info.width = grid.info.height = cells
+        grid.info.origin.position.x = origin_x
+        grid.info.origin.position.y = origin_y
+        grid.info.origin.orientation.w = 1.0
+        grid.data = roles.ravel().astype(np.int8).tolist()
+        self.wall_cells_pub.publish(grid)
+        # The ids beside the grid, same row-major order, so a consumer can ask
+        # the tracker about a cell. -1 where no wall claims it.
+        self.wall_ids_pub.publish(Int32MultiArray(data=ids.ravel().tolist()))
 
     # ------------------------------------------------------------------
     def _pose_cb(self, msg: Odometry):

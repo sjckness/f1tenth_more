@@ -2722,3 +2722,8 @@ lidar_front_wall_front_strip_half_width_m:
 wall_clear_distance_m:
   default: 50.0
   description: "The value the front wall topics carry when the sensors are working and there is NO wall in the way (wall_fusion.STATE_CLEAR). A large FINITE number, and it is not a wall at 50 m: it means 'nothing ahead'. SHARED -- every producer and consumer of a wall distance reads this one key, so 'clear' is the same number everywhere. It must stay far above any mission's stop threshold and any MPC trigger distance, and consumers must CAP or SKIP it rather than feed it into geometry (MPC_corr treats it as unknown). The state this expresses is what the old pipeline could not: with nothing in the strip the LiDAR reported too_few_returns and the stereo plane -- the SIDE wall -- became the front wall at 1.1 m (corridor_phantom, 2026-10-15)."
+
+# --- wall visualisation and the semantic wall layer (step 7) -----------------
+lidar_front_wall_wall_marker_thickness_m:
+  default: 0.02
+  description: "Thickness [m] of the vertical slab each confirmed wall is drawn as on /perception/walls/markers. A wall is a vertical PLANE, so it is drawn as one rather than as a line on the floor: the slab runs the wall's observed length and stands from z_min to z_max. A wall whose height was only assumed (height_measured false) is drawn fainter, so an assumed 2.5 m is visible at a glance."

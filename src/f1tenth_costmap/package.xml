@@ -21,6 +21,8 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>visualization_msgs</exec_depend>
   <exec_depend>vision_msgs</exec_depend>
+  <!-- MultiWallTrackArray: the wall tracks the semantic layer rasterises. -->
+  <exec_depend>f1tenth_messages</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>tf2_geometry_msgs</exec_depend>
   <!-- BoundaryConstraint/BoundaryConstraintArray - costmap_boundary_node.py

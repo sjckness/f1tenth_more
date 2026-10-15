@@ -696,3 +696,72 @@ class TestTheOutputContract:
         finally:
             for x in (wall_n, clear_n, nodata_n):
                 x.destroy_node()
+
+
+class TestWallMarkers:
+    """Step 7: a wall is drawn as the vertical plane it is."""
+
+    def _publish(self, **track_kw):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('use_wall_tracker', value=True)])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        for i in range(6):
+            n._odom_cb(_odom_at(7.0 + i * 0.05, 0.0))
+            n._scan_cb(_scan_at(2.0, 7.0 + i * 0.05))
+        return n
+
+    def test_each_confirmed_wall_is_a_thin_vertical_slab_coloured_by_role(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            markers = _last(n.walls_markers_pub).markers
+            cubes = [m for m in markers if m.type == Marker.CUBE]
+            assert cubes
+            slab = cubes[0]
+            assert slab.scale.y == pytest.approx(n.wall_marker_thickness_m)
+            assert slab.scale.y <= 0.02
+            assert slab.scale.z > 1.0           # it stands up
+            assert slab.scale.x > 0.1           # and runs along the wall
+            # Red-ish: this one is the front wall.
+            assert slab.color.r > slab.color.b
+        finally:
+            n.destroy_node()
+
+    def test_the_label_says_id_role_distance_source_and_state(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            texts = [m for m in _last(n.walls_markers_pub).markers
+                     if m.type == Marker.TEXT_VIEW_FACING]
+            assert texts
+            words = texts[0].text.split()
+            assert len(words) == 5
+            assert words[1] == 'front'
+            assert words[2].endswith('m')
+            assert words[3] == 'lidar'
+            assert words[4] in ('tentative', 'confirmed', 'coasting')
+        finally:
+            n.destroy_node()
+
+    def test_an_assumed_height_is_drawn_fainter_than_a_measured_one(self):
+        n = self._publish()
+        try:
+            from visualization_msgs.msg import Marker
+            slab = [m for m in _last(n.walls_markers_pub).markers
+                    if m.type == Marker.CUBE][0]
+            assert slab.color.a == pytest.approx(0.35)   # nothing measured it
+        finally:
+            n.destroy_node()
+
+    def test_every_array_starts_by_clearing_so_gone_tracks_disappear(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            assert _last(n.walls_markers_pub).markers[0].action == Marker.DELETEALL
+        finally:
+            n.destroy_node()

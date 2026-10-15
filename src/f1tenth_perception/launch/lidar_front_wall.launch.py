@@ -90,6 +90,7 @@ LIDAR_FRONT_WALL_ARGS = [
     ('role_hysteresis_rad', float),
     ('stereo_front_max_normal_rad', float),
     ('front_strip_half_width_m', float),
+    ('wall_marker_thickness_m', float),
 ]
 
 

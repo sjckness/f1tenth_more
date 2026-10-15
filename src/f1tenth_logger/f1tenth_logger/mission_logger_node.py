@@ -300,6 +300,9 @@ _DEFAULT_TOPICS = [
     '/scan',
     # --- costmap / semantic ---
     '/costmap/semantic_markers',
+    # The wall layer: confirmed walls as map-frame cells carrying their role,
+    # and the track id per cell beside it (wall_raster.py).
+    '/costmap/wall_cells',
     '/costmap/boundaries',
     '/costmap/front_clearance',
     '/slam/map',

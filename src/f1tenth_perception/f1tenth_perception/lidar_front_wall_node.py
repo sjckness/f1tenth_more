@@ -332,6 +332,11 @@ def _yaw_from_quaternion(q):
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
 
 
+#: Marker colours by role (r, g, b).
+_ROLE_COLOUR = {'front': (1.0, 0.25, 0.1), 'left': (0.2, 0.9, 0.3),
+                'right': (0.2, 0.5, 1.0), 'back': (0.6, 0.6, 0.6)}
+
+
 def _stamp_sec(header):
     return header.stamp.sec + header.stamp.nanosec * 1e-9
 
@@ -470,6 +475,7 @@ class LidarFrontWallNode(Node):
         self.obs_stereo_min_columns = int(param('wall_obs_stereo_min_columns', 8))
         self.wall_default_height = float(param('wall_default_height_m', 2.5))
         self.wall_clear_distance_m = float(get_value('wall_clear_distance_m'))
+        self.wall_marker_thickness_m = float(param('wall_marker_thickness_m', 0.02))
         self.side_edge_half_width_m = float(get_value('swept_clearance_body_half_width_m'))
 
         declare_nice_param(self)
@@ -1035,23 +1041,43 @@ class LidarFrontWallNode(Node):
                         if label in ('left', 'right') else math.nan)
             m.is_front = bool(self.wall_tracker.is_front(trk, car, self.front_x))
             out.tracks.append(m)
-            line = Marker()
-            line.header = out.header
-            line.ns, line.id, line.type = 'walls', 2 * trk.id, Marker.LINE_LIST
-            line.scale.x = 0.04
-            line.color.a, line.color.g = 1.0, 0.6
-            line.color.r = 1.0 if label == 'front' else 0.2
-            line.pose.orientation.w = 1.0
-            line.points = [m.p0, m.p1]
+            # A wall is a VERTICAL PLANE, so it is drawn as one: a thin slab
+            # from z_min to z_max, not a line on the floor. The height is the
+            # observed one when the stereo measured it and the default
+            # otherwise, which is visible at a glance because an assumed wall
+            # is always exactly wall_default_height_m tall.
+            (ax, ay), (bx, by) = (x0, y0), (x1, y1)
+            length = math.hypot(bx - ax, by - ay)
+            yaw = math.atan2(by - ay, bx - ax)
+            slab = Marker()
+            slab.header = out.header
+            slab.ns, slab.id, slab.type = 'walls', 2 * trk.id, Marker.CUBE
+            slab.action = Marker.ADD
+            slab.pose.position = Point(x=float(0.5 * (ax + bx)), y=float(0.5 * (ay + by)),
+                                       z=float(0.5 * (trk.z_min + trk.z_max)))
+            slab.pose.orientation.z = math.sin(yaw / 2.0)
+            slab.pose.orientation.w = math.cos(yaw / 2.0)
+            slab.scale.x = max(float(length), 0.01)
+            slab.scale.y = self.wall_marker_thickness_m
+            slab.scale.z = max(float(trk.z_max - trk.z_min), 0.01)
+            r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR['back'])
+            slab.color.r, slab.color.g, slab.color.b = r, g, b
+            # A wall only assumed to be this tall is drawn fainter than one
+            # whose height was actually seen.
+            slab.color.a = 0.65 if trk.height_measured else 0.35
             text = Marker()
             text.header = out.header
             text.ns, text.id, text.type = 'walls', 2 * trk.id + 1, Marker.TEXT_VIEW_FACING
-            text.pose.position = Point(x=float(0.5 * (x0 + x1)), y=float(0.5 * (y0 + y1)), z=0.3)
+            text.action = Marker.ADD
+            text.pose.position = Point(x=float(0.5 * (ax + bx)), y=float(0.5 * (ay + by)),
+                                       z=float(trk.z_max + 0.15))
             text.pose.orientation.w = 1.0
             text.scale.z = 0.2
             text.color.a = text.color.r = text.color.g = text.color.b = 1.0
-            text.text = f'{trk.id}:{label} d={d_perp:.2f}'
-            markers.markers += [line, text]
+            text.text = (f'{trk.id} {label} {d_perp:.2f}m '
+                         f'{wall_fusion.SOURCE_NAMES[trk.source]} '
+                         f'{mwt.STATE_NAMES[trk.state]}')
+            markers.markers += [slab, text]
         self.walls_pub.publish(out)
         self.walls_markers_pub.publish(markers)
 
