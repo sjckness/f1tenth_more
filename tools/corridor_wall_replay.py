@@ -153,6 +153,10 @@ PREFERRED = {
     '/camera/detections_3d': 'the detection sectors cut out of the scan',
 }
 
+#: The producer's own staleness limit (front_clearance_node's watchdog), so
+#: the video and the node agree on what "stale" means.
+MASK_WATCHDOG_AGE_S = float(get_value('front_clearance_scene_mask_watchdog_age_s'))
+
 SRC_NAMES = {0: 'lidar', 1: 'stereo', 2: 'both'}
 STATE_NAMES = {0: 'tentative', 1: 'confirmed', 2: 'coasting'}
 STATUS_ORDER = [wall_fusion.STATUS_AGREE, wall_fusion.STATUS_LIDAR_ONLY,
@@ -1695,6 +1699,12 @@ def draw_camera(src, frame, cam, scale=2):
     put(bar, '  '.join(f'{short_class(k)} {v * 100:4.1f}%' for k, v in counts.items())
         or 'no scene mask', (10, 68), (200, 200, 200), 0.46)
     note = ' (detector-annotated, desaturated)' if source.endswith('/compressed') else ''
+    mask_age = frame.get('mask_age', float('nan'))
+    if math.isfinite(mask_age) and mask_age > MASK_WATCHDOG_AGE_S:
+        # The watchdog's own verdict, where the eye is already looking: on this
+        # run the mask froze at t = 30.5 s and the only trace was this number
+        # growing 1:1 with the video clock.
+        put(bar, f'MASK STALE {mask_age:.1f} s', (10, 116), (0, 200, 255), 0.56)
     put(bar, f'base {source or "none"}{note} age {age:+.2f}s   mask age '
              f'{frame.get("mask_age", float("nan")):.2f}s   cycle age '
              f'{frame.get("row_age", float("nan")):.2f}s   yolo inst {n_inst}',
@@ -1915,8 +1925,11 @@ def draw_panel(src, frame, w=520, h=760):
     y[0] = h - 58
     line(f'cycle age {frame.get("row_age", float("nan")):.2f} s   '
          f'scan age {frame.get("scan_age", float("nan")):.2f} s', (130, 130, 130), 0.42)
-    line(f'mask age {frame.get("mask_age", float("nan")):.2f} s   '
-         f'costmap age {frame.get("clearance_age", float("nan")):.2f} s', (130, 130, 130), 0.42)
+    mask_age = frame.get('mask_age', float('nan'))
+    stale = math.isfinite(mask_age) and mask_age > MASK_WATCHDOG_AGE_S
+    line(f'mask age {mask_age:.2f} s{"  STALE" if stale else ""}   '
+         f'costmap age {frame.get("clearance_age", float("nan")):.2f} s',
+         (0, 200, 255) if stale else (130, 130, 130), 0.42)
     return img
 
 

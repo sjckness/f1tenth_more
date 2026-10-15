@@ -1874,3 +1874,190 @@ class TestInferredFloorTick:
             assert node.front_distance_pub.publish.call_count == 1
         finally:
             node.destroy_node()
+
+
+# ==============================================================================
+# The scene-mask watchdog
+# ==============================================================================
+
+class TestSceneMaskWatchdog:
+    """A topic that stops is invisible to its consumers.
+
+    The LiDAR node holds the last profile it received and reports "LiDAR only"
+    per cycle, which reads the same whether the camera is 0.2 s late or has
+    been dead for 12 s. These assert that the PRODUCER says which, on a timer,
+    whether or not another depth frame ever arrives.
+    """
+
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1,
+              'scene_mask_watchdog_age_s': 1.0, 'scene_mask_watchdog_period_s': 0.5}
+
+    @staticmethod
+    def _camera_info(width=64, height=48, fx=100.0):
+        from sensor_msgs.msg import CameraInfo
+        info = CameraInfo()
+        info.width, info.height = width, height
+        info.k = [fx, 0.0, width / 2.0, 0.0, fx, height / 2.0, 0.0, 0.0, 1.0]
+        return info
+
+    def _node(self, extra=None, clock=None):
+        node = _construct({**self.PARAMS, **(extra or {})})
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        node.scene_mask_image_pub.publish = MagicMock()
+        node.stereo_columns_pub.publish = MagicMock()
+        node.mask_health_pub.publish = MagicMock()
+        node._camera_info_callback(self._camera_info())
+        if clock is not None:
+            node._now_seconds = lambda: clock[0]
+        return node
+
+    @staticmethod
+    def _health(node):
+        import json
+        return json.loads(node.mask_health_pub.publish.call_args[0][0].data)
+
+    def test_the_watchdog_is_a_timer_so_it_fires_without_a_depth_frame(self):
+        """The failure it reports is depth_callback not being called, so it
+        cannot live inside depth_callback."""
+        node = self._node()
+        try:
+            assert node.watchdog_timer is not None
+            assert node.watchdog_timer.timer_period_ns == 500_000_000
+        finally:
+            node.destroy_node()
+
+    def test_before_the_first_tick_it_reports_never_ticked(self):
+        node = self._node()
+        try:
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is True
+            assert h['reason'] == 'never_ticked'
+            assert h['tick_age_s'] is None and h['depth_age_s'] is None
+            assert h['max_age_s'] == pytest.approx(1.0)
+        finally:
+            node.destroy_node()
+
+    def test_a_live_mask_is_not_stale_and_carries_its_three_ages(self):
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            clock[0] = 100.2
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is False
+            assert h['reason'] is None
+            assert h['depth_age_s'] == pytest.approx(0.2)
+            assert h['tick_age_s'] == pytest.approx(0.2)
+            # The profile's own IMAGE stamp, which is the age the LiDAR node's
+            # pairing actually sees.
+            assert h['profile_age_s'] == pytest.approx(0.2)
+            assert h['depth_topic'] == node.depth_topic
+        finally:
+            node.destroy_node()
+
+    def test_a_camera_that_stopped_is_reported_as_no_depth(self):
+        """The corridor10m case: the ZED wrapper's depth output collapsed and
+        nothing this node does can help -- but it must SAY so."""
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            clock[0] = 112.0          # 12 s later, as in the run
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is True
+            assert h['reason'] == 'no_depth'
+            assert h['depth_age_s'] == pytest.approx(12.0)
+            assert h['tick_age_s'] == pytest.approx(12.0)
+            assert h['profile_age_s'] == pytest.approx(12.0)
+        finally:
+            node.destroy_node()
+
+    def test_depth_arriving_while_the_tick_does_not_is_reported_differently(self):
+        """The other failure, and the one that WOULD be the node's fault: the
+        frames are there and the tick is not running."""
+        clock = [100.0]
+        node = self._node({'scene_mask_rate_hz': 0.001}, clock=clock)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            # The rate limit means later frames arrive but never tick.
+            clock[0] = 102.0
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=102))
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is True
+            assert h['reason'] == 'tick_not_running'
+            assert h['depth_age_s'] == pytest.approx(0.0)
+            assert h['tick_age_s'] == pytest.approx(2.0)
+        finally:
+            node.destroy_node()
+
+    def test_a_tick_that_died_half_way_does_not_count_as_one(self):
+        """The mark is set after the publishes: a tick that raised in the
+        middle has published nothing a consumer can use."""
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node.scene_mask_stats_pub.publish = MagicMock(
+                side_effect=RuntimeError('boom'))
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            clock[0] = 102.0
+            node._publish_mask_health()
+            assert self._health(node)['reason'] == 'never_ticked'
+        finally:
+            node.destroy_node()
+
+    def test_the_watchdog_can_be_switched_off_entirely(self):
+        node = self._node({'scene_mask_watchdog_period_s': 0.0})
+        try:
+            assert node.watchdog_timer is None
+        finally:
+            node.destroy_node()
+
+    def test_recovery_is_logged_once_rather_than_held(self):
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node._publish_mask_health()
+            assert node._watchdog_stale is True
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            node._publish_mask_health()
+            assert node._watchdog_stale is False
+            assert self._health(node)['stale'] is False
+        finally:
+            node.destroy_node()
+
+    def test_the_column_row_stride_decimates_before_the_percentile(self):
+        """The one lever on the tick's most expensive stage, and what it costs:
+        n_px must report the pixels the summary was TAKEN over, not the
+        pre-stride count -- that count is what min_px is compared against."""
+        full = self._node()
+        strided = self._node({'scene_mask_column_row_stride': 2})
+        try:
+            for node in (full, strided):
+                node.stereo_columns_pub.publish = MagicMock()
+                node.depth_callback(_depth_msg(
+                    np.full((48, 64), 2.0, dtype=np.float32)))
+            a = full.stereo_columns_pub.publish.call_args[0][0]
+            b = strided.stereo_columns_pub.publish.call_args[0][0]
+            assert sum(a.n_px) > 0
+            # Half the pixels, within the rounding of an odd count per column.
+            assert abs(sum(b.n_px) - sum(a.n_px) / 2) <= len(a.n_px)
+            # And the distance it reports is the same surface.
+            pairs = [(x, y) for x, y in zip(a.distance_m, b.distance_m)
+                     if np.isfinite(x) and np.isfinite(y)]
+            assert len(pairs) > 20
+            assert max(abs(x - y) for x, y in pairs) < 0.05
+        finally:
+            full.destroy_node()
+            strided.destroy_node()

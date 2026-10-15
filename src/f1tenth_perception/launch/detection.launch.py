@@ -287,6 +287,7 @@ def generate_launch_description():
         ('scene_mask_cloud_stride', int),
         ('scene_mask_column_percentile', float),
         ('scene_mask_column_min_px', int),
+        ('scene_mask_column_row_stride', int),
         # The LiDAR-inferred floor class (inferred_floor.py).
         ('inferred_floor_enabled', bool),
         ('inferred_floor_r_max_m', float),
@@ -294,6 +295,9 @@ def generate_launch_description():
         ('inferred_floor_window_k', int),
         ('inferred_floor_sigma_beams', float),
         ('inferred_floor_max_scan_age_s', float),
+        # The scene-mask watchdog.
+        ('scene_mask_watchdog_age_s', float),
+        ('scene_mask_watchdog_period_s', float),
     ]
     front_clearance_las = []
     for _name, _type in _front_clearance_args:

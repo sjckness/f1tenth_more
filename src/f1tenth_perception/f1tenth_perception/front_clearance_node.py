@@ -603,6 +603,13 @@ class FrontClearanceNode(Node):
         self.scene_mask_cloud_stride = max(1, int(p('scene_mask_cloud_stride', 4)))
         self.stereo_col_percentile = float(p('scene_mask_column_percentile', 20.0))
         self.stereo_col_min_px = int(p('scene_mask_column_min_px', 5))
+        # Row decimation of the column summary. The per-column percentile is
+        # the single most expensive stage of the tick -- 8.5 ms of 21.8 on an
+        # idle Orin, and 5.8 of that is one sort over every WALL pixel
+        # (tools/mask_stage_profile.py). The sort is linear in that count and
+        # the count is ~110 px per column against min_px 5, so a stride is the
+        # one lever that moves it. 1 keeps every pixel.
+        self.stereo_col_row_stride = max(1, int(p('scene_mask_column_row_stride', 1)))
         # The car's own LiDAR housing is NOT a second calibration: it is the
         # lidar_exclusion_* rectangle yolo_detector_node already applies to
         # detections. An explicit polygon list overrides it; empty derives it,
@@ -635,6 +642,20 @@ class FrontClearanceNode(Node):
         self.inferred_floor_max_scan_age = float(p('inferred_floor_max_scan_age_s', 0.15))
         self._floor_lut = None      # inferred_floor.FloorLut, rebuilt on any change
         self._inferred_floor_stats = None
+
+        # ---- the scene-mask watchdog ----------------------------------------
+        # A topic that stops is invisible to its consumers: the LiDAR node
+        # holds the last profile it received and reports "LiDAR only" per
+        # cycle, which reads the same whether the camera is 0.2 s late or has
+        # been dead for 12 s. This says which, every tick, whether or not a
+        # depth frame ever arrives again.
+        self.watchdog_age_s = float(p('scene_mask_watchdog_age_s', 1.0))
+        watchdog_period = float(p('scene_mask_watchdog_period_s', 0.5))
+        self.watchdog_period = watchdog_period if watchdog_period > 0.0 else 0.0
+        self._last_depth_time = None     # node clock, a depth MESSAGE arrived
+        self._last_tick_time = None      # node clock, a mask tick completed
+        self._last_profile_stamp = None  # the IMAGE stamp of the last profile
+        self._watchdog_stale = False
 
         # ---- too-close (-Inf) short-circuit --------------------------------
         # See the module docstring's own "-Inf AND NaN/+Inf ARE NOT THE SAME
@@ -816,6 +837,8 @@ class FrontClearanceNode(Node):
                 String, '/perception/scene_labels/stats', 10)
             self.stereo_columns_pub = self.create_publisher(
                 StereoColumns, '/perception/stereo_columns', 10)
+            self.mask_health_pub = self.create_publisher(
+                String, '/perception/scene_labels/health', 10)
             self.create_subscription(
                 Image, self.scene_mask_image_topic, self._image_callback, LATEST_FRAME_QOS)
             self.create_subscription(
@@ -829,6 +852,14 @@ class FrontClearanceNode(Node):
         # the 2026-10-13 bags against 52-55 ms for the depth itself).
         self.depth_sub = self.create_subscription(
             Image, self.depth_topic, self.depth_callback, LATEST_FRAME_QOS)
+
+        # The watchdog is a TIMER, not a check inside depth_callback: the
+        # failure it exists to report is depth_callback not being called, and
+        # a check that lives there cannot report its own absence.
+        self.watchdog_timer = None
+        if self.scene_mask_enabled and self.watchdog_period > 0.0:
+            self.watchdog_timer = self.create_timer(
+                self.watchdog_period, self._publish_mask_health)
 
         apply_nice(self)
 
@@ -1181,9 +1212,80 @@ class FrontClearanceNode(Node):
             'inferred_floor': self._inferred_floor_stats,
         })
         self.scene_mask_stats_pub.publish(String(data=json.dumps(stats)))
+        # The watchdog's "a tick completed" mark: after the publishes, so a
+        # tick that died half way through does not count as one.
+        self._last_tick_time = now
 
         if self.scene_mask_image_pub.get_subscription_count() > 0:
             self._publish_scene_mask_overlay(labels, header, (fx, fy, cx, cy), rot, trans)
+
+    def _publish_mask_health(self):
+        """The scene mask's own liveness, on /perception/scene_labels/health.
+
+        Three ages, because they fail separately and the difference between
+        them is the whole diagnosis:
+
+          depth_age_s    since a depth MESSAGE arrived. Large means the camera
+                         or the ZED wrapper stopped, and nothing this node
+                         does can help. On corridor10m_20261015T171753 this is
+                         the one that went: the wrapper's own depth
+                         camera_info -- a few hundred bytes, under no recorder
+                         pressure -- fell from 65 messages per 10 s to 6
+                         between t = 30 s and t = 40 s, while /scan and
+                         /odometry/filtered dropped by a third over the same
+                         window. The camera stopped; the node did not.
+          tick_age_s     since a mask tick COMPLETED. Large while depth_age_s
+                         is small is the node's own fault: the tick is
+                         throttled to scene_mask_rate_hz, is raising, or is
+                         taking longer than the budget.
+          profile_age_s  the published profile's own IMAGE stamp against now.
+                         This is the age the LiDAR node's pairing actually
+                         sees, so it is the one to compare against
+                         stereo_profile_max_age_s over there.
+
+        `stale` is the published verdict, and the WARN is throttled: a stall
+        lasting 12 s must be one log line a second at most, not one per tick.
+        """
+        now = self._now_seconds()
+
+        def age(then):
+            return None if then is None else round(now - then, 3)
+
+        profile_age = None
+        if self._last_profile_stamp is not None:
+            profile_age = round(now - self._last_profile_stamp, 3)
+        payload = {
+            'stamp': round(now, 3),
+            'depth_age_s': age(self._last_depth_time),
+            'tick_age_s': age(self._last_tick_time),
+            'profile_age_s': profile_age,
+            'max_age_s': self.watchdog_age_s,
+            'depth_topic': self.depth_topic,
+            'rate_hz': (None if not math.isfinite(self.scene_mask_period)
+                        else round(1.0 / self.scene_mask_period, 2)),
+        }
+        stale = (self._last_tick_time is None
+                 or now - self._last_tick_time > self.watchdog_age_s)
+        payload['stale'] = bool(stale)
+        payload['reason'] = (
+            None if not stale
+            else 'never_ticked' if self._last_tick_time is None
+            else 'no_depth' if (self._last_depth_time is None
+                                or now - self._last_depth_time > self.watchdog_age_s)
+            else 'tick_not_running')
+        self.mask_health_pub.publish(String(data=json.dumps(payload)))
+        if stale:
+            self.get_logger().warn(
+                f'scene mask STALE ({payload["reason"]}): last tick '
+                f'{payload["tick_age_s"]} s ago, last depth frame '
+                f'{payload["depth_age_s"]} s ago on "{self.depth_topic}", limit '
+                f'{self.watchdog_age_s:.2f} s. Every consumer of '
+                '/perception/stereo_columns is reading a profile that old.',
+                throttle_duration_sec=1.0)
+        elif self._watchdog_stale:
+            self.get_logger().info(
+                f'scene mask alive again: tick {payload["tick_age_s"]} s ago')
+        self._watchdog_stale = bool(stale)
 
     def _infer_floor(self, labels, header, k, rot, trans):
         """Relabel the no-depth pixels the LiDAR says are empty floor.
@@ -1262,8 +1364,20 @@ class FrontClearanceNode(Node):
         stats['applied_px'] = applied
 
     def _publish_stereo_columns(self, header, depth, rows, cols, points, width, height, k):
-        """The per-column stereo summary the fusion consumes (StereoColumns.msg)."""
+        """The per-column stereo summary the fusion consumes (StereoColumns.msg).
+
+        scene_mask_column_row_stride decimates the WALL pixels first. The
+        percentile and the extent are both order statistics over ~110 pixels
+        per column, and the cost of both is linear in that count, so a stride
+        of 2 halves the most expensive stage of the tick. `n_px` is the count
+        the summary was actually taken over, not the pre-stride one: it is
+        what min_px is compared against, and reporting the larger number would
+        claim evidence that was not used.
+        """
         fx, fy, cx, cy = k
+        stride = self.stereo_col_row_stride
+        if stride > 1 and rows.size:
+            rows, cols, points = rows[::stride], cols[::stride], points[::stride]
         depths = depth[rows, cols] if rows.size else np.empty(0)
         distance, n_px = wall_fusion.column_ranges(
             cols, depths, width, percentile=self.stereo_col_percentile,
@@ -1283,6 +1397,8 @@ class FrontClearanceNode(Node):
         msg.percentile = float(self.stereo_col_percentile)
         msg.min_px = int(self.stereo_col_min_px)
         self.stereo_columns_pub.publish(msg)
+        # The IMAGE stamp, which is the age the LiDAR node's pairing sees.
+        self._last_profile_stamp = perception_debug.stamp_to_sec(msg.header.stamp)
 
     def _publish_scene_mask_overlay(self, labels, header, k, rot, trans):
         """The class-coloured overlay on the left image, scan points on top."""
@@ -1539,6 +1655,7 @@ class FrontClearanceNode(Node):
             return
 
         now = self._now_seconds()
+        self._last_depth_time = now
         h, w = depth.shape[:2]
 
         # 1. Object-exclusion confidence, refreshed every frame (see module

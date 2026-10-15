@@ -661,6 +661,22 @@ front_clearance_inferred_floor_max_scan_age_s:
   default: 0.15
   description: "Largest |scan stamp - mask stamp| [s] the inference will use. Past it the cycle is SKIPPED and every pixel keeps the class classify gave it: an older scan describes a different place, and a wrong floor is worse than no floor. Matches lidar_front_wall_stereo_columns_max_age_s, the pairing limit the LiDAR/stereo cross-check already uses for the same two sensors."
 
+# --- scene-mask watchdog ------------------------------------------------------
+# A topic that stops is invisible to its consumers: the LiDAR node holds the
+# last profile it received and reports "LiDAR only" per cycle, which reads the
+# same whether the camera is 0.2 s late or has been dead for 12 s. On
+# corridor10m_20261015T171753 the ZED wrapper's depth output collapsed from
+# t = 30 s (its own depth camera_info -- a few hundred bytes, under no recorder
+# pressure -- fell from 65 messages per 10 s to 6, while /scan and
+# /odometry/filtered dropped by a third over the same window), and the only
+# trace in the stack was a mask age growing 1:1 in the debug video.
+front_clearance_scene_mask_watchdog_age_s:
+  default: 1.0
+  description: "How old [s] the last completed scene-mask tick may be before the node calls itself STALE on /perception/scene_labels/health and logs a throttled WARN. 1.0 s is five ticks at scene_mask_rate_hz 5: long enough that a single slow tick or one dropped depth frame is not an alarm, short enough that a consumer reading a profile that old finds out from the producer rather than from a video. 0 keeps the topic but never flags."
+front_clearance_scene_mask_watchdog_period_s:
+  default: 0.5
+  description: "Period [s] of the watchdog timer, i.e. how often /perception/scene_labels/health is published. It is a TIMER and not a check inside the depth callback on purpose: the failure it reports is the depth callback not being called, and a check that lives there cannot report its own absence. 0 disables the watchdog entirely (no timer, no topic traffic)."
+
 
 # ============================================================
 # LiDAR front wall (f1tenth_perception/lidar_front_wall_node.py)
@@ -2693,6 +2709,9 @@ front_clearance_scene_mask_column_percentile:
 front_clearance_scene_mask_column_min_px:
   default: 5
   description: "Fewest WALL pixels in a column for it to have a stereo distance at all; below this the column reports NaN ('nothing to say'), which is a third state and never a distance."
+front_clearance_scene_mask_column_row_stride:
+  default: 1
+  description: "Keep every Nth WALL pixel before summarising the per-column stereo profile. The per-column percentile is the single most expensive stage of the scene-mask tick -- 8.5 ms of 21.8 on an idle Orin, 5.8 ms of which is ONE sort over every WALL pixel (tools/mask_stage_profile.py) -- and that sort is linear in the pixel count. With a median 135 WALL pixels per non-empty column against min_px 5, a stride of 2 halves the stage and still leaves 67 per column (p05 20). 1, the default, keeps today's behaviour exactly: the saving is real but it changes a PUBLISHED profile, so it is opt-in until a run has been compared with it on."
 lidar_front_wall_stereo_columns_max_age_s:
   default: 0.15
   description: "A /perception/stereo_columns profile is paired with a scan only when |t_scan - t_image| is under this [s], measured on the CAMERA IMAGE stamp the message carries, not its arrival. Unpaired, the profile is not used at all: those columns become LIDAR_ONLY or EMPTY and every line is emitted SOURCE_LIDAR, never a stale STEREO_ONLY -- a stereo-only span is the one path that can create a wall out of nothing, and it must never be built from a frame describing a different moment. 0.15 s is bounded by what motion compensation can still fix: at 0.5 m/s it is 7 cm of travel (harmless) but up to 7 deg of yaw at this car's 0.6 m minimum radius, which is a 32-column shift at fx 262 px and IS compensated from odometry (lidar_front_wall_node._compensate)."

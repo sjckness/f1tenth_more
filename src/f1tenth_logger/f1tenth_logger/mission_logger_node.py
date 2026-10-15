@@ -291,6 +291,10 @@ _DEFAULT_TOPICS = [
     # overlay image is NOT recorded by default -- it is only rendered when
     # something subscribes, and a bgr8 frame at 5 Hz is ~3.5 MB/s.
     '/perception/scene_labels/stats',
+    # The scene mask's own liveness (front_clearance_node's watchdog): the
+    # three ages that tell a camera stall apart from a node stall, published
+    # on a timer so it keeps arriving exactly when the mask does not.
+    '/perception/scene_labels/health',
     '/perception/wall_points',
     # The per-cycle fusion: the stereo's column profile and the stateless wall
     # observations the tracker consumes. Both are small and both are the
