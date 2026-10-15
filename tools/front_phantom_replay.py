@@ -48,8 +48,12 @@ The per-scan comparison against the recorded values is the check that this
 model is close enough.
 
 THE TRUE STRIP RANGE is the nearest /scan return ahead of the bumper inside
-|y| < body_half_width + 0.10 m (swept_clearance_body_half_width_m), from the
-bumper. It sees only the laser plane (z = 0.19 m).
+the car-width strip, from the bumper. The strip is
+vehicle_frames.front_side_limit_m() (0.186 m: swept_clearance_body_half_width_m
+0.136 plus front_beside_body_margin_m 0.05) -- the ONE strip the whole stack
+shares, so this tool and the live pipeline mean the same thing by "in the way".
+It used to add its own 0.10 m margin instead, making the strip 0.236 m. It sees
+only the laser plane (z = 0.19 m).
 
 OUTPUTS per bag in --out: <name>.info.txt (topic counts, rates, gaps,
 flags), <name>.scans.csv (one row per replayed scan: recorded vs replay),
@@ -87,7 +91,8 @@ from rosidl_runtime_py.utilities import get_message  # noqa: E402
 from corridor_perception.geometry import Pose2D  # noqa: E402
 from f1tenth_costmap.costmap_boundary import nearest_occupied_in_window  # noqa: E402
 from f1tenth_costmap.costmap_boundary_node import CostmapBoundaryNode  # noqa: E402
-from f1tenth_description.vehicle_frames import base_front_x  # noqa: E402
+from f1tenth_description.vehicle_frames import (  # noqa: E402
+    base_front_x, front_side_limit_m)
 from f1tenth_logger.mission_debug_video import write_mp4  # noqa: E402
 from f1tenth_params.param_defaults import get_value  # noqa: E402
 from f1tenth_perception import scene_labels  # noqa: E402
@@ -95,7 +100,6 @@ from f1tenth_perception.ground_plane import back_project  # noqa: E402
 from f1tenth_perception.lidar_front_wall import REASON_NAMES  # noqa: E402
 
 WS = Path(__file__).resolve().parents[1]
-STRIP_MARGIN_M = 0.10
 VIDEO_HZ = 10.0
 PHANTOM_MARGIN_M = 0.5      # a front value this much short of the true strip range
 PHANTOM_MIN_S = 0.3         # ... for at least this long is a phantom episode
@@ -965,7 +969,7 @@ def run_bag(path, out_dir, map_bag, video):
     print(info)
 
     front_x = base_front_x()
-    half = float(get_value('swept_clearance_body_half_width_m')) + STRIP_MARGIN_M
+    half = front_side_limit_m()
     to_base = slr.static_tf([m for _t, m in bag.get('/tf_static')])
     odom = OdomTrack(bag.get('/odometry/filtered'))
     tfpose = TfMapPose(bag.get('/tf'))

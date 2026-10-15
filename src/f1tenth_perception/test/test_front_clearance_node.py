@@ -1590,3 +1590,16 @@ class TestSceneMaskTick:
             assert not mask[47, 63]      # the housing rectangle is gone
         finally:
             node.destroy_node()
+
+    def test_the_column_profile_carries_the_camera_image_stamp(self):
+        """The fusion pairs on this stamp, so it must be the image's own, not
+        the time the message was built."""
+        node = self._node()
+        node.stereo_columns_pub.publish = MagicMock()
+        try:
+            node.depth_callback(_depth_msg(
+                np.full((48, 64), 2.0, dtype=np.float32), stamp_sec=11, stamp_nsec=250000000))
+            msg = node.stereo_columns_pub.publish.call_args[0][0]
+            assert (msg.header.stamp.sec, msg.header.stamp.nanosec) == (11, 250000000)
+        finally:
+            node.destroy_node()

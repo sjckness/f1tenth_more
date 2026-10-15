@@ -15,9 +15,12 @@
 # nothing to say about this bearing" is a third state, and a consumer that
 # treats it as a distance will brake for it.
 #
-# header.stamp is the DEPTH frame's own stamp (not the time this was built)
-# and header.frame_id is the base frame the heights are measured in, so the
-# fusion can age it and place it without a second lookup.
+# header.stamp IS THE CAMERA IMAGE STAMP -- the depth frame these columns were
+# summarised from, not the time this message was built. The consumer pairs it
+# with its own scan on that basis and REJECTS the pair when the two stamps are
+# too far apart, so an exposure time that drifts from the publish time must not
+# be hidden here. header.frame_id is the base frame the heights are measured
+# in, so the fusion can place them without a second lookup.
 std_msgs/Header header
 
 string camera_frame         # the DEPTH image's own optical frame, so the

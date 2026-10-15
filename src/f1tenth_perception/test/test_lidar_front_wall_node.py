@@ -328,6 +328,32 @@ class TestMultiWallTracker:
             n.destroy_node()
 
 
+def _scan_at(distance, stamp, yaw_deg=0.0):
+    """A scan at a float stamp; yaw_deg rotates the wall in the laser frame."""
+    sec = int(stamp)
+    msg = _scan(distance=distance, stamp_sec=sec)
+    msg.header.stamp.nanosec = int(round((stamp - sec) * 1e9))
+    if yaw_deg:
+        yaw = math.radians(yaw_deg)
+        angles = ANGLE_MIN + np.arange(N_BEAMS) * ANGLE_INCREMENT
+        ranges = np.full(N_BEAMS, np.inf)
+        ahead = np.cos(angles - yaw) > 0.05
+        ranges[ahead] = (distance - LASER_X) / np.cos(angles[ahead] - yaw)
+        msg.ranges = [float(r) for r in ranges.astype(np.float32)]
+    return msg
+
+
+def _odom_at(stamp, yaw):
+    msg = Odometry()
+    msg.header.frame_id = 'odom'
+    msg.header.stamp.sec = int(stamp)
+    msg.header.stamp.nanosec = int(round((stamp - int(stamp)) * 1e9))
+    msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
+    msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
+    msg.twist.twist.linear.x = 0.5
+    return msg
+
+
 # ==============================================================================
 # Step 3: the stateless per-cycle fusion -> /perception/wall_observations
 # ==============================================================================
@@ -371,6 +397,13 @@ class TestWallObservations:
         msg.n_px = [20] * width
         msg.percentile = 20.0
         msg.min_px = 5
+        return msg
+
+    @classmethod
+    def _columns_at(cls, distance_m, stamp, width=64):
+        msg = cls._columns(distance_m, width=width)
+        msg.header.stamp.sec = int(stamp)
+        msg.header.stamp.nanosec = int(round((stamp - int(stamp)) * 1e9))
         return msg
 
     @staticmethod
@@ -425,35 +458,89 @@ class TestWallObservations:
         finally:
             n.destroy_node()
 
-    def test_a_fresh_agreeing_profile_makes_the_wall_sourced_both(self):
+    def test_columns_just_past_the_pairing_window_are_not_used(self):
+        """Paired on the camera IMAGE stamp, not on arrival. One frame too old
+        and the cycle is LiDAR only -- never a stale STEREO_ONLY, which is the
+        one path that can create a wall out of nothing."""
         n = self._node()
         try:
             n._tf_static_cb(self._camera_tf())
-            # The wall is 2.0 m from base_link, so about 1.77 m of optical
-            # depth from a lens 0.23 m ahead of it.
-            n._stereo_columns_cb(self._columns([1.77] * 64, stamp_sec=7))
-            n._scan_cb(_scan(distance=2.0, stamp_sec=7))
+            limit = n.obs_max_age
+            assert limit == pytest.approx(0.15)
+            # Inside the window: the stereo is used and agrees.
+            n._stereo_columns_cb(self._columns_at([1.77] * 64, 7.0 - 0.9 * limit))
+            n._scan_cb(_scan_at(2.0, 7.0))
+            assert any(o.source == o.SOURCE_BOTH
+                       for o in _last(n.observations_pub).observations)
+            # Just outside it: the same data is refused.
+            n._stereo_columns_cb(self._columns_at([1.77] * 64, 7.0 - 1.1 * limit))
+            n._scan_cb(_scan_at(2.0, 7.0))
             msg = _last(n.observations_pub)
-            assert msg.observations, 'the LiDAR saw a wall'
-            assert any(o.source == o.SOURCE_BOTH for o in msg.observations)
-            both = [o for o in msg.observations if o.source == o.SOURCE_BOTH][0]
-            assert both.n_agree > 0
-            assert both.height_measured is True
-            assert both.z_max == pytest.approx(1.5)
-            assert both.confidence > 0.0
+            assert msg.observations
+            assert all(o.source == o.SOURCE_LIDAR for o in msg.observations)
         finally:
             n.destroy_node()
 
-    def test_a_contradicting_profile_rejects_the_wall_and_says_so(self):
+    def test_compensation_carries_the_scan_by_the_odometry_yaw(self):
+        """The mechanism: a point fixed in the world, seen from a car that has
+        turned 7 deg, moves by 7 deg in base_link."""
+        n = self._node()
+        try:
+            n._odom_cb(_odom_at(7.00, 0.0))
+            n._odom_cb(_odom_at(7.12, math.radians(7.0)))
+            pts = np.array([[2.0, 0.0, 0.19]])
+            out = n._compensate(pts, scan_stamp=7.12, image_stamp=7.00)
+            # Carried BACK to the image moment: the car had not yet turned, so
+            # the point sits 7 deg to the other side.
+            assert math.degrees(math.atan2(out[0, 1], out[0, 0])) == pytest.approx(7.0, abs=0.1)
+            assert math.hypot(out[0, 0], out[0, 1]) == pytest.approx(2.0, abs=1e-6)
+            assert out[0, 2] == pytest.approx(0.19)
+        finally:
+            n.destroy_node()
+
+    def test_a_turning_car_does_not_shift_the_projected_columns(self):
+        """7 deg of yaw in 0.12 s is a ~32-column shift at fx 262. Compensated,
+        the wall lands on the columns the image actually saw; uncompensated it
+        does not, and every AGREE would become DISAGREE."""
+        from f1tenth_perception import scene_mask
+        from f1tenth_perception.ground_plane import quat_to_matrix
         n = self._node()
         try:
             n._tf_static_cb(self._camera_tf())
-            n._stereo_columns_cb(self._columns([6.0] * 64, stamp_sec=7))
-            n._scan_cb(_scan(distance=2.0, stamp_sec=7))
-            msg = _last(n.observations_pub)
-            assert msg.n_rejected >= 1
-            assert msg.n_disagree_columns > 0
-            assert all(o.source != o.SOURCE_BOTH for o in msg.observations)
+            n._odom_cb(_odom_at(7.00, 0.0))
+            n._odom_cb(_odom_at(7.12, math.radians(7.0)))
+            tf = n._camera_transform('zed_optical')
+            assert tf is not None
+            rot, trans = tf
+            fx = 262.4
+
+            def columns(points):
+                uv = scene_mask.project_to_image(points, fx, fx, 320.0, 180.0, rot, trans)
+                return uv[np.isfinite(uv[:, 0]), 0]
+
+            # The same world point, seen by a car that has since turned.
+            pts = np.array([[2.0, 0.0, 0.19]])
+            bare = columns(pts)
+            carried = columns(n._compensate(pts, scan_stamp=7.12, image_stamp=7.00))
+            assert abs(carried[0] - bare[0]) > 25.0
+            # And the carried column is where the image, taken before the
+            # left turn, really saw that point. The bearing is from the LENS,
+            # 0.2299 m ahead of base_link, not from base_link -- that offset
+            # is 4 px here and is part of the geometry, not slack. base_link
+            # +y is a SMALLER column.
+            carried_pt = n._compensate(pts, scan_stamp=7.12, image_stamp=7.00)[0]
+            expected = 320.0 - fx * (carried_pt[1] / (carried_pt[0] - 0.2299))
+            assert carried[0] == pytest.approx(expected, abs=0.5)
+            assert carried[0] < 320.0
+        finally:
+            n.destroy_node()
+
+    def test_compensation_is_skipped_without_odometry_rather_than_failing(self):
+        n = self._node()
+        try:
+            pts = np.array([[2.0, 0.0, 0.19]])
+            out = n._compensate(pts, scan_stamp=7.12, image_stamp=7.00)
+            assert out is pts or np.allclose(out, pts)
         finally:
             n.destroy_node()
 

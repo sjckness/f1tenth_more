@@ -2663,9 +2663,9 @@ front_clearance_scene_mask_column_percentile:
 front_clearance_scene_mask_column_min_px:
   default: 5
   description: "Fewest WALL pixels in a column for it to have a stereo distance at all; below this the column reports NaN ('nothing to say'), which is a third state and never a distance."
-lidar_front_wall_wall_obs_stereo_max_age_s:
-  default: 0.3
-  description: "A /perception/stereo_columns profile older than this is not used for the cross-check, and every LiDAR line is emitted as SOURCE_LIDAR instead. Same 0.3 s as front_clearance_scene_wall_max_age_s, the other camera/LiDAR pairing window in this stack. The stereo runs at 5 Hz, so this is about 1.5 frames."
+lidar_front_wall_stereo_columns_max_age_s:
+  default: 0.15
+  description: "A /perception/stereo_columns profile is paired with a scan only when |t_scan - t_image| is under this [s], measured on the CAMERA IMAGE stamp the message carries, not its arrival. Unpaired, the profile is not used at all: those columns become LIDAR_ONLY or EMPTY and every line is emitted SOURCE_LIDAR, never a stale STEREO_ONLY -- a stereo-only span is the one path that can create a wall out of nothing, and it must never be built from a frame describing a different moment. 0.15 s is bounded by what motion compensation can still fix: at 0.5 m/s it is 7 cm of travel (harmless) but up to 7 deg of yaw at this car's 0.6 m minimum radius, which is a 32-column shift at fx 262 px and IS compensated from odometry (lidar_front_wall_node._compensate)."
 lidar_front_wall_wall_obs_tol_base_m:
   default: 0.05
   description: "Constant part of the LiDAR/stereo agreement tolerance [m]: the part that does not come from stereo range noise (extrinsic error, the scan plane vs the column, timing). UNTUNED against a bag with depth."

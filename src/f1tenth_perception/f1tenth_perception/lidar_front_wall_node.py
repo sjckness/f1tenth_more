@@ -428,7 +428,7 @@ class LidarFrontWallNode(Node):
         self._next_cost_log = None
 
         # ---- step 3: per-cycle fusion ---------------------------------------
-        self.obs_max_age = float(param('wall_obs_stereo_max_age_s', 0.3))
+        self.obs_max_age = float(param('stereo_columns_max_age_s', 0.15))
         self.obs_tol_base_m = float(param('wall_obs_tol_base_m', 0.05))
         self.obs_tol_quad = float(param('wall_obs_tol_quad_per_m2', 0.012))
         self.obs_disagree_reject_frac = float(param('wall_obs_disagree_reject_frac', 0.5))
@@ -505,7 +505,9 @@ class LidarFrontWallNode(Node):
         yaw = _yaw_from_quaternion(pose.orientation)
         self.estimator.update_odometry(self._now(), pose.position.x, pose.position.y, yaw)
         self.virtual.update_pose(pose.position.x, pose.position.y, yaw)
-        if self.wall_tracker is not None:
+        if self.wall_tracker is not None or self.scene_enabled:
+            # Also with the tracker off: the per-cycle fusion needs these two
+            # poses to carry the scan to the camera's moment (_compensate).
             stamp = msg.header.stamp
             self._poses.add(stamp.sec + stamp.nanosec * 1e-9,
                             pose.position.x, pose.position.y, yaw)
@@ -585,6 +587,9 @@ class LidarFrontWallNode(Node):
         # the right columns through a pitched mount.
         scan_xyz = np.column_stack([pts, np.full(len(pts), self._laser_z())]) \
             if len(pts) else np.empty((0, 3))
+        # The columns describe the scene at the IMAGE stamp; carry the scan
+        # there before projecting, or a turning car shifts every column.
+        scan_xyz = self._compensate(scan_xyz, scan_stamp, _stamp_sec(profile.header))
         scan_uv = project(scan_xyz)
         scan_depth = ((scan_xyz - trans) @ rot)[:, 2] if len(scan_xyz) else np.empty(0)
 
@@ -613,12 +618,56 @@ class LidarFrontWallNode(Node):
             stamp, self.base_frame, observations, rejected, n_disagree))
 
     def _fresh_profile(self, scan_stamp):
-        """The latest StereoColumns if it describes roughly this scan, else None."""
+        """The latest StereoColumns if it is PAIRED with this scan, else None.
+
+        Paired means |t_scan - t_image| < stereo_columns_max_age_s, on the
+        camera IMAGE stamp the message carries, not its arrival. An unpaired
+        profile is not used at all: its columns become LIDAR_ONLY or EMPTY,
+        never a stale STEREO_ONLY, because a stereo-only span is the one path
+        that can create a wall out of nothing and it must never be created
+        from a frame that describes a different moment.
+        """
         held = self._stereo_columns
         if held is None:
             return None
         age = scan_stamp - _stamp_sec(held[1].header)
-        return held[1] if abs(age) <= self.obs_max_age else None
+        if abs(age) <= self.obs_max_age:
+            return held[1]
+        self.get_logger().warn(
+            f'stereo columns {age:+.3f} s from the scan (limit '
+            f'{self.obs_max_age:.3f} s): this cycle is LiDAR only',
+            throttle_duration_sec=5.0)
+        return None
+
+    def _compensate(self, points, scan_stamp, image_stamp):
+        """Carry base_link points from the scan's moment to the image's moment.
+
+        The two sensors are up to stereo_columns_max_age_s apart and the car
+        turns between them. At 0.5 m/s the translation is a harmless 7 cm, but
+        the YAW is not: this car's minimum radius is about 0.6 m, so 0.15 s can
+        be 7 degrees, which at fx 262 px is a 32-COLUMN shift -- more than the
+        width of most walls in the frame, and it would turn agreement into
+        DISAGREE for a whole wall.
+
+        Both poses come from /odometry/filtered (PoseHistory), so this is
+        exact to the odometry: p_image = pose_image^-1 (pose_scan p). With no
+        pose at either stamp the points are used uncompensated, which the age
+        gate already bounds.
+        """
+        if abs(image_stamp - scan_stamp) < 1e-4 or len(points) == 0:
+            return points
+        pose_scan = self._poses.at(scan_stamp)
+        pose_image = self._poses.at(image_stamp)
+        if pose_scan is None or pose_image is None:
+            self.get_logger().warn(
+                'no odometry pose to carry the scan to the image stamp; the '
+                'cross-check runs uncompensated', throttle_duration_sec=10.0)
+            return points
+        xy = pose_image.inverse().transform_points(
+            pose_scan.transform_points(np.asarray(points)[:, :2]))
+        out = np.array(points, dtype=float, copy=True)
+        out[:, :2] = xy
+        return out
 
     def _camera_transform(self, frame_id):
         """(R, t) taking that camera frame's points into base_frame, or None."""
