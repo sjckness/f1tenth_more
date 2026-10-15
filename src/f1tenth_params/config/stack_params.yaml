@@ -2717,3 +2717,8 @@ lidar_front_wall_stereo_front_max_normal_rad:
 lidar_front_wall_front_strip_half_width_m:
   default: 0.186
   description: "Half-width [m] of the strip a track's segment must CROSS to be the FRONT wall, from the front bumper. MUST equal vehicle_frames.front_side_limit_m(). This is the test that separates 'a wall is in the way' from 'a wall's normal points roughly forwards': on an open corridor the side wall satisfies the latter for most of a turn and is nowhere near the car's path, which is how a phantom front wall appeared at 1.1 m (corridor_phantom, 2026-10-15)."
+
+# --- the front wall output contract (step 5) ---------------------------------
+wall_clear_distance_m:
+  default: 50.0
+  description: "The value the front wall topics carry when the sensors are working and there is NO wall in the way (wall_fusion.STATE_CLEAR). A large FINITE number, and it is not a wall at 50 m: it means 'nothing ahead'. SHARED -- every producer and consumer of a wall distance reads this one key, so 'clear' is the same number everywhere. It must stay far above any mission's stop threshold and any MPC trigger distance, and consumers must CAP or SKIP it rather than feed it into geometry (MPC_corr treats it as unknown). The state this expresses is what the old pipeline could not: with nothing in the strip the LiDAR reported too_few_returns and the stereo plane -- the SIDE wall -- became the front wall at 1.1 m (corridor_phantom, 2026-10-15)."

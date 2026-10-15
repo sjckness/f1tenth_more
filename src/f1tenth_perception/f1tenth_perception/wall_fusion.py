@@ -399,3 +399,47 @@ def stereo_only_observations(check, column_points, width, min_span_columns=8,
             counts={'agree': 0, 'lidar_only': 0, 'stereo_only': int(c1 - c0),
                     'disagree': 0}))
     return out
+
+
+# ============================================================================
+# The output contract: WALL / CLEAR / NO_DATA
+# ============================================================================
+
+STATE_NO_DATA = 0
+STATE_WALL = 1
+STATE_CLEAR = 2
+STATE_NAMES = {STATE_NO_DATA: 'no_data', STATE_WALL: 'wall', STATE_CLEAR: 'clear'}
+
+
+def front_wall_output(has_data, d_ray_front, clear_distance_m, min_distance_m=0.01):
+    """(state, value) for the front wall distance. The whole contract, in one place.
+
+    THREE STATES, AND THE MIDDLE ONE IS THE POINT:
+
+      WALL     a FRONT track crosses the car's strip; the value is its
+               distance from the bumper along the heading.
+      CLEAR    the sensors are working and there is NO wall in the way. The
+               value is clear_distance_m, a large finite number, NOT a wall at
+               that distance. This is the open corridor, and it is the state
+               the old pipeline could not express: with nothing in the strip
+               the LiDAR branch reported too_few_returns and the stereo plane
+               -- the SIDE wall -- became the front wall at 1.1 m
+               (corridor_phantom, 2026-10-15). "Nothing ahead" has to be
+               sayable, or something will invent an answer.
+      NO_DATA  -1.0. The sensors are not telling us: no transform, no scan,
+               no odometry to place it with. NOT "clear". The existing hold
+               logic applies (check_stop_condition.py, WALL DISTANCE
+               FRESHNESS), so the car holds rather than driving on.
+
+    A consumer that cannot tell CLEAR from NO_DATA would have to treat one of
+    them as the other, and both choices are wrong: treating NO_DATA as clear
+    drives blind, treating CLEAR as no-data stops in an empty corridor.
+
+    Objects never appear here. A wall distance is about WALLS; the generic
+    front_clearance safety check is separate and always on.
+    """
+    if not has_data:
+        return STATE_NO_DATA, -1.0
+    if d_ray_front is None or not math.isfinite(d_ray_front):
+        return STATE_CLEAR, float(clear_distance_m)
+    return STATE_WALL, max(float(d_ray_front), float(min_distance_m))

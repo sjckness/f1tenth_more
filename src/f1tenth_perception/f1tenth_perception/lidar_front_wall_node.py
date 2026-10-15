@@ -209,12 +209,30 @@ With the switch on, three things change here, all in scene_labels.py:
     must hold wall_planes_min_inliers and
     face the car within oblique_max_deg. The WallEstimator, its odometry dead
     reckoning and its wrong-surface gate are unchanged.
-  * /perception/virtual_wall (Float32, from the FRONT BUMPER, -1.0 = no
-    reading) and /perception/virtual_wall/debug (JSON: source, flags): the
-    estimate above fused with the stereo WALL distance on
-    /perception/stereo_wall (scene_labels.VirtualWall). It is the single wall
-    truth: with the switch on every wall consumer reads it
+  * /perception/virtual_wall (Float32, from the FRONT BUMPER) and
+    /perception/virtual_wall/debug (JSON: state, source, flags). It is the
+    single wall truth: with the switch on every wall consumer reads it
     (f1tenth_params.param_defaults.get_wall_distance_topic()).
+
+    THE CONTRACT (since 2026-10-15; wall_fusion.front_wall_output, and
+    WallEstimate.state carries the same verdict on the same tick):
+
+      WALL     a FRONT track crosses the car-width strip ahead of the
+               bumper. The topic carries its distance from the bumper.
+      CLEAR    the sensors work and NOTHING is in the way. The topic carries
+               wall_clear_distance_m (50 m) -- a large finite number, NOT a
+               wall at that distance. An empty LiDAR strip is CLEAR.
+      NO_DATA  the sensors are not telling us: no transform, no scan, no
+               odometry to place it with. The topic carries -1.0 and the
+               consumer holds (check_stop_condition.py). NOT "clear".
+
+    THERE IS NO LONGER A STEREO FALLBACK. The stereo used to stand in when
+    the LiDAR strip was empty, which on an open corridor made the SIDE wall
+    a front wall at 1.1 m (corridor_phantom, 2026-10-15). Stereo supports a
+    wall only through /perception/wall_observations and the tracker, where a
+    wall must cross the strip to be FRONT at all. Objects never appear here:
+    a wall distance is about walls, and the generic front_clearance safety
+    check is separate and always on.
 
 With the switch off none of this is subscribed or published, and the fit is
 the one above, unchanged.
@@ -238,9 +256,9 @@ without it, the node logs an ERROR at startup and the tracker stays off.
     consume. With no front track, it is the sequential_lines wall, as before.
   * Coast limit: when the front track is dropped because it has coasted
     longer than that (or was deleted while coasting), /perception/virtual_wall
-    publishes -1.0 (no wall) on every scan until the tracker has a front track
-    again; neither the sequential_lines wall nor the dead-reckoned or stereo
-    value stands in for it meanwhile. A front track that stops being the
+    publishes -1.0 (NO_DATA) on every scan until the tracker has a front track
+    again; neither the sequential_lines wall nor the dead-reckoned value
+    stands in for it meanwhile. A front track that stops being the
     front one for another reason (relabelled as the car turns, the heading
     ray misses it) falls back to sequential_lines as before.
   * /perception/virtual_wall/debug says which: wall_source 'tracker',
@@ -435,6 +453,8 @@ class LidarFrontWallNode(Node):
         self._odom_frame = 'odom'
         self._wall_source = 'sequential_lines'
         self._front_id = None       # id of the tracker's current front track
+        self._front_d_ray = math.nan   # its distance from the bumper, this scan
+        self._tracker_has_data = False  # could this cycle see at all (step 5)
         self._front_coast_expired = False   # module docstring, coast limit
         self._seq_wall = None       # the latest sequential_lines heading wall
         self._lines = []            # the latest sequential_lines extraction
@@ -449,6 +469,7 @@ class LidarFrontWallNode(Node):
         self.obs_disagree_reject_frac = float(param('wall_obs_disagree_reject_frac', 0.5))
         self.obs_stereo_min_columns = int(param('wall_obs_stereo_min_columns', 8))
         self.wall_default_height = float(param('wall_default_height_m', 2.5))
+        self.wall_clear_distance_m = float(get_value('wall_clear_distance_m'))
         self.side_edge_half_width_m = float(get_value('swept_clearance_body_half_width_m'))
 
         declare_nice_param(self)
@@ -807,9 +828,11 @@ class LidarFrontWallNode(Node):
             reason = classify_fit(
                 fit, self.min_inlier_fraction, self.min_inlier_count_ratio, self.oblique_max_rad)
         step = self.estimator.step(now, fit, reason)
-        self._publish(msg.header.stamp, fit, step)
-        if self.scene_enabled:
-            self._publish_virtual(msg.header.stamp, now, step)
+        # The virtual wall first: its WALL / CLEAR / NO_DATA verdict is what
+        # the WallEstimate carries, so the two can never disagree.
+        state = (self._publish_virtual(msg.header.stamp, now, step)
+                 if self.scene_enabled else None)
+        self._publish(msg.header.stamp, fit, step, state)
         self._log_step(step)
 
     def _scene_fit(self, msg, laser_pose, now):
@@ -871,29 +894,48 @@ class LidarFrontWallNode(Node):
         return fit, REASON_OK
 
     def _publish_virtual(self, stamp, now, step):
-        v = self.virtual.step(now, step.estimate)
-        expired = self.wall_tracker is not None and self._front_coast_expired
-        valid = v.valid and not expired
-        value = max(v.distance, MIN_FRONT_DISTANCE_M) if valid else -1.0
+        """The one front-wall distance, under the WALL / CLEAR / NO_DATA contract.
+
+        See wall_fusion.front_wall_output for the contract itself. With the
+        tracker on, the ONLY thing that can produce a WALL is a FRONT track:
+        a confirmed wall whose segment crosses the car's strip. There is no
+        longer any path from "the LiDAR strip is empty" to "the stereo plane
+        is the wall" -- stereo supports a wall only by going through the
+        observations and the tracker, and an empty strip is CLEAR.
+        """
+        if self.wall_tracker is not None:
+            has_data = self._tracker_has_data and not self._front_coast_expired
+            state, value = wall_fusion.front_wall_output(
+                has_data, self._front_d_ray, self.wall_clear_distance_m,
+                MIN_FRONT_DISTANCE_M)
+            v = self.virtual.step(now, step.estimate)
+        else:
+            # Without the tracker there are no observations and so no FRONT
+            # track; the estimator's own fit is all there is. The contract is
+            # the same, and an unusable fit is NO_DATA rather than a guess.
+            v = self.virtual.step(now, step.estimate)
+            state, value = wall_fusion.front_wall_output(
+                v.valid, v.distance if v.valid else None,
+                self.wall_clear_distance_m, MIN_FRONT_DISTANCE_M)
         self.virtual_pub.publish(Float32(data=float(value)))
 
         def num(x):
-            return None if not math.isfinite(x) else round(x, 4)
+            return None if x is None or not math.isfinite(x) else round(x, 4)
         self.virtual_debug_pub.publish(String(data=json.dumps({
-            'stamp': stamp.sec + stamp.nanosec * 1e-9, 'valid': valid,
-            'distance_m': num(v.distance), 'origin': 'front', 'source': v.source,
-            'disagree': v.disagree, 'stereo_fallback': v.stereo_fallback,
+            'stamp': stamp.sec + stamp.nanosec * 1e-9,
+            'state': wall_fusion.STATE_NAMES[state],
+            'valid': state != wall_fusion.STATE_NO_DATA,
+            'distance_m': num(value), 'origin': 'front', 'source': v.source,
+            'front_d_ray_m': num(self._front_d_ray),
+            'clear_distance_m': self.wall_clear_distance_m,
             'lidar_m': num(v.lidar_m), 'stereo_m': num(v.stereo_m),
             'lidar_reason': int(step.reason),
             'lidar_provenance': PROVENANCE_NAMES[step.estimate.provenance],
             'wall_source': (None if self.wall_tracker is None
-                            else 'front_coast_expired' if expired else self._wall_source),
+                            else 'front_coast_expired' if self._front_coast_expired
+                            else self._wall_source),
             'tracker_ms': num(self._tracker_ms)})))
-        if v.disagree:
-            self.get_logger().warn(
-                f'virtual wall: LiDAR {v.lidar_m:.2f} m vs stereo {v.stereo_m:.2f} m from the '
-                f'front differ by more than {self.virtual.disagree_m:.2f} m; trusting LiDAR',
-                throttle_duration_sec=2.0)
+        return state
 
     def _track_walls(self, msg, laser_pose, sectors, scan_stamp, stamp, pts):
         """One tracker step. Returns the front track as a base_link WallLine, or None.
@@ -906,10 +948,14 @@ class LidarFrontWallNode(Node):
         """
         car = self._poses.at(scan_stamp)
         if car is None:
+            # No pose to place the walls with: NO_DATA, not "clear".
+            self._front_d_ray = math.nan
+            self._tracker_has_data = False
             self.get_logger().warn(
                 f'wall tracker: no {self.odom_topic} pose at the scan stamp; skipped',
                 throttle_duration_sec=5.0)
             return None
+        self._tracker_has_data = True
         t0 = time.perf_counter()
         lines = mwt.extract_lines(
             msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min, msg.range_max,
@@ -918,7 +964,10 @@ class LidarFrontWallNode(Node):
             stamp, scan_stamp, [mwt.line_to_wall_line(ln) for ln in lines], pts)
         tracks = self.wall_tracker.step(observations, scan_stamp, car)
         front = self.wall_tracker.front_track(car, self.front_x)
+        self._front_d_ray = math.nan
         if front is not None:
+            _perp, self._front_d_ray = mwt.front_distances(
+                front, car, self.front_x, self.wall_tracker.p.ray_margin_m)
             self._front_id, self._front_coast_expired = front.id, False
         elif self._front_id is not None:
             # The front track went away: past the coast limit (or deleted)
@@ -1006,7 +1055,7 @@ class LidarFrontWallNode(Node):
         self.walls_pub.publish(out)
         self.walls_markers_pub.publish(markers)
 
-    def _publish(self, stamp, fit, step):
+    def _publish(self, stamp, fit, step, state=None):
         fit_msg = WallLineFit()
         fit_msg.header.stamp = stamp
         fit_msg.header.frame_id = self.base_frame
@@ -1032,6 +1081,11 @@ class LidarFrontWallNode(Node):
         estimate_msg.distance = float(estimate.distance)
         estimate_msg.normal_angle = float(estimate.normal_angle)
         estimate_msg.source_age = float(estimate.source_age)
+        # The wall contract's verdict (step 5), from the same tick's
+        # _publish_virtual so the two can never disagree. Without scene
+        # labels there is no contract to report and it stays NO_DATA.
+        estimate_msg.state = int(
+            wall_fusion.STATE_NO_DATA if state is None else state)
         self.estimate_pub.publish(estimate_msg)
 
     def _log_step(self, step):

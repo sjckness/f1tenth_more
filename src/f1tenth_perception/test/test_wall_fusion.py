@@ -494,3 +494,52 @@ def test_cross_check_profile_pads_a_short_profile():
     out = wf.cross_check_profile([2], [1.0], np.array([np.nan, np.nan, 1.0]), WIDTH)
     assert out['status'][2] == wf.STATUS_AGREE
     assert out['status'][WIDTH - 1] == wf.STATUS_EMPTY
+
+
+# ===========================================================================
+# Step 5: the output contract
+# ===========================================================================
+
+CLEAR_M = 50.0
+
+
+def test_a_wall_in_the_way_reports_its_distance():
+    state, value = wf.front_wall_output(True, 2.35, CLEAR_M)
+    assert state == wf.STATE_WALL
+    assert value == pytest.approx(2.35)
+
+
+def test_no_wall_with_working_sensors_is_clear_not_a_wall_at_fifty_metres():
+    """The open corridor. Not 'a wall 50 m away' -- 'nothing in the way'."""
+    state, value = wf.front_wall_output(True, None, CLEAR_M)
+    assert state == wf.STATE_CLEAR
+    assert value == CLEAR_M
+
+
+def test_a_missing_ray_distance_is_clear_not_a_wall():
+    state, _ = wf.front_wall_output(True, float('nan'), CLEAR_M)
+    assert state == wf.STATE_CLEAR
+
+
+def test_no_usable_data_is_minus_one_and_never_clear():
+    """Treating NO_DATA as clear drives blind; it must stay distinguishable."""
+    state, value = wf.front_wall_output(False, None, CLEAR_M)
+    assert state == wf.STATE_NO_DATA
+    assert value == -1.0
+    assert value != CLEAR_M
+
+
+def test_no_data_wins_even_when_a_distance_is_offered():
+    state, value = wf.front_wall_output(False, 1.2, CLEAR_M)
+    assert state == wf.STATE_NO_DATA and value == -1.0
+
+
+def test_a_wall_at_the_bumper_still_reads_as_a_reading():
+    """0.0 would be indistinguishable from 'no reading' to a Float32 consumer."""
+    _state, value = wf.front_wall_output(True, 0.0, CLEAR_M, min_distance_m=0.01)
+    assert value == pytest.approx(0.01)
+
+
+def test_the_three_states_are_distinct_values():
+    assert len({wf.STATE_NO_DATA, wf.STATE_WALL, wf.STATE_CLEAR}) == 3
+    assert set(wf.STATE_NAMES) == {wf.STATE_NO_DATA, wf.STATE_WALL, wf.STATE_CLEAR}

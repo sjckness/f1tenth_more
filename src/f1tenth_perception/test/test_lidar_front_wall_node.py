@@ -343,6 +343,21 @@ def _scan_at(distance, stamp, yaw_deg=0.0):
     return msg
 
 
+def _corridor_scan(stamp, half_width=1.0, stamp_sec=None):
+    """An OPEN corridor: walls either side, nothing ahead for 30 m."""
+    sec = int(stamp)
+    msg = _scan(distance=None, stamp_sec=sec)
+    msg.header.stamp.nanosec = int(round((stamp - sec) * 1e9))
+    angles = ANGLE_MIN + np.arange(N_BEAMS) * ANGLE_INCREMENT
+    ranges = np.full(N_BEAMS, np.inf)
+    sin = np.sin(angles)
+    side = np.abs(sin) > 0.08
+    ranges[side] = half_width / np.abs(sin[side])
+    ranges[ranges > 25.0] = np.inf
+    msg.ranges = [float(r) for r in ranges.astype(np.float32)]
+    return msg
+
+
 def _odom_at(stamp, yaw):
     msg = Odometry()
     msg.header.frame_id = 'odom'
@@ -587,3 +602,97 @@ class TestTrackFieldsOnTheWire:
             assert math.isnan(t.d_side)
         finally:
             n.destroy_node()
+
+
+class TestTheOutputContract:
+    """Step 5: WALL / CLEAR / NO_DATA on the wire.
+
+    The state a consumer branches on, and the one the old pipeline could not
+    express. Each state is reached through the real node, not by calling the
+    pure function again."""
+
+    @staticmethod
+    def _node():
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('use_wall_tracker', value=True)])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _run(n, distance, scans=6, t0=7.0, dt=0.05):
+        for i in range(scans):
+            n._odom_cb(_odom_at(t0 + i * dt, 0.0))
+            n._scan_cb(_scan_at(distance, t0 + i * dt) if distance is not None
+                       else _scan(distance=None, stamp_sec=int(t0 + i * dt)))
+
+    @staticmethod
+    def _state(n):
+        import json
+        return json.loads(_last(n.virtual_debug_pub).data)['state']
+
+    def test_a_wall_across_the_path_is_WALL_with_its_distance(self):
+        n = self._node()
+        try:
+            self._run(n, 2.0)
+            assert self._state(n) == 'wall'
+            assert _last(n.virtual_pub).data == pytest.approx(2.0 - base_front_x(), abs=0.05)
+            assert _last(n.estimate_pub).state == WallEstimate.STATE_WALL
+        finally:
+            n.destroy_node()
+
+    def test_an_open_corridor_is_CLEAR_not_a_phantom_wall(self):
+        """The corridor_phantom failure. Nothing in the strip used to become
+        the stereo plane -- the SIDE wall -- at 1.1 m. It is now CLEAR."""
+        n = self._node()
+        try:
+            self._run(n, None)
+            assert self._state(n) == 'clear'
+            clear = float(get_value('wall_clear_distance_m'))
+            assert _last(n.virtual_pub).data == pytest.approx(clear)
+            assert _last(n.estimate_pub).state == WallEstimate.STATE_CLEAR
+        finally:
+            n.destroy_node()
+
+    def test_a_side_wall_only_corridor_is_CLEAR(self):
+        """Walls on both sides and nothing ahead: still nothing in the way."""
+        n = self._node()
+        try:
+            for i in range(8):
+                t = 7.0 + i * 0.05
+                n._odom_cb(_odom_at(t, 0.0))
+                n._scan_cb(_corridor_scan(t))
+            assert self._state(n) == 'clear'
+            assert _last(n.virtual_pub).data > 10.0
+        finally:
+            n.destroy_node()
+
+    def test_no_odometry_is_NO_DATA_and_minus_one_never_clear(self):
+        n = self._node()
+        try:
+            n._scan_cb(_scan_at(2.0, 7.0))      # no odom at all
+            assert self._state(n) == 'no_data'
+            assert _last(n.virtual_pub).data == -1.0
+            assert _last(n.estimate_pub).state == WallEstimate.STATE_NO_DATA
+        finally:
+            n.destroy_node()
+
+    def test_the_three_states_are_three_different_published_values(self):
+        clear = float(get_value('wall_clear_distance_m'))
+        wall_n, clear_n, nodata_n = self._node(), self._node(), self._node()
+        try:
+            self._run(wall_n, 2.0)
+            self._run(clear_n, None)
+            nodata_n._scan_cb(_scan_at(2.0, 7.0))
+            values = [_last(x.virtual_pub).data for x in (wall_n, clear_n, nodata_n)]
+            assert values[2] == -1.0
+            assert values[1] == pytest.approx(clear)
+            assert 0.0 < values[0] < clear
+            assert len(set(values)) == 3
+        finally:
+            for x in (wall_n, clear_n, nodata_n):
+                x.destroy_node()
