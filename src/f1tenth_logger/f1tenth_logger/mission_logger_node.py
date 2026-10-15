@@ -285,6 +285,13 @@ _DEFAULT_TOPICS = [
     '/perception/scene_labels',
     '/perception/scene_labels_debug',
     '/perception/unclassified_obstacles',
+    # The whole-frame scene mask (scene_mask.py, front_clearance_scene_mask_
+    # enabled): the per-class pixel fractions and the WALL point count in the
+    # car-width strip, plus the WALL points themselves in base_link. The
+    # overlay image is NOT recorded by default -- it is only rendered when
+    # something subscribes, and a bgr8 frame at 5 Hz is ~3.5 MB/s.
+    '/perception/scene_labels/stats',
+    '/perception/wall_points',
     '/scan',
     # --- costmap / semantic ---
     '/costmap/semantic_markers',

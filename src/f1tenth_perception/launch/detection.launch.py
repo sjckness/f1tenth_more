@@ -274,6 +274,16 @@ def generate_launch_description():
         ('scene_wall_band_m', float),
         ('scene_wall_min_span_m', float),
         ('scene_stereo_wall_min_px', int),
+        ('scene_mask_enabled', bool),
+        ('scene_mask_rate_hz', float),
+        ('scene_mask_floor_tol_m', float),
+        ('scene_mask_ceiling_min_z_m', float),
+        ('scene_mask_min_depth_m', float),
+        ('scene_mask_max_depth_m', float),
+        ('scene_mask_strip_half_width_m', float),
+        ('scene_mask_self_polygons', str),
+        ('scene_mask_occluded_polygons', str),
+        ('scene_mask_image_topic', str),
     ]
     front_clearance_las = []
     for _name, _type in _front_clearance_args:

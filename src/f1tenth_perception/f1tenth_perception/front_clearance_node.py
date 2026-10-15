@@ -309,7 +309,8 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 from rclpy.time import Time
 
-from sensor_msgs.msg import CameraInfo, Image
+from sensor_msgs.msg import CameraInfo, Image, LaserScan, PointCloud2
+from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Bool, Float32, String
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformException
@@ -320,7 +321,7 @@ from f1tenth_description.vehicle_frames import (
     base_front_x, beside_body_behind_bumper, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
 
-from f1tenth_perception import perception_debug, scene_labels
+from f1tenth_perception import perception_debug, scene_labels, scene_mask
 from f1tenth_perception.ground_plane import (
     back_project, fit_ground_plane, ground_mask, quat_to_matrix)
 from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
@@ -328,6 +329,27 @@ from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
 )
+
+
+def _parse_polygons(text, logger=None):
+    """Fractional self-mask polygons from a JSON parameter string.
+
+    A ROS parameter cannot hold a ragged nested list, so the polygons travel
+    as JSON: ``[[[x, y], ...], ...]`` in fractions of width/height. Empty or
+    malformed means "no polygon" -- a bad string must not stop the node, it
+    must only cost the masking it would have done, loudly.
+    """
+    text = (text or '').strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+        return [[(float(x), float(y)) for x, y in poly] for poly in data]
+    except (ValueError, TypeError) as exc:
+        if logger is not None:
+            logger.error(f'self-mask polygons {text!r} are not [[[x, y], ...], ...]: '
+                         f'{exc} -- masking nothing')
+        return []
 
 
 def from_front(distance, offset):
@@ -558,6 +580,40 @@ class FrontClearanceNode(Node):
             prior_h=float(p('scene_ceiling_prior_m', 0.0)))
         self._scene = None         # latest labels: {'stamp', 'labels' (h, w) uint8}
         self._wall_planes = None   # (stamp, [WallLine]) from /perception/wall_planes
+
+        # ---- scene MASK (scene_mask.py) -------------------------------------
+        # The whole-frame, ROI-free per-pixel classification that the rebuilt
+        # wall pipeline consumes. Independent of the scene LABELS above (which
+        # still feed the ROI stereo wall distance); the two coexist until the
+        # ROI path is retired.
+        mask_rate = float(p('scene_mask_rate_hz', 5.0))
+        self.scene_mask_enabled = bool(p('scene_mask_enabled', True))
+        self.scene_mask_period = 1.0 / mask_rate if mask_rate > 0.0 else math.inf
+        self.scene_mask_floor_tol = float(p('scene_mask_floor_tol_m', 0.05))
+        self.scene_mask_ceiling_min_z = float(p('scene_mask_ceiling_min_z_m', 2.0))
+        self.scene_mask_min_depth = float(p('scene_mask_min_depth_m', 0.2))
+        self.scene_mask_max_depth = float(p('scene_mask_max_depth_m', 20.0))
+        self.scene_mask_strip_half_w = float(
+            p('scene_mask_strip_half_width_m', front_side_limit_m()))
+        self.scene_mask_image_topic = str(p('scene_mask_image_topic', '/camera/image_raw'))
+        # The car's own LiDAR housing is NOT a second calibration: it is the
+        # lidar_exclusion_* rectangle yolo_detector_node already applies to
+        # detections. An explicit polygon list overrides it; empty derives it,
+        # so the rectangle has exactly one definition in the workspace.
+        override = _parse_polygons(p('scene_mask_self_polygons', ''), self.get_logger())
+        self._self_polygons = (override or [scene_mask.rect_polygon(
+            float(get_value('lidar_exclusion_x_min')),
+            float(get_value('lidar_exclusion_y_min')),
+            float(get_value('lidar_exclusion_x_max')),
+            float(get_value('lidar_exclusion_y_max')))])
+        self._self_polygons += _parse_polygons(
+            p('scene_mask_occluded_polygons',
+              '[[[0.0, 0.78], [0.16, 0.78], [0.16, 1.0], [0.0, 1.0]]]'),
+            self.get_logger())
+        self._self_mask = None      # cached per (h, w): the polygons are static
+        self._next_scene_mask = 0.0
+        self._latest_image_msg = None
+        self._latest_scan = None    # (receipt time, LaserScan)
         self._next_scene = 0.0
 
         # ---- too-close (-Inf) short-circuit --------------------------------
@@ -728,7 +784,21 @@ class FrontClearanceNode(Node):
                 String, '/perception/unclassified_obstacles', 10)
             self.create_subscription(
                 String, '/perception/wall_planes', self._wall_planes_callback, 10)
-        if self.ground_enabled or self.scene_enabled:
+        if self.scene_mask_enabled:
+            # The overlay is rendered only when something is subscribed (the
+            # same discipline the annotated detection image follows): holding
+            # the newest RGB message is cheap, decoding and tinting it is not.
+            self.scene_mask_image_pub = self.create_publisher(
+                Image, '/perception/scene_labels/image', 10)
+            self.wall_points_pub = self.create_publisher(
+                PointCloud2, '/perception/wall_points', 10)
+            self.scene_mask_stats_pub = self.create_publisher(
+                String, '/perception/scene_labels/stats', 10)
+            self.create_subscription(
+                Image, self.scene_mask_image_topic, self._image_callback, LATEST_FRAME_QOS)
+            self.create_subscription(
+                LaserScan, '/scan', self._scan_callback, LATEST_FRAME_QOS)
+        if self.ground_enabled or self.scene_enabled or self.scene_mask_enabled:
             self.camera_info_sub = self.create_subscription(
                 CameraInfo, self.camera_info_topic, self._camera_info_callback, 10)
         # Newest depth frame only (latest_frame_qos.py): the callback does
@@ -1009,6 +1079,106 @@ class FrontClearanceNode(Node):
             'counts': {scene_labels.LABEL_NAMES[i]: int(c) for i, c in enumerate(counts)},
             'n_candidates': len(cands)})))
 
+    # ------------------------------------------------------------------------
+    # Scene MASK (scene_mask.py): whole frame, no ROI
+    # ------------------------------------------------------------------------
+
+    def _image_callback(self, msg: Image):
+        self._latest_image_msg = msg
+
+    def _scan_callback(self, msg: LaserScan):
+        self._latest_scan = (self._now_seconds(), msg)
+
+    def _scan_points_base(self, scan):
+        """(N, 3) base_frame points of a scan's valid returns, z = the laser's.
+
+        The scan plane is a plane in base_link, so the z of every return is
+        the laser's own mount height; the cross-check only ever uses x and y,
+        and the overlay wants the real height to land on the right rows.
+        """
+        pose = self._frame_transform(scan.header.frame_id)
+        if pose is None:
+            return None
+        rot, trans = pose
+        r = np.asarray(scan.ranges, dtype=float)
+        a = scan.angle_min + np.arange(r.size) * scan.angle_increment
+        with np.errstate(invalid='ignore'):
+            ok = np.isfinite(r) & (r >= scan.range_min) & (r <= scan.range_max)
+        r, a = r[ok], a[ok]
+        local = np.column_stack([r * np.cos(a), r * np.sin(a), np.zeros(r.size)])
+        return local @ rot.T + trans
+
+    def _scene_mask_tick(self, depth, header, now):
+        """One whole-frame classification (scene_mask.py). Publishes the class
+        stats, the WALL point cloud and -- only when subscribed -- the overlay.
+        """
+        t_start = time.perf_counter()
+        tf = self._frame_transform(header.frame_id)
+        h, w = depth.shape[:2]
+        k = self._intrinsics(w, h)
+        if tf is None or k is None:
+            return
+        fx, fy, cx, cy = k
+        rot, trans = tf
+
+        if self._self_mask is None or self._self_mask.shape != (h, w):
+            self._self_mask = scene_mask.polygon_mask((h, w), self._self_polygons)
+        raw = self._raw_object_mask((h, w))
+        object_mask = None if raw is None else (raw > 0.5)
+
+        labels, _z = scene_mask.classify(
+            depth, fx, fy, cx, cy, rot, trans,
+            self_mask=self._self_mask, object_mask=object_mask,
+            floor_tol=self.scene_mask_floor_tol,
+            ceiling_min_z=self.scene_mask_ceiling_min_z,
+            min_depth=self.scene_mask_min_depth, max_depth=self.scene_mask_max_depth)
+        points, _rows, _cols = scene_mask.wall_points(
+            depth, labels, fx, fy, cx, cy, rot, trans)
+
+        cloud = point_cloud2.create_cloud_xyz32(header, points.astype(np.float32))
+        cloud.header.frame_id = self.base_frame
+        self.wall_points_pub.publish(cloud)
+
+        stats = scene_mask.class_stats(
+            labels, depth=depth, points=points, front_x=self.front_x,
+            strip_half_width_m=self.scene_mask_strip_half_w)
+        stats.update({
+            'stamp': perception_debug.stamp_to_sec(header.stamp),
+            'frame_id': self.base_frame,
+            'object_source': self._latest_object_source,
+            'img_wh': [w, h],
+            'strip_half_width_m': self.scene_mask_strip_half_w,
+            'ms': round((time.perf_counter() - t_start) * 1e3, 2),
+        })
+        self.scene_mask_stats_pub.publish(String(data=json.dumps(stats)))
+
+        if self.scene_mask_image_pub.get_subscription_count() > 0:
+            self._publish_scene_mask_overlay(labels, header, (fx, fy, cx, cy), rot, trans)
+
+    def _publish_scene_mask_overlay(self, labels, header, k, rot, trans):
+        """The class-coloured overlay on the left image, scan points on top."""
+        msg = self._latest_image_msg
+        if msg is None:
+            return
+        try:
+            img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        except CvBridgeError as exc:
+            self.get_logger().warn(f'cv_bridge image decode failed: {exc}',
+                                   throttle_duration_sec=5.0)
+            return
+        h, w = labels.shape[:2]
+        if img.shape[:2] != (h, w):
+            img = cv2.resize(img, (w, h), interpolation=cv2.INTER_NEAREST)
+        scan_px = None
+        if self._latest_scan is not None:
+            pts = self._scan_points_base(self._latest_scan[1])
+            if pts is not None:
+                scan_px = scene_mask.project_to_image(pts, *k, rot, trans)
+        out = self.bridge.cv2_to_imgmsg(
+            scene_mask.overlay(img, labels, scan_px=scan_px), encoding='bgr8')
+        out.header = header
+        self.scene_mask_image_pub.publish(out)
+
     def _front_offset(self, camera_frame):
         """
         Return how far the bumper sits ahead of the depth frame's origin [m], or None.
@@ -1262,6 +1432,15 @@ class FrontClearanceNode(Node):
         #    short-circuit on forever (the new one). Same mask, one
         #    computation, two consumers.
         housing = self._lidar_exclusion_roi_mask((h, w), (y0, y1, x0, x1))
+
+        # 3a. Scene mask, at scene_mask_rate_hz: the whole frame, no ROI.
+        if self.scene_mask_enabled and now >= self._next_scene_mask:
+            self._next_scene_mask = now + self.scene_mask_period
+            try:
+                self._scene_mask_tick(depth, msg.header, now)
+            except Exception as exc:   # noqa: BLE001 - never kill the depth path
+                self.get_logger().error(f'scene mask tick failed: {exc}',
+                                        throttle_duration_sec=5.0)
 
         # 3b. Scene labels, at scene_rate_hz (module docstring, SCENE LABELS).
         if self.scene_enabled and now >= self._next_scene:

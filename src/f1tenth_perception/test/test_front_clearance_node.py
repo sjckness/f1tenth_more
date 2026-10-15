@@ -1408,3 +1408,149 @@ def test_depth_and_mask_inputs_hold_only_the_newest_frame():
             assert qos.reliability == ReliabilityPolicy.BEST_EFFORT
     finally:
         node.destroy_node()
+
+
+# ==============================================================================
+# Scene mask (scene_mask.py): the whole-frame, ROI-free classification
+# ==============================================================================
+
+class TestSceneMaskTick:
+    """The node glue around scene_mask.py. The classification itself is tested
+    in test_scene_mask.py; what matters here is that the tick runs off the
+    depth frame, publishes its three topics, respects its rate, and never
+    takes the depth path down with it when it fails."""
+
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1}
+
+    @staticmethod
+    def _camera_info(width=64, height=48, fx=100.0, fy=100.0):
+        from sensor_msgs.msg import CameraInfo
+        info = CameraInfo()
+        info.width, info.height = width, height
+        info.k = [fx, 0.0, width / 2.0, 0.0, fy, height / 2.0, 0.0, 0.0, 1.0]
+        return info
+
+    def _node(self, extra=None, camera_x=FRONT):
+        node = _construct({**self.PARAMS, **(extra or {})}, camera_x=camera_x)
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        node.scene_mask_image_pub.publish = MagicMock()
+        node._camera_info_callback(self._camera_info())
+        return node
+
+    def test_a_depth_frame_publishes_stats_and_a_wall_cloud(self):
+        import json
+        node = self._node()
+        try:
+            # The TF in _construct has no rotation, so a constant depth frame
+            # is a plane at x = camera_x + 2.0 standing at the camera's height.
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            stats = json.loads(node.scene_mask_stats_pub.publish.call_args[0][0].data)
+            assert stats['n_px'] == 48 * 64
+            assert sum(stats['count'].values()) == 48 * 64
+            assert stats['count']['wall'] > 0
+            assert stats['wall_points'] == stats['count']['wall']
+            assert stats['frame_id'] == 'base_link'
+            cloud = node.wall_points_pub.publish.call_args[0][0]
+            assert cloud.header.frame_id == 'base_link'
+            assert cloud.width == stats['count']['wall']
+        finally:
+            node.destroy_node()
+
+    def test_the_overlay_is_not_rendered_when_nobody_subscribes(self):
+        """Decoding the RGB frame is the expensive part; it must not happen
+        unless something is actually watching."""
+        node = self._node()
+        try:
+            node._latest_image_msg = CvBridge().cv2_to_imgmsg(
+                np.zeros((48, 64, 3), dtype=np.uint8), encoding='bgr8')
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_image_pub.publish.call_count == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_tick_honours_its_rate_rather_than_running_every_frame(self):
+        node = self._node({'scene_mask_rate_hz': 0.001})
+        try:
+            for i in range(4):
+                node.depth_callback(_depth_msg(
+                    np.full((48, 64), 2.0, dtype=np.float32), stamp_sec=i + 1))
+            assert node.scene_mask_stats_pub.publish.call_count == 1
+        finally:
+            node.destroy_node()
+
+    def test_a_failing_tick_does_not_stop_the_front_distance(self):
+        """The depth path is the safety-relevant one: the mask is an addition
+        to it, never a new way for it to die."""
+        node = self._node()
+        try:
+            node._scene_mask_tick = MagicMock(side_effect=RuntimeError('boom'))
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.front_distance_pub.publish.call_count == 1
+        finally:
+            node.destroy_node()
+
+    def test_nothing_is_published_before_camera_info(self):
+        node = _construct(self.PARAMS)
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_stats_pub.publish.call_count == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_strip_width_defaults_to_the_one_shared_helper(self):
+        """One strip for the whole pipeline: the camera and the LiDAR must
+        mean the same geometry by "in the way"."""
+        from f1tenth_description.vehicle_frames import front_side_limit_m
+        node = self._node()
+        try:
+            assert node.scene_mask_strip_half_w == pytest.approx(front_side_limit_m())
+        finally:
+            node.destroy_node()
+
+    def test_malformed_polygons_keep_the_housing_masked_rather_than_raising(self):
+        """A typo in the override must not take the node down -- and must not
+        silently unmask the car's own housing either, which would hand the
+        wall pipeline a permanent 30 cm "wall"."""
+        node = self._node({'scene_mask_self_polygons': 'not json',
+                           'scene_mask_occluded_polygons': '{"nope": 1}'})
+        try:
+            assert len(node._self_polygons) == 1
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_stats_pub.publish.call_count == 1
+            assert node._self_mask[47, 63]
+        finally:
+            node.destroy_node()
+
+    def test_the_self_mask_comes_from_the_one_lidar_housing_calibration(self):
+        """Not a second copy of the rectangle: the same lidar_exclusion_*
+        fractions yolo_detector_node already applies to detections."""
+        from f1tenth_params.param_defaults import get_value
+        node = self._node()
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            mask = node._self_mask
+            assert mask.shape == (48, 64)
+            assert mask[47, 63]          # bottom-right: the housing
+            assert not mask[0, 32]       # top-centre: scene
+            x0 = float(get_value('lidar_exclusion_x_min'))
+            y0 = float(get_value('lidar_exclusion_y_min'))
+            assert not mask[int(y0 * 48) - 2, int(x0 * 64) - 2]
+            assert mask[int(y0 * 48) + 2, int(x0 * 64) + 2]
+        finally:
+            node.destroy_node()
+
+    def test_an_explicit_polygon_replaces_the_derived_housing_rectangle(self):
+        node = self._node({'scene_mask_self_polygons':
+                           '[[[0.0, 0.0], [0.25, 0.0], [0.25, 0.25], [0.0, 0.25]]]',
+                           'scene_mask_occluded_polygons': ''})
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            mask = node._self_mask
+            assert mask[2, 2]            # the override, top-left
+            assert not mask[47, 63]      # the housing rectangle is gone
+        finally:
+            node.destroy_node()
