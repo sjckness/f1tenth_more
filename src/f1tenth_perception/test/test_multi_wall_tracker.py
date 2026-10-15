@@ -646,3 +646,51 @@ def test_a_wall_with_a_person_in_front_of_it_is_merged_before_it_is_measured():
     tight_wall = [ln for ln in tight if abs(ln.rho - 4.0) < 0.2]
     assert len(wide_wall) == 1
     assert max(ln.length for ln in wide_wall) > max(ln.length for ln in tight_wall)
+
+
+def test_a_stale_profile_moves_the_fused_distance_less_than_a_fresh_one():
+    """What the weight buys in the filter: the stereo sigma is divided by it,
+    so the inverse-variance combination leans on the LiDAR in exactly the
+    proportion the age says."""
+    p = mwt.TrackerParams()
+    fresh = mwt.observation_covariance(wall_fusion.SOURCE_BOTH, 6.0, 3.0, p, 1.0)
+    stale = mwt.observation_covariance(wall_fusion.SOURCE_BOTH, 6.0, 3.0, p, 0.3)
+    lidar_only = mwt.observation_covariance(wall_fusion.SOURCE_LIDAR, 6.0, 3.0, p)
+    # Tighter than the LiDAR alone when fresh, and closer to it when stale.
+    assert fresh[0, 0] < stale[0, 0] <= lidar_only[0, 0]
+    assert stale[0, 0] / lidar_only[0, 0] > 0.9
+
+
+def test_a_zero_weight_is_the_lidars_own_covariance():
+    p = mwt.TrackerParams()
+    none = mwt.observation_covariance(wall_fusion.SOURCE_BOTH, 6.0, 3.0, p, 0.0)
+    lidar_only = mwt.observation_covariance(wall_fusion.SOURCE_LIDAR, 6.0, 3.0, p)
+    assert none[0, 0] == pytest.approx(lidar_only[0, 0])
+
+
+def test_the_weight_reaches_the_covariance_through_the_observation():
+    """It is carried on the Observation, so nothing in the tracker has to be
+    told the age separately."""
+    car = Pose2D(0.0, 0.0, 0.0)
+    obs = wall_fusion.Observation(
+        line_of_span(2.0, d=6.0), 0.0, 2.5, False, wall_fusion.SOURCE_BOTH, 0.8,
+        stereo_weight=0.3)
+    fresh = wall_fusion.Observation(
+        line_of_span(2.0, d=6.0), 0.0, 2.5, False, wall_fusion.SOURCE_BOTH, 0.8,
+        stereo_weight=1.0)
+    p = mwt.TrackerParams()
+    assert mwt.observation_line(obs, car, p).cov[0, 0] > \
+        mwt.observation_line(fresh, car, p).cov[0, 0]
+
+
+def test_an_observation_without_a_weight_is_treated_as_fresh():
+    """Nothing that builds an Observation without one changes behaviour."""
+    car = Pose2D(0.0, 0.0, 0.0)
+    bare = wall_fusion.Observation(line_of_span(2.0, d=6.0), 0.0, 2.5, False,
+                                   wall_fusion.SOURCE_BOTH, 0.8)
+    assert bare.stereo_weight == pytest.approx(1.0)
+    p = mwt.TrackerParams()
+    explicit = wall_fusion.Observation(line_of_span(2.0, d=6.0), 0.0, 2.5, False,
+                                       wall_fusion.SOURCE_BOTH, 0.8, stereo_weight=1.0)
+    assert mwt.observation_line(bare, car, p).cov[0, 0] == pytest.approx(
+        mwt.observation_line(explicit, car, p).cov[0, 0])

@@ -49,6 +49,38 @@ STATUS_NAMES = {
 }
 
 
+def age_weight(age_s, max_age_s, min_weight):
+    """How much a profile that old is still worth, linear from 1 to min_weight.
+
+    THE STEREO IS NOT A YES/NO INPUT. Before this it was: a profile paired
+    within the old 0.15 s pairing gate counted in full and one a
+    millisecond older counted not at all. On corridor10m_20261015T171753 that
+    gate passed 44 of 238 live cycles, so 81 % of the run's wall observations
+    were LiDAR-only not because the camera had nothing to say but because it
+    had said it slightly too early -- and the hard edge meant a 0.14 s profile
+    and a 0.01 s one were trusted identically, which is also wrong.
+
+    Age costs accuracy continuously, so the weight is continuous: 1 at zero
+    age, min_weight at max_age, linear between, and 0 past it. What it scales
+    is in observations_from_lines and observation_covariance -- an old profile
+    may still CORROBORATE a LiDAR wall, but it loses most of its power to veto
+    one and most of its pull on the fused distance.
+
+    It is NOT a substitute for the ego-motion compensation: the geometry has
+    to be carried to the right moment first (the caller does that), and this
+    covers what the compensation cannot -- the scene moving, the odometry's own
+    error over the interval, and the stereo's own staleness.
+    """
+    age = abs(float(age_s))
+    limit = float(max_age_s)
+    if limit <= 0.0:
+        return 1.0 if age <= 0.0 else 0.0
+    if age >= limit:
+        return 0.0
+    lo = float(min_weight)
+    return 1.0 - (1.0 - lo) * (age / limit)
+
+
 def tolerance(ranges, base_m, quad_per_m2):
     """Agreement tolerance [m] at `ranges`: base + quad * range^2 (see above)."""
     r = np.asarray(ranges, dtype=float)
@@ -234,23 +266,27 @@ class Observation:
     """
 
     __slots__ = ('line', 'z_min', 'z_max', 'height_measured', 'source', 'confidence',
-                 'col_begin', 'col_end', 'counts')
+                 'col_begin', 'col_end', 'counts', 'stereo_weight')
 
     def __init__(self, line, z_min, z_max, height_measured, source, confidence,
-                 col_begin=0, col_end=0, counts=None):
+                 col_begin=0, col_end=0, counts=None, stereo_weight=1.0):
         self.line = line
         self.z_min, self.z_max = float(z_min), float(z_max)
         self.height_measured = bool(height_measured)
         self.source, self.confidence = int(source), float(confidence)
         self.col_begin, self.col_end = int(col_begin), int(col_end)
         self.counts = counts or {}
+        #: How much the stereo half of this observation was worth (age_weight).
+        #: 1.0 for a LiDAR-only observation, which has no stereo half.
+        self.stereo_weight = float(stereo_weight)
 
     def __repr__(self):   # pragma: no cover - debugging only
         return (f'<Observation {SOURCE_NAMES[self.source]} d={self.line.d:.2f} '
                 f'conf={self.confidence:.2f} z={self.z_min:.2f}..{self.z_max:.2f}>')
 
 
-def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.03):
+def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.03,
+               stereo_weight=1.0):
     """Confidence [0, 1] of an observation. The model, in one place:
 
       * evidence     how much the LiDAR actually saw, saturating at inlier_ref
@@ -275,6 +311,11 @@ def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.0
         tightness = 1.0 / (1.0 + max(0.0, float(rms)) / max(1e-6, rms_ref))
         base = 0.5 * evidence + 0.5 * tightness
         corro = (float(n_agree) / n_span) if n_span > 0 else 0.5
+        # An old profile's opinion is pulled toward the neutral 0.5 it gets
+        # when the camera cannot see the wall at all: it neither vouches for
+        # the wall nor argues against it as strongly as a fresh one.
+        w = min(1.0, max(0.0, float(stereo_weight)))
+        corro = 0.5 + w * (corro - 0.5)
     value = base * (0.6 + 0.4 * corro)
     if source == SOURCE_BOTH:
         value = min(1.0, value * 1.15)
@@ -313,7 +354,8 @@ def _height_from_columns(z_min, z_max, col_begin, col_end, default_height):
 
 def observations_from_lines(lines, check, project, width, z_min, z_max,
                             default_height=2.5, disagree_reject_frac=0.5,
-                            min_span_columns=8, inlier_ref=40, rms_ref=0.03):
+                            min_span_columns=8, inlier_ref=40, rms_ref=0.03,
+                            stereo_weight=1.0):
     """LiDAR lines + the column cross-check -> [Observation], and the rejects.
 
     The emit rule, per the wall's own columns:
@@ -322,6 +364,14 @@ def observations_from_lines(lines, check, project, width, z_min, z_max,
                                  cannot see at all)
       DISAGREE over more than
       disagree_reject_frac    -> rejected, counted, not emitted
+
+    `stereo_weight` (age_weight) scales what the profile's opinion is worth.
+    THE VETO IS WHAT IT MOSTLY SCALES: rejecting a wall the LiDAR fitted is
+    the most destructive thing the stereo can do -- it removes the evidence
+    entirely rather than adjusting it -- so an old profile needs
+    proportionally more disagreement to do it (n_dis * w against the same
+    fraction). At w = 1 the rule is exactly the old one. Corroboration is
+    pulled toward neutral by the same weight in `confidence`.
 
     Returns ([Observation], n_rejected).
     """
@@ -335,7 +385,8 @@ def observations_from_lines(lines, check, project, width, z_min, z_max,
         n_lidar = int(np.count_nonzero(span == STATUS_LIDAR_ONLY))
         n_stereo = int(np.count_nonzero(span == STATUS_STEREO_ONLY))
         n_opinion = n_agree + n_dis
-        if n_opinion > 0 and n_dis >= disagree_reject_frac * n_opinion:
+        w = min(1.0, max(0.0, float(stereo_weight)))
+        if n_opinion > 0 and n_dis * w >= disagree_reject_frac * n_opinion:
             rejected += 1
             continue
         source = SOURCE_BOTH if n_agree > 0 else SOURCE_LIDAR
@@ -344,10 +395,11 @@ def observations_from_lines(lines, check, project, width, z_min, z_max,
         out.append(Observation(
             line, lo, hi, measured, source,
             confidence(source, line.inliers, line.rms, n_agree, n_opinion,
-                       inlier_ref=inlier_ref, rms_ref=rms_ref),
+                       inlier_ref=inlier_ref, rms_ref=rms_ref, stereo_weight=w),
             col_begin=c0, col_end=c1,
             counts={'agree': n_agree, 'lidar_only': n_lidar,
-                    'stereo_only': n_stereo, 'disagree': n_dis}))
+                    'stereo_only': n_stereo, 'disagree': n_dis},
+            stereo_weight=w))
     return out, rejected
 
 

@@ -486,7 +486,11 @@ class LidarFrontWallNode(Node):
         self._next_cost_log = None
 
         # ---- step 3: per-cycle fusion ---------------------------------------
-        self.obs_max_age = float(param('stereo_columns_max_age_s', 0.15))
+        # The profile is carried to this cycle's moment on the odometry and
+        # then WEIGHTED by its age, rather than being accepted or discarded on
+        # a hard edge. See _fresh_profile and wall_fusion.age_weight.
+        self.profile_max_age = float(param('stereo_profile_max_age_s', 0.6))
+        self.profile_min_weight = float(param('stereo_profile_min_weight', 0.3))
         self.obs_tol_base_m = float(param('wall_obs_tol_base_m', 0.05))
         self.obs_tol_quad = float(param('wall_obs_tol_quad_per_m2', 0.012))
         self.obs_disagree_reject_frac = float(param('wall_obs_disagree_reject_frac', 0.5))
@@ -507,6 +511,8 @@ class LidarFrontWallNode(Node):
         self._camera_tf = None        # (frame_id, (R, t))
         self._laser_z_cached = None
         self._odometry_was_fresh = None
+        self._stereo_age = math.nan     # this cycle's profile age [s]
+        self._stereo_weight = 0.0       # and what it was worth (age_weight)
 
         self.fit_pub = self.create_publisher(WallLineFit, self.fit_topic, 10)
         self.estimate_pub = self.create_publisher(WallEstimate, self.estimate_topic, 10)
@@ -621,9 +627,10 @@ class LidarFrontWallNode(Node):
         is no wall" is the answer an open corridor has to be able to give, and
         a consumer must be able to tell it from "the node stopped".
         """
-        profile = self._fresh_profile(scan_stamp)
+        profile, self._stereo_age, self._stereo_weight = self._fresh_profile(scan_stamp)
         cam = self._camera_transform(profile.camera_frame) if profile is not None else None
         if profile is None or cam is None or profile.width < 1:
+            self._stereo_weight = 0.0
             # No fresh stereo at all: every LiDAR line stands on its own, which
             # is exactly what SOURCE_LIDAR means. Not a reason to publish
             # nothing, and not a reason to invent a stereo wall.
@@ -640,17 +647,32 @@ class LidarFrontWallNode(Node):
         k = (float(profile.fx), float(profile.fy), float(profile.cx), float(profile.cy))
         width = int(profile.width)
 
+        image_stamp = _stamp_sec(profile.header)
+
         def project(points):
+            """Columns of base_link points taken at the IMAGE's own moment."""
             return scene_mask.project_to_image(points, *k, rot, trans)
+
+        def project_from_scan(points):
+            """Columns of base_link points taken at the SCAN's moment.
+
+            Everything on the LiDAR side of this cycle -- the returns and the
+            fitted lines alike -- was measured at the scan stamp, while the
+            profile describes the image stamp. With the profile now accepted up
+            to stereo_profile_max_age_s (0.6 s) rather than 0.15, that interval
+            is long enough to matter: this car's minimum radius is about 0.6 m,
+            so 0.6 s can be 28 degrees of yaw, and at fx 262 px that is a
+            128-COLUMN shift -- wider than most walls in the frame, and enough
+            to turn a whole wall's agreement into DISAGREE.
+            """
+            return project(self._compensate(points, scan_stamp, image_stamp))
 
         # The scan is a plane at the laser's own height; the cross-check only
         # uses x and y, but the projection needs the real height to land on
         # the right columns through a pitched mount.
         scan_xyz = np.column_stack([pts, np.full(len(pts), self._laser_z())]) \
             if len(pts) else np.empty((0, 3))
-        # The columns describe the scene at the IMAGE stamp; carry the scan
-        # there before projecting, or a turning car shifts every column.
-        scan_xyz = self._compensate(scan_xyz, scan_stamp, _stamp_sec(profile.header))
+        scan_xyz = self._compensate(scan_xyz, scan_stamp, image_stamp)
         scan_uv = project(scan_xyz)
         scan_depth = ((scan_xyz - trans) @ rot)[:, 2] if len(scan_xyz) else np.empty(0)
 
@@ -660,9 +682,10 @@ class LidarFrontWallNode(Node):
             scan_uv[:, 0], scan_depth, np.asarray(profile.distance_m, dtype=float), width,
             tol_base_m=self.obs_tol_base_m, tol_quad_per_m2=self.obs_tol_quad)
         observations, rejected = wall_fusion.observations_from_lines(
-            lines, check, project, width, z_lo, z_hi,
+            lines, check, project_from_scan, width, z_lo, z_hi,
             default_height=self.wall_default_height,
-            disagree_reject_frac=self.obs_disagree_reject_frac)
+            disagree_reject_frac=self.obs_disagree_reject_frac,
+            stereo_weight=self._stereo_weight)
         observations += wall_fusion.stereo_only_observations(
             check, self._cloud_columns(project), width,
             min_span_columns=self.obs_stereo_min_columns,
@@ -680,35 +703,49 @@ class LidarFrontWallNode(Node):
         return observations
 
     def _fresh_profile(self, scan_stamp):
-        """The latest StereoColumns if it is PAIRED with this scan, else None.
+        """(profile, age, weight) of the latest StereoColumns, or (None, age, 0).
 
-        Paired means |t_scan - t_image| < stereo_columns_max_age_s, on the
-        camera IMAGE stamp the message carries, not its arrival. An unpaired
-        profile is not used at all: its columns become LIDAR_ONLY or EMPTY,
-        never a stale STEREO_ONLY, because a stereo-only span is the one path
-        that can create a wall out of nothing and it must never be created
-        from a frame that describes a different moment.
+        THE GATE USED TO BE A HARD EDGE and it cost most of the camera's
+        evidence. A profile within the old 0.15 s pairing gate counted
+        in full and one a millisecond older counted not at all, so on
+        corridor10m_20261015T171753 only 44 of 238 live cycles used the camera
+        at all -- not because it had nothing to say, but because it had said
+        it slightly too early. Worse, the edge made a 0.14 s profile and a
+        0.01 s one equally trusted, which is the same mistake in the other
+        direction.
+
+        Now the profile is accepted up to stereo_profile_max_age_s and
+        WEIGHTED by its age (wall_fusion.age_weight): the geometry is carried
+        to the right moment on the odometry by the caller, and the weight
+        covers what that cannot -- the scene moving, the odometry's own error
+        over the interval, and the stereo's own staleness. Past the limit the
+        cycle is LiDAR only, as before.
+
+        The age is on the camera IMAGE stamp the message carries, never its
+        arrival: on this recording the writer ran 0.4-4.5 s behind the sensors.
         """
         held = self._stereo_columns
         if held is None:
-            return None
+            return None, math.nan, 0.0
         age = scan_stamp - _stamp_sec(held[1].header)
-        if abs(age) <= self.obs_max_age:
-            return held[1]
+        weight = wall_fusion.age_weight(age, self.profile_max_age,
+                                        self.profile_min_weight)
+        if weight > 0.0:
+            return held[1], age, weight
         self.get_logger().warn(
             f'stereo columns {age:+.3f} s from the scan (limit '
-            f'{self.obs_max_age:.3f} s): this cycle is LiDAR only',
+            f'{self.profile_max_age:.3f} s): this cycle is LiDAR only',
             throttle_duration_sec=5.0)
-        return None
+        return None, age, 0.0
 
     def _compensate(self, points, scan_stamp, image_stamp):
         """Carry base_link points from the scan's moment to the image's moment.
 
-        The two sensors are up to stereo_columns_max_age_s apart and the car
-        turns between them. At 0.5 m/s the translation is a harmless 7 cm, but
-        the YAW is not: this car's minimum radius is about 0.6 m, so 0.15 s can
-        be 7 degrees, which at fx 262 px is a 32-COLUMN shift -- more than the
-        width of most walls in the frame, and it would turn agreement into
+        The two sensors are up to stereo_profile_max_age_s apart and the car
+        turns between them. At 0.5 m/s the translation is a harmless 30 cm, but
+        the YAW is not: this car's minimum radius is about 0.6 m, so 0.6 s can
+        be 28 degrees, which at fx 262 px is a 128-COLUMN shift -- wider than
+        the width of most walls in the frame, and it would turn agreement into
         DISAGREE for a whole wall.
 
         Both poses come from /odometry/filtered (PoseHistory), so this is
@@ -963,6 +1000,13 @@ class LidarFrontWallNode(Node):
             # wall_merge_max_gap_m is too tight to reunify one wall.
             'short_obs': (None if self.wall_tracker is None
                           else int(self.wall_tracker.n_short_dropped)),
+            # The profile's age and what it was worth, every cycle: "no fresh
+            # stereo profile" was never the whole truth, and the difference
+            # between 0.16 s and 2.5 s is the difference between a tuning
+            # question and a dead camera.
+            'stereo_age_s': num(self._stereo_age),
+            'stereo_weight': num(self._stereo_weight),
+            'stereo_max_age_s': self.profile_max_age,
             'tracker_ms': num(self._tracker_ms)})))
         return state
 

@@ -723,6 +723,10 @@ class WallReplay:
             'check': sink.get('check'), 'scan_cols': sink.get('scan_cols'),
             'scan_depths': sink.get('scan_depths'), 'stereo_m': sink.get('stereo_m'),
             'profile_stamp': stamp_s(profile[1].header) if profile else None,
+            # The node's own verdict on the profile, not the tool's: the age it
+            # measured and the weight it gave it (wall_fusion.age_weight).
+            'stereo_age': d.get('stereo_age_s'),
+            'stereo_weight': d.get('stereo_weight'),
             'scan_ms': ms, 'tracker_ms': d.get('tracker_ms'),
             'shadow_front': self._shadow_front(cycle),
             'rec_dbg': cycle['rec_dbg'],
@@ -1183,7 +1187,7 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
     rec_used = sum(1 for m in rec_obs_msgs
                    if m.n_disagree_columns or m.n_rejected
                    or any(o.col_end > o.col_begin for o in m.observations))
-    max_age = float(get_value('lidar_front_wall_stereo_columns_max_age_s'))
+    max_age = float(get_value('lidar_front_wall_stereo_profile_max_age_s'))
     held = [g['age_held'] for g in gaps if g['age_held'] is not None]
     best = [g['age_best'] for g in gaps
             if g['age_best'] is not None and math.isfinite(g['age_best'])]
@@ -1264,7 +1268,8 @@ def param_evidence(src, rows, mask_rows, self_mask, self_polygons, window):
     """What the recording says about the tuning constants. No parameter is written."""
     out = {'current': {k: get_value(k) for k in (
         'lidar_front_wall_wall_obs_tol_base_m', 'lidar_front_wall_wall_obs_tol_quad_per_m2',
-        'lidar_front_wall_stereo_columns_max_age_s',
+        'lidar_front_wall_stereo_profile_max_age_s',
+        'lidar_front_wall_stereo_profile_min_weight',
         'lidar_front_wall_wall_obs_disagree_reject_frac',
         'lidar_front_wall_wall_obs_stereo_min_columns',
         'front_clearance_scene_mask_floor_tol_m',
@@ -1740,14 +1745,20 @@ def draw_side_notes(img, frame, y0):
         y[0] += gap
 
     line('COLUMN CROSS-CHECK (this cycle)', (150, 150, 150), 0.52)
+    # The age AND the weight, always. "No fresh stereo profile" was never the
+    # whole truth: the difference between 0.16 s (worth 0.65) and 2.5 s (worth
+    # nothing) is the difference between a tuning question and a dead camera.
+    age, weight = row.get('stereo_age'), row.get('stereo_weight')
+    if age is not None and math.isfinite(age):
+        colour = (90, 220, 90) if (weight or 0.0) > 0.0 else (0, 200, 255)
+        line(f'stereo age {age:+.2f} s  w {weight if weight is not None else 0.0:.2f}',
+             colour, 0.5)
     if check is None:
-        line('no fresh stereo profile: LiDAR only', (0, 200, 255))
+        line('  LiDAR only this cycle', (0, 200, 255), 0.46)
     else:
         for status in STATUS_ORDER:
             n = int(np.count_nonzero(check['status'] == status))
             line(f'  {wall_fusion.STATUS_NAMES[status]:12s} {n:4d}', STATUS_COLOUR[status])
-        age = frame['t'] - (row.get('profile_stamp') or frame['t'])
-        line(f'  profile age {age:+.3f} s', (170, 170, 170), 0.46)
     y[0] += 10
     line('TRACKS', (150, 150, 150), 0.52)
     for tr in sorted(confirmed_tracks(frame), key=lambda t: t.rho_bl)[:8]:
@@ -2169,7 +2180,7 @@ def write_summary_md(path, src, summary, evidence, window, videos):
           'had been accumulating hits long before the recording began.', '']
     sp = summary['stereo_pairing']
     L += ['## Stereo pairing (why the cross-check usually does not run)', '',
-          f'`stereo_columns_max_age_s` = {sp["max_age_s"]} s.',
+          f'`stereo_profile_max_age_s` = {sp["max_age_s"]} s.',
           f'Cycles: {sp["cycles"]}. The profile the node was holding was within the limit on '
           f'**{sp["within_limit_held"]}**; the best any /perception/stereo_columns message in '
           f'the bag could have done is **{sp["best_possible_within_limit"]}**.',
@@ -2290,7 +2301,8 @@ def write_csv(path, cycles, rows_rec, rows_full, src, poses, window):
     cols = ['t_rel', 'stamp', 'moving', 'speed', 'rec_state', 'rec_value', 'rec_front_d_ray',
             'rep_state', 'rep_value', 'rep_front_d_ray', 'full_state', 'full_value',
             'rec_n_obs', 'rep_n_obs', 'rec_rejected', 'rep_rejected', 'rec_disagree',
-            'rep_disagree', 'rep_n_tracks', 'rep_profile_age', 'scan_ms', 'tracker_ms']
+            'rep_disagree', 'rep_n_tracks', 'rep_profile_age', 'rep_stereo_age',
+            'rep_stereo_weight', 'scan_ms', 'tracker_ms']
     rec_obs = index_by_stamp(src.get('/perception/wall_observations'))
     with open(path, 'w', newline='') as fh:
         w = csv.writer(fh)
@@ -2312,6 +2324,8 @@ def write_csv(path, cycles, rows_rec, rows_full, src, poses, window):
                 a and a['obs'] and int(a['obs'].n_disagree_columns),
                 a and a['walls'] and len(a['walls'].tracks),
                 a and num(cycle['stamp'] - (a['profile_stamp'] or math.nan)),
+                a and num(a.get('stereo_age')),
+                a and num(a.get('stereo_weight'), 3),
                 a and num(a['scan_ms'], 2), a and num(a['tracker_ms'], 2)])
 
 

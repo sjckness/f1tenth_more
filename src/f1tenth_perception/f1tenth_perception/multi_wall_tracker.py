@@ -245,7 +245,7 @@ class TrackerParams:
     stereo_front_max_normal_rad: float = math.radians(30.0)
 
 
-def observation_covariance(source, distance_m, span_m, p):
+def observation_covariance(source, distance_m, span_m, p, stereo_weight=1.0):
     """2x2 (rho, theta) measurement covariance of an observation.
 
     An observation carries no covariance of its own -- it is a line, not a
@@ -266,13 +266,23 @@ def observation_covariance(source, distance_m, span_m, p):
     sigma_theta is sigma_rho over the observed span: a 5 cm uncertainty on a
     3 m wall is a much better-determined angle than the same 5 cm on a 40 cm
     stub, and a short segment's angle is exactly what should not be trusted.
+
+    `stereo_weight` (wall_fusion.age_weight) is how much the stereo half was
+    worth. It divides the stereo sigma, which is the only honest way to spend
+    it here: the inverse-variance combination then leans on the LiDAR in
+    exactly the proportion the weight says, and at the floor weight 0.3 the
+    stereo sigma is 3.3x its fresh value, so a 0.6 s profile moves the fused
+    distance by centimetres instead of decimetres. A weight of 0 is LiDAR
+    only, which is also what the caller does by not pairing at all.
     """
     d = max(float(distance_m), 0.0)
+    w = min(1.0, max(0.0, float(stereo_weight)))
     lidar = p.lidar_sigma_base_m + p.lidar_sigma_per_m * d
     stereo = p.stereo_sigma_base_m + p.stereo_sigma_quad_per_m2 * d * d
+    stereo = stereo / w if w > 0.0 else math.inf
     if source == wall_fusion.SOURCE_STEREO:
         sigma_rho = stereo
-    elif source == wall_fusion.SOURCE_BOTH:
+    elif source == wall_fusion.SOURCE_BOTH and math.isfinite(stereo):
         sigma_rho = 1.0 / math.sqrt(1.0 / lidar ** 2 + 1.0 / stereo ** 2)
     else:
         sigma_rho = lidar
@@ -300,7 +310,9 @@ def observation_line(obs, car_pose, p):
     wl = obs.line
     rho, alpha = normalise_line(float(wl.d), math.atan2(wl.ny, wl.nx))
     (ax, ay), (bx, by) = wl.endpoints()
-    line = Line(rho, alpha, observation_covariance(obs.source, wl.d, wl.span, p),
+    line = Line(rho, alpha,
+                observation_covariance(obs.source, wl.d, wl.span, p,
+                                       getattr(obs, 'stereo_weight', 1.0)),
                 np.array([ax, ay], dtype=float), np.array([bx, by], dtype=float),
                 max(int(wl.inliers), 1), 'base_link')
     return line.transform(car_pose, 'odom')

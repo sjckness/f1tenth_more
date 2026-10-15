@@ -473,26 +473,83 @@ class TestWallObservations:
         finally:
             n.destroy_node()
 
-    def test_columns_just_past_the_pairing_window_are_not_used(self):
-        """Paired on the camera IMAGE stamp, not on arrival. One frame too old
-        and the cycle is LiDAR only -- never a stale STEREO_ONLY, which is the
-        one path that can create a wall out of nothing."""
+    def test_a_profile_is_weighted_by_its_age_and_dropped_only_past_the_limit(self):
+        """Aged on the camera IMAGE stamp, not on arrival, and the age is a
+        WEIGHT rather than a gate.
+
+        The 0.15 s hard gate this replaces passed 44 of 238 live cycles on
+        corridor10m_20261015T171753: four fifths of the run was LiDAR-only not
+        because the camera had nothing to say but because it had said it
+        slightly too early. Past stereo_profile_max_age_s the cycle is still
+        LiDAR only -- a stale STEREO_ONLY span is the one path that can create
+        a wall out of nothing.
+        """
         n = self._node()
         try:
             n._tf_static_cb(self._camera_tf())
-            limit = n.obs_max_age
-            assert limit == pytest.approx(0.15)
-            # Inside the window: the stereo is used and agrees.
-            n._stereo_columns_cb(self._columns_at([1.77] * 64, 7.0 - 0.9 * limit))
+            limit = n.profile_max_age
+            assert limit == pytest.approx(0.6)
+            assert n.profile_min_weight == pytest.approx(0.3)
+            # Well past the OLD 0.15 s gate, and now used -- at a weight.
+            n._stereo_columns_cb(self._columns_at([1.77] * 64, 7.0 - 0.5 * limit))
             n._scan_cb(_scan_at(2.0, 7.0))
             assert any(o.source == o.SOURCE_BOTH
                        for o in _last(n.observations_pub).observations)
-            # Just outside it: the same data is refused.
+            assert n._stereo_weight == pytest.approx(0.65, abs=0.01)
+            assert n._stereo_age == pytest.approx(0.3, abs=0.01)
+            # Past the limit: refused, and the cycle says why.
             n._stereo_columns_cb(self._columns_at([1.77] * 64, 7.0 - 1.1 * limit))
             n._scan_cb(_scan_at(2.0, 7.0))
             msg = _last(n.observations_pub)
             assert msg.observations
             assert all(o.source == o.SOURCE_LIDAR for o in msg.observations)
+            assert n._stereo_weight == 0.0
+        finally:
+            n.destroy_node()
+
+    def test_the_cycle_publishes_the_profiles_age_and_weight(self):
+        """What the debug video shows instead of "no fresh stereo profile":
+        0.16 s worth 0.65 and 2.5 s worth nothing are different problems."""
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._stereo_columns_cb(self._columns_at([1.77] * 64, 6.8))
+            n._scan_cb(_scan_at(2.0, 7.0))
+            d = json.loads(_last(n.virtual_debug_pub).data)
+            assert d['stereo_age_s'] == pytest.approx(0.2, abs=0.01)
+            assert d['stereo_weight'] == pytest.approx(0.767, abs=0.01)
+            assert d['stereo_max_age_s'] == pytest.approx(0.6)
+        finally:
+            n.destroy_node()
+
+    def test_the_fitted_lines_are_carried_to_the_image_moment_too(self):
+        """Not just the scan returns. The lines are fitted in base_link at the
+        SCAN stamp, and their column span is what decides which columns judge
+        them, so an uncompensated line is judged by the wrong columns -- 128 of
+        them at 0.6 s and this car's minimum radius.
+        """
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._odom_cb(_odom_at(7.00, 0.0))
+            n._odom_cb(_odom_at(7.40, math.radians(20.0)))
+            n._stereo_columns_cb(self._columns_at([2.0] * 64, 7.00))
+            n._scan_cb(_scan_at(2.0, 7.40))
+            msg = _last(n.observations_pub)
+            assert msg.observations
+            turned = [(o.col_begin, o.col_end) for o in msg.observations]
+            # The same cycle with no odometry to carry anything: the columns
+            # the wall is judged over differ, which is the whole point.
+            m = self._node()
+            try:
+                m._tf_static_cb(self._camera_tf())
+                m._stereo_columns_cb(self._columns_at([2.0] * 64, 7.00))
+                m._scan_cb(_scan_at(2.0, 7.40))
+                bare = [(o.col_begin, o.col_end) for o in
+                        _last(m.observations_pub).observations]
+            finally:
+                m.destroy_node()
+            assert turned != bare
         finally:
             n.destroy_node()
 

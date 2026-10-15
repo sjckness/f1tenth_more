@@ -543,3 +543,70 @@ def test_a_wall_at_the_bumper_still_reads_as_a_reading():
 def test_the_three_states_are_distinct_values():
     assert len({wf.STATE_NO_DATA, wf.STATE_WALL, wf.STATE_CLEAR}) == 3
     assert set(wf.STATE_NAMES) == {wf.STATE_NO_DATA, wf.STATE_WALL, wf.STATE_CLEAR}
+
+
+# ===========================================================================
+# The profile's age: a weight, not a gate
+# ===========================================================================
+
+def test_the_weight_is_one_fresh_the_floor_at_the_limit_and_zero_past_it():
+    assert wf.age_weight(0.0, 0.6, 0.3) == pytest.approx(1.0)
+    assert wf.age_weight(0.3, 0.6, 0.3) == pytest.approx(0.65)
+    assert wf.age_weight(0.6, 0.6, 0.3) == pytest.approx(0.0)   # past, not at
+    assert wf.age_weight(0.59, 0.6, 0.3) == pytest.approx(0.3115, abs=1e-3)
+    assert wf.age_weight(2.5, 0.6, 0.3) == 0.0
+
+
+def test_the_weight_does_not_care_which_sensor_was_early():
+    """The image may be stamped before OR after the scan; both are the same
+    amount of not-the-same-moment."""
+    for age in (0.2, -0.2):
+        assert wf.age_weight(age, 0.6, 0.3) == pytest.approx(
+            wf.age_weight(abs(age), 0.6, 0.3))
+
+
+def test_a_zero_limit_is_the_old_hard_gate():
+    """The behaviour the parameter has to be able to express, so the change is
+    reversible from the config alone."""
+    assert wf.age_weight(0.0, 0.0, 0.3) == 1.0
+    assert wf.age_weight(0.01, 0.0, 0.3) == 0.0
+
+
+def test_a_stale_profile_needs_more_disagreement_to_veto_a_lidar_wall():
+    """Rejecting a wall the LiDAR fitted removes the evidence rather than
+    adjusting it, so it is the power an old profile should lose first."""
+    line = WallLine(1.0, 0.0, 3.0, -1.0, 1.0, 60, 0.01, 'lidar')
+    width = 40
+    status = np.full(width, wf.STATUS_DISAGREE, dtype=np.uint8)
+    status[:10] = wf.STATUS_AGREE          # 10 agree, 30 disagree: 75 % against
+    check = {'status': status}
+
+    def project(points):
+        # Both endpoints land inside the frame, spanning every column.
+        return np.array([[0.0, 10.0], [width - 1.0, 10.0]])
+
+    z = np.full(width, np.nan)
+    fresh, n_fresh = wf.observations_from_lines([line], check, project, width, z, z,
+                                                stereo_weight=1.0)
+    assert (len(fresh), n_fresh) == (0, 1)          # vetoed, as before
+    stale, n_stale = wf.observations_from_lines([line], check, project, width, z, z,
+                                                stereo_weight=0.3)
+    assert (len(stale), n_stale) == (1, 0)          # 0.3 x 30 < 0.5 x 40
+    assert stale[0].stereo_weight == pytest.approx(0.3)
+    assert stale[0].source == wf.SOURCE_BOTH        # it still corroborates
+
+
+def test_the_weight_pulls_corroboration_toward_neutral_not_toward_zero():
+    """An old profile neither vouches for the wall nor argues against it as
+    strongly as a fresh one: 0.5 is the value a wall outside the camera's view
+    already gets, and that is the right place to decay to."""
+    args = (wf.SOURCE_BOTH, 60, 0.01, 10, 10)       # every column agreed
+    full = wf.confidence(*args, stereo_weight=1.0)
+    half = wf.confidence(*args, stereo_weight=0.5)
+    none = wf.confidence(*args, stereo_weight=0.0)
+    unseen = wf.confidence(*args[:3], 0, 0)          # no columns at all
+    assert full > half > none
+    assert none == pytest.approx(unseen)
+    # And when the stereo DISAGREED everywhere the weight works the other way.
+    bad = (wf.SOURCE_BOTH, 60, 0.01, 0, 10)
+    assert wf.confidence(*bad, stereo_weight=0.0) > wf.confidence(*bad, stereo_weight=1.0)
