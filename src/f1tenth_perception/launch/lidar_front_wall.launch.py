@@ -96,6 +96,8 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_min_span_birth_m', float),
     ('wall_min_span_update_m', float),
     ('wall_merge_max_gap_m', float),
+    # E1: the extraction's own quality gates.
+    ('wall_extract_quality_gates', bool),
 ]
 
 

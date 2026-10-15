@@ -15,6 +15,48 @@ Everything here is stateless and in the sensor frame. The pipeline is
      cluster refitted exactly once. The obvious restart-on-change loop is
      O(n^3) and blows the frame budget in clutter.
   5. a support filter on point count and length.
+  6. the QUALITY GATES (quality_gates, on by default): a range-dependent seed
+     size, a residual-rms ceiling and an occlusion-aware fill ratio. See
+     WHY THE QUALITY GATES below.
+
+WHY THE QUALITY GATES
+---------------------
+Steps 1-5 ask only "do these returns lie on a line?", and in a room full of
+furniture the answer is yes far too often: three returns on a chair leg are
+perfectly collinear, and the global merge in step 4 will happily glue two
+unrelated 20 cm faces 1.4 m apart into one 1.5 m "wall". That is how a 1.39 m
+segment sat 2 m ahead of the car for 30 s of an empty corridor
+(corridor10m_20261015T171753, track 8). Three gates, each answering a
+question the fit itself cannot:
+
+  SEED SIZE, N(r).    How many returns a real surface OWES us at that range.
+      The beam pitch is angular, so a 0.5 m wall is ~50 returns at 1 m and
+      ~6 at 8 m: a fixed minimum of 3 is a meaningful demand near the car and
+      no demand at all far away, where 3 collinear returns are the normal
+      output of noise on any scattered pair of objects. N(r) = clip(3 +
+      floor((r_med - 2.0) / 1.5), 3, 6) asks for more returns the further out
+      the cluster is -- 3 inside 3.5 m, 6 past 8 m -- which is the range
+      where the old floor stopped meaning anything.
+  RESIDUAL RMS.       How well the returns actually lie on the line AFTER the
+      merge. The merge is the one step that can produce a line no cluster
+      ever supported: two collinear-to-6-deg fragments a metre apart refit to
+      something neither of them was. The TLS covariance already in Line is
+      about the ORIGIN, so it grows with the lever arm and cannot be compared
+      against a length; the perpendicular residual rms can, and 0.03 m is the
+      same number inlier_distance_m uses for "on this wall".
+  FILL RATIO.         Whether the surface was THERE across the span it claims.
+      A wall fills its own angular span: every beam in that span either lands
+      on it or is stopped by something nearer. So the beams in the span are
+      counted, those blocked by a nearer return are EXCLUDED (that is what an
+      occluder does, and a person standing in front of a wall must not cost
+      the wall its span), and the returns the line actually holds are divided
+      by the rest. A real wall scores ~1.0 even with a person in front of it;
+      two fragments merged across empty space score about half, because the
+      beams in between returned nothing from anywhere near the line.
+
+The gates are a switch (quality_gates) rather than a rewrite because they
+change what the extraction REPORTS, and the only honest way to size that
+change is to run both on the same bag.
 """
 
 from __future__ import annotations
@@ -30,6 +72,7 @@ from .geometry import Line, normalise_line, wrap_pi
 
 # Groups with fewer returns than this are dropped before fitting: a 2-point
 # "line" has no angle information and would only become a merge candidate.
+# With quality_gates on this is only the FLOOR of N(r) (seed_min_count).
 MIN_FIT_POINTS = 3
 
 # Running-mean window, in returns, for the IEPF deviation test; see iepf_split.
@@ -49,6 +92,16 @@ class ExtractionParams:
     min_points: int = 10
     min_length: float = 0.50         # metres
     max_point_gap: float = 0.60
+    # --- quality gates (see WHY THE QUALITY GATES) ------------------------
+    quality_gates: bool = True
+    seed_base_points: int = MIN_FIT_POINTS   # N(r) at and below seed_range_m
+    seed_max_points: int = 6                 # N(r)'s ceiling
+    seed_range_m: float = 2.0                # where N(r) starts to grow
+    seed_range_step_m: float = 1.5           # one more return per this much range
+    max_rms_m: float = 0.03                  # perpendicular residual ceiling
+    min_fill: float = 0.6                    # of the span's unoccluded beams
+    occlusion_margin_m: float = 0.10         # nearer than this IS an occluder
+    min_incidence: float = 0.05              # |n . v| below this has no s_k
 
 
 def point_sigma(ranges, p: ExtractionParams) -> np.ndarray:
@@ -140,6 +193,69 @@ def fit_line_tls(pts, sigma, frame: str = 'sensor') -> Line:
     p_start = rho * nrm + float(proj.min()) * tan
     p_end = rho * nrm + float(proj.max()) * tan
     return Line(float(rho), alpha, cov, p_start, p_end, n_pts, frame)
+
+
+def seed_min_count(r_med, p: ExtractionParams) -> int:
+    """N(r): returns a cluster at median range r_med must hold to be fitted.
+
+    clip(3 + floor((r_med - 2.0) / 1.5), 3, 6) -- 3 at 1 and 3 m, 5 at 5 m,
+    6 at 8 m and beyond. See WHY THE QUALITY GATES.
+    """
+    r = float(r_med)
+    if not math.isfinite(r):
+        return int(p.seed_base_points)
+    n = p.seed_base_points + math.floor((r - p.seed_range_m) / p.seed_range_step_m)
+    return int(min(max(n, p.seed_base_points), p.seed_max_points))
+
+
+def perp_rms(pts, rho: float, alpha: float) -> float:
+    """Perpendicular residual rms [m] of pts about the line (rho, alpha).
+
+    For the TLS fit of those same points this IS sqrt(lambda_min) of their
+    scatter covariance -- the smallest eigenvalue of d.T d / N is the mean
+    square perpendicular deviation -- computed as the residual directly
+    because that costs one dot product and no eigendecomposition.
+    """
+    q = np.asarray(pts, dtype=float).reshape(-1, 2)
+    if q.shape[0] == 0:
+        return math.inf
+    resid = q @ np.array([math.cos(alpha), math.sin(alpha)]) - float(rho)
+    return math.sqrt(float(resid @ resid) / resid.size)
+
+
+def fill_ratio(line: Line, ranges, angles, p: ExtractionParams) -> tuple[float, int]:
+    """(fill, unoccluded beams) over the beams inside the segment's own span.
+
+    s_k = rho / (n . v_k) is where beam k would meet the line's infinite
+    extension (corridor_perception's convention is rho >= 0 with the line in
+    the +n half-plane, so a beam pointing at it has n . v_k > 0; the sign is
+    the opposite of the usual "n faces the sensor" statement of the same
+    formula). A beam whose return is more than occlusion_margin_m NEARER than
+    that is blocked by something else and is not evidence against the line;
+    one at an incidence below min_incidence has no usable s_k and is left out
+    of both counts. Everything else is a beam that should have landed on the
+    line.
+    """
+    r = np.asarray(ranges, dtype=float)
+    a = np.asarray(angles, dtype=float)
+    b0 = math.atan2(line.p_start[1], line.p_start[0])
+    b1 = math.atan2(line.p_end[1], line.p_end[0])
+    half = 0.5 * abs(wrap_pi(b1 - b0))
+    centre = wrap_pi(b0 + 0.5 * wrap_pi(b1 - b0))
+    span = np.abs(wrap_pi(a - centre)) <= half
+    if not span.any():
+        return math.inf, 0
+    av = a[span]
+    inc = math.cos(line.alpha) * np.cos(av) + math.sin(line.alpha) * np.sin(av)
+    usable = inc > p.min_incidence
+    if not usable.any():
+        return math.inf, 0
+    s = line.rho / inc[usable]
+    rv = r[span][usable]
+    with np.errstate(invalid='ignore'):
+        occluded = rv < s - p.occlusion_margin_m
+    n_visible = int(np.count_nonzero(~occluded))
+    return line.n_points / max(1, n_visible), n_visible
 
 
 def iepf_split(pts, idx, p: ExtractionParams) -> list[np.ndarray]:
@@ -269,30 +385,78 @@ def _merge_clusters(segs: list[Line], p: ExtractionParams) -> list[list[int]]:
     return list(clusters.values())
 
 
-def extract_segments(ranges, angles, p: ExtractionParams | None = None) -> list[Line]:
-    """Supported line segments in the sensor frame."""
+def extract_segments(ranges, angles, p: ExtractionParams | None = None,
+                     stats: dict | None = None) -> list[Line]:
+    """Supported line segments in the sensor frame.
+
+    `stats`, when given, is filled with what each stage dropped:
+    seed/rms/fill/support, and `kept`.
+    """
     p = p or ExtractionParams()
     r = require_clean(ranges, 'extract_segments')
     a = np.asarray(angles, dtype=float)
     valid = np.isfinite(r) & (r > 0.0)
     pts = polar_to_cartesian(np.where(valid, r, 0.0), a)
     sig = point_sigma(np.where(valid, r, 0.0), p)
+    dropped = {'seed': 0, 'rms': 0, 'fill': 0, 'support': 0}
+
+    def seed_floor(g):
+        """N(r) for this group, or the fixed minimum with the gates off.
+
+        Short-circuited on the group's own size before the median is taken:
+        a group with seed_max_points returns passes N(r) at ANY range and one
+        below seed_base_points fails at any, so the median is only ever
+        computed for the few sizes where it decides -- and then over at most
+        seed_max_points values, with Python's sort rather than numpy, because
+        a scan produces hundreds of these groups and np.median's own overhead
+        on a 4-element array is most of this gate's cost (7 ms a scan).
+        """
+        if not p.quality_gates:
+            return MIN_FIT_POINTS
+        if g.size >= p.seed_max_points or g.size < p.seed_base_points:
+            return p.seed_base_points
+        vals = sorted(v for v in (float(r[i]) for i in g) if math.isfinite(v))
+        if not vals:
+            return p.seed_base_points
+        return seed_min_count(vals[len(vals) // 2], p)
 
     groups: list[np.ndarray] = []
     for cluster in adaptive_breakpoints(r, a, p):
-        if cluster.size < MIN_FIT_POINTS:
+        if cluster.size < seed_floor(cluster):
+            dropped['seed'] += 1
             continue
-        groups.extend(g for g in iepf_split(pts, cluster, p)
-                      if g.size >= MIN_FIT_POINTS)
+        for g in iepf_split(pts, cluster, p):
+            if g.size >= seed_floor(g):
+                groups.append(g)
+            else:
+                dropped['seed'] += 1
     segs = [fit_line_tls(pts[g], sig[g]) for g in groups]
 
     out: list[Line] = []
     for members in _merge_clusters(segs, p):
         if len(members) == 1:
-            line = segs[members[0]]
+            line, idx = segs[members[0]], groups[members[0]]
         else:
             idx = np.unique(np.concatenate([groups[m] for m in members]))
             line = fit_line_tls(pts[idx], sig[idx])
-        if line.n_points >= p.min_points and line.length >= p.min_length:
-            out.append(line)
+        # The cheap support filter runs FIRST, and the two gates only on what
+        # it passes. All three are conjunctive, so the order cannot change
+        # which segments are reported -- only which counter a doubly-failing
+        # one lands in. It changes the cost by a factor of six: a scan
+        # produces about 60 merged clusters and reports about 9, and
+        # fill_ratio on all 60 is 8 ms a scan.
+        if line.n_points < p.min_points or line.length < p.min_length:
+            dropped['support'] += 1
+            continue
+        if p.quality_gates:
+            if perp_rms(pts[idx], line.rho, line.alpha) > p.max_rms_m:
+                dropped['rms'] += 1
+                continue
+            if fill_ratio(line, r, a, p)[0] < p.min_fill:
+                dropped['fill'] += 1
+                continue
+        out.append(line)
+    if stats is not None:
+        stats.update(dropped)
+        stats['kept'] = len(out)
     return out

@@ -471,7 +471,11 @@ class LidarFrontWallNode(Node):
         # The extraction's collinear merge has to reunify a wall broken by an
         # occluder BEFORE its span is measured, so its gap is set from the same
         # parameter block as the span thresholds.
-        self.extraction_params = mwt.extraction_params(tracker_params.merge_max_gap_m)
+        self.extraction_params = mwt.extraction_params(
+            tracker_params.merge_max_gap_m,
+            quality_gates=bool(param('wall_extract_quality_gates', True)))
+        #: What each extraction gate dropped on the last scan, for the debug payload.
+        self._extract_stats = {}
         self._poses = mwt.PoseHistory()
         self._odom_frame = 'odom'
         self._wall_source = 'sequential_lines'
@@ -1000,6 +1004,11 @@ class LidarFrontWallNode(Node):
             # wall_merge_max_gap_m is too tight to reunify one wall.
             'short_obs': (None if self.wall_tracker is None
                           else int(self.wall_tracker.n_short_dropped)),
+            # What each EXTRACTION quality gate dropped this scan (seed size,
+            # residual rms, fill ratio, support). The span gate above only
+            # ever sees what survived these.
+            'extract_dropped': (dict(self._extract_stats)
+                                if self._extract_stats else None),
             # The profile's age and what it was worth, every cycle: "no fresh
             # stereo profile" was never the whole truth, and the difference
             # between 0.16 s and 2.5 s is the difference between a tuning
@@ -1030,9 +1039,11 @@ class LidarFrontWallNode(Node):
             return None
         self._tracker_has_data = True
         t0 = time.perf_counter()
+        self._extract_stats = {}
         lines = mwt.extract_lines(
             msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min, msg.range_max,
-            laser_pose, sectors, params=self.extraction_params)
+            laser_pose, sectors, params=self.extraction_params,
+            stats=self._extract_stats)
         observations = self._publish_observations(
             stamp, scan_stamp, [mwt.line_to_wall_line(ln) for ln in lines], pts)
         tracks = self.wall_tracker.step(observations, scan_stamp, car)

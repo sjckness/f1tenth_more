@@ -166,28 +166,35 @@ def propagate_objects(objects_xyr, pose_then, pose_now):
 # Extraction
 # ============================================================================
 
-def extraction_params(merge_max_gap_m=None):
-    """The extraction's own defaults, with the collinear merge gap overridden.
+def extraction_params(merge_max_gap_m=None, quality_gates=None):
+    """The extraction's own defaults, with the merge gap and the gates overridden.
 
     The merge is what makes a span mean "the length of this wall" rather than
     "the length of the piece of it nothing was standing in front of", so the
     one tolerance a wall-span threshold has to be set together with is this
-    gap. Everything else stays corridor_perception's own default.
+    gap. `quality_gates` is corridor_perception's seed/rms/fill gates (see
+    extraction.py, WHY THE QUALITY GATES); off, the extraction reports every
+    collinear triple it can find, which is what the span gate below then has
+    to clean up on its own. Everything else stays corridor_perception's own
+    default.
     """
     p = ExtractionParams()
     if merge_max_gap_m is not None:
         p.merge_gap = float(merge_max_gap_m)
+    if quality_gates is not None:
+        p.quality_gates = bool(quality_gates)
     return p
 
 
 def extract_lines(ranges, angle_min, angle_increment, range_min, range_max, laser_pose,
-                  sectors=(), params=None):
+                  sectors=(), params=None, stats=None):
     """Wall segments of one scan as corridor_perception Lines in base_link.
 
     laser_pose: (x, y, yaw) of the laser in base_link. sectors: bearing
     sectors [(lo, hi)] in base_link (scene_labels.detection_sectors) whose
     beams are treated as no-returns. params: ExtractionParams, normally built
-    by `extraction_params` from the node's merge-gap parameter.
+    by `extraction_params` from the node's merge-gap and quality-gate
+    parameters. stats: filled with what each extraction gate dropped.
     """
     r = clean_ranges(ranges, range_min, range_max)
     lx, ly, lyaw = laser_pose
@@ -197,7 +204,7 @@ def extract_lines(ranges, angle_min, angle_increment, range_min, range_max, lase
         cut = in_sectors(bearings, sectors)
         if cut.any():
             r = np.where(cut, np.inf, r).view(type(r))
-    lines = extract_segments(r, angles, params or ExtractionParams())
+    lines = extract_segments(r, angles, params or ExtractionParams(), stats=stats)
     laser = Pose2D(float(lx), float(ly), float(lyaw))
     return [line.transform(laser, 'base_link') for line in lines]
 
