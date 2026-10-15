@@ -79,6 +79,17 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_obs_disagree_reject_frac', float),
     ('wall_obs_stereo_min_columns', int),
     ('wall_default_height_m', float),
+    # Step 4: the tracker's observation model and FRONT rule.
+    ('lidar_sigma_base_m', float),
+    ('lidar_sigma_per_m', float),
+    ('stereo_sigma_base_m', float),
+    ('stereo_sigma_quad_per_m2', float),
+    ('min_span_for_angle_m', float),
+    ('stereo_confirm_hits', int),
+    ('stereo_confirm_window', int),
+    ('role_hysteresis_rad', float),
+    ('stereo_front_max_normal_rad', float),
+    ('front_strip_half_width_m', float),
 ]
 
 

@@ -2681,3 +2681,39 @@ lidar_front_wall_wall_obs_stereo_min_columns:
 lidar_front_wall_wall_default_height_m:
   default: 2.5
   description: "Height [m] above the floor a wall observation is assumed to have when the stereo measured no height for it (a wall outside the camera's view, or one the stereo never confirmed). Heights are only ever taken from the columns the stereo AGREED on; borrowing them for a wall it never saw would invent a measurement. 2.5 m is an indoor corridor wall, and the field is flagged (height_measured false) so a consumer can tell."
+
+# --- the wall tracker's observation model and FRONT rule (step 4) ------------
+# The tracker consumes ONLY /perception/wall_observations. An observation
+# carries no covariance of its own, so the tracker synthesises one from the
+# two things that determine the error: which sensor saw the wall and how far
+# away it was (multi_wall_tracker.observation_covariance).
+lidar_front_wall_lidar_sigma_base_m:
+  default: 0.02
+  description: "Constant part of a LIDAR observation's distance sigma [m]. The Hokuyo's own range error is millimetres; what this covers is the odometry the line is placed with and the extraction's own bias. Matches the existing meas_sigma_rho_min floor."
+lidar_front_wall_lidar_sigma_per_m:
+  default: 0.005
+  description: "Range-proportional part of a LIDAR observation's sigma [m/m]: the beam footprint grows with range, so a far wall's line is placed slightly less well. LINEAR, not quadratic: unlike stereo, LiDAR range error does not blow up with distance, and at 6 m this is 5 cm against the stereo's 46 cm. That ratio is the honest difference between the sensors and is what makes a LiDAR wall win an argument."
+lidar_front_wall_stereo_sigma_base_m:
+  default: 0.03
+  description: "Constant part of a STEREO observation's distance sigma [m]: the extrinsic and the column summary, before range noise."
+lidar_front_wall_stereo_sigma_quad_per_m2:
+  default: 0.012
+  description: "Range-SQUARED part of a stereo observation's sigma [m/m^2], the same quadratic the cross-check tolerance uses and for the same reason (sigma_Z = Z^2 sigma_d / (fx b)). A wall both sensors agree on gets the inverse-variance combination of the two and is therefore TIGHTER than either alone, which is the whole point of having agreed."
+lidar_front_wall_min_span_for_angle_m:
+  default: 0.3
+  description: "Shortest span [m] used when turning a distance sigma into an angle sigma (sigma_theta = sigma_rho / span). A 5 cm uncertainty on a 3 m wall pins the angle far better than the same 5 cm on a 40 cm stub, and a short segment's angle is exactly what must not be trusted. The floor stops a tiny segment producing an absurd angle sigma."
+lidar_front_wall_stereo_confirm_hits:
+  default: 5
+  description: "Hits within lidar_front_wall_stereo_confirm_window that confirm a track the LiDAR has NEVER seen. Stricter than the ordinary 3-in-5 because stereo-only evidence is the weak kind: on this building's floor the stereo invents whole surfaces out of reflections, and a one-frame reflection must never leave a confirmed wall behind. A LiDAR or BOTH hit promotes the track to the ordinary rule immediately (it is no longer stereo-only); it does NOT confirm it on the spot, so one spurious line still cannot make a wall."
+lidar_front_wall_stereo_confirm_window:
+  default: 7
+  description: "The window the stereo-only confirm rule counts over. Longer than the ordinary 5 so a wall must persist across more of the scene before anything acts on it."
+lidar_front_wall_role_hysteresis_rad:
+  default: 0.0873
+  description: "How far past its 45 deg sector edge [rad, 5 deg] a wall keeps the role it already had. Without it a wall sitting on a boundary flips between front and left every scan as the car wobbles, and every consumer keyed on the role flips with it."
+lidar_front_wall_stereo_front_max_normal_rad:
+  default: 0.5236
+  description: "A STEREO-ONLY wall may be the FRONT wall only when its normal is within this [rad, 30 deg] of the heading. Nothing cross-checks a stereo-only wall, so it may stop the car only when it is squarely across the path, never as a glancing surface. A wall the LiDAR has seen is not subject to this."
+lidar_front_wall_front_strip_half_width_m:
+  default: 0.186
+  description: "Half-width [m] of the strip a track's segment must CROSS to be the FRONT wall, from the front bumper. MUST equal vehicle_frames.front_side_limit_m(). This is the test that separates 'a wall is in the way' from 'a wall's normal points roughly forwards': on an open corridor the side wall satisfies the latter for most of a turn and is nowhere near the car's path, which is how a phantom front wall appeared at 1.1 m (corridor_phantom, 2026-10-15)."

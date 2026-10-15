@@ -264,7 +264,8 @@ import time
 
 import numpy as np
 
-from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
+from f1tenth_description.vehicle_frames import (
+    base_front_x, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_messages.msg import (
     MultiWallTrack, MultiWallTrackArray, StereoColumns, WallEstimate, WallLineFit,
     WallObservation, WallObservationArray)
@@ -409,7 +410,21 @@ class LidarFrontWallNode(Node):
             delete_after_s=float(param('wall_tracker_delete_after_sec', 3.0)),
             max_sigma_rho_m=float(param('wall_tracker_max_sigma_rho_m', 0.3)),
             max_published=int(param('wall_tracker_max_tracks', 4)),
-            front_max_coast_s=float(param('wall_tracker_front_max_coast_sec', 0.3)))
+            front_max_coast_s=float(param('wall_tracker_front_max_coast_sec', 0.3)),
+            # Step 4: the observation noise model and what may be called FRONT.
+            lidar_sigma_base_m=float(param('lidar_sigma_base_m', 0.02)),
+            lidar_sigma_per_m=float(param('lidar_sigma_per_m', 0.005)),
+            stereo_sigma_base_m=float(param('stereo_sigma_base_m', 0.03)),
+            stereo_sigma_quad_per_m2=float(param('stereo_sigma_quad_per_m2', 0.012)),
+            min_span_for_angle_m=float(param('min_span_for_angle_m', 0.3)),
+            stereo_confirm_hits=int(param('stereo_confirm_hits', 5)),
+            stereo_confirm_window=int(param('stereo_confirm_window', 7)),
+            role_hysteresis_rad=float(param('role_hysteresis_rad', math.radians(5.0))),
+            stereo_front_max_normal_rad=float(
+                param('stereo_front_max_normal_rad', math.radians(30.0))),
+            strip_half_width_m=float(
+                param('front_strip_half_width_m', front_side_limit_m())),
+            side_edge_half_width_m=float(get_value('swept_clearance_body_half_width_m')))
         if self.use_wall_tracker and not self.scene_enabled:
             self.get_logger().error(
                 'use_wall_tracker needs enable_scene_labels (the virtual wall it feeds '
@@ -434,6 +449,7 @@ class LidarFrontWallNode(Node):
         self.obs_disagree_reject_frac = float(param('wall_obs_disagree_reject_frac', 0.5))
         self.obs_stereo_min_columns = int(param('wall_obs_stereo_min_columns', 8))
         self.wall_default_height = float(param('wall_default_height_m', 2.5))
+        self.side_edge_half_width_m = float(get_value('swept_clearance_body_half_width_m'))
 
         declare_nice_param(self)
         apply_nice(self)
@@ -553,7 +569,7 @@ class LidarFrontWallNode(Node):
         self._camera_tf = (frame_id, pose)
         return pose
 
-    def _publish_observations(self, stamp, scan_stamp, lines, pts, bearings):
+    def _publish_observations(self, stamp, scan_stamp, lines, pts):
         """Step 3: the stateless per-cycle fusion -> /perception/wall_observations.
 
         Published EVERY cycle, including empty: "both sensors looked and there
@@ -573,7 +589,7 @@ class LidarFrontWallNode(Node):
                 for line in lines]
             self.observations_pub.publish(_observation_array(
                 stamp, self.base_frame, observations, 0, 0))
-            return
+            return observations
 
         rot, trans = cam
         k = (float(profile.fx), float(profile.fy), float(profile.cx), float(profile.cy))
@@ -616,6 +632,7 @@ class LidarFrontWallNode(Node):
                 throttle_duration_sec=5.0)
         self.observations_pub.publish(_observation_array(
             stamp, self.base_frame, observations, rejected, n_disagree))
+        return observations
 
     def _fresh_profile(self, scan_stamp):
         """The latest StereoColumns if it is PAIRED with this scan, else None.
@@ -826,16 +843,18 @@ class LidarFrontWallNode(Node):
                 'sectors': [[round(a, 4), round(b, 4)] for a, b in sectors],
                 'walls': [w.to_dict() for w in lines]})))
             self._lines = lines
-        # Step 3: the stateless per-cycle fusion, every scan, even when the
-        # lines are the ones extracted a tick ago -- the cross-check is
-        # against THIS scan's columns.
-        self._publish_observations(stamp, scan_stamp, self._lines, pts, bearings)
         if self.wall_tracker is not None:
-            front = self._track_walls(msg, laser_pose, sectors, scan_stamp)
+            # With the tracker on, the observations are built from ITS
+            # per-scan extraction (adaptive breakpoints, IEPF, a covariance
+            # per segment) rather than the 5 Hz sequential_lines above, and
+            # the tracker is then fed exactly what went out on the topic.
+            front = self._track_walls(msg, laser_pose, sectors, scan_stamp, stamp, pts)
             if front is not None:
                 self._tracked_wall, self._wall_source = front, 'tracker'
             elif self._wall_source == 'tracker':
                 self._tracked_wall, self._wall_source = self._seq_wall, 'sequential_lines'
+        else:
+            self._publish_observations(stamp, scan_stamp, self._lines, pts)
         wall = scene_labels.refit_wall(
             pts, self._tracked_wall, self.inlier_distance_m, 3.0 * self.inlier_distance_m)
         self._tracked_wall = wall
@@ -876,8 +895,15 @@ class LidarFrontWallNode(Node):
                 f'front differ by more than {self.virtual.disagree_m:.2f} m; trusting LiDAR',
                 throttle_duration_sec=2.0)
 
-    def _track_walls(self, msg, laser_pose, sectors, scan_stamp):
-        """One tracker step. Returns the front track as a base_link WallLine, or None."""
+    def _track_walls(self, msg, laser_pose, sectors, scan_stamp, stamp, pts):
+        """One tracker step. Returns the front track as a base_link WallLine, or None.
+
+        Since step 4 the tracker consumes ONLY wall observations: this
+        extracts the scan's segments, puts them through the per-cycle fusion
+        (which publishes them), and hands the tracker the result. There is no
+        other way into it, so the stereo cannot enter as a fallback distance
+        behind its back.
+        """
         car = self._poses.at(scan_stamp)
         if car is None:
             self.get_logger().warn(
@@ -888,8 +914,9 @@ class LidarFrontWallNode(Node):
         lines = mwt.extract_lines(
             msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min, msg.range_max,
             laser_pose, sectors)
-        tracks = self.wall_tracker.step(
-            [ln.transform(car, self._odom_frame) for ln in lines], scan_stamp, car)
+        observations = self._publish_observations(
+            stamp, scan_stamp, [mwt.line_to_wall_line(ln) for ln in lines], pts)
+        tracks = self.wall_tracker.step(observations, scan_stamp, car)
         front = self.wall_tracker.front_track(car, self.front_x)
         if front is not None:
             self._front_id, self._front_coast_expired = front.id, False
@@ -948,6 +975,16 @@ class LidarFrontWallNode(Node):
             m.hits = trk.hits
             m.age = float(self.wall_tracker._last_stamp - trk.born)
             m.d_perp_front, m.d_ray_front = float(d_perp), float(d_ray)
+            # Step 4 additions: what the evidence was, how tall, which side,
+            # and whether this is the wall actually in the way.
+            m.role = label
+            m.source = int(trk.source)
+            m.confidence = float(trk.confidence)
+            m.z_min, m.z_max = float(trk.z_min), float(trk.z_max)
+            m.height_measured = bool(trk.height_measured)
+            m.d_side = (float(mwt.side_distance(trk, car, self.side_edge_half_width_m))
+                        if label in ('left', 'right') else math.nan)
+            m.is_front = bool(self.wall_tracker.is_front(trk, car, self.front_x))
             out.tracks.append(m)
             line = Marker()
             line.header = out.header

@@ -58,6 +58,7 @@ from corridor_perception.extraction import ExtractionParams, extract_segments
 from corridor_perception.geometry import Line, Pose2D, normalise_line, wrap_pi
 from corridor_perception.scan import clean_ranges
 from f1tenth_perception.scene_labels import WallLine, in_sectors
+from f1tenth_perception import wall_fusion
 
 CHI2_2DOF_99 = 9.21
 
@@ -170,8 +171,83 @@ class TrackerParams:
     max_sigma_rho_m: float = 0.3
     max_published: int = 4
     label_half_sector_rad: float = math.radians(45.0)
+    role_hysteresis_rad: float = math.radians(5.0)   # a role sticks this far past its edge
     ray_margin_m: float = 0.3               # extent slack for d_ray_front
     front_max_coast_s: float = 0.3          # a coasting front track's last say
+    # --- measurement noise, by SOURCE and RANGE (observation_covariance) ---
+    lidar_sigma_base_m: float = 0.02
+    lidar_sigma_per_m: float = 0.005
+    stereo_sigma_base_m: float = 0.03
+    stereo_sigma_quad_per_m2: float = 0.012
+    min_span_for_angle_m: float = 0.3
+    # --- lifecycle: stereo-only evidence is weaker, so it needs more of it --
+    stereo_confirm_hits: int = 5
+    stereo_confirm_window: int = 7
+    # --- what may be called FRONT -----------------------------------------
+    strip_half_width_m: float = 0.186       # vehicle_frames.front_side_limit_m()
+    side_edge_half_width_m: float = 0.136   # swept_clearance_body_half_width_m
+    stereo_front_max_normal_rad: float = math.radians(30.0)
+
+
+def observation_covariance(source, distance_m, span_m, p):
+    """2x2 (rho, theta) measurement covariance of an observation.
+
+    An observation carries no covariance of its own -- it is a line, not a
+    fit with a Jacobian -- so the tracker synthesises one from the two things
+    that actually determine the error: WHICH SENSOR saw it and HOW FAR AWAY.
+
+      LiDAR   sigma_rho = base + per_m * range. Nearly range-independent:
+              the Hokuyo's own range error is millimetres and what grows is
+              the beam footprint and the odometry the line is placed with.
+      stereo  sigma_rho = base + quad * range^2, the same quadratic the
+              cross-check's tolerance uses and for the same reason
+              (sigma_Z = Z^2 sigma_d / (fx b)). At 6 m this is 46 cm against
+              the LiDAR's 5 cm, which is the honest ratio between them.
+      both    the inverse-variance combination of the two, so a wall both
+              sensors see is tighter than either alone -- which is the whole
+              point of having agreed.
+
+    sigma_theta is sigma_rho over the observed span: a 5 cm uncertainty on a
+    3 m wall is a much better-determined angle than the same 5 cm on a 40 cm
+    stub, and a short segment's angle is exactly what should not be trusted.
+    """
+    d = max(float(distance_m), 0.0)
+    lidar = p.lidar_sigma_base_m + p.lidar_sigma_per_m * d
+    stereo = p.stereo_sigma_base_m + p.stereo_sigma_quad_per_m2 * d * d
+    if source == wall_fusion.SOURCE_STEREO:
+        sigma_rho = stereo
+    elif source == wall_fusion.SOURCE_BOTH:
+        sigma_rho = 1.0 / math.sqrt(1.0 / lidar ** 2 + 1.0 / stereo ** 2)
+    else:
+        sigma_rho = lidar
+    span = max(float(span_m), p.min_span_for_angle_m)
+    sigma_theta = max(sigma_rho / span, p.meas_sigma_theta_min)
+    return np.diag([max(sigma_rho, p.meas_sigma_rho_min) ** 2, sigma_theta ** 2])
+
+
+def line_to_wall_line(line, source='lidar'):
+    """A corridor_perception Line (base_link) as a scene_labels.WallLine.
+
+    The extraction's own (rho, alpha) covariance is the honest stand-in for a
+    residual rms: sqrt(cov[0, 0]) is how well that segment's points pinned its
+    distance, which is exactly what the confidence model wants to know.
+    """
+    t = _along(line.alpha, np.vstack([line.p_start, line.p_end]))
+    cov = np.asarray(line.cov, dtype=float).reshape(2, 2)
+    return WallLine(math.cos(line.alpha), math.sin(line.alpha), float(line.rho),
+                    float(t.min()), float(t.max()), int(line.n_points),
+                    float(math.sqrt(max(cov[0, 0], 0.0))), source)
+
+
+def observation_line(obs, car_pose, p):
+    """A wall_fusion.Observation (base_link) as a corridor_perception Line in odom."""
+    wl = obs.line
+    rho, alpha = normalise_line(float(wl.d), math.atan2(wl.ny, wl.nx))
+    (ax, ay), (bx, by) = wl.endpoints()
+    line = Line(rho, alpha, observation_covariance(obs.source, wl.d, wl.span, p),
+                np.array([ax, ay], dtype=float), np.array([bx, by], dtype=float),
+                max(int(wl.inliers), 1), 'base_link')
+    return line.transform(car_pose, 'odom')
 
 
 @dataclass
@@ -187,6 +263,15 @@ class Track:
     history: collections.deque = field(default_factory=lambda: collections.deque(maxlen=5))
     ever_confirmed: bool = False
     state: int = STATE_TENTATIVE
+    # What the evidence behind this track has been (step 4).
+    source: int = wall_fusion.SOURCE_LIDAR
+    has_lidar: bool = False     # any LIDAR or BOTH hit, ever
+    has_both: bool = False      # any BOTH hit, ever
+    z_min: float = 0.0
+    z_max: float = 2.5
+    height_measured: bool = False
+    confidence: float = 0.0
+    role: str = ''              # sticky: see MultiWallTracker.update_roles
 
     @property
     def rho(self):
@@ -233,6 +318,75 @@ def line_label(theta, rho, car_pose, half_sector_rad=math.radians(45.0)):
     if abs(b) >= math.pi - half_sector_rad:
         return 'back'
     return 'left' if b > 0.0 else 'right'
+
+
+def role_with_hysteresis(theta, rho, car_pose, current, half_sector_rad, hysteresis_rad):
+    """The wall's role, keeping `current` until the bearing is past its edge.
+
+    Without this a wall sitting on a sector boundary flips role every scan as
+    the car wobbles, and so does every consumer keyed on the role.
+    """
+    fresh = line_label(theta, rho, car_pose, half_sector_rad)
+    if not current or current == fresh or hysteresis_rad <= 0.0:
+        return fresh
+    # Still `current` if it would survive a sector widened by the hysteresis.
+    widened = line_label(theta, rho, car_pose, half_sector_rad + hysteresis_rad)
+    if widened == current:
+        return current
+    narrowed = line_label(theta, rho, car_pose, max(
+        0.0, half_sector_rad - hysteresis_rad))
+    return current if narrowed == current else fresh
+
+
+def segment_in_base_link(track, car_pose):
+    """The track's two endpoints as (2, 2) base_link coordinates."""
+    p0, p1 = track.endpoints()
+    return car_pose.inverse().transform_points(np.vstack([p0, p1]))
+
+
+def crosses_strip(track, car_pose, front_x, half_width_m):
+    """Does the segment cross the car-width strip AHEAD of the bumper?
+
+    The strip is {x > front_x, |y| <= half_width_m} in base_link: the band the
+    car sweeps going straight. The segment is clipped to |y| <= half_width_m
+    and what survives must reach past the bumper.
+
+    This is the test that separates "a wall is in the way" from "a wall's
+    normal points roughly forwards". On an open corridor the side wall
+    satisfies the second for most of a turn and is nowhere near the car's
+    path, which is how a phantom front wall appeared at 1.1 m.
+    """
+    (x0, y0), (x1, y1) = segment_in_base_link(track, car_pose)
+    half = abs(float(half_width_m))
+    lo, hi = 0.0, 1.0
+    dy = y1 - y0
+    for sign in (1.0, -1.0):
+        # sign * y <= half  ->  sign * (y0 + t dy) <= half
+        a, b = sign * dy, half - sign * y0
+        if abs(a) < 1e-12:
+            if b < 0.0:
+                return False
+        elif a > 0.0:
+            hi = min(hi, b / a)
+        else:
+            lo = max(lo, b / a)
+    if lo > hi:
+        return False
+    xs = (x0 + lo * (x1 - x0), x0 + hi * (x1 - x0))
+    return max(xs) > float(front_x)
+
+
+def side_distance(track, car_pose, half_width_m):
+    """Perpendicular distance [m] from the car's SIDE EDGE to the wall, or NaN.
+
+    For a left/right wall, what a driver cares about is the gap from the
+    bodywork, not from the centreline: the car is half_width_m wide either
+    side. Negative would mean the bodywork is already through the wall, so it
+    is clamped at 0.
+    """
+    n = np.array([math.cos(track.theta), math.sin(track.theta)])
+    d_centre = abs(track.rho - float(n @ car_pose.t))
+    return max(0.0, d_centre - abs(float(half_width_m)))
 
 
 def front_distances(track, car_pose, front_x, margin_m=0.3):
@@ -293,6 +447,25 @@ class MultiWallTracker:
             return math.inf
         return d2
 
+    def _absorb(self, trk, obs):
+        """Carry an observation's own attributes onto the track it matched."""
+        trk.confidence = float(obs.confidence)
+        if obs.source == wall_fusion.SOURCE_BOTH:
+            trk.has_lidar = trk.has_both = True
+        elif obs.source == wall_fusion.SOURCE_LIDAR:
+            trk.has_lidar = True
+        # The track's source is the BEST evidence it has EVER had, in the
+        # order both > lidar > stereo. A wall both sensors confirmed does not
+        # become stereo-only because one later frame missed it with the
+        # LiDAR, and -- the one that matters -- a wall the LiDAR has seen can
+        # never decay into a stereo-only wall, which is the only kind the
+        # FRONT rule treats with suspicion.
+        trk.source = (wall_fusion.SOURCE_BOTH if trk.has_both
+                      else wall_fusion.SOURCE_LIDAR if trk.has_lidar
+                      else wall_fusion.SOURCE_STEREO)
+        if obs.height_measured:
+            trk.z_min, trk.z_max, trk.height_measured = obs.z_min, obs.z_max, True
+
     def _update(self, trk, line, stamp):
         v = _innovation(trk.x, line.rho, line.alpha)
         R = self._meas_cov(line)
@@ -309,11 +482,16 @@ class MultiWallTracker:
         trk.hits += 1
         trk.last_seen = stamp
 
-    def _spawn(self, line, stamp):
+    def _spawn(self, line, stamp, obs=None):
         m = _along(line.alpha, np.vstack([line.p_start, line.p_end]))
         trk = Track(self._next_id, np.array([line.rho, line.alpha], dtype=float),
                     self._meas_cov(line), float(m.min()), float(m.max()), stamp, stamp)
-        trk.history = collections.deque([True], maxlen=self.p.confirm_window)
+        # The window is the LONGER of the two: a track that turns out to be
+        # stereo-only must not have already dropped the scans it needs.
+        trk.history = collections.deque([True], maxlen=max(
+            self.p.confirm_window, self.p.stereo_confirm_window))
+        if obs is not None:
+            self._absorb(trk, obs)
         self._next_id += 1
         self.tracks.append(trk)
 
@@ -348,9 +526,16 @@ class MultiWallTracker:
 
     # ---- one scan ---------------------------------------------------------
 
-    def step(self, lines_odom, stamp, car_pose):
-        """Update with this scan's lines (odom). Returns the published tracks."""
+    def step(self, observations, stamp, car_pose):
+        """Update with this cycle's OBSERVATIONS (base_link). Published tracks out.
+
+        The tracker's input is exactly what goes out on
+        /perception/wall_observations -- nothing else reaches it. It no longer
+        fits lines to the scan itself, so the stereo can no longer slip in as
+        a fallback distance behind its back.
+        """
         stamp = float(stamp)
+        lines_odom = [observation_line(o, car_pose, self.p) for o in observations]
         dt = 0.0 if self._last_stamp is None else stamp - self._last_stamp
         self._last_stamp = stamp
         last_yaw, self._last_yaw = self._last_yaw, car_pose.theta
@@ -366,12 +551,13 @@ class MultiWallTracker:
                 for i, j in zip(rows, cols):
                     if finite[i, j]:
                         self._update(self.tracks[i], lines_odom[j], stamp)
+                        self._absorb(self.tracks[i], observations[j])
                         used_lines.add(j)
                         hit_ids.add(self.tracks[i].id)
         for trk in self.tracks:
             hit = trk.id in hit_ids
             trk.history.append(hit)
-            if sum(trk.history) >= self.p.confirm_hits:
+            if self._confirmed_by_history(trk):
                 trk.ever_confirmed = True
             if trk.ever_confirmed:
                 trk.state = STATE_CONFIRMED if hit else STATE_COASTING
@@ -379,19 +565,41 @@ class MultiWallTracker:
                 trk.state = STATE_TENTATIVE
         for j, line in enumerate(lines_odom):
             if j not in used_lines:
-                self._spawn(line, stamp)
+                self._spawn(line, stamp, observations[j])
 
         self.tracks = [t for t in self.tracks if not self._expired(t, stamp)]
         self._merge()
+        self.update_roles(car_pose)
         return self.published(car_pose)
+
+    def _confirm_rule(self, trk):
+        """(hits, window) this track must meet: stereo-only evidence needs more.
+
+        A track the LiDAR has never seen rests entirely on stereo, which on
+        this building's floor invents whole surfaces out of reflections, so it
+        must survive stereo_confirm_hits of stereo_confirm_window scans. A
+        LiDAR or BOTH hit promotes the track to the ordinary rule IMMEDIATELY
+        -- it is no longer stereo-only, so the stricter bar no longer applies
+        and the standard confirm_hits-in-confirm_window decides it. (Note it
+        does NOT confirm the track on the spot: one spurious line must still
+        not make a wall, which is the lifecycle this keeps unchanged.)
+        """
+        if trk.has_lidar:
+            return self.p.confirm_hits, self.p.confirm_window
+        return self.p.stereo_confirm_hits, self.p.stereo_confirm_window
+
+    def _confirmed_by_history(self, trk):
+        hits, window = self._confirm_rule(trk)
+        return sum(itertools.islice(reversed(trk.history), window)) >= hits
 
     def _expired(self, trk, stamp):
         if stamp - trk.last_seen > self.p.delete_after_s:
             return True
         if math.sqrt(max(trk.P[0, 0], 0.0)) > self.p.max_sigma_rho_m:
             return True
-        return (not trk.ever_confirmed and len(trk.history) >= self.p.confirm_window
-                and sum(trk.history) < self.p.confirm_hits)
+        hits, window = self._confirm_rule(trk)
+        return (not trk.ever_confirmed and len(trk.history) >= window
+                and sum(itertools.islice(reversed(trk.history), window)) < hits)
 
     def score(self, trk, car_pose):
         n = np.array([math.cos(trk.theta), math.sin(trk.theta)])
@@ -404,8 +612,24 @@ class MultiWallTracker:
         live.sort(key=lambda t: self.score(t, car_pose), reverse=True)
         return live[:self.p.max_published]
 
+    def update_roles(self, car_pose):
+        """Give every track its role, with hysteresis at the sector edges.
+
+        A wall sitting exactly on a 45 deg boundary would otherwise flip
+        between front and left every scan as the car wobbles, and every
+        consumer keyed on the role would flip with it. A track keeps the role
+        it has until the bearing is role_hysteresis_rad PAST the edge, so the
+        boundary is 45 +- 5 deg depending on which way it is being crossed.
+        """
+        for trk in self.tracks:
+            trk.role = role_with_hysteresis(
+                trk.theta, trk.rho, car_pose, trk.role,
+                self.p.label_half_sector_rad, self.p.role_hysteresis_rad)
+
     def label(self, trk, car_pose):
-        return line_label(trk.theta, trk.rho, car_pose, self.p.label_half_sector_rad)
+        """The track's role. Sticky once update_roles has run (step 4)."""
+        return trk.role or line_label(
+            trk.theta, trk.rho, car_pose, self.p.label_half_sector_rad)
 
     def coast_expired(self, trk):
         """True once trk has gone unseen for longer than front_max_coast_s."""
@@ -419,17 +643,43 @@ class MultiWallTracker:
                 return trk
         return None
 
-    def front_track(self, car_pose, front_x):
-        """Return the published front track the heading ray meets nearest, or None.
+    def is_front(self, trk, car_pose, front_x):
+        """Whether this track may be called FRONT -- the one wall in the way.
 
-        Only a track matched on this scan or coasting for at most
-        front_max_coast_s qualifies (module docstring).
+        Three conditions, and the second is the one the open corridor needed:
+
+          * CONFIRMED (ever confirmed, and not coasting past
+            front_max_coast_s). A tentative track is a maybe, and a maybe
+            must never stop the car.
+          * its segment actually CROSSES THE CAR-WIDTH STRIP ahead of the
+            bumper. Not "its normal points forwards": on an open corridor the
+            side wall's normal is within 45 deg of the heading for most of a
+            turn, and reading it as the front wall is exactly what put a
+            phantom wall at 1.1 m (corridor_phantom, 2026-10-15). A wall is in
+            the way when the car would drive into it going straight.
+          * if the evidence is STEREO-ONLY, its normal must also be within
+            stereo_front_max_normal_rad of the heading. A stereo-only wall is
+            the one nothing cross-checks, so it may only stop the car when it
+            is squarely across the path, not when it is a glancing surface.
         """
+        if not trk.ever_confirmed or self.coast_expired(trk):
+            return False
+        if not crosses_strip(trk, car_pose, front_x, self.p.strip_half_width_m):
+            return False
+        if trk.source == wall_fusion.SOURCE_STEREO:
+            n = np.array([math.cos(trk.theta), math.sin(trk.theta)])
+            to_wall = trk.theta if float(n @ car_pose.t) <= trk.rho else trk.theta + math.pi
+            if abs(wrap_pi(to_wall - car_pose.theta)) > self.p.stereo_front_max_normal_rad:
+                return False
+        return True
+
+    def front_track(self, car_pose, front_x):
+        """The published FRONT track the heading ray meets nearest, or None."""
         best, best_d = None, math.inf
         for trk in self.published(car_pose):
-            if self.label(trk, car_pose) != 'front' or self.coast_expired(trk):
+            if not self.is_front(trk, car_pose, front_x):
                 continue
-            d_perp, d_ray = front_distances(trk, car_pose, front_x, self.p.ray_margin_m)
+            _d_perp, d_ray = front_distances(trk, car_pose, front_x, self.p.ray_margin_m)
             d = d_ray if math.isfinite(d_ray) else math.inf
             if d < best_d:
                 best, best_d = trk, d

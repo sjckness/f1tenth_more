@@ -557,3 +557,33 @@ class TestWallObservations:
             assert (o.p0.x, o.p0.y) != (o.p1.x, o.p1.y)
         finally:
             n.destroy_node()
+
+
+class TestTrackFieldsOnTheWire:
+    """The additive MultiWallTrack fields of step 4."""
+
+    def test_a_published_track_carries_its_source_role_height_and_front_flag(self):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('use_wall_tracker', value=True)])
+        try:
+            for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                        'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                        'walls_markers_pub'):
+                getattr(n, pub).publish = MagicMock()
+            n._tf_static_cb(_tf_static())
+            for i in range(6):
+                n._odom_cb(_odom_at(7.0 + i * 0.05, 0.0))
+                n._scan_cb(_scan_at(2.0, 7.0 + i * 0.05))
+            msg = _last(n.walls_pub)
+            assert msg.tracks
+            t = msg.tracks[0]
+            assert t.role == t.label
+            assert t.source == t.SOURCE_LIDAR
+            assert t.z_max == pytest.approx(2.5) and t.height_measured is False
+            assert 0.0 <= t.confidence <= 1.0
+            # A wall square across the path at 2 m IS the wall in the way.
+            assert t.is_front is True
+            assert math.isnan(t.d_side)
+        finally:
+            n.destroy_node()

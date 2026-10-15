@@ -13,6 +13,7 @@ import pytest
 
 from corridor_perception.geometry import Pose2D
 from f1tenth_perception import multi_wall_tracker as mwt
+from f1tenth_perception import wall_fusion
 from f1tenth_perception.scene_labels import detection_sectors
 
 LASER = (0.305, 0.0, 0.0)
@@ -52,12 +53,25 @@ def raycast(car, segments, circles=(), noise=0.01, rng=None):
     return np.where(np.isfinite(best), ranges, NO_RETURN)
 
 
-def step(tracker, car, t, segments, circles=(), objects=(), rng=None):
+def observe(lines, source=wall_fusion.SOURCE_LIDAR, confidence=0.8,
+            z_min=0.0, z_max=2.5, height_measured=False):
+    """Wrap base_link extraction lines as the observations the tracker eats.
+
+    Since step 4 the tracker consumes ONLY wall observations -- it no longer
+    fits anything to a scan itself -- so these tests put the extraction's own
+    lines through that same door.
+    """
+    return [wall_fusion.Observation(
+        mwt.line_to_wall_line(ln), z_min, z_max, height_measured, source, confidence)
+        for ln in lines]
+
+
+def step(tracker, car, t, segments, circles=(), objects=(), rng=None, **obs_kw):
     """One scan through extraction and the tracker; objects are (x, y, r) in base_link."""
     sectors = detection_sectors(objects, LASER[:2], math.radians(3.0)) if objects else ()
     lines = mwt.extract_lines(raycast(car, segments, circles, rng=rng), ANGLE_MIN, INC,
                               0.06, 30.0, LASER, sectors)
-    return tracker.step([ln.transform(car, 'odom') for ln in lines], t, car)
+    return tracker.step(observe(lines, **obs_kw), t, car)
 
 
 def run(tracker, car, segments, n=10, t0=0.0, dt=0.05, **kw):
@@ -195,7 +209,7 @@ def test_per_scan_cost_on_this_machine():
     for i in range(50):
         t0 = time.perf_counter()
         lines = mwt.extract_lines(ranges, ANGLE_MIN, INC, 0.06, 30.0, LASER)
-        trk.step([ln.transform(car, 'odom') for ln in lines], 1.0 + i * 0.025, car)
+        trk.step(observe(lines), 1.0 + i * 0.025, car)
         times.append((time.perf_counter() - t0) * 1e3)
     print(f'multi_wall_tracker per-scan ms: p50 {np.percentile(times, 50):.2f} '
           f'p95 {np.percentile(times, 95):.2f}')
@@ -217,7 +231,7 @@ def _turn_with_yaw_scale(params, scale, deg=90.0):
         sectors = ()
         lines = mwt.extract_lines(raycast(true, room, rng=rng), ANGLE_MIN, INC, 0.06, 30.0,
                                   LASER, sectors)
-        for t in trk.step([ln.transform(odom, 'odom') for ln in lines], i * dt, odom):
+        for t in trk.step(observe(lines), i * dt, odom):
             mid = 0.5 * (t.endpoints()[0] + t.endpoints()[1])
             ids[int(np.argmin(np.linalg.norm(mids - mid, axis=1)))].add(t.id)
     return ids
@@ -227,3 +241,217 @@ def test_a_90_degree_turn_with_7_percent_yaw_scale_error_keeps_ids():
     ids = _turn_with_yaw_scale(mwt.TrackerParams(), 1.07)
     assert len(ids) >= 3
     assert all(len(v) == 1 for v in ids.values()), dict(ids)
+
+
+# ===========================================================================
+# Step 4: the tracker consumes only observations
+# ===========================================================================
+
+from corridor_perception.geometry import Pose2D          # noqa: E402
+from f1tenth_perception.scene_labels import WallLine     # noqa: E402
+
+ORIGIN = Pose2D(0.0, 0.0, 0.0)
+FRONT_X = 0.405
+
+
+def wall(d, nx=1.0, ny=0.0, t0=-1.0, t1=1.0, inliers=120):
+    return WallLine(nx, ny, d, t0, t1, inliers, 0.01, 'lidar')
+
+
+def obs(line, source=wall_fusion.SOURCE_LIDAR, confidence=0.8, z=None):
+    z_min, z_max, measured = (0.0, 2.5, False) if z is None else (z[0], z[1], True)
+    return wall_fusion.Observation(line, z_min, z_max, measured, source, confidence)
+
+
+def feed(tracker, observations, n, car=ORIGIN, t0=1.0, dt=0.05):
+    out = None
+    for i in range(n):
+        out = tracker.step(list(observations), t0 + i * dt, car)
+    return out
+
+
+# --- the measurement covariance model --------------------------------------
+
+def test_stereo_noise_grows_with_range_and_lidar_barely_does():
+    p = mwt.TrackerParams()
+    near_l = mwt.observation_covariance(wall_fusion.SOURCE_LIDAR, 1.0, 2.0, p)[0, 0]
+    far_l = mwt.observation_covariance(wall_fusion.SOURCE_LIDAR, 6.0, 2.0, p)[0, 0]
+    near_s = mwt.observation_covariance(wall_fusion.SOURCE_STEREO, 1.0, 2.0, p)[0, 0]
+    far_s = mwt.observation_covariance(wall_fusion.SOURCE_STEREO, 6.0, 2.0, p)[0, 0]
+    assert far_l > near_l and far_s > near_s
+    # Stereo degrades far faster: that ratio is the point of the model.
+    assert (far_s / near_s) > 10.0 * (far_l / near_l)
+    assert far_s > 20.0 * far_l
+
+
+def test_a_wall_both_sensors_saw_is_tighter_than_either_alone():
+    p = mwt.TrackerParams()
+    lidar = mwt.observation_covariance(wall_fusion.SOURCE_LIDAR, 3.0, 2.0, p)[0, 0]
+    stereo = mwt.observation_covariance(wall_fusion.SOURCE_STEREO, 3.0, 2.0, p)[0, 0]
+    both = mwt.observation_covariance(wall_fusion.SOURCE_BOTH, 3.0, 2.0, p)[0, 0]
+    assert both < lidar < stereo
+
+
+def test_a_short_segments_angle_is_trusted_less_than_a_long_ones():
+    p = mwt.TrackerParams()
+    stub = mwt.observation_covariance(wall_fusion.SOURCE_LIDAR, 2.0, 0.4, p)[1, 1]
+    long = mwt.observation_covariance(wall_fusion.SOURCE_LIDAR, 2.0, 4.0, p)[1, 1]
+    assert stub > long
+
+
+# --- lifecycle --------------------------------------------------------------
+
+def test_a_stereo_only_wall_needs_more_scans_than_a_lidar_one():
+    p = mwt.TrackerParams()
+    lidar_t = mwt.MultiWallTracker(p)
+    feed(lidar_t, [obs(wall(2.0))], p.confirm_hits)
+    assert lidar_t.tracks[0].ever_confirmed
+
+    stereo_t = mwt.MultiWallTracker(p)
+    feed(stereo_t, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], p.confirm_hits)
+    assert not stereo_t.tracks[0].ever_confirmed, 'three scans is not enough on stereo alone'
+    feed(stereo_t, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)],
+         p.stereo_confirm_hits - p.confirm_hits, t0=2.0)
+    assert stereo_t.tracks[0].ever_confirmed
+
+
+def test_a_one_frame_reflection_never_confirms():
+    """A glossy-floor reflection appears for a frame and is gone. It must not
+    leave a confirmed wall behind."""
+    p = mwt.TrackerParams()
+    trk = mwt.MultiWallTracker(p)
+    trk.step([obs(wall(1.1), wall_fusion.SOURCE_STEREO)], 1.0, ORIGIN)
+    for i in range(p.stereo_confirm_window + 1):
+        trk.step([], 1.05 + i * 0.05, ORIGIN)
+    assert all(not t.ever_confirmed for t in trk.tracks)
+    assert trk.published(ORIGIN) == []
+
+
+def test_a_lidar_hit_promotes_a_stereo_track_to_the_ordinary_rule():
+    """Not an instant confirm -- one line must still not make a wall -- but the
+    stricter stereo-only bar stops applying the moment the LiDAR sees it."""
+    p = mwt.TrackerParams()
+    trk = mwt.MultiWallTracker(p)
+    feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], 2)
+    track = trk.tracks[0]
+    assert not track.ever_confirmed
+    assert trk._confirm_rule(track) == (p.stereo_confirm_hits, p.stereo_confirm_window)
+    trk.step([obs(wall(2.0), wall_fusion.SOURCE_LIDAR)], 1.1, ORIGIN)
+    assert trk._confirm_rule(track) == (p.confirm_hits, p.confirm_window)
+    assert track.ever_confirmed           # 3 hits in 5 now satisfied
+    assert track.source == wall_fusion.SOURCE_LIDAR
+
+
+def test_a_track_the_lidar_has_seen_never_decays_to_stereo_only():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_BOTH)], 3)
+    feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], 3, t0=2.0)
+    assert trk.tracks[0].source == wall_fusion.SOURCE_BOTH
+
+
+def test_a_measured_height_is_carried_onto_the_track():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0), z=(0.05, 1.9))], 3)
+    t = trk.tracks[0]
+    assert t.height_measured and t.z_min == pytest.approx(0.05) and t.z_max == pytest.approx(1.9)
+
+
+# --- what may be FRONT ------------------------------------------------------
+
+def test_a_wall_across_the_path_is_front_with_the_right_ray_distance():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 4)
+    front = trk.front_track(ORIGIN, FRONT_X)
+    assert front is not None
+    _perp, d_ray = mwt.front_distances(front, ORIGIN, FRONT_X)
+    assert d_ray == pytest.approx(2.0 - FRONT_X, abs=0.02)
+
+
+def test_the_side_wall_of_an_open_corridor_is_never_front():
+    """The corridor_phantom failure, as a test: a wall running ALONGSIDE the
+    car has a normal within 45 deg of the heading for most of a turn, but the
+    car cannot drive into it going straight."""
+    trk = mwt.MultiWallTracker()
+    side = wall(1.2, nx=0.0, ny=-1.0, t0=0.0, t1=4.0)
+    feed(trk, [obs(side)], 5)
+    assert trk.tracks, 'the side wall is still tracked'
+    assert not mwt.crosses_strip(trk.tracks[0], ORIGIN, FRONT_X, 0.186)
+    assert trk.front_track(ORIGIN, FRONT_X) is None
+
+
+def test_a_tentative_track_is_never_front():
+    """A maybe must not stop the car."""
+    trk = mwt.MultiWallTracker()
+    trk.step([obs(wall(2.0))], 1.0, ORIGIN)
+    assert trk.tracks[0].state == mwt.STATE_TENTATIVE
+    assert trk.front_track(ORIGIN, FRONT_X) is None
+
+
+def test_a_glancing_stereo_only_wall_is_not_front_but_a_square_one_is():
+    p = mwt.TrackerParams()
+    square = mwt.MultiWallTracker(p)
+    feed(square, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], p.stereo_confirm_hits)
+    assert square.front_track(ORIGIN, FRONT_X) is not None
+
+    oblique = mwt.MultiWallTracker(p)
+    # 40 deg off the heading: still crosses the strip, but nothing cross-checks it.
+    a = math.radians(40.0)
+    slanted = wall(2.0, nx=math.cos(a), ny=math.sin(a), t0=-2.0, t1=2.0)
+    feed(oblique, [obs(slanted, wall_fusion.SOURCE_STEREO)], p.stereo_confirm_hits)
+    assert oblique.tracks[0].ever_confirmed
+    assert mwt.crosses_strip(oblique.tracks[0], ORIGIN, FRONT_X, 0.186)
+    assert oblique.front_track(ORIGIN, FRONT_X) is None
+    # The same geometry seen by the LiDAR is allowed to be the front wall.
+    lidar = mwt.MultiWallTracker(p)
+    feed(lidar, [obs(slanted, wall_fusion.SOURCE_LIDAR)], p.confirm_hits)
+    assert lidar.front_track(ORIGIN, FRONT_X) is not None
+
+
+def test_crosses_strip_needs_the_wall_to_be_ahead_of_the_bumper():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(0.2))], 4)          # closer than the bumper
+    assert not mwt.crosses_strip(trk.tracks[0], ORIGIN, FRONT_X, 0.186)
+
+
+def test_a_wall_beside_the_strip_does_not_cross_it():
+    trk = mwt.MultiWallTracker()
+    # A short front-facing wall 1 m to the left: normal forward, off the path.
+    feed(trk, [obs(wall(2.0, t0=0.8, t1=2.0))], 4)
+    assert not mwt.crosses_strip(trk.tracks[0], ORIGIN, FRONT_X, 0.186)
+    assert trk.front_track(ORIGIN, FRONT_X) is None
+
+
+# --- roles ------------------------------------------------------------------
+
+def test_a_role_sticks_across_its_sector_edge_instead_of_flipping():
+    p = mwt.TrackerParams(role_hysteresis_rad=math.radians(5.0))
+    trk = mwt.MultiWallTracker(p)
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    assert track.role == 'front'
+    # Rotate the car so the wall sits just past the 45 deg boundary.
+    for deg, expected in ((43.0, 'front'), (47.0, 'front'), (52.0, 'left')):
+        trk.update_roles(Pose2D(0.0, 0.0, math.radians(-deg)))
+        assert track.role == expected, deg
+
+
+def test_a_role_with_no_history_is_just_the_sector():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    trk.tracks[0].role = ''
+    assert trk.label(trk.tracks[0], ORIGIN) == 'front'
+
+
+# --- d_side -----------------------------------------------------------------
+
+def test_the_side_distance_is_measured_from_the_bodywork_not_the_centreline():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(1.2, nx=0.0, ny=-1.0, t0=0.0, t1=4.0))], 4)
+    d = mwt.side_distance(trk.tracks[0], ORIGIN, 0.136)
+    assert d == pytest.approx(1.2 - 0.136, abs=0.02)
+
+
+def test_the_side_distance_never_goes_negative():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(0.05, nx=0.0, ny=-1.0, t0=0.0, t1=4.0))], 4)
+    assert mwt.side_distance(trk.tracks[0], ORIGIN, 0.136) == 0.0
