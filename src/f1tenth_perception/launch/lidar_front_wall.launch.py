@@ -98,6 +98,14 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_merge_max_gap_m', float),
     # E1: the extraction's own quality gates.
     ('wall_extract_quality_gates', bool),
+    # E2: the rectangle verification's decision thresholds.
+    ('wall_rect_verify', bool),
+    ('wall_rect_coverage_min', float),
+    ('wall_rect_support_verify', float),
+    ('wall_rect_support_reject', float),
+    ('wall_rect_glass_beyond_share', float),
+    ('wall_rect_tol_base_m', float),
+    ('wall_rect_tol_frac', float),
 ]
 
 

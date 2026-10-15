@@ -306,7 +306,7 @@ from vision_msgs.msg import Detection3DArray
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, qos_profile_sensor_data
 from rclpy.time import Time
-from sensor_msgs.msg import LaserScan, PointCloud2
+from sensor_msgs.msg import Image, LaserScan, PointCloud2
 from sensor_msgs_py.point_cloud2 import read_points_numpy
 from std_msgs.msg import Float32
 from tf2_msgs.msg import TFMessage
@@ -467,7 +467,31 @@ class LidarFrontWallNode(Node):
                 'use_wall_tracker needs enable_scene_labels (the virtual wall it feeds '
                 'exists only with scene labels): the multi-wall tracker stays OFF')
             self.use_wall_tracker = False
-        self.wall_tracker = mwt.MultiWallTracker(tracker_params) if self.use_wall_tracker else None
+        # Step 5 (E2): the rectangle verification. The thresholds that DECIDE
+        # are parameters; the sampling geometry (41 rows from the floor to
+        # 2 m, the 0.4 m height weight) stays in wall_fusion.RectParams next
+        # to the reasoning that sets it, because it is not a tuning knob --
+        # changing it changes what "the wall's rectangle" means.
+        self.rect_verify = bool(param('wall_rect_verify', True))
+        rect_params = wall_fusion.RectParams(
+            coverage_min=float(param('wall_rect_coverage_min', 0.25)),
+            support_verify=float(param('wall_rect_support_verify', 0.5)),
+            support_reject=float(param('wall_rect_support_reject', 0.2)),
+            glass_beyond_share=float(param('wall_rect_glass_beyond_share', 0.7)),
+            tol_base_m=float(param('wall_rect_tol_base_m', 0.15)),
+            tol_frac=float(param('wall_rect_tol_frac', 0.05)))
+        #: The z rows and their weights, built once: nothing about them
+        #: depends on the scan or the wall (performance rules).
+        self._rect_grid = wall_fusion.rect_grid(rect_params)
+        self.wall_tracker = (mwt.MultiWallTracker(tracker_params, rect_params)
+                             if self.use_wall_tracker else None)
+        #: This cycle's rectangle verdicts by track id, for the debug payload.
+        self._rect_verdicts = {}
+        self._mask_classes = None     # the class mask Image, latest
+        self._mask_depth = None       # the mono16 mm depth Image of the same tick
+        self._rect_age = math.nan
+        self._rect_weight = 0.0
+        self._rect_ms = math.nan
         # The extraction's collinear merge has to reunify a wall broken by an
         # occluder BEFORE its span is measured, so its gap is set from the same
         # parameter block as the span thresholds.
@@ -548,6 +572,17 @@ class LidarFrontWallNode(Node):
             self.create_subscription(
                 PointCloud2, '/perception/wall_points', self._wall_points_cb,
                 qos_profile_sensor_data)
+        if self.scene_enabled and self.rect_verify:
+            # The class mask and the depth it was computed from, as a PAIR on
+            # one stamp (front_clearance_node._publish_scene_mask_classes).
+            # Subscribing is what makes that node publish them at all, so a
+            # stack with the verification off pays nothing for it.
+            self.create_subscription(
+                Image, '/perception/scene_labels/classes', self._mask_classes_cb,
+                qos_profile_sensor_data)
+            self.create_subscription(
+                Image, '/perception/scene_labels/depth_mm', self._mask_depth_cb,
+                qos_profile_sensor_data)
         if self.wall_tracker is not None:
             self.walls_pub = self.create_publisher(MultiWallTrackArray, '/perception/walls', 10)
             self.walls_markers_pub = self.create_publisher(
@@ -607,6 +642,86 @@ class LidarFrontWallNode(Node):
 
     def _wall_points_cb(self, msg):
         self._wall_cloud = (self._now(), msg)
+
+    def _mask_classes_cb(self, msg):
+        self._mask_classes = msg
+
+    def _mask_depth_cb(self, msg):
+        self._mask_depth = msg
+
+    def _mask_pair(self, scan_stamp):
+        """(labels, depth_mm, age, weight) of the latest mask/depth pair, or None.
+
+        The two images are published together on one tick and carry the depth
+        frame's own stamp, so a pair whose stamps differ is a half-arrived
+        tick and is not used: a mask paired with another tick's depth would
+        put every WALL pixel at the wrong distance, which is the one error
+        this verification cannot detect from the inside.
+
+        Age is on the IMAGE stamp, never arrival, and is weighted by the same
+        wall_fusion.age_weight the column profile uses -- it is the same
+        camera at the same moment, and there is no second staleness rule.
+
+        Neither image is copied: np.frombuffer views the message's own bytes,
+        and the depth stays mono16 millimetres all the way into
+        verify_rectangles, which scales only the samples it gathers.
+        """
+        cls_msg, dep_msg = self._mask_classes, self._mask_depth
+        if cls_msg is None or dep_msg is None:
+            return None
+        stamp = _stamp_sec(cls_msg.header)
+        if abs(stamp - _stamp_sec(dep_msg.header)) > 1e-6:
+            self.get_logger().warn(
+                'class mask and depth carry different stamps: the rectangle '
+                'verification is skipped this cycle', throttle_duration_sec=5.0)
+            return None
+        self._rect_age = scan_stamp - stamp
+        self._rect_weight = wall_fusion.age_weight(
+            self._rect_age, self.profile_max_age, self.profile_min_weight)
+        if self._rect_weight <= 0.0:
+            return None
+        labels = np.frombuffer(cls_msg.data, dtype=np.uint8).reshape(
+            cls_msg.height, cls_msg.width)
+        depth = np.frombuffer(dep_msg.data, dtype=np.uint16).reshape(
+            dep_msg.height, dep_msg.width)
+        return labels, depth, self._rect_age, self._rect_weight
+
+    def _verify_tracks(self, car, scan_stamp, profile):
+        """Fold this cycle's rectangle verdicts into the tracks. {id: verdict} out.
+
+        The intrinsics come from the StereoColumns profile of the same tick,
+        rescaled by the width ratio if the mask is a different resolution;
+        the camera frame comes from the mask's own header, so the TF is
+        looked up for the frame the pixels are actually in.
+        """
+        self._rect_ms = math.nan
+        self._rect_age, self._rect_weight = math.nan, 0.0
+        if not self.rect_verify or self.wall_tracker is None:
+            return {}
+        tracks = list(self.wall_tracker.tracks)
+        pair = self._mask_pair(scan_stamp) if tracks else None
+        if pair is None or profile is None or int(profile.width) < 1:
+            self.wall_tracker.apply_rect_verdicts({})
+            return {}
+        labels, depth, _age, _weight = pair
+        cam = self._camera_transform(self._mask_classes.header.frame_id)
+        if cam is None:
+            self.wall_tracker.apply_rect_verdicts({})
+            return {}
+        rot, trans = cam
+        scale = labels.shape[1] / float(profile.width)
+        t0 = time.perf_counter()
+        segments = [mwt.segment_in_base_link(trk, car) for trk in tracks]
+        verdicts = wall_fusion.verify_rectangles(
+            segments, labels, depth,
+            float(profile.fx) * scale, float(profile.fy) * scale,
+            float(profile.cx) * scale, float(profile.cy) * scale,
+            rot, trans, laser_z=self._laser_z(), p=self.wall_tracker.rect,
+            grid=self._rect_grid, depth_scale=0.001)
+        by_id = {trk.id: verdict for trk, verdict in zip(tracks, verdicts)}
+        self.wall_tracker.apply_rect_verdicts(by_id)
+        self._rect_ms = (time.perf_counter() - t0) * 1e3
+        return by_id
 
     def _camera_transform(self, frame_id):
         """(R, t) taking that camera frame's points into base_frame, or None."""
@@ -1016,7 +1131,16 @@ class LidarFrontWallNode(Node):
             'stereo_age_s': num(self._stereo_age),
             'stereo_weight': num(self._stereo_weight),
             'stereo_max_age_s': self.profile_max_age,
-            'tracker_ms': num(self._tracker_ms)})))
+            'tracker_ms': num(self._tracker_ms),
+            # The rectangle verification: its own age, weight and cost, and
+            # how many tracks it had anything to say about this cycle.
+            'rect_ms': num(self._rect_ms),
+            'rect_age_s': num(self._rect_age),
+            'rect_weight': num(self._rect_weight),
+            'rect_informative': sum(
+                1 for v in self._rect_verdicts.values()
+                if v['coverage'] >= self.wall_tracker.rect.coverage_min
+            ) if self.wall_tracker is not None else None})))
         return state
 
     def _track_walls(self, msg, laser_pose, sectors, scan_stamp, stamp, pts):
@@ -1047,6 +1171,15 @@ class LidarFrontWallNode(Node):
         observations = self._publish_observations(
             stamp, scan_stamp, [mwt.line_to_wall_line(ln) for ln in lines], pts)
         tracks = self.wall_tracker.step(observations, scan_stamp, car)
+        # The rectangle runs on the tracks the step just updated, and its
+        # verdicts are folded in before anything is asked of the roles: a
+        # REJECTED wall is not a reference wall on the same cycle it was
+        # rejected, not on the next one.
+        self._rect_verdicts = self._verify_tracks(
+            car, scan_stamp, self._stereo_columns[1] if self._stereo_columns else None)
+        if self._rect_verdicts:
+            self.wall_tracker.update_roles(car)
+            tracks = self.wall_tracker.published(car)
         front = self.wall_tracker.front_track(car, self.front_x)
         self._front_d_ray = math.nan
         if front is not None:

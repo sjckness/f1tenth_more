@@ -822,3 +822,91 @@ class TestWallMarkers:
             assert _last(n.walls_markers_pub).markers[0].action == Marker.DELETEALL
         finally:
             n.destroy_node()
+
+
+class TestTheRectanglePair:
+    """The wire side of the rectangle verification (E2). The verdicts
+    themselves are tested in test_wall_rectangle.py; what matters here is that
+    the node pairs the two images by stamp, ages them on the IMAGE stamp, and
+    never verifies against a half-arrived tick."""
+
+    @staticmethod
+    def _node(**overrides):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        params = {'enable_scene_labels': True, 'use_wall_tracker': False}
+        params.update(overrides)
+        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _images(stamp_cls=5.0, stamp_dep=5.0, width=8, height=4):
+        from sensor_msgs.msg import Image
+        from f1tenth_perception import scene_mask
+        out = []
+        for stamp, encoding, data in (
+                (stamp_cls, 'mono8',
+                 np.full((height, width), scene_mask.CLASS_WALL, dtype=np.uint8)),
+                (stamp_dep, 'mono16',
+                 np.full((height, width), 3000, dtype=np.uint16))):
+            msg = Image()
+            msg.header.stamp.sec = int(stamp)
+            msg.header.stamp.nanosec = int(round((stamp % 1.0) * 1e9))
+            msg.header.frame_id = 'zed_optical'
+            msg.height, msg.width = height, width
+            msg.encoding = encoding
+            msg.step = width * data.itemsize
+            msg.data = data.tobytes()
+            out.append(msg)
+        return out
+
+    def test_a_matched_pair_is_read_without_copying(self):
+        from f1tenth_perception import scene_mask
+        n = self._node()
+        cls_msg, dep_msg = self._images()
+        n._mask_classes_cb(cls_msg)
+        n._mask_depth_cb(dep_msg)
+        pair = n._mask_pair(5.0)
+        assert pair is not None
+        labels, depth, age, weight = pair
+        assert labels.shape == (4, 8) and depth.shape == (4, 8)
+        assert labels[0, 0] == scene_mask.CLASS_WALL and depth[0, 0] == 3000
+        assert not labels.flags.owndata and not depth.flags.owndata
+        assert age == pytest.approx(0.0) and weight == pytest.approx(1.0)
+        n.destroy_node()
+
+    def test_mismatched_stamps_are_a_half_arrived_tick(self):
+        n = self._node()
+        cls_msg, dep_msg = self._images(stamp_cls=5.0, stamp_dep=5.2)
+        n._mask_classes_cb(cls_msg)
+        n._mask_depth_cb(dep_msg)
+        assert n._mask_pair(5.0) is None
+        n.destroy_node()
+
+    def test_the_pair_ages_on_the_image_stamp(self):
+        n = self._node()
+        cls_msg, dep_msg = self._images(stamp_cls=5.0, stamp_dep=5.0)
+        n._mask_classes_cb(cls_msg)
+        n._mask_depth_cb(dep_msg)
+        assert n._mask_pair(5.0 + n.profile_max_age + 0.01) is None
+        assert n._rect_weight == 0.0
+        pair = n._mask_pair(5.0 + 0.5 * n.profile_max_age)
+        assert pair is not None and 0.0 < pair[3] < 1.0
+        n.destroy_node()
+
+    def test_no_mask_at_all_leaves_every_track_unverified(self):
+        n = self._node(use_wall_tracker=True)
+        from corridor_perception.geometry import Pose2D
+        assert n._verify_tracks(Pose2D(0.0, 0.0, 0.0), 1.0, None) == {}
+        assert math.isnan(n._rect_ms)
+        n.destroy_node()
+
+    def test_the_verification_can_be_turned_off(self):
+        n = self._node(wall_rect_verify=False)
+        topics = {t for t, _ in n.get_topic_names_and_types()}
+        assert '/perception/scene_labels/classes' not in topics
+        assert '/perception/scene_labels/depth_mm' not in topics
+        n.destroy_node()

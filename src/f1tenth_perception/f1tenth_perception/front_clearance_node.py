@@ -831,6 +831,21 @@ class FrontClearanceNode(Node):
             # the newest RGB message is cheap, decoding and tinting it is not.
             self.scene_mask_image_pub = self.create_publisher(
                 Image, '/perception/scene_labels/image', 10)
+            # The CLASS MASK AS DATA, and the depth it was computed from, for
+            # the rectangle verification in lidar_front_wall_node
+            # (wall_fusion, THE RECTANGLE). Published as a PAIR and only when
+            # something is subscribed, for two reasons: the verification needs
+            # both to be the same tick -- a mask paired with a depth frame
+            # from a different one would put WALL pixels at the wrong
+            # distances -- and at 640x360 they are 230 KB + 460 KB a tick,
+            # which nothing should pay for unless it is reading them. mono16
+            # millimetres rather than 32FC1 metres halves the depth's bytes;
+            # 1 mm is two orders of magnitude finer than the tolerance the
+            # verification compares it against.
+            self.scene_mask_classes_pub = self.create_publisher(
+                Image, '/perception/scene_labels/classes', 10)
+            self.scene_mask_depth_pub = self.create_publisher(
+                Image, '/perception/scene_labels/depth_mm', 10)
             self.wall_points_pub = self.create_publisher(
                 PointCloud2, '/perception/wall_points', 10)
             self.scene_mask_stats_pub = self.create_publisher(
@@ -1216,6 +1231,9 @@ class FrontClearanceNode(Node):
         # tick that died half way through does not count as one.
         self._last_tick_time = now
 
+        if (self.scene_mask_classes_pub.get_subscription_count() > 0
+                or self.scene_mask_depth_pub.get_subscription_count() > 0):
+            self._publish_scene_mask_classes(labels, depth, header)
         if self.scene_mask_image_pub.get_subscription_count() > 0:
             self._publish_scene_mask_overlay(labels, header, (fx, fy, cx, cy), rot, trans)
 
@@ -1399,6 +1417,36 @@ class FrontClearanceNode(Node):
         self.stereo_columns_pub.publish(msg)
         # The IMAGE stamp, which is the age the LiDAR node's pairing sees.
         self._last_profile_stamp = perception_debug.stamp_to_sec(msg.header.stamp)
+
+    def _publish_scene_mask_classes(self, labels, depth, header):
+        """The class mask and its depth, as one pair on the depth's own stamp.
+
+        The intrinsics and the camera frame are NOT repeated here: the
+        consumer already has them, at this resolution, on the StereoColumns
+        message of the same tick (that message's own rationale), and the
+        header stamp is what pairs the three.
+        """
+        classes = Image()
+        classes.header = header
+        classes.height, classes.width = labels.shape[:2]
+        classes.encoding = 'mono8'
+        classes.is_bigendian = 0
+        classes.step = classes.width
+        classes.data = np.ascontiguousarray(labels, dtype=np.uint8).tobytes()
+        self.scene_mask_classes_pub.publish(classes)
+
+        d = np.asarray(depth, dtype=np.float32)
+        with np.errstate(invalid='ignore'):
+            mm = np.where(np.isfinite(d) & (d > 0.0), d * 1000.0, 0.0)
+        mm = np.clip(mm, 0.0, 65535.0).astype(np.uint16)
+        out = Image()
+        out.header = header
+        out.height, out.width = mm.shape[:2]
+        out.encoding = 'mono16'
+        out.is_bigendian = 0
+        out.step = 2 * out.width
+        out.data = np.ascontiguousarray(mm).tobytes()
+        self.scene_mask_depth_pub.publish(out)
 
     def _publish_scene_mask_overlay(self, labels, header, k, rot, trans):
         """The class-coloured overlay on the left image, scan points on top."""

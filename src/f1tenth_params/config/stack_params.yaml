@@ -2797,6 +2797,32 @@ lidar_front_wall_wall_min_span_birth_m:
 lidar_front_wall_wall_min_span_update_m:
   default: 0.5
   description: "Shortest observation [m] that may UPDATE an already CONFIRMED wall track. Anything shorter is not a wall at all and never reaches the tracker. A confirmed wall briefly seen short -- someone walks past it, the car turns and grazes it, half of it leaves the sector -- is still that wall, so maintenance is cheaper than birth. Matches corridor_perception's own ExtractionParams.min_length (0.50), the point below which a segment is already dropped as unsupported, so this is the gate's floor and not a second opinion about it."
+# ---- E2: the rectangle verification (wall_fusion.py, THE RECTANGLE) --------
+# The column cross-check asks one question per BEARING, in the LiDAR's own
+# plane. These ask the same question over the wall's whole RECTANGLE -- along
+# it and up it -- which is what tells a wall from a chair standing in front of
+# one, and a pane of glass from a phantom.
+lidar_front_wall_wall_rect_verify:
+  default: true
+  description: "Verify every wall TRACK against the scene mask over its own rectangle (wall_fusion.verify_rectangles), not only per image column. Samples the track's segment every 5 cm and up it in 41 rows from the floor to 2 m, sorts each sample into at / beyond / against / uninformative from the class mask and the depth, and moves a sticky per-track state between UNVERIFIED, VERIFIED and REJECTED. FALSE leaves every track UNVERIFIED, which is exactly the pre-E2 behaviour: UNVERIFIED means lidar_only and is NOT a doubt about the wall. Subscribing is also what makes front_clearance_node publish /perception/scene_labels/classes and /depth_mm at all, so with this false the extra ~690 KB a tick is never produced."
+lidar_front_wall_wall_rect_coverage_min:
+  default: 0.25
+  description: "Fewest INFORMATIVE samples, as a weighted fraction of the track's whole rectangle, before a rectangle verdict may move the track's state. support and beyond_share are fractions OF the informative samples, so with a handful of them they are noise. Below this the verdict changes nothing -- not the state, not the glass flag -- which is the common case for a wall outside the camera's ~100 deg and must leave it UNVERIFIED rather than REJECTED: 'the camera cannot see there' is not evidence against the LiDAR."
+lidar_front_wall_wall_rect_support_verify:
+  default: 0.5
+  description: "Weighted fraction of the informative rectangle samples that must be AT or BEYOND the line for the track to become VERIFIED. A majority of what the stereo could speak about says the surface is there."
+lidar_front_wall_wall_rect_support_reject:
+  default: 0.2
+  description: "Support at or below which the track becomes REJECTED -- four of five informative samples are an OBJECT, or a surface NEARER than the line. A REJECTED track is still tracked and still drawn; it is simply not a reference wall (its role becomes 'other'). Between this and the verify threshold NOTHING happens: the state is sticky and the dead band is the hysteresis, for the same reason the span gate and the role have one, and because the cost of the two mistakes is not symmetric."
+lidar_front_wall_wall_rect_glass_beyond_share:
+  default: 0.7
+  description: "Fraction of a VERIFIED track's supporting samples that must be BEYOND the line for it to be called GLASS, whose distance then comes from the LiDAR alone. Glass is the one case where the stereo agrees a surface is there and reports it FURTHER than the LiDAR does: the pane is what the LiDAR ranged and the room behind it is what the stereo matched, so letting the stereo pull the fused distance would push the wall into the next room. The rule also requires 1 - beyond_share < 0.2 (hardly any sample AT the line), which makes the effective threshold 0.8; both halves are kept because the rule is that pair of statements, not one tuned number."
+lidar_front_wall_wall_rect_tol_base_m:
+  default: 0.15
+  description: "Constant part of the rectangle's depth tolerance [m]: tol = max(base, frac * d_exp). Deliberately coarser than the COLUMN tolerance (wall_obs_tol_base_m 0.05): a column compares one summarised percentile against one LiDAR return, while a rectangle sample compares a single pixel's depth against a point on a fitted line, and carries the extrinsic, the line's own fit error and the 5 cm sampling step on top of the stereo's noise."
+lidar_front_wall_wall_rect_tol_frac:
+  default: 0.05
+  description: "Range-proportional part of the rectangle's depth tolerance: tol = max(tol_base_m, this * d_exp), so 15 cm out to 3 m and 5 % beyond. LINEAR, not the columns' quadratic: this tolerance is not trying to model stereo disparity noise (the column check already does that against the better-trusted LiDAR range) but to decide whether one pixel is looking at the same surface as the line, where the error that dominates is the extrinsic and the line's own angle over the sample's distance."
 lidar_front_wall_wall_extract_quality_gates:
   default: true
   description: "Corridor_perception's extraction QUALITY GATES (extraction.py, WHY THE QUALITY GATES), on top of the point-count and length support filter: a range-dependent seed size N(r) = clip(3 + floor((r_med - 2.0) / 1.5), 3, 6) instead of a fixed 3, a perpendicular residual rms ceiling of 0.03 m applied AFTER the collinear merge, and an occlusion-aware fill ratio of 0.6 over the beams in the segment's own angular span. Steps 1-5 of the extraction only ask 'do these returns lie on a line?', and in a furnished room the answer is yes far too often: three returns on a chair leg are perfectly collinear, and the global merge will glue two unrelated 20 cm faces 1.4 m apart into one 1.5 m wall -- which is how a 1.39 m 'front wall' sat 2 m ahead of the car for 30 s of an EMPTY corridor (corridor10m_20261015T171753, track 8). FALSE restores the pre-gate extraction exactly, which is the only honest way to size what the gates change on a bag."

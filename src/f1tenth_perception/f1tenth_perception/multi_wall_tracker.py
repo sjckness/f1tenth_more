@@ -347,6 +347,19 @@ class Track:
     height_measured: bool = False
     confidence: float = 0.0
     role: str = ''              # sticky: see MultiWallTracker.update_roles
+    # --- the rectangle verification (wall_fusion, THE RECTANGLE) -----------
+    #: Sticky, hysteretic: UNVERIFIED (= lidar_only, not a doubt), VERIFIED or
+    #: REJECTED. Only a verdict with coverage >= coverage_min moves it.
+    verify: int = wall_fusion.VERIFY_UNVERIFIED
+    #: VERIFIED, and the stereo saw the scene BEYOND the line over almost all
+    #: of the rectangle: a pane. Its distance comes from the LiDAR alone.
+    glass: bool = False
+    rect_coverage: float = 0.0
+    rect_support: float = 0.0
+    rect_beyond_share: float = 0.0
+    #: Did the rectangle run INFORMATIVELY on this cycle (coverage >= min)?
+    #: Only then may this cycle's evidence be called "both".
+    rect_informative: bool = False
 
     @property
     def rho(self):
@@ -489,8 +502,12 @@ def front_distances(track, car_pose, front_x, margin_m=0.3):
 class MultiWallTracker:
     """Wall tracks in odom; see the module docstring."""
 
-    def __init__(self, params=None):
+    def __init__(self, params=None, rect_params=None):
         self.p = params or TrackerParams()
+        #: The rectangle verification's own numbers (wall_fusion.RectParams).
+        #: The tracker holds them because the sticky state they drive lives on
+        #: the tracks, not on the per-cycle observations.
+        self.rect = rect_params or wall_fusion.RectParams()
         self.tracks = []
         self._next_id = 1
         self._last_stamp = None
@@ -655,6 +672,15 @@ class MultiWallTracker:
                 rows, cols = linear_sum_assignment(np.where(finite, cost, big))
                 for i, j in zip(rows, cols):
                     if finite[i, j]:
+                        if self.tracks[i].glass:
+                            # A pane: the stereo's distance is the room BEHIND
+                            # it, so it must not pull the fused one. The gate
+                            # above already passed on the combined covariance;
+                            # only the update is LiDAR-only, which is the
+                            # narrowest place this can be true.
+                            lines_odom[j].cov = observation_covariance(
+                                wall_fusion.SOURCE_LIDAR, observations[j].line.d,
+                                observations[j].line.span, self.p)
                         self._update(self.tracks[i], lines_odom[j], stamp)
                         self._absorb(self.tracks[i], observations[j])
                         used_lines.add(j)
@@ -720,6 +746,27 @@ class MultiWallTracker:
         live = [t for t in self.tracks if t.ever_confirmed]
         live.sort(key=lambda t: self.score(t, car_pose), reverse=True)
         return live[:self.p.max_published]
+
+    def apply_rect_verdicts(self, verdicts):
+        """Fold one rectangle verdict per track into its sticky verify state.
+
+        `verdicts` maps a track id to a wall_fusion.verify_rectangles entry.
+        A track with no entry -- the rectangle did not run this cycle, or the
+        track was born after it did -- keeps the state it had and is marked
+        not-informative for this cycle, which is what stops it being called
+        "both" on evidence it did not get.
+        """
+        for trk in self.tracks:
+            verdict = verdicts.get(trk.id)
+            if verdict is None:
+                trk.rect_informative = False
+                continue
+            trk.rect_coverage = float(verdict['coverage'])
+            trk.rect_support = float(verdict['support'])
+            trk.rect_beyond_share = float(verdict['beyond_share'])
+            trk.rect_informative = trk.rect_coverage >= self.rect.coverage_min
+            trk.verify, trk.glass = wall_fusion.verify_step(
+                trk.verify, trk.glass, verdict, self.rect)
 
     def update_roles(self, car_pose):
         """Give every track its role, with hysteresis at the sector edges.

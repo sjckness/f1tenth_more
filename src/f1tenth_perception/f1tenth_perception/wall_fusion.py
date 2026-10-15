@@ -37,6 +37,12 @@ import math
 
 import numpy as np
 
+# scene_mask is the other half of this file's subject and is pure numpy as
+# well (its only cv2 use is a local import inside the polygon rasteriser), so
+# this does not cost wall_fusion its "numpy only, no rclpy" promise. It is
+# imported for the CLASS_* values the rectangle verification reads.
+from f1tenth_perception import scene_mask
+
 STATUS_EMPTY = 0        # neither sensor has anything in this column
 STATUS_AGREE = 1        # both, within tolerance
 STATUS_LIDAR_ONLY = 2   # a LiDAR return, no stereo WALL pixels
@@ -286,7 +292,7 @@ class Observation:
 
 
 def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.03,
-               stereo_weight=1.0):
+               stereo_weight=1.0, rect_support=None):
     """Confidence [0, 1] of an observation. The model, in one place:
 
       * evidence     how much the LiDAR actually saw, saturating at inlier_ref
@@ -294,10 +300,17 @@ def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.0
       * tightness    how well those returns fit the line, 1 at rms 0 and 0.5
                      at rms_ref.
       * corroboration the fraction of the wall's in-frame columns where the
-                     stereo agreed. A wall outside the camera's view has no
-                     columns and is NOT punished for it -- it gets the neutral
-                     value, because "the camera cannot see there" is not
-                     evidence against the LiDAR.
+                     stereo agreed, AND -- when the rectangle verification ran
+                     over this wall -- its `support`, the weighted fraction of
+                     the informative rectangle samples that were at or beyond
+                     the line (verify_rectangles). The two are averaged where
+                     both exist: they are the same question asked in the
+                     LiDAR's own plane and over the wall's whole height, and
+                     the second is the one that can tell a wall from a chair
+                     standing in front of one. A wall outside the camera's
+                     view has neither and is NOT punished for it -- it gets
+                     the neutral value, because "the camera cannot see there"
+                     is not evidence against the LiDAR.
 
     SOURCE_STEREO is capped below the others on purpose: a stereo-only wall is
     the one case where nothing cross-checks it, and on this building's floor
@@ -310,12 +323,20 @@ def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.0
         evidence = min(1.0, float(inliers) / max(1, inlier_ref))
         tightness = 1.0 / (1.0 + max(0.0, float(rms)) / max(1e-6, rms_ref))
         base = 0.5 * evidence + 0.5 * tightness
-        corro = (float(n_agree) / n_span) if n_span > 0 else 0.5
         # An old profile's opinion is pulled toward the neutral 0.5 it gets
         # when the camera cannot see the wall at all: it neither vouches for
-        # the wall nor argues against it as strongly as a fresh one.
+        # the wall nor argues against it as strongly as a fresh one. That is
+        # what "support x age_weight" means here -- the age weight spends the
+        # opinion's DISTANCE FROM NEUTRAL, not its magnitude, which is the
+        # same convention age_weight's own docstring sets and the only one
+        # under which an old profile cannot argue against a wall by default.
         w = min(1.0, max(0.0, float(stereo_weight)))
-        corro = 0.5 + w * (corro - 0.5)
+        terms = []
+        if n_span > 0:
+            terms.append(0.5 + w * (float(n_agree) / n_span - 0.5))
+        if rect_support is not None:
+            terms.append(0.5 + w * (float(rect_support) - 0.5))
+        corro = sum(terms) / len(terms) if terms else 0.5
     value = base * (0.6 + 0.4 * corro)
     if source == SOURCE_BOTH:
         value = min(1.0, value * 1.15)
@@ -451,6 +472,304 @@ def stereo_only_observations(check, column_points, width, min_span_columns=8,
             counts={'agree': 0, 'lidar_only': 0, 'stereo_only': int(c1 - c0),
                     'disagree': 0}))
     return out
+
+
+# ============================================================================
+# The rectangle: verifying a wall over its whole HEIGHT, not just its bearing
+# ============================================================================
+#
+# WHY A RECTANGLE AND NOT MORE COLUMNS. The column cross-check above asks one
+# question per bearing: "how far is the nearest WALL pixel in this column?".
+# That is the LiDAR's own question and it is answered in the LiDAR's own
+# plane, which is the whole problem -- a column's answer comes from whatever
+# the stereo matched at ANY height in that column, and the classes above and
+# below the scan plane are exactly what tells a wall from a chair in front of
+# one. A wall is a vertical surface 2 m tall: if it is there, the stereo
+# should see WALL at every height, from the floor to above the lens, along its
+# whole length. If something is standing in front of it, the stereo sees that
+# something NEARER than the line, over part of the rectangle, and the rest of
+# the wall is still there. If the LiDAR invented the line, the stereo sees the
+# scene BEHIND where the line claims to be, over the whole rectangle.
+#
+# So the verification samples the wall's own rectangle -- along the segment
+# and up it -- and sorts every sample into one of four verdicts:
+#
+#   at        a WALL pixel at the line's distance. The wall is there.
+#   beyond    a WALL pixel FURTHER than the line. Supports the wall as a
+#             surface the LiDAR ranged and the stereo saw through: glass, a
+#             dark surface, a specular tile. It is still a wall.
+#   against   an OBJECT anywhere in the rectangle, or any surface NEARER than
+#             the line. Something else is there instead.
+#   uninformative  floor, floor_inferred, ceiling, reflection, self, invalid,
+#             NaN. The stereo has nothing to say about that sample, and
+#             "nothing to say" must never read as "no wall": on this
+#             building's floor the stereo matches nothing over large parts of
+#             every frame.
+#
+# THE HEIGHT WEIGHT w(z) PEAKS AT THE LiDAR. A sample at the scan plane is
+# where the two sensors are looking at the same thing, so it is worth most; a
+# sample at 1.8 m is still evidence but through a different part of the
+# extrinsic and the lens, so it is worth 0.2 at the floor of the weight. The
+# weight is a Gaussian of 0.4 m about the laser height, floored at 0.2 so no
+# sample is ever worth nothing.
+#
+# COVERAGE GATES EVERYTHING. support and beyond_share are fractions of the
+# INFORMATIVE samples, so with 2 % of the rectangle informative they are
+# noise. Below coverage_min the verdict does not move the state at all --
+# which is the common case for a wall outside the camera's 100 deg, and it
+# must leave such a wall UNVERIFIED rather than REJECTED.
+#
+# THE STATE IS STICKY AND HYSTERETIC, for the same reason the span gate and
+# the role are (multi_wall_tracker's own docstrings): one frame of a person
+# walking past must not unmake a verified wall, and the cost of the two
+# mistakes is not symmetric. support >= support_verify verifies, <=
+# support_reject rejects, and in between nothing happens.
+
+VERIFY_UNVERIFIED = 0   # no rectangle verdict yet: lidar_only, and not a doubt
+VERIFY_VERIFIED = 1
+VERIFY_REJECTED = 2
+VERIFY_NAMES = {VERIFY_UNVERIFIED: 'unverified', VERIFY_VERIFIED: 'verified',
+                VERIFY_REJECTED: 'rejected'}
+
+
+class RectParams:
+    """The rectangle verification's own numbers. See the section header."""
+
+    __slots__ = ('z_min_lidar', 'z_max_lidar', 'z_step_m', 't_step_min_m', 't_steps_max',
+                 'w_sigma_m', 'w_floor', 'tol_base_m', 'tol_frac', 'min_depth_m',
+                 'coverage_min', 'support_verify', 'support_reject',
+                 'glass_beyond_share', 'glass_at_share')
+
+    def __init__(self, **kwargs):
+        self.z_min_lidar = -0.19      # the floor, in the LiDAR's own frame
+        self.z_max_lidar = 1.81       # 2.0 m above the floor
+        self.z_step_m = 0.05          # 41 rows
+        self.t_step_min_m = 0.05      # along the segment
+        self.t_steps_max = 100        # ... but never more than this many steps
+        self.w_sigma_m = 0.4          # w(z) = max(w_floor, exp(-z^2 / 2 sigma^2))
+        self.w_floor = 0.2
+        self.tol_base_m = 0.15        # tol = max(base, frac * d_exp)
+        self.tol_frac = 0.05
+        self.min_depth_m = 0.1        # optical z below this is behind the lens
+        self.coverage_min = 0.25
+        self.support_verify = 0.5
+        self.support_reject = 0.2
+        self.glass_beyond_share = 0.7
+        self.glass_at_share = 0.2
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+def rect_grid(p=None):
+    """(z, w) of the vertical sample rows, in the LiDAR's frame. Precompute once.
+
+    41 rows from -0.19 m (the floor) to +1.81 m every 5 cm, and the height
+    weight of each. Both float32 and both constant for the life of the node:
+    nothing about them depends on the scan or the wall.
+    """
+    p = p or RectParams()
+    n = int(round((p.z_max_lidar - p.z_min_lidar) / p.z_step_m)) + 1
+    z = (p.z_min_lidar + p.z_step_m * np.arange(n)).astype(np.float32)
+    w = np.maximum(p.w_floor, np.exp(-np.square(z) / (2.0 * p.w_sigma_m ** 2)))
+    return z, w.astype(np.float32)
+
+
+def rect_samples(segments, grid, laser_z=0.0, p=None):
+    """Every segment's rectangle as ONE (N, 3) base-frame array.
+
+    `segments` is [((x0, y0), (x1, y1))] in the base frame. Returns
+    (points, segment index, weight): all the rectangles concatenated, so the
+    projection and the gather below run once over everything rather than once
+    per wall. The only Python loop is over segments.
+
+    Along the segment the step is max(t_step_min_m, length / t_steps_max), so
+    a 0.6 m wall is sampled every 5 cm and a 20 m one every 20 cm: the cost
+    of a wall does not grow with its length.
+    """
+    p = p or RectParams()
+    z, w = grid
+    nz = z.size
+    zb = (z + np.float32(laser_z)).astype(np.float32)
+    xs, ys, ks = [], [], []
+    for k, (a, b) in enumerate(segments):
+        ax, ay = float(a[0]), float(a[1])
+        bx, by = float(b[0]), float(b[1])
+        length = math.hypot(bx - ax, by - ay)
+        step = max(p.t_step_min_m, length / max(1, p.t_steps_max))
+        nt = max(2, int(math.floor(length / step)) + 1)
+        f = np.linspace(0.0, 1.0, nt, dtype=np.float32)
+        xs.append(ax + f * np.float32(bx - ax))
+        ys.append(ay + f * np.float32(by - ay))
+        ks.append(np.full(nt, k, dtype=np.int32))
+    if not xs:
+        return (np.empty((0, 3), dtype=np.float32), np.empty(0, dtype=np.int32),
+                np.empty(0, dtype=np.float32))
+    xt, yt, kt = np.concatenate(xs), np.concatenate(ys), np.concatenate(ks)
+    pts = np.empty((xt.size * nz, 3), dtype=np.float32)
+    pts[:, 0] = np.repeat(xt, nz)
+    pts[:, 1] = np.repeat(yt, nz)
+    pts[:, 2] = np.tile(zb, xt.size)
+    return pts, np.repeat(kt, nz), np.tile(w, xt.size)
+
+
+def verify_rectangles(segments, labels, depth, fx, fy, cx, cy, rotation, translation,
+                      laser_z=0.0, p=None, grid=None, object_mask=None,
+                      wall_class=None, object_class=None, depth_scale=1.0):
+    """Per-segment (coverage, support, beyond_share) from the class mask and depth.
+
+    `labels` is scene_mask.classify's (H, W) class image and `depth` the
+    (H, W) Z-depth it was computed from, in metres -- the ZED's depth IS the
+    optical-axis Z (sl::MEASURE::DEPTH, openni_depth_mode false), which is
+    what makes d_exp the sample's own optical z and not its range. fx..cy
+    must be the intrinsics AT `labels`' resolution; `rotation`/`translation`
+    take base-frame points into the camera's optical frame the same way
+    scene_mask.project_to_image does.
+
+    `depth_scale` is what a depth SAMPLE must be multiplied by to be metres,
+    for an integer depth image: with an integer dtype a 0 is "no measurement"
+    and becomes NaN. The scaling is applied to the GATHERED samples, never to
+    the image, so a mono16-millimetre frame costs no full-frame copy -- which
+    is how it arrives over a topic (front_clearance_node's
+    /perception/scene_labels/depth_mm).
+
+    `object_mask`, when given, is the YOLO union mask at the same resolution.
+    It is NOT needed: scene_mask.classify already gives OBJECT priority over
+    every depth-derived class, so (labels == OBJECT) IS the YOLO mask
+    everywhere except where the SELF mask covers it -- and there SELF must
+    win, because the car's own housing is not an object in anyone's way.
+
+    Returns [{coverage, support, beyond_share, n_samples, n_in_image, at,
+    beyond, against}], one per segment, all floats/ints, never NaN.
+    """
+    p = p or RectParams()
+    if wall_class is None:
+        wall_class = scene_mask.CLASS_WALL
+    if object_class is None:
+        object_class = scene_mask.CLASS_OBJECT
+    n_seg = len(segments)
+    out = [{'coverage': 0.0, 'support': 0.0, 'beyond_share': 0.0, 'n_samples': 0,
+            'n_in_image': 0, 'at': 0.0, 'beyond': 0.0, 'against': 0.0}
+           for _ in range(n_seg)]
+    if n_seg == 0:
+        return out
+    grid = grid if grid is not None else rect_grid(p)
+    pts, idx, w = rect_samples(segments, grid, laser_z, p)
+    if pts.shape[0] == 0:
+        return out
+    lab = np.asarray(labels)
+    dep_img = np.asarray(depth)
+    height, width = lab.shape[:2]
+    rot = np.asarray(rotation, dtype=np.float32)
+    trans = np.asarray(translation, dtype=np.float32).reshape(3)
+
+    # p_opt = R^T (p_base - t), the same convention as
+    # scene_mask.project_to_image -- but written out as three elementwise dot
+    # products rather than an (N, 3) @ (3, 3) matmul. That matmul is a BLAS
+    # call, and an unpinned numpy process on this box gets a 12-thread
+    # OpenBLAS pool whose startup cost on a tiny multiply is ~15 ms under
+    # load: 16 tracks measured 16 ms through BLAS and 0.6 ms like this.
+    dx = pts[:, 0] - trans[0]
+    dy = pts[:, 1] - trans[1]
+    dz = pts[:, 2] - trans[2]
+    ox = dx * rot[0, 0] + dy * rot[1, 0] + dz * rot[2, 0]
+    oy = dx * rot[0, 1] + dy * rot[1, 1] + dz * rot[2, 1]
+    d_exp = dx * rot[0, 2] + dy * rot[1, 2] + dz * rot[2, 2]
+    with np.errstate(divide='ignore', invalid='ignore'):
+        u = np.rint(fx * ox / d_exp + cx)
+        v = np.rint(fy * oy / d_exp + cy)
+    inside = ((d_exp > p.min_depth_m) & (u >= 0.0) & (u < width)
+              & (v >= 0.0) & (v < height))
+    w_tot = np.bincount(idx, weights=w, minlength=n_seg)
+    if not inside.any():
+        for k in range(n_seg):
+            out[k]['n_samples'] = int(w_tot[k] > 0.0) and int(np.count_nonzero(idx == k))
+        return out
+
+    ui = u[inside].astype(np.int32)
+    vi = v[inside].astype(np.int32)
+    cls = lab[vi, ui]
+    raw = dep_img[vi, ui]
+    if np.issubdtype(raw.dtype, np.integer):
+        dep = raw.astype(np.float32) * np.float32(depth_scale)
+        dep[raw == 0] = np.nan
+    elif depth_scale != 1.0:
+        dep = raw * np.float32(depth_scale)
+    else:
+        dep = raw
+    exp = d_exp[inside]
+    wi = w[inside]
+    ki = idx[inside]
+
+    tol = np.maximum(p.tol_base_m, p.tol_frac * exp)
+    is_wall = cls == wall_class
+    if object_mask is None:
+        obj = cls == object_class
+    else:
+        obj = np.asarray(object_mask, dtype=bool)[vi, ui]
+    with np.errstate(invalid='ignore'):
+        diff = dep - exp                      # NaN propagates; every test below False
+        # AGAINST is decided first and wins: with the class mask as the object
+        # source the two can never both hold (classify gives OBJECT priority
+        # over WALL), but a YOLO mask supplied separately can overlap a WALL
+        # pixel, and there the object is the nearer surface and the one that
+        # matters. Keeping them exclusive is also what makes at + beyond +
+        # against = informative rather than an over-count.
+        against = obj | (is_wall & (diff < -tol))
+        at = is_wall & ~against & (np.abs(diff) <= tol)
+        beyond = is_wall & ~against & (diff > tol)
+    informative = at | beyond | against
+    supporting = at | beyond
+
+    w_inf = np.bincount(ki, weights=wi * informative, minlength=n_seg)
+    w_sup = np.bincount(ki, weights=wi * supporting, minlength=n_seg)
+    w_beyond = np.bincount(ki, weights=wi * beyond, minlength=n_seg)
+    w_at = np.bincount(ki, weights=wi * at, minlength=n_seg)
+    w_against = np.bincount(ki, weights=wi * against, minlength=n_seg)
+    n_all = np.bincount(idx, minlength=n_seg)
+    n_in = np.bincount(ki, minlength=n_seg)
+
+    for k in range(n_seg):
+        out[k] = {
+            'coverage': float(w_inf[k] / w_tot[k]) if w_tot[k] > 0.0 else 0.0,
+            'support': float(w_sup[k] / w_inf[k]) if w_inf[k] > 0.0 else 0.0,
+            'beyond_share': float(w_beyond[k] / w_sup[k]) if w_sup[k] > 0.0 else 0.0,
+            'n_samples': int(n_all[k]), 'n_in_image': int(n_in[k]),
+            'at': float(w_at[k]), 'beyond': float(w_beyond[k]),
+            'against': float(w_against[k])}
+    return out
+
+
+def verify_step(state, glass, verdict, p=None):
+    """(state, glass) after one rectangle verdict. Sticky, hysteretic.
+
+    coverage below coverage_min changes nothing -- not the state and not the
+    glass flag -- because support is a fraction of the informative samples
+    and with a handful of them it is noise. A wall the camera cannot see is
+    therefore left exactly as it was, which for a new track is UNVERIFIED,
+    i.e. lidar_only, which is not a doubt about the wall.
+
+    GLASS is the one case where the stereo agrees the wall is there and
+    reports it FURTHER than the LiDAR does, over almost all of the
+    rectangle: the pane is what the LiDAR ranged and the room behind it is
+    what the stereo matched. The distance then comes from the LiDAR alone.
+    (Note the two glass thresholds as specified overlap: beyond_share > 0.7
+    AND 1 - beyond_share < 0.2 means beyond_share > 0.8. Both are kept so the
+    rule reads as the pair of statements it is -- mostly beyond, and hardly
+    any at -- rather than as one tuned number.)
+    """
+    p = p or RectParams()
+    if verdict['coverage'] < p.coverage_min:
+        return int(state), bool(glass)
+    support = verdict['support']
+    if support >= p.support_verify:
+        state = VERIFY_VERIFIED
+    elif support <= p.support_reject:
+        state = VERIFY_REJECTED
+    if state != VERIFY_VERIFIED:
+        return int(state), False
+    beyond = verdict['beyond_share']
+    return int(state), bool(beyond > p.glass_beyond_share
+                            and (1.0 - beyond) < p.glass_at_share)
 
 
 # ============================================================================

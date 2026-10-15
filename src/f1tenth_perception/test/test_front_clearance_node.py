@@ -2061,3 +2061,81 @@ class TestSceneMaskWatchdog:
         finally:
             full.destroy_node()
             strided.destroy_node()
+
+
+class TestTheClassMaskAsData:
+    """The class mask and its depth, published as a pair for the rectangle
+    verification in lidar_front_wall_node (E2). The mask itself is tested
+    above; what matters here is that the two go out together, on the depth
+    frame's own stamp, and only when something is reading them."""
+
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1}
+
+    @staticmethod
+    def _camera_info(width=64, height=48, fx=100.0, fy=100.0):
+        from sensor_msgs.msg import CameraInfo
+        info = CameraInfo()
+        info.width, info.height = width, height
+        info.k = [fx, 0.0, width / 2.0, 0.0, fy, height / 2.0, 0.0, 0.0, 1.0]
+        return info
+
+    def _node(self, subscribed):
+        node = _construct(self.PARAMS)
+        node._camera_info_callback(self._camera_info())
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        node.stereo_columns_pub.publish = MagicMock()
+        node.scene_mask_classes_pub.publish = MagicMock()
+        node.scene_mask_depth_pub.publish = MagicMock()
+        node.scene_mask_classes_pub.get_subscription_count = lambda: int(subscribed)
+        node.scene_mask_depth_pub.get_subscription_count = lambda: int(subscribed)
+        node.scene_mask_image_pub.get_subscription_count = lambda: 0
+        return node
+
+    def test_nothing_is_published_until_something_subscribes(self):
+        node = self._node(subscribed=False)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_stats_pub.publish.call_count == 1
+            assert node.scene_mask_classes_pub.publish.call_count == 0
+            assert node.scene_mask_depth_pub.publish.call_count == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_pair_shares_the_depth_frames_stamp_and_round_trips(self):
+        from f1tenth_perception import scene_mask
+        node = self._node(subscribed=True)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=9, stamp_nsec=250000000))
+            cls_msg = node.scene_mask_classes_pub.publish.call_args[0][0]
+            dep_msg = node.scene_mask_depth_pub.publish.call_args[0][0]
+            assert cls_msg.header.stamp == dep_msg.header.stamp
+            assert cls_msg.header.stamp.sec == 9
+            assert cls_msg.header.stamp.nanosec == 250000000
+            assert cls_msg.encoding == 'mono8' and dep_msg.encoding == 'mono16'
+            assert (cls_msg.height, cls_msg.width) == (48, 64)
+            labels = np.frombuffer(cls_msg.data, dtype=np.uint8).reshape(48, 64)
+            depth = np.frombuffer(dep_msg.data, dtype=np.uint16).reshape(48, 64)
+            # The frame is a flat surface 2 m ahead: WALL away from the self
+            # mask, and 2000 mm everywhere.
+            assert labels[0, 0] == scene_mask.CLASS_WALL
+            assert depth[0, 0] == 2000
+            assert np.count_nonzero(labels == scene_mask.CLASS_SELF) > 0
+        finally:
+            node.destroy_node()
+
+    def test_an_invalid_depth_is_a_zero_not_a_distance(self):
+        node = self._node(subscribed=True)
+        try:
+            frame = np.full((48, 64), 2.0, dtype=np.float32)
+            frame[0, :] = np.nan
+            frame[1, :] = -np.inf
+            node.depth_callback(_depth_msg(frame))
+            dep_msg = node.scene_mask_depth_pub.publish.call_args[0][0]
+            depth = np.frombuffer(dep_msg.data, dtype=np.uint16).reshape(48, 64)
+            assert depth[0].max() == 0 and depth[1].max() == 0
+            assert depth[2, 0] == 2000
+        finally:
+            node.destroy_node()
