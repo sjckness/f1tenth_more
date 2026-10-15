@@ -321,7 +321,8 @@ from f1tenth_description.vehicle_frames import (
     base_front_x, beside_body_behind_bumper, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_messages.msg import Obstacle2DArray, StereoColumns, WallLineFit
 
-from f1tenth_perception import perception_debug, scene_labels, scene_mask, wall_fusion
+from f1tenth_perception import (
+    inferred_floor, perception_debug, scene_labels, scene_mask, wall_fusion)
 from f1tenth_perception.ground_plane import (
     back_project, fit_ground_plane, ground_mask, quat_to_matrix)
 from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
@@ -621,6 +622,19 @@ class FrontClearanceNode(Node):
         self._latest_image_msg = None
         self._latest_scan = None    # (receipt time, LaserScan)
         self._next_scene = 0.0
+
+        # ---- LiDAR-inferred floor (inferred_floor.py) -----------------------
+        # The floor the LiDAR can see where the stereo matched nothing. Its own
+        # class, never FLOOR: see that module's docstring for why, and for what
+        # r_eff is and why it can only ever REFUSE to infer.
+        self.inferred_floor_enabled = bool(p('inferred_floor_enabled', True))
+        self.inferred_floor_r_max = float(p('inferred_floor_r_max_m', 3.0))
+        self.inferred_floor_margin = float(p('inferred_floor_margin_m', 0.15))
+        self.inferred_floor_window_k = int(p('inferred_floor_window_k', 3))
+        self.inferred_floor_sigma_beams = float(p('inferred_floor_sigma_beams', 1.5))
+        self.inferred_floor_max_scan_age = float(p('inferred_floor_max_scan_age_s', 0.15))
+        self._floor_lut = None      # inferred_floor.FloorLut, rebuilt on any change
+        self._inferred_floor_stats = None
 
         # ---- too-close (-Inf) short-circuit --------------------------------
         # See the module docstring's own "-Inf AND NaN/+Inf ARE NOT THE SAME
@@ -1140,6 +1154,8 @@ class FrontClearanceNode(Node):
             floor_tol=self.scene_mask_floor_tol,
             ceiling_min_z=self.scene_mask_ceiling_min_z,
             min_depth=self.scene_mask_min_depth, max_depth=self.scene_mask_max_depth)
+        if self.inferred_floor_enabled:
+            self._infer_floor(labels, header, (fx, fy, cx, cy), rot, trans)
         points, rows, cols = scene_mask.wall_points(
             depth, labels, fx, fy, cx, cy, rot, trans)
 
@@ -1162,11 +1178,88 @@ class FrontClearanceNode(Node):
             'img_wh': [w, h],
             'strip_half_width_m': self.scene_mask_strip_half_w,
             'ms': round((time.perf_counter() - t_start) * 1e3, 2),
+            'inferred_floor': self._inferred_floor_stats,
         })
         self.scene_mask_stats_pub.publish(String(data=json.dumps(stats)))
 
         if self.scene_mask_image_pub.get_subscription_count() > 0:
             self._publish_scene_mask_overlay(labels, header, (fx, fy, cx, cy), rot, trans)
+
+    def _infer_floor(self, labels, header, k, rot, trans):
+        """Relabel the no-depth pixels the LiDAR says are empty floor.
+
+        inferred_floor.py owns the geometry and the rules; this is the glue
+        that finds the inputs, decides whether they may be used at all, and
+        records what happened in the stats payload. `labels` is modified in
+        place.
+
+        It NEVER raises on a missing input: no scan yet, no laser transform,
+        a scan from a different moment -- each leaves the classes exactly as
+        classify produced them and says so in `skipped`. The scene mask is a
+        diagnostic surface, and a wrong floor is worse than no floor.
+        """
+        t_start = time.perf_counter()
+        stats = {'applied_px': 0, 'lut_px': 0, 'skipped': None}
+        self._inferred_floor_stats = stats
+        try:
+            self._infer_floor_step(labels, header, k, rot, trans, stats)
+        finally:
+            # Timed even when it skipped: the skip is the common case while a
+            # sensor is missing, and its cost belongs in the frame budget.
+            stats['ms'] = round((time.perf_counter() - t_start) * 1e3, 2)
+
+    def _infer_floor_step(self, labels, header, k, rot, trans, stats):
+        """_infer_floor's body. Fills `stats`; see that method."""
+        held = self._latest_scan
+        if held is None:
+            stats['skipped'] = 'no_scan'
+            return
+        scan = held[1]
+        # The MASK's own stamp against the SCAN's own stamp, both from the
+        # sensors: the receipt times are a property of the recorder and the
+        # executor, not of when the two sensors looked.
+        age = (perception_debug.stamp_to_sec(header.stamp)
+               - perception_debug.stamp_to_sec(scan.header.stamp))
+        stats['scan_age_s'] = round(age, 4)
+        if abs(age) > self.inferred_floor_max_scan_age:
+            stats['skipped'] = 'stale_scan'
+            return
+        laser = self._frame_pose(scan.header.frame_id)
+        if laser is None:
+            stats['skipped'] = 'no_laser_transform'
+            return
+
+        h, w = labels.shape[:2]
+        if self._self_mask is None or self._self_mask.shape != (h, w):
+            self._self_mask = scene_mask.polygon_mask((h, w), self._self_polygons)
+        n_beams = len(scan.ranges)
+        key = inferred_floor.lut_key(
+            (h, w), k, rot, trans, laser,
+            (scan.angle_min, scan.angle_increment, n_beams), self.inferred_floor_r_max)
+        if self._floor_lut is None or not self._floor_lut.matches(key):
+            self._floor_lut = inferred_floor.build_lut(
+                (h, w), *k, rot, trans, laser, scan.angle_min, scan.angle_increment,
+                n_beams, r_max=self.inferred_floor_r_max, self_mask=self._self_mask)
+            self.get_logger().info(
+                f'inferred floor: LUT rebuilt for {w}x{h}, laser at x={laser[0]:.3f} '
+                f'yaw={math.degrees(laser[2]):.1f} deg, {n_beams} beams, r_max '
+                f'{self.inferred_floor_r_max:.2f} m: {self._floor_lut.n_valid} of '
+                f'{h * w} pixels can be inferred')
+        lut = self._floor_lut
+        stats['lut_px'] = lut.n_valid
+        if lut.n_valid == 0:
+            stats['skipped'] = 'empty_lut'
+            return
+
+        # One r_eff vector per cycle, shared by every pixel.
+        r_eff = inferred_floor.effective_ranges(
+            scan.ranges, scan.range_min, scan.range_max,
+            far_value=self.inferred_floor_r_max + self.inferred_floor_margin + 1.0,
+            window_k=self.inferred_floor_window_k,
+            sigma_beams=self.inferred_floor_sigma_beams)
+        _labels, applied = inferred_floor.apply(
+            labels, lut, r_eff, margin=self.inferred_floor_margin)
+        stats['applied_px'] = applied
 
     def _publish_stereo_columns(self, header, depth, rows, cols, points, width, height, k):
         """The per-column stereo summary the fusion consumes (StereoColumns.msg)."""

@@ -33,6 +33,12 @@ construction:
               any wall distance is ever taken from.
   INVALID     no usable depth, and not SELF or OBJECT.
 
+FLOOR_INFERRED is added AFTER this classification, not inside it: it is the
+floor the LiDAR can see where the stereo matched nothing, and it comes from a
+different sensor through a different extrinsic. inferred_floor.py owns it and
+its own module docstring says why it is a separate class rather than more
+FLOOR. Nothing here produces it; `classify` never returns it.
+
 FRAMES. z is the height above base_link's own z = 0, which is the floor
 (base.xacro), through the live TF -- so the mount pitch (-2.083 deg since
 2026-10-15) is already in it and FLOOR is flat at z = 0 only when that pitch
@@ -56,18 +62,29 @@ CLASS_FLOOR = 3
 CLASS_REFLECTION = 4
 CLASS_CEILING = 5
 CLASS_WALL = 6
+CLASS_FLOOR_INFERRED = 7
 
 CLASS_NAMES = {
     CLASS_INVALID: 'invalid', CLASS_SELF: 'self', CLASS_OBJECT: 'object',
     CLASS_FLOOR: 'floor', CLASS_REFLECTION: 'reflection', CLASS_CEILING: 'ceiling',
-    CLASS_WALL: 'wall',
+    CLASS_WALL: 'wall', CLASS_FLOOR_INFERRED: 'floor_inferred',
 }
+
+#: The highest class value, for anything sizing an array by class (class_stats'
+#: bincount, a legend, a per-class loop). Deliberately derived rather than
+#: written out: adding a class and forgetting one of those is a silent
+#: truncation, which is how a new class disappears from the stats it was added
+#: to produce.
+CLASS_MAX = max(CLASS_NAMES)
 
 #: BGR overlay colours, for the debug image only.
 CLASS_COLOURS = {
     CLASS_INVALID: (40, 40, 40), CLASS_SELF: (0, 0, 255), CLASS_OBJECT: (0, 165, 255),
     CLASS_FLOOR: (0, 160, 0), CLASS_REFLECTION: (200, 0, 200),
     CLASS_CEILING: (160, 120, 0), CLASS_WALL: (255, 255, 0),
+    # Another shade of green: it IS floor, and the eye should group it with
+    # FLOOR at a glance while still being able to tell the two apart.
+    CLASS_FLOOR_INFERRED: (90, 230, 120),
 }
 
 
@@ -182,10 +199,10 @@ def class_stats(labels, depth=None, points=None, front_x=0.0, strip_half_width_m
     """
     lab = np.asarray(labels)
     n = int(lab.size)
-    counts = np.bincount(lab.ravel(), minlength=CLASS_WALL + 1)
+    counts = np.bincount(lab.ravel(), minlength=CLASS_MAX + 1)
     out = {'n_px': n, 'frac': {CLASS_NAMES[i]: (round(float(counts[i]) / n, 5) if n else 0.0)
-                               for i in range(CLASS_WALL + 1)}}
-    out['count'] = {CLASS_NAMES[i]: int(counts[i]) for i in range(CLASS_WALL + 1)}
+                               for i in CLASS_NAMES}}
+    out['count'] = {CLASS_NAMES[i]: int(counts[i]) for i in CLASS_NAMES}
     if points is not None:
         out['wall_points'] = int(np.asarray(points).reshape(-1, 3).shape[0])
         out['wall_points_in_strip'] = int(np.count_nonzero(

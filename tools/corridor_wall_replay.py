@@ -513,8 +513,11 @@ class MaskReplay:
             'depth_callback_ms': ms, 'classify_ms': sink.get('classify_ms'),
         }
         if row['mask'] is not None:
+            # Enumerate the CLASSES, never a hardcoded count: the mask grew a
+            # seventh (floor_inferred) and a range() would have dropped it
+            # silently from every table below.
             row['frac'] = {scene_mask.CLASS_NAMES[i]: float((row['mask'] == i).mean())
-                           for i in range(7)}
+                           for i in scene_mask.CLASS_NAMES}
         return row
 
     def close(self):
@@ -1227,6 +1230,8 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
         'replay_scene_mask_classify': stage(r.get('classify_ms') for r in mask_rows),
         'replay_depth_callback': stage(r.get('depth_callback_ms') for r in mask_rows),
         'replay_mask_tick_node': stage((r['stats'] or {}).get('ms') for r in mask_rows),
+        'replay_inferred_floor': stage(
+            ((r['stats'] or {}).get('inferred_floor') or {}).get('ms') for r in mask_rows),
         'replay_scan_callback': stage(r['scan_ms'] for r in rows if r),
         'replay_tracker': stage(r['tracker_ms'] for r in rows if r),
         'recorded_mask_tick_node': stage(
@@ -1264,6 +1269,12 @@ def param_evidence(src, rows, mask_rows, self_mask, self_polygons, window):
         'front_clearance_scene_mask_column_min_px',
         'front_clearance_scene_mask_self_polygons',
         'front_clearance_scene_mask_occluded_polygons',
+        'front_clearance_inferred_floor_enabled',
+        'front_clearance_inferred_floor_r_max_m',
+        'front_clearance_inferred_floor_margin_m',
+        'front_clearance_inferred_floor_window_k',
+        'front_clearance_inferred_floor_sigma_beams',
+        'front_clearance_inferred_floor_max_scan_age_s',
         'lidar_exclusion_x_min', 'lidar_exclusion_y_min',
         'lidar_exclusion_x_max', 'lidar_exclusion_y_max')}}
 
@@ -1360,7 +1371,7 @@ def param_evidence(src, rows, mask_rows, self_mask, self_polygons, window):
         h, w = labels.shape
         low = labels[int(h * 0.6):, int(w * 0.25):int(w * 0.75)]
         lower_invalid.append(float((low == scene_mask.CLASS_INVALID).mean()))
-        for cls in range(7):
+        for cls in scene_mask.CLASS_NAMES:
             lower_classes[scene_mask.CLASS_NAMES[cls]] += int((low == cls).sum())
     out['floor_z'] = {'n': 0}
     stats = {}
@@ -1379,6 +1390,38 @@ def param_evidence(src, rows, mask_rows, self_mask, self_polygons, window):
         if lower_invalid else None,
         'lower_centre_class_frac': {k: round(v / total, 4)
                                     for k, v in sorted(lower_classes.items())},
+    }
+
+    # ---- the LiDAR-inferred floor (inferred_floor.py) ----------------------
+    # The whole point of the class is that it is a SEPARATE number, so the
+    # report says how much floor was seen, how much was inferred, and how many
+    # cycles could not infer at all and why.
+    inf_ms, applied, lut_px, skips = [], [], [], collections.Counter()
+    for row in mask_rows:
+        block = (row.get('stats') or {}).get('inferred_floor')
+        if not block:
+            skips['off_or_absent'] += 1
+            continue
+        if block.get('ms') is not None:
+            inf_ms.append(block['ms'])
+        skips[block.get('skipped') or 'applied'] += 1
+        applied.append(block.get('applied_px', 0))
+        lut_px.append(block.get('lut_px', 0))
+    class_frac = out['class_fractions']
+    out['inferred_floor'] = {
+        'frames': len(mask_rows),
+        'cycles': dict(sorted(skips.items())),
+        'applied_px_median': num(float(np.median(applied)), 1) if applied else None,
+        'lut_px_median': num(float(np.median(lut_px)), 1) if lut_px else None,
+        'ms_median': num(float(np.median(inf_ms)), 3) if inf_ms else None,
+        'ms_p95': num(pct(inf_ms, 95), 3) if inf_ms else None,
+        'floor_frac_median': (class_frac.get('floor') or {}).get('median'),
+        'floor_inferred_frac_median': (
+            class_frac.get('floor_inferred') or {}).get('median'),
+        'params': {k: get_value('front_clearance_' + k) for k in (
+            'inferred_floor_enabled', 'inferred_floor_r_max_m',
+            'inferred_floor_margin_m', 'inferred_floor_window_k',
+            'inferred_floor_sigma_beams', 'inferred_floor_max_scan_age_s')},
     }
 
     # ---- the self / occlusion polygons -------------------------------------
@@ -1526,6 +1569,15 @@ def put(img, s, uv, color, scale=0.45, thick=1):
     fpr.put(img, s, uv, color, scale, thick)
 
 
+def short_class(name):
+    """A 4-character class label for the video's bottom bar.
+
+    Not name[:4]: 'floor' and 'floor_inferred' both truncate to 'floo', and
+    the whole point of the second class is telling it from the first.
+    """
+    return 'finf' if name == 'floor_inferred' else name[:4]
+
+
 def confirmed_tracks(frame):
     walls = (frame.get('row') or {}).get('walls')
     return [] if walls is None else [t for t in walls.tracks if t.state in (1, 2)]
@@ -1547,7 +1599,8 @@ def draw_camera(src, frame, cam, scale=2):
         for cls, colour in scene_mask.CLASS_COLOURS.items():
             tint[labels == cls] = colour
         img = cv2.addWeighted(img, 0.62, tint, 0.38, 0.0)
-        counts = {scene_mask.CLASS_NAMES[i]: float((labels == i).mean()) for i in range(7)}
+        counts = {scene_mask.CLASS_NAMES[i]: float((labels == i).mean())
+                  for i in scene_mask.CLASS_NAMES}
     img = cv2.resize(img, (w * scale, h * scale), interpolation=cv2.INTER_LINEAR)
 
     # ---- YOLO instance masks, outlined -------------------------------------
@@ -1639,8 +1692,8 @@ def draw_camera(src, frame, cam, scale=2):
              f'   recorded {str(rec.get("state", "--")).upper():8s} {fmtm(rec.get("distance_m"))}'
              f'   DISAGREE cols {n_disagree if n_disagree is not None else "--"}',
         (10, 44), CONTRACT_COLOUR.get(state, (200, 200, 200)), 0.52)
-    put(bar, '  '.join(f'{k[:4]} {v * 100:4.1f}%' for k, v in counts.items()) or
-        'no scene mask', (10, 68), (200, 200, 200), 0.46)
+    put(bar, '  '.join(f'{short_class(k)} {v * 100:4.1f}%' for k, v in counts.items())
+        or 'no scene mask', (10, 68), (200, 200, 200), 0.46)
     note = ' (detector-annotated, desaturated)' if source.endswith('/compressed') else ''
     put(bar, f'base {source or "none"}{note} age {age:+.2f}s   mask age '
              f'{frame.get("mask_age", float("nan")):.2f}s   cycle age '
@@ -2169,6 +2222,24 @@ def write_summary_md(path, src, summary, evidence, window, videos):
               'INVALID (median over frames). The class split there is: ' +
               ', '.join(f'{k} {100 * v:.1f} %'
                         for k, v in fz['lower_centre_class_frac'].items() if v > 0.005) + '.', '']
+    inf = evidence.get('inferred_floor') or {}
+    if inf.get('frames'):
+        L += ['### inferred floor (floor_inferred)', '',
+              'The LiDAR-inferred floor is its own class, never FLOOR: it is an '
+              'inference from the other sensor through two extrinsics '
+              '(inferred_floor.py). These are the two numbers that have to be read '
+              'together -- what the stereo SAW and what the LiDAR INFERRED.', '']
+        L += table([[k, v] for k, v in inf['params'].items()],
+                   ['parameter', 'value']) + ['']
+        L += table([[inf['floor_frac_median'], inf['floor_inferred_frac_median'],
+                     inf['applied_px_median'], inf['lut_px_median'],
+                     inf['ms_median'], inf['ms_p95']]],
+                   ['floor frac (median)', 'floor_inferred frac (median)',
+                    'applied px (median)', 'inferable px (median)',
+                    'ms median', 'ms p95']) + ['']
+        L += ['Per cycle, what the inference did: ' +
+              ', '.join(f'{k} {v}' for k, v in inf['cycles'].items()) +
+              f' (of {inf["frames"]} depth frames).', '']
     sp = evidence['self_polygons']
     if sp.get('image_wh'):
         L += ['### scene_mask_self_polygons / scene_mask_occluded_polygons', '',

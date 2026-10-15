@@ -1603,3 +1603,274 @@ class TestSceneMaskTick:
             assert (msg.header.stamp.sec, msg.header.stamp.nanosec) == (11, 250000000)
         finally:
             node.destroy_node()
+
+
+# ==============================================================================
+# The LiDAR-inferred floor (inferred_floor.py) in the scene-mask tick
+# ==============================================================================
+
+class TestInferredFloorTick:
+    """The node glue around inferred_floor.py.
+
+    The geometry is tested in test_inferred_floor.py against the deployed
+    extrinsics. What matters here is that the tick finds its two inputs,
+    refuses to use them when they do not describe the same moment, keeps the
+    LUT across frames, and reports what it did -- and that none of it can take
+    the depth path down.
+
+    The camera in the other classes' TF sits on the floor with no rotation, so
+    no ray of it ever meets the floor plane. This one is a real downward-
+    looking optical frame 0.2 m up, which is the only way the inference has
+    anything to do.
+    """
+
+    DEPTH_W, DEPTH_H = 64, 48
+    LASER_FRAME = 'test_laser'
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1,
+              'inferred_floor_enabled': True,
+              # The whole 64x48 frame at fx 40 spans +-39 deg, so a 1 m r_max
+              # keeps the floor band comfortably inside the test scan's reach.
+              'inferred_floor_r_max_m': 1.0,
+              # An EMPTY list does not unmask the housing (see
+              # test_malformed_polygons_...): the derived rectangle still
+              # applies, so `_no_data_px` is the frame minus SELF.
+              'scene_mask_occluded_polygons': '[]'}
+
+    @staticmethod
+    def _no_data_px(stats):
+        """Pixels that had no usable depth AND are not the car's own hardware."""
+        return stats['count']['invalid'] + stats['count']['self']
+
+    @staticmethod
+    def _optical_tf(z=0.2):
+        """base_link <- an optical frame at (0.1, 0, z), looking forward.
+
+        The optical convention the ZED publishes: x right, y down, z forward.
+        """
+        import math
+        t = TransformStamped()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = CAMERA_FRAME
+        t.transform.translation.x, t.transform.translation.z = 0.1, float(z)
+        # The quaternion of [[0,0,1],[-1,0,0],[0,-1,0]]: (0.5, -0.5, 0.5, -0.5).
+        t.transform.rotation.x, t.transform.rotation.y = 0.5, -0.5
+        t.transform.rotation.z, t.transform.rotation.w = 0.5, -0.5
+        assert math.isclose(sum(v * v for v in (0.5, -0.5, 0.5, -0.5)), 1.0)
+        return t
+
+    @classmethod
+    def _laser_tf(cls, x=0.3, z=0.19):
+        t = TransformStamped()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = cls.LASER_FRAME
+        t.transform.translation.x, t.transform.translation.z = float(x), float(z)
+        t.transform.rotation.w = 1.0
+        return t
+
+    @classmethod
+    def _scan(cls, value=20.0, stamp_sec=1, stamp_nsec=0, n=361):
+        import math
+        from sensor_msgs.msg import LaserScan
+        scan = LaserScan()
+        scan.header.frame_id = cls.LASER_FRAME
+        scan.header.stamp.sec = stamp_sec
+        scan.header.stamp.nanosec = stamp_nsec
+        scan.angle_min = -math.pi / 2.0
+        scan.angle_max = math.pi / 2.0
+        scan.angle_increment = math.pi / (n - 1)
+        scan.range_min, scan.range_max = 0.02, 30.0
+        scan.ranges = [float(value)] * n
+        return scan
+
+    def _node(self, extra=None):
+        from sensor_msgs.msg import CameraInfo
+        overrides = [Parameter(k, value=v)
+                     for k, v in {**self.PARAMS, **(extra or {})}.items()]
+        node = FrontClearanceNode(parameter_overrides=overrides)
+        node._tf_static_callback(TFMessage(
+            transforms=[self._optical_tf(), self._laser_tf()]))
+        for name in ('front_distance_pub', 'front_wall_pub', 'front_clearance_pub',
+                     'front_blocked_pub', 'wall_points_pub', 'scene_mask_stats_pub',
+                     'scene_mask_image_pub', 'stereo_columns_pub'):
+            getattr(node, name).publish = MagicMock()
+        if node.wall_debug_pub is not None:
+            node.wall_debug_pub.publish = MagicMock()
+        info = CameraInfo()
+        info.width, info.height = self.DEPTH_W, self.DEPTH_H
+        info.k = [40.0, 0.0, self.DEPTH_W / 2.0, 0.0, 40.0, self.DEPTH_H / 2.0,
+                  0.0, 0.0, 1.0]
+        node._camera_info_callback(info)
+        return node
+
+    def _tick(self, node, depth=None, stamp_sec=1):
+        """One depth frame of pure no-data, and the stats it produced."""
+        import json
+        if depth is None:
+            depth = np.full((self.DEPTH_H, self.DEPTH_W), np.nan, dtype=np.float32)
+        node.depth_callback(_depth_msg(depth, stamp_sec=stamp_sec))
+        return json.loads(node.scene_mask_stats_pub.publish.call_args[0][0].data)
+
+    def test_a_fresh_scan_down_an_empty_corridor_infers_the_floor(self):
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            stats = self._tick(node)
+            assert stats['count']['floor_inferred'] > 100
+            assert stats['frac']['floor_inferred'] > 0.0
+            assert stats['inferred_floor']['applied_px'] == \
+                stats['count']['floor_inferred']
+            assert stats['inferred_floor']['skipped'] is None
+            assert stats['inferred_floor']['lut_px'] >= \
+                stats['inferred_floor']['applied_px']
+            assert stats['inferred_floor']['ms'] is not None
+        finally:
+            node.destroy_node()
+
+    def test_an_obstacle_at_the_laser_leaves_every_pixel_invalid(self):
+        """The inference is evidence-driven in both directions: a scan that
+        stopped short says nothing about the floor beyond it."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(0.05))
+            stats = self._tick(node)
+            assert stats['count']['floor_inferred'] == 0
+            assert self._no_data_px(stats) == self.DEPTH_H * self.DEPTH_W
+        finally:
+            node.destroy_node()
+
+    def test_with_no_scan_at_all_the_classes_are_left_exactly_as_classified(self):
+        node = self._node()
+        try:
+            stats = self._tick(node)
+            assert stats['inferred_floor']['skipped'] == 'no_scan'
+            assert stats['count']['floor_inferred'] == 0
+            assert self._no_data_px(stats) == self.DEPTH_H * self.DEPTH_W
+        finally:
+            node.destroy_node()
+
+    def test_a_scan_from_a_different_moment_is_refused(self):
+        """An old scan describes a different place; a wrong floor is worse
+        than no floor, so the whole cycle is skipped."""
+        node = self._node({'inferred_floor_max_scan_age_s': 0.15})
+        try:
+            node._scan_callback(self._scan(20.0, stamp_sec=1))
+            stats = self._tick(node, stamp_sec=3)
+            assert stats['inferred_floor']['skipped'] == 'stale_scan'
+            assert stats['inferred_floor']['scan_age_s'] == pytest.approx(2.0)
+            assert stats['count']['floor_inferred'] == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_age_is_measured_on_the_two_sensor_stamps_not_on_receipt(self):
+        """Both stamps come from the sensors: the recorder's and the
+        executor's own lateness must not decide whether the floor is inferred
+        (this bag's writer ran 0.4-4.5 s behind the stamps)."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0, stamp_sec=7, stamp_nsec=50000000))
+            # The node clock is nowhere near either stamp, which is the point.
+            node._now_seconds = lambda: 9999.0
+            stats = self._tick(node, stamp_sec=7)
+            assert stats['inferred_floor']['scan_age_s'] == pytest.approx(-0.05)
+            assert stats['inferred_floor']['skipped'] is None
+            assert stats['count']['floor_inferred'] > 0
+        finally:
+            node.destroy_node()
+
+    def test_without_the_laser_transform_nothing_is_inferred(self):
+        node = self._node()
+        try:
+            scan = self._scan(20.0)
+            scan.header.frame_id = 'a_frame_no_tf_mentions'
+            node._scan_callback(scan)
+            stats = self._tick(node)
+            assert stats['inferred_floor']['skipped'] == 'no_laser_transform'
+            assert stats['count']['floor_inferred'] == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_lut_is_built_once_and_reused_across_frames(self):
+        """It depends only on static geometry; rebuilding it per frame would
+        cost 47 ms a tick against the 1.7 ms the inference itself takes."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            self._tick(node, stamp_sec=1)
+            first = node._floor_lut
+            assert first is not None
+            node._scan_callback(self._scan(20.0, stamp_sec=2))
+            self._tick(node, stamp_sec=2)
+            assert node._floor_lut is first
+        finally:
+            node.destroy_node()
+
+    def test_a_scan_with_a_new_angular_layout_rebuilds_the_lut(self):
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0, n=361))
+            self._tick(node, stamp_sec=1)
+            first = node._floor_lut
+            node._scan_callback(self._scan(20.0, stamp_sec=2, n=181))
+            self._tick(node, stamp_sec=2)
+            assert node._floor_lut is not first
+            assert node._floor_lut.n_valid > 0
+        finally:
+            node.destroy_node()
+
+    def test_the_switch_off_leaves_the_classes_and_the_stats_untouched(self):
+        node = self._node({'inferred_floor_enabled': False})
+        try:
+            node._scan_callback(self._scan(20.0))
+            stats = self._tick(node)
+            assert stats['inferred_floor'] is None
+            assert stats['count']['floor_inferred'] == 0
+            assert self._no_data_px(stats) == self.DEPTH_H * self.DEPTH_W
+        finally:
+            node.destroy_node()
+
+    def test_a_self_masked_pixel_is_never_inferred_floor(self):
+        """Whatever mask is in force -- the housing rectangle today, a traced
+        polygon later -- the car's own hardware is not floor."""
+        node = self._node({'scene_mask_self_polygons':
+                           '[[[0.0, 0.5], [1.0, 0.5], [1.0, 1.0], [0.0, 1.0]]]'})
+        try:
+            node._scan_callback(self._scan(20.0))
+            stats = self._tick(node)
+            # The whole lower half is SELF, and the floor band lives there.
+            assert stats['count']['self'] == self.DEPTH_H * self.DEPTH_W // 2
+            assert stats['count']['floor_inferred'] == 0
+            assert stats['inferred_floor']['lut_px'] == 0
+            assert stats['inferred_floor']['skipped'] == 'empty_lut'
+        finally:
+            node.destroy_node()
+
+    def test_a_floor_already_seen_by_the_stereo_stays_floor(self):
+        """The inference only ever speaks where the stereo did not."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            # A real floor plane at z = 0 for the lower rows: depth = z / ray_y.
+            depth = np.full((self.DEPTH_H, self.DEPTH_W), np.nan, dtype=np.float32)
+            rows = np.arange(self.DEPTH_H)
+            ray_y = (rows - self.DEPTH_H / 2.0) / 40.0
+            with np.errstate(divide='ignore'):
+                d = np.where(ray_y > 0, 0.2 / ray_y, np.nan)
+            depth[:] = d[:, None]
+            stats = self._tick(node, depth=depth.astype(np.float32))
+            assert stats['count']['floor'] > 100
+            # Those rows are FLOOR, not floor_inferred: a measurement wins.
+            assert stats['count']['floor_inferred'] < stats['count']['floor']
+        finally:
+            node.destroy_node()
+
+    def test_a_failing_inference_does_not_stop_the_front_distance(self):
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            node._infer_floor = MagicMock(side_effect=RuntimeError('boom'))
+            node.depth_callback(_depth_msg(
+                np.full((self.DEPTH_H, self.DEPTH_W), 2.0, dtype=np.float32)))
+            assert node.front_distance_pub.publish.call_count == 1
+        finally:
+            node.destroy_node()

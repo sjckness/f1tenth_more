@@ -631,6 +631,36 @@ front_clearance_scene_mask_image_topic:
   default: "/camera/image_raw"
   description: "Left RGB image the scene-mask overlay is drawn on. Decoded ONLY when /perception/scene_labels/image has a subscriber, the same draw-when-watched discipline the annotated detection image follows."
 
+# --- LiDAR-inferred floor (inferred_floor.py, front_clearance_node) -----------
+# A SEVENTH class, floor_inferred, for the pixels the stereo could not match
+# but the LiDAR says are empty floor. It exists because on this building's
+# floor the stereo matches almost nothing: in the lower centre quarter of the
+# frame -- the floor straight ahead -- 74% of pixels are INVALID and 38% of
+# the rest are REFLECTION, against 1.1% FLOOR (corridor10m_20261015T171753).
+# INVALID therefore means both "nothing matched on the open floor" and
+# "something is there I cannot measure", and the LiDAR can tell those apart.
+# NEVER merged into FLOOR: it is an inference from the other sensor through
+# two extrinsics, so it is excluded from every plane/pitch fit and from wall
+# evidence, and it carries its own percentage in the stats and the videos.
+front_clearance_inferred_floor_enabled:
+  default: true
+  description: "Infer floor_inferred on pixels with no usable depth whose floor point the LiDAR saw past (inferred_floor.py). Off leaves those pixels INVALID/REFLECTION exactly as scene_mask.classify labelled them; nothing but the stats, the overlay and the videos changes either way, because floor_inferred is never wall evidence and never enters a plane fit."
+front_clearance_inferred_floor_r_max_m:
+  default: 3.0
+  description: "Farthest floor point [m, from the LASER] a pixel may be inferred at. Beyond this the LiDAR's own beam footprint and the 2 cm of mount-height uncertainty are a bigger share of the geometry than the answer is worth, and the floor rows that far out are a handful of near-horizon pixels anyway. UNTUNED: chosen as the range the floor straight ahead actually occupies in the frame, not measured against a ground-truth floor."
+front_clearance_inferred_floor_margin_m:
+  default: 0.15
+  description: "How much farther [m] than the pixel's own floor point the beam must have reached before that pixel is called floor. It absorbs the whole error budget of the inference at once: the laser-to-camera extrinsic (y and both rotations are still unmeasured), the 1 cm of floor-height error 2.083 deg of mount pitch leaves at 3 m, and the beam footprint. Raise it and a real obstacle standing ON the floor is less likely to be inferred around; lower it and the floor creeps up to the foot of a wall."
+front_clearance_inferred_floor_window_k:
+  default: 3
+  description: "Half-width [beams] of the Gaussian window the per-beam range is smoothed over, so one spurious short return does not punch a hole in the inferred floor. 3 beams is 0.75 deg at this scan's 0.004363 rad increment, about 4 cm at 3 m -- the scale of the beam footprint, not of a surface. 0 uses the raw beam."
+front_clearance_inferred_floor_sigma_beams:
+  default: 1.5
+  description: "Gaussian sigma [beams] of that window. 1.5 puts the +-3-beam edges at 0.14 of the centre weight, so the window is effectively +-2 beams with a soft edge rather than a box whose own edge is a discontinuity."
+front_clearance_inferred_floor_max_scan_age_s:
+  default: 0.15
+  description: "Largest |scan stamp - mask stamp| [s] the inference will use. Past it the cycle is SKIPPED and every pixel keeps the class classify gave it: an older scan describes a different place, and a wrong floor is worse than no floor. Matches lidar_front_wall_stereo_columns_max_age_s, the pairing limit the LiDAR/stereo cross-check already uses for the same two sensors."
+
 
 # ============================================================
 # LiDAR front wall (f1tenth_perception/lidar_front_wall_node.py)
