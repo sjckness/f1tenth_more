@@ -284,6 +284,9 @@ def generate_launch_description():
         ('scene_mask_self_polygons', str),
         ('scene_mask_occluded_polygons', str),
         ('scene_mask_image_topic', str),
+        ('scene_mask_cloud_stride', int),
+        ('scene_mask_column_percentile', float),
+        ('scene_mask_column_min_px', int),
     ]
     front_clearance_las = []
     for _name, _type in _front_clearance_args:

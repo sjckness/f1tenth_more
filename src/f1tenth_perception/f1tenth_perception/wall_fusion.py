@@ -33,6 +33,8 @@ LIDAR_ONLY by definition -- it is not evidence of disagreement, and treating it
 as such would reject every side wall in the building.
 """
 
+import math
+
 import numpy as np
 
 STATUS_EMPTY = 0        # neither sensor has anything in this column
@@ -108,6 +110,23 @@ def column_nearest(cols, depths, width):
     return np.where(np.isfinite(out), out, np.nan)
 
 
+def column_extent(cols, values, width):
+    """Per-column (min, max) of `values`, NaN where the column has none.
+
+    The vertical extent of each column's WALL points, which is what gives an
+    observation a real height instead of the default one.
+    """
+    width = int(width)
+    lo = np.full(width, np.inf)
+    hi = np.full(width, -np.inf)
+    cols, values = _usable(cols, values, width)
+    if cols.size:
+        np.minimum.at(lo, cols, values)
+        np.maximum.at(hi, cols, values)
+    return (np.where(np.isfinite(lo), lo, np.nan),
+            np.where(np.isfinite(hi), hi, np.nan))
+
+
 def cross_check(scan_cols, scan_depths, wall_cols, wall_depths, width,
                 tol_base_m=0.05, tol_quad_per_m2=0.012, percentile=20.0,
                 min_px=5):
@@ -145,6 +164,36 @@ def cross_check(scan_cols, scan_depths, wall_cols, wall_depths, width,
             'n_px': n_px, 'tol_m': tol}
 
 
+def cross_check_profile(scan_cols, scan_depths, stereo_m, width,
+                        tol_base_m=0.05, tol_quad_per_m2=0.012):
+    """cross_check against an ALREADY summarised per-column stereo profile.
+
+    StereoColumns.msg carries one distance per column, summarised on the
+    camera side where the pixels are (see that message's own rationale), so
+    the percentile step has already happened and NaN means "nothing to say".
+    """
+    width = int(width)
+    lidar_m = column_nearest(scan_cols, scan_depths, width)
+    stereo_m = np.asarray(stereo_m, dtype=float)
+    if stereo_m.size != width:
+        padded = np.full(width, np.nan)
+        padded[:min(width, stereo_m.size)] = stereo_m[:width]
+        stereo_m = padded
+    has_l, has_s = np.isfinite(lidar_m), np.isfinite(stereo_m)
+    ref = np.where(has_l, lidar_m, np.where(has_s, stereo_m, 0.0))
+    tol = tolerance(ref, tol_base_m, tol_quad_per_m2)
+    status = np.full(width, STATUS_EMPTY, dtype=np.uint8)
+    status[has_l & ~has_s] = STATUS_LIDAR_ONLY
+    status[~has_l & has_s] = STATUS_STEREO_ONLY
+    both = has_l & has_s
+    with np.errstate(invalid='ignore'):
+        close = np.abs(stereo_m - lidar_m) <= tol
+    status[both & close] = STATUS_AGREE
+    status[both & ~close] = STATUS_DISAGREE
+    return {'status': status, 'lidar_m': lidar_m, 'stereo_m': stereo_m,
+            'n_px': np.zeros(width, dtype=np.int64), 'tol_m': tol}
+
+
 def status_counts(status):
     """{name: count} of a status array, every status present."""
     s = np.asarray(status)
@@ -165,3 +214,188 @@ def contiguous_spans(mask, min_width=1):
     starts = np.flatnonzero(edges == 1)
     stops = np.flatnonzero(edges == -1)
     return [(int(a), int(b)) for a, b in zip(starts, stops) if b - a >= min_width]
+
+
+# ============================================================================
+# Per-cycle fusion: LiDAR lines + column statuses -> wall observations
+# ============================================================================
+
+SOURCE_LIDAR = 0
+SOURCE_STEREO = 1
+SOURCE_BOTH = 2
+SOURCE_NAMES = {SOURCE_LIDAR: 'lidar', SOURCE_STEREO: 'stereo', SOURCE_BOTH: 'both'}
+
+
+class Observation:
+    """One wall seen in one cycle: a vertical plane, its extent and its source.
+
+    Stateless by construction -- it holds no id, no age and no prediction. The
+    tracker is the only thing that remembers anything.
+    """
+
+    __slots__ = ('line', 'z_min', 'z_max', 'height_measured', 'source', 'confidence',
+                 'col_begin', 'col_end', 'counts')
+
+    def __init__(self, line, z_min, z_max, height_measured, source, confidence,
+                 col_begin=0, col_end=0, counts=None):
+        self.line = line
+        self.z_min, self.z_max = float(z_min), float(z_max)
+        self.height_measured = bool(height_measured)
+        self.source, self.confidence = int(source), float(confidence)
+        self.col_begin, self.col_end = int(col_begin), int(col_end)
+        self.counts = counts or {}
+
+    def __repr__(self):   # pragma: no cover - debugging only
+        return (f'<Observation {SOURCE_NAMES[self.source]} d={self.line.d:.2f} '
+                f'conf={self.confidence:.2f} z={self.z_min:.2f}..{self.z_max:.2f}>')
+
+
+def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.03):
+    """Confidence [0, 1] of an observation. The model, in one place:
+
+      * evidence     how much the LiDAR actually saw, saturating at inlier_ref
+                     returns; 0 for a stereo-only wall, which has none.
+      * tightness    how well those returns fit the line, 1 at rms 0 and 0.5
+                     at rms_ref.
+      * corroboration the fraction of the wall's in-frame columns where the
+                     stereo agreed. A wall outside the camera's view has no
+                     columns and is NOT punished for it -- it gets the neutral
+                     value, because "the camera cannot see there" is not
+                     evidence against the LiDAR.
+
+    SOURCE_STEREO is capped below the others on purpose: a stereo-only wall is
+    the one case where nothing cross-checks it, and on this building's floor
+    the stereo invents whole surfaces (the reflections below z = 0).
+    """
+    if source == SOURCE_STEREO:
+        base = 0.35
+        corro = 1.0
+    else:
+        evidence = min(1.0, float(inliers) / max(1, inlier_ref))
+        tightness = 1.0 / (1.0 + max(0.0, float(rms)) / max(1e-6, rms_ref))
+        base = 0.5 * evidence + 0.5 * tightness
+        corro = (float(n_agree) / n_span) if n_span > 0 else 0.5
+    value = base * (0.6 + 0.4 * corro)
+    if source == SOURCE_BOTH:
+        value = min(1.0, value * 1.15)
+    return float(min(1.0, max(0.0, value)))
+
+
+def line_columns(line, project, width):
+    """(col_begin, col_end) half-open image columns a WallLine's extent covers.
+
+    Both endpoints are projected; an endpoint behind the lens (NaN) leaves the
+    span open on that side, which is clamped to the frame. (0, 0) means the
+    wall never reaches the frame at all.
+    """
+    (ax, ay), (bx, by) = line.endpoints()
+    uv = project(np.array([[ax, ay, 0.0], [bx, by, 0.0]]))
+    us = uv[:, 0]
+    if not np.any(np.isfinite(us)):
+        return 0, 0
+    lo, hi = np.nanmin(us), np.nanmax(us)
+    if np.isfinite(lo) != np.isfinite(hi):           # one end behind the lens
+        lo, hi = (0.0, hi) if np.isfinite(hi) else (lo, float(width))
+    lo = int(max(0, math.floor(lo)))
+    hi = int(min(int(width), math.ceil(hi) + 1))
+    return (lo, hi) if hi > lo else (0, 0)
+
+
+def _height_from_columns(z_min, z_max, col_begin, col_end, default_height):
+    """(z_min, z_max, measured) over a column span, from the stereo profile."""
+    if col_end > col_begin:
+        lo = np.asarray(z_min, dtype=float)[col_begin:col_end]
+        hi = np.asarray(z_max, dtype=float)[col_begin:col_end]
+        if np.any(np.isfinite(lo)) and np.any(np.isfinite(hi)):
+            return float(np.nanmin(lo)), float(np.nanmax(hi)), True
+    return 0.0, float(default_height), False
+
+
+def observations_from_lines(lines, check, project, width, z_min, z_max,
+                            default_height=2.5, disagree_reject_frac=0.5,
+                            min_span_columns=8, inlier_ref=40, rms_ref=0.03):
+    """LiDAR lines + the column cross-check -> [Observation], and the rejects.
+
+    The emit rule, per the wall's own columns:
+      AGREE anywhere          -> SOURCE_BOTH
+      no stereo opinion       -> SOURCE_LIDAR (including a wall the camera
+                                 cannot see at all)
+      DISAGREE over more than
+      disagree_reject_frac    -> rejected, counted, not emitted
+
+    Returns ([Observation], n_rejected).
+    """
+    status = np.asarray(check['status'])
+    out, rejected = [], 0
+    for line in lines:
+        c0, c1 = line_columns(line, project, width)
+        span = status[c0:c1] if c1 > c0 else status[:0]
+        n_agree = int(np.count_nonzero(span == STATUS_AGREE))
+        n_dis = int(np.count_nonzero(span == STATUS_DISAGREE))
+        n_lidar = int(np.count_nonzero(span == STATUS_LIDAR_ONLY))
+        n_stereo = int(np.count_nonzero(span == STATUS_STEREO_ONLY))
+        n_opinion = n_agree + n_dis
+        if n_opinion > 0 and n_dis >= disagree_reject_frac * n_opinion:
+            rejected += 1
+            continue
+        source = SOURCE_BOTH if n_agree > 0 else SOURCE_LIDAR
+        lo, hi, measured = _height_from_columns(
+            z_min, z_max, c0 if n_agree else 0, c1 if n_agree else 0, default_height)
+        out.append(Observation(
+            line, lo, hi, measured, source,
+            confidence(source, line.inliers, line.rms, n_agree, n_opinion,
+                       inlier_ref=inlier_ref, rms_ref=rms_ref),
+            col_begin=c0, col_end=c1,
+            counts={'agree': n_agree, 'lidar_only': n_lidar,
+                    'stereo_only': n_stereo, 'disagree': n_dis}))
+    return out, rejected
+
+
+def stereo_only_observations(check, column_points, width, min_span_columns=8,
+                             inlier_m=0.06, min_points=40, min_span_m=0.5,
+                             default_height=2.5, z_min=None, z_max=None):
+    """Walls only the camera sees: glass, and surfaces too dark for the LiDAR.
+
+    Only over a CONTIGUOUS run of at least min_span_columns STEREO_ONLY
+    columns. One such column is noise -- a stray pixel, a reflection edge --
+    and this is the one path where nothing cross-checks the result, so the
+    bar is a shape the LiDAR could not plausibly have missed by accident.
+
+    `column_points` maps a column index to that column's (x, y) points in the
+    base frame; the caller supplies it because the points live on the camera
+    side. Returns [Observation].
+    """
+    from f1tenth_perception.scene_labels import WallLine
+    from f1tenth_perception.lidar_front_wall import _robust_line
+    status = np.asarray(check['status'])
+    out = []
+    for c0, c1 in contiguous_spans(status == STATUS_STEREO_ONLY, min_span_columns):
+        pts = column_points(c0, c1)
+        if pts is None or len(pts) < min_points:
+            continue
+        pts = np.asarray(pts, dtype=float)[:, :2]
+        if len(pts) > 400:
+            # A fixed sample keeps lidar_front_wall's pair cache to one entry,
+            # the same reason scene_labels.fallback_wall samples to 400.
+            pts = pts[np.linspace(0, len(pts) - 1, 400).astype(int)]
+        fit = _robust_line(pts, inlier_m, 300)
+        if fit is None:
+            continue
+        nx, ny, d, count, rms = fit
+        on = np.abs(pts @ np.array([nx, ny]) - d) <= inlier_m
+        if np.count_nonzero(on) < 3:
+            continue
+        t = -ny * pts[on, 0] + nx * pts[on, 1]
+        if float(t.max() - t.min()) < min_span_m:
+            continue
+        line = WallLine(nx, ny, float(d), float(t.min()), float(t.max()),
+                        int(count), float(rms), 'stereo')
+        lo, hi, measured = _height_from_columns(z_min, z_max, c0, c1, default_height) \
+            if z_min is not None else (0.0, float(default_height), False)
+        out.append(Observation(
+            line, lo, hi, measured, SOURCE_STEREO,
+            confidence(SOURCE_STEREO, count, rms, c1 - c0, c1 - c0),
+            col_begin=c0, col_end=c1,
+            counts={'agree': 0, 'lidar_only': 0, 'stereo_only': int(c1 - c0),
+                    'disagree': 0}))
+    return out

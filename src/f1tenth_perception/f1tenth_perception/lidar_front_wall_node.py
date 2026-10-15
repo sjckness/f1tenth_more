@@ -262,8 +262,12 @@ import json
 import math
 import time
 
+import numpy as np
+
 from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
-from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray, WallEstimate, WallLineFit
+from f1tenth_messages.msg import (
+    MultiWallTrack, MultiWallTrackArray, StereoColumns, WallEstimate, WallLineFit,
+    WallObservation, WallObservationArray)
 from f1tenth_params.param_defaults import get_value
 from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker, MarkerArray
@@ -274,7 +278,8 @@ from vision_msgs.msg import Detection3DArray
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, qos_profile_sensor_data
 from rclpy.time import Time
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import LaserScan, PointCloud2
+from sensor_msgs_py.point_cloud2 import read_points_numpy
 from std_msgs.msg import Float32
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformException
@@ -295,7 +300,7 @@ from f1tenth_perception.lidar_front_wall import (
     fit_forward_line,
 )
 from f1tenth_perception import multi_wall_tracker as mwt
-from f1tenth_perception import scene_labels
+from f1tenth_perception import scene_labels, scene_mask, wall_fusion
 from f1tenth_perception.ground_plane import quat_to_matrix
 
 # Same profile tf2_ros.TransformListener uses for /tf_static: the static
@@ -306,6 +311,40 @@ _TF_STATIC_QOS = QoSProfile(
 
 def _yaw_from_quaternion(q):
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
+
+def _stamp_sec(header):
+    return header.stamp.sec + header.stamp.nanosec * 1e-9
+
+
+def _observation_array(stamp, frame_id, observations, n_rejected, n_disagree_columns):
+    """Pack [wall_fusion.Observation] into a WallObservationArray."""
+    msg = WallObservationArray()
+    msg.header.stamp = stamp
+    msg.header.frame_id = frame_id
+    msg.n_rejected = int(n_rejected)
+    msg.n_disagree_columns = int(n_disagree_columns)
+    for obs in observations:
+        line = obs.line
+        (ax, ay), (bx, by) = line.endpoints()
+        item = WallObservation()
+        item.header = msg.header
+        item.nx, item.ny, item.d = float(line.nx), float(line.ny), float(line.d)
+        item.p0 = Point(x=float(ax), y=float(ay), z=0.0)
+        item.p1 = Point(x=float(bx), y=float(by), z=0.0)
+        item.z_min, item.z_max = float(obs.z_min), float(obs.z_max)
+        item.height_measured = bool(obs.height_measured)
+        item.source = int(obs.source)
+        item.confidence = float(obs.confidence)
+        item.inliers = int(max(0, line.inliers))
+        item.rms = float(line.rms)
+        item.col_begin, item.col_end = int(obs.col_begin), int(obs.col_end)
+        item.n_agree = int(obs.counts.get('agree', 0))
+        item.n_lidar_only = int(obs.counts.get('lidar_only', 0))
+        item.n_stereo_only = int(obs.counts.get('stereo_only', 0))
+        item.n_disagree = int(obs.counts.get('disagree', 0))
+        msg.observations.append(item)
+    return msg
 
 
 class LidarFrontWallNode(Node):
@@ -383,15 +422,29 @@ class LidarFrontWallNode(Node):
         self._front_id = None       # id of the tracker's current front track
         self._front_coast_expired = False   # module docstring, coast limit
         self._seq_wall = None       # the latest sequential_lines heading wall
+        self._lines = []            # the latest sequential_lines extraction
         self._tracker_ms = math.nan
         self._tracker_cost = []     # per-scan tracker ms, logged every 30 s
         self._next_cost_log = None
+
+        # ---- step 3: per-cycle fusion ---------------------------------------
+        self.obs_max_age = float(param('wall_obs_stereo_max_age_s', 0.3))
+        self.obs_tol_base_m = float(param('wall_obs_tol_base_m', 0.05))
+        self.obs_tol_quad = float(param('wall_obs_tol_quad_per_m2', 0.012))
+        self.obs_disagree_reject_frac = float(param('wall_obs_disagree_reject_frac', 0.5))
+        self.obs_stereo_min_columns = int(param('wall_obs_stereo_min_columns', 8))
+        self.wall_default_height = float(param('wall_default_height_m', 2.5))
 
         declare_nice_param(self)
         apply_nice(self)
 
         self._tf_buffer = Buffer()
         self._laser_pose = None  # (scan frame_id, (x, y, yaw) in base_frame)
+        # Step 3 (per-cycle fusion) inputs, both cached and aged, never waited on.
+        self._stereo_columns = None   # (receipt time, StereoColumns)
+        self._wall_cloud = None       # (receipt time, PointCloud2)
+        self._camera_tf = None        # (frame_id, (R, t))
+        self._laser_z_cached = None
         self._odometry_was_fresh = None
 
         self.fit_pub = self.create_publisher(WallLineFit, self.fit_topic, 10)
@@ -412,6 +465,18 @@ class LidarFrontWallNode(Node):
                 self._detections_cb, 10)
             self.create_subscription(
                 String, '/perception/stereo_wall', self._stereo_wall_cb, 10)
+        if self.scene_enabled:
+            # The per-cycle fusion (step 3): the stereo's column profile and
+            # its WALL cloud, cross-checked against this node's own scan and
+            # line fits. The cloud is only used for stereo-ONLY line fits; the
+            # profile is what every column decision is made on.
+            self.observations_pub = self.create_publisher(
+                WallObservationArray, '/perception/wall_observations', 10)
+            self.create_subscription(
+                StereoColumns, '/perception/stereo_columns', self._stereo_columns_cb, 10)
+            self.create_subscription(
+                PointCloud2, '/perception/wall_points', self._wall_points_cb,
+                qos_profile_sensor_data)
         if self.wall_tracker is not None:
             self.walls_pub = self.create_publisher(MultiWallTrackArray, '/perception/walls', 10)
             self.walls_markers_pub = self.create_publisher(
@@ -463,6 +528,148 @@ class LidarFrontWallNode(Node):
             objs.append((float(x), float(y), 0.5 * float(det.bbox.size.x)))
         stamp = msg.header.stamp
         self._detections = (self._now(), objs, stamp.sec + stamp.nanosec * 1e-9)
+
+    def _stereo_columns_cb(self, msg):
+        self._stereo_columns = (self._now(), msg)
+
+    def _wall_points_cb(self, msg):
+        self._wall_cloud = (self._now(), msg)
+
+    def _camera_transform(self, frame_id):
+        """(R, t) taking that camera frame's points into base_frame, or None."""
+        if not frame_id:
+            return None
+        cached = self._camera_tf
+        if cached is not None and cached[0] == frame_id:
+            return cached[1]
+        try:
+            t = self._tf_buffer.lookup_transform(self.base_frame, frame_id, Time()).transform
+        except TransformException:
+            return None
+        pose = (quat_to_matrix(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w),
+                np.array([t.translation.x, t.translation.y, t.translation.z]))
+        self._camera_tf = (frame_id, pose)
+        return pose
+
+    def _publish_observations(self, stamp, scan_stamp, lines, pts, bearings):
+        """Step 3: the stateless per-cycle fusion -> /perception/wall_observations.
+
+        Published EVERY cycle, including empty: "both sensors looked and there
+        is no wall" is the answer an open corridor has to be able to give, and
+        a consumer must be able to tell it from "the node stopped".
+        """
+        profile = self._fresh_profile(scan_stamp)
+        cam = self._camera_transform(profile.camera_frame) if profile is not None else None
+        if profile is None or cam is None or profile.width < 1:
+            # No fresh stereo at all: every LiDAR line stands on its own, which
+            # is exactly what SOURCE_LIDAR means. Not a reason to publish
+            # nothing, and not a reason to invent a stereo wall.
+            observations = [wall_fusion.Observation(
+                line, 0.0, self.wall_default_height, False, wall_fusion.SOURCE_LIDAR,
+                wall_fusion.confidence(wall_fusion.SOURCE_LIDAR, line.inliers,
+                                       line.rms, 0, 0))
+                for line in lines]
+            self.observations_pub.publish(_observation_array(
+                stamp, self.base_frame, observations, 0, 0))
+            return
+
+        rot, trans = cam
+        k = (float(profile.fx), float(profile.fy), float(profile.cx), float(profile.cy))
+        width = int(profile.width)
+
+        def project(points):
+            return scene_mask.project_to_image(points, *k, rot, trans)
+
+        # The scan is a plane at the laser's own height; the cross-check only
+        # uses x and y, but the projection needs the real height to land on
+        # the right columns through a pitched mount.
+        scan_xyz = np.column_stack([pts, np.full(len(pts), self._laser_z())]) \
+            if len(pts) else np.empty((0, 3))
+        scan_uv = project(scan_xyz)
+        scan_depth = ((scan_xyz - trans) @ rot)[:, 2] if len(scan_xyz) else np.empty(0)
+
+        z_lo = np.asarray(profile.z_min, dtype=float)
+        z_hi = np.asarray(profile.z_max, dtype=float)
+        check = wall_fusion.cross_check_profile(
+            scan_uv[:, 0], scan_depth, np.asarray(profile.distance_m, dtype=float), width,
+            tol_base_m=self.obs_tol_base_m, tol_quad_per_m2=self.obs_tol_quad)
+        observations, rejected = wall_fusion.observations_from_lines(
+            lines, check, project, width, z_lo, z_hi,
+            default_height=self.wall_default_height,
+            disagree_reject_frac=self.obs_disagree_reject_frac)
+        observations += wall_fusion.stereo_only_observations(
+            check, self._cloud_columns(project), width,
+            min_span_columns=self.obs_stereo_min_columns,
+            inlier_m=self.inlier_distance_m, min_span_m=self.wall_min_span_m,
+            default_height=self.wall_default_height, z_min=z_lo, z_max=z_hi)
+        n_disagree = int(np.count_nonzero(check['status'] == wall_fusion.STATUS_DISAGREE))
+        if rejected:
+            self.get_logger().warn(
+                f'{rejected} wall observation(s) rejected: the LiDAR and the stereo '
+                f'contradict each other over {n_disagree} column(s). A run of this '
+                'means the extrinsic or the depth is wrong, not that the wall moved.',
+                throttle_duration_sec=5.0)
+        self.observations_pub.publish(_observation_array(
+            stamp, self.base_frame, observations, rejected, n_disagree))
+
+    def _fresh_profile(self, scan_stamp):
+        """The latest StereoColumns if it describes roughly this scan, else None."""
+        held = self._stereo_columns
+        if held is None:
+            return None
+        age = scan_stamp - _stamp_sec(held[1].header)
+        return held[1] if abs(age) <= self.obs_max_age else None
+
+    def _camera_transform(self, frame_id):
+        """(R, t) taking that camera frame's points into base_frame, or None."""
+        if not frame_id:
+            return None
+        cached = self._camera_tf
+        if cached is not None and cached[0] == frame_id:
+            return cached[1]
+        try:
+            t = self._tf_buffer.lookup_transform(self.base_frame, frame_id, Time()).transform
+        except TransformException:
+            return None
+        pose = (quat_to_matrix(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w),
+                np.array([t.translation.x, t.translation.y, t.translation.z]))
+        self._camera_tf = (frame_id, pose)
+        return pose
+
+    def _laser_z(self):
+        """The scan plane's height [m] in base_frame: the laser's own mount z."""
+        if self._laser_z_cached is None:
+            self._laser_z_cached = 0.0
+            if self._laser_pose is not None:
+                try:
+                    t = self._tf_buffer.lookup_transform(
+                        self.base_frame, self._laser_pose[0], Time()).transform
+                    self._laser_z_cached = float(t.translation.z)
+                except TransformException:
+                    pass
+        return self._laser_z_cached
+
+    def _cloud_columns(self, project):
+        """column_points(c0, c1) over the latest WALL cloud, for stereo-only fits.
+
+        The cloud is decimated and is used ONLY to fit a line through a span
+        the stereo alone reports; every column decision is made on the full
+        resolution profile.
+        """
+        held = self._wall_cloud
+        if held is None:
+            return lambda a, b: None
+        pts = read_points_numpy(held[1], field_names=('x', 'y', 'z'), skip_nans=True)
+        pts = np.asarray(pts, dtype=float).reshape(-1, 3)
+        if pts.shape[0] == 0:
+            return lambda a, b: None
+        us = project(pts)[:, 0]
+        finite = np.isfinite(us)
+
+        def column_points(a, b):
+            sel = finite & (us >= a) & (us < b)
+            return pts[sel] if np.any(sel) else None
+        return column_points
 
     def _stereo_wall_cb(self, msg):
         try:
@@ -569,6 +776,11 @@ class LidarFrontWallNode(Node):
                 'stamp': stamp.sec + stamp.nanosec * 1e-9, 'frame_id': self.base_frame,
                 'sectors': [[round(a, 4), round(b, 4)] for a, b in sectors],
                 'walls': [w.to_dict() for w in lines]})))
+            self._lines = lines
+        # Step 3: the stateless per-cycle fusion, every scan, even when the
+        # lines are the ones extracted a tick ago -- the cross-check is
+        # against THIS scan's columns.
+        self._publish_observations(stamp, scan_stamp, self._lines, pts, bearings)
         if self.wall_tracker is not None:
             front = self._track_walls(msg, laser_pose, sectors, scan_stamp)
             if front is not None:

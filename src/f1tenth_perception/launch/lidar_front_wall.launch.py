@@ -72,6 +72,13 @@ LIDAR_FRONT_WALL_ARGS = [
     ('virtual_disagree_m', float),
     ('stereo_max_age_sec', float),
     ('wall_tracker_front_max_coast_sec', float),
+    # Step 3: the per-cycle LiDAR/stereo fusion.
+    ('wall_obs_stereo_max_age_s', float),
+    ('wall_obs_tol_base_m', float),
+    ('wall_obs_tol_quad_per_m2', float),
+    ('wall_obs_disagree_reject_frac', float),
+    ('wall_obs_stereo_min_columns', int),
+    ('wall_default_height_m', float),
 ]
 
 

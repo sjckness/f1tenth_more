@@ -326,3 +326,147 @@ class TestMultiWallTracker:
             assert debug['distance_m'] == pytest.approx(3.0 - 0.405, abs=0.02)
         finally:
             n.destroy_node()
+
+
+# ==============================================================================
+# Step 3: the stateless per-cycle fusion -> /perception/wall_observations
+# ==============================================================================
+
+class TestWallObservations:
+    """The wire contract of the per-cycle fusion. The decision logic itself is
+    tested in test_wall_fusion.py; what matters here is that the node emits
+    something on every cycle, ages the stereo rather than waiting for it, and
+    never turns a missing camera into a missing wall."""
+
+    @staticmethod
+    def _node(**overrides):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        params = {'enable_scene_labels': True, 'use_wall_tracker': False}
+        params.update(overrides)
+        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        n.fit_pub.publish = MagicMock()
+        n.estimate_pub.publish = MagicMock()
+        n.planes_pub.publish = MagicMock()
+        n.virtual_pub.publish = MagicMock()
+        n.virtual_debug_pub.publish = MagicMock()
+        n.observations_pub.publish = MagicMock()
+        clock = _Clock()
+        n._now = lambda: clock.now
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _columns(distance_m, width=64, stamp_sec=7, camera_frame='zed_optical'):
+        from f1tenth_messages.msg import StereoColumns
+        msg = StereoColumns()
+        msg.header.stamp.sec = stamp_sec
+        msg.header.frame_id = 'base_link'
+        msg.camera_frame = camera_frame
+        msg.width, msg.height = width, 48
+        msg.fx = msg.fy = 100.0
+        msg.cx, msg.cy = width / 2.0, 24.0
+        msg.distance_m = [float(d) for d in distance_m]
+        msg.z_min = [0.0] * width
+        msg.z_max = [1.5] * width
+        msg.n_px = [20] * width
+        msg.percentile = 20.0
+        msg.min_px = 5
+        return msg
+
+    @staticmethod
+    def _camera_tf(frame='zed_optical'):
+        """base_link -> a forward-looking optical frame at the ZED's mount."""
+        t = TransformStamped()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = frame
+        t.transform.translation.x = 0.2299
+        t.transform.translation.z = 0.22
+        # optical (x right, y down, z fwd) -> base: the ZED macro's own
+        # -90/0/-90 roll-pitch-yaw, as a quaternion.
+        t.transform.rotation.x = -0.5
+        t.transform.rotation.y = 0.5
+        t.transform.rotation.z = -0.5
+        t.transform.rotation.w = 0.5
+        return TFMessage(transforms=[t])
+
+    def test_every_scan_publishes_an_observation_array_even_with_no_camera(self):
+        """A missing camera must never read as a missing wall."""
+        n = self._node()
+        try:
+            n._scan_cb(_scan(distance=2.0))
+            assert n.observations_pub.publish.call_count == 1
+            msg = _last(n.observations_pub)
+            assert msg.header.frame_id == 'base_link'
+            assert all(o.source == o.SOURCE_LIDAR for o in msg.observations)
+            assert all(o.height_measured is False for o in msg.observations)
+        finally:
+            n.destroy_node()
+
+    def test_an_empty_scene_still_publishes_an_empty_array(self):
+        """'Both sensors looked and there is no wall' is the open corridor,
+        and it has to be distinguishable from a dead node."""
+        n = self._node()
+        try:
+            n._scan_cb(_scan(distance=None))
+            assert n.observations_pub.publish.call_count == 1
+            assert list(_last(n.observations_pub).observations) == []
+        finally:
+            n.destroy_node()
+
+    def test_a_stale_stereo_profile_is_ignored_rather_than_waited_for(self):
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._stereo_columns_cb(self._columns([2.0] * 64, stamp_sec=1))
+            n._scan_cb(_scan(distance=2.0, stamp_sec=7))     # 6 s later
+            msg = _last(n.observations_pub)
+            assert all(o.source == o.SOURCE_LIDAR for o in msg.observations)
+            assert msg.n_disagree_columns == 0
+        finally:
+            n.destroy_node()
+
+    def test_a_fresh_agreeing_profile_makes_the_wall_sourced_both(self):
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            # The wall is 2.0 m from base_link, so about 1.77 m of optical
+            # depth from a lens 0.23 m ahead of it.
+            n._stereo_columns_cb(self._columns([1.77] * 64, stamp_sec=7))
+            n._scan_cb(_scan(distance=2.0, stamp_sec=7))
+            msg = _last(n.observations_pub)
+            assert msg.observations, 'the LiDAR saw a wall'
+            assert any(o.source == o.SOURCE_BOTH for o in msg.observations)
+            both = [o for o in msg.observations if o.source == o.SOURCE_BOTH][0]
+            assert both.n_agree > 0
+            assert both.height_measured is True
+            assert both.z_max == pytest.approx(1.5)
+            assert both.confidence > 0.0
+        finally:
+            n.destroy_node()
+
+    def test_a_contradicting_profile_rejects_the_wall_and_says_so(self):
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._stereo_columns_cb(self._columns([6.0] * 64, stamp_sec=7))
+            n._scan_cb(_scan(distance=2.0, stamp_sec=7))
+            msg = _last(n.observations_pub)
+            assert msg.n_rejected >= 1
+            assert msg.n_disagree_columns > 0
+            assert all(o.source != o.SOURCE_BOTH for o in msg.observations)
+        finally:
+            n.destroy_node()
+
+    def test_the_observation_carries_the_line_and_its_endpoints(self):
+        n = self._node()
+        try:
+            n._scan_cb(_scan(distance=2.0))
+            obs = _last(n.observations_pub).observations
+            assert obs
+            o = obs[0]
+            assert o.d > 0.0
+            assert math.hypot(o.nx, o.ny) == pytest.approx(1.0, abs=1e-3)
+            assert o.p0.z == 0.0 and o.p1.z == 0.0
+            assert (o.p0.x, o.p0.y) != (o.p1.x, o.p1.y)
+        finally:
+            n.destroy_node()

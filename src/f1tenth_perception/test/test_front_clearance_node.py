@@ -1454,7 +1454,43 @@ class TestSceneMaskTick:
             assert stats['frame_id'] == 'base_link'
             cloud = node.wall_points_pub.publish.call_args[0][0]
             assert cloud.header.frame_id == 'base_link'
-            assert cloud.width == stats['count']['wall']
+            # Decimated: the cloud is for inspection and the stereo-only line
+            # fits, never for a column decision (StereoColumns is).
+            stride = node.scene_mask_cloud_stride
+            assert cloud.width == -(-stats['count']['wall'] // stride)
+        finally:
+            node.destroy_node()
+
+    def test_the_column_profile_is_published_with_the_intrinsics_and_frames(self):
+        node = self._node()
+        node.stereo_columns_pub.publish = MagicMock()
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            msg = node.stereo_columns_pub.publish.call_args[0][0]
+            assert msg.width == 64 and msg.height == 48
+            assert len(msg.distance_m) == len(msg.z_min) == len(msg.n_px) == 64
+            # header.frame_id is the base frame the heights are in; the depth
+            # frame travels separately so the fusion can project into it.
+            assert msg.header.frame_id == 'base_link'
+            assert msg.camera_frame == CAMERA_FRAME
+            assert msg.fx == pytest.approx(100.0) and msg.cx == pytest.approx(32.0)
+            assert msg.min_px == node.stereo_col_min_px
+        finally:
+            node.destroy_node()
+
+    def test_columns_with_no_wall_pixels_report_nan_not_a_distance(self):
+        """'Nothing to say about this bearing' is a third state. A consumer
+        that reads it as a distance will brake for it."""
+        node = self._node()
+        node.stereo_columns_pub.publish = MagicMock()
+        try:
+            depth = np.full((48, 64), 2.0, dtype=np.float32)
+            depth[:, :20] = np.nan
+            node.depth_callback(_depth_msg(depth))
+            msg = node.stereo_columns_pub.publish.call_args[0][0]
+            assert all(np.isnan(d) for d in msg.distance_m[:20])
+            assert all(n == 0 for n in msg.n_px[:20])
+            assert np.isfinite(msg.distance_m[40])
         finally:
             node.destroy_node()
 

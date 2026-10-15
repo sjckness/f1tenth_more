@@ -292,6 +292,11 @@ _DEFAULT_TOPICS = [
     # something subscribes, and a bgr8 frame at 5 Hz is ~3.5 MB/s.
     '/perception/scene_labels/stats',
     '/perception/wall_points',
+    # The per-cycle fusion: the stereo's column profile and the stateless wall
+    # observations the tracker consumes. Both are small and both are the
+    # evidence behind every wall decision a run made.
+    '/perception/stereo_columns',
+    '/perception/wall_observations',
     '/scan',
     # --- costmap / semantic ---
     '/costmap/semantic_markers',

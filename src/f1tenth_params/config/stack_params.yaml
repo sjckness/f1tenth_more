@@ -2648,3 +2648,36 @@ mission_translator_post_turn_uses_straight:
 go_to_enabled:
   default: true
   description: "llm_planner_node (planner_path v2): true lets the LLM plan go_to phases, translated to go_to_object moves; false restores the refusal and banner of the planner without go_to. Read at node start."
+
+# --- per-cycle wall fusion (wall_fusion.py, lidar_front_wall_node) -----------
+# Step 3 of the wall pipeline: the LiDAR line fits and the stereo column
+# profile (/perception/stereo_columns) are cross-checked column by column and
+# emitted as stateless observations on /perception/wall_observations. The
+# tracker consumes only those. Nothing here remembers anything.
+front_clearance_scene_mask_cloud_stride:
+  default: 4
+  description: "Publish every Nth WALL point on /perception/wall_points. The cloud is for inspection, recording and the stereo-only line fits, NOT for any column decision (those are made on the full-resolution /perception/stereo_columns profile), so decimating it costs nothing real. The full set is ~50k points a frame, about 3 MB/s at 5 Hz straight into every recording."
+front_clearance_scene_mask_column_percentile:
+  default: 20.0
+  description: "Which percentile of a column's WALL depths becomes that column's distance. A LiDAR beam reports its FIRST return, so the honest stereo counterpart is the NEAR end of the column, not its middle: in a column with a near wall low down and a far wall above it the median reports a surface that is not there. A percentile rather than the minimum keeps one bad pixel from deciding the column."
+front_clearance_scene_mask_column_min_px:
+  default: 5
+  description: "Fewest WALL pixels in a column for it to have a stereo distance at all; below this the column reports NaN ('nothing to say'), which is a third state and never a distance."
+lidar_front_wall_wall_obs_stereo_max_age_s:
+  default: 0.3
+  description: "A /perception/stereo_columns profile older than this is not used for the cross-check, and every LiDAR line is emitted as SOURCE_LIDAR instead. Same 0.3 s as front_clearance_scene_wall_max_age_s, the other camera/LiDAR pairing window in this stack. The stereo runs at 5 Hz, so this is about 1.5 frames."
+lidar_front_wall_wall_obs_tol_base_m:
+  default: 0.05
+  description: "Constant part of the LiDAR/stereo agreement tolerance [m]: the part that does not come from stereo range noise (extrinsic error, the scan plane vs the column, timing). UNTUNED against a bag with depth."
+lidar_front_wall_wall_obs_tol_quad_per_m2:
+  default: 0.012
+  description: "Range-squared part of the agreement tolerance [m/m^2]: tol = base + this * range^2, because stereo depth error IS quadratic (sigma_Z = Z^2 sigma_d / (fx b); on this rig, ZED 2i with a 0.12 m baseline and fx 262.4 at 640x360, half a pixel of disparity error is 1.6 cm at 1 m and 57 cm at 6 m). A FIXED tolerance would call every far column DISAGREE and every near one AGREE, which says more about the tolerance than about the sensors. 0.012 is ~0.4 px of disparity error."
+lidar_front_wall_wall_obs_disagree_reject_frac:
+  default: 0.5
+  description: "Fraction of a wall's OPINIONATED columns (AGREE + DISAGREE) that must disagree before the whole observation is rejected and counted. Rejection is deliberate: when both sensors report a surface and they are too far apart to be the same one, the honest answer is that this cycle does not know, not that one of them wins. A run of rejections means the extrinsic or the depth is wrong, not that the wall moved, which is why it is published (WallObservationArray.n_rejected) and logged."
+lidar_front_wall_wall_obs_stereo_min_columns:
+  default: 8
+  description: "Fewest CONTIGUOUS stereo-only columns that may become a stereo-sourced wall (glass, or a surface too dark for the LiDAR). One such column is noise: a stray pixel, a reflection edge. This is the one path where nothing cross-checks the result, so the bar is a shape the LiDAR could not plausibly have missed by accident."
+lidar_front_wall_wall_default_height_m:
+  default: 2.5
+  description: "Height [m] above the floor a wall observation is assumed to have when the stereo measured no height for it (a wall outside the camera's view, or one the stereo never confirmed). Heights are only ever taken from the columns the stereo AGREED on; borrowing them for a wall it never saw would invent a measurement. 2.5 m is an indoor corridor wall, and the field is flagged (height_measured false) so a consumer can tell."

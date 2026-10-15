@@ -319,9 +319,9 @@ from vision_msgs.msg import Detection2DArray
 
 from f1tenth_description.vehicle_frames import (
     base_front_x, beside_body_behind_bumper, front_side_limit_m, MIN_FRONT_DISTANCE_M)
-from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
+from f1tenth_messages.msg import Obstacle2DArray, StereoColumns, WallLineFit
 
-from f1tenth_perception import perception_debug, scene_labels, scene_mask
+from f1tenth_perception import perception_debug, scene_labels, scene_mask, wall_fusion
 from f1tenth_perception.ground_plane import (
     back_project, fit_ground_plane, ground_mask, quat_to_matrix)
 from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
@@ -596,6 +596,12 @@ class FrontClearanceNode(Node):
         self.scene_mask_strip_half_w = float(
             p('scene_mask_strip_half_width_m', front_side_limit_m()))
         self.scene_mask_image_topic = str(p('scene_mask_image_topic', '/camera/image_raw'))
+        # The published cloud is decimated: it is for inspection and the bag,
+        # not the pipeline (StereoColumns.msg is), and the full set is ~50k
+        # points a frame, about 3 MB/s at 5 Hz straight into every recording.
+        self.scene_mask_cloud_stride = max(1, int(p('scene_mask_cloud_stride', 4)))
+        self.stereo_col_percentile = float(p('scene_mask_column_percentile', 20.0))
+        self.stereo_col_min_px = int(p('scene_mask_column_min_px', 5))
         # The car's own LiDAR housing is NOT a second calibration: it is the
         # lidar_exclusion_* rectangle yolo_detector_node already applies to
         # detections. An explicit polygon list overrides it; empty derives it,
@@ -794,6 +800,8 @@ class FrontClearanceNode(Node):
                 PointCloud2, '/perception/wall_points', 10)
             self.scene_mask_stats_pub = self.create_publisher(
                 String, '/perception/scene_labels/stats', 10)
+            self.stereo_columns_pub = self.create_publisher(
+                StereoColumns, '/perception/stereo_columns', 10)
             self.create_subscription(
                 Image, self.scene_mask_image_topic, self._image_callback, LATEST_FRAME_QOS)
             self.create_subscription(
@@ -1132,10 +1140,15 @@ class FrontClearanceNode(Node):
             floor_tol=self.scene_mask_floor_tol,
             ceiling_min_z=self.scene_mask_ceiling_min_z,
             min_depth=self.scene_mask_min_depth, max_depth=self.scene_mask_max_depth)
-        points, _rows, _cols = scene_mask.wall_points(
+        points, rows, cols = scene_mask.wall_points(
             depth, labels, fx, fy, cx, cy, rot, trans)
 
-        cloud = point_cloud2.create_cloud_xyz32(header, points.astype(np.float32))
+        # The compact per-column profile is the PIPELINE's interface (see
+        # StereoColumns.msg); the cloud below is for inspection and recording.
+        self._publish_stereo_columns(header, depth, rows, cols, points, w, h, k)
+
+        cloud = point_cloud2.create_cloud_xyz32(
+            header, points[::self.scene_mask_cloud_stride].astype(np.float32))
         cloud.header.frame_id = self.base_frame
         self.wall_points_pub.publish(cloud)
 
@@ -1154,6 +1167,29 @@ class FrontClearanceNode(Node):
 
         if self.scene_mask_image_pub.get_subscription_count() > 0:
             self._publish_scene_mask_overlay(labels, header, (fx, fy, cx, cy), rot, trans)
+
+    def _publish_stereo_columns(self, header, depth, rows, cols, points, width, height, k):
+        """The per-column stereo summary the fusion consumes (StereoColumns.msg)."""
+        fx, fy, cx, cy = k
+        depths = depth[rows, cols] if rows.size else np.empty(0)
+        distance, n_px = wall_fusion.column_ranges(
+            cols, depths, width, percentile=self.stereo_col_percentile,
+            min_px=self.stereo_col_min_px)
+        z_lo, z_hi = wall_fusion.column_extent(
+            cols, points[:, 2] if points.size else np.empty(0), width)
+        msg = StereoColumns()
+        msg.header = header
+        msg.camera_frame = header.frame_id
+        msg.header.frame_id = self.base_frame
+        msg.width, msg.height = int(width), int(height)
+        msg.fx, msg.fy, msg.cx, msg.cy = float(fx), float(fy), float(cx), float(cy)
+        msg.distance_m = distance.astype(np.float32).tolist()
+        msg.z_min = z_lo.astype(np.float32).tolist()
+        msg.z_max = z_hi.astype(np.float32).tolist()
+        msg.n_px = n_px.astype(np.uint32).tolist()
+        msg.percentile = float(self.stereo_col_percentile)
+        msg.min_px = int(self.stereo_col_min_px)
+        self.stereo_columns_pub.publish(msg)
 
     def _publish_scene_mask_overlay(self, labels, header, k, rot, trans):
         """The class-coloured overlay on the left image, scan points on top."""
