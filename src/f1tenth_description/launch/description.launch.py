@@ -42,6 +42,8 @@ static_baselink_to_imu for the identity base_link->imu TF, unaffected by this fi
   2026-10-14: laser z 0.190 and zed2_camera_link z 0.205, measured heights above
   the floor. Only the rotations (and y) are still unmeasured. The paragraphs
   below are the history of the 0.12 placeholders.
+  2026-10-15: zed2_camera_link pitch -2.083 deg (nose up), from the ZED IMU in
+  a static calib clip (camera.launch.py). The laser rotation is still unmeasured.
   zed2_camera_link (f1tenth_perception/camera.launch.py): 0.12m ahead, 0.15m higher
     (confirmed LIVE via `ros2 run tf2_ros tf2_echo base_link zed2_camera_link`
     at the time of the remount below, not just read from that file's own
