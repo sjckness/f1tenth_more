@@ -239,7 +239,8 @@ from f1tenth_messages.msg import BoundaryConstraint, BoundaryConstraintArray
 
 from f1tenth_costmap.costmap_boundary import (
     boundary_from_nearest_point, extract_boundary_constraints,
-    front_clearance_from_extraction, nearest_occupied_in_window, yaw_from_quaternion)
+    front_clearance_from_extraction, nearest_occupied_in_strip,
+    nearest_occupied_in_window, yaw_from_quaternion)
 from f1tenth_costmap.safe_corridor import (
     MAX_FACES_DEFAULT, assert_reference_contained, build_safe_corridor, faces_to_car_frame)
 
@@ -741,20 +742,27 @@ class CostmapBoundaryNode(Node):
         # base_front, as every front distance in the stack); max_range_m + 1.0
         # still means "nothing within range".
         #
-        # Its own nearest-cell search, not extraction['front'] (2026-10-13): a
-        # cell behind the bumper face and beside the car (|y| beyond
-        # vehicle_frames.front_side_limit_m) sits inside the +-35 deg cone from
-        # base_link, but it is not in front of the car -- it must not win, or
-        # someone standing next to the nose reads as a front obstacle. The
-        # boundary constraints above keep the unfiltered extraction.
+        # Its own nearest-cell search, not extraction['front'] (2026-10-13):
+        # the boundary constraints above keep the unfiltered cone extraction,
+        # which is MPC geometry; this is the question "would the car hit
+        # something going straight", which is a different one.
+        #
+        # THE SEARCH IS A STRIP, NOT A CONE (2026-10-15). A cone is a bearing
+        # test, so it widens with range: +-35 deg is 4.2 m across at 3 m. On an
+        # open corridor the side wall enters it at a bearing of 27-35 deg and
+        # became the "front clearance" at 1.6 m with nothing at all ahead of
+        # the car (corridor_phantom). The strip is the one the whole wall
+        # pipeline shares (vehicle_frames.front_side_limit_m), it does not
+        # widen, and a cell inside it is a cell the car would actually hit.
+        # Cells behind the bumper are excluded by the strip itself, so the
+        # separate exclude_beside_body filter is no longer needed here.
         front_x = base_front_x()
-        clear_hit = nearest_occupied_in_window(
+        clear_hit = nearest_occupied_in_strip(
             grid.data, grid.info.width, grid.info.height, grid.info.resolution,
             grid.info.origin.position.x, grid.info.origin.position.y,
             robot_x, robot_y, robot_yaw,
-            -self.front_facing_max_rad, self.front_facing_max_rad,
-            self.occupied_threshold, self.max_range_m,
-            exclude_beside_body=(front_x, self.front_side_limit_m))
+            front_x, self.front_side_limit_m,
+            self.occupied_threshold, self.max_range_m)
         clear_front = (None if clear_hit is None
                        else boundary_from_nearest_point(clear_hit[0], clear_hit[1]))
         clearance = front_clearance_from_extraction(

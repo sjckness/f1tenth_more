@@ -64,20 +64,27 @@ class TestRequiredDependencies:
                             'front_clearance_node', 'yolo_detector_node'}
 
     def test_front_clearance_requires_the_publisher_of_the_wall_topic(self):
-        """The node behind get_wall_distance_topic(), not costmap_boundary_node."""
+        """The node behind get_wall_distance_topic(), not costmap_boundary_node.
+
+        Since 2026-10-15 that is lidar_front_wall_node WHATEVER the scene
+        labels switch says: the camera-only /perception/front_distance is
+        retired as a wall source (its ROI reads the floor on an open
+        corridor). With the switch off nothing publishes a wall distance, so
+        this requirement simply fails the preflight -- a mission that stops
+        on a wall must not run with the wall pipeline switched off.
+        """
         config = _mission([_distance_move(
             stop_type='front_clearance', stop_params={'distance': 1.0})])
         on = _nodes(required_dependencies(config, scene_labels=True))
         off = _nodes(required_dependencies(config, scene_labels=False))
         assert 'lidar_front_wall_node' in on and 'front_clearance_node' not in on
-        assert 'front_clearance_node' in off and 'lidar_front_wall_node' not in off
+        assert 'lidar_front_wall_node' in off and 'front_clearance_node' not in off
         assert 'costmap_boundary_node' not in on | off
 
     def test_the_default_follows_enable_scene_labels(self):
         config = _mission([_distance_move(
             stop_type='front_clearance', stop_params={'distance': 1.0})])
-        expected = ('lidar_front_wall_node' if get_value('enable_scene_labels')
-                    else 'front_clearance_node')
+        expected = 'lidar_front_wall_node'      # whatever the switch says
         assert expected in _nodes(required_dependencies(config))
         assert any(get_wall_distance_topic() in name
                    for name in _names(required_dependencies(config)))

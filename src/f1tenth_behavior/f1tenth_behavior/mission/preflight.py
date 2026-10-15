@@ -50,7 +50,7 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional
 
 from f1tenth_behavior.mission.mission_config import MissionConfig
-from f1tenth_params.param_defaults import get_value
+from f1tenth_params.param_defaults import get_value, get_wall_distance_topic
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     FRONT_CLEARANCE_KEY,
@@ -141,15 +141,18 @@ def _uses_forward_only_obstacle_distance(config: MissionConfig) -> bool:
 def wall_distance_requirement(scene_labels: Optional[bool] = None) -> Requirement:
     """The node that publishes the wall topic the front_clearance stop reads.
 
-    get_wall_distance_topic(): /perception/virtual_wall from
-    lidar_front_wall_node with enable_scene_labels, else
-    /perception/front_distance from front_clearance_node. scene_labels
-    defaults to stack_params.yaml's enable_scene_labels.
+    ALWAYS lidar_front_wall_node on /perception/virtual_wall since 2026-10-15
+    (get_wall_distance_topic). The camera-only /perception/front_distance is
+    retired as a wall source -- its ROI reads the floor on an open corridor --
+    so with enable_scene_labels off nothing publishes a wall distance at all
+    and this requirement fails the preflight, which is the point: a mission
+    that stops on a wall must not run with the wall pipeline switched off.
+    The argument is kept so a caller can state the switch explicitly.
     """
     if scene_labels is None:
         scene_labels = bool(get_value('enable_scene_labels'))
-    node = 'lidar_front_wall_node' if scene_labels else 'front_clearance_node'
-    topic = '/perception/virtual_wall' if scene_labels else '/perception/front_distance'
+    node = 'lidar_front_wall_node'
+    topic = get_wall_distance_topic()
     return Requirement(
         name=f'{node} ({topic})',
         reason="a 'front_clearance' stop_condition (or resume_condition) is used",

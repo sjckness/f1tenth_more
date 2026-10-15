@@ -116,6 +116,76 @@ def _crop_indices(
     return col_min, col_max, row_min, row_max
 
 
+def _car_frame_cells(grid_data, width, height, resolution, origin_x, origin_y,
+                     robot_x, robot_y, robot_yaw, max_range_m):
+    """(sub, car_dx, car_dy, dist) of the cells inside the max_range_m box, or None.
+
+    The crop and the map -> car transform shared by the bearing-window search
+    and the strip search, so the two can never disagree about where a cell is.
+    """
+    col_min, col_max, row_min, row_max = _crop_indices(
+        width, height, resolution, origin_x, origin_y, robot_x, robot_y, max_range_m)
+    if col_min >= col_max or row_min >= row_max:
+        return None  # robot's own max_range_m box doesn't overlap the grid at all.
+    arr = np.asarray(grid_data, dtype=np.int16).reshape(height, width)
+    sub = arr[row_min:row_max, col_min:col_max]
+    cols = np.arange(col_min, col_max)
+    rows = np.arange(row_min, row_max)
+    # Cell CENTERS (+0.5), same convention costmap_renderer.py's own world_
+    # to_pixel implicitly matches (nearest-cell rounding).
+    cell_x = origin_x + (cols.astype(np.float64) + 0.5) * resolution
+    cell_y = origin_y + (rows.astype(np.float64) + 0.5) * resolution
+    grid_x, grid_y = np.meshgrid(cell_x, cell_y)
+    dx = grid_x - robot_x
+    dy = grid_y - robot_y
+    cos_yaw, sin_yaw = math.cos(robot_yaw), math.sin(robot_yaw)
+    # R(-yaw): map-frame delta -> car/base_link-frame delta.
+    car_dx = cos_yaw * dx + sin_yaw * dy
+    car_dy = -sin_yaw * dx + cos_yaw * dy
+    return sub, car_dx, car_dy, np.hypot(car_dx, car_dy)
+
+
+def _nearest(combined, car_dx, car_dy, dist):
+    """(car_dx, car_dy, distance) of the nearest cell in `combined`, or None."""
+    if not np.any(combined):
+        return None
+    masked = np.where(combined, dist, np.inf)
+    r, c = np.unravel_index(int(np.argmin(masked)), masked.shape)
+    return float(car_dx[r, c]), float(car_dy[r, c]), float(dist[r, c])
+
+
+def nearest_occupied_in_strip(
+        grid_data, width: int, height: int, resolution: float, origin_x: float,
+        origin_y: float, robot_x: float, robot_y: float, robot_yaw: float,
+        front_x: float, half_width_m: float, occupied_threshold: float,
+        max_range_m: float):
+    """Nearest occupied cell inside the CAR-WIDTH STRIP ahead of the bumper.
+
+    The strip is {car_dx > front_x, |car_dy| <= half_width_m}: the band the
+    car sweeps going straight, the SAME strip the wall pipeline uses
+    (vehicle_frames.front_side_limit_m).
+
+    WHY NOT THE +-35 DEG CONE this used to use. A cone is a bearing test, so
+    its width grows with range: at 3 m it is 4.2 m across. On an open corridor
+    the side wall enters it at a bearing of 27-35 deg and becomes the "front
+    clearance" at 1.6 m with nothing whatsoever ahead of the car
+    (corridor_phantom, 2026-10-15). A strip does not widen, and a cell in it
+    is a cell the car would actually hit.
+
+    UNKNOWN CELLS NEVER COUNT. slam_toolbox writes -1 for unexplored, and the
+    `>= occupied_threshold` test excludes it structurally -- an unexplored
+    corridor reads as clear, never as blocked.
+    """
+    cells = _car_frame_cells(grid_data, width, height, resolution, origin_x, origin_y,
+                             robot_x, robot_y, robot_yaw, max_range_m)
+    if cells is None:
+        return None
+    sub, car_dx, car_dy, dist = cells
+    combined = ((sub >= occupied_threshold) & (dist <= max_range_m)
+                & (car_dx > front_x) & (np.abs(car_dy) <= half_width_m))
+    return _nearest(combined, car_dx, car_dy, dist)
+
+
 def nearest_occupied_in_window(
         grid_data, width: int, height: int, resolution: float,
         origin_x: float, origin_y: float, robot_x: float, robot_y: float,

@@ -499,10 +499,12 @@ class _ClockFake:
 class TestFreshFrontDistanceAndReset(unittest.TestCase):
 
     class _Fake:
-        def __init__(self, value, stamp, now_sec=100.0):
+        def __init__(self, value, stamp, now_sec=100.0, clear_m=None):
             self.front_distance = value
             self.front_distance_stamp_sec = stamp
             self.corr_wall_turn_front_distance_max_age_sec = 0.5
+            self.wall_clear_distance_m = (
+                float(get_value('wall_clear_distance_m')) if clear_m is None else clear_m)
             self._clock = _ClockFake(now_sec)
 
         def get_clock(self):
@@ -518,6 +520,16 @@ class TestFreshFrontDistanceAndReset(unittest.TestCase):
         self.assertIsNone(self._fresh(-1.0, 99.9))      # "no reading" on both wall topics
         self.assertIsNone(self._fresh(0.0, 99.9))       # the contract is <= 0
         self.assertIsNone(self._fresh(float('nan'), 99.9))
+
+    def test_the_clear_value_never_reaches_the_geometry(self):
+        """wall_clear_distance_m means "nothing ahead", not "a wall at 50 m".
+        It must arrive as UNKNOWN, so no distance cap and no corridor length
+        is ever built from it."""
+        clear = float(get_value('wall_clear_distance_m'))
+        self.assertIsNone(self._fresh(clear, 99.9))
+        self.assertIsNone(self._fresh(clear + 10.0, 99.9))
+        # Just under it is still a real wall and still gets through.
+        self.assertEqual(self._fresh(clear - 0.1, 99.9), clear - 0.1)
 
     def test_a_new_turn_starts_uncommitted_with_no_end_heading_to_hold(self):
         fake = _FakeMPC()

@@ -32,6 +32,7 @@ from f1tenth_behavior.mission.runtime import (  # noqa: E402
     MissionRuntimeState,
     MissionState,
 )
+from f1tenth_params.param_defaults import get_value  # noqa: E402
 from std_msgs.msg import Float32  # noqa: E402
 
 S = py_trees.common.Status
@@ -232,3 +233,44 @@ def test_a_holding_mission_is_left_to_its_own_hold(clock):
     state.state = MissionState.HOLDING
     assert behaviour.update() == S.RUNNING
     assert behaviour.hold_pub.msgs == []
+
+
+# ===========================================================================
+# Step 6: the WALL / CLEAR / NO_DATA contract at the mission wall stop
+# ===========================================================================
+
+CLEAR_M = float(get_value('wall_clear_distance_m'))
+
+
+def test_clear_drives_on_and_never_stops(clock):
+    """CLEAR means "the sensors work and nothing is in the way". It is a real,
+    fresh, positive reading, so it must NOT hold -- and being far above any
+    threshold, it must not stop either. The open corridor just drives."""
+    behaviour = _check(_mission([_wall_move()]))
+    _wall(behaviour, CLEAR_M)
+    clock.t += 0.1
+    assert behaviour.update() == S.RUNNING
+    assert behaviour.hold_pub.msgs == []
+    assert CLEAR_M > STOP_AT
+
+
+def test_clear_is_distinguishable_from_no_data_at_the_stop(clock):
+    """The two must not collapse into each other: one drives, one holds."""
+    clear = _check(_mission([_wall_move()]))
+    _wall(clear, CLEAR_M)
+    no_data = _check(_mission([_wall_move()]))
+    _wall(no_data, -1.0)
+    clock.t += 0.1
+    assert clear.update() == S.RUNNING and clear.hold_pub.msgs == []
+    assert no_data.update() == S.RUNNING and no_data.hold_pub.msgs == [True]
+
+
+def test_a_wall_appearing_after_clear_still_stops(clock):
+    """CLEAR is not sticky: the next tick's real wall decides."""
+    behaviour = _check(_mission([_wall_move()]))
+    _wall(behaviour, CLEAR_M)
+    clock.t += 0.1
+    assert behaviour.update() == S.RUNNING
+    _wall(behaviour, 0.8)
+    clock.t += 0.1
+    assert behaviour.update() == S.SUCCESS
