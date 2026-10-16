@@ -68,3 +68,27 @@ sees. Decimating that again would compare a different set of scans against the
 recording, and would leave three cycles in four reporting the previous cycle's
 `tracker_ms`. `WALL_TRACKER_DECIMATION` overrides it for a run that wants to
 see the decimation itself.
+## H3 — 'other' takes no slot, so it never reaches the semantic grid
+
+The point is explicit, and this is the consequence worth writing down: since
+H3 an `other` track is not on `/perception/walls` at all, and
+`semantic_layer_node` only rasterises what is published. So the `ROLE_VALUE
+['other'] = 50` cell added last night (F4) is now unreachable through the
+tracker path -- correct for an unknown role arriving from anywhere else, dead
+for this one.
+
+- Not changed: F4's value is still the right answer for a role this module has
+  never heard of, and removing it would put `other` back on `back`.
+- The `other` tracks are still visible: `/perception/virtual_wall/debug`'s
+  `tracks` list carries every live track with its role when
+  `wall_debug_tracks` is on, and the top-down video draws them.
+- If the costmap should carry them as occupied-but-unlabelled surfaces, that is
+  a decision about the costmap, not about the cap, and it needs its own point.
+
+## H3 — FRONT takes every slot it needs, sides get one each
+
+The order is: all FRONT tracks (nearest along the heading first), then the
+nearest LEFT, then the nearest RIGHT, then BACK, then any remaining side
+walls so the budget is never left unspent. "FRONT always (if present)" read as
+"front is never the thing that drops off the end", which is the defect: a
+front wall at rank 4 of 7 was being hidden on 36 of 206 cycles.

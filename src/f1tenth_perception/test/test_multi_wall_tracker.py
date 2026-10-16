@@ -113,11 +113,20 @@ def test_room_from_two_poses_walls_correct_and_ids_kept():
     ids = {t.id for t in tracks}
     b = Pose2D(4.0, 2.0, 1.0)
     tracks_b = run(trk, b, ROOM, t0=1.0)
-    assert ids < {t.id for t in tracks_b}
-    assert len(tracks_b) == 4
+    # THE IDS ARE KEPT, which is a statement about the TRACKER, not about the
+    # published four: since the cap became role-priority (H3) a wall whose
+    # role is 'other' takes no slot, and at this pose the y = 6 wall is one --
+    # the car has turned a radian, so it is neither in the strip nor beside
+    # the car with a lateral normal. It is still tracked, still confirmed and
+    # still an occluder.
+    live = {t.id for t in trk.tracks}
+    assert ids < live and len(live) == 4
+    other = [t for t in trk.tracks if t.role == 'other']
+    assert len(other) == 1 and other[0].ever_confirmed
+    assert other[0] not in tracks_b
     assert by_label(trk, tracks_b, b)['front'].rho == pytest.approx(6.0, abs=0.03)
     # The late arrival is the wall that was behind the car at pose a.
-    late = next(t for t in tracks_b if t.id not in ids)
+    late = next(t for t in trk.tracks if t.id not in ids)
     assert late.rho == pytest.approx(0.0, abs=0.05)
     assert late.length > 4.0
 
@@ -1023,3 +1032,63 @@ def test_a_far_wall_coasting_through_a_turn_is_the_decimation_s_real_limit():
     four = math.sqrt(4.0 * (p.k_yaw * math.radians(2.5) * rho) ** 2)
     assert four == pytest.approx(0.5 * one, rel=1e-6)
 
+
+# --- H3: the publish cap, by role -------------------------------------------
+
+def test_the_front_wall_is_never_the_one_the_cap_drops():
+    """The defect H3 fixes: a short far wall dead ahead ranked below the long
+    near side walls, because the old ranking was length * hits / distance."""
+    p = mwt.TrackerParams(max_published=4)
+    trk = mwt.MultiWallTracker(p)
+    trk.laser_xy = LASER[:2]
+    # Three long near side walls and one short wall 15.5 m dead ahead.
+    obss = [obs(wall(1.2, nx=0.0, ny=1.0, t0=-4.0, t1=4.0, inliers=400)),
+            obs(wall(1.2, nx=0.0, ny=-1.0, t0=-4.0, t1=4.0, inliers=400)),
+            obs(wall(1.3, nx=0.0, ny=1.0, t0=-4.0, t1=4.0, inliers=400)),
+            obs(wall(15.5, t0=-1.5, t1=1.5, inliers=60))]
+    feed(trk, obss, 4)
+    published = trk.published(ORIGIN)
+    front = [t for t in trk.tracks if t.role == 'front']
+    assert front, 'the test needs a front wall to be hidden'
+    assert front[0] in published, 'the FRONT wall must never lose its slot'
+    assert trk.front_track(ORIGIN, FRONT_X) is front[0]
+
+
+def test_the_budget_is_front_then_nearest_left_then_nearest_right():
+    p = mwt.TrackerParams(max_published=4)
+    trk = mwt.MultiWallTracker(p)
+    trk.laser_xy = LASER[:2]
+    feed(trk, [obs(wall(5.0, t0=-1.5, t1=1.5)),
+               obs(wall(1.2, nx=0.0, ny=1.0, t0=-3.0, t1=3.0)),
+               obs(wall(2.4, nx=0.0, ny=1.0, t0=-3.0, t1=3.0)),
+               obs(wall(1.1, nx=0.0, ny=-1.0, t0=-3.0, t1=3.0)),
+               obs(wall(2.6, nx=0.0, ny=-1.0, t0=-3.0, t1=3.0))], 4)
+    published = trk.published(ORIGIN)
+    roles = [t.role for t in published]
+    assert roles[0] == 'front'
+    assert roles[1] == 'left' and roles[2] == 'right'
+    # the NEAREST of each side, measured from the bodywork
+    lefts = sorted((t for t in trk.tracks if t.role == 'left'), key=lambda t: t.rho)
+    rights = sorted((t for t in trk.tracks if t.role == 'right'), key=lambda t: t.rho)
+    assert published[1] is lefts[0] and published[2] is rights[0]
+
+
+def test_other_never_takes_a_slot_even_when_the_budget_is_free():
+    trk = mwt.MultiWallTracker(mwt.TrackerParams(max_published=4))
+    feed(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))], 4)
+    track = trk.tracks[0]
+    assert track.role == 'other' and track.ever_confirmed
+    assert trk.published(ORIGIN) == []
+
+
+def test_a_rejected_front_wall_gives_its_slot_up():
+    trk = mwt.MultiWallTracker(mwt.TrackerParams(max_published=4))
+    feed(trk, [obs(wall(2.0))], 4)
+    track = trk.tracks[0]
+    assert trk.published(ORIGIN) == [track]
+    verdict = {'coverage': 0.9, 'support': 0.0, 'beyond_share': 0.0}
+    for _ in range(trk.rect.reject_cycles):
+        trk.apply_rect_verdicts({track.id: verdict})
+    trk.update_roles(ORIGIN)
+    assert track.role == 'other'
+    assert trk.published(ORIGIN) == []

@@ -1151,10 +1151,60 @@ class MultiWallTracker:
         return trk.length * trk.hits / dist
 
     def published(self, car_pose):
-        """Return the ever-confirmed tracks, the best max_published by score."""
+        """The ever-confirmed tracks that fit the cap, BY ROLE.
+
+        WHY NOT BY SCORE. The cap used to rank by length * hits / distance,
+        which sounds like importance and is not: a far wall dead ahead is
+        SHORT and FAR, so that ranking puts it below the long near side walls
+        unless its hit count is large -- and hits grow with node UPTIME, not
+        with evidence. On corridor10m_20261015T171753 that hid a confirmed
+        front wall behind the cap on 36 of 206 replayed cycles, at rank 4 of 7
+        tracks held, 15.5 m dead ahead; the recorded run only reported it
+        because its track was 435 s old. A cap is a budget, and a budget is
+        spent on roles, not on a score.
+
+        THE ORDER: every FRONT wall first, nearest along the heading, because
+        the front wall is the one that can stop the car and it must never be
+        the thing that drops off the end of a list. Then the nearest LEFT and
+        the nearest RIGHT -- one slot each, measured from the bodywork, which
+        is what a corridor needs to stay centred in. Then BACK. Then any
+        remaining side walls, so the budget is never left unspent.
+
+        'OTHER' NEVER TAKES A SLOT. It is the role for a wall that is a
+        reference for nothing (update_roles): not in the strip, not beside the
+        car, rejected by the stereo rectangle, or behind another wall. It is
+        still tracked, still drawn and still an occluder, and it is on
+        /perception/virtual_wall/debug's `tracks` list when
+        wall_debug_tracks is on -- it is simply not one of the four walls this
+        node asserts to the rest of the stack.
+        """
         live = [t for t in self.tracks if t.ever_confirmed]
-        live.sort(key=lambda t: self.score(t, car_pose), reverse=True)
-        return live[:self.p.max_published]
+        buckets = {'front': [], 'left': [], 'right': [], 'back': []}
+        for trk in live:
+            role = trk.role or geometric_role(trk, car_pose, self.p)
+            if role in buckets:
+                buckets[role].append(trk)
+
+        def along_heading(trk):
+            _perp, ray = front_distances(trk, car_pose, self.p.strip_half_width_m)
+            return ray if math.isfinite(ray) else _perp
+
+        def from_the_side(trk):
+            return side_distance(trk, car_pose, self.p.side_edge_half_width_m)
+
+        def perpendicular(trk):
+            n = np.array([math.cos(trk.theta), math.sin(trk.theta)])
+            return abs(trk.rho - float(n @ car_pose.t))
+
+        buckets['front'].sort(key=along_heading)
+        buckets['left'].sort(key=from_the_side)
+        buckets['right'].sort(key=from_the_side)
+        buckets['back'].sort(key=perpendicular)
+        order = list(buckets['front'])
+        order += buckets['left'][:1] + buckets['right'][:1]
+        order += buckets['back']
+        order += buckets['left'][1:] + buckets['right'][1:]
+        return order[:self.p.max_published]
 
     def apply_rect_verdicts(self, verdicts):
         """Fold one rectangle verdict per track into its sticky verify state.
