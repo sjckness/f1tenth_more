@@ -87,3 +87,91 @@ that once crash-looped mpc_corr (`MPC_corr.py:5355-5368`).
 when the stereo saw the height. The prism uses the measured span when
 `height_measured`, and 0-2 m otherwise, so a merely-assumed wall is still visibly the
 default height.
+
+---
+
+## V2. What was changed on the existing path
+
+`lidar_front_wall_node._publish_walls`, commit `a94f2cb`:
+
+- the leading `DELETEALL` is gone;
+- every marker carries `wall_marker_lifetime_s` (node param, default 0.6 s) through
+  one `_set_lifetime` helper that splits sec/nanosec properly;
+- a track that dies, or merely drops out of `published()`'s four slots, gets an
+  explicit `DELETE` on both of its marker ids;
+- `^/perception/walls/markers$` is added to `foxglove_topic_whitelist` (D1).
+
+`test_every_array_starts_by_clearing_so_gone_tracks_disappear` asserted the
+DELETEALL, so it is replaced by three tests that check what now carries its
+guarantee. Its name argued for the behaviour that caused the bug, which is the
+failure mode CLAUDE.md's "Name a test after what it asserts" section describes.
+
+## V3/V4. `/viz/walls`
+
+`wall_markers.py` (new, pure, no rclpy) + the node wiring, commits `30db6e2` and
+`bf891be`. 44 builder tests, 8 node-level gate tests, 73 passing in
+`test_lidar_front_wall_node.py`.
+
+### Live verification — stack DOWN, so a real-DDS check instead
+
+The order's `ros2 topic echo --once /viz/walls` needs a running stack. Instead: the
+real node, a real subscriber in a second node, real DDS, no mocks
+(`ROS_SUPER_CLIENT=TRUE`). Measured:
+
+    topic: /viz/walls   viz_walls_enabled: True   max_hz: 5.0
+
+    --- no subscriber ---
+    subscription_count = 0
+    builder drawn_ids (must be empty): set()
+
+    --- subscriber matched ---
+    subscription_count = 1
+    arrays received over DDS: 10          <- 40 cycles x 0.05 s = 2.0 s at 5 Hz
+    markers in the last array: 4
+    actions (0=ADD 2=DELETE 3=DELETEALL): {0: 3, 2: 1}
+    DELETEALL present: False
+    ns: {'viz_walls'}   frame_id: {'odom'}
+    lifetimes: {0.6, 0.0}
+    ids: [4, 5, 6, 7]                     <- 4*1 + {0,1,2,3}
+    label: '1 front unverified 1.60m'
+    tracker holds ids: [1]
+
+    --- subscriber gone ---
+    subscription_count = 0
+    new arrays after it left: 0
+    builder drawn_ids (forgotten): set()
+
+So all three gates hold on the wire, the id scheme is the one documented, and the
+rate cap is exact: 2.0 s of scan stamps at a 5 Hz cap produced exactly 10 arrays.
+The one `0.0` lifetime is the `DELETE` of the unused glass slot — a DELETE needs no
+lifetime. The one ADD-track case is all the synthetic single-wall scan can produce;
+the multi-track and 'other'/tentative cases are covered by the builder tests, which
+construct real `mwt.Track` objects directly.
+
+### Lint debt, measured before and after
+
+| check | `f1tenth_perception` before (`e18e90d`) | after |
+|---|---|---|
+| `ament_flake8` | 18 | 18 |
+| `ament_pep257` | 1307 | 1321 |
+
+No new flake8 error: all 18 pre-exist (E128/F811/E306 in the node, E501/F401 in its
+test, same five at shifted line numbers). The 14 added pep257 errors are all D213,
+"summary should start at the second line", which this entire workspace violates by
+house style — `wall_markers.py` writes first-line summaries like every file around
+it. `f1tenth_perception`'s `test_pep257` was already failing on 1307.
+
+## How to look at it in Foxglove
+
+Add a **3D** panel, set **Fixed frame = `odom`**, and enable the topic:
+
+- **`/viz/walls`** — every track: `other`, tentative, coasting and rejected
+  included. Colour = role (front red, left blue, right yellow, back grey, other dark
+  grey), opacity = state (verified 0.9, unverified 0.5, tentative/rejected 0.2),
+  cyan outline = glass. 5 Hz, and only while the panel is open.
+- **`/perception/walls/markers`** — the four walls the node asserts to the stack,
+  ~10 Hz. Different colour convention (D4).
+
+`map` also works as the fixed frame as long as SLAM is publishing `map -> odom`;
+`odom` is the frame the markers are actually in, so it is the one that cannot be
+wrong.
