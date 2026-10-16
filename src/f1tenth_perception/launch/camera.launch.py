@@ -96,9 +96,12 @@ def generate_launch_description():
         # (downstream nodes stay agnostic).
         actions.append(GroupAction(
             actions=[
-                SetRemap(src='/zed2/zed_node/rgb/image_rect_color',
+                # zed_ros2_wrapper v5 renamed ~/rgb/image_rect_color to
+                # ~/rgb/color/rect/image (CHANGELOG v5.1.0); its camera_info is
+                # image_transport's sibling ~/rgb/color/rect/camera_info.
+                SetRemap(src='/zed2/zed_node/rgb/color/rect/image',
                          dst='/camera/image_raw'),
-                SetRemap(src='/zed2/zed_node/rgb/camera_info',
+                SetRemap(src='/zed2/zed_node/rgb/color/rect/camera_info',
                          dst='/camera/camera_info'),
                 IncludeLaunchDescription(
                     PythonLaunchDescriptionSource(

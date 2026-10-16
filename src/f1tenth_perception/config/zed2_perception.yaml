@@ -12,17 +12,23 @@
 /**:
   ros__parameters:
     general:
+      # Pinned to the humble-v4.2.5 zed2i.yaml defaults the car ran with: the v5.4.1
+      # wrapper (Jazzy) changed them to grab_frame_rate 60, min_depth 0.01,
+      # max_depth 15.0. Port only: the values are the campaign's.
+      grab_frame_rate: 30
       pub_resolution: 'CUSTOM'
       pub_downscale_factor: 2.0    # publish at half the grab resolution
       pub_frame_rate: 30.0
       publish_status: false        # remove /status/* topics from the list
 
     video:
-      publish_rgb: true            # keep: rgb/image_rect_color for YOLO
+      publish_rgb: true            # keep: rgb/color/rect/image (v4: rgb/image_rect_color) for YOLO
       publish_stereo: false        # remove combined stereo pair topic
 
     depth:
       depth_mode: 'PERFORMANCE'
+      min_depth: 0.3               # humble-v4.2.5 zed2i default (v5.4.1: 0.01), see general above
+      max_depth: 10.0              # humble-v4.2.5 zed2i default (v5.4.1: 15.0)
       # depth/depth_registered stays advertised implicitly by depth_mode != NONE
       # point cloud has no separate publish_* flag — subscriber-gating is the
       # only lever, so it stays in the topic list at 0 Hz unless something
