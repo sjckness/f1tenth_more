@@ -34,6 +34,18 @@ import py_trees
 from ackermann_msgs.msg import AckermannDriveStamped
 
 
+def make_stop_msg(node, frame_id):
+    """The zero-speed command every stop publishes. Shared with
+    IsProximityTooClose's event-driven e-stop, so the scan-callback stop and
+    this behaviour's per-tick stop are the same message on the wire."""
+    msg = AckermannDriveStamped()
+    msg.header.stamp = node.get_clock().now().to_msg()
+    msg.header.frame_id = frame_id
+    msg.drive.speed = 0.0
+    msg.drive.steering_angle = 0.0
+    return msg
+
+
 class Stop(py_trees.behaviour.Behaviour):
 
     def __init__(self, name='Stop', output_topic='safety_stop', frame_id='base_link'):
@@ -51,10 +63,5 @@ class Stop(py_trees.behaviour.Behaviour):
         self.pub = self.node.create_publisher(AckermannDriveStamped, self.output_topic, 10)
 
     def update(self):
-        msg = AckermannDriveStamped()
-        msg.header.stamp = self.node.get_clock().now().to_msg()
-        msg.header.frame_id = self.frame_id
-        msg.drive.speed = 0.0
-        msg.drive.steering_angle = 0.0
-        self.pub.publish(msg)
+        self.pub.publish(make_stop_msg(self.node, self.frame_id))
         return py_trees.common.Status.SUCCESS

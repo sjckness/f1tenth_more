@@ -48,6 +48,8 @@
        Also behavior_executor_node's own /bt/tree_visualization: sensor_msgs/
        CompressedImage. -->
   <depend>sensor_msgs</depend>
+  <!-- tick_timing.BtTicker: BT tick duration p50/p95 on /diagnostics. -->
+  <depend>diagnostic_msgs</depend>
 
   <exec_depend>f1tenth_navigation</exec_depend>
   <exec_depend>launch</exec_depend>
@@ -58,6 +60,8 @@
        `dot` binary (invoked by pydot under the hood) renders it to PNG. -->
   <exec_depend>python3-pydot</exec_depend>
   <exec_depend>graphviz</exec_depend>
+  <!-- IsProximityTooClose's vectorised /scan windows. -->
+  <exec_depend>python3-numpy</exec_depend>
   <!-- BatteryStatus/SystemStatus msg types for the BT emergency lane's IsBatteryLow/
        IsSystemOverheated conditions; see f1tenth_diagnostics/diagnostics_server_node.py
        and system_observer_node.py. Also LoadMission srv type and the MissionStatus msg

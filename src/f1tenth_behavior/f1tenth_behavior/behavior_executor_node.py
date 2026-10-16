@@ -1,6 +1,7 @@
 """Owns the outer BT (emergency > obstacle-stop > navigate): builds a
-py_trees_ros.trees.BehaviourTree and ticks it forever as an ambient supervisor via
-tick_tock() -- this tree is not a one-shot "run until SUCCESS/FAILURE" helper, it runs
+py_trees_ros.trees.BehaviourTree and ticks it forever as an ambient supervisor from
+one rclpy timer at bt_tick_hz (tick_timing.BtTicker, which also times every tick) --
+this tree is not a one-shot "run until SUCCESS/FAILURE" helper, it runs
 for the life of the process, mirroring the old BT.CPP behavior_executor_node's own
 wall-timer-driven tickRoot() loop.
 
@@ -100,6 +101,7 @@ formula scheme, not one scalar reused everywhere.
 
 import os
 import sys
+import threading
 import time
 
 import py_trees
@@ -131,6 +133,8 @@ from f1tenth_behavior.mission.loader import MissionLoader
 from f1tenth_behavior.safety_event import (
     active_lane as find_active_lane, emergency_trip as find_emergency_trip,
     make_safety_event_publisher)
+from f1tenth_behavior.qos_events import drop_qos_event_handlers
+from f1tenth_behavior.tick_timing import BtTicker
 
 from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 
@@ -146,7 +150,7 @@ def make_snapshot_logger(min_interval_sec=1.0):
     """Returns a py_trees post_tick_handler that logs a full ascii-tree snapshot
     (every node's SUCCESS/FAILURE/RUNNING/INVALID status) at INFO level, at most
     once every min_interval_sec -- the tree ticks much faster than that
-    (bt_loop_duration_ms, default 100ms), so this guard is what keeps the log to
+    (bt_tick_hz, default 10 Hz), so this guard is what keeps the log to
     ~1Hz regardless of tick rate. ascii_tree (not unicode_tree) deliberately: no
     box-drawing/ANSI-colour characters that could turn into garbage in a rosout/
     journald sink that isn't a real TTY.
@@ -198,7 +202,22 @@ def _shape_for(behaviour: py_trees.behaviour.Behaviour) -> str:
     return 'ellipse'
 
 
-def _status_dot_graph(root: py_trees.behaviour.Behaviour) -> pydot.Dot:
+class _BehaviourSnapshot:
+    """The four things _status_dot_graph reads off a behaviour, frozen at
+    tick time so the graph can be built and rendered off the executor thread
+    while the live tree keeps ticking (see make_tree_visualizer)."""
+
+    __slots__ = ('id', 'name', 'status', 'shape', 'children')
+
+    def __init__(self, behaviour):
+        self.id = behaviour.id
+        self.name = behaviour.name
+        self.status = behaviour.status
+        self.shape = _shape_for(behaviour)
+        self.children = [_BehaviourSnapshot(child) for child in behaviour.children]
+
+
+def _status_dot_graph(root) -> pydot.Dot:
     """Build a pydot graph of the live tree, colored by each behaviour's
     current .status -- NOT py_trees.display.dot_tree()/render_dot_tree(): the
     installed py_trees version (2.4.0, checked via its own source before
@@ -229,7 +248,7 @@ def _status_dot_graph(root: py_trees.behaviour.Behaviour) -> pydot.Dot:
         graph.add_node(pydot.Node(
             name=str(behaviour.id),
             label=f'{behaviour.name}\n{behaviour.status.name}',
-            shape=_shape_for(behaviour),
+            shape=getattr(behaviour, 'shape', None) or _shape_for(behaviour),
             style='filled',
             fillcolor=_STATUS_FILLCOLOR.get(behaviour.status, '#FFFFFF'),
             fontsize=9,
@@ -247,38 +266,86 @@ def _status_dot_graph(root: py_trees.behaviour.Behaviour) -> pydot.Dot:
     return graph
 
 
-def make_tree_visualizer(node, publisher, min_interval_sec=0.4):
+class _PngRenderWorker:
+    """Renders and publishes the BT PNG on its own daemon thread.
+
+    pydot's create_png() runs graphviz's `dot` as a subprocess and waits for
+    it. Done inside the post-tick handler, as it was before cpu-cleanup, that
+    wait blocked the single-threaded executor -- every subscription callback,
+    the e-stop's /scan included, and the next tick -- for the whole render
+    (~70-80 ms per render on linus, every 0.4 s). Here the tick only freezes
+    the statuses (_BehaviourSnapshot, microseconds); the graph is built,
+    rendered and published on this thread. One slot, newest wins: a render
+    still running when the next snapshot arrives simply makes that one wait,
+    and anything older is dropped, never queued.
+    """
+
+    def __init__(self, node, publisher, render=None):
+        self._node = node
+        self._publisher = publisher
+        self._render = render or (lambda snapshot: _status_dot_graph(snapshot).create_png())
+        self._cond = threading.Condition()
+        self._pending = None
+        self._stopped = False
+        self._thread = threading.Thread(
+            target=self._run, name='bt_visualization', daemon=True)
+        self._thread.start()
+
+    def submit(self, snapshot):
+        with self._cond:
+            self._pending = snapshot
+            self._cond.notify()
+
+    def stop(self):
+        with self._cond:
+            self._stopped = True
+            self._cond.notify()
+
+    def _run(self):
+        while True:
+            with self._cond:
+                while self._pending is None and not self._stopped:
+                    self._cond.wait()
+                if self._stopped:
+                    return
+                snapshot, self._pending = self._pending, None
+            try:
+                png_bytes = self._render(snapshot)
+            except Exception as exc:  # noqa: BLE001 - never let visualization crash the BT
+                self._node.get_logger().warn(
+                    f'BT visualization render failed: {exc!r}', throttle_duration_sec=5.0)
+                continue
+            msg = CompressedImage()
+            msg.header.stamp = self._node.get_clock().now().to_msg()
+            msg.format = 'png'
+            msg.data = png_bytes
+            self._publisher.publish(msg)
+
+
+def make_tree_visualizer(node, publisher, min_interval_sec=0.4, worker=None):
     """Returns a py_trees post_tick_handler that renders the tree's live
     status (see _status_dot_graph) straight to PNG bytes in memory (pydot's
     create_png(), no temp file) and publishes it as a sensor_msgs/
     CompressedImage (format='png') on `publisher`.
 
     Throttled to at most once every min_interval_sec, independent of the
-    tree's own tick rate (bt_loop_duration_ms, default 100ms) -- same
-    stored-last-publish-time pattern as make_snapshot_logger above, so
-    graphviz layout/PNG-render cost never adds latency to BT ticking itself.
+    tree's own tick rate (bt_tick_hz, default 10 Hz) -- same
+    stored-last-publish-time pattern as make_snapshot_logger above. The
+    render itself runs on _PngRenderWorker's thread, not in the tick (see
+    that class for why), so graphviz layout/PNG-render cost never adds
+    latency to BT ticking or to any other callback on this node.
     """
     state = {'last_publish_time': 0.0}
+    worker = worker or _PngRenderWorker(node, publisher)
 
     def _visualize(tree):
         now = time.monotonic()
         if now - state['last_publish_time'] < min_interval_sec:
             return
         state['last_publish_time'] = now
+        worker.submit(_BehaviourSnapshot(tree.root))
 
-        try:
-            png_bytes = _status_dot_graph(tree.root).create_png()
-        except Exception as exc:  # noqa: BLE001 - never let visualization crash the BT
-            node.get_logger().warn(
-                f'BT visualization render failed: {exc!r}', throttle_duration_sec=5.0)
-            return
-
-        msg = CompressedImage()
-        msg.header.stamp = node.get_clock().now().to_msg()
-        msg.format = 'png'
-        msg.data = png_bytes
-        publisher.publish(msg)
-
+    _visualize.worker = worker
     return _visualize
 
 
@@ -344,6 +411,7 @@ def create_root(
     sys_obs_load_trip_consecutive_samples=3,
     object_params=None,
     wall_distance_max_age_s=0.5,
+    enable_proximity_event_stop=False,
 ) -> py_trees.behaviour.Behaviour:
     """Build the root Selector.
 
@@ -410,6 +478,16 @@ def create_root(
         undebounced; CPU/GPU *utilization* no longer trips by default, because
         all three of its observed trips were false positives on bursty YOLO
         inference load while temperatures sat 45 C below their limit.
+
+    enable_proximity_event_stop (stack default TRUE; False here only so
+    create_root() callers in tests build the plain tick-driven tree):
+        IsProximityTooClose also publishes the emergency Stop's exact message
+        (safety_stop, frame_id base_link/emergency) from its /scan callback
+        the moment a scan trips, so the e-stop does not wait up to one tick
+        period to be noticed. The tree is unchanged -- the emergency lane
+        still trips and stops on the next tick as before. See
+        stack_params.yaml's enable_proximity_event_stop for the latency
+        numbers this buys.
     """
     root = py_trees.composites.Selector(name='root', memory=False)
 
@@ -437,6 +515,9 @@ def create_root(
         emergency_children.append(IsProximityTooClose(
             front_distance_threshold=proximity_front_threshold_m,
             lidar_distance_threshold=proximity_side_threshold_m,
+            # Same topic and frame_id as the emergency lane's Stop below.
+            immediate_stop_topic='safety_stop' if enable_proximity_event_stop else None,
+            immediate_stop_frame_id='base_link/emergency',
         ))
     if get_value('enable_sys_obs'):
         emergency_children.append(IsSystemOverheated(
@@ -676,6 +757,9 @@ def main():
     # (check_stop_condition.py, WALL DISTANCE FRESHNESS). Same single-sourcing.
     wall_distance_max_age_s = float(bootstrap_node.declare_parameter(
         'wall_distance_max_age_s', get_value('wall_distance_max_age_s')).value)
+    # Event-driven lidar e-stop (cpu-cleanup) -- see create_root()'s docstring.
+    enable_proximity_event_stop = bool(bootstrap_node.declare_parameter(
+        'enable_proximity_event_stop', get_value('enable_proximity_event_stop')).value)
     bootstrap_node.destroy_node()
 
     root = create_root(
@@ -690,6 +774,7 @@ def main():
         sys_obs_load_trip_consecutive_samples=sys_obs_load_trip_consecutive_samples,
         object_params=object_params,
         wall_distance_max_age_s=wall_distance_max_age_s,
+        enable_proximity_event_stop=enable_proximity_event_stop,
     )
     tree = py_trees_ros.trees.BehaviourTree(root=root)
 
@@ -715,8 +800,9 @@ def main():
     # possible" concern for it anymore -- only nice still needs a real node.
     _apply_nice(node)
 
-    node.declare_parameter('bt_loop_duration_ms', 100)
-    bt_loop_duration_ms = node.get_parameter('bt_loop_duration_ms').value
+    # Tick rate (cpu-cleanup; replaces bt_loop_duration_ms=100, the same
+    # 10 Hz). stack_params.yaml's bt_tick_hz says why 10 and not faster.
+    bt_tick_hz = float(node.declare_parameter('bt_tick_hz', get_value('bt_tick_hz')).value)
 
     # Not py_trees behaviours -- see their own module docstrings for why
     # (subscription/parameter-driven, not per-tick actions). Built here, not
@@ -754,27 +840,47 @@ def main():
         f'lidar_safety_stop={enable_lidar_safety_stop} '
         f'(front={proximity_front_threshold_m:.2f}m side={proximity_side_threshold_m:.2f}m) '
         f'sys_obs_load_trip={enable_sys_obs_load_trip} '
-        f'(needs {sys_obs_load_trip_consecutive_samples} consecutive samples); '
+        f'(needs {sys_obs_load_trip_consecutive_samples} consecutive samples) '
+        f'proximity_event_stop={enable_proximity_event_stop} bt_tick_hz={bt_tick_hz:g}; '
         f'camera obstacles reach the MPC via /perception/obstacles_2d regardless.')
 
     # Structurally absent when disabled -- same "not just idling it" pattern
     # as enable_sys_obs/enable_foxglove (see stack_params.yaml's own comment
     # on this param): no publisher, no post_tick_handler registered at all,
     # not a handler that no-ops every tick.
+    visualizer = None
     if get_value('enable_bt_visualization'):
         bt_visualization_pub = node.create_publisher(
             CompressedImage, '/bt/tree_visualization', 10)
-        tree.add_post_tick_handler(make_tree_visualizer(node, bt_visualization_pub))
+        visualizer = make_tree_visualizer(node, bt_visualization_pub)
+        tree.add_post_tick_handler(visualizer)
 
-    tree.tick_tock(period_ms=bt_loop_duration_ms)
+    # One timer at bt_tick_hz, every tick timed; p50/p95/max on /diagnostics
+    # at 1 Hz, WARN on a tick over 50% of the period (tick_timing.py).
+    ticker = BtTicker(node, tree, bt_tick_hz)
+
+    # Last, once every publisher/subscription exists: drop rclpy's default
+    # QoS event handlers, a quarter of this node's idle CPU (qos_events.py).
+    keep_qos_event_handlers = bool(
+        node.declare_parameter('bt_keep_qos_event_handlers', False).value)
+    if not keep_qos_event_handlers:
+        dropped = drop_qos_event_handlers(node)
+        node.get_logger().info(
+            f'Dropped {dropped} default QoS event handlers (executor wake-up cost); '
+            'peers still report incompatible QoS. bt_keep_qos_event_handlers:=true '
+            'keeps them.')
 
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
         pass
     finally:
+        ticker.shutdown()
+        if visualizer is not None:
+            visualizer.worker.stop()
         tree.shutdown()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == '__main__':

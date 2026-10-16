@@ -140,6 +140,11 @@ def generate_launch_description():
         ('proximity_side_threshold_m', float),
         ('enable_sys_obs_load_trip', bool),
         ('sys_obs_load_trip_consecutive_samples', int),
+        # cpu-cleanup: the tick rate and the event-driven lidar e-stop, same
+        # typed-arg treatment (one of them is a bool). stack_params.yaml says
+        # why bt_tick_hz stays 10 and what the event path does to latency.
+        ('bt_tick_hz', float),
+        ('enable_proximity_event_stop', bool),
     ]
     avoidance_las = []
     for _name, _type in _avoidance_args:

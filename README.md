@@ -229,8 +229,8 @@ until you `START`/`RESTART` it manually.
 ## BT priority-lane architecture
 
 `f1tenth_behavior`'s `behavior_executor_node` runs a py_trees tree with a root
-Selector of 3 priority lanes, ticked continuously (`bt_loop_duration_ms`, default
-100ms) — first child that succeeds wins:
+Selector of 3 priority lanes, ticked continuously from one timer (`bt_tick_hz`, default
+10 Hz; tick timing p50/p95 on `/diagnostics`) — first child that succeeds wins:
 
 1. **`emergency`** — `(IsBatteryLow OR IsSystemOverheated) → Stop`. `IsBatteryLow` is
    unconditional (battery safety is never gateable). `IsSystemOverheated` only exists

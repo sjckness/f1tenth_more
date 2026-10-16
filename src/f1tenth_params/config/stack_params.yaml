@@ -2048,6 +2048,32 @@ nav2_readiness_timeout_sec:
 bt_setup_timeout_sec:
   default: 90.0
   description: "behavior_executor_node's own tree.setup() timeout, in seconds -- an independent safety margin on top of the readiness gate."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -> behavior_executor_node
+# (tick_timing.BtTicker). cpu-cleanup 2026-10-16: replaces the node-local
+# bt_loop_duration_ms (100 ms), same rate. NOT raised to 20 Hz: the tick was
+# never the CPU cost (the per-beam /scan loop and the PNG render blocking the
+# executor were, see output/cpu_cleanup/report.md), the lidar e-stop no longer
+# waits for a tick (enable_proximity_event_stop below), and mission
+# stop_conditions count TICKS -- debounce_ticks: 3 in wall_turn_then_straight
+# and drive_straight_to_wall_3m means 300 ms at 10 Hz and would silently
+# become 150 ms at 20 Hz. Change this only together with those missions.
+bt_tick_hz:
+  default: 10.0
+  description: "behavior_executor_node BT tick rate [Hz]. Tick duration p50/p95/max is published at 1 Hz on /diagnostics ('behavior_executor_node: BT tick timing'), with a WARN for any tick over 50% of the period. debounce_ticks in missions/*.json is counted in these ticks."
+# Consumed by: f1tenth_behavior/behavior_bringup.launch.py -> behavior_executor_node
+# -> IsProximityTooClose. cpu-cleanup 2026-10-16. Worst-case time from an
+# obstacle entering the trip zone to the stop command on /safety_stop:
+#   tick-driven only (false): scan period 25 ms (UST-10LX, 40 Hz) + tick
+#     period 100 ms + processing, plus before cpu-cleanup up to one ~80 ms
+#     PNG render blocking the executor -> ~130 ms (~210 ms with the render):
+#     5.2 cm (8.4 cm) at 0.4 m/s, 13 cm (21 cm) at 1.0 m/s.
+#   event-driven (true): scan period 25 ms + one callback (~0.1 ms linus,
+#     well under 1 ms on the Orin) + at most one other callback queued ahead
+#     of it (a tick, a few ms) -> ~30 ms: 1.2 cm at 0.4 m/s, 3 cm at 1.0 m/s.
+# Mux, VESC and braking distance come on top of both and are not changed.
+enable_proximity_event_stop:
+  default: true
+  description: "IsProximityTooClose publishes the emergency Stop (safety_stop, frame_id base_link/emergency) straight from its /scan callback when a scan trips, instead of only on the next BT tick. Same message, same topic; the BT's emergency lane still trips and publishes on its next tick exactly as before. False restores tick-only e-stop latency (up to one bt_tick_hz period more)."
 # Consumed by: f1tenth_behavior/behavior_bringup.launch.py -- IsSystemOverheated's
 # shared CPU/GPU temp threshold (one threshold applied to both rails, not four separate
 # per-rail values -- see that behaviour's own docstring). Only reaches the BT at all if
