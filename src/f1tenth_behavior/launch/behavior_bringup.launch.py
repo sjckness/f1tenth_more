@@ -145,6 +145,7 @@ def generate_launch_description():
         # why bt_tick_hz stays 10 and what the event path does to latency.
         ('bt_tick_hz', float),
         ('enable_proximity_event_stop', bool),
+        ('bt_keep_qos_event_handlers', bool),
     ]
     avoidance_las = []
     for _name, _type in _avoidance_args:

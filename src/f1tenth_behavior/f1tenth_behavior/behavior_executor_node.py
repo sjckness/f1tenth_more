@@ -296,10 +296,14 @@ class _PngRenderWorker:
             self._pending = snapshot
             self._cond.notify()
 
-    def stop(self):
+    def stop(self, join_timeout_s=1.0):
+        """Stop the thread and wait for a render in flight, so nothing is
+        published after tree.shutdown() destroys the node (rclpy would raise
+        InvalidHandle in this thread)."""
         with self._cond:
             self._stopped = True
             self._cond.notify()
+        self._thread.join(timeout=join_timeout_s)
 
     def _run(self):
         while True:
@@ -315,6 +319,9 @@ class _PngRenderWorker:
                 self._node.get_logger().warn(
                     f'BT visualization render failed: {exc!r}', throttle_duration_sec=5.0)
                 continue
+            with self._cond:
+                if self._stopped:
+                    return
             msg = CompressedImage()
             msg.header.stamp = self._node.get_clock().now().to_msg()
             msg.format = 'png'
@@ -864,14 +871,15 @@ def main():
 
     # Last, once every publisher/subscription exists: drop rclpy's default
     # QoS event handlers, a quarter of this node's idle CPU (qos_events.py).
-    keep_qos_event_handlers = bool(
-        node.declare_parameter('bt_keep_qos_event_handlers', False).value)
+    keep_qos_event_handlers = bool(node.declare_parameter(
+        'bt_keep_qos_event_handlers', get_value('bt_keep_qos_event_handlers')).value)
     if not keep_qos_event_handlers:
         dropped = drop_qos_event_handlers(node)
-        node.get_logger().info(
-            f'Dropped {dropped} default QoS event handlers (executor wake-up cost); '
-            'peers still report incompatible QoS. bt_keep_qos_event_handlers:=true '
-            'keeps them.')
+        if dropped:
+            node.get_logger().info(
+                f'Dropped {dropped} default QoS event handlers (executor wake-up cost); '
+                'peers still report incompatible QoS. bt_keep_qos_event_handlers:=true '
+                'keeps them.')
 
     try:
         rclpy.spin(node)

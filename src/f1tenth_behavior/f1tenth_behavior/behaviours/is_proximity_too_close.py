@@ -211,6 +211,8 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         base_front_x_m=None,
         immediate_stop_topic=None,
         immediate_stop_frame_id='base_link/emergency',
+        event_stop_hold_s=0.2,
+        clock=time.monotonic,
     ):
         super().__init__(name=name)
         self.scan_topic = scan_topic
@@ -248,15 +250,37 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         # the scan callback publishes the same zero-speed command the
         # emergency lane's Stop publishes (same topic, same frame_id) the
         # moment a scan trips, instead of waiting up to one BT tick period
-        # for update() to be ticked. The tree still trips on its next tick
-        # exactly as before (update() is unchanged), so /behavior/tree_status,
-        # /safety/event and the lane's own Stop are untouched; this only
-        # removes the tick period from the e-stop latency. None (the default
-        # for standalone construction/tests) keeps the old tick-only path.
+        # for update() to be ticked. None (the default for standalone
+        # construction/tests) keeps the old tick-only path.
+        #
+        # ONE DECISION, TWO CALLERS: both the callback and update() decide
+        # through should_stop() = _active() and _tripped(). Today _active()
+        # is always True -- the only enable condition is structural
+        # (enable_lidar_safety_stop decides whether this object exists at
+        # all, behavior_executor_node.create_root), mission phase, hold,
+        # go_to_object, countdown and preflight never gate it, and it reads
+        # no blackboard key. Any future gate (a docking/reverse override, a
+        # blackboard flag) MUST go into _active(), never into the tree's
+        # structure, or the callback would keep stopping a car the tree has
+        # released; test_bt_tick_and_event_estop.py enforces the structure.
+        #
+        # RE-ARM. The callback publishes only while scans trip. The mux holds
+        # the safety_stop lane for its timeout after the LAST stop (0.2 s,
+        # f1tenth_bringup/config/mux.yaml), then the MPC's /drive wins again.
+        # update() reports SUCCESS for event_stop_hold_s (= that timeout)
+        # after the last callback stop, so the tree never shows "resumed"
+        # while the mux still holds a callback stop -- including a trip that
+        # starts and clears between two ticks, which before this would have
+        # stopped the car for ~200 ms with nothing in /behavior/tree_status
+        # or /safety/event. The reverse (tree stopping, callback not) is the
+        # tree's own Stop, which re-arms on the same 0.2 s mux timeout.
         self.immediate_stop_topic = immediate_stop_topic
         self.immediate_stop_frame_id = immediate_stop_frame_id
         self.immediate_stop_pub = None
         self.immediate_stop_count = 0
+        self.event_stop_hold_s = float(event_stop_hold_s)
+        self._clock = clock
+        self._last_event_stop = None
 
     def setup(self, **kwargs):
         try:
@@ -306,7 +330,8 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         # the single largest cost in behavior_executor_node while the car sat
         # still (~3.5 ms per scan on linus, several times that on the Orin).
         # Same per-sample arithmetic, same order of operations, now over
-        # arrays; test_is_proximity_too_close.py checks it against the loop.
+        # arrays; test_bt_tick_and_event_estop.py (TestVectorisedMatchesTheLoop)
+        # checks it against the loop.
         #
         # Both windows are evaluated independently per sample (not via a
         # continue-past-one-into-the-other chain) so this stays correct even
@@ -345,10 +370,11 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         self.latest_lidar_front_min = min_front
         self.latest_lidar_min_in_window = min_in_window
 
-        if self.immediate_stop_pub is not None and self._tripped():
+        if self.immediate_stop_pub is not None and self.should_stop():
             self.immediate_stop_pub.publish(
                 make_stop_msg(self.node, self.immediate_stop_frame_id))
             self.immediate_stop_count += 1
+            self._last_event_stop = self._clock()
 
         # ---- DIAGNOSTIC (live investigation, see chat) -- throttled, every
         # callback, so "not firing at all" vs. "firing but computing wrong"
@@ -379,9 +405,23 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         )
         return front_tripped or lidar_tripped
 
+    def _active(self) -> bool:
+        """The single enable predicate shared by both stop paths (see
+        __init__, ONE DECISION). No gate exists today."""
+        return True
+
+    def should_stop(self) -> bool:
+        """What both the scan callback and the tick decide on."""
+        return self._active() and self._tripped()
+
+    def _event_stop_held(self) -> bool:
+        """A callback stop the mux is still holding (RE-ARM in __init__)."""
+        return (self._last_event_stop is not None and self._active()
+                and self._clock() - self._last_event_stop <= self.event_stop_hold_s)
+
     def update(self):
         return (
             py_trees.common.Status.SUCCESS
-            if self._tripped()
+            if self.should_stop() or self._event_stop_held()
             else py_trees.common.Status.FAILURE
         )

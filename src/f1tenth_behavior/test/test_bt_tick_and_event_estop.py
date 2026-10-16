@@ -1,10 +1,11 @@
 """cpu-cleanup (2026-10-16): the BT tick timer, its timing report, the
 event-driven lidar e-stop and the vectorised /scan windows.
 
-None of these tests starts rclpy: the ticker and the behaviour are driven
-through a fake node, and the clock is a mock, so the tick rate and the e-stop
-latency are asserted from the code path itself, not from wall time on
-whatever machine runs the test.
+Apart from TestDropQosEventHandlers (rclpy.init, real node) none of these
+tests starts rclpy: the ticker and the behaviour are driven through a fake
+node, and the clock is a mock, so the tick rate and the e-stop latency are
+asserted from the code path itself. They import ROS message packages, so they
+run on the Orin (Humble), not on a machine with another distro.
 """
 
 import ast
@@ -341,6 +342,69 @@ class TestEventDrivenEstop:
         root = create_root()
         prox = [b for b in root.iterate() if isinstance(b, IsProximityTooClose)]
         assert prox[0].immediate_stop_topic is None
+
+
+class TestEventStopScope:
+    """Block 1b: the callback stop and the tree decide through one predicate,
+    under the same enable conditions, and re-arm together."""
+
+    def _prox(self, clock, active=True):
+        behaviour = IsProximityTooClose(
+            front_distance_threshold=0.15, lidar_distance_threshold=0.15,
+            base_front_x_m=0.405, immediate_stop_topic='safety_stop', clock=clock)
+        if not active:
+            behaviour._active = lambda: False
+        node = _FakeNode()
+        behaviour.setup(node=node)
+        return behaviour, node
+
+    def test_active_case_both_paths_stop(self):
+        clock = _FakeClock()
+        behaviour, node = self._prox(clock)
+        behaviour._scan_callback(_front_return_at(0.50))
+        assert len(node.publishers['safety_stop'].msgs) == 1
+        assert behaviour.update() == py_trees.common.Status.SUCCESS
+
+    def test_inactive_case_neither_path_stops(self):
+        # A future gate in _active() (the only place one may go) silences
+        # the callback AND the tick on the very same tripping scan.
+        clock = _FakeClock()
+        behaviour, node = self._prox(clock, active=False)
+        behaviour._scan_callback(_front_return_at(0.50))
+        assert not node.publishers['safety_stop'].msgs
+        assert behaviour.update() == py_trees.common.Status.FAILURE
+
+    def test_disabled_lidar_safety_stop_builds_neither_path(self):
+        root = create_root(enable_lidar_safety_stop=False, enable_proximity_event_stop=True)
+        assert not [b for b in root.iterate() if isinstance(b, IsProximityTooClose)]
+
+    def test_a_sub_tick_trip_is_held_by_the_tree_as_long_as_by_the_mux(self):
+        clock = _FakeClock()
+        behaviour, node = self._prox(clock)
+        behaviour._scan_callback(_front_return_at(0.50))     # trips, publishes
+        clock.now += 0.025
+        behaviour._scan_callback(_front_return_at(3.0))      # clear scan
+        clock.now += 0.050                                   # the next tick
+        assert behaviour.update() == py_trees.common.Status.SUCCESS
+        clock.now += 0.200                                   # mux lane expired
+        assert behaviour.update() == py_trees.common.Status.FAILURE
+        assert len(node.publishers['safety_stop'].msgs) == 1
+
+    def test_the_tree_cannot_bypass_the_emergency_lane(self):
+        """No decorator, guard or earlier lane can stop the tree ticking it
+        while the callback keeps publishing: emergency is root child 0 of a
+        memory=False Selector, IsProximityTooClose sits directly in it, and it
+        reads no blackboard key."""
+        root = create_root(enable_proximity_event_stop=True)
+        assert isinstance(root, py_trees.composites.Selector) and not root.memory
+        emergency = root.children[0]
+        assert emergency.name == 'emergency'
+        condition = emergency.children[0]
+        assert isinstance(condition, py_trees.composites.Selector) and not condition.memory
+        prox = [c for c in condition.children if isinstance(c, IsProximityTooClose)]
+        assert len(prox) == 1 and prox[0].blackboards == []
+        for node in (emergency, condition, prox[0]):
+            assert not isinstance(node, py_trees.decorators.Decorator)
 
 
 # ------------------------------------- vectorised windows == the old loop

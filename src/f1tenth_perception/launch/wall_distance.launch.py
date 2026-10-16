@@ -70,7 +70,7 @@ from f1tenth_params.param_defaults import get_default
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import AndSubstitution, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -206,9 +206,10 @@ def generate_launch_description():
         description=enable_desc))
 
     node = Node(
-        condition=IfCondition(PythonExpression([
-            "'", LaunchConfiguration('use_lidar'), "'.lower() == 'true' and '",
-            LaunchConfiguration('enable_wall_distance'), "'.lower() == 'true'"])),
+        # AndSubstitution (launch 1.0.x, Humble) takes 'true'/'1'/... like a
+        # plain IfCondition does, so use_lidar:=1 keeps working.
+        condition=IfCondition(AndSubstitution(
+            LaunchConfiguration('use_lidar'), LaunchConfiguration('enable_wall_distance'))),
         package='f1tenth_perception',
         executable='wall_distance_node',
         name='wall_distance_node',

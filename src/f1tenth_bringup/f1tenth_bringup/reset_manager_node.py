@@ -74,6 +74,7 @@ from action_msgs.srv import CancelGoal
 from geometry_msgs.msg import PoseWithCovarianceStamped
 from nav_msgs.msg import Odometry
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.exceptions import InvalidHandle
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
@@ -498,7 +499,18 @@ def main(args=None):
     executor = MultiThreadedExecutor(num_threads=4)
     executor.add_node(node)
     try:
-        executor.spin()
+        # Not executor.spin(): _close_watches (end of every /reset_all, on a
+        # worker thread) destroys the watch subscriptions and the hold timer.
+        # If the executor had already marked one ready, the worker taking from
+        # it raises InvalidHandle (Humble rclpy executors.py:385-400, take
+        # without a guard at :477-478, re-raised by spin_once at :857-860),
+        # which would end this node. That sample is moot -- the reset that
+        # wanted it is over -- so it is dropped and spinning continues.
+        while rclpy.ok():
+            try:
+                executor.spin_once()
+            except InvalidHandle:
+                continue
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:

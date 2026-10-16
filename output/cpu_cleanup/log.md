@@ -13,3 +13,9 @@
 - 2026-10-16T15:13:28+02:00 point 5: pinning table written (proposal only, nothing applied).
 - 2026-10-16T15:13:28+02:00 point 6: py_compile 23 files OK; flake8 E/W/F no new errors; ament lint no new findings; pytest new vs base: identical failure sets except base-only test_watch_objects errors (tools/ missing from the base extract). Launch diffs in report.md.
 - 2026-10-16T15:13:28+02:00 report written; nothing pushed.
+
+# Round 2 (Blocks 1-4) — rules: target Humble; no build, no stack, no benchmarks on linus; only py_compile, flake8 E/W/F and distro-neutral pure-Python tests here.
+- 2026-10-16T15:24:08+02:00 Humble Python sources copied read-only from the Orin (fabiocar@jetson-orin) to the session scratchpad humble_src/: rclpy 3.3.21 (/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy), py_trees_ros pkg 2.4.0 (version.py 2.2.2), py_trees 2.4.0, tf2_ros 0.25.20, launch/launch_ros 0.19.13, rosbag2_py 0.15.16. Orin python 3.10.12, numpy 1.26.4.
+- 2026-10-16T15:24:08+02:00 bag corridor10m_20261016T144537 is NOT on linus (it is on the Orin under ~/bags/; seen only by name). Block 4c therefore becomes an Orin command.
+- 2026-10-16T15:24:08+02:00 understanding workflow launched (5 readers + 5 skeptics, read-only).
+- 2026-10-16T15:44:29+02:00 Block 1 done: py_compile + ast(3.10) OK on all touched files, flake8 E/W/F no new, pure test test_qos_events_fallback.py 8 passed in a ROS-free env (env -i, no rclpy). ROS-dependent tests written, not run here (run on Orin): test_bt_tick_and_event_estop.py (incl. new TestEventStopScope), test_wall_distance_launch.py.

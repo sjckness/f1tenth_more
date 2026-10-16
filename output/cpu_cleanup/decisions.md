@@ -177,3 +177,62 @@
   New risk: DDS discovery of the fresh readers (~10-100 ms locally) eats into stop.timeout_s
   (5 s) -- negligible, but a "to verify on the Orin" item.
 - linus bench (odom, global odom, /odom at 50 Hz): 10.9% -> 0.0%.
+
+# Round 2
+
+## R2-D1a — Humble compatibility: no required change to commits 1-4; drop hardened anyway
+- Read against the Humble sources copied from the Orin (humble_src/: rclpy 3.3.21, py_trees_ros
+  2.4.0 pkg / version.py 2.2.2): Node.publishers/subscriptions/waitables (rclpy/node.py:231/236/261),
+  remove_waitable (:1213), entity.event_handlers list (publisher.py:57, subscription.py:70),
+  destroy_publisher/subscription iterate it (node.py:1562/1580), QoSEventHandler.destroy
+  (qos_event.py:125); py_trees_ros BehaviourTree sets self.timer=None in __init__ (trees.py:270)
+  and shutdown() cancels/destroys it (:549-551). All 22 changed .py files parse with
+  ast feature_version=(3,10). Humble makes ONE default handler per entity (qos_event.py:160-214),
+  Jazzy about two, so the BT saving on the Orin is smaller than the linus figure -> to measure.
+- Decision: still harden: drop_qos_event_handlers probes every internal first and is a no-op
+  with exactly one WARN if any is missing; per-handler node+entity consistency so a failure
+  part-way never leaves a handler destroy_* would remove twice; never raises.
+  Alternatives: leave as is (works on Humble today). Why: the brief asks for it, and an rclpy
+  upgrade must not be able to take the e-stop node down at startup.
+- Found by the review and fixed here (not Humble-specific):
+  * reset_manager (commit 4) destroys watch subs/timer from a worker thread at the end of
+    /reset_all; a sub already marked ready raises InvalidHandle in the worker's take
+    (Humble executors.py:385-400, :477-478, re-raised :857-860) and would end the node.
+    main() now spins with spin_once in a loop that drops InvalidHandle. Alternative:
+    keep subscriptions permanent (back to the idle cost).
+  * _PngRenderWorker.stop() now joins (1 s) and the thread never publishes after stop:
+    a render in flight could publish on a destroyed node at shutdown.
+  * bt_keep_qos_event_handlers was node-local, unreachable from launch: now stack_params +
+    typed launch arg.
+  * wall_distance.launch.py condition: PythonExpression(... == 'true') rejected `1`; now
+    AndSubstitution (Humble launch/substitutions/boolean_substitution.py:68), same truthiness
+    as IfCondition.
+  * costmap package.xml: exec_depend tf2_msgs (semantic_layer imports TFMessage directly).
+  * stale tick_tock/bt_loop_duration_ms mentions in docs and two docstrings.
+
+## R2-D1b — event e-stop: one predicate, tree holds as long as the mux
+- Scope (understand/estop_scope.md): one construction site (create_root, gated only by
+  enable_lidar_safety_stop at construction, so both paths exist or neither); update() reads no
+  blackboard key and no runtime param; mission phases, countdown, preflight, /mpc/hold,
+  go_to_object/docking (gap_min >= 0.42 m > 0.15 m), operator e-stop latch never gate it; no
+  reverse move type exists (drive speed>=0, turn speed>0, MPC max_reverse_speed_mps=0.0); the
+  emergency lane is root child 0 of memory=False Selectors, re-ticked every tick.
+- Decision: should_stop() = _active() and _tripped() decides for BOTH the callback and update();
+  _active() is the single place for any future gate (today True). update() also reports
+  SUCCESS for event_stop_hold_s (0.2 s = mux safety_stop timeout) after the last callback stop.
+  Structural test: emergency = root.children[0], memory=False, no decorator, no blackboard.
+- Alternatives: leave update() = _tripped() only. Why not: a trip shorter than a tick was
+  actuated by the callback (mux holds ~200 ms) but invisible in /behavior/tree_status and
+  /safety/event -- exactly the "callback stops while the tree has resumed" state the brief
+  forbids. Cost: after such a trip the tree's own Stop runs on the next tick, so the hold can
+  end up to one tick later than the callback's alone.
+- Remaining "tree stops, callback does not" states, all fail-safe: another emergency cause
+  (battery/operator/overheat); <=1 tick status lag after a clear scan; /scan stopping after a
+  tripping scan (tree stops until a scan arrives). Pre-existing gaps reported, not changed:
+  no /scan freshness guard (a stalled /scan after a clear scan disarms both paths), preflight
+  does not require /scan, rear side window measured from the laser.
+
+## R2-D1c — semantic_layer_tf_static_only in stack_params with the camera-pan warning
+- The node param default now comes from stack_params (single source), with the comment "must be
+  false if the camera pan joint is ever enabled" next to it. Alternative: comment only in the
+  node. Why: the brief asks for it in stack_params, and a key there is where an operator looks.

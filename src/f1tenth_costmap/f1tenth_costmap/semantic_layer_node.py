@@ -117,6 +117,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray
 from f1tenth_params.object_geometry import footprint_radius
+from f1tenth_params.param_defaults import get_value
 from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
 
 from f1tenth_costmap.semantic_layer import (
@@ -265,8 +266,10 @@ class SemanticLayerNode(Node):
         # /tf_static alone -- the same "a handful of fixed edges, no
         # TransformListener" choice yolo_detector_node and front_clearance_node
         # already make. tf_static_only:=false restores the full listener, for
-        # a detections frame reached through a moving joint.
-        self.declare_parameter('tf_static_only', True)
+        # a detections frame reached through a moving joint -- REQUIRED if the
+        # camera pan joint is ever enabled (stack_params.yaml
+        # semantic_layer_tf_static_only, where the default lives).
+        self.declare_parameter('tf_static_only', get_value('semantic_layer_tf_static_only'))
         self.tf_buffer = Buffer()
         self.tf_listener = None
         self.tf_static_sub = None

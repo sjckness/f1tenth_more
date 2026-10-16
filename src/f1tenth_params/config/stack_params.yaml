@@ -2095,6 +2095,9 @@ bt_tick_hz:
 #     well under 1 ms on the Orin) + at most one other callback queued ahead
 #     of it (a tick, a few ms) -> ~30 ms: 1.2 cm at 0.4 m/s, 3 cm at 1.0 m/s.
 # Mux, VESC and braking distance come on top of both and are not changed.
+bt_keep_qos_event_handlers:
+  default: false
+  description: "behavior_executor_node keeps rclpy's default incompatible-QoS event handlers (true) or drops them after setup (false, cpu-cleanup): each is re-checked on every executor wake-up. Peers still report a QoS mismatch. On an rclpy whose internals differ, the drop is a no-op with one WARN."
 enable_proximity_event_stop:
   default: true
   description: "IsProximityTooClose publishes the emergency Stop (safety_stop, frame_id base_link/emergency) straight from its /scan callback when a scan trips, instead of only on the next BT tick. Same message, same topic; the BT's emergency lane still trips and publishes on its next tick exactly as before. False restores tick-only e-stop latency (up to one bt_tick_hz period more)."
@@ -2826,6 +2829,15 @@ wall_clear_distance_m:
   description: "The value the front wall topics carry when the sensors are working and there is NO wall in the way (wall_fusion.STATE_CLEAR). A large FINITE number, and it is not a wall at 50 m: it means 'nothing ahead'. SHARED -- every producer and consumer of a wall distance reads this one key, so 'clear' is the same number everywhere. It must stay far above any mission's stop threshold and any MPC trigger distance, and consumers must CAP or SKIP it rather than feed it into geometry (MPC_corr treats it as unknown). The state this expresses is what the old pipeline could not: with nothing in the strip the LiDAR reported too_few_returns and the stereo plane -- the SIDE wall -- became the front wall at 1.1 m (corridor_phantom, 2026-10-15)."
 
 # --- wall visualisation and the semantic wall layer (step 7) -----------------
+# Consumed by: f1tenth_costmap/semantic_layer_node.py (its tf_static_only
+# parameter, default single-sourced from here). cpu-cleanup 2026-10-16.
+# MUST BE false IF THE CAMERA PAN JOINT IS EVER ENABLED (camera_pan_enabled on
+# the branches that have it): the camera -> base_link chain then runs through
+# a moving joint published on /tf, not /tf_static, every detections lookup
+# fails (throttled WARN, batch skipped) and /costmap/semantic_tracks goes empty.
+semantic_layer_tf_static_only:
+  default: true
+  description: "semantic_layer_node reads TF from the latched /tf_static only (no TransformListener, which deserialises every /tf message). Correct while every joint between the camera and base_link is fixed (sensors.xacro). Set false whenever the camera pan joint is enabled."
 lidar_front_wall_wall_marker_thickness_m:
   default: 0.02
   description: "Thickness [m] of the vertical slab each confirmed wall is drawn as on /perception/walls/markers. A wall is a vertical PLANE, so it is drawn as one rather than as a line on the floor: the slab runs the wall's observed length and stands from z_min to z_max. A wall whose height was only assumed (height_measured false) is drawn fainter, so an assumed 2.5 m is visible at a glance."
