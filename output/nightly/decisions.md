@@ -59,3 +59,21 @@ is visible in the output -- flake8 is walking the untracked `install_base573/`
 and `build_base573/` trees in the repo root, e.g.
 `./install_base573/zed_wrapper/share/zed_wrapper/launch/zed_camera.launch.py:48:1:
 W293`. Left alone, as instructed.
+## G — intensity is normalised by range squared
+
+A return's energy falls as 1/r^2 and every comparison in G is between surfaces
+at different distances (the glass is at ~2 m, the other verified walls at
+1.3-6 m), so the feature is `i * (r / 1 m)^2` with the raw value kept beside it
+in `beams.csv`.
+
+- Alternative: compare raw intensity. Rejected: it would measure range, not
+  material, and the two classes here differ in range.
+- No calibration curve for this unit exists in the repo, so the exponent is the
+  textbook one and is stated rather than fitted.
+
+## G — the ground truth is the rectangle's own flags, not track ids
+
+A track is GLASS when the node says VERIFIED and glass in the majority of its
+verified cycles, NORMAL when VERIFIED and not glass. Ids are not stable (the
+replay starts cold, so they differ from the recorded run and between passes),
+and the point itself says to use the flags.
