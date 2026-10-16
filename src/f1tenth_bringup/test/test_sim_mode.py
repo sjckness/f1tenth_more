@@ -127,6 +127,16 @@ def test_cmd_with_sim_wraps_the_same_launch_file_and_args():
                         'sim_params_file:=/o.yaml', 'a:=1']
 
 
+def test_cmd_with_sim_time_only_leaves_out_the_empty_overlay():
+    # use_sim_time:=true with sim:=none: no overlay, and `sim_params_file:=` would be a
+    # malformed ros2 launch argument
+    proc = _ComponentProcess('pkg', 'file.launch.py', {'a': '1'}, '/tmp/log',
+                             sim_wrapper_args={'sim_params_file': ''})
+    assert proc.cmd == ['ros2', 'launch', 'f1tenth_bringup', 'sim_component.launch.py',
+                        'component_package:=pkg', 'component_launch_file:=file.launch.py',
+                        'a:=1']
+
+
 def _static_tf_node(path, name):
     """Return (executable, arguments) of the Node(name=<name>) in a launch file, by AST."""
     tree = ast.parse(open(path).read())

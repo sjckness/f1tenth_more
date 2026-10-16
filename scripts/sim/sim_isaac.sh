@@ -8,7 +8,7 @@
 #   scripts/sim/sim_isaac.sh isaac [--scene base_room|office|hospital] [--gui]   # sim host (linus)
 #   scripts/sim/sim_isaac.sh stack [ros2-launch args ...]                        # stack host (Thor or linus)
 #   scripts/sim/sim_isaac.sh all   [--scene ...] [--gui] [ros2-launch args ...]  # both on linus; Ctrl+C stops both
-#   scripts/sim/sim_isaac.sh reset                                               # call /sim/reset
+#   scripts/sim/sim_isaac.sh reset [--net eth]                                   # call /sim/reset
 #
 # Options (any subcommand):
 #   --net local|eth   ROS network (default local):
@@ -46,6 +46,7 @@
 #   F1T_SIM_HOST_OVERLAY sim_overlay_extra for supervisor_bringup (default: config/sim/hosts/
 #                        linus.yaml when this host has fewer than 12 CPUs; 'none' to disable)
 #   F1T_SIM_CLOCK_WAIT   seconds 'stack' waits for /clock (default 30)
+#   F1T_SIM_LOG_DIR      where 'all' writes isaac.log (default: a temporary dir, removed on exit)
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -eo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -61,7 +62,7 @@ ISAAC_CONTAINER="${ISAAC_CONTAINER_NAME:-f1t_isaac}"
 MIN_FREE_DISK_GB=25
 CLOCK_WAIT="${F1T_SIM_CLOCK_WAIT:-30}"
 
-usage() { sed -n '2,48p' "$0"; }
+usage() { sed -n '2,49p' "$0"; }
 log() { echo "[sim_isaac $(date +%H:%M:%S)] $*"; }
 die() { echo "[sim_isaac] ERROR: $*" >&2; exit 1; }
 
@@ -94,8 +95,14 @@ case "$DOMAIN" in ''|*[!0-9]*) die "--domain must be a number, got '$DOMAIN'" ;;
 if [ "$NET" = eth ]; then
   DS_ADDR="$F1TENTH_SIM_DISCOVERY_IP"
   # This host's address on the route to the Thor (the Thor itself: its own link address).
-  LINK_IP="$(ip -o -4 route get "$DS_ADDR" 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')"
-  [ -n "$LINK_IP" ] || die "no route to F1TENTH_SIM_DISCOVERY_IP=$DS_ADDR (is the link up? see --help)"
+  ROUTE="$(ip -o -4 route get "$DS_ADDR" 2>&1)" \
+    || die "no route to F1TENTH_SIM_DISCOVERY_IP=$DS_ADDR: $ROUTE (is the link up? see --help)"
+  # A route via a gateway means the direct link is down and traffic would leave on the LAN.
+  case "$ROUTE" in
+    *" via "*) die "the route to $DS_ADDR goes via a gateway, not the direct link ($ROUTE): is the cable up?" ;;
+  esac
+  LINK_IP="$(sed -n 's/.* src \([0-9.]*\).*/\1/p' <<< "$ROUTE")"
+  [ -n "$LINK_IP" ] || die "no source address on the route to $DS_ADDR ($ROUTE)"
 else
   DS_ADDR=127.0.0.1
   LINK_IP=127.0.0.1
@@ -139,9 +146,14 @@ ros_env() {
 }
 
 DS_PID=""; ISAAC_STARTED=false; STACK_PID=""
+descendants() {  # <pid> -> all descendant pids, deepest first
+  local c
+  for c in $(pgrep -P "$1"); do descendants "$c"; echo "$c"; done
+}
 cleanup() {
   local rc=$?
-  trap - EXIT INT TERM
+  trap - EXIT
+  trap '' INT TERM   # a second Ctrl+C or the caller's SIGTERM must not cut the shutdown short
   if [ -n "$STACK_PID" ] && kill -0 "$STACK_PID" 2>/dev/null; then
     # SIGINT = Ctrl+C for ros2 launch: it stops the supervisor, which stops its components.
     log "stopping the stack (SIGINT to the launch, up to 30 s)"
@@ -158,10 +170,15 @@ cleanup() {
   fi
   if [ -n "$DS_PID" ] && kill -0 "$DS_PID" 2>/dev/null; then
     log "stopping the Discovery Server this script started (pid $DS_PID)"
-    # fastdds is a Python wrapper around fast-discovery-server: stop the child, then it.
-    pkill -INT -P "$DS_PID" 2>/dev/null || true
-    sleep 0.5
-    kill "$DS_PID" 2>/dev/null || true
+    # ensure_discovery_server.py execs `fastdds` (sh -> fastdds.py -> fast-discovery-server):
+    # signal the whole tree, leaves first.
+    local tree
+    tree="$(descendants "$DS_PID") $DS_PID"
+    # shellcheck disable=SC2086  # word splitting of the pid list is intended
+    kill -INT $tree 2>/dev/null || true
+    sleep 1
+    # shellcheck disable=SC2086
+    kill -TERM $tree 2>/dev/null || true   # survivors only; the dead ones just fail
   fi
   rm -rf "$TMPD"
   exit "$rc"
@@ -183,9 +200,12 @@ ensure_discovery_server() {
 
 wait_for_clock() {  # <timeout_s>
   local t="$1"
-  if $DRY; then echo "  timeout $t ros2 topic echo --once /clock rosgraph_msgs/msg/Clock"; return; fi
+  if $DRY; then echo "  timeout --foreground $t ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock"; return; fi
   log "waiting up to ${t}s for /clock (domain $ROS_DOMAIN_ID, Discovery Server $DS) ..."
-  if timeout "$t" ros2 topic echo --once /clock rosgraph_msgs/msg/Clock > "$TMPD/clock.txt" 2>&1; then
+  # --foreground: Ctrl+C reaches the echo (timeout otherwise makes its own process group and
+  # bash defers the INT trap until it returns); --no-daemon: no ros2 daemon outlives the script.
+  if timeout --foreground "$t" ros2 topic echo --once --no-daemon /clock rosgraph_msgs/msg/Clock \
+      > "$TMPD/clock.txt" 2>&1; then
     log "/clock received: $(grep -E 'sec:' "$TMPD/clock.txt" | head -1 | tr -s ' ')"
   else
     die "no /clock within ${t}s: the Isaac sim is not reachable. Start it ('$0 isaac --net $NET'), \
@@ -303,11 +323,13 @@ case "$CMD" in
     $CLEAN && ! $DRY && python3 "$REPO/scripts/kill_ros2.py" -y
     ensure_discovery_server
     isaac_cmd
-    echo "== Isaac Sim (background; log $TMPD/isaac.log) =="
+    ISAAC_LOG="${F1T_SIM_LOG_DIR:-$TMPD}/isaac.log"
+    mkdir -p "$(dirname "$ISAAC_LOG")"
+    echo "== Isaac Sim (background; log $ISAAC_LOG) =="
     echo "cmd: ${ISAAC_ARGS[*]}"
     if ! $DRY; then
       ISAAC_STARTED=true
-      env "${ISAAC_ENV[@]}" "${ISAAC_ARGS[@]}" < /dev/null > "$TMPD/isaac.log" 2>&1 &
+      env "${ISAAC_ENV[@]}" "${ISAAC_ARGS[@]}" < /dev/null > "$ISAAC_LOG" 2>&1 &
     fi
     # Isaac needs 20-70 s to the first /clock (shader cache warm); then the stack.
     CLEAN=false
@@ -315,5 +337,5 @@ case "$CMD" in
   reset)
     ros_env
     if $DRY; then echo "ros2 service call /sim/reset std_srvs/srv/Trigger"; exit 0; fi
-    timeout 20 ros2 service call /sim/reset std_srvs/srv/Trigger ;;
+    timeout --foreground 20 ros2 service call /sim/reset std_srvs/srv/Trigger ;;
 esac

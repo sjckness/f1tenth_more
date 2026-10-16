@@ -13,7 +13,7 @@ scripts/sim/sim_isaac.sh all --scene base_room
 # two machines (direct cable; F1TENTH_SIM_DISCOVERY_IP defaults to 10.42.0.2, the Thor):
 scripts/sim/sim_isaac.sh isaac --net eth --scene base_room    # linus
 scripts/sim/sim_isaac.sh stack --net eth                      # Thor
-scripts/sim/sim_isaac.sh reset                                # /sim/reset, either machine
+scripts/sim/sim_isaac.sh reset --net eth                      # /sim/reset, either machine (same --net/--domain as the pair)
 
 # by hand, without the script (same as the car plus two arguments):
 ros2 launch f1tenth_bringup supervisor_bringup.launch.py sim:=isaac [use_sim_time:=true]
@@ -67,10 +67,19 @@ Before = the worktree at d529557 (Phase 2), built. After = the Phase 3 tree. Pat
 
 | arguments | before vs after |
 |---|---|
-| (none) | **IDENTICAL** (byte-identical JSON, 0 diff lines); 15 auto-started components, 38 resolved processes |
+| (none) | **IDENTICAL** (byte-identical JSON, 0 diff lines); 15 auto-started components, 38 processes (37 resolved, 1 launch file not loadable here) |
 | `sim:=none use_sim_time:=false` | IDENTICAL |
 | `calibration:=true` | IDENTICAL |
 | `enable_intelligence:=false` | IDENTICAL |
+
+Limits of the snapshot. Off the car, a few files resolve only partly, the same way on both sides:
+- `camera.launch.py` does not load on linus (InvalidLaunchFileError: the ZED wrapper is not built here).
+- `vesc.launch.py` resolves to `vesc_driver_node` (package not found, recorded as unresolved) and `battery_voltage_check_node`. Its downstream nodes (ackermann_to_vesc, vesc_to_odom, `static_baselink_to_imu`) start from event handlers at run time, which a static walk cannot see.
+- `lidar.launch.py`'s urg_node is unresolved, for the same reason as vesc_driver.
+
+For these files the evidence is the supervisor's command line, which the snapshot does cover, plus their sources: `git diff d529557 HEAD -- src/f1tenth_perception/launch/camera.launch.py src/f1tenth_perception/launch/lidar.launch.py src/f1tenth_hardware/f1tenth_hardware/launch/vesc.launch.py` is empty.
+
+Also covered: `use_sim_time:=true` with `sim:=none` (clock only). The first version emitted a malformed `sim_params_file:=` (adversarial review C1, fixed with a unit test).
 
 The files are in `launch_snapshots/`. `isaac_linus.json` is the sim-mode snapshot:
 - all 54 nodes, including composables, resolve `use_sim_time: True`;
@@ -80,7 +89,7 @@ The files are in `launch_snapshots/`. `isaac_linus.json` is the sim-mode snapsho
 
 ## 4. Tests
 
-- `src/f1tenth_bringup/test/test_sim_mode.py`, 14 tests:
+- `src/f1tenth_bringup/test/test_sim_mode.py`, 15 tests (the 15th was added after the review: `use_sim_time:=true` alone leaves out the empty overlay argument):
   - drivers removed, and replacements in place;
   - unknown components are rejected;
   - overlay precedence;
@@ -89,7 +98,7 @@ The files are in `launch_snapshots/`. `isaac_linus.json` is the sim-mode snapsho
   - the ZED frames use the v4 names.
 - `src/f1tenth_behavior/test/test_preflight.py::TestActuationNode`, 3 tests. The default actuation requirement is the very object the car uses.
 
-All 28 tests in both files pass. The bringup package's lint tests (flake8, pep257, copyright) failed before Phase 3 too. Phase 3 adds no flake8 finding in the files it touches (`ament_flake8` per-file counts are equal before and after, apart from a `sys.path` import-order note in the new test).
+All 29 tests in both files pass. The bringup package's lint tests (flake8, pep257, copyright) failed before Phase 3 too. Phase 3 adds no flake8 finding in the files it touches (`ament_flake8` per-file counts are equal before and after, apart from a `sys.path` import-order note in the new test).
 
 ## 5. TF owners (live, `sim_isaac.sh all`, base_room)
 
@@ -108,6 +117,7 @@ What the check found:
 - Every child frame has exactly one parent.
 - No static edge is carried by two `/tf_static` messages.
 - Isaac publishes nothing on `/tf` or `/tf_static`, because of `publish_static_tf=false`.
+- Run 1's `odom->base_link vs /odometry/filtered` comparison failed: all 118 same-stamp values differed. Cause: `ekf.yaml` `transform_time_offset: 0.05` post-dates the TF. `tf_owners.py` now compares each TF with the EKF output 50 ms earlier (`--odom-offset`, D22), and the values then match exactly. Evidence: the e2e runs' `tf.md` (step 4 PASS).
 - The laser is at z 0.20 on this branch; the 2026-10-15 car TF says 0.19. That is campaign-final 7b17e2f's value, not changed by the port. It does not matter for a 2D scan.
 
 ## 6. Topic coverage (live)

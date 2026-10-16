@@ -10,7 +10,8 @@ its effects instead of by name:
     edge carried by more than one /tf_static message has more than one publisher;
   - /tf: two publishers of one edge show up as one stamp with two different values;
   - --odom-check: every odom->base_link on /tf must equal the EKF's /odometry/filtered pose
-    at the same stamp (so robot_localization, not the simulator, owns it).
+    of the stamp --odom-offset earlier (robot_localization's transform_time_offset), so
+    robot_localization, not the simulator, owns it.
 Also: every child frame has exactly one parent, and
   --pose parent:child:x,y,z[,qx,qy,qz,qw] compares an edge's values within --tol.
 /tf publisher node names (graph API) are listed for the record. Exit code 1 if a check fails.
@@ -32,6 +33,9 @@ def main():
     ap.add_argument('--listen', type=float, default=8.0)
     ap.add_argument('--odom-check', default='/odometry/filtered',
                     help="EKF output topic odom->base_link must match ('' to skip)")
+    ap.add_argument('--odom-offset', type=float, default=0.05,
+                    help='robot_localization transform_time_offset of the local EKF '
+                         '(ekf.yaml: 0.05 s): the TF is stamped this much after the output')
     ap.add_argument('--pose', nargs='*', default=[])
     ap.add_argument('--tol', type=float, default=1e-3)
     ap.add_argument('--json')
@@ -107,12 +111,19 @@ def main():
             failures.append(f'{c}: {len(ps)} parents {sorted(ps)}')
     odom = {}
     if a.odom_check:
-        common = sorted(set(odom_tf) & set(ekf))
+        off = int(round(a.odom_offset * 1e9))
+
+        def back(st):
+            ns = st[0] * 1_000_000_000 + st[1] - off
+            return (ns // 1_000_000_000, ns % 1_000_000_000)
+        pairs = {st: back(st) for st in odom_tf if back(st) in ekf}
+        common = sorted(pairs)
         diff = [s_ for s_ in common
-                if max(abs(x - y) for x, y in zip(odom_tf[s_], ekf[s_])) > 1e-4]
-        odom = {'tf_msgs': len(odom_tf), 'ekf_msgs': len(ekf), 'same_stamp': len(common),
+                if max(abs(x - y) for x, y in zip(odom_tf[s_], ekf[pairs[s_]])) > 1e-4]
+        odom = {'tf_msgs': len(odom_tf), 'ekf_msgs': len(ekf), 'stamp_offset_s': a.odom_offset,
+                'matched_stamps': len(common),
                 'value_mismatch': len(diff),
-                'mismatch_samples': [{'stamp': s_, 'tf': odom_tf[s_], 'ekf': ekf[s_]}
+                'mismatch_samples': [{'stamp': s_, 'tf': odom_tf[s_], 'ekf': ekf[pairs[s_]]}
                                      for s_ in diff[:3]]}
         if not odom_tf:
             failures.append('odom->base_link: not on /tf')

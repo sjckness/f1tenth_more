@@ -560,7 +560,9 @@ class _ComponentProcess:
             cmd = ['ros2', 'launch', *_SIM_WRAPPER,
                    f'component_package:={self.package}',
                    f'component_launch_file:={self.launch_file}']
-            cmd += [f'{k}:={v}' for k, v in self.sim_wrapper_args.items()]
+            # An empty value would be `k:=`, which ros2 launch rejects as malformed: leave it
+            # out, the wrapper's own default ('') applies (use_sim_time:=true without sim:=).
+            cmd += [f'{k}:={v}' for k, v in self.sim_wrapper_args.items() if v != '']
         cmd += [f'{k}:={v}' for k, v in self.args.items()]
         return cmd
 

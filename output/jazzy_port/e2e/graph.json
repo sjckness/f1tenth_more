@@ -1,0 +1,1 @@
+{"summary": {"SIM": 10, "STACK": 97, "MISSING": 12, "UNUSED_SIM": 8}, "nodes": 61, "missing": ["/calibration_drive", "/cmd_vel_nav", "/ekf_global/set_pose", "/imu", "/mission/load_path", "/model/virtual_robot/odometry", "/sensors/core", "/set_pose", "/slam_toolbox/feedback", "/teleop", "/test_campaign/logger_status", "/zed2/joint_states"], "missing_not_allowed": []}
