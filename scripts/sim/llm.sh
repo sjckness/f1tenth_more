@@ -41,7 +41,8 @@ if [ -n "${F1T_LLM_INNER:-}" ]; then
       503) [ $((SECONDS - t0)) -ge "$HEALTH_WAIT" ] \
              && die "llama-server still loading its model after ${HEALTH_WAIT}s (/health 503)"
            log "llama-server loading the model (/health 503), waiting ..."; sleep 2 ;;
-      *) die "llama-server not reachable at $base (/health: ${code:-no answer}). It runs on the stack host \
+      *) [ "$code" = 000 ] && code="no answer"
+         die "llama-server not reachable at $base (/health: ${code:-no answer}). It runs on the stack host \
 only (localhost): start the stack there with scripts/sim/sim_stack.sh (enable_intelligence:=true) and \
 run llm.sh on that host." ;;
     esac
