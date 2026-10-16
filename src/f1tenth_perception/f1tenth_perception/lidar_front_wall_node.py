@@ -331,6 +331,7 @@ from corridor_perception import extraction
 from f1tenth_perception import multi_wall_tracker as mwt
 from f1tenth_perception import scene_labels, scene_mask, wall_fusion
 from f1tenth_perception.ground_plane import quat_to_matrix
+from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 
 # Same profile tf2_ros.TransformListener uses for /tf_static: the static
 # broadcasters latch, so a late subscriber still receives every edge.
@@ -547,6 +548,14 @@ class LidarFrontWallNode(Node):
             self.get_logger().warn(warning)
         #: What each extraction gate dropped on the last scan, for the debug payload.
         self._extract_stats = {}
+        # The tracker runs on one scan in N (see WALL TRACKER DECIMATION).
+        # Deterministic: a counter, not a clock, so a replay of the same bag
+        # processes the same scans in the same order every time.
+        self.tracker_decimation = max(1, int(param('wall_tracker_scan_decimation', 4)))
+        self._scan_count = -1
+        #: Scans the decimation skipped since the last processed one, for the
+        #: debug payload and for the one-line startup message.
+        self._tracker_skipped = 0
         self._poses = mwt.PoseHistory()
         self._odom_frame = 'odom'
         self._wall_source = 'sequential_lines'
@@ -637,9 +646,15 @@ class LidarFrontWallNode(Node):
             self.walls_markers_pub = self.create_publisher(
                 MarkerArray, '/perception/walls/markers', 10)
         # Best-effort on purpose -- see the module docstring's NO COUPLING TO
-        # THE E-STOP section.
+        # THE E-STOP section -- and DEPTH 1 since the decimation: this node is
+        # the slowest /scan consumer in the stack, and a queue deeper than one
+        # hands the executor the OLDEST scan it holds, so every scan waits for
+        # the ones queued ahead of it (latest_frame_qos.py's own measurement,
+        # 373 ms of queueing on yolo_detector_node). With depth 1 DDS drops
+        # the older scans instead of this node working through them late.
+        # Still BEST_EFFORT, so it still cannot back-pressure urg_node.
         self.scan_sub = self.create_subscription(
-            LaserScan, self.scan_topic, self._scan_cb, qos_profile_sensor_data)
+            LaserScan, self.scan_topic, self._scan_cb, LATEST_FRAME_QOS)
 
         self.get_logger().info(
             f'lidar_front_wall_node up: {self.scan_topic} -> {self.fit_topic}, '
@@ -1095,7 +1110,7 @@ class LidarFrontWallNode(Node):
                 'sectors': [[round(a, 4), round(b, 4)] for a, b in sectors],
                 'walls': [w.to_dict() for w in lines]})))
             self._lines = lines
-        if self.wall_tracker is not None:
+        if self.wall_tracker is not None and self._tracker_due():
             # With the tracker on, the observations are built from ITS
             # per-scan extraction (adaptive breakpoints, IEPF, a covariance
             # per segment) rather than the 5 Hz sequential_lines above, and
@@ -1105,6 +1120,14 @@ class LidarFrontWallNode(Node):
                 self._tracked_wall, self._wall_source = front, 'tracker'
             elif self._wall_source == 'tracker':
                 self._tracked_wall, self._wall_source = self._seq_wall, 'sequential_lines'
+        elif self.wall_tracker is not None:
+            # A SKIPPED scan: the tracker's last answer stands. Not NO_DATA --
+            # the tracker's verdict is a 10 Hz quantity published at the scan
+            # rate, and flapping the contract three scans in four would be a
+            # worse lie than repeating a 75 ms old one. _front_d_ray,
+            # _tracker_has_data and _tracked_wall are all left exactly as the
+            # last processed scan left them.
+            self._tracker_skipped += 1
         else:
             self._publish_observations(stamp, scan_stamp, self._lines, pts)
         wall = scene_labels.refit_wall(
@@ -1181,6 +1204,10 @@ class LidarFrontWallNode(Node):
             'stereo_weight': num(self._stereo_weight),
             'stereo_max_age_s': self.profile_max_age,
             'tracker_ms': num(self._tracker_ms),
+            # The decimation: how many scans were skipped since the tracker
+            # last ran, so a consumer can tell a held verdict from a fresh one.
+            'tracker_decimation': int(self.tracker_decimation),
+            'tracker_skipped': int(self._tracker_skipped),
             # The rectangle verification: its own age, weight and cost, and
             # how many tracks it had anything to say about this cycle.
             'rect_ms': num(self._rect_ms),
@@ -1199,6 +1226,21 @@ class LidarFrontWallNode(Node):
                                 else int(self.wall_tracker.n_negative_killed)),
             'objects_behind_wall': self._objects_behind_wall})))
         return state
+
+    def _tracker_due(self):
+        """Is this scan one of the one-in-N the tracker processes?
+
+        A counter, not a clock: the same bag decimates the same way every
+        replay, which a time-based gate would not. The count advances on every
+        scan that reaches the tracker branch, so the phase is stable.
+        """
+        self._scan_count += 1
+        if self.tracker_decimation <= 1:
+            return True
+        due = (self._scan_count % self.tracker_decimation) == 0
+        if due:
+            self._tracker_skipped = 0
+        return due
 
     def _track_walls(self, msg, laser_pose, sectors, scan_stamp, stamp, pts):
         """One tracker step. Returns the front track as a base_link WallLine, or None.

@@ -28,3 +28,43 @@ rounding of the input, `extract_backends_equiv.py` and the backend tests feed
 the Python the same float32 values widened back to float64. In production the C
 sees the float32 of a float64 range, a ~1e-7 m difference on a range, four
 orders of magnitude under the 1e-4 tolerance.
+## H2 — the cycle-count thresholds KEEP their counts; the report states the time
+
+The point allows either. Counts kept, for the reason the rules give: it is what
+the car does today and what the tests pin, and a hits-in-window rule expressed
+in seconds changes meaning when the cycle rate varies (which is exactly what a
+CPU-bound node does).
+
+And the arithmetic favours it. Today the node is not running at 40 Hz: the
+nightly audit measured **4.2 observations a second** because it was CPU-bound.
+Decimation 4 at the nominal 40 Hz scan rate is **10 Hz**, so every count-based
+threshold becomes FASTER in wall-clock than it is today, not slower. The table
+is in the report.
+
+- Alternative: convert confirm_hits / stereo_confirm_hits /
+  negative_miss_to_kill / rect_reject_cycles to seconds. Rejected for now: four
+  new parameters, four changed semantics, and no measurement yet of the rate
+  they would be set against. Revisit once H5 has measured the real cycle rate
+  on the car with H1 in.
+
+## H2 — a skipped scan HOLDS the tracker's last verdict
+
+The node publishes its contract on every scan (its own docstring makes that a
+hard contract). On a scan the tracker skips, `_front_d_ray`,
+`_tracker_has_data` and `_tracked_wall` are left exactly as the last processed
+scan left them, so the contract repeats a verdict at most 75 ms old.
+
+- Alternative: publish NO_DATA on skipped scans. Rejected: it would flap the
+  contract three scans in four, and NO_DATA means "the sensors are not telling
+  us", which is false here.
+- The debug payload carries `tracker_skipped` so a consumer can tell a held
+  verdict from a fresh one.
+
+## H2 — every replay forces decimation 1
+
+A bag holds one recorded tracker CYCLE per `/perception/virtual_wall/debug`
+message (~3.2 a second on this recording), not the 40 scans a second the car
+sees. Decimating that again would compare a different set of scans against the
+recording, and would leave three cycles in four reporting the previous cycle's
+`tracker_ms`. `WALL_TRACKER_DECIMATION` overrides it for a run that wants to
+see the decimation itself.

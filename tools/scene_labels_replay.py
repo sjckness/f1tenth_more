@@ -140,8 +140,18 @@ def make_node(enable, clock):
     # table and the top-down drawing need.
     want = os.environ.get('WALL_DEBUG_TRACKS', '1') not in ('0', 'false', 'False')
     params = prefixed_params('lidar_front_wall_', enable)
-    params = [p for p in params if p.name != 'wall_debug_tracks']
+    params = [p for p in params if p.name not in
+              ('wall_debug_tracks', 'wall_tracker_scan_decimation')]
     params.append(Parameter('wall_debug_tracks', value=want))
+    # DECIMATION 1 in every replay. The bag holds one recorded tracker CYCLE
+    # per /perception/virtual_wall/debug message -- about 3.2 a second, not the
+    # 40 scans a second the car sees -- so decimating that again would compare
+    # a different set of scans against the recording and would also leave
+    # three cycles in four reporting the previous cycle's tracker_ms. The
+    # decimation's effect is arithmetic on the RATE, not on the cost of a
+    # cycle: WALL_TRACKER_DECIMATION overrides it if a run wants to see it.
+    params.append(Parameter('wall_tracker_scan_decimation',
+                            value=int(os.environ.get('WALL_TRACKER_DECIMATION', '1'))))
     node = LidarFrontWallNode(parameter_overrides=params)
     node._now = lambda: clock[0]
     caps = {}

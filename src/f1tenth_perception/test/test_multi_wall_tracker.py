@@ -947,3 +947,79 @@ def test_the_sector_helpers_agree_about_a_shared_bearing():
     ahead = mwt._bearing_sector(((4.0, -1.0), (4.0, 1.0)), (0.0, 0.0))
     assert not mwt._sectors_overlap(left, right)
     assert mwt._sectors_overlap(left, ahead) and mwt._sectors_overlap(right, ahead)
+
+
+# --- H2: does association survive a 10 Hz cycle? ----------------------------
+
+def wall_in_base_link(car, rho_odom=3.0, theta_odom=0.0, t0=-1.5, t1=1.5):
+    """The observation a FIXED odom wall produces from `car`.
+
+    The tracker is given observations in base_link and places them in odom
+    with the pose at the scan stamp, so this is the only honest way to ask
+    whether association survives motion: move the car, re-derive what it would
+    see, and hand that in.
+    """
+    from corridor_perception.geometry import Line
+    n = np.array([math.cos(theta_odom), math.sin(theta_odom)])
+    tan = np.array([-n[1], n[0]])
+    p0 = n * rho_odom + tan * t0
+    p1 = n * rho_odom + tan * t1
+    odom = Line(rho_odom, theta_odom, np.zeros((2, 2)), p0, p1, 120, 'odom')
+    bl = odom.transform(car.inverse(), 'base_link')
+    return obs(mwt.line_to_wall_line(bl))
+
+
+def test_association_survives_four_centimetres_a_cycle_at_ten_hz():
+    """0.4 m/s at a decimated 10 Hz is 4 cm of travel between tracker steps."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    feed(trk, [wall_in_base_link(car)], 3, car=car)
+    track = trk.tracks[0]
+    assert track.ever_confirmed
+    hits = track.hits
+    for i in range(1, 21):
+        car = Pose2D(0.04 * i, 0.0, 0.0)
+        trk.step([wall_in_base_link(car)], 1.1 + 0.1 * i, car)
+        assert len(trk.tracks) == 1, f'a second track appeared at cycle {i}'
+        assert trk.tracks[0].id == track.id, f'the track was replaced at cycle {i}'
+    assert track.hits == hits + 20            # every cycle associated
+    # 80 cm of travel later the wall is still where the world put it.
+    assert track.rho == pytest.approx(3.0, abs=0.02)
+
+
+def test_association_survives_ten_degrees_a_cycle_at_ten_hz():
+    """The worst case the decimation creates: at the steering limit the car
+    turns ~10 deg between tracker steps, and k_yaw adds (k_yaw |dyaw| rho)^2
+    to the track's rho variance for it."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    feed(trk, [wall_in_base_link(car)], 3, car=car)
+    track = trk.tracks[0]
+    for i in range(1, 9):
+        car = Pose2D(0.0, 0.0, math.radians(10.0 * i))
+        trk.step([wall_in_base_link(car)], 1.1 + 0.1 * i, car)
+        assert len(trk.tracks) == 1, f'a second track appeared at cycle {i}'
+        assert trk.tracks[0].id == track.id, f'the track was replaced at cycle {i}'
+    assert track.rho == pytest.approx(3.0, abs=0.05)
+
+
+def test_a_far_wall_coasting_through_a_turn_is_the_decimation_s_real_limit():
+    """What the yaw term costs a FAR track when a cycle is missed.
+
+    k_yaw adds (k_yaw |dyaw| rho)^2 per predict, and max_sigma_rho_m deletes
+    the track above 0.3 m. At 15.5 m and 10 deg of yaw in one step that is
+    0.27 m from a single predict -- inside the limit, but ONE more unmatched
+    cycle at that yaw rate deletes a wall that a 40 Hz tracker would have
+    kept. This test states the number rather than asserting it is fine.
+    """
+    p = mwt.TrackerParams()
+    rho = 15.5
+    one = p.k_yaw * math.radians(10.0) * rho
+    assert one == pytest.approx(0.271, abs=0.002)
+    assert one < p.max_sigma_rho_m                      # survives one
+    assert math.sqrt(2.0) * one > p.max_sigma_rho_m     # not two
+    # At the undecimated 40 Hz the same turn is four steps of 2.5 deg, which
+    # is HALF the sigma, because the model adds squares per step.
+    four = math.sqrt(4.0 * (p.k_yaw * math.radians(2.5) * rho) ** 2)
+    assert four == pytest.approx(0.5 * one, rel=1e-6)
+

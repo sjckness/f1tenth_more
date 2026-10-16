@@ -99,6 +99,7 @@ LIDAR_FRONT_WALL_ARGS = [
     # E1: the extraction's own quality gates.
     ('wall_extract_quality_gates', bool),
     ('wall_extract_backend', str),
+    ('wall_tracker_scan_decimation', int),
     # E2: the rectangle verification's decision thresholds.
     ('wall_rect_verify', bool),
     ('wall_rect_coverage_min', float),

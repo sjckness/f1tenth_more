@@ -257,6 +257,8 @@ class TestMultiWallTracker:
     def _make(scene, tracker):
         n = LidarFrontWallNode(parameter_overrides=[
             Parameter('enable_scene_labels', value=scene),
+            # Every scan: the decimation has its own tests below.
+            Parameter('wall_tracker_scan_decimation', value=1),
             Parameter('use_wall_tracker', value=tracker)])
         for name in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
                      'virtual_debug_pub', 'walls_pub', 'walls_markers_pub'):
@@ -637,6 +639,7 @@ class TestTrackFieldsOnTheWire:
     def test_a_published_track_carries_its_source_role_height_and_front_flag(self):
         from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
         n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
                                    Parameter('use_wall_tracker', value=True)])
         try:
             for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
@@ -672,6 +675,7 @@ class TestTheOutputContract:
     def _node():
         from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
         n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
                                    Parameter('use_wall_tracker', value=True)])
         for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
                     'virtual_debug_pub', 'observations_pub', 'walls_pub',
@@ -761,6 +765,7 @@ class TestWallMarkers:
     def _publish(self, **track_kw):
         from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
         n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
                                    Parameter('use_wall_tracker', value=True)])
         for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
                     'virtual_debug_pub', 'observations_pub', 'walls_pub',
@@ -910,3 +915,113 @@ class TestTheRectanglePair:
         assert '/perception/scene_labels/classes' not in topics
         assert '/perception/scene_labels/depth_mm' not in topics
         n.destroy_node()
+
+
+class TestTrackerDecimation:
+    """wall_tracker_scan_decimation: the tracker on one scan in N (H2).
+
+    The contract the rest of the node keeps is the thing to protect: BOTH
+    topics still publish on EVERY scan, and the scan subscription is still
+    best-effort so this node cannot back-pressure urg_node. What changes is
+    only how often the tracker steps, and on a skipped scan its last verdict
+    stands rather than flapping to NO_DATA.
+    """
+
+    @staticmethod
+    def _node(decimation=4):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[
+            Parameter('enable_scene_labels', value=True),
+            Parameter('use_wall_tracker', value=True),
+            Parameter('wall_tracker_scan_decimation', value=decimation)])
+        for name in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                     'virtual_debug_pub', 'walls_pub', 'walls_markers_pub',
+                     'observations_pub'):
+            if getattr(n, name, None) is not None:
+                getattr(n, name).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        return n
+
+    def test_the_default_comes_from_stack_params(self):
+        n = self._node(decimation=int(get_value(
+            'lidar_front_wall_wall_tracker_scan_decimation')))
+        try:
+            assert n.tracker_decimation == 4
+        finally:
+            n.destroy_node()
+
+    def test_one_scan_in_four_reaches_the_tracker(self):
+        n = self._node(4)
+        try:
+            due = [n._tracker_due() for _ in range(12)]
+            assert due == [True, False, False, False] * 3
+            assert sum(due) == 3
+        finally:
+            n.destroy_node()
+
+    def test_decimation_one_is_every_scan(self):
+        n = self._node(1)
+        try:
+            assert all(n._tracker_due() for _ in range(8))
+        finally:
+            n.destroy_node()
+
+    def test_zero_and_negative_are_clamped_to_every_scan(self):
+        for value in (0, -3):
+            n = self._node(value)
+            try:
+                assert n.tracker_decimation == 1
+                assert all(n._tracker_due() for _ in range(4))
+            finally:
+                n.destroy_node()
+
+    def test_the_phase_is_a_counter_so_a_replay_decimates_identically(self):
+        first = self._node(4)
+        second = self._node(4)
+        try:
+            a = [first._tracker_due() for _ in range(20)]
+            b = [second._tracker_due() for _ in range(20)]
+            assert a == b
+        finally:
+            first.destroy_node()
+            second.destroy_node()
+
+    def test_the_scan_subscription_is_depth_one_and_still_best_effort(self):
+        n = self._node()
+        try:
+            assert n.scan_sub.qos_profile.depth == 1
+            assert n.scan_sub.qos_profile.reliability == ReliabilityPolicy.BEST_EFFORT
+        finally:
+            n.destroy_node()
+
+    def test_both_topics_still_publish_on_every_scan(self):
+        """The contract in the module docstring, which the decimation must not
+        touch: a topic that goes quiet cannot be told from a dead node."""
+        n = self._node(4)
+        try:
+            for i in range(8):
+                n._odom_cb(_odom_at(7.0 + 0.025 * i, 0.0))
+                n._scan_cb(_scan_at(3.0, 7.0 + 0.025 * i))
+            assert n.fit_pub.publish.call_count == 8
+            assert n.estimate_pub.publish.call_count == 8
+            assert n.virtual_pub.publish.call_count == 8
+        finally:
+            n.destroy_node()
+
+    def test_a_skipped_scan_holds_the_last_verdict_rather_than_no_data(self):
+        n = self._node(4)
+        try:
+            for i in range(5):
+                n._odom_cb(_odom_at(7.0 + 0.025 * i, 0.0))
+                n._scan_cb(_scan_at(3.0, 7.0 + 0.025 * i))
+            states = [json.loads(c[0][0].data)['state']
+                      for c in n.virtual_debug_pub.publish.call_args_list]
+            # Whatever the first processed scan decided, the three skipped
+            # scans after it repeat; none of them is no_data.
+            assert states[1:4] == [states[0]] * 3
+            payload = json.loads(
+                n.virtual_debug_pub.publish.call_args_list[3][0][0].data)
+            assert payload['tracker_decimation'] == 4
+            assert payload['tracker_skipped'] == 3
+        finally:
+            n.destroy_node()
