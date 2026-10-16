@@ -329,7 +329,7 @@ from f1tenth_perception.lidar_front_wall import (
 )
 from corridor_perception import extraction
 from f1tenth_perception import multi_wall_tracker as mwt
-from f1tenth_perception import scene_labels, scene_mask, wall_fusion
+from f1tenth_perception import scene_labels, scene_mask, wall_fusion, wall_markers
 from f1tenth_perception.ground_plane import quat_to_matrix
 from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 
@@ -616,6 +616,14 @@ class LidarFrontWallNode(Node):
         # the 0.2 s period of the /viz/walls cap, so one number covers both
         # publishers.
         self.wall_marker_lifetime_s = float(param('wall_marker_lifetime_s', 0.6))
+        # /viz/walls: the whole tracker state, for a human, on a topic nothing
+        # consumes -- see wall_markers.py's own module docstring for why it is
+        # a second topic rather than a wider /perception/walls/markers. Off
+        # costs one get_subscription_count() per tracker cycle.
+        self.viz_walls_enabled = bool(param('viz_walls_enabled', True))
+        self.viz_walls_max_hz = float(param('viz_walls_max_hz', 5.0))
+        self._viz_walls_builder = wall_markers.WallMarkerBuilder(self.wall_marker_lifetime_s)
+        self._viz_walls_next = None
         # Which track ids the last MarkerArray drew, so a track that dies --
         # or merely drops out of published()'s four slots -- can be removed
         # with an explicit per-id DELETE instead of a blanket DELETEALL.
@@ -681,6 +689,10 @@ class LidarFrontWallNode(Node):
             self.walls_pub = self.create_publisher(MultiWallTrackArray, '/perception/walls', 10)
             self.walls_markers_pub = self.create_publisher(
                 MarkerArray, '/perception/walls/markers', 10)
+            # Created whatever viz_walls_enabled says, so the topic exists to
+            # be subscribed to and the flag is a publish-time decision, not a
+            # restart-time one.
+            self.viz_walls_pub = self.create_publisher(MarkerArray, '/viz/walls', 10)
         # Best-effort on purpose -- see the module docstring's NO COUPLING TO
         # THE E-STOP section -- and DEPTH 1 since the decimation: this node is
         # the slowest /scan consumer in the stack, and a queue deeper than one
@@ -1523,6 +1535,40 @@ class LidarFrontWallNode(Node):
         self._drawn_track_ids = drawn
         self.walls_pub.publish(out)
         self.walls_markers_pub.publish(markers)
+        self._publish_viz_walls(stamp, car)
+
+    def _publish_viz_walls(self, stamp, car):
+        """Every track the tracker holds, on /viz/walls, for a human.
+
+        Three gates, cheapest first: the flag, then the subscription count,
+        then the rate. NOTHING is built when no one is watching -- that is the
+        whole bargain that lets this topic carry every track at a readable
+        rate while the stack is CPU-bound, and it is the same lazy behaviour
+        the topic_tools relays behind every other /viz topic have (their
+        lazy:=true), reproduced here because no relay can invent the tracks
+        /perception/walls/markers never carried.
+        """
+        if not self.viz_walls_enabled:
+            return
+        if self.viz_walls_pub.get_subscription_count() == 0:
+            # The markers expire on their own lifetime, so the next array
+            # that is actually sent must not open with DELETEs for ids no
+            # live client ever saw.
+            self._viz_walls_builder.forget()
+            self._viz_walls_next = None
+            return
+        now = stamp.sec + stamp.nanosec * 1e-9
+        if self._viz_walls_next is not None and now < self._viz_walls_next:
+            return
+        period = 1.0 / self.viz_walls_max_hz if self.viz_walls_max_hz > 0.0 else 0.0
+        self._viz_walls_next = now + period
+        tracks = list(self.wall_tracker.tracks)
+        distances = {}
+        for trk in tracks:
+            d_perp, _d_ray = mwt.front_distances(trk, car, self.front_x)
+            distances[trk.id] = d_perp
+        self.viz_walls_pub.publish(
+            self._viz_walls_builder.build(tracks, stamp, self._odom_frame, distances))
 
     def _publish(self, stamp, fit, step, state=None):
         fit_msg = WallLineFit()
