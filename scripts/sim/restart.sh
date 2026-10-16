@@ -28,7 +28,8 @@
 #               engaged hold does not block the next run and is not a failure. mpc_corr publishes
 #               no hold state of its own; this is the last /mpc/hold seen while the script ran.
 #   localization /odometry/filtered within 5 cm / 0.05 rad of 0 0 0, /ekf_global/odometry/filtered
-#               and /slam/pose within 15 cm / 0.05 rad (reset_manager.yaml's own tolerances).
+#               and /slam/pose (latest since the reset: it publishes on scan-match updates only)
+#               within 15 cm / 0.05 rad (reset_manager.yaml's own tolerances).
 # --sim-only checks pose and speed only (the stack's state is not reset, so the rest is skipped).
 
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
@@ -169,6 +170,10 @@ def main():
         v = node.last.get(key)
         return v[1] if v is not None and now - v[0] <= max_age else None
 
+    def since_reset(key):    # /slam/pose comes only with scan-match updates: none while parked
+        v = node.last.get(key)
+        return v[1] if v is not None and v[0] >= t0 else None
+
     print('== restart.sh checks ==')
     # pose
     if START:
@@ -232,9 +237,9 @@ def main():
         for key, topic, tol in (('ekf_local', '/odometry/filtered', LOCAL_TOL),
                                 ('ekf_global', '/ekf_global/odometry/filtered', GLOBAL_TOL),
                                 ('slam', '/slam/pose', GLOBAL_TOL)):
-            msg = fresh(key, 5.0)
+            msg = since_reset(key) if key == 'slam' else fresh(key, 5.0)
             if msg is None:
-                parts.append(f'{topic}: nothing in 5 s')
+                parts.append(f'{topic}: nothing ' + ('since the reset' if key == 'slam' else 'in 5 s'))
                 ok = False
                 continue
             p = msg.pose.pose
