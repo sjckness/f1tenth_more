@@ -28,6 +28,12 @@ into it and the virtual wall (perception_debug.draw_scene_overlay), next to a
 top-down LiDAR view, encoded by f1tenth_logger.mission_debug_video.write_mp4.
 Runs with no recorded debug image get the top-down view alone.
 
+--model-labels CEILING_M also tints that image with ground / ceiling / wall
+labels from front_clearance_node's labelling tick run on a MODEL depth image
+(flat floor, flat ceiling at CEILING_M, the frame's LiDAR wall segments). It
+shows where the labeller would draw them in that idealised room; with no depth
+in the bags it is not a measurement and objects are absent from the model.
+
 --label-timing also times front_clearance_node's labelling tick on SYNTHETIC
 depth frames (floor, ceiling, the run's LiDAR walls, a person box) at the real
 640 x 360 size: a CPU measurement, not a validation of the labels.
@@ -126,7 +132,17 @@ class Capture:
 
 
 def make_node(enable, clock):
-    node = LidarFrontWallNode(parameter_overrides=prefixed_params('lidar_front_wall_', enable))
+    # wall_debug_tracks is OFF on the car (it costs a transform and two
+    # distances per live track per scan) and ON here: the per-track table and
+    # the top-down drawing are exactly what it exists for.
+    # WALL_DEBUG_TRACKS=0 measures the cycle as the CAR runs it, with the
+    # payload off; anything else keeps it on, which is what the per-track
+    # table and the top-down drawing need.
+    want = os.environ.get('WALL_DEBUG_TRACKS', '1') not in ('0', 'false', 'False')
+    params = prefixed_params('lidar_front_wall_', enable)
+    params = [p for p in params if p.name != 'wall_debug_tracks']
+    params.append(Parameter('wall_debug_tracks', value=want))
+    node = LidarFrontWallNode(parameter_overrides=params)
     node._now = lambda: clock[0]
     caps = {}
     for attr in ('fit_pub', 'estimate_pub', 'virtual_pub', 'virtual_debug_pub', 'planes_pub'):
@@ -305,7 +321,58 @@ def project_walls(walls, cam_tf, k, z_top=1.0):
     return out
 
 
-def replay(run, out_dir, stop_distance, label_timing):
+class ModelLabeller:
+    """Ground / ceiling / wall labels for the video WITHOUT recorded depth.
+
+    The bags carry no depth, so this ray-casts a MODEL depth image (flat floor
+    z = 0, flat ceiling at ceiling_m, the frame's LiDAR wall segments within
+    their span, nothing else) and runs front_clearance_node's real labelling
+    tick on it. The tint shows where the labeller WOULD put ground, ceiling
+    and wall if the room were that model: objects, other walls and a real
+    ceiling height are not in it.
+    """
+
+    def __init__(self, rows, to_base, ceiling_m, w=640, h=360):
+        from std_msgs.msg import Header
+        from f1tenth_perception.front_clearance_node import FrontClearanceNode
+        self.node = FrontClearanceNode(parameter_overrides=prefixed_params('front_clearance_', True))
+        for attr in ('scene_labels_pub', 'scene_debug_pub', 'stereo_wall_pub', 'unclassified_pub'):
+            setattr(self.node, attr, Capture())
+        for _, topic, msg in rows:
+            if topic == '/tf_static':
+                self.node._tf_static_callback(msg)
+        self.frame = 'zed2_left_camera_optical_frame'
+        fx, fy, cx, cy = zed_intrinsics(w, h)
+        self.node._camera_k = (fx, fy, cx, cy, w, h)
+        rot, self.trans = to_base(self.frame)
+        vv, uu = np.mgrid[0:h, 0:w]
+        self.rays = np.stack(((uu - cx) / fx, (vv - cy) / fy, np.ones_like(uu, float)), -1) @ rot.T
+        self.ceiling_m = ceiling_m
+        self.header = Header(frame_id=self.frame)
+
+    def labels(self, walls):
+        rays, trans = self.rays, self.trans
+        z = np.full(rays.shape[:2], np.inf)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            for plane_z in (0.0, self.ceiling_m):
+                zp = (plane_z - trans[2]) / rays[..., 2]
+                z = np.where((zp > 0) & (zp < z), zp, z)
+            for wl in walls:
+                zw = (wl.d - (trans[0] * wl.nx + trans[1] * wl.ny)) / (
+                    rays[..., 0] * wl.nx + rays[..., 1] * wl.ny)
+                t = wl.along(trans[0] + zw * rays[..., 0], trans[1] + zw * rays[..., 1])
+                hit = (zw > 0) & (zw < z) & (t >= wl.t0) & (t <= wl.t1)
+                z = np.where(hit, zw, z)
+        depth = z.astype(np.float32)
+        depth[~np.isfinite(depth)] = np.nan
+        self.node._wall_planes = (0.0, list(walls))
+        self.node._label_scene(depth, self.header, None, (75, 215, 140, 500))
+        for attr in ('scene_labels_pub', 'scene_debug_pub', 'stereo_wall_pub', 'unclassified_pub'):
+            getattr(self.node, attr).pop()
+        return self.node._scene['labels']
+
+
+def replay(run, out_dir, stop_distance, label_timing, model_ceiling_m=None):
     run = Path(run)
     name = run.name
     rows = read_bag(run)
@@ -502,6 +569,8 @@ def replay(run, out_dir, stop_distance, label_timing):
     det_by_t = [(tt, m) for tt, tp, m in rows if tp == '/camera/detections_3d']
     det_t = np.array([d[0] for d in det_by_t]) if det_by_t else np.array([])
     laser = on._laser_pose[1] if on._laser_pose else (0.0, 0.0, 0.0)
+    model = (ModelLabeller(rows, to_base, model_ceiling_m)
+             if model_ceiling_m and frames and cam_tf and k else None)
     for tt, payload in sources:
         i = int(np.clip(np.searchsorted(tr_times, tt), 0, len(trace) - 1))
         r = trace[i]
@@ -537,9 +606,13 @@ def replay(run, out_dir, stop_distance, label_timing):
                                  'disagree': r['on_disagree']}}
             for wl in scene['walls']:
                 wl['label'] = '{:.2f}m'.format(wl['d'] - front_x * wl['nx'])
+            if model is not None:
+                scene['labels'] = model.labels(walls)
             perception_debug.draw_scene_overlay(top, scene)
-            perception_debug._text(top, 'OFF camera {} | NO DEPTH IN BAG: LiDAR half only'.format(
-                f(r['off_wall_m'])), (3, ih - 4), (0, 255, 255))
+            perception_debug._text(top, 'OFF camera {} | NO DEPTH IN BAG: {}'.format(
+                f(r['off_wall_m']),
+                'MODEL ground/ceiling {:.1f}m + LiDAR walls'.format(model_ceiling_m)
+                if model is not None else 'LiDAR half only'), (3, ih - 4), (0, 255, 255))
             panel = cv2.resize(panel, (img.shape[0], img.shape[0]))
             frame = np.hstack((img, panel))
         else:
@@ -554,6 +627,9 @@ def replay(run, out_dir, stop_distance, label_timing):
         mp4 = write_mp4(video, out_dir / f'{name}.scene.mp4')
     summary['mp4'] = str(mp4) if mp4 else None
     summary['video_frames'] = len(video)
+    if model is not None:
+        model.node.destroy_node()
+    summary['model_labels_ceiling_m'] = model_ceiling_m if model is not None else None
     if label_timing:
         summary['label_timing'] = synthetic_label_timing(rows, to_base, planes, det_msg)
     (out_dir / f'{name}.summary.json').write_text(json.dumps(summary, indent=1))
@@ -632,11 +708,14 @@ def main():
     ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--stop-distance', type=float, default=2.0)
     ap.add_argument('--label-timing', action='store_true')
+    ap.add_argument('--model-labels', type=float, metavar='CEILING_M', default=None,
+                    help='tint the video with ground / ceiling / wall labels on a MODEL '
+                         'depth image (flat floor, ceiling at CEILING_M, LiDAR walls)')
     cfg = ap.parse_args()
     rclpy.init()
     try:
         for run in cfg.runs:
-            replay(run, cfg.out, cfg.stop_distance, cfg.label_timing)
+            replay(run, cfg.out, cfg.stop_distance, cfg.label_timing, cfg.model_labels)
     finally:
         rclpy.shutdown()
     return 0

@@ -919,3 +919,31 @@ def test_the_odometer_is_path_length_not_displacement():
     for i, x in enumerate((0.4, 0.0, 0.4, 0.0)):
         trk.step([], 1.2 + 0.05 * i, Pose2D(x, 0.0, 0.0))
     assert track not in trk.tracks      # 1.6 m walked, 0 m displaced
+
+
+def test_only_the_pairs_whose_sectors_overlap_are_tested_for_occlusion():
+    """F3: a wall to the left cannot hide a wall to the right.
+
+    The sector test is a pure cost optimisation, so what this pins is that it
+    changes no verdict: the occluded set is the same as the all-pairs answer
+    on a scene built to have both kinds of pair.
+    """
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    feed(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),      # near, dead ahead
+               obs(wall(5.0, t0=-1.5, t1=1.5)),      # behind it: occluded
+               obs(wall(3.0, nx=0.0, ny=1.0, t0=-2.0, t1=2.0)),   # left wall
+               obs(wall(3.0, nx=0.0, ny=-1.0, t0=-2.0, t1=2.0))], 4)  # right wall
+    by_rho = {round(t.rho, 1): t for t in trk.tracks}
+    assert by_rho[5.0].occluded          # behind the near wall
+    assert not by_rho[2.0].occluded      # nothing in front of it
+    # The two side walls share no bearing with each other.
+    assert not by_rho[3.0].occluded
+
+
+def test_the_sector_helpers_agree_about_a_shared_bearing():
+    left = mwt._bearing_sector(((2.0, 0.5), (2.0, 2.0)), (0.0, 0.0))
+    right = mwt._bearing_sector(((2.0, -2.0), (2.0, -0.5)), (0.0, 0.0))
+    ahead = mwt._bearing_sector(((4.0, -1.0), (4.0, 1.0)), (0.0, 0.0))
+    assert not mwt._sectors_overlap(left, right)
+    assert mwt._sectors_overlap(left, ahead) and mwt._sectors_overlap(right, ahead)

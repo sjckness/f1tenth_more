@@ -490,6 +490,12 @@ class LidarFrontWallNode(Node):
         # to the reasoning that sets it, because it is not a tuning knob --
         # changing it changes what "the wall's rectangle" means.
         self.rect_verify = bool(param('wall_rect_verify', True))
+        #: The per-track debug payload (and the objects-behind-a-wall count
+        #: that goes with it). OFF by default: it is a transform and two
+        #: distances per LIVE track per scan on a box whose tracker already
+        #: spends 155-178 ms a scan against a 25 ms scan period, and nothing
+        #: in the control path reads it. The replay turns it on.
+        self.debug_tracks = bool(param('wall_debug_tracks', False))
         rect_params = wall_fusion.RectParams(
             coverage_min=float(param('wall_rect_coverage_min', 0.25)),
             support_verify=float(param('wall_rect_support_verify', 0.5)),
@@ -1216,8 +1222,9 @@ class LidarFrontWallNode(Node):
         # The occlusion rays start at the LASER, not at base_link: 30 cm of
         # lever arm decides whether a wall is behind another one at 15 m.
         self.wall_tracker.laser_xy = laser_pose[:2]
-        self._objects_behind_wall = self._count_objects_behind_walls(
-            car, laser_pose, scan_stamp)
+        self._objects_behind_wall = (
+            self._count_objects_behind_walls(car, laser_pose, scan_stamp)
+            if self.debug_tracks else 0)
         # The negative evidence sees exactly the beams the extraction saw,
         # object sectors cut and all (mwt.scan_in_base_link): a beam cut
         # because an object stands there is evidence about the object.
@@ -1292,7 +1299,7 @@ class LidarFrontWallNode(Node):
         ones would hide exactly those.
         """
         car = self._car_pose
-        if self.wall_tracker is None or car is None:
+        if not self.debug_tracks or self.wall_tracker is None or car is None:
             return None
         def num(x):
             return None if x is None or not math.isfinite(x) else round(float(x), 4)

@@ -671,6 +671,20 @@ def role_with_hysteresis(track, car_pose, current, p, seg=None):
     return current if widened == current else fresh
 
 
+def _bearing_sector(seg, laser_xy):
+    """(centre, half width) of a base_link segment's bearing span from the laser."""
+    (ax, ay), (bx, by) = seg
+    b0 = math.atan2(ay - laser_xy[1], ax - laser_xy[0])
+    b1 = math.atan2(by - laser_xy[1], bx - laser_xy[0])
+    d = wrap_pi(b1 - b0)
+    return wrap_pi(b0 + 0.5 * d), 0.5 * abs(d)
+
+
+def _sectors_overlap(a, b):
+    """Do two (centre, half) bearing sectors share a bearing?"""
+    return abs(wrap_pi(a[0] - b[0])) <= a[1] + b[1]
+
+
 def ray_blocked_by(points, laser_xy, blockers, margin_m=0.10):
     """Bool (N,): the ray laser -> point crosses a blocker segment before it.
 
@@ -950,17 +964,24 @@ class MultiWallTracker:
                 self._spawn(line, stamp, observations[j])
 
         self.n_negative_killed = 0
+        # One base_link segment per track for the whole cycle: the negative
+        # evidence and the roles both need it, and it is a Line transform.
+        segments = {t.id: segment_in_base_link(t, car_pose) for t in self.tracks}
         if scan is not None:
-            self._apply_negative_evidence(car_pose, scan)
+            self._apply_negative_evidence(car_pose, scan, segments)
         self.tracks = [t for t in self.tracks if not self._expired(t, stamp)]
         self._merge()
-        if not defer_roles:
-            self.update_roles(car_pose)
+        if defer_roles:
+            # The caller decides the roles itself and asks for the published
+            # set afterwards, so ranking them here would be the second of two
+            # identical sorts.
+            return []
+        self.update_roles(car_pose)
         return self.published(car_pose)
 
     # ---- negative evidence ------------------------------------------------
 
-    def negative_evidence(self, trk, car_pose, scan):
+    def negative_evidence(self, trk, car_pose, scan, seg=None):
         """(contradicted, n_pass, n_hit) for one track against one scan.
 
         Over the beams whose bearing falls inside the track's own angular
@@ -982,13 +1003,21 @@ class MultiWallTracker:
         ranges, bearings, laser_xy = scan
         r = np.asarray(ranges, dtype=float)
         b = np.asarray(bearings, dtype=float)
-        p0, p1 = segment_in_base_link(trk, car_pose)
+        p0, p1 = segment_in_base_link(trk, car_pose) if seg is None else seg
         lxy = np.asarray(laser_xy, dtype=float).reshape(2)
         b0 = math.atan2(p0[1] - lxy[1], p0[0] - lxy[0])
         b1 = math.atan2(p1[1] - lxy[1], p1[0] - lxy[0])
         half = 0.5 * abs(wrap_pi(b1 - b0))
         centre = wrap_pi(b0 + 0.5 * wrap_pi(b1 - b0))
-        inside = np.flatnonzero(np.abs(wrap_pi(b - centre)) <= half)
+        # The bearings of a single scan are monotonic, so the span is a
+        # SLICE found by two binary searches rather than a comparison over
+        # every beam: three full-length 1081-element arrays per track per
+        # scan was most of this rule's cost.
+        if b.size > 1 and b[-1] > b[0]:
+            lo, hi = np.searchsorted(b, (centre - half, centre + half))
+            inside = np.arange(lo, hi)
+        else:
+            inside = np.flatnonzero(np.abs(wrap_pi(b - centre)) <= half)
         k = int(self.p.negative_shrink_beams)
         if inside.size <= 2 * k:
             return False, 0, 0
@@ -1017,7 +1046,7 @@ class MultiWallTracker:
             return False, n_pass, n_hit
         return n_pass / total > float(self.p.negative_pass_frac), n_pass, n_hit
 
-    def _apply_negative_evidence(self, car_pose, scan):
+    def _apply_negative_evidence(self, car_pose, scan, segments=None):
         """Count consecutive contradicted scans; kill at negative_miss_to_kill.
 
         CONFIRMED tracks only, and never a GLASS one: glass is the surface
@@ -1028,7 +1057,8 @@ class MultiWallTracker:
             if not trk.ever_confirmed or trk.glass:
                 trk.miss = 0
                 continue
-            contradicted, _n_pass, _n_hit = self.negative_evidence(trk, car_pose, scan)
+            contradicted, _n_pass, _n_hit = self.negative_evidence(
+                trk, car_pose, scan, None if segments is None else segments.get(trk.id))
             trk.miss = trk.miss + 1 if contradicted else 0
         killed = [t for t in self.tracks if t.miss >= int(self.p.negative_miss_to_kill)]
         if killed:
@@ -1050,14 +1080,24 @@ class MultiWallTracker:
         GLASS COUNTS AS A BLOCKER. A pane is a real surface that really does
         stop the LiDAR, which is exactly why it has a track at all, so a wall
         behind glass is behind a wall.
+
+        ONLY THE PAIRS WHOSE BEARING SECTORS OVERLAP are tested. Occlusion is
+        a statement about one bearing: a wall to the left cannot hide a wall
+        to the right, however far apart they are. Comparing every track with
+        every confirmed one is 72 ray tests a cycle on this bag against about
+        a dozen that can possibly intersect, and the sectors are one cheap
+        interval test each from geometry that is already in hand.
         """
         confirmed = [t for t in self.tracks if t.ever_confirmed]
         if segments is None:
             segments = {t.id: segment_in_base_link(t, car_pose) for t in self.tracks}
         laser_xy = (0.0, 0.0) if self.laser_xy is None else self.laser_xy
         n_pts = max(2, int(self.p.occlusion_points))
+        sectors = {tid: _bearing_sector(seg, laser_xy) for tid, seg in segments.items()}
         for trk in self.tracks:
-            blockers = [segments[t.id] for t in confirmed if t.id != trk.id]
+            mine = sectors[trk.id]
+            blockers = [segments[t.id] for t in confirmed if t.id != trk.id
+                        and _sectors_overlap(mine, sectors[t.id])]
             if not blockers:
                 trk.occluded = False
                 continue
