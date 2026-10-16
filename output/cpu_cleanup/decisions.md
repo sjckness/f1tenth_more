@@ -372,3 +372,20 @@ so a line the LiDAR saw straight through stayed FRONT and was dead-reckoned to 1
   weighted, holds capped at 0.5 s, all and moving), confirmed tracks with rho_bl < 0.5 m;
   --compare-summary prints old vs new. Split bags read in numeric order.
 - 4c: the bag is not on linus -> Orin commands in report.md.
+
+# Round 3
+
+## R3-D5 — EKF decided at 20 Hz; ekf_cost_observer deleted
+- Owner's decision recorded in docs/history/LOG.md (the PENDING entry replaced): EKF stays
+  at 20 Hz, the 50 Hz cost baseline is deliberately skipped, ekf_cost_observer removed.
+- Deleted: f1tenth_diagnostics/ekf_cost_observer_node.py, its test, scripts/ekf_cost_report.py,
+  the setup.py entry point, the localization.launch.py args (enable_ekf_cost_observer,
+  ekf_cost_observer_cpu_affinity) and Node, and rosidl_runtime_py from the diagnostics
+  package.xml (only that node used it; diagnostic_msgs and python3-psutil stay: battery check,
+  steering calibration, system_observer). Not referenced in components.yaml, the supervisor,
+  stack_params, the CPU-pinning checker or the cpu_test probe (grep).
+- /diagnostics stays in the mission logger topics.
+- Remaining mentions outside docs/history: output/cpu_cleanup/* (this work's own records) and
+  one regression test, test_ekf_global_config.py::test_the_ekf_cost_observer_is_gone, which
+  asserts the arg and node are absent. Alternative: no test -- rejected, the launch file is
+  where it would come back.

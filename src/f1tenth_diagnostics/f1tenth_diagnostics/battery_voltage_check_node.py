@@ -100,7 +100,7 @@ BRANCH_READING_LOW = 'reading_low'
 BRANCH_NO_READING = 'no_reading_before_timeout'
 
 # DiagnosticStatus.name/hardware_id. Namespaced because /diagnostics is a
-# shared topic (ekf_cost_observer_node publishes there too).
+# shared topic (steering_offset_calibration_node publishes there too).
 _DIAG_NAME = 'f1tenth_diagnostics: battery startup precheck'
 _DIAG_HARDWARE_ID = 'vesc'
 

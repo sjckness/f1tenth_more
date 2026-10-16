@@ -20,20 +20,19 @@ commits behind** this workspace. This workspace is authoritative; the mirror is 
 
 ---
 
-### 2026-10-16 — 50 Hz EKF cost baseline: PENDING-DECISION (take it before the change, or skip) [decision]
-tags: decision, pending
+### 2026-10-16 — EKF at 20 Hz; 50 Hz cost baseline skipped; ekf_cost_observer removed [decision]
+tags: decision
+- Decided 2026-10-16: EKF stays at 20 Hz; the 50 Hz cost baseline is deliberately skipped;
+  ekf_cost_observer removed.
 - Context: branch `cpu-cleanup` (round 2, block 2b) sets both EKFs to 20 Hz through
   stack_params `ekf_frequency_hz` (20.0; 50.0 still selectable) and applies the
   0.08 s `transform_time_offset` decided on 2026-09-08 (`ekf_transform_time_offset_s`).
-  The 2026-09-08 entry below gated the frequency change on capturing the 50 Hz cost
-  baseline with `ekf_cost_observer_node` first. That baseline has NOT been taken, and
-  the observer is now off by default (`enable_ekf_cost_observer`, cpu-cleanup point 3).
-- Options: (a) take it before deploying the branch -- run campaign-final (50 Hz) with
-  `args: {enable_ekf_cost_observer: 'true'}` on the `localization` entry in
-  components.yaml, record /diagnostics, `scripts/ekf_cost_report.py` on the bag; or
-  (b) skip it and judge 20 Hz on its own numbers (`scripts/check_ekf_update_rate.py`,
-  now reading the target from stack_params).
-- status: PENDING-DECISION -- left for the owner.
+  The 2026-09-08 entry below had gated the frequency change on a 50 Hz cost baseline
+  taken with `ekf_cost_observer_node`; that gate is dropped by this decision, and the
+  node, its tests and `scripts/ekf_cost_report.py` are deleted (cpu-cleanup block 5).
+  20 Hz is judged on its own numbers: `scripts/check_ekf_update_rate.py` (target from
+  stack_params) and the `transform_time_offset` check of the 2026-09-08 entry.
+- status: decided.
 
 ### 2026-09-08 — `transform_time_offset` goes to 0.08 on BOTH edges, not a 0.12/0.08 split [decision]
 tags: decision

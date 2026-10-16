@@ -22,3 +22,6 @@
 - 2026-10-16T15:48:19+02:00 Block 2 done: ast(3.10)/py_compile/flake8 E/W/F clean (no new); ROS-free pytest: test_multi_wall_tracker (71), test_virtual_wall_rate (6), test_lidar_front_wall: 121 passed (env -i, no ROS). Orin-only: test_ekf_global_config TestEkfRateFromStackParams, test_lidar_front_wall_launch (arg list == stack_params keys).
 - 2026-10-16T16:11:00+02:00 Block 3 (implemented by a sub-agent from the cited map, reviewed here): ROS-free pytest f1tenth_perception pure tests + corridor_perception: 270 passed, 37 skipped (no C backend/ament/archive). ast 3.10 + flake8 E/W/F clean (no new). Orin-only: test_lidar_front_wall_node.py (updated incl. TestTrackerDecimation for 2c), test_lidar_front_wall_launch.py.
 - 2026-10-16T16:11:31+02:00 Block 4: logger profile + replay v2. ROS-free: tools/test_corridor_wall_replay_helpers.py 12 passed (pure helpers extracted by ast; the tool imports rclpy); the sub-agent also smoke-rendered panels with stubbed ROS modules on a fake split sqlite bag. Orin-only: f1tenth_logger test_viz_topics_not_recorded.py (imports rclpy/rosbag2_py). ast 3.10 + flake8 E/W/F no new.
+
+# Round 3 (Blocks 5-6)
+- 2026-10-16T16:22:30+02:00 Block 5: ekf_cost_observer deleted; grep clean outside docs/history and output/; flake8/ast OK. Orin-only: test_ekf_global_config.py (test_the_ekf_cost_observer_is_gone).
