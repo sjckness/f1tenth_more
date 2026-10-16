@@ -306,7 +306,8 @@ from std_srvs.srv import Trigger
 _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 
 # Components that auto-start unconditionally. 'lidar_front_wall',
-# 'wall_distance', 'swept_clearance' and 'obstacle_clearance' are each separate
+# 'wall_distance' (conditional since cpu-cleanup, see _CONDITIONAL_AUTO_START),
+# 'swept_clearance' and 'obstacle_clearance' are each separate
 # from 'perception' on purpose (restarting 'perception' restarts urg_node, the
 # e-stop's /scan) -- see components.yaml's comments on those entries. All four
 # launch files self-gate on use_lidar. obstacle_clearance was on-demand until
@@ -322,7 +323,7 @@ _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 # 'reset_manager' serves /reset_all, which restarts other components through
 # this node's /restart_component (never 'intelligence').
 _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
-                      'lidar_front_wall', 'wall_distance', 'swept_clearance',
+                      'lidar_front_wall', 'swept_clearance',
                       'obstacle_clearance', 'control', 'diagnostics', 'dev_tools',
                       'slam', 'reset_manager'}
 # Registered (restartable by name) but never auto-started -- on-demand only.
@@ -341,6 +342,9 @@ _NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence'}
 _CONDITIONAL_AUTO_START = {
     'behavior': 'use_behavior_tree',
     'intelligence': 'enable_intelligence',
+    # cpu-cleanup (2026-10-16): off by default, still registered so it can be
+    # restarted by name. stack_params.yaml's enable_wall_distance says why.
+    'wall_distance': 'enable_wall_distance',
 }
 
 # FastDDS SHM transport hygiene (see module docstring's own paragraph on this) --

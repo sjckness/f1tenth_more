@@ -989,6 +989,30 @@ glass_point_spacing:
 # ============================================================
 # Tracked wall distance (f1tenth_perception/wall_distance_node.py)
 # ============================================================
+# OFF BY DEFAULT since cpu-cleanup (2026-10-16). Consumed by:
+# f1tenth_bringup/component_supervisor_node.py (_CONDITIONAL_AUTO_START: the
+# `wall_distance` component only auto-starts when true),
+# f1tenth_perception/launch/wall_distance.launch.py (IfCondition on the node)
+# and f1tenth_bringup/launch/reset_manager.launch.py (/reset_all does not
+# restart a disabled component, which would start it).
+#
+# WHY OFF: on the Orin it cost ~42% of core 5 (shared with
+# lidar_front_wall_node, which it saturated) while nothing used its output in
+# the default config. Its only control-path reader is MPC_corr's
+# /perception/d_wall/psi_correction (corr_d_wall_correction_enable), which
+# is 0.0 on every tick with enable_scene_labels true (the default): the phase
+# machine only leaves UNKNOWN on /mpc/wall_track, and MPC_corr publishes that
+# only when its private wall tracker runs, which scene labels switch off. A
+# topic that never arrives is also 0.0 in MPC_corr (_fresh_d_wall_correction,
+# no warning), so switching the node off changes no command.
+# WHY NOT DELETED: with enable_scene_labels false the correction is live on a
+# straight move after a wall_turn (wall_turn_then_straight.json), and the
+# multi-wall tracker has no signed left-positive base_link offset, no phase
+# and no psi correction to replace it with. Set this true together with
+# enable_scene_labels: false.
+enable_wall_distance:
+  default: false
+  description: "Run wall_distance_node (/perception/d_wall*). Off by default: with enable_scene_labels true its only control consumer (MPC_corr psi_correction) is always 0.0, and a missing topic is 0.0 too. Turn on with enable_scene_labels: false, where the post-wall_turn heading correction is live."
 # All of the following are consumed by:
 # f1tenth_perception/launch/wall_distance.launch.py, forwarded to
 # wall_distance_node under their names without the wall_distance_ prefix.

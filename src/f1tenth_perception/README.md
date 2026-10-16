@@ -170,6 +170,18 @@ against. In particular, initial selection among several confirmed walls is
 
 ## 8. CPU, and `taskset` contention on core 5
 
+**cpu-cleanup (2026-10-16): `wall_distance_node` is OFF by default**
+(stack_params `enable_wall_distance: false`; the supervisor does not
+auto-start the `wall_distance` component and `wall_distance.launch.py` gates
+the node on the flag). On the Orin it took ~42% of core 5 next to
+`lidar_front_wall_node` while its only control consumer, MPC_corr's
+`/perception/d_wall/psi_correction`, is 0.0 whenever `enable_scene_labels` is
+true (the default) -- and 0.0 too when the topic never arrives. The code,
+tests and parameters stay: with `enable_scene_labels: false` the
+post-wall_turn heading correction is live and nothing else provides it. Set
+`enable_wall_distance: true` for that configuration. The numbers below are
+from when it ran by default.
+
 **Measured offline, on 300 real 1081-beam scans, on this Jetson, single core,
 unpinned and with nothing else running:**
 

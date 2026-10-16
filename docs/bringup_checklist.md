@@ -53,9 +53,12 @@ supervisor's per-component logs in `~/.ros/log/component_supervisor/`.
 1. Bring up `urg_node` and `wall_distance_node` **only**:
    ```bash
    ros2 launch f1tenth_perception lidar.launch.py
-   ros2 launch f1tenth_perception wall_distance.launch.py
+   ros2 launch f1tenth_perception wall_distance.launch.py enable_wall_distance:=true
    ```
-   Start the bag before either.
+   Start the bag before either. (`enable_wall_distance` is false by default
+   since cpu-cleanup, 2026-10-16: the node does not run and the supervisor does
+   not start it unless stack_params' `enable_wall_distance` is true. The
+   `RestartComponent{name: wall_distance}` check below needs that key true.)
 2. **Confirm the topics appear**, with the right shapes:
    - `/perception/d_wall` at ~10 Hz, `valid` either way
    - `/perception/d_wall/segment`, `/psi_correction`, `/gate_margin`,

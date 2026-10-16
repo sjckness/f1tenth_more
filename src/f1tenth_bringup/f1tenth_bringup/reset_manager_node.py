@@ -165,7 +165,11 @@ class ResetManager(Node):
             '/global_costmap/clear_entirely_global_costmap',
             '/local_costmap/clear_entirely_local_costmap']))
 
-        self.hook_components = [c for c in p('hooks.restart_components', ['wall_distance']) if c]
+        # hooks.skip_components: components the launch file knows are disabled
+        # (reset_manager.launch.py, cpu-cleanup) -- restarting one would start it.
+        skip = {c for c in p('hooks.skip_components', ['']) if c}
+        self.hook_components = [c for c in p('hooks.restart_components', ['wall_distance'])
+                                if c and c not in skip]
         self.hook_services = [s for s in p('hooks.trigger_services', ['']) if s]
 
         named = {self.odom_component if self.odom_method == 'restart_component' else None,
