@@ -727,7 +727,7 @@ lidar_front_wall_odom_max_age_sec:
   description: "Odometry older than this [s] turns off lidar_front_wall_node's dead reckoning and wrong-surface gate. /odometry/filtered runs at 50 Hz; longest recorded gap 136 ms."
 lidar_front_wall_seed_max_age_sec:
   default: 0.5
-  description: "A /costmap/front_clearance seed older than this [s] (receipt time; the topic has no header) is not used. That topic runs at 20 Hz; longest recorded gap 0.19 s."
+  description: "A /costmap/front_clearance seed older than this [s] (receipt time; the topic has no header) is not used. That topic runs at 10 Hz since cpu-cleanup (2026-10-16; 20 Hz before, when the longest recorded gap was 0.19 s), so 0.5 s is still 5 periods."
 lidar_front_wall_seed_max_valid_m:
   default: 5.0
   description: "Largest /costmap/front_clearance value [m] accepted as a seed. Must equal costmap.launch.py's costmap_boundary_max_range_m: that node publishes max_range_m + 1.0 for 'nothing within range', which is not a distance."

@@ -47,6 +47,21 @@ Every service call has a timeout. The service runs on a MultiThreadedExecutor
 with one ReentrantCallbackGroup, so the calls made from inside the /reset_all
 callback are answered on other threads. A second /reset_all while one is
 running is refused. A failure stops the sequence and names the step.
+
+IDLE COSTS NOTHING (cpu-cleanup, 2026-10-16). This node used to subscribe to
+/odometry/filtered, /odom, /ekf_global/odometry/filtered and /slam/pose for
+its whole life and run the stop.rate_hz (20 Hz) hold timer permanently, so on
+a parked car it deserialised ~150 Odometry messages a second, each handed from
+the executor's wait thread to one of its workers, plus 20 no-op timer calls:
+36% of a core on the Orin with no reset anywhere in sight, and 9 busy threads
+(the main wait thread, the 4 executor workers, the DDS threads). There was no
+busy-wait; the cost was simply always-on subscriptions to topics that are only
+read DURING a reset. Now the subscriptions and the hold timer exist only for
+the duration of one /reset_all (_open_watches/_close_watches): between resets
+the node has a service, its clients and a publisher, and nothing wakes it.
+Every wait in the steps already accepts only samples that arrive after the
+step began (or, for the standstill, within the last 0.5 s), so a subscription
+created when the reset starts sees everything a permanent one would have used.
 """
 
 import math
@@ -204,19 +219,20 @@ class ResetManager(Node):
                                 for s in self.nav2_clear}
             self._clear_type = ClearEntireCostmap
 
-        self._latest = {}
+        # Topics read during a reset; subscribed only while one runs (module
+        # docstring, IDLE COSTS NOTHING).
+        self._watch_topics = {}
         for topic, msg_type in ((self.standstill_topic, Odometry),
                                 (self.odom_topic, Odometry),
                                 (self.ekf_local_topic, Odometry),
                                 (self.ekf_global_topic, Odometry),
                                 (self.slam_ready_topic, PoseWithCovarianceStamped)):
-            if topic and topic not in self._latest:
-                latest = _Latest()
-                self._latest[topic] = latest
-                self.create_subscription(msg_type, topic, latest.put,
-                                         qos_profile_sensor_data, callback_group=g)
+            if topic and topic not in self._watch_topics:
+                self._watch_topics[topic] = msg_type
+        self._latest = {}
+        self._watch_subs = []
+        self._hold_timer = None
 
-        self.create_timer(1.0 / max(self.stop_rate, 1.0), self._hold_tick, callback_group=g)
         self.create_service(Trigger, self.service_name, self._on_reset_all, callback_group=g)
         self.get_logger().info(
             f'[reset_all] ready on {self.service_name}: stop={self.stop_enabled} '
@@ -288,6 +304,22 @@ class ResetManager(Node):
                             f'{timeout:.0f} s: {seen}')
         return msg
 
+    def _open_watches(self):
+        """Subscribe to every topic a reset reads, for this reset only."""
+        self._latest = {topic: _Latest() for topic in self._watch_topics}
+        self._watch_subs = [
+            self.create_subscription(msg_type, topic, self._latest[topic].put,
+                                     qos_profile_sensor_data, callback_group=self._group)
+            for topic, msg_type in self._watch_topics.items()]
+
+    def _close_watches(self):
+        for sub in self._watch_subs:
+            self.destroy_subscription(sub)
+        self._watch_subs = []
+        if self._hold_timer is not None:
+            self.destroy_timer(self._hold_timer)
+            self._hold_timer = None
+
     def _hold_tick(self):
         if self._holding:
             self._publish_stop()
@@ -303,6 +335,12 @@ class ResetManager(Node):
     def _step_stop(self):
         self._holding = True
         self._publish_stop()
+        # The hold timer runs only while a reset holds the car (stop.rate_hz,
+        # unchanged: the mux's safety_stop lane times out after 0.2 s).
+        if self._hold_timer is None:
+            self._hold_timer = self.create_timer(
+                1.0 / max(self.stop_rate, 1.0), self._hold_tick,
+                callback_group=self._group)
         notes = [f'holding zero on {self.stop_topic}']
         if self._abort_cli is not None:
             result = self._call(self._abort_cli, Trigger.Request(), self.service_timeout,
@@ -419,6 +457,7 @@ class ResetManager(Node):
         report = []
         try:
             self.get_logger().info('[reset_all] requested')
+            self._open_watches()
             for index, (name, enabled, run, why_skipped) in enumerate(steps, 1):
                 label = f'[reset_all] {index}/{len(steps)} {name}'
                 if not enabled:
@@ -448,6 +487,7 @@ class ResetManager(Node):
             self.get_logger().error(f'[reset_all] FAILED: {response.message}')
         finally:
             self._holding = False
+            self._close_watches()
             self._busy.release()
         return response
 
