@@ -14,6 +14,13 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
+        # Simulation mode (supervisor_bringup.launch.py sim:=isaac): the parameter overlay,
+        # host overlays and the Fast DDS profiles scripts/sim/sim_isaac.sh selects.
+        (os.path.join('share', package_name, 'config', 'sim'), glob('config/sim/*.yaml')),
+        (os.path.join('share', package_name, 'config', 'sim', 'hosts'),
+            glob('config/sim/hosts/*.yaml')),
+        (os.path.join('share', package_name, 'config', 'sim', 'dds'),
+            glob('config/sim/dds/*.xml') + glob('config/sim/dds/*.xml.in')),
         # ensure_discovery_server.py -- launch-time dependency (invoked by
         # stack_bringup.launch.py/supervisor_bringup.launch.py's own
         # discovery_server ExecuteProcess action), NOT a top-level scripts/

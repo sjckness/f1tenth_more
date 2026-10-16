@@ -32,6 +32,16 @@ rollout, where only some nodes see this env var, would leave the untouched
 ones still on SIMPLE discovery, defeating the point (they just wouldn't be
 found by/wouldn't find the Discovery-Server nodes at all, a much worse failure
 than the stall this is meant to fix).
+
+Sim mode (sim:=isaac; default sim:=none = the car, unchanged): the SAME stack drives
+the Isaac Sim car. The supervisor drops the device-driver components' launch files
+(vesc.launch.py, lidar.launch.py; camera.launch.py -> sim_camera_tf.launch.py, the
+ZED frames only) and starts every component through sim_component.launch.py, which
+puts all its nodes on /clock (use_sim_time true) and loads config/sim/isaac.yaml
+(sim_overlay) and sim_overlay_extra after the normal parameters. use_sim_time:=true
+alone (sim:=none) only switches the clock. The supervisor itself stays on wall
+time (restart timers, watchdog). Normally started by scripts/sim/sim_isaac.sh;
+output/jazzy_port/phase3.md has the design and the default-path identity evidence.
 """
 
 import os
@@ -41,7 +51,13 @@ from ament_index_python.packages import get_package_share_directory
 from f1tenth_params.param_defaults import get_default, get_path_default
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, SetEnvironmentVariable
+from launch.actions import (
+    DeclareLaunchArgument,
+    ExecuteProcess,
+    LogInfo,
+    OpaqueFunction,
+    SetEnvironmentVariable,
+)
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -158,12 +174,34 @@ def generate_launch_description():
         'restart_budget_window_sec', default_value=str(restart_budget_window_default),
         description=restart_budget_window_desc)
 
-    component_supervisor_node = Node(
-        package='f1tenth_bringup',
-        executable='component_supervisor_node',
-        name='component_supervisor_node',
-        output='screen',
-        parameters=[{
+    # Simulation mode. The defaults (sim:=none use_sim_time:=false) are the car: the
+    # supervisor Node below is then built with exactly the parameters it always had, and no
+    # sim parameter is passed (see _supervisor_node). With sim:=isaac the supervisor drops
+    # the device drivers, swaps in the sim frame publishers and runs every component on
+    # use_sim_time with the sim overlay (component_supervisor_node.apply_sim_mode,
+    # sim_component.launch.py). Run it through scripts/sim/sim_isaac.sh.
+    sim_la = DeclareLaunchArgument(
+        'sim', default_value='none', choices=['none', 'isaac'],
+        description="'none': the car (default). 'isaac': Isaac Sim (~/isaac_ws) replaces the "
+                    'VESC, LiDAR and ZED drivers; every other component runs as on the car, on '
+                    'use_sim_time, with config/sim/isaac.yaml loaded after the normal parameters.')
+    use_sim_time_la = DeclareLaunchArgument(
+        'use_sim_time', default_value='false', choices=['true', 'false'],
+        description='Run every component on /clock (sim_component.launch.py). Forced true with '
+                    'sim:=isaac. The supervisor itself stays on wall time (its watchdog).')
+    sim_overlay_la = DeclareLaunchArgument(
+        'sim_overlay',
+        default_value=os.path.join(
+            get_package_share_directory('f1tenth_bringup'), 'config', 'sim', 'isaac.yaml'),
+        description='Sim parameter overlay, loaded after the normal parameters (sim:=isaac only).')
+    sim_overlay_extra_la = DeclareLaunchArgument(
+        'sim_overlay_extra', default_value='',
+        description='Optional host overlay (e.g. config/sim/hosts/linus.yaml: CPU pinning for '
+                    'an 8-core machine). Only its sim_component_args are used (component launch '
+                    'arguments; node parameters belong in sim_overlay). sim:=isaac only.')
+
+    def _supervisor_node(context):
+        params = {
             'calibration': LaunchConfiguration('calibration'),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'components_config': LaunchConfiguration('components_config'),
@@ -172,8 +210,32 @@ def generate_launch_description():
             'watchdog_period_sec': LaunchConfiguration('watchdog_period_sec'),
             'max_auto_restarts': LaunchConfiguration('max_auto_restarts'),
             'restart_budget_window_sec': LaunchConfiguration('restart_budget_window_sec'),
-        }],
-    )
+        }
+        actions = []
+        sim = LaunchConfiguration('sim').perform(context)
+        use_sim_time = LaunchConfiguration('use_sim_time').perform(context) == 'true'
+        if sim != 'none':
+            if not use_sim_time:
+                actions.append(LogInfo(
+                    msg=f'[supervisor_bringup] sim:={sim} forces use_sim_time:=true'))
+            params.update({
+                'sim': sim,
+                'component_use_sim_time': True,
+                'sim_overlay': LaunchConfiguration('sim_overlay'),
+                'sim_overlay_extra': LaunchConfiguration('sim_overlay_extra'),
+            })
+        elif use_sim_time:
+            params['component_use_sim_time'] = True
+        actions.append(Node(
+            package='f1tenth_bringup',
+            executable='component_supervisor_node',
+            name='component_supervisor_node',
+            output='screen',
+            parameters=[params],
+        ))
+        return actions
+
+    component_supervisor_node = OpaqueFunction(function=_supervisor_node)
 
     return LaunchDescription([
         discovery_server_address_la,
@@ -188,5 +250,9 @@ def generate_launch_description():
         watchdog_period_la,
         max_auto_restarts_la,
         restart_budget_window_la,
+        sim_la,
+        use_sim_time_la,
+        sim_overlay_la,
+        sim_overlay_extra_la,
         component_supervisor_node,
     ])

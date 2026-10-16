@@ -363,6 +363,90 @@ _FASTRTPS_SHM_GLOB_PATTERN = '*fastrtps*'
 # kept deliberately parallel so the two read as one pattern rather than two.
 _DEFAULT_SUPERVISOR_LOCK_PATH = '/tmp/component_supervisor.lock'
 
+# -- simulation mode (supervisor_bringup.launch.py sim:=isaac) -------------------
+# 'none' is the car. In 'isaac' the simulator replaces the device drivers: Isaac Sim
+# consumes /ackermann_drive and publishes /clock, /scan, /odom, /sensors/imu/raw and the
+# ZED topics under the car's names. apply_sim_mode() rewrites a copy of the registry;
+# with sim 'none' nothing in this node behaves differently from before.
+SIM_MODES = ('none', 'isaac')
+# Device-driver launch files that never run in sim (removed from every component).
+_SIM_DRIVER_LAUNCH_FILES = {
+    ('f1tenth_hardware', 'vesc.launch.py'),       # vesc_driver, ackermann_to_vesc, vesc_to_odom
+    ('f1tenth_perception', 'lidar.launch.py'),    # urg_node
+}
+# Replaced, not removed: the sim keeps the frames these files publish on the car.
+_SIM_REPLACEMENTS = {
+    # 'hardware': only its static base_link -> imu is still needed (Isaac stamps 'imu').
+    ('hardware', 'f1tenth_hardware', 'vesc.launch.py'):
+        ('f1tenth_bringup', 'sim_hardware_tf.launch.py'),
+    # 'perception': the ZED wrapper is off; its base_link -> zed2_camera_link and camera tree stay.
+    ('perception', 'f1tenth_perception', 'camera.launch.py'):
+        ('f1tenth_bringup', 'sim_camera_tf.launch.py'),
+}
+_SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
+
+
+def apply_sim_mode(registry, component_args=None):
+    """Pure: the registry as it runs in sim. Returns a deep-enough copy, never edits the input.
+
+    Device drivers are dropped (calibrate_hardware ends up empty), the 'hardware' and
+    'perception' entries that publish frames are swapped for their sim stand-ins, and
+    component_args ({component: {arg: value}}, from the sim overlay) are applied AFTER the
+    registry's own args, so the overlay wins. An overlay naming an unknown component raises.
+    """
+    out = {}
+    for name, entries in registry.items():
+        new = []
+        for entry in entries:
+            key = (entry['package'], entry['launch_file'])
+            replacement = _SIM_REPLACEMENTS.get((name,) + key)
+            if replacement is not None:
+                new.append({'package': replacement[0], 'launch_file': replacement[1], 'args': {}})
+            elif key in _SIM_DRIVER_LAUNCH_FILES:
+                continue
+            else:
+                new.append(dict(entry, args=dict(entry.get('args', {}))))
+        out[name] = new
+    for name, args in (component_args or {}).items():
+        if name not in out:
+            raise ValueError(
+                f"sim overlay names component '{name}', which is not in components.yaml "
+                f'(known: {sorted(out)})')
+        for entry in out[name]:
+            entry['args'].update({str(k): str(v) for k, v in (args or {}).items()})
+    return out
+
+
+def load_sim_component_args(*overlay_paths):
+    """sim_component_args from the sim overlay file(s), later files win per component and arg.
+
+    The overlay is a normal ROS 2 parameter file (it is also handed to every component as
+    parameters); this node's own section carries the launch-argument overrides:
+        component_supervisor_node:
+          ros__parameters: {sim_component_args: {<component>: {<arg>: <value>}}}
+    """
+    merged = {}
+    for path in overlay_paths:
+        if not path:
+            continue
+        with open(os.path.expanduser(path)) as f:
+            data = yaml.safe_load(f) or {}
+        section = ((data.get('component_supervisor_node') or {}).get('ros__parameters') or {})
+        for comp, args in (section.get('sim_component_args') or {}).items():
+            merged.setdefault(comp, {}).update(args or {})
+    return merged
+
+
+def _declare_if_overridden(node, name, default):
+    """Declare `name` only if the launch passed it; otherwise return the default undeclared.
+
+    Keeps the car's supervisor with exactly its old parameter set: the sim parameters are
+    passed by supervisor_bringup.launch.py only with sim:=isaac / use_sim_time:=true.
+    """
+    if name in getattr(node, '_parameter_overrides', {}):
+        return node.declare_parameter(name, default).value
+    return default
+
 
 def _supervisor_lock_path():
     return os.environ.get('COMPONENT_SUPERVISOR_LOCK', _DEFAULT_SUPERVISOR_LOCK_PATH)
@@ -453,11 +537,14 @@ class _ComponentProcess:
     step needed.
     """
 
-    def __init__(self, package, launch_file, args, log_path):
+    def __init__(self, package, launch_file, args, log_path, sim_wrapper_args=None):
         self.package = package
         self.launch_file = launch_file
         self.args = args
         self.log_path = log_path
+        # None on the car. In sim: the extra args of sim_component.launch.py (use_sim_time
+        # for every node, the sim parameter overlay); see ComponentSupervisorNode.__init__.
+        self.sim_wrapper_args = sim_wrapper_args
         self.popen = None
         self.log_file = None
         self.manually_stopped = False
@@ -467,7 +554,13 @@ class _ComponentProcess:
 
     @property
     def cmd(self):
-        cmd = ['ros2', 'launch', self.package, self.launch_file]
+        if self.sim_wrapper_args is None:
+            cmd = ['ros2', 'launch', self.package, self.launch_file]
+        else:
+            cmd = ['ros2', 'launch', *_SIM_WRAPPER,
+                   f'component_package:={self.package}',
+                   f'component_launch_file:={self.launch_file}']
+            cmd += [f'{k}:={v}' for k, v in self.sim_wrapper_args.items()]
         cmd += [f'{k}:={v}' for k, v in self.args.items()]
         return cmd
 
@@ -537,6 +630,18 @@ class ComponentSupervisorNode(Node):
         # invocation falls back to).
         self.enable_intelligence = bool(
             self.declare_parameter('enable_intelligence', True).value)
+        # Simulation mode (supervisor_bringup.launch.py sim:=isaac, use_sim_time:=true).
+        # Declared only when the launch passes them, so the car's supervisor keeps its
+        # old parameter set. This node itself stays on wall time: its watchdog must keep
+        # respawning components while the simulator is paused or not up yet.
+        self.sim = str(_declare_if_overridden(self, 'sim', 'none')).strip().lower()
+        if self.sim not in SIM_MODES:
+            raise ValueError(f"sim must be one of {SIM_MODES}, got '{self.sim}'")
+        self.component_use_sim_time = bool(
+            _declare_if_overridden(self, 'component_use_sim_time', self.sim != 'none'))
+        self.sim_overlay = os.path.expanduser(str(_declare_if_overridden(self, 'sim_overlay', '')))
+        self.sim_overlay_extra = os.path.expanduser(
+            str(_declare_if_overridden(self, 'sim_overlay_extra', '')))
         # 'localization' deferred-start (calibration-restart gap fix) -- see module
         # docstring's own paragraph and _defer_localization_start()'s docstring.
         # Generous margin above the documented ~60-130s calibration-cycle figure
@@ -571,7 +676,23 @@ class ComponentSupervisorNode(Node):
         # it's unit-testable the same duck-typed way as the rest of this file's
         # calibration/deferred-start logic, with no rclpy context needed. Must
         # run before anything reads or launches from self._registry.
-        self._apply_calibration_override()
+        if self.sim == 'none':
+            self._apply_calibration_override()
+        else:
+            # No VESC: no calibration injection, so 'localization' is never deferred
+            # waiting for a calibration that cannot happen (_hardware_will_calibrate()
+            # is False), and ~/run_calibration refuses.
+            self._registry = apply_sim_mode(
+                self._registry, load_sim_component_args(self.sim_overlay, self.sim_overlay_extra))
+            extra = f' + {self.sim_overlay_extra!r}' if self.sim_overlay_extra else ''
+            self.get_logger().info(
+                f'[component_supervisor] sim:={self.sim}: device drivers off, every component '
+                f'on use_sim_time through sim_component.launch.py, overlay '
+                f'{self.sim_overlay!r}{extra}')
+        if self.component_use_sim_time:
+            self._sim_wrapper_args = {'sim_params_file': self.sim_overlay}
+        else:
+            self._sim_wrapper_args = None
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or
@@ -963,7 +1084,8 @@ class ComponentSupervisorNode(Node):
         for entry in self._registry[name]:
             proc = _ComponentProcess(
                 entry['package'], entry['launch_file'], entry['args'],
-                self._log_path(entry['package'], entry['launch_file']))
+                self._log_path(entry['package'], entry['launch_file']),
+                sim_wrapper_args=self._sim_wrapper_args)
             proc.start()
             self.get_logger().info(
                 f"[component_supervisor] Started '{name}': {' '.join(proc.cmd)} "
@@ -1404,6 +1526,12 @@ class ComponentSupervisorNode(Node):
         reasoning (why 'hardware' is stopped first, why this doesn't wait for
         calibration to actually finish, why it doesn't auto-restart 'hardware'
         afterward)."""
+        if self.sim != 'none':
+            response.success = False
+            response.message = (
+                f'sim:={self.sim}: there is no VESC to calibrate (the simulator replaces it).')
+            self.get_logger().warn(f'[component_supervisor] {response.message}')
+            return response
         if 'calibrate_hardware' not in self._registry:
             response.success = False
             response.message = (

@@ -41,11 +41,11 @@ export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
 export ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
 
 # Discovery Server client. Must match stack_params.yaml's
-# discovery_server_address/_port (127.0.0.1:11811). For the two-machine sim
-# setup this becomes the Thor's LAN address, on BOTH machines: on the Thor,
-# supervisor_bringup.launch.py sim:=true discovery_server_address:=<Thor LAN IP>;
-# on the sim host, F1TENTH_DISCOVERY_SERVER=<Thor LAN IP>:11811 before sourcing
-# this file (output/sim_port_report.md §5).
+# discovery_server_address/_port (127.0.0.1:11811). For the two-machine Isaac
+# sim this becomes the Thor's link address, on BOTH machines: on the Thor,
+# supervisor_bringup.launch.py sim:=isaac discovery_server_address:=<Thor link IP>;
+# on the sim host, F1TENTH_DISCOVERY_SERVER=<Thor link IP>:11811 before sourcing
+# this file. scripts/sim/sim_isaac.sh does both (--net eth; see its --help).
 export ROS_DISCOVERY_SERVER=${F1TENTH_DISCOVERY_SERVER:-127.0.0.1:11811}
 
 # ROS_SUPER_CLIENT is deliberately NOT exported. The stack is launched from

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS profile TEMPLATE: sim on TWO machines over the direct Ethernet link
+  (linus = Isaac Sim, Thor = the stack). scripts/sim/sim_isaac.sh net=eth renders it with
+  this host's link address (@ETH_IP@) into a temporary file; never edit addresses here.
+  UDP only on the link interface (and loopback for this host's own processes), so the
+  traffic stays on the direct cable. @SHM_TRANSPORT@ is the shared-memory transport on the
+  stack side, empty on the Isaac side (see isaac_local.xml for why).
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>f1t_shm</transport_id>
+      <type>SHM</type>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>f1t_udp_link</transport_id>
+      <type>UDPv4</type>
+      <interfaceWhiteList>
+        <address>@ETH_IP@</address>
+        <address>127.0.0.1</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="f1tenth_sim_eth" is_default_profile="true">
+    <rtps>
+      <userTransports>
+        @SHM_TRANSPORT@
+        <transport_id>f1t_udp_link</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>

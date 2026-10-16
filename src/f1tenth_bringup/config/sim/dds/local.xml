@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS profile: sim on ONE machine (linus): the stack and Isaac Sim on the same host.
+  Used by scripts/sim/sim_isaac.sh net=local for the stack side (every stack process inherits
+  FASTRTPS_DEFAULT_PROFILES_FILE from the supervisor). Shared memory between stack processes,
+  UDP on the loopback interface only: nothing on the LAN can join, whatever ROS_DOMAIN_ID it uses.
+  Discovery is not configured here: ROS_DISCOVERY_SERVER (set by supervisor_bringup and by
+  scripts/env/jazzy.sh) still makes every participant a Discovery Server client.
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>f1t_shm</transport_id>
+      <type>SHM</type>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>f1t_udp_lo</transport_id>
+      <type>UDPv4</type>
+      <interfaceWhiteList>
+        <address>127.0.0.1</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="f1tenth_sim_local" is_default_profile="true">
+    <rtps>
+      <userTransports>
+        <transport_id>f1t_shm</transport_id>
+        <transport_id>f1t_udp_lo</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS profile for the Isaac Sim CONTAINER, sim on one machine (linus), net=local.
+  UDP on the loopback interface only (the container uses the host network). No shared memory:
+  the container runs as root in its own PID namespace, and component_supervisor_node's
+  stale-segment sweep (_sweep_stale_fastrtps_shm) cannot see its processes and would delete
+  live segments. Mounted into the container by ~/isaac_ws/launch.sh dds-profile.
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>f1t_udp_lo</transport_id>
+      <type>UDPv4</type>
+      <interfaceWhiteList>
+        <address>127.0.0.1</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="f1tenth_isaac_local" is_default_profile="true">
+    <rtps>
+      <userTransports>
+        <transport_id>f1t_udp_lo</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>
