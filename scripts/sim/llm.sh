@@ -11,7 +11,10 @@
 #   scripts/sim/llm.sh                        # sends COMMAND below
 #   scripts/sim/llm.sh "go to the person"     # sends this instead
 #   scripts/sim/llm.sh --dry-run "turn left at the wall"   # translate + write the mission, no load/start
-# Options: --dry-run, --net local|eth (default eth), --domain N, -h|--help.
+#   scripts/sim/llm.sh --restart "go to the person"   # clean run: restart.sh first (start pose)
+# Options: --dry-run, --restart (scripts/sim/restart.sh with the same --net/--domain first; the
+#          command is not sent if any of its checks fails), --net local|eth (default eth),
+#          --domain N, -h|--help.
 # Prints the command sent, the generated mission file and the planner's exit code. The
 # planner exits 0 even when it refuses or fails to plan, so its RESULT status is printed too.
 
@@ -85,11 +88,12 @@ PY
 fi
 
 # ---- outside: arguments, then re-run this file inside sim_isaac.sh run ------------------
-NET=eth; DRY=false; RUN_OPTS=()
+NET=eth; DRY=false; RESTART=false; RUN_OPTS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) usage; exit 0 ;;
     --dry-run) DRY=true; shift ;;
+    --restart) RESTART=true; shift ;;
     --net) NET="${2:?--net needs local|eth}"; shift 2 ;;
     --net=*) NET="${1#*=}"; shift ;;
     --domain) RUN_OPTS+=(--domain "${2:?--domain needs a number}"); shift 2 ;;
@@ -99,5 +103,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -n "$COMMAND" ] || die "empty command"
+if $RESTART; then
+  rc=0; "$HERE/restart.sh" --net "$NET" "${RUN_OPTS[@]}" || rc=$?
+  [ "$rc" -eq 0 ] || die "restart.sh failed (exit $rc): \"$COMMAND\" not sent"
+fi
 export F1T_LLM_INNER=1 F1T_LLM_COMMAND="$COMMAND" F1T_LLM_DRY="$DRY"
 exec "$HERE/sim_isaac.sh" run --net "$NET" "${RUN_OPTS[@]}" -- "$HERE/llm.sh"
