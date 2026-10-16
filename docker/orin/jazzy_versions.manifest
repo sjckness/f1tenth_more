@@ -1,0 +1,124 @@
+# docker/orin/jazzy_versions.manifest
+#
+# Target versions for the Orin Jazzy image: what the Thor reference runs.
+# Phase 5d D1 builds to these pins and diffs the image's resolved versions
+# against this file in output/phase5d_image.md.
+#
+# STATUS: COMPLETE for ROS, Python and ZED (2026-10-07). Captured read-only
+# from andre@jetson-thor at 14:27 CEST; the raw outputs are in thor_capture/:
+#   ros_jazzy_dpkg.txt     dpkg-query -W 'ros-jazzy-*'                (386 packages)
+#   apt_policy.txt         apt-cache policy ros-jazzy-rclcpp ros-jazzy-ros-base ros-jazzy-fastrtps
+#   py_apt.txt             dpkg-query -W 'python3-*' libopencv*
+#   pip_freeze.txt         python3 -m pip list --format=freeze        (system + ~/.local)
+#   pip_user.txt           python3 -m pip list --user --format=freeze
+#   pip_constraints.txt    ~/.config/pip/constraints.txt + pip.conf
+#   apt_sources.txt, ros_apt_lists.txt, ros_dpkg_history.txt
+#   submodules.txt         git submodule status in ~/dev_ws/f1tenth_more (HEAD 13ba262c)
+#   zed_sdk.txt            Camera.hpp version defines, pyzed import, dpkg
+#   bashrc_ros_lines.txt   ~/.bashrc lines that touch ROS/ZED
+#   platform.txt           OS, kernel, L4T, CUDA, Python, glibc, gcc, cmake
+#
+# Format: <component> <version> # <source>
+
+[platform]                                  # Thor, for reference only
+ubuntu                 24.04.4              # platform.txt
+kernel                 6.8.12-tegra         # platform.txt
+l4t                    R38.4.0              # /etc/nv_tegra_release, nvidia-l4t-core 38.4.0-20251230160601 (= JetPack 7.1; the nvidia-jetpack meta package is not installed)
+cuda                   13.0                 # cuda-toolkit-13-0 13.0.0-1
+python                 3.12.3               # platform.txt
+glibc                  2.39                 # platform.txt
+gcc                    13.3.0               # platform.txt
+cmake                  3.28.3               # platform.txt
+
+[ros]                                       # apt, packages.ros.org noble main (live repo, not a snapshot URL)
+ros_distro             jazzy
+apt_sync               2026-09-11           # CONFIRMED: all 386 installed ros-jazzy-* versions are byte-equal to
+                                            # http://snapshots.ros.org/jazzy/2026-09-11/ubuntu noble main (arm64 Packages).
+                                            # 386/386 exact, 0 differ, 0 missing. Against 2026-06-18: 120 exact, 266 differ.
+                                            # Installed 2026-06-19 .. 2026-10-01 from the live repo while it carried that sync;
+                                            # newest build stamp 20260907. Pin: snapshots.ros.org/jazzy/2026-09-11, key
+                                            # 4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA ("ROS Snapshot builder").
+                                            # Note: the Thor's apt lists were refreshed 2026-10-06 (live repo now at the
+                                            # 2026-10-05 sync); an `apt upgrade` there would leave this set.
+rmw_implementation     rmw_fastrtps_cpp     # scripts/env/jazzy.sh:45
+fastrtps               2.14.6               # 2.14.6-1noble.20260902.013353
+rmw_fastrtps_cpp       8.4.4                # 8.4.4-1noble.20260902.140744
+rclcpp                 28.1.22              # 28.1.22-1noble.20260902.143108
+rclpy                  7.1.12               # 7.1.12-1noble.20260902.143245
+ros_base               0.11.0               # 0.11.0-1noble.20260903.024458
+diagnostic_updater     4.2.7                # 4.2.7-1noble.20260902.152037 (the 2026-10-01 upgrade)
+robot_localization     3.8.3                # 3.8.3-1noble.20260902.170723
+slam_toolbox           2.8.5                # 2.8.5-1noble.20260907.044142
+py_trees               2.5.0                # 2.5.0-1noble.20260714.082928
+py_trees_ros           2.5.0                # 2.5.0-1noble.20260902.150822
+rosbag2                0.26.11              # 0.26.11-1noble.20260903.023557
+rosbag2_storage_mcap   0.26.11              # 0.26.11-1noble.20260903.022942
+cv_bridge              4.1.0                # 4.1.0-1noble.20260902.175525
+opencv_system          4.6.0                # libopencv-core4.6 / python3-opencv 4.6.0+dfsg-13.1ubuntu1
+foxglove_bridge        3.5.0                # 3.5.0-1noble.20260902.230918
+urg_node               1.1.2                # 1.1.2-1noble.20260902.185721
+serial_driver          1.2.0                # 1.2.0-4noble.20260902.163231 (+ io_context, asio_cmake_module, udp_msgs)
+nav2_*                 1.3.13               # nav2_msgs, costmap_2d, map_server, lifecycle_manager, planner, smac, controller, rpp, behaviors, bt_navigator
+topic_tools            1.3.4
+rosbridge_server       2.7.1
+joy                    3.3.0
+backward_ros           1.0.8
+image_transport_plugins 4.0.7               # incl. zstd_image_transport 4.0.7
+v4l2_camera            0.7.3
+xacro                  2.1.1
+robot_state_publisher  3.3.4
+zed_description        0.1.5
+everything_else        thor_capture/ros_jazzy_dpkg.txt   # the full 386-line list is the pin
+
+[python]                                    # Thor, the set Phases 0-5 validated: apt python3-* + pip --user, constraints numpy<2, scipy<1.18
+numpy                  1.26.4               # apt python3-numpy 1:1.26.4+ds-6ubuntu1; the image keeps numpy<2 for cv_bridge
+scipy                  1.11.4               # apt python3-scipy 1.11.4-6build1
+osqp                   1.1.3                # pip --user (2026-09-30); Orin Humble also 1.1.3 -> closes backlog M6
+pyarrow                25.0.1               # pip --user (2026-09-30); Orin Humble also 25.0.1
+matplotlib             3.6.3                # apt
+jsonschema             4.10.3               # apt
+psutil                 5.9.8                # apt
+pydot                  1.4.2                # apt
+pyyaml                 6.0.1                # apt
+requests               2.31.0               # apt
+ruamel.yaml            0.17.21              # apt
+pytest                 7.4.4                # apt
+empy                   3.3.4                # apt
+colcon_core            0.20.1               # apt
+setuptools             68.1.2               # apt. SEE BELOW: shadowed in ~/.local since 2026-10-06
+jetson_stats           4.3.2                # NOT a Thor value: must equal the Orin HOST jtop service (client/server protocol)
+
+# CHANGED ON THE THOR AFTER PHASES 0-5 (2026-10-06 17:25 and later; NOT part of the parity reference):
+# ~/.local got `pip install --user ultralytics` (PyPI) and then
+# `pip install --user --force-reinstall --no-deps torch torchvision --index-url https://download.pytorch.org/whl/cu130`:
+#   torch 2.14.1+cu130, torchvision 0.29.1+cu130, ultralytics 8.4.174, opencv-python 4.11.0.86, triton 3.8.0,
+#   and PyPI CUDA 13: cuda-toolkit 13.0.3.0, nvidia-cudnn-cu13 9.24.0.43, nvidia-cublas 13.1.1.3,
+#   nvidia-nccl-cu13, nvidia-cusparselt-cu13, nvidia-nvshmem-cu13, ... (pip_user.txt).
+# setuptools in ~/.local: 84.0.0 at 14:27, replaced by 79.0.1 at 14:42 on 2026-10-07 (someone was working there).
+# This is the PyPI-CUDA pattern the Phase 5d hard rule forbids for the image (and backlog M9's CUDA safety
+# rule); it is reported, not touched. It also means "no torch on the Thor" (D0, M9) is no longer true.
+torch                  NONE_IN_REFERENCE    # Orin image: 2.8.0 cp312 (jetson-ai-lab jp6/cu129); Orin Humble: 2.11.0 cp310 cu126
+torchvision            NONE_IN_REFERENCE    # Orin image: 0.23.0 cp312; Orin Humble: 0.26.0
+ultralytics            8.4.90               # = Orin Humble (the YOLO reference is the Orin's own Humble install); Thor ~/.local now 8.4.174
+opencv_python          4.11.0.86            # = Orin Humble and Thor ~/.local
+
+[zed]
+zed_sdk                5.4.0                # Thor: Camera.hpp 5.4.0, libsl_zed.so installed 2026-06-23 (zed_sdk.txt). Both
+                                            # ZED_SDK_Tegra_L4T36.5_v5.4.0 and v5.4.1 exist; D1 uses 5.4.0 for Thor parity
+                                            # (the D0 analysis said 5.4.1, from the wrapper's package.xml)
+pyzed                  not_used             # not installed on the Thor now; no stack Python imports pyzed
+
+[submodules]                                # git ls-tree origin/jazzy (083c8e8); identical on the Thor's checkout (submodules.txt)
+ackermann_mux          b3c0b083ac03aa8c648537d7e4d22608fcd3440c   # sjckness/ackermann_mux branch jazzy
+vesc                   2848a9ff208689359aae3625657c46f2e70cc0fc   # sjckness/vesc branch jazzy (same commit as the Orin's Humble checkout)
+teleop_tools           4337558fd38e0e1a5c08bdd3c7b4b1a9454a74a9   # 1.2.1-15-g4337558, same as Humble
+zed-ros2-interfaces    e97008721d56ecf3733b95265ff4deaddf3f664e   # tag 5.3.0, same as Humble
+zed_ros2_wrapper       86171bccda22de6e83ccc69b3c0e67af99dece7c   # v5.4.0-6-g86171bc (v5.4.1 on the Thor's describe), package.xml 5.4.1
+husarion_gz_worlds     87271ef83672d9c9c96cb014ac64d746cacfd2c4   # sim host only, not built in the Orin image (not initialised on the Thor either)
+transport_drivers      apt                                        # removed as a submodule on jazzy; ros-jazzy-serial-driver etc.
+
+[environment]                               # Thor ~/.bashrc (bashrc_ros_lines.txt)
+bashrc                 "source ~/dev_ws/f1tenth_more/scripts/env/jazzy.sh; export ZED_DIR=/usr/local/zed"   # confirms the FB2 env proposal is live
+
+[workspace]
+build_skip             f1tenth_sim f1tenth_more husarion_gz_worlds   # Thor ~/.colcon/defaults.yaml skips the first two; husarion is not initialised there
