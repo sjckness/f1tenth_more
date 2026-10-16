@@ -11,7 +11,7 @@
 # folder, and topics (see TEST_CAMPAIGN.md, "Next to the mission logger").
 test_campaign_logger:
   ros__parameters:
-    campaign: first_test_campaing        # folder under <f1tenth_more>
+    campaign: first_test_campaign        # folder under <f1tenth_more>
     robot_radius: 0.3                    # circle for corridor_clearance [m]
     pre_roll_s: 2.0
     post_roll_s: 2.0

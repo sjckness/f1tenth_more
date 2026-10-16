@@ -1,0 +1,6 @@
+{"t": 0.00233675, "event": "test_start", "mission": "M04_person", "prompt_num": 4, "repetition": 16, "prompt_hash": "cd02d07be9885e95f5c1631683f4055ee942f54e35ad2ca20cd0ed92350a3324"}
+{"t": 0.0, "event": "pre_roll", "samples": 215, "seconds": 2.0}
+{"t": 0.0703881, "event": "mission_loaded", "plan_id": "llm_536cba700065", "reason": "", "countdown_s": 3.0}
+{"t": 3.3103, "event": "mission_started", "plan_id": "llm_536cba700065", "reason": "", "countdown_s": 3.0}
+{"t": 16.2263, "event": "mission_finished", "plan_id": "llm_536cba700065", "reason": ""}
+{"t": 18.3186, "event": "test_end", "auto_outcome": "completed", "reason": ""}

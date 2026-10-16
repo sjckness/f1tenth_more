@@ -211,7 +211,7 @@ def build_test(campaign, test_id, *, clearance_window=(4.0, 6.0), obstacle_min=0
 
 
 def make_campaign(tmp_path):
-    campaign = tmp_path / "f1tenth_more" / "first_test_campaing"
+    campaign = tmp_path / "f1tenth_more" / "first_test_campaign"
     campaign.mkdir(parents=True)
     with open(campaign / "prompts.yaml", "w", encoding="utf-8") as fh:
         yaml.safe_dump([{"prompt_num": 1, "mission": "M01", "text": "go",

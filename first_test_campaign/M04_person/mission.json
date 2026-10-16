@@ -1,0 +1,6 @@
+{
+  "mission": "M04_person",
+  "prompt_num": 4,
+  "prompt_text": "go to the person",
+  "success_criterion": "stops at 1.0 m +- 0.3 m from the person, no contact, no e-stop"
+}

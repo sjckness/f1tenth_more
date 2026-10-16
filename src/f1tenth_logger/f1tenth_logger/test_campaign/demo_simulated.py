@@ -41,7 +41,7 @@ import yaml
 from f1tenth_logger.test_campaign import analyze_tests, export_campaign_csv
 from f1tenth_logger.test_campaign.robot_logger import TestLogger, corridor_from_centerline
 
-CAMPAIGN = "first_test_campaing"
+CAMPAIGN = "first_test_campaign"
 WIDTH = 1.2            # corridor width [m]
 ROBOT_RADIUS = 0.3     # footprint radius [m]
 CRUISE = 0.8           # target speed [m/s]

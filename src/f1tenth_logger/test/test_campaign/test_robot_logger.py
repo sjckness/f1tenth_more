@@ -41,7 +41,7 @@ PROMPTS = [
 def root(tmp_path):
     """A fresh project root with a two-entry prompt table."""
     root = tmp_path / "f1tenth_more"
-    campaign = root / "first_test_campaing"
+    campaign = root / "first_test_campaign"
     campaign.mkdir(parents=True)
     with open(campaign / "prompts.yaml", "w", encoding="utf-8") as fh:
         yaml.safe_dump(PROMPTS, fh)
@@ -50,7 +50,7 @@ def root(tmp_path):
 
 @pytest.fixture
 def campaign(root):
-    return root / "first_test_campaing"
+    return root / "first_test_campaign"
 
 
 def logger_for(root, prompt=1, **kwargs):

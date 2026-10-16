@@ -1,0 +1,13 @@
+{
+  "written": "2026-09-24T11:51:59",
+  "campaign": "/home/fabiocar/dev_ws/f1tenth_more/first_test_campaing",
+  "cutoff_hz": 5.0,
+  "deadband_rad": 0.02,
+  "filter_order": 2,
+  "csv_format": "excel-eu",
+  "separator": ";",
+  "decimal": ",",
+  "n_tests": 21,
+  "backfill": "backfill.json",
+  "n_backfilled": 20
+}

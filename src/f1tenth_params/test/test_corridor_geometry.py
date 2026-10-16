@@ -1,7 +1,7 @@
 """corridor_geometry: the two clamps, and the object-corridor A/B.
 
 The A/B runs over data/object_rebuilds.json -- the 24 go_to_object corridor
-rebuilds in first_test_campaing/M04_person, distilled to the five numbers each
+rebuilds in first_test_campaign/M04_person, distilled to the five numbers each
 one needs (car pose, the held heading psi_c, the lead-in origin, the goal).
 The campaign folder itself is not in the repo, so the fixture is: without it
 this comparison could not be re-run, and it is the measurement the whole

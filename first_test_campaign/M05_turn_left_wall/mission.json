@@ -1,0 +1,6 @@
+{
+  "mission": "M05_turn_left_wall",
+  "prompt_num": 5,
+  "prompt_text": "turn left at 1m from the wall",
+  "success_criterion": "starts the left turn at 1.0 m +- 0.2 m from the wall, turns about 90 deg, no contact"
+}

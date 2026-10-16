@@ -1,0 +1,6 @@
+{"t": 0.00879498, "event": "test_start", "mission": "M03_bottle", "prompt_num": 3, "repetition": 1, "prompt_hash": "36c08729c28d24edb63eec12465e42d4ff71f9609d0eec73f7035a69bea2cd09"}
+{"t": 0.0, "event": "pre_roll", "samples": 202, "seconds": 2.0}
+{"t": 0.103066, "event": "mission_loaded", "plan_id": "llm_a1198dffdcdc", "reason": "", "countdown_s": 3.0}
+{"t": 3.11664, "event": "mission_started", "plan_id": "llm_a1198dffdcdc", "reason": "", "countdown_s": 3.0}
+{"t": 10.3449, "event": "mission_aborted", "plan_id": "llm_a1198dffdcdc", "reason": ""}
+{"t": 12.3988, "event": "test_end", "auto_outcome": "aborted", "reason": "mission aborted"}

@@ -1,5 +1,5 @@
 {
- "source": "first_test_campaing M04_person, go_to_object rebuilds",
+ "source": "first_test_campaign M04_person, go_to_object rebuilds",
  "note": "car pose interpolated from kinematics.csv at each corridor t; psi_c, lead-in origin and goal recovered from the logged v1 polygon",
  "rebuilds": [
   {
