@@ -92,3 +92,66 @@ nearest LEFT, then the nearest RIGHT, then BACK, then any remaining side
 walls so the budget is never left unspent. "FRONT always (if present)" read as
 "front is never the thing that drops off the end", which is the defect: a
 front wall at rank 4 of 7 was being hidden on 36 of 206 cycles.
+## H5 — pidstat is not installed, so the probe reads /proc
+
+`pidstat -u -t -d 1` is named in the point and is not available on this box (no
+`sysstat` package), and installing one needs sudo, which the point forbids.
+`tools/cpu_test_probe.py procstat` reads the same numbers without root:
+per-thread `utime + stime` from `/proc/<pid>/task/<tid>/stat`, per-process
+`read_bytes`/`write_bytes` from `/proc/<pid>/io`, the CPU a thread last ran on
+and its affinity mask. `cpu_test.sh` uses `pidstat` when it IS present and the
+probe otherwise, and `summary.md` says which ran.
+
+## H5 — `jetson_clocks --show` needs root and is not given it
+
+It refuses without sudo. The script records the refusal verbatim and reads
+`/sys/devices/system/cpu/*/cpufreq` (current, min, max, governor) and the
+thermal zones instead, which need nothing. `nvpmodel -q` and `tegrastats` both
+work unprivileged on this JetPack and are used directly.
+
+## H5 — the dry run plays a bag into lidar_front_wall_node only
+
+The point asks for "the stack's perception nodes only". The dry run launches
+`lidar_front_wall.launch.py` and plays the recording's `/scan`,
+`/odometry/filtered`, `/tf`, `/tf_static`, `/camera/detections_3d`,
+`/perception/stereo_columns`, `/perception/wall_points`,
+`/costmap/front_clearance` and the depth `camera_info` into it. Not
+`front_clearance_node`: its mask tick needs a depth IMAGE on its own topic,
+and the only depth in this bag is the 5 Hz throttled copy on a different topic
+name, so it would idle and measure nothing. The rectangle verification is
+therefore also absent from the dry run -- `/perception/scene_labels/classes`
+did not exist when the bag was recorded. The dry-run numbers measure the
+decimated tracker and the recorder, and nothing else; the report says so.
+
+## H5 — phase b publishes one /mission/status to start the recorder
+
+`mission_logger_node` starts recording on a `/mission/status` transition and
+on nothing else. In a dry run no behaviour tree is running, so the script
+publishes one RUNNING message and one COMPLETE at the end. It is not a sensor
+driver and not a command path. On the car this is unnecessary: a real mission
+provides it.
+## H5 — `ros2 topic pub -1` blocks, so every publish is rate-limited under a timeout
+
+The first dry run of `cpu_test.sh` HUNG in phase b. `ros2 topic pub -1` exits
+only once it believes the message is away, and blocks indefinitely when no
+subscriber has matched yet -- and `mission_logger_node` needs 5-14 s of
+discovery on this box before it is subscribed at all, so a single message would
+have been lost even if the pub had returned. Both publishes are now
+`timeout N ros2 topic pub -r 2 ...`, which also means the recorder gets the
+transition whenever it finishes discovering.
+
+Found by running it, which is what the dry run is for. The cleanup trap did its
+job: the two processes the script owned were killed and nothing else was
+touched.
+## H5 — the dry run unsets ROS_DISCOVERY_SERVER; the car run does not
+
+`ROS_DISCOVERY_SERVER=127.0.0.1:11811` is set in this box's environment, and
+`supervisor_bringup.launch.py` is what starts that server. With the stack down,
+every participant points at a server that is not there and nothing discovers
+anything: the second dry run subscribed to all eleven topics and counted zero
+messages on every one of them, with the bag demonstrably playing.
+
+Decision: `--dry-run` unsets `ROS_DISCOVERY_SERVER` for its own children, which
+puts them on plain multicast discovery. A side effect worth having: they then
+cannot see, or be seen by, a live stack. On the car the script does NOT touch
+the variable -- there the real stack and the probes must share the server.
