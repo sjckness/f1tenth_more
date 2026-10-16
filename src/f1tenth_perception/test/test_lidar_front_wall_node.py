@@ -875,6 +875,122 @@ class TestWallMarkers:
             n.destroy_node()
 
 
+class TestVizWalls:
+    """/viz/walls: the whole tracker state, and only while someone is looking.
+
+    The marker CONTENT is tested in test_wall_markers.py against the pure
+    builder. What matters here is the wiring: the three gates, and that the
+    topic is fed every track the tracker holds rather than published()'s four.
+    """
+
+    def _node(self, **overrides):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        params = {'enable_scene_labels': True, 'wall_tracker_scan_decimation': 1,
+                  'use_wall_tracker': True}
+        params.update(overrides)
+        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n.viz_walls_pub = MagicMock()
+        n.viz_walls_pub.get_subscription_count.return_value = 1
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _drive(n, cycles=6, t0=7.0):
+        for i in range(cycles):
+            n._odom_cb(_odom_at(t0 + i * 0.05, 0.0))
+            n._scan_cb(_scan_at(2.0, t0 + i * 0.05))
+
+    def test_it_publishes_while_something_is_subscribed(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            assert n.viz_walls_pub.publish.called
+            assert _last(n.viz_walls_pub).markers
+        finally:
+            n.destroy_node()
+
+    def test_nothing_is_published_when_no_one_is_subscribed(self):
+        n = self._node()
+        try:
+            n.viz_walls_pub.get_subscription_count.return_value = 0
+            self._drive(n)
+            assert not n.viz_walls_pub.publish.called
+            # And it did not even build an array to throw away.
+            assert n._viz_walls_builder.drawn_ids == set()
+        finally:
+            n.destroy_node()
+
+    def test_the_flag_off_means_the_subscription_is_never_even_counted(self):
+        n = self._node(viz_walls_enabled=False)
+        try:
+            self._drive(n)
+            assert not n.viz_walls_pub.publish.called
+            assert not n.viz_walls_pub.get_subscription_count.called
+        finally:
+            n.destroy_node()
+
+    def test_the_topic_exists_even_with_the_flag_off(self):
+        """So the flag is a publish-time decision, not a restart-time one."""
+        n = self._node(viz_walls_enabled=False)
+        try:
+            assert n.viz_walls_pub is not None
+        finally:
+            n.destroy_node()
+
+    def test_the_rate_is_capped_below_the_tracker_s_own(self):
+        n = self._node(viz_walls_max_hz=5.0)
+        try:
+            # 20 cycles of 0.05 s is 1.0 s of scan stamps at 20 Hz; a 5 Hz cap
+            # must let through far fewer than one per cycle.
+            self._drive(n, cycles=20)
+            tracker_cycles = n.walls_markers_pub.publish.call_count
+            viz_cycles = n.viz_walls_pub.publish.call_count
+            assert viz_cycles < tracker_cycles
+            assert viz_cycles <= 6          # 1.0 s at 5 Hz, plus the first one
+        finally:
+            n.destroy_node()
+
+    def test_it_is_fed_every_track_not_only_the_four_published(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            held = {t.id for t in n.wall_tracker.tracks}
+            assert held
+            drawn = {m.id // 4 for m in _last(n.viz_walls_pub).markers}
+            assert drawn == held
+            # /perception/walls/markers is the narrower view by construction
+            # (it is fed published()), and this topic must never be the one
+            # that hides a track the other one shows.
+            asserted = {m.id // 2 for m in _last(n.walls_markers_pub).markers}
+            assert asserted <= drawn
+        finally:
+            n.destroy_node()
+
+    def test_the_markers_are_in_the_tracker_s_own_frame(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            frames = {m.header.frame_id for m in _last(n.viz_walls_pub).markers}
+            assert frames == {n._odom_frame}
+        finally:
+            n.destroy_node()
+
+    def test_going_unsubscribed_forgets_what_was_drawn(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            assert n._viz_walls_builder.drawn_ids
+            n.viz_walls_pub.get_subscription_count.return_value = 0
+            self._drive(n, cycles=2, t0=8.0)
+            assert n._viz_walls_builder.drawn_ids == set()
+        finally:
+            n.destroy_node()
+
+
 class TestTheRectanglePair:
     """The wire side of the rectangle verification (E2). The verdicts
     themselves are tested in test_wall_rectangle.py; what matters here is that
