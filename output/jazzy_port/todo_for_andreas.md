@@ -22,3 +22,13 @@ Then on linus, the port must be redone on top of the new tip: `jazzy-campaign` i
 
 ## 2. Stale lock in the main checkout
 `~/dev_ws/f1tenth_more/.git/modules/ackermann_mux/index.lock` (0 bytes, 2026-10-07) blocks git operations inside that submodule. Remove it if no git process is running: `rm ~/dev_ws/f1tenth_more/.git/modules/ackermann_mux/index.lock`.
+
+## 3. apt packages for linus (needs sudo; user-space stand-ins are in ~/dev_ws/jc_deps_ws and ~/dev_ws/jc_venv)
+```bash
+sudo apt install ros-jazzy-slam-toolbox ros-jazzy-py-trees-ros ros-jazzy-py-trees-ros-interfaces \
+  ros-jazzy-topic-tools ros-jazzy-rosbridge-server python3-ruamel.yaml \
+  ros-jazzy-serial-driver ros-jazzy-io-context ros-jazzy-asio-cmake-module ros-jazzy-udp-msgs
+# hardware-only, needed on the car/Thor rather than linus: ros-jazzy-urg-node ros-jazzy-v4l2-camera ros-jazzy-zed-description
+# pip (PEP 668: venv, or PIP_BREAK_SYSTEM_PACKAGES=1): osqp==1.1.3 pyarrow==25.0.1 ultralytics==8.4.90 (numpy<2)
+```
+After that, `rm -rf ~/dev_ws/jc_deps_ws` and rebuild jazzy-campaign without the overlay.

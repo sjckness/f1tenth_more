@@ -9,3 +9,7 @@ Times are linus local time (CEST).
 - 02:27 Submodules fetched (all remotes). Every submodule commit pinned by campaign-final 7b17e2f is on a remote branch or tag (Phase 0 table).
 - 02:35 Worktree `~/dev_ws/f1tenth_more_jc` created on new branch `jazzy-campaign` at 7b17e2f (upstream unset, so no accidental push target); submodules initialised at campaign-final's pins.
 - 02:40 Params evidence: the car's 2026-10-15 params snapshot differs from 7b17e2f's `stack_params.yaml` in 160 lines (scene mask, wall fusion, multi-wall tracker, `enable_scene_labels` true, stage timing, depth recording). Those features are on the Orin only.
+- 02:30 Phase 0 committed (5b621a9).
+- 02:49 isaac_ws f1tenth: --ros-distro (default jazzy) + --dds-profile, smoke test base_room 7/7 PASS with the Jazzy bridge (ba9c29b).
+- 03:56 Phase 1: analysis workflow (23 agents, 0 errors) wrote plan.md: 159 jazzy-only commits = cherry-pick 19, partial 8, proposal 19, skip 113; 20 proposals; linus skip list zed_components zed_wrapper zed_debug zed_ros2 vesc_driver vesc.
+- 03:56 linus lacks slam_toolbox, py_trees_ros, topic_tools, rosbridge_server (apt) and osqp, pyarrow, ultralytics, torch (pip): building an overlay (jc_deps_ws) and a venv (jc_venv) in user space (D6).
