@@ -218,11 +218,16 @@ With the switch on, three things change here, all in scene_labels.py:
     THE CONTRACT (since 2026-10-15; wall_fusion.front_wall_output, and
     WallEstimate.state carries the same verdict on the same tick):
 
-      WALL     a FRONT track crosses the car-width strip ahead of the
-               bumper. The topic carries its distance from the bumper.
-      CLEAR    the sensors work and NOTHING is in the way. The topic carries
-               wall_clear_distance_m (50 m) -- a large finite number, NOT a
-               wall at that distance. An empty LiDAR strip is CLEAR.
+      WALL     a FRONT track's MEASURED segment meets the travel strip ahead
+               of the bumper. The topic carries the distance from the bumper
+               to where the strip meets it.
+      CLEAR    the sensors work and NO FRONT track is in the way. The topic
+               carries wall_clear_distance_m (50 m) -- a large finite number,
+               NOT a wall at that distance. An empty LiDAR strip is CLEAR;
+               so is a strip with returns nearer than front_clear_range_m
+               and no FRONT track (debug front_reason 'unexplained_returns':
+               objects are front_clearance's and IsProximityTooClose's, and
+               a wall is never invented from raw returns).
       NO_DATA  the sensors are not telling us: no transform, no scan, no
                odometry to place it with. The topic carries -1.0 and the
                consumer holds (check_stop_condition.py). NOT "clear".
@@ -259,20 +264,26 @@ without it, the node logs an ERROR at startup and the tracker stays off.
   * Up to 4 wall tracks in odom go out on /perception/walls
     (f1tenth_messages/MultiWallTrackArray), with line and text markers on
     /perception/walls/markers.
-  * The heading wall: the front track (multi_wall_tracker.front_track: the
-    published track labelled front, matched on this scan or coasting for at
-    most wall_tracker_front_max_coast_sec, 0.3 s) is the wall that
-    refit_wall, WallEstimator (wrong-surface gate included) and VirtualWall
-    consume. With no front track, it is the sequential_lines wall, as before.
-  * Coast limit: when the front track is dropped because it has coasted
-    longer than that (or was deleted while coasting), /perception/virtual_wall
-    publishes -1.0 (NO_DATA) on every scan until the tracker has a front track
-    again; neither the sequential_lines wall nor the dead-reckoned value
-    stands in for it meanwhile. A front track that stops being the
-    front one for another reason (relabelled as the car turns, the heading
-    ray misses it) falls back to sequential_lines as before.
-  * /perception/virtual_wall/debug says which: wall_source 'tracker',
-    'sequential_lines' or 'front_coast_expired'. It also carries tracker_ms.
+  * The heading wall: the front track (multi_wall_tracker.front_track and
+    its WHAT FRONT REQUIRES: confirmed, not contradicted by the travel
+    strip's own beams, its MEASURED segment meeting the strip, a LiDAR fit in
+    the last front_lidar_recent_cycles cycles or rect VERIFIED, and a
+    coast of at most wall_tracker_front_max_coast_sec / _m over a strip that
+    does not see through it) is the wall that refit_wall, WallEstimator
+    (wrong-surface gate included) and VirtualWall consume. With no front
+    track, it is the sequential_lines wall, as before -- for the estimator
+    only: the contract's value comes from the tracker alone.
+  * No front track is CLEAR, however it was lost (block 3, 2026-10-16). The
+    old coast latch published -1.0 (NO_DATA) until a new front track
+    appeared, which HOLDS the car, and in an open hall that was
+    indefinitely. NO_DATA now means only what the contract says: no pose at
+    the scan stamp, no laser transform. The FRONT distance is where the
+    travel strip meets the measured segment, from the bumper.
+  * /perception/virtual_wall/debug says why: wall_source 'tracker' or
+    'sequential_lines', front_reason (multi_wall_tracker.front_reason's
+    codes, 'front', 'no_candidate', 'unexplained_returns' or 'no_pose'),
+    strip_range_m (the nearest LiDAR return in the strip, from the bumper),
+    the gap / chassis rejection counters, and tracker_ms.
   * The scan pose is /odometry/filtered interpolated at the scan stamp, the
     pose the EKF also publishes as odom -> base_link.
 
@@ -292,8 +303,7 @@ import time
 
 import numpy as np
 
-from f1tenth_description.vehicle_frames import (
-    base_front_x, front_side_limit_m, MIN_FRONT_DISTANCE_M)
+from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
 from f1tenth_messages.msg import (
     MultiWallTrack, MultiWallTrackArray, StereoColumns, WallEstimate, WallLineFit,
     WallObservation, WallObservationArray)
@@ -445,12 +455,16 @@ class LidarFrontWallNode(Node):
             process_noise_rho=float(param('wall_tracker_process_noise_rho', 1e-4)),
             process_noise_theta=float(param('wall_tracker_process_noise_theta', 1e-4)),
             k_yaw=float(param('wall_tracker_k_yaw', 0.1)),
-            min_overlap_m=float(param('wall_tracker_min_overlap_m', 0.2)),
+            # Block 3: the collinear gap (association AND merge) and the
+            # extent decay -- multi_wall_tracker's THE MEASURED EXTENT.
+            assoc_max_gap_m=float(param('wall_assoc_max_gap_m', 0.5)),
+            extent_decay_s=float(param('wall_extent_decay_sec', 1.0)),
             delete_after_s=float(param('wall_tracker_delete_after_sec', 2.0)),
             coast_max_odom_m=float(param('wall_coast_max_odom_m', 1.0)),
             max_sigma_rho_m=float(param('wall_tracker_max_sigma_rho_m', 0.3)),
             max_published=int(param('wall_tracker_max_tracks', 4)),
-            front_max_coast_s=float(param('wall_tracker_front_max_coast_sec', 0.3)),
+            front_max_coast_s=float(param('wall_tracker_front_max_coast_sec', 0.5)),
+            front_max_coast_m=float(param('wall_tracker_front_max_coast_m', 0.3)),
             # Step 4: the observation noise model and what may be called FRONT.
             lidar_sigma_base_m=float(param('lidar_sigma_base_m', 0.02)),
             lidar_sigma_per_m=float(param('lidar_sigma_per_m', 0.005)),
@@ -462,9 +476,17 @@ class LidarFrontWallNode(Node):
             role_hysteresis_rad=float(param('role_hysteresis_rad', math.radians(5.0))),
             stereo_front_max_normal_rad=float(
                 param('stereo_front_max_normal_rad', math.radians(30.0))),
-            strip_half_width_m=float(
-                param('front_strip_half_width_m', front_side_limit_m())),
+            # The TRAVEL STRIP is the bodywork (swept_clearance_body_half_width_m)
+            # plus front_strip_margin_m, from the bumper: multi_wall_tracker's
+            # WHAT FRONT REQUIRES.
+            front_x_m=float(self.front_x),
             side_edge_half_width_m=float(get_value('swept_clearance_body_half_width_m')),
+            front_strip_margin_m=float(param('front_strip_margin_m', 0.15)),
+            front_min_confidence=float(param('front_min_confidence', 0.5)),
+            front_lidar_recent_cycles=int(param('front_lidar_recent_cycles', 3)),
+            front_contradict_margin_m=float(param('front_contradict_margin_m', 0.5)),
+            front_contradict_cycles=int(param('front_contradict_cycles', 2)),
+            stereo_min_rho_m=float(param('wall_obs_stereo_min_rho_m', 0.4)),
             # Minimum width for a wall: see multi_wall_tracker's own
             # "WHY THE SPAN GATE IS HYSTERETIC".
             min_span_birth_m=float(param('wall_min_span_birth_m', 1.0)),
@@ -574,7 +596,7 @@ class LidarFrontWallNode(Node):
         self._front_id = None       # id of the tracker's current front track
         self._front_d_ray = math.nan   # its distance from the bumper, this scan
         self._tracker_has_data = False  # could this cycle see at all (step 5)
-        self._front_coast_expired = False   # module docstring, coast limit
+        self._front_reason = 'no_candidate'  # why there is (not) a FRONT, for debug
         self._seq_wall = None       # the latest sequential_lines heading wall
         self._lines = []            # the latest sequential_lines extraction
         self._tracker_ms = math.nan
@@ -595,6 +617,10 @@ class LidarFrontWallNode(Node):
         self.obs_stereo_min_columns = int(param('wall_obs_stereo_min_columns', 8))
         self.wall_default_height = float(param('wall_default_height_m', 2.5))
         self.wall_clear_distance_m = float(get_value('wall_clear_distance_m'))
+        # r_clear: a strip return nearer than this with no FRONT track is
+        # flagged 'unexplained_returns' on the debug topic. The contract still
+        # says CLEAR (multi_wall_tracker.contract_reason says why).
+        self.front_clear_range_m = float(param('front_clear_range_m', 2.0))
         self.wall_marker_thickness_m = float(param('wall_marker_thickness_m', 0.02))
         self.side_edge_half_width_m = float(get_value('swept_clearance_body_half_width_m'))
 
@@ -1073,6 +1099,10 @@ class LidarFrontWallNode(Node):
         if laser_pose is None:
             fit = SectorFit(0, 0)
             reason = REASON_NO_TRANSFORM
+            # No transform: the scan cannot be placed, so the contract is
+            # NO_DATA -- not whatever the last placed scan said.
+            self._tracker_has_data = False
+            self._front_d_ray = math.nan
             self.get_logger().warn(
                 f'no {self.base_frame} <- {msg.header.frame_id} transform on /tf_static yet; '
                 'publishing no_transform', throttle_duration_sec=5.0)
@@ -1173,7 +1203,11 @@ class LidarFrontWallNode(Node):
         observations and the tracker, and an empty strip is CLEAR.
         """
         if self.wall_tracker is not None:
-            has_data = self._tracker_has_data and not self._front_coast_expired
+            # NO_DATA only when the LiDAR could not be used at all (no pose
+            # at the scan stamp, no transform). A FRONT that was dropped --
+            # coasted out, contradicted by the strip's beams, never there --
+            # is CLEAR: the sensors are working and no wall is in the way.
+            has_data = self._tracker_has_data
             state, value = wall_fusion.front_wall_output(
                 has_data, self._front_d_ray, self.wall_clear_distance_m,
                 MIN_FRONT_DISTANCE_M)
@@ -1202,9 +1236,28 @@ class LidarFrontWallNode(Node):
             'lidar_m': num(v.lidar_m), 'stereo_m': num(v.stereo_m),
             'lidar_reason': int(step.reason),
             'lidar_provenance': PROVENANCE_NAMES[step.estimate.provenance],
-            'wall_source': (None if self.wall_tracker is None
-                            else 'front_coast_expired' if self._front_coast_expired
-                            else self._wall_source),
+            'wall_source': None if self.wall_tracker is None else self._wall_source,
+            # Block 3: why there is or is not a FRONT (multi_wall_tracker.
+            # front_reason codes, 'front', 'no_candidate' or
+            # 'unexplained_returns'), the FRONT track's id, and the nearest
+            # LiDAR return in the travel strip, from the bumper (None: the
+            # strip returned nothing -- glass, range, or cut for an object).
+            'front_reason': None if self.wall_tracker is None else self._front_reason,
+            'front_id': None if self.wall_tracker is None else self._front_id,
+            'strip_range_m': (None if self.wall_tracker is None
+                              else num(self.wall_tracker.strip.range_m)),
+            # Observations refused by the collinear gap (a different wall on
+            # the same line), track merges refused by it, and stereo-only
+            # lines dropped as the car's own chassis; `rejections` has a
+            # reason code per event: [code, track id, metres].
+            'gap_rejected': (None if self.wall_tracker is None
+                             else int(self.wall_tracker.n_gap_rejected)),
+            'merge_gap_refused': (None if self.wall_tracker is None
+                                  else int(self.wall_tracker.n_merge_gap_refused)),
+            'stereo_near_rejected': (None if self.wall_tracker is None
+                                     else int(self.wall_tracker.n_stereo_near_rejected)),
+            'rejections': (None if self.wall_tracker is None
+                           else [list(r) for r in self.wall_tracker.rejections]),
             # Observations the span gate dropped as too short to be a wall. A
             # run of these says the room is full of short faces, or that
             # wall_merge_max_gap_m is too tight to reunify one wall.
@@ -1283,6 +1336,7 @@ class LidarFrontWallNode(Node):
             # No pose to place the walls with: NO_DATA, not "clear".
             self._front_d_ray = math.nan
             self._tracker_has_data = False
+            self._front_reason = 'no_pose'
             self.get_logger().warn(
                 f'wall tracker: no {self.odom_topic} pose at the scan stamp; skipped',
                 throttle_duration_sec=5.0)
@@ -1305,39 +1359,47 @@ class LidarFrontWallNode(Node):
             if self.debug_tracks else 0)
         # The negative evidence sees exactly the beams the extraction saw,
         # object sectors cut and all (mwt.scan_in_base_link): a beam cut
-        # because an object stands there is evidence about the object.
-        neg_ranges, neg_bearings, _angles = mwt.scan_in_base_link(
+        # because an object stands there is evidence about the object. The
+        # cut MASK goes in too, so a cut beam is never read as free space
+        # (the strip range, the collinear gap, the negative evidence).
+        neg_ranges, neg_bearings, _angles, cut = mwt.scan_in_base_link(
             msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min,
-            msg.range_max, laser_pose, sectors)
+            msg.range_max, laser_pose, sectors, with_cut=True)
         # The roles are DEFERRED: the rectangle runs on the tracks the step
         # just updated and its verdicts are folded in before anything is asked
         # of the roles -- a REJECTED wall is not a reference wall on the same
         # cycle it was rejected, not on the next one -- and deciding them
         # before and after would pay for the role and occlusion pass twice.
         self.wall_tracker.step(observations, scan_stamp, car,
-                               scan=(neg_ranges, neg_bearings, laser_pose[:2]),
+                               scan=(neg_ranges, neg_bearings, laser_pose[:2], cut),
                                defer_roles=True)
         self._rect_verdicts = self._verify_tracks(
             car, scan_stamp, self._stereo_columns[1] if self._stereo_columns else None)
         self.wall_tracker.update_roles(car)
         tracks = self.wall_tracker.published(car)
         front = self.wall_tracker.front_track(car, self.front_x)
-        self._front_d_ray = math.nan
-        if front is not None:
-            _perp, self._front_d_ray = mwt.front_distances(
-                front, car, self.front_x, self.wall_tracker.p.ray_margin_m)
-            self._front_id, self._front_coast_expired = front.id, False
-        elif self._front_id is not None:
-            # The front track went away: past the coast limit (or deleted)
-            # means no wall until a new front track; anything else falls back.
-            lost = self.wall_tracker.track(self._front_id)
-            if lost is None or self.wall_tracker.coast_expired(lost):
-                self._front_coast_expired = True
-                self.get_logger().warn(
-                    f'wall tracker: front track {self._front_id} unseen for more than '
-                    f'{self.wall_tracker.p.front_max_coast_s:.2f} s: virtual wall -1 until '
-                    'a new front track')
-            self._front_id = None
+        status = self.wall_tracker.front_status
+        # The FRONT distance is where the travel strip meets the MEASURED
+        # segment, from the bumper (mwt.strip_distance), NaN without a FRONT:
+        # CLEAR. There is no NO_DATA latch any more -- a FRONT that went away
+        # was dropped for a reason the debug output now names, and the strip
+        # it was judged against is right there on the same topic.
+        self._front_d_ray = status['distance_m'] if front is not None else math.nan
+        previous, self._front_id = self._front_id, status['id']
+        self._front_reason = mwt.contract_reason(
+            status['reason'], self.wall_tracker.strip.range_m, self.front_clear_range_m)
+        if previous is not None and front is None:
+            self.get_logger().info(
+                f'wall tracker: front track {previous} dropped '
+                f'({status["rejects"].get(previous, "gone")}); virtual wall CLEAR '
+                f'(strip {self.wall_tracker.strip.range_m})')
+        if self.wall_tracker.n_stereo_near_rejected:
+            self.get_logger().warn(
+                f'{self.wall_tracker.n_stereo_near_rejected} stereo-only wall '
+                f'observation(s) nearer than {self.wall_tracker.p.stereo_min_rho_m:.2f} m '
+                'dropped as chassis: a run of these means the self polygon '
+                '(front_clearance_scene_mask_self_polygons) misses part of the car',
+                throttle_duration_sec=10.0)
         self._tracker_ms = (time.perf_counter() - t0) * 1e3
         self._log_tracker_cost(scan_stamp)
         self._publish_walls(msg.header.stamp, tracks, car)
@@ -1360,7 +1422,8 @@ class LidarFrontWallNode(Node):
             return 0
         objs = mwt.propagate_objects(objs, then, car)
         confirmed = [mwt.segment_in_base_link(t, car)
-                     for t in self.wall_tracker.tracks if t.ever_confirmed]
+                     for t in self.wall_tracker.tracks
+                     if t.ever_confirmed and not t.contradicted]
         if not confirmed:
             return 0
         pts = np.array([[x, y] for x, y, _r in objs], dtype=float)
@@ -1404,6 +1467,14 @@ class LidarFrontWallNode(Node):
                 'rect_beyond_share': num(trk.rect_beyond_share),
                 'rect_reject_streak': int(trk.rect_reject_streak),
                 'is_front': bool(self.wall_tracker.is_front(trk, car, self.front_x)),
+                # Block 3: the strip's verdict on this track and why it is
+                # (not) FRONT; '' front_reason means it may be.
+                'front_reason': self.wall_tracker.front_reason(trk, car, self.front_x),
+                'contradicted': bool(trk.contradicted),
+                'strip_verdict': trk.strip_verdict, 'strip_miss': int(trk.strip_miss),
+                'strip_pred_m': num(trk.strip_pred_m),
+                'confidence': num(self.wall_tracker.front_confidence(trk)),
+                'lidar_recent': bool(any(trk.lidar_hist)),
             })
         return out
 
@@ -1450,7 +1521,9 @@ class LidarFrontWallNode(Node):
             # and whether this is the wall actually in the way.
             m.role = label
             m.source = int(trk.source)
-            m.confidence = float(trk.confidence)
+            # The FRONT gate's confidence (front_confidence), not the last
+            # observation's: the one number something actually decides on.
+            m.confidence = float(self.wall_tracker.front_confidence(trk))
             m.z_min, m.z_max = float(trk.z_min), float(trk.z_max)
             m.height_measured = bool(trk.height_measured)
             m.d_side = (float(mwt.side_distance(trk, car, self.side_edge_half_width_m))

@@ -66,12 +66,29 @@ def observe(lines, source=wall_fusion.SOURCE_LIDAR, confidence=0.8,
         for ln in lines]
 
 
-def step(tracker, car, t, segments, circles=(), objects=(), rng=None, **obs_kw):
-    """One scan through extraction and the tracker; objects are (x, y, r) in base_link."""
+def scan_of(ranges, sectors=()):
+    """The scan tuple the node hands the tracker: (ranges, bearings, laser xy, cut)."""
+    r, b, _angles, cut = mwt.scan_in_base_link(ranges, ANGLE_MIN, INC, 0.06, 30.0, LASER,
+                                               sectors, with_cut=True)
+    return r, b, LASER[:2], cut
+
+
+def step(tracker, car, t, segments, circles=(), objects=(), rng=None, observations=None,
+         extra=(), **obs_kw):
+    """One scan through extraction and the tracker; objects are (x, y, r) in base_link.
+
+    The scan goes in too, cut mask and all, exactly as lidar_front_wall_node
+    passes it: the gap, strip and negative-evidence rules all read the beams.
+    `observations` replaces the extraction's own; `extra` is added to them
+    (a hand-built bridge, a stereo line).
+    """
     sectors = detection_sectors(objects, LASER[:2], math.radians(3.0)) if objects else ()
-    lines = mwt.extract_lines(raycast(car, segments, circles, rng=rng), ANGLE_MIN, INC,
-                              0.06, 30.0, LASER, sectors)
-    return tracker.step(observe(lines, **obs_kw), t, car)
+    ranges = raycast(car, segments, circles, rng=rng)
+    if observations is None:
+        lines = mwt.extract_lines(ranges, ANGLE_MIN, INC, 0.06, 30.0, LASER, sectors)
+        observations = observe(lines, **obs_kw)
+    return tracker.step(list(observations) + list(extra), t, car,
+                        scan=scan_of(ranges, sectors))
 
 
 def run(tracker, car, segments, n=10, t0=0.0, dt=0.05, **kw):
@@ -433,11 +450,21 @@ def test_a_tentative_track_is_never_front():
     assert trk.front_track(ORIGIN, FRONT_X) is None
 
 
-def test_a_glancing_stereo_only_wall_is_not_front_but_a_square_one_is():
+VERIFIED = {'coverage': 0.9, 'support': 0.9, 'beyond_share': 0.0}
+
+
+def test_a_glancing_stereo_only_wall_is_not_front_but_a_square_verified_one_is():
+    """UPDATED for block 3 (WHAT FRONT REQUIRES): a square stereo-only wall
+    used to be FRONT on the stereo's word alone. It now needs the rectangle to
+    have VERIFIED it -- nothing else has measured it (no LiDAR fit in the last
+    front_lidar_recent_cycles cycles) -- and a glancing one stays refused."""
     p = mwt.TrackerParams()
     square = mwt.MultiWallTracker(p)
     feed(square, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], p.stereo_confirm_hits)
-    assert square.front_track(ORIGIN, FRONT_X) is not None
+    assert square.front_track(ORIGIN, FRONT_X) is None
+    assert square.front_status['reason'] == 'unverified'
+    square.apply_rect_verdicts({square.tracks[0].id: VERIFIED})
+    assert square.front_track(ORIGIN, FRONT_X) is square.tracks[0]
 
     oblique = mwt.MultiWallTracker(p)
     # 40 deg off the heading: still crosses the strip, but nothing cross-checks it.
@@ -445,6 +472,8 @@ def test_a_glancing_stereo_only_wall_is_not_front_but_a_square_one_is():
     slanted = wall(2.0, nx=math.cos(a), ny=math.sin(a), t0=-2.0, t1=2.0)
     feed(oblique, [obs(slanted, wall_fusion.SOURCE_STEREO)], p.stereo_confirm_hits)
     assert oblique.tracks[0].ever_confirmed
+    oblique.apply_rect_verdicts({oblique.tracks[0].id: VERIFIED})
+    assert oblique.front_reason(oblique.tracks[0], ORIGIN) == 'stereo_oblique'
     assert mwt.crosses_strip(oblique.tracks[0], ORIGIN, FRONT_X, 0.186)
     assert oblique.front_track(ORIGIN, FRONT_X) is None
     # The same geometry seen by the LiDAR is allowed to be the front wall.
@@ -1108,3 +1137,295 @@ def test_pose_history_extrapolates_up_to_the_given_window_only():
     assert hist.at(10.17, 0.15).x == pytest.approx(0.05)  # new 0.15 s
     assert hist.at(10.21, 0.15) is None
     assert hist.at(10.025, 0.15).x == pytest.approx(0.025)  # interpolation unchanged
+
+
+# ===========================================================================
+# Block 3: FRONT is the MEASURED extent, judged by the strip's own beams
+# (corridor10m_20261016T144537, t = 145-150.3 s: track 955, 13.67 m, built
+# from the two faces either side of a corridor mouth, held FRONT over a strip
+# that read 6.75-6.96 m and stopped the car ~5 m early)
+# ===========================================================================
+
+# The fixture's geometry: base_link at the car pose, the laser at x 0.305,
+# the bumper at FRONT_X 0.405. A wall at x = 3.5 is therefore 3.5 - 0.405 =
+# 3.095 m from the bumper (the "~3.4 m" of the incident notes is the same wall
+# measured from a bumper ~0.1 m from base_link; this fixture's is 0.405 m).
+WALL_X = 3.5
+PIECES = [((WALL_X, 1.2), (WALL_X, 6.0)), ((WALL_X, -6.0), (WALL_X, -1.2))]
+HALL = [((7.3, -1.2), (7.3, 1.2))]
+CLEAR_M = 50.0
+
+
+def contract(trk):
+    """(state, value) the node would publish for this tracker's last front_track()."""
+    return wall_fusion.front_wall_output(True, trk.front_status['distance_m'], CLEAR_M)
+
+
+def test_two_collinear_pieces_either_side_of_an_opening_are_not_one_front_wall():
+    """The incident's geometry. The old _merge joined the two pieces on the
+    (rho, theta) gate alone and the union of their extents crossed the strip:
+    FRONT at 3.1 m over an empty strip."""
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(6):
+        step(trk, car, i * 0.1, PIECES)
+        if i == 0:
+            # Both pieces spawn on the first cycle; the merge is refused.
+            assert trk.n_merge_gap_refused == 1
+            assert trk.rejections[0][0] == 'gap_merge'
+    confirmed = [t for t in trk.tracks if t.ever_confirmed]
+    assert len(confirmed) == 2
+    assert all(abs(t.t1 - t.t0) < 5.0 for t in confirmed)   # never 12 m
+    assert trk.front_track(car, FRONT_X) is None
+    assert trk.front_status['reason'] == 'no_candidate'
+    assert trk.strip.range_m is None                         # nothing in the strip
+    assert contract(trk) == (wall_fusion.STATE_CLEAR, CLEAR_M)
+
+
+def test_through_the_opening_the_front_wall_is_the_hall_wall_never_the_phantom():
+    """Skeptic #5: a strip that reads 6.9 m is a SURFACE, and the right answer
+    is WALL at that surface, not CLEAR and never the 3.1 m line."""
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(6):
+        step(trk, car, i * 0.1, PIECES + HALL)
+    front = trk.front_track(car, FRONT_X)
+    assert front is not None and front.rho == pytest.approx(7.3, abs=0.05)
+    assert trk.front_status['distance_m'] == pytest.approx(7.3 - FRONT_X, abs=0.05)
+    assert trk.strip.range_m == pytest.approx(7.3 - FRONT_X, abs=0.05)
+
+
+def test_a_real_front_wall_across_the_strip_is_front_from_the_bumper():
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    for i in range(5):
+        step(trk, car, i * 0.1, [((WALL_X, -3.0), (WALL_X, 3.0))])
+    front = trk.front_track(car, FRONT_X)
+    assert front is not None and trk.front_status['reason'] == 'front'
+    assert trk.front_status['distance_m'] == pytest.approx(WALL_X - FRONT_X, abs=0.03)
+    assert front.strip_verdict == mwt.STRIP_SUPPORTED
+    state, value = contract(trk)
+    assert state == wall_fusion.STATE_WALL and value == pytest.approx(3.095, abs=0.03)
+
+
+def _confirmed_front_at_3_5(trk, car, n=4):
+    for i in range(n):
+        step(trk, car, i * 0.1, [((WALL_X, -3.0), (WALL_X, 3.0))])
+    front = trk.front_track(car, FRONT_X)
+    assert front is not None
+    return front, (n - 1) * 0.1
+
+
+def test_a_front_track_losing_its_lidar_fit_over_a_strip_3_m_longer_is_dropped():
+    """The wall is gone and the strip reads +3 m (a 0.6 m stub at 6.5 m, too
+    short to be a wall itself). Coasting, the first contradicting scan already
+    ends its FRONT; the second marks it CONTRADICTED."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    front, t = _confirmed_front_at_3_5(trk, car)
+    beyond = [((6.5, -0.3), (6.5, 0.3))]
+    step(trk, car, t + 0.1, beyond)
+    assert trk.strip.range_m == pytest.approx(6.5 - FRONT_X, abs=0.03)
+    assert trk.front_track(car, FRONT_X) is None
+    assert trk.front_status['rejects'][front.id] == 'coast_contradicted'
+    step(trk, car, t + 0.2, beyond)
+    assert front.contradicted and front.role == 'other'
+    assert trk.front_track(car, FRONT_X) is None
+    assert contract(trk) == (wall_fusion.STATE_CLEAR, CLEAR_M)
+
+
+def test_a_front_track_fed_only_by_stereo_over_a_strip_3_m_longer_drops_in_two_scans():
+    """Not coasting -- a stereo line keeps associating with it -- but no LiDAR
+    fit: the owner's rule, two consecutive contradicting scans."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    front, t = _confirmed_front_at_3_5(trk, car)
+    stereo = [obs(wall(WALL_X, t0=-3.0, t1=3.0), wall_fusion.SOURCE_STEREO)]
+    beyond = [((6.5, -0.3), (6.5, 0.3))]
+    step(trk, car, t + 0.1, beyond, observations=stereo)
+    assert front.state == mwt.STATE_CONFIRMED and front.strip_miss == 1
+    step(trk, car, t + 0.2, beyond, observations=stereo)
+    assert front.contradicted
+    assert trk.front_track(car, FRONT_X) is None
+    assert trk.front_status['rejects'][front.id] == 'contradicted'
+
+
+def test_a_bridge_the_extraction_built_is_contradicted_and_the_hall_wall_takes_over():
+    """The single-scan bridge (the extraction's 1.5 m merge can join faces a
+    shorter opening apart): an observation spanning the opening, LiDAR-fitted
+    every cycle. The strip's beams pass through it to the hall wall; once it
+    is CONTRADICTED it stops occluding, and the hall wall is FRONT."""
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    car = Pose2D(0.0, 0.0, 0.0)
+    bridge = [obs(wall(WALL_X, t0=-6.0, t1=6.0))]
+    for i in range(6):
+        step(trk, car, i * 0.1, PIECES + HALL, extra=bridge)
+    phantom = min((t for t in trk.tracks if t.ever_confirmed), key=lambda t: t.rho)
+    assert phantom.rho == pytest.approx(WALL_X, abs=0.05) and phantom.contradicted
+    front = trk.front_track(car, FRONT_X)
+    assert front is not None and front.rho == pytest.approx(7.3, abs=0.05)
+
+
+def test_a_stereo_observation_at_rho_0_2_is_the_chassis_and_is_dropped():
+    """23 throwaway stereo 'right' tracks at rho_bl 0.20 m in the incident run."""
+    trk = mwt.MultiWallTracker()
+    chassis = obs(wall(0.2, nx=0.0, ny=-1.0, t0=0.0, t1=1.2), wall_fusion.SOURCE_STEREO)
+    for i in range(8):
+        trk.step([chassis], 1.0 + 0.1 * i, ORIGIN)
+        assert trk.n_stereo_near_rejected == 1
+    assert trk.tracks == []
+    assert trk.rejections == [('stereo_near', None, 0.2)]
+    # The LiDAR at the same place is a real surface touching the car.
+    lidar = mwt.MultiWallTracker()
+    lidar.step([obs(wall(0.2, nx=0.0, ny=-1.0, t0=0.0, t1=1.2))], 1.0, ORIGIN)
+    assert len(lidar.tracks) == 1 and lidar.n_stereo_near_rejected == 0
+
+
+def test_an_observation_past_the_collinear_gap_starts_its_own_track():
+    p = mwt.TrackerParams()
+    trk = mwt.MultiWallTracker(p)
+    feed(trk, [obs(wall(2.0, t0=-2.5, t1=-1.0))], 3)
+    first = trk.tracks[0]
+    # Same line, 1.0 m beyond the extent: refused, counted, its own track.
+    trk.step([obs(wall(2.0, t0=0.0, t1=1.5))], 1.2, ORIGIN)
+    assert trk.n_gap_rejected == 1
+    assert ('gap_assoc', first.id, 1.0) in trk.rejections
+    assert len(trk.tracks) == 2 and first.t1 == pytest.approx(-1.0, abs=0.01)
+    # 0.4 m beyond: inside the gap, the same wall, and the extent follows it.
+    near = mwt.MultiWallTracker(p)
+    feed(near, [obs(wall(2.0, t0=-2.5, t1=-1.0))], 3)
+    near.step([obs(wall(2.0, t0=-0.6, t1=0.9))], 1.2, ORIGIN)
+    assert len(near.tracks) == 1 and near.n_gap_rejected == 0
+    assert near.tracks[0].t1 == pytest.approx(0.9, abs=0.01)
+
+
+def test_a_gap_hidden_by_a_detected_person_is_not_an_opening():
+    """The gap is counted only where the beams went THROUGH. Behind a person
+    (a cut sector) the wall is unobserved, not open: the M02 case, and why
+    test_person_in_front_of_the_wall_... still gets one wall."""
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    wall_seg = [((4.0, -3.0), (4.0, 3.0))]
+    for i in range(5):
+        step(trk, car, i * 0.1, wall_seg, circles=[((2.0, 0.0), 0.25)],
+             objects=[(2.0, 0.0, 0.25)])
+    assert len(trk.tracks) == 1 and trk.n_merge_gap_refused == 0
+    assert trk.tracks[0].length > 5.5
+    assert trk.front_track(car, FRONT_X) is trk.tracks[0]
+
+
+def test_an_end_nobody_re_observes_decays_after_the_parameter():
+    p = mwt.TrackerParams()
+    trk = mwt.MultiWallTracker(p)
+    feed(trk, [obs(wall(2.0, t0=-3.0, t1=3.0))], 3, t0=1.0, dt=0.1)
+    track = trk.tracks[0]
+    # From now on only the left half is seen.
+    for i in range(1, 16):
+        trk.step([obs(wall(2.0, t0=-3.0, t1=0.0))], 1.2 + 0.1 * i, ORIGIN)
+        if 1.2 + 0.1 * i - 1.2 <= p.extent_decay_s - 0.05:
+            assert track.t1 == pytest.approx(3.0, abs=0.02)
+    assert track.t1 == pytest.approx(0.0, abs=0.02)
+    assert track.t0 == pytest.approx(-3.0, abs=0.02)
+
+
+def test_a_coast_holds_front_only_over_an_empty_strip_and_only_for_the_caps():
+    p = mwt.TrackerParams()
+    car = Pose2D(0.0, 0.0, 0.0)
+    nothing = scan_of(np.full(N_BEAMS, NO_RETURN))
+    # Empty strip (glass, out of range): FRONT holds while coasting...
+    trk = mwt.MultiWallTracker(p)
+    front, t = _confirmed_front_at_3_5(trk, car)
+    trk.step([], t + 0.1, car, scan=nothing)
+    assert trk.front_track(car, FRONT_X) is front and front.state == mwt.STATE_COASTING
+    assert front.strip_verdict == mwt.STRIP_NO_RETURNS
+    # ...but no longer than front_lidar_recent_cycles cycles without a LiDAR
+    # fit (unverified), nor past front_max_coast_s.
+    trk.step([], t + 0.2, car, scan=nothing)
+    trk.step([], t + 0.3, car, scan=nothing)
+    assert trk.front_track(car, FRONT_X) is None
+    assert trk.front_status['rejects'][front.id] == 'unverified'
+    trk.step([], t + 0.1 + p.front_max_coast_s + 0.05, car, scan=nothing)
+    assert trk.front_track(car, FRONT_X) is None
+    assert trk.front_status['rejects'][front.id] == 'coast_expired'
+    # On odometry: 0.35 m driven on a prediction is past front_max_coast_m.
+    moved = mwt.MultiWallTracker(p)
+    front, t = _confirmed_front_at_3_5(moved, car)
+    moved.step([], t + 0.1, Pose2D(0.35, 0.0, 0.0), scan=nothing)
+    assert moved.front_track(Pose2D(0.35, 0.0, 0.0), FRONT_X) is None
+    assert moved.front_status['rejects'][front.id] == 'coast_expired'
+
+
+def test_cut_beams_are_not_free_space_in_the_strip():
+    bearings = ANGLE_MIN + np.arange(N_BEAMS) * INC
+    cut = np.abs(bearings) < math.radians(30.0)
+    # Every strip beam cut (a detected object right ahead), the rest return
+    # nothing: the strip has NO return, never "free to infinity".
+    scan = (np.full(N_BEAMS, np.inf), bearings, LASER[:2], cut)
+    reading = mwt.strip_returns(scan, FRONT_X, 0.286)
+    assert reading.range_m is None and reading.n_cut > 0
+    assert mwt.strip_verdict(3.0, reading.range_m, 0.5) == mwt.STRIP_NO_RETURNS
+    # A cut beam's range is never used, even if one slipped through finite.
+    leaked = (np.where(cut, 9.0, np.inf), bearings, LASER[:2], cut)
+    assert mwt.strip_returns(leaked, FRONT_X, 0.286).range_m is None
+
+
+def test_cut_beams_are_not_negative_evidence():
+    """The pre-block-3 defect: a cut beam is inf, and inf counted as a PASS."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    r, b, lxy = neg_scan(lambda x: np.full(x.size, np.inf))
+    every = np.ones(N_BEAMS, dtype=bool)
+    for i in range(6):
+        trk.step([], 2.0 + 0.05 * i, ORIGIN, scan=(r, b, lxy, every))
+    assert track in trk.tracks and track.miss == 0
+    # The same beams as genuine no-returns are still a pass (a wall returns).
+    trk.step([], 2.5, ORIGIN, scan=(r, b, lxy))
+    assert track.miss == 1
+
+
+def test_the_contract_is_clear_without_a_front_and_no_data_only_without_data():
+    trk = mwt.MultiWallTracker()
+    car = Pose2D(0.0, 0.0, 0.0)
+    front, t = _confirmed_front_at_3_5(trk, car)
+    step(trk, car, t + 0.1, [((6.5, -0.3), (6.5, 0.3))])
+    step(trk, car, t + 0.2, [((6.5, -0.3), (6.5, 0.3))])
+    assert trk.front_track(car, FRONT_X) is None and front.contradicted
+    # A dropped (contradicted) front is CLEAR, not NO_DATA: the data is there.
+    assert contract(trk) == (wall_fusion.STATE_CLEAR, CLEAR_M)
+    assert wall_fusion.front_wall_output(False, math.nan, CLEAR_M) == (
+        wall_fusion.STATE_NO_DATA, -1.0)
+    # The debug reason: no candidate but returns inside r_clear is flagged.
+    assert mwt.contract_reason('no_candidate', 1.0, 2.0) == 'unexplained_returns'
+    assert mwt.contract_reason('no_candidate', None, 2.0) == 'no_candidate'
+    assert mwt.contract_reason('no_candidate', 6.1, 2.0) == 'no_candidate'
+    assert mwt.contract_reason('contradicted', 1.0, 2.0) == 'contradicted'
+
+
+def test_merge_keeps_the_larger_miss_and_strip_count():
+    """Skeptic #1: min() reset a merged phantom's count every cycle a second
+    piece spawned, so the five-in-a-row kill could never fire."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0, t0=-1.0, t1=1.0))], 3)
+    old = trk.tracks[0]
+    old.miss, old.strip_miss = 3, 1
+    trk._spawn(mwt.observation_line(obs(wall(2.0, t0=0.5, t1=1.5)), ORIGIN, trk.p), 1.2)
+    trk._merge()
+    assert trk.tracks == [old] and old.miss == 3 and old.strip_miss == 1
+    assert old.t1 == pytest.approx(1.5, abs=0.02)
+
+
+def test_strip_distance_is_where_the_strip_meets_the_measured_segment():
+    half = 0.286
+    assert mwt.strip_distance(((3.0, -1.0), (3.0, 1.0)), FRONT_X, half) == pytest.approx(
+        3.0 - FRONT_X)
+    # Ends 0.1 m short of the strip edge: no intersection, no FRONT.
+    assert math.isnan(mwt.strip_distance(((3.0, 0.386), (3.0, 3.0)), FRONT_X, half))
+    # Oblique: the NEAR edge of the strip, not the centreline.
+    d = mwt.strip_distance(((2.0, -1.0), (4.0, 1.0)), FRONT_X, half)
+    assert d == pytest.approx(3.0 - half - FRONT_X, abs=1e-9)
+    # Behind the bumper only: not ahead, no FRONT.
+    assert math.isnan(mwt.strip_distance(((0.2, -1.0), (0.2, 1.0)), FRONT_X, half))

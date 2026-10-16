@@ -286,3 +286,52 @@
   last two), MPC_corr per-message throttled logger calls, swept_clearance (no consumer) and
   obstacle_clearance (campaign logger only) at 40 Hz, /perception/lidar_front_wall(_virtual)
   per scan (debug/viz). 2e: /scan, the event e-stop and the mux safety_stop lane unchanged.
+
+## R2-D3 — wall tracker: phantom FRONT from collinear pieces across an opening
+Root cause (static reading, bag not on linus): the tracker's extent was an ever-growing union
+(MWT _update/_merge took min/max of endpoints), association needed only 0.2 m overlap and
+_merge had only the chi2 line test, so the left and right faces of the corridor mouth merged
+into one 13.67 m line spanning the opening; is_front never looked at the beams in the strip,
+so a line the LiDAR saw straight through stayed FRONT and was dead-reckoned to 1.87 m.
+- 3a Measured extent: each track keeps its associated observations' odom endpoints with stamps;
+  t0/t1 are rebuilt every step from those of the last lidar_front_wall_wall_extent_decay_sec
+  (1.0 s), keeping the newest and only intervals linked to it by a gap <= the collinear gap.
+  FRONT distance = where the travel strip (|y| <= body 0.136 + lidar_front_wall_front_strip_margin_m
+  0.15 = 0.286, from the bumper) meets the measured SEGMENT; no intersection -> no FRONT
+  (ray_margin slack removed). Alternative: keep the union and only add the beam veto -- rejected,
+  the union is what built the bridge.
+- 3b Collinear gap 0.5 m (lidar_front_wall_wall_assoc_max_gap_m) in association AND merge,
+  replacing the 0.2 m overlap test; counters gap_rejected / merge_gap_refused + reason codes.
+  Only the part of the gap the beams saw OPEN counts: a raw 0.5 m rule split a wall behind a
+  person (cut beams, 1.52 m "gap") into two tracks and gave CLEAR with a wall ahead (existing
+  M02 test). Alternative: raw geometric gap -- rejected for that reason.
+- 3c Strip negative evidence: nearest valid in-strip return (cut beams excluded, no return =
+  None, not inf); 2 consecutive cycles with it > predicted + 0.5 m (front_contradict_margin_m,
+  front_contradict_cycles) mark the track contradicted -> role other, not an occluder, kept
+  alive so the wall behind becomes visible. Applied to every confirmed track meeting the strip
+  (LiDAR-fitted or not, glass not exempt): goes beyond the brief, because a single-scan bridge
+  from the extraction's 1.5 m merge is fitted every cycle. Cost: a pane the LiDAR sees through
+  in the strip reads CLEAR (front_clearance / IsProximityTooClose remain the guard).
+  Coasting only while the strip's nearest return is not beyond the wall, capped at
+  wall_tracker_front_max_coast_sec 0.5 (was 0.3) or ..._front_max_coast_m 0.3, first wins.
+  Also fixed: negative_evidence counted cut (object-sector) beams as PASS.
+- 3d FRONT gate front_reason(): confirmed, not contradicted, role != other, meets the strip,
+  coast caps, confidence >= front_min_confidence 0.5, and (LiDAR fit in the last
+  front_lidar_recent_cycles 3 OR rect-VERIFIED). Confidence = mean of the last 5 matched
+  observation confidences, raised to the rectangle support when VERIFIED (stereo-only is capped
+  at 0.35 by wall_fusion, so only verified stereo passes).
+- 3e Contract: the NO_DATA coast latch is gone; no FRONT -> CLEAR (50 m); NO_DATA only with no
+  pose / no laser transform. Returns closer than front_clear_range_m (2.0) with no FRONT stay
+  CLEAR with front_reason 'unexplained_returns' (debug only): inventing a WALL from raw returns
+  is the phantom path again, NO_DATA would hold the car on data that is not missing, and the
+  raw safety net is IsProximityTooClose.
+- 3f Stereo observations with |rho_bl| < wall_obs_stereo_min_rho_m 0.4 dropped and counted.
+  Self polygons: two added (lower-right corner x 0.80-1.0 / y 0.72-1.0, thin strut x
+  0.735-0.775 / y 0.58-1.0), traced from frames of this run's camera.mp4 on linus (debug JPEG,
+  ~1 % accuracy), UNTUNED, re-trace on raw /camera/image_raw. The rho filter alone removes the
+  rho ~0.20 m tracks.
+- Also: geometric_role got 0.186 in its front_x slot (fixed to the bumper x); _merge keeps the
+  max of miss counts and the full history window.
+- Test changes encoding old behaviour: an unverified glancing stereo-only wall is no longer
+  FRONT (renamed test); node coast test now expects CLEAR; TestTrackerDecimation updated for
+  block 2c (virtual wall on tracker steps only).

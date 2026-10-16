@@ -28,8 +28,10 @@ PER SCAN
        noise proportional to the odometry yaw change since the last scan
        (k_yaw), for the odometry's yaw scale error.
      - Association: Hungarian assignment of Mahalanobis distances, gated at
-       chi2(2 DOF, 99%) = 9.21, and the segments must overlap by
-       min_overlap_m along the line.
+       chi2(2 DOF, 99%) = 9.21, and the observation's nearer end must lie
+       within assoc_max_gap_m of the track's MEASURED extent (THE MEASURED
+       EXTENT). A STEREO-only line nearer base_link than stereo_min_rho_m is
+       the car's own chassis and never reaches it (THE NEAR FIELD).
      - Lifecycle: TENTATIVE becomes CONFIRMED at 3 hits in the last 5 scans.
        A confirmed track that goes unseen is COASTING while its covariance
        grows. A track is deleted after delete_after_s (2 s) unseen, after
@@ -46,7 +48,11 @@ PER SCAN
        survives for as long as the room keeps producing collinear triples
        near it. Glass is exempt: it is the surface beams are meant to pass
        through.
-     - Two tracks closer than the gate are merged into the older one.
+     - Two tracks closer than the gate AND no more than assoc_max_gap_m
+       apart along their line are merged into the older one.
+     - THE TRAVEL STRIP'S OWN BEAMS (_apply_strip_evidence): the nearest
+       return in the strip against where the strip meets each track; a track
+       they see through for front_contradict_cycles cycles is CONTRADICTED.
      - Published: at most max_published (4) tracks that were ever confirmed,
        ranked by length * hits / distance.
      - ROLE: front, back, left, right or OTHER, from GEOMETRY (geometric_role)
@@ -82,11 +88,48 @@ included -- a pane really does stop the LiDAR), and the role becomes 'other'.
 OBJECTS ARE UNCHANGED by this: an object behind a wall is still an object and
 its sector is still cut out of the scan; it is only flagged
 (lidar_front_wall_node._count_objects_behind_walls).
-     - Front track (front_track): the published track labelled front that the
-       heading ray from the bumper meets nearest, if it was matched on this
-       scan or has been coasting for at most front_max_coast_s (0.3 s). A
-       front track that coasts longer stops being the front wall
-       (coast_expired) although it lives on until delete_after_s.
+     - Front track (front_track): see WHAT FRONT REQUIRES.
+
+THE MEASURED EXTENT (block 3, corridor10m_20261016T144537)
+-----------------------------------------------------------
+Track 955 was 13.67 m long, 3.5 m ahead, and made of the two wall faces LEFT
+and RIGHT of a corridor mouth; the strip between them read 6.75-6.96 m. It
+held FRONT for 5 s and stopped the car ~5 m early. Three things let it:
+
+  * _merge joined any two tracks on the same line, with no look at the gap
+    between them, and the merged extent was the UNION of both. Association
+    needed an overlap; the merge did not. Now both need the nearer ends to be
+    at most assoc_max_gap_m apart -- counting only the part of the gap the
+    beams saw OPEN (_gap_between): behind a detected person or a nearer
+    surface the wall is unobserved, not absent.
+  * The extent only ever grew. It is now rebuilt every step from the
+    observations of the last extent_decay_s (_refresh_extent), across open
+    gaps of at most assoc_max_gap_m only, so an end nobody re-observes goes.
+  * FRONT was the heading ray against the extent plus 0.3 m. It is now where
+    the travel strip meets the MEASURED segment (strip_distance).
+
+WHAT FRONT REQUIRES (front_reason, in order)
+--------------------------------------------
+Confirmed; not CONTRADICTED by the strip's own beams; role not 'other'; the
+measured segment meets the TRAVEL STRIP, |y| <= side_edge_half_width_m +
+front_strip_margin_m ahead of the bumper (front_x_m); if coasting, for at
+most front_max_coast_s AND front_max_coast_m, over a strip that does not see
+through it; front_confidence >= front_min_confidence; a LiDAR-backed
+association in the last front_lidar_recent_cycles cycles OR the rectangle
+VERIFIED it; and, stereo-only, squarely across the path. Without a FRONT the
+contract is CLEAR -- NO_DATA is only for missing data (the node).
+
+THE STRIP'S OWN BEAMS. The nearest valid return in the travel strip
+(strip_returns) is compared with where the strip meets each confirmed track:
+more than front_contradict_margin_m beyond it means every in-strip beam went
+through where the wall should be. Beams cut for an object are NOT free space
+(they are inf, like a no-return, so they need the cut mask), and a strip with
+no return at all is no evidence either way: that is what glass does.
+
+THE NEAR FIELD. The camera sees part of the chassis in the lower right of its
+image; where the self polygons miss it, the stereo reports it as a wall line
+~0.2 m from base_link. No wall line can pass that close without touching the
+car, so a STEREO-only one is dropped (stereo_min_rho_m); a LiDAR one stays.
 
 WHY THE SPAN GATE IS HYSTERETIC
 ------------------------------
@@ -109,8 +152,8 @@ shape as HysteresisLatch's in front_clearance_node and the role hysteresis
 below, and for the same reason: the cost of being wrong is not symmetric.
 
 Note the gate is on the OBSERVATION's span, not the track's. A track's extent
-only ever grows (`_update` takes min/max), so gating on the track would be a
-one-way door.
+is the union of its recent observations, so gating on the track would let one
+long observation license every short one after it.
 
 THE COLLINEAR MERGE COMES FIRST, and it already exists: step 2's extraction
 reunifies fragments of one wall across a gap of up to merge_max_gap_m with the
@@ -146,6 +189,10 @@ STATE_CONFIRMED = 1
 STATE_COASTING = 2
 STATE_NAMES = {STATE_TENTATIVE: 'tentative', STATE_CONFIRMED: 'confirmed',
                STATE_COASTING: 'coasting'}
+
+#: both > lidar > stereo, the order Track.source keeps (_absorb).
+_SOURCE_RANK = {wall_fusion.SOURCE_STEREO: 0, wall_fusion.SOURCE_LIDAR: 1,
+                wall_fusion.SOURCE_BOTH: 2}
 
 
 # ============================================================================
@@ -233,22 +280,30 @@ def extraction_params(merge_max_gap_m=None, quality_gates=None, backend=None):
 
 
 def scan_in_base_link(ranges, angle_min, angle_increment, range_min, range_max,
-                      laser_pose, sectors=()):
-    """(ranges, base_link bearings, laser-frame angles) of one scan, sectors cut.
+                      laser_pose, sectors=(), with_cut=False):
+    """(ranges, base_link bearings, laser-frame angles[, cut]) of one scan, sectors cut.
 
     One implementation for the extraction and for the negative evidence
     (MultiWallTracker.negative_evidence): both have to see exactly the same
     beams, because a beam cut out because an OBJECT is standing there is not
     evidence against a wall -- it is evidence about the object.
+
+    A cut beam becomes inf, which is also what clean_ranges makes of a
+    no-return. `with_cut` adds the bool mask that tells the two apart: the
+    evidence rules need it, because "nothing came back" is a statement about
+    the space ahead and "an object was cut out here" is not.
     """
     r = clean_ranges(ranges, range_min, range_max)
     _lx, _ly, lyaw = laser_pose
     angles = angle_min + np.arange(r.size) * angle_increment
     bearings = wrap_pi(angles + lyaw)
+    cut = np.zeros(r.size, dtype=bool)
     if sectors:
         cut = in_sectors(bearings, sectors)
         if cut.any():
             r = np.where(cut, np.inf, r).view(type(r))
+    if with_cut:
+        return r, bearings, angles, cut
     return r, bearings, angles
 
 
@@ -284,7 +339,15 @@ class TrackerParams:
     meas_sigma_rho_min: float = 0.02       # [m] floor on the TLS sigma (odometry error)
     meas_sigma_theta_min: float = math.radians(0.5)
     gate_chi2: float = CHI2_2DOF_99
-    min_overlap_m: float = 0.2
+    # The COLLINEAR GAP (THE MEASURED EXTENT, below): an observation joins a
+    # track, and two tracks merge, only if the nearer ends are at most this
+    # far apart along the line. It replaces the old 0.2 m OVERLAP test, which
+    # held for association but not for _merge -- and _merge is what built a
+    # 13.67 m front wall out of the two faces either side of a corridor mouth.
+    assoc_max_gap_m: float = 0.5
+    # An end of the extent that no associated observation has reached for
+    # this long is dropped (THE MEASURED EXTENT).
+    extent_decay_s: float = 1.0
     confirm_hits: int = 3
     confirm_window: int = 5
     # Coasting is bounded on TIME and on DISTANCE (coast_max_odom_m), and
@@ -295,8 +358,13 @@ class TrackerParams:
     max_published: int = 4
     label_half_sector_rad: float = math.radians(45.0)
     role_hysteresis_rad: float = math.radians(5.0)   # a role sticks this far past its edge
-    ray_margin_m: float = 0.3               # extent slack for d_ray_front
-    front_max_coast_s: float = 0.3          # a coasting front track's last say
+    # Extent slack for front_distances' heading ray. 0: a wall is where it
+    # was MEASURED, not 30 cm further (THE MEASURED EXTENT).
+    ray_margin_m: float = 0.0
+    # A coasting FRONT track's last say, on time AND on odometry, whichever
+    # comes first (WHAT FRONT REQUIRES).
+    front_max_coast_s: float = 0.5
+    front_max_coast_m: float = 0.3
     # --- measurement noise, by SOURCE and RANGE (observation_covariance) ---
     lidar_sigma_base_m: float = 0.02
     lidar_sigma_per_m: float = 0.005
@@ -310,10 +378,19 @@ class TrackerParams:
     min_span_birth_m: float = 1.0           # to START a track
     min_span_update_m: float = 0.5          # to keep a CONFIRMED one
     merge_max_gap_m: float = 1.5            # extraction's collinear merge gap
-    # --- what may be called FRONT -----------------------------------------
-    strip_half_width_m: float = 0.186       # vehicle_frames.front_side_limit_m()
+    # --- what may be called FRONT (WHAT FRONT REQUIRES) --------------------
+    front_x_m: float = 0.405                # vehicle_frames.base_front_x(): the bumper
     side_edge_half_width_m: float = 0.136   # swept_clearance_body_half_width_m
+    front_strip_margin_m: float = 0.15      # the travel strip past the bodywork
     stereo_front_max_normal_rad: float = math.radians(30.0)
+    front_min_confidence: float = 0.5       # see front_confidence
+    front_lidar_recent_cycles: int = 3      # a LiDAR fit this recent, or rect VERIFIED
+    # The strip's own beams against the FRONT candidate (strip_verdict).
+    front_contradict_margin_m: float = 0.5
+    front_contradict_cycles: int = 2
+    # A STEREO-only observation whose line passes nearer base_link than this
+    # is the car's own chassis, not a wall (step, THE NEAR FIELD).
+    stereo_min_rho_m: float = 0.4
     # --- the geometric roles (WHAT A ROLE IS NOW) -------------------------
     back_x_m: float = 0.0                   # the rear edge of the strip, base_link
     side_x_min_m: float = -1.0              # the x window a side wall must reach
@@ -332,6 +409,15 @@ class TrackerParams:
     negative_miss_to_kill: int = 5
     # --- coasting ---------------------------------------------------------
     coast_max_odom_m: float = 1.0           # metres of odometry, not displacement
+
+    @property
+    def strip_half_width_m(self):
+        """Half-width of the TRAVEL STRIP: the bodywork plus front_strip_margin_m.
+
+        One strip for the roles, for FRONT, for the FRONT distance and for the
+        strip's own beams, so "in the way" means one geometry in this module.
+        """
+        return float(self.side_edge_half_width_m) + float(self.front_strip_margin_m)
 
 
 def observation_covariance(source, distance_m, span_m, p, stereo_weight=1.0):
@@ -452,6 +538,22 @@ class Track:
     odo_at_last_seen: float = 0.0
     #: Is this wall behind another confirmed wall this cycle (first obstacle)?
     occluded: bool = False
+    #: (stamp, (2, 2) odom endpoints) of every associated observation inside
+    #: extent_decay_s: what t0/t1 are rebuilt from (THE MEASURED EXTENT).
+    obs_ext: collections.deque = field(default_factory=lambda: collections.deque(maxlen=64))
+    #: Was the track associated with a LiDAR-backed (LIDAR or BOTH)
+    #: observation, one entry per tracker cycle, newest last.
+    lidar_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=3))
+    #: The confidences of the last matched observations (front_confidence).
+    conf_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=5))
+    #: The strip's own beams against this track (strip_verdict) this cycle,
+    #: the distance [m, from the bumper] they were judged against, the run of
+    #: consecutive contradicting cycles, and the sticky verdict: CONTRADICTED
+    #: stays until a cycle's strip beams land on the line again.
+    strip_verdict: str = ''
+    strip_pred_m: float = math.nan
+    strip_miss: int = 0
+    contradicted: bool = False
 
     @property
     def rho(self):
@@ -540,11 +642,136 @@ def side_distance(track, car_pose, half_width_m):
     return max(0.0, d_centre - abs(float(half_width_m)))
 
 
-def front_distances(track, car_pose, front_x, margin_m=0.3):
+def strip_distance(seg, front_x, half_width_m):
+    """Distance [m] from the bumper to where the travel strip meets a segment, or NaN.
+
+    `seg` is ((x0, y0), (x1, y1)) in base_link. The segment is clipped to
+    |y| <= half_width_m; NaN when nothing survives or what survives is all
+    behind the bumper. Otherwise the NEAREST x of the clipped part, minus
+    front_x, floored at 0 (a segment reaching back under the bumper touches).
+
+    This is THE front distance since the measured extent (WHAT FRONT
+    REQUIRES): where the strip the car sweeps meets the wall that was
+    measured, not where the heading ray meets the wall's infinite line.
+    """
+    (x0, y0), (x1, y1) = seg
+    half = abs(float(half_width_m))
+    span = _clip_param(float(y0), float(y1), -half, half)
+    if span is None:
+        return math.nan
+    xs = (x0 + span[0] * (x1 - x0), x0 + span[1] * (x1 - x0))
+    if max(xs) <= float(front_x):
+        return math.nan
+    return max(float(min(xs)) - float(front_x), 0.0)
+
+
+class StripReading:
+    """The LiDAR's own view of the travel strip on one scan (strip_returns)."""
+
+    __slots__ = ('range_m', 'n_returns', 'n_cut', 'n_no_return')
+
+    def __init__(self, range_m=None, n_returns=0, n_cut=0, n_no_return=0):
+        #: Nearest return inside the strip, from the bumper [m]; None when the
+        #: strip holds no return at all (glass, out of range, or cut).
+        self.range_m = range_m
+        self.n_returns = int(n_returns)
+        self.n_cut = int(n_cut)
+        self.n_no_return = int(n_no_return)
+
+
+def strip_returns(scan, front_x, half_width_m):
+    """StripReading of one scan: the nearest valid return in the travel strip.
+
+    `scan` is (ranges, base_link bearings, laser xy[, cut]) as step takes
+    it. A return is in the strip when its base_link point has x > front_x
+    and |y| <= half_width_m; the range is x - front_x, from the bumper, the
+    same reference as strip_distance.
+
+    CUT BEAMS ARE NOT FREE SPACE. scan_in_base_link turns a beam cut out for
+    an object into inf, exactly what clean_ranges makes of a no-return, so
+    without the mask a person standing in the strip would read as "nothing
+    there". Cut beams are excluded here and only counted; so are no-returns,
+    which leave range_m None rather than infinite: "nothing came back" is
+    no evidence of where a wall is NOT (it is what glass does).
+    """
+    ranges, bearings, laser_xy = scan[0], scan[1], scan[2]
+    r = np.asarray(ranges, dtype=float)
+    b = np.asarray(bearings, dtype=float)
+    cut = (np.asarray(scan[3], dtype=bool) if len(scan) > 3 and scan[3] is not None
+           else np.zeros(r.shape, dtype=bool))
+    lx, ly = (float(v) for v in np.asarray(laser_xy, dtype=float).reshape(2))
+    c, s = np.cos(b), np.sin(b)
+    half = abs(float(half_width_m))
+    fx = float(front_x)
+    # Beams that run through the strip ahead of the bumper: still inside the
+    # band when they reach x = front_x (the laser sits inside the band).
+    with np.errstate(divide='ignore', invalid='ignore'):
+        t_in = np.where(c > 1e-6, (fx - lx) / c, np.inf)
+        through = (c > 1e-6) & (np.abs(ly + t_in * s) <= half)
+    finite = np.isfinite(r) & ~cut
+    with np.errstate(invalid='ignore'):
+        px = lx + np.where(finite, r, 0.0) * c
+        py = ly + np.where(finite, r, 0.0) * s
+    inside = finite & (px > fx) & (np.abs(py) <= half)
+    n_cut = int(np.count_nonzero(through & cut))
+    n_no = int(np.count_nonzero(through & ~cut & ~np.isfinite(r)))
+    if not inside.any():
+        return StripReading(None, 0, n_cut, n_no)
+    return StripReading(float(px[inside].min()) - fx, int(np.count_nonzero(inside)),
+                        n_cut, n_no)
+
+
+STRIP_SUPPORTED = 'supported'        # the strip's nearest return is ON the line
+STRIP_CONTRADICTED = 'contradicted'  # it is BEYOND the line: the beams pass through
+STRIP_BLOCKED = 'blocked'            # something nearer: says nothing about the line
+STRIP_NO_RETURNS = 'no_returns'      # nothing came back (glass, range, cut)
+
+
+def strip_verdict(pred_m, strip_range_m, margin_m):
+    """What the strip's nearest return says about a wall predicted at pred_m.
+
+    '' when the track does not meet the strip (pred_m NaN). Within margin_m
+    of the prediction is SUPPORTED; more than margin_m BEYOND it is
+    CONTRADICTED -- every in-strip beam went past where the wall should be,
+    the doorway of corridor10m_20261016T144537; more than margin_m SHORT of it
+    is BLOCKED, and a nearer surface is no evidence either way. A strip with
+    no return at all is NO_RETURNS.
+    """
+    if pred_m is None or not math.isfinite(pred_m):
+        return ''
+    if strip_range_m is None:
+        return STRIP_NO_RETURNS
+    if strip_range_m > pred_m + margin_m:
+        return STRIP_CONTRADICTED
+    if strip_range_m < pred_m - margin_m:
+        return STRIP_BLOCKED
+    return STRIP_SUPPORTED
+
+
+def contract_reason(front_reason, strip_range_m, clear_range_m):
+    """front_reason for /perception/virtual_wall/debug, with the strip folded in.
+
+    The tracker's own answer ('front', a reject code, or 'no_candidate'),
+    except that NO candidate while the strip holds a return nearer than
+    clear_range_m is 'unexplained_returns': the contract still says CLEAR --
+    the wall contract is about walls, an object is front_clearance's and
+    IsProximityTooClose's business, and a wall invented from raw returns is
+    the phantom path all over again -- but the debug output must say that
+    the strip was not empty.
+    """
+    if (front_reason == 'no_candidate' and strip_range_m is not None
+            and strip_range_m < float(clear_range_m)):
+        return 'unexplained_returns'
+    return front_reason
+
+
+def front_distances(track, car_pose, front_x, margin_m=0.0):
     """(perpendicular, along-heading) distance [m] from base_front to the track.
 
     The ray distance is NaN when the heading ray from the bumper misses the
-    segment's extent (plus margin_m) or points away from the line.
+    segment's extent (plus margin_m) or points away from the line. The
+    contract's FRONT distance is strip_distance, not this: this is the
+    heading-ray figure the MultiWallTrack message has always carried.
     """
     n = np.array([math.cos(track.theta), math.sin(track.theta)])
     h = np.array([math.cos(car_pose.theta), math.sin(car_pose.theta)])
@@ -648,7 +875,9 @@ def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0, seg=None):
     """
     if seg is None:
         seg = segment_in_base_link(track, car_pose)
-    strip = strip_role(track, car_pose, p.strip_half_width_m - widen_m,
+    # front_x is the BUMPER (p.front_x_m). It used to be passed the strip
+    # half-width (0.186) in this slot, so 'front' began under the car.
+    strip = strip_role(track, car_pose, p.front_x_m - widen_m,
                        p.back_x_m + widen_m, p.strip_half_width_m + widen_m, seg)
     if strip:
         return strip
@@ -750,6 +979,35 @@ class MultiWallTracker:
         #: Tracks the negative evidence killed on the last step, for the
         #: debug payload.
         self.n_negative_killed = 0
+        #: Last step's collinear-gap refusals: observations that matched a
+        #: track's line but not its extent (and so started or fed another
+        #: track), and track pairs _merge refused to join. Same pattern as
+        #: n_short_dropped; `rejections` carries a reason code per event.
+        self.n_gap_rejected = 0
+        self.n_merge_gap_refused = 0
+        #: Last step's STEREO-only observations dropped as the car's own
+        #: chassis (stereo_min_rho_m).
+        self.n_stereo_near_rejected = 0
+        #: [(code, track id or None, value)] of this step's refusals:
+        #: 'gap_assoc' (value = gap m), 'gap_merge' (gap m), 'stereo_near'
+        #: (rho_bl m). Capped: it is a debug trail, not a log.
+        self.rejections = []
+        #: The travel strip on the last scan step was given (StripReading).
+        self.strip = StripReading()
+        #: What front_track decided last: {'id', 'reason', 'distance_m',
+        #: 'rejects': {id: code}}. 'reason' is 'front', the nearest
+        #: candidate's reject code, or 'no_candidate'.
+        self.front_status = {'id': None, 'reason': 'no_candidate',
+                             'distance_m': math.nan, 'rejects': {}}
+        #: (car pose, scan) of the step in progress, for _open_length; None
+        #: when the step was given no scan.
+        self._scan_ctx = None
+
+    _MAX_REJECTIONS = 16
+
+    def _reject(self, code, track_id, value):
+        if len(self.rejections) < self._MAX_REJECTIONS:
+            self.rejections.append((code, track_id, round(float(value), 3)))
 
     # ---- filter -----------------------------------------------------------
 
@@ -764,12 +1022,81 @@ class MultiWallTracker:
         for trk in self.tracks:
             trk.P = trk.P + q + np.diag([(turn * trk.rho) ** 2, turn ** 2])
 
-    def _overlap(self, trk, line):
-        m = _along(trk.theta, np.vstack([line.p_start, line.p_end]))
-        return min(trk.t1, m.max()) - max(trk.t0, m.min())
+    def _extent_gap(self, trk, p_a, p_b):
+        """OPEN gap [m] along trk's line between its extent and the segment p_a-p_b.
 
-    def _cost(self, trk, line, may_birth=True):
-        """Mahalanobis distance squared, or inf when gated out.
+        Negative when they overlap. Both ends are projected onto the TRACK's
+        tangent, so this is the collinear gap the association and the merge
+        gate on (assoc_max_gap_m); see _gap_between for "open".
+        """
+        m = _along(trk.theta, np.vstack([p_a, p_b]))
+        return self._gap_between(trk.theta, trk.rho, trk.t0, trk.t1,
+                                 float(m.min()), float(m.max()))
+
+    def _gap_between(self, theta, rho, a_lo, a_hi, b_lo, b_hi):
+        """Gap [m] between two intervals along one line, counting only what is OPEN.
+
+        A gap wider than assoc_max_gap_m is checked against this step's scan
+        (_open_length): the part of it the LiDAR could not see -- beams cut
+        for a detected object, or stopped short by something nearer -- is
+        not an opening, it is a wall with a person in front of it (the M02
+        case the extraction's own 1.5 m merge exists for). Only what the
+        beams went THROUGH counts. With no scan, the whole gap counts.
+        """
+        raw = max(b_lo - a_hi, a_lo - b_hi)
+        if raw <= self.p.assoc_max_gap_m:
+            return raw
+        lo, hi = (a_hi, b_lo) if b_lo - a_hi >= a_lo - b_hi else (b_hi, a_lo)
+        return self._open_length(theta, rho, lo, hi)
+
+    _GAP_STEP_M = 0.05
+
+    def _open_length(self, theta, rho, t_lo, t_hi):
+        """Metres of the odom line stretch t_lo..t_hi that this step's beams saw OPEN.
+
+        Sampled every 5 cm. A sample is OPEN when the beam towards it came
+        back more than negative_tol_m BEYOND it or not at all; it is NOT open
+        when that beam was cut (an object sector), stopped short of it, or
+        landed on it -- or when no beam points at it at all (the 90 deg blind
+        sector behind the laser): a stretch the car has its back to is not
+        an opening, it is a wall nobody is looking at.
+        """
+        length = float(t_hi) - float(t_lo)
+        ctx = self._scan_ctx
+        if ctx is None or length <= 0.0:
+            return length
+        car_pose, scan = ctx
+        ts = np.arange(float(t_lo) + 0.5 * self._GAP_STEP_M, float(t_hi), self._GAP_STEP_M)
+        if ts.size == 0:
+            return length
+        n = np.array([math.cos(theta), math.sin(theta)])
+        tan = np.array([-n[1], n[0]])
+        pts = car_pose.inverse().transform_points(n * float(rho) + ts[:, None] * tan)
+        lxy = np.asarray(scan[2], dtype=float).reshape(2)
+        d = pts - lxy
+        dist = np.hypot(d[:, 0], d[:, 1])
+        bear = np.arctan2(d[:, 1], d[:, 0])
+        r = np.asarray(scan[0], dtype=float)
+        b = np.asarray(scan[1], dtype=float)
+        cut = (np.asarray(scan[3], dtype=bool) if len(scan) > 3 and scan[3] is not None
+               else np.zeros(r.shape, dtype=bool))
+        if b.size < 2:
+            return length
+        inc = abs(float(b[1] - b[0]))
+        if b[-1] > b[0]:
+            idx = np.clip(np.searchsorted(b, bear), 1, b.size - 1)
+            idx = np.where(np.abs(b[idx - 1] - bear) < np.abs(b[idx] - bear), idx - 1, idx)
+        else:   # a scan whose bearings wrap: the slow way
+            idx = np.argmin(np.abs(wrap_pi(b[None, :] - bear[:, None])), axis=1)
+        in_fov = np.abs(wrap_pi(b[idx] - bear)) <= 1.5 * inc
+        rv = r[idx]
+        tol = float(self.p.negative_tol_m)
+        with np.errstate(invalid='ignore'):
+            open_ = in_fov & ~cut[idx] & (~np.isfinite(rv) | (rv > dist + tol))
+        return min(length, float(np.count_nonzero(open_)) * self._GAP_STEP_M)
+
+    def _gate(self, trk, line, may_birth=True):
+        """(Mahalanobis distance squared or inf, refusal code or '').
 
         `may_birth` False means the observation is shorter than
         min_span_birth_m: it may only reach a track that is ALREADY confirmed
@@ -777,19 +1104,31 @@ class MultiWallTracker:
         rather than after the assignment matters -- a short segment that was
         allowed to compete for a tentative track would both feed that track
         and consume the assignment a long segment needed.
+
+        Then the line must pass the chi2 gate AND the observation's nearer end
+        must lie within assoc_max_gap_m of the track's MEASURED extent: a
+        collinear face across a doorway is the same line and a different
+        wall ('gap').
         """
         if not may_birth and not trk.ever_confirmed:
-            return math.inf
+            return math.inf, 'birth'
         v = _innovation(trk.x, line.rho, line.alpha)
         S = trk.P + self._meas_cov(line)
         d2 = float(v @ np.linalg.solve(S, v))
-        if d2 > self.p.gate_chi2 or self._overlap(trk, line) < self.p.min_overlap_m:
-            return math.inf
-        return d2
+        if d2 > self.p.gate_chi2:
+            return math.inf, 'chi2'
+        if self._extent_gap(trk, line.p_start, line.p_end) > self.p.assoc_max_gap_m:
+            return math.inf, 'gap'
+        return d2, ''
+
+    def _cost(self, trk, line, may_birth=True):
+        """Mahalanobis distance squared, or inf when gated out (see _gate)."""
+        return self._gate(trk, line, may_birth)[0]
 
     def _absorb(self, trk, obs):
         """Carry an observation's own attributes onto the track it matched."""
         trk.confidence = float(obs.confidence)
+        trk.conf_hist.append(float(obs.confidence))
         if obs.source == wall_fusion.SOURCE_BOTH:
             # "BOTH" now means both sensors looked at the WALL, not just at
             # the bearing: a column agreement alone is one row of pixels
@@ -813,6 +1152,40 @@ class MultiWallTracker:
         if obs.height_measured:
             trk.z_min, trk.z_max, trk.height_measured = obs.z_min, obs.z_max, True
 
+    def _refresh_extent(self, trk, now=None):
+        """Rebuild t0/t1 from the observations inside extent_decay_s.
+
+        THE MEASURED EXTENT. The extent used to be the union of everything
+        ever associated, so it only grew, and _merge's union could bridge any
+        opening between two collinear tracks. Now it is the observations of
+        the last extent_decay_s (the newest always kept, so a coasting track
+        keeps what it was last seen as), projected onto the CURRENT line, and
+        of those only the run of intervals that touches the newest one with
+        no OPEN gap wider than assoc_max_gap_m (_gap_between): an end nobody
+        has re-observed for extent_decay_s goes, and two pieces with an
+        opening between them are never one extent.
+        """
+        ext = trk.obs_ext
+        if not ext:
+            return
+        cutoff = (ext[-1][0] if now is None else float(now)) - float(self.p.extent_decay_s)
+        while len(ext) > 1 and ext[0][0] < cutoff:
+            ext.popleft()
+        newest = ext[-1][1]
+        m = _along(trk.theta, newest)
+        lo, hi = float(m.min()), float(m.max())
+        spans = sorted((float(v.min()), float(v.max()))
+                       for v in (_along(trk.theta, pts) for _s, pts in ext))
+        gap = float(self.p.assoc_max_gap_m)
+        grew = True
+        while grew:
+            grew = False
+            for a, b in spans:
+                if (a < lo or b > hi) and self._gap_between(
+                        trk.theta, trk.rho, lo, hi, a, b) <= gap:
+                    lo, hi, grew = min(lo, a), max(hi, b), True
+        trk.t0, trk.t1 = lo, hi
+
     def _update(self, trk, line, stamp):
         v = _innovation(trk.x, line.rho, line.alpha)
         R = self._meas_cov(line)
@@ -821,11 +1194,11 @@ class MultiWallTracker:
         trk.x = trk.x + K @ v
         trk.P = (np.eye(2) - K) @ trk.P
         rho, theta = normalise_line(float(trk.x[0]), float(trk.x[1]))
-        if rho != float(trk.x[0]):
-            trk.t0, trk.t1 = -trk.t1, -trk.t0
         trk.x = np.array([rho, theta])
-        m = _along(trk.theta, np.vstack([line.p_start, line.p_end]))
-        trk.t0, trk.t1 = min(trk.t0, float(m.min())), max(trk.t1, float(m.max()))
+        # The extent is rebuilt from the odom endpoints themselves, so a sign
+        # flip of the line (rho < 0 -> theta + pi) needs no mirroring here.
+        trk.obs_ext.append((stamp, np.vstack([line.p_start, line.p_end]).astype(float)))
+        self._refresh_extent(trk, stamp)
         trk.hits += 1
         trk.last_seen = stamp
         trk.odo_at_last_seen = self._odometer
@@ -837,14 +1210,30 @@ class MultiWallTracker:
         trk.odo_at_last_seen = self._odometer
         # The window is the LONGER of the two: a track that turns out to be
         # stereo-only must not have already dropped the scans it needs.
-        trk.history = collections.deque([True], maxlen=max(
-            self.p.confirm_window, self.p.stereo_confirm_window))
+        trk.history = collections.deque([True], maxlen=self._history_len())
+        trk.obs_ext.append((stamp, np.vstack([line.p_start, line.p_end]).astype(float)))
+        trk.lidar_hist = collections.deque(
+            [obs is None or obs.source != wall_fusion.SOURCE_STEREO],
+            maxlen=max(1, int(self.p.front_lidar_recent_cycles)))
+        trk.conf_hist = collections.deque(maxlen=max(1, int(self.p.confirm_window)))
         if obs is not None:
             self._absorb(trk, obs)
         self._next_id += 1
         self.tracks.append(trk)
 
+    def _history_len(self):
+        return max(self.p.confirm_window, self.p.stereo_confirm_window)
+
     def _merge(self):
+        """Fold every pair of tracks that are ONE wall into the older one.
+
+        One wall means the same line (chi2 on (rho, theta)) AND a collinear
+        gap of at most assoc_max_gap_m between the measured extents: two
+        faces either side of a corridor mouth are one line and two walls, and
+        merging them is what put track 955's 13.67 m front wall across an
+        open doorway (corridor10m_20261016T144537).
+        """
+        refused = set()
         merged = True
         while merged:
             merged = False
@@ -853,19 +1242,32 @@ class MultiWallTracker:
                 S = a.P + b.P
                 if float(v @ np.linalg.solve(S, v)) > self.p.gate_chi2:
                     continue
+                gap = self._extent_gap(a, *b.endpoints())
+                if gap > self.p.assoc_max_gap_m:
+                    if (a.id, b.id) not in refused:
+                        refused.add((a.id, b.id))
+                        self.n_merge_gap_refused += 1
+                        self._reject('gap_merge', a.id, gap)
+                    continue
                 info_a, info_b = np.linalg.inv(a.P), np.linalg.inv(b.P)
                 P = np.linalg.inv(info_a + info_b)
                 x = P @ (info_a @ a.x + info_b @ (a.x + v))
                 rho, theta = normalise_line(float(x[0]), float(x[1]))
-                ends = np.vstack([*a.endpoints(), *b.endpoints()])
-                m = _along(theta, ends)
                 a.x, a.P = np.array([rho, theta]), P
-                a.t0, a.t1 = float(m.min()), float(m.max())
+                a.obs_ext = collections.deque(
+                    sorted(list(a.obs_ext) + list(b.obs_ext), key=lambda e: e[0]),
+                    maxlen=a.obs_ext.maxlen)
+                self._refresh_extent(a, self._last_stamp)
                 a.hits += b.hits
                 a.last_seen = max(a.last_seen, b.last_seen)
                 a.odo_at_last_seen = max(a.odo_at_last_seen, b.odo_at_last_seen)
                 a.born = min(a.born, b.born)
-                a.miss = min(a.miss, b.miss)
+                # MAX, not min: a track spawned this cycle has miss 0, and min
+                # reset the merged phantom's negative-evidence count every
+                # cycle a second piece was seen, so five in a row never came.
+                a.miss = max(a.miss, b.miss)
+                a.strip_miss = max(a.strip_miss, b.strip_miss)
+                a.contradicted = a.contradicted or b.contradicted
                 a.rect_reject_streak = max(a.rect_reject_streak, b.rect_reject_streak)
                 a.verify = max(a.verify, b.verify) if not (
                     a.verify == wall_fusion.VERIFY_REJECTED
@@ -873,10 +1275,21 @@ class MultiWallTracker:
                 ) else wall_fusion.VERIFY_REJECTED
                 a.glass = a.glass or b.glass
                 a.ever_confirmed = a.ever_confirmed or b.ever_confirmed
-                a.history = collections.deque(
-                    [x or y for x, y in itertools.zip_longest(a.history, b.history,
-                                                              fillvalue=False)],
-                    maxlen=self.p.confirm_window)
+                a.has_lidar = a.has_lidar or b.has_lidar
+                a.has_both = a.has_both or b.has_both
+                a.source = max(a.source, b.source, key=_SOURCE_RANK.get)
+                # Newest-aligned: the histories end on the same cycle, so they
+                # are OR-ed from the newest entry back (zip over the reversed
+                # deques), in the full window the confirm rule needs.
+                a.history = collections.deque(reversed(
+                    [x or y for x, y in itertools.zip_longest(
+                        reversed(a.history), reversed(b.history), fillvalue=False)]),
+                    maxlen=self._history_len())
+                a.lidar_hist = collections.deque(reversed(
+                    [x or y for x, y in itertools.zip_longest(
+                        reversed(a.lidar_hist), reversed(b.lidar_hist), fillvalue=False)]),
+                    maxlen=a.lidar_hist.maxlen)
+                a.conf_hist.extend(b.conf_hist)
                 self.tracks.remove(b)
                 merged = True
                 break
@@ -891,18 +1304,19 @@ class MultiWallTracker:
         fits lines to the scan itself, so the stereo can no longer slip in as
         a fallback distance behind its back.
 
-        `scan`, when given, is (ranges, base_link bearings, laser xy) from
-        scan_in_base_link -- the SAME beams the extraction saw, object sectors
-        and all. It is used for NEGATIVE EVIDENCE only: never to fit anything.
-        A wall that beams are passing straight through is being contradicted
-        by the sensor, and no amount of lifecycle bookkeeping on the
-        observations that are no longer arriving can say so.
+        `scan`, when given, is (ranges, base_link bearings, laser xy[, cut])
+        from scan_in_base_link -- the SAME beams the extraction saw, object
+        sectors and all, plus the mask of the beams those sectors cut. It is
+        EVIDENCE only, never fitted: the whole-span negative evidence, and the
+        travel strip's nearest return (strip_returns), which every track that
+        meets the strip is then judged against (_apply_strip_evidence).
 
         `defer_roles` leaves the roles alone, for a caller that is about to
         fold in this cycle's rectangle verdicts and would otherwise pay for
         the role and occlusion pass twice.
         """
         stamp = float(stamp)
+        self._scan_ctx = None if scan is None else (car_pose, scan)
         if self._last_car_t is not None:
             self._odometer += float(np.hypot(*(car_pose.t - self._last_car_t)))
         self._last_car_t = car_pose.t
@@ -913,10 +1327,25 @@ class MultiWallTracker:
         # has already reunified across occluders.
         kept, may_birth = [], []
         self.n_short_dropped = 0
+        self.n_stereo_near_rejected = 0
+        self.n_gap_rejected = 0
+        self.n_merge_gap_refused = 0
+        self.rejections = []
         for obs in observations:
             span = float(obs.line.span)
             if span < self.p.min_span_update_m:
                 self.n_short_dropped += 1
+                continue
+            # THE NEAR FIELD. A stereo-only line passing nearer base_link than
+            # stereo_min_rho_m runs through the car's own footprint: it is the
+            # chassis the camera sees in the lower right of its image, not a
+            # wall (23 throwaway 'right' tracks at rho 0.20 m on
+            # corridor10m_20261016T144537). Only STEREO: a LiDAR line that
+            # close is a real surface touching the car, and must stay.
+            if (obs.source == wall_fusion.SOURCE_STEREO
+                    and abs(float(obs.line.d)) < self.p.stereo_min_rho_m):
+                self.n_stereo_near_rejected += 1
+                self._reject('stereo_near', None, abs(float(obs.line.d)))
                 continue
             kept.append(obs)
             may_birth.append(span >= self.p.min_span_birth_m)
@@ -927,10 +1356,15 @@ class MultiWallTracker:
         last_yaw, self._last_yaw = self._last_yaw, car_pose.theta
         self._predict(dt, 0.0 if last_yaw is None else wrap_pi(car_pose.theta - last_yaw))
 
-        used_lines, hit_ids = set(), set()
+        used_lines, hit_ids, lidar_ids = set(), set(), set()
+        gap_refused = {}   # observation j -> (track id, gap) it was refused by
         if self.tracks and lines_odom:
-            cost = np.array([[self._cost(t, ln, may_birth[j])
-                              for j, ln in enumerate(lines_odom)] for t in self.tracks])
+            cost = np.full((len(self.tracks), len(lines_odom)), math.inf)
+            for i, trk in enumerate(self.tracks):
+                for j, ln in enumerate(lines_odom):
+                    cost[i, j], why = self._gate(trk, ln, may_birth[j])
+                    if why == 'gap' and j not in gap_refused:
+                        gap_refused[j] = (trk.id, self._extent_gap(trk, ln.p_start, ln.p_end))
             finite = np.isfinite(cost)
             if finite.any():
                 big = cost[finite].max() * 10.0 + 1e6
@@ -950,15 +1384,27 @@ class MultiWallTracker:
                         self._absorb(self.tracks[i], observations[j])
                         used_lines.add(j)
                         hit_ids.add(self.tracks[i].id)
+                        if observations[j].source != wall_fusion.SOURCE_STEREO:
+                            lidar_ids.add(self.tracks[i].id)
+        for j, (tid, gap) in gap_refused.items():
+            # Counted only when the gap is WHY the observation stayed
+            # unassociated: it matched a track's line and not its extent.
+            if j not in used_lines:
+                self.n_gap_rejected += 1
+                self._reject('gap_assoc', tid, gap)
         for trk in self.tracks:
             hit = trk.id in hit_ids
             trk.history.append(hit)
+            trk.lidar_hist.append(trk.id in lidar_ids)
             if self._confirmed_by_history(trk):
                 trk.ever_confirmed = True
             if trk.ever_confirmed:
                 trk.state = STATE_CONFIRMED if hit else STATE_COASTING
             else:
                 trk.state = STATE_TENTATIVE
+            if not hit:
+                # The decay runs on every track, not only on the updated ones.
+                self._refresh_extent(trk, stamp)
         for j, line in enumerate(lines_odom):
             # Only a segment with real extent may START a wall. A shorter one
             # that matched nothing is simply not evidence of a new wall: it is
@@ -975,6 +1421,7 @@ class MultiWallTracker:
             self._apply_negative_evidence(car_pose, scan, segments)
         self.tracks = [t for t in self.tracks if not self._expired(t, stamp)]
         self._merge()
+        self._apply_strip_evidence(car_pose, scan)
         if defer_roles:
             # The caller decides the roles itself and asks for the published
             # set afterwards, so ranking them here would be the second of two
@@ -982,6 +1429,50 @@ class MultiWallTracker:
             return []
         self.update_roles(car_pose)
         return self.published(car_pose)
+
+    # ---- the travel strip's own beams --------------------------------------
+
+    def _apply_strip_evidence(self, car_pose, scan):
+        """Judge every confirmed track that meets the strip by the strip's beams.
+
+        The nearest return in the travel strip (strip_returns) against the
+        distance at which the strip meets the track's MEASURED segment
+        (strip_distance). front_contradict_cycles consecutive CONTRADICTED
+        cycles make the track CONTRADICTED; it then is not FRONT, has the role
+        'other', and no longer occludes what is behind it, so the wall the
+        beams actually reach can be FRONT on the same cycle. Only a SUPPORTED
+        cycle (the beams land on the line again) clears it.
+
+        The track is not deleted: deleting a FRONT track used to latch the
+        virtual wall at -1 (NO_DATA), which holds the car -- the incident's
+        failure in another form. GLASS IS NOT EXEMPT, unlike the whole-span
+        rule: a pane the LiDAR sees through in the strip and a doorway look
+        the same to the rectangle (the scene beyond reads as 'beyond'), and
+        only one of them is open (decisions: the cost is a pane read as
+        CLEAR, which front_clearance and IsProximityTooClose still see).
+        """
+        if scan is None:
+            self.strip = StripReading()
+            for trk in self.tracks:
+                trk.strip_verdict, trk.strip_pred_m = '', math.nan
+            return
+        half = self.p.strip_half_width_m
+        self.strip = strip_returns(scan, self.p.front_x_m, half)
+        for trk in self.tracks:
+            pred = strip_distance(segment_in_base_link(trk, car_pose), self.p.front_x_m, half)
+            trk.strip_pred_m = pred
+            verdict = strip_verdict(pred, self.strip.range_m, self.p.front_contradict_margin_m)
+            trk.strip_verdict = verdict if trk.ever_confirmed else ''
+            if not trk.ever_confirmed:
+                continue
+            if verdict == STRIP_CONTRADICTED:
+                trk.strip_miss += 1
+                if trk.strip_miss >= int(self.p.front_contradict_cycles):
+                    trk.contradicted = True
+            else:
+                trk.strip_miss = 0
+                if verdict == STRIP_SUPPORTED:
+                    trk.contradicted = False
 
     # ---- negative evidence ------------------------------------------------
 
@@ -1002,9 +1493,13 @@ class MultiWallTracker:
 
         Contradicted when there are at least negative_min_beams opinions and
         more than negative_pass_frac of them passed. A no-return beam counts
-        as a PASS: on this LiDAR, at these ranges, a wall returns.
+        as a PASS: on this LiDAR, at these ranges, a wall returns. A CUT beam
+        (scan[3], the object sectors) has no opinion at all: it is inf like a
+        no-return, and counting it as a pass made a person standing in front
+        of a wall evidence that the wall was not there.
         """
-        ranges, bearings, laser_xy = scan
+        ranges, bearings, laser_xy = scan[0], scan[1], scan[2]
+        cut = scan[3] if len(scan) > 3 else None
         r = np.asarray(ranges, dtype=float)
         b = np.asarray(bearings, dtype=float)
         p0, p1 = segment_in_base_link(trk, car_pose) if seg is None else seg
@@ -1039,6 +1534,8 @@ class MultiWallTracker:
         s = (d - float(n @ lxy)) / inc[usable]
         rv = r[inside][usable]
         ahead = s > 0.05
+        if cut is not None:
+            ahead = ahead & ~np.asarray(cut, dtype=bool)[inside][usable]
         tol = float(self.p.negative_tol_m)
         with np.errstate(invalid='ignore'):
             hit = ahead & (np.abs(rv - s) <= tol)
@@ -1092,7 +1589,9 @@ class MultiWallTracker:
         a dozen that can possibly intersect, and the sectors are one cheap
         interval test each from geometry that is already in hand.
         """
-        confirmed = [t for t in self.tracks if t.ever_confirmed]
+        # A CONTRADICTED track is not a blocker: the strip's beams went
+        # straight through it, so it cannot hide the wall they reached.
+        confirmed = [t for t in self.tracks if t.ever_confirmed and not t.contradicted]
         if segments is None:
             segments = {t.id: segment_in_base_link(t, car_pose) for t in self.tracks}
         laser_xy = (0.0, 0.0) if self.laser_xy is None else self.laser_xy
@@ -1186,8 +1685,14 @@ class MultiWallTracker:
                 buckets[role].append(trk)
 
         def along_heading(trk):
-            _perp, ray = front_distances(trk, car_pose, self.p.strip_half_width_m)
-            return ray if math.isfinite(ray) else _perp
+            # Where the travel strip meets the measured segment, as FRONT
+            # itself is measured; the perpendicular distance when it does not.
+            d = strip_distance(segment_in_base_link(trk, car_pose), self.p.front_x_m,
+                               self.p.strip_half_width_m)
+            if math.isfinite(d):
+                return d
+            n = np.array([math.cos(trk.theta), math.sin(trk.theta)])
+            return abs(trk.rho - float(n @ car_pose.t))
 
         def from_the_side(trk):
             return side_distance(trk, car_pose, self.p.side_edge_half_width_m)
@@ -1240,6 +1745,8 @@ class MultiWallTracker:
           * it is behind a confirmed wall (update_occlusion): a beam reports
             its first return, so a line behind a wall the same scan saw is
             not a surface that scan observed.
+          * the travel strip's own beams CONTRADICTED it
+            (_apply_strip_evidence): they pass through where it should be.
 
         The hysteresis is on the geometric test only: the other two are
         already sticky in their own right.
@@ -1251,7 +1758,8 @@ class MultiWallTracker:
         segments = {t.id: segment_in_base_link(t, car_pose) for t in self.tracks}
         self.update_occlusion(car_pose, segments)
         for trk in self.tracks:
-            if trk.verify == wall_fusion.VERIFY_REJECTED or trk.occluded:
+            if (trk.verify == wall_fusion.VERIFY_REJECTED or trk.occluded
+                    or trk.contradicted):
                 trk.role = 'other'
                 continue
             trk.role = role_with_hysteresis(trk, car_pose, trk.role, self.p,
@@ -1261,10 +1769,20 @@ class MultiWallTracker:
         """The track's role. Sticky once update_roles has run (step 4)."""
         return trk.role or geometric_role(trk, car_pose, self.p)
 
+    def coasting(self, trk):
+        """Was trk left unassociated on the last step?"""
+        return self._last_stamp is not None and trk.last_seen < self._last_stamp
+
     def coast_expired(self, trk):
-        """True once trk has gone unseen for longer than front_max_coast_s."""
-        return (self._last_stamp is not None
-                and self._last_stamp - trk.last_seen > self.p.front_max_coast_s)
+        """True once trk has coasted past front_max_coast_s OR front_max_coast_m.
+
+        Time alone was the old limit (0.3 s); a coasting wall is a PREDICTION,
+        and how far the car drove on it matters as much as how long.
+        """
+        if not self.coasting(trk):
+            return False
+        return (self._last_stamp - trk.last_seen > self.p.front_max_coast_s
+                or self._odometer - trk.odo_at_last_seen > self.p.front_max_coast_m)
 
     def track(self, track_id):
         """The live track with this id, or None (deleted or merged away)."""
@@ -1273,51 +1791,124 @@ class MultiWallTracker:
                 return trk
         return None
 
-    def is_front(self, trk, car_pose, front_x):
-        """Whether this track may be called FRONT -- the one wall in the way.
+    def front_confidence(self, trk):
+        """The track's confidence [0, 1] for the FRONT gate.
 
-        Three conditions, and the second is the one the open corridor needed:
-
-          * CONFIRMED (ever confirmed, and not coasting past
-            front_max_coast_s). A tentative track is a maybe, and a maybe
-            must never stop the car.
-          * its segment actually CROSSES THE CAR-WIDTH STRIP ahead of the
-            bumper. Not "its normal points forwards": on an open corridor the
-            side wall's normal is within 45 deg of the heading for most of a
-            turn, and reading it as the front wall is exactly what put a
-            phantom wall at 1.1 m (corridor_phantom, 2026-10-15). A wall is in
-            the way when the car would drive into it going straight.
-          * if the evidence is STEREO-ONLY, its normal must also be within
-            stereo_front_max_normal_rad of the heading. A stereo-only wall is
-            the one nothing cross-checks, so it may only stop the car when it
-            is squarely across the path, not when it is a glancing surface.
+        Track.confidence used to be the LAST observation's and nothing read
+        it. This is the mean of the last confirm_window matched observations'
+        wall_fusion.confidence -- one poor fit does not flip FRONT -- raised to
+        the rectangle's support when the rectangle VERIFIED the track (support
+        >= support_verify, 0.5, by the verify rule). On that scale a LiDAR
+        wall with a few dozen tight inliers is 0.6-0.9 and a stereo-only line
+        is capped at 0.35 by design, so front_min_confidence 0.5 means: LiDAR
+        quality, or the stereo verified over the wall's whole rectangle.
         """
-        if not trk.ever_confirmed or self.coast_expired(trk):
-            return False
+        conf = (sum(trk.conf_hist) / len(trk.conf_hist)) if trk.conf_hist \
+            else float(trk.confidence)
+        if trk.verify == wall_fusion.VERIFY_VERIFIED:
+            conf = max(conf, float(trk.rect_support))
+        return conf
+
+    def front_reason(self, trk, car_pose, front_x=None):
+        """Why this track may NOT be FRONT, or '' when it may.
+
+        The codes, in the order they are checked:
+
+          unconfirmed        never confirmed: a maybe must never stop the car.
+          contradicted       the strip's own beams passed through it for
+                             front_contradict_cycles cycles.
+          role_other         rect REJECTED, behind another wall, or nowhere
+                             near the car (update_roles).
+          off_strip          its MEASURED segment does not meet the travel
+                             strip ahead of the bumper.
+          coast_expired      unassociated for more than front_max_coast_s or
+                             front_max_coast_m of odometry.
+          coast_contradicted unassociated, and this cycle's strip has a
+                             return BEYOND it: a coast is only for a strip
+                             that says nothing (no returns -- glass, cut,
+                             range -- or a nearer surface) or agrees.
+          low_confidence     front_confidence below front_min_confidence.
+          unverified         no LiDAR-backed association in the last
+                             front_lidar_recent_cycles cycles and not rect
+                             VERIFIED: nothing has measured it lately.
+          stereo_oblique     stereo-only and not squarely across the path.
+        """
+        front_x = self.p.front_x_m if front_x is None else float(front_x)
+        if not trk.ever_confirmed:
+            return 'unconfirmed'
+        if trk.contradicted:
+            return 'contradicted'
         # 'other' is the one role that is never a reference wall: the
         # rectangle rejected it, or it is behind another wall, or the geometry
         # puts it nowhere near the car's path (update_roles).
         if trk.role == 'other':
-            return False
-        if not crosses_strip(trk, car_pose, front_x, self.p.strip_half_width_m):
-            return False
+            return 'role_other'
+        d = strip_distance(segment_in_base_link(trk, car_pose), front_x,
+                           self.p.strip_half_width_m)
+        if not math.isfinite(d):
+            return 'off_strip'
+        if self.coasting(trk):
+            if self.coast_expired(trk):
+                return 'coast_expired'
+            if trk.strip_verdict == STRIP_CONTRADICTED:
+                return 'coast_contradicted'
+        if self.front_confidence(trk) < self.p.front_min_confidence:
+            return 'low_confidence'
+        if not any(trk.lidar_hist) and trk.verify != wall_fusion.VERIFY_VERIFIED:
+            return 'unverified'
         if trk.source == wall_fusion.SOURCE_STEREO:
             n = np.array([math.cos(trk.theta), math.sin(trk.theta)])
             to_wall = trk.theta if float(n @ car_pose.t) <= trk.rho else trk.theta + math.pi
             if abs(wrap_pi(to_wall - car_pose.theta)) > self.p.stereo_front_max_normal_rad:
-                return False
-        return True
+                return 'stereo_oblique'
+        return ''
+
+    def is_front(self, trk, car_pose, front_x):
+        """Whether this track may be called FRONT -- the one wall in the way.
+
+        See front_reason for the full gate (WHAT FRONT REQUIRES in the module
+        docstring). The second check is the one the open corridor needed: the
+        MEASURED segment must meet the strip the car sweeps, not "its normal
+        points forwards" -- on an open corridor the side wall's normal is
+        within 45 deg of the heading for most of a turn, and reading it as the
+        front wall is what put a phantom wall at 1.1 m (corridor_phantom,
+        2026-10-15).
+        """
+        return not self.front_reason(trk, car_pose, front_x)
 
     def front_track(self, car_pose, front_x):
-        """The published FRONT track the heading ray meets nearest, or None."""
+        """The published FRONT track the travel strip meets nearest, or None.
+
+        Fills front_status: the chosen id and its strip_distance, or else the
+        reason of the NEAREST track that meets the strip and was refused (or
+        'no_candidate'), and every refused strip track's code.
+        """
+        front_x = float(front_x)
+        half = self.p.strip_half_width_m
+        rejects, nearest_reject = {}, (math.inf, 'no_candidate')
+        for trk in self.tracks:
+            if not trk.ever_confirmed:
+                continue
+            d = strip_distance(segment_in_base_link(trk, car_pose), front_x, half)
+            if not math.isfinite(d):
+                continue
+            code = self.front_reason(trk, car_pose, front_x)
+            if code:
+                rejects[trk.id] = code
+                if d < nearest_reject[0]:
+                    nearest_reject = (d, code)
         best, best_d = None, math.inf
         for trk in self.published(car_pose):
-            if not self.is_front(trk, car_pose, front_x):
+            if trk.id in rejects or not self.is_front(trk, car_pose, front_x):
                 continue
-            _d_perp, d_ray = front_distances(trk, car_pose, front_x, self.p.ray_margin_m)
-            d = d_ray if math.isfinite(d_ray) else math.inf
+            d = strip_distance(segment_in_base_link(trk, car_pose), front_x, half)
             if d < best_d:
                 best, best_d = trk, d
+        self.front_status = {
+            'id': None if best is None else best.id,
+            'reason': 'front' if best is not None else nearest_reject[1],
+            'distance_m': best_d if best is not None else math.nan,
+            'rejects': rejects}
         return best
 
 
