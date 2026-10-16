@@ -15,7 +15,7 @@
 # Prints the command sent, the generated mission file and the planner's exit code. The
 # planner exits 0 even when it refuses or fails to plan, so its RESULT status is printed too.
 
-COMMAND="go ahead 3 meters"
+COMMAND="go ahead 2 meters"
 
 if [ -z "${BASH_VERSION:-}" ]; then exec bash "$0" "$@"; fi
 set -eo pipefail
