@@ -6,7 +6,8 @@
 # the normal pointing from the frame origin toward the line.
 
 uint32 id                   # never reused
-string label                # front | left | right | back: the car-to-wall normal vs the heading, +-45 deg sectors
+string label                # front | back | left | right | other -- the GEOMETRIC role
+                            # (multi_wall_tracker.geometric_role), not a bearing sector
 uint8 state
 uint8 STATE_TENTATIVE = 0   # seen, not yet confirmed (M of N hits)
 uint8 STATE_CONFIRMED = 1   # matched on this scan
@@ -29,10 +30,15 @@ float32 d_ray_front         # [m] along the heading ray from base_front to the s
 
 # --- since 2026-10-15 (step 4: the tracker consumes wall observations) -------
 # Additive only; every field above keeps its meaning.
-string role                 # front | left | right | back, WITH HYSTERESIS at the
-                            # sector edges so a wall on a boundary does not flip
-                            # every scan. Same value as `label`, which is kept
-                            # for compatibility; prefer this one.
+string role                 # front | back | left | right | other, WITH HYSTERESIS
+                            # at the thresholds so a wall on one does not flip
+                            # every scan. 'other' is a first-class answer: the
+                            # track is real, tracked and drawn, and is a
+                            # reference wall for nothing -- because the
+                            # geometry puts it nowhere near the car's path,
+                            # because the rectangle REJECTED it, or because it
+                            # is behind another confirmed wall. Same value as
+                            # `label`, kept for compatibility; prefer this one.
 uint8 source                # the BEST evidence this track has ever had
 uint8 SOURCE_LIDAR = 0
 uint8 SOURCE_STEREO = 1     # nothing has ever cross-checked this wall
@@ -48,3 +54,4 @@ bool is_front               # this track IS the wall in the way: confirmed, its
                             # bumper, and (if stereo-only) square to the
                             # heading. NOT the same as role == 'front', which
                             # is only about the normal's bearing.
+

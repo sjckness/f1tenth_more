@@ -343,7 +343,10 @@ def _yaw_from_quaternion(q):
 
 #: Marker colours by role (r, g, b).
 _ROLE_COLOUR = {'front': (1.0, 0.25, 0.1), 'left': (0.2, 0.9, 0.3),
-                'right': (0.2, 0.5, 1.0), 'back': (0.6, 0.6, 0.6)}
+                'right': (0.2, 0.5, 1.0), 'back': (0.6, 0.6, 0.6),
+                # 'other' is real and tracked and is a reference for nothing,
+                # so it is drawn -- dimly, and in nobody else's colour.
+                'other': (0.35, 0.35, 0.4)}
 
 
 def _stamp_sec(header):
@@ -439,7 +442,8 @@ class LidarFrontWallNode(Node):
             process_noise_theta=float(param('wall_tracker_process_noise_theta', 1e-4)),
             k_yaw=float(param('wall_tracker_k_yaw', 0.1)),
             min_overlap_m=float(param('wall_tracker_min_overlap_m', 0.2)),
-            delete_after_s=float(param('wall_tracker_delete_after_sec', 3.0)),
+            delete_after_s=float(param('wall_tracker_delete_after_sec', 2.0)),
+            coast_max_odom_m=float(param('wall_coast_max_odom_m', 1.0)),
             max_sigma_rho_m=float(param('wall_tracker_max_sigma_rho_m', 0.3)),
             max_published=int(param('wall_tracker_max_tracks', 4)),
             front_max_coast_s=float(param('wall_tracker_front_max_coast_sec', 0.3)),
@@ -461,7 +465,20 @@ class LidarFrontWallNode(Node):
             # "WHY THE SPAN GATE IS HYSTERETIC".
             min_span_birth_m=float(param('wall_min_span_birth_m', 1.0)),
             min_span_update_m=float(param('wall_min_span_update_m', 0.5)),
-            merge_max_gap_m=float(param('wall_merge_max_gap_m', 1.5)))
+            merge_max_gap_m=float(param('wall_merge_max_gap_m', 1.5)),
+            # Step 6 (E3): the geometric roles, the first-obstacle rule and
+            # the negative evidence.
+            back_x_m=float(param('wall_role_back_x_m', 0.0)),
+            side_x_min_m=float(param('wall_role_side_x_min_m', -1.0)),
+            side_x_max_m=float(param('wall_role_side_x_max_m', 3.0)),
+            side_max_normal_rad=math.radians(
+                float(param('wall_role_side_max_normal_deg', 45.0))),
+            role_hysteresis_m=float(param('wall_role_hysteresis_m', 0.05)),
+            occlusion_margin_m=float(param('wall_occlusion_margin_m', 0.10)),
+            negative_tol_m=float(param('wall_negative_tol_m', 0.15)),
+            negative_min_beams=int(param('wall_negative_min_beams', 5)),
+            negative_pass_frac=float(param('wall_negative_pass_frac', 0.7)),
+            negative_miss_to_kill=int(param('wall_negative_miss_to_kill', 5)))
         if self.use_wall_tracker and not self.scene_enabled:
             self.get_logger().error(
                 'use_wall_tracker needs enable_scene_labels (the virtual wall it feeds '
@@ -487,6 +504,14 @@ class LidarFrontWallNode(Node):
                              if self.use_wall_tracker else None)
         #: This cycle's rectangle verdicts by track id, for the debug payload.
         self._rect_verdicts = {}
+        #: Objects whose centre is behind a confirmed wall this cycle. The
+        #: FIRST-OBSTACLE rule is for WALLS ONLY: an object behind a wall is
+        #: still an object and is still cut out of the scan, it is only
+        #: FLAGGED. Nothing here publishes objects, so the flag is a count on
+        #: the debug payload rather than a field on a message this node owns.
+        self._objects_behind_wall = 0
+        #: The car pose this cycle's tracks were placed with, for the payload.
+        self._car_pose = None
         self._mask_classes = None     # the class mask Image, latest
         self._mask_depth = None       # the mono16 mm depth Image of the same tick
         self._rect_age = math.nan
@@ -1140,7 +1165,15 @@ class LidarFrontWallNode(Node):
             'rect_informative': sum(
                 1 for v in self._rect_verdicts.values()
                 if v['coverage'] >= self.wall_tracker.rect.coverage_min
-            ) if self.wall_tracker is not None else None})))
+            ) if self.wall_tracker is not None else None,
+            # E3: every live track's role and verdict, what the negative
+            # evidence killed, and how many objects are behind a confirmed
+            # wall. This list is where the rectangle verdict, the occlusion
+            # flag and the miss count live (see _publish_walls).
+            'tracks': self._track_payload(),
+            'negative_killed': (None if self.wall_tracker is None
+                                else int(self.wall_tracker.n_negative_killed)),
+            'objects_behind_wall': self._objects_behind_wall})))
         return state
 
     def _track_walls(self, msg, laser_pose, sectors, scan_stamp, stamp, pts):
@@ -1162,6 +1195,7 @@ class LidarFrontWallNode(Node):
                 throttle_duration_sec=5.0)
             return None
         self._tracker_has_data = True
+        self._car_pose = car
         t0 = time.perf_counter()
         self._extract_stats = {}
         lines = mwt.extract_lines(
@@ -1170,7 +1204,20 @@ class LidarFrontWallNode(Node):
             stats=self._extract_stats)
         observations = self._publish_observations(
             stamp, scan_stamp, [mwt.line_to_wall_line(ln) for ln in lines], pts)
-        tracks = self.wall_tracker.step(observations, scan_stamp, car)
+        # The occlusion rays start at the LASER, not at base_link: 30 cm of
+        # lever arm decides whether a wall is behind another one at 15 m.
+        self.wall_tracker.laser_xy = laser_pose[:2]
+        self._objects_behind_wall = self._count_objects_behind_walls(
+            car, laser_pose, scan_stamp)
+        # The negative evidence sees exactly the beams the extraction saw,
+        # object sectors cut and all (mwt.scan_in_base_link): a beam cut
+        # because an object stands there is evidence about the object.
+        neg_ranges, neg_bearings, _angles = mwt.scan_in_base_link(
+            msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min,
+            msg.range_max, laser_pose, sectors)
+        tracks = self.wall_tracker.step(
+            observations, scan_stamp, car,
+            scan=(neg_ranges, neg_bearings, laser_pose[:2]))
         # The rectangle runs on the tracks the step just updated, and its
         # verdicts are folded in before anything is asked of the roles: a
         # REJECTED wall is not a reference wall on the same cycle it was
@@ -1201,6 +1248,64 @@ class LidarFrontWallNode(Node):
         self._log_tracker_cost(scan_stamp)
         self._publish_walls(msg.header.stamp, tracks, car)
         return None if front is None else mwt.to_wall_line(front, car)
+
+    def _count_objects_behind_walls(self, car, laser_pose, scan_stamp):
+        """How many propagated object centres lie behind a CONFIRMED wall.
+
+        The same ray test the walls use, and deliberately only a flag: an
+        object behind a wall is still an object, its sector is still cut out
+        of the scan, and nothing about how it is handled changes. What it is
+        NOT is a reason to doubt the object, which is why this counts rather
+        than filters.
+        """
+        if self._detections is None or self.wall_tracker is None:
+            return 0
+        objs = self._detections[1]
+        then = self._poses.at(self._detections[2])
+        if not objs or then is None:
+            return 0
+        objs = mwt.propagate_objects(objs, then, car)
+        confirmed = [mwt.segment_in_base_link(t, car)
+                     for t in self.wall_tracker.tracks if t.ever_confirmed]
+        if not confirmed:
+            return 0
+        pts = np.array([[x, y] for x, y, _r in objs], dtype=float)
+        blocked = mwt.ray_blocked_by(pts, laser_pose[:2], confirmed,
+                                     self.wall_tracker.p.occlusion_margin_m)
+        return int(np.count_nonzero(blocked))
+
+    def _track_payload(self):
+        """Every LIVE track as a dict, for /perception/virtual_wall/debug.
+
+        Not only the published four: the whole point of 'other' and of the
+        rectangle's REJECTED is that a track can be real, tracked and a
+        reference for nothing, and a payload that showed only the published
+        ones would hide exactly those.
+        """
+        car = self._car_pose
+        if self.wall_tracker is None or car is None:
+            return None
+        def num(x):
+            return None if x is None or not math.isfinite(x) else round(float(x), 4)
+        out = []
+        for trk in self.wall_tracker.tracks:
+            bl = mwt.track_in_base_link(trk, car)
+            _perp, d_ray = mwt.front_distances(trk, car, self.front_x)
+            out.append({
+                'id': int(trk.id), 'role': trk.role,
+                'state': mwt.STATE_NAMES.get(trk.state), 'hits': int(trk.hits),
+                'age_s': num((self.wall_tracker._last_stamp or trk.born) - trk.born),
+                'length_m': num(trk.length), 'rho_bl': num(bl.rho),
+                'd_ray_front': num(d_ray),
+                'verify': wall_fusion.VERIFY_NAMES[trk.verify],
+                'glass': bool(trk.glass), 'occluded': bool(trk.occluded),
+                'miss': int(trk.miss), 'source': wall_fusion.SOURCE_NAMES[trk.source],
+                'rect_coverage': num(trk.rect_coverage),
+                'rect_support': num(trk.rect_support),
+                'rect_beyond_share': num(trk.rect_beyond_share),
+                'is_front': bool(self.wall_tracker.is_front(trk, car, self.front_x)),
+            })
+        return out
 
     def _log_tracker_cost(self, stamp):
         self._tracker_cost.append(self._tracker_ms)
@@ -1251,6 +1356,13 @@ class LidarFrontWallNode(Node):
             m.d_side = (float(mwt.side_distance(trk, car, self.side_edge_half_width_m))
                         if label in ('left', 'right') else math.nan)
             m.is_front = bool(self.wall_tracker.is_front(trk, car, self.front_x))
+            # The rectangle verdict, the occlusion flag and the negative-
+            # evidence count are NOT fields on this message, deliberately:
+            # appending to a .msg makes every bag already recorded with the
+            # old definition undeserialisable (CDR is positional), and these
+            # recordings are the evidence base. They go on
+            # /perception/virtual_wall/debug's `tracks` list instead, which is
+            # free-form JSON and costs no past run its readability.
             out.tracks.append(m)
             # A wall is a VERTICAL PLANE, so it is drawn as one: a thin slab
             # from z_min to z_max, not a line on the floor. The height is the
@@ -1271,7 +1383,7 @@ class LidarFrontWallNode(Node):
             slab.scale.x = max(float(length), 0.01)
             slab.scale.y = self.wall_marker_thickness_m
             slab.scale.z = max(float(trk.z_max - trk.z_min), 0.01)
-            r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR['back'])
+            r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR['other'])
             slab.color.r, slab.color.g, slab.color.b = r, g, b
             # A wall only assumed to be this tall is drawn fainter than one
             # whose height was actually seen.

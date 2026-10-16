@@ -2797,6 +2797,51 @@ lidar_front_wall_wall_min_span_birth_m:
 lidar_front_wall_wall_min_span_update_m:
   default: 0.5
   description: "Shortest observation [m] that may UPDATE an already CONFIRMED wall track. Anything shorter is not a wall at all and never reaches the tracker. A confirmed wall briefly seen short -- someone walks past it, the car turns and grazes it, half of it leaves the sector -- is still that wall, so maintenance is cheaper than birth. Matches corridor_perception's own ExtractionParams.min_length (0.50), the point below which a segment is already dropped as unsupported, so this is the gate's floor and not a second opinion about it."
+# ---- E3: what a ROLE is, and when a track stops being one ------------------
+# A role used to be the BEARING of the wall as seen from the car, in 45 deg
+# sectors. That makes the far end of a corridor "front" and the near stretch
+# of the same wall "left" -- one surface with two roles depending on where the
+# car happens to be along it -- and it is how a wall whose normal happened to
+# point forwards became the FRONT wall at 1.1 m (corridor_phantom). A role is
+# now GEOMETRY: in the car's strip, or beside the car with a lateral normal,
+# or 'other'. 'other' is a first-class answer: tracked, drawn, a reference for
+# nothing.
+lidar_front_wall_wall_role_back_x_m:
+  default: 0.0
+  description: "Rear edge [m, base_link] of the car-width strip for the BACK role. The description has no measured rear bumper (only base_front, vehicle_frames.base_front_x), so base_link's own origin is the boundary and this is the parameter that says so. A segment inside the strip but between back_x and the bumper is BESIDE the car, not in its way, and gets neither front nor back."
+lidar_front_wall_wall_role_side_x_min_m:
+  default: -1.0
+  description: "Nearest edge [m, base_link] of the x window a LEFT/RIGHT wall must reach into. A wall 20 m behind the car is still a wall and still tracked, but it is a reference for nothing: the window is the stretch the car is beside or about to be beside. -1.0 m is one car length behind base_link."
+lidar_front_wall_wall_role_side_x_max_m:
+  default: 3.0
+  description: "Far edge [m, base_link] of that window. 3.0 m is about 6 s of travel at the mission speed: far enough that a side wall is named before the car is level with it, near enough that the far end of a corridor is not called a side wall."
+lidar_front_wall_wall_role_side_max_normal_deg:
+  default: 45.0
+  description: "How far [deg] a side wall's normal may be from the LATERAL axis in base_link. Unlike the old sector test this is about the wall's own orientation, not its bearing, so the answer does not change as the car drives along the same wall."
+lidar_front_wall_wall_role_hysteresis_m:
+  default: 0.05
+  description: "Length half of the role hysteresis [m]: a track keeps the role it has while the same geometric test still passes with every threshold relaxed by this much (and the normal sector by lidar_front_wall_role_hysteresis_rad). Without it a wall sitting on a threshold changes role every scan as the car wobbles, and so does every consumer keyed on it."
+lidar_front_wall_wall_occlusion_margin_m:
+  default: 0.1
+  description: "How much nearer [m] a confirmed wall must be crossed by the ray LiDAR->point for that point to count as BEHIND it (first obstacle). Five points along each segment; 3 of 5 behind a confirmed wall makes the role 'other'. A LiDAR beam reports its FIRST return, so a line fitted behind a wall the same scan also saw is not a surface that scan observed -- it is the far side of the room through a gap, or a reflection. GLASS COUNTS AS A BLOCKER: a pane really does stop the LiDAR, which is why it has a track at all. The 5-and-3 shape is in the code (TrackerParams.occlusion_points/_min_blocked), not here: it is the rule, not a knob."
+lidar_front_wall_wall_negative_tol_m:
+  default: 0.15
+  description: "How close [m] a beam's return must be to where it would meet a track's line to count as a HIT rather than a PASS (negative evidence). A beam more than this BEYOND the line went through where the wall should be; one SHORT of it is blocked by something nearer and says nothing about this wall. A no-return beam is a PASS: at these ranges a wall returns."
+lidar_front_wall_wall_negative_min_beams:
+  default: 5
+  description: "Fewest opinionated beams (PASS + HIT) inside a track's own angular span -- shrunk 2 beams per side, because a grazing beam at the end of a span proves nothing -- before negative evidence may be counted at all."
+lidar_front_wall_wall_negative_pass_frac:
+  default: 0.7
+  description: "Fraction of those beams that must PASS for the scan to CONTRADICT the track. Counted consecutively and reset by any scan that does not; lidar_front_wall_wall_negative_miss_to_kill of them in a row kills the track. This is the only mechanism that can remove a wall the observations have simply stopped mentioning: the lifecycle can only wait for a timeout, which a phantom survives for as long as the room keeps producing collinear triples near it."
+lidar_front_wall_wall_negative_miss_to_kill:
+  default: 5
+  description: "Consecutive CONTRADICTED scans that kill a confirmed track. Never applied to a GLASS track: glass is the surface the beams are SUPPOSED to pass through, so this rule would kill every pane in the building."
+lidar_front_wall_wall_tracker_delete_after_sec:
+  default: 2.0
+  description: "Longest [s] a track may go unassociated before it is deleted. 2.0, down from 3.0: a coasting wall's covariance grows and its line is only predicted, and three seconds of that at the mission speed is 1.5 m of travel on a wall nobody has seen. Read together with lidar_front_wall_wall_coast_max_odom_m -- time alone is the wrong unit while the car is standing still."
+lidar_front_wall_wall_coast_max_odom_m:
+  default: 1.0
+  description: "Metres of ODOMETRY (path length, not displacement) a track may coast before it is deleted, whichever limit comes first. Standing still for two seconds costs a wall nothing and should not; driving a metre past a wall without one association means the wall is not where the track says it is."
 # ---- E2: the rectangle verification (wall_fusion.py, THE RECTANGLE) --------
 # The column cross-check asks one question per BEARING, in the LiDAR's own
 # plane. These ask the same question over the wall's whole RECTANGLE -- along

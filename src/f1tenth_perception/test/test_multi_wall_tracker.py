@@ -369,7 +369,21 @@ def test_a_track_the_lidar_has_seen_never_decays_to_stereo_only():
     trk = mwt.MultiWallTracker()
     feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_BOTH)], 3)
     feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], 3, t0=2.0)
-    assert trk.tracks[0].source == wall_fusion.SOURCE_BOTH
+    assert trk.tracks[0].source == wall_fusion.SOURCE_LIDAR
+
+
+def test_both_needs_the_rectangle_as_well_as_the_columns():
+    """E2/E3: a column agreement alone is one row of pixels through the scan
+    plane. "BOTH" means both sensors looked at the WALL, so the rectangle must
+    have had something to say about this track too."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_BOTH)], 3)
+    track = trk.tracks[0]
+    assert track.source == wall_fusion.SOURCE_LIDAR and not track.has_both
+    trk.apply_rect_verdicts({track.id: {'coverage': 0.9, 'support': 0.9,
+                                        'beyond_share': 0.0}})
+    feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_BOTH)], 1, t0=2.0)
+    assert track.source == wall_fusion.SOURCE_BOTH
 
 
 def test_a_measured_height_is_carried_onto_the_track():
@@ -446,23 +460,105 @@ def test_a_wall_beside_the_strip_does_not_cross_it():
 
 # --- roles ------------------------------------------------------------------
 
-def test_a_role_sticks_across_its_sector_edge_instead_of_flipping():
-    p = mwt.TrackerParams(role_hysteresis_rad=math.radians(5.0))
+def test_a_wall_across_the_path_is_front():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    assert trk.tracks[0].role == 'front'
+
+
+def test_a_wall_the_car_drives_along_is_a_side_wall():
+    """Normal along y, 1.2 m to the left, running past the car."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(1.2, nx=0.0, ny=1.0, t0=-2.0, t1=2.0))], 3)
+    assert trk.tracks[0].role == 'left'
+    other = mwt.MultiWallTracker()
+    feed(other, [obs(wall(1.2, nx=0.0, ny=-1.0, t0=-2.0, t1=2.0))], 3)
+    assert other.tracks[0].role == 'right'
+
+
+def test_a_perpendicular_segment_three_metres_to_the_left_is_other():
+    """In the x window, but its normal points along the car: not a side wall,
+    not in the strip, so it is tracked and is a reference for nothing."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))], 3)
+    track = trk.tracks[0]
+    assert track.role == 'other'
+    assert track in trk.tracks and track.ever_confirmed      # still tracked
+    assert not trk.is_front(track, ORIGIN, FRONT_X)
+
+
+def test_a_side_wall_outside_the_x_window_is_other():
+    """The same wall 8 m behind the car: real, tracked, not a reference."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(1.2, nx=0.0, ny=1.0, t0=-9.0, t1=-8.0))], 3)
+    assert trk.tracks[0].role == 'other'
+
+
+def test_a_role_sticks_across_its_edge_instead_of_flipping():
+    p = mwt.TrackerParams(role_hysteresis_m=0.3)
     trk = mwt.MultiWallTracker(p)
+    feed(trk, [obs(wall(1.2, nx=0.0, ny=1.0, t0=-2.0, t1=2.0))], 3)
+    track = trk.tracks[0]
+    assert track.role == 'left'
+    # Drive forward until the wall's x window is only just lost, then past it.
+    trk.update_roles(Pose2D(2.9, 0.0, 0.0))
+    assert track.role == 'left'
+    trk.update_roles(Pose2D(3.5, 0.0, 0.0))
+    assert track.role == 'other'
+
+
+def test_a_rejected_track_is_never_a_reference_wall():
+    trk = mwt.MultiWallTracker()
     feed(trk, [obs(wall(2.0))], 3)
     track = trk.tracks[0]
     assert track.role == 'front'
-    # Rotate the car so the wall sits just past the 45 deg boundary.
-    for deg, expected in ((43.0, 'front'), (47.0, 'front'), (52.0, 'left')):
-        trk.update_roles(Pose2D(0.0, 0.0, math.radians(-deg)))
-        assert track.role == expected, deg
+    trk.apply_rect_verdicts({track.id: {'coverage': 0.9, 'support': 0.0,
+                                        'beyond_share': 0.0}})
+    trk.update_roles(ORIGIN)
+    assert track.verify == wall_fusion.VERIFY_REJECTED and track.role == 'other'
+    assert not trk.is_front(track, ORIGIN, FRONT_X)
+    assert trk.front_track(ORIGIN, FRONT_X) is None
 
 
-def test_a_role_with_no_history_is_just_the_sector():
+def test_a_role_with_no_history_is_just_the_geometry():
     trk = mwt.MultiWallTracker()
     feed(trk, [obs(wall(2.0))], 3)
     trk.tracks[0].role = ''
     assert trk.label(trk.tracks[0], ORIGIN) == 'front'
+
+
+# --- first obstacle: a wall behind a wall -----------------------------------
+
+def test_a_segment_behind_a_confirmed_wall_is_other():
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    feed(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),
+               obs(wall(5.0, t0=-1.5, t1=1.5))], 4)
+    near = min(trk.tracks, key=lambda t: t.rho)
+    far = max(trk.tracks, key=lambda t: t.rho)
+    assert near.role == 'front'
+    assert far.occluded and far.role == 'other'
+    assert trk.front_track(ORIGIN, FRONT_X) is near
+
+
+def test_glass_still_blocks_what_is_behind_it():
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    feed(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),
+               obs(wall(5.0, t0=-1.5, t1=1.5))], 4)
+    near = min(trk.tracks, key=lambda t: t.rho)
+    near.glass = True
+    trk.update_roles(ORIGIN)
+    assert max(trk.tracks, key=lambda t: t.rho).role == 'other'
+
+
+def test_a_wall_beside_the_near_one_is_not_occluded_by_it():
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    feed(trk, [obs(wall(2.0, t0=-1.5, t1=-0.4)),
+               obs(wall(5.0, t0=0.6, t1=2.0))], 4)
+    far = max(trk.tracks, key=lambda t: t.rho)
+    assert not far.occluded
 
 
 # --- d_side -----------------------------------------------------------------
@@ -694,3 +790,130 @@ def test_an_observation_without_a_weight_is_treated_as_fresh():
                                        wall_fusion.SOURCE_BOTH, 0.8, stereo_weight=1.0)
     assert mwt.observation_line(bare, car, p).cov[0, 0] == pytest.approx(
         mwt.observation_line(explicit, car, p).cov[0, 0])
+
+
+# --- negative evidence ------------------------------------------------------
+
+def neg_scan(ranges_of_bearing, laser_xy=LASER[:2]):
+    """(ranges, base_link bearings, laser xy) -- mwt.scan_in_base_link's output.
+
+    ranges_of_bearing(bearings) returns the range each beam reports, so a test
+    says what the LiDAR saw rather than building a world for it to see.
+    """
+    bearings = ANGLE_MIN + np.arange(N_BEAMS) * INC
+    return np.asarray(ranges_of_bearing(bearings), dtype=float), bearings, laser_xy
+
+
+def on_the_line(d, laser_x=LASER[0]):
+    """The range at which each beam meets the line x = d in base_link."""
+    def ranges(bearings):
+        with np.errstate(divide='ignore', invalid='ignore'):
+            s = (d - laser_x) / np.cos(bearings)
+        return np.where(s > 0.0, s, NO_RETURN)
+    return ranges
+
+
+def test_beams_passing_through_a_wall_kill_it_in_five_scans():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    assert track.ever_confirmed
+    # Everything in the wall's span now reads 6 m: the beams are going
+    # straight through where the wall is supposed to be.
+    through = neg_scan(lambda b: np.full(b.size, 6.0))
+    for i in range(4):
+        trk.step([], 2.0 + 0.05 * i, ORIGIN, scan=through)
+        assert track in trk.tracks, i
+        assert track.miss == i + 1
+    trk.step([], 2.2, ORIGIN, scan=through)
+    assert track not in trk.tracks
+    assert trk.n_negative_killed == 1
+
+
+def test_beams_landing_on_the_wall_are_not_negative_evidence():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    hits = neg_scan(on_the_line(2.0))
+    for i in range(6):
+        trk.step([obs(wall(2.0))], 2.0 + 0.05 * i, ORIGIN, scan=hits)
+    assert track in trk.tracks and track.miss == 0
+
+
+def test_one_good_scan_resets_the_count():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    through = neg_scan(lambda b: np.full(b.size, 6.0))
+    for i in range(3):
+        trk.step([], 2.0 + 0.05 * i, ORIGIN, scan=through)
+    assert track.miss == 3
+    trk.step([obs(wall(2.0))], 2.2, ORIGIN, scan=neg_scan(on_the_line(2.0)))
+    assert track.miss == 0 and track in trk.tracks
+
+
+def test_glass_is_never_killed_by_beams_going_through_it():
+    """Glass is the surface the beams are SUPPOSED to pass through."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    track.verify, track.glass = wall_fusion.VERIFY_VERIFIED, True
+    through = neg_scan(lambda b: np.full(b.size, 6.0))
+    for i in range(8):
+        trk.step([], 2.0 + 0.02 * i, ORIGIN, scan=through)
+        if track not in trk.tracks:
+            pytest.fail(f'the pane was killed on scan {i}')
+    assert track.miss == 0
+
+
+def test_a_beam_blocked_by_something_nearer_says_nothing():
+    """Short returns are an occluder, not evidence against the wall."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    short = neg_scan(lambda b: np.full(b.size, 1.0))
+    for i in range(8):
+        trk.step([], 2.0 + 0.02 * i, ORIGIN, scan=short)
+    assert track in trk.tracks and track.miss == 0
+
+
+def test_a_tentative_track_is_not_judged_by_negative_evidence():
+    """It has its own lifecycle; the beams only overrule a CONFIRMED wall."""
+    trk = mwt.MultiWallTracker()
+    trk.step([obs(wall(2.0))], 1.0, ORIGIN)
+    track = trk.tracks[0]
+    assert not track.ever_confirmed
+    trk.step([], 1.05, ORIGIN, scan=neg_scan(lambda b: np.full(b.size, 6.0)))
+    assert track.miss == 0
+
+
+# --- coasting ---------------------------------------------------------------
+
+def test_a_coasting_track_dies_after_two_seconds():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    trk.step([], 1.1 + 1.9, ORIGIN)
+    assert track in trk.tracks
+    trk.step([], 1.1 + 2.1, ORIGIN)
+    assert track not in trk.tracks
+
+
+def test_a_coasting_track_dies_after_a_metre_of_odometry():
+    """Standing still costs a wall nothing; driving past it does."""
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    trk.step([], 1.2, Pose2D(0.9, 0.0, 0.0))
+    assert track in trk.tracks
+    trk.step([], 1.25, Pose2D(1.1, 0.0, 0.0))
+    assert track not in trk.tracks
+
+
+def test_the_odometer_is_path_length_not_displacement():
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    for i, x in enumerate((0.4, 0.0, 0.4, 0.0)):
+        trk.step([], 1.2 + 0.05 * i, Pose2D(x, 0.0, 0.0))
+    assert track not in trk.tracks      # 1.6 m walked, 0 m displaced

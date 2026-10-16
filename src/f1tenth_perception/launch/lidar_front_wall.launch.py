@@ -106,6 +106,20 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_rect_glass_beyond_share', float),
     ('wall_rect_tol_base_m', float),
     ('wall_rect_tol_frac', float),
+    # E3: the geometric roles, the first obstacle, the negative evidence and
+    # the two coasting limits.
+    ('wall_role_back_x_m', float),
+    ('wall_role_side_x_min_m', float),
+    ('wall_role_side_x_max_m', float),
+    ('wall_role_side_max_normal_deg', float),
+    ('wall_role_hysteresis_m', float),
+    ('wall_occlusion_margin_m', float),
+    ('wall_negative_tol_m', float),
+    ('wall_negative_min_beams', int),
+    ('wall_negative_pass_frac', float),
+    ('wall_negative_miss_to_kill', int),
+    ('wall_tracker_delete_after_sec', float),
+    ('wall_coast_max_odom_m', float),
 ]
 
 
