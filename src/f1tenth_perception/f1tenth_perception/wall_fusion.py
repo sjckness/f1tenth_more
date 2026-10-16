@@ -519,11 +519,30 @@ def stereo_only_observations(check, column_points, width, min_span_columns=8,
 # which is the common case for a wall outside the camera's 100 deg, and it
 # must leave such a wall UNVERIFIED rather than REJECTED.
 #
+# BEYOND THE STEREO'S RANGE THERE IS NO EVIDENCE, IN EITHER DIRECTION. On
+# this rig the stereo does not measure past about 8 m: at the 15.5 m end wall
+# of corridor10m_20261015T171753 it reports ~7 m, and the column cross-check
+# already measures a DISAGREE rate of 1.00 with a 3.4 m median residual in the
+# 12-16 m bucket. Read literally, the rules below then make every sample on
+# that wall AGAINST it -- a nearer surface -- and REJECT the one real wall in
+# the corridor, which is how the contract went from WALL 35.9 s to WALL 5.9 s
+# on the first replay of this check. So a sample further than max_range_m is
+# NOT INFORMATIVE, exactly like a sample that landed on the floor: the camera
+# has nothing to say there, and "nothing to say" must never read as "no wall".
+#
 # THE STATE IS STICKY AND HYSTERETIC, for the same reason the span gate and
 # the role are (multi_wall_tracker's own docstrings): one frame of a person
 # walking past must not unmake a verified wall, and the cost of the two
 # mistakes is not symmetric. support >= support_verify verifies, <=
 # support_reject rejects, and in between nothing happens.
+#
+# AND THE TWO DIRECTIONS ARE NOT SYMMETRIC EITHER. Verifying a wall adds
+# evidence for something the LiDAR already fitted; REJECTING one takes the
+# wall away from every consumer, and a single frame of a person, a reflection
+# or a stale profile must not do that. So VERIFIED is immediate and REJECTED
+# needs reject_cycles consecutive VERIFIABLE cycles -- cycles where the
+# rectangle had enough coverage to have an opinion at all, so a wall that
+# simply leaves the frame does not accumulate rejections.
 
 #: What one rectangle sample said, for the debug views (verify_rectangles'
 #: `detail`). Nothing in the pipeline branches on these.
@@ -545,9 +564,9 @@ class RectParams:
     """The rectangle verification's own numbers. See the section header."""
 
     __slots__ = ('z_min_lidar', 'z_max_lidar', 'z_step_m', 't_step_min_m', 't_steps_max',
-                 'w_sigma_m', 'w_floor', 'tol_base_m', 'tol_frac', 'min_depth_m',
-                 'coverage_min', 'support_verify', 'support_reject',
-                 'glass_beyond_share', 'glass_at_share')
+                 'w_sigma_m', 'w_floor', 'tol_base_m', 'tol_quad_per_m2', 'min_depth_m',
+                 'max_range_m', 'coverage_min', 'support_verify', 'support_reject',
+                 'reject_cycles', 'glass_beyond_share', 'glass_at_share')
 
     def __init__(self, **kwargs):
         self.z_min_lidar = -0.19      # the floor, in the LiDAR's own frame
@@ -557,12 +576,23 @@ class RectParams:
         self.t_steps_max = 100        # ... but never more than this many steps
         self.w_sigma_m = 0.4          # w(z) = max(w_floor, exp(-z^2 / 2 sigma^2))
         self.w_floor = 0.2
-        self.tol_base_m = 0.15        # tol = max(base, frac * d_exp)
-        self.tol_frac = 0.05
+        # tol = base + quad * d^2, the SAME model and the same parameters the
+        # column cross-check uses (wall_fusion.tolerance): stereo depth error
+        # IS quadratic, and a rectangle sample is the same measurement a
+        # column is, one pixel at a time.
+        self.tol_base_m = 0.05
+        self.tol_quad_per_m2 = 0.012
         self.min_depth_m = 0.1        # optical z below this is behind the lens
+        #: Past this the stereo is not a measurement (see BEYOND THE STEREO'S
+        #: RANGE THERE IS NO EVIDENCE): samples further than this are not
+        #: informative, whatever class they land on.
+        self.max_range_m = 8.0
         self.coverage_min = 0.25
         self.support_verify = 0.5
         self.support_reject = 0.2
+        #: Consecutive VERIFIABLE cycles of support <= support_reject before a
+        #: track is REJECTED. Verification stays immediate; rejection does not.
+        self.reject_cycles = 3
         self.glass_beyond_share = 0.7
         self.glass_at_share = 0.2
         for key, value in kwargs.items():
@@ -715,7 +745,7 @@ def verify_rectangles(segments, labels, depth, fx, fy, cx, cy, rotation, transla
     wi = w[inside]
     ki = idx[inside]
 
-    tol = np.maximum(p.tol_base_m, p.tol_frac * exp)
+    tol = tolerance(exp, p.tol_base_m, p.tol_quad_per_m2)
     is_wall = cls == wall_class
     if object_mask is None:
         obj = cls == object_class
@@ -732,6 +762,12 @@ def verify_rectangles(segments, labels, depth, fx, fy, cx, cy, rotation, transla
         against = obj | (is_wall & (diff < -tol))
         at = is_wall & ~against & (np.abs(diff) <= tol)
         beyond = is_wall & ~against & (diff > tol)
+    # Past the stereo's own range nothing is informative, whatever class the
+    # sample landed on (see BEYOND THE STEREO'S RANGE THERE IS NO EVIDENCE).
+    in_range = exp <= p.max_range_m
+    at &= in_range
+    beyond &= in_range
+    against &= in_range
     informative = at | beyond | against
     supporting = at | beyond
 
@@ -763,8 +799,10 @@ def verify_rectangles(segments, labels, depth, fx, fy, cx, cy, rotation, transla
     return out
 
 
-def verify_step(state, glass, verdict, p=None):
-    """(state, glass) after one rectangle verdict. Sticky, hysteretic.
+def verify_step(state, glass, verdict, p=None, reject_streak=0):
+    """(state, glass, reject streak) after one rectangle verdict.
+
+    Sticky and hysteretic, and asymmetric between the two directions.
 
     coverage below coverage_min changes nothing -- not the state and not the
     glass flag -- because support is a fraction of the informative samples
@@ -776,24 +814,34 @@ def verify_step(state, glass, verdict, p=None):
     reports it FURTHER than the LiDAR does, over almost all of the
     rectangle: the pane is what the LiDAR ranged and the room behind it is
     what the stereo matched. The distance then comes from the LiDAR alone.
+    A glass pane is also, necessarily, inside max_range_m -- past that the
+    samples are not informative and nothing is called glass.
     (Note the two glass thresholds as specified overlap: beyond_share > 0.7
     AND 1 - beyond_share < 0.2 means beyond_share > 0.8. Both are kept so the
     rule reads as the pair of statements it is -- mostly beyond, and hardly
     any at -- rather than as one tuned number.)
     """
     p = p or RectParams()
+    streak = int(reject_streak)
     if verdict['coverage'] < p.coverage_min:
-        return int(state), bool(glass)
+        # Not a verifiable cycle: the state, the glass flag AND the streak are
+        # all left alone. A wall that leaves the frame must not accumulate
+        # rejections while the camera cannot see it.
+        return int(state), bool(glass), streak
     support = verdict['support']
     if support >= p.support_verify:
-        state = VERIFY_VERIFIED
+        state, streak = VERIFY_VERIFIED, 0
     elif support <= p.support_reject:
-        state = VERIFY_REJECTED
+        streak += 1
+        if streak >= max(1, int(p.reject_cycles)):
+            state = VERIFY_REJECTED
+    else:
+        streak = 0
     if state != VERIFY_VERIFIED:
-        return int(state), False
+        return int(state), False, streak
     beyond = verdict['beyond_share']
     return int(state), bool(beyond > p.glass_beyond_share
-                            and (1.0 - beyond) < p.glass_at_share)
+                            and (1.0 - beyond) < p.glass_at_share), streak
 
 
 # ============================================================================

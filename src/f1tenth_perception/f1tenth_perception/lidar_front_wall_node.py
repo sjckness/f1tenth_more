@@ -494,9 +494,16 @@ class LidarFrontWallNode(Node):
             coverage_min=float(param('wall_rect_coverage_min', 0.25)),
             support_verify=float(param('wall_rect_support_verify', 0.5)),
             support_reject=float(param('wall_rect_support_reject', 0.2)),
+            reject_cycles=int(param('wall_rect_reject_cycles', 3)),
             glass_beyond_share=float(param('wall_rect_glass_beyond_share', 0.7)),
-            tol_base_m=float(param('wall_rect_tol_base_m', 0.15)),
-            tol_frac=float(param('wall_rect_tol_frac', 0.05)))
+            max_range_m=float(param('wall_rect_max_range_m', 8.0)))
+        # The tolerance is NOT a parameter of its own: the rectangle uses the
+        # SAME model and the SAME two numbers as the column cross-check, which
+        # are declared in step 3 below and copied onto this object once they
+        # are (the tracker holds this very object). A rectangle sample is the
+        # same measurement a column is, one pixel at a time, and two
+        # tolerances for one sensor error would only ever disagree.
+        self._rect_params = rect_params
         #: The z rows and their weights, built once: nothing about them
         #: depends on the scan or the wall (performance rules).
         self._rect_grid = wall_fusion.rect_grid(rect_params)
@@ -546,6 +553,8 @@ class LidarFrontWallNode(Node):
         self.profile_min_weight = float(param('stereo_profile_min_weight', 0.3))
         self.obs_tol_base_m = float(param('wall_obs_tol_base_m', 0.05))
         self.obs_tol_quad = float(param('wall_obs_tol_quad_per_m2', 0.012))
+        self._rect_params.tol_base_m = self.obs_tol_base_m
+        self._rect_params.tol_quad_per_m2 = self.obs_tol_quad
         self.obs_disagree_reject_frac = float(param('wall_obs_disagree_reject_frac', 0.5))
         self.obs_stereo_min_columns = int(param('wall_obs_stereo_min_columns', 8))
         self.wall_default_height = float(param('wall_default_height_m', 2.5))
@@ -1308,6 +1317,7 @@ class LidarFrontWallNode(Node):
                 'rect_coverage': num(trk.rect_coverage),
                 'rect_support': num(trk.rect_support),
                 'rect_beyond_share': num(trk.rect_beyond_share),
+                'rect_reject_streak': int(trk.rect_reject_streak),
                 'is_front': bool(self.wall_tracker.is_front(trk, car, self.front_x)),
             })
         return out

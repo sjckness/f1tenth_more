@@ -438,6 +438,9 @@ class Track:
     #: Did the rectangle run INFORMATIVELY on this cycle (coverage >= min)?
     #: Only then may this cycle's evidence be called "both".
     rect_informative: bool = False
+    #: Consecutive VERIFIABLE cycles whose support was at or below
+    #: support_reject. Verification is immediate; rejection is not.
+    rect_reject_streak: int = 0
     #: Consecutive scans of NEGATIVE EVIDENCE (see negative_evidence).
     miss: int = 0
     #: The tracker's odometer when this track was last associated, so a
@@ -845,6 +848,7 @@ class MultiWallTracker:
                 a.odo_at_last_seen = max(a.odo_at_last_seen, b.odo_at_last_seen)
                 a.born = min(a.born, b.born)
                 a.miss = min(a.miss, b.miss)
+                a.rect_reject_streak = max(a.rect_reject_streak, b.rect_reject_streak)
                 a.verify = max(a.verify, b.verify) if not (
                     a.verify == wall_fusion.VERIFY_REJECTED
                     or b.verify == wall_fusion.VERIFY_REJECTED
@@ -1126,8 +1130,8 @@ class MultiWallTracker:
             trk.rect_support = float(verdict['support'])
             trk.rect_beyond_share = float(verdict['beyond_share'])
             trk.rect_informative = trk.rect_coverage >= self.rect.coverage_min
-            trk.verify, trk.glass = wall_fusion.verify_step(
-                trk.verify, trk.glass, verdict, self.rect)
+            trk.verify, trk.glass, trk.rect_reject_streak = wall_fusion.verify_step(
+                trk.verify, trk.glass, verdict, self.rect, trk.rect_reject_streak)
 
     def update_roles(self, car_pose):
         """Give every track its role: front, back, left, right or OTHER.

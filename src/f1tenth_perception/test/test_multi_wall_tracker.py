@@ -512,8 +512,10 @@ def test_a_rejected_track_is_never_a_reference_wall():
     feed(trk, [obs(wall(2.0))], 3)
     track = trk.tracks[0]
     assert track.role == 'front'
-    trk.apply_rect_verdicts({track.id: {'coverage': 0.9, 'support': 0.0,
-                                        'beyond_share': 0.0}})
+    verdict = {'coverage': 0.9, 'support': 0.0, 'beyond_share': 0.0}
+    # Rejection needs reject_cycles verifiable cycles (F1).
+    for _ in range(trk.rect.reject_cycles):
+        trk.apply_rect_verdicts({track.id: verdict})
     trk.update_roles(ORIGIN)
     assert track.verify == wall_fusion.VERIFY_REJECTED and track.role == 'other'
     assert not trk.is_front(track, ORIGIN, FRONT_X)
