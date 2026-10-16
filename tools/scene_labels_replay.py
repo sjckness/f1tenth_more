@@ -47,7 +47,7 @@ from pathlib import Path
 
 # Isolated before rclpy loads: no discovery server, localhost only, own domain.
 os.environ.pop('ROS_DISCOVERY_SERVER', None)
-os.environ['ROS_LOCALHOST_ONLY'] = '1'
+os.environ['ROS_AUTOMATIC_DISCOVERY_RANGE'] = 'LOCALHOST'   # Jazzy: ROS_LOCALHOST_ONLY is deprecated
 os.environ['ROS_DOMAIN_ID'] = os.environ.get('SCENE_REPLAY_DOMAIN_ID', '87')
 # One BLAS thread, as the nodes run: lidar_front_wall_node is pinned to one
 # core, front_clearance_node gets OPENBLAS_NUM_THREADS=1 from detection.launch.py.

@@ -98,8 +98,11 @@ def yaw_of(q):
 
 
 def read(bag_dir):
+    # The storage plugin follows the bag (91d361e): Jazzy records mcap, the
+    # archived Humble bags are sqlite3.
+    storage_id = 'mcap' if any(p.suffix == '.mcap' for p in Path(bag_dir).iterdir()) else 'sqlite3'
     reader = rosbag2_py.SequentialReader()
-    reader.open(rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id='sqlite3'),
+    reader.open(rosbag2_py.StorageOptions(uri=str(bag_dir), storage_id=storage_id),
                 rosbag2_py.ConverterOptions('', ''))
     types = {t.name: t.type for t in reader.get_all_topics_and_types()}
     wanted = ['/scan', '/odometry/filtered', '/tf_static', '/mission/status', '/mpc/hold']
