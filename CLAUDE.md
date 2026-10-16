@@ -109,3 +109,29 @@ rebuilding single packages.
 **Docker:** the image for the car must build the workspace against the same apt
 snapshot it runs. Never copy an `install/` built against a different set of
 `ros-jazzy-*` packages into it.
+
+## Orin Docker
+
+### Host networking only: every build, every container
+
+The Orin's custom kernel (5.15.185-tegra) and its `/lib/modules` come from
+different builds (`CONFIG_MODVERSIONS=y`): `ipv6.ko` fails on
+`__skb_flow_dissect`, `nf_tables.ko` on `__skb_get_hash`, so `bridge.ko` cannot
+load, `xt_connmark` is missing, and there is no IPv6 or nftables. `dockerd`
+failed at boot until `/etc/docker/daemon.json` got `"bridge": "none"`,
+`"iptables": false`, `"ip6tables": false` (2026-10-07; the original is
+`daemon.json.pre-5d`). Backlog M21/M22.
+
+There is no `bridge` network, so:
+
+- `docker build` without `--network=host` fails at its first `RUN` with
+  `network bridge not found`;
+- `docker run` without `--network host` starts **silently** with only `lo`
+  and no DNS (a `WARNING: IPv4 forwarding is disabled` is all you get).
+
+Always `docker build --network=host` and `docker run --network host`; in
+compose, `network_mode: host` **and** `build: {network: host}`.
+`docker/orin/build.sh` does this; a future run script (`scripts/docker_orin.sh`,
+Phase 5d D2, not written yet) must too. The stack wants host networking anyway (lidar on Ethernet, Discovery
+Server on 127.0.0.1:11811, linus over Tailscale).
+
