@@ -9,7 +9,10 @@ enable_sys_obs: that flag governs CPU/GPU/RAM telemetry, an unrelated concern,
 and a mission logger that silently stops existing because an unrelated
 telemetry toggle was flipped is exactly the "recording was off when it
 mattered" failure this node exists to remove. Gate it with its own
-enable_mission_logger instead (stack_params.yaml), which defaults true.
+enable_mission_logger instead (stack_params.yaml), which defaults FALSE since
+2026-10-16: recording is not free on this box (see that parameter's own
+description) and a run that wants a bag asks for it with
+enable_mission_logger:=true. With true, everything here is as it was.
 
 Launch args mostly follow this file's OWN local convention -- plain hardcoded
 DeclareLaunchArgument defaults for the recorder's operational knobs

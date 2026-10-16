@@ -518,6 +518,16 @@ class ComponentSupervisorNode(Node):
         # (_start_component, via that same dict) and _hardware_will_calibrate()
         # read the identical live value -- one source, not a second read path.
         self.calibration = bool(self.declare_parameter('calibration', True).value)
+        # mission-logger-opt-in pass (2026-10-16): same "declared parameter,
+        # wired from supervisor_bringup.launch.py's own launch argument,
+        # default from stack_params.yaml" shape as self.calibration above.
+        # It exists because the supervisor launches each component with the
+        # args in components.yaml and does NOT forward its own CLI args, so
+        # without this `supervisor_bringup.launch.py enable_mission_logger:=
+        # true` would be silently ignored -- the component would still run
+        # mission_logger.launch.py with its own (now false) default.
+        self.enable_mission_logger = bool(
+            self.declare_parameter('enable_mission_logger', False).value)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
         # starts -- same "declared parameter, wired from supervisor_bringup.
         # launch.py's own launch argument, default sourced from stack_params.yaml"
@@ -572,6 +582,7 @@ class ComponentSupervisorNode(Node):
         # calibration/deferred-start logic, with no rclpy context needed. Must
         # run before anything reads or launches from self._registry.
         self._apply_calibration_override()
+        self._apply_mission_logger_override()
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or
@@ -1001,6 +1012,24 @@ class ComponentSupervisorNode(Node):
         (see __init__), not shared with anything else."""
         for entry in self._registry.get('hardware', []):
             entry['args']['calibration'] = 'true' if self.calibration else 'false'
+
+    def _apply_mission_logger_override(self):
+        """Pass enable_mission_logger down to the one component that launches it.
+
+        Recording is opt-in since 2026-10-16 (stack_params.yaml's own
+        enable_mission_logger description says why), and this supervisor
+        launches every component with the args components.yaml gives it and
+        nothing else. So the live declared parameter is written into the args
+        of whichever 'diagnostics' entry launches mission_logger.launch.py --
+        found by launch_file rather than by position, so reordering that
+        component cannot quietly disconnect the toggle. Same in-place mutation
+        of a freshly parsed registry as _apply_calibration_override above.
+        """
+        value = 'true' if self.enable_mission_logger else 'false'
+        for entries in self._registry.values():
+            for entry in entries:
+                if str(entry.get('launch_file', '')) == 'mission_logger.launch.py':
+                    entry.setdefault('args', {})['enable_mission_logger'] = value
 
     def _hardware_will_calibrate(self):
         """True if any of 'hardware' component's own registered launch entries

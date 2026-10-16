@@ -13,7 +13,7 @@ This README reflects the workspace after a full package-by-package reorganizatio
 
 | | `stack_bringup.launch.py` | `supervisor_bringup.launch.py` |
 |---|---|---|
-| **Run** | `ros2 launch f1tenth_bringup stack_bringup.launch.py` | `ros2 launch f1tenth_bringup supervisor_bringup.launch.py` |
+| **Run** | `ros2 launch f1tenth_bringup stack_bringup.launch.py` | `ros2 launch f1tenth_bringup supervisor_bringup.launch.py` (add `enable_mission_logger:=true` to record the run: opt-in since 2026-10-16) |
 | **Process model** | One `ros2 launch` process, one process tree. | Spawns each functional group ("component") as its own `ros2 launch` subprocess, independently restartable. |
 | **Restart a subsystem without restarting everything?** | No — killing/restarting the launch tears down the whole stack. | Yes — `ros2 service call /restart_component ...` (see below). |
 | **Crash recovery** | None built in. | A watchdog auto-respawns crashed components (bounded by a restart budget), except ones you've explicitly stopped. |

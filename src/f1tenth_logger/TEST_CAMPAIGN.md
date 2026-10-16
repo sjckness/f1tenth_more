@@ -56,8 +56,26 @@ Four terminals. Everything below assumes `source install/setup.bash` first.
 ### 1. The car stack
 
 ```bash
-ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py enable_mission_logger:=true
 ./scripts/stackctl.py status                          # what is actually up (the ros2 CLI lies under the discovery server)
+```
+
+`enable_mission_logger:=true` IS REQUIRED FOR A CAMPAIGN RUN and is not the
+default any more (since 2026-10-16). Without it `mission_logger_node` is not
+created at all, nor is the 5 Hz depth throttle that feeds its bags, and the run
+leaves nothing in `~/f1tenth_archive` -- the per-test recorder in step 2 is a
+DIFFERENT recorder and does not replace it. The default moved to false because
+recording is not free on this box: the audit of `corridor10m_20261015T171753`
+measured 12 cores at 95-97 %, `/scan` reaching the bag at 30 Hz against the
+40 Hz urg_node published, and 5.5 MB/s written of which 73 % was Image and grid
+topics (`output/logger_check.md`). With the argument, everything inside the
+logger behaves exactly as before.
+
+Check it took, before trusting the run:
+
+```bash
+./scripts/stackctl.py status | grep diagnostics       # the component must be up
+grep -m1 'Listening for topics' ~/.ros/log/component_supervisor/f1tenth_logger_mission_logger.launch.py.log
 ```
 
 `obstacle_clearance` (the `min_clear_m` column and contact events) starts

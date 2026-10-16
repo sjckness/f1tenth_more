@@ -128,6 +128,17 @@ def generate_launch_description():
     # supervisor_node below (see that node's own self.enable_intelligence and
     # stack_params.yaml's enable_intelligence comment for the full reasoning,
     # including why this isn't just a baked-in-at-parse-time stack-wide value).
+    # mission-logger-opt-in pass: the same treatment again, for the same
+    # reason -- the supervisor forwards only components.yaml's args, so this
+    # has to arrive as a declared parameter or `enable_mission_logger:=true`
+    # on this command line would do nothing at all.
+    enable_mission_logger_default, enable_mission_logger_desc = get_default(
+        'enable_mission_logger')
+    enable_mission_logger_la = DeclareLaunchArgument(
+        'enable_mission_logger',
+        default_value=str(enable_mission_logger_default).lower(),
+        description=enable_mission_logger_desc)
+
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
         'enable_intelligence', default_value=str(enable_intelligence_default).lower(),
@@ -165,6 +176,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'calibration': LaunchConfiguration('calibration'),
+            'enable_mission_logger': LaunchConfiguration('enable_mission_logger'),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'components_config': LaunchConfiguration('components_config'),
             'restart_timeout_sec': LaunchConfiguration('restart_timeout_sec'),
@@ -181,6 +193,7 @@ def generate_launch_description():
         discovery_server_env,
         discovery_server,
         calibration_la,
+        enable_mission_logger_la,
         enable_intelligence_la,
         components_config_la,
         restart_timeout_la,

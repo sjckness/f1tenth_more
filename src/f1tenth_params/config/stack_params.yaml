@@ -2118,8 +2118,8 @@ enable_slam:
 # logger exists to remove. Defaults TRUE for the same reason -- the whole
 # point is that nobody has to remember to turn it on.
 enable_mission_logger:
-  default: true
-  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle."
+  default: false
+  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before."
 # Consumed by: f1tenth_logger/mission_logger.launch.py: starts the 5 Hz depth
 # throttle (topic_tools) and forwards record_depth to mission_logger_node.
 mission_logger_record_depth:
@@ -2862,6 +2862,9 @@ lidar_front_wall_wall_rect_support_reject:
 lidar_front_wall_wall_rect_glass_beyond_share:
   default: 0.7
   description: "Fraction of a VERIFIED track's supporting samples that must be BEYOND the line for it to be called GLASS, whose distance then comes from the LiDAR alone. Glass is the one case where the stereo agrees a surface is there and reports it FURTHER than the LiDAR does: the pane is what the LiDAR ranged and the room behind it is what the stereo matched, so letting the stereo pull the fused distance would push the wall into the next room. The rule also requires 1 - beyond_share < 0.2 (hardly any sample AT the line), which makes the effective threshold 0.8; both halves are kept because the rule is that pair of statements, not one tuned number."
+lidar_front_wall_wall_debug_tracks:
+  default: false
+  description: "Put every LIVE wall track on /perception/virtual_wall/debug's `tracks` list each scan -- role, state, rectangle verdict, glass, occlusion, miss count, endpoints -- together with the count of objects behind a confirmed wall. OFF by default because it is a base_link transform and two distance computations per live track per scan, and nothing in the control path reads it: the audit of 2026-10-15 measured the wall tracker at 155-178 ms a scan against a 25 ms scan period, so debug output has to be opt-in. corridor_wall_replay.py turns it on, which is where the per-track table comes from."
 lidar_front_wall_wall_rect_max_range_m:
   default: 8.0
   description: "Furthest sample [m, optical Z] the rectangle verification treats as EVIDENCE. Past it a sample is not informative, whatever class it lands on, exactly like one that landed on the floor. On this rig the stereo does not measure past about 8 m: at the 15.5 m end wall of corridor10m_20261015T171753 it reports ~7 m, and the column cross-check already measures a DISAGREE rate of 1.00 with a 3.4 m median residual in the 12-16 m bucket. Without this limit every sample on that wall is AGAINST it -- a nearer surface -- and the one real wall in the corridor is REJECTED, which took the contract from WALL 35.9 s to WALL 5.9 s on the first replay of this check. 'Nothing to say' must never read as 'no wall'."
