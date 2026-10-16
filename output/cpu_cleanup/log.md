@@ -25,3 +25,4 @@
 
 # Round 3 (Blocks 5-6)
 - 2026-10-16T16:22:30+02:00 Block 5: ekf_cost_observer deleted; grep clean outside docs/history and output/; flake8/ast OK. Orin-only: test_ekf_global_config.py (test_the_ekf_cost_observer_is_gone).
+- 2026-10-16T16:24:39+02:00 Block 6: evidence read over ssh (read-only): ~/dev_ws/f1tenth_more/output/live/stack_nolog.log, stack_log.log, ~/.ros/log/component_supervisor/*.log on the Orin; components.yaml there. Cause proven (mission_logger.launch.py with :=false exits 0 -> watchdog "crash"); fix applied; ROS-free test 2 passed, 1 skipped (needs launch_ros: Orin).

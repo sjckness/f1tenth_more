@@ -389,3 +389,29 @@ so a line the LiDAR saw straight through stayed FRONT and was dead-reckoned to 1
   one regression test, test_ekf_global_config.py::test_the_ekf_cost_observer_is_gone, which
   asserts the arg and node are absent. Alternative: no test -- rejected, the launch file is
   where it would come back.
+
+## R3-D6 — diagnostics "crash" with the logger off: proven, fixed in the supervisor
+- Evidence (read-only, Orin): output/live/stack_nolog.log (campaign-final, logger off):
+  supervisor starts `ros2 launch f1tenth_logger mission_logger.launch.py
+  enable_mission_logger:=false` at t=1792152078.71 (pid 14029); its launch log holds only
+  the two launch banner lines (no process started); 4.1 s later "'diagnostics'
+  (mission_logger.launch.py) crashed (exit 0) -- auto-respawning" x3, then "exceeded its
+  restart budget (3 within 60s)" every 2 s, re-armed every 60 s. system_observer and
+  diagnostics_server ran fine (their logs: started, clean SIGINT). stack_log.log (logger on):
+  0 crashes. The watchdog treats ANY exit as a crash (component_supervisor_node.py
+  _on_watchdog_tick), deliberately, because vesc.launch.py's crash teardown also exits 0.
+- Culprit: 774b2e0 "F6: recording is opt-in, and the toggle now actually reaches the logger"
+  -- logger off by default + `_apply_mission_logger_override` passing :=false into the
+  'diagnostics' entry, whose every Node is gated on that flag. The 2026-09-08 pattern
+  (lidar.launch.py / use_lidar) again.
+- Rejected suspects: the scene_labels/health topic, the probe's type table and the
+  cpu-cleanup diagnostics changes are not in the failing session (campaign-final, no
+  cpu-cleanup code) and the only crashing entry is mission_logger.launch.py.
+- Fix: with the logger off, the override REMOVES mission_logger.launch.py from the
+  registry (same cure as _SKIP_LAUNCH_FILE_IF_DISABLED); with it on, it passes :=true.
+  Alternatives: classify exit 0 as STOPPED (rejected in the supervisor's own comment: vesc's
+  real crash teardown exits 0 too); a launch file that idles instead of exiting (keeps a
+  useless process); remove the logger from components.yaml (loses the runtime toggle).
+- Tests: test_diagnostics_group_logger_off.py -- two ROS-free (method lifted by ast, real
+  components.yaml): off -> only system_observer + diagnostics_server; on -> :=true. One
+  Orin-only: mission_logger.launch.py with :=false has no runnable Node (the exit-0 cause).

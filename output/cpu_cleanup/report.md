@@ -562,6 +562,16 @@ python3 tools/corridor_wall_replay.py --out output/run_corridor10m_<new>_v2 <run
 #    expect: phantom FRONT episodes 0, the camera panel shows the RECORDED mask (not
 #    "MASK NOT RECORDED"), floor_inferred visible in yellow with the class strip
 
+# 8b. Block 6: the diagnostics group with the mission logger OFF and ON
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py 2>&1 | tee /tmp/diag_off.log   # logger off (default)
+#    after 60 s, Ctrl-C, then:
+grep -c "crashed" /tmp/diag_off.log                       # 0 (was 3 respawns + an ERROR every 2 s)
+grep "Started 'diagnostics'" /tmp/diag_off.log            # system_observer + diagnostics_server only
+ros2 node list | grep -E 'system_observer|diagnostics_server'   # both up (run before Ctrl-C)
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py enable_mission_logger:=true 2>&1 | tee /tmp/diag_on.log
+grep "mission_logger.launch.py enable_mission_logger:=true" /tmp/diag_on.log   # started
+grep -c "crashed" /tmp/diag_on.log                        # 0
+ros2 node list | grep mission_logger_node                 # up; load + start a mission -> a bag appears
 # 9. 4c: replay the incident bag with the block 3 tracker
 python3 tools/corridor_wall_replay.py --out output/run_corridor10m_20261016T144537_v2 \
     --compare-summary output/run_corridor10m_20261016T144537 ~/bags/corridor10m_20261016T144537
@@ -604,3 +614,52 @@ cd ~/dev_ws/f1tenth_more
 git fetch andreas@linus:dev_ws/f1tenth_more cpu-cleanup:cpu-cleanup && git switch cpu-cleanup
 # (MagicDNS fallback: andreas@100.89.193.76:dev_ws/f1tenth_more)
 ```
+
+
+---
+
+# Round 3 — Blocks 5–6
+
+## Block 5 — EKF decision recorded, ekf_cost_observer deleted
+- docs/history/LOG.md: the PENDING entry is replaced by "Decided 2026-10-16: EKF stays at
+  20 Hz; the 50 Hz cost baseline is deliberately skipped; ekf_cost_observer removed."
+- Deleted: the node, its test, `scripts/ekf_cost_report.py`, the localization.launch.py args
+  and Node, the setup.py entry point, and the package.xml dependency only it used
+  (rosidl_runtime_py). It was never listed in components.yaml, the supervisor, stack_params,
+  the pinning checker or the cpu_test probe.
+- grep afterwards: mentions remain only in docs/history, in this work's own output/
+  records, and in one regression test asserting the arg and node are gone.
+- `/diagnostics` stays in the mission logger topics.
+
+## Block 6 — "diagnostics" crash at bringup: cause proven, fixed
+- **Cause.** With `enable_mission_logger` false, the supervisor ran
+  `ros2 launch f1tenth_logger mission_logger.launch.py enable_mission_logger:=false`.
+  Every Node in that file is gated on the flag, so launch had nothing to run and exited 0.
+- **Evidence.** In `output/live/stack_nolog.log` on the Orin:
+  - the launch started at …078.71 and its log holds only the launch banner;
+  - 4.1 s later: "'diagnostics' (mission_logger.launch.py) crashed (exit 0) -- auto-respawning", three times;
+  - then "exceeded its restart budget" every 2 s, re-armed every 60 s.
+- **Unaffected.** system_observer and diagnostics_server ran normally. With the logger on
+  (`stack_log.log`) there were 0 crashes. The watchdog treats every exit as a crash, by design,
+  because vesc's real crash teardown also exits 0.
+- **Culprit.** `774b2e0` (F6: logger opt-in, with :=false forwarded into the 'diagnostics'
+  entry). This is the same pattern as 2026-09-08 (lidar.launch.py / use_lidar). The other
+  suspects are rejected: the failing session ran campaign-final with no cpu-cleanup code, and
+  the only crashing entry is mission_logger.launch.py.
+- **Fix (`component_supervisor_node._apply_mission_logger_override`).** With the logger off,
+  the mission_logger.launch.py entry is dropped from the registry (the same cure as
+  `_SKIP_LAUNCH_FILE_IF_DISABLED`). With it on, it still receives `:=true`.
+- **Test.** `test_diagnostics_group_logger_off.py`: 2 ROS-free tests pass; the 1 launch test
+  runs on the Orin.
+
+## Orin test plan additions
+Step 8b above: the diagnostics group must not crash with the mission logger off, and must
+still record with it on. Also run the new tests:
+`f1tenth_bringup/test/test_diagnostics_group_logger_off.py` and
+`f1tenth_localization/test/test_ekf_global_config.py::TestLocalizationLaunchWiring::test_the_ekf_cost_observer_is_gone`.
+
+## New commits (round 3)
+| sha | block |
+|---|---|
+| `0146d17` | R3 block 5: EKF decided at 20 Hz, ekf_cost_observer removed |
+| (this commit) | R3 block 6: diagnostics group no longer "crashes" with the mission logger off |
