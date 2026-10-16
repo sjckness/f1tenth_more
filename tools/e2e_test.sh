@@ -102,7 +102,11 @@ log "starting: scripts/sim/sim_isaac.sh all --scene $SCENE (log $OUT/sim_isaac.l
 T0=$(date +%s)
 # Own session: a Ctrl+C here reaches only this script, whose stop_all() then stops the sim
 # once (SIGTERM -> sim_isaac.sh's cleanup), instead of both signals racing in its cleanup.
-F1T_SIM_LOG_DIR="$OUT" setsid "$REPO/scripts/sim/sim_isaac.sh" all --scene "$SCENE" \
+# --layout e2e_legacy: the base_room layout these checks were written for (car (1, 1.5), person
+# (3, 3), no plant); base_room's default layout became the campaign room on 2026-10-16.
+LAYOUT_ARGS=()
+[ "$SCENE" = base_room ] && LAYOUT_ARGS=(--layout e2e_legacy)
+F1T_SIM_LOG_DIR="$OUT" setsid "$REPO/scripts/sim/sim_isaac.sh" all --scene "$SCENE" "${LAYOUT_ARGS[@]}" \
   > "$OUT/sim_isaac.log" 2>&1 < /dev/null &
 SIM_PID=$!
 python3 "$REPO/tools/sim/perf_sampler.py" --out "$OUT/perf.json" --period 5 &

@@ -5,10 +5,13 @@
 # the normal parameters (output/jazzy_port/phase3.md).
 #
 # Usage:
-#   scripts/sim/sim_isaac.sh isaac [--scene base_room|office|hospital] [--gui]   # sim host (linus)
+#   scripts/sim/sim_isaac.sh isaac [--scene base_room|office|hospital] [--layout L] [--gui]  # sim host (linus)
 #   scripts/sim/sim_isaac.sh stack [ros2-launch args ...]                        # stack host (Thor or linus)
 #   scripts/sim/sim_isaac.sh all   [--scene ...] [--gui] [ros2-launch args ...]  # both on linus; Ctrl+C stops both
 #   scripts/sim/sim_isaac.sh reset [--net eth]                                   # call /sim/reset
+#   scripts/sim/sim_isaac.sh shell [--net eth]                                   # interactive shell, stack's ROS env
+#   scripts/sim/sim_isaac.sh run [--net eth] [--] CMD ...                        # one command in that env
+#     e.g. scripts/sim/sim_isaac.sh run --net eth ros2 run llm llm_planner_node "go to the person"
 #
 # Options (any subcommand):
 #   --net local|eth   ROS network (default local):
@@ -20,11 +23,19 @@
 #                              address on the route to the Thor), Discovery Server on the Thor.
 #   --domain N        ROS_DOMAIN_ID (default: $ROS_DOMAIN_ID if exported, else 42 as in sim_net.sh)
 #   --scene NAME      Isaac scene (isaac/all; default base_room)
+#   --layout NAME     scene layout preset (isaac/all; base_room: campaign (default), obstacle,
+#                     gazebo_6x6, e2e_legacy; see ~/isaac_ws/config/scenes/base_room.yaml)
 #   --gui             Isaac Sim GUI (isaac/all; default headless)
 #   --clean           scripts/kill_ros2.py -y first (stack/all)
 #   --dry-run         print the environment and the commands, launch nothing
 #   -h, --help        this text
-# Any other argument of 'stack'/'all' is passed to supervisor_bringup.launch.py (k:=v).
+# Any other argument of 'stack'/'all' is passed to supervisor_bringup.launch.py (k:=v), e.g.
+# enable_intelligence:=true (llama-server = the 'intelligence' component, as on the car).
+#
+# shell/run: the stack's ROS environment (domain, RMW, the rendered Fast DDS profile, the
+# Discovery Server, the workspace) as a Discovery Server SUPER CLIENT, so `ros2 topic list`
+# and `echo` see the whole graph. The shell stops the ros2 daemon of this domain first (a
+# daemon started from a plain client environment would answer as a plain client).
 #
 # Two machines (direct Ethernet link; same network variables as the Gazebo scripts' sim_net.sh):
 #   1. if the Thor's link address is not 10.42.0.2, on BOTH machines:
@@ -62,26 +73,35 @@ ISAAC_CONTAINER="${ISAAC_CONTAINER_NAME:-f1t_isaac}"
 MIN_FREE_DISK_GB=25
 CLOCK_WAIT="${F1T_SIM_CLOCK_WAIT:-30}"
 
-usage() { sed -n '2,49p' "$0"; }
+usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
 log() { echo "[sim_isaac $(date +%H:%M:%S)] $*"; }
 die() { echo "[sim_isaac] ERROR: $*" >&2; exit 1; }
 
 # ---- arguments ---------------------------------------------------------------------------
 CMD="${1:-}"
 case "$CMD" in
-  isaac|stack|all|reset) shift ;;
+  isaac|stack|all|reset|shell|run) shift ;;
   -h|--help|help|"") usage; exit 0 ;;
-  *) die "unknown subcommand '$CMD' (isaac|stack|all|reset; --help)" ;;
+  *) die "unknown subcommand '$CMD' (isaac|stack|all|reset|shell|run; --help)" ;;
 esac
-NET=local; DOMAIN="${ROS_DOMAIN_ID:-42}"; SCENE=base_room; GUI=false; CLEAN=false; DRY=false
-LAUNCH_ARGS=()
+NET=local; DOMAIN="${ROS_DOMAIN_ID:-42}"; SCENE=base_room; LAYOUT=""; GUI=false; CLEAN=false; DRY=false
+LAUNCH_ARGS=(); RUN_CMD=()
 while [ $# -gt 0 ]; do
+  if [ "$CMD" = run ] && [ ${#RUN_CMD[@]} -eq 0 ]; then
+    case "$1" in
+      --net|--net=*|--domain|--dry-run|-h|--help) ;;   # options before the command
+      --) shift; RUN_CMD=("$@"); break ;;
+      *) RUN_CMD=("$@"); break ;;
+    esac
+  fi
   case "$1" in
     --net) NET="${2:?--net needs local|eth}"; shift 2 ;;
     --net=*) NET="${1#*=}"; shift ;;
     --domain) DOMAIN="${2:?--domain needs a number}"; shift 2 ;;
     --scene) SCENE="${2:?--scene needs a name}"; shift 2 ;;
     --scene=*) SCENE="${1#*=}"; shift ;;
+    --layout) LAYOUT="${2:?--layout needs a preset name}"; shift 2 ;;
+    --layout=*) LAYOUT="${1#*=}"; shift ;;
     --gui) GUI=true; shift ;;
     --clean) CLEAN=true; shift ;;
     --dry-run) DRY=true; shift ;;
@@ -91,6 +111,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case "$NET" in local|eth) ;; *) die "--net must be local or eth, got '$NET'" ;; esac
+[ "$CMD" = run ] && [ ${#RUN_CMD[@]} -eq 0 ] && die "run: no command given (e.g. run ros2 topic list)"
 case "$DOMAIN" in ''|*[!0-9]*) die "--domain must be a number, got '$DOMAIN'" ;; esac
 if [ "$NET" = eth ]; then
   DS_ADDR="$F1TENTH_SIM_DISCOVERY_IP"
@@ -253,6 +274,7 @@ isaac_cmd() {  # fills ISAAC_ENV and ISAAC_ARGS
     # Gyro noise of the car's VESC IMU (vesc.yaml gyro_variance_z 1.746756e-06 rad^2/s^2): the
     # EKF fuses only vyaw, weighted by this variance, which Isaac publishes as stddev^2.
     --set sensors.imu.noise.gyro_stddev=0.0013217)
+  [ -n "$LAYOUT" ] && ISAAC_ARGS+=(--set "scene.layout=$LAYOUT")
   $GUI && ISAAC_ARGS+=(--gui)
   return 0
 }
@@ -283,11 +305,19 @@ stack_cmd() {  # fills STACK_ARGS
     log "$(nproc) CPUs (< 12, the Orin's pinning): host overlay $overlay"
   fi
   [ -n "$overlay" ] && [ "$overlay" != none ] && STACK_ARGS+=(sim_overlay_extra:="$overlay")
-  local llama
+  local llama asked="" a
+  for a in "${LAUNCH_ARGS[@]}"; do
+    case "$a" in enable_intelligence:=*) asked="${a#*:=}" ;; esac
+  done
   llama="$(python3 -c "from f1tenth_params.param_defaults import get_value; print(get_value('llama_server_path'))" 2>/dev/null || true)"
   if [ -n "$llama" ] && [ ! -x "${llama/#\~/$HOME}" ]; then
-    log "llama-server not found ($llama): enable_intelligence:=false (the LLM planner is not a mission dependency)"
-    STACK_ARGS+=(enable_intelligence:=false)
+    case "$asked" in
+      true|True|1) die "enable_intelligence:=true but llama-server is not on this host ($llama, stack_params llama_server_path)" ;;
+      "") log "llama-server not found ($llama): enable_intelligence:=false (the LLM planner is not a mission dependency)"
+          STACK_ARGS+=(enable_intelligence:=false) ;;
+    esac
+  elif [ -n "$llama" ]; then
+    log "llama-server: $llama (intelligence component: ${asked:-stack_params default})"
   fi
   STACK_ARGS+=("${LAUNCH_ARGS[@]}")
 }
@@ -338,4 +368,22 @@ case "$CMD" in
     ros_env
     if $DRY; then echo "ros2 service call /sim/reset std_srvs/srv/Trigger"; exit 0; fi
     timeout --foreground 20 ros2 service call /sim/reset std_srvs/srv/Trigger ;;
+  shell|run)
+    ros_env
+    export ROS_SUPER_CLIENT=TRUE
+    echo "== ROS env (net $NET, domain $ROS_DOMAIN_ID, Discovery Server $DS, super client) =="
+    echo "FASTRTPS_DEFAULT_PROFILES_FILE=$FASTRTPS_DEFAULT_PROFILES_FILE"
+    if $DRY; then echo "(dry run) ${RUN_CMD[*]:-bash -i}"; exit 0; fi
+    if [ "$CMD" = run ]; then
+      echo "cmd: ${RUN_CMD[*]}"
+      rc=0; "${RUN_CMD[@]}" || rc=$?
+      exit "$rc"
+    fi
+    ros2 daemon stop >/dev/null 2>&1 || true
+    cat > "$TMPD/shellrc" <<RC
+PS1='[sim $NET d$ROS_DOMAIN_ID] \\w\\$ '
+echo "sim shell: ROS_DOMAIN_ID=\$ROS_DOMAIN_ID ROS_DISCOVERY_SERVER=\$ROS_DISCOVERY_SERVER ROS_SUPER_CLIENT=\$ROS_SUPER_CLIENT (exit to leave)"
+RC
+    # Not exec: the rendered DDS profile lives in $TMPD, removed by cleanup() when the shell exits.
+    bash --rcfile "$TMPD/shellrc" -i || true ;;
 esac

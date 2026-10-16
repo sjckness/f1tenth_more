@@ -264,7 +264,8 @@ def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
     successivo) fino a max_wait_s totali. Si ritenta SOLO su
     requests.exceptions.ConnectionError (server non ancora in ascolto --
     atteso durante l'avvio del processo llama-server, prima che apra la
-    porta). Qualsiasi altra eccezione (risposta HTTP di errore, JSON
+    porta) e su HTTP 503 (porta aperta ma modello ancora in caricamento:
+    "Loading model"). Qualsiasi altra eccezione (risposta HTTP di errore, JSON
     malformato, ecc.) si propaga immediatamente, senza ritentare alla
     cieca -- non e' detto che ritentare risolva un problema diverso da "non
     ancora in ascolto".
@@ -283,8 +284,16 @@ def _wait_for_llama_server(url: str, max_wait_s: float = 90.0) -> float:
                 json={'prompt': 'ciao', 'n_predict': 8, 'temperature': 0.0},
                 timeout=LLAMA_TIMEOUT,
             )
-            response.raise_for_status()
-            return time.time() - t0
+            if response.status_code == 503:
+                # llama-server answers 503 ("Loading model") from the moment its
+                # port opens until the model is loaded (measured on the Thor:
+                # 503 for ~1 s on a warm boot): not ready yet, same as a refused
+                # connection.
+                last_exc = requests.exceptions.HTTPError(
+                    f'503 {response.text[:120]}', response=response)
+            else:
+                response.raise_for_status()
+                return time.time() - t0
         except requests.exceptions.ConnectionError as e:
             last_exc = e
 
