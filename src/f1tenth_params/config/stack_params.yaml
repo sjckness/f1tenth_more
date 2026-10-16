@@ -2449,7 +2449,8 @@ foxglove_topic_whitelist:
     - '^/rosout$'
     - '^/parameter_events$'
     - '^/costmap/semantic_markers$'
-  description: "Anchored regexes (full match, case-insensitive) of the topics foxglove_bridge advertises: the /viz/* copies plus the pass-through topics listed above. foxglove_raw_debug:=true replaces the list with '.*'."
+    - '^/perception/walls/markers$'
+  description: "Anchored regexes (full match, case-insensitive) of the topics foxglove_bridge advertises: the /viz/* copies plus the pass-through topics listed above. foxglove_raw_debug:=true replaces the list with '.*'. /perception/walls/markers is the one perception topic that crosses the bridge unthrottled rather than as a /viz copy: it is a MarkerArray of at most four walls (~5 small markers) at the tracker's ~10 Hz, each marker now carrying its own lifetime, and a throttle that dropped the message holding a track's DELETE would leave that wall on screen for good -- the same reason /costmap/semantic_markers is a pass-through. /viz/walls, the richer all-tracks view, needs no entry here: '^/viz/.*' above already full-matches it."
 # The topics a Foxglove client may publish through the bridge. Measured
 # 2026-09-22: the only ones the connected clients advertised were the 3D
 # panel's default publish tools below; nothing publishes /drive, /teleop or a

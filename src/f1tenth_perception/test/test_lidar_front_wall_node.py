@@ -820,11 +820,57 @@ class TestWallMarkers:
         finally:
             n.destroy_node()
 
-    def test_every_array_starts_by_clearing_so_gone_tracks_disappear(self):
+    def test_no_marker_outlives_the_tracker_by_more_than_its_lifetime(self):
+        """Replaces test_every_array_starts_by_clearing_so_gone_tracks_disappear.
+
+        That test asserted a DELETEALL at the head of every array. The pairing
+        it was half of -- DELETEALL every cycle, and no lifetime on any marker
+        -- is what made the walls flicker and vanish in Foxglove: the
+        torn-down state is the one a client sees whenever the rebuild meant to
+        follow it is dropped or late. The guarantee it was reaching for, that
+        a gone track does not linger, is now carried by a per-marker lifetime
+        plus a per-id DELETE, which is what these two tests check instead.
+        """
+        n = self._publish()
+        try:
+            markers = _last(n.walls_markers_pub).markers
+            assert markers
+            for m in markers:
+                lifetime = m.lifetime.sec + m.lifetime.nanosec * 1e-9
+                assert lifetime == pytest.approx(n.wall_marker_lifetime_s)
+                # 3x the tracker period at 40 Hz scans and decimation 4.
+                assert lifetime >= 3 * (4 / 40.0)
+        finally:
+            n.destroy_node()
+
+    def test_no_array_clears_every_namespace(self):
         from visualization_msgs.msg import Marker
         n = self._publish()
         try:
-            assert _last(n.walls_markers_pub).markers[0].action == Marker.DELETEALL
+            actions = [m.action for m in _last(n.walls_markers_pub).markers]
+            assert actions
+            assert Marker.DELETEALL not in actions
+        finally:
+            n.destroy_node()
+
+    def test_a_track_that_stops_being_published_is_deleted_by_id(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            drawn = set(n._drawn_track_ids)
+            assert drawn, 'nothing was drawn, so there is nothing to delete'
+            # The tracker now reports no tracks at all: the next array must
+            # carry a DELETE for both marker slots of every id drawn before,
+            # and must not fall back on a DELETEALL.
+            n.wall_tracker.published = lambda car: []
+            n._odom_cb(_odom_at(7.4, 0.0))
+            n._scan_cb(_scan_at(2.0, 7.4))
+            markers = _last(n.walls_markers_pub).markers
+            assert all(m.action == Marker.DELETE for m in markers)
+            deleted = {m.id for m in markers}
+            assert deleted == {slot for i in drawn for slot in (2 * i, 2 * i + 1)}
+            assert {m.ns for m in markers} == {'walls'}
+            assert n._drawn_track_ids == set()
         finally:
             n.destroy_node()
 

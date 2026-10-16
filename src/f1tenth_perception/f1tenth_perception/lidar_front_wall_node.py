@@ -351,6 +351,22 @@ _ROLE_COLOUR = {'front': (1.0, 0.25, 0.1), 'left': (0.2, 0.9, 0.3),
                 'other': (0.35, 0.35, 0.4)}
 
 
+def _set_lifetime(marker, seconds):
+    """Marker.lifetime from a float, split correctly.
+
+    builtin_interfaces/Duration splits into sec + nanosec and the message
+    class asserts nanosec is a uint32 in [0, 4294967295]; packing a whole
+    lifetime of more than ~4.295 s into nanosec raises, which is exactly the
+    assertion that once crash-looped mpc_corr on every first corridor publish
+    (MPC_corr.py:5355-5368). One helper, used by both wall marker
+    publishers, so that lesson is encoded once.
+    """
+    whole = int(seconds)
+    marker.lifetime.sec = whole
+    marker.lifetime.nanosec = int(round((seconds - whole) * 1e9))
+    return marker
+
+
 def _stamp_sec(header):
     return header.stamp.sec + header.stamp.nanosec * 1e-9
 
@@ -584,6 +600,26 @@ class LidarFrontWallNode(Node):
         self.wall_default_height = float(param('wall_default_height_m', 2.5))
         self.wall_clear_distance_m = float(get_value('wall_clear_distance_m'))
         self.wall_marker_thickness_m = float(param('wall_marker_thickness_m', 0.02))
+        # HOW LONG A WALL MARKER OUTLIVES THE MESSAGE THAT DREW IT. The
+        # markers used to carry no lifetime at all (lifetime 0 == forever) and
+        # the array led with a DELETEALL every cycle, which is the pair of
+        # choices that makes walls flicker or vanish outright in Foxglove: the
+        # torn-down state is the one a client sees whenever the rebuild that
+        # was meant to follow it is dropped, late, or simply not subscribed to
+        # yet. A lifetime does the same job the DELETEALL was reaching for --
+        # a stale wall must not linger and imply liveness it does not have --
+        # without the gap, and it also makes a stalled tracker visible as the
+        # walls fading out instead of as a corridor that is silently no longer
+        # true (the same reasoning as MPC_corr's corridor markers,
+        # MPC_corr.py:5345-5356). 0.6 s is >= 3x the tracker's own ~0.1 s
+        # period (40 Hz scans / wall_tracker_scan_decimation 4) and exactly 3x
+        # the 0.2 s period of the /viz/walls cap, so one number covers both
+        # publishers.
+        self.wall_marker_lifetime_s = float(param('wall_marker_lifetime_s', 0.6))
+        # Which track ids the last MarkerArray drew, so a track that dies --
+        # or merely drops out of published()'s four slots -- can be removed
+        # with an explicit per-id DELETE instead of a blanket DELETEALL.
+        self._drawn_track_ids = set()
         self.side_edge_half_width_m = float(get_value('swept_clearance_body_half_width_m'))
 
         declare_nice_param(self)
@@ -1397,10 +1433,6 @@ class LidarFrontWallNode(Node):
         out.header.stamp = stamp
         out.header.frame_id = self._odom_frame
         markers = MarkerArray()
-        clear = Marker()
-        clear.header = out.header
-        clear.action = Marker.DELETEALL
-        markers.markers.append(clear)
         for trk in tracks:
             bl = mwt.track_in_base_link(trk, car)
             label = self.wall_tracker.label(trk, car)
@@ -1461,6 +1493,7 @@ class LidarFrontWallNode(Node):
             # A wall only assumed to be this tall is drawn fainter than one
             # whose height was actually seen.
             slab.color.a = 0.65 if trk.height_measured else 0.35
+            _set_lifetime(slab, self.wall_marker_lifetime_s)
             text = Marker()
             text.header = out.header
             text.ns, text.id, text.type = 'walls', 2 * trk.id + 1, Marker.TEXT_VIEW_FACING
@@ -1473,7 +1506,21 @@ class LidarFrontWallNode(Node):
             text.text = (f'{trk.id} {label} {d_perp:.2f}m '
                          f'{wall_fusion.SOURCE_NAMES[trk.source]} '
                          f'{mwt.STATE_NAMES[trk.state]}')
+            _set_lifetime(text, self.wall_marker_lifetime_s)
             markers.markers += [slab, text]
+        # The ids drawn last cycle and not this one: gone, or pushed out of
+        # published()'s cap by a nearer wall of the same role. Either way the
+        # marker has to go, and it goes by id -- a DELETE for a marker that is
+        # already expired is a no-op, so this is safe to send unconditionally.
+        drawn = {trk.id for trk in tracks}
+        for dead_id in sorted(self._drawn_track_ids - drawn):
+            for slot in (2 * dead_id, 2 * dead_id + 1):
+                gone = Marker()
+                gone.header = out.header
+                gone.ns, gone.id = 'walls', slot
+                gone.action = Marker.DELETE
+                markers.markers.append(gone)
+        self._drawn_track_ids = drawn
         self.walls_pub.publish(out)
         self.walls_markers_pub.publish(markers)
 
