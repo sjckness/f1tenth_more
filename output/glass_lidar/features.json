@@ -1,0 +1,75 @@
+{
+ "window_scans": 10,
+ "tracks": 46,
+ "glass_tracks": 4,
+ "mixed_flag_tracks": [
+  [
+   46,
+   2,
+   1
+  ],
+  [
+   55,
+   10,
+   23
+  ],
+  [
+   92,
+   12,
+   31
+  ]
+ ],
+ "windows": 52,
+ "features": {
+  "i_norm_max_near_normal": {
+   "auc": null,
+   "n_glass": 0,
+   "n_normal": 0,
+   "glass_median": null,
+   "normal_median": null,
+   "threshold": null,
+   "direction": "",
+   "balanced_accuracy": null
+  },
+  "i_norm_median": {
+   "auc": 0.0833,
+   "n_glass": 3,
+   "n_normal": 48,
+   "glass_median": 7102.988,
+   "normal_median": 9224.619,
+   "threshold": 7107.2533,
+   "direction": "<=",
+   "balanced_accuracy": 0.9583
+  },
+  "slope_per_deg": {
+   "auc": 0.6,
+   "n_glass": 3,
+   "n_normal": 35,
+   "glass_median": 91.164,
+   "normal_median": -50.341,
+   "threshold": 70.0877,
+   "direction": ">=",
+   "balanced_accuracy": 0.8
+  },
+  "pass_ratio": {
+   "auc": 0.0694,
+   "n_glass": 3,
+   "n_normal": 48,
+   "glass_median": 0.0,
+   "normal_median": 0.612,
+   "threshold": 0.0177,
+   "direction": "<=",
+   "balanced_accuracy": 0.9479
+  },
+  "no_return_frac": {
+   "auc": 0.2449,
+   "n_glass": 3,
+   "n_normal": 49,
+   "glass_median": 0.0,
+   "normal_median": 0.006,
+   "threshold": 0.0,
+   "direction": "<=",
+   "balanced_accuracy": 0.7551
+  }
+ }
+}
