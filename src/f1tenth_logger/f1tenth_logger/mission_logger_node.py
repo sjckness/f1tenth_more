@@ -526,6 +526,32 @@ _ANNOTATED_TOPIC = '/camera/image_annotated'
 _DEPTH_TOPICS = ['/zed2/zed_node/depth/depth_registered_5hz',
                  '/zed2/zed_node/depth/camera_info', '/camera/camera_info']
 
+# Recording PROFILES (stack_params mission_logger_profile; cpu-cleanup R2,
+# block 4a). 'default' adds nothing. 'campaign' adds, all at ~5 Hz, what the
+# wall-tracker replay (tools/corridor_wall_replay.py) needs to show and
+# re-run what the car saw:
+#   /perception/scene_labels/classes  the per-pixel scene mask (mono8
+#                                     640x360, front_clearance_node's 5 Hz
+#                                     mask tick) -- the "scene-label image";
+#   /camera/image_raw_5hz             the camera frame YOLO and the mask
+#                                     actually use (bgra8 640x360), throttled
+#                                     to 5 Hz by mission_logger.launch.py;
+#   depth_registered_5hz + camera_infos (_DEPTH_TOPICS);
+#   /perception/wall_observations     (already in _DEFAULT_TOPICS, ~10 Hz).
+# Estimated ~+345 MB/min over the default list (classes 69, image 276,
+# observations 0.7), ~650-850 MB/min in total: output/cpu_cleanup/report.md.
+_PROFILE_TOPICS = {
+    'default': [],
+    'campaign': ['/perception/scene_labels/classes', '/camera/image_raw_5hz',
+                 '/perception/wall_observations', *_DEPTH_TOPICS],
+}
+
+
+def profile_topics(profile):
+    """Topics a recording profile adds; an unknown profile adds nothing."""
+    return list(_PROFILE_TOPICS.get(str(profile), []))
+
+
 # -- post-hoc snapshots -----------------------------------------------------
 # The annotated stream when the bag has it, else the debug video's JPEGs.
 _SNAPSHOT_TOPICS = (_ANNOTATED_TOPIC, '/camera/debug_image/compressed')
@@ -715,6 +741,12 @@ class MissionLoggerNode(Node):
             topics.append(_ANNOTATED_TOPIC)
         if bool(self.declare_parameter('record_depth', False).value):
             topics += [t for t in _DEPTH_TOPICS if t not in topics]
+        self.profile = str(self.declare_parameter('profile', 'default').value)
+        if self.profile not in _PROFILE_TOPICS:
+            self.get_logger().warn(
+                f'unknown recording profile "{self.profile}" -- recording the default list '
+                f'(known: {sorted(_PROFILE_TOPICS)})')
+        topics += [t for t in profile_topics(self.profile) if t not in topics]
         self.topics, dropped = recordable_topics(topics)
         if dropped:
             self.get_logger().warn(f'not recording /viz relay copies: {dropped}')
@@ -775,7 +807,7 @@ class MissionLoggerNode(Node):
         self.get_logger().info(
             f'mission_logger_node up (pid {os.getpid()}, lock {_lock_path()}): watching '
             f'"{status_topic}", runs -> "{self.runs_dir}" (active/ -> complete/, '
-            f'storage={self.storage_id}), {len(self.topics)} topics '
+            f'storage={self.storage_id}), {len(self.topics)} topics, profile {self.profile} '
             f'({len(self.best_effort_topics)} with BEST_EFFORT overrides), '
             f'sweep every {self.sweep_period_sec:.0f}s (action={self.sweep_action}), '
             f'recording from LOADED (timeout {self.loaded_timeout_sec:.0f}s). '
@@ -859,6 +891,7 @@ class MissionLoggerNode(Node):
                 'params_snapshot_path': os.path.join(run_dir, f'{run_id}.params.yaml'),
                 'manifest_path': os.path.join(run_dir, f'{run_id}.manifest.json'),
                 'storage_id': self.storage_id,
+                'profile': self.profile,
                 'mission_json_path': str(msg.json_path),
             }
 

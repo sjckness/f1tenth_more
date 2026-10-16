@@ -335,3 +335,40 @@ so a line the LiDAR saw straight through stayed FRONT and was dead-reckoned to 1
 - Test changes encoding old behaviour: an unverified glancing stereo-only wall is no longer
   FRONT (renamed test); node coast test now expects CLEAR; TestTrackerDecimation updated for
   block 2c (virtual wall on tracker steps only).
+
+## R2-D4a — recording profile 'campaign' (mission_logger_profile)
+- Decision: stack_params mission_logger_profile ('default' | 'campaign'); the node adds the
+  profile's topics (only adds, never removes; unknown profile -> WARN + default); the launch
+  file starts a topic_tools throttle /camera/image_raw -> /camera/image_raw_5hz and widens the
+  depth throttle to record_depth OR campaign. Recorded: /perception/scene_labels/classes (the
+  scene-label image, at its native 5 Hz mask tick), /camera/image_raw_5hz, depth_5hz +
+  camera_infos, /perception/wall_observations (already in the default list).
+- Alternatives: /camera/detection_masks (YOLO instance mask, not the class labels the replay
+  draws); /camera/image_raw/viz (already 5 Hz, but only exists with foxglove up); also record
+  /perception/scene_labels/depth_mm (+138 MB/min; the only depth that shares a stamp with the
+  classes, needed to feed the recorded pair to the rectangle check) -- not in the owner's list,
+  left out, noted as an option. Name: 'campaign' as asked, although a separate
+  test_campaign_logger exists.
+- Size (from measured message sizes in archived bags + arithmetic): classes 230 kB x 5 Hz = 69
+  MB/min; image 922 kB x 5 Hz = 276; depth_5hz 922 kB x 5 Hz = 277 (already with
+  record_depth); wall_observations 1.2 kB x 10 Hz = 0.7. Measured default+depth baseline ~308-330
+  MB/min (mostly empty masks) -> campaign ~650 MB/min, 800+ with objects in view.
+
+## R2-D4b — corridor_wall_replay.py v2 (sub-agent, reviewed here)
+- Mask drawn from the recorded /perception/scene_labels/classes (--mask auto|recorded|replay);
+  "MASK NOT RECORDED" / "DEPTH NOT RECORDED" instead of tinting the debug JPEG; the recomputed
+  mask only on request, labelled. floor_inferred drawn yellow (tool only; scene_mask colours
+  untouched) + per-class % strip and a class strip in the chart. Raw frame preferred when
+  within 0.1 s; msg.step respected; MASK STALE back on canvas. Exactly one mask+depth source
+  feeds the rectangle check (no double feed).
+- Tracker run from the bag start on the car's own steps: old bags (debug every scan) ->
+  tracker_skipped == 0; new bags (debug only on steps, block 2c) -> every payload; gate forced
+  open and only step scans fed; virtual_wall_rate_hz cap disabled in replay; --t0/--t1 crop
+  only summary/video. Alternative: feed every scan with a per-scan gate (estimator fields would
+  match better, but the old installed node would publish payloads for skipped scans).
+- Metrics for recorded and replay passes: phantom FRONT episodes (median value - strip <
+  -0.5 m, an empty strip counts as -inf, so empty-strip WALLs are phantoms), end-wall error
+  (moving cycles with true strip < 3 m; non-WALL there reported as misses), NO_DATA % (time-
+  weighted, holds capped at 0.5 s, all and moving), confirmed tracks with rho_bl < 0.5 m;
+  --compare-summary prints old vs new. Split bags read in numeric order.
+- 4c: the bag is not on linus -> Orin commands in report.md.

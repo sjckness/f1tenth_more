@@ -80,8 +80,13 @@ def generate_launch_description():
     depth_la = DeclareLaunchArgument(
         'mission_logger_record_depth', default_value=str(depth_default),
         description=depth_desc)
+    profile_default, profile_desc = get_default('mission_logger_profile')
+    profile_la = DeclareLaunchArgument(
+        'mission_logger_profile', default_value=str(profile_default),
+        description=profile_desc)
     logger_on = LaunchConfiguration('enable_mission_logger')
     depth_on = LaunchConfiguration('mission_logger_record_depth')
+    profile = LaunchConfiguration('mission_logger_profile')
     # 5 Hz copy of the ZED depth for the bags (mission_logger_record_depth).
     # topic_tools relays serialized messages, so the 30 Hz input is not
     # deserialized here.
@@ -92,8 +97,22 @@ def generate_launch_description():
         output='screen',
         arguments=['messages', '/zed2/zed_node/depth/depth_registered', '5.0',
                    '/zed2/zed_node/depth/depth_registered_5hz'],
+        # The 'campaign' profile records the 5 Hz depth too (cpu-cleanup R2).
         condition=IfCondition(PythonExpression([
-            "'", logger_on, "'.lower() == 'true' and '", depth_on, "'.lower() == 'true'"])),
+            "'", logger_on, "'.lower() == 'true' and ('", depth_on,
+            "'.lower() == 'true' or '", profile, "' == 'campaign')"])),
+    )
+    # 5 Hz copy of the camera frame YOLO and the scene mask use, for the
+    # 'campaign' profile (mission_logger_node._PROFILE_TOPICS). Same serialized
+    # relay as the depth throttle; NOT under /viz/, which is never recorded.
+    image_throttle = Node(
+        package='topic_tools',
+        executable='throttle',
+        name='image_throttle_5hz',
+        output='screen',
+        arguments=['messages', '/camera/image_raw', '5.0', '/camera/image_raw_5hz'],
+        condition=IfCondition(PythonExpression([
+            "'", logger_on, "'.lower() == 'true' and '", profile, "' == 'campaign'"])),
     )
 
     mission_logger_node = Node(
@@ -108,6 +127,7 @@ def generate_launch_description():
             'sweep_period_sec': LaunchConfiguration('mission_bag_sweep_period_sec'),
             'sweep_action': LaunchConfiguration('mission_bag_sweep_action'),
             'record_depth': ParameterValue(depth_on, value_type=bool),
+            'profile': profile,
             'record_annotated_image': ParameterValue(
                 LaunchConfiguration('mission_logger_record_annotated_image'), value_type=bool),
         }],
@@ -121,6 +141,8 @@ def generate_launch_description():
         sweep_action_la,
         annotated_la,
         depth_la,
+        profile_la,
         depth_throttle,
+        image_throttle,
         mission_logger_node,
     ])

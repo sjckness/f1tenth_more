@@ -2,10 +2,14 @@
 """Offline re-analysis of a corridor recording through the CURRENT wall pipeline.
 
 Usage (after `source install/setup.bash`):
-    python3 tools/corridor_wall_replay.py [--out DIR] [--no-video] BAG [BAG ...]
+    python3 tools/corridor_wall_replay.py [--out DIR] [--no-video]
+        [--mask auto|recorded|replay] [--t0 S] [--t1 S] [--end-wall-range M]
+        [--tracker-steps car|debug] [--compare-summary OLD.summary.json|DIR]
+        BAG [BAG ...]
 
 BAG is a bag directory (metadata.yaml + *.db3) or an archive run folder (the
-one holding bag/). Bags are opened read-only (sqlite `mode=ro`). Nothing is
+one holding bag/). A split bag's files (<name>_0.db3, _1.db3, ...) are all
+read, in split order. Bags are opened read-only (sqlite `mode=ro`). Nothing is
 published to a graph: the two nodes are constructed in-process with their
 publishers replaced by capture lists, and rclpy runs on the isolated domain
 scene_labels_replay sets up, so a live stack never sees the replay.
@@ -60,6 +64,51 @@ the same question with the cap lifted (WallReplay._shadow_front) and the
 reports say how many WALL -> CLEAR differences that one cap accounts for. Read
 those before reading the contract match rate as a code difference.
 
+THE TRACKER RUNS ON THE CAR'S OWN STEPS, FROM THE BAG START. On the car the
+tracker processes one scan in lidar_front_wall_wall_tracker_scan_decimation
+(4, i.e. ~10 Hz of 40 Hz scans). Which scans those were is read off the
+recording, never re-derived from a counter:
+  - bags from before cpu-cleanup R2 carry a /perception/virtual_wall/debug
+    message on EVERY scan the node processed, with `tracker_skipped` = scans
+    skipped since the last tracker step, 0 on a step: the replayed cycles are
+    the recorded messages with tracker_skipped == 0;
+  - since R2 the debug topic (and /perception/virtual_wall) is published on
+    tracker steps only, so every recorded message is a step;
+  - a payload without the key (older still, no decimation) is a step too.
+The replay node's own gate is then forced open (node._tracker_due -> True) and
+only the step scans are fed, so the replayed steps are exactly the car's,
+whatever phase the node's counter would have had. The scans between steps are
+not fed: the tracker and the contract change only on a step (the per-scan
+estimator fields of the payload, lidar_m / stereo_m, are therefore not
+like-for-like). virtual_wall_rate_hz is lifted in the replay (its 75 % rule
+runs on the live receipt clock; the recorded steps already are the published
+ones). A step whose debug message the recorder dropped cannot be identified,
+so the replay skips it: run_bag prints how many the tracker_skipped sequence
+says are missing, and how many sequence breaks it has. `--tracker-steps debug`
+is the pre-v2 behaviour, one tracker step per recorded debug message, which on
+a pre-R2 bag runs the tracker four times as often as the car did.
+Every step from the bag start is replayed, always. --t0/--t1 (seconds, t = 0
+the first /scan stamp) crop only the summary and the videos, so the tracker is
+already warm at t0; run_bag prints the warm-up (t0 - first step) and the age
+of the car's oldest track at the bag start, the head start the live tracker
+had that no replay can have.
+
+THE CLASS MASK IN THE CAMERA VIDEO. --mask auto (default) draws the RECORDED
+/perception/scene_labels/classes (mono8, scene_mask.CLASS_* ids; the mission
+logger's campaign profile records it) -- what the car computed, independent of
+the installed code. --mask replay draws MaskReplay's recomputed mask instead,
+labelled REPLAYED. When the chosen mask is not in the bag the panel says MASK
+NOT RECORDED (or DEPTH NOT RECORDED: no depth, no replayed mask) and nothing
+is tinted. floor_inferred is drawn YELLOW here (scene_mask.CLASS_COLOURS is
+not changed; its light green is too close to floor's). Under the image a
+stacked bar gives the per-class share of the frame; the top-down chart has the
+same as a thin strip over time. The base photo is the raw /camera/image_raw_5hz
+or /camera/image_raw when one lies within RAW_PREFER_S of the frame, else the
+debug JPEG, desaturated and labelled as such (it is never a mask).
+The rectangle verification of both LiDAR passes is fed ONE mask + depth pair
+source, never two: the replayed pair when the camera half ran, else the
+recorded classes + depth_mm pair if the bag has both (equal stamps only).
+
 THE RECORDER DROPS SCANS. A cycle whose /scan is not in the bag cannot be
 replayed at all; `run_bag` prints how many and the reports exclude them.
 
@@ -76,12 +125,38 @@ OUTPUTS per bag in --out:
     <name>.replay.csv    one row per replayed cycle, recorded vs both passes
     <name>.columns.csv   one row per replayed depth frame, column statuses
     <name>.replay.md     the per-topic diffs of step 1
-    <name>.summary.md    per-state time, FRONT episodes, end-wall error, ID
-                         switches, DISAGREE vs range, stage timing, and the
-                         parameter evidence (distributions, no changes)
+    <name>.summary.md    the headline metrics per pass, per-state time, FRONT
+                         episodes, all-WALL error, ID switches, DISAGREE vs
+                         range, stage timing, and the parameter evidence
+                         (distributions, no changes)
     <name>.summary.json  the same numbers, machine-readable
+    <name>.compare.md    with --compare-summary: before/after of the headline
     <name>.camera.mp4    moving window, 5 Hz real time, left image + depth
     <name>.topdown.mp4   whole run, 10 Hz real time, base_link top-down
+
+THE HEADLINE METRICS (summary.json `summary.headline`), each for the passes
+  recorded     the car's own /perception/virtual_wall/debug on its tracker
+               steps (and /perception/walls for the tracks),
+  replay_rec   pass "rec" (recorded stereo inputs, the installed code),
+  replay_full  pass "full" (recomputed stereo inputs), when it ran,
+over the cycles inside --t0/--t1:
+  phantom_front_episodes   WALL episodes (runs of consecutive WALL cycles)
+      whose per-cycle error, value - true strip range, has a median below
+      -0.5 m, an EMPTY strip counting as -inf: a WALL with nothing in the
+      strip is the plainest phantom. Also split by kind (short / empty) and
+      counted inside the moving window. A glass wall the laser cannot see
+      counts as a phantom too: read the episode list.
+  end_wall_error           cycles in the moving window whose true strip range
+      is finite and under --end-wall-range (3.0 m): over the WALL ones,
+      value - strip (median, p95 and max of |err|); the others are counted as
+      misses (CLEAR / NO_DATA while a return sat that close in the strip).
+  all_wall_error           every WALL cycle with a finite strip, as the pre-v2
+      summary's "end-wall error" was (signed p05/p95, max |err|).
+  no_data_pct              NO_DATA share of contract time, all and moving.
+  tracks_rho_lt_0_5        CONFIRMED tracks with rho_bl < 0.5 m: recorded from
+      /perception/walls (only the published <= 4 tracks), replay both from its
+      own published /perception/walls (like-for-like with recorded) and from
+      every live track in its debug payload (NOT like-for-like).
 """
 
 import argparse
@@ -90,6 +165,7 @@ import collections
 import csv
 import json
 import math
+import re
 import sqlite3
 import sys
 import time
@@ -107,7 +183,7 @@ from rclpy.serialization import deserialize_message  # noqa: E402
 from rosidl_runtime_py.utilities import get_message  # noqa: E402
 
 from f1tenth_description.vehicle_frames import base_front_x, front_side_limit_m  # noqa: E402
-from f1tenth_logger.mission_debug_video import write_mp4  # noqa: E402
+from f1tenth_logger.mission_debug_video import find_db3, write_mp4  # noqa: E402
 from f1tenth_params.param_defaults import get_value  # noqa: E402
 from f1tenth_perception import multi_wall_tracker as mwt  # noqa: E402
 from f1tenth_perception import scene_mask, wall_fusion  # noqa: E402
@@ -130,7 +206,24 @@ LASER_Z = 0.19          # set per bag from /tf_static; the scan plane's height i
 
 DEPTH_TOPICS = ['/zed2/zed_node/depth/depth_registered_5hz',
                 '/zed2/zed_node/depth/depth_registered']
-RGB_TOPICS = ['/camera/image_raw', '/camera/debug_image/compressed']
+#: Raw camera frames first (the campaign profile's 5 Hz copy, then the full
+#: topic), the detector's debug JPEG last. See choose_rgb for the rule.
+RGB_TOPICS = ['/camera/image_raw_5hz', '/camera/image_raw', '/camera/debug_image/compressed']
+#: A raw frame within this many seconds of the video frame beats a nearer JPEG.
+RAW_PREFER_S = 0.1
+#: The car's own per-pixel class mask (campaign profile) and its depth pair.
+REC_CLASSES_TOPIC = '/perception/scene_labels/classes'
+REC_DEPTH_MM_TOPIC = '/perception/scene_labels/depth_mm'
+#: Big image topics only the videos (and the rectangle fallback) need: kept as
+#: references into the bag and decoded on use, never all in memory at once.
+LAZY_TOPICS = ('/camera/image_raw_5hz', '/camera/image_raw', REC_CLASSES_TOPIC,
+               REC_DEPTH_MM_TOPIC)
+#: --end-wall-range default: a strip return closer than this is the end wall.
+END_WALL_RANGE_M = 3.0
+#: A WALL more than this short of the true strip range is a phantom.
+PHANTOM_MARGIN_M = 0.5
+#: A confirmed track whose line passes closer than this to base_link.
+RHO_BL_CLOSE_M = 0.5
 
 # Everything deserialized. Anything absent is simply reported absent.
 TOPICS = [
@@ -142,6 +235,7 @@ TOPICS = [
     '/perception/scene_labels/stats', '/perception/wall_observations', '/perception/walls',
     '/perception/virtual_wall', '/perception/virtual_wall/debug', '/perception/wall_planes',
     '/perception/lidar_front_wall', '/mission/status', '/drive',
+    REC_CLASSES_TOPIC, REC_DEPTH_MM_TOPIC,
 ] + DEPTH_TOPICS + RGB_TOPICS
 
 # What step 0 checks for, and why each one matters.
@@ -157,7 +251,8 @@ REQUIRED = {
 }
 PREFERRED = {
     '/zed2/zed_node/depth/depth_registered_5hz': 'the only depth a mission bag carries',
-    '/camera/image_raw': 'the clean left image the camera video wants as a base',
+    REC_CLASSES_TOPIC: 'the class mask the CAR computed (campaign profile); drawn by --mask auto',
+    '/camera/image_raw_5hz': 'the frame YOLO and the mask used (campaign profile): the video base',
     '/costmap/front_clearance': 'the estimator seed',
     '/camera/detections_3d': 'the detection sectors cut out of the scan',
 }
@@ -183,6 +278,14 @@ ROLE_COLOUR = {'front': (60, 60, 255), 'left': (230, 170, 60),
                # Tracked, drawn, a reference wall for nothing.
                'other': (120, 120, 130), '': (120, 120, 130)}
 CONTRACT_COLOUR = {'wall': (60, 60, 255), 'clear': (90, 220, 90), 'no_data': (0, 200, 255)}
+#: The class colours THIS TOOL draws with: scene_mask.CLASS_COLOURS, except
+#: floor_inferred in yellow, which its light green (90, 230, 120) is too close
+#: to floor's green to tell apart under a tint. scene_mask itself is unchanged.
+CLASS_FLOOR_INFERRED = getattr(scene_mask, 'CLASS_FLOOR_INFERRED', 7)
+DRAW_CLASS_COLOURS = dict(scene_mask.CLASS_COLOURS)
+DRAW_CLASS_COLOURS[CLASS_FLOOR_INFERRED] = (0, 235, 255)
+#: Amber, for "this is missing" notes drawn on a panel.
+C_MISSING = (0, 200, 255)
 
 
 def stamp_s(header):
@@ -212,41 +315,106 @@ class Capture(slr.Capture):
 # Bag access -- header stamps first
 # ============================================================================
 
+def split_order_key(path):
+    """Sort key putting a split bag's files in split order: _2 before _10."""
+    name = Path(path).name
+    m = re.search(r'_(\d+)\.db3$', name)
+    return (int(m.group(1)) if m else -1, name)
+
+
+def bag_files(path):
+    """Every .db3 of a bag (split files in order), as mission_debug_video finds them."""
+    found = sorted(find_db3(path), key=split_order_key)
+    if not found:
+        found = [fpr.bag_db(path)]     # its own FileNotFoundError names the path
+    return found
+
+
+_RO_CONNECTIONS = {}
+
+
+def ro_connection(db):
+    """One read-only sqlite connection per .db3, shared by every LazyMsg."""
+    con = _RO_CONNECTIONS.get(str(db))
+    if con is None:
+        con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+        _RO_CONNECTIONS[str(db)] = con
+    return con
+
+
+def close_ro_connections():
+    for con in _RO_CONNECTIONS.values():
+        con.close()
+    _RO_CONNECTIONS.clear()
+
+
+class LazyMsg:
+    """A big message left in the bag: (db3, row id, class), decoded by load()."""
+
+    __slots__ = ('db', 'rowid', 'cls')
+
+    def __init__(self, db, rowid, cls):
+        self.db, self.rowid, self.cls = db, rowid, cls
+
+    def load(self):
+        (data,) = ro_connection(self.db).execute(
+            'SELECT data FROM messages WHERE id=?', (self.rowid,)).fetchone()
+        return deserialize_message(bytes(data), self.cls)
+
+
+def materialize(msg):
+    return msg.load() if isinstance(msg, LazyMsg) else msg
+
+
 class Src:
     """One bag, read once: per topic a stamp-sorted [(stamp, receipt, msg)].
 
     `stamp` is the message header's own stamp where it has one, the String
     payload's "stamp" field for the debug topics that carry one, and the
-    receipt otherwise (noted in `headerless`).
+    receipt otherwise (noted in `headerless`). A split bag is read file by
+    file in split order. LAZY_TOPICS hold a LazyMsg instead of the message:
+    `materialize(r[2])` decodes it.
     """
 
     def __init__(self, path, topics=TOPICS):
         self.path = Path(path).expanduser()
-        self.db = fpr.bag_db(self.path)
+        self.dbs = bag_files(self.path)
+        self.db = self.dbs[0]
         self.name = self.path.name
-        con = sqlite3.connect(f'file:{self.db}?mode=ro', uri=True)
-        self.types = {n: t for _i, n, t in con.execute('SELECT id, name, type FROM topics')}
-        ids = {n: i for i, n, _t in con.execute('SELECT id, name, type FROM topics')}
-        self.counts = {n: c for n, c in con.execute(
-            'SELECT t.name, count(m.id) FROM topics t LEFT JOIN messages m'
-            ' ON m.topic_id = t.id GROUP BY t.id')}
-        self.t0, self.t1 = (x * 1e-9 for x in con.execute(
-            'SELECT min(timestamp), max(timestamp) FROM messages').fetchone())
-        self.msgs = {}
+        self.types, self.counts, self.msgs = {}, collections.Counter(), {}
         self.headerless = set()
-        for name in topics:
-            if name not in ids:
-                continue
-            cls = get_message(self.types[name])
-            rows = []
-            for ts, data in con.execute(
-                    'SELECT timestamp, data FROM messages WHERE topic_id=? ORDER BY timestamp',
-                    (ids[name],)):
-                msg = deserialize_message(bytes(data), cls)
-                rows.append((self._stamp(name, msg, ts * 1e-9), ts * 1e-9, msg))
+        bounds = []
+        for db in self.dbs:
+            con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
+            ids = {}
+            for i, n, t in con.execute('SELECT id, name, type FROM topics'):
+                self.types[n], ids[n] = t, i
+            for n, c in con.execute(
+                    'SELECT t.name, count(m.id) FROM topics t LEFT JOIN messages m'
+                    ' ON m.topic_id = t.id GROUP BY t.id'):
+                self.counts[n] += c
+            lo, hi = con.execute('SELECT min(timestamp), max(timestamp) FROM messages').fetchone()
+            if lo is not None:
+                bounds.append((lo * 1e-9, hi * 1e-9))
+            for name in topics:
+                if name not in ids:
+                    continue
+                cls = get_message(self.types[name])
+                rows = self.msgs.setdefault(name, [])
+                for rowid, ts, data in con.execute(
+                        'SELECT id, timestamp, data FROM messages WHERE topic_id=?'
+                        ' ORDER BY timestamp', (ids[name],)):
+                    msg = deserialize_message(bytes(data), cls)
+                    stamp = self._stamp(name, msg, ts * 1e-9)
+                    if name in LAZY_TOPICS:
+                        msg = LazyMsg(db, rowid, cls)
+                    rows.append((stamp, ts * 1e-9, msg))
+            con.close()
+        for rows in self.msgs.values():
             rows.sort(key=lambda r: r[0])
-            self.msgs[name] = rows
-        con.close()
+        self.counts = dict(self.counts)
+        self.t0 = min((b[0] for b in bounds), default=0.0)
+        self.t1 = max((b[1] for b in bounds), default=0.0)
         scans = self.get('/scan')
         self.T0 = scans[0][0] if scans else self.t0
 
@@ -343,7 +511,8 @@ def in_window(window, t):
 
 def inventory(src, poses, window):
     """The step-0 report: counts, stamp rates, writer latency, the window."""
-    lines = [f'bag  {src.path}', f'db3  {src.db}',
+    lines = [f'bag  {src.path}',
+             'db3  ' + '\n     '.join(str(d) for d in src.dbs),
              f'span {src.t1 - src.t0:.2f} s of receipts; t = 0 is the first /scan stamp '
              f'({src.T0:.3f})', '']
     lines.append('WRITER LATENCY. receipt - header stamp. A mission bag written by a loaded')
@@ -490,7 +659,7 @@ class MaskReplay:
             for t, _k, name, m in events:
                 self.clock[0] = t
                 if name != self.topic:
-                    feed[name](m)
+                    feed[name](materialize(m))
                     continue
                 node._next_scene_mask = -math.inf
                 t_start = time.perf_counter()
@@ -526,10 +695,10 @@ class MaskReplay:
             'mask': sink.get('labels'), 'z': sink.get('z'),
             'columns': cols[-1] if cols else None,
             'cloud': cloud[-1] if cloud else None,
-            # E2's two inputs. A bag cannot carry a topic that did not exist
-            # when it was recorded, so the rectangle half of EVERY pass is
-            # necessarily this recomputed mask; the rec/full distinction stays
-            # about the stereo COLUMNS.
+            # E2's two inputs. Whenever the camera half ran, the rectangle
+            # half of EVERY pass is fed this recomputed pair (and only it:
+            # WallReplay never feeds a recorded pair alongside), so the
+            # rec/full distinction stays about the stereo COLUMNS.
             'classes': classes[-1] if classes else None,
             'depth_mm': depth_mm[-1] if depth_mm else None,
             'scene_labels': labels[-1] if labels else None,
@@ -562,12 +731,59 @@ LFW_FEED = {'/odometry/filtered': '_odom_cb', '/costmap/front_clearance': '_seed
             '/perception/scene_labels/depth_mm': '_mask_depth_cb'}
 
 
-def recorded_cycles(src):
-    """[(scan_stamp, scan, recorded debug dict)] for every recorded cycle.
+def tracker_steps(debug):
+    """Which recorded debug payloads are tracker steps, and what the record says.
+
+    `debug` is the stamp-ordered list of /perception/virtual_wall/debug dicts.
+    A step is a payload with tracker_skipped == 0 (a missing key counts as 0):
+    pre-R2 bags carry one payload per scan, skipped > 0 on the held ones; R2
+    bags carry steps only. Returns (flags, info). info['format'] is
+    'per_scan' when any payload has skipped > 0, else 'per_step'. For a
+    per_scan record, 'missing_steps' counts payloads with skipped = k > 0 whose
+    predecessor had skipped >= k (a step went by unrecorded) and 'breaks' every
+    place where the sequence is not 0, 1, 2, ... (a dropped payload).
+    """
+    skipped = []
+    for d in debug:
+        try:
+            skipped.append(int(d.get('tracker_skipped') or 0))
+        except (TypeError, ValueError):
+            skipped.append(0)
+    flags = [k == 0 for k in skipped]
+    decim = collections.Counter(
+        d.get('tracker_decimation') for d in debug if d.get('tracker_decimation') is not None)
+    info = {'payloads': len(debug), 'steps': sum(flags),
+            'format': 'per_scan' if any(k > 0 for k in skipped) else 'per_step',
+            'decimation': decim.most_common(1)[0][0] if decim else None,
+            'missing_steps': 0, 'breaks': 0}
+    if info['format'] == 'per_scan':
+        for prev, k in zip(skipped, skipped[1:]):
+            if k > 0 and prev >= k:
+                info['missing_steps'] += 1
+            if k != prev + 1 and k != 0:
+                info['breaks'] += 1
+            elif k == 0 and info['decimation'] and prev != info['decimation'] - 1:
+                info['breaks'] += 1
+    return flags, info
+
+
+def step_gaps(stamps, factor=1.5):
+    """How many step-to-step gaps exceed factor x the median gap, and that median."""
+    dt = np.diff(np.asarray(sorted(stamps), float))
+    if dt.size == 0:
+        return 0, None
+    med = float(np.median(dt))
+    return int(np.count_nonzero(dt > factor * med)), med
+
+
+def recorded_cycles(src, steps='car'):
+    """([(scan_stamp, scan, recorded debug dict)] for every replayed cycle, info).
 
     /perception/virtual_wall/debug carries its scan's own header stamp, so the
     cycle set and its order come from the stamps alone -- no receipt-order
-    pairing, which this bag's writer latency would make guesswork.
+    pairing, which this bag's writer latency would make guesswork. steps='car'
+    keeps the car's tracker steps only (tracker_steps); 'debug' keeps every
+    recorded payload (the pre-v2 behaviour).
     """
     scans = {}
     for t, _r, m in src.get('/scan'):
@@ -579,7 +795,13 @@ def recorded_cycles(src):
         scan = scans.get(round(stamp, 6))
         out.append({'stamp': stamp, 'scan': scan, 'rec_dbg': d})
     out.sort(key=lambda c: c['stamp'])
-    return out
+    flags, info = tracker_steps([c['rec_dbg'] for c in out])
+    info['mode'] = steps
+    if steps == 'car':
+        out = [c for c, f in zip(out, flags) if f]
+    info['replayed_cycles'] = len(out)
+    info['long_gaps'], info['median_step_s'] = step_gaps([c['stamp'] for c in out])
+    return out, info
 
 
 def index_by_stamp(rows):
@@ -606,6 +828,15 @@ class WallReplay:
             if getattr(node, attr, None) is not None:
                 caps[attr] = Capture()
                 setattr(node, attr, caps[attr])
+        # Only the car's tracker-step scans are fed (recorded_cycles), so the
+        # gate is forced open: every fed scan IS a step, whatever phase the
+        # node's own counter (or WALL_TRACKER_DECIMATION) would give it.
+        node._tracker_due = lambda: True
+        # The live publish cap's 75 % rule ran on the receipt clock; the
+        # recorded steps already are the published ones, so lift it here or
+        # a step a little early on the STAMP clock would publish no payload.
+        if hasattr(node, 'virtual_wall_rate_hz'):
+            node.virtual_wall_rate_hz = 0.0
         self.node, self.caps = node, caps
         # /tf_static is transient-local and the live node had it from its start,
         # long before any bag began: give it all up front.
@@ -617,7 +848,10 @@ class WallReplay:
         self.oi = 0
         feeds = []
         for name in LFW_FEED:
-            if name == '/odometry/filtered':
+            if name in ('/odometry/filtered', REC_CLASSES_TOPIC, REC_DEPTH_MM_TOPIC):
+                # The mask pair has ONE source, chosen below; feeding the
+                # recorded pair too would interleave two masks into the
+                # rectangle check, the last one fed winning.
                 continue
             if name in ('/perception/stereo_columns', '/perception/wall_points') \
                     and stereo == 'full':
@@ -630,15 +864,24 @@ class WallReplay:
                     feeds.append((row['stamp'], '/perception/stereo_columns', row['columns']))
                 if row['cloud'] is not None:
                     feeds.append((row['stamp'], '/perception/wall_points', row['cloud']))
-        # The class mask and its depth always come from the replay: see
-        # MaskReplay._collect. Both passes get them, so the rectangle
-        # verification runs in both.
+        # The class mask and its depth: the replay's pair when the camera
+        # half ran (see MaskReplay._collect), else the recorded pair when the
+        # bag has both halves of it on equal stamps. Both passes get the same
+        # source, so the rectangle verification runs in both.
+        self.rect_source = None
         for row in (replayed or []):
             if row.get('classes') is not None and row.get('depth_mm') is not None:
-                feeds.append((row['stamp'], '/perception/scene_labels/classes',
-                              row['classes']))
-                feeds.append((row['stamp'], '/perception/scene_labels/depth_mm',
-                              row['depth_mm']))
+                self.rect_source = 'replayed'
+                feeds.append((row['stamp'], REC_CLASSES_TOPIC, row['classes']))
+                feeds.append((row['stamp'], REC_DEPTH_MM_TOPIC, row['depth_mm']))
+        if self.rect_source is None and src.get(REC_CLASSES_TOPIC) \
+                and src.get(REC_DEPTH_MM_TOPIC):
+            depth_by = {round(t, 6): m for t, _r, m in src.get(REC_DEPTH_MM_TOPIC)}
+            for t, _r, m in src.get(REC_CLASSES_TOPIC):
+                if round(t, 6) in depth_by:
+                    self.rect_source = 'recorded'
+                    feeds.append((t, REC_CLASSES_TOPIC, m))
+                    feeds.append((t, REC_DEPTH_MM_TOPIC, depth_by[round(t, 6)]))
         feeds.sort(key=lambda f: f[0])
         self.feeds = feeds
         self.fi = 0
@@ -646,7 +889,7 @@ class WallReplay:
     def _feed_until(self, t):
         while self.fi < len(self.feeds) and self.feeds[self.fi][0] <= t:
             _s, name, msg = self.feeds[self.fi]
-            getattr(self.node, LFW_FEED[name])(msg)
+            getattr(self.node, LFW_FEED[name])(materialize(msg))
             self.fi += 1
 
     def _feed_odom(self, t):
@@ -963,6 +1206,150 @@ def latest(stamps, t):
     return i if i >= 0 else None
 
 
+def nearest_index(times, t):
+    """Index of the entry of a sorted, non-empty list nearest to t."""
+    i = bisect.bisect_left(times, t)
+    if i <= 0:
+        return 0
+    if i >= len(times):
+        return len(times) - 1
+    return i if times[i] - t < t - times[i - 1] else i - 1
+
+
+def choose_rgb(t, sources, prefer_raw_s=RAW_PREFER_S):
+    """(source index, message index, signed age t - stamp) of the base image, or None.
+
+    `sources` is [(sorted stamps, is_raw)]. NEAREST in time, not latest-before
+    (at under 1.5 Hz a latest-before rule shows a frame seconds stale while a
+    newer one sits half a period away), but not simply the nearest of all: a
+    raw frame within prefer_raw_s wins over a nearer debug JPEG. Otherwise the
+    nearest non-raw frame, and with none of those the nearest raw one anyway.
+    """
+    best = {True: None, False: None}
+    for k, (times, raw) in enumerate(sources):
+        if not len(times):
+            continue
+        j = nearest_index(times, t)
+        age = t - times[j]
+        cur = best[bool(raw)]
+        if cur is None or abs(age) < abs(cur[2]):
+            best[bool(raw)] = (k, j, age)
+    raw, other = best[True], best[False]
+    if raw is not None and abs(raw[2]) <= prefer_raw_s:
+        return raw
+    return other if other is not None else raw
+
+
+def choose_mask_source(mode, has_recorded, has_replay, has_depth=True):
+    """(which mask the camera video tints with, or None; the note when None).
+
+    'auto' and 'recorded' draw the car's recorded mask and nothing else;
+    'replay' draws the recomputed one, which needs depth. Never a silent
+    fallback from one to the other: a frame without its mask says so.
+    """
+    if mode == 'replay':
+        if has_replay:
+            return 'replay', None
+        return None, ('DEPTH NOT RECORDED: no replayed mask' if not has_depth
+                      else 'NO REPLAYED MASK')
+    if has_recorded:
+        return 'recorded', None
+    return None, 'MASK NOT RECORDED'
+
+
+#: Bytes per pixel of the 8-bit encodings this tool decodes.
+_ENC_CHANNELS = {'mono8': 1, '8UC1': 1, 'bgr8': 3, 'rgb8': 3, '8UC3': 3,
+                 'bgra8': 4, 'rgba8': 4, '8UC4': 4}
+
+
+def image_array(data, height, width, step, encoding):
+    """An 8-bit Image's pixels as an (h, w, c) uint8 array, or None.
+
+    Honours `step`: a row may be padded past width * channels, which a plain
+    reshape to (h, w, -1) would smear into the next row.
+    """
+    ch = _ENC_CHANNELS.get(encoding)
+    if ch is None or height <= 0 or width <= 0:
+        return None
+    step = int(step) if step else width * ch
+    if step < width * ch:
+        return None
+    buf = np.frombuffer(bytes(data), np.uint8)
+    need = (height - 1) * step + width * ch
+    if buf.size < need:
+        return None
+    if buf.size < height * step:
+        buf = np.concatenate([buf, np.zeros(height * step - buf.size, np.uint8)])
+    return buf[:height * step].reshape(height, step)[:, :width * ch].reshape(height, width, ch)
+
+
+def class_fractions(labels, n_classes):
+    """{class id: share of the pixels} for ids 0..n_classes-1 (and any above, if present)."""
+    labels = np.asarray(labels)
+    if labels.size == 0:
+        return {}
+    counts = np.bincount(labels.ravel().astype(np.int64), minlength=n_classes)
+    return {i: float(c) / labels.size for i, c in enumerate(counts)}
+
+
+def fraction_segments(fracs, order, width):
+    """[(class id, x0, x1)] of a stacked bar `width` px wide, in `order`, no gaps."""
+    out, acc, x_prev = [], 0.0, 0
+    for cls in order:
+        f = float(fracs.get(cls, 0.0))
+        if f <= 0.0:
+            continue
+        acc += f
+        x = int(round(min(acc, 1.0) * width))
+        if x > x_prev:
+            out.append((cls, x_prev, x))
+            x_prev = x
+    return out
+
+
+class MaskSource:
+    """The class mask the camera video tints with, per --mask (module docstring)."""
+
+    def __init__(self, src, mask_rows, mode='auto', has_depth=True):
+        self.rec = src.get(REC_CLASSES_TOPIC)
+        self.rec_t = [r[0] for r in self.rec]
+        self.rep = [r for r in mask_rows if r.get('mask') is not None]
+        self.rep_t = [r['stamp'] for r in self.rep]
+        self.mode = mode
+        self.source, self.note = choose_mask_source(
+            mode, bool(self.rec), bool(self.rep), has_depth)
+        self._last = (None, None)
+        self._fracs = {}
+
+    def labels(self, i):
+        """The (h, w) uint8 class image of mask i of the chosen source, or None."""
+        if self.source is None:
+            return None
+        if self.source == 'replay':
+            return self.rep[i]['mask']
+        if self._last[0] == i:
+            return self._last[1]
+        msg = materialize(self.rec[i][2])
+        arr = image_array(msg.data, msg.height, msg.width, msg.step, msg.encoding)
+        labels = None if arr is None else arr[:, :, 0]
+        self._last = (i, labels)
+        return labels
+
+    def lookup(self, t):
+        """{'i', 'stamp', 'age', 'frac'} of the mask held at t (latest at or before)."""
+        if self.source is None:
+            return None
+        times = self.rec_t if self.source == 'recorded' else self.rep_t
+        i = latest(times, t)
+        if i is None:
+            return None
+        if i not in self._fracs:
+            labels = self.labels(i)
+            self._fracs[i] = (None if labels is None else
+                              class_fractions(labels, max(scene_mask.CLASS_NAMES) + 1))
+        return {'i': i, 'stamp': times[i], 'age': t - times[i], 'frac': self._fracs[i]}
+
+
 def laser_pose_of(src):
     """(x, y, yaw) of the scan frame in base_link, from /tf_static."""
     to_base = slr.static_tf([m for _s, _r, m in src.get('/tf_static')])
@@ -973,7 +1360,8 @@ def laser_pose_of(src):
     return (float(trans[0]), float(trans[1]), float(math.atan2(rot[1, 0], rot[0, 0])))
 
 
-def build_timeline(src, rows, mask_rows, poses, window, front_x, half, hz, span=None):
+def build_timeline(src, rows, mask_rows, poses, window, front_x, half, hz, span=None,
+                   masks=None):
     """One frame per 1/hz over `span` (default: the whole run), zero-order hold.
 
     Nothing in this bag runs at the video rate -- the wall cycles are ~4 Hz,
@@ -992,9 +1380,9 @@ def build_timeline(src, rows, mask_rows, poses, window, front_x, half, hz, span=
     rec_t = [t for t, _d in rec_dbg]
     clear = src.get('/costmap/front_clearance')
     clear_t = [r[0] for r in clear]
-    rgb_sources = [([r[0] for r in src.get(n)],
-                    [(r[0], r[1], r[2], n) for r in src.get(n)])
-                   for n in RGB_TOPICS if src.get(n)]
+    rgb_names = [n for n in RGB_TOPICS if src.get(n)]
+    rgb_sources = [([r[0] for r in src.get(n)], not n.endswith('/compressed'))
+                   for n in rgb_names]
     masks2d = src.get('/camera/detection_masks')
     masks2d_t = [r[0] for r in masks2d]
     t0 = span[0] if span else (scan_t[0] if scan_t else src.T0)
@@ -1027,20 +1415,14 @@ def build_timeline(src, rows, mask_rows, poses, window, front_x, half, hz, span=
         if i is not None:
             f['clearance'] = float(clear[i][2].data)
             f['clearance_age'] = t - clear_t[i]
-        # The base image is picked NEAREST in time, not latest-before: at under
-        # 1.5 Hz a latest-before rule shows a frame seconds stale while a newer
-        # one sits half a period away. The signed age is printed on the frame.
-        best = None
-        for topic in rgb_sources:
-            times, msgs = topic
-            if not times:
-                continue
-            j = int(np.argmin(np.abs(np.asarray(times) - t)))
-            age = t - times[j]
-            if best is None or abs(age) < abs(best[0]):
-                best = (age, msgs[j][2], msgs[j][3])
-        if best is not None:
-            f['rgb_age'], f['rgb'], f['rgb_topic'] = best
+        # The base image: see choose_rgb. The signed age is printed on the frame.
+        pick = choose_rgb(t, rgb_sources)
+        if pick is not None:
+            k, j, age = pick
+            f['rgb_age'], f['rgb'], f['rgb_topic'] = age, src.get(rgb_names[k])[j][2], \
+                rgb_names[k]
+        if masks is not None:
+            f['cls'] = masks.lookup(t)
         i = latest(masks2d_t, t)
         if i is not None:
             f['masks2d'] = masks2d[i][2]
@@ -1084,9 +1466,23 @@ def episodes(entries, predicate, min_len=0.0):
     return out
 
 
-def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
-    """Per-state time, FRONT episodes, end-wall error, ID switches, DISAGREE, timing."""
-    scans = src.get('/scan')
+def in_span(span, t):
+    return span is None or span[0] <= t <= span[1]
+
+
+def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half, span=None):
+    """Per-state time, FRONT episodes, all-WALL error, ID switches, DISAGREE, timing.
+
+    Over `span` (absolute stamps; None = the whole bag): the replay ran from
+    the bag start regardless, only what is counted here is cropped.
+    """
+    def get(topic):
+        return [r for r in src.get(topic) if in_span(span, r[0])]
+
+    rows = [r for r in rows if r and in_span(span, r['stamp'])]
+    mask_rows = [r for r in mask_rows if in_span(span, r['stamp'])]
+    duration = (span[1] - span[0]) if span else (src.t1 - src.t0)
+    scans = get('/scan')
     laser = laser_pose_of(src)
     strip = {}
     for t, _r, m in scans:
@@ -1101,14 +1497,14 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
     out = {}
     # ---- per-state time, recorded and replayed -----------------------------
     rec = [(json.loads(m.data)['stamp'], json.loads(m.data)['state'])
-           for _t, _r, m in src.get('/perception/virtual_wall/debug')]
+           for _t, _r, m in get('/perception/virtual_wall/debug')]
     rep = [(r['stamp'], r['state']) for r in rows if r]
     out['state_time_s'] = {'recorded': state_times(rec), 'replay': state_times(rep)}
     out['state_time_s']['recorded_moving'] = state_times(
         [e for e in rec if in_window(window, e[0])])
 
     # ---- FRONT in the open corridor ----------------------------------------
-    rec_rows = [json.loads(m.data) for _t, _r, m in src.get('/perception/virtual_wall/debug')]
+    rec_rows = [json.loads(m.data) for _t, _r, m in get('/perception/virtual_wall/debug')]
     rec_rows.sort(key=lambda d: d['stamp'])
     front_eps = []
     for t_a, t_b in episodes([(d['stamp'], d) for d in rec_rows],
@@ -1154,7 +1550,7 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
             'max_abs': num(max((abs(e) for e in err), default=math.nan))}
 
     # ---- track ID switches and stereo-only tracks --------------------------
-    for name, msgs in (('recorded', [m for _t, _r, m in src.get('/perception/walls')]),
+    for name, msgs in (('recorded', [m for _t, _r, m in get('/perception/walls')]),
                        ('replay', [r['walls'] for r in rows if r and r['walls']])):
         ids, born, roles = set(), [], collections.defaultdict(collections.Counter)
         stereo_only, both, lidar = set(), set(), set()
@@ -1182,7 +1578,7 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
         out.setdefault('tracks', {})[name] = {
             'distinct_ids': len(ids), 'births': len(born),
             'births_per_minute': round(len(born) / max(
-                (src.t1 - src.t0) / 60.0, 1e-9), 2),
+                duration / 60.0, 1e-9), 2),
             'role_switches': role_switches,
             'source_lidar': len(lidar - both - stereo_only),
             'source_both': len(both), 'source_stereo_only': len(stereo_only),
@@ -1224,7 +1620,7 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
         'replay': cycles_with_profile, 'cycles': sum(1 for r in rows if r)}
 
     # ---- stereo pairing, the reason the profile is usually absent ----------
-    col_stamps = sorted(src.stamps('/perception/stereo_columns'))
+    col_stamps = sorted(r[0] for r in get('/perception/stereo_columns'))
     gaps = []
     for r in rows:
         if not r:
@@ -1241,7 +1637,7 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
     # counts disagreeing columns or rejections. The replay holds the latest
     # profile BY STAMP and the live node held the latest ARRIVED, which is
     # older, so the replay's figure is an upper bound on the live one.
-    rec_obs_msgs = [m for _t, _r, m in src.get('/perception/wall_observations')]
+    rec_obs_msgs = [m for _t, _r, m in get('/perception/wall_observations')]
     rec_used = sum(1 for m in rec_obs_msgs
                    if m.n_disagree_columns or m.n_rejected
                    or any(o.col_end > o.col_begin for o in m.observations))
@@ -1363,7 +1759,7 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
         if hidden else None,
     }
     rec_front_ages = []
-    for _t, _r, m in src.get('/perception/walls'):
+    for _t, _r, m in get('/perception/walls'):
         rec_front_ages += [tr.age for tr in m.tracks if tr.is_front]
     out['publish_cap']['recorded_front_track_age_s'] = {
         'n': len(rec_front_ages),
@@ -1387,10 +1783,10 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
         'replay_rect_verify': stage(r.get('rect_ms') for r in rows if r),
         'recorded_mask_tick_node': stage(
             json.loads(m.data).get('ms')
-            for _t, _r, m in src.get('/perception/scene_labels/stats')),
+            for _t, _r, m in get('/perception/scene_labels/stats')),
         'recorded_tracker': stage(
             json.loads(m.data).get('tracker_ms')
-            for _t, _r, m in src.get('/perception/virtual_wall/debug')),
+            for _t, _r, m in get('/perception/virtual_wall/debug')),
     }
     out['true_strip_range_m'] = {
         'scans': len(strip), 'finite': sum(1 for v in strip.values() if math.isfinite(v)),
@@ -1398,6 +1794,313 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
         'median': num(float(np.nanmedian(list(strip.values())))),
         'max': num(np.nanmax(list(strip.values())))}
     return out
+
+
+# ============================================================================
+# Step 4: the headline metrics, per pass (module docstring, THE HEADLINE METRICS)
+# ============================================================================
+
+def wall_runs(states):
+    """[(i0, i1)] inclusive index runs of consecutive 'wall' states."""
+    out, start = [], None
+    for i, st in enumerate(states):
+        if st == 'wall':
+            if start is None:
+                start = i
+        elif start is not None:
+            out.append((start, i - 1))
+            start = None
+    if start is not None:
+        out.append((start, len(states) - 1))
+    return out
+
+
+def classify_wall_episode(values, truths, margin=PHANTOM_MARGIN_M):
+    """(phantom?, kind or None, median finite error or None) of one WALL episode.
+
+    Per cycle the error is value - true strip range, and -inf when the strip
+    is EMPTY (truth NaN / None: nothing out to the scan's range, the plainest
+    phantom). Phantom = median error < -margin, so an episode is a phantom
+    when at least half its cycles had an empty strip, or the median WALL sat
+    more than `margin` short of the laser. kind: 'empty' when at least half
+    the cycles had an empty strip, else 'short'.
+    """
+    err, empty = [], 0
+    for v, s in zip(values, truths):
+        if v is None or not math.isfinite(float(v)):
+            continue
+        if s is None or not math.isfinite(float(s)):
+            err.append(-math.inf)
+            empty += 1
+        else:
+            err.append(float(v) - float(s))
+    finite = [e for e in err if math.isfinite(e)]
+    med_finite = float(np.median(finite)) if finite else None
+    if not err:
+        return False, None, med_finite
+    phantom = float(np.median(err)) < -margin
+    kind = ('empty' if 2 * empty >= len(err) else 'short') if phantom else None
+    return phantom, kind, med_finite
+
+
+def state_shares(times, states, max_dt=0.5):
+    """{state: share of the time} from per-cycle states, each held to the next.
+
+    A hold is capped at max_dt so a gap (a dropped record, the space between
+    two moving windows) is not credited to whichever state preceded it; the
+    last cycle is held for the median step. None states are not counted.
+    """
+    pairs = sorted((t, st) for t, st in zip(times, states) if st is not None)
+    if not pairs:
+        return {}
+    ts = np.array([p[0] for p in pairs], float)
+    dt = np.diff(ts)
+    tail = float(np.median(dt)) if dt.size else 1.0
+    hold = np.minimum(np.r_[dt, tail], max_dt)
+    total = collections.Counter()
+    for (_t, st), h in zip(pairs, hold):
+        total[st] += float(h)
+    norm = sum(total.values())
+    return {k: v / norm for k, v in total.items()} if norm > 0 else {}
+
+
+def error_stats(err):
+    """n, signed median, p95 and max of |err| over the finite errors."""
+    v = [float(e) for e in err if e is not None and math.isfinite(float(e))]
+    if not v:
+        return {'n': 0, 'median_m': None, 'abs_p95_m': None, 'abs_max_m': None}
+    a = np.abs(np.array(v))
+    return {'n': len(v), 'median_m': num(float(np.median(v))),
+            'abs_p95_m': num(float(np.percentile(a, 95))), 'abs_max_m': num(float(a.max()))}
+
+
+def close_tracks(per_cycle, limit=RHO_BL_CLOSE_M):
+    """Confirmed tracks whose line passes within `limit` of base_link.
+
+    per_cycle: one list per cycle of (track id, confirmed?, rho_bl). Returns
+    the distinct ids, their count and the number of cycles holding one.
+    """
+    ids, cycles = set(), 0
+    for tracks in per_cycle:
+        hit = False
+        for tid, confirmed, rho in tracks:
+            if confirmed and rho is not None and math.isfinite(float(rho)) \
+                    and abs(float(rho)) < limit:
+                ids.add(int(tid))
+                hit = True
+        cycles += hit
+    return {'n_ids': len(ids), 'ids': sorted(ids), 'cycles': cycles}
+
+
+def pass_headline(times, states, values, truths, moving, end_range=END_WALL_RANGE_M,
+                  margin=PHANTOM_MARGIN_M, t_ref=0.0):
+    """The headline block of one pass, from its per-cycle (t, state, value, strip, moving)."""
+    eps = []
+    for i0, i1 in wall_runs(states):
+        phantom, kind, med = classify_wall_episode(values[i0:i1 + 1], truths[i0:i1 + 1],
+                                                   margin)
+        eps.append({'start_s': round(times[i0] - t_ref, 2), 'end_s': round(times[i1] - t_ref, 2),
+                    'cycles': i1 - i0 + 1, 'phantom': phantom, 'kind': kind,
+                    'error_median_m': num(med), 'moving': any(moving[i0:i1 + 1])})
+    phantoms = [e for e in eps if e['phantom']]
+    end_err, end_cycles, miss = [], 0, collections.Counter()
+    all_err = []
+    for st, v, s, mv in zip(states, values, truths, moving):
+        finite = s is not None and math.isfinite(float(s))
+        if st == 'wall' and finite and v is not None and math.isfinite(float(v)):
+            all_err.append(float(v) - float(s))
+        if not (mv and finite and float(s) < end_range):
+            continue
+        end_cycles += 1
+        if st == 'wall' and v is not None and math.isfinite(float(v)):
+            end_err.append(float(v) - float(s))
+        else:
+            miss[str(st)] += 1
+    shares = state_shares(times, states)
+    shares_mv = state_shares([t for t, m in zip(times, moving) if m],
+                             [st for st, m in zip(states, moving) if m])
+    return {
+        'cycles': len(states), 'cycles_without_state': sum(1 for st in states if st is None),
+        'wall_episodes': len(eps),
+        'phantom_front_episodes': len(phantoms),
+        'phantom_front_episodes_moving': sum(1 for e in phantoms if e['moving']),
+        'phantom_front_by_kind': dict(collections.Counter(e['kind'] for e in phantoms)),
+        'phantom_episode_list': phantoms,
+        'end_wall_error': dict(error_stats(end_err), cycles=end_cycles,
+                               miss_cycles=sum(miss.values()), miss_by_state=dict(miss)),
+        'all_wall_error': {'n': len(all_err), 'p05_m': num(pct(all_err, 5)),
+                           'p95_m': num(pct(all_err, 95)),
+                           'max_abs_m': num(max((abs(e) for e in all_err), default=math.nan))},
+        'no_data_pct': num(100.0 * shares.get('no_data', 0.0), 2) if shares else None,
+        'no_data_pct_moving': num(100.0 * shares_mv.get('no_data', 0.0), 2)
+        if shares_mv else None,
+    }
+
+
+def strip_truth(src, front_x, half):
+    """strip_at(t): the true strip range of the last /scan at or before t (NaN: empty)."""
+    laser = laser_pose_of(src)
+    stamps, ranges = [], []
+    for t, _r, m in src.get('/scan'):
+        stamps.append(t)
+        ranges.append(fpr.strip_nearest(fpr.scan_xy(m, laser), front_x, half)[0])
+
+    def strip_at(t):
+        i = latest(stamps, t)
+        return ranges[i] if i is not None else math.nan
+    return strip_at
+
+
+def headline(src, cycles, rows_by_pass, window, front_x, half, span=None,
+             end_range=END_WALL_RANGE_M):
+    """summary['headline']: the metrics an A/B is judged on, for every pass."""
+    strip_at = strip_truth(src, front_x, half)
+    passes = {}
+    keep = [i for i, c in enumerate(cycles) if in_span(span, c['stamp'])]
+
+    def block(entries, walls, live=None):
+        entries = sorted(entries, key=lambda e: e[0])
+        times = [e[0] for e in entries]
+        out = pass_headline(times, [e[1] for e in entries], [e[2] for e in entries],
+                            [strip_at(t) for t in times],
+                            [in_window(window, t) for t in times], end_range,
+                            t_ref=src.T0)
+        out['tracks_rho_lt_0_5'] = close_tracks(walls)
+        if live is not None:
+            out['tracks_rho_lt_0_5_all_live'] = close_tracks(live)
+        return out
+
+    rec_walls = [[(tr.id, tr.state == 1, tr.rho_bl) for tr in m.tracks]
+                 for t, _r, m in src.get('/perception/walls') if in_span(span, t)]
+    passes['recorded'] = block(
+        [(cycles[i]['stamp'], cycles[i]['rec_dbg'].get('state'),
+          cycles[i]['rec_dbg'].get('distance_m')) for i in keep], rec_walls)
+    passes['recorded']['source'] = ('/perception/virtual_wall/debug on the car\'s tracker '
+                                    'steps; tracks from /perception/walls (published <= 4)')
+    for name, rows in rows_by_pass.items():
+        if rows is None:
+            continue
+        sel = [rows[i] for i in keep if rows[i] is not None]
+        if not sel:
+            continue
+        key = f'replay_{name}'
+        passes[key] = block(
+            [(r['stamp'], r['state'], r['value']) for r in sel],
+            [[(tr.id, tr.state == 1, tr.rho_bl) for tr in r['walls'].tracks]
+             for r in sel if r['walls'] is not None],
+            [[(t.get('id'), t.get('state') == 'confirmed', t.get('rho_bl'))
+              for t in (r['dbg'].get('tracks') or [])] for r in sel])
+        passes[key]['source'] = (f'replay pass "{name}" ('
+                                 + ('recorded' if name == 'rec' else 'recomputed')
+                                 + ' stereo inputs); tracks_rho_lt_0_5 from its own '
+                                 '/perception/walls (like-for-like with recorded), '
+                                 '_all_live from every live track of its payload')
+    return {
+        'span_s': [round(src.rel(span[0]), 3), round(src.rel(span[1]), 3)] if span else None,
+        'definitions': {
+            'phantom_front_episodes': f'WALL episodes whose median (value - true strip) < '
+                                      f'-{PHANTOM_MARGIN_M} m, an empty strip counting as '
+                                      '-inf; kind empty/short',
+            'end_wall_error': f'moving-window cycles with a true strip range < {end_range} m: '
+                              'value - strip over the WALL ones (|err| p95 / max); the rest '
+                              'are miss_cycles',
+            'all_wall_error': 'every WALL cycle with a finite strip (the pre-v2 '
+                              '"end-wall error"): signed p05/p95, max |err|',
+            'no_data_pct': 'NO_DATA share of contract time (holds capped at 0.5 s), all and '
+                           'moving window',
+            'tracks_rho_lt_0_5': f'distinct CONFIRMED track ids with |rho_bl| < '
+                                 f'{RHO_BL_CLOSE_M} m; recorded and replay published '
+                                 'tracks are like-for-like, _all_live is not'},
+        'passes': passes}
+
+
+# ---- --compare-summary ------------------------------------------------------
+
+#: (metric, how to read it) of the before/after table, in print order.
+COMPARE_METRICS = [
+    ('phantom_front_episodes', 'count, lower is better'),
+    ('phantom_front_episodes_moving', 'count in the moving window'),
+    ('end_wall_err_abs_p95_m', 'end-wall abs err p95 [m]'),
+    ('end_wall_err_abs_max_m', 'end-wall abs err max [m]'),
+    ('end_wall_miss_cycles', 'end-wall cycles not WALL'),
+    ('all_wall_err_p95_m', 'all-WALL signed err p95 [m]'),
+    ('all_wall_err_max_abs_m', 'all-WALL abs err max [m]'),
+    ('no_data_pct', 'NO_DATA % of time'),
+    ('no_data_pct_moving', 'NO_DATA % while moving'),
+    ('tracks_rho_lt_0_5', 'confirmed published tracks, rho_bl < 0.5 m'),
+    ('tracks_rho_lt_0_5_all_live', 'confirmed live tracks (replay only)'),
+]
+
+
+def flat_headline(doc):
+    """({pass: {metric: value}}, {(pass, metric): note}) from a summary.json document.
+
+    A v2 summary carries summary.headline. A pre-v2 one does not, and what it
+    has is mapped with a note: its phantom count is the RECORDED pass only and
+    never counted an empty strip, its "end-wall error" is the all-WALL error,
+    and its replay ran the tracker on every recorded debug message.
+    """
+    summary = (doc or {}).get('summary') or {}
+    head = summary.get('headline')
+    out, notes = {}, {}
+    if head:
+        for name, p in (head.get('passes') or {}).items():
+            ew, aw = p.get('end_wall_error') or {}, p.get('all_wall_error') or {}
+            row = {'phantom_front_episodes': p.get('phantom_front_episodes'),
+                   'phantom_front_episodes_moving': p.get('phantom_front_episodes_moving'),
+                   'end_wall_err_abs_p95_m': ew.get('abs_p95_m'),
+                   'end_wall_err_abs_max_m': ew.get('abs_max_m'),
+                   'end_wall_miss_cycles': ew.get('miss_cycles'),
+                   'all_wall_err_p95_m': aw.get('p95_m'),
+                   'all_wall_err_max_abs_m': aw.get('max_abs_m'),
+                   'no_data_pct': p.get('no_data_pct'),
+                   'no_data_pct_moving': p.get('no_data_pct_moving'),
+                   'tracks_rho_lt_0_5': (p.get('tracks_rho_lt_0_5') or {}).get('n_ids')}
+            if p.get('tracks_rho_lt_0_5_all_live') is not None:
+                row['tracks_rho_lt_0_5_all_live'] = p['tracks_rho_lt_0_5_all_live'].get('n_ids')
+            out[name] = row
+        return out, notes
+    legacy = {'recorded': 'recorded', 'replay': 'replay_rec'}
+    st = summary.get('state_time_s') or {}
+    for old, name in legacy.items():
+        row = {}
+        ew = (summary.get('end_wall_error_m') or {}).get(old) or {}
+        row['all_wall_err_p95_m'] = ew.get('p95')
+        row['all_wall_err_max_abs_m'] = ew.get('max_abs')
+        times = st.get(old) or {}
+        if times and sum(times.values()) > 0:
+            row['no_data_pct'] = round(100.0 * times.get('no_data', 0.0)
+                                       / sum(times.values()), 2)
+            notes[(name, 'no_data_pct')] = 'before: pre-v2 time base'
+        out[name] = row
+    if 'phantom_front_episodes' in summary:
+        out['recorded']['phantom_front_episodes'] = len(summary['phantom_front_episodes'])
+        notes[('recorded', 'phantom_front_episodes')] = \
+            'before: pre-v2 definition (empty strip NOT counted)'
+    mv = st.get('recorded_moving') or {}
+    if mv and sum(mv.values()) > 0:
+        out['recorded']['no_data_pct_moving'] = round(
+            100.0 * mv.get('no_data', 0.0) / sum(mv.values()), 2)
+    notes[('replay_rec', '*')] = 'before: pre-v2 replay (tracker on every recorded debug msg)'
+    return out, notes
+
+
+def compare_rows(before, after, notes=None):
+    """[[metric, pass, before, after, after - before, note]] for COMPARE_METRICS."""
+    notes = notes or {}
+    rows = []
+    for metric, _how in COMPARE_METRICS:
+        for name in sorted(set(before) | set(after)):
+            a = (before.get(name) or {}).get(metric)
+            b = (after.get(name) or {}).get(metric)
+            if a is None and b is None:
+                continue
+            delta = (round(b - a, 4) if isinstance(a, (int, float))
+                     and isinstance(b, (int, float)) else None)
+            note = '; '.join(n for n in (notes.get((name, metric)), notes.get((name, '*')))
+                             if n)
+            rows.append([metric, name, a, b, delta, note])
+    return rows
 
 
 # ============================================================================
@@ -1666,12 +2369,13 @@ def camera_pose(src, frame_id):
 def base_image(frame, size=(640, 360)):
     """The left image for this frame, and what it came from.
 
-    /camera/image_raw is the clean left image but a loaded recorder keeps very
-    few of its 30 Hz frames; /camera/debug_image/compressed is the same camera
-    at a usable rate with the detector's own annotation and text bar already
-    drawn into it. Whichever is used is named on the frame, with its age.
+    /camera/image_raw_5hz (campaign profile) and /camera/image_raw are the
+    clean left image (a loaded recorder keeps few full-rate frames);
+    /camera/debug_image/compressed is the same camera at a usable rate with the
+    detector's own annotation and text bar drawn into it -- a PHOTO, never the
+    class mask. Whichever is used is named on the frame, with its age.
     """
-    msg = frame.get('rgb')
+    msg = materialize(frame.get('rgb'))
     if msg is None:
         return np.full((size[1], size[0], 3), 30, np.uint8), 'none', math.nan
     name = frame.get('rgb_topic', '')
@@ -1688,9 +2392,11 @@ def base_image(frame, size=(640, 360)):
         grey = cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY), cv2.COLOR_GRAY2BGR)
         img = cv2.addWeighted(img, 0.35, grey, 0.65, 0.0)
     else:
-        arr = np.frombuffer(bytes(msg.data), np.uint8).reshape(msg.height, msg.width, -1)
-        img = (arr[:, :, :3].copy() if arr.shape[2] >= 3
-               else cv2.cvtColor(arr[:, :, 0], cv2.COLOR_GRAY2BGR))
+        arr = image_array(msg.data, msg.height, msg.width, msg.step, msg.encoding)
+        if arr is None:
+            return np.full((size[1], size[0], 3), 30, np.uint8), 'none', math.nan
+        img = (np.ascontiguousarray(arr[:, :, :3]) if arr.shape[2] >= 3
+               else cv2.cvtColor(np.ascontiguousarray(arr[:, :, 0]), cv2.COLOR_GRAY2BGR))
         if msg.encoding in ('rgb8', 'rgba8'):
             img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
     if img.shape[1] != size[0] or img.shape[0] != size[1]:
@@ -1698,12 +2404,15 @@ def base_image(frame, size=(640, 360)):
     return img, name, frame.get('rgb_age', math.nan)
 
 
-def depth_panel(frame, size=(640, 360), max_m=12.0):
+def depth_panel(frame, size=(640, 360), max_m=12.0, has_depth=True):
     """The depth image, TURBO over 0..max_m, INVALID black."""
     row = frame.get('mask_row')
     img = np.zeros((size[1], size[0], 3), np.uint8)
+    if not has_depth:
+        put(img, 'DEPTH NOT RECORDED', (12, 40), C_MISSING, 0.9, 2)
+        return img
     if row is None or row.get('depth') is None:
-        put(img, 'no depth frame', (12, 24), (120, 120, 120), 0.5)
+        put(img, 'no depth frame yet', (12, 24), (120, 120, 120), 0.5)
         return img
     depth = row['depth']
     with np.errstate(invalid='ignore'):
@@ -1746,25 +2455,58 @@ def payload_tracks(frame):
     return (row.get('dbg') or {}).get('tracks') or []
 
 
-def draw_camera(src, frame, cam, scale=2):
+def class_strip(fracs, width, height=30):
+    """A stacked bar of the per-class share of this frame, in CLASS_NAMES order."""
+    strip = np.full((height, width, 3), 16, np.uint8)
+    if not fracs:
+        put(strip, 'no class mask for this frame', (8, height - 10), (150, 150, 150), 0.46)
+        return strip
+    for cls, x0, x1 in fraction_segments(fracs, list(scene_mask.CLASS_NAMES), width):
+        cv2.rectangle(strip, (x0, 0), (x1 - 1, height - 1),
+                      DRAW_CLASS_COLOURS.get(cls, (128, 128, 128)), -1)
+        label = f'{short_class(scene_mask.CLASS_NAMES[cls])} {100 * fracs[cls]:.0f}%'
+        if x1 - x0 >= 9 * len(label):
+            put(strip, label, (x0 + 4, height - 10), (255, 255, 255), 0.44)
+        elif x1 - x0 >= 40:
+            put(strip, f'{100 * fracs[cls]:.0f}%', (x0 + 3, height - 10), (255, 255, 255), 0.4)
+    return strip
+
+
+def mask_label(masks, cls):
+    """What the class tint is, for the text bar."""
+    if masks is None or masks.source is None:
+        return (masks.note if masks is not None else 'no mask'), False
+    if cls is None:
+        return f'{masks.source.upper()} mask: none yet', False
+    stale = cls['age'] > MASK_WATCHDOG_AGE_S
+    what = (f'RECORDED {REC_CLASSES_TOPIC}' if masks.source == 'recorded'
+            else 'REPLAYED (recomputed by the installed code, --mask replay)')
+    return (f'{"MASK STALE  " if stale else ""}mask {what}  age {cls["age"]:.2f}s', stale)
+
+
+def draw_camera(src, frame, cam, scale=2, mask_src=None):
     """The left image with the classes, the scan, the walls and the masks on it."""
     img, source, age = base_image(frame)
     row = frame.get('mask_row')
     h, w = img.shape[:2]
 
-    # ---- classes -----------------------------------------------------------
+    # ---- classes: ONE source, MaskSource's; nothing if it is missing ------
     counts = {}
-    if row is not None and row.get('mask') is not None:
-        labels = row['mask']
+    cls_ref = frame.get('cls')
+    labels = mask_src.labels(cls_ref['i']) if mask_src is not None and cls_ref else None
+    if labels is not None:
         if labels.shape != (h, w):
             labels = cv2.resize(labels, (w, h), interpolation=cv2.INTER_NEAREST)
         tint = np.zeros_like(img)
-        for cls, colour in scene_mask.CLASS_COLOURS.items():
+        for cls, colour in DRAW_CLASS_COLOURS.items():
             tint[labels == cls] = colour
         img = cv2.addWeighted(img, 0.62, tint, 0.38, 0.0)
-        counts = {scene_mask.CLASS_NAMES[i]: float((labels == i).mean())
-                  for i in scene_mask.CLASS_NAMES}
+        counts = {scene_mask.CLASS_NAMES[i]: v for i, v in (cls_ref['frac'] or {}).items()
+                  if i in scene_mask.CLASS_NAMES}
     img = cv2.resize(img, (w * scale, h * scale), interpolation=cv2.INTER_LINEAR)
+    if labels is None:
+        put(img, 'MASK UNDECODABLE' if cls_ref else mask_label(mask_src, cls_ref)[0],
+            (24, 56), C_MISSING, 1.1, 2)
 
     # ---- YOLO instance masks, outlined -------------------------------------
     masks = frame.get('masks2d')
@@ -1876,7 +2618,9 @@ def draw_camera(src, frame, cam, scale=2):
     value = (rrow or {}).get('value')
     if value is None:
         value = rec.get('distance_m')
-    bar = np.zeros((108, img.shape[1], 3), np.uint8)
+    # 132 px: five text lines; the MASK STALE warning is on the fifth, inside
+    # the bar (it used to be drawn at y = 116 of a 108 px bar, i.e. nowhere).
+    bar = np.zeros((132, img.shape[1], 3), np.uint8)
     put(bar, f't {frame["rel"]:7.2f}s   speed {frame["speed"]:.3f} m/s'
              f'   {"MOVING" if frame["moving"] else "still"}', (10, 20),
         (255, 255, 255) if frame['moving'] else (150, 150, 150), 0.52)
@@ -1886,24 +2630,25 @@ def draw_camera(src, frame, cam, scale=2):
         (10, 44), CONTRACT_COLOUR.get(state, (200, 200, 200)), 0.52)
     put(bar, '  '.join(f'{short_class(k)} {v * 100:4.1f}%' for k, v in counts.items())
         or 'no scene mask', (10, 68), (200, 200, 200), 0.46)
-    note = ' (detector-annotated, desaturated)' if source.endswith('/compressed') else ''
-    mask_age = frame.get('mask_age', float('nan'))
-    if math.isfinite(mask_age) and mask_age > MASK_WATCHDOG_AGE_S:
-        # The watchdog's own verdict, where the eye is already looking: on this
-        # run the mask froze at t = 30.5 s and the only trace was this number
-        # growing 1:1 with the video clock.
-        put(bar, f'MASK STALE {mask_age:.1f} s', (10, 116), (0, 200, 255), 0.56)
-    put(bar, f'base {source or "none"}{note} age {age:+.2f}s   mask age '
-             f'{frame.get("mask_age", float("nan")):.2f}s   cycle age '
+    note = (' (debug JPEG PHOTO: detector-annotated, desaturated; not a mask)'
+            if source.endswith('/compressed') else '')
+    put(bar, f'base {source or "none"}{note} age {age:+.2f}s   cycle age '
              f'{frame.get("row_age", float("nan")):.2f}s   yolo inst {n_inst}',
         (10, 92), (160, 160, 160), 0.44)
-    img = np.vstack([img, bar])
+    # The watchdog's own verdict, where the eye is already looking: on the
+    # 10-15 run the mask froze at t = 30.5 s and the only trace was its age
+    # growing 1:1 with the video clock.
+    text, stale = mask_label(mask_src, cls_ref)
+    put(bar, text, (10, 118), C_MISSING if stale or labels is None else (160, 160, 160),
+        0.56 if stale else 0.46)
+    img = np.vstack([img, class_strip(cls_ref['frac'] if cls_ref else None, img.shape[1]),
+                     bar])
 
     # ---- legends -----------------------------------------------------------
     for i, (cls, name) in enumerate(scene_mask.CLASS_NAMES.items()):
         y = 22 + 18 * i
         cv2.rectangle(img, (img.shape[1] - 150, y - 11), (img.shape[1] - 134, y + 2),
-                      scene_mask.CLASS_COLOURS[cls], -1)
+                      DRAW_CLASS_COLOURS.get(cls, (128, 128, 128)), -1)
         put(img, name, (img.shape[1] - 128, y), (230, 230, 230), 0.42)
     for i, status in enumerate(STATUS_ORDER):
         y = 22 + 18 * (len(scene_mask.CLASS_NAMES) + 1 + i)
@@ -1952,12 +2697,12 @@ def draw_side_notes(img, frame, y0):
              ROLE_COLOUR.get(tr.role, (200, 200, 200)), 0.46, 22)
 
 
-def render_camera(src, frames, cam, path):
+def render_camera(src, frames, cam, path, masks=None, has_depth=True):
     out = []
     for f in frames:
-        main = draw_camera(src, f, cam)
+        main = draw_camera(src, f, cam, mask_src=masks)
         w = main.shape[1] // 2
-        depth = cv2.resize(depth_panel(f), (w, int(round(w * 9 / 16))),
+        depth = cv2.resize(depth_panel(f, has_depth=has_depth), (w, int(round(w * 9 / 16))),
                            interpolation=cv2.INTER_NEAREST)
         side = np.zeros((main.shape[0], w, 3), np.uint8)
         side[:depth.shape[0]] = depth
@@ -2129,9 +2874,13 @@ def draw_panel(src, frame, w=520, h=760):
     y[0] = h - 58
     line(f'cycle age {frame.get("row_age", float("nan")):.2f} s   '
          f'scan age {frame.get("scan_age", float("nan")):.2f} s', (130, 130, 130), 0.42)
-    mask_age = frame.get('mask_age', float('nan'))
+    # The age of the mask the camera video draws (recorded or replayed), else
+    # of the replay's own mask.
+    cls = frame.get('cls')
+    mask_age = cls['age'] if cls else frame.get('mask_age', float('nan'))
     stale = math.isfinite(mask_age) and mask_age > MASK_WATCHDOG_AGE_S
-    line(f'mask age {mask_age:.2f} s{"  STALE" if stale else ""}   '
+    line(f'{"drawn" if cls else "replay"} mask age {mask_age:.2f} s'
+         f'{"  STALE" if stale else ""}   '
          f'costmap age {frame.get("clearance_age", float("nan")):.2f} s',
          (0, 200, 255) if stale else (130, 130, 130), 0.42)
     return img
@@ -2147,12 +2896,13 @@ def wall_value(payload):
 
 
 class TopChart:
-    """Contract value and state, true strip range, costmap clearance, speed."""
+    """Contract value and state, true strip range, costmap clearance, speed,
+    and a thin strip of the per-class shares of the drawn mask over time."""
 
-    def __init__(self, frames, window, src, w=1280, h=260, y_max=25.0):
+    def __init__(self, frames, window, src, w=1280, h=274, y_max=25.0):
         self.w, self.h, self.y_max = w, h, y_max
         self.t0, self.t1 = frames[0]['t'], frames[-1]['t']
-        self.l, self.r, self.top, self.bot = 52, w - 168, 14, h - 28
+        self.l, self.r, self.top, self.bot = 52, w - 168, 14, h - 42
         img = np.full((h, w, 3), 22, np.uint8)
         for a, b in window:
             over = img.copy()
@@ -2174,6 +2924,16 @@ class TopChart:
             u = self.u(f['t'])
             cv2.line(img, (u, self.bot + 2), (u, self.bot + 10),
                      CONTRACT_COLOUR.get(state, (90, 90, 90)), 2)
+        # the class shares of the drawn mask, stacked bottom-up in CLASS_NAMES order
+        y0, sh = self.bot + 13, 10
+        for f, nxt in zip(frames, frames[1:] + frames[-1:]):
+            frac = (f.get('cls') or {}).get('frac')
+            if not frac:
+                continue
+            u0, u1 = self.u(f['t']), max(self.u(nxt['t']), self.u(f['t']) + 1)
+            for cls, a, b in fraction_segments(frac, list(scene_mask.CLASS_NAMES), sh):
+                cv2.rectangle(img, (u0, y0 + sh - b), (u1 - 1, y0 + sh - a - 1),
+                              DRAW_CLASS_COLOURS.get(cls, (128, 128, 128)), -1)
         sp = [(self.u(f['t']),
                self.bot - int(min(abs(f['speed'] or 0.0), 1.0) * (self.bot - self.top) * 0.35))
               for f in frames]
@@ -2193,7 +2953,8 @@ class TopChart:
                 ('WALL m, replay', (60, 60, 255)),
                 ('WALL m, recorded', (0, 200, 255)),
                 ('speed (0..1)', (90, 90, 90)), ('WALL', CONTRACT_COLOUR['wall']),
-                ('CLEAR', CONTRACT_COLOUR['clear']), ('NO_DATA', CONTRACT_COLOUR['no_data'])]):
+                ('CLEAR', CONTRACT_COLOUR['clear']), ('NO_DATA', CONTRACT_COLOUR['no_data']),
+                ('mask classes (strip)', (150, 150, 150))]):
             put(img, label, (self.r + 8, self.top + 14 + 17 * i), colour, 0.38)
         put(img, f'm (clipped at {y_max:.0f}); green band = moving window',
             (4, self.top + 2), (125, 125, 125), 0.36)
@@ -2307,8 +3068,62 @@ def write_replay_md(path, src, cmp_out, cycles, rows_rec, rows_full, mask_rows, 
     return Path(path).write_text('\n'.join(L) + '\n')
 
 
-def write_summary_md(path, src, summary, evidence, window, videos):
+def headline_md(head, steps_info=None, cmp_summary=None):
+    """The headline section of summary.md (and the whole of compare.md)."""
+    L = ['## Headline metrics, per pass', '']
+    span = head.get('span_s')
+    L += [f'Span: {"t = %.2f .. %.2f s" % tuple(span) if span else "the whole bag"} '
+          '(the tracker replay always starts at the bag start).', '']
+    if steps_info:
+        L += [f'Tracker steps: {steps_info.get("replayed_cycles")} replayed '
+              f'(--tracker-steps {steps_info.get("mode")}; record format '
+              f'{steps_info.get("format")}, car decimation {steps_info.get("decimation")}, '
+              f'{steps_info.get("payloads")} recorded payloads, missing steps '
+              f'{steps_info.get("missing_steps")}, sequence breaks '
+              f'{steps_info.get("breaks")}, gaps > 1.5x median {steps_info.get("long_gaps")}).',
+              '']
+    passes = head.get('passes') or {}
+    names = list(passes)
+    flat, _notes = flat_headline({'summary': {'headline': head}})
+    L += table([[metric, how] + [flat.get(n, {}).get(metric) for n in names]
+                for metric, how in COMPARE_METRICS],
+               ['metric', 'meaning'] + names) + ['']
+    for n in names:
+        L += [f'- `{n}`: {passes[n].get("source")}']
+    L += ['']
+    for k, v in (head.get('definitions') or {}).items():
+        L += [f'- **{k}**: {v}']
+    L += ['']
+    for n in names:
+        eps = passes[n].get('phantom_episode_list') or []
+        if eps:
+            L += [f'Phantom FRONT episodes, `{n}`:', '']
+            L += table([[e['start_s'], e['end_s'], e['cycles'], e['kind'], e['error_median_m'],
+                         'yes' if e['moving'] else 'no'] for e in eps],
+                       ['start [s]', 'end [s]', 'cycles', 'kind', 'finite err med [m]',
+                        'moving']) + ['']
+        ids = (passes[n].get('tracks_rho_lt_0_5') or {}).get('ids')
+        if ids:
+            L += [f'`{n}` confirmed tracks with |rho_bl| < {RHO_BL_CLOSE_M} m: {ids}', '']
+    if cmp_summary:
+        L += compare_md(cmp_summary)
+    return L
+
+
+def compare_md(cmp_summary):
+    L = [f'## Before / after: `{cmp_summary["before"]}`', '',
+         'before = the older summary.json, after = this run; same metric names, same '
+         'pass names. Read the note column: a pre-v2 summary has no headline block and '
+         'only some metrics map.', '']
+    L += table(cmp_summary['rows'], ['metric', 'pass', 'before', 'after', 'delta', 'note'])
+    return L + ['']
+
+
+def write_summary_md(path, src, summary, evidence, window, videos, steps_info=None,
+                     cmp_summary=None):
     L = [f'# Step 4 - summary for `{src.name}`', '']
+    if summary.get('headline'):
+        L += headline_md(summary['headline'], steps_info, cmp_summary)
     st = summary['state_time_s']
     L += ['## Per-state time (the WALL / CLEAR / NO_DATA contract)', '']
     keys = sorted(set(st['recorded']) | set(st['replay']))
@@ -2330,9 +3145,14 @@ def write_summary_md(path, src, summary, evidence, window, videos):
                     'true strip min', 'err med', 'err p95', 'moving']) + ['']
     else:
         L += ['No WALL episode at all.', '']
-    L += [f'Phantom episodes (WALL more than 0.5 m short of the true strip range): '
-          f'**{len(summary["phantom_front_episodes"])}**.', '']
-    L += ['## End-wall error vs the true strip range', '']
+    L += [f'Phantom episodes, RECORDED, pre-v2 definition (WALL more than 0.5 m short of '
+          f'a NON-EMPTY true strip; an empty strip is not counted here -- the headline '
+          f'table counts it): **{len(summary["phantom_front_episodes"])}**.', '']
+    L += ['## All-WALL error vs the true strip range', '',
+          'Every WALL cycle of the span with a return in the strip -- side walls, '
+          'phantoms and the stationary time included. This is what earlier summaries '
+          'called the "end-wall error"; the headline end-wall error is the moving-window '
+          'cycles with the strip under --end-wall-range.', '']
     L += table([[k, v['n'], v['median'], v['p05'], v['p95'], v['max_abs']]
                 for k, v in summary['end_wall_error_m'].items()],
                ['pass', 'n', 'median [m]', 'p05', 'p95', 'max |err|']) + ['']
@@ -2580,25 +3400,65 @@ def write_columns_csv(path, mask_rows, rows):
 # Driver
 # ============================================================================
 
-def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full')):
+def load_compare(path, name):
+    """The old summary.json for bag `name`: PATH itself, or <PATH>/<name>.summary.json."""
+    path = Path(path).expanduser()
+    if path.is_dir():
+        hits = [path / f'{name}.summary.json'] + sorted(path.glob('*.summary.json'))
+        path = next((h for h in hits if h.is_file()), path / f'{name}.summary.json')
+    return path, json.loads(path.read_text())
+
+
+def warmup_report(src, cycles, span):
+    """Lines on how warm the replayed tracker is at the span start, and the car's head start."""
+    lines = []
+    if cycles:
+        first = cycles[0]['stamp']
+        start = span[0] if span else first
+        n = sum(1 for c in cycles if c['stamp'] < start)
+        lines.append(f'warm-up: replay cold from the first step at t = {src.rel(first):.2f} s; '
+                     f'{max(start - first, 0.0):.2f} s ({n} steps) before the span starts '
+                     f'at t = {src.rel(start):.2f} s')
+    walls = src.get('/perception/walls')
+    if walls:
+        ages = [tr.age for tr in walls[0][2].tracks]
+        if ages:
+            lines.append(f'the CAR\'s oldest track at its first /perception/walls '
+                         f'(t = {src.rel(walls[0][0]):.2f} s) was {max(ages):.1f} s old: '
+                         'a head start no replay has')
+    return lines
+
+
+def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full'), mask_mode='auto',
+            t0=None, t1=None, end_range=END_WALL_RANGE_M, tracker_steps_mode='car',
+            compare_path=None):
     global LASER_Z
     out_dir = Path(out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
     src = Src(path)
     name = src.name
-    print(f'== {name}: {sum(src.counts.values())} messages on {len(src.counts)} topics')
+    print(f'== {name}: {sum(src.counts.values())} messages on {len(src.counts)} topics'
+          f' in {len(src.dbs)} file(s)')
+    # Read the old summary first: a bad path should fail before the replay, not after.
+    before = load_compare(compare_path, name) if compare_path is not None else None
 
     poses = Poses(src.get('/odometry/filtered'))
     window = moving_window(poses)
     info, info_json = inventory(src, poses, window)
     (out_dir / f'{name}.info.txt').write_text(info)
-    print(info.split('REQUIRED TOPICS')[-1].split('MOVING WINDOW')[0].strip()[:0] or '', end='')
     for line in info.splitlines():
         if line.startswith('    ') and '..' in line:
             print('   moving window:' + line)
     missing = info_json['missing_required']
     if missing:
         print(f'   MISSING REQUIRED: {", ".join(missing)}')
+    # --t0 / --t1 are relative to the first /scan stamp, like every printed t.
+    span = None
+    if t0 is not None or t1 is not None:
+        span = (src.T0 + (t0 if t0 is not None else -1e9),
+                src.T0 + (t1 if t1 is not None else 1e9))
+        print(f'   summary/video span t = {src.rel(span[0]):.2f} .. {src.rel(span[1]):.2f} s '
+              '(the replay itself still runs from the bag start)')
 
     to_base = slr.static_tf([m for _s, _r, m in src.get('/tf_static')])
     lp = to_base('laser')
@@ -2624,17 +3484,32 @@ def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full')):
     else:
         print('   no depth in this bag: the camera half is not replayed')
 
-    cycles = recorded_cycles(src)
-    print(f'   {len(cycles)} recorded cycles, '
+    cycles, steps_info = recorded_cycles(src, tracker_steps_mode)
+    print(f'   tracker steps: {len(cycles)} of {steps_info["payloads"]} recorded debug '
+          f'payloads (--tracker-steps {tracker_steps_mode}; record format '
+          f'{steps_info["format"]}, car decimation {steps_info["decimation"]}), '
           f'{sum(1 for c in cycles if c["scan"] is None)} without their scan')
+    if steps_info['missing_steps'] or steps_info['breaks']:
+        print(f'   PHASE: {steps_info["missing_steps"]} car tracker steps missing from the '
+              f'record (their payload was not recorded: the replay cannot make them), '
+              f'{steps_info["breaks"]} breaks in the tracker_skipped sequence')
+    if steps_info['long_gaps']:
+        print(f'   {steps_info["long_gaps"]} step-to-step gaps over 1.5x the median '
+              f'{steps_info["median_step_s"]:.3f} s (dropped or unpublished steps)')
+    for line in warmup_report(src, cycles, span):
+        print('   ' + line)
     rows = {}
+    rect_sources = set()
     for mode in stereo_passes:
         if mode == 'full' and not mask_rows:
             continue
         rp = WallReplay(src, stereo=mode, replayed=mask_rows)
+        rect_sources.add(rp.rect_source)
         rows[mode] = rp.run(cycles)
         rp.close()
         print(f'   lidar replay "{mode}": {sum(1 for r in rows[mode] if r)} cycles')
+    print(f'   rectangle check fed the {"/".join(sorted(str(x) for x in rect_sources))} '
+          'class mask + depth pair (one source only)')
     rows_rec = rows.get('rec') or [None] * len(cycles)
     rows_full = rows.get('full')
 
@@ -2644,35 +3519,74 @@ def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full')):
     write_csv(out_dir / f'{name}.replay.csv', cycles, rows_rec, rows_full, src, poses, window)
     write_columns_csv(out_dir / f'{name}.columns.csv', mask_rows, rows_rec)
 
-    summary = summarize(src, cycles, rows_rec, mask_rows, poses, window, front_x, half)
-    evidence = param_evidence(src, rows_rec, mask_rows, self_mask,
-                              self_polygons, window)
+    summary = summarize(src, cycles, rows_rec, mask_rows, poses, window, front_x, half, span)
+    summary['headline'] = headline(src, cycles, {'rec': rows.get('rec'), 'full': rows_full},
+                                   window, front_x, half, span, end_range)
+    summary['tracker_steps'] = steps_info
+    span_rows = [r for r in rows_rec if r and in_span(span, r['stamp'])]
+    span_masks = [r for r in mask_rows if in_span(span, r['stamp'])]
+    evidence = param_evidence(src, span_rows, span_masks, self_mask, self_polygons, window)
+
+    compare_out = None
+    if before is not None:
+        before_path, before_doc = before
+        old, notes = flat_headline(before_doc)
+        new, _n = flat_headline({'summary': summary})
+        compare_out = {'before': str(before_path), 'rows': compare_rows(old, new, notes)}
+        if Path(str(before_doc.get('bag', ''))).name not in ('', name):
+            print(f'   NOTE: {before_path} is for bag {before_doc.get("bag")}, not {name}')
+        text = '\n'.join(compare_md(compare_out)) + '\n'
+        (out_dir / f'{name}.compare.md').write_text(text)
+        print(text)
 
     videos = {}
     if video:
         cam = camera_pose(src, cam_frame) if cam_frame else None
-        if window:
-            span = (window[0][0], window[-1][1])
+        masks = MaskSource(src, mask_rows, mask_mode, has_depth=bool(depth_topic))
+        print(f'   camera video mask: {masks.source or masks.note} (--mask {mask_mode})')
+        cam_span = clip_window(window, span)
+        if cam_span:
             frames = build_timeline(src, rows_rec, mask_rows, poses, window,
-                                    front_x, half, CAM_HZ, span)
-            p = render_camera(src, frames, cam, out_dir / f'{name}.camera.mp4')
+                                    front_x, half, CAM_HZ, cam_span, masks)
+            p = render_camera(src, frames, cam, out_dir / f'{name}.camera.mp4', masks,
+                              bool(depth_topic))
             videos['camera (moving window, 5 Hz)'] = p
             print(f'   camera video: {p}')
+        top_span = None
+        if span is not None:
+            scan_t = src.stamps('/scan') or [src.t0, src.t1]
+            top_span = (max(span[0], scan_t[0]), min(span[1], scan_t[-1]))
         frames = build_timeline(src, rows_rec, mask_rows, poses, window,
-                                front_x, half, TOP_HZ)
-        p = render_topdown(src, frames, window, front_x, half, out_dir / f'{name}.topdown.mp4')
-        videos['top-down (whole run, 10 Hz)'] = p
-        print(f'   top-down video: {p}')
+                                front_x, half, TOP_HZ, top_span, masks)
+        if frames:
+            p = render_topdown(src, frames, window, front_x, half,
+                               out_dir / f'{name}.topdown.mp4')
+            videos['top-down (whole run, 10 Hz)' if span is None
+                   else 'top-down (span, 10 Hz)'] = p
+            print(f'   top-down video: {p}')
 
     write_summary_md(out_dir / f'{name}.summary.md', src, summary, evidence, window,
-                     {k: str(v) for k, v in videos.items()})
+                     {k: str(v) for k, v in videos.items()}, steps_info, compare_out)
     (out_dir / f'{name}.summary.json').write_text(json.dumps(
         {'bag': str(src.path), 'info': info_json, 'compare': cmp_out,
-         'summary': summary, 'evidence': evidence,
+         'summary': summary, 'evidence': evidence, 'compare_summary': compare_out,
+         'options': {'mask': mask_mode, 't0': t0, 't1': t1, 'end_wall_range_m': end_range,
+                     'tracker_steps': tracker_steps_mode, 'stereo': list(stereo_passes)},
          'videos': {k: str(v) for k, v in videos.items()}},
         indent=2, default=str))
+    close_ro_connections()
     print(f'   wrote {out_dir}/{name}.*')
     return summary
+
+
+def clip_window(window, span):
+    """(first start, last end) of the moving window, cut to span; None if empty."""
+    if not window:
+        return None
+    a, b = window[0][0], window[-1][1]
+    if span is not None:
+        a, b = max(a, span[0]), min(b, span[1])
+    return (a, b) if b > a else None
 
 
 def main():
@@ -2686,13 +3600,31 @@ def main():
     ap.add_argument('--speed-pad', type=float, default=SPEED_PAD)
     ap.add_argument('--stereo', default='rec,full',
                     help='which LiDAR passes to run: rec, full, or both (default)')
+    ap.add_argument('--mask', choices=('auto', 'recorded', 'replay'), default='auto',
+                    help='class mask drawn in the camera video: the recorded '
+                         '/perception/scene_labels/classes (auto: when present, else none), '
+                         'or the replay\'s recomputed one (default auto)')
+    ap.add_argument('--t0', type=float, default=None,
+                    help='summary/video span start [s from the first /scan]; the tracker '
+                         'replay still starts at the bag start')
+    ap.add_argument('--t1', type=float, default=None, help='summary/video span end [s]')
+    ap.add_argument('--end-wall-range', type=float, default=END_WALL_RANGE_M,
+                    help='end-wall error: moving cycles with the true strip range under '
+                         'this [m] (default %(default)s)')
+    ap.add_argument('--tracker-steps', choices=('car', 'debug'), default='car',
+                    help='car: the tracker steps the car made (tracker_skipped == 0); '
+                         'debug: one per recorded debug payload (pre-v2 behaviour)')
+    ap.add_argument('--compare-summary', type=Path, default=None,
+                    help='an older <bag>.summary.json (or the folder holding it): print '
+                         'and write a before/after table of the headline metrics')
     cfg = ap.parse_args()
     SPEED_THRESHOLD, SPEED_PAD = cfg.speed_threshold, cfg.speed_pad
     passes = tuple(s.strip() for s in cfg.stereo.split(',') if s.strip())
     rclpy.init()
     try:
         for bag in cfg.bags:
-            run_bag(bag, cfg.out, not cfg.no_video, passes)
+            run_bag(bag, cfg.out, not cfg.no_video, passes, cfg.mask, cfg.t0, cfg.t1,
+                    cfg.end_wall_range, cfg.tracker_steps, cfg.compare_summary)
     finally:
         rclpy.shutdown()
     return 0

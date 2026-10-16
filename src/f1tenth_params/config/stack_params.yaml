@@ -2214,6 +2214,12 @@ mission_logger_record_depth:
 mission_logger_record_annotated_image:
   default: false
   description: "Record /camera/image_annotated (raw bgr8 at the detector rate, 134 of the 179 MB of the 2026-10-13 R007 bag) in mission bags. false: not recorded; the 5 Hz /camera/debug_image/compressed shows the same detections, and snapshots come from it."
+# Consumed by: f1tenth_logger/mission_logger.launch.py (passes `profile` to
+# mission_logger_node, starts the 5 Hz image/depth throttles) -- cpu-cleanup R2
+# block 4a. Under the supervisor only stack_params reaches it (no pass-through).
+mission_logger_profile:
+  default: "default"
+  description: "Mission-bag recording profile. 'default': the fixed list (+ record_depth / record_annotated_image). 'campaign': adds, at ~5 Hz, the per-pixel scene mask /perception/scene_labels/classes (mono8 640x360, 230 kB, ~69 MB/min), the camera frame YOLO and the mask use /camera/image_raw_5hz (bgra8 640x360, 922 kB, ~276 MB/min, a topic_tools throttle started by the launch file), depth_registered_5hz + camera_infos (32FC1, ~277 MB/min, already there with record_depth) and /perception/wall_observations (~0.7 MB/min, already in the list) -- what tools/corridor_wall_replay.py needs to draw the recorded mask and re-run the tracker. Estimated ~650 MB/min with an empty scene, ~800+ with objects (detection_masks at full rate is already in the default list): output/cpu_cleanup/report.md. Use for wall-tracker campaign runs, not every mission."
 # Consumed by: f1tenth_logger/mission_logger.launch.py AND mission_logger_node.py
 # (the node falls back to this same key when launched bare via `ros2 run`, so
 # both entry points agree without the launch file having to be involved).
