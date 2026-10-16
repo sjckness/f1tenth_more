@@ -208,7 +208,7 @@ def propagate_objects(objects_xyr, pose_then, pose_now):
 # Extraction
 # ============================================================================
 
-def extraction_params(merge_max_gap_m=None, quality_gates=None):
+def extraction_params(merge_max_gap_m=None, quality_gates=None, backend=None):
     """The extraction's own defaults, with the merge gap and the gates overridden.
 
     The merge is what makes a span mean "the length of this wall" rather than
@@ -217,14 +217,18 @@ def extraction_params(merge_max_gap_m=None, quality_gates=None):
     gap. `quality_gates` is corridor_perception's seed/rms/fill gates (see
     extraction.py, WHY THE QUALITY GATES); off, the extraction reports every
     collinear triple it can find, which is what the span gate below then has
-    to clean up on its own. Everything else stays corridor_perception's own
-    default.
+    to clean up on its own. `backend` is 'c' (corridor_perception_c's
+    libextract_lines.so, 1.1 ms a scan) or 'python' (the reference, 24.6 ms);
+    the two agree to 7e-15 over every scan of corridor10m_20261015T171753.
+    Everything else stays corridor_perception's own default.
     """
     p = ExtractionParams()
     if merge_max_gap_m is not None:
         p.merge_gap = float(merge_max_gap_m)
     if quality_gates is not None:
         p.quality_gates = bool(quality_gates)
+    if backend is not None:
+        p.backend = str(backend)
     return p
 
 

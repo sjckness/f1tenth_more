@@ -102,6 +102,11 @@ class ExtractionParams:
     min_fill: float = 0.6                    # of the span's unoccluded beams
     occlusion_margin_m: float = 0.10         # nearer than this IS an occluder
     min_incidence: float = 0.05              # |n . v| below this has no s_k
+    #: 'c' uses corridor_perception_c's libextract_lines.so and falls back to
+    #: 'python' with one warning if it is not installed; 'python' is this file.
+    #: The two agree to 1e-4 over every scan of a recording by test, which is
+    #: the only reason the default is the one that is harder to read.
+    backend: str = 'c'
 
 
 def point_sigma(ranges, p: ExtractionParams) -> np.ndarray:
@@ -385,13 +390,53 @@ def _merge_clusters(segs: list[Line], p: ExtractionParams) -> list[list[int]]:
     return list(clusters.values())
 
 
+#: Set once, the first time the C backend is asked for and missing, so the
+#: warning below is logged once per process rather than once per scan.
+_C_WARNED = False
+
+
+def c_backend_warning() -> str | None:
+    """The one-time message when backend 'c' is asked for and unavailable.
+
+    Returns the text the first time and None afterwards, so a caller can log
+    it at WARN without a throttle and without importing anything.
+    """
+    global _C_WARNED
+    from . import extraction_c
+    if extraction_c.available() or _C_WARNED:
+        return None
+    _C_WARNED = True
+    return ('corridor_perception_c is not installed (' +
+            str(extraction_c.load_error()) + '); extract_segments falls back '
+            'to the Python backend, which is ~12x slower a scan')
+
+
 def extract_segments(ranges, angles, p: ExtractionParams | None = None,
                      stats: dict | None = None) -> list[Line]:
     """Supported line segments in the sensor frame.
 
     `stats`, when given, is filled with what each stage dropped:
     seed/rms/fill/support, and `kept`.
+
+    Dispatches on p.backend. The C is the default and this file is the
+    REFERENCE: test_extraction_backends.py runs both over a whole recording
+    and over every unit test here, so a disagreement is a bug in the C.
     """
+    p = p or ExtractionParams()
+    if getattr(p, 'backend', 'python') == 'c':
+        from . import extraction_c
+        # The C can only express a uniform bearing grid, which is what a
+        # LaserScan is; anything else -- a test synthesising points, a replay
+        # re-deriving bearings from a cloud -- goes to the reference.
+        if extraction_c.available() and extraction_c.uniform_angles(angles):
+            require_clean(ranges, 'extract_segments')
+            return extraction_c.extract_segments_c(ranges, angles, p, stats)
+    return extract_segments_python(ranges, angles, p, stats)
+
+
+def extract_segments_python(ranges, angles, p: ExtractionParams | None = None,
+                            stats: dict | None = None) -> list[Line]:
+    """extract_segments' reference implementation. See that function."""
     p = p or ExtractionParams()
     r = require_clean(ranges, 'extract_segments')
     a = np.asarray(angles, dtype=float)

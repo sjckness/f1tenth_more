@@ -327,6 +327,7 @@ from f1tenth_perception.lidar_front_wall import (
     classify_fit,
     fit_forward_line,
 )
+from corridor_perception import extraction
 from f1tenth_perception import multi_wall_tracker as mwt
 from f1tenth_perception import scene_labels, scene_mask, wall_fusion
 from f1tenth_perception.ground_plane import quat_to_matrix
@@ -535,7 +536,15 @@ class LidarFrontWallNode(Node):
         # parameter block as the span thresholds.
         self.extraction_params = mwt.extraction_params(
             tracker_params.merge_max_gap_m,
-            quality_gates=bool(param('wall_extract_quality_gates', True)))
+            quality_gates=bool(param('wall_extract_quality_gates', True)),
+            backend=str(param('wall_extract_backend', 'c')))
+        # One warning, at startup, if the C backend was asked for and is not
+        # there: the Python is 22x slower a scan and the node must not be the
+        # only thing that knows it fell back.
+        warning = extraction.c_backend_warning() \
+            if self.extraction_params.backend == 'c' else None
+        if warning:
+            self.get_logger().warn(warning)
         #: What each extraction gate dropped on the last scan, for the debug payload.
         self._extract_stats = {}
         self._poses = mwt.PoseHistory()
