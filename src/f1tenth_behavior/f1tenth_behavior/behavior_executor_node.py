@@ -858,6 +858,9 @@ def main():
     # One timer at bt_tick_hz, every tick timed; p50/p95/max on /diagnostics
     # at 1 Hz, WARN on a tick over 50% of the period (tick_timing.py).
     ticker = BtTicker(node, tree, bt_tick_hz)
+    # Handed to the tree as its own timer, as tick_tock() did, so
+    # tree.shutdown() cancels and destroys it exactly as before.
+    tree.timer = ticker.timer
 
     # Last, once every publisher/subscription exists: drop rclpy's default
     # QoS event handlers, a quarter of this node's idle CPU (qos_events.py).
