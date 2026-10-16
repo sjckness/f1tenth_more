@@ -14,7 +14,7 @@ point, nothing pushed. Files staged by name.
 | **H2** | green | tracker on 1 scan in 4, counter-driven, depth-1 subscription; every other `/scan` consumer untouched; counts kept because at a decimated 10 Hz they are FASTER than the 4.2 Hz the node actually managed |
 | **H3** | green | cap by role: **36 hidden front cycles → 0**, contract WALL **22.51 → 37.70 s** against the recorded 35.91 |
 | **H4** | green | window `a92e133`→`d355bbe`, 17 commits, 11 hours; of 248 archive runs **exactly one** is affected, 42/71 frames, +0.2294 m per contaminated frame |
-| **H5** | amber | the script is written and a dry run exercised it end to end — after it found three bugs in itself, all of which would have bitten on the car. The dry-run NUMBERS are bag replay and are not representative |
+| **H5** | amber | the script is written and a dry run exercised it end to end — after it found four bugs in itself, all of which would have bitten on the car. The dry-run NUMBERS are bag replay and are not representative |
 
 **The headline: the tracker cycle is 44.20 → 21.58 ms p50, 17 ms UNDER the
 pre-E baseline of 38.59**, where last night it was 5.6 ms over. At the
@@ -221,9 +221,9 @@ Three files, no sudo anywhere, everything under `output/cpu_test/<timestamp>/`:
 | rates outside the bag | `cpu_test_probe.py rates` | one subscription per topic, from a static topic→type table rather than from graph introspection — see below |
 | internal timings | the nodes' own JSON: `tracker_ms`, `rect_ms` and `tracker_skipped` on `/perception/virtual_wall/debug`, `ms` on `/perception/scene_labels/stats`, `solve_time_ms` on `/mpc/status` | they are already published every cycle; nothing new was added to a node for this |
 
-### The dry run found three real bugs in the script
+### The dry run found four real bugs in the script
 
-Which is what a dry run is for. All three would have bitten on the car:
+Which is what a dry run is for. All four would have bitten on the car:
 
 1. **`ros2 topic pub -1` hangs** when no subscriber has matched yet, and phase b
    uses it to start the recorder. The first dry run stopped dead there. Both
@@ -240,8 +240,15 @@ Which is what a dry run is for. All three would have bitten on the car:
    the stack down every participant pointed at a server that was not there.
    `--dry-run` now unsets it for its own children; the car run does not touch it.
 
-The cleanup trap was exercised twice by the hang and killed exactly the
-processes the script owned, leaving the box clean.
+4. **Two `depth_throttle_5hz` nodes outlived the cleanup.** `ros2 launch`
+   starts them and killing the launch pid does not always give it time to
+   forward the signal. Each launch child now runs under `setsid` so it leads
+   its own process group, and the trap signals the GROUP. A `pkill` by node
+   name was rejected outright: on the car that would reach the live stack's own
+   nodes, and this script must only ever be able to signal what it started.
+
+The cleanup trap was exercised three times — twice by the hang, once
+deliberately — and after the fix it leaves nothing behind.
 
 ### Dry-run results — **BAG REPLAY, NOT REPRESENTATIVE OF THE CAR**
 

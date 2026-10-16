@@ -64,17 +64,23 @@ mkdir -p "$OUT"
 # Every background pid this script starts, and nothing else. The trap kills
 # only these, so a Ctrl-C can never take the stack down with it.
 declare -a OWNED=()
+# EVERY `ros2 launch` CHILD GETS ITS OWN PROCESS GROUP and the cleanup kills
+# the GROUP. Killing the launch pid alone is not enough: a dry run left two
+# orphaned depth_throttle_5hz nodes behind because launch was killed before it
+# had forwarded the signal to what it had started. A pkill by node name would
+# be the wrong fix -- on the car it would reach the live stack's own nodes --
+# so this script owns process groups and signals nothing outside them.
 cleanup() {
     local rc=$?
     trap - EXIT INT TERM
     echo
-    echo "cleaning up ${#OWNED[@]} process(es) this script started..."
+    echo "cleaning up ${#OWNED[@]} process(es)/group(s) this script started..."
     for pid in "${OWNED[@]:-}"; do
-        kill -INT "$pid" 2>/dev/null || true
+        kill -INT -- "-$pid" 2>/dev/null || kill -INT "$pid" 2>/dev/null || true
     done
-    sleep 2
+    sleep 3
     for pid in "${OWNED[@]:-}"; do
-        kill -KILL "$pid" 2>/dev/null || true
+        kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
     done
     wait 2>/dev/null || true
     echo "done: $OUT"
@@ -83,6 +89,9 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 own() { OWNED+=("$1"); }
+
+# A launch tree, in its own process group, so cleanup() can take all of it.
+spawn_group() { setsid "$@" & own $!; }
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
@@ -141,13 +150,11 @@ dry_run_inputs() {    # $1 = phase dir, $2 = phase letter
     # cannot see, or be seen by, a live stack. On the car this is NOT done:
     # there the real stack and this script must share the server.
     unset ROS_DISCOVERY_SERVER
-    ros2 launch f1tenth_perception lidar_front_wall.launch.py \
-        > "$d/lidar_front_wall.log" 2>&1 &
-    own $!
+    spawn_group ros2 launch f1tenth_perception lidar_front_wall.launch.py \
+        > "$d/lidar_front_wall.log" 2>&1
     if [[ "$phase" == "b" || "$phase" == "d" ]]; then
-        ros2 launch f1tenth_logger mission_logger.launch.py \
-            enable_mission_logger:=true > "$d/mission_logger.log" 2>&1 &
-        own $!
+        spawn_group ros2 launch f1tenth_logger mission_logger.launch.py \
+            enable_mission_logger:=true > "$d/mission_logger.log" 2>&1
     fi
     sleep 8
     if [[ "$phase" == "b" || "$phase" == "d" ]]; then

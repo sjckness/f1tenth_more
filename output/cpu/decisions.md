@@ -155,3 +155,14 @@ Decision: `--dry-run` unsets `ROS_DISCOVERY_SERVER` for its own children, which
 puts them on plain multicast discovery. A side effect worth having: they then
 cannot see, or be seen by, a live stack. On the car the script does NOT touch
 the variable -- there the real stack and the probes must share the server.
+## H5 — the cleanup kills process GROUPS, after a dry run left two orphans
+
+The first dry runs left two `depth_throttle_5hz` nodes behind. `ros2 launch`
+starts them, and killing the launch pid does not always give it time to forward
+the signal. Each `ros2 launch` child is now started with `setsid`, so it leads
+its own process group, and `cleanup()` signals the group.
+
+- Alternative: `pkill -f depth_throttle_5hz` and friends. **Rejected outright**:
+  on the car that would reach the live stack's own nodes, which is exactly what
+  this script must never do. Process groups mean it can only ever signal what
+  it started.
