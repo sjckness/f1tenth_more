@@ -39,7 +39,16 @@ CELL_NO_ID = -1
 
 #: Grid value per role. Distinct, small, and never 100: these are not
 #: occupancy probabilities and must not be read as any.
-ROLE_VALUE = {'front': 10, 'left': 20, 'right': 30, 'back': 40}
+#: Cell value per wall ROLE. Multiples of ten inside the OccupancyGrid
+#: convention's 0..100, so the grid reads on its own in any viewer.
+#: 'other' (50) is a wall the tracker holds and uses as a reference for
+#: NOTHING -- the geometry puts it nowhere near the car's path, or the stereo
+#: rectangle rejected it, or it is behind another confirmed wall
+#: (multi_wall_tracker, WHAT A ROLE IS). The cells are still a real surface
+#: and still occupied; what is NOT true of them is that they are the wall
+#: ahead, to the left or to the right. Before this role had a value of its
+#: own the .get() below silently filed them as 'back'.
+ROLE_VALUE = {'front': 10, 'left': 20, 'right': 30, 'back': 40, 'other': 50}
 VALUE_ROLE = {v: k for k, v in ROLE_VALUE.items()}
 
 
@@ -76,7 +85,9 @@ def rasterize_walls(walls, origin_x, origin_y, resolution, width, height,
         mask = _segment_mask(gx, gy, p0, p1, half)
         if not np.any(mask):
             continue
-        roles[mask] = ROLE_VALUE.get(role, ROLE_VALUE['back'])
+        # An unknown role is 'other', not 'back': a role this module has
+        # never heard of is certainly not a claim about where the wall is.
+        roles[mask] = ROLE_VALUE.get(role, ROLE_VALUE['other'])
         ids[mask] = int(wall_id)
     return roles, ids
 

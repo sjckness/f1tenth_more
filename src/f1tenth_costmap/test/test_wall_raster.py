@@ -280,3 +280,25 @@ class _Capture:
 
     def __call__(self, msg):
         self.last = msg
+
+
+def test_other_is_its_own_cell_value_and_not_back():
+    """A wall the tracker uses as a reference for nothing is still a surface,
+    and must not be filed as the wall BEHIND the car."""
+    from f1tenth_costmap.wall_raster import ROLE_VALUE, VALUE_ROLE, rasterize_walls
+    assert ROLE_VALUE['other'] == 50
+    assert len(set(ROLE_VALUE.values())) == len(ROLE_VALUE)   # no value reused
+    assert VALUE_ROLE[50] == 'other'
+    roles, ids = rasterize_walls([(1, 'other', (0.0, 0.0), (1.0, 0.0))],
+                                 -0.5, -0.5, 0.05, 40, 40)
+    assert (roles == ROLE_VALUE['other']).any()
+    assert not (roles == ROLE_VALUE['back']).any()
+    assert (ids == 1).any()
+
+
+def test_a_role_this_module_has_never_heard_of_is_other():
+    from f1tenth_costmap.wall_raster import ROLE_VALUE, rasterize_walls
+    roles, _ids = rasterize_walls([(7, 'spaceship', (0.0, 0.0), (1.0, 0.0))],
+                                  -0.5, -0.5, 0.05, 40, 40)
+    assert (roles == ROLE_VALUE['other']).any()
+    assert not (roles == ROLE_VALUE['back']).any()
