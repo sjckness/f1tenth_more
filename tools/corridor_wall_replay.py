@@ -116,6 +116,15 @@ WS = Path(__file__).resolve().parents[1]
 CAM_HZ = 5.0
 TOP_HZ = 10.0
 SPEED_THRESHOLD = 0.05
+#: One rectangle sample in four is drawn (Debug, the work order).
+RECT_SAMPLE_STRIDE = 4
+#: What one sample said, in the camera view: at, beyond, against, nothing.
+KIND_COLOUR = {wall_fusion.KIND_AT: (90, 220, 90),
+               wall_fusion.KIND_BEYOND: (240, 170, 60),
+               wall_fusion.KIND_AGAINST: (60, 60, 255),
+               wall_fusion.KIND_UNINFORMATIVE: (120, 120, 120)}
+#: Line style of a track by its rectangle verdict: solid, dashed, dotted.
+VERIFY_DASH = {'verified': 0.0, 'unverified': 0.22, 'rejected': 0.07}
 SPEED_PAD = 1.0
 LASER_Z = 0.19          # set per bag from /tf_static; the scan plane's height in base_link
 
@@ -170,7 +179,9 @@ STATUS_COLOUR = {
     wall_fusion.STATUS_EMPTY: (110, 110, 110),
 }
 ROLE_COLOUR = {'front': (60, 60, 255), 'left': (230, 170, 60),
-               'right': (60, 210, 230), 'back': (170, 170, 170)}
+               'right': (60, 210, 230), 'back': (170, 170, 170),
+               # Tracked, drawn, a reference wall for nothing.
+               'other': (120, 120, 130), '': (120, 120, 130)}
 CONTRACT_COLOUR = {'wall': (60, 60, 255), 'clear': (90, 220, 90), 'no_data': (0, 200, 255)}
 
 
@@ -419,7 +430,8 @@ class MaskReplay:
                 'front_blocked_pub', 'wall_debug_pub', 'scene_labels_pub', 'scene_debug_pub',
                 'stereo_wall_pub', 'unclassified_pub', 'front_distance_raw_pub',
                 'bg_pixel_count_pub', 'scene_mask_image_pub', 'wall_points_pub',
-                'scene_mask_stats_pub', 'stereo_columns_pub')
+                'scene_mask_stats_pub', 'stereo_columns_pub',
+                'scene_mask_classes_pub', 'scene_mask_depth_pub')
 
     def __init__(self, src, depth_topic):
         from cv_bridge import CvBridge
@@ -495,6 +507,10 @@ class MaskReplay:
         cols = caps['stereo_columns_pub'].pop()
         stats = caps['scene_mask_stats_pub'].pop()
         cloud = caps['wall_points_pub'].pop()
+        classes = caps['scene_mask_classes_pub'].pop() \
+            if 'scene_mask_classes_pub' in caps else []
+        depth_mm = caps['scene_mask_depth_pub'].pop() \
+            if 'scene_mask_depth_pub' in caps else []
         caps['scene_mask_image_pub'].pop()
         wall = caps['stereo_wall_pub'].pop()
         labels = caps['scene_labels_pub'].pop()
@@ -510,6 +526,12 @@ class MaskReplay:
             'mask': sink.get('labels'), 'z': sink.get('z'),
             'columns': cols[-1] if cols else None,
             'cloud': cloud[-1] if cloud else None,
+            # E2's two inputs. A bag cannot carry a topic that did not exist
+            # when it was recorded, so the rectangle half of EVERY pass is
+            # necessarily this recomputed mask; the rec/full distinction stays
+            # about the stereo COLUMNS.
+            'classes': classes[-1] if classes else None,
+            'depth_mm': depth_mm[-1] if depth_mm else None,
             'scene_labels': labels[-1] if labels else None,
             'stats': json.loads(stats[-1].data) if stats else None,
             'stereo_wall': json.loads(wall[-1].data) if wall else None,
@@ -535,7 +557,9 @@ class MaskReplay:
 LFW_FEED = {'/odometry/filtered': '_odom_cb', '/costmap/front_clearance': '_seed_cb',
             '/camera/detections_3d': '_detections_cb', '/perception/stereo_wall':
             '_stereo_wall_cb', '/perception/stereo_columns': '_stereo_columns_cb',
-            '/perception/wall_points': '_wall_points_cb'}
+            '/perception/wall_points': '_wall_points_cb',
+            '/perception/scene_labels/classes': '_mask_classes_cb',
+            '/perception/scene_labels/depth_mm': '_mask_depth_cb'}
 
 
 def recorded_cycles(src):
@@ -606,6 +630,15 @@ class WallReplay:
                     feeds.append((row['stamp'], '/perception/stereo_columns', row['columns']))
                 if row['cloud'] is not None:
                     feeds.append((row['stamp'], '/perception/wall_points', row['cloud']))
+        # The class mask and its depth always come from the replay: see
+        # MaskReplay._collect. Both passes get them, so the rectangle
+        # verification runs in both.
+        for row in (replayed or []):
+            if row.get('classes') is not None and row.get('depth_mm') is not None:
+                feeds.append((row['stamp'], '/perception/scene_labels/classes',
+                              row['classes']))
+                feeds.append((row['stamp'], '/perception/scene_labels/depth_mm',
+                              row['depth_mm']))
         feeds.sort(key=lambda f: f[0])
         self.feeds = feeds
         self.fi = 0
@@ -647,6 +680,20 @@ class WallReplay:
             return check
 
         wall_fusion.cross_check_profile = cross_check_profile
+        original_rect = wall_fusion.verify_rectangles
+
+        def verify_rectangles(*a, **kw):
+            # The debug views draw one sample in four (the work order's own
+            # stride), so only that quarter is kept per cycle.
+            detail = {}
+            kw['detail'] = detail
+            kw['detail_stride'] = RECT_SAMPLE_STRIDE
+            verdicts = original_rect(*a, **kw)
+            sink['rect_detail'] = detail
+            sink['rect_segments'] = list(a[0])
+            return verdicts
+
+        wall_fusion.verify_rectangles = verify_rectangles
         rows = []
         try:
             for cycle in cycles:
@@ -663,6 +710,7 @@ class WallReplay:
                 rows.append(self._collect(cycle, ms, sink))
         finally:
             wall_fusion.cross_check_profile = original
+            wall_fusion.verify_rectangles = original_rect
         self.rows = rows
         return rows
 
@@ -728,6 +776,16 @@ class WallReplay:
             'stereo_age': d.get('stereo_age_s'),
             'stereo_weight': d.get('stereo_weight'),
             'scan_ms': ms, 'tracker_ms': d.get('tracker_ms'),
+            'rect_ms': d.get('rect_ms'), 'rect_age': d.get('rect_age_s'),
+            'rect_weight': d.get('rect_weight'),
+            'rect_informative': d.get('rect_informative'),
+            'roles': d.get('roles'),
+            'negative_killed': d.get('negative_killed'),
+            'objects_behind_wall': d.get('objects_behind_wall'),
+            'rect_verdicts': dict(self.node._rect_verdicts),
+            'rect_detail': sink.get('rect_detail'),
+            'rect_track_ids': list(self.node._rect_verdicts),
+            'extract_dropped': d.get('extract_dropped'),
             'shadow_front': self._shadow_front(cycle),
             'rec_dbg': cycle['rec_dbg'],
         }
@@ -1202,6 +1260,90 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
         'recorded_cycles_using_a_profile': rec_used,
         'recorded_observations_rejected': int(sum(m.n_rejected for m in rec_obs_msgs))}
 
+    # ---- E2/E3: the per-track table, and where the two checks disagree ----
+    seen = {}
+    for r in rows:
+        if not r or not r['dbg'].get('tracks'):
+            continue
+        for t in r['dbg']['tracks']:
+            row = seen.setdefault(int(t['id']), {
+                'id': int(t['id']), 'first': r['stamp'], 'last': r['stamp'],
+                'cycles': 0, 'roles': collections.Counter(),
+                'states': collections.Counter(),
+                'verify': collections.Counter(), 'glass': 0, 'occluded': 0,
+                'max_len': 0.0, 'max_hits': 0, 'max_miss': 0,
+                'cov': [], 'sup': [], 'beyond': [], 'is_front': 0,
+                'source': collections.Counter(), 'rho': []})
+            row['last'] = r['stamp']
+            row['cycles'] += 1
+            row['roles'][t['role'] or '?'] += 1
+            row['states'][t['state'] or '?'] += 1
+            row['verify'][t['verify']] += 1
+            row['source'][t['source']] += 1
+            row['glass'] += bool(t['glass'])
+            row['occluded'] += bool(t['occluded'])
+            row['is_front'] += bool(t['is_front'])
+            row['max_len'] = max(row['max_len'], t['length_m'] or 0.0)
+            row['max_hits'] = max(row['max_hits'], t['hits'])
+            row['max_miss'] = max(row['max_miss'], t['miss'])
+            if t['rho_bl'] is not None:
+                row['rho'].append(t['rho_bl'])
+            for key, field in (('cov', 'rect_coverage'), ('sup', 'rect_support'),
+                               ('beyond', 'rect_beyond_share')):
+                if t[field] is not None:
+                    row[key].append(t[field])
+    out['per_track'] = []
+    for row in sorted(seen.values(), key=lambda d: d['id']):
+        out['per_track'].append({
+            'id': row['id'], 'role': row['roles'].most_common(1)[0][0],
+            'roles': dict(row['roles']), 'lifetime_s': num(row['last'] - row['first']),
+            'cycles': row['cycles'], 'state': row['states'].most_common(1)[0][0],
+            'verify': row['verify'].most_common(1)[0][0],
+            'verify_counts': dict(row['verify']),
+            'glass_cycles': row['glass'], 'occluded_cycles': row['occluded'],
+            'front_cycles': row['is_front'],
+            'source': row['source'].most_common(1)[0][0],
+            'length_m': num(row['max_len']), 'hits': row['max_hits'],
+            'max_miss': row['max_miss'],
+            'rho_bl_median': num(float(np.median(row['rho']))) if row['rho'] else None,
+            # The MAX as well as the median: the payload repeats the last
+            # verdict on every cycle, and the rectangle runs at the mask's
+            # ~3.4 Hz against the tracker's 30, so a median over cycles is
+            # mostly the zeros of a track born before its first verdict.
+            'coverage_median': num(float(np.median(row['cov']))) if row['cov'] else None,
+            'coverage_max': num(max(row['cov'])) if row['cov'] else None,
+            'support_median': num(float(np.median(row['sup']))) if row['sup'] else None,
+            'support_max': num(max(row['sup'])) if row['sup'] else None,
+            'beyond_max': num(max(row['beyond'])) if row['beyond'] else None,
+            'beyond_median': num(float(np.median(row['beyond']))) if row['beyond'] else None})
+
+    # How often the two checks disagree, at the CYCLE level -- the only level
+    # at which both are recorded: the columns verdict belongs to an
+    # OBSERVATION and the rectangle's to a TRACK, and nothing records which
+    # observation matched which track.
+    cells = collections.Counter()
+    rect_cycles = 0
+    for r in rows:
+        if not r or not r['obs']:
+            continue
+        tracks = r['dbg'].get('tracks') or []
+        informative = [t for t in tracks if (t['rect_coverage'] or 0.0) >= 0.25]
+        if not informative:
+            continue
+        rect_cycles += 1
+        cols_reject = int(r['obs'].n_rejected) > 0
+        cols_agree = any(o.col_end > o.col_begin and o.source == wall_fusion.SOURCE_BOTH
+                         for o in r['obs'].observations)
+        rect_reject = any(t['verify'] == 'rejected' for t in informative)
+        rect_verify = any(t['verify'] == 'verified' for t in informative)
+        cells[(('reject' if cols_reject else 'agree' if cols_agree else 'quiet'),
+               ('reject' if rect_reject else 'verify' if rect_verify else 'quiet'))] += 1
+    out['columns_vs_rectangle'] = {
+        'cycles_with_an_informative_rectangle': rect_cycles,
+        'cells': {f'columns_{a}/rect_{b}': n for (a, b), n in sorted(cells.items())},
+        'disagreements': sum(n for (a, b), n in cells.items()
+                             if (a, b) in (('reject', 'verify'), ('agree', 'reject')))}
+
     # ---- what the publish cap hides ---------------------------------------
     hidden = [r['shadow_front'] for r in rows if r and r.get('shadow_front')]
     cap_rows = [r for r in rows if r]
@@ -1242,6 +1384,7 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half):
             ((r['stats'] or {}).get('inferred_floor') or {}).get('ms') for r in mask_rows),
         'replay_scan_callback': stage(r['scan_ms'] for r in rows if r),
         'replay_tracker': stage(r['tracker_ms'] for r in rows if r),
+        'replay_rect_verify': stage(r.get('rect_ms') for r in rows if r),
         'recorded_mask_tick_node': stage(
             json.loads(m.data).get('ms')
             for _t, _r, m in src.get('/perception/scene_labels/stats')),
@@ -1592,6 +1735,17 @@ def confirmed_tracks(frame):
     return [] if walls is None else [t for t in walls.tracks if t.state in (1, 2)]
 
 
+def payload_tracks(frame):
+    """Every LIVE track of this cycle, from /perception/virtual_wall/debug.
+
+    The `tracks` list, not /perception/walls: the message carries only the
+    published four and none of the rectangle's verdict, and the tracks worth
+    drawing are exactly the ones the cap hides.
+    """
+    row = frame.get('row') or {}
+    return (row.get('dbg') or {}).get('tracks') or []
+
+
 def draw_camera(src, frame, cam, scale=2):
     """The left image with the classes, the scan, the walls and the masks on it."""
     img, source, age = base_image(frame)
@@ -1654,6 +1808,35 @@ def draw_camera(src, frame, cam, scale=2):
                 c = STATUS_COLOUR.get(int(status[int(u)]), c)
             cv2.circle(img, (int(u * scale * w / sw), int(v * scale * h / cols.height)),
                        2, c, -1, cv2.LINE_AA)
+
+    # ---- the rectangle's own samples, one in four --------------------------
+    # Green AT, blue BEYOND, red AGAINST, grey uninformative, and per track
+    # "ID role sup cov" at the samples' centre of mass. This is E2 as the node
+    # saw it: the detail comes straight out of verify_rectangles.
+    detail = (rrow or {}).get('rect_detail') or {}
+    if detail.get('u') is not None and len(detail['u']) and row is not None \
+            and row.get('columns') is not None:
+        cols = row['columns']
+        sx, sy = scale * w / cols.width, scale * h / cols.height
+        ids = (rrow or {}).get('rect_track_ids') or []
+        by_id = {t['id']: t for t in payload_tracks(frame)}
+        for u, v, kind in zip(detail['u'], detail['v'], detail['kind']):
+            cv2.circle(img, (int(u * sx), int(v * sy)), 1,
+                       KIND_COLOUR[int(kind)], -1, cv2.LINE_AA)
+        for k_idx, tid in enumerate(ids):
+            sel = detail['idx'] == k_idx
+            if not np.any(sel):
+                continue
+            tr = by_id.get(tid)
+            if tr is None:
+                continue
+            cu = float(np.mean(detail['u'][sel])) * sx
+            cv_ = float(np.mean(detail['v'][sel])) * sy
+            colour = ROLE_COLOUR.get(tr['role'], ROLE_COLOUR['other'])
+            put(img, f"{tid} {tr['role']} sup {tr['rect_support']:.2f} "
+                     f"cov {tr['rect_coverage']:.2f}"
+                     f"{' G' if tr['glass'] else ''}",
+                (int(cu) - 40, int(cv_)), colour, 0.42)
 
     # ---- confirmed walls as vertical outlines ------------------------------
     if cam is not None and row is not None and row.get('columns') is not None:
@@ -1832,23 +2015,33 @@ def draw_topdown(src, frame, view, front_x, half):
             colour = {0: (150, 150, 150), 1: (220, 120, 220), 2: (90, 220, 90)}[o.source]
             view.line(img, (o.p0.x, o.p0.y), (o.p1.x, o.p1.y), colour, 1)
 
-    # tracks, thick
+    # Every LIVE track as a SEGMENT between its endpoints -- not only the
+    # published four, because 'other' and REJECTED are the interesting ones and
+    # the publish cap keeps them off /perception/walls. Colour by role, solid
+    # VERIFIED / dashed UNVERIFIED / dotted REJECTED, and a G for glass.
     front_track = None
-    for tr in confirmed_tracks(frame):
-        colour = ROLE_COLOUR.get(tr.role, (200, 200, 200))
-        thick = 4 if tr.is_front else 2
-        if tr.state == 2:
+    for tr in payload_tracks(frame):
+        if tr['p0_bl'][0] is None or tr['p1_bl'][0] is None:
+            continue
+        a, b = tuple(tr['p0_bl']), tuple(tr['p1_bl'])
+        colour = ROLE_COLOUR.get(tr['role'], ROLE_COLOUR['other'])
+        thick = 4 if tr['is_front'] else 2 if tr['state'] != 'tentative' else 1
+        if tr['state'] == 'coasting':
             colour = tuple(int(c * 0.55) for c in colour)
-        view.line(img, (tr.p0_bl.x, tr.p0_bl.y), (tr.p1_bl.x, tr.p1_bl.y), colour, thick)
-        mid = (0.5 * (tr.p0_bl.x + tr.p1_bl.x), 0.5 * (tr.p0_bl.y + tr.p1_bl.y))
-        label = f'{tr.id} {tr.role} {SRC_NAMES[tr.source]} {STATE_NAMES[tr.state]}'
-        view.text(img, label, mid, colour, 0.40)
-        if tr.is_front:
+        view.line(img, a, b, colour, thick, dash=VERIFY_DASH.get(tr['verify'], 0.0))
+        for end in (a, b):
+            cv2.circle(img, view.px(*end), 3, colour, -1, cv2.LINE_AA)
+        mid = (0.5 * (a[0] + b[0]), 0.5 * (a[1] + b[1]))
+        flags = ('G' if tr['glass'] else '') + ('O' if tr['occluded'] else '')
+        miss = f" m{tr['miss']}" if tr['miss'] else ''
+        view.text(img, f"{tr['id']} {tr['role']} {tr['source']} {tr['state']}"
+                       f"{(' ' + flags) if flags else ''}{miss}", mid, colour, 0.40)
+        if tr['is_front']:
             front_track = tr
 
     # the FRONT wall and its d_ray_front
-    if front_track is not None and math.isfinite(front_track.d_ray_front):
-        d = front_track.d_ray_front
+    if front_track is not None and front_track['d_ray_front'] is not None:
+        d = front_track['d_ray_front']
         view.line(img, (front_x, 0.0), (front_x + d, 0.0), (60, 60, 255), 2, dash=0.12)
         view.text(img, f'd_ray_front {d:.2f} m', (front_x + d * 0.5, half + 0.12),
                   (60, 60, 255), 0.46)
@@ -2153,6 +2346,35 @@ def write_summary_md(path, src, summary, evidence, window, videos):
                 for k, v in summary['tracks'].items()],
                ['pass', 'ids', 'births', 'births/min', 'role switches', 'lidar only',
                 'both', 'stereo only', 'max confirmed age [s]']) + ['']
+    per = summary.get('per_track') or []
+    if per:
+        L += ['### Every track of the replay', '',
+              'One row per track the replay ever held, not only the published four: '
+              'a track can be real, tracked and a reference wall for nothing, and '
+              'those are the rows that say so. `role`, `state` and `verify` are each '
+              'the value the track spent most of its cycles in.', '']
+        L += table([[t['id'], t['role'], t['lifetime_s'], t['cycles'], t['state'],
+                     t['verify'], t['glass_cycles'], t['occluded_cycles'],
+                     t['front_cycles'], t['length_m'], t['rho_bl_median'],
+                     t['hits'], t['max_miss'], t['source'], t['coverage_max'],
+                     t['support_max'], t['beyond_max']] for t in per],
+                   ['id', 'role', 'lifetime [s]', 'cycles', 'state', 'verify',
+                    'glass cyc', 'occl cyc', 'front cyc', 'length [m]',
+                    'rho_bl med', 'hits', 'max miss', 'source', 'cov max',
+                    'sup max', 'beyond max']) + ['']
+    cvr = summary.get('columns_vs_rectangle') or {}
+    if cvr.get('cycles_with_an_informative_rectangle'):
+        L += ['### Where the columns and the rectangle disagree', '',
+              f"Cycles with an informative rectangle (coverage >= 0.25 on at least "
+              f"one track): **{cvr['cycles_with_an_informative_rectangle']}**. The "
+              'comparison is at the CYCLE level because that is the only level at '
+              'which both are recorded -- a columns verdict belongs to an '
+              'OBSERVATION and the rectangle\'s to a TRACK, and nothing records '
+              'which observation matched which track. A disagreement is the columns '
+              'rejecting while the rectangle verifies, or the columns agreeing while '
+              f"the rectangle rejects: **{cvr['disagreements']}**.", '']
+        L += table([[k, v] for k, v in cvr['cells'].items()],
+                   ['columns / rectangle', 'cycles']) + ['']
     L += ['## DISAGREE rate vs range', '',
           'Only the columns where BOTH sensors reported. `abs residual` is '
           '|stereo - lidar| in that bucket.', '']
