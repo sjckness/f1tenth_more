@@ -2112,6 +2112,13 @@ class TestTheClassMaskAsData:
             cls_msg = node.scene_mask_classes_pub.publish.call_args[0][0]
             dep_msg = node.scene_mask_depth_pub.publish.call_args[0][0]
             assert cls_msg.header.stamp == dep_msg.header.stamp
+            # The frame must be the DEPTH IMAGE's optical frame, not the base
+            # frame: the consumer looks up the camera transform with it, and
+            # 'base_link' reads as an identity and silently empties every
+            # rectangle. The cloud publish earlier in the tick rewrites the
+            # depth header's own frame_id, so this is an aliasing test.
+            assert cls_msg.header.frame_id == CAMERA_FRAME
+            assert dep_msg.header.frame_id == CAMERA_FRAME
             assert cls_msg.header.stamp.sec == 9
             assert cls_msg.header.stamp.nanosec == 250000000
             assert cls_msg.encoding == 'mono8' and dep_msg.encoding == 'mono16'

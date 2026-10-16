@@ -296,6 +296,7 @@ as MIN_FRONT_DISTANCE_M and the stop fires, instead of a value that would
 switch the stop off.
 """
 
+import array
 import json
 import math
 import time
@@ -311,7 +312,7 @@ from rclpy.time import Time
 
 from sensor_msgs.msg import CameraInfo, Image, LaserScan, PointCloud2
 from sensor_msgs_py import point_cloud2
-from std_msgs.msg import Bool, Float32, String
+from std_msgs.msg import Bool, Float32, Header, String
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
@@ -1209,9 +1210,13 @@ class FrontClearanceNode(Node):
         # StereoColumns.msg); the cloud below is for inspection and recording.
         self._publish_stereo_columns(header, depth, rows, cols, points, w, h, k)
 
+        # create_cloud_xyz32 ALIASES the header it is given, so overriding
+        # the cloud's frame_id used to rewrite the depth frame's own header to
+        # 'base_link' for everything later in this tick. The points really are
+        # in the base frame, so the cloud needs its own header.
+        cloud_header = Header(stamp=header.stamp, frame_id=self.base_frame)
         cloud = point_cloud2.create_cloud_xyz32(
-            header, points[::self.scene_mask_cloud_stride].astype(np.float32))
-        cloud.header.frame_id = self.base_frame
+            cloud_header, points[::self.scene_mask_cloud_stride].astype(np.float32))
         self.wall_points_pub.publish(cloud)
 
         stats = scene_mask.class_stats(
@@ -1403,9 +1408,13 @@ class FrontClearanceNode(Node):
         z_lo, z_hi = wall_fusion.column_extent(
             cols, points[:, 2] if points.size else np.empty(0), width)
         msg = StereoColumns()
-        msg.header = header
+        # Its own header, not the depth frame's: this message's frame_id is
+        # the BASE frame (the heights are measured in it) while camera_frame
+        # is the optical one, and assigning the depth header here aliased it,
+        # so every later consumer in this tick read 'base_link' as the depth
+        # frame's own id.
         msg.camera_frame = header.frame_id
-        msg.header.frame_id = self.base_frame
+        msg.header = Header(stamp=header.stamp, frame_id=self.base_frame)
         msg.width, msg.height = int(width), int(height)
         msg.fx, msg.fy, msg.cx, msg.cy = float(fx), float(fy), float(cx), float(cy)
         msg.distance_m = distance.astype(np.float32).tolist()
@@ -1425,14 +1434,31 @@ class FrontClearanceNode(Node):
         consumer already has them, at this resolution, on the StereoColumns
         message of the same tick (that message's own rationale), and the
         header stamp is what pairs the three.
+
+        BOTH PAYLOADS GO IN AS array.array('B'). rclpy's uint8[] setter has
+        exactly one fast path -- an array.array of typecode 'B', assigned
+        without validation -- and for anything else, bytes included, it checks
+        every element: 44 ms for the mask and 88 ms for the depth, measured,
+        against 0.06 and 0.10 ms this way. (That same slow path is what makes
+        cv_bridge's own cv2_to_imgmsg cost tens of milliseconds a frame here,
+        which is most of what publishing the overlay costs when it is on.)
         """
+        # The stamp and the frame COPIED, never the Header object: the depth
+        # frame's own header is handed to point_cloud2.create_cloud_xyz32
+        # earlier in this tick and then has its frame_id rewritten to the base
+        # frame, so an aliased header arrives here saying 'base_link'. That
+        # reads as an identity camera transform in the consumer and puts every
+        # rectangle sample outside the image -- silently, because an empty
+        # rectangle is exactly what a wall the camera cannot see looks like.
         classes = Image()
-        classes.header = header
+        classes.header.stamp = header.stamp
+        classes.header.frame_id = header.frame_id
         classes.height, classes.width = labels.shape[:2]
         classes.encoding = 'mono8'
         classes.is_bigendian = 0
         classes.step = classes.width
-        classes.data = np.ascontiguousarray(labels, dtype=np.uint8).tobytes()
+        classes.data = array.array(
+            'B', np.ascontiguousarray(labels, dtype=np.uint8).tobytes())
         self.scene_mask_classes_pub.publish(classes)
 
         d = np.asarray(depth, dtype=np.float32)
@@ -1440,12 +1466,13 @@ class FrontClearanceNode(Node):
             mm = np.where(np.isfinite(d) & (d > 0.0), d * 1000.0, 0.0)
         mm = np.clip(mm, 0.0, 65535.0).astype(np.uint16)
         out = Image()
-        out.header = header
+        out.header.stamp = header.stamp
+        out.header.frame_id = header.frame_id
         out.height, out.width = mm.shape[:2]
         out.encoding = 'mono16'
         out.is_bigendian = 0
         out.step = 2 * out.width
-        out.data = np.ascontiguousarray(mm).tobytes()
+        out.data = array.array('B', np.ascontiguousarray(mm).tobytes())
         self.scene_mask_depth_pub.publish(out)
 
     def _publish_scene_mask_overlay(self, labels, header, k, rot, trans):

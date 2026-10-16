@@ -525,6 +525,15 @@ def stereo_only_observations(check, column_points, width, min_span_columns=8,
 # mistakes is not symmetric. support >= support_verify verifies, <=
 # support_reject rejects, and in between nothing happens.
 
+#: What one rectangle sample said, for the debug views (verify_rectangles'
+#: `detail`). Nothing in the pipeline branches on these.
+KIND_UNINFORMATIVE = 0
+KIND_AT = 1
+KIND_BEYOND = 2
+KIND_AGAINST = 3
+KIND_NAMES = {KIND_UNINFORMATIVE: 'uninformative', KIND_AT: 'at',
+              KIND_BEYOND: 'beyond', KIND_AGAINST: 'against'}
+
 VERIFY_UNVERIFIED = 0   # no rectangle verdict yet: lidar_only, and not a doubt
 VERIFY_VERIFIED = 1
 VERIFY_REJECTED = 2
@@ -614,7 +623,8 @@ def rect_samples(segments, grid, laser_z=0.0, p=None):
 
 def verify_rectangles(segments, labels, depth, fx, fy, cx, cy, rotation, translation,
                       laser_z=0.0, p=None, grid=None, object_mask=None,
-                      wall_class=None, object_class=None, depth_scale=1.0):
+                      wall_class=None, object_class=None, depth_scale=1.0,
+                      detail=None, detail_stride=1):
     """Per-segment (coverage, support, beyond_share) from the class mask and depth.
 
     `labels` is scene_mask.classify's (H, W) class image and `depth` the
@@ -637,6 +647,11 @@ def verify_rectangles(segments, labels, depth, fx, fy, cx, cy, rotation, transla
     every depth-derived class, so (labels == OBJECT) IS the YOLO mask
     everywhere except where the SELF mask covers it -- and there SELF must
     win, because the car's own housing is not an object in anyone's way.
+
+    `detail`, when a dict is given, is filled with every in-image sample's
+    (u, v), its segment index and its verdict (KIND_*), decimated by
+    detail_stride. It is for the debug views only -- the live path passes
+    nothing and allocates nothing for it.
 
     Returns [{coverage, support, beyond_share, n_samples, n_in_image, at,
     beyond, against}], one per segment, all floats/ints, never NaN.
@@ -728,6 +743,15 @@ def verify_rectangles(segments, labels, depth, fx, fy, cx, cy, rotation, transla
     n_all = np.bincount(idx, minlength=n_seg)
     n_in = np.bincount(ki, minlength=n_seg)
 
+    if detail is not None:
+        step = max(1, int(detail_stride))
+        detail['u'] = ui[::step]
+        detail['v'] = vi[::step]
+        detail['idx'] = ki[::step]
+        kind = np.where(against, KIND_AGAINST,
+                        np.where(at, KIND_AT,
+                                 np.where(beyond, KIND_BEYOND, KIND_UNINFORMATIVE)))
+        detail['kind'] = kind[::step].astype(np.int8)
     for k in range(n_seg):
         out[k] = {
             'coverage': float(w_inf[k] / w_tot[k]) if w_tot[k] > 0.0 else 0.0,

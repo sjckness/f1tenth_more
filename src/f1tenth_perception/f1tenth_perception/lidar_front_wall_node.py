@@ -1297,6 +1297,11 @@ class LidarFrontWallNode(Node):
                 'age_s': num((self.wall_tracker._last_stamp or trk.born) - trk.born),
                 'length_m': num(trk.length), 'rho_bl': num(bl.rho),
                 'd_ray_front': num(d_ray),
+                # The endpoints, so a debug view can draw a track the publish
+                # cap kept off /perception/walls -- which is most of the ones
+                # worth looking at.
+                'p0_bl': [num(bl.p_start[0]), num(bl.p_start[1])],
+                'p1_bl': [num(bl.p_end[0]), num(bl.p_end[1])],
                 'verify': wall_fusion.VERIFY_NAMES[trk.verify],
                 'glass': bool(trk.glass), 'occluded': bool(trk.occluded),
                 'miss': int(trk.miss), 'source': wall_fusion.SOURCE_NAMES[trk.source],
