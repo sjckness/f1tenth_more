@@ -34,8 +34,8 @@
 #
 # shell/run: the stack's ROS environment (domain, RMW, the rendered Fast DDS profile, the
 # Discovery Server, the workspace) as a Discovery Server SUPER CLIENT, so `ros2 topic list`
-# and `echo` see the whole graph. The shell stops the ros2 daemon of this domain first (a
-# daemon started from a plain client environment would answer as a plain client).
+# and `echo` see the whole graph. Both restart the ros2 daemon of this domain first (a daemon
+# started from a plain client environment answers as a plain client), which costs ~4 s.
 #
 # Two machines (direct Ethernet link; same network variables as the Gazebo scripts' sim_net.sh):
 #   1. if the Thor's link address is not 10.42.0.2, on BOTH machines:
@@ -374,12 +374,17 @@ case "$CMD" in
     echo "== ROS env (net $NET, domain $ROS_DOMAIN_ID, Discovery Server $DS, super client) =="
     echo "FASTRTPS_DEFAULT_PROFILES_FILE=$FASTRTPS_DEFAULT_PROFILES_FILE"
     if $DRY; then echo "(dry run) ${RUN_CMD[*]:-bash -i}"; exit 0; fi
+    # The ros2 daemon of this domain answers with the environment IT was started with: a daemon
+    # left by a plain client lists 1 topic here instead of ~128 (measured on the Thor). Restart
+    # it as a super client; a new one needs ~3 s to learn the graph.
+    ros2 daemon stop >/dev/null 2>&1 || true
+    ros2 daemon start >/dev/null 2>&1 || true
+    sleep 3
     if [ "$CMD" = run ]; then
       echo "cmd: ${RUN_CMD[*]}"
       rc=0; "${RUN_CMD[@]}" || rc=$?
       exit "$rc"
     fi
-    ros2 daemon stop >/dev/null 2>&1 || true
     cat > "$TMPD/shellrc" <<RC
 PS1='[sim $NET d$ROS_DOMAIN_ID] \\w\\$ '
 echo "sim shell: ROS_DOMAIN_ID=\$ROS_DOMAIN_ID ROS_DISCOVERY_SERVER=\$ROS_DISCOVERY_SERVER ROS_SUPER_CLIENT=\$ROS_SUPER_CLIENT (exit to leave)"

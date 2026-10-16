@@ -123,14 +123,18 @@ class Runner(Node):
         from std_msgs.msg import String
         from vision_msgs.msg import Detection3DArray
         self.gt = None
-        self.traj = []          # (t_wall, x, y, yaw, v)
+        self.front = float('nan')   # /sim/ground_truth/front_range: free distance ahead of the bumper
+        self.traj = []          # (t_wall, x, y, yaw, v, front_range)
         self.objects = None
         self.states = []
         self.outcomes = []
         self.safety = []
         latched = QoSProfile(depth=10, durability=DurabilityPolicy.TRANSIENT_LOCAL,
                              reliability=ReliabilityPolicy.RELIABLE)
+        from sensor_msgs.msg import Range
         self.create_subscription(Odometry, '/sim/ground_truth/odom', self._on_gt, 50)
+        self.create_subscription(Range, '/sim/ground_truth/front_range',
+                                 lambda m: setattr(self, 'front', float(m.range)), 10)
         self.create_subscription(Detection3DArray, '/sim/ground_truth/objects', self._on_objects,
                                  QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
                                             reliability=ReliabilityPolicy.RELIABLE))
@@ -142,7 +146,8 @@ class Runner(Node):
 
     def _on_gt(self, m):
         p = m.pose.pose
-        self.gt = (time.time(), p.position.x, p.position.y, _yaw(p.orientation), m.twist.twist.linear.x)
+        self.gt = (time.time(), p.position.x, p.position.y, _yaw(p.orientation), m.twist.twist.linear.x,
+                   self.front)
         self.traj.append(self.gt)
 
     def _on_objects(self, m):
@@ -262,7 +267,7 @@ def score(cmd, start, traj, objects, outcomes, commanded):
         for oid, r in rects.items():
             clear[oid] = min(clear[oid], rect_distance(cr, r))
     out['min_clearance_m'] = {k: round(v, 3) for k, v in clear.items()}
-    out['min_clearance_walls_m'] = round(min(clear[w['id']] for w in walls), 3)
+    out['min_clearance_walls_m'] = round(min(clear[w['id']] for w in walls), 3) if walls else None
     contact = min(clear.values()) <= CONTACT_M
     out['contact'] = contact
     dx, dy = end[1] - x0, end[2] - y0
@@ -272,8 +277,11 @@ def score(cmd, start, traj, objects, outcomes, commanded):
     out['heading_change_deg'] = round(math.degrees(_wrap(end[3] - yaw0)), 1)
     end_rect = car_rect(end[1], end[2], end[3])
 
-    def facing_wall_gap(x, y, yaw):
-        """Footprint gap to the wall the car faces: the first wall hit by a ray from the bumper."""
+    def facing_wall_gap(x, y, yaw, sample=None):
+        """Footprint gap to the wall the car faces: the first wall hit by a ray from the bumper. Scenes
+        without wall objects (NVIDIA environments): the sim's ground-truth front range of that sample."""
+        if not walls:
+            return None if sample is None or not math.isfinite(sample[5]) else sample[5]
         bx, by = x + FOOT_X[1] * math.cos(yaw), y + FOOT_X[1] * math.sin(yaw)
         wr = [(w, obj_rect(w)) for w in walls]
         for i in range(1, 2001):
@@ -289,7 +297,9 @@ def score(cmd, start, traj, objects, outcomes, commanded):
         out['stop_error_m'] = round(out['along_m'] - (commanded or cmd['target']), 3)
         ok = ok and abs(out['along_m'] - cmd['target']) <= cmd['tol'] and abs(out['lateral_m']) < cmd['lat_tol']
     elif k == 'wall':
-        g = facing_wall_gap(end[1], end[2], end[3])
+        g = facing_wall_gap(end[1], end[2], end[3], end)
+        if g is None:
+            return False, dict(out, error='no wall ground truth')
         out['final_wall_gap_m'] = round(g, 3)
         if commanded is not None:
             out['stop_error_m'] = round(g - commanded, 3)
@@ -328,7 +338,7 @@ def score(cmd, start, traj, objects, outcomes, commanded):
             out['turn_start_wall_gap_m'] = None
             ok = False
         else:
-            g = facing_wall_gap(t_turn[1], t_turn[2], yaw0)
+            g = facing_wall_gap(t_turn[1], t_turn[2], yaw0, t_turn)
             out['turn_start_wall_gap_m'] = round(g, 3)
             if commanded is not None:
                 out['stop_error_m'] = round(g - commanded, 3)
@@ -420,10 +430,10 @@ def main():
         rec['success'] = bool(ok and ok_tr and rec.get('final_state') == 'COMPLETE')
         with open(os.path.join(a.out, f'{rid}.trajectory.csv'), 'w') as fh:
             w = csv.writer(fh)
-            w.writerow(['t_s', 'x', 'y', 'yaw_deg', 'v'])
+            w.writerow(['t_s', 'x', 'y', 'yaw_deg', 'v', 'front_range_m'])
             for s in traj[::5]:
                 w.writerow([round(s[0] - t_cmd, 2), round(s[1], 3), round(s[2], 3), round(math.degrees(s[3]), 1),
-                            round(s[4], 3)])
+                            round(s[4], 3), round(s[5], 3)])
         results.append(rec)
         with open(os.path.join(a.out, 'results.jsonl'), 'a') as fh:
             fh.write(json.dumps(rec) + '\n')
