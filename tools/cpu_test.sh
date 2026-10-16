@@ -70,11 +70,12 @@ declare -a OWNED=()
 # had forwarded the signal to what it had started. A pkill by node name would
 # be the wrong fix -- on the car it would reach the live stack's own nodes --
 # so this script owns process groups and signals nothing outside them.
-cleanup() {
-    local rc=$?
-    trap - EXIT INT TERM
-    echo
-    echo "cleaning up ${#OWNED[@]} process(es)/group(s) this script started..."
+# Stop everything this script owns, groups and all, and forget them. Used by
+# the trap AND by the per-phase dry-run teardown -- the per-phase one used to
+# kill bare pids, which is where the orphans actually came from.
+stop_owned() {
+    [[ ${#OWNED[@]} -eq 0 ]] && return 0
+    echo "    stopping ${#OWNED[@]} process(es)/group(s) this script started..."
     for pid in "${OWNED[@]:-}"; do
         kill -INT -- "-$pid" 2>/dev/null || kill -INT "$pid" 2>/dev/null || true
     done
@@ -83,6 +84,14 @@ cleanup() {
         kill -KILL -- "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true
     done
     wait 2>/dev/null || true
+    OWNED=()
+}
+
+cleanup() {
+    local rc=$?
+    trap - EXIT INT TERM
+    echo
+    stop_owned
     echo "done: $OUT"
     exit $rc
 }
@@ -248,10 +257,7 @@ MSG
     kill -INT "$TEGRA" 2>/dev/null || true
     if [[ $DRY_RUN -eq 1 ]]; then
         stop_dry_run "$phase"
-        for pid in "${OWNED[@]}"; do kill -INT "$pid" 2>/dev/null || true; done
-        sleep 3
-        for pid in "${OWNED[@]}"; do kill -KILL "$pid" 2>/dev/null || true; done
-        OWNED=()
+        stop_owned
     fi
     echo "    phase $phase done"
 }
