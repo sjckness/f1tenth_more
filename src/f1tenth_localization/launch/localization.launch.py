@@ -69,11 +69,23 @@ def generate_launch_description():
     # for the two EKF instances (see ekf.launch.py's own cpu_affinity comment),
     # and an observer that competes for the budget it is measuring would
     # perturb the very number it exists to report.
+    #
+    # OFF BY DEFAULT since cpu-cleanup (2026-10-16): ~32% of a core on the Orin
+    # with the car parked (seven RELIABLE depth-500 Python subscriptions to the
+    # EKFs' 50 Hz inputs/outputs, /odometry/filtered twice) for a number only
+    # scripts/ekf_cost_report.py reads, offline, from a bag. Nothing in the
+    # control path reads it. Kept as a debugging instrument: under the
+    # supervisor add `args: {enable_ekf_cost_observer: 'true'}` to the
+    # `localization` entry in f1tenth_bringup/config/components.yaml (the
+    # supervisor passes no CLI args to components), or launch this file with
+    # enable_ekf_cost_observer:=true; record /diagnostics (the mission logger
+    # does) and run scripts/ekf_cost_report.py on the bag.
     actions.append(DeclareLaunchArgument(
-        'enable_ekf_cost_observer', default_value='true',
+        'enable_ekf_cost_observer', default_value='false',
         description='Run ekf_cost_observer_node alongside the EKF pair, '
                     'publishing per-update cost on /diagnostics. Only has an '
-                    'effect when localization_source is ekf.'))
+                    'effect when localization_source is ekf. Off by default: '
+                    'a debugging instrument, ~32% of a core on the Orin.'))
     actions.append(DeclareLaunchArgument(
         'ekf_cost_observer_cpu_affinity', default_value='2-11',
         description="Cores for ekf_cost_observer_node's 'taskset -c' prefix. "

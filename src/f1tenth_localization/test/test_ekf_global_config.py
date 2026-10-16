@@ -216,6 +216,26 @@ class TestLocalizationLaunchWiring:
         assert any(loc.endswith('/ekf.launch.py') for loc in locations)
         assert any(loc.endswith('/ekf_global.launch.py') for loc in locations)
 
+    def test_ekf_cost_observer_is_off_unless_asked_for(self):
+        # cpu-cleanup: a debugging instrument, gated by a launch arg that
+        # defaults to false (see localization.launch.py's comment).
+        from launch import LaunchContext
+        from launch.actions import DeclareLaunchArgument
+        from launch_ros.actions import Node
+        ld = self._generate('ekf')
+        args = {a.name: a for a in ld.entities if isinstance(a, DeclareLaunchArgument)}
+        context = LaunchContext()
+        default = ''.join(
+            s.perform(context) for s in args['enable_ekf_cost_observer'].default_value)
+        assert default == 'false'
+        observers = [a for a in ld.entities
+                     if isinstance(a, Node) and _node_name(a) == 'ekf_cost_observer_node']
+        assert len(observers) == 1
+        context.launch_configurations['enable_ekf_cost_observer'] = default
+        assert not observers[0].condition.evaluate(context)
+        context.launch_configurations['enable_ekf_cost_observer'] = 'true'
+        assert observers[0].condition.evaluate(context)
+
     def test_ekf_mode_does_not_publish_the_static_odom_to_base_link_tf(self):
         # See module docstring / localization.launch.py's own "NOW
         # CONDITIONAL" paragraph -- publishing this unconditionally in
