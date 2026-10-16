@@ -575,7 +575,7 @@ def _clip_param(a, b, lo, hi):
     return (t0, t1) if t0 <= t1 else None
 
 
-def strip_role(track, car_pose, front_x, back_x, half_width_m):
+def strip_role(track, car_pose, front_x, back_x, half_width_m, seg=None):
     """'front', 'back' or '' -- the car-width strip test, both ways.
 
     The segment is clipped to |y| <= half_width_m, exactly as crosses_strip
@@ -584,7 +584,7 @@ def strip_role(track, car_pose, front_x, back_x, half_width_m):
     segment that survives the clip but lies between the two is beside the
     car, not in its way, and gets neither.
     """
-    (x0, y0), (x1, y1) = segment_in_base_link(track, car_pose)
+    (x0, y0), (x1, y1) = segment_in_base_link(track, car_pose) if seg is None else seg
     half = abs(float(half_width_m))
     span = _clip_param(y0, y1, -half, half)
     if span is None:
@@ -595,7 +595,7 @@ def strip_role(track, car_pose, front_x, back_x, half_width_m):
     return 'back' if min(xs) < float(back_x) else ''
 
 
-def side_role(track, car_pose, x_min, x_max, max_normal_rad):
+def side_role(track, car_pose, x_min, x_max, max_normal_rad, seg=None):
     """'left', 'right' or '' -- a wall the car is driving ALONG.
 
     Two conditions, and both are geometric rather than about bearing:
@@ -614,7 +614,7 @@ def side_role(track, car_pose, x_min, x_max, max_normal_rad):
     The side is the sign of the mean y of the part inside the window, so a
     wall the car is level with is named by where it actually is.
     """
-    (x0, y0), (x1, y1) = segment_in_base_link(track, car_pose)
+    (x0, y0), (x1, y1) = segment_in_base_link(track, car_pose) if seg is None else seg
     span = _clip_param(x0, x1, float(x_min), float(x_max))
     if span is None:
         return ''
@@ -625,7 +625,7 @@ def side_role(track, car_pose, x_min, x_max, max_normal_rad):
     return 'left' if 0.5 * (ys[0] + ys[1]) > 0.0 else 'right'
 
 
-def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0):
+def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0, seg=None):
     """The track's role from GEOMETRY: front, back, left, right or other.
 
     'other' is a first-class answer, not a failure: the track is still
@@ -639,16 +639,18 @@ def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0):
     rather than keeping a second rule. They are separate because they are
     separate units -- the one bug a single "widen" invites.
     """
+    if seg is None:
+        seg = segment_in_base_link(track, car_pose)
     strip = strip_role(track, car_pose, p.strip_half_width_m - widen_m,
-                       p.back_x_m + widen_m, p.strip_half_width_m + widen_m)
+                       p.back_x_m + widen_m, p.strip_half_width_m + widen_m, seg)
     if strip:
         return strip
     return side_role(track, car_pose, p.side_x_min_m - widen_m,
                      p.side_x_max_m + widen_m,
-                     p.side_max_normal_rad + widen_rad) or 'other'
+                     p.side_max_normal_rad + widen_rad, seg) or 'other'
 
 
-def role_with_hysteresis(track, car_pose, current, p):
+def role_with_hysteresis(track, car_pose, current, p, seg=None):
     """The geometric role, keeping `current` while the widened test still holds.
 
     Same shape and same reason as the bearing-sector hysteresis it replaces:
@@ -656,11 +658,13 @@ def role_with_hysteresis(track, car_pose, current, p):
     the car wobbles, and every consumer keyed on the role would change with
     it.
     """
-    fresh = geometric_role(track, car_pose, p)
+    if seg is None:
+        seg = segment_in_base_link(track, car_pose)
+    fresh = geometric_role(track, car_pose, p, seg=seg)
     if not current or current == fresh:
         return fresh
     widened = geometric_role(track, car_pose, p, float(p.role_hysteresis_m),
-                             float(p.role_hysteresis_rad))
+                             float(p.role_hysteresis_rad), seg=seg)
     return current if widened == current else fresh
 
 
@@ -857,7 +861,7 @@ class MultiWallTracker:
 
     # ---- one scan ---------------------------------------------------------
 
-    def step(self, observations, stamp, car_pose, scan=None):
+    def step(self, observations, stamp, car_pose, scan=None, defer_roles=False):
         """Update with this cycle's OBSERVATIONS (base_link). Published tracks out.
 
         The tracker's input is exactly what goes out on
@@ -871,6 +875,10 @@ class MultiWallTracker:
         A wall that beams are passing straight through is being contradicted
         by the sensor, and no amount of lifecycle bookkeeping on the
         observations that are no longer arriving can say so.
+
+        `defer_roles` leaves the roles alone, for a caller that is about to
+        fold in this cycle's rectangle verdicts and would otherwise pay for
+        the role and occlusion pass twice.
         """
         stamp = float(stamp)
         if self._last_car_t is not None:
@@ -942,7 +950,8 @@ class MultiWallTracker:
             self._apply_negative_evidence(car_pose, scan)
         self.tracks = [t for t in self.tracks if not self._expired(t, stamp)]
         self._merge()
-        self.update_roles(car_pose)
+        if not defer_roles:
+            self.update_roles(car_pose)
         return self.published(car_pose)
 
     # ---- negative evidence ------------------------------------------------
@@ -1024,7 +1033,7 @@ class MultiWallTracker:
 
     # ---- first obstacle ---------------------------------------------------
 
-    def update_occlusion(self, car_pose):
+    def update_occlusion(self, car_pose, segments=None):
         """Mark every track that lies behind a CONFIRMED wall (first obstacle).
 
         A LiDAR beam reports its FIRST return, so a line fitted behind a wall
@@ -1039,7 +1048,8 @@ class MultiWallTracker:
         behind glass is behind a wall.
         """
         confirmed = [t for t in self.tracks if t.ever_confirmed]
-        segments = {t.id: segment_in_base_link(t, car_pose) for t in self.tracks}
+        if segments is None:
+            segments = {t.id: segment_in_base_link(t, car_pose) for t in self.tracks}
         laser_xy = (0.0, 0.0) if self.laser_xy is None else self.laser_xy
         n_pts = max(2, int(self.p.occlusion_points))
         for trk in self.tracks:
@@ -1136,12 +1146,18 @@ class MultiWallTracker:
         The hysteresis is on the geometric test only: the other two are
         already sticky in their own right.
         """
-        self.update_occlusion(car_pose)
+        # The base_link segments are computed ONCE here and shared with every
+        # test below: the strip test, the side test, their widened repeats and
+        # the occlusion rays all used to take their own, which is five
+        # transforms per track per cycle for one piece of geometry.
+        segments = {t.id: segment_in_base_link(t, car_pose) for t in self.tracks}
+        self.update_occlusion(car_pose, segments)
         for trk in self.tracks:
             if trk.verify == wall_fusion.VERIFY_REJECTED or trk.occluded:
                 trk.role = 'other'
                 continue
-            trk.role = role_with_hysteresis(trk, car_pose, trk.role, self.p)
+            trk.role = role_with_hysteresis(trk, car_pose, trk.role, self.p,
+                                            segments[trk.id])
 
     def label(self, trk, car_pose):
         """The track's role. Sticky once update_roles has run (step 4)."""

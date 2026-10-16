@@ -1215,18 +1215,18 @@ class LidarFrontWallNode(Node):
         neg_ranges, neg_bearings, _angles = mwt.scan_in_base_link(
             msg.ranges, msg.angle_min, msg.angle_increment, msg.range_min,
             msg.range_max, laser_pose, sectors)
-        tracks = self.wall_tracker.step(
-            observations, scan_stamp, car,
-            scan=(neg_ranges, neg_bearings, laser_pose[:2]))
-        # The rectangle runs on the tracks the step just updated, and its
-        # verdicts are folded in before anything is asked of the roles: a
-        # REJECTED wall is not a reference wall on the same cycle it was
-        # rejected, not on the next one.
+        # The roles are DEFERRED: the rectangle runs on the tracks the step
+        # just updated and its verdicts are folded in before anything is asked
+        # of the roles -- a REJECTED wall is not a reference wall on the same
+        # cycle it was rejected, not on the next one -- and deciding them
+        # before and after would pay for the role and occlusion pass twice.
+        self.wall_tracker.step(observations, scan_stamp, car,
+                               scan=(neg_ranges, neg_bearings, laser_pose[:2]),
+                               defer_roles=True)
         self._rect_verdicts = self._verify_tracks(
             car, scan_stamp, self._stereo_columns[1] if self._stereo_columns else None)
-        if self._rect_verdicts:
-            self.wall_tracker.update_roles(car)
-            tracks = self.wall_tracker.published(car)
+        self.wall_tracker.update_roles(car)
+        tracks = self.wall_tracker.published(car)
         front = self.wall_tracker.front_track(car, self.front_x)
         self._front_d_ray = math.nan
         if front is not None:
