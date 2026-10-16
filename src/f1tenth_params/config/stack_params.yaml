@@ -723,8 +723,18 @@ lidar_front_wall_odom_topic:
   default: /odometry/filtered
   description: "Odometry lidar_front_wall_node dead-reckons with. Deliberately NOT get_odom_topic(): /odom's servo-integrated yaw measured 0.62-0.92 gain against the LiDAR, and /ekf_global's SLAM steps (157 over 20 cm per hour) would be integrated as motion. Known bias: distance ~17% short (see the node docstring)."
 lidar_front_wall_odom_max_age_sec:
-  default: 0.2
-  description: "Odometry older than this [s] turns off lidar_front_wall_node's dead reckoning and wrong-surface gate. /odometry/filtered runs at 50 Hz; longest recorded gap 136 ms."
+  default: 0.3
+  description: "Odometry older than this [s] turns off lidar_front_wall_node's dead reckoning and wrong-surface gate. 0.2 -> 0.3 with the EKF at 20 Hz (cpu-cleanup R2, ekf_frequency_hz): 6 periods at 20 Hz. At 50 Hz the longest recorded gap was 136 ms; the global EKF's p99 publish period was 36-55 ms against a 20 ms nominal (docs/history/LOG.md 2026-09-08), so at a 50 ms nominal 0.2 s left too little margin."
+# Consumed by: f1tenth_perception/lidar_front_wall.launch.py -> lidar_front_wall_node
+# (multi_wall_tracker.PoseHistory.at). cpu-cleanup R2, with the EKF at 20 Hz.
+lidar_front_wall_pose_max_extrapolation_sec:
+  default: 0.15
+  description: "How far [s] a scan/detection/image stamp may lie beyond the newest (or before the oldest) /odometry/filtered pose and still get the end pose. Was a hardcoded 0.1 s = 2 periods at 50 Hz. At 20 Hz the scan already leads the newest pose by ~13 ms plus up to one 50 ms period plus jitter, and a None here makes the tracker step NO_DATA (/perception/virtual_wall -1, the BT then holds the car). 0.15 s = 3 periods at 20 Hz; at 1 m/s the end pose is then at most 15 cm stale."
+# Consumed by: f1tenth_perception/lidar_front_wall.launch.py -> lidar_front_wall_node.
+# cpu-cleanup R2 (rate policy: anything feeding the 10 Hz MPC / BT at <= 20 Hz).
+lidar_front_wall_virtual_wall_rate_hz:
+  default: 10.0
+  description: "/perception/virtual_wall (and /debug) are published only when there is a NEW estimate -- with the wall tracker on, a scan the tracker processed (1 in wall_tracker_scan_decimation, 10 Hz at 40 Hz scans), without it every processed scan -- and at most at about this rate (a publish is allowed once 75 % of 1/rate has passed, so a tracker step that is a little early is not dropped). Was every scan (40 Hz), 3 in 4 of them repeating the last tracker verdict. Consumers gate by receipt age: BT wall_distance_max_age_s 0.5 s and MPC corr_wall_turn_front_distance_max_age_sec 0.5 s, both >= 2x the 0.1 s period even when the tracker is CPU-bound at ~6 Hz. WallLineFit/WallEstimate stay per scan."
 lidar_front_wall_seed_max_age_sec:
   default: 0.5
   description: "A /costmap/front_clearance seed older than this [s] (receipt time; the topic has no header) is not used. That topic runs at 10 Hz since cpu-cleanup (2026-10-16; 20 Hz before, when the longest recorded gap was 0.19 s), so 0.5 s is still 5 periods."
@@ -755,7 +765,7 @@ use_wall_tracker:
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (CheckStopCondition).
 wall_distance_max_age_s:
   default: 0.5
-  description: "Mission wall stop (stop_condition type front_clearance): a wall distance (get_wall_distance_topic) older than this [s] by receipt time, never received, or not positive (-1.0 = no wall) HOLDS the car (/mpc/hold) with a WARN every 2 s instead of driving on the last value; the first fresh positive value releases it. The move's timeout_sec still runs. /perception/virtual_wall publishes once per processed scan (nominally the scan rate; ~6 Hz with up to 0.8 s per scan was measured live on 2026-10-14, with the tracker sharing core 5 with three other /scan nodes) and /perception/front_distance once per depth frame."
+  description: "Mission wall stop (stop_condition type front_clearance): a wall distance (get_wall_distance_topic) older than this [s] by receipt time, never received, or not positive (-1.0 = no wall) HOLDS the car (/mpc/hold) with a WARN every 2 s instead of driving on the last value; the first fresh positive value releases it. The move's timeout_sec still runs. /perception/virtual_wall publishes once per new tracker estimate (lidar_front_wall_virtual_wall_rate_hz, 10 Hz nominal since cpu-cleanup R2; it was every scan before, ~6 Hz with up to 0.8 s per scan measured live on 2026-10-14 when CPU-bound) and /perception/front_distance once per depth frame."
 lidar_front_wall_wall_tracker_front_max_coast_sec:
   default: 0.3
   description: "Multi-wall tracker: the longest [s] a front track may go unmatched (COASTING, its line only predicted) and still be the heading wall of the virtual wall. Past it the track stops being the front wall and /perception/virtual_wall publishes -1.0 (no wall) until the tracker has a front track again, so the mission wall stop holds (check_stop_condition.py, WALL DISTANCE FRESHNESS) rather than run on a prediction. 0.3 s is ~10 scans at the nominal scan rate. The track itself lives on until wall_tracker_delete_after_sec (3 s)."
@@ -2069,6 +2079,24 @@ nav2_readiness_timeout_sec:
   default: 90.0
   description: "How long to wait for nav2_readiness_service to report success before giving up (behavior tree will NOT launch)."
 # Consumed by: f1tenth_behavior/behavior_bringup.launch.py.
+# Consumed by: f1tenth_localization/launch/ekf.launch.py and ekf_global.launch.py,
+# which override ekf.yaml / ekf_global.yaml `frequency` and
+# `transform_time_offset` with these (cpu-cleanup R2, rate policy).
+# 50 -> 20 Hz: every consumer of /odometry/filtered, /ekf_global/odometry/
+# filtered and their TF is a 10 Hz control loop, the 10 Hz BT, a <= 10 Hz
+# timer or a lookup by time (output/cpu_cleanup/rate_audit.md section 2.2);
+# none gates at < 2x 50 ms once lidar_front_wall_pose_max_extrapolation_sec and
+# lidar_front_wall_odom_max_age_sec are raised with it. Inputs (/odom, IMU,
+# /scan) keep their native rates. 50.0 is still selectable here -- then set
+# ekf_transform_time_offset_s back to 0.05.
+# The 50 Hz cost baseline the history log gated this on was NOT taken first:
+# docs/history/LOG.md, "50 Hz EKF cost baseline: PENDING-DECISION".
+ekf_frequency_hz:
+  default: 20.0
+  description: "robot_localization `frequency` [Hz] for BOTH ekf_filter_node (odom -> base_link, /odometry/filtered) and ekf_global_filter_node (map -> odom, /ekf_global/odometry/filtered). 20 since cpu-cleanup R2 (was 50 in the yaml files). Output and TF rate only: queued inputs are all fused each cycle."
+ekf_transform_time_offset_s:
+  default: 0.08
+  description: "robot_localization `transform_time_offset` [s] for both EKFs: the published TF is post-dated by this so scans stamped at reception do not lead the newest transform. 0.05 at 50 Hz; 0.08 at 20 Hz is the 2026-09-08 decision (docs/history/LOG.md, 'transform_time_offset goes to 0.08 on BOTH edges'), which was to land with the frequency change. Use 0.05 with ekf_frequency_hz 50."
 bt_setup_timeout_sec:
   default: 90.0
   description: "behavior_executor_node's own tree.setup() timeout, in seconds -- an independent safety margin on top of the readiness gate."

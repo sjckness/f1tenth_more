@@ -1092,3 +1092,19 @@ def test_a_rejected_front_wall_gives_its_slot_up():
     trk.update_roles(ORIGIN)
     assert track.role == 'other'
     assert trk.published(ORIGIN) == []
+
+
+# ---------------------------------------------------------------------------
+# cpu-cleanup R2: the EKF at 20 Hz -- PoseHistory's extrapolation window is a
+# parameter (lidar_front_wall_pose_max_extrapolation_sec, 0.15 s)
+# ---------------------------------------------------------------------------
+
+def test_pose_history_extrapolates_up_to_the_given_window_only():
+    hist = mwt.PoseHistory()
+    hist.add(10.00, 0.0, 0.0, 0.0)
+    hist.add(10.05, 0.05, 0.0, 0.0)          # 20 Hz
+    # A scan 120 ms past the newest pose: inside 3 periods at 20 Hz.
+    assert hist.at(10.17) is None                         # old default 0.1 s
+    assert hist.at(10.17, 0.15).x == pytest.approx(0.05)  # new 0.15 s
+    assert hist.at(10.21, 0.15) is None
+    assert hist.at(10.025, 0.15).x == pytest.approx(0.025)  # interpolation unchanged

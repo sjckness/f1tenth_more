@@ -100,6 +100,9 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_extract_quality_gates', bool),
     ('wall_extract_backend', str),
     ('wall_tracker_scan_decimation', int),
+    # cpu-cleanup R2: rate policy (EKF at 20 Hz, virtual wall on new estimates).
+    ('pose_max_extrapolation_sec', float),
+    ('virtual_wall_rate_hz', float),
     # E2: the rectangle verification's decision thresholds.
     ('wall_rect_verify', bool),
     ('wall_rect_coverage_min', float),

@@ -236,3 +236,53 @@
 - The node param default now comes from stack_params (single source), with the comment "must be
   false if the camera pan joint is ever enabled" next to it. Alternative: comment only in the
   node. Why: the brief asks for it in stack_params, and a key there is where an operator looks.
+
+## R2-D2a — rate audit
+- Full table with every subscriber and gate: output/cpu_cleanup/rate_audit.md (static, cited;
+  a skeptic pass appended corrections at its end). Summary in report.md, Round 2.
+
+## R2-D2b — EKF 50 -> 20 Hz via stack_params, offset 0.08 with it, tracker gates raised
+- Decision: stack_params ekf_frequency_hz 20.0 and ekf_transform_time_offset_s 0.08, applied by
+  ekf.launch.py and ekf_global.launch.py as parameter overrides on top of the yaml (the yaml keeps
+  its documented 50 Hz values, marked OVERRIDDEN). Both filters read the same two keys.
+  lidar_front_wall_pose_max_extrapolation_sec 0.15 (was a hardcoded 0.1 in PoseHistory.at calls)
+  and lidar_front_wall_odom_max_age_sec 0.2 -> 0.3. check_ekf_update_rate.py reads the target
+  from stack_params (+ --target-hz).
+- Alternatives: edit the yaml frequency directly (not "a param in stack_params", and the two files
+  could drift); keep the offset at 0.05 (the 2026-09-08 decision says 0.08 lands with 20 Hz).
+- Consumer verdicts (rate_audit.md 2.2): MPC (odom_stale_timeout 0.5 s, turn unwrap per control
+  tick), ekf_global (sensor_timeout 0.1 = 2 input periods, predict-only on a late message, by
+  design), reset_manager (time-based standstill), steering calibration (/slam/pose only), BT
+  (per-message turn unwrap, step 0.085 rad << pi), semantic_layer (200-sample history = 10 s),
+  costmap_boundary, slam_toolbox (transform_timeout 0.2), python tf2 users (Time() latest): OK.
+  The one gate at exactly 2x the 20 Hz period was PoseHistory.at(0.1) in lidar_front_wall_node:
+  a None there makes the tracker step NO_DATA -> /perception/virtual_wall -1 -> the BT holds.
+  Raised to 0.15. No debounce anywhere counts odometry samples.
+- The 50 Hz cost baseline was not taken: docs/history/LOG.md entry "50 Hz EKF cost baseline:
+  PENDING-DECISION", left for the owner.
+
+## R2-D2c — /perception/virtual_wall only on a new estimate, <= ~10 Hz
+- Decision: lidar_front_wall.virtual_wall_due(): with the tracker on publish only on scans the
+  tracker processed (the only ones that change _front_d_ray / _tracker_has_data /
+  _front_coast_expired), without it every processed scan; capped by
+  lidar_front_wall_virtual_wall_rate_hz (10) with a 75 % tolerance so an early tracker step is
+  not dropped. The value and WallEstimate state are still computed every scan; WallLineFit /
+  WallEstimate stay per scan (their documented contract; viz/debug only).
+- Alternatives: heartbeat at <= 20 Hz on skipped scans (audit's suggestion: keeps today's
+  receipt gaps). Why not: the brief asks "only when there is a new estimate"; every receipt gate
+  is 0.5 s (BT wall_distance_max_age_s, MPC corr_wall_turn_front_distance_max_age_sec), >= 2x the
+  0.1 s period and > the ~0.17 s of a CPU-bound 6 Hz tracker. debounce_ticks counts BT ticks
+  (10 Hz), now ~1 new estimate per tick instead of ~4 duplicates.
+- Side effect: while the laser transform is missing (startup) nothing is published (before:
+  the last tracker verdict at scan rate); consumers then treat it as absent (BT holds, MPC drops
+  the wall_turn cap) -- the same outcome as NO_DATA.
+
+## R2-D2d — no other change needed for the BT; other >20 Hz streams listed, not changed
+- After 2b the BT's only >20 Hz input is /scan (safety, 40 Hz, kept). Its odometries are 20 Hz,
+  virtual_wall <= 10 Hz. So no raw=True subscription (it exists in Humble rclpy node.py:1332, but
+  only saves Python message construction, not the executor wake-up).
+- Not consumed by 10 Hz control/BT, so outside 2d's scope and left alone, listed as proposals:
+  MPC_corr / detection_3d / obstacle_projector full /tf listeners (static-only would do for the
+  last two), MPC_corr per-message throttled logger calls, swept_clearance (no consumer) and
+  obstacle_clearance (campaign logger only) at 40 Hz, /perception/lidar_front_wall(_virtual)
+  per scan (debug/viz). 2e: /scan, the event e-stop and the mux safety_stop lane unchanged.

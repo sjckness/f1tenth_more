@@ -19,3 +19,4 @@
 - 2026-10-16T15:24:08+02:00 bag corridor10m_20261016T144537 is NOT on linus (it is on the Orin under ~/bags/; seen only by name). Block 4c therefore becomes an Orin command.
 - 2026-10-16T15:24:08+02:00 understanding workflow launched (5 readers + 5 skeptics, read-only).
 - 2026-10-16T15:44:29+02:00 Block 1 done: py_compile + ast(3.10) OK on all touched files, flake8 E/W/F no new, pure test test_qos_events_fallback.py 8 passed in a ROS-free env (env -i, no rclpy). ROS-dependent tests written, not run here (run on Orin): test_bt_tick_and_event_estop.py (incl. new TestEventStopScope), test_wall_distance_launch.py.
+- 2026-10-16T15:48:19+02:00 Block 2 done: ast(3.10)/py_compile/flake8 E/W/F clean (no new); ROS-free pytest: test_multi_wall_tracker (71), test_virtual_wall_rate (6), test_lidar_front_wall: 121 passed (env -i, no ROS). Orin-only: test_ekf_global_config TestEkfRateFromStackParams, test_lidar_front_wall_launch (arg list == stack_params keys).

@@ -87,8 +87,9 @@ archived missions), not guessed. stack_params.yaml carries the same values.
                                 deg is 0.84 m of arc, 2.1 s at 0.4 m/s and 2.8 s
                                 at 0.3 m/s. Also covers 97% of recorded fit
                                 losses in object missions.
-  odom_max_age_sec        0.2   /odometry/filtered runs at 50 Hz; its longest
-                                recorded gap is 136 ms (p99.9 120 ms).
+  odom_max_age_sec        0.3   /odometry/filtered runs at 20 Hz since cpu-
+                                cleanup R2 (50 before, longest recorded gap
+                                136 ms, p99.9 120 ms); 0.3 s is 6 periods.
   seed_max_age_sec        0.5   /costmap/front_clearance runs at 20 Hz; its
                                 longest recorded gap is 0.19 s.
   seed_max_valid_m        5.0   costmap_boundary_node's max_range_m. It publishes
@@ -326,6 +327,7 @@ from f1tenth_perception.lidar_front_wall import (
     WallEstimator,
     classify_fit,
     fit_forward_line,
+    virtual_wall_due,
 )
 from corridor_perception import extraction
 from f1tenth_perception import multi_wall_tracker as mwt
@@ -412,7 +414,7 @@ class LidarFrontWallNode(Node):
         self.estimator = WallEstimator(
             stale_age_sec=float(param('stale_age_sec', 3.0)),
             wrong_surface_gate_m=float(param('wrong_surface_gate_m', 0.3)),
-            odom_max_age_sec=float(param('odom_max_age_sec', 0.2)),
+            odom_max_age_sec=float(param('odom_max_age_sec', 0.3)),
             seed_max_age_sec=float(param('seed_max_age_sec', 0.5)),
             seed_max_valid_m=float(param('seed_max_valid_m', 5.0)),
         )
@@ -557,6 +559,16 @@ class LidarFrontWallNode(Node):
         #: debug payload and for the one-line startup message.
         self._tracker_skipped = 0
         self._poses = mwt.PoseHistory()
+        # How far a stamp may lie past the newest pose (stack_params
+        # lidar_front_wall_pose_max_extrapolation_sec): 0.15 s = 3 periods of
+        # the 20 Hz EKF (cpu-cleanup R2; was the hardcoded 0.1 s = 2 at 50 Hz).
+        self.pose_max_extrapolation_s = float(param('pose_max_extrapolation_sec', 0.15))
+        # /perception/virtual_wall only on a NEW estimate, at most ~this rate
+        # (stack_params lidar_front_wall_virtual_wall_rate_hz; see
+        # _virtual_due). Was every scan, 3 in 4 repeating the tracker verdict.
+        self.virtual_wall_rate_hz = float(param('virtual_wall_rate_hz', 10.0))
+        self._last_virtual_pub = None
+        self._tracker_ran = False
         self._odom_frame = 'odom'
         self._wall_source = 'sequential_lines'
         self._front_id = None       # id of the tracker's current front track
@@ -938,8 +950,8 @@ class LidarFrontWallNode(Node):
         """
         if abs(image_stamp - scan_stamp) < 1e-4 or len(points) == 0:
             return points
-        pose_scan = self._poses.at(scan_stamp)
-        pose_image = self._poses.at(image_stamp)
+        pose_scan = self._poses.at(scan_stamp, self.pose_max_extrapolation_s)
+        pose_image = self._poses.at(image_stamp, self.pose_max_extrapolation_s)
         if pose_scan is None or pose_image is None:
             self.get_logger().warn(
                 'no odometry pose to carry the scan to the image stamp; the '
@@ -1020,7 +1032,8 @@ class LidarFrontWallNode(Node):
             det_stamp = self._detections[2]
             if scan_stamp - det_stamp > self.tracker_det_max_age:
                 return []
-            then, now_pose = self._poses.at(det_stamp), self._poses.at(scan_stamp)
+            then = self._poses.at(det_stamp, self.pose_max_extrapolation_s)
+            now_pose = self._poses.at(scan_stamp, self.pose_max_extrapolation_s)
             if then is None or now_pose is None:
                 return []
             objs = mwt.propagate_objects(objs, then, now_pose)
@@ -1055,6 +1068,7 @@ class LidarFrontWallNode(Node):
 
     def _scan_cb(self, msg):
         now = self._now()
+        self._tracker_ran = False
         laser_pose = self._laser_pose_for(msg.header.frame_id)
         if laser_pose is None:
             fit = SectorFit(0, 0)
@@ -1073,7 +1087,8 @@ class LidarFrontWallNode(Node):
                 fit, self.min_inlier_fraction, self.min_inlier_count_ratio, self.oblique_max_rad)
         step = self.estimator.step(now, fit, reason)
         # The virtual wall first: its WALL / CLEAR / NO_DATA verdict is what
-        # the WallEstimate carries, so the two can never disagree.
+        # the WallEstimate carries, so the two can never disagree. Computed
+        # every scan; PUBLISHED only on a new estimate (_virtual_due).
         state = (self._publish_virtual(msg.header.stamp, now, step)
                  if self.scene_enabled else None)
         self._publish(msg.header.stamp, fit, step, state)
@@ -1110,7 +1125,9 @@ class LidarFrontWallNode(Node):
                 'sectors': [[round(a, 4), round(b, 4)] for a, b in sectors],
                 'walls': [w.to_dict() for w in lines]})))
             self._lines = lines
+        self._tracker_ran = False
         if self.wall_tracker is not None and self._tracker_due():
+            self._tracker_ran = True
             # With the tracker on, the observations are built from ITS
             # per-scan extraction (adaptive breakpoints, IEPF, a covariance
             # per segment) rather than the 5 Hz sequential_lines above, and
@@ -1169,6 +1186,8 @@ class LidarFrontWallNode(Node):
             state, value = wall_fusion.front_wall_output(
                 v.valid, v.distance if v.valid else None,
                 self.wall_clear_distance_m, MIN_FRONT_DISTANCE_M)
+        if not self._virtual_due(now):
+            return state
         self.virtual_pub.publish(Float32(data=float(value)))
 
         def num(x):
@@ -1227,6 +1246,14 @@ class LidarFrontWallNode(Node):
             'objects_behind_wall': self._objects_behind_wall})))
         return state
 
+    def _virtual_due(self, now):
+        """lidar_front_wall.virtual_wall_due for this node's state; records the publish."""
+        due = virtual_wall_due(self.wall_tracker is not None, self._tracker_ran, now,
+                               self._last_virtual_pub, self.virtual_wall_rate_hz)
+        if due:
+            self._last_virtual_pub = now
+        return due
+
     def _tracker_due(self):
         """Is this scan one of the one-in-N the tracker processes?
 
@@ -1251,7 +1278,7 @@ class LidarFrontWallNode(Node):
         other way into it, so the stereo cannot enter as a fallback distance
         behind its back.
         """
-        car = self._poses.at(scan_stamp)
+        car = self._poses.at(scan_stamp, self.pose_max_extrapolation_s)
         if car is None:
             # No pose to place the walls with: NO_DATA, not "clear".
             self._front_d_ray = math.nan
@@ -1328,7 +1355,7 @@ class LidarFrontWallNode(Node):
         if self._detections is None or self.wall_tracker is None:
             return 0
         objs = self._detections[1]
-        then = self._poses.at(self._detections[2])
+        then = self._poses.at(self._detections[2], self.pose_max_extrapolation_s)
         if not objs or then is None:
             return 0
         objs = mwt.propagate_objects(objs, then, car)

@@ -49,12 +49,13 @@ concrete, observable confirmation this fix actually worked, not just that
 the reasoning was sound.
 """
 
-from f1tenth_params.param_defaults import get_path_default
+from f1tenth_params.param_defaults import get_default, get_path_default
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -81,13 +82,27 @@ def generate_launch_description():
     # config/stack_params.yaml), it's a plain yaml value read directly wherever
     # needed, so there's nothing left for this file to declare or forward.
 
+    # cpu-cleanup R2: frequency and transform_time_offset come from
+    # stack_params (ekf_frequency_hz, ekf_transform_time_offset_s, shared with
+    # ekf_global.launch.py so the two filters cannot drift apart) and override
+    # the yaml's values, which stay as the documented 50 Hz reference.
+    rate_las = []
+    for name in ('ekf_frequency_hz', 'ekf_transform_time_offset_s'):
+        default, desc = get_default(name)
+        rate_las.append(DeclareLaunchArgument(name, default_value=str(default), description=desc))
+
     ekf_node = Node(
         package='robot_localization',
         executable='ekf_node',
         name='ekf_filter_node',
         output='screen',
-        parameters=[LaunchConfiguration('ekf_config')],
+        parameters=[LaunchConfiguration('ekf_config'), {
+            'frequency': ParameterValue(
+                LaunchConfiguration('ekf_frequency_hz'), value_type=float),
+            'transform_time_offset': ParameterValue(
+                LaunchConfiguration('ekf_transform_time_offset_s'), value_type=float),
+        }],
         prefix=['taskset -c ', LaunchConfiguration('ekf_cpu_affinity')],
     )
 
-    return LaunchDescription([ekf_la, ekf_cpu_affinity_la, ekf_node])
+    return LaunchDescription([ekf_la, ekf_cpu_affinity_la, *rate_las, ekf_node])
