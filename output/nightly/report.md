@@ -34,6 +34,15 @@ worth wiring; one glass track decides nothing.
 worth reading is F6's -- the toggle needed a change in `component_supervisor_node`
 to work at all, because the supervisor forwards only `components.yaml`'s args.
 
+**One mistake, and it is in your file.** `tools/scene_labels_replay.py` was
+already modified in the working tree when I started (your `ModelLabeller` /
+`--model-labels` work, 73 insertions). In F3 I staged it with `git add -A tools`
+instead of naming hunks, so **your work is committed inside `05c5898`** together
+with my own 16-line change to `make_node` in the same file. Nothing is lost and
+nothing is pushed; I did not unpick it because that needs an interactive rebase
+across the five commits after it. The exact hunk split is at the end of
+`decisions.md`.
+
 ---
 
 ## F2 — the header-aliasing bug: how much did it falsify?

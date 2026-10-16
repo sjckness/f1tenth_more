@@ -77,3 +77,39 @@ A track is GLASS when the node says VERIFIED and glass in the majority of its
 verified cycles, NORMAL when VERIFIED and not glass. Ids are not stable (the
 replay starts cold, so they differ from the recorded run and between passes),
 and the point itself says to use the flags.
+## MY MISTAKE — your uncommitted `scene_labels_replay.py` work is inside `05c5898`
+
+`tools/scene_labels_replay.py` was already modified in the working tree when the
+session started (73 insertions: the `ModelLabeller` class and the
+`--model-labels CEILING_M` option). In F3 I staged it with `git add -A tools`
+instead of naming the file's hunks, so **your work is committed inside
+`05c5898` ("F3: the debug payload is opt-in...") together with my own 16-line
+change to `make_node`** in the same file.
+
+Nothing is lost and nothing is pushed. I did NOT try to unpick it: splitting it
+needs an interactive rebase across the five commits that follow, which is not
+available here, and doing it unattended on your branch is a worse risk than the
+mixed commit.
+
+What is mine in that file, and the whole of it:
+
+```
+@@ class Capture / make_node   -- the only hunk of mine
++    want = os.environ.get('WALL_DEBUG_TRACKS', '1') not in ('0', 'false', 'False')
++    params = prefixed_params('lidar_front_wall_', enable)
++    params = [p for p in params if p.name != 'wall_debug_tracks']
++    params.append(Parameter('wall_debug_tracks', value=want))
++    node = LidarFrontWallNode(parameter_overrides=params)
+```
+
+Everything else in `git show 05c5898 -- tools/scene_labels_replay.py` is yours:
+the docstring paragraph about `--model-labels`, `class ModelLabeller`, and its
+wiring. To take it back out as an uncommitted change again:
+
+```bash
+git show 05c5898 -- tools/scene_labels_replay.py > /tmp/slr.patch   # read it first
+# then split by hand, or: git log -p --follow tools/scene_labels_replay.py
+```
+
+The rule I broke is the one already written down: stage explicit paths, and when
+a file holds your changes AND mine, rebuild HEAD+mine and stage that.
