@@ -237,6 +237,14 @@ RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia \
 # Persistent CUDA JIT cache (torch / TRT / any PTX): D2 mounts a named volume
 # here; a fresh volume inherits this directory's owner.
 ENV CUDA_CACHE_PATH=/var/cache/f1tenth/cuda CUDA_CACHE_MAXSIZE=1073741824
+# campaign-final nodes write run-time files into the source tree they find above
+# install/: mpc_corr opens src/f1tenth_control/corridors_jsons/*.csv in its constructor
+# (MPC_corr.py _resolve_debug_output_path, no try/except) and the BT writes
+# src/f1tenth_behavior/mission_reports/*.json. /opt/f1tenth_ws/src is COPYed as root
+# and both dirs are gitignored (not staged), so create them owned by the runtime user.
+# Environment only (jazzy-campaign port review), not built here: no L4T host.
+RUN install -d -o ${USER_UID} -g ${USER_GID} /opt/f1tenth_ws/src/f1tenth_control/corridors_jsons \
+      /opt/f1tenth_ws/src/f1tenth_behavior/mission_reports
 RUN mkdir -p /var/cache/f1tenth/cuda && chown -R ${USER_UID}:${USER_GID} /var/cache/f1tenth \
  && chmod 0755 /opt/f1tenth_ws/entrypoint.sh \
  && echo 'source /opt/f1tenth_ws/scripts/env/jazzy.sh' >> /etc/bash.bashrc
