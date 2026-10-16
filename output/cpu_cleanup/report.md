@@ -365,3 +365,242 @@ git remote add linus andreas@linus:dev_ws/f1tenth_more   # once
 git fetch linus cpu-cleanup && git switch -c cpu-cleanup linus/cpu-cleanup
 # without MagicDNS: andreas@100.89.193.76:dev_ws/f1tenth_more
 ```
+
+---
+
+# Round 2 — Blocks 1–4 (Humble target; linus: static checks + ROS-free tests only)
+
+Rules for this round: no build, no stack and no benchmarks on linus. I read the Humble Python
+sources read-only from the Orin (rclpy 3.3.21, py_trees_ros 2.4.0, tf2_ros, launch, launch_ros,
+rosbag2_py). Every touched `.py` file passes `ast.parse(feature_version=(3,10))` and
+`py_compile`, and has no new flake8 E/W/F errors versus `9c46add`. Tests ran on linus only when
+they are pure Python (`env -i`, no ROS on the path). Everything that needs ROS was written and
+is listed under "run on the Orin". Decisions, with alternatives, are in decisions.md (R2-D1a … R2-D4b).
+
+## Summary
+- **1a Humble.** Commits 1–4 need no change for Humble: every rclpy and py_trees_ros internal
+  used exists with the same semantics (R2-D1a has the file:line citations).
+  - `drop_qos_event_handlers` is hardened anyway. It checks every internal first and is a no-op
+    with one WARN if any is missing. It never raises, and node and entity stay consistent after
+    each handler.
+  - The review found **five real bugs**, all fixed in block 1:
+    - reset_manager could die on `InvalidHandle` when a watch it destroyed was mid-take;
+    - the PNG thread could publish after shutdown;
+    - `bt_keep_qos_event_handlers` could not be set from launch;
+    - `use_lidar:=1` no longer started wall_distance;
+    - `tf2_msgs` was missing from the costmap package.xml.
+- **1b E-stop.** The callback and the tick now decide through one predicate, `should_stop()`
+  (= `_active()` and `_tripped()`), and `_active()` is the only place a gate may go. The tree
+  reports the emergency for as long as the mux holds a callback stop (0.2 s), so the "callback
+  stops while the tree has resumed" state no longer exists. Nothing in the stack gates the check
+  today (full scope list in R2-D1b).
+- **1c.** `semantic_layer_tf_static_only` is now a stack_params key, with the comment "must be
+  false if the camera pan joint is ever enabled".
+- **2 Rate policy.**
+  - Both EKFs run at **20 Hz** (`ekf_frequency_hz`; 50 is still selectable), with the decided
+    `transform_time_offset` of 0.08.
+  - The only gate that was exactly 2× the new period is raised to 0.15 s:
+    `PoseHistory.at` in lidar_front_wall. On a miss it would have given NO_DATA, and the BT
+    would then have held the car.
+  - `/perception/virtual_wall` is published only on a new tracker estimate, at most about
+    10 Hz (it was every scan, 40 Hz, with 3 in 4 messages repeats).
+  - The BT now receives no odometry above 20 Hz. `/scan`, the event e-stop and the mux lane are
+    unchanged.
+  - LOG.md has a new entry: "50 Hz EKF cost baseline: PENDING-DECISION". It is your call.
+- **3 Phantom FRONT.**
+  - Track extent is now the measured extent of the last 1 s, not an unbounded union.
+  - FRONT is where the travel strip (body + 0.15 m, measured from the bumper) meets the segment.
+  - A collinear gap of 0.5 m is enforced in association and in merge.
+  - If the strip return is more than 0.5 m beyond the predicted wall for 2 cycles, the track is
+    contradicted and FRONT is dropped.
+  - Coasting is allowed only while nothing is seen beyond the wall, capped at 0.5 s or 0.3 m.
+  - FRONT also needs confidence ≥ 0.5 plus a LiDAR fit in the last 3 cycles or a rect-VERIFIED
+    stereo wall.
+  - With no FRONT the contract value is CLEAR. NO_DATA is now only for missing pose or transform.
+  - Stereo walls closer than 0.4 m are rejected, and two self polygons were added (UNTUNED).
+  - **Expected effect on the incident:** CLEAR or the hall wall at ~6.9 m, never 1.87 m. This is
+    verified only on synthetic scans; it still needs a replay on the Orin.
+- **4 Recording.**
+  - New recording profile `mission_logger_profile: campaign`: 5 Hz scene mask, camera frame,
+    depth and wall observations, about 650 MB/min.
+  - `corridor_wall_replay.py` v2: it draws the recorded mask (or writes MASK NOT RECORDED),
+    shows floor_inferred in yellow with a per-class strip, and runs the tracker from the bag
+    start on the car's own tracker steps.
+  - It reports phantom episodes, end-wall error p95/max, NO_DATA % and tracks with
+    rho_bl < 0.5, for both the recorded and the replay pass, and has a `--compare-summary`
+    option.
+  - The bag is on the Orin only, so 4c is a command list (below).
+
+## 2a Rate audit (condensed; full table with every subscriber and gate in rate_audit.md)
+| topic (> 20 Hz before) | publisher | rate before → after | consumers (need) | gates |
+|---|---|---|---|---|
+| /scan | urg_node | 40 → 40 (sensor) | BT e-stop (safety), lidar_front_wall (perception), slam, swept/obstacle_clearance (none / logger), front_clearance (ZED) | e-stop: none (gap, see below); slam transform_timeout 0.2 |
+| /odom, /sensors/imu/raw, /sensors/core | vesc | ~50 → ~50 (sensor) | EKF inputs; diagnostics 2 Hz | EKF queues in messages |
+| /odometry/filtered (+ odom→base_link TF) | ekf_filter_node | **50 → 20** | MPC 10 Hz, BT 10 Hz, lidar_front_wall, ekf_global, reset_manager (reset only) | MPC 0.5 s; lidar_front_wall odom 0.2 → **0.3**, pose extrapolation 0.1 → **0.15** |
+| /ekf_global/odometry/filtered (+ map→odom TF) | ekf_global | **50 → 20** | BT scoring, costmap_boundary 10 Hz, semantic_layer history | none < 0.5 s; global sensor_timeout 0.1 = 2 input periods (predict-only on a late message, by design) |
+| /perception/virtual_wall (+/debug) | lidar_front_wall_node | **≤40 → ≤10** (new estimates only) | BT wall stop 10 Hz, MPC wall_turn 10 Hz | both 0.5 s by receipt time; debounce_ticks counts BT ticks |
+| /perception/lidar_front_wall(_virtual) | lidar_front_wall_node | 40 (unchanged, documented per-scan contract) | debug / viz | — |
+| /perception/swept_clearance/lidar, /obstacle_clearance | swept/obstacle_clearance | 40 (unchanged) | none / campaign logger | proposal: gate behind enable_* |
+| /safety_stop | BT tick + event e-stop | 10 + ≤40 while tripped (unchanged, safety) | ackermann_mux | lane timeout 0.2 s |
+
+Not changed in this round, proposals only:
+- MPC_corr, detection_3d and obstacle_projector run full `/tf` listeners. The last two only
+  need static edges.
+- MPC_corr calls a throttled logger on every message.
+- swept_clearance and obstacle_clearance have no control consumer.
+
+Pre-existing gap, not changed:
+- IsProximityTooClose has no `/scan` freshness guard. A dead urg_node after a clear scan disarms
+  the e-stop.
+
+## Commits
+| sha | block |
+|---|---|
+| `a87e828` | R2 block 1: Humble hardening, one e-stop predicate, tf_static_only key |
+| `9786bfc` | R2 block 2: rate policy (EKF 20 Hz, virtual wall on new estimates) |
+| `d578963` | R2 block 3: no phantom FRONT from collinear pieces across an opening |
+| `0abfd92` | R2 block 4: campaign recording profile, wall replay v2 |
+| (next) | R2 report |
+
+Round 1, earlier commits: `69d2e1c`, `686d911`, `f2b4393`, `752f160`, `9dde6ee`, `f66cfc5`.
+
+## Only statically checked (nothing here was executed against ROS)
+- Everything that needs rclpy at runtime, launch or launch_ros, generated Humble messages, the
+  executor, DDS, robot_localization or topic_tools.
+- The CPU, latency and rate claims of round 2. No benchmarks ran in round 2; round 1's linus
+  numbers came from Jazzy and do not transfer as-is. For example, Humble creates about half as
+  many QoS event handlers as Jazzy, so the BT saving will be smaller.
+- The Humble generated-message `array.array` fast path (semantic_layer).
+- topic_tools throttle behaviour on Humble (`image_throttle_5hz`).
+- The tracker change on real data. Its tests are synthetic raycasts plus the existing fixtures.
+- The self-polygon vertices, which were traced from the debug JPEG in the replay video.
+- The replay tool end to end. It was smoke-tested only with stubbed ROS modules on a fake bag.
+
+**Ran on linus (pure Python, no ROS):**
+- `test_qos_events_fallback.py` (8)
+- the f1tenth_perception pure tests plus corridor_perception (270 passed, 37 skipped:
+  environmental)
+- `test_virtual_wall_rate.py`
+- `tools/test_corridor_wall_replay_helpers.py` (12)
+
+## Orin test plan (in order)
+```bash
+# 0. get the branch (on the Orin)
+cd ~/dev_ws/f1tenth_more
+git fetch andreas@linus:dev_ws/f1tenth_more cpu-cleanup:cpu-cleanup
+
+# 1. BEFORE numbers on the current build (campaign-final), same ZED state as step 6
+git switch campaign-final && source install/setup.bash
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py            # terminal 1
+tools/cpu_test.sh --phase a --out output/cpu_test/cpu_cleanup_before   # terminal 2, car still
+#    optional (LOG.md PENDING-DECISION): the 50 Hz EKF cost baseline now, before the switch
+# Ctrl-C terminal 1
+
+# 2. build only the touched packages
+git switch cpu-cleanup
+colcon build --symlink-install --packages-select f1tenth_params f1tenth_behavior \
+    f1tenth_bringup f1tenth_costmap f1tenth_localization f1tenth_perception f1tenth_logger
+source install/setup.bash
+
+# 3. the ROS-dependent tests written on linus
+colcon test --packages-select f1tenth_behavior f1tenth_bringup f1tenth_costmap \
+    f1tenth_localization f1tenth_perception f1tenth_logger --event-handlers console_direct+
+colcon test-result --verbose | grep -E 'failures|errors|FAILED' | head -50
+#    must pass (new or changed):
+#      f1tenth_behavior   test_bt_tick_and_event_estop.py (TestEventStopScope, TestDropQosEventHandlers),
+#                         test_qos_events_fallback.py
+#      f1tenth_bringup    test_reset_manager_idle.py, test_reset_manager_component.py,
+#                         test_wall_distance_component.py
+#      f1tenth_costmap    test_costmap_boundary_node.py, test_wall_raster.py,
+#                         test_semantic_layer_node.py, test_semantic_tracks_stamp.py
+#      f1tenth_localization test_ekf_global_config.py (TestEkfRateFromStackParams, observer off)
+#      f1tenth_perception test_lidar_front_wall_node.py, test_lidar_front_wall_launch.py,
+#                         test_wall_distance_launch.py, test_multi_wall_tracker.py
+#      f1tenth_logger     test_viz_topics_not_recorded.py
+#    known to fail already at 9c46add: ament lint tests (copyright/flake8/pep257) in bringup and
+#    logger; test_go_to_object_behaviour.py::test_grace_then_target_lost;
+#    mpc_controller test_d_wall_correction.py::test_every_other_wall_turn_mission_is_still_terminal_on_the_turn
+#    possible wall-clock flakes: the 5 ms / 50 ms budgets in test_bt_tick_and_event_estop.py
+
+# 4. AFTER numbers
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py            # terminal 1
+tools/cpu_test.sh --phase a --out output/cpu_test/cpu_cleanup_after    # terminal 2, same ZED state
+#    compare output/cpu_test/cpu_cleanup_{before,after}/summary.md
+
+# 5. rates of every changed topic (stack up, car still)
+ros2 topic hz /odometry/filtered               # ~20 (was 50)
+ros2 topic hz /ekf_global/odometry/filtered    # ~20
+ros2 topic hz /perception/virtual_wall         # ~10 (was 40), never far below with a wall in view
+ros2 topic hz /perception/virtual_wall/debug   # same as above
+ros2 topic hz /costmap/boundaries              # ~10 (was 20)
+ros2 topic hz /costmap/front_clearance         # ~10
+ros2 topic hz /costmap/wall_cells              # <= 5
+ros2 topic hz /scan                            # 40, unchanged
+ros2 topic echo /diagnostics | grep -A16 'BT tick timing'   # rate ~10, p95 << 50 ms, overruns 0
+ros2 node list | grep -E 'wall_distance|ekf_cost_observer'  # empty
+#    BT log: "Dropped N default QoS event handlers" with N > 0; no InvalidHandle at Ctrl-C
+#    lidar_front_wall log: no "no /odometry/filtered pose at the scan stamp" WARN
+#    python3 scripts/check_ekf_update_rate.py    # now judged against 20 Hz
+
+# 6. event e-stop hand test, car ON BLOCKS, wheels free, e-stop in hand
+ros2 topic echo /safety_stop --field header.frame_id   # base_link/emergency at ~40 Hz while a
+                                                       # hand is < 15 cm from the bumper
+ros2 topic echo /behavior/tree_status --field active_lane   # 'emergency' on the next tick,
+                                                       # and for 0.2 s after the hand is gone
+#    a quick wave in and out (shorter than 0.1 s) must still show 'emergency' in tree_status
+
+# 7. /reset_all (car on blocks or still)
+ros2 service call /reset_all std_srvs/srv/Trigger    # success; repeat 3x: reset_manager must
+                                                     # survive (no InvalidHandle exit)
+top -H -p $(pgrep -f reset_manager | head -1)         # ~0 % between resets
+
+# 8. one corridor10m run with the campaign recording profile
+#    edit src/f1tenth_params/config/stack_params.yaml: enable_mission_logger: true,
+#    mission_logger_profile: "campaign" (no CLI pass-through under the supervisor), restart the stack,
+#    run the corridor10m mission, then:
+python3 tools/corridor_wall_replay.py --out output/run_corridor10m_<new>_v2 <runs_dir>/complete/<run>
+#    expect: phantom FRONT episodes 0, the camera panel shows the RECORDED mask (not
+#    "MASK NOT RECORDED"), floor_inferred visible in yellow with the class strip
+
+# 9. 4c: replay the incident bag with the block 3 tracker
+python3 tools/corridor_wall_replay.py --out output/run_corridor10m_20261016T144537_v2 \
+    --compare-summary output/run_corridor10m_20261016T144537 ~/bags/corridor10m_20261016T144537
+python3 tools/corridor_wall_replay.py --no-video --tracker-steps debug \
+    --out output/run_corridor10m_20261016T144537_v2_debugsteps \
+    --compare-summary output/run_corridor10m_20261016T144537 ~/bags/corridor10m_20261016T144537
+#    targets: phantom episodes 0 (t=145-150.3: front_reason contradicted/coast_contradicted,
+#    CLEAR or the hall wall ~6.9 m, never 1.87 m); end-wall err p95/max no worse than before;
+#    NO_DATA % lower (the coast latch is gone); tracks with rho_bl < 0.5 m = 0.
+#    This bag has no mask/depth: the camera panel says MASK NOT RECORDED -- expected
+#    (--mask replay shows the recomputed one).
+#    Also run it on corridor10m_20261015T171753 and a wall_turn bag to check CLEAR flicker
+#    (front_reason histogram) and negative_killed counts.
+```
+
+## Explicit item: tracker_ms on the car, and decimation 4
+- `tracker_ms` p50 on the car was **117 ms**. At decimation 4 with 40 Hz scans the tracker gets
+  100 ms per step. 117 ms does not fit: the depth-1 best-effort `/scan` subscription drops
+  scans, so the real step rate is about 8.5 Hz or lower, and a step's verdict is already 117 ms
+  old when it is published.
+- Block 3 adds per-track work every cycle: the extent refresh, the strip test and the open-gap
+  sampling.
+- **Check:**
+  ```bash
+  ros2 topic echo /perception/virtual_wall/debug --field data | \
+    python3 -c "import sys,json,statistics as s;v=[json.loads(l.strip().strip(\"'\"))['tracker_ms'] for l in sys.stdin if l.strip().startswith(\"'\")];print(len(v),s.median(v),sorted(v)[int(.95*len(v))])"
+  ```
+  Or read tracker_ms from the cpu_test summary.
+- **The decimation 4 question.**
+  - If p50 stays above ~100 ms, decimation 4 is a fiction. Either set
+    `lidar_front_wall_wall_tracker_scan_decimation` to 5 or 6 (8 or 6.7 Hz; recheck the
+    cycle-count thresholds and that `front_contradict_cycles` = 2 still means ≤ 0.3 s), or
+    profile the tracker.
+  - The 117 ms was measured with core 5 shared with wall_distance, which is now off. Measure
+    again before deciding.
+
+## Bring the branch to the Orin
+```bash
+cd ~/dev_ws/f1tenth_more
+git fetch andreas@linus:dev_ws/f1tenth_more cpu-cleanup:cpu-cleanup && git switch cpu-cleanup
+# (MagicDNS fallback: andreas@100.89.193.76:dev_ws/f1tenth_more)
+```
