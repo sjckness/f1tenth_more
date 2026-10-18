@@ -1,0 +1,20 @@
+[sim_isaac 19:49:21] sourced host setup /home/andreas/dev_ws/jc_env.sh
+== ROS env (net local, domain 42, Discovery Server 127.0.0.1:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_bringup/config/sim/dds/local.xml
+cmd: timeout -s INT 200 ros2 bag record -s mcap -o /home/andreas/dev_ws/f1tenth_more_rust/output/rust/isaac_smoke/startup_gaps2/bag /scan /clock /proximity_guard/decision
+[WARN] [ros2bag]: Positional "topics" argument deprecated. Please use optional "--topics" argument instead.
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1792345766.994915800] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[INFO] [1792345766.994950020] [rosbag2_recorder]: Event publisher thread: Started
+[INFO] [1792345766.997949107] [rosbag2_recorder]: Starting recording to '/home/andreas/dev_ws/f1tenth_more_rust/output/rust/isaac_smoke/startup_gaps2/bag'
+[INFO] [1792345766.999263447] [rosbag2_recorder]: Listening for topics...
+[INFO] [1792345766.999282465] [rosbag2_recorder]: Recording...
+[INFO] [1792345766.999316891] [rosbag2_recorder]: Topics discovery started.
+[INFO] [1792345918.972818553] [rosbag2_recorder]: Subscribed to topic '/clock'
+[INFO] [1792345918.975331891] [rosbag2_recorder]: Subscribed to topic '/scan'
+[INFO] [1792345924.759812745] [rosbag2_recorder]: Subscribed to topic '/proximity_guard/decision'
+[INFO] [1792345924.759853177] [rosbag2_recorder]: All requested topics are subscribed. Stopping discovery...
+[INFO] [1792345924.759859158] [rosbag2_recorder]: Topics discovery stopped.
+[INFO] [1792345966.639625196] [rosbag2_recorder]: Pausing recording.
+[INFO] [1792345966.639679495] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[INFO] [1792345966.641498924] [rosbag2_recorder]: Recording stopped
+[INFO] [1792345966.646640663] [rosbag2_recorder]: Event publisher thread: Exited

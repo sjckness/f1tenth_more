@@ -18,6 +18,13 @@
        test crates; see output/rust/setup.md (test_msgs underlay). -->
   <depend>example_interfaces</depend>
   <depend>test_msgs</depend>
+  <!-- Not used by this crate. cargo resolves EVERY member of the src/rust workspace when it
+       builds one, and colcon-ros-cargo patches only the message crates visible to the package
+       it builds (its dependencies plus the /opt/ros underlay). f1tenth_costmap_boundary_rs
+       needs the WORKSPACE-built f1tenth_messages, so without this line
+       `colcon build packages-select f1tenth_proximity_guard` fails to resolve the workspace
+       (output/rust/setup.md). Keep every workspace-built message package of any member here. -->
+  <build_depend>f1tenth_messages</build_depend>
 
   <export>
     <build_type>ament_cargo</build_type>

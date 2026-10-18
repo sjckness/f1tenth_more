@@ -1,0 +1,27 @@
+[sim_isaac 19:25:00] sourced host setup /home/andreas/dev_ws/jc_env.sh
+== ROS env (net local, domain 42, Discovery Server 127.0.0.1:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_bringup/config/sim/dds/local.xml
+cmd: timeout -s INT 75 ros2 bag record -s mcap -o /home/andreas/dev_ws/f1tenth_more_rust/output/rust/isaac_smoke/r2_a_active_rust/bag /scan /clock /slam/map /ekf_global/odometry/filtered /costmap/boundaries /costmap/front_clearance /proximity_guard/decision /tf_static /safety_stop /ackermann_drive
+[WARN] [ros2bag]: Positional "topics" argument deprecated. Please use optional "--topics" argument instead.
+stdin is not a terminal device. Keyboard handling disabled.[INFO] [1792344307.238990806] [rosbag2_recorder]: Press SPACE for pausing/resuming
+[INFO] [1792344307.238997363] [rosbag2_recorder]: Event publisher thread: Started
+[INFO] [1792344307.243598990] [rosbag2_recorder]: Starting recording to '/home/andreas/dev_ws/f1tenth_more_rust/output/rust/isaac_smoke/r2_a_active_rust/bag'
+[INFO] [1792344307.250265150] [rosbag2_recorder]: Listening for topics...
+[INFO] [1792344307.250306042] [rosbag2_recorder]: Recording...
+[INFO] [1792344307.250348967] [rosbag2_recorder]: Topics discovery started.
+[INFO] [1792344308.327703579] [rosbag2_recorder]: Subscribed to topic '/ackermann_drive'
+[INFO] [1792344308.341029555] [rosbag2_recorder]: Subscribed to topic '/clock'
+[INFO] [1792344308.346388862] [rosbag2_recorder]: Subscribed to topic '/costmap/boundaries'
+[INFO] [1792344308.349043733] [rosbag2_recorder]: Subscribed to topic '/costmap/front_clearance'
+[INFO] [1792344308.355655285] [rosbag2_recorder]: Subscribed to topic '/ekf_global/odometry/filtered'
+[INFO] [1792344308.370178651] [rosbag2_recorder]: Subscribed to topic '/proximity_guard/decision'
+[INFO] [1792344308.375963978] [rosbag2_recorder]: Subscribed to topic '/scan'
+[INFO] [1792344308.377806232] [rosbag2_recorder]: Subscribed to topic '/safety_stop'
+[INFO] [1792344308.379770735] [rosbag2_recorder]: Subscribed to topic '/slam/map'
+[INFO] [1792344308.385134556] [rosbag2_recorder]: Subscribed to topic '/tf_static'
+[INFO] [1792344308.385174916] [rosbag2_recorder]: All requested topics are subscribed. Stopping discovery...
+[INFO] [1792344308.385180445] [rosbag2_recorder]: Topics discovery stopped.
+[INFO] [1792344381.733908592] [rosbag2_recorder]: Pausing recording.
+[INFO] [1792344381.733969437] [rosbag2_cpp]: Writing remaining messages from cache to the bag. It may take a while
+[INFO] [1792344381.745341406] [rosbag2_recorder]: Recording stopped
+[INFO] [1792344381.755073003] [rosbag2_recorder]: Event publisher thread: Exited

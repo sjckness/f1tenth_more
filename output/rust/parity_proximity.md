@@ -161,3 +161,114 @@ matched the BT's own IsProximityTooClose front decision on every live scan: 35,1
 in two e2e sessions (all clear), and 856 scans with a box 0.10 m from the bumper, 589 of them
 tripped on both sides. In `guard:=active` the guard's stops reached `/ackermann_drive` through the
 mux next to the BT's.
+
+
+## 7. Scan timeout: the guard vs the BT when /scan stops (2026-10-18, follow-up)
+
+**Result: they differ, by design, and the guard is the stricter side. The BT's front check has no
+scan timeout at all; the guard stops after `scan_timeout_ms` (200). Not a bug in the guard; on the
+BT side it is the fail-open case 1 of section 4, now measured.**
+
+`tools/rust_parity/proximity/timeout_parity.py`, isolated localhost domain:
+- **Two guards, both active:** `use_sim_time` false (the car), and `use_sim_time` true with `/clock`
+  from the harness.
+- **The real IsProximityTooClose, with both of the BT's stop paths:**
+  - *event:* the stop from the /scan callback (cpu-cleanup, `enable_proximity_event_stop`);
+  - *tick:* a 10 Hz timer that calls `update()` and publishes the emergency lane's Stop when it
+    returns SUCCESS. This is the emergency Sequence of `create_root()`.
+- **Each case:** 1 s of scans whose last ones are clear or tripping (0.10 m from the bumper), a gap
+  without scans, then clear scans. `/clock` either keeps running through the gap (scans lost) or
+  freezes (a simulator pause).
+- **Gaps:** 150, 250, 500 and 1000 ms, plus 260 ms. That is the pause recorded in run A
+  (`impl:=py`): the guard saw 232 ms and published exactly one stop, so the gap was 232-282 ms.
+- **Counted:** stops published during the gap per source (first stop after the last scan in
+  brackets). The mux holds each stop 0.2 s.
+
+| last scans | /clock in the gap | gap | BT event path | BT tick path | guard, car (steady) | guard, sim (ROS time) |
+|---|---|---:|---:|---:|---|---|
+| clear | running | 150 ms | 0 | 0 | 0 | 0 |
+| clear | running | 250 ms | 0 | 0 | 2 (first 210 ms) | 2 (first 210 ms) |
+| clear | running | 500 ms | 0 | 0 | 6 (first 233 ms) | 6 (first 233 ms) |
+| clear | running | 1000 ms | 0 | 0 | 17 (first 207 ms) | 17 (first 207 ms) |
+| clear | running | 260 ms (recorded) | 0 | 0 | 1 (first 231 ms) | 1 (first 231 ms) |
+| clear | frozen | 150 ms | 0 | 0 | 0 | 0 |
+| clear | frozen | 250 ms | 0 | 0 | 1 (first 218 ms) | 0 |
+| clear | frozen | 500 ms | 0 | 0 | 6 (first 242 ms) | 0 |
+| clear | frozen | 1000 ms | 0 | 0 | 16 (first 215 ms) | 0 |
+| clear | frozen | 260 ms (recorded) | 0 | 0 | 1 (first 240 ms) | 0 |
+| trip | running | 150 ms | 0 | 1 (first 87 ms) | 0 | 0 |
+| trip | running | 250 ms | 0 | 2 (first 111 ms) | 1 (first 228 ms) | 1 (first 228 ms) |
+| trip | running | 500 ms | 0 | 5 (first 36 ms) | 7 (first 202 ms) | 7 (first 202 ms) |
+| trip | running | 1000 ms | 0 | 10 (first 109 ms) | 16 (first 225 ms) | 16 (first 225 ms) |
+| trip | running | 260 ms (recorded) | 0 | 2 (first 82 ms) | 1 (first 249 ms) | 1 (first 249 ms) |
+| trip | frozen | 150 ms | 0 | 1 (first 96 ms) | 0 | 0 |
+| trip | frozen | 250 ms | 0 | 2 (first 120 ms) | 1 (first 237 ms) | 0 |
+| trip | frozen | 500 ms | 0 | 5 (first 44 ms) | 7 (first 210 ms) | 0 |
+| trip | frozen | 1000 ms | 0 | 9 (first 117 ms) | 16 (first 234 ms) | 0 |
+| trip | frozen | 260 ms (recorded) | 0 | 2 (first 91 ms) | 2 (first 207 ms) | 0 |
+
+Reading it:
+- **Last scan clear, scans then stop: the BT never stops**, for any gap length; neither path
+  publishes anything (the event path has no scan, the tick path keeps the last decision "clear").
+  The guard (car) stops ~200-250 ms after the last scan, every 50 ms, as long as the gap lasts.
+- **Last scan tripping:** the BT's tick path keeps stopping through the gap on its latched decision
+  (from the next tick, 36-120 ms), the event path stops with the scans. The guard stops from
+  ~200-250 ms; before that the mux still holds its last per-scan stop (0.2 s), so the lane does not
+  open in between. Both sides keep the car stopped.
+- **`/clock` frozen (simulator pause):** the car-mode guard stops (steady clock); the sim-mode guard
+  does not (ROS time did not advance). The BT does what it does without a pause.
+- **Gaps under the timeout (150 ms) stop neither side.**
+- After scans resume, at most one late stop per side (one watchdog or tick period).
+
+What this means on the car: if the LiDAR or urg_node dies while the front reads clear, the BT
+keeps driving on the last clear decision. `guard:=active` stops the car 200-250 ms after the last
+scan. The difference stays as it is: the BT is not changed (task rule), and the guard is meant to
+be stricter.
+
+## 8. Which clock judges a stale scan (follow-up)
+
+**Before:** the guard judged staleness on the steady clock (`std::time::Instant`) on the car and in
+sim alike. A simulator pause therefore looked like a dead LiDAR. In run A (`impl:=py`,
+`guard:=active`) this produced one stop.
+
+**Now** (`src/rust/f1tenth_proximity_guard/src/watchdog.rs`):
+- **Clock choice:** read from the node clock's type at start-up. rclrs switches it to ROS time
+  exactly when `use_sim_time` is true. The start log says `(steady clock)` or `(ros clock)`, and
+  every decision carries `stale_clock`.
+- **Car, `use_sim_time` false: unchanged.** `no_scan_yet` and `stale` are on the steady clock.
+  Verified again with `live_guard_test.py`: first stale stop 233 ms after the last scan
+  (240 ms before the change), one stop per tripping scan, latency p50 0.65 ms.
+- **Sim, `use_sim_time` true:**
+  - `stale` follows ROS time. A gap over the timeout in wall time but not in ROS time is a
+    `sim_pause`: logged once per pause, counted in the decision's `sim_pauses`, no stop.
+  - `no_scan_yet` stays on the steady clock, so a simulator that never sends a scan still stops
+    an active guard.
+  - A `/clock` that runs backwards (a reset) counts as "just received".
+- 3 new unit tests (19 in total); `timeout_parity.py` above confirms both modes.
+- `scan_timeout_ms` is still 200.
+
+Re-run of scenario A with `guard:=active`, twice (`tools/rust_parity/isaac/scenario.sh`; raw data
+in `isaac_smoke/r1_a_active_py`, `r2_a_active_rust`):
+
+| run | clock | sim pauses logged | guard stops | mission |
+|---|---|---:|---:|---|
+| R1 `impl:=py` | ros | 0 | **0** | COMPLETE 20.2 s |
+| R2 `impl:=rust` | ros | 2 (208 ms wall / 17 ms ROS; 230 ms / 33 ms) | **0** (both would have been stops before) | COMPLETE 20.2 s |
+| R3/R4 B2 shadow | ros | 0 / 1 (228 ms / 33 ms) | shadow | BT stop in front of the box, as before |
+
+**What the pauses are (open).** All four pauses seen so far happened while the car was parked: three at
+2-3 s after the stack starts, and one 46 s after start in scenario A, before the mission
+drove. In each, the guard received neither /scan nor
+/clock for 208-232 ms, so its own ROS time advanced only 17-33 ms. A separate recorder never saw
+such a gap in any recorded window: 5 windows, about 6 min, including resets and one stack start-up.
+The numbers are in `isaac_scan_gaps.json` and the sim-health note of `isaac_test.md`. None of the guard's
+pauses fell inside a recorded window, and the one recorded start-up had no pause.
+
+So it is not proven whether Isaac slowed down for those 200 ms (the stack's start-up loads all
+8 cores) or only the guard process received nothing. In the second case simulated time did run on
+and the car could have moved.
+
+Consequence:
+- **In sim**, the ROS-time rule ignores any gap during which /clock also stops reaching the guard.
+  That is what was asked for. All observed cases had the car parked.
+- **On the car** nothing changes (steady clock).

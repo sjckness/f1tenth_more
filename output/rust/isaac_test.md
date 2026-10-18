@@ -183,9 +183,17 @@ Latency under sim time is not meaningful (stamp and now come from /clock); the w
 is in `parity_proximity.md` section 5 (0.63 ms p50 scan -> stop).
 
 **Watch for tomorrow:**
-- `stale` decisions in shadow are sim stalls (wall-clock gaps > 200 ms in /scan), 3-6 per e2e
-  session. In `guard:=active` each is a stop for about 50-250 ms. If that disturbs a run, raise the
-  timeout for sim only in `config/sim/isaac.yaml` (the overlay every sim component gets as global
-  parameters): `proximity_guard_node: {ros__parameters: {scan_timeout_ms: 500.0}}`. Not done and
-  not tested: the default is the car's value, and shadow mode is unaffected.
+- **Stale scans in sim (fixed 2026-10-18 evening):** the guard now judges a stale /scan on ROS
+  time under `use_sim_time` (on the car: the steady clock, unchanged). A wall-clock gap without
+  ROS-time progress is logged as `simulator pause #N` in the behavior component's log and counted
+  in the decision's `sim_pauses`; it no longer stops. Before the fix, a 232 ms pause in run A
+  (`impl:=py`) produced one guard stop. After it: 0 stops in two active runs (2 pauses logged in
+  one). Details: `parity_proximity.md` sections 7 and 8.
+- **Sim health, /scan arrival in Isaac** (`isaac_scan_gaps.json`; 4 scenario bags plus one
+  start-up bag, 13,466 scans over 5.6 min as received by the recorder): 40.0 Hz,
+  RTF 1.000. Gap histogram: 0-20 ms: 4,687, 20-25 ms: 2,836, 25-30 ms: 1,940, 30-40 ms: 1,930, 40-50 ms: 2,053, 50-75 ms: 13, 75-100 ms: 1, 250-500 ms: 1. The only gap over 200 ms (359 ms) is the recorder's own start-up, 0.6 s into its bag.
+  Simulated-time gaps are 16.7-33.3 ms, never more. The guard's own pauses (3 at 2-3 s after
+  the stack starts, 1 before a mission drove, each 208-232 ms wall / 17-33 ms ROS time) never
+  fell inside a recorded window, so whether Isaac slowed down or only the guard's process
+  received nothing for that time is open.
 - In `guard:=active` the guard also stops until the first /scan arrives (~4 s after start).
