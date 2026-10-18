@@ -42,10 +42,24 @@ LOG_FILE_GLOB = 'f1tenth_localization_localization.launch.py.log'
 _WARNING_RE = re.compile(
     r'Failed to meet update rate!\s*Took\s*([0-9]*\.?[0-9]+)\s*seconds', re.IGNORECASE)
 
-# robot_localization's own ekf_node target period for this stack's frequency:
-# 50.0 (f1tenth_bringup/config/ekf.yaml AND ekf_global.yaml -- both, by design,
-# see ekf_global.yaml's own "matches the local EKF" comment) -> 20ms.
-_TARGET_PERIOD_MS = 20.0
+# robot_localization's own ekf_node target period for this stack's frequency,
+# f1tenth_params' stack_params.yaml ekf_frequency_hz (both EKFs; 20 Hz since
+# cpu-cleanup R2, 50 before). Read from the source yaml next to this script so
+# it needs no ROS environment; --target-hz overrides it.
+
+
+def _stack_ekf_hz(default=20.0):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'src',
+                        'f1tenth_params', 'config', 'stack_params.yaml')
+    try:
+        import yaml
+        with open(path) as f:
+            return float(yaml.safe_load(f)['ekf_frequency_hz']['default'])
+    except Exception:  # noqa: BLE001 - a missing file must not stop the check
+        return default
+
+
+_TARGET_PERIOD_MS = 1000.0 / _stack_ekf_hz()
 
 
 def _find_default_log_file(log_dir: str) -> str:
@@ -88,11 +102,18 @@ def main() -> int:
              'during the startup/calibration burst is tolerated; the original bug '
              'produced dozens)')
     parser.add_argument(
-        '--max-delay-ms', type=float, default=50.0,
-        help='fail if any single warning exceeds this delay, ms (default: 50.0 -- '
-             f'2.5x the {_TARGET_PERIOD_MS:.0f}ms target period; the original bug '
-             'showed up to 59ms)')
+        '--target-hz', type=float, default=None,
+        help='EKF frequency to judge against (default: stack_params ekf_frequency_hz)')
+    parser.add_argument(
+        '--max-delay-ms', type=float, default=None,
+        help='fail if any single warning exceeds this delay, ms (default: 2.5x the '
+             'target period -- 50 ms at 50 Hz, where the original bug showed up to 59ms)')
     args = parser.parse_args()
+    global _TARGET_PERIOD_MS
+    if args.target_hz:
+        _TARGET_PERIOD_MS = 1000.0 / args.target_hz
+    if args.max_delay_ms is None:
+        args.max_delay_ms = 2.5 * _TARGET_PERIOD_MS
 
     path = args.file or _find_default_log_file(args.log_dir)
     if not os.path.isfile(path):
@@ -101,7 +122,8 @@ def main() -> int:
     delays_ms = scan(path)
 
     print(f'Scanned: {path}')
-    print(f'Target update period: {_TARGET_PERIOD_MS:.0f}ms (50Hz, both EKF instances)')
+    print(f'Target update period: {_TARGET_PERIOD_MS:.0f}ms '
+          f'({1000.0 / _TARGET_PERIOD_MS:.0f}Hz, both EKF instances)')
     print(f'"Failed to meet update rate!" warnings found: {len(delays_ms)}')
 
     if not delays_ms:

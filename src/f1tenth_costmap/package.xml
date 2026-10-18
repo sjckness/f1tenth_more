@@ -24,6 +24,8 @@
   <!-- MultiWallTrackArray: the wall tracks the semantic layer rasterises. -->
   <exec_depend>f1tenth_messages</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <!-- semantic_layer_node imports tf2_msgs/TFMessage directly (its /tf_static subscription). -->
+  <exec_depend>tf2_msgs</exec_depend>
   <exec_depend>tf2_geometry_msgs</exec_depend>
   <!-- BoundaryConstraint/BoundaryConstraintArray - costmap_boundary_node.py
        (dual-EKF + costmap-derived-MPC-boundaries pass), same message types

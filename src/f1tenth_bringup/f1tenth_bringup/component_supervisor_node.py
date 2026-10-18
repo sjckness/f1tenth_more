@@ -306,7 +306,8 @@ from std_srvs.srv import Trigger
 _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 
 # Components that auto-start unconditionally. 'lidar_front_wall',
-# 'wall_distance', 'swept_clearance' and 'obstacle_clearance' are each separate
+# 'wall_distance' (conditional since cpu-cleanup, see _CONDITIONAL_AUTO_START),
+# 'swept_clearance' and 'obstacle_clearance' are each separate
 # from 'perception' on purpose (restarting 'perception' restarts urg_node, the
 # e-stop's /scan) -- see components.yaml's comments on those entries. All four
 # launch files self-gate on use_lidar. obstacle_clearance was on-demand until
@@ -322,7 +323,7 @@ _HARDWARE_TEARDOWN_BUFFER_SEC = 2.0
 # 'reset_manager' serves /reset_all, which restarts other components through
 # this node's /restart_component (never 'intelligence').
 _ALWAYS_AUTO_START = {'hardware', 'localization', 'navigation', 'perception',
-                      'lidar_front_wall', 'wall_distance', 'swept_clearance',
+                      'lidar_front_wall', 'swept_clearance',
                       'obstacle_clearance', 'control', 'diagnostics', 'dev_tools',
                       'slam', 'reset_manager'}
 # Registered (restartable by name) but never auto-started -- on-demand only.
@@ -341,6 +342,9 @@ _NEVER_AUTO_START = {'calibrate_hardware', 'startup_sequence'}
 _CONDITIONAL_AUTO_START = {
     'behavior': 'use_behavior_tree',
     'intelligence': 'enable_intelligence',
+    # cpu-cleanup (2026-10-16): off by default, still registered so it can be
+    # restarted by name. stack_params.yaml's enable_wall_distance says why.
+    'wall_distance': 'enable_wall_distance',
 }
 
 # FastDDS SHM transport hygiene (see module docstring's own paragraph on this) --
@@ -1024,12 +1028,27 @@ class ComponentSupervisorNode(Node):
         found by launch_file rather than by position, so reordering that
         component cannot quietly disconnect the toggle. Same in-place mutation
         of a freshly parsed registry as _apply_calibration_override above.
+
+        DISABLED = NOT LAUNCHED (fix, 2026-10-16). With the logger off, every
+        Node in mission_logger.launch.py is IfCondition-gated away, so `ros2
+        launch` has nothing to run and exits 0 about 4 s after start. The
+        watchdog treats any exit as a crash, so the 'diagnostics' group logged
+        "crashed (exit 0) -- auto-respawning" three times and then "exceeded
+        its restart budget" every 2 s for the rest of the session (Orin,
+        campaign-final, output/live/stack_nolog.log; never with the logger
+        on). Same failure, same cure as _SKIP_LAUNCH_FILE_IF_DISABLED in
+        __init__: an intentionally disabled launch file is dropped from the
+        registry instead of being started with :=false. The rest of the
+        component (system_observer, diagnostics_server) is untouched.
         """
-        value = 'true' if self.enable_mission_logger else 'false'
         for entries in self._registry.values():
+            if not self.enable_mission_logger:
+                entries[:] = [e for e in entries
+                              if str(e.get('launch_file', '')) != 'mission_logger.launch.py']
+                continue
             for entry in entries:
                 if str(entry.get('launch_file', '')) == 'mission_logger.launch.py':
-                    entry.setdefault('args', {})['enable_mission_logger'] = value
+                    entry.setdefault('args', {})['enable_mission_logger'] = 'true'
 
     def _hardware_will_calibrate(self):
         """True if any of 'hardware' component's own registered launch entries

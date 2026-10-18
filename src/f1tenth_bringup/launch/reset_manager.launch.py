@@ -4,7 +4,9 @@
 
 Parameters come from config/reset_manager.yaml; nav2.enabled comes from
 stack_params' enable_nav2, so the reset clears Nav2 costmaps exactly when
-Nav2 is running. Override the file with config:=<your.yaml>.
+Nav2 is running, and hooks.skip_components from enable_wall_distance, so a
+disabled wall_distance is not started by the hooks step. Override the file
+with config:=<your.yaml>.
 
 Only meaningful under the component supervisor: the wheel_odom, slam and
 hooks steps restart components through its /restart_component, which the
@@ -35,6 +37,11 @@ def generate_launch_description():
         name='reset_manager',
         output='screen',
         parameters=[LaunchConfiguration('config'),
-                    {'nav2.enabled': bool(get_value('enable_nav2'))}],
+                    {'nav2.enabled': bool(get_value('enable_nav2')),
+                     # cpu-cleanup: restarting a component the supervisor did
+                     # not start would START it, so a disabled one is skipped.
+                     # [''] is "none": ROS 2 cannot type an empty list.
+                     'hooks.skip_components': (
+                         [''] if get_value('enable_wall_distance') else ['wall_distance'])}],
     )
     return LaunchDescription([config_la, node])

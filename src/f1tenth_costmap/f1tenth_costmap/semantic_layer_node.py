@@ -93,6 +93,7 @@ RViz/Foxglove readability, same convention wall_detector_node.py's own
 _wall_markers already uses for its own label markers).
 """
 
+import array
 import itertools
 import math
 
@@ -105,6 +106,7 @@ from nav_msgs.msg import OccupancyGrid, Odometry
 from std_msgs.msg import ColorRGBA, Int32MultiArray
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
+from tf2_msgs.msg import TFMessage
 from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import (
     Detection3D,
@@ -115,6 +117,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray
 from f1tenth_params.object_geometry import footprint_radius
+from f1tenth_params.param_defaults import get_value
 from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
 
 from f1tenth_costmap.semantic_layer import (
@@ -254,8 +257,29 @@ class SemanticLayerNode(Node):
         self.min_alpha_scale = float(p('min_alpha_scale').value)
         self.gate_sigma_scale = float(p('gate_sigma_scale').value)
 
+        # The one TF lookup here is camera -> base_link (_detections_cb), and
+        # every link of that chain is a fixed URDF joint (sensors.xacro:
+        # zed2_camera_joint, zed2_left_camera_joint, ..._optical_joint), i.e.
+        # /tf_static. A TransformListener also deserialises every /tf message
+        # (both EKFs at 50 Hz) on this node's executor for nothing, so by
+        # default (cpu-cleanup, 2026-10-16) the buffer is fed from the latched
+        # /tf_static alone -- the same "a handful of fixed edges, no
+        # TransformListener" choice yolo_detector_node and front_clearance_node
+        # already make. tf_static_only:=false restores the full listener, for
+        # a detections frame reached through a moving joint -- REQUIRED if the
+        # camera pan joint is ever enabled (stack_params.yaml
+        # semantic_layer_tf_static_only, where the default lives).
+        self.declare_parameter('tf_static_only', get_value('semantic_layer_tf_static_only'))
         self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.tf_listener = None
+        self.tf_static_sub = None
+        if bool(self.get_parameter('tf_static_only').value):
+            self.tf_static_sub = self.create_subscription(
+                TFMessage, '/tf_static', self._tf_static_cb, QoSProfile(
+                    depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                    history=HistoryPolicy.KEEP_LAST))
+        else:
+            self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Same BEST_EFFORT/VOLATILE match costmap_boundary_node.py in this
         # same package already uses for this exact topic, which in turn matches
@@ -298,8 +322,22 @@ class SemanticLayerNode(Node):
             OccupancyGrid, p('wall_cells_topic').value, 1)
         self.wall_ids_pub = self.create_publisher(
             Int32MultiArray, p('wall_ids_topic').value, 1)
+        # cpu-cleanup (2026-10-16): the wall layer is rebuilt from the LATEST
+        # /perception/walls message at most wall_layer_rate_hz, on a timer,
+        # instead of on every message (~10 Hz: lidar_front_wall_node's
+        # tracker steps 1 scan in 4). Its two outputs have no live consumer:
+        # /costmap/wall_cells is only recorded by the mission logger and
+        # /costmap/wall_cell_ids is read by nothing. Each rebuild is a fresh
+        # raster of the newest message (never accumulated, see _walls_cb),
+        # so skipping an intermediate message loses nothing. 5 Hz, below
+        # mpc_corr's 10 Hz.
+        self.declare_parameter('wall_layer_rate_hz', 5.0)
+        self.wall_layer_rate_hz = float(p('wall_layer_rate_hz').value)
+        self._pending_walls = None
         self.wall_sub = self.create_subscription(
-            MultiWallTrackArray, p('wall_tracks_topic').value, self._walls_cb, 10)
+            MultiWallTrackArray, p('wall_tracks_topic').value, self._walls_msg_cb, 1)
+        self.wall_timer = self.create_timer(
+            1.0 / self.wall_layer_rate_hz, self._wall_layer_tick)
 
         self._pose_history: list = []  # [(stamp_sec, (x, y, yaw)), ...]
         self._objects: list = []       # [SemanticObject, ...] (tracks, confirmed + tentative)
@@ -315,6 +353,20 @@ class SemanticLayerNode(Node):
         self._last_published_marker_keys: set = set()
 
         self.get_logger().info('semantic_layer_node started')
+
+    # ------------------------------------------------------------------
+    def _tf_static_cb(self, msg: TFMessage):
+        for transform in msg.transforms:
+            self.tf_buffer.set_transform_static(transform, 'semantic_layer_tf_static')
+
+    def _walls_msg_cb(self, msg):
+        """Keep only the newest wall message; _wall_layer_tick rasterises it."""
+        self._pending_walls = msg
+
+    def _wall_layer_tick(self):
+        msg, self._pending_walls = self._pending_walls, None
+        if msg is not None:
+            self._walls_cb(msg)
 
     # ------------------------------------------------------------------
     def _walls_cb(self, msg):
@@ -359,11 +411,16 @@ class SemanticLayerNode(Node):
         grid.info.origin.position.x = origin_x
         grid.info.origin.position.y = origin_y
         grid.info.origin.orientation.w = 1.0
-        grid.data = roles.ravel().astype(np.int8).tolist()
+        # array.array, not .tolist(): the same values, but the generated
+        # message setters take an array of the right typecode as-is instead
+        # of building and checking a 57,600-element Python list per field
+        # (~4 ms of the ~4.3 ms this callback took on linus with no walls).
+        grid.data = array.array('b', roles.ravel().astype(np.int8).tobytes())
         self.wall_cells_pub.publish(grid)
         # The ids beside the grid, same row-major order, so a consumer can ask
         # the tracker about a cell. -1 where no wall claims it.
-        self.wall_ids_pub.publish(Int32MultiArray(data=ids.ravel().tolist()))
+        self.wall_ids_pub.publish(Int32MultiArray(
+            data=array.array('i', ids.ravel().astype(np.int32).tobytes())))
 
     # ------------------------------------------------------------------
     def _pose_cb(self, msg: Odometry):

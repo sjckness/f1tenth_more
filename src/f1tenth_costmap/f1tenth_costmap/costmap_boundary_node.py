@@ -215,6 +215,10 @@ that wasn't checked this pass; worth confirming separately if the exact
 number matters) -- now that this node's own publish cadence, not upstream
 recency, is what consumers judge freshness by, this rate directly bounds
 how current a consumer's view can ever be.
+
+cpu-cleanup (2026-10-16): default 10.0, mpc_corr's own control rate; see
+the extraction_rate_hz declaration for every consumer's staleness gate.
+The TF listener now only exists with use_convex_polytope (the only reader).
 """
 
 import json
@@ -364,7 +368,16 @@ class CostmapBoundaryNode(Node):
         # (previously declared here) are gone: staleness no longer gates the
         # publish at all, only "has a message of each kind ever arrived" does
         # (_extraction_tick below).
-        self.declare_parameter('extraction_rate_hz', 20.0)
+        #
+        # cpu-cleanup (2026-10-16): 20.0 -> 10.0. mpc_corr, the consumer this
+        # rate exists for, runs its control loop at 10 Hz (MPC_corr.py ts =
+        # 0.1), so half of the 20 Hz output was never read before being
+        # replaced. Staleness gates downstream, all >= 2x the new 0.1 s
+        # period: MPC_corr odom_stale_timeout_sec 0.5 s on /costmap/boundaries;
+        # lidar_front_wall_seed_max_age_sec 0.5 s on /costmap/front_clearance;
+        # steering_offset_calibration clearance_stale_sec 1.0 s. The map
+        # itself only changes every 5 s (slam_toolbox map_update_interval).
+        self.declare_parameter('extraction_rate_hz', 10.0)
 
         # ---- CONVEX SAFE CORRIDOR (safe_corridor.py) -------------------
         # DEFAULT FALSE. Everything below is built but NOT enabled: with
@@ -483,8 +496,16 @@ class CostmapBoundaryNode(Node):
         # than freshness does.
         self._latest_corridor = None
 
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        # Only the polytope path reads TF (_map_from_odom). A TransformListener
+        # deserialises every /tf message (both EKFs at 50 Hz) on this node's
+        # executor, so with use_convex_polytope false (the default) it was
+        # pure overhead (cpu-cleanup, 2026-10-16). use_convex_polytope is read
+        # once, here, and never changes at runtime.
+        self.tf_buffer = None
+        self.tf_listener = None
+        if self.use_convex_polytope:
+            self.tf_buffer = Buffer()
+            self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.map_sub = self.create_subscription(
             OccupancyGrid, str(p('map_topic').value), self._map_cb, map_qos)

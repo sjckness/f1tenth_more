@@ -264,6 +264,60 @@ class TestTheWallLayerNode:
         finally:
             node.destroy_node()
 
+    def test_only_the_newest_message_is_rasterised_at_the_layer_rate(self):
+        # cpu-cleanup: messages are only kept; the timer rasterises the newest.
+        node = self._node()
+        try:
+            assert node.wall_timer.timer_period_ns == round(1e9 / 5.0)
+            node._walls_msg_cb(self._msg([self._track(1, 'front', (1.0, -1.0), (1.0, 1.0))]))
+            node._walls_msg_cb(self._msg([self._track(2, 'right', (-1.0, -1.2), (2.0, -1.2))]))
+            assert node.wall_ids_pub.publish.last is None      # no work per message
+            node._wall_layer_tick()
+            ids = node.wall_ids_pub.publish.last
+            assert 2 in ids.data and 1 not in ids.data
+            node.wall_ids_pub.publish.last = None
+            node._wall_layer_tick()                              # nothing new: nothing out
+            assert node.wall_ids_pub.publish.last is None
+        finally:
+            node.destroy_node()
+
+    def test_the_layer_carries_the_same_values_as_the_raster(self):
+        import numpy as np
+        from f1tenth_costmap.wall_raster import rasterize_walls
+        node = self._node()
+        try:
+            node._walls_cb(self._msg([self._track(1, 'front', (1.0, -1.0), (1.0, 1.0))]))
+            grid = node.wall_cells_pub.publish.last
+            ids = node.wall_ids_pub.publish.last
+            cells = grid.info.width
+            roles, want_ids = rasterize_walls(
+                [(1, 'front', (1.0, -1.0), (1.0, 1.0))], grid.info.origin.position.x,
+                grid.info.origin.position.y, grid.info.resolution, cells, cells,
+                node.wall_thickness_m)
+            assert list(grid.data) == roles.ravel().astype(np.int8).tolist()
+            assert list(ids.data) == want_ids.ravel().tolist()
+        finally:
+            node.destroy_node()
+
+    def test_tf_comes_from_tf_static_only_by_default(self):
+        from geometry_msgs.msg import TransformStamped
+        from tf2_msgs.msg import TFMessage
+        node = self._node()
+        try:
+            assert node.tf_listener is None and node.tf_static_sub is not None
+            t = TransformStamped()
+            t.header.frame_id = 'base_link'
+            t.child_frame_id = 'zed2_left_camera_frame'
+            t.transform.translation.x = 0.3
+            t.transform.rotation.w = 1.0
+            node._tf_static_cb(TFMessage(transforms=[t]))
+            import rclpy.time
+            got = node.tf_buffer.lookup_transform(
+                'base_link', 'zed2_left_camera_frame', rclpy.time.Time())
+            assert got.transform.translation.x == 0.3
+        finally:
+            node.destroy_node()
+
     def test_nothing_is_published_without_a_pose_to_place_it_with(self):
         node = self._node()
         try:

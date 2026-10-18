@@ -160,10 +160,28 @@ class TestNode:
         _, node = self._launch()
         assert isinstance(node.condition, IfCondition)
         context = LaunchContext()
+        context.launch_configurations['enable_wall_distance'] = 'true'
         context.launch_configurations['use_lidar'] = 'false'
         assert not node.condition.evaluate(context)
         context.launch_configurations['use_lidar'] = 'true'
         assert node.condition.evaluate(context)
+
+    def test_gated_on_enable_wall_distance(self):
+        """cpu-cleanup: off unless enable_wall_distance, even with the LiDAR on."""
+        _, node = self._launch()
+        context = LaunchContext()
+        context.launch_configurations['use_lidar'] = 'true'
+        context.launch_configurations['enable_wall_distance'] = 'false'
+        assert not node.condition.evaluate(context)
+        context.launch_configurations['enable_wall_distance'] = 'true'
+        assert node.condition.evaluate(context)
+
+    def test_enable_wall_distance_defaults_off_from_stack_params(self):
+        launch_description, _ = self._launch()
+        arg = _declared(launch_description)['enable_wall_distance']
+        context = LaunchContext()
+        assert _text(arg.default_value, context) == str(get_value('enable_wall_distance'))
+        assert get_value('enable_wall_distance') is False
 
     def test_pinned_to_core_5_off_the_behavior_executor_through_taskset(self):
         launch_description, node = self._launch()

@@ -90,7 +90,7 @@ and the load/start/abort/emergency_stop services) take self._lock around the
 read-then-mutate sequence on the shared MissionRuntimeState. Checked before
 adding this: no lock existed anywhere in the mission package before this pass.
 It is *not* fixing an active race under the current architecture --
-behavior_executor_node.main() drives the tree ticks (via tree.tick_tock()'s
+behavior_executor_node.main() drives the tree ticks (via tick_timing.BtTicker's
 wall timer, added to `node`), this class's own subscription, and all four
 services through one `rclpy.spin(node)` call with rclpy's default
 SingleThreadedExecutor, so no two ROS callbacks -- including a BT tick and a

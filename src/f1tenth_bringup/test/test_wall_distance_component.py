@@ -24,7 +24,8 @@ import yaml
 sys.path.insert(0, os.path.join(
     os.path.dirname(__file__), '..', 'f1tenth_bringup'))
 
-from component_supervisor_node import _ALWAYS_AUTO_START  # noqa: E402
+from component_supervisor_node import (  # noqa: E402
+    _ALWAYS_AUTO_START, _CONDITIONAL_AUTO_START)
 
 _COMPONENTS_YAML = os.path.join(
     os.path.dirname(__file__), '..', 'config', 'components.yaml')
@@ -73,9 +74,19 @@ def test_no_scan_consumer_is_in_the_perception_component():
 
 
 def test_every_scan_consumer_auto_starts():
-    """An uncategorized component silently never starts: no warning, no error."""
+    """
+    An uncategorized component silently never starts: no warning, no error.
+
+    wall_distance is the one exception since cpu-cleanup: it auto-starts only
+    with stack_params' enable_wall_distance (default false), and the gate must
+    name exactly that key.
+    """
     for name in _SCAN_CONSUMERS:
-        assert name in _ALWAYS_AUTO_START, name
+        if name == 'wall_distance':
+            assert name not in _ALWAYS_AUTO_START
+            assert _CONDITIONAL_AUTO_START[name] == 'enable_wall_distance'
+        else:
+            assert name in _ALWAYS_AUTO_START, name
 
 
 def test_no_component_holds_two_scan_consumers_either():

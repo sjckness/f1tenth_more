@@ -146,9 +146,13 @@ they are, so the check can only trip early, never late.
 """
 
 import math
+import time
 
+from ackermann_msgs.msg import AckermannDriveStamped
 from f1tenth_behavior.behaviours.static_frames import StaticFramePoses
+from f1tenth_behavior.behaviours.stop import make_stop_msg
 from f1tenth_description.vehicle_frames import base_front_x
+import numpy as np
 import py_trees
 from sensor_msgs.msg import LaserScan
 
@@ -205,6 +209,10 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         lidar_blind_cone_half_angle_deg=45.0,
         front_cone_half_angle_deg=45.0,
         base_front_x_m=None,
+        immediate_stop_topic=None,
+        immediate_stop_frame_id='base_link/emergency',
+        event_stop_hold_s=0.2,
+        clock=time.monotonic,
     ):
         super().__init__(name=name)
         self.scan_topic = scan_topic
@@ -225,6 +233,54 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         # Diagnostic-only (live investigation, see chat) -- logged once on the
         # first /scan message received, not every callback.
         self._logged_scan_layout_once = False
+        # The throttled DIAG line is throttled HERE, before the f-string and
+        # the rclpy logger call: rclpy's own throttle_duration_sec runs only
+        # after both, and the logger call alone measured ~1.5 ms per /scan on
+        # linus -- at 40 Hz that was paid for a line printed every 2 s.
+        self._diag_period_s = 2.0
+        self._last_diag_mono = None
+
+        # Per-layout trig tables (cpu-cleanup): cos/sin of every beam's angle
+        # in base_link depend only on the scan layout and the laser's mount,
+        # so they are computed once and reused while neither changes.
+        self._layout_key = None
+        self._cos = self._sin = self._side_mask = None
+
+        # EVENT-DRIVEN E-STOP (cpu-cleanup). With immediate_stop_topic set,
+        # the scan callback publishes the same zero-speed command the
+        # emergency lane's Stop publishes (same topic, same frame_id) the
+        # moment a scan trips, instead of waiting up to one BT tick period
+        # for update() to be ticked. None (the default for standalone
+        # construction/tests) keeps the old tick-only path.
+        #
+        # ONE DECISION, TWO CALLERS: both the callback and update() decide
+        # through should_stop() = _active() and _tripped(). Today _active()
+        # is always True -- the only enable condition is structural
+        # (enable_lidar_safety_stop decides whether this object exists at
+        # all, behavior_executor_node.create_root), mission phase, hold,
+        # go_to_object, countdown and preflight never gate it, and it reads
+        # no blackboard key. Any future gate (a docking/reverse override, a
+        # blackboard flag) MUST go into _active(), never into the tree's
+        # structure, or the callback would keep stopping a car the tree has
+        # released; test_bt_tick_and_event_estop.py enforces the structure.
+        #
+        # RE-ARM. The callback publishes only while scans trip. The mux holds
+        # the safety_stop lane for its timeout after the LAST stop (0.2 s,
+        # f1tenth_bringup/config/mux.yaml), then the MPC's /drive wins again.
+        # update() reports SUCCESS for event_stop_hold_s (= that timeout)
+        # after the last callback stop, so the tree never shows "resumed"
+        # while the mux still holds a callback stop -- including a trip that
+        # starts and clears between two ticks, which before this would have
+        # stopped the car for ~200 ms with nothing in /behavior/tree_status
+        # or /safety/event. The reverse (tree stopping, callback not) is the
+        # tree's own Stop, which re-arms on the same 0.2 s mux timeout.
+        self.immediate_stop_topic = immediate_stop_topic
+        self.immediate_stop_frame_id = immediate_stop_frame_id
+        self.immediate_stop_pub = None
+        self.immediate_stop_count = 0
+        self.event_stop_hold_s = float(event_stop_hold_s)
+        self._clock = clock
+        self._last_event_stop = None
 
     def setup(self, **kwargs):
         try:
@@ -232,6 +288,9 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         except KeyError as e:
             raise KeyError(
                 "IsProximityTooClose.setup() didn't find 'node' in kwargs") from e
+        if self.immediate_stop_topic:
+            self.immediate_stop_pub = self.node.create_publisher(
+                AckermannDriveStamped, self.immediate_stop_topic, 10)
         self.scan_sub = self.node.create_subscription(
             LaserScan, self.scan_topic, self._scan_callback, 10)
         # The laser's mount, to measure the front cone from the bumper.
@@ -255,10 +314,6 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
             )
 
         total = len(msg.ranges)
-        in_window_count = 0
-        excluded_by_filter = 0
-        min_in_window = None
-        min_front = None
 
         # The laser's pose in base_link, for the front cone (module docstring).
         laser = self._frames.pose(msg.header.frame_id)
@@ -270,36 +325,56 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
                 'base_link (trips early, never late).', throttle_duration_sec=5.0)
         lx, ly, lyaw = laser
 
+        # VECTORISED (cpu-cleanup). This was a per-beam Python loop: 1081
+        # beams x 40 Hz of cos/sin/atan2/hypot plus two helper calls each,
+        # the single largest cost in behavior_executor_node while the car sat
+        # still (~3.5 ms per scan on linus, several times that on the Orin).
+        # Same per-sample arithmetic, same order of operations, now over
+        # arrays; test_bt_tick_and_event_estop.py (TestVectorisedMatchesTheLoop)
+        # checks it against the loop.
+        #
         # Both windows are evaluated independently per sample (not via a
         # continue-past-one-into-the-other chain) so this stays correct even
         # if front_cone_half_angle_rad and lidar_blind_cone_half_angle_rad
         # are ever configured unequal -- see _in_front_cone's own docstring.
         # Side/rear counting (in_window_count/excluded_by_filter/
-        # min_in_window) is bit-for-bit the same computation as before the
-        # camera -> lidar front-cone swap; only the front half is new.
-        for i, r in enumerate(msg.ranges):
-            angle = msg.angle_min + i * msg.angle_increment
-            valid = math.isfinite(r) and r >= msg.range_min
+        # min_in_window) is the same computation as before the camera ->
+        # lidar front-cone swap; only the front half is new.
+        r = np.asarray(msg.ranges, dtype=np.float64)
+        layout_key = (total, float(msg.angle_min), float(msg.angle_increment), lyaw)
+        if layout_key != self._layout_key:
+            angle = msg.angle_min + np.arange(total, dtype=np.float64) * msg.angle_increment
+            self._cos = np.cos(lyaw + angle)
+            self._sin = np.sin(lyaw + angle)
+            # _in_lidar_window, over the whole array.
+            self._side_mask = np.abs(angle) >= self.lidar_blind_cone_half_angle_rad
+            self._layout_key = layout_key
+        with np.errstate(invalid='ignore'):
+            valid = np.isfinite(r) & (r >= msg.range_min)
 
-            if valid:
-                # FRONT: the return's distance and bearing from the bumper.
-                dx = lx + r * math.cos(lyaw + angle) - self.front_x
-                dy = ly + r * math.sin(lyaw + angle)
-                if dx > 0.0 and _in_front_cone(math.atan2(dy, dx),
-                                               self.front_cone_half_angle_rad):
-                    d = math.hypot(dx, dy)
-                    if min_front is None or d < min_front:
-                        min_front = d
+        # FRONT: the return's distance and bearing from the bumper.
+        rv = np.where(valid, r, 0.0)
+        dx = lx + rv * self._cos - self.front_x
+        dy = ly + rv * self._sin
+        front = valid & (dx > 0.0)
+        # _in_front_cone, over the candidates.
+        front &= np.abs(np.arctan2(dy, dx)) < self.front_cone_half_angle_rad
+        min_front = float(np.hypot(dx[front], dy[front]).min()) if front.any() else None
 
-            if _in_lidar_window(angle, self.lidar_blind_cone_half_angle_rad):
-                in_window_count += 1
-                if not valid:
-                    excluded_by_filter += 1
-                elif min_in_window is None or r < min_in_window:
-                    min_in_window = r
+        side = self._side_mask
+        in_window_count = int(np.count_nonzero(side))
+        excluded_by_filter = int(np.count_nonzero(side & ~valid))
+        side_valid = side & valid
+        min_in_window = float(r[side_valid].min()) if side_valid.any() else None
 
         self.latest_lidar_front_min = min_front
         self.latest_lidar_min_in_window = min_in_window
+
+        if self.immediate_stop_pub is not None and self.should_stop():
+            self.immediate_stop_pub.publish(
+                make_stop_msg(self.node, self.immediate_stop_frame_id))
+            self.immediate_stop_count += 1
+            self._last_event_stop = self._clock()
 
         # ---- DIAGNOSTIC (live investigation, see chat) -- throttled, every
         # callback, so "not firing at all" vs. "firing but computing wrong"
@@ -307,17 +382,19 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         # the camera -> lidar front-cone swap -- this is now the input that
         # decides the front e-stop, worth the same visibility min_in_window
         # already had. ----
-        self.node.get_logger().info(
-            f'[IsProximityTooClose] DIAG scan: total={total} '
-            f'in_window={in_window_count} excluded_by_filter={excluded_by_filter} '
-            f'min_in_window='
-            + (f'{min_in_window:.3f}' if min_in_window is not None else 'none')
-            + ' front_min(from bumper)='
-            + (f'{min_front:.3f}' if min_front is not None else 'none'),
-            throttle_duration_sec=2.0,
-        )
+        now = time.monotonic()
+        if self._last_diag_mono is None or now - self._last_diag_mono >= self._diag_period_s:
+            self._last_diag_mono = now
+            self.node.get_logger().info(
+                f'[IsProximityTooClose] DIAG scan: total={total} '
+                f'in_window={in_window_count} excluded_by_filter={excluded_by_filter} '
+                f'min_in_window='
+                + (f'{min_in_window:.3f}' if min_in_window is not None else 'none')
+                + ' front_min(from bumper)='
+                + (f'{min_front:.3f}' if min_front is not None else 'none'),
+            )
 
-    def update(self):
+    def _tripped(self) -> bool:
         front_tripped = (
             self.latest_lidar_front_min is not None
             and self.latest_lidar_front_min < self.front_distance_threshold
@@ -326,8 +403,25 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
             self.latest_lidar_min_in_window is not None
             and self.latest_lidar_min_in_window < self.lidar_distance_threshold
         )
+        return front_tripped or lidar_tripped
+
+    def _active(self) -> bool:
+        """The single enable predicate shared by both stop paths (see
+        __init__, ONE DECISION). No gate exists today."""
+        return True
+
+    def should_stop(self) -> bool:
+        """What both the scan callback and the tick decide on."""
+        return self._active() and self._tripped()
+
+    def _event_stop_held(self) -> bool:
+        """A callback stop the mux is still holding (RE-ARM in __init__)."""
+        return (self._last_event_stop is not None and self._active()
+                and self._clock() - self._last_event_stop <= self.event_stop_hold_s)
+
+    def update(self):
         return (
             py_trees.common.Status.SUCCESS
-            if (front_tripped or lidar_tripped)
+            if self.should_stop() or self._event_stop_held()
             else py_trees.common.Status.FAILURE
         )

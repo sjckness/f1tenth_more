@@ -79,6 +79,7 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_obs_tol_quad_per_m2', float),
     ('wall_obs_disagree_reject_frac', float),
     ('wall_obs_stereo_min_columns', int),
+    ('wall_obs_stereo_min_rho_m', float),
     ('wall_default_height_m', float),
     # Step 4: the tracker's observation model and FRONT rule.
     ('lidar_sigma_base_m', float),
@@ -90,7 +91,13 @@ LIDAR_FRONT_WALL_ARGS = [
     ('stereo_confirm_window', int),
     ('role_hysteresis_rad', float),
     ('stereo_front_max_normal_rad', float),
-    ('front_strip_half_width_m', float),
+    # Block 3 (2026-10-16): the travel strip and what FRONT requires.
+    ('front_strip_margin_m', float),
+    ('front_min_confidence', float),
+    ('front_lidar_recent_cycles', int),
+    ('front_contradict_margin_m', float),
+    ('front_contradict_cycles', int),
+    ('front_clear_range_m', float),
     ('wall_marker_thickness_m', float),
     # Minimum width for a LiDAR wall (multi_wall_tracker's span gate).
     ('wall_min_span_birth_m', float),
@@ -100,6 +107,9 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_extract_quality_gates', bool),
     ('wall_extract_backend', str),
     ('wall_tracker_scan_decimation', int),
+    # cpu-cleanup R2: rate policy (EKF at 20 Hz, virtual wall on new estimates).
+    ('pose_max_extrapolation_sec', float),
+    ('virtual_wall_rate_hz', float),
     # E2: the rectangle verification's decision thresholds.
     ('wall_rect_verify', bool),
     ('wall_rect_coverage_min', float),
@@ -123,6 +133,11 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_negative_miss_to_kill', int),
     ('wall_tracker_delete_after_sec', float),
     ('wall_coast_max_odom_m', float),
+    # Block 3: the measured extent and the collinear gap, and the FRONT coast
+    # on odometry.
+    ('wall_assoc_max_gap_m', float),
+    ('wall_extent_decay_sec', float),
+    ('wall_tracker_front_max_coast_m', float),
 ]
 
 

@@ -254,11 +254,16 @@ class TestMultiWallTracker:
             n.destroy_node()
 
     @staticmethod
-    def _make(scene, tracker):
+    def _make(scene, tracker, debug_tracks=False):
         n = LidarFrontWallNode(parameter_overrides=[
             Parameter('enable_scene_labels', value=scene),
             # Every scan: the decimation has its own tests below.
             Parameter('wall_tracker_scan_decimation', value=1),
+            # No publish-rate cap: these tests call _scan_cb back to back on
+            # the wall clock, and the cpu-cleanup R2 cap (75 ms) would leave
+            # _last(virtual_pub) holding the FIRST scan's verdict.
+            Parameter('virtual_wall_rate_hz', value=0.0),
+            Parameter('wall_debug_tracks', value=debug_tracks),
             Parameter('use_wall_tracker', value=tracker)])
         for name in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
                      'virtual_debug_pub', 'walls_pub', 'walls_markers_pub'):
@@ -274,39 +279,92 @@ class TestMultiWallTracker:
         finally:
             n.destroy_node()
 
-    def test_a_front_track_coasting_past_the_limit_makes_the_virtual_wall_minus_one(self):
-        n = self._make(True, True)
-        limit = n.wall_tracker.p.front_max_coast_s
-
-        def feed(t, distance):
+    @staticmethod
+    def _feeder(n):
+        def feed(t, distance, scan=None):
             odom = _odom(0.0)
             odom.header.stamp.sec, odom.header.stamp.nanosec = int(t), int(t % 1 * 1e9)
             n._odom_cb(odom)
-            scan = _scan(distance, stamp_sec=int(t))
+            if scan is None:
+                scan = _scan(distance, stamp_sec=int(t))
+            scan.header.stamp.sec = int(t)
             scan.header.stamp.nanosec = int(t % 1 * 1e9)
             n._scan_cb(scan)
             return _last(n.virtual_pub).data, json.loads(_last(n.virtual_debug_pub).data)
+        return feed
 
+    def test_a_front_track_coasting_past_the_limit_makes_the_virtual_wall_clear(self):
+        """UPDATED for block 3: this used to assert -1.0 (NO_DATA) until a new
+        front track appeared -- a latch that HOLDS the car, indefinitely in an
+        open hall. The sensors are working and nothing is in the way: CLEAR."""
+        n = self._make(True, True)
+        limit = n.wall_tracker.p.front_max_coast_s
+        feed = self._feeder(n)
+        clear = float(get_value('wall_clear_distance_m'))
         try:
             n._tf_static_cb(_tf_static())
             for k in range(8):
                 value, debug = feed(7.0 + 0.05 * k, 3.0)
             assert debug['wall_source'] == 'tracker' and value > 0.0
+            assert debug['front_reason'] == 'front'
             last_hit = 7.0 + 0.05 * 7
-            # Unseen, but within the limit: still the heading wall, still a wall.
+            # Unseen over an EMPTY strip (no returns at all), within the limit:
+            # still the front wall.
             value, debug = feed(last_hit + 0.5 * limit, None)
-            assert value > 0.0 and debug['wall_source'] == 'tracker'
-            # Past the limit: no wall, on every scan, whatever else is left.
+            assert 0.0 < value < clear and debug['state'] == 'wall'
+            assert debug['strip_range_m'] is None
+            # Past the limit: CLEAR on every scan, never -1.
             for dt in (1.5 * limit, 2.0 * limit, 3.0 * limit):
                 value, debug = feed(last_hit + dt, None)
-                assert value == -1.0
-                assert debug['valid'] is False
-                assert debug['wall_source'] == 'front_coast_expired'
+                assert value == pytest.approx(clear)
+                assert debug['valid'] is True and debug['state'] == 'clear'
+                assert debug['front_reason'] == 'coast_expired'
             # The wall is seen again: a front track again, a wall again.
             for k in range(3):
                 value, debug = feed(last_hit + 3.0 * limit + 0.05 * (k + 1), 3.0)
             assert debug['wall_source'] == 'tracker'
             assert value == pytest.approx(3.0 - 0.405, abs=0.02)
+        finally:
+            n.destroy_node()
+
+    def test_a_front_wall_the_strip_sees_through_is_dropped_to_clear_at_once(self):
+        """Block 3, the incident's shape: the FRONT wall stops being fitted and
+        the strip reads 3 m further. The first such scan already drops it
+        (coasting over a strip that sees through it), and the contract is
+        CLEAR with the reason on the debug topic -- not NO_DATA."""
+        n = self._make(True, True, debug_tracks=True)
+        feed = self._feeder(n)
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(8):
+                value, debug = feed(7.0 + 0.05 * k, 3.0)
+            front_id = debug['front_id']
+            assert debug['state'] == 'wall' and front_id is not None
+            value, debug = feed(7.45, 6.0)
+            assert debug['state'] == 'clear' and debug['valid'] is True
+            assert debug['front_reason'] == 'coast_contradicted'
+            assert debug['strip_range_m'] == pytest.approx(6.0 - base_front_x(), abs=0.05)
+            value, debug = feed(7.50, 6.0)
+            mine = [t for t in debug['tracks'] if t['id'] == front_id]
+            assert mine and mine[0]['contradicted'] is True
+            assert mine[0]['front_reason'] == 'contradicted'
+        finally:
+            n.destroy_node()
+
+    def test_the_debug_payload_carries_the_block_3_fields(self):
+        n = self._make(True, True)
+        feed = self._feeder(n)
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(4):
+                _value, debug = feed(7.0 + 0.05 * k, 3.0)
+            for key in ('strip_range_m', 'front_reason', 'front_id', 'gap_rejected',
+                        'merge_gap_refused', 'stereo_near_rejected', 'rejections'):
+                assert key in debug, key
+            assert isinstance(debug['gap_rejected'], int)
+            assert isinstance(debug['stereo_near_rejected'], int)
+            assert isinstance(debug['rejections'], list)
+            assert 'front_coast_expired' != debug['wall_source']
         finally:
             n.destroy_node()
 
@@ -676,6 +734,8 @@ class TestTheOutputContract:
         from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
         n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
                                    Parameter('wall_tracker_scan_decimation', value=1),
+                                   # See TestMultiWallTracker._make.
+                                   Parameter('virtual_wall_rate_hz', value=0.0),
                                    Parameter('use_wall_tracker', value=True)])
         for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
                     'virtual_debug_pub', 'observations_pub', 'walls_pub',
@@ -729,6 +789,26 @@ class TestTheOutputContract:
                 n._scan_cb(_corridor_scan(t))
             assert self._state(n) == 'clear'
             assert _last(n.virtual_pub).data > 10.0
+        finally:
+            n.destroy_node()
+
+    def test_a_scan_with_no_laser_transform_is_NO_DATA(self):
+        """Block 3: NO_DATA is for missing data only, and a scan that cannot
+        be placed is missing data -- not the last placed scan's verdict."""
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
+                                   Parameter('virtual_wall_rate_hz', value=0.0),
+                                   Parameter('use_wall_tracker', value=True)])
+        try:
+            for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                        'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                        'walls_markers_pub'):
+                getattr(n, pub).publish = MagicMock()
+            n._odom_cb(_odom_at(7.0, 0.0))
+            n._scan_cb(_scan_at(2.0, 7.0))          # no /tf_static yet
+            assert self._state(n) == 'no_data'
+            assert _last(n.virtual_pub).data == -1.0
         finally:
             n.destroy_node()
 
@@ -1082,11 +1162,14 @@ class TestTheRectanglePair:
 class TestTrackerDecimation:
     """wall_tracker_scan_decimation: the tracker on one scan in N (H2).
 
-    The contract the rest of the node keeps is the thing to protect: BOTH
-    topics still publish on EVERY scan, and the scan subscription is still
-    best-effort so this node cannot back-pressure urg_node. What changes is
-    only how often the tracker steps, and on a skipped scan its last verdict
-    stands rather than flapping to NO_DATA.
+    The contract the rest of the node keeps is the thing to protect: the
+    WallLineFit/WallEstimate pair still publishes on EVERY scan, and the scan
+    subscription is still best-effort so this node cannot back-pressure
+    urg_node. What changes is only how often the tracker steps, and on a
+    skipped scan its last verdict stands rather than flapping to NO_DATA.
+    Since cpu-cleanup R2 /perception/virtual_wall (+ /debug) publishes only on
+    the tracker steps themselves (lidar_front_wall.virtual_wall_due); the
+    repeats are gone, the WallEstimate state still carries the held verdict.
     """
 
     @staticmethod
@@ -1095,7 +1178,9 @@ class TestTrackerDecimation:
         n = N(parameter_overrides=[
             Parameter('enable_scene_labels', value=True),
             Parameter('use_wall_tracker', value=True),
-            Parameter('wall_tracker_scan_decimation', value=decimation)])
+            Parameter('wall_tracker_scan_decimation', value=decimation),
+            # No wall-clock rate cap: these scans are fed back to back.
+            Parameter('virtual_wall_rate_hz', value=0.0)])
         for name in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
                      'virtual_debug_pub', 'walls_pub', 'walls_markers_pub',
                      'observations_pub'):
@@ -1156,9 +1241,10 @@ class TestTrackerDecimation:
         finally:
             n.destroy_node()
 
-    def test_both_topics_still_publish_on_every_scan(self):
-        """The contract in the module docstring, which the decimation must not
-        touch: a topic that goes quiet cannot be told from a dead node."""
+    def test_the_pair_publishes_every_scan_the_virtual_wall_every_step(self):
+        """The WallLineFit/WallEstimate contract the decimation must not
+        touch (a topic that goes quiet cannot be told from a dead node), and
+        since cpu-cleanup R2 the virtual wall only on tracker steps: 2 of 8."""
         n = self._node(4)
         try:
             for i in range(8):
@@ -1166,7 +1252,8 @@ class TestTrackerDecimation:
                 n._scan_cb(_scan_at(3.0, 7.0 + 0.025 * i))
             assert n.fit_pub.publish.call_count == 8
             assert n.estimate_pub.publish.call_count == 8
-            assert n.virtual_pub.publish.call_count == 8
+            assert n.virtual_pub.publish.call_count == 2
+            assert n.virtual_debug_pub.publish.call_count == 2
         finally:
             n.destroy_node()
 
@@ -1176,14 +1263,16 @@ class TestTrackerDecimation:
             for i in range(5):
                 n._odom_cb(_odom_at(7.0 + 0.025 * i, 0.0))
                 n._scan_cb(_scan_at(3.0, 7.0 + 0.025 * i))
-            states = [json.loads(c[0][0].data)['state']
-                      for c in n.virtual_debug_pub.publish.call_args_list]
-            # Whatever the first processed scan decided, the three skipped
-            # scans after it repeat; none of them is no_data.
+            # The held verdict now rides on the per-scan WallEstimate: the
+            # three skipped scans after the first step repeat its state, and
+            # none of them is NO_DATA.
+            states = [c[0][0].state for c in n.estimate_pub.publish.call_args_list]
             assert states[1:4] == [states[0]] * 3
-            payload = json.loads(
-                n.virtual_debug_pub.publish.call_args_list[3][0][0].data)
-            assert payload['tracker_decimation'] == 4
-            assert payload['tracker_skipped'] == 3
+            # The debug payload goes out on the steps only (scans 1 and 5).
+            payloads = [json.loads(c[0][0].data)
+                        for c in n.virtual_debug_pub.publish.call_args_list]
+            assert len(payloads) == 2
+            assert all(p['tracker_decimation'] == 4 for p in payloads)
+            assert all(p['tracker_skipped'] == 0 for p in payloads)
         finally:
             n.destroy_node()
