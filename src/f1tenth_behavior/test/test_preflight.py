@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from f1tenth_behavior.mission.mission_config import load_mission_file, parse_mission
+from f1tenth_params.param_defaults import get_value, get_wall_distance_topic
 from f1tenth_behavior.mission.preflight import (
     PREFLIGHT_BLACKBOARD_KEYS,
     check_liveness,
@@ -42,6 +43,10 @@ def _names(reqs):
     return {r.name for r in reqs}
 
 
+def _nodes(reqs):
+    return {r.node_name for r in reqs if r.node_name}
+
+
 class TestRequiredDependencies:
 
     def test_always_requires_mpc_corr_ackermann_and_localization(self):
@@ -54,14 +59,35 @@ class TestRequiredDependencies:
 
     def test_plain_distance_mission_does_not_require_perception_or_costmap(self):
         config = _mission([_distance_move()])
-        names = _names(required_dependencies(config))
-        assert 'costmap_boundary_node' not in names
-        assert 'yolo_detector_node' not in names
+        nodes = _nodes(required_dependencies(config))
+        assert not nodes & {'costmap_boundary_node', 'lidar_front_wall_node',
+                            'front_clearance_node', 'yolo_detector_node'}
 
-    def test_front_clearance_stop_condition_requires_costmap_boundary_node(self):
-        config = _mission([_distance_move(stop_type='front_clearance', stop_params={'distance': 1.0})])
-        names = _names(required_dependencies(config))
-        assert 'costmap_boundary_node' in names
+    def test_front_clearance_requires_the_publisher_of_the_wall_topic(self):
+        """The node behind get_wall_distance_topic(), not costmap_boundary_node.
+
+        Since 2026-10-15 that is lidar_front_wall_node WHATEVER the scene
+        labels switch says: the camera-only /perception/front_distance is
+        retired as a wall source (its ROI reads the floor on an open
+        corridor). With the switch off nothing publishes a wall distance, so
+        this requirement simply fails the preflight -- a mission that stops
+        on a wall must not run with the wall pipeline switched off.
+        """
+        config = _mission([_distance_move(
+            stop_type='front_clearance', stop_params={'distance': 1.0})])
+        on = _nodes(required_dependencies(config, scene_labels=True))
+        off = _nodes(required_dependencies(config, scene_labels=False))
+        assert 'lidar_front_wall_node' in on and 'front_clearance_node' not in on
+        assert 'lidar_front_wall_node' in off and 'front_clearance_node' not in off
+        assert 'costmap_boundary_node' not in on | off
+
+    def test_the_default_follows_enable_scene_labels(self):
+        config = _mission([_distance_move(
+            stop_type='front_clearance', stop_params={'distance': 1.0})])
+        expected = 'lidar_front_wall_node'      # whatever the switch says
+        assert expected in _nodes(required_dependencies(config))
+        assert any(get_wall_distance_topic() in name
+                   for name in _names(required_dependencies(config)))
 
     def test_front_clearance_as_resume_condition_also_requires_it(self):
         move = _distance_move(
@@ -72,7 +98,8 @@ class TestRequiredDependencies:
             }],
         )
         names = _names(required_dependencies(_mission([move])))
-        assert 'costmap_boundary_node' in names
+        assert 'lidar_front_wall_node' in _nodes(
+            required_dependencies(_mission([move]), scene_labels=True))
         # on_object entries always need perception regardless of the resume
         # condition's own type -- ObjectSeen has to match the class first.
         assert 'yolo_detector_node' in names
@@ -135,13 +162,13 @@ class TestCheckLiveness:
         config = _mission([
             _distance_move(stop_type='front_clearance', stop_params={'distance': 1.0})
         ])
-        reqs = required_dependencies(config)
-        live = {'mpc_corr', 'ackermann_to_vesc_node', 'costmap_boundary_node'}
-        # costmap_boundary_node is up, but FRONT_CLEARANCE_KEY has no value yet.
+        reqs = required_dependencies(config, scene_labels=True)
+        live = {'mpc_corr', 'ackermann_to_vesc_node', 'lidar_front_wall_node'}
+        # lidar_front_wall_node is up, but FRONT_CLEARANCE_KEY has no value yet.
         data = {CURRENT_XY_KEY: (0.0, 0.0), FRONT_CLEARANCE_KEY: None}
         failures = check_liveness(reqs, list(live), lambda k: data.get(k))
         assert len(failures) == 1
-        assert 'costmap_boundary_node' in failures[0]
+        assert 'lidar_front_wall_node' in failures[0]
         assert 'no data received yet' in failures[0]
 
     def test_multiple_missing_dependencies_all_reported(self):

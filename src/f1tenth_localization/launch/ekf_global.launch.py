@@ -114,12 +114,13 @@ would have been a far worse, fully-silent regression than the bug being
 fixed here.
 """
 
-from f1tenth_params.param_defaults import get_path_default
+from f1tenth_params.param_defaults import get_default, get_path_default
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -140,6 +141,13 @@ def generate_launch_description():
                     "disable pinning, remove this Node's prefix= argument "
                     "instead of emptying this value.")
 
+    # cpu-cleanup R2: same two stack_params keys as ekf.launch.py, so both
+    # filters run at the same rate and post-date by the same offset.
+    rate_las = []
+    for name in ('ekf_frequency_hz', 'ekf_transform_time_offset_s'):
+        default, desc = get_default(name)
+        rate_las.append(DeclareLaunchArgument(name, default_value=str(default), description=desc))
+
     ekf_global_node = Node(
         package='robot_localization',
         executable='ekf_node',
@@ -156,7 +164,12 @@ def generate_launch_description():
         # node (confirmed empirically, not assumed).
         namespace='ekf_global',
         output='screen',
-        parameters=[LaunchConfiguration('ekf_global_config')],
+        parameters=[LaunchConfiguration('ekf_global_config'), {
+            'frequency': ParameterValue(
+                LaunchConfiguration('ekf_frequency_hz'), value_type=float),
+            'transform_time_offset': ParameterValue(
+                LaunchConfiguration('ekf_transform_time_offset_s'), value_type=float),
+        }],
         prefix=['taskset -c ', LaunchConfiguration('ekf_global_cpu_affinity')],
     )
 
@@ -169,6 +182,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        ekf_global_la, ekf_global_cpu_affinity_la,
+        ekf_global_la, ekf_global_cpu_affinity_la, *rate_las,
         ekf_global_node, slam_pose_relay_node,
     ])

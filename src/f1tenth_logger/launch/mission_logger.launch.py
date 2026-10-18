@@ -9,7 +9,10 @@ enable_sys_obs: that flag governs CPU/GPU/RAM telemetry, an unrelated concern,
 and a mission logger that silently stops existing because an unrelated
 telemetry toggle was flipped is exactly the "recording was off when it
 mattered" failure this node exists to remove. Gate it with its own
-enable_mission_logger instead (stack_params.yaml), which defaults true.
+enable_mission_logger instead (stack_params.yaml), which defaults FALSE since
+2026-10-16: recording is not free on this box (see that parameter's own
+description) and a run that wants a bag asks for it with
+enable_mission_logger:=true. With true, everything here is as it was.
 
 Launch args mostly follow this file's OWN local convention -- plain hardcoded
 DeclareLaunchArgument defaults for the recorder's operational knobs
@@ -31,8 +34,9 @@ from f1tenth_params.param_defaults import get_default
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, SetEnvironmentVariable
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -67,6 +71,50 @@ def generate_launch_description():
                     "opt-in, since a partial bag is often still readable "
                     "directly and run data cannot be re-collected.")
 
+    annotated_default, annotated_desc = get_default('mission_logger_record_annotated_image')
+    annotated_la = DeclareLaunchArgument(
+        'mission_logger_record_annotated_image', default_value=str(annotated_default),
+        description=annotated_desc)
+
+    depth_default, depth_desc = get_default('mission_logger_record_depth')
+    depth_la = DeclareLaunchArgument(
+        'mission_logger_record_depth', default_value=str(depth_default),
+        description=depth_desc)
+    profile_default, profile_desc = get_default('mission_logger_profile')
+    profile_la = DeclareLaunchArgument(
+        'mission_logger_profile', default_value=str(profile_default),
+        description=profile_desc)
+    logger_on = LaunchConfiguration('enable_mission_logger')
+    depth_on = LaunchConfiguration('mission_logger_record_depth')
+    profile = LaunchConfiguration('mission_logger_profile')
+    # 5 Hz copy of the ZED depth for the bags (mission_logger_record_depth).
+    # topic_tools relays serialized messages, so the 30 Hz input is not
+    # deserialized here.
+    depth_throttle = Node(
+        package='topic_tools',
+        executable='throttle',
+        name='depth_throttle_5hz',
+        output='screen',
+        arguments=['messages', '/zed2/zed_node/depth/depth_registered', '5.0',
+                   '/zed2/zed_node/depth/depth_registered_5hz'],
+        # The 'campaign' profile records the 5 Hz depth too (cpu-cleanup R2).
+        condition=IfCondition(PythonExpression([
+            "'", logger_on, "'.lower() == 'true' and ('", depth_on,
+            "'.lower() == 'true' or '", profile, "' == 'campaign')"])),
+    )
+    # 5 Hz copy of the camera frame YOLO and the scene mask use, for the
+    # 'campaign' profile (mission_logger_node._PROFILE_TOPICS). Same serialized
+    # relay as the depth throttle; NOT under /viz/, which is never recorded.
+    image_throttle = Node(
+        package='topic_tools',
+        executable='throttle',
+        name='image_throttle_5hz',
+        output='screen',
+        arguments=['messages', '/camera/image_raw', '5.0', '/camera/image_raw_5hz'],
+        condition=IfCondition(PythonExpression([
+            "'", logger_on, "'.lower() == 'true' and '", profile, "' == 'campaign'"])),
+    )
+
     mission_logger_node = Node(
         package='f1tenth_logger',
         executable='mission_logger_node',
@@ -78,6 +126,10 @@ def generate_launch_description():
             'storage_id': LaunchConfiguration('mission_bag_storage_id'),
             'sweep_period_sec': LaunchConfiguration('mission_bag_sweep_period_sec'),
             'sweep_action': LaunchConfiguration('mission_bag_sweep_action'),
+            'record_depth': ParameterValue(depth_on, value_type=bool),
+            'profile': profile,
+            'record_annotated_image': ParameterValue(
+                LaunchConfiguration('mission_logger_record_annotated_image'), value_type=bool),
         }],
     )
 
@@ -96,5 +148,10 @@ def generate_launch_description():
         storage_id_la,
         sweep_period_la,
         sweep_action_la,
+        annotated_la,
+        depth_la,
+        profile_la,
+        depth_throttle,
+        image_throttle,
         mission_logger_node,
     ])

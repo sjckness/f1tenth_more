@@ -52,7 +52,7 @@ use_mask_depth true safe to leave on even against a detect-task model: every
 detection just always takes the fallback path, identical output to
 use_mask_depth false.
 
-SCENE LABELS (enable_scene_labels, default false). With the switch on and a
+SCENE LABELS (enable_scene_labels, default true). With the switch on and a
 /perception/scene_labels image (front_clearance_node, scene_labels.py) no more
 than scene_labels_max_age_s from the depth frame, the mask median is taken over
 the in-mask pixels labelled OTHER only: the floor at a person's feet, a wall
@@ -72,7 +72,9 @@ logs a throttled warning so a real, persistent mismatch stays visible rather
 than silently degrading accuracy every frame.
 """
 
+import collections
 import hashlib
+import time
 
 import cv2
 import message_filters
@@ -80,6 +82,7 @@ import numpy as np
 import rclpy
 import tf2_geometry_msgs  # noqa: F401 - registers Pose transform support
 from cv_bridge import CvBridge, CvBridgeError
+from f1tenth_params.param_defaults import get_value
 from geometry_msgs.msg import Pose
 from rclpy.node import Node
 from sensor_msgs.msg import CameraInfo, Image
@@ -101,6 +104,8 @@ from vision_msgs.msg import (
 from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_perception.scene_labels import LABEL_OTHER
+from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
+from f1tenth_perception.stage_timing import StageTimer
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -109,6 +114,11 @@ from f1tenth_perception.cpu_affinity import (
 # Fixed offset applied to a box marker's id to get its paired text-label marker's id,
 # so both live in the same MarkerArray/topic without id collisions.
 LABEL_ID_OFFSET = 10000
+
+# How much /perception/scene_labels history is kept for pairing by stamp [s].
+# It covers the detector latency (~0.45 s measured with the old input queue on
+# 2026-10-14, ~0.15 s expected now) plus a label period at 5 Hz.
+SCENE_LABELS_BUFFER_S = 0.6
 
 
 class Detection3DNode(Node):
@@ -153,9 +163,16 @@ class Detection3DNode(Node):
         # covers ~0.4s of depth history at 25Hz, which is shorter than that
         # inference latency, so every detection's matching depth frame had
         # already been evicted before the detection arrived -- nothing ever
-        # matched. 60 covers ~2.4s, comfortably above observed latency.
+        # matched. 60 covered ~2.4s.
+        #
+        # 15 since 2026-10-14: depth is 30 Hz, so 15 is 0.5 s of history. On
+        # the car the detections arrived 433 ms (p50) / 455 ms (p95) after
+        # capture behind yolo_detector_node's KEEP_LAST 10 input backlog. With
+        # that input now newest-frame-only they are expected at ~120-150 ms.
+        # Waiting longer than 0.5 s means the detector is stalled, and a stale
+        # match is not worth holding 60 depth images for.
         self.sync_queue_size = int(
-            self.declare_parameter('sync_queue_size', 60).value)
+            self.declare_parameter('sync_queue_size', 15).value)
         self.default_depth_extent = float(
             self.declare_parameter('default_depth_extent', 0.3).value)
         self.marker_lifetime = float(
@@ -240,12 +257,17 @@ class Detection3DNode(Node):
             self.declare_parameter('masks_topic', '/camera/detection_masks').value)
 
         # Scene labels (module docstring).
-        self.scene_enabled = bool(self.declare_parameter('enable_scene_labels', False).value)
+        self.scene_enabled = bool(self.declare_parameter(
+            'enable_scene_labels', get_value('enable_scene_labels')).value)
         self.scene_max_age = float(
             self.declare_parameter('scene_labels_max_age_s', 0.3).value)
         self.scene_min_other_px = int(
             self.declare_parameter('scene_min_other_px', 20).value)
-        self._scene_labels = None   # (stamp sec, mono8 label image)
+        # Recent /perception/scene_labels, oldest first: [(stamp sec, mono8)].
+        # A detection is measured on the depth frame of ITS image, which is
+        # older than the newest labels by the detector's latency, so the
+        # labels nearest that depth stamp are used, not the newest.
+        self._scene_labels = collections.deque()
 
         # ---- intrinsics (cached from the latest camera_info) -----------
         self.fx = None
@@ -286,7 +308,8 @@ class Detection3DNode(Node):
         self.sync.registerCallback(self._synced_callback)
         if self.scene_enabled:
             self.create_subscription(
-                Image, '/perception/scene_labels', self._scene_labels_callback, 10)
+                Image, '/perception/scene_labels', self._scene_labels_callback,
+                LATEST_FRAME_QOS)
 
         # ---- 2D->3D yield accounting -------------------------------------
         # The 2026-09-01 mission analysis found only 55-65% of /camera/
@@ -336,6 +359,8 @@ class Detection3DNode(Node):
             self._yield_timer = self.create_timer(
                 self.yield_report_period_sec, self._report_yield)
 
+        self._timing_setup()
+
         apply_nice(self)
 
         self.get_logger().info(
@@ -347,6 +372,79 @@ class Detection3DNode(Node):
             f'"{self.detections_3d_topic}" and markers on "{self.markers_topic}" '
             f'in frame "{self.output_frame}", confidence_threshold='
             f'{self.confidence_threshold}, use_mask_depth={self.use_mask_depth}')
+
+    # ---- per-stage timing (stage_timing; temporary, default off) --------
+    # Milliseconds, see stage_timing.py. Each input's arrival (executor
+    # receipt) is remembered per stamp by callbacks registered on the
+    # synchronizer's own subscribers. The synchronizer's own input callback
+    # was registered first, so the input that completes a set fires
+    # _synced_callback BEFORE its arrival is recorded: a missing arrival is
+    # that input, and it arrived at callback entry.
+    #   age.arrive_<input>  arrival minus header.stamp
+    #   dur.sync_wait       entry minus the EARLIEST input's arrival: how
+    #                       long the first input of the set sat in the queue
+    #   dur.convert         cv_bridge depth (+ mask) and the tf2 lookup
+    #   dur.process         entry to publish
+    #   age.publish         publish minus header.stamp
+
+    def _timing_setup(self):
+        self._timer = None
+        if not bool(self.declare_parameter('stage_timing', False).value):
+            return
+        self._timer = StageTimer(self.get_name(), float(
+            self.declare_parameter('stage_timing_period_s', 30.0).value))
+        self._arrivals = {}   # (input, stamp key) -> arrival time [s]
+        self._t_entry = self._t_stamp = 0.0
+        inputs = [('det', self.det_sub), ('depth', self.depth_sub)]
+        if self.mask_sub is not None:
+            inputs.append(('mask', self.mask_sub))
+        for name, sub in inputs:
+            sub.registerCallback(lambda msg, n=name: self._timing_arrival(n, msg))
+        self.create_timer(1.0, self._timing_report)
+        self.get_logger().warn('stage_timing ON: per-stage latency logged as STAGE_TIMING')
+
+    @staticmethod
+    def _stamp_key(stamp):
+        return (int(stamp.sec), int(stamp.nanosec))
+
+    def _timing_arrival(self, name, msg):
+        now = time.time()
+        self._arrivals.setdefault((name, self._stamp_key(msg.header.stamp)), now)
+        if len(self._arrivals) > 600:
+            cutoff = now - 5.0
+            self._arrivals = {k: v for k, v in self._arrivals.items() if v >= cutoff}
+
+    def _timing_entry(self, det_msg, depth_msg, mask_msg):
+        if self._timer is None:
+            return
+        now = time.time()
+        stamp = det_msg.header.stamp
+        self._t_entry = now
+        self._t_stamp = stamp.sec + stamp.nanosec * 1e-9
+        self._timer.add('age.entry', (now - self._t_stamp) * 1e3)
+        self._timer.count('synced')
+        arrivals = []
+        for name, msg in (('det', det_msg), ('depth', depth_msg), ('mask', mask_msg)):
+            if msg is None:
+                continue
+            t = self._arrivals.pop((name, self._stamp_key(msg.header.stamp)), now)
+            s = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+            self._timer.add('age.arrive_' + name, (t - s) * 1e3)
+            arrivals.append(t)
+        self._timer.add('dur.sync_wait', (now - min(arrivals)) * 1e3)
+
+    def _timing_mark(self, stage):
+        if self._timer is None:
+            return
+        now = time.time()
+        self._timer.add('dur.' + stage, (now - self._t_entry) * 1e3)
+        if stage == 'process':
+            self._timer.add('age.publish', (now - self._t_stamp) * 1e3)
+
+    def _timing_report(self):
+        report = self._timer.report(time.time())
+        if report is not None:
+            self.get_logger().info(StageTimer.format(report))
 
     def _count_det2d(self, msg):
         self._stats['det2d_in'] += 1
@@ -409,12 +507,17 @@ class Detection3DNode(Node):
             labels = self.bridge.imgmsg_to_cv2(msg, desired_encoding='mono8')
         except CvBridgeError:
             return
-        self._scene_labels = (msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9, labels)
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        self._scene_labels.append((stamp, labels))
+        while self._scene_labels and stamp - self._scene_labels[0][0] > SCENE_LABELS_BUFFER_S:
+            self._scene_labels.popleft()
 
     def _scene_other(self, sel, depth_stamp):
         """sel restricted to scene-label OTHER pixels, or None without fresh labels."""
-        scene = self._scene_labels
-        if scene is None or abs(depth_stamp - scene[0]) > self.scene_max_age:
+        if not self._scene_labels:
+            return None
+        scene = min(self._scene_labels, key=lambda entry: abs(depth_stamp - entry[0]))
+        if abs(depth_stamp - scene[0]) > self.scene_max_age:
             return None
         labels = scene[1]
         h, w = sel.shape
@@ -425,6 +528,7 @@ class Detection3DNode(Node):
         return out
 
     def _synced_callback(self, det_msg, depth_msg, mask_msg=None):
+        self._timing_entry(det_msg, depth_msg, mask_msg)
         self._stats['synced'] += 1
         # mask_msg is only ever non-None when use_mask_depth is true (only
         # then is mask_sub registered with the synchronizer at all -- see
@@ -504,6 +608,7 @@ class Detection3DNode(Node):
             self._stats['drop_tf2'] += 1
             return
 
+        self._timing_mark('convert')
         out_header = Header(stamp=depth_msg.header.stamp, frame_id=self.output_frame)
 
         det3d_array = Detection3DArray()
@@ -574,6 +679,7 @@ class Detection3DNode(Node):
         self._stats['det_published'] += len(det3d_array.detections)
         self.det3d_pub.publish(det3d_array)
         self.marker_pub.publish(markers)
+        self._timing_mark('process')
 
     def _median_depth(self, depth, cx_px, cy_px, box_w, box_h, img_w, img_h):
         # Sample only the center `center_fraction` of the box (in each axis) to

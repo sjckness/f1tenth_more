@@ -71,6 +71,73 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_planes_min_inliers', int),
     ('virtual_disagree_m', float),
     ('stereo_max_age_sec', float),
+    ('wall_tracker_front_max_coast_sec', float),
+    # Step 3: the per-cycle LiDAR/stereo fusion.
+    ('stereo_profile_max_age_s', float),
+    ('stereo_profile_min_weight', float),
+    ('wall_obs_tol_base_m', float),
+    ('wall_obs_tol_quad_per_m2', float),
+    ('wall_obs_disagree_reject_frac', float),
+    ('wall_obs_stereo_min_columns', int),
+    ('wall_obs_stereo_min_rho_m', float),
+    ('wall_default_height_m', float),
+    # Step 4: the tracker's observation model and FRONT rule.
+    ('lidar_sigma_base_m', float),
+    ('lidar_sigma_per_m', float),
+    ('stereo_sigma_base_m', float),
+    ('stereo_sigma_quad_per_m2', float),
+    ('min_span_for_angle_m', float),
+    ('stereo_confirm_hits', int),
+    ('stereo_confirm_window', int),
+    ('role_hysteresis_rad', float),
+    ('stereo_front_max_normal_rad', float),
+    # Block 3 (2026-10-16): the travel strip and what FRONT requires.
+    ('front_strip_margin_m', float),
+    ('front_min_confidence', float),
+    ('front_lidar_recent_cycles', int),
+    ('front_contradict_margin_m', float),
+    ('front_contradict_cycles', int),
+    ('front_clear_range_m', float),
+    ('wall_marker_thickness_m', float),
+    # Minimum width for a LiDAR wall (multi_wall_tracker's span gate).
+    ('wall_min_span_birth_m', float),
+    ('wall_min_span_update_m', float),
+    ('wall_merge_max_gap_m', float),
+    # E1: the extraction's own quality gates.
+    ('wall_extract_quality_gates', bool),
+    ('wall_extract_backend', str),
+    ('wall_tracker_scan_decimation', int),
+    # cpu-cleanup R2: rate policy (EKF at 20 Hz, virtual wall on new estimates).
+    ('pose_max_extrapolation_sec', float),
+    ('virtual_wall_rate_hz', float),
+    # E2: the rectangle verification's decision thresholds.
+    ('wall_rect_verify', bool),
+    ('wall_rect_coverage_min', float),
+    ('wall_rect_support_verify', float),
+    ('wall_rect_support_reject', float),
+    ('wall_rect_glass_beyond_share', float),
+    ('wall_rect_max_range_m', float),
+    ('wall_debug_tracks', bool),
+    ('wall_rect_reject_cycles', int),
+    # E3: the geometric roles, the first obstacle, the negative evidence and
+    # the two coasting limits.
+    ('wall_role_back_x_m', float),
+    ('wall_role_side_x_min_m', float),
+    ('wall_role_side_x_max_m', float),
+    ('wall_role_side_max_normal_deg', float),
+    ('wall_role_hysteresis_m', float),
+    ('wall_occlusion_margin_m', float),
+    ('wall_negative_tol_m', float),
+    ('wall_negative_min_beams', int),
+    ('wall_negative_pass_frac', float),
+    ('wall_negative_miss_to_kill', int),
+    ('wall_tracker_delete_after_sec', float),
+    ('wall_coast_max_odom_m', float),
+    # Block 3: the measured extent and the collinear gap, and the FRONT coast
+    # on odometry.
+    ('wall_assoc_max_gap_m', float),
+    ('wall_extent_decay_sec', float),
+    ('wall_tracker_front_max_coast_m', float),
 ]
 
 
@@ -103,6 +170,7 @@ def generate_launch_description():
     # The stack-wide scene-labels switch: a plain get_value like the MPC and
     # the BT read it, so the producer and its consumers cannot disagree.
     params['enable_scene_labels'] = bool(get_value('enable_scene_labels'))
+    params['use_wall_tracker'] = bool(get_value('use_wall_tracker'))
 
     node = Node(
         condition=IfCondition(LaunchConfiguration('use_lidar')),

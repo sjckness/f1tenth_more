@@ -99,6 +99,8 @@ def _construct_with_params(param_dict=None):
     # Never actually sent over DDS in this test file (no spin()).
     node.det_pub.publish = MagicMock()
     node.annotated_pub.publish = MagicMock()
+    # The annotated image is only drawn while subscribed; these tests read it.
+    node.annotated_pub.get_subscription_count = MagicMock(return_value=1)
     if getattr(node, 'debug_pub', None) is not None:
         node.debug_pub.publish = MagicMock()
     return node
@@ -922,3 +924,31 @@ class TestDebugImage:
 if __name__ == '__main__':
     import sys as _sys
     _sys.exit(pytest.main([__file__, '-v']))
+
+
+def test_image_input_holds_only_the_newest_frame():
+    """KEEP_LAST 1 best effort: the callback always gets the newest frame (latest_frame_qos.py)."""
+    from rclpy.qos import HistoryPolicy, ReliabilityPolicy
+    node = _construct_with_params()
+    try:
+        qos = node.sub.qos_profile
+        assert qos.history == HistoryPolicy.KEEP_LAST
+        assert qos.depth == 1
+        assert qos.reliability == ReliabilityPolicy.BEST_EFFORT
+    finally:
+        node.destroy_node()
+
+
+@pytest.mark.parametrize('subscribers, published', [(0, 0), (1, 1)])
+def test_annotated_image_is_drawn_and_published_only_while_subscribed(subscribers, published):
+    """No subscriber: no drawing, no conversion, no publish; detections unaffected."""
+    node = _construct_with_params({'debug_image_rate_hz': 0.0})
+    try:
+        node.model = _FakeCallableModel()
+        node.annotated_pub.get_subscription_count = MagicMock(return_value=subscribers)
+        node._publish_annotated = MagicMock()
+        node.image_callback(_bgr_msg(100.0))
+        assert node._publish_annotated.call_count == published
+        assert node.det_pub.publish.call_count == 1
+    finally:
+        node.destroy_node()

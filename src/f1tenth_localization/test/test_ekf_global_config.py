@@ -216,6 +216,18 @@ class TestLocalizationLaunchWiring:
         assert any(loc.endswith('/ekf.launch.py') for loc in locations)
         assert any(loc.endswith('/ekf_global.launch.py') for loc in locations)
 
+    def test_the_ekf_cost_observer_is_gone(self):
+        # Removed 2026-10-16 (EKF decided at 20 Hz, baseline skipped): no arg,
+        # no node, in either mode.
+        from launch.actions import DeclareLaunchArgument
+        from launch_ros.actions import Node
+        for mode in ('ekf', 'raw_odom'):
+            ld = self._generate(mode)
+            names = {a.name for a in ld.entities if isinstance(a, DeclareLaunchArgument)}
+            assert not {n for n in names if 'ekf_cost' in n}
+            assert not [a for a in ld.entities
+                        if isinstance(a, Node) and 'ekf_cost' in str(_node_name(a))]
+
     def test_ekf_mode_does_not_publish_the_static_odom_to_base_link_tf(self):
         # See module docstring / localization.launch.py's own "NOW
         # CONDITIONAL" paragraph -- publishing this unconditionally in
@@ -306,3 +318,35 @@ class TestEkfGlobalLaunch:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+# ==============================================================================
+# cpu-cleanup R2: both EKFs take frequency / transform_time_offset from
+# stack_params (ekf_frequency_hz 20, ekf_transform_time_offset_s 0.08).
+# Needs launch / launch_ros: run on the Orin.
+# ==============================================================================
+
+class TestEkfRateFromStackParams:
+
+    def _node_and_args(self, launch_file):
+        from launch.actions import DeclareLaunchArgument
+        from launch_ros.actions import Node
+        ld = _load_launch_module(launch_file, f'rate_{launch_file}').generate_launch_description()
+        args = {a.name: a for a in ld.entities if isinstance(a, DeclareLaunchArgument)}
+        node = [a for a in ld.entities if isinstance(a, Node)][0]
+        return node, args
+
+    def test_both_filters_override_frequency_and_offset_from_one_pair_of_keys(self):
+        from f1tenth_params.param_defaults import get_value
+        from launch import LaunchContext
+        assert get_value('ekf_frequency_hz') == 20.0
+        assert get_value('ekf_transform_time_offset_s') == 0.08
+        for launch_file in ('ekf.launch.py', 'ekf_global.launch.py'):
+            node, args = self._node_and_args(launch_file)
+            context = LaunchContext()
+            for name in ('ekf_frequency_hz', 'ekf_transform_time_offset_s'):
+                text = ''.join(s.perform(context) for s in args[name].default_value)
+                assert float(text) == get_value(name), (launch_file, name)
+            overrides = [p for p in node._Node__parameters if isinstance(p, dict)]
+            keys = {''.join(s.text for s in k) for p in overrides for k in p}
+            assert {'frequency', 'transform_time_offset'} <= keys, launch_file

@@ -51,15 +51,25 @@ alone deliberately: renaming the stop_condition type is a schema change that
 invalidates every mission JSON using it. The topic is the authority on what
 the value MEANS -- read this list, not the identifier.
 
-Same "last received value, no freshness/timeout check" caveat applies as it
-already does for min_obstacle_distance, and it is now SHARPER rather than
-softer: front_clearance_node publishes one message per depth frame
-regardless of what else arrives, and holds its EMA rather than skipping a
-publish when a frame yields no usable reading, so silence means the node or
-the ZED is down -- there is no benign "withheld because stale" case the way
-costmap_boundary_node had. A dead publisher still leaves this blackboard
-value latched at its last reading rather than resetting. Not fixed here --
-pre-existing pattern, not introduced by this source swap.
+The topic actually read is get_wall_distance_topic(): /perception/virtual_wall
+with enable_scene_labels (the default), else /perception/front_distance. Both
+publish on every input frame, -1.0 when there is no reading.
+
+WALL DISTANCE FRESHNESS (2026-10-14). The value used to be "last received,
+no freshness check": a dead publisher left it latched, and a move whose
+stop_condition is front_clearance drove on the last distance, possibly
+forever. Now the receive time is kept with it, and while the current move's
+stop is a front_clearance one, a wall distance that is missing, older than
+wall_distance_max_age_s (stack_params.yaml, 0.5 s) or not positive (-1.0)
+HOLDS the car: /mpc/hold True on every tick (the same idempotent hold
+on_timeout='stop' uses; mpc_corr freezes its output at zero and keeps the
+move), a WARN every 2 s, and the stop is not evaluated. The first fresh
+positive value releases it (/mpc/hold False, which mpc_corr resumes the move
+from) and the stop is evaluated again on that tick. The move's timeout_sec
+still runs while held. Not applied to go_to_object moves (mpc_corr ENDS an
+object approach on a hold, it does not pause it) or outside RUNNING (a
+HOLDING mission's hold belongs to HandleObjectAction). min_obstacle_distance
+keeps the old latched behaviour.
 
 Also owns /mpc/goal_reached (std_msgs/Bool, published by mpc_corr for BOTH its
 distance-mode and pose-mode arrival -- same topic, mode-agnostic on the wire),
@@ -152,6 +162,7 @@ from f1tenth_behavior.mission.runtime import (
     MISSION_KEY,
     OBJECT_STATUS_KEY,
     MissionRuntimeState,
+    MissionState,
     ObjectStatusSample,
 )
 
@@ -185,8 +196,13 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  object_reach_tol_m=0.10,
                  object_reach_max_target_age_sec=1.0,
                  object_status_max_gap_sec=0.5,
-                 object_rest_speed_mps=0.05):
+                 object_rest_speed_mps=0.05,
+                 wall_distance_max_age_s=0.5):
         super().__init__(name=name)
+        # Module docstring, WALL DISTANCE FRESHNESS.
+        self.wall_distance_max_age_s = float(wall_distance_max_age_s)
+        self._front_clearance_rx = None     # time.monotonic() of the last message
+        self._wall_hold = False             # this behaviour engaged /mpc/hold
         self._object_status_topic = object_status_topic
         self._object_goal_end_topic = object_goal_end_topic
         self.object_reach_tol_m = float(object_reach_tol_m)
@@ -362,6 +378,44 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
 
     def _front_clearance_cb(self, msg: Float32):
         setattr(self.blackboard, FRONT_CLEARANCE_KEY, float(msg.data))
+        self._front_clearance_rx = time.monotonic()
+
+    def _hold_for_wall(self, state, move, now):
+        """Hold while this move's front_clearance stop has no fresh wall.
+
+        Returns True when the car is held (the caller returns RUNNING without
+        evaluating the stop). Module docstring, WALL DISTANCE FRESHNESS.
+        """
+        guarded = (move.stop_condition.type == 'front_clearance'
+                   and getattr(move, 'go_to_object', None) is None
+                   and getattr(state, 'state', MissionState.RUNNING) == MissionState.RUNNING)
+        value = getattr(self.blackboard, FRONT_CLEARANCE_KEY)
+        rx = self._front_clearance_rx
+        if value is None or rx is None:
+            problem = 'no wall distance received yet'
+        elif now - rx > self.wall_distance_max_age_s:
+            problem = (f'wall distance stale: last one {now - rx:.2f} s ago '
+                       f'(> {self.wall_distance_max_age_s:.2f} s)')
+        elif not (math.isfinite(value) and value > 0.0):
+            problem = f'no wall: the wall topic reads {value:.2f}'
+        else:
+            problem = None
+        if guarded and problem is not None:
+            self._wall_hold = True
+            self.hold_pub.publish(Bool(data=True))
+            self.node.get_logger().warn(
+                f"[mission] Move '{move.id}': {problem} -- holding the car until a "
+                'fresh wall distance arrives', throttle_duration_sec=2.0)
+            return True
+        if self._wall_hold:
+            self._wall_hold = False
+            if getattr(state, 'state', MissionState.RUNNING) == MissionState.RUNNING:
+                self.hold_pub.publish(Bool(data=False))
+                self.node.get_logger().info(
+                    f"[mission] Move '{move.id}': fresh wall distance "
+                    f'{value if value is not None else float("nan"):.2f} m -- '
+                    'hold released')
+        return False
 
     def _goal_reached_cb(self, msg: Bool):
         # Only ever latches True -- see module docstring for why a bare
@@ -496,6 +550,9 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             self._record_and_summarize(state, move, 'timeout:abort', now)
             state.abort()
             return py_trees.common.Status.FAILURE
+
+        if self._hold_for_wall(state, move, now):
+            return py_trees.common.Status.RUNNING
 
         min_obstacle_distance = getattr(self.blackboard, MIN_OBSTACLE_DISTANCE_KEY)
         min_obstacle_distance_forward = getattr(

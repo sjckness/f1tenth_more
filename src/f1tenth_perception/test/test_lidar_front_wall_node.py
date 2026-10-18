@@ -15,6 +15,7 @@ These defend the wire contract; test_lidar_front_wall.py covers the maths.
 Run standalone: python3 -m pytest test/test_lidar_front_wall_node.py -v
 """
 
+import json
 import math
 from unittest.mock import MagicMock
 
@@ -24,6 +25,7 @@ import rclpy
 from f1tenth_messages.msg import WallEstimate, WallLineFit
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
+from rclpy.parameter import Parameter
 from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32
@@ -43,7 +45,7 @@ TUNING_PARAMS = [
     'sector_half_angle_deg', 'inlier_distance_m', 'min_inlier_fraction',
     'min_inlier_count_ratio', 'oblique_max_deg', 'max_hypothesis_pairs',
     'wrong_surface_gate_m', 'stale_age_sec', 'odom_topic', 'odom_max_age_sec',
-    'seed_max_age_sec', 'seed_max_valid_m',
+    'seed_max_age_sec', 'seed_max_valid_m', 'wall_tracker_front_max_coast_sec',
 ]
 
 
@@ -62,7 +64,11 @@ class _Clock:
 
 @pytest.fixture
 def node():
-    n = LidarFrontWallNode()
+    # The plain sector fit's wire contract: scene labels (and so the tracker)
+    # off explicitly, since both default on in stack_params.yaml.
+    n = LidarFrontWallNode(parameter_overrides=[
+        Parameter('enable_scene_labels', value=False),
+        Parameter('use_wall_tracker', value=False)])
     n.fit_pub.publish = MagicMock()
     n.estimate_pub.publish = MagicMock()
     clock = _Clock()
@@ -233,3 +239,1040 @@ class TestInSync:
     @pytest.mark.parametrize('name', TUNING_PARAMS)
     def test_parameter_default_matches_stack_params(self, node, name):
         assert node.get_parameter(name).value == get_value('lidar_front_wall_' + name)
+
+
+class TestMultiWallTracker:
+    """use_wall_tracker: gated on enable_scene_labels, feeds the heading wall."""
+
+    def test_both_switches_default_to_stack_params(self):
+        n = LidarFrontWallNode()
+        try:
+            assert n.scene_enabled is bool(get_value('enable_scene_labels'))
+            assert n.use_wall_tracker is bool(get_value('use_wall_tracker'))
+            assert (n.wall_tracker is not None) is bool(get_value('use_wall_tracker'))
+        finally:
+            n.destroy_node()
+
+    @staticmethod
+    def _make(scene, tracker, debug_tracks=False):
+        n = LidarFrontWallNode(parameter_overrides=[
+            Parameter('enable_scene_labels', value=scene),
+            # Every scan: the decimation has its own tests below.
+            Parameter('wall_tracker_scan_decimation', value=1),
+            # No publish-rate cap: these tests call _scan_cb back to back on
+            # the wall clock, and the cpu-cleanup R2 cap (75 ms) would leave
+            # _last(virtual_pub) holding the FIRST scan's verdict.
+            Parameter('virtual_wall_rate_hz', value=0.0),
+            Parameter('wall_debug_tracks', value=debug_tracks),
+            Parameter('use_wall_tracker', value=tracker)])
+        for name in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                     'virtual_debug_pub', 'walls_pub', 'walls_markers_pub'):
+            if hasattr(n, name):
+                getattr(n, name).publish = MagicMock()
+        return n
+
+    def test_without_scene_labels_the_tracker_stays_off_with_an_error(self):
+        n = self._make(False, True)
+        try:
+            assert n.use_wall_tracker is False and n.wall_tracker is None
+            assert not hasattr(n, 'walls_pub')
+        finally:
+            n.destroy_node()
+
+    @staticmethod
+    def _feeder(n):
+        def feed(t, distance, scan=None):
+            odom = _odom(0.0)
+            odom.header.stamp.sec, odom.header.stamp.nanosec = int(t), int(t % 1 * 1e9)
+            n._odom_cb(odom)
+            if scan is None:
+                scan = _scan(distance, stamp_sec=int(t))
+            scan.header.stamp.sec = int(t)
+            scan.header.stamp.nanosec = int(t % 1 * 1e9)
+            n._scan_cb(scan)
+            return _last(n.virtual_pub).data, json.loads(_last(n.virtual_debug_pub).data)
+        return feed
+
+    def test_a_front_track_coasting_past_the_limit_makes_the_virtual_wall_clear(self):
+        """UPDATED for block 3: this used to assert -1.0 (NO_DATA) until a new
+        front track appeared -- a latch that HOLDS the car, indefinitely in an
+        open hall. The sensors are working and nothing is in the way: CLEAR."""
+        n = self._make(True, True)
+        limit = n.wall_tracker.p.front_max_coast_s
+        feed = self._feeder(n)
+        clear = float(get_value('wall_clear_distance_m'))
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(8):
+                value, debug = feed(7.0 + 0.05 * k, 3.0)
+            assert debug['wall_source'] == 'tracker' and value > 0.0
+            assert debug['front_reason'] == 'front'
+            last_hit = 7.0 + 0.05 * 7
+            # Unseen over an EMPTY strip (no returns at all), within the limit:
+            # still the front wall.
+            value, debug = feed(last_hit + 0.5 * limit, None)
+            assert 0.0 < value < clear and debug['state'] == 'wall'
+            assert debug['strip_range_m'] is None
+            # Past the limit: CLEAR on every scan, never -1.
+            for dt in (1.5 * limit, 2.0 * limit, 3.0 * limit):
+                value, debug = feed(last_hit + dt, None)
+                assert value == pytest.approx(clear)
+                assert debug['valid'] is True and debug['state'] == 'clear'
+                assert debug['front_reason'] == 'coast_expired'
+            # The wall is seen again: a front track again, a wall again.
+            for k in range(3):
+                value, debug = feed(last_hit + 3.0 * limit + 0.05 * (k + 1), 3.0)
+            assert debug['wall_source'] == 'tracker'
+            assert value == pytest.approx(3.0 - 0.405, abs=0.02)
+        finally:
+            n.destroy_node()
+
+    def test_a_front_wall_the_strip_sees_through_is_dropped_to_clear_at_once(self):
+        """Block 3, the incident's shape: the FRONT wall stops being fitted and
+        the strip reads 3 m further. The first such scan already drops it
+        (coasting over a strip that sees through it), and the contract is
+        CLEAR with the reason on the debug topic -- not NO_DATA."""
+        n = self._make(True, True, debug_tracks=True)
+        feed = self._feeder(n)
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(8):
+                value, debug = feed(7.0 + 0.05 * k, 3.0)
+            front_id = debug['front_id']
+            assert debug['state'] == 'wall' and front_id is not None
+            value, debug = feed(7.45, 6.0)
+            assert debug['state'] == 'clear' and debug['valid'] is True
+            assert debug['front_reason'] == 'coast_contradicted'
+            assert debug['strip_range_m'] == pytest.approx(6.0 - base_front_x(), abs=0.05)
+            value, debug = feed(7.50, 6.0)
+            mine = [t for t in debug['tracks'] if t['id'] == front_id]
+            assert mine and mine[0]['contradicted'] is True
+            assert mine[0]['front_reason'] == 'contradicted'
+        finally:
+            n.destroy_node()
+
+    def test_the_debug_payload_carries_the_block_3_fields(self):
+        n = self._make(True, True)
+        feed = self._feeder(n)
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(4):
+                _value, debug = feed(7.0 + 0.05 * k, 3.0)
+            for key in ('strip_range_m', 'front_reason', 'front_id', 'gap_rejected',
+                        'merge_gap_refused', 'stereo_near_rejected', 'rejections'):
+                assert key in debug, key
+            assert isinstance(debug['gap_rejected'], int)
+            assert isinstance(debug['stereo_near_rejected'], int)
+            assert isinstance(debug['rejections'], list)
+            assert 'front_coast_expired' != debug['wall_source']
+        finally:
+            n.destroy_node()
+
+    def test_the_front_track_becomes_the_heading_wall(self):
+        n = self._make(True, True)
+        try:
+            n._tf_static_cb(_tf_static())
+            for k in range(8):
+                stamp = 7 + k
+                odom = _odom(0.0)
+                odom.header.stamp.sec = stamp
+                n._odom_cb(odom)
+                n._scan_cb(_scan(3.0, stamp_sec=stamp))
+            walls = _last(n.walls_pub)
+            assert [t.label for t in walls.tracks] == ['front']
+            assert walls.tracks[0].d_ray_front == pytest.approx(3.0 - 0.405, abs=0.02)
+            debug = json.loads(_last(n.virtual_debug_pub).data)
+            assert debug['wall_source'] == 'tracker'
+            assert debug['distance_m'] == pytest.approx(3.0 - 0.405, abs=0.02)
+        finally:
+            n.destroy_node()
+
+
+def _scan_at(distance, stamp, yaw_deg=0.0):
+    """A scan at a float stamp; yaw_deg rotates the wall in the laser frame."""
+    sec = int(stamp)
+    msg = _scan(distance=distance, stamp_sec=sec)
+    msg.header.stamp.nanosec = int(round((stamp - sec) * 1e9))
+    if yaw_deg:
+        yaw = math.radians(yaw_deg)
+        angles = ANGLE_MIN + np.arange(N_BEAMS) * ANGLE_INCREMENT
+        ranges = np.full(N_BEAMS, np.inf)
+        ahead = np.cos(angles - yaw) > 0.05
+        ranges[ahead] = (distance - LASER_X) / np.cos(angles[ahead] - yaw)
+        msg.ranges = [float(r) for r in ranges.astype(np.float32)]
+    return msg
+
+
+def _corridor_scan(stamp, half_width=1.0, stamp_sec=None):
+    """An OPEN corridor: walls either side, nothing ahead for 30 m."""
+    sec = int(stamp)
+    msg = _scan(distance=None, stamp_sec=sec)
+    msg.header.stamp.nanosec = int(round((stamp - sec) * 1e9))
+    angles = ANGLE_MIN + np.arange(N_BEAMS) * ANGLE_INCREMENT
+    ranges = np.full(N_BEAMS, np.inf)
+    sin = np.sin(angles)
+    side = np.abs(sin) > 0.08
+    ranges[side] = half_width / np.abs(sin[side])
+    ranges[ranges > 25.0] = np.inf
+    msg.ranges = [float(r) for r in ranges.astype(np.float32)]
+    return msg
+
+
+def _odom_at(stamp, yaw):
+    msg = Odometry()
+    msg.header.frame_id = 'odom'
+    msg.header.stamp.sec = int(stamp)
+    msg.header.stamp.nanosec = int(round((stamp - int(stamp)) * 1e9))
+    msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
+    msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
+    msg.twist.twist.linear.x = 0.5
+    return msg
+
+
+# ==============================================================================
+# Step 3: the stateless per-cycle fusion -> /perception/wall_observations
+# ==============================================================================
+
+class TestWallObservations:
+    """The wire contract of the per-cycle fusion. The decision logic itself is
+    tested in test_wall_fusion.py; what matters here is that the node emits
+    something on every cycle, ages the stereo rather than waiting for it, and
+    never turns a missing camera into a missing wall."""
+
+    @staticmethod
+    def _node(**overrides):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        params = {'enable_scene_labels': True, 'use_wall_tracker': False}
+        params.update(overrides)
+        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        n.fit_pub.publish = MagicMock()
+        n.estimate_pub.publish = MagicMock()
+        n.planes_pub.publish = MagicMock()
+        n.virtual_pub.publish = MagicMock()
+        n.virtual_debug_pub.publish = MagicMock()
+        n.observations_pub.publish = MagicMock()
+        clock = _Clock()
+        n._now = lambda: clock.now
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _columns(distance_m, width=64, stamp_sec=7, camera_frame='zed_optical'):
+        from f1tenth_messages.msg import StereoColumns
+        msg = StereoColumns()
+        msg.header.stamp.sec = stamp_sec
+        msg.header.frame_id = 'base_link'
+        msg.camera_frame = camera_frame
+        msg.width, msg.height = width, 48
+        msg.fx = msg.fy = 100.0
+        msg.cx, msg.cy = width / 2.0, 24.0
+        msg.distance_m = [float(d) for d in distance_m]
+        msg.z_min = [0.0] * width
+        msg.z_max = [1.5] * width
+        msg.n_px = [20] * width
+        msg.percentile = 20.0
+        msg.min_px = 5
+        return msg
+
+    @classmethod
+    def _columns_at(cls, distance_m, stamp, width=64):
+        msg = cls._columns(distance_m, width=width)
+        msg.header.stamp.sec = int(stamp)
+        msg.header.stamp.nanosec = int(round((stamp - int(stamp)) * 1e9))
+        return msg
+
+    @staticmethod
+    def _camera_tf(frame='zed_optical'):
+        """base_link -> a forward-looking optical frame at the ZED's mount."""
+        t = TransformStamped()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = frame
+        t.transform.translation.x = 0.2299
+        t.transform.translation.z = 0.22
+        # optical (x right, y down, z fwd) -> base: the ZED macro's own
+        # -90/0/-90 roll-pitch-yaw, as a quaternion.
+        t.transform.rotation.x = -0.5
+        t.transform.rotation.y = 0.5
+        t.transform.rotation.z = -0.5
+        t.transform.rotation.w = 0.5
+        return TFMessage(transforms=[t])
+
+    def test_every_scan_publishes_an_observation_array_even_with_no_camera(self):
+        """A missing camera must never read as a missing wall."""
+        n = self._node()
+        try:
+            n._scan_cb(_scan(distance=2.0))
+            assert n.observations_pub.publish.call_count == 1
+            msg = _last(n.observations_pub)
+            assert msg.header.frame_id == 'base_link'
+            assert all(o.source == o.SOURCE_LIDAR for o in msg.observations)
+            assert all(o.height_measured is False for o in msg.observations)
+        finally:
+            n.destroy_node()
+
+    def test_an_empty_scene_still_publishes_an_empty_array(self):
+        """'Both sensors looked and there is no wall' is the open corridor,
+        and it has to be distinguishable from a dead node."""
+        n = self._node()
+        try:
+            n._scan_cb(_scan(distance=None))
+            assert n.observations_pub.publish.call_count == 1
+            assert list(_last(n.observations_pub).observations) == []
+        finally:
+            n.destroy_node()
+
+    def test_a_stale_stereo_profile_is_ignored_rather_than_waited_for(self):
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._stereo_columns_cb(self._columns([2.0] * 64, stamp_sec=1))
+            n._scan_cb(_scan(distance=2.0, stamp_sec=7))     # 6 s later
+            msg = _last(n.observations_pub)
+            assert all(o.source == o.SOURCE_LIDAR for o in msg.observations)
+            assert msg.n_disagree_columns == 0
+        finally:
+            n.destroy_node()
+
+    def test_a_profile_is_weighted_by_its_age_and_dropped_only_past_the_limit(self):
+        """Aged on the camera IMAGE stamp, not on arrival, and the age is a
+        WEIGHT rather than a gate.
+
+        The 0.15 s hard gate this replaces passed 44 of 238 live cycles on
+        corridor10m_20261015T171753: four fifths of the run was LiDAR-only not
+        because the camera had nothing to say but because it had said it
+        slightly too early. Past stereo_profile_max_age_s the cycle is still
+        LiDAR only -- a stale STEREO_ONLY span is the one path that can create
+        a wall out of nothing.
+        """
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            limit = n.profile_max_age
+            assert limit == pytest.approx(0.6)
+            assert n.profile_min_weight == pytest.approx(0.3)
+            # Well past the OLD 0.15 s gate, and now used -- at a weight.
+            n._stereo_columns_cb(self._columns_at([1.77] * 64, 7.0 - 0.5 * limit))
+            n._scan_cb(_scan_at(2.0, 7.0))
+            assert any(o.source == o.SOURCE_BOTH
+                       for o in _last(n.observations_pub).observations)
+            assert n._stereo_weight == pytest.approx(0.65, abs=0.01)
+            assert n._stereo_age == pytest.approx(0.3, abs=0.01)
+            # Past the limit: refused, and the cycle says why.
+            n._stereo_columns_cb(self._columns_at([1.77] * 64, 7.0 - 1.1 * limit))
+            n._scan_cb(_scan_at(2.0, 7.0))
+            msg = _last(n.observations_pub)
+            assert msg.observations
+            assert all(o.source == o.SOURCE_LIDAR for o in msg.observations)
+            assert n._stereo_weight == 0.0
+        finally:
+            n.destroy_node()
+
+    def test_the_cycle_publishes_the_profiles_age_and_weight(self):
+        """What the debug video shows instead of "no fresh stereo profile":
+        0.16 s worth 0.65 and 2.5 s worth nothing are different problems."""
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._stereo_columns_cb(self._columns_at([1.77] * 64, 6.8))
+            n._scan_cb(_scan_at(2.0, 7.0))
+            d = json.loads(_last(n.virtual_debug_pub).data)
+            assert d['stereo_age_s'] == pytest.approx(0.2, abs=0.01)
+            assert d['stereo_weight'] == pytest.approx(0.767, abs=0.01)
+            assert d['stereo_max_age_s'] == pytest.approx(0.6)
+        finally:
+            n.destroy_node()
+
+    def test_the_fitted_lines_are_carried_to_the_image_moment_too(self):
+        """Not just the scan returns. The lines are fitted in base_link at the
+        SCAN stamp, and their column span is what decides which columns judge
+        them, so an uncompensated line is judged by the wrong columns -- 128 of
+        them at 0.6 s and this car's minimum radius.
+        """
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._odom_cb(_odom_at(7.00, 0.0))
+            n._odom_cb(_odom_at(7.40, math.radians(20.0)))
+            n._stereo_columns_cb(self._columns_at([2.0] * 64, 7.00))
+            n._scan_cb(_scan_at(2.0, 7.40))
+            msg = _last(n.observations_pub)
+            assert msg.observations
+            turned = [(o.col_begin, o.col_end) for o in msg.observations]
+            # The same cycle with no odometry to carry anything: the columns
+            # the wall is judged over differ, which is the whole point.
+            m = self._node()
+            try:
+                m._tf_static_cb(self._camera_tf())
+                m._stereo_columns_cb(self._columns_at([2.0] * 64, 7.00))
+                m._scan_cb(_scan_at(2.0, 7.40))
+                bare = [(o.col_begin, o.col_end) for o in
+                        _last(m.observations_pub).observations]
+            finally:
+                m.destroy_node()
+            assert turned != bare
+        finally:
+            n.destroy_node()
+
+    def test_compensation_carries_the_scan_by_the_odometry_yaw(self):
+        """The mechanism: a point fixed in the world, seen from a car that has
+        turned 7 deg, moves by 7 deg in base_link."""
+        n = self._node()
+        try:
+            n._odom_cb(_odom_at(7.00, 0.0))
+            n._odom_cb(_odom_at(7.12, math.radians(7.0)))
+            pts = np.array([[2.0, 0.0, 0.19]])
+            out = n._compensate(pts, scan_stamp=7.12, image_stamp=7.00)
+            # Carried BACK to the image moment: the car had not yet turned, so
+            # the point sits 7 deg to the other side.
+            assert math.degrees(math.atan2(out[0, 1], out[0, 0])) == pytest.approx(7.0, abs=0.1)
+            assert math.hypot(out[0, 0], out[0, 1]) == pytest.approx(2.0, abs=1e-6)
+            assert out[0, 2] == pytest.approx(0.19)
+        finally:
+            n.destroy_node()
+
+    def test_a_turning_car_does_not_shift_the_projected_columns(self):
+        """7 deg of yaw in 0.12 s is a ~32-column shift at fx 262. Compensated,
+        the wall lands on the columns the image actually saw; uncompensated it
+        does not, and every AGREE would become DISAGREE."""
+        from f1tenth_perception import scene_mask
+        from f1tenth_perception.ground_plane import quat_to_matrix
+        n = self._node()
+        try:
+            n._tf_static_cb(self._camera_tf())
+            n._odom_cb(_odom_at(7.00, 0.0))
+            n._odom_cb(_odom_at(7.12, math.radians(7.0)))
+            tf = n._camera_transform('zed_optical')
+            assert tf is not None
+            rot, trans = tf
+            fx = 262.4
+
+            def columns(points):
+                uv = scene_mask.project_to_image(points, fx, fx, 320.0, 180.0, rot, trans)
+                return uv[np.isfinite(uv[:, 0]), 0]
+
+            # The same world point, seen by a car that has since turned.
+            pts = np.array([[2.0, 0.0, 0.19]])
+            bare = columns(pts)
+            carried = columns(n._compensate(pts, scan_stamp=7.12, image_stamp=7.00))
+            assert abs(carried[0] - bare[0]) > 25.0
+            # And the carried column is where the image, taken before the
+            # left turn, really saw that point. The bearing is from the LENS,
+            # 0.2299 m ahead of base_link, not from base_link -- that offset
+            # is 4 px here and is part of the geometry, not slack. base_link
+            # +y is a SMALLER column.
+            carried_pt = n._compensate(pts, scan_stamp=7.12, image_stamp=7.00)[0]
+            expected = 320.0 - fx * (carried_pt[1] / (carried_pt[0] - 0.2299))
+            assert carried[0] == pytest.approx(expected, abs=0.5)
+            assert carried[0] < 320.0
+        finally:
+            n.destroy_node()
+
+    def test_compensation_is_skipped_without_odometry_rather_than_failing(self):
+        n = self._node()
+        try:
+            pts = np.array([[2.0, 0.0, 0.19]])
+            out = n._compensate(pts, scan_stamp=7.12, image_stamp=7.00)
+            assert out is pts or np.allclose(out, pts)
+        finally:
+            n.destroy_node()
+
+    def test_the_observation_carries_the_line_and_its_endpoints(self):
+        n = self._node()
+        try:
+            n._scan_cb(_scan(distance=2.0))
+            obs = _last(n.observations_pub).observations
+            assert obs
+            o = obs[0]
+            assert o.d > 0.0
+            assert math.hypot(o.nx, o.ny) == pytest.approx(1.0, abs=1e-3)
+            assert o.p0.z == 0.0 and o.p1.z == 0.0
+            assert (o.p0.x, o.p0.y) != (o.p1.x, o.p1.y)
+        finally:
+            n.destroy_node()
+
+
+class TestTrackFieldsOnTheWire:
+    """The additive MultiWallTrack fields of step 4."""
+
+    def test_a_published_track_carries_its_source_role_height_and_front_flag(self):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
+                                   Parameter('use_wall_tracker', value=True)])
+        try:
+            for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                        'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                        'walls_markers_pub'):
+                getattr(n, pub).publish = MagicMock()
+            n._tf_static_cb(_tf_static())
+            for i in range(6):
+                n._odom_cb(_odom_at(7.0 + i * 0.05, 0.0))
+                n._scan_cb(_scan_at(2.0, 7.0 + i * 0.05))
+            msg = _last(n.walls_pub)
+            assert msg.tracks
+            t = msg.tracks[0]
+            assert t.role == t.label
+            assert t.source == t.SOURCE_LIDAR
+            assert t.z_max == pytest.approx(2.5) and t.height_measured is False
+            assert 0.0 <= t.confidence <= 1.0
+            # A wall square across the path at 2 m IS the wall in the way.
+            assert t.is_front is True
+            assert math.isnan(t.d_side)
+        finally:
+            n.destroy_node()
+
+
+class TestTheOutputContract:
+    """Step 5: WALL / CLEAR / NO_DATA on the wire.
+
+    The state a consumer branches on, and the one the old pipeline could not
+    express. Each state is reached through the real node, not by calling the
+    pure function again."""
+
+    @staticmethod
+    def _node():
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
+                                   # See TestMultiWallTracker._make.
+                                   Parameter('virtual_wall_rate_hz', value=0.0),
+                                   Parameter('use_wall_tracker', value=True)])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _run(n, distance, scans=6, t0=7.0, dt=0.05):
+        for i in range(scans):
+            n._odom_cb(_odom_at(t0 + i * dt, 0.0))
+            n._scan_cb(_scan_at(distance, t0 + i * dt) if distance is not None
+                       else _scan(distance=None, stamp_sec=int(t0 + i * dt)))
+
+    @staticmethod
+    def _state(n):
+        import json
+        return json.loads(_last(n.virtual_debug_pub).data)['state']
+
+    def test_a_wall_across_the_path_is_WALL_with_its_distance(self):
+        n = self._node()
+        try:
+            self._run(n, 2.0)
+            assert self._state(n) == 'wall'
+            assert _last(n.virtual_pub).data == pytest.approx(2.0 - base_front_x(), abs=0.05)
+            assert _last(n.estimate_pub).state == WallEstimate.STATE_WALL
+        finally:
+            n.destroy_node()
+
+    def test_an_open_corridor_is_CLEAR_not_a_phantom_wall(self):
+        """The corridor_phantom failure. Nothing in the strip used to become
+        the stereo plane -- the SIDE wall -- at 1.1 m. It is now CLEAR."""
+        n = self._node()
+        try:
+            self._run(n, None)
+            assert self._state(n) == 'clear'
+            clear = float(get_value('wall_clear_distance_m'))
+            assert _last(n.virtual_pub).data == pytest.approx(clear)
+            assert _last(n.estimate_pub).state == WallEstimate.STATE_CLEAR
+        finally:
+            n.destroy_node()
+
+    def test_a_side_wall_only_corridor_is_CLEAR(self):
+        """Walls on both sides and nothing ahead: still nothing in the way."""
+        n = self._node()
+        try:
+            for i in range(8):
+                t = 7.0 + i * 0.05
+                n._odom_cb(_odom_at(t, 0.0))
+                n._scan_cb(_corridor_scan(t))
+            assert self._state(n) == 'clear'
+            assert _last(n.virtual_pub).data > 10.0
+        finally:
+            n.destroy_node()
+
+    def test_a_scan_with_no_laser_transform_is_NO_DATA(self):
+        """Block 3: NO_DATA is for missing data only, and a scan that cannot
+        be placed is missing data -- not the last placed scan's verdict."""
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
+                                   Parameter('virtual_wall_rate_hz', value=0.0),
+                                   Parameter('use_wall_tracker', value=True)])
+        try:
+            for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                        'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                        'walls_markers_pub'):
+                getattr(n, pub).publish = MagicMock()
+            n._odom_cb(_odom_at(7.0, 0.0))
+            n._scan_cb(_scan_at(2.0, 7.0))          # no /tf_static yet
+            assert self._state(n) == 'no_data'
+            assert _last(n.virtual_pub).data == -1.0
+        finally:
+            n.destroy_node()
+
+    def test_no_odometry_is_NO_DATA_and_minus_one_never_clear(self):
+        n = self._node()
+        try:
+            n._scan_cb(_scan_at(2.0, 7.0))      # no odom at all
+            assert self._state(n) == 'no_data'
+            assert _last(n.virtual_pub).data == -1.0
+            assert _last(n.estimate_pub).state == WallEstimate.STATE_NO_DATA
+        finally:
+            n.destroy_node()
+
+    def test_the_three_states_are_three_different_published_values(self):
+        clear = float(get_value('wall_clear_distance_m'))
+        wall_n, clear_n, nodata_n = self._node(), self._node(), self._node()
+        try:
+            self._run(wall_n, 2.0)
+            self._run(clear_n, None)
+            nodata_n._scan_cb(_scan_at(2.0, 7.0))
+            values = [_last(x.virtual_pub).data for x in (wall_n, clear_n, nodata_n)]
+            assert values[2] == -1.0
+            assert values[1] == pytest.approx(clear)
+            assert 0.0 < values[0] < clear
+            assert len(set(values)) == 3
+        finally:
+            for x in (wall_n, clear_n, nodata_n):
+                x.destroy_node()
+
+
+class TestWallMarkers:
+    """Step 7: a wall is drawn as the vertical plane it is."""
+
+    def _publish(self, **track_kw):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
+                                   Parameter('use_wall_tracker', value=True)])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        for i in range(6):
+            n._odom_cb(_odom_at(7.0 + i * 0.05, 0.0))
+            n._scan_cb(_scan_at(2.0, 7.0 + i * 0.05))
+        return n
+
+    def test_each_confirmed_wall_is_a_thin_vertical_slab_coloured_by_role(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            markers = _last(n.walls_markers_pub).markers
+            cubes = [m for m in markers if m.type == Marker.CUBE]
+            assert cubes
+            slab = cubes[0]
+            assert slab.scale.y == pytest.approx(n.wall_marker_thickness_m)
+            assert slab.scale.y <= 0.02
+            assert slab.scale.z > 1.0           # it stands up
+            assert slab.scale.x > 0.1           # and runs along the wall
+            # Red-ish: this one is the front wall.
+            assert slab.color.r > slab.color.b
+        finally:
+            n.destroy_node()
+
+    def test_the_label_says_id_role_distance_source_and_state(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            texts = [m for m in _last(n.walls_markers_pub).markers
+                     if m.type == Marker.TEXT_VIEW_FACING]
+            assert texts
+            words = texts[0].text.split()
+            assert len(words) == 5
+            assert words[1] == 'front'
+            assert words[2].endswith('m')
+            assert words[3] == 'lidar'
+            assert words[4] in ('tentative', 'confirmed', 'coasting')
+        finally:
+            n.destroy_node()
+
+    def test_an_assumed_height_is_drawn_fainter_than_a_measured_one(self):
+        n = self._publish()
+        try:
+            from visualization_msgs.msg import Marker
+            slab = [m for m in _last(n.walls_markers_pub).markers
+                    if m.type == Marker.CUBE][0]
+            assert slab.color.a == pytest.approx(0.35)   # nothing measured it
+        finally:
+            n.destroy_node()
+
+    def test_no_marker_outlives_the_tracker_by_more_than_its_lifetime(self):
+        """Replaces test_every_array_starts_by_clearing_so_gone_tracks_disappear.
+
+        That test asserted a DELETEALL at the head of every array. The pairing
+        it was half of -- DELETEALL every cycle, and no lifetime on any marker
+        -- is what made the walls flicker and vanish in Foxglove: the
+        torn-down state is the one a client sees whenever the rebuild meant to
+        follow it is dropped or late. The guarantee it was reaching for, that
+        a gone track does not linger, is now carried by a per-marker lifetime
+        plus a per-id DELETE, which is what these two tests check instead.
+        """
+        n = self._publish()
+        try:
+            markers = _last(n.walls_markers_pub).markers
+            assert markers
+            for m in markers:
+                lifetime = m.lifetime.sec + m.lifetime.nanosec * 1e-9
+                assert lifetime == pytest.approx(n.wall_marker_lifetime_s)
+                # 3x the tracker period at 40 Hz scans and decimation 4.
+                assert lifetime >= 3 * (4 / 40.0)
+        finally:
+            n.destroy_node()
+
+    def test_no_array_clears_every_namespace(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            actions = [m.action for m in _last(n.walls_markers_pub).markers]
+            assert actions
+            assert Marker.DELETEALL not in actions
+        finally:
+            n.destroy_node()
+
+    def test_a_track_that_stops_being_published_is_deleted_by_id(self):
+        from visualization_msgs.msg import Marker
+        n = self._publish()
+        try:
+            drawn = set(n._drawn_track_ids)
+            assert drawn, 'nothing was drawn, so there is nothing to delete'
+            # The tracker now reports no tracks at all: the next array must
+            # carry a DELETE for both marker slots of every id drawn before,
+            # and must not fall back on a DELETEALL.
+            n.wall_tracker.published = lambda car: []
+            n._odom_cb(_odom_at(7.4, 0.0))
+            n._scan_cb(_scan_at(2.0, 7.4))
+            markers = _last(n.walls_markers_pub).markers
+            assert all(m.action == Marker.DELETE for m in markers)
+            deleted = {m.id for m in markers}
+            assert deleted == {slot for i in drawn for slot in (2 * i, 2 * i + 1)}
+            assert {m.ns for m in markers} == {'walls'}
+            assert n._drawn_track_ids == set()
+        finally:
+            n.destroy_node()
+
+
+class TestVizWalls:
+    """/viz/walls: the whole tracker state, and only while someone is looking.
+
+    The marker CONTENT is tested in test_wall_markers.py against the pure
+    builder. What matters here is the wiring: the three gates, and that the
+    topic is fed every track the tracker holds rather than published()'s four.
+    """
+
+    def _node(self, **overrides):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        params = {'enable_scene_labels': True, 'wall_tracker_scan_decimation': 1,
+                  'use_wall_tracker': True}
+        params.update(overrides)
+        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n.viz_walls_pub = MagicMock()
+        n.viz_walls_pub.get_subscription_count.return_value = 1
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _drive(n, cycles=6, t0=7.0):
+        for i in range(cycles):
+            n._odom_cb(_odom_at(t0 + i * 0.05, 0.0))
+            n._scan_cb(_scan_at(2.0, t0 + i * 0.05))
+
+    def test_it_publishes_while_something_is_subscribed(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            assert n.viz_walls_pub.publish.called
+            assert _last(n.viz_walls_pub).markers
+        finally:
+            n.destroy_node()
+
+    def test_nothing_is_published_when_no_one_is_subscribed(self):
+        n = self._node()
+        try:
+            n.viz_walls_pub.get_subscription_count.return_value = 0
+            self._drive(n)
+            assert not n.viz_walls_pub.publish.called
+            # And it did not even build an array to throw away.
+            assert n._viz_walls_builder.drawn_ids == set()
+        finally:
+            n.destroy_node()
+
+    def test_the_flag_off_means_the_subscription_is_never_even_counted(self):
+        n = self._node(viz_walls_enabled=False)
+        try:
+            self._drive(n)
+            assert not n.viz_walls_pub.publish.called
+            assert not n.viz_walls_pub.get_subscription_count.called
+        finally:
+            n.destroy_node()
+
+    def test_the_topic_exists_even_with_the_flag_off(self):
+        """So the flag is a publish-time decision, not a restart-time one."""
+        n = self._node(viz_walls_enabled=False)
+        try:
+            assert n.viz_walls_pub is not None
+        finally:
+            n.destroy_node()
+
+    def test_the_rate_is_capped_below_the_tracker_s_own(self):
+        n = self._node(viz_walls_max_hz=5.0)
+        try:
+            # 20 cycles of 0.05 s is 1.0 s of scan stamps at 20 Hz; a 5 Hz cap
+            # must let through far fewer than one per cycle.
+            self._drive(n, cycles=20)
+            tracker_cycles = n.walls_markers_pub.publish.call_count
+            viz_cycles = n.viz_walls_pub.publish.call_count
+            assert viz_cycles < tracker_cycles
+            assert viz_cycles <= 6          # 1.0 s at 5 Hz, plus the first one
+        finally:
+            n.destroy_node()
+
+    def test_it_is_fed_every_track_not_only_the_four_published(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            held = {t.id for t in n.wall_tracker.tracks}
+            assert held
+            drawn = {m.id // 4 for m in _last(n.viz_walls_pub).markers}
+            assert drawn == held
+            # /perception/walls/markers is the narrower view by construction
+            # (it is fed published()), and this topic must never be the one
+            # that hides a track the other one shows.
+            asserted = {m.id // 2 for m in _last(n.walls_markers_pub).markers}
+            assert asserted <= drawn
+        finally:
+            n.destroy_node()
+
+    def test_the_markers_are_in_the_tracker_s_own_frame(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            frames = {m.header.frame_id for m in _last(n.viz_walls_pub).markers}
+            assert frames == {n._odom_frame}
+        finally:
+            n.destroy_node()
+
+    def test_going_unsubscribed_forgets_what_was_drawn(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            assert n._viz_walls_builder.drawn_ids
+            n.viz_walls_pub.get_subscription_count.return_value = 0
+            self._drive(n, cycles=2, t0=8.0)
+            assert n._viz_walls_builder.drawn_ids == set()
+        finally:
+            n.destroy_node()
+
+
+class TestTheRectanglePair:
+    """The wire side of the rectangle verification (E2). The verdicts
+    themselves are tested in test_wall_rectangle.py; what matters here is that
+    the node pairs the two images by stamp, ages them on the IMAGE stamp, and
+    never verifies against a half-arrived tick."""
+
+    @staticmethod
+    def _node(**overrides):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        params = {'enable_scene_labels': True, 'use_wall_tracker': False}
+        params.update(overrides)
+        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _images(stamp_cls=5.0, stamp_dep=5.0, width=8, height=4):
+        from sensor_msgs.msg import Image
+        from f1tenth_perception import scene_mask
+        out = []
+        for stamp, encoding, data in (
+                (stamp_cls, 'mono8',
+                 np.full((height, width), scene_mask.CLASS_WALL, dtype=np.uint8)),
+                (stamp_dep, 'mono16',
+                 np.full((height, width), 3000, dtype=np.uint16))):
+            msg = Image()
+            msg.header.stamp.sec = int(stamp)
+            msg.header.stamp.nanosec = int(round((stamp % 1.0) * 1e9))
+            msg.header.frame_id = 'zed_optical'
+            msg.height, msg.width = height, width
+            msg.encoding = encoding
+            msg.step = width * data.itemsize
+            msg.data = data.tobytes()
+            out.append(msg)
+        return out
+
+    def test_a_matched_pair_is_read_without_copying(self):
+        from f1tenth_perception import scene_mask
+        n = self._node()
+        cls_msg, dep_msg = self._images()
+        n._mask_classes_cb(cls_msg)
+        n._mask_depth_cb(dep_msg)
+        pair = n._mask_pair(5.0)
+        assert pair is not None
+        labels, depth, age, weight = pair
+        assert labels.shape == (4, 8) and depth.shape == (4, 8)
+        assert labels[0, 0] == scene_mask.CLASS_WALL and depth[0, 0] == 3000
+        assert not labels.flags.owndata and not depth.flags.owndata
+        assert age == pytest.approx(0.0) and weight == pytest.approx(1.0)
+        n.destroy_node()
+
+    def test_mismatched_stamps_are_a_half_arrived_tick(self):
+        n = self._node()
+        cls_msg, dep_msg = self._images(stamp_cls=5.0, stamp_dep=5.2)
+        n._mask_classes_cb(cls_msg)
+        n._mask_depth_cb(dep_msg)
+        assert n._mask_pair(5.0) is None
+        n.destroy_node()
+
+    def test_the_pair_ages_on_the_image_stamp(self):
+        n = self._node()
+        cls_msg, dep_msg = self._images(stamp_cls=5.0, stamp_dep=5.0)
+        n._mask_classes_cb(cls_msg)
+        n._mask_depth_cb(dep_msg)
+        assert n._mask_pair(5.0 + n.profile_max_age + 0.01) is None
+        assert n._rect_weight == 0.0
+        pair = n._mask_pair(5.0 + 0.5 * n.profile_max_age)
+        assert pair is not None and 0.0 < pair[3] < 1.0
+        n.destroy_node()
+
+    def test_no_mask_at_all_leaves_every_track_unverified(self):
+        n = self._node(use_wall_tracker=True)
+        from corridor_perception.geometry import Pose2D
+        assert n._verify_tracks(Pose2D(0.0, 0.0, 0.0), 1.0, None) == {}
+        assert math.isnan(n._rect_ms)
+        n.destroy_node()
+
+    def test_the_verification_can_be_turned_off(self):
+        n = self._node(wall_rect_verify=False)
+        topics = {t for t, _ in n.get_topic_names_and_types()}
+        assert '/perception/scene_labels/classes' not in topics
+        assert '/perception/scene_labels/depth_mm' not in topics
+        n.destroy_node()
+
+
+class TestTrackerDecimation:
+    """wall_tracker_scan_decimation: the tracker on one scan in N (H2).
+
+    The contract the rest of the node keeps is the thing to protect: the
+    WallLineFit/WallEstimate pair still publishes on EVERY scan, and the scan
+    subscription is still best-effort so this node cannot back-pressure
+    urg_node. What changes is only how often the tracker steps, and on a
+    skipped scan its last verdict stands rather than flapping to NO_DATA.
+    Since cpu-cleanup R2 /perception/virtual_wall (+ /debug) publishes only on
+    the tracker steps themselves (lidar_front_wall.virtual_wall_due); the
+    repeats are gone, the WallEstimate state still carries the held verdict.
+    """
+
+    @staticmethod
+    def _node(decimation=4):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[
+            Parameter('enable_scene_labels', value=True),
+            Parameter('use_wall_tracker', value=True),
+            Parameter('wall_tracker_scan_decimation', value=decimation),
+            # No wall-clock rate cap: these scans are fed back to back.
+            Parameter('virtual_wall_rate_hz', value=0.0)])
+        for name in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                     'virtual_debug_pub', 'walls_pub', 'walls_markers_pub',
+                     'observations_pub'):
+            if getattr(n, name, None) is not None:
+                getattr(n, name).publish = MagicMock()
+        n._tf_static_cb(_tf_static())
+        return n
+
+    def test_the_default_comes_from_stack_params(self):
+        n = self._node(decimation=int(get_value(
+            'lidar_front_wall_wall_tracker_scan_decimation')))
+        try:
+            assert n.tracker_decimation == 4
+        finally:
+            n.destroy_node()
+
+    def test_one_scan_in_four_reaches_the_tracker(self):
+        n = self._node(4)
+        try:
+            due = [n._tracker_due() for _ in range(12)]
+            assert due == [True, False, False, False] * 3
+            assert sum(due) == 3
+        finally:
+            n.destroy_node()
+
+    def test_decimation_one_is_every_scan(self):
+        n = self._node(1)
+        try:
+            assert all(n._tracker_due() for _ in range(8))
+        finally:
+            n.destroy_node()
+
+    def test_zero_and_negative_are_clamped_to_every_scan(self):
+        for value in (0, -3):
+            n = self._node(value)
+            try:
+                assert n.tracker_decimation == 1
+                assert all(n._tracker_due() for _ in range(4))
+            finally:
+                n.destroy_node()
+
+    def test_the_phase_is_a_counter_so_a_replay_decimates_identically(self):
+        first = self._node(4)
+        second = self._node(4)
+        try:
+            a = [first._tracker_due() for _ in range(20)]
+            b = [second._tracker_due() for _ in range(20)]
+            assert a == b
+        finally:
+            first.destroy_node()
+            second.destroy_node()
+
+    def test_the_scan_subscription_is_depth_one_and_still_best_effort(self):
+        n = self._node()
+        try:
+            assert n.scan_sub.qos_profile.depth == 1
+            assert n.scan_sub.qos_profile.reliability == ReliabilityPolicy.BEST_EFFORT
+        finally:
+            n.destroy_node()
+
+    def test_the_pair_publishes_every_scan_the_virtual_wall_every_step(self):
+        """The WallLineFit/WallEstimate contract the decimation must not
+        touch (a topic that goes quiet cannot be told from a dead node), and
+        since cpu-cleanup R2 the virtual wall only on tracker steps: 2 of 8."""
+        n = self._node(4)
+        try:
+            for i in range(8):
+                n._odom_cb(_odom_at(7.0 + 0.025 * i, 0.0))
+                n._scan_cb(_scan_at(3.0, 7.0 + 0.025 * i))
+            assert n.fit_pub.publish.call_count == 8
+            assert n.estimate_pub.publish.call_count == 8
+            assert n.virtual_pub.publish.call_count == 2
+            assert n.virtual_debug_pub.publish.call_count == 2
+        finally:
+            n.destroy_node()
+
+    def test_a_skipped_scan_holds_the_last_verdict_rather_than_no_data(self):
+        n = self._node(4)
+        try:
+            for i in range(5):
+                n._odom_cb(_odom_at(7.0 + 0.025 * i, 0.0))
+                n._scan_cb(_scan_at(3.0, 7.0 + 0.025 * i))
+            # The held verdict now rides on the per-scan WallEstimate: the
+            # three skipped scans after the first step repeat its state, and
+            # none of them is NO_DATA.
+            states = [c[0][0].state for c in n.estimate_pub.publish.call_args_list]
+            assert states[1:4] == [states[0]] * 3
+            # The debug payload goes out on the steps only (scans 1 and 5).
+            payloads = [json.loads(c[0][0].data)
+                        for c in n.virtual_debug_pub.publish.call_args_list]
+            assert len(payloads) == 2
+            assert all(p['tracker_decimation'] == 4 for p in payloads)
+            assert all(p['tracker_skipped'] == 0 for p in payloads)
+        finally:
+            n.destroy_node()

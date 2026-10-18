@@ -14,7 +14,7 @@ This README reflects the workspace after a full package-by-package reorganizatio
 
 | | `stack_bringup.launch.py` | `supervisor_bringup.launch.py` |
 |---|---|---|
-| **Run** | `ros2 launch f1tenth_bringup stack_bringup.launch.py` | `ros2 launch f1tenth_bringup supervisor_bringup.launch.py` |
+| **Run** | `ros2 launch f1tenth_bringup stack_bringup.launch.py` | `ros2 launch f1tenth_bringup supervisor_bringup.launch.py` (add `enable_mission_logger:=true` to record the run: opt-in since 2026-10-16) |
 | **Process model** | One `ros2 launch` process, one process tree. | Spawns each functional group ("component") as its own `ros2 launch` subprocess, independently restartable. |
 | **Restart a subsystem without restarting everything?** | No — killing/restarting the launch tears down the whole stack. | Yes — `ros2 service call /restart_component ...` (see below). |
 | **Crash recovery** | None built in. | A watchdog auto-respawns crashed components (bounded by a restart budget), except ones you've explicitly stopped. |
@@ -232,8 +232,8 @@ until you `START`/`RESTART` it manually.
 ## BT priority-lane architecture
 
 `f1tenth_behavior`'s `behavior_executor_node` runs a py_trees tree with a root
-Selector of 3 priority lanes, ticked continuously (`bt_loop_duration_ms`, default
-100ms) — first child that succeeds wins:
+Selector of 3 priority lanes, ticked continuously from one timer (`bt_tick_hz`, default
+10 Hz; tick timing p50/p95 on `/diagnostics`) — first child that succeeds wins:
 
 1. **`emergency`** — `(IsBatteryLow OR IsSystemOverheated) → Stop`. `IsBatteryLow` is
    unconditional (battery safety is never gateable). `IsSystemOverheated` only exists

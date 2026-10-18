@@ -6,7 +6,7 @@ inventing somewhere in the tree to put an always-succeeding node (interfering
 with Selector/Sequence arbitration if placed carelessly) or accepting that
 freshness only updates on tree ticks instead of on message receipt. Instead this
 is a plain object, instantiated once in behavior_executor_node.main() right
-after tree.setup() (once tree.node exists) exactly like the bt_loop_duration_ms
+after tree.setup() (once tree.node exists) exactly like the bt_tick_hz
 parameter is already read post-setup there -- its callback updates the blackboard
 directly, independent of tick timing, so ObjectSeen/CheckStopCondition always see
 up-to-date data regardless of BT tick rate.

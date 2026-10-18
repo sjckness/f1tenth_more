@@ -47,8 +47,11 @@ def test_topics_allow_only_the_viz_relays_and_latched_topics():
         '/camera/detections',             # raw, full rate: only its /viz copy
         '/scan',
         '/mpc/goal_object',
+        '/perception/walls',               # the tracks, not the markers
     ]
-    # What the bridge advertised on the car, 2026-10-01 (every campaign run).
+    # What the bridge advertised on the car, 2026-10-01 (every campaign run),
+    # plus the two wall topics added 2026-10-16 when the walls turned out to be
+    # published all along and simply not on the allowlist.
     shown = [
         '/viz/scan',
         '/viz/camera/image_annotated/compressed',
@@ -56,6 +59,8 @@ def test_topics_allow_only_the_viz_relays_and_latched_topics():
         '/calibration/in_progress',
         '/costmap/semantic_markers',
         '/joint_states',
+        '/perception/walls/markers',       # pass-through: per-id DELETEs
+        '/viz/walls',                      # covered by '^/viz/.*'
         '/map',
         '/mission/move_outcome',
         '/mission/status',

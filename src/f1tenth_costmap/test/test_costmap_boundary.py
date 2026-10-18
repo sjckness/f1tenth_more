@@ -12,7 +12,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from f1tenth_costmap.costmap_boundary import (
+from f1tenth_costmap.costmap_boundary import (  # noqa: F401
+    nearest_occupied_in_strip,
     boundary_from_nearest_point,
     extract_boundary_constraints,
     front_clearance_from_extraction,
@@ -362,3 +363,74 @@ class TestBesideTheCarIsNotAFrontReading:
         assert front_clearance_from_extraction(
             {'front': (x / k, y / k, k)}, _MAX_RANGE, front_x=self.FRONT,
             min_distance=0.01, side_limit_m=self.SIDE) == pytest.approx(_MAX_RANGE + 1.0)
+
+
+# ===========================================================================
+# Step 6: front_clearance searches the car-width STRIP, not a bearing cone
+# ===========================================================================
+
+class TestFrontClearanceStrip:
+    """A cone widens with range; a strip does not. On an open corridor the
+    side wall entered the +-35 deg cone at 1.6 m with nothing ahead of the
+    car (corridor_phantom, 2026-10-15)."""
+
+    W = H = 80          # 8 m square, robot at its centre
+    RES = 0.1
+
+    def _grid(self, occupied=()):
+        """A grid with the robot at its centre, facing +x, and `occupied` cells
+        given as (x, y) in metres relative to the robot."""
+        data = [0] * (self.W * self.H)
+        for x, y in occupied:
+            # The search reads cell CENTRES (origin + (i + 0.5) * res), so
+            # the -0.5 is what puts the cell where the caller asked for it.
+            col = int(round((x + self.W * self.RES / 2.0) / self.RES - 0.5))
+            row = int(round((y + self.H * self.RES / 2.0) / self.RES - 0.5))
+            # Bounds-checked: a silently wrapped index would put the cell
+            # somewhere else entirely and the test would assert on fiction.
+            assert 0 <= col < self.W and 0 <= row < self.H, f'({x}, {y}) is off the grid'
+            data[row * self.W + col] = 100
+        return data
+
+    def _strip(self, data, front_x=0.405, half=0.186, max_range=5.0):
+        return nearest_occupied_in_strip(
+            data, self.W, self.H, self.RES,
+            -self.W * self.RES / 2.0, -self.H * self.RES / 2.0,
+            0.0, 0.0, 0.0, front_x, half, 50, max_range)
+
+    def test_a_wall_straight_ahead_is_found(self):
+        hit = self._strip(self._grid([(1.5, 0.0)]))
+        assert hit is not None
+        assert hit[0] == pytest.approx(1.5, abs=self.RES)
+
+    def test_a_side_wall_a_metre_away_is_not_a_front_obstacle(self):
+        """The whole point: it is inside a +-35 deg cone at this range and the
+        car would never touch it going straight."""
+        side = [(1.5, -1.0), (1.8, -1.0), (2.1, -1.0)]
+        assert self._strip(self._grid(side)) is None
+        cone = nearest_occupied_in_window(
+            self._grid(side), self.W, self.H, self.RES,
+            -self.W * self.RES / 2.0, -self.H * self.RES / 2.0,
+            0.0, 0.0, 0.0, -math.radians(35.0), math.radians(35.0), 50, 5.0)
+        assert cone is not None, 'the cone does pick it up -- that was the bug'
+
+    def test_a_cell_just_inside_the_strip_counts_and_just_outside_does_not(self):
+        assert self._strip(self._grid([(1.5, 0.15)])) is not None
+        assert self._strip(self._grid([(1.5, 0.30)])) is None
+
+    def test_a_cell_behind_the_bumper_is_not_ahead(self):
+        assert self._strip(self._grid([(0.2, 0.0)])) is None
+
+    def test_unknown_cells_never_count_as_occupied(self):
+        """slam_toolbox writes -1 for unexplored. An unmapped corridor must
+        read as clear, never as blocked."""
+        data = [-1] * (self.W * self.H)
+        assert self._strip(data) is None
+
+    def test_the_nearest_cell_in_the_strip_wins(self):
+        hit = self._strip(self._grid([(3.0, 0.0), (1.2, 0.1), (2.0, 0.0)]))
+        assert hit[0] == pytest.approx(1.2, abs=self.RES)
+
+    def test_nothing_in_range_is_none(self):
+        assert self._strip(self._grid([(1.8, 0.0)]), max_range=1.0) is None
+        assert self._strip(self._grid([(1.8, 0.0)]), max_range=3.0) is not None

@@ -32,4 +32,4 @@ def test_the_laser_sits_0_10_behind_the_bumper():
     x, y, z, yaw, pitch, roll, parent, child = _static_tf_args(path, 'static_baselink_to_laser')
     assert (parent, child) == ('base_link', 'laser')
     assert float(x) == pytest.approx(base_front_x() - LASER_BEHIND_BUMPER_M, abs=1e-3)
-    assert (float(y), float(z), float(yaw), float(pitch), float(roll)) == (0.0, 0.20, 0.0, 0.0, 0.0)
+    assert (float(y), float(z), float(yaw), float(pitch), float(roll)) == (0.0, 0.190, 0.0, 0.0, 0.0)

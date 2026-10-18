@@ -242,7 +242,7 @@ chain and drag the estimate toward it. -1.0 appears on a topic ONLY when a
 filter has never held a value at all (nothing published yet this run) --
 i.e. it means "no reading", never "a reading of -1".
 
-SCENE LABELS (enable_scene_labels; default false) -- scene_labels.py
+SCENE LABELS (enable_scene_labels; default true) -- scene_labels.py
 --------------------------------------------------------------------
 With the switch on, every 1/scene_rate_hz a scene_grid_width_px x
 scene_grid_height_px sample of the depth frame is back-projected into
@@ -296,6 +296,7 @@ as MIN_FRONT_DISTANCE_M and the stop fires, instead of a value that would
 switch the stop off.
 """
 
+import array
 import json
 import math
 import time
@@ -304,12 +305,14 @@ import cv2
 import numpy as np
 import rclpy
 from cv_bridge import CvBridge, CvBridgeError
+from f1tenth_params.param_defaults import get_value
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 from rclpy.time import Time
 
-from sensor_msgs.msg import CameraInfo, Image
-from std_msgs.msg import Bool, Float32, String
+from sensor_msgs.msg import CameraInfo, Image, LaserScan, PointCloud2
+from sensor_msgs_py import point_cloud2
+from std_msgs.msg import Bool, Float32, Header, String
 from tf2_msgs.msg import TFMessage
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
@@ -317,15 +320,38 @@ from vision_msgs.msg import Detection2DArray
 
 from f1tenth_description.vehicle_frames import (
     base_front_x, beside_body_behind_bumper, front_side_limit_m, MIN_FRONT_DISTANCE_M)
-from f1tenth_messages.msg import Obstacle2DArray, WallLineFit
+from f1tenth_messages.msg import Obstacle2DArray, StereoColumns, WallLineFit
 
-from f1tenth_perception import perception_debug, scene_labels
+from f1tenth_perception import (
+    inferred_floor, perception_debug, scene_labels, scene_mask, wall_fusion)
 from f1tenth_perception.ground_plane import (
     back_project, fit_ground_plane, ground_mask, quat_to_matrix)
+from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
 )
+
+
+def _parse_polygons(text, logger=None):
+    """Fractional self-mask polygons from a JSON parameter string.
+
+    A ROS parameter cannot hold a ragged nested list, so the polygons travel
+    as JSON: ``[[[x, y], ...], ...]`` in fractions of width/height. Empty or
+    malformed means "no polygon" -- a bad string must not stop the node, it
+    must only cost the masking it would have done, loudly.
+    """
+    text = (text or '').strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+        return [[(float(x), float(y)) for x, y in poly] for poly in data]
+    except (ValueError, TypeError) as exc:
+        if logger is not None:
+            logger.error(f'self-mask polygons {text!r} are not [[[x, y], ...], ...]: '
+                         f'{exc} -- masking nothing')
+        return []
 
 
 def from_front(distance, offset):
@@ -535,7 +561,7 @@ class FrontClearanceNode(Node):
         # ---- scene labels (module docstring) --------------------------------
         def p(name, default):
             return self.declare_parameter(name, default).value
-        self.scene_enabled = bool(p('enable_scene_labels', False))
+        self.scene_enabled = bool(p('enable_scene_labels', get_value('enable_scene_labels')))
         scene_rate = float(p('scene_rate_hz', 5.0))
         self.scene_period = 1.0 / scene_rate if scene_rate > 0.0 else math.inf
         self.scene_w = int(p('scene_grid_width_px', 160))
@@ -556,7 +582,81 @@ class FrontClearanceNode(Node):
             prior_h=float(p('scene_ceiling_prior_m', 0.0)))
         self._scene = None         # latest labels: {'stamp', 'labels' (h, w) uint8}
         self._wall_planes = None   # (stamp, [WallLine]) from /perception/wall_planes
+
+        # ---- scene MASK (scene_mask.py) -------------------------------------
+        # The whole-frame, ROI-free per-pixel classification that the rebuilt
+        # wall pipeline consumes. Independent of the scene LABELS above (which
+        # still feed the ROI stereo wall distance); the two coexist until the
+        # ROI path is retired.
+        mask_rate = float(p('scene_mask_rate_hz', 5.0))
+        self.scene_mask_enabled = bool(p('scene_mask_enabled', True))
+        self.scene_mask_period = 1.0 / mask_rate if mask_rate > 0.0 else math.inf
+        self.scene_mask_floor_tol = float(p('scene_mask_floor_tol_m', 0.05))
+        self.scene_mask_ceiling_min_z = float(p('scene_mask_ceiling_min_z_m', 2.0))
+        self.scene_mask_min_depth = float(p('scene_mask_min_depth_m', 0.2))
+        self.scene_mask_max_depth = float(p('scene_mask_max_depth_m', 20.0))
+        self.scene_mask_strip_half_w = float(
+            p('scene_mask_strip_half_width_m', front_side_limit_m()))
+        self.scene_mask_image_topic = str(p('scene_mask_image_topic', '/camera/image_raw'))
+        # The published cloud is decimated: it is for inspection and the bag,
+        # not the pipeline (StereoColumns.msg is), and the full set is ~50k
+        # points a frame, about 3 MB/s at 5 Hz straight into every recording.
+        self.scene_mask_cloud_stride = max(1, int(p('scene_mask_cloud_stride', 4)))
+        self.stereo_col_percentile = float(p('scene_mask_column_percentile', 20.0))
+        self.stereo_col_min_px = int(p('scene_mask_column_min_px', 5))
+        # Row decimation of the column summary. The per-column percentile is
+        # the single most expensive stage of the tick -- 8.5 ms of 21.8 on an
+        # idle Orin, and 5.8 of that is one sort over every WALL pixel
+        # (tools/mask_stage_profile.py). The sort is linear in that count and
+        # the count is ~110 px per column against min_px 5, so a stride is the
+        # one lever that moves it. 1 keeps every pixel.
+        self.stereo_col_row_stride = max(1, int(p('scene_mask_column_row_stride', 1)))
+        # The car's own LiDAR housing is NOT a second calibration: it is the
+        # lidar_exclusion_* rectangle yolo_detector_node already applies to
+        # detections. An explicit polygon list overrides it; empty derives it,
+        # so the rectangle has exactly one definition in the workspace.
+        override = _parse_polygons(p('scene_mask_self_polygons', ''), self.get_logger())
+        self._self_polygons = (override or [scene_mask.rect_polygon(
+            float(get_value('lidar_exclusion_x_min')),
+            float(get_value('lidar_exclusion_y_min')),
+            float(get_value('lidar_exclusion_x_max')),
+            float(get_value('lidar_exclusion_y_max')))])
+        self._self_polygons += _parse_polygons(
+            p('scene_mask_occluded_polygons',
+              '[[[0.0, 0.78], [0.16, 0.78], [0.16, 1.0], [0.0, 1.0]]]'),
+            self.get_logger())
+        self._self_mask = None      # cached per (h, w): the polygons are static
+        self._next_scene_mask = 0.0
+        self._latest_image_msg = None
+        self._latest_scan = None    # (receipt time, LaserScan)
         self._next_scene = 0.0
+
+        # ---- LiDAR-inferred floor (inferred_floor.py) -----------------------
+        # The floor the LiDAR can see where the stereo matched nothing. Its own
+        # class, never FLOOR: see that module's docstring for why, and for what
+        # r_eff is and why it can only ever REFUSE to infer.
+        self.inferred_floor_enabled = bool(p('inferred_floor_enabled', True))
+        self.inferred_floor_r_max = float(p('inferred_floor_r_max_m', 3.0))
+        self.inferred_floor_margin = float(p('inferred_floor_margin_m', 0.15))
+        self.inferred_floor_window_k = int(p('inferred_floor_window_k', 3))
+        self.inferred_floor_sigma_beams = float(p('inferred_floor_sigma_beams', 1.5))
+        self.inferred_floor_max_scan_age = float(p('inferred_floor_max_scan_age_s', 0.15))
+        self._floor_lut = None      # inferred_floor.FloorLut, rebuilt on any change
+        self._inferred_floor_stats = None
+
+        # ---- the scene-mask watchdog ----------------------------------------
+        # A topic that stops is invisible to its consumers: the LiDAR node
+        # holds the last profile it received and reports "LiDAR only" per
+        # cycle, which reads the same whether the camera is 0.2 s late or has
+        # been dead for 12 s. This says which, every tick, whether or not a
+        # depth frame ever arrives again.
+        self.watchdog_age_s = float(p('scene_mask_watchdog_age_s', 1.0))
+        watchdog_period = float(p('scene_mask_watchdog_period_s', 0.5))
+        self.watchdog_period = watchdog_period if watchdog_period > 0.0 else 0.0
+        self._last_depth_time = None     # node clock, a depth MESSAGE arrived
+        self._last_tick_time = None      # node clock, a mask tick completed
+        self._last_profile_stamp = None  # the IMAGE stamp of the last profile
+        self._watchdog_stale = False
 
         # ---- too-close (-Inf) short-circuit --------------------------------
         # See the module docstring's own "-Inf AND NaN/+Inf ARE NOT THE SAME
@@ -708,7 +808,7 @@ class FrontClearanceNode(Node):
         self.detections_sub = self.create_subscription(
             Detection2DArray, self.detections_topic, self._detections_callback, 10)
         self.masks_sub = self.create_subscription(
-            Image, self.masks_topic, self._masks_callback, 10)
+            Image, self.masks_topic, self._masks_callback, LATEST_FRAME_QOS)
         self.obstacles_sub = self.create_subscription(
             Obstacle2DArray, self.obstacles_topic, self._obstacles_callback, 10)
         # The depth frame's pose is what moves every published distance from
@@ -726,11 +826,56 @@ class FrontClearanceNode(Node):
                 String, '/perception/unclassified_obstacles', 10)
             self.create_subscription(
                 String, '/perception/wall_planes', self._wall_planes_callback, 10)
-        if self.ground_enabled or self.scene_enabled:
+        if self.scene_mask_enabled:
+            # The overlay is rendered only when something is subscribed (the
+            # same discipline the annotated detection image follows): holding
+            # the newest RGB message is cheap, decoding and tinting it is not.
+            self.scene_mask_image_pub = self.create_publisher(
+                Image, '/perception/scene_labels/image', 10)
+            # The CLASS MASK AS DATA, and the depth it was computed from, for
+            # the rectangle verification in lidar_front_wall_node
+            # (wall_fusion, THE RECTANGLE). Published as a PAIR and only when
+            # something is subscribed, for two reasons: the verification needs
+            # both to be the same tick -- a mask paired with a depth frame
+            # from a different one would put WALL pixels at the wrong
+            # distances -- and at 640x360 they are 230 KB + 460 KB a tick,
+            # which nothing should pay for unless it is reading them. mono16
+            # millimetres rather than 32FC1 metres halves the depth's bytes;
+            # 1 mm is two orders of magnitude finer than the tolerance the
+            # verification compares it against.
+            self.scene_mask_classes_pub = self.create_publisher(
+                Image, '/perception/scene_labels/classes', 10)
+            self.scene_mask_depth_pub = self.create_publisher(
+                Image, '/perception/scene_labels/depth_mm', 10)
+            self.wall_points_pub = self.create_publisher(
+                PointCloud2, '/perception/wall_points', 10)
+            self.scene_mask_stats_pub = self.create_publisher(
+                String, '/perception/scene_labels/stats', 10)
+            self.stereo_columns_pub = self.create_publisher(
+                StereoColumns, '/perception/stereo_columns', 10)
+            self.mask_health_pub = self.create_publisher(
+                String, '/perception/scene_labels/health', 10)
+            self.create_subscription(
+                Image, self.scene_mask_image_topic, self._image_callback, LATEST_FRAME_QOS)
+            self.create_subscription(
+                LaserScan, '/scan', self._scan_callback, LATEST_FRAME_QOS)
+        if self.ground_enabled or self.scene_enabled or self.scene_mask_enabled:
             self.camera_info_sub = self.create_subscription(
                 CameraInfo, self.camera_info_topic, self._camera_info_callback, 10)
+        # Newest depth frame only (latest_frame_qos.py): the callback does
+        # the work, and with KEEP_LAST 10 a slow tick made every later frame
+        # queue behind the backlog (the front_wall payload was 164 ms old on
+        # the 2026-10-13 bags against 52-55 ms for the depth itself).
         self.depth_sub = self.create_subscription(
-            Image, self.depth_topic, self.depth_callback, 10)
+            Image, self.depth_topic, self.depth_callback, LATEST_FRAME_QOS)
+
+        # The watchdog is a TIMER, not a check inside depth_callback: the
+        # failure it exists to report is depth_callback not being called, and
+        # a check that lives there cannot report its own absence.
+        self.watchdog_timer = None
+        if self.scene_mask_enabled and self.watchdog_period > 0.0:
+            self.watchdog_timer = self.create_timer(
+                self.watchdog_period, self._publish_mask_health)
 
         apply_nice(self)
 
@@ -1003,6 +1148,357 @@ class FrontClearanceNode(Node):
             'counts': {scene_labels.LABEL_NAMES[i]: int(c) for i, c in enumerate(counts)},
             'n_candidates': len(cands)})))
 
+    # ------------------------------------------------------------------------
+    # Scene MASK (scene_mask.py): whole frame, no ROI
+    # ------------------------------------------------------------------------
+
+    def _image_callback(self, msg: Image):
+        self._latest_image_msg = msg
+
+    def _scan_callback(self, msg: LaserScan):
+        self._latest_scan = (self._now_seconds(), msg)
+
+    def _scan_points_base(self, scan):
+        """(N, 3) base_frame points of a scan's valid returns, z = the laser's.
+
+        The scan plane is a plane in base_link, so the z of every return is
+        the laser's own mount height; the cross-check only ever uses x and y,
+        and the overlay wants the real height to land on the right rows.
+        """
+        pose = self._frame_transform(scan.header.frame_id)
+        if pose is None:
+            return None
+        rot, trans = pose
+        r = np.asarray(scan.ranges, dtype=float)
+        a = scan.angle_min + np.arange(r.size) * scan.angle_increment
+        with np.errstate(invalid='ignore'):
+            ok = np.isfinite(r) & (r >= scan.range_min) & (r <= scan.range_max)
+        r, a = r[ok], a[ok]
+        local = np.column_stack([r * np.cos(a), r * np.sin(a), np.zeros(r.size)])
+        return local @ rot.T + trans
+
+    def _scene_mask_tick(self, depth, header, now):
+        """One whole-frame classification (scene_mask.py). Publishes the class
+        stats, the WALL point cloud and -- only when subscribed -- the overlay.
+        """
+        t_start = time.perf_counter()
+        tf = self._frame_transform(header.frame_id)
+        h, w = depth.shape[:2]
+        k = self._intrinsics(w, h)
+        if tf is None or k is None:
+            return
+        fx, fy, cx, cy = k
+        rot, trans = tf
+
+        if self._self_mask is None or self._self_mask.shape != (h, w):
+            self._self_mask = scene_mask.polygon_mask((h, w), self._self_polygons)
+        raw = self._raw_object_mask((h, w))
+        object_mask = None if raw is None else (raw > 0.5)
+
+        labels, _z = scene_mask.classify(
+            depth, fx, fy, cx, cy, rot, trans,
+            self_mask=self._self_mask, object_mask=object_mask,
+            floor_tol=self.scene_mask_floor_tol,
+            ceiling_min_z=self.scene_mask_ceiling_min_z,
+            min_depth=self.scene_mask_min_depth, max_depth=self.scene_mask_max_depth)
+        if self.inferred_floor_enabled:
+            self._infer_floor(labels, header, (fx, fy, cx, cy), rot, trans)
+        points, rows, cols = scene_mask.wall_points(
+            depth, labels, fx, fy, cx, cy, rot, trans)
+
+        # The compact per-column profile is the PIPELINE's interface (see
+        # StereoColumns.msg); the cloud below is for inspection and recording.
+        self._publish_stereo_columns(header, depth, rows, cols, points, w, h, k)
+
+        # create_cloud_xyz32 ALIASES the header it is given, so overriding
+        # the cloud's frame_id used to rewrite the depth frame's own header to
+        # 'base_link' for everything later in this tick. The points really are
+        # in the base frame, so the cloud needs its own header.
+        cloud_header = Header(stamp=header.stamp, frame_id=self.base_frame)
+        cloud = point_cloud2.create_cloud_xyz32(
+            cloud_header, points[::self.scene_mask_cloud_stride].astype(np.float32))
+        self.wall_points_pub.publish(cloud)
+
+        stats = scene_mask.class_stats(
+            labels, depth=depth, points=points, front_x=self.front_x,
+            strip_half_width_m=self.scene_mask_strip_half_w)
+        stats.update({
+            'stamp': perception_debug.stamp_to_sec(header.stamp),
+            'frame_id': self.base_frame,
+            'object_source': self._latest_object_source,
+            'img_wh': [w, h],
+            'strip_half_width_m': self.scene_mask_strip_half_w,
+            'ms': round((time.perf_counter() - t_start) * 1e3, 2),
+            'inferred_floor': self._inferred_floor_stats,
+        })
+        self.scene_mask_stats_pub.publish(String(data=json.dumps(stats)))
+        # The watchdog's "a tick completed" mark: after the publishes, so a
+        # tick that died half way through does not count as one.
+        self._last_tick_time = now
+
+        if (self.scene_mask_classes_pub.get_subscription_count() > 0
+                or self.scene_mask_depth_pub.get_subscription_count() > 0):
+            self._publish_scene_mask_classes(labels, depth, header)
+        if self.scene_mask_image_pub.get_subscription_count() > 0:
+            self._publish_scene_mask_overlay(labels, header, (fx, fy, cx, cy), rot, trans)
+
+    def _publish_mask_health(self):
+        """The scene mask's own liveness, on /perception/scene_labels/health.
+
+        Three ages, because they fail separately and the difference between
+        them is the whole diagnosis:
+
+          depth_age_s    since a depth MESSAGE arrived. Large means the camera
+                         or the ZED wrapper stopped, and nothing this node
+                         does can help. On corridor10m_20261015T171753 this is
+                         the one that went: the wrapper's own depth
+                         camera_info -- a few hundred bytes, under no recorder
+                         pressure -- fell from 65 messages per 10 s to 6
+                         between t = 30 s and t = 40 s, while /scan and
+                         /odometry/filtered dropped by a third over the same
+                         window. The camera stopped; the node did not.
+          tick_age_s     since a mask tick COMPLETED. Large while depth_age_s
+                         is small is the node's own fault: the tick is
+                         throttled to scene_mask_rate_hz, is raising, or is
+                         taking longer than the budget.
+          profile_age_s  the published profile's own IMAGE stamp against now.
+                         This is the age the LiDAR node's pairing actually
+                         sees, so it is the one to compare against
+                         stereo_profile_max_age_s over there.
+
+        `stale` is the published verdict, and the WARN is throttled: a stall
+        lasting 12 s must be one log line a second at most, not one per tick.
+        """
+        now = self._now_seconds()
+
+        def age(then):
+            return None if then is None else round(now - then, 3)
+
+        profile_age = None
+        if self._last_profile_stamp is not None:
+            profile_age = round(now - self._last_profile_stamp, 3)
+        payload = {
+            'stamp': round(now, 3),
+            'depth_age_s': age(self._last_depth_time),
+            'tick_age_s': age(self._last_tick_time),
+            'profile_age_s': profile_age,
+            'max_age_s': self.watchdog_age_s,
+            'depth_topic': self.depth_topic,
+            'rate_hz': (None if not math.isfinite(self.scene_mask_period)
+                        else round(1.0 / self.scene_mask_period, 2)),
+        }
+        stale = (self._last_tick_time is None
+                 or now - self._last_tick_time > self.watchdog_age_s)
+        payload['stale'] = bool(stale)
+        payload['reason'] = (
+            None if not stale
+            else 'never_ticked' if self._last_tick_time is None
+            else 'no_depth' if (self._last_depth_time is None
+                                or now - self._last_depth_time > self.watchdog_age_s)
+            else 'tick_not_running')
+        self.mask_health_pub.publish(String(data=json.dumps(payload)))
+        if stale:
+            self.get_logger().warn(
+                f'scene mask STALE ({payload["reason"]}): last tick '
+                f'{payload["tick_age_s"]} s ago, last depth frame '
+                f'{payload["depth_age_s"]} s ago on "{self.depth_topic}", limit '
+                f'{self.watchdog_age_s:.2f} s. Every consumer of '
+                '/perception/stereo_columns is reading a profile that old.',
+                throttle_duration_sec=1.0)
+        elif self._watchdog_stale:
+            self.get_logger().info(
+                f'scene mask alive again: tick {payload["tick_age_s"]} s ago')
+        self._watchdog_stale = bool(stale)
+
+    def _infer_floor(self, labels, header, k, rot, trans):
+        """Relabel the no-depth pixels the LiDAR says are empty floor.
+
+        inferred_floor.py owns the geometry and the rules; this is the glue
+        that finds the inputs, decides whether they may be used at all, and
+        records what happened in the stats payload. `labels` is modified in
+        place.
+
+        It NEVER raises on a missing input: no scan yet, no laser transform,
+        a scan from a different moment -- each leaves the classes exactly as
+        classify produced them and says so in `skipped`. The scene mask is a
+        diagnostic surface, and a wrong floor is worse than no floor.
+        """
+        t_start = time.perf_counter()
+        stats = {'applied_px': 0, 'lut_px': 0, 'skipped': None}
+        self._inferred_floor_stats = stats
+        try:
+            self._infer_floor_step(labels, header, k, rot, trans, stats)
+        finally:
+            # Timed even when it skipped: the skip is the common case while a
+            # sensor is missing, and its cost belongs in the frame budget.
+            stats['ms'] = round((time.perf_counter() - t_start) * 1e3, 2)
+
+    def _infer_floor_step(self, labels, header, k, rot, trans, stats):
+        """_infer_floor's body. Fills `stats`; see that method."""
+        held = self._latest_scan
+        if held is None:
+            stats['skipped'] = 'no_scan'
+            return
+        scan = held[1]
+        # The MASK's own stamp against the SCAN's own stamp, both from the
+        # sensors: the receipt times are a property of the recorder and the
+        # executor, not of when the two sensors looked.
+        age = (perception_debug.stamp_to_sec(header.stamp)
+               - perception_debug.stamp_to_sec(scan.header.stamp))
+        stats['scan_age_s'] = round(age, 4)
+        if abs(age) > self.inferred_floor_max_scan_age:
+            stats['skipped'] = 'stale_scan'
+            return
+        laser = self._frame_pose(scan.header.frame_id)
+        if laser is None:
+            stats['skipped'] = 'no_laser_transform'
+            return
+
+        h, w = labels.shape[:2]
+        if self._self_mask is None or self._self_mask.shape != (h, w):
+            self._self_mask = scene_mask.polygon_mask((h, w), self._self_polygons)
+        n_beams = len(scan.ranges)
+        key = inferred_floor.lut_key(
+            (h, w), k, rot, trans, laser,
+            (scan.angle_min, scan.angle_increment, n_beams), self.inferred_floor_r_max)
+        if self._floor_lut is None or not self._floor_lut.matches(key):
+            self._floor_lut = inferred_floor.build_lut(
+                (h, w), *k, rot, trans, laser, scan.angle_min, scan.angle_increment,
+                n_beams, r_max=self.inferred_floor_r_max, self_mask=self._self_mask)
+            self.get_logger().info(
+                f'inferred floor: LUT rebuilt for {w}x{h}, laser at x={laser[0]:.3f} '
+                f'yaw={math.degrees(laser[2]):.1f} deg, {n_beams} beams, r_max '
+                f'{self.inferred_floor_r_max:.2f} m: {self._floor_lut.n_valid} of '
+                f'{h * w} pixels can be inferred')
+        lut = self._floor_lut
+        stats['lut_px'] = lut.n_valid
+        if lut.n_valid == 0:
+            stats['skipped'] = 'empty_lut'
+            return
+
+        # One r_eff vector per cycle, shared by every pixel.
+        r_eff = inferred_floor.effective_ranges(
+            scan.ranges, scan.range_min, scan.range_max,
+            far_value=self.inferred_floor_r_max + self.inferred_floor_margin + 1.0,
+            window_k=self.inferred_floor_window_k,
+            sigma_beams=self.inferred_floor_sigma_beams)
+        _labels, applied = inferred_floor.apply(
+            labels, lut, r_eff, margin=self.inferred_floor_margin)
+        stats['applied_px'] = applied
+
+    def _publish_stereo_columns(self, header, depth, rows, cols, points, width, height, k):
+        """The per-column stereo summary the fusion consumes (StereoColumns.msg).
+
+        scene_mask_column_row_stride decimates the WALL pixels first. The
+        percentile and the extent are both order statistics over ~110 pixels
+        per column, and the cost of both is linear in that count, so a stride
+        of 2 halves the most expensive stage of the tick. `n_px` is the count
+        the summary was actually taken over, not the pre-stride one: it is
+        what min_px is compared against, and reporting the larger number would
+        claim evidence that was not used.
+        """
+        fx, fy, cx, cy = k
+        stride = self.stereo_col_row_stride
+        if stride > 1 and rows.size:
+            rows, cols, points = rows[::stride], cols[::stride], points[::stride]
+        depths = depth[rows, cols] if rows.size else np.empty(0)
+        distance, n_px = wall_fusion.column_ranges(
+            cols, depths, width, percentile=self.stereo_col_percentile,
+            min_px=self.stereo_col_min_px)
+        z_lo, z_hi = wall_fusion.column_extent(
+            cols, points[:, 2] if points.size else np.empty(0), width)
+        msg = StereoColumns()
+        # Its own header, not the depth frame's: this message's frame_id is
+        # the BASE frame (the heights are measured in it) while camera_frame
+        # is the optical one, and assigning the depth header here aliased it,
+        # so every later consumer in this tick read 'base_link' as the depth
+        # frame's own id.
+        msg.camera_frame = header.frame_id
+        msg.header = Header(stamp=header.stamp, frame_id=self.base_frame)
+        msg.width, msg.height = int(width), int(height)
+        msg.fx, msg.fy, msg.cx, msg.cy = float(fx), float(fy), float(cx), float(cy)
+        msg.distance_m = distance.astype(np.float32).tolist()
+        msg.z_min = z_lo.astype(np.float32).tolist()
+        msg.z_max = z_hi.astype(np.float32).tolist()
+        msg.n_px = n_px.astype(np.uint32).tolist()
+        msg.percentile = float(self.stereo_col_percentile)
+        msg.min_px = int(self.stereo_col_min_px)
+        self.stereo_columns_pub.publish(msg)
+        # The IMAGE stamp, which is the age the LiDAR node's pairing sees.
+        self._last_profile_stamp = perception_debug.stamp_to_sec(msg.header.stamp)
+
+    def _publish_scene_mask_classes(self, labels, depth, header):
+        """The class mask and its depth, as one pair on the depth's own stamp.
+
+        The intrinsics and the camera frame are NOT repeated here: the
+        consumer already has them, at this resolution, on the StereoColumns
+        message of the same tick (that message's own rationale), and the
+        header stamp is what pairs the three.
+
+        BOTH PAYLOADS GO IN AS array.array('B'). rclpy's uint8[] setter has
+        exactly one fast path -- an array.array of typecode 'B', assigned
+        without validation -- and for anything else, bytes included, it checks
+        every element: 44 ms for the mask and 88 ms for the depth, measured,
+        against 0.06 and 0.10 ms this way. (That same slow path is what makes
+        cv_bridge's own cv2_to_imgmsg cost tens of milliseconds a frame here,
+        which is most of what publishing the overlay costs when it is on.)
+        """
+        # The stamp and the frame COPIED, never the Header object: the depth
+        # frame's own header is handed to point_cloud2.create_cloud_xyz32
+        # earlier in this tick and then has its frame_id rewritten to the base
+        # frame, so an aliased header arrives here saying 'base_link'. That
+        # reads as an identity camera transform in the consumer and puts every
+        # rectangle sample outside the image -- silently, because an empty
+        # rectangle is exactly what a wall the camera cannot see looks like.
+        classes = Image()
+        classes.header.stamp = header.stamp
+        classes.header.frame_id = header.frame_id
+        classes.height, classes.width = labels.shape[:2]
+        classes.encoding = 'mono8'
+        classes.is_bigendian = 0
+        classes.step = classes.width
+        classes.data = array.array(
+            'B', np.ascontiguousarray(labels, dtype=np.uint8).tobytes())
+        self.scene_mask_classes_pub.publish(classes)
+
+        d = np.asarray(depth, dtype=np.float32)
+        with np.errstate(invalid='ignore'):
+            mm = np.where(np.isfinite(d) & (d > 0.0), d * 1000.0, 0.0)
+        mm = np.clip(mm, 0.0, 65535.0).astype(np.uint16)
+        out = Image()
+        out.header.stamp = header.stamp
+        out.header.frame_id = header.frame_id
+        out.height, out.width = mm.shape[:2]
+        out.encoding = 'mono16'
+        out.is_bigendian = 0
+        out.step = 2 * out.width
+        out.data = array.array('B', np.ascontiguousarray(mm).tobytes())
+        self.scene_mask_depth_pub.publish(out)
+
+    def _publish_scene_mask_overlay(self, labels, header, k, rot, trans):
+        """The class-coloured overlay on the left image, scan points on top."""
+        msg = self._latest_image_msg
+        if msg is None:
+            return
+        try:
+            img = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        except CvBridgeError as exc:
+            self.get_logger().warn(f'cv_bridge image decode failed: {exc}',
+                                   throttle_duration_sec=5.0)
+            return
+        h, w = labels.shape[:2]
+        if img.shape[:2] != (h, w):
+            img = cv2.resize(img, (w, h), interpolation=cv2.INTER_NEAREST)
+        scan_px = None
+        if self._latest_scan is not None:
+            pts = self._scan_points_base(self._latest_scan[1])
+            if pts is not None:
+                scan_px = scene_mask.project_to_image(pts, *k, rot, trans)
+        out = self.bridge.cv2_to_imgmsg(
+            scene_mask.overlay(img, labels, scan_px=scan_px), encoding='bgr8')
+        out.header = header
+        self.scene_mask_image_pub.publish(out)
+
     def _front_offset(self, camera_frame):
         """
         Return how far the bumper sits ahead of the depth frame's origin [m], or None.
@@ -1234,6 +1730,7 @@ class FrontClearanceNode(Node):
             return
 
         now = self._now_seconds()
+        self._last_depth_time = now
         h, w = depth.shape[:2]
 
         # 1. Object-exclusion confidence, refreshed every frame (see module
@@ -1256,6 +1753,15 @@ class FrontClearanceNode(Node):
         #    short-circuit on forever (the new one). Same mask, one
         #    computation, two consumers.
         housing = self._lidar_exclusion_roi_mask((h, w), (y0, y1, x0, x1))
+
+        # 3a. Scene mask, at scene_mask_rate_hz: the whole frame, no ROI.
+        if self.scene_mask_enabled and now >= self._next_scene_mask:
+            self._next_scene_mask = now + self.scene_mask_period
+            try:
+                self._scene_mask_tick(depth, msg.header, now)
+            except Exception as exc:   # noqa: BLE001 - never kill the depth path
+                self.get_logger().error(f'scene mask tick failed: {exc}',
+                                        throttle_duration_sec=5.0)
 
         # 3b. Scene labels, at scene_rate_hz (module docstring, SCENE LABELS).
         if self.scene_enabled and now >= self._next_scene:
@@ -1543,6 +2049,13 @@ class FrontClearanceNode(Node):
                 stereo_raw_origin=_WALL_DEBUG_STEREO_RAW_ORIGIN,
                 front_offset_m=self._front_offset(header.frame_id))
             payload['ground'] = self._last_ground
+            # How much older the object mask is than the depth frame it was
+            # applied to [ms]: the latest mask is used on every depth frame
+            # (module docstring, OBJECT-EXCLUSION SOURCE), so this is the lag.
+            mask_msg = self._latest_mask_msg
+            payload['mask_age_ms'] = (None if mask_msg is None else round(
+                (perception_debug.stamp_to_sec(header.stamp)
+                 - perception_debug.stamp_to_sec(mask_msg.header.stamp)) * 1e3, 1))
             self.wall_debug_pub.publish(String(data=perception_debug.to_json(payload)))
         except Exception as exc:  # noqa: BLE001 - debug only, never stop the guard
             self.get_logger().error(

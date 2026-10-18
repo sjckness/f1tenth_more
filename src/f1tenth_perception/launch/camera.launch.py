@@ -30,9 +30,10 @@ def generate_launch_description():
     actions = []
 
     if is_zed:
-        # Phase 9 layout: base_link is centered between the axles, 0.07m above the
-        # ground. ZED2 sits 0.12m ahead of base_link, 0.15m higher, facing forward
-        # (yaw=0). Mirrored by f1tenth_description/launch/description.launch.py's
+        # base_link is the rear axle ON THE FLOOR (base.xacro / core.xacro), so z
+        # is a height above the floor. Phase 9 history: ZED2 sat 0.12m ahead of
+        # base_link, 0.15m higher, facing forward (yaw=0). Mirrored by
+        # f1tenth_description/launch/description.launch.py's
         # base_link->laser TF (0.12m behind instead of ahead, same 0.15m higher,
         # rear-facing -- yaw = this yaw + pi). zed2_camera_link is the root of the
         # ZED URDF chain (the mounting point), so attaching base_link ->
@@ -48,12 +49,31 @@ def generate_launch_description():
         # its body mesh (zed_description/meshes/zed2i.stl) reaches +0.0251 m in
         # x from a mesh origin at screw_offset_x -0.01 (zed_macro.urdf.xacro),
         # so the front face is 0.0151 m ahead of zed2_camera_link:
-        # 0.405 - 0.15 - 0.0151 = 0.2399. y, z and the rotation are unchanged.
+        # 0.405 - 0.15 - 0.0151 = 0.2399.
+        #
+        # z = 0.205 (2026-10-14, MEASURED): the lens centre is 0.22 m above the
+        # floor and base_link is on the floor (base.xacro); the zed2i macro puts
+        # zed2_camera_center (the optical centre's height) 0.015 above
+        # zed2_camera_link, so 0.22 - 0.015. Was the 0.15 placeholder.
+        #
+        # pitch = -0.03635 rad = -2.083 deg (2026-10-15, MEASURED): the camera
+        # points 2.083 deg nose UP. Source: the ZED IMU's gravity in the static
+        # 1 m calib clip (~/raw_data/2026-10-14T13-11-48_calib_wall_1m,
+        # tools/calib_wall_check.py; 2.096 in both 2 m clips). REP-103: a
+        # positive pitch about y is nose DOWN, so nose up is negative. The floor
+        # agrees on the sign: the floor/wall seam row cast through this TF sits
+        # 1.5 cm (1 m wall) and 1.3 cm (2 m wall) below z = 0 at the wall, against
+        # 6.0 / 9.3 cm at pitch 0 and 10.5 / 17.4 cm at +2.083. The stereo floor
+        # cannot check it there: the glossy tiles return the wall's reflection.
+        # The rotation is about zed2_camera_link (the mounting screw), so z stays
+        # 0.205 and the lens moves under 1 mm. The ZED 2i macro adds no slope
+        # (bottom_slope 0) and the wrapper publishes no base_link edge, so this is
+        # the whole mount rotation. y, yaw and roll unchanged (IMU roll 0.05 deg).
         actions.append(Node(
             package='tf2_ros',
             executable='static_transform_publisher',
             name='static_baselink_to_zed2',
-            arguments=['0.2399', '0.0', '0.15', '0.0', '0.0', '0.0',
+            arguments=['0.2399', '0.0', '0.205', '0.0', '-0.03635', '0.0',
                        'base_link', 'zed2_camera_link'],
         ))
 

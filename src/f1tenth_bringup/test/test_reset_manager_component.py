@@ -55,3 +55,39 @@ def test_it_never_restarts_the_llm_server_or_itself():
     assert not restarted & {'intelligence', 'reset_manager'}
     components = _components()
     assert restarted <= set(components), restarted - set(components)
+
+
+def _launch_params():
+    import importlib.util
+    path = os.path.join(os.path.dirname(__file__), '..', 'launch', 'reset_manager.launch.py')
+    spec = importlib.util.spec_from_file_location('reset_manager_launch', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    node = module.generate_launch_description().entities[-1]
+    raw = [p for p in node._Node__parameters if isinstance(p, dict)][0]
+
+    # launch_ros normalises keys and values into TextSubstitution tuples.
+    def text(subs):
+        return ''.join(s.text for s in subs)
+
+    # A list item arrives as its own YAML document ('wall_distance\n...\n').
+    return {text(k): ([yaml.safe_load(text(item)) or '' for item in v]
+                      if isinstance(v, (list, tuple)) else v)
+            for k, v in raw.items()}
+
+
+def test_a_disabled_wall_distance_is_not_restarted_by_the_hooks():
+    """
+    Skip a disabled wall_distance in the /reset_all hooks (cpu-cleanup).
+
+    restart_component on a component the supervisor did not start would
+    start it. With enable_wall_distance false (the default) the launch file
+    tells reset_manager to skip it; with it true, skip nothing.
+    """
+    from f1tenth_params.param_defaults import get_value
+    skip = _launch_params()['hooks.skip_components']
+    if get_value('enable_wall_distance'):
+        assert skip == ['']
+    else:
+        assert skip == ['wall_distance']
+        assert _CONDITIONAL_AUTO_START['wall_distance'] == 'enable_wall_distance'

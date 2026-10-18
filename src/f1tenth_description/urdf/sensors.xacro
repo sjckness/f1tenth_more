@@ -5,8 +5,8 @@
   NEW relative to msauber (which had only a stereo "front camera" and no LiDAR/
   IMU in its URDF). Frame names and mount poses match the real F1TENTH stack
   (f1tenth_description/launch/description.launch.py's static TF +
-  f1tenth_perception/camera.launch.py's static TF; Phase 9 layout, base_link
-  centered between the axles, 0.07m above the ground):
+  f1tenth_perception/camera.launch.py's static TF as of Phase 9; base_link is
+  the rear axle on the floor, see base.xacro):
 
     base_link -> laser              @ (-0.12, 0, 0.15), yaw=pi  (Hokuyo, rear-facing)
     base_link -> imu                @ ( 0,    0, 0   )          (VESC IMU @ base_link)

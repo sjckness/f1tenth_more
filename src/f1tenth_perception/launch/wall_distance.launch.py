@@ -24,7 +24,8 @@ test_wall_distance_component.py (f1tenth_bringup) fail if either placement
 changes.
 
 Gated on use_lidar, the same flag as urg_node: without /scan there is nothing to
-fit.
+fit. And, since cpu-cleanup (2026-10-16), on enable_wall_distance (default
+false; stack_params.yaml says why the node is off by default but kept).
 
 THREE PARAMETER GROUPS, THREE PREFIXES, AND THE REASON FOR EACH
 ---------------------------------------------------------------
@@ -69,7 +70,7 @@ from f1tenth_params.param_defaults import get_default
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import AndSubstitution, LaunchConfiguration
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -195,8 +196,20 @@ def generate_launch_description():
     params['nice'] = ParameterValue(
         LaunchConfiguration('wall_distance_nice'), value_type=int)
 
+    # cpu-cleanup: off by default (stack_params.yaml enable_wall_distance says
+    # why). The supervisor does not even auto-start this component while it
+    # is false; this condition covers a manual restart_component or a direct
+    # `ros2 launch`, where enable_wall_distance:=true turns it on.
+    enable_default, enable_desc = get_default('enable_wall_distance')
+    declared.append(DeclareLaunchArgument(
+        'enable_wall_distance', default_value=str(enable_default),
+        description=enable_desc))
+
     node = Node(
-        condition=IfCondition(LaunchConfiguration('use_lidar')),
+        # AndSubstitution (launch 1.0.x, Humble) takes 'true'/'1'/... like a
+        # plain IfCondition does, so use_lidar:=1 keeps working.
+        condition=IfCondition(AndSubstitution(
+            LaunchConfiguration('use_lidar'), LaunchConfiguration('enable_wall_distance'))),
         package='f1tenth_perception',
         executable='wall_distance_node',
         name='wall_distance_node',

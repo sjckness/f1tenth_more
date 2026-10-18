@@ -174,13 +174,14 @@ class TestPeriodicPublishRegardlessOfAge:
 class TestExtractionTimerConfig:
     """Confirms extraction_rate_hz actually drives the timer's own period
     (the param existed before this pass too -- this specifically guards the
-    default bump 5.0 -> 20.0 and that overriding the param still reaches
+    default (5.0 -> 20.0, then 10.0 in cpu-cleanup) and that overriding the param still reaches
     the timer, not just the extraction-vs-publish decision logic above)."""
 
-    def test_default_rate_is_20hz(self):
+    def test_default_rate_is_10hz_the_mpc_control_rate(self):
+        # cpu-cleanup: 20 -> 10 Hz, mpc_corr's own control rate (ts = 0.1).
         node = _construct_with_params()
         try:
-            expected_period_ns = round(1.0 / 20.0 * 1e9)
+            expected_period_ns = round(1.0 / 10.0 * 1e9)
             assert node.timer.timer_period_ns == expected_period_ns
         finally:
             node.destroy_node()

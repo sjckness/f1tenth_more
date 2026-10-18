@@ -50,6 +50,7 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional
 
 from f1tenth_behavior.mission.mission_config import MissionConfig
+from f1tenth_params.param_defaults import get_value, get_wall_distance_topic
 from f1tenth_behavior.mission.runtime import (
     CURRENT_XY_KEY,
     FRONT_CLEARANCE_KEY,
@@ -159,8 +160,32 @@ def _actuation_requirement(actuation_node: str) -> Requirement:
     )
 
 
+def wall_distance_requirement(scene_labels: Optional[bool] = None) -> Requirement:
+    """The node that publishes the wall topic the front_clearance stop reads.
+
+    ALWAYS lidar_front_wall_node on /perception/virtual_wall since 2026-10-15
+    (get_wall_distance_topic). The camera-only /perception/front_distance is
+    retired as a wall source -- its ROI reads the floor on an open corridor --
+    so with enable_scene_labels off nothing publishes a wall distance at all
+    and this requirement fails the preflight, which is the point: a mission
+    that stops on a wall must not run with the wall pipeline switched off.
+    The argument is kept so a caller can state the switch explicitly.
+    """
+    if scene_labels is None:
+        scene_labels = bool(get_value('enable_scene_labels'))
+    node = 'lidar_front_wall_node'
+    topic = get_wall_distance_topic()
+    return Requirement(
+        name=f'{node} ({topic})',
+        reason="a 'front_clearance' stop_condition (or resume_condition) is used",
+        node_name=node,
+        blackboard_key=FRONT_CLEARANCE_KEY,
+    )
+
+
 def required_dependencies(config: MissionConfig,
-                          actuation_node: str = DEFAULT_ACTUATION_NODE) -> List[Requirement]:
+                          actuation_node: str = DEFAULT_ACTUATION_NODE,
+                          scene_labels: Optional[bool] = None) -> List[Requirement]:
     """Pure function: what must be alive for THIS mission, specifically --
     not a blanket "everything the stack could ever need" list. Testable
     without rclpy (see test/test_preflight.py)."""
@@ -173,12 +198,10 @@ def required_dependencies(config: MissionConfig,
                 stop_condition_types.add(oo.params['resume_condition'].type)
 
     if 'front_clearance' in stop_condition_types:
-        reqs.append(Requirement(
-            name='costmap_boundary_node',
-            reason="a 'front_clearance' stop_condition (or resume_condition) is used",
-            node_name='costmap_boundary_node',
-            blackboard_key=FRONT_CLEARANCE_KEY,
-        ))
+        # The node behind get_wall_distance_topic(), the topic CheckStopCondition
+        # subscribes (behavior_executor_node.py). Was costmap_boundary_node, the
+        # publisher of /costmap/front_clearance, which this stop no longer reads.
+        reqs.append(wall_distance_requirement(scene_labels))
 
     if 'obstacle_distance_below' in stop_condition_types:
         # Published by mpc_corr itself (see check_stop_condition.py's own

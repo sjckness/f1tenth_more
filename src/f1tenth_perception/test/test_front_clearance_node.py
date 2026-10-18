@@ -1279,6 +1279,18 @@ def _payload(node):
 
 class TestWallDebugPayload:
 
+    def test_mask_age_is_the_depth_stamp_minus_the_mask_stamp(self):
+        node = _construct()
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
+        assert _payload(node)['mask_age_ms'] is None
+        from sensor_msgs.msg import Image
+        mask = Image()
+        mask.header.stamp.sec, mask.header.stamp.nanosec = 1, 880_000_000
+        node._masks_callback(mask)
+        node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32), 2, 0))
+        assert _payload(node)['mask_age_ms'] == pytest.approx(120.0)
+        node.destroy_node()
+
     def test_one_payload_per_depth_frame_by_default(self):
         node = _construct()
         node.depth_callback(_depth_msg(np.full((100, 100), 2.0, dtype=np.float32)))
@@ -1383,3 +1395,754 @@ class TestWallDebugPayload:
         assert node.front_distance_pub.publish.call_args[0][0].data == pytest.approx(2.0)
         assert node.wall_debug_pub.publish.call_count == 0
         node.destroy_node()
+
+
+def test_depth_and_mask_inputs_hold_only_the_newest_frame():
+    """KEEP_LAST 1 best effort on depth and masks: no backlog behind a slow tick."""
+    from rclpy.qos import HistoryPolicy, ReliabilityPolicy
+    node = _construct()
+    try:
+        for sub in (node.depth_sub, node.masks_sub):
+            qos = sub.qos_profile
+            assert qos.history == HistoryPolicy.KEEP_LAST and qos.depth == 1
+            assert qos.reliability == ReliabilityPolicy.BEST_EFFORT
+    finally:
+        node.destroy_node()
+
+
+# ==============================================================================
+# Scene mask (scene_mask.py): the whole-frame, ROI-free classification
+# ==============================================================================
+
+class TestSceneMaskTick:
+    """The node glue around scene_mask.py. The classification itself is tested
+    in test_scene_mask.py; what matters here is that the tick runs off the
+    depth frame, publishes its three topics, respects its rate, and never
+    takes the depth path down with it when it fails."""
+
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1}
+
+    @staticmethod
+    def _camera_info(width=64, height=48, fx=100.0, fy=100.0):
+        from sensor_msgs.msg import CameraInfo
+        info = CameraInfo()
+        info.width, info.height = width, height
+        info.k = [fx, 0.0, width / 2.0, 0.0, fy, height / 2.0, 0.0, 0.0, 1.0]
+        return info
+
+    def _node(self, extra=None, camera_x=FRONT):
+        node = _construct({**self.PARAMS, **(extra or {})}, camera_x=camera_x)
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        node.scene_mask_image_pub.publish = MagicMock()
+        node._camera_info_callback(self._camera_info())
+        return node
+
+    def test_a_depth_frame_publishes_stats_and_a_wall_cloud(self):
+        import json
+        node = self._node()
+        try:
+            # The TF in _construct has no rotation, so a constant depth frame
+            # is a plane at x = camera_x + 2.0 standing at the camera's height.
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            stats = json.loads(node.scene_mask_stats_pub.publish.call_args[0][0].data)
+            assert stats['n_px'] == 48 * 64
+            assert sum(stats['count'].values()) == 48 * 64
+            assert stats['count']['wall'] > 0
+            assert stats['wall_points'] == stats['count']['wall']
+            assert stats['frame_id'] == 'base_link'
+            cloud = node.wall_points_pub.publish.call_args[0][0]
+            assert cloud.header.frame_id == 'base_link'
+            # Decimated: the cloud is for inspection and the stereo-only line
+            # fits, never for a column decision (StereoColumns is).
+            stride = node.scene_mask_cloud_stride
+            assert cloud.width == -(-stats['count']['wall'] // stride)
+        finally:
+            node.destroy_node()
+
+    def test_the_column_profile_is_published_with_the_intrinsics_and_frames(self):
+        node = self._node()
+        node.stereo_columns_pub.publish = MagicMock()
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            msg = node.stereo_columns_pub.publish.call_args[0][0]
+            assert msg.width == 64 and msg.height == 48
+            assert len(msg.distance_m) == len(msg.z_min) == len(msg.n_px) == 64
+            # header.frame_id is the base frame the heights are in; the depth
+            # frame travels separately so the fusion can project into it.
+            assert msg.header.frame_id == 'base_link'
+            assert msg.camera_frame == CAMERA_FRAME
+            assert msg.fx == pytest.approx(100.0) and msg.cx == pytest.approx(32.0)
+            assert msg.min_px == node.stereo_col_min_px
+        finally:
+            node.destroy_node()
+
+    def test_columns_with_no_wall_pixels_report_nan_not_a_distance(self):
+        """'Nothing to say about this bearing' is a third state. A consumer
+        that reads it as a distance will brake for it."""
+        node = self._node()
+        node.stereo_columns_pub.publish = MagicMock()
+        try:
+            depth = np.full((48, 64), 2.0, dtype=np.float32)
+            depth[:, :20] = np.nan
+            node.depth_callback(_depth_msg(depth))
+            msg = node.stereo_columns_pub.publish.call_args[0][0]
+            assert all(np.isnan(d) for d in msg.distance_m[:20])
+            assert all(n == 0 for n in msg.n_px[:20])
+            assert np.isfinite(msg.distance_m[40])
+        finally:
+            node.destroy_node()
+
+    def test_the_overlay_is_not_rendered_when_nobody_subscribes(self):
+        """Decoding the RGB frame is the expensive part; it must not happen
+        unless something is actually watching."""
+        node = self._node()
+        try:
+            node._latest_image_msg = CvBridge().cv2_to_imgmsg(
+                np.zeros((48, 64, 3), dtype=np.uint8), encoding='bgr8')
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_image_pub.publish.call_count == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_tick_honours_its_rate_rather_than_running_every_frame(self):
+        node = self._node({'scene_mask_rate_hz': 0.001})
+        try:
+            for i in range(4):
+                node.depth_callback(_depth_msg(
+                    np.full((48, 64), 2.0, dtype=np.float32), stamp_sec=i + 1))
+            assert node.scene_mask_stats_pub.publish.call_count == 1
+        finally:
+            node.destroy_node()
+
+    def test_a_failing_tick_does_not_stop_the_front_distance(self):
+        """The depth path is the safety-relevant one: the mask is an addition
+        to it, never a new way for it to die."""
+        node = self._node()
+        try:
+            node._scene_mask_tick = MagicMock(side_effect=RuntimeError('boom'))
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.front_distance_pub.publish.call_count == 1
+        finally:
+            node.destroy_node()
+
+    def test_nothing_is_published_before_camera_info(self):
+        node = _construct(self.PARAMS)
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_stats_pub.publish.call_count == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_strip_width_defaults_to_the_one_shared_helper(self):
+        """One strip for the whole pipeline: the camera and the LiDAR must
+        mean the same geometry by "in the way"."""
+        from f1tenth_description.vehicle_frames import front_side_limit_m
+        node = self._node()
+        try:
+            assert node.scene_mask_strip_half_w == pytest.approx(front_side_limit_m())
+        finally:
+            node.destroy_node()
+
+    def test_malformed_polygons_keep_the_housing_masked_rather_than_raising(self):
+        """A typo in the override must not take the node down -- and must not
+        silently unmask the car's own housing either, which would hand the
+        wall pipeline a permanent 30 cm "wall"."""
+        node = self._node({'scene_mask_self_polygons': 'not json',
+                           'scene_mask_occluded_polygons': '{"nope": 1}'})
+        try:
+            assert len(node._self_polygons) == 1
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_stats_pub.publish.call_count == 1
+            assert node._self_mask[47, 63]
+        finally:
+            node.destroy_node()
+
+    def test_the_self_mask_comes_from_the_one_lidar_housing_calibration(self):
+        """Not a second copy of the rectangle: the same lidar_exclusion_*
+        fractions yolo_detector_node already applies to detections."""
+        from f1tenth_params.param_defaults import get_value
+        node = self._node()
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            mask = node._self_mask
+            assert mask.shape == (48, 64)
+            assert mask[47, 63]          # bottom-right: the housing
+            assert not mask[0, 32]       # top-centre: scene
+            x0 = float(get_value('lidar_exclusion_x_min'))
+            y0 = float(get_value('lidar_exclusion_y_min'))
+            assert not mask[int(y0 * 48) - 2, int(x0 * 64) - 2]
+            assert mask[int(y0 * 48) + 2, int(x0 * 64) + 2]
+        finally:
+            node.destroy_node()
+
+    def test_an_explicit_polygon_replaces_the_derived_housing_rectangle(self):
+        node = self._node({'scene_mask_self_polygons':
+                           '[[[0.0, 0.0], [0.25, 0.0], [0.25, 0.25], [0.0, 0.25]]]',
+                           'scene_mask_occluded_polygons': ''})
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            mask = node._self_mask
+            assert mask[2, 2]            # the override, top-left
+            assert not mask[47, 63]      # the housing rectangle is gone
+        finally:
+            node.destroy_node()
+
+    def test_the_column_profile_carries_the_camera_image_stamp(self):
+        """The fusion pairs on this stamp, so it must be the image's own, not
+        the time the message was built."""
+        node = self._node()
+        node.stereo_columns_pub.publish = MagicMock()
+        try:
+            node.depth_callback(_depth_msg(
+                np.full((48, 64), 2.0, dtype=np.float32), stamp_sec=11, stamp_nsec=250000000))
+            msg = node.stereo_columns_pub.publish.call_args[0][0]
+            assert (msg.header.stamp.sec, msg.header.stamp.nanosec) == (11, 250000000)
+        finally:
+            node.destroy_node()
+
+
+# ==============================================================================
+# The LiDAR-inferred floor (inferred_floor.py) in the scene-mask tick
+# ==============================================================================
+
+class TestInferredFloorTick:
+    """The node glue around inferred_floor.py.
+
+    The geometry is tested in test_inferred_floor.py against the deployed
+    extrinsics. What matters here is that the tick finds its two inputs,
+    refuses to use them when they do not describe the same moment, keeps the
+    LUT across frames, and reports what it did -- and that none of it can take
+    the depth path down.
+
+    The camera in the other classes' TF sits on the floor with no rotation, so
+    no ray of it ever meets the floor plane. This one is a real downward-
+    looking optical frame 0.2 m up, which is the only way the inference has
+    anything to do.
+    """
+
+    DEPTH_W, DEPTH_H = 64, 48
+    LASER_FRAME = 'test_laser'
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1,
+              'inferred_floor_enabled': True,
+              # The whole 64x48 frame at fx 40 spans +-39 deg, so a 1 m r_max
+              # keeps the floor band comfortably inside the test scan's reach.
+              'inferred_floor_r_max_m': 1.0,
+              # An EMPTY list does not unmask the housing (see
+              # test_malformed_polygons_...): the derived rectangle still
+              # applies, so `_no_data_px` is the frame minus SELF.
+              'scene_mask_occluded_polygons': '[]'}
+
+    @staticmethod
+    def _no_data_px(stats):
+        """Pixels that had no usable depth AND are not the car's own hardware."""
+        return stats['count']['invalid'] + stats['count']['self']
+
+    @staticmethod
+    def _optical_tf(z=0.2):
+        """base_link <- an optical frame at (0.1, 0, z), looking forward.
+
+        The optical convention the ZED publishes: x right, y down, z forward.
+        """
+        import math
+        t = TransformStamped()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = CAMERA_FRAME
+        t.transform.translation.x, t.transform.translation.z = 0.1, float(z)
+        # The quaternion of [[0,0,1],[-1,0,0],[0,-1,0]]: (0.5, -0.5, 0.5, -0.5).
+        t.transform.rotation.x, t.transform.rotation.y = 0.5, -0.5
+        t.transform.rotation.z, t.transform.rotation.w = 0.5, -0.5
+        assert math.isclose(sum(v * v for v in (0.5, -0.5, 0.5, -0.5)), 1.0)
+        return t
+
+    @classmethod
+    def _laser_tf(cls, x=0.3, z=0.19):
+        t = TransformStamped()
+        t.header.frame_id = 'base_link'
+        t.child_frame_id = cls.LASER_FRAME
+        t.transform.translation.x, t.transform.translation.z = float(x), float(z)
+        t.transform.rotation.w = 1.0
+        return t
+
+    @classmethod
+    def _scan(cls, value=20.0, stamp_sec=1, stamp_nsec=0, n=361):
+        import math
+        from sensor_msgs.msg import LaserScan
+        scan = LaserScan()
+        scan.header.frame_id = cls.LASER_FRAME
+        scan.header.stamp.sec = stamp_sec
+        scan.header.stamp.nanosec = stamp_nsec
+        scan.angle_min = -math.pi / 2.0
+        scan.angle_max = math.pi / 2.0
+        scan.angle_increment = math.pi / (n - 1)
+        scan.range_min, scan.range_max = 0.02, 30.0
+        scan.ranges = [float(value)] * n
+        return scan
+
+    def _node(self, extra=None):
+        from sensor_msgs.msg import CameraInfo
+        overrides = [Parameter(k, value=v)
+                     for k, v in {**self.PARAMS, **(extra or {})}.items()]
+        node = FrontClearanceNode(parameter_overrides=overrides)
+        node._tf_static_callback(TFMessage(
+            transforms=[self._optical_tf(), self._laser_tf()]))
+        for name in ('front_distance_pub', 'front_wall_pub', 'front_clearance_pub',
+                     'front_blocked_pub', 'wall_points_pub', 'scene_mask_stats_pub',
+                     'scene_mask_image_pub', 'stereo_columns_pub'):
+            getattr(node, name).publish = MagicMock()
+        if node.wall_debug_pub is not None:
+            node.wall_debug_pub.publish = MagicMock()
+        info = CameraInfo()
+        info.width, info.height = self.DEPTH_W, self.DEPTH_H
+        info.k = [40.0, 0.0, self.DEPTH_W / 2.0, 0.0, 40.0, self.DEPTH_H / 2.0,
+                  0.0, 0.0, 1.0]
+        node._camera_info_callback(info)
+        return node
+
+    def _tick(self, node, depth=None, stamp_sec=1):
+        """One depth frame of pure no-data, and the stats it produced."""
+        import json
+        if depth is None:
+            depth = np.full((self.DEPTH_H, self.DEPTH_W), np.nan, dtype=np.float32)
+        node.depth_callback(_depth_msg(depth, stamp_sec=stamp_sec))
+        return json.loads(node.scene_mask_stats_pub.publish.call_args[0][0].data)
+
+    def test_a_fresh_scan_down_an_empty_corridor_infers_the_floor(self):
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            stats = self._tick(node)
+            assert stats['count']['floor_inferred'] > 100
+            assert stats['frac']['floor_inferred'] > 0.0
+            assert stats['inferred_floor']['applied_px'] == \
+                stats['count']['floor_inferred']
+            assert stats['inferred_floor']['skipped'] is None
+            assert stats['inferred_floor']['lut_px'] >= \
+                stats['inferred_floor']['applied_px']
+            assert stats['inferred_floor']['ms'] is not None
+        finally:
+            node.destroy_node()
+
+    def test_an_obstacle_at_the_laser_leaves_every_pixel_invalid(self):
+        """The inference is evidence-driven in both directions: a scan that
+        stopped short says nothing about the floor beyond it."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(0.05))
+            stats = self._tick(node)
+            assert stats['count']['floor_inferred'] == 0
+            assert self._no_data_px(stats) == self.DEPTH_H * self.DEPTH_W
+        finally:
+            node.destroy_node()
+
+    def test_with_no_scan_at_all_the_classes_are_left_exactly_as_classified(self):
+        node = self._node()
+        try:
+            stats = self._tick(node)
+            assert stats['inferred_floor']['skipped'] == 'no_scan'
+            assert stats['count']['floor_inferred'] == 0
+            assert self._no_data_px(stats) == self.DEPTH_H * self.DEPTH_W
+        finally:
+            node.destroy_node()
+
+    def test_a_scan_from_a_different_moment_is_refused(self):
+        """An old scan describes a different place; a wrong floor is worse
+        than no floor, so the whole cycle is skipped."""
+        node = self._node({'inferred_floor_max_scan_age_s': 0.15})
+        try:
+            node._scan_callback(self._scan(20.0, stamp_sec=1))
+            stats = self._tick(node, stamp_sec=3)
+            assert stats['inferred_floor']['skipped'] == 'stale_scan'
+            assert stats['inferred_floor']['scan_age_s'] == pytest.approx(2.0)
+            assert stats['count']['floor_inferred'] == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_age_is_measured_on_the_two_sensor_stamps_not_on_receipt(self):
+        """Both stamps come from the sensors: the recorder's and the
+        executor's own lateness must not decide whether the floor is inferred
+        (this bag's writer ran 0.4-4.5 s behind the stamps)."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0, stamp_sec=7, stamp_nsec=50000000))
+            # The node clock is nowhere near either stamp, which is the point.
+            node._now_seconds = lambda: 9999.0
+            stats = self._tick(node, stamp_sec=7)
+            assert stats['inferred_floor']['scan_age_s'] == pytest.approx(-0.05)
+            assert stats['inferred_floor']['skipped'] is None
+            assert stats['count']['floor_inferred'] > 0
+        finally:
+            node.destroy_node()
+
+    def test_without_the_laser_transform_nothing_is_inferred(self):
+        node = self._node()
+        try:
+            scan = self._scan(20.0)
+            scan.header.frame_id = 'a_frame_no_tf_mentions'
+            node._scan_callback(scan)
+            stats = self._tick(node)
+            assert stats['inferred_floor']['skipped'] == 'no_laser_transform'
+            assert stats['count']['floor_inferred'] == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_lut_is_built_once_and_reused_across_frames(self):
+        """It depends only on static geometry; rebuilding it per frame would
+        cost 47 ms a tick against the 1.7 ms the inference itself takes."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            self._tick(node, stamp_sec=1)
+            first = node._floor_lut
+            assert first is not None
+            node._scan_callback(self._scan(20.0, stamp_sec=2))
+            self._tick(node, stamp_sec=2)
+            assert node._floor_lut is first
+        finally:
+            node.destroy_node()
+
+    def test_a_scan_with_a_new_angular_layout_rebuilds_the_lut(self):
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0, n=361))
+            self._tick(node, stamp_sec=1)
+            first = node._floor_lut
+            node._scan_callback(self._scan(20.0, stamp_sec=2, n=181))
+            self._tick(node, stamp_sec=2)
+            assert node._floor_lut is not first
+            assert node._floor_lut.n_valid > 0
+        finally:
+            node.destroy_node()
+
+    def test_the_switch_off_leaves_the_classes_and_the_stats_untouched(self):
+        node = self._node({'inferred_floor_enabled': False})
+        try:
+            node._scan_callback(self._scan(20.0))
+            stats = self._tick(node)
+            assert stats['inferred_floor'] is None
+            assert stats['count']['floor_inferred'] == 0
+            assert self._no_data_px(stats) == self.DEPTH_H * self.DEPTH_W
+        finally:
+            node.destroy_node()
+
+    def test_a_self_masked_pixel_is_never_inferred_floor(self):
+        """Whatever mask is in force -- the housing rectangle today, a traced
+        polygon later -- the car's own hardware is not floor."""
+        node = self._node({'scene_mask_self_polygons':
+                           '[[[0.0, 0.5], [1.0, 0.5], [1.0, 1.0], [0.0, 1.0]]]'})
+        try:
+            node._scan_callback(self._scan(20.0))
+            stats = self._tick(node)
+            # The whole lower half is SELF, and the floor band lives there.
+            assert stats['count']['self'] == self.DEPTH_H * self.DEPTH_W // 2
+            assert stats['count']['floor_inferred'] == 0
+            assert stats['inferred_floor']['lut_px'] == 0
+            assert stats['inferred_floor']['skipped'] == 'empty_lut'
+        finally:
+            node.destroy_node()
+
+    def test_a_floor_already_seen_by_the_stereo_stays_floor(self):
+        """The inference only ever speaks where the stereo did not."""
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            # A real floor plane at z = 0 for the lower rows: depth = z / ray_y.
+            depth = np.full((self.DEPTH_H, self.DEPTH_W), np.nan, dtype=np.float32)
+            rows = np.arange(self.DEPTH_H)
+            ray_y = (rows - self.DEPTH_H / 2.0) / 40.0
+            with np.errstate(divide='ignore'):
+                d = np.where(ray_y > 0, 0.2 / ray_y, np.nan)
+            depth[:] = d[:, None]
+            stats = self._tick(node, depth=depth.astype(np.float32))
+            assert stats['count']['floor'] > 100
+            # Those rows are FLOOR, not floor_inferred: a measurement wins.
+            assert stats['count']['floor_inferred'] < stats['count']['floor']
+        finally:
+            node.destroy_node()
+
+    def test_a_failing_inference_does_not_stop_the_front_distance(self):
+        node = self._node()
+        try:
+            node._scan_callback(self._scan(20.0))
+            node._infer_floor = MagicMock(side_effect=RuntimeError('boom'))
+            node.depth_callback(_depth_msg(
+                np.full((self.DEPTH_H, self.DEPTH_W), 2.0, dtype=np.float32)))
+            assert node.front_distance_pub.publish.call_count == 1
+        finally:
+            node.destroy_node()
+
+
+# ==============================================================================
+# The scene-mask watchdog
+# ==============================================================================
+
+class TestSceneMaskWatchdog:
+    """A topic that stops is invisible to its consumers.
+
+    The LiDAR node holds the last profile it received and reports "LiDAR only"
+    per cycle, which reads the same whether the camera is 0.2 s late or has
+    been dead for 12 s. These assert that the PRODUCER says which, on a timer,
+    whether or not another depth frame ever arrives.
+    """
+
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1,
+              'scene_mask_watchdog_age_s': 1.0, 'scene_mask_watchdog_period_s': 0.5}
+
+    @staticmethod
+    def _camera_info(width=64, height=48, fx=100.0):
+        from sensor_msgs.msg import CameraInfo
+        info = CameraInfo()
+        info.width, info.height = width, height
+        info.k = [fx, 0.0, width / 2.0, 0.0, fx, height / 2.0, 0.0, 0.0, 1.0]
+        return info
+
+    def _node(self, extra=None, clock=None):
+        node = _construct({**self.PARAMS, **(extra or {})})
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        node.scene_mask_image_pub.publish = MagicMock()
+        node.stereo_columns_pub.publish = MagicMock()
+        node.mask_health_pub.publish = MagicMock()
+        node._camera_info_callback(self._camera_info())
+        if clock is not None:
+            node._now_seconds = lambda: clock[0]
+        return node
+
+    @staticmethod
+    def _health(node):
+        import json
+        return json.loads(node.mask_health_pub.publish.call_args[0][0].data)
+
+    def test_the_watchdog_is_a_timer_so_it_fires_without_a_depth_frame(self):
+        """The failure it reports is depth_callback not being called, so it
+        cannot live inside depth_callback."""
+        node = self._node()
+        try:
+            assert node.watchdog_timer is not None
+            assert node.watchdog_timer.timer_period_ns == 500_000_000
+        finally:
+            node.destroy_node()
+
+    def test_before_the_first_tick_it_reports_never_ticked(self):
+        node = self._node()
+        try:
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is True
+            assert h['reason'] == 'never_ticked'
+            assert h['tick_age_s'] is None and h['depth_age_s'] is None
+            assert h['max_age_s'] == pytest.approx(1.0)
+        finally:
+            node.destroy_node()
+
+    def test_a_live_mask_is_not_stale_and_carries_its_three_ages(self):
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            clock[0] = 100.2
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is False
+            assert h['reason'] is None
+            assert h['depth_age_s'] == pytest.approx(0.2)
+            assert h['tick_age_s'] == pytest.approx(0.2)
+            # The profile's own IMAGE stamp, which is the age the LiDAR node's
+            # pairing actually sees.
+            assert h['profile_age_s'] == pytest.approx(0.2)
+            assert h['depth_topic'] == node.depth_topic
+        finally:
+            node.destroy_node()
+
+    def test_a_camera_that_stopped_is_reported_as_no_depth(self):
+        """The corridor10m case: the ZED wrapper's depth output collapsed and
+        nothing this node does can help -- but it must SAY so."""
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            clock[0] = 112.0          # 12 s later, as in the run
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is True
+            assert h['reason'] == 'no_depth'
+            assert h['depth_age_s'] == pytest.approx(12.0)
+            assert h['tick_age_s'] == pytest.approx(12.0)
+            assert h['profile_age_s'] == pytest.approx(12.0)
+        finally:
+            node.destroy_node()
+
+    def test_depth_arriving_while_the_tick_does_not_is_reported_differently(self):
+        """The other failure, and the one that WOULD be the node's fault: the
+        frames are there and the tick is not running."""
+        clock = [100.0]
+        node = self._node({'scene_mask_rate_hz': 0.001}, clock=clock)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            # The rate limit means later frames arrive but never tick.
+            clock[0] = 102.0
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=102))
+            node._publish_mask_health()
+            h = self._health(node)
+            assert h['stale'] is True
+            assert h['reason'] == 'tick_not_running'
+            assert h['depth_age_s'] == pytest.approx(0.0)
+            assert h['tick_age_s'] == pytest.approx(2.0)
+        finally:
+            node.destroy_node()
+
+    def test_a_tick_that_died_half_way_does_not_count_as_one(self):
+        """The mark is set after the publishes: a tick that raised in the
+        middle has published nothing a consumer can use."""
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node.scene_mask_stats_pub.publish = MagicMock(
+                side_effect=RuntimeError('boom'))
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            clock[0] = 102.0
+            node._publish_mask_health()
+            assert self._health(node)['reason'] == 'never_ticked'
+        finally:
+            node.destroy_node()
+
+    def test_the_watchdog_can_be_switched_off_entirely(self):
+        node = self._node({'scene_mask_watchdog_period_s': 0.0})
+        try:
+            assert node.watchdog_timer is None
+        finally:
+            node.destroy_node()
+
+    def test_recovery_is_logged_once_rather_than_held(self):
+        clock = [100.0]
+        node = self._node(clock=clock)
+        try:
+            node._publish_mask_health()
+            assert node._watchdog_stale is True
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=100))
+            node._publish_mask_health()
+            assert node._watchdog_stale is False
+            assert self._health(node)['stale'] is False
+        finally:
+            node.destroy_node()
+
+    def test_the_column_row_stride_decimates_before_the_percentile(self):
+        """The one lever on the tick's most expensive stage, and what it costs:
+        n_px must report the pixels the summary was TAKEN over, not the
+        pre-stride count -- that count is what min_px is compared against."""
+        full = self._node()
+        strided = self._node({'scene_mask_column_row_stride': 2})
+        try:
+            for node in (full, strided):
+                node.stereo_columns_pub.publish = MagicMock()
+                node.depth_callback(_depth_msg(
+                    np.full((48, 64), 2.0, dtype=np.float32)))
+            a = full.stereo_columns_pub.publish.call_args[0][0]
+            b = strided.stereo_columns_pub.publish.call_args[0][0]
+            assert sum(a.n_px) > 0
+            # Half the pixels, within the rounding of an odd count per column.
+            assert abs(sum(b.n_px) - sum(a.n_px) / 2) <= len(a.n_px)
+            # And the distance it reports is the same surface.
+            pairs = [(x, y) for x, y in zip(a.distance_m, b.distance_m)
+                     if np.isfinite(x) and np.isfinite(y)]
+            assert len(pairs) > 20
+            assert max(abs(x - y) for x, y in pairs) < 0.05
+        finally:
+            full.destroy_node()
+            strided.destroy_node()
+
+
+class TestTheClassMaskAsData:
+    """The class mask and its depth, published as a pair for the rectangle
+    verification in lidar_front_wall_node (E2). The mask itself is tested
+    above; what matters here is that the two go out together, on the depth
+    frame's own stamp, and only when something is reading them."""
+
+    PARAMS = {'scene_mask_enabled': True, 'scene_mask_rate_hz': 1000.0,
+              'enable_scene_labels': False, 'min_bg_pixels_for_reading': 1}
+
+    @staticmethod
+    def _camera_info(width=64, height=48, fx=100.0, fy=100.0):
+        from sensor_msgs.msg import CameraInfo
+        info = CameraInfo()
+        info.width, info.height = width, height
+        info.k = [fx, 0.0, width / 2.0, 0.0, fy, height / 2.0, 0.0, 0.0, 1.0]
+        return info
+
+    def _node(self, subscribed):
+        node = _construct(self.PARAMS)
+        node._camera_info_callback(self._camera_info())
+        node.wall_points_pub.publish = MagicMock()
+        node.scene_mask_stats_pub.publish = MagicMock()
+        node.stereo_columns_pub.publish = MagicMock()
+        node.scene_mask_classes_pub.publish = MagicMock()
+        node.scene_mask_depth_pub.publish = MagicMock()
+        node.scene_mask_classes_pub.get_subscription_count = lambda: int(subscribed)
+        node.scene_mask_depth_pub.get_subscription_count = lambda: int(subscribed)
+        node.scene_mask_image_pub.get_subscription_count = lambda: 0
+        return node
+
+    def test_nothing_is_published_until_something_subscribes(self):
+        node = self._node(subscribed=False)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32)))
+            assert node.scene_mask_stats_pub.publish.call_count == 1
+            assert node.scene_mask_classes_pub.publish.call_count == 0
+            assert node.scene_mask_depth_pub.publish.call_count == 0
+        finally:
+            node.destroy_node()
+
+    def test_the_pair_shares_the_depth_frames_stamp_and_round_trips(self):
+        from f1tenth_perception import scene_mask
+        node = self._node(subscribed=True)
+        try:
+            node.depth_callback(_depth_msg(np.full((48, 64), 2.0, dtype=np.float32),
+                                           stamp_sec=9, stamp_nsec=250000000))
+            cls_msg = node.scene_mask_classes_pub.publish.call_args[0][0]
+            dep_msg = node.scene_mask_depth_pub.publish.call_args[0][0]
+            assert cls_msg.header.stamp == dep_msg.header.stamp
+            # The frame must be the DEPTH IMAGE's optical frame, not the base
+            # frame: the consumer looks up the camera transform with it, and
+            # 'base_link' reads as an identity and silently empties every
+            # rectangle. The cloud publish earlier in the tick rewrites the
+            # depth header's own frame_id, so this is an aliasing test.
+            assert cls_msg.header.frame_id == CAMERA_FRAME
+            assert dep_msg.header.frame_id == CAMERA_FRAME
+            assert cls_msg.header.stamp.sec == 9
+            assert cls_msg.header.stamp.nanosec == 250000000
+            assert cls_msg.encoding == 'mono8' and dep_msg.encoding == 'mono16'
+            assert (cls_msg.height, cls_msg.width) == (48, 64)
+            labels = np.frombuffer(cls_msg.data, dtype=np.uint8).reshape(48, 64)
+            depth = np.frombuffer(dep_msg.data, dtype=np.uint16).reshape(48, 64)
+            # The frame is a flat surface 2 m ahead: WALL away from the self
+            # mask, and 2000 mm everywhere.
+            assert labels[0, 0] == scene_mask.CLASS_WALL
+            assert depth[0, 0] == 2000
+            assert np.count_nonzero(labels == scene_mask.CLASS_SELF) > 0
+        finally:
+            node.destroy_node()
+
+    def test_an_invalid_depth_is_a_zero_not_a_distance(self):
+        node = self._node(subscribed=True)
+        try:
+            frame = np.full((48, 64), 2.0, dtype=np.float32)
+            frame[0, :] = np.nan
+            frame[1, :] = -np.inf
+            node.depth_callback(_depth_msg(frame))
+            dep_msg = node.scene_mask_depth_pub.publish.call_args[0][0]
+            depth = np.frombuffer(dep_msg.data, dtype=np.uint16).reshape(48, 64)
+            assert depth[0].max() == 0 and depth[1].max() == 0
+            assert depth[2, 0] == 2000
+        finally:
+            node.destroy_node()

@@ -39,13 +39,14 @@
        reads AckermannDriveStamped off the ackermann_mux output. -->
   <exec_depend>ackermann_msgs</exec_depend>
 
-  <!-- sensor_msgs_py/nav_msgs/python3-scipy and the open3d install note
-       previously here were wall_detector_node-only (RANSAC plane
-       segmentation for wall/corner detection from the ZED point cloud) -
-       removed when that node was retired by the dual-EKF + costmap-
-       derived-MPC-boundaries pass in favor of f1tenth_costmap's
-       costmap_boundary_node.py. Confirmed via grep that nothing else in
-       this package imports any of them before removing. -->
+  <!-- sensor_msgs_py is back since 2026-10-15: front_clearance_node's scene
+       mask publishes /perception/wall_points as a PointCloud2 through
+       point_cloud2.create_cloud_xyz32. It had been removed with
+       wall_detector_node (RANSAC plane segmentation on the ZED point cloud),
+       retired by the dual-EKF + costmap-derived-MPC-boundaries pass in favor
+       of f1tenth_costmap's costmap_boundary_node.py; nav_msgs and the open3d
+       install note went with it and are still gone. -->
+  <exec_depend>sensor_msgs_py</exec_depend>
 
   <!-- Sensors brought up by camera.launch.py / perception.launch.py -->
   <exec_depend>zed_wrapper</exec_depend>
@@ -64,6 +65,9 @@
        measured from it. f1tenth_description depends only on f1tenth_params,
        so this adds no cycle. -->
   <exec_depend>f1tenth_description</exec_depend>
+  <!-- multi_wall_tracker.py: line extraction from corridor_perception. -->
+  <exec_depend>corridor_perception</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

@@ -72,7 +72,7 @@ is active.
 
 ```bash
 cd ~/dev_ws/f1tenth_more && source install/setup.bash
-ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py enable_mission_logger:=true   # recording is opt-in since 2026-10-16
 ./scripts/stackctl.py --settle 25 status
 # need: hardware, localization, perception (camera + detection), slam,
 #       control, navigation (mpc_corr), behavior, diagnostics (mission_logger)

@@ -27,12 +27,15 @@
 ekf_filter_node:
   ros__parameters:
     # --- core ----------------------------------------------------------------
-    frequency: 50.0
+    frequency: 50.0             # OVERRIDDEN by ekf.launch.py from stack_params
+                                # ekf_frequency_hz (20 since cpu-cleanup R2)
     sensor_timeout: 0.1
     two_d_mode: true            # planar car: zero z, roll, pitch
     publish_tf: true            # now owns odom -> base_link (world_frame: odom, below)
     publish_acceleration: false
-    transform_time_offset: 0.05  # post-date published TF ~50ms: urg_node stamps
+    transform_time_offset: 0.05  # OVERRIDDEN by ekf.launch.py from stack_params
+                                # ekf_transform_time_offset_s (0.08 at 20 Hz).
+                                # post-date published TF ~50ms: urg_node stamps
                                 # scans at reception, ~28ms ahead of this filter's
                                 # TF stamp, so time-correct map/odom <- laser
                                 # lookups all failed 'extrapolation into the future'

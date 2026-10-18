@@ -15,7 +15,8 @@ and four services for callers that want a synchronous result:
   (success=false, state left at LOADED, not consumed) if mission/preflight.py's
   liveness check finds a dependency THIS mission needs is not alive and/or not
   yet publishing (mpc_corr, ackermann_to_vesc_node, localization, and
-  conditionally costmap_boundary_node/yolo_detector_node depending on what the
+  conditionally the wall-topic publisher (lidar_front_wall_node or
+  front_clearance_node)/yolo_detector_node depending on what the
   mission's moves/stop_conditions/on_object entries actually use) -- see that
   module's own docstring for the battery-precheck race this replaces "the car
   silently didn't move" with an explicit, actionable failure at start time.
@@ -89,7 +90,7 @@ and the load/start/abort/emergency_stop services) take self._lock around the
 read-then-mutate sequence on the shared MissionRuntimeState. Checked before
 adding this: no lock existed anywhere in the mission package before this pass.
 It is *not* fixing an active race under the current architecture --
-behavior_executor_node.main() drives the tree ticks (via tree.tick_tock()'s
+behavior_executor_node.main() drives the tree ticks (via tick_timing.BtTicker's
 wall timer, added to `node`), this class's own subscription, and all four
 services through one `rclpy.spin(node)` call with rclpy's default
 SingleThreadedExecutor, so no two ROS callbacks -- including a BT tick and a

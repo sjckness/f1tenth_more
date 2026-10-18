@@ -69,6 +69,23 @@ PROVENANCE_NAMES = {
 _MIN_HYPOTHESIS_BASELINE_M = 0.02
 
 
+def virtual_wall_due(tracker_on, tracker_ran, now, last_publish, rate_hz):
+    """Publish /perception/virtual_wall this scan? (cpu-cleanup R2)
+
+    Only on a NEW estimate: with the tracker on, only a tracker step changes
+    the published value, so a skipped scan would repeat the last verdict;
+    without the tracker every processed scan is new. And at most at about
+    rate_hz: allowed once 75 % of 1/rate_hz has passed since last_publish, so a
+    tracker step a little early (scan jitter) is not dropped and stretched to
+    two periods. rate_hz <= 0 means no cap. last_publish None: never published.
+    """
+    if tracker_on and not tracker_ran:
+        return False
+    if rate_hz > 0.0 and last_publish is not None:
+        return now - last_publish >= 0.75 / rate_hz
+    return True
+
+
 def _wrap(angle):
     return math.atan2(math.sin(angle), math.cos(angle))
 

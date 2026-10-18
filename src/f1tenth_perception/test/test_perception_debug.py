@@ -248,3 +248,21 @@ class TestDrawAndEncode:
         assert len(contours) == 1
         xs, ys = contours[0][:, 0, 0], contours[0][:, 0, 1]
         assert xs.min() == 75 and ys.min() == 75
+
+
+def test_a_wall_track_is_drawn_as_a_floor_line_with_its_label():
+    """Tracks (line_px) are open cyan lines; a floor line ahead lands below the horizon."""
+    import numpy as np
+    from f1tenth_perception import perception_debug as pd
+    # Optical frame of a camera 0.165 m above the floor, looking along +x.
+    rot = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
+    px = pd.project_floor_segment((3.0, -1.0), (3.0, 1.0), rot, (0.23, 0.06, 0.165),
+                                  (264.0, 264.0, 320.0, 180.0))
+    assert px is not None and len(px) >= 2
+    assert all(v > 180.0 for _, v in px)
+    assert pd.project_floor_segment((-3.0, -1.0), (-3.0, 1.0), rot, (0.23, 0.06, 0.165),
+                                    (264.0, 264.0, 320.0, 180.0)) is None
+    img = np.zeros((360, 640, 3), dtype=np.uint8)
+    pd.draw_scene_overlay(img, {'img_wh': (640, 360), 'walls': [
+        {'line_px': px, 'label': '3:front d=2.60', 'source': 'tracker'}]})
+    assert np.any(np.all(img == pd.COLOR_TRACK, axis=2))
