@@ -1,5 +1,11 @@
 # P1 — wall-foot feasibility: the gate is NOT passed
 
+> **Superseded by `output/wall_v2/q1/report.md`.** This pass ran on archive bags
+> that predate the measured camera pitch and whose recorded class mask was unusable.
+> Q1 repeats it on `corridor10m_20261016T144537` with the live-configuration mask
+> and the real -2.083 deg pitch. The verdict does not change; several of the
+> reasons below do. See the CORRECTED note under cause 2.
+
 `tools/wall_foot_eval.py`, read-only, nothing wired into the stack.
 
 ## Verdict
@@ -77,12 +83,19 @@ error is 15.6 cm. The gate asks for a **median** of 10 cm across 1.5-3 m, i.e.
 sub-pixel row accuracy at the top of its own bucket. This camera cannot deliver
 it from this height, whatever the mask does.
 
-And the pitch the work order expects to be handled is not there: the measured
-`/tf_static` chain `base_link -> zed2_left_camera_optical_frame` is
-(0.2299, 0.0600, 0.2200) m with **identity rotation** apart from the optical
-convention — zero pitch. An unmodelled 2 deg pitch moves the foot row by
-fy * 0.035 = 9.2 px, which at 3 m is 1.4 m of range: 48 % of the signal. Any real
-pitch is therefore an unbounded bias on top of the two causes above.
+**CORRECTED 2026-10-18 (Q0).** This section first said the pitch "is not there".
+That was true of THESE TWO BAGS and wrong about the stack. `camera.launch.py:76`
+publishes `base_link -> zed2_camera_link` with pitch **-0.03635 rad (-2.083 deg)**,
+measured 2026-10-15, and both 10-16 corridor bags carry it in `/tf_static`
+(composed optical +Z in base_link = (0.99934, 0, 0.03634)). The two archive bags
+used here are from 2026-10-14 and 2026-10-15 11:18 and **predate that
+measurement**: their chain really is identity. `wall_foot_eval.py` composes the
+full chain from whichever bag it is given, so it used the right frames for these
+bags — but a pitch-less bag is the wrong era to judge the live foot on, which is
+why Q1 re-runs the whole thing on `corridor10m_20261016T144537`. Scale of the
+error: 2.083 deg is fy * 0.03635 = 9.5 px of foot row, 1.5 m of range at 3 m.
+Everything below this line is therefore about the archive bags only; the Q1
+report supersedes it.
 
 ## The radial filter earns its place anyway — on the EXISTING source
 

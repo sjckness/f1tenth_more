@@ -169,3 +169,35 @@ made here.
 **Consequence.** P2, P3 and P4 remain not done, now for a measured reason rather than an
 absent one. The three things that would make the foot worth revisiting are listed at the
 end of `output/wall_v2/p1/report.md`.
+
+## D6. Q0 — the camera pitch is real, and P1's claim about it was over-generalised
+
+**The chain.** `front_clearance_node` looks up `base_frame <- frame_id` where `frame_id`
+is the depth image's own optical frame (`_frame_transform`, front_clearance_node.py:945),
+i.e. `base_link -> zed2_camera_link -> zed2_camera_center -> zed2_left_camera_frame ->
+zed2_left_camera_optical_frame`.
+
+**Where the pitch is.** `f1tenth_perception/launch/camera.launch.py:76` publishes the
+first edge as `['0.2399', '0.0', '0.205', '0.0', '-0.03635', '0.0', 'base_link',
+'zed2_camera_link']` — positional `x y z YAW PITCH ROLL`, so pitch = **-0.03635 rad =
+-2.083 deg**, measured 2026-10-15 (comment at :59).
+
+| source | base_link <- optical | pitch |
+|---|---|---|
+| HEAD launch | — | **-2.083 deg** |
+| `/tf_static` of `corridor10m_20261016T144537` | (0.2294, 0.0600, 0.2196) | **-2.083 deg** |
+| `/tf_static` of `corridor10m_20261016T170931` | (0.2294, 0.0600, 0.2196) | **-2.083 deg** |
+| `/tf_static` of `archive/2026-10-14T12-05-34` | (0.2299, 0.0600, 0.2200) | 0.000 deg |
+| `/tf_static` of `archive/2026-10-15T11-18-01` | (0.2299, 0.0600, 0.2200) | 0.000 deg |
+
+**Verdict.** The pitch is present on HEAD and in every bag recorded after it was
+measured. No STOP: `floor_inferred` is not invalidated.
+
+**Did P1 use the right frames? Yes, and its conclusion was still over-stated.**
+`wall_foot_eval.py` composes the whole chain from the `/tf_static` of whichever bag it
+is handed (`scene_labels_replay.static_tf`), so it used exactly what the car used at
+recording time. The error was in the write-up, not the code: the P1 report said "the
+measured chain is identity apart from the optical convention" as a statement about the
+stack, when it was a statement about two bags recorded before 2026-10-15. Corrected in
+place, with a pointer to Q1. Scale: 2.083 deg is 9.5 px of foot row, 1.5 m of range at
+3 m, so a pitch-less bag is simply the wrong era to judge the live foot on.
