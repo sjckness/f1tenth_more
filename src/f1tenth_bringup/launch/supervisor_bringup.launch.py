@@ -176,13 +176,18 @@ def generate_launch_description():
 
     # Rust ports (output/rust/): the same "declared argument -> supervisor
     # parameter -> component launch argument" path as enable_mission_logger,
-    # for the same reason. guard -> behavior_bringup.launch.py proximity_guard.
-    # The default keeps the stack exactly as it is without it: no guard.
+    # for the same reason. guard -> behavior_bringup.launch.py proximity_guard,
+    # impl -> costmap.launch.py costmap_boundary_impl. Defaults keep the stack
+    # exactly as it is without them: no guard, the Python costmap_boundary_node.
     guard_la = DeclareLaunchArgument(
         'guard', default_value='off', choices=['off', 'shadow', 'active'],
         description='Rust front-proximity guard (f1tenth_proximity_guard): off (not '
                     'launched), shadow (decisions only), active (also stops on the '
                     'safety_stop lane). The emergency lane of the BT is unchanged in every mode.')
+    impl_la = DeclareLaunchArgument(
+        'impl', default_value='py', choices=['py', 'rust'],
+        description='costmap_boundary_node implementation: py (f1tenth_costmap) or rust '
+                    '(f1tenth_costmap_boundary_rs). Never both: same node name and topics.')
 
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
@@ -251,6 +256,7 @@ def generate_launch_description():
             'calibration': LaunchConfiguration('calibration'),
             'enable_mission_logger': LaunchConfiguration('enable_mission_logger'),
             'proximity_guard': LaunchConfiguration('guard'),
+            'costmap_boundary_impl': LaunchConfiguration('impl'),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'enable_comms': LaunchConfiguration('enable_comms'),
             'components_config': LaunchConfiguration('components_config'),
@@ -296,6 +302,7 @@ def generate_launch_description():
         calibration_la,
         enable_mission_logger_la,
         guard_la,
+        impl_la,
         enable_intelligence_la,
         enable_comms_la,
         components_config_la,

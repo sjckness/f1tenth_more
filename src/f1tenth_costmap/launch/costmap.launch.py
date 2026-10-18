@@ -52,12 +52,14 @@ CLI-overridable behavior for what's meant to be the exact same flag. Fixed
 by matching that file's mechanism exactly instead.
 """
 
+from f1tenth_description.vehicle_frames import (
+    base_front_x, front_side_limit_m, MIN_FRONT_DISTANCE_M)
 from f1tenth_params.param_defaults import get_default
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -260,41 +262,67 @@ def generate_launch_description():
     # separate toggle -- for the identical reason: this node is
     # structurally dependent on /slam/map existing at all (see its own
     # module docstring).
+    # impl:=py|rust (supervisor_bringup/stack_bringup), costmap_boundary_impl
+    # here: the Python node or its Rust port (src/rust/f1tenth_costmap_boundary_rs).
+    # Never both -- same node name, same topics. The Rust node takes the same
+    # parameters plus the three vehicle_frames values the Python imports.
+    boundary_impl_la = DeclareLaunchArgument(
+        'costmap_boundary_impl', default_value='py', choices=['py', 'rust'],
+        description='costmap_boundary_node implementation: py (f1tenth_costmap) or '
+                    'rust (f1tenth_costmap_boundary_rs; use_convex_polytope not ported).')
+    boundary_params = {
+        'front_facing_max_deg': LaunchConfiguration(
+            'costmap_boundary_front_facing_max_deg'),
+        'side_window_min_deg': LaunchConfiguration(
+            'costmap_boundary_side_window_min_deg'),
+        'side_window_max_deg': LaunchConfiguration(
+            'costmap_boundary_side_window_max_deg'),
+        'occupied_threshold': LaunchConfiguration(
+            'costmap_boundary_occupied_threshold'),
+        'max_range_m': LaunchConfiguration('costmap_boundary_max_range_m'),
+        'extraction_rate_hz': LaunchConfiguration(
+            'costmap_boundary_extraction_rate_hz'),
+        'use_convex_polytope': LaunchConfiguration(
+            'costmap_boundary_use_convex_polytope'),
+        'polytope_r_local_m': LaunchConfiguration(
+            'costmap_boundary_polytope_r_local_m'),
+        'polytope_max_faces': LaunchConfiguration(
+            'costmap_boundary_polytope_max_faces'),
+        'component_filter': LaunchConfiguration(
+            'costmap_boundary_component_filter'),
+        'min_component_length_m': LaunchConfiguration(
+            'costmap_boundary_min_component_length_m'),
+        'min_component_scans': LaunchConfiguration(
+            'costmap_boundary_min_component_scans'),
+        'exclude_tracked_object_cells': LaunchConfiguration(
+            'costmap_boundary_exclude_tracked_object_cells'),
+        'object_footprint_margin_m': LaunchConfiguration(
+            'costmap_boundary_object_footprint_margin_m'),
+    }
+
+    def _impl_is(value):
+        return IfCondition(PythonExpression([
+            "'", LaunchConfiguration('enable_slam'), "'.lower() == 'true' and '",
+            LaunchConfiguration('costmap_boundary_impl'), f"' == '{value}'"]))
+
     costmap_boundary_node = Node(
         package='f1tenth_costmap',
         executable='costmap_boundary_node',
         name='costmap_boundary_node',
         output='screen',
-        condition=IfCondition(LaunchConfiguration('enable_slam')),
-        parameters=[{
-            'front_facing_max_deg': LaunchConfiguration(
-                'costmap_boundary_front_facing_max_deg'),
-            'side_window_min_deg': LaunchConfiguration(
-                'costmap_boundary_side_window_min_deg'),
-            'side_window_max_deg': LaunchConfiguration(
-                'costmap_boundary_side_window_max_deg'),
-            'occupied_threshold': LaunchConfiguration(
-                'costmap_boundary_occupied_threshold'),
-            'max_range_m': LaunchConfiguration('costmap_boundary_max_range_m'),
-            'extraction_rate_hz': LaunchConfiguration(
-                'costmap_boundary_extraction_rate_hz'),
-            'use_convex_polytope': LaunchConfiguration(
-                'costmap_boundary_use_convex_polytope'),
-            'polytope_r_local_m': LaunchConfiguration(
-                'costmap_boundary_polytope_r_local_m'),
-            'polytope_max_faces': LaunchConfiguration(
-                'costmap_boundary_polytope_max_faces'),
-            'component_filter': LaunchConfiguration(
-                'costmap_boundary_component_filter'),
-            'min_component_length_m': LaunchConfiguration(
-                'costmap_boundary_min_component_length_m'),
-            'min_component_scans': LaunchConfiguration(
-                'costmap_boundary_min_component_scans'),
-            'exclude_tracked_object_cells': LaunchConfiguration(
-                'costmap_boundary_exclude_tracked_object_cells'),
-            'object_footprint_margin_m': LaunchConfiguration(
-                'costmap_boundary_object_footprint_margin_m'),
-        }],
+        condition=_impl_is('py'),
+        parameters=[boundary_params],
+    )
+    costmap_boundary_node_rs = Node(
+        package='f1tenth_costmap_boundary_rs',
+        executable='costmap_boundary_node',
+        name='costmap_boundary_node',
+        output='screen',
+        condition=_impl_is('rust'),
+        parameters=[dict(boundary_params,
+                         base_front_x_m=base_front_x(),
+                         front_side_limit_m=front_side_limit_m(),
+                         min_front_distance_m=MIN_FRONT_DISTANCE_M)],
     )
 
     return LaunchDescription([
@@ -307,5 +335,7 @@ def generate_launch_description():
         boundary_component_filter_la, boundary_min_component_length_la,
         boundary_min_component_scans_la, boundary_exclude_object_cells_la,
         boundary_object_margin_la,
+        boundary_impl_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
+        costmap_boundary_node_rs,
     ])
