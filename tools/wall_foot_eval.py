@@ -71,6 +71,8 @@ WALL_RUN_PX = 3          # consecutive wall pixels above the transition
 REOPEN_PX = 10           # floor again within this many px above -> opening
 HORIZON_PAD_PX = 3
 NO_RETURN = 65.533
+CLASSES_TOPIC = '/perception/scene_labels/classes'
+INFERRED_FLOOR_R_MAX_M = 3.0      # front_clearance_inferred_floor_r_max_m
 VIRTUAL_BINS = 720       # uniform bearing grid, so the C backend takes it
 VIRTUAL_FOV_DEG = 100.0
 RAY_ANGLE_DEG = 25.0
@@ -79,8 +81,9 @@ MATCH_M = 0.5
 MATCH_DEG = 15.0
 GATE_M = 0.2             # merged: stereo_old accepted within this of a foot/LiDAR line
 GATE_DEG = 10.0
-BUCKETS = ((0.0, 1.5), (1.5, 3.0), (3.0, 5.0))
-SIDE_MIN_M, SIDE_MAX_M = 1.5, 5.0
+BUCKETS = ((0.75, 1.5), (1.5, 2.5), (2.5, 4.0))
+RMAX_REJECT_PX = 2.0      # foot points this close to the inferred-floor cap
+SIDE_MIN_M, SIDE_MAX_M = 1.5, 4.0
 
 
 # ===========================================================================
@@ -110,7 +113,8 @@ def horizon_row(R, t, fy, cy):
     return float(rows[below[0]]) if below.size else None
 
 
-def foot_points(classes, depth, fx, fy, cx, cy, R, t, max_range_m=MAX_RANGE_M):
+def foot_points(classes, depth, fx, fy, cx, cy, R, t, max_range_m=MAX_RANGE_M,
+                r_max_m=None, laser_xy=(0.305, 0.0)):
     """Wall-foot points (x, y) in base_link, one per accepted column.
 
     Vectorised over the whole image: no Python loop over pixels or columns.
@@ -174,6 +178,16 @@ def foot_points(classes, depth, fx, fy, cx, cy, R, t, max_range_m=MAX_RANGE_M):
     xy, rng, good_u = xy[near], rng[near], good_u[near]
     # sigma_r ~ d^2 / (h fy): one pixel of row error, propagated to range.
     sigma = rng ** 2 / max(float(t[2]) * fy, 1e-6)
+    # THE INFERRED-FLOOR CAP IS NOT A WALL. inferred_floor_r_max_m ends the
+    # floor_inferred disc at a fixed range FROM THE LASER, and the class above
+    # that edge is `wall`, so every column produces a transition there. Those
+    # points are an artefact of the cap: drop the ones within
+    # RMAX_REJECT_PX pixel-equivalents of it (one pixel is sigma metres).
+    if r_max_m:
+        r_laser = np.hypot(xy[:, 0] - laser_xy[0], xy[:, 1] - laser_xy[1])
+        on_cap = np.abs(r_laser - float(r_max_m)) < RMAX_REJECT_PX * sigma
+        reasons['inferred_floor_cap'] = int(on_cap.sum())
+        xy, sigma, good_u = xy[~on_cap], sigma[~on_cap], good_u[~on_cap]
     _ = depth                      # the foot needs no depth ON the wall
     return xy, sigma, good_u, v, reasons
 
@@ -300,22 +314,29 @@ def side_role(line, cam_range_min=SIDE_MIN_M, cam_range_max=SIDE_MAX_M):
 # Metrics
 # ===========================================================================
 
-def point_residuals(xy, scan_xy, cam):
+def point_residuals(xy, scan_xy, cam, h_m=None, fy=None):
     """Distance from each camera point to the nearest LiDAR return, bucketed.
 
     The segment-level residual needs a segment to exist; this one does not,
     which is what makes it the honest figure when a source barely forms lines.
     """
     out = {b: [] for b in BUCKETS}
+    px = {b: [] for b in BUCKETS}
     if xy.shape[0] == 0 or scan_xy.shape[0] == 0:
-        return out
+        return out, px
     d = np.hypot(scan_xy[None, :, 0] - xy[:, 0:1],
                  scan_xy[None, :, 1] - xy[:, 1:2]).min(axis=1)
     rng = np.hypot(xy[:, 0] - cam.x, xy[:, 1] - cam.y)
+    mpp = metres_per_pixel(rng, h_m, fy) if h_m else np.ones_like(rng)
     for lo, hi in BUCKETS:
         sel = (rng >= lo) & (rng < hi)
         out[(lo, hi)] = d[sel].tolist()
-    return out
+        px[(lo, hi)] = (d[sel] / np.maximum(mpp[sel], 1e-9)).tolist()
+    return out, px
+
+
+def metres_per_pixel(rng, h_m, fy):
+    return rng ** 2 / max(h_m * fy, 1e-6)
 
 
 def range_sensitivity(h_m, fy):
@@ -379,6 +400,50 @@ def score(per_frame, label):
 # Main
 # ===========================================================================
 
+class _Cols:
+    """The StereoColumns fields the evaluator needs, from a camera_info."""
+
+    def __init__(self, ci, frame):
+        self.fx, self.fy = float(ci.k[0]), float(ci.k[4])
+        self.cx, self.cy = float(ci.k[2]), float(ci.k[5])
+        self.camera_frame = frame
+        self.distance_m = np.full(int(ci.width), np.nan)
+
+
+def recorded_frames(src, topic=CLASSES_TOPIC):
+    """[{stamp, classes, columns, depth}] from the RECORDED class mask.
+
+    The foot needs no depth ON the wall -- only the class image, the
+    intrinsics and the static TF -- so a bag that recorded
+    /perception/scene_labels/classes under the live configuration is a better
+    input than one whose mask has to be recomputed from a depth stream the
+    bag may not even carry. stereo_old still comes from the recorded
+    /perception/stereo_columns of the same cycle.
+    """
+    masks = src.get(topic)
+    if not masks:
+        return None, None
+    info = src.get('/zed2/zed_node/depth/camera_info') or src.get('/camera/camera_info')
+    if not info:
+        return None, None
+    ci = cwr.materialize(info[0][2])
+    cols = src.get('/perception/stereo_columns')
+    col_t = np.array([c[0] for c in cols]) if cols else np.zeros(0)
+    out = []
+    for stamp, _r, m in masks:
+        m = cwr.materialize(m)
+        c = _Cols(ci, m.header.frame_id or 'zed2_left_camera_optical_frame')
+        if col_t.size:
+            j = int(np.clip(np.searchsorted(col_t, stamp), 0, col_t.size - 1))
+            rec = cwr.materialize(cols[j][2])
+            if abs(col_t[j] - stamp) < 0.5:
+                c.distance_m = np.asarray(rec.distance_m, dtype=float)
+                c.fx, c.fy, c.cx, c.cy = rec.fx, rec.fy, rec.cx, rec.cy
+                c.camera_frame = rec.camera_frame or c.camera_frame
+        out.append({'stamp': stamp, 'classes': m, 'columns': c, 'depth': None})
+    return out, f'recorded {topic}'
+
+
 def open_bag(bag, attempts=6):
     """Src(bag), skipping topics whose recorded type no longer deserializes.
 
@@ -386,7 +451,11 @@ def open_bag(bag, attempts=6):
     foot needs is in those topics, and refusing the whole bag over one of them
     would be the wrong trade.
     """
-    topics, dropped = list(cwr.TOPICS), set()
+    topics = list(dict.fromkeys(list(cwr.TOPICS) + [CLASSES_TOPIC,
+                                                    '/perception/stereo_columns',
+                                                    '/zed2/zed_node/depth/camera_info',
+                                                    '/camera/camera_info']))
+    dropped = set()
     for _ in range(attempts):
         try:
             return cwr.Src(bag, topics=topics), dropped
@@ -427,22 +496,29 @@ def run(bag, out_dir, t0=None, t1=None, max_range=MAX_RANGE_M, max_frames=None,
     if dropped:
         print('   topics skipped (recorded with an older message definition): '
               + ', '.join(sorted(dropped)))
-    depth_topic = src.pick(cwr.DEPTH_TOPICS)
-    if depth_topic is None:
-        raise SystemExit('this bag has no depth: the wall foot cannot be built')
     to_base = slr.static_tf([m for _s, _r, m in src.get('/tf_static')])
     poses = cwr.Poses(src.get('/odometry/filtered'))
     params = mwt.extraction_params(backend='c')
     laser = to_base('laser')
     laser_pose = (float(laser[1][0]), float(laser[1][1]), 0.0)
 
-    print(f'== {src.name}: depth on {depth_topic}, {len(src.get(depth_topic))} frames')
-    rep = cwr.MaskReplay(src, depth_topic)
-    rows = rep.run()
-    rep.close()
-    cam_frame = rows[0]['columns'].camera_frame if rows else None
+    rows, source = recorded_frames(src)
+    if rows is None:
+        depth_topic = src.pick(cwr.DEPTH_TOPICS)
+        if depth_topic is None:
+            raise SystemExit('no recorded class mask and no depth: nothing to build a foot from')
+        print(f'== {src.name}: no recorded class mask; replaying depth on {depth_topic}')
+        rep = cwr.MaskReplay(src, depth_topic)
+        rows = rep.run()
+        rep.close()
+        source = 'recomputed from depth'
+    print(f'== {src.name}: {len(rows)} mask frames ({source})')
+    cam_frame = rows[0]['columns'].camera_frame
     R, t = to_base(cam_frame)
     cam = camera_pose(R, t)
+    fwd = R @ np.array([0.0, 0.0, 1.0])
+    print(f'   pitch of the optical axis: {math.degrees(math.asin(-fwd[2])):+.3f} deg '
+          f'(nose down positive)')
     print(f'   camera {cam_frame} at ({t[0]:.3f}, {t[1]:.3f}, {t[2]:.3f}) m, '
           f'yaw {math.degrees(cam.theta):.2f} deg')
 
@@ -450,6 +526,8 @@ def run(bag, out_dir, t0=None, t1=None, max_range=MAX_RANGE_M, max_frames=None,
     scan_t = np.array([s[0] for s in scans])
     per_frame, timing, foot_hist = [], {'foot_ms': [], 'scan_ms': [], 'total_ms': []}, []
     point_res = {'foot': {b: [] for b in BUCKETS}, 'stereo': {b: [] for b in BUCKETS}}
+    point_px = {'foot': {b: [] for b in BUCKETS}, 'stereo': {b: [] for b in BUCKETS}}
+    foot_range = []
     accum = []                                 # (stamp, xy) for the time windows
     reasons_tot = {}
 
@@ -467,7 +545,8 @@ def run(bag, out_dir, t0=None, t1=None, max_range=MAX_RANGE_M, max_frames=None,
         classes = np.asarray(classes).reshape(row['classes'].height, row['classes'].width)
         w0 = time.perf_counter()
         xy, sigma, _u, _v, reasons = foot_points(
-            classes, row['depth'], cols.fx, cols.fy, cols.cx, cols.cy, R, t, max_range)
+            classes, row['depth'], cols.fx, cols.fy, cols.cx, cols.cy, R, t, max_range,
+            r_max_m=INFERRED_FLOOR_R_MAX_M, laser_xy=(laser_pose[0], laser_pose[1]))
         t_foot = (time.perf_counter() - w0) * 1e3
         for k, v in reasons.items():
             reasons_tot[k] = reasons_tot.get(k, 0) + v
@@ -517,8 +596,11 @@ def run(bag, out_dir, t0=None, t1=None, max_range=MAX_RANGE_M, max_frames=None,
         scan_xy = np.stack([laser_pose[0] + r[good] * np.cos(ang[good]),
                             laser_pose[1] + r[good] * np.sin(ang[good])], axis=1)
         for key, pts in (('foot', xy), ('stereo', stereo_xy)):
-            for b, vals in point_residuals(pts, scan_xy, cam).items():
-                point_res[key][b].extend(vals)
+            m_res, p_res = point_residuals(pts, scan_xy, cam, float(t[2]), cols.fy)
+            for b in BUCKETS:
+                point_res[key][b].extend(m_res[b])
+                point_px[key][b].extend(p_res[b])
+        foot_range.extend(np.hypot(xy[:, 0] - cam.x, xy[:, 1] - cam.y).tolist())
 
         frame = {'t': round(rel, 3), 'n_foot': int(xy.shape[0]),
                  'n_lidar': len(lidar), 'lidar': lidar,
@@ -549,6 +631,12 @@ def run(bag, out_dir, t0=None, t1=None, max_range=MAX_RANGE_M, max_frames=None,
               'range_sensitivity': range_sensitivity(float(t[2]), float(rows[0]['columns'].fy)),
               'point_residual_m': {k: {f'{lo}-{hi}m': stats(v) for (lo, hi), v in d.items()}
                                    for k, d in point_res.items()},
+              'point_residual_px': {k: {f'{lo}-{hi}m': stats(v) for (lo, hi), v in d.items()}
+                                    for k, d in point_px.items()},
+              'foot_range_histogram': {
+                  f'{e:.2f}-{e + 0.25:.2f}': int(n) for e, n in
+                  zip(np.arange(0, 5.0, 0.25),
+                      np.histogram(foot_range, bins=np.arange(0, 5.25, 0.25))[0]) if n},
               'sources': {}}
     for name in ('foot_0.5s', 'foot_1.0s', 'stereo_old', 'merged'):
         with_radial = score(per_frame, name)
@@ -584,17 +672,31 @@ def write_report(path, r):
           '| range | rows below the horizon | m per pixel |', '|---|---|---|']
     for k, v in r['range_sensitivity'].items():
         L.append(f"| {k} | {v['rows_below_horizon']} | {v['m_per_pixel']} |")
-    L += ['', '## Point residual — nearest LiDAR return to each camera point', '',
-          '| source | 0-1.5 m | 1.5-3 m | 3-5 m |', '|---|---|---|---|']
+    L += ['', '## Point residual [m] — nearest LiDAR return to each camera point', '',
+          '| source | ' + ' | '.join(f'{lo}-{hi} m' for lo, hi in BUCKETS) + ' |',
+          '|' + '---|' * (len(BUCKETS) + 1)]
     for k, d in r['point_residual_m'].items():
         cells = []
-        for b in ('0.0-1.5m', '1.5-3.0m', '3.0-5.0m'):
+        for b in (f'{lo}-{hi}m' for lo, hi in BUCKETS):
             q = d.get(b, {'n': 0})
             cells.append(f"{q['median']}/{q['p90']} (n={q['n']})" if q['n'] else '--')
         L.append(f"| {k} | " + ' | '.join(cells) + ' |')
+    L += ['', '## Point residual in PIXELS (residual / metres-per-pixel at that range)', '',
+          '| source | ' + ' | '.join(f'{lo}-{hi} m' for lo, hi in BUCKETS) + ' |',
+          '|' + '---|' * (len(BUCKETS) + 1)]
+    for k, d in r['point_residual_px'].items():
+        cells = []
+        for lo, hi in BUCKETS:
+            q = d.get(f'{lo}-{hi}m', {'n': 0})
+            cells.append(f"{q['median']}/{q['p90']} (n={q['n']})" if q['n'] else '--')
+        L.append(f'| {k} | ' + ' | '.join(cells) + ' |')
+    L += ['', '## Foot range histogram', '', '| range [m] | points |', '|---|---|']
+    for k, v in r.get('foot_range_histogram', {}).items():
+        L.append(f'| {k} | {v} |')
     L += ['', '## Per source', '']
-    head = ('| source | radial | residual 0-1.5 med/p90 | 1.5-3 med/p90 | 3-5 med/p90 | '
-            'angle med | >20 deg | spurious/frame | left % | right % | kept | dropped |')
+    head = ('| source | radial | '
+            + ' | '.join(f'residual {lo}-{hi} m' for lo, hi in BUCKETS)
+            + ' | angle med | >20 deg | spurious/frame | left % | right % | kept | dropped |')
     L += [head, '|' + '---|' * 12]
     for name, both in r['sources'].items():
         for mode in ('radial_on', 'radial_off'):
@@ -602,9 +704,9 @@ def write_report(path, r):
             def cell(key):
                 d = s[key]
                 return f"{d['median']}/{d['p90']} (n={d['n']})" if d['n'] else '--'
+            cells = ' | '.join(cell(f'residual_{lo}_{hi}m') for lo, hi in BUCKETS)
             L.append(f"| {name} | {'on' if mode == 'radial_on' else 'off'} | "
-                     f"{cell('residual_0.0_1.5m')} | {cell('residual_1.5_3.0m')} | "
-                     f"{cell('residual_3.0_5.0m')} | {s['angle_err_deg']['median']} | "
+                     f"{cells} | {s['angle_err_deg']['median']} | "
                      f"{s['pct_angle_over_20']} % | {s['spurious_per_frame']} | "
                      f"{s['coverage_left_pct']} | {s['coverage_right_pct']} | "
                      f"{s['segments_kept']} | {s['segments_dropped_radial']} |")
