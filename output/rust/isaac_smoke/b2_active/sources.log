@@ -1,0 +1,5 @@
+[sim_isaac 18:58:43] sourced host setup /home/andreas/dev_ws/jc_env.sh
+== ROS env (net local, domain 42, Discovery Server 127.0.0.1:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_bringup/config/sim/dds/local.xml
+cmd: python3 /home/andreas/dev_ws/f1tenth_more_rust/output/rust/isaac_smoke/b1_active/ackermann_sources.py 75
+SOURCES {'safety_stop': {'base_link/proximity_guard': 744, 'base_link/emergency': 936}, 'ackermann_drive': {'': 540, 'base_link/emergency': 711, 'base_link/proximity_guard': 635}}

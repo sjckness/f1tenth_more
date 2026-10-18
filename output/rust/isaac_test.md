@@ -127,23 +127,25 @@ Check:
 
 ### B2: obstacle on the path of a mission
 
+`drive_straight_to_wall_3m.json` is no use here: it stops on `front_clearance < 3.0 m`, and the box
+is 3.0 m ahead, so it ends at once. Use the 2.9 m straight drive into the box instead
+(`tools/rust_parity/isaac/b2_straight_into_box_2p9m.json`: the bumper starts 2.60 m from the box).
+One command does sim + recorder + reset + mission + stop (results in the OUT directory):
+
 ```bash
-scripts/sim/sim_isaac.sh all guard:=shadow impl:=rust --layout obstacle
-# box 3.0 m ahead of base_link at the start
-scripts/sim/sim_isaac.sh run -- python3 tools/sim/e2e_checks.py mission \
-    --mission $(ros2 pkg prefix f1tenth_behavior)/share/f1tenth_behavior/missions/drive_straight_to_wall_3m.json \
-    --timeout 120
+tools/rust_parity/isaac/scenario.sh /tmp/b2_shadow \
+    tools/rust_parity/isaac/b2_straight_into_box_2p9m.json --layout obstacle guard:=shadow impl:=rust
 ```
 
-Check what stops the car (front_clearance / virtual wall stop, MPC, or the emergency lane):
-- if the car stops more than 0.15 m before the box, the guard must stay `clear` (and
-  `min_front_m` must fall as the car approaches); if the BT's IsProximityTooClose trips, the
-  guard must trip on the same scans (recorder `front_disagree` = 0);
-- the guard never stops anything in shadow: `/safety_stop` frame_ids only `base_link/emergency`.
+Expected (2026-10-18): the mission ends ABORTED (timeout) because the BT's IsProximityTooClose
+stops the car in front of the box (after ~2.47 m, MPC avoidance turns it ~75 deg on the way); the
+guard trips on exactly the same scans (`front_disagree` 0); `/safety_stop` only
+`base_link/emergency` in shadow. The same script runs scenario A:
+`tools/rust_parity/isaac/scenario.sh /tmp/a src/f1tenth_behavior/missions/drive_test_straight_2m.json guard:=shadow impl:=rust`.
 
 ### Optional: guard:=active
 
-Only after A and B1 agree. `guard:=active` adds the guard's own zero-speed stops on the
+Only after A and B1 agree (all of this was run on 2026-10-18, section 5). `guard:=active` adds the guard's own zero-speed stops on the
 `safety_stop` lane (frame_id `base_link/proximity_guard`). In B1 both the BT and the guard then
 stop; on `/ackermann_drive` the frame_id says which stop the mux forwarded. Note that in active
 mode the guard also stops while there is no /scan (at start-up until the first scan, and on any
@@ -170,6 +172,10 @@ Raw data: `output/rust/isaac_smoke/`.
 | guard vs BT, e2e rust | 9,965 scans | **0 disagreements**; `stale` 3; tf_fallback 58 scans at start (before /tf_static) |
 | B1, `guard:=shadow` | box 0.10 m from the bumper, after `/sim/reset`, 856 scans | Python front trips 589 = Rust trips 589, **0 disagreements**; BT emergency episode `IsProximityTooClose`; `/safety_stop` 738 x `base_link/emergency`, **0 from the guard** |
 | B1, `guard:=active` | same, 20 s | `/safety_stop`: 583 x `base_link/proximity_guard` + 731 x `base_link/emergency`; `/ackermann_drive` (mux output): 519 guard + 590 BT stops + 14 MPC commands (once the car had crept out of the band) |
+| A, `guard:=active impl:=rust` | 2 m straight, campaign layout | COMPLETE 20.3 s; guard clear on 2,942/2,942 scans, **0 guard stops**; `/ackermann_drive` MPC only |
+| A, `guard:=active impl:=py` | same (tools/rust_parity/isaac/scenario.sh) | COMPLETE 20.3 s; 0 trips, 0 disagreements; **1 guard stop** from one `stale` (sim stall), forwarded once by the mux; no effect on the outcome |
+| B2, `guard:=shadow` | 2.9 m straight into the box | BT e-stop in front of the box (ABORTED by timeout as intended), travel 2.47 m; trips Python 746 = Rust 746, 0 disagreements; `/safety_stop` BT only |
+| B2, `guard:=active` | same | trips 744 = 744, 0 disagreements; `/safety_stop` 744 guard + 936 BT; mux forwarded 635 guard + 711 BT; car stops at the same place as in shadow (x 3.641) |
 | costmap node in Isaac | census | Python 9.0 % / 89 MB, Rust 1.7 % / 38 MB; the Rust node came back after `/reset_all` restarted the slam component |
 | resources | VRAM, RAM, CPU | VRAM max 3.6 of 8.1 GB (Isaac 1.7, YOLO 0.34), RAM max 20.2 of 32 GB, host CPU mean ~50 %: no YOLO change needed |
 
@@ -183,5 +189,3 @@ is in `parity_proximity.md` section 5 (0.63 ms p50 scan -> stop).
   parameters): `proximity_guard_node: {ros__parameters: {scan_timeout_ms: 500.0}}`. Not done and
   not tested: the default is the car's value, and shadow mode is unaffected.
 - In `guard:=active` the guard also stops until the first /scan arrives (~4 s after start).
-- Not tested here: `guard:=active` while driving a mission (only parked, B1); `--layout obstacle`
-  with the 3 m mission (B2).
