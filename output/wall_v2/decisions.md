@@ -201,3 +201,37 @@ measured chain is identity apart from the optical convention" as a statement abo
 stack, when it was a statement about two bags recorded before 2026-10-15. Corrected in
 place, with a pointer to Q1. Scale: 2.083 deg is 9.5 px of foot row, 1.5 m of range at
 3 m, so a pitch-less bag is simply the wrong era to judge the live foot on.
+
+
+## D7. Q2 — the radial gate is kept at 25 deg although it halves right-wall coverage
+
+**Decision.** `camera_seg_min_ray_angle_deg` stays at the specified 25 deg, and the cost
+is reported rather than tuned away.
+
+**The trade, measured twice.** On the camera source itself (Q1): 437 of 536 stereo
+segments dropped, spurious segments per frame 0.932 -> 0.112, residual at 1.5-2.5 m
+unchanged, median angle error halved. In the tracker (Q2): published track instances
+759 -> 689, all 70 of them `right`, and cycles with a right wall 30.5 % -> 15.0 %. Left
+coverage (89.0 %) and the FRONT role (273 cycles) are unchanged, and the WALL / CLEAR /
+NO_DATA contract is byte-identical to the P0 level.
+
+**Why not soften it.** The number was specified, and the geometry behind it is real: a
+corridor wall seen from a car driving along it IS nearly radial, so any threshold that
+keeps those segments keeps the fans too. Choosing a different one is a mission-level
+trade between spurious walls and side-wall coverage, not a detail to settle inside an
+unattended session. The lever is one parameter and 0 disables the test, which is said in
+the key's own description and in the Q2 report.
+
+**What the loss actually was.** Not camera tracks -- every published track on this bag is
+LiDAR-sourced either way. The 70 lost instances were tracks BORN from a stereo segment
+that later picked up LiDAR hits: the LiDAR line alone was shorter than
+`min_span_birth_m`, so it could update a track but not start one. If the right wall
+matters, the cheaper fix may be the birth span, not the radial angle.
+
+## D8. P3.3 was already implemented; it is now pinned instead of rewritten
+
+`Track.has_lidar` / `has_both`, the `both > lidar > stereo` ranking in `_absorb` and the
+rule that "both" needs an informative rectangle were already in the tracker. Rewriting
+them to match the work order's phrasing would have changed working behaviour for no
+reason. Two tests were added instead, one for each half of the rectangle rule, so the
+next reader finds the contract stated rather than implied.

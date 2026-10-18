@@ -38,3 +38,11 @@ Times are local (Europe/Rome), 2026-10-18.
 | 17:40 | Second witness: the moving bag (126 frames, 4.16 m) exercises the accumulation. Best foot residual 0.187 m at 1.5-3 m; coverage 0.8 %/2.4 % against stereo_old's 8.7 %/3.2 %. |
 | 17:50 | The radial filter, measured on stereo_old: 65-76 % of segments dropped, spurious/frame 1.069 -> 0.072 and 0.762 -> 0.119, residuals unchanged or better. The fans are gone. |
 | 17:55 | **GATE NOT PASSED** on both conditions. Stopping before P2, as P1 instructs. |
+| 18:10 | Q0: `camera.launch.py:76` carries pitch -0.03635 rad; both 10-16 corridor bags have it, both archive bags are identity and predate the 2026-10-15 measurement. P1 used the right frames, the P1 report over-generalised. No STOP. Commit c3eec321. |
+| 18:30 | Q1: `/perception/scene_labels/classes` in 144537 is 640x360, live config, 367 frames in the window. wall_foot_eval.py reworked to run off the recorded mask (no depth), reject the inferred-floor cap ring, new buckets, pixel residuals. |
+| 18:55 | Q1 gate: all four conditions fail (3.78 and 2.38 px against 1.0; coverage 0.8/2.2 % against 14.2/5.7 %; spurious 0.643 against 0.112). No P2-foot. Commit 9f4a9353. |
+| 19:05 | Q1 correction: there ARE foot points below 2.5 m (18 575). The 0.75-1.5 m bucket is near-empty because the corridor's walls are 1.54 and 1.68 m away and nothing is closer. |
+| 19:20 | Q2: radial gate + stereo quality gates in the tracker's admission, camera_xy and camera_fresh from the node, 10 stack_params keys, launch wired. |
+| 19:40 | P3: fresh_hist and fresh-cycle confirmation, camera side zone, source word on /viz/walls. Three existing tests encoded the old contract and were updated in the same commit; _spawn had to seed fresh_hist or it never catches up. |
+| 20:00 | 18 new tests in test_camera_gates.py green; suites 1115 tests, 3 failures, all pre-existing f1tenth_bringup lint. |
+| 20:15 | Q2 replay: the contract is byte-identical to the P0 level. Tracks: right-wall coverage 30.5 % -> 15.0 %, left unchanged, FRONT unchanged. Tracker p50 29.09 -> 23.79 ms. Commit 90c1c213. |
