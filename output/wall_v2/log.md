@@ -27,3 +27,14 @@ Times are local (Europe/Rome), 2026-10-18.
 | 15:45 | Workspace-wide search for a bag with depth: 305 `.db3` files under `~/bags` and `~/f1tenth_archive`; 7 have depth, all archive mission bags, best 335 frames (`active/2026-10-14T12-05-34_mission-llm_2b356aac445f`). None is a corridor bag. |
 | 15:50 | **P1 GATE: cannot be evaluated.** See decisions.md D3. Stopping before P2, as P1 instructs. |
 | 16:00 | Main bag replayed before and after the P0 fix as a stationary far-wall probe (`output/wall_v2/main_bag_prefix/`, `main_bag_p0fix/`). |
+| 16:20 | "go on": P1 re-pointed at the depth-bearing archive bags (decisions.md D5). |
+| 16:25 | The RECORDED `/perception/scene_labels` is 160x90 and has **zero wall and zero floor_inferred** pixels in all 483 label frames of all five depth bags. Unusable as the foot's mask. |
+| 16:35 | The RECOMPUTED mask (`MaskReplay`, front_clearance_node over the raw depth) is 640x360 and 45.9 % wall / 34.4 % floor_inferred. P1 is runnable after all. |
+| 16:40 | `tools/wall_foot_eval.py` written: foot per column (vectorised), odom-carried accumulation, virtual scan -> C extraction, stereo_old, merged, radial filter, LiDAR reference, metrics, topdown + mask frames. |
+| 17:05 | Smoke run: the foot forms, but **no foot segment ever matches a LiDAR line**. Diagnosed rather than tuned. |
+| 17:15 | Point-level residual added (nearest LiDAR return per camera point): foot 0.342 m median at 1.5-3 m against stereo's 0.067 m. |
+| 17:25 | Cause 1 found: the foot range histogram spikes at 2.75-3.25 m (39 % of points) and is EMPTY between 0.75 and 2.50 m -- it is tracing the inferred-floor disc edge (`inferred_floor_r_max_m` 3.0), not a wall base. Confirmed visually in `camera_00.png`. |
+| 17:30 | Cause 2 quantified: h = 0.2200 m, fy = 262.44 px, so at 3 m the foot is 19.2 rows below the horizon and one pixel is 15.6 cm. The gate's 10 cm median is below one pixel at the top of its own bucket. |
+| 17:40 | Second witness: the moving bag (126 frames, 4.16 m) exercises the accumulation. Best foot residual 0.187 m at 1.5-3 m; coverage 0.8 %/2.4 % against stereo_old's 8.7 %/3.2 %. |
+| 17:50 | The radial filter, measured on stereo_old: 65-76 % of segments dropped, spurious/frame 1.069 -> 0.072 and 0.762 -> 0.119, residuals unchanged or better. The fans are gone. |
+| 17:55 | **GATE NOT PASSED** on both conditions. Stopping before P2, as P1 instructs. |

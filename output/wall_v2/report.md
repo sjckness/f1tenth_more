@@ -31,14 +31,28 @@
    tool's strip truth has no return — it cannot stop the car early.
 8. **Timing:** tracker p50 28.68 → 29.09 ms, p95 38.93 → 39.93 ms. Budget +3 ms, used
    +0.4 / +1.0 ms.
-9. **P1 GATE: cannot be evaluated → stopped before P2.** No bag has the depth and masks
-   the wall foot needs (main bag: 0 depth frames, 5 mask frames; 144537: 0 and 0).
-10. P2, P3 and P4 are consequently not done. The regression replay that P4 defers to
+9. **P1 GATE: NOT PASSED, on the measurement.** Run on the two archive bags that do
+   carry depth (335 frames stationary, 126 frames with 4.16 m of motion), with the mask
+   RECOMPUTED from raw depth because the recorded label stream has zero wall pixels.
+   Best foot residual at 1.5-3 m is **0.187 m** against a 0.10 m gate (point-level
+   0.25-0.34 m); the foot also loses the spurious-segment test on one of the two bags.
+   Two structural causes, not tuning: the mask's `wall` class is "not floor and not
+   ceiling" so the foot traces the inferred-floor horizon at 3.0 m (39 % of points in
+   2.75-3.25 m, **nothing at all between 0.75 and 2.50 m**), and at h = 0.22 m one pixel
+   is 15.6 cm of range at 3 m, so the gate is sub-pixel at the top of its own bucket.
+   Full write-up: `output/wall_v2/p1/report.md`.
+10. **The radial filter is a win on its own**, on the source already in the stack:
+    applied to `stereo_old` it drops 65-76 % of segments and cuts spurious segments per
+    frame from 1.069 to 0.072 and from 0.762 to 0.119, residuals unchanged or better.
+    The 45 deg fans disappear. It needs no foot — but it is a P2 change, and the gate
+    says stop, so it is not made here.
+11. P2, P3 and P4 are consequently not done. The regression replay that P4 defers to
     "if time allows" was folded into P0 and is in the tables below.
-11. Open points: (a) which bag P1 should use — 7 archive bags have depth, none is a
-    corridor run; (b) the 18.9 m episode, i.e. whether FRONT should have a range cap;
-    (c) `/sensors/core.distance_traveled` counts up 9807 ticks on a bag where ERPM is 0
-    throughout — one of the two is lying.
+12. Open points: (a) the foot needs a real `wall` class, an inferred floor that reaches
+    past 3 m, and a measured camera pitch (or a higher mount: h = 0.5 m would put the
+    gate within reach) before it is worth revisiting; (b) the 18.9 m episode, i.e.
+    whether FRONT should have a range cap; (c) `/sensors/core.distance_traveled` counts
+    up 9807 ticks on a bag where ERPM is 0 throughout — one of the two is lying.
 
 ## The bisect
 
@@ -132,13 +146,13 @@ agreement stays low and are not a disagreement about the wall.
 | HEAD | 28.68 ms | 38.93 ms | 52.94 ms |
 | P0 fix | 29.09 ms | 39.93 ms | 53.28 ms |
 
-## P1 — not evaluated
+## P1 — evaluated on the archive depth bags; gate NOT passed
 
-The gate could not be reached: no bag has depth frames or a usable mask stream
-(decisions.md D3 has the per-topic table and the workspace-wide search — 305 `.db3`
-files, 7 with depth, all archive mission runs, best 335 frames). No
-`tools/wall_foot_eval.py` was written rather than write several hundred unrunnable
-lines and gate P2/P3 on them. Stopped here, as P1 instructs.
+`tools/wall_foot_eval.py` written and run on the two bags that carry depth. Both gate
+conditions fail, for reasons that are structural rather than tunable. The whole report,
+with the range histogram, the per-pixel sensitivity table and the radial-filter
+measurement, is in **`output/wall_v2/p1/report.md`**; the decision to re-point P1 at
+those bags is D5 in `decisions.md`. Stopped before P2, as P1 instructs.
 
 ## Artefacts
 
@@ -157,5 +171,7 @@ and no mask frames.
 | hash | point |
 |---|---|
 | `6cbda121` | P0 — the range-aware confidence model, 3 params, 14 tests |
+| `6080fe0f` | P1 (first pass) — the blocker report and the P0 evidence base |
+| this one | P1 — `tools/wall_foot_eval.py`, both runs, the verdict |
 
 Tag `backup/pre-wall-v2-0c1cd417` marks the state before this session. Nothing pushed.

@@ -133,3 +133,39 @@ state, no checkout, nothing to clean up — and it keeps `tools/` pinned at the 
 for every point, which the order requires and which a worktree would not give (the tool
 itself changed in `0abfd92`). Only `src/f1tenth_perception` differs between points, and
 only `9786bfc` and `d578963` touch it.
+
+## D5. P1 re-pointed at the archive depth bags, and the gate then failed on merit
+
+**Decision.** On "go on", P1 was run on the two archive bags that carry depth —
+`active/2026-10-14T12-05-34_mission-llm_2b356aac445f` (335 depth frames, stationary)
+and `active/2026-10-15T11-18-01_mission-llm_86cff518e42d` (126 frames, 4.16 m of
+motion) — rather than left blocked. `tools/wall_foot_eval.py` was written and the gate
+was evaluated. **It fails, on the measurement, not on missing data.**
+
+**Why this is a fair test and not a fudge.** D3 stopped because no bag had the inputs.
+Two things changed that: the recorded label stream is not the only mask available, and
+the recomputed one (what P2 would run live) is rich — 45.9 % wall, 34.4 % floor_inferred
+at full 640x360. With a real mask, a real depth stream, a LiDAR reference in the same
+frames and both a stationary and a moving bag, the question P1 asks is answerable. It is
+a different scene from the P0 baseline, so **none of these numbers feed P4's comparison**
+and none of them revise anything in the P0 report.
+
+**The alternative rejected.** Tuning the foot until it passed. Three things were wrong
+with the foot and only one is a parameter: the mask's `wall` class is "not floor and not
+ceiling" rather than a wall surface; the inferred floor is capped at 3.0 m so the
+transition found is its own horizon; and at h = 0.22 m one pixel is 15.6 cm of range at
+3 m, so the gate's 10 cm median is sub-pixel at the top of its own bucket. The first and
+third are not tunable from here, and tuning past them would have produced a number
+rather than an answer.
+
+**What came out of it anyway.** The radial-segment filter, which P1 specifies for every
+camera source, is a clear win on the source already in the stack: applied to
+`stereo_old` it drops 65-76 % of segments, cuts spurious segments per frame by 6x to
+15x, and leaves the residuals unchanged or better. The 45 deg fans do disappear. That
+is a P2-sized change with its evidence already measured, and it does not depend on the
+foot at all — but it is still a P2 change, and P1's gate says to stop, so it is not
+made here.
+
+**Consequence.** P2, P3 and P4 remain not done, now for a measured reason rather than an
+absent one. The three things that would make the foot worth revisiting are listed at the
+end of `output/wall_v2/p1/report.md`.
