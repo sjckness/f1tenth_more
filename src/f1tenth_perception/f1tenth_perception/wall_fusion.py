@@ -291,8 +291,18 @@ class Observation:
                 f'conf={self.confidence:.2f} z={self.z_min:.2f}..{self.z_max:.2f}>')
 
 
+# Confidence, range scaling (see `confidence`). The references hold at
+# CONF_RANGE_REF_M and are stretched beyond it; SYNTHETIC, chosen from the
+# per-range table in output/wall_v2/report.md and not from a calibration.
+CONF_RANGE_REF_M = 5.0
+CONF_MIN_INLIER_REF = 8.0
+CONF_MAX_RMS_SCALE = 6.0
+
+
 def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.03,
-               stereo_weight=1.0, rect_support=None):
+               stereo_weight=1.0, rect_support=None, range_m=None,
+               range_ref_m=CONF_RANGE_REF_M, min_inlier_ref=CONF_MIN_INLIER_REF,
+               max_rms_scale=CONF_MAX_RMS_SCALE):
     """Confidence [0, 1] of an observation. The model, in one place:
 
       * evidence     how much the LiDAR actually saw, saturating at inlier_ref
@@ -315,12 +325,33 @@ def confidence(source, inliers, rms, n_agree, n_span, inlier_ref=40, rms_ref=0.0
     SOURCE_STEREO is capped below the others on purpose: a stereo-only wall is
     the one case where nothing cross-checks it, and on this building's floor
     the stereo invents whole surfaces (the reflections below z = 0).
+
+    RANGE (`range_m`, 2026-10-18). inlier_ref and rms_ref are absolute and
+    neither quantity is. A planar LiDAR's returns on a surface thin out as
+    1 / range -- the far wall of this corridor is fitted from 14 returns where
+    a side wall 1 m away gives 40 -- and its range noise grows with range, so
+    the same real wall scores 0.65 at 1 m and 0.23 at 21 m. The gate that
+    reads this (multi_wall_tracker.front_min_confidence 0.5) then refuses
+    every wall past ~12 m: measured on corridor10m_20261016T144537, 71 % of
+    observations inside 1.5 m reach 0.5 and 0 % of those past 18 m do, with
+    the 12-18 m band's rms the BEST in the bag (0.016). Both references are
+    therefore scaled by range / range_ref_m: fewer returns expected far away, a
+    looser fit tolerated (capped at max_rms_scale). A line with fewer than
+    min_inlier_ref returns gets NO scaling at all: the stretched rms_ref
+    would otherwise let a three-return sliver at 60 m score as a tight fit,
+    so distance alone can never buy a wall. Nothing changes inside
+    range_ref_m, which is where a phantom built from near faces lives.
     """
     if source == SOURCE_STEREO:
         base = 0.35
         corro = 1.0
     else:
-        evidence = min(1.0, float(inliers) / max(1, inlier_ref))
+        if (range_m is not None and math.isfinite(float(range_m))
+                and range_ref_m > 0.0 and float(inliers) >= float(min_inlier_ref)):
+            k = max(1.0, float(range_m) / float(range_ref_m))
+            inlier_ref = max(float(min_inlier_ref), float(inlier_ref) / k)
+            rms_ref = float(rms_ref) * min(float(max_rms_scale), k)
+        evidence = min(1.0, float(inliers) / max(1.0, float(inlier_ref)))
         tightness = 1.0 / (1.0 + max(0.0, float(rms)) / max(1e-6, rms_ref))
         base = 0.5 * evidence + 0.5 * tightness
         # An old profile's opinion is pulled toward the neutral 0.5 it gets
@@ -376,7 +407,9 @@ def _height_from_columns(z_min, z_max, col_begin, col_end, default_height):
 def observations_from_lines(lines, check, project, width, z_min, z_max,
                             default_height=2.5, disagree_reject_frac=0.5,
                             min_span_columns=8, inlier_ref=40, rms_ref=0.03,
-                            stereo_weight=1.0):
+                            stereo_weight=1.0, conf_range_ref_m=CONF_RANGE_REF_M,
+                            conf_min_inlier_ref=CONF_MIN_INLIER_REF,
+                            conf_max_rms_scale=CONF_MAX_RMS_SCALE):
     """LiDAR lines + the column cross-check -> [Observation], and the rejects.
 
     The emit rule, per the wall's own columns:
@@ -416,7 +449,10 @@ def observations_from_lines(lines, check, project, width, z_min, z_max,
         out.append(Observation(
             line, lo, hi, measured, source,
             confidence(source, line.inliers, line.rms, n_agree, n_opinion,
-                       inlier_ref=inlier_ref, rms_ref=rms_ref, stereo_weight=w),
+                       inlier_ref=inlier_ref, rms_ref=rms_ref, stereo_weight=w,
+                       range_m=abs(float(line.d)), range_ref_m=conf_range_ref_m,
+                       min_inlier_ref=conf_min_inlier_ref,
+                       max_rms_scale=conf_max_rms_scale),
             col_begin=c0, col_end=c1,
             counts={'agree': n_agree, 'lidar_only': n_lidar,
                     'stereo_only': n_stereo, 'disagree': n_dis},

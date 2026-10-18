@@ -604,6 +604,15 @@ class LidarFrontWallNode(Node):
         # /perception/virtual_wall only on a NEW estimate, at most ~this rate
         # (stack_params lidar_front_wall_virtual_wall_rate_hz; see
         # _virtual_due). Was every scan, 3 in 4 repeating the tracker verdict.
+        # The confidence model's range scaling (wall_fusion.confidence, RANGE):
+        # what the far front wall needs so front_min_confidence stops refusing
+        # it. Nothing changes inside conf_range_ref_m.
+        self.conf_range_ref_m = float(param('wall_conf_range_ref_m',
+                                            wall_fusion.CONF_RANGE_REF_M))
+        self.conf_min_inlier_ref = float(param('wall_conf_min_inlier_ref',
+                                               wall_fusion.CONF_MIN_INLIER_REF))
+        self.conf_max_rms_scale = float(param('wall_conf_max_rms_scale',
+                                              wall_fusion.CONF_MAX_RMS_SCALE))
         self.virtual_wall_rate_hz = float(param('virtual_wall_rate_hz', 10.0))
         self._last_virtual_pub = None
         self._tracker_ran = False
@@ -910,7 +919,11 @@ class LidarFrontWallNode(Node):
             observations = [wall_fusion.Observation(
                 line, 0.0, self.wall_default_height, False, wall_fusion.SOURCE_LIDAR,
                 wall_fusion.confidence(wall_fusion.SOURCE_LIDAR, line.inliers,
-                                       line.rms, 0, 0))
+                                       line.rms, 0, 0,
+                                       range_m=abs(float(line.d)),
+                                       range_ref_m=self.conf_range_ref_m,
+                                       min_inlier_ref=self.conf_min_inlier_ref,
+                                       max_rms_scale=self.conf_max_rms_scale))
                 for line in lines]
             self.observations_pub.publish(_observation_array(
                 stamp, self.base_frame, observations, 0, 0))
@@ -958,7 +971,10 @@ class LidarFrontWallNode(Node):
             lines, check, project_from_scan, width, z_lo, z_hi,
             default_height=self.wall_default_height,
             disagree_reject_frac=self.obs_disagree_reject_frac,
-            stereo_weight=self._stereo_weight)
+            stereo_weight=self._stereo_weight,
+            conf_range_ref_m=self.conf_range_ref_m,
+            conf_min_inlier_ref=self.conf_min_inlier_ref,
+            conf_max_rms_scale=self.conf_max_rms_scale)
         observations += wall_fusion.stereo_only_observations(
             check, self._cloud_columns(project), width,
             min_span_columns=self.obs_stereo_min_columns,

@@ -138,6 +138,10 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_assoc_max_gap_m', float),
     ('wall_extent_decay_sec', float),
     ('wall_tracker_front_max_coast_m', float),
+    # The confidence model's range scaling (wall_fusion.confidence, RANGE).
+    ('wall_conf_range_ref_m', float),
+    ('wall_conf_min_inlier_ref', float),
+    ('wall_conf_max_rms_scale', float),
 ]
 
 
