@@ -1,0 +1,24 @@
+[INFO] [1792325616.113358524] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall
+[INFO] [1792325616.127616098] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792325616.137007145] [lidar_front_wall_node]: wall tracker: no /odometry/filtered pose at the scan stamp; skipped
+[INFO] [1792325616.138283216] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792325621.287520995] [lidar_front_wall_node]: wall tracker: 271 scans, per-scan ms p50 10.19 p95 13.02 max 276.34
+[INFO] [1792325627.265166186] [lidar_front_wall_node]: wall tracker: 269 scans, per-scan ms p50 12.23 p95 14.50 max 17.60
+[INFO] [1792325633.495797229] [lidar_front_wall_node]: wall tracker: 259 scans, per-scan ms p50 12.81 p95 15.67 max 17.92
+[INFO] [1792325635.963710741] [lidar_front_wall_node]: wall tracker: 143 scans, per-scan ms p50 9.01 p95 11.04 max 12.35
+[INFO] [1792325640.244542214] [lidar_front_wall_node]: wall tracker: 233 scans, per-scan ms p50 10.00 p95 12.04 max 13.12
+[INFO] [1792325644.333851720] [lidar_front_wall_node]: wall tracker: 185 scans, per-scan ms p50 11.38 p95 13.66 max 15.08
+[INFO] [1792325646.616043054] [lidar_front_wall_node]: wall tracker: 126 scans, per-scan ms p50 8.81 p95 10.48 max 11.13
+[INFO] [1792325648.548029113] [lidar_front_wall_node]: wall tracker: 110 scans, per-scan ms p50 8.59 p95 10.94 max 11.78
+[INFO] [1792325649.388001225] [lidar_front_wall_node]: wall tracker: 51 scans, per-scan ms p50 7.84 p95 9.60 max 10.07
+== corridor10m_20261016T170931: 336381 messages on 159 topics in 1 file(s)
+   MISSING REQUIRED: /perception/stereo_columns
+   no depth in this bag: the camera half is not replayed
+   tracker steps: 1770 of 7175 recorded debug payloads (--tracker-steps car; record format per_scan, car decimation 4), 109 without their scan
+   PHASE: 177 car tracker steps missing from the record (their payload was not recorded: the replay cannot make them), 379 breaks in the tracker_skipped sequence
+   191 step-to-step gaps over 1.5x the median 0.120 s (dropped or unpublished steps)
+   warm-up: replay cold from the first step at t = -0.10 s; 0.00 s (0 steps) before the span starts at t = -0.10 s
+   the CAR's oldest track at its first /perception/walls (t = 0.83 s) was 72.8 s old: a head start no replay has
+   lidar replay "rec": 1661 cycles
+   rectangle check fed the None class mask + depth pair (one source only)
+   wrote output/wall_v2/main_bag_prefix/corridor10m_20261016T170931.*

@@ -1,0 +1,181 @@
+[INFO] [1792325673.357511395] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall
+[INFO] [1792325673.371781261] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792325673.381158998] [lidar_front_wall_node]: wall tracker: no /odometry/filtered pose at the scan stamp; skipped
+[INFO] [1792325673.382456509] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792325678.506911057] [lidar_front_wall_node]: wall tracker: 271 scans, per-scan ms p50 10.15 p95 12.81 max 261.72
+[INFO] [1792325679.727450977] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.39581469998869)
+[INFO] [1792325680.047808413] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.395329379179394)
+[INFO] [1792325680.177310593] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38932937446146)
+[INFO] [1792325680.375251471] [lidar_front_wall_node]: wall acquired at 19.619 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792325680.581904436] [lidar_front_wall_node]: wall acquired at 19.656 m after dead_reckoned (19.619 m): jump +0.037 m, 0.95 s since the last accepted fit
+[INFO] [1792325680.657834124] [lidar_front_wall_node]: wall acquired at 19.669 m after dead_reckoned (19.656 m): jump +0.013 m, 0.35 s since the last accepted fit
+[INFO] [1792325680.901002090] [lidar_front_wall_node]: wall acquired at 19.692 m after dead_reckoned (19.669 m): jump +0.023 m, 1.13 s since the last accepted fit
+[INFO] [1792325680.976789573] [lidar_front_wall_node]: wall acquired at 19.671 m after dead_reckoned (19.692 m): jump -0.021 m, 0.35 s since the last accepted fit
+[INFO] [1792325681.005615219] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38433064198667)
+[INFO] [1792325681.065666753] [lidar_front_wall_node]: wall acquired at 19.681 m after dead_reckoned (19.671 m): jump +0.010 m, 0.35 s since the last accepted fit
+[INFO] [1792325681.166279000] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.392000579833976)
+[INFO] [1792325681.315156099] [lidar_front_wall_node]: wall acquired at 19.688 m after dead_reckoned (19.679 m): jump +0.009 m, 1.08 s since the last accepted fit
+[INFO] [1792325681.445087072] [lidar_front_wall_node]: wall acquired at 19.680 m after dead_reckoned (19.685 m): jump -0.005 m, 0.50 s since the last accepted fit
+[INFO] [1792325681.578717492] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.386257502382584)
+[INFO] [1792325681.652195036] [lidar_front_wall_node]: wall acquired at 19.697 m after dead_reckoned (19.691 m): jump +0.006 m, 0.85 s since the last accepted fit
+[INFO] [1792325681.700904103] [lidar_front_wall_node]: wall acquired at 19.676 m after dead_reckoned (19.697 m): jump -0.021 m, 0.22 s since the last accepted fit
+[INFO] [1792325681.801786074] [lidar_front_wall_node]: wall acquired at 19.714 m after dead_reckoned (19.676 m): jump +0.038 m, 0.45 s since the last accepted fit
+[INFO] [1792325681.847771098] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.399257495642335)
+[INFO] [1792325682.039863003] [lidar_front_wall_node]: wall acquired at 19.695 m after dead_reckoned (19.699 m): jump -0.004 m, 0.93 s since the last accepted fit
+[INFO] [1792325682.111639141] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.396257350484237)
+[INFO] [1792325682.195933210] [lidar_front_wall_node]: wall acquired at 19.707 m after dead_reckoned (19.690 m): jump +0.017 m, 0.47 s since the last accepted fit
+[INFO] [1792325682.344401678] [lidar_front_wall_node]: wall acquired at 19.704 m after dead_reckoned (19.707 m): jump -0.002 m, 0.58 s since the last accepted fit
+[INFO] [1792325682.435630717] [lidar_front_wall_node]: wall acquired at 19.698 m after dead_reckoned (19.704 m): jump -0.007 m, 0.37 s since the last accepted fit
+[INFO] [1792325682.512155210] [lidar_front_wall_node]: wall acquired at 19.666 m after dead_reckoned (19.698 m): jump -0.032 m, 0.36 s since the last accepted fit
+[INFO] [1792325682.532395872] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.381330639627702)
+[INFO] [1792325682.581246024] [lidar_front_wall_node]: wall acquired at 19.680 m after dead_reckoned (19.666 m): jump +0.015 m, 0.32 s since the last accepted fit
+[INFO] [1792325682.641738317] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.37033190243498)
+[INFO] [1792325682.852596258] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38932937446146)
+[INFO] [1792325682.907781647] [lidar_front_wall_node]: wall acquired at 19.668 m after dead_reckoned (19.680 m): jump -0.012 m, 1.58 s since the last accepted fit
+[INFO] [1792325682.948198299] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38633127928772)
+[INFO] [1792325683.283792978] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38633127928772)
+[INFO] [1792325683.399356423] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38033127456979)
+[INFO] [1792325683.564982669] [lidar_front_wall_node]: wall acquired at 19.652 m after none (nan m): jump +nan m, 3.15 s since the last accepted fit
+[INFO] [1792325683.586411628] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38633127928772)
+[INFO] [1792325683.635958087] [lidar_front_wall_node]: wall acquired at 19.665 m after dead_reckoned (19.652 m): jump +0.014 m, 0.35 s since the last accepted fit
+[INFO] [1792325683.677391904] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.383331276928757)
+[INFO] [1792325683.753955533] [lidar_front_wall_node]: wall acquired at 19.664 m after dead_reckoned (19.665 m): jump -0.001 m, 0.53 s since the last accepted fit
+[INFO] [1792325683.823567041] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38033127456979)
+[INFO] [1792325683.959197103] [lidar_front_wall_node]: wall acquired at 19.667 m after dead_reckoned (19.664 m): jump +0.003 m, 0.95 s since the last accepted fit
+[INFO] [1792325683.980679372] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.388258234913316)
+[INFO] [1792325684.078232993] [lidar_front_wall_node]: wall acquired at 19.677 m after dead_reckoned (19.667 m): jump +0.010 m, 0.55 s since the last accepted fit
+[INFO] [1792325684.199569158] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38833000940355)
+[INFO] [1792325684.485117773] [lidar_front_wall_node]: wall acquired at 19.674 m after dead_reckoned (19.677 m): jump -0.003 m, 1.93 s since the last accepted fit
+[INFO] [1792325684.550313015] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.387330644345635)
+[INFO] [1792325684.675583248] [lidar_front_wall_node]: wall acquired at 19.631 m after dead_reckoned (19.674 m): jump -0.042 m, 0.89 s since the last accepted fit
+[INFO] [1792325684.770775026] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38225794459712)
+[INFO] [1792325684.815867748] [lidar_front_wall_node]: wall acquired at 19.671 m after dead_reckoned (19.631 m): jump +0.040 m, 0.66 s since the last accepted fit
+[INFO] [1792325684.832144999] [lidar_front_wall_node]: wall tracker: 269 scans, per-scan ms p50 12.65 p95 15.20 max 19.01
+[INFO] [1792325684.959964077] [lidar_front_wall_node]: wall acquired at 19.670 m after dead_reckoned (19.671 m): jump -0.002 m, 0.70 s since the last accepted fit
+[INFO] [1792325685.052188969] [lidar_front_wall_node]: wall acquired at 19.695 m after dead_reckoned (19.670 m): jump +0.026 m, 0.42 s since the last accepted fit
+[INFO] [1792325685.228442594] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.391330011762513)
+[INFO] [1792325685.405920802] [lidar_front_wall_node]: wall acquired at 19.657 m after dead_reckoned (19.695 m): jump -0.038 m, 1.75 s since the last accepted fit
+[INFO] [1792325685.530098352] [lidar_front_wall_node]: wall acquired at 19.672 m after dead_reckoned (19.647 m): jump +0.025 m, 0.45 s since the last accepted fit
+[INFO] [1792325685.605995914] [lidar_front_wall_node]: wall acquired at 19.657 m after dead_reckoned (19.672 m): jump -0.015 m, 0.35 s since the last accepted fit
+[INFO] [1792325685.648039768] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38633127928772)
+[INFO] [1792325685.703451425] [lidar_front_wall_node]: wall acquired at 19.685 m after dead_reckoned (19.657 m): jump +0.028 m, 0.48 s since the last accepted fit
+[INFO] [1792325685.770361386] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.37833063726874)
+[INFO] [1792325685.870863557] [lidar_front_wall_node]: wall acquired at 19.692 m after dead_reckoned (19.685 m): jump +0.008 m, 0.80 s since the last accepted fit
+[INFO] [1792325685.917936080] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38932937446146)
+[INFO] [1792325685.946513636] [lidar_front_wall_node]: wall acquired at 19.675 m after dead_reckoned (19.692 m): jump -0.017 m, 0.33 s since the last accepted fit
+[INFO] [1792325685.996640884] [lidar_front_wall_node]: wall acquired at 19.689 m after dead_reckoned (19.675 m): jump +0.014 m, 0.22 s since the last accepted fit
+[INFO] [1792325686.155723675] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.385330007044583)
+[INFO] [1792325686.290547770] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.39781358232757)
+[INFO] [1792325686.342747778] [lidar_front_wall_node]: wall acquired at 19.699 m after dead_reckoned (19.689 m): jump +0.010 m, 1.68 s since the last accepted fit
+[INFO] [1792325686.388030289] [lidar_front_wall_node]: wall acquired at 19.667 m after dead_reckoned (19.699 m): jump -0.032 m, 0.20 s since the last accepted fit
+[INFO] [1792325686.458246138] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.39433001412148)
+[INFO] [1792325686.529191060] [lidar_front_wall_node]: wall acquired at 19.672 m after dead_reckoned (19.667 m): jump +0.005 m, 0.67 s since the last accepted fit
+[INFO] [1792325686.620459812] [lidar_front_wall_node]: wall acquired at 19.679 m after dead_reckoned (19.678 m): jump +0.001 m, 0.32 s since the last accepted fit
+[INFO] [1792325686.667893512] [lidar_front_wall_node]: wall acquired at 19.677 m after dead_reckoned (19.679 m): jump -0.002 m, 0.23 s since the last accepted fit
+[INFO] [1792325686.769713770] [lidar_front_wall_node]: wall acquired at 19.681 m after dead_reckoned (19.682 m): jump -0.001 m, 0.33 s since the last accepted fit
+[INFO] [1792325686.791244999] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38033127456979)
+[INFO] [1792325686.827095629] [lidar_front_wall_node]: wall acquired at 19.681 m after dead_reckoned (19.681 m): jump -0.001 m, 0.20 s since the last accepted fit
+[INFO] [1792325686.880858486] [lidar_front_wall_node]: wall acquired at 19.689 m after dead_reckoned (19.681 m): jump +0.008 m, 0.25 s since the last accepted fit
+[INFO] [1792325686.906137898] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38833000940355)
+[INFO] [1792325686.939789467] [lidar_front_wall_node]: wall acquired at 19.694 m after dead_reckoned (19.689 m): jump +0.006 m, 0.25 s since the last accepted fit
+[INFO] [1792325687.105954553] [lidar_front_wall_node]: wall acquired at 19.679 m after dead_reckoned (19.704 m): jump -0.026 m, 0.33 s since the last accepted fit
+[INFO] [1792325687.153094659] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.390257060168043)
+[INFO] [1792325687.188956777] [lidar_front_wall_node]: wall acquired at 19.685 m after dead_reckoned (19.689 m): jump -0.004 m, 0.23 s since the last accepted fit
+[INFO] [1792325687.298227354] [lidar_front_wall_node]: wall acquired at 19.699 m after dead_reckoned (19.698 m): jump +0.001 m, 0.35 s since the last accepted fit
+[INFO] [1792325687.320936448] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.37633190715291)
+[INFO] [1792325687.403987312] [lidar_front_wall_node]: wall acquired at 19.667 m after dead_reckoned (19.699 m): jump -0.032 m, 0.48 s since the last accepted fit
+[INFO] [1792325687.619829862] [lidar_front_wall_node]: wall acquired at 19.701 m after dead_reckoned (19.700 m): jump +0.001 m, 0.25 s since the last accepted fit
+[INFO] [1792325687.679576508] [lidar_front_wall_node]: wall acquired at 19.713 m after dead_reckoned (19.701 m): jump +0.013 m, 0.25 s since the last accepted fit
+[INFO] [1792325687.765512243] [lidar_front_wall_node]: wall acquired at 19.718 m after dead_reckoned (19.713 m): jump +0.005 m, 0.38 s since the last accepted fit
+[INFO] [1792325687.819417562] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38225794459712)
+[INFO] [1792325687.885991274] [lidar_front_wall_node]: wall acquired at 19.704 m after dead_reckoned (19.697 m): jump +0.007 m, 0.35 s since the last accepted fit
+[INFO] [1792325688.000365240] [lidar_front_wall_node]: wall acquired at 19.708 m after dead_reckoned (19.713 m): jump -0.005 m, 0.35 s since the last accepted fit
+[INFO] [1792325688.095383998] [lidar_front_wall_node]: wall acquired at 19.699 m after dead_reckoned (19.704 m): jump -0.004 m, 0.25 s since the last accepted fit
+[INFO] [1792325688.176938379] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.387330644345635)
+[INFO] [1792325688.211739910] [lidar_front_wall_node]: wall acquired at 19.710 m after dead_reckoned (19.705 m): jump +0.005 m, 0.38 s since the last accepted fit
+[INFO] [1792325688.293532206] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.383331276928757)
+[INFO] [1792325688.380160376] [lidar_front_wall_node]: wall acquired at 19.691 m after dead_reckoned (19.699 m): jump -0.009 m, 0.47 s since the last accepted fit
+[INFO] [1792325688.449514611] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.381330639627702)
+[INFO] [1792325688.503000546] [lidar_front_wall_node]: wall acquired at 19.694 m after dead_reckoned (19.692 m): jump +0.002 m, 0.45 s since the last accepted fit
+[INFO] [1792325688.578167883] [lidar_front_wall_node]: wall acquired at 19.720 m after dead_reckoned (19.694 m): jump +0.026 m, 0.33 s since the last accepted fit
+[INFO] [1792325688.757383563] [lidar_front_wall_node]: wall acquired at 19.727 m after dead_reckoned (19.730 m): jump -0.003 m, 0.22 s since the last accepted fit
+[INFO] [1792325688.780174832] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.39433001412148)
+[INFO] [1792325688.894653212] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38925764754068)
+[INFO] [1792325688.928876514] [lidar_front_wall_node]: wall acquired at 19.707 m after dead_reckoned (19.727 m): jump -0.019 m, 0.73 s since the last accepted fit
+[INFO] [1792325689.016658422] [lidar_front_wall_node]: wall acquired at 19.724 m after dead_reckoned (19.707 m): jump +0.016 m, 0.35 s since the last accepted fit
+[INFO] [1792325689.073763391] [lidar_front_wall_node]: wall acquired at 19.715 m after dead_reckoned (19.724 m): jump -0.008 m, 0.25 s since the last accepted fit
+[INFO] [1792325689.155575463] [lidar_front_wall_node]: wall acquired at 19.705 m after dead_reckoned (19.715 m): jump -0.011 m, 0.35 s since the last accepted fit
+[INFO] [1792325689.212935723] [lidar_front_wall_node]: wall acquired at 19.730 m after dead_reckoned (19.705 m): jump +0.025 m, 0.25 s since the last accepted fit
+[INFO] [1792325689.289912689] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.379331909511876)
+[INFO] [1792325689.320858999] [lidar_front_wall_node]: wall acquired at 19.707 m after dead_reckoned (19.693 m): jump +0.013 m, 0.25 s since the last accepted fit
+[INFO] [1792325689.414693461] [lidar_front_wall_node]: wall acquired at 19.708 m after dead_reckoned (19.730 m): jump -0.022 m, 0.22 s since the last accepted fit
+[INFO] [1792325689.680510689] [lidar_front_wall_node]: wall acquired at 19.724 m after dead_reckoned (19.719 m): jump +0.005 m, 0.23 s since the last accepted fit
+[INFO] [1792325689.722902312] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.388258234913316)
+[INFO] [1792325689.756800276] [lidar_front_wall_node]: wall acquired at 19.709 m after dead_reckoned (19.724 m): jump -0.015 m, 0.35 s since the last accepted fit
+[INFO] [1792325689.808011088] [lidar_front_wall_node]: wall acquired at 19.691 m after dead_reckoned (19.709 m): jump -0.019 m, 0.22 s since the last accepted fit
+[INFO] [1792325689.873765361] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.39632874423731)
+[INFO] [1792325689.945389215] [lidar_front_wall_node]: wall acquired at 19.698 m after dead_reckoned (19.691 m): jump +0.008 m, 0.68 s since the last accepted fit
+[INFO] [1792325690.020290190] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.396257350484237)
+[INFO] [1792325690.050960857] [lidar_front_wall_node]: wall acquired at 19.708 m after dead_reckoned (19.698 m): jump +0.010 m, 0.45 s since the last accepted fit
+[INFO] [1792325690.127135983] [lidar_front_wall_node]: wall acquired at 19.698 m after dead_reckoned (19.708 m): jump -0.010 m, 0.35 s since the last accepted fit
+[INFO] [1792325690.247148624] [lidar_front_wall_node]: wall acquired at 19.682 m after dead_reckoned (19.690 m): jump -0.008 m, 0.35 s since the last accepted fit
+[INFO] [1792325690.290453702] [lidar_front_wall_node]: wall acquired at 19.713 m after dead_reckoned (19.682 m): jump +0.031 m, 0.23 s since the last accepted fit
+[INFO] [1792325690.333591199] [lidar_front_wall_node]: wall acquired at 19.712 m after dead_reckoned (19.713 m): jump -0.001 m, 0.20 s since the last accepted fit
+[INFO] [1792325690.399972595] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38932937446146)
+[INFO] [1792325690.452855983] [lidar_front_wall_node]: wall acquired at 19.694 m after dead_reckoned (19.712 m): jump -0.018 m, 0.55 s since the last accepted fit
+[INFO] [1792325690.505886503] [lidar_front_wall_node]: wall acquired at 19.701 m after dead_reckoned (19.694 m): jump +0.007 m, 0.25 s since the last accepted fit
+[INFO] [1792325690.628222907] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.38833000940355)
+[INFO] [1792325690.739081646] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.377331272210824)
+[INFO] [1792325690.783769097] [lidar_front_wall_node]: wall acquired at 19.690 m after dead_reckoned (19.692 m): jump -0.002 m, 1.05 s since the last accepted fit
+[INFO] [1792325690.831093456] [lidar_front_wall_node]: wall acquired at 19.690 m after dead_reckoned (19.690 m): jump +0.000 m, 0.23 s since the last accepted fit
+[INFO] [1792325690.873468664] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.395329379179394)
+[INFO] [1792325690.984447977] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.387330644345635)
+[INFO] [1792325691.165733603] [lidar_front_wall_node]: wall acquired at 19.683 m after dead_reckoned (19.690 m): jump -0.006 m, 1.62 s since the last accepted fit
+[INFO] [1792325691.213777660] [lidar_front_wall_node]: wall acquired at 19.699 m after dead_reckoned (19.683 m): jump +0.016 m, 0.23 s since the last accepted fit
+[INFO] [1792325691.235263802] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.383257357224487)
+[INFO] [1792325691.318962974] [lidar_front_wall_node]: wall acquired at 19.696 m after dead_reckoned (19.699 m): jump -0.003 m, 0.55 s since the last accepted fit
+[INFO] [1792325691.386816055] [lidar_front_wall_node]: wall tracker: front track 81 dropped (unverified); virtual wall CLEAR (strip 19.377258974184297)
+[INFO] [1792325691.387765828] [lidar_front_wall_node]: wall tracker: 259 scans, per-scan ms p50 12.93 p95 16.14 max 18.31
+[INFO] [1792325691.440431268] [lidar_front_wall_node]: wall acquired at 19.727 m after dead_reckoned (19.696 m): jump +0.032 m, 0.63 s since the last accepted fit
+[INFO] [1792325691.488770519] [lidar_front_wall_node]: wall tracker: front track 81 dropped (gone); virtual wall CLEAR (strip 19.37133126749289)
+[INFO] [1792325693.913868255] [lidar_front_wall_node]: wall tracker: 143 scans, per-scan ms p50 9.15 p95 11.50 max 13.57
+[INFO] [1792325698.196202115] [lidar_front_wall_node]: wall tracker: 233 scans, per-scan ms p50 10.09 p95 12.07 max 13.10
+[INFO] [1792325698.881823963] [lidar_front_wall_node]: wall tracker: front track 249 dropped (coast_expired); virtual wall CLEAR (strip 19.385330007044583)
+[INFO] [1792325698.975902071] [lidar_front_wall_node]: wall acquired at 19.700 m after none (nan m): jump +nan m, 66.59 s since the last accepted fit
+[INFO] [1792325699.072472899] [lidar_front_wall_node]: wall acquired at 19.695 m after dead_reckoned (19.712 m): jump -0.017 m, 0.25 s since the last accepted fit
+[INFO] [1792325699.142320023] [lidar_front_wall_node]: wall tracker: front track 249 dropped (coast_expired); virtual wall CLEAR (strip 19.385330007044583)
+[INFO] [1792325699.174227051] [lidar_front_wall_node]: wall acquired at 19.715 m after dead_reckoned (19.690 m): jump +0.025 m, 0.75 s since the last accepted fit
+[INFO] [1792325699.279284594] [lidar_front_wall_node]: wall acquired at 19.680 m after dead_reckoned (19.707 m): jump -0.027 m, 0.50 s since the last accepted fit
+[INFO] [1792325699.323567574] [lidar_front_wall_node]: wall acquired at 19.694 m after dead_reckoned (19.680 m): jump +0.014 m, 0.23 s since the last accepted fit
+[INFO] [1792325699.436157611] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.37833063726874)
+[INFO] [1792325699.490792166] [lidar_front_wall_node]: wall acquired at 19.676 m after dead_reckoned (19.674 m): jump +0.003 m, 0.97 s since the last accepted fit
+[INFO] [1792325699.731824220] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.379331909511876)
+[INFO] [1792325700.005733748] [lidar_front_wall_node]: wall tracker: front track 249 dropped (coast_expired); virtual wall CLEAR (strip 19.392329376820427)
+[INFO] [1792325700.169181422] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.38033127456979)
+[INFO] [1792325700.304185648] [lidar_front_wall_node]: wall tracker: front track 249 dropped (coast_expired); virtual wall CLEAR (strip 19.376257654280927)
+[INFO] [1792325700.405921272] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.35233379546641)
+[INFO] [1792325700.666165978] [lidar_front_wall_node]: wall acquired at 19.682 m after none (nan m): jump +nan m, 7.27 s since the last accepted fit
+[INFO] [1792325700.767766181] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.38932937446146)
+[INFO] [1792325701.105289546] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.375330634909773)
+[INFO] [1792325701.450387774] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.393330649063568)
+[INFO] [1792325701.544121857] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.39425852522951)
+[INFO] [1792325701.684095172] [lidar_front_wall_node]: wall tracker: front track 249 dropped (unverified); virtual wall CLEAR (strip 19.38925764754068)
+[INFO] [1792325702.418652558] [lidar_front_wall_node]: wall tracker: 185 scans, per-scan ms p50 11.61 p95 14.15 max 15.46
+[INFO] [1792325704.549086597] [lidar_front_wall_node]: wall tracker: front track 300 dropped (coast_expired); virtual wall CLEAR (strip 19.393330649063568)
+[INFO] [1792325704.678504021] [lidar_front_wall_node]: wall tracker: front track 300 dropped (coast_expired); virtual wall CLEAR (strip 19.392329376820427)
+[INFO] [1792325704.718549676] [lidar_front_wall_node]: wall tracker: 126 scans, per-scan ms p50 8.83 p95 10.80 max 11.34
+[INFO] [1792325704.743687684] [lidar_front_wall_node]: wall acquired at 19.686 m after none (nan m): jump +nan m, 56.49 s since the last accepted fit
+[INFO] [1792325704.840874118] [lidar_front_wall_node]: wall tracker: front track 300 dropped (coast_expired); virtual wall CLEAR (strip 19.385330007044583)
+[INFO] [1792325706.672147418] [lidar_front_wall_node]: wall tracker: 110 scans, per-scan ms p50 8.66 p95 10.74 max 11.77
+[INFO] [1792325707.517721287] [lidar_front_wall_node]: wall tracker: 51 scans, per-scan ms p50 8.00 p95 9.84 max 10.42
+== corridor10m_20261016T170931: 336381 messages on 159 topics in 1 file(s)
+   MISSING REQUIRED: /perception/stereo_columns
+   no depth in this bag: the camera half is not replayed
+   tracker steps: 1770 of 7175 recorded debug payloads (--tracker-steps car; record format per_scan, car decimation 4), 109 without their scan
+   PHASE: 177 car tracker steps missing from the record (their payload was not recorded: the replay cannot make them), 379 breaks in the tracker_skipped sequence
+   191 step-to-step gaps over 1.5x the median 0.120 s (dropped or unpublished steps)
+   warm-up: replay cold from the first step at t = -0.10 s; 0.00 s (0 steps) before the span starts at t = -0.10 s
+   the CAR's oldest track at its first /perception/walls (t = 0.83 s) was 72.8 s old: a head start no replay has
+   lidar replay "rec": 1661 cycles
+   rectangle check fed the None class mask + depth pair (one source only)
+   wrote output/wall_v2/main_bag_p0fix/corridor10m_20261016T170931.*

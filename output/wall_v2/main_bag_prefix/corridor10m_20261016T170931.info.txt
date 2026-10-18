@@ -1,0 +1,53 @@
+bag  /home/fabiocar/bags/corridor10m_20261016T170931
+db3  /home/fabiocar/bags/corridor10m_20261016T170931/corridor10m_20261016T170931_0.db3
+span 325.61 s of receipts; t = 0 is the first /scan stamp (1792163379.945)
+
+WRITER LATENCY. receipt - header stamp. A mission bag written by a loaded
+recorder lags the sensors; where it does, receipt ORDER is not arrival order
+and only the header stamps mean anything.
+
+  topic                                               n  stamp Hz   med dt   max dt  lat med  lat p95   first    last  in win
+  /camera/camera_info                                 2      4.79    208.7    208.7     45.3     86.1    0.91    1.12       0 (no header: receipt)
+  /camera/debug_image/compressed                      3      3.16    316.7    368.9    343.5    370.7    0.14    0.78       0
+  /camera/detection_masks                             5      5.71    132.2    368.9    218.8    263.8    0.14    0.84       0
+  /camera/detections                                  2     14.96     66.9     66.9    247.0    267.3    0.78    0.84       0
+  /camera/detections_3d                               6      5.77    164.5    368.9    233.1    299.8   -0.02    0.84       0
+  /costmap/front_clearance                         4742     14.95     47.8  33218.7      0.0      0.0    1.05  318.13       0 (no header: receipt)
+  /drive                                           2432      7.68    100.0  49949.2      8.4    978.9    1.04  317.46       0
+  /ekf_global/odometry/filtered                    9784     30.83     20.1  31068.8     16.3    380.9    0.97  318.34       0
+  /mission/status                                     2      0.00 344666.9 344666.9  51493.9  80970.5  -84.11  260.56       0
+  /odometry/filtered                              10859     34.22     20.0  26988.8     15.7    328.0    0.95  318.26       0
+  /perception/lidar_front_wall                     7124     22.39     30.0  31200.6     45.6    433.6   -0.10  318.08       0
+  /perception/obstacles_2d                            1      0.00      0.0      0.0    307.5    307.5    0.84    0.84       0
+  /perception/scene_labels                            3      3.16    316.7    402.0    160.9    207.9    0.11    0.74       0
+  /perception/stereo_wall                             3      3.16    316.7    402.0    159.6    208.7    0.11    0.74       0
+  /perception/virtual_wall                         7232     22.73     15.5  31436.2      0.0      0.0    0.32  318.42       0 (no header: receipt)
+  /perception/virtual_wall/debug                   7175     22.53     30.0  31070.6     44.9    437.7   -0.10  318.28       0
+  /perception/wall_observations                    1815      5.73    120.0  31981.2     22.7   1329.7    0.43  316.85       0
+  /perception/wall_planes                          1854      5.87    120.0  31220.4     45.4   1314.8    1.18  316.90       0
+  /perception/walls                                1839      5.82    120.0  31330.6     55.4   1362.8    0.83  316.85       0
+  /scan                                            9875     31.03     29.7  15882.6     11.5    590.7    0.00  318.16       0
+  /tf                                             15186     61.64      4.5   1541.4    -36.3     90.2    1.09  247.43       0
+  /tf_static                                         14      0.04    229.9 166740.0  16106.0  85172.3  -85.24  270.77       0
+  /zed2/zed_node/depth/camera_info                   23     17.27     33.5    268.2     80.1    117.5   -0.12    1.15       0 (no header: receipt)
+
+dt and Hz are of the HEADER stamps; lat is receipt - stamp, in ms.
+
+REQUIRED TOPICS
+  [OK  ] /scan                                           9875  the LiDAR half of every observation, and the true strip range
+  [OK  ] /odometry/filtered                             10859  places the tracks and the moving window
+  [OK  ] /tf_static                                        14  the extrinsics every projection needs
+  [OK  ] /camera/detection_masks                            5  the OBJECT class of the scene mask
+  [OK  ] /perception/wall_observations                   1815  the recorded step-3 output to diff against
+  [OK  ] /perception/walls                               1839  the recorded tracks to diff against
+  [OK  ] /perception/virtual_wall/debug                  7175  the recorded contract to diff against
+  [MISS] /perception/stereo_columns                         0  the recorded step-2 output to diff against
+PREFERRED TOPICS
+  [MISS] /zed2/zed_node/depth/depth_registered_5hz          0  the only depth a mission bag carries
+  [MISS] /perception/scene_labels/classes                   0  the class mask the CAR computed (campaign profile); drawn by --mask auto
+  [MISS] /camera/image_raw_5hz                              0  the frame YOLO and the mask used (campaign profile): the video base
+  [OK  ] /costmap/front_clearance                        4742  the estimator seed
+  [OK  ] /camera/detections_3d                              6  the detection sectors cut out of the scan
+
+MOVING WINDOW  |v| > 0.05 m/s on /odometry/filtered, padded 1.0 s each side, merged:
+    total 0.00 s of 317.31 s; path 0.00 m; speed max 0.000, mean while moving nan m/s

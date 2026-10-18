@@ -1,0 +1,47 @@
+bag  /home/fabiocar/bags/corridor10m_20261016T144537
+db3  /home/fabiocar/bags/corridor10m_20261016T144537/corridor10m_20261016T144537_0.db3
+span 164.50 s of receipts; t = 0 is the first /scan stamp (1792154779.676)
+
+WRITER LATENCY. receipt - header stamp. A mission bag written by a loaded
+recorder lags the sensors; where it does, receipt ORDER is not arrival order
+and only the header stamps mean anything.
+
+  topic                                               n  stamp Hz   med dt   max dt  lat med  lat p95   first    last  in win
+  /camera/debug_image/compressed                    794      4.85    200.0    666.3    262.0    386.7   -0.45  163.00     201
+  /camera/detections_3d                            1541      9.43    100.0    666.3    165.6    251.1   -0.19  163.17     385
+  /costmap/front_clearance                         3277     20.00     49.9     95.6      0.0      0.0   -0.50  163.32     825 (no header: receipt)
+  /mission/status                                    10      0.06  15002.5  44179.5      0.5    895.3   -1.64  150.48       4
+  /odometry/filtered                               7851     47.73     20.0     45.2      3.7      8.0   -1.14  163.34    1910
+  /perception/scene_labels/classes                  625      3.83    233.5    600.0    100.8    129.5   -0.02  162.83     152
+  /perception/scene_labels/stats                    625      3.83    233.5    600.0     99.6    128.9   -0.02  162.83     152
+  /perception/stereo_columns                        625      3.83    233.5    600.0     93.9    121.3   -0.02  162.83     152
+  /perception/virtual_wall/debug                   2830     17.23     30.0    319.6     28.6    184.2   -0.90  163.33     663
+  /perception/wall_points                           625      3.83    233.5    600.0     96.1    124.4   -0.02  162.83     152
+  /perception/walls                                 704      4.29    230.0    400.1    141.4    206.8   -0.77  163.20     166
+  /scan                                            6523     39.93     29.1     34.6     -1.0      0.2    0.00  163.35    1646
+  /tf                                             17337    105.39      4.8     45.2    -36.3      1.3   -1.11  163.39    4236
+  /tf_static                                          5      0.27    175.6  14188.1  85087.1  85967.6  -85.97  -71.41       0
+  /zed2/zed_node/depth/camera_info                 4815     29.66     33.4    100.0     57.8     76.2    0.95  163.27    1223
+
+dt and Hz are of the HEADER stamps; lat is receipt - stamp, in ms.
+
+REQUIRED TOPICS
+  [OK  ] /scan                                           6523  the LiDAR half of every observation, and the true strip range
+  [OK  ] /odometry/filtered                              7851  places the tracks and the moving window
+  [OK  ] /tf_static                                         5  the extrinsics every projection needs
+  [MISS] /camera/detection_masks                            0  the OBJECT class of the scene mask
+  [MISS] /perception/wall_observations                      0  the recorded step-3 output to diff against
+  [OK  ] /perception/walls                                704  the recorded tracks to diff against
+  [OK  ] /perception/virtual_wall/debug                  2830  the recorded contract to diff against
+  [OK  ] /perception/stereo_columns                       625  the recorded step-2 output to diff against
+PREFERRED TOPICS
+  [MISS] /zed2/zed_node/depth/depth_registered_5hz          0  the only depth a mission bag carries
+  [OK  ] /perception/scene_labels/classes                 625  the class mask the CAR computed (campaign profile); drawn by --mask auto
+  [MISS] /camera/image_raw_5hz                              0  the frame YOLO and the mask used (campaign profile): the video base
+  [OK  ] /costmap/front_clearance                        3277  the estimator seed
+  [OK  ] /camera/detections_3d                           1541  the detection sectors cut out of the scan
+
+MOVING WINDOW  |v| > 0.05 m/s on /odometry/filtered, padded 1.0 s each side, merged:
+      57.48 ..   71.98 s   (14.50 s)
+     124.88 ..  151.64 s   (26.76 s)
+    total 41.26 s of 164.48 s; path 14.93 m; speed max 0.468, mean while moving 0.401 m/s
