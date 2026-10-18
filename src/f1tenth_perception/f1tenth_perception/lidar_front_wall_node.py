@@ -607,6 +607,10 @@ class LidarFrontWallNode(Node):
         self.virtual_wall_rate_hz = float(param('virtual_wall_rate_hz', 10.0))
         self._last_virtual_pub = None
         self._tracker_ran = False
+        # A no-transform scan produces a NEW verdict (NO_DATA) although the
+        # tracker did not run, so it must pass _virtual_due's new-estimate
+        # gate -- see _scan_cb. Still subject to virtual_wall_rate_hz.
+        self._no_transform_verdict = False
         self._odom_frame = 'odom'
         self._wall_source = 'sequential_lines'
         self._front_id = None       # id of the tracker's current front track
@@ -1143,6 +1147,7 @@ class LidarFrontWallNode(Node):
     def _scan_cb(self, msg):
         now = self._now()
         self._tracker_ran = False
+        self._no_transform_verdict = False
         laser_pose = self._laser_pose_for(msg.header.frame_id)
         if laser_pose is None:
             fit = SectorFit(0, 0)
@@ -1151,6 +1156,11 @@ class LidarFrontWallNode(Node):
             # NO_DATA -- not whatever the last placed scan said.
             self._tracker_has_data = False
             self._front_d_ray = math.nan
+            # ...and that NO_DATA has to reach the wire. _virtual_due only
+            # lets a scan through when the tracker stepped, which it cannot
+            # here: without this the contract silently keeps the last placed
+            # scan's verdict for as long as /tf_static is missing.
+            self._no_transform_verdict = True
             self.get_logger().warn(
                 f'no {self.base_frame} <- {msg.header.frame_id} transform on /tf_static yet; '
                 'publishing no_transform', throttle_duration_sec=5.0)
@@ -1349,7 +1359,8 @@ class LidarFrontWallNode(Node):
 
     def _virtual_due(self, now):
         """lidar_front_wall.virtual_wall_due for this node's state; records the publish."""
-        due = virtual_wall_due(self.wall_tracker is not None, self._tracker_ran, now,
+        due = virtual_wall_due(self.wall_tracker is not None,
+                               self._tracker_ran or self._no_transform_verdict, now,
                                self._last_virtual_pub, self.virtual_wall_rate_hz)
         if due:
             self._last_virtual_pub = now
