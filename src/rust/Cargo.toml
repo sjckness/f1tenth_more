@@ -1,0 +1,19 @@
+# Cargo workspace for the Rust ports (output/rust/setup.md). colcon-cargo
+# finds the members through this virtual manifest; each member is its own
+# ament_cargo package (Cargo.toml + package.xml).
+#
+# Members do NOT inherit from this file (no `x.workspace = true`):
+# cargo-ament-build installs each lib crate's manifest into
+# install/<pkg>/share/<pkg>/rust, where there is no workspace root to
+# inherit from, and colcon-ros-cargo then fails to parse it. Dependency
+# versions and lints are therefore repeated in every member.
+#
+# rclrs is pinned to =0.7.0 in every member: the newest release on
+# rosidl_runtime_rs 0.6, the runtime the installed rosidl_generator_rs
+# (ros-jazzy 0.4.11) generates message crates against. rclrs 0.8 needs
+# runtime 0.7 (generator 0.5).
+[workspace]
+resolver = "2"
+members = [
+    "f1tenth_proximity_guard",
+]

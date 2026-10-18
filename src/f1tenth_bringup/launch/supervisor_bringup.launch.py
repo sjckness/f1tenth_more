@@ -155,6 +155,16 @@ def generate_launch_description():
         default_value=str(enable_mission_logger_default).lower(),
         description=enable_mission_logger_desc)
 
+    # Rust ports (output/rust/): the same "declared argument -> supervisor
+    # parameter -> component launch argument" path as enable_mission_logger,
+    # for the same reason. guard -> behavior_bringup.launch.py proximity_guard.
+    # The default keeps the stack exactly as it is without it: no guard.
+    guard_la = DeclareLaunchArgument(
+        'guard', default_value='off', choices=['off', 'shadow', 'active'],
+        description='Rust front-proximity guard (f1tenth_proximity_guard): off (not '
+                    'launched), shadow (decisions only), active (also stops on the '
+                    'safety_stop lane). The emergency lane of the BT is unchanged in every mode.')
+
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
         'enable_intelligence', default_value=str(enable_intelligence_default).lower(),
@@ -215,6 +225,7 @@ def generate_launch_description():
         params = {
             'calibration': LaunchConfiguration('calibration'),
             'enable_mission_logger': LaunchConfiguration('enable_mission_logger'),
+            'proximity_guard': LaunchConfiguration('guard'),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'components_config': LaunchConfiguration('components_config'),
             'restart_timeout_sec': LaunchConfiguration('restart_timeout_sec'),
@@ -256,6 +267,7 @@ def generate_launch_description():
         discovery_server,
         calibration_la,
         enable_mission_logger_la,
+        guard_la,
         enable_intelligence_la,
         components_config_la,
         restart_timeout_la,

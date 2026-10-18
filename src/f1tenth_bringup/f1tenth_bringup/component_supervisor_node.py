@@ -390,6 +390,38 @@ _SIM_REPLACEMENTS = {
 _SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
 
 
+# Rust ports (output/rust/): which launch file takes which switch.
+#   guard -> behavior_bringup.launch.py proximity_guard:=off|shadow|active
+_RUST_SWITCHES = {
+    'behavior_bringup.launch.py': ('proximity_guard', ('off', 'shadow', 'active')),
+}
+
+
+def validate_rust_switches(proximity_guard):
+    """Raise ValueError for a value the launch files do not accept."""
+    for value, (arg, choices) in zip((proximity_guard,), _RUST_SWITCHES.values()):
+        if value not in choices:
+            raise ValueError(f'{arg} must be one of {choices}, got {value!r}')
+
+
+def apply_rust_switches(registry, proximity_guard):
+    """Write guard into the args of the entries that launch that file.
+
+    Found by launch_file, like _apply_mission_logger_override, so moving an
+    entry to another component cannot disconnect the switch. The defaults
+    (off) is written too: a components.yaml literal cannot silently
+    disagree with the supervisor's own parameter.
+    """
+    values = {'behavior_bringup.launch.py': proximity_guard}
+    for entries in registry.values():
+        for entry in entries:
+            launch_file = str(entry.get('launch_file', ''))
+            if launch_file in _RUST_SWITCHES:
+                arg = _RUST_SWITCHES[launch_file][0]
+                entry.setdefault('args', {})[arg] = values[launch_file]
+    return registry
+
+
 def apply_sim_mode(registry, component_args=None):
     """Pure: the registry as it runs in sim. Returns a deep-enough copy, never edits the input.
 
@@ -627,6 +659,12 @@ class ComponentSupervisorNode(Node):
         # mission_logger.launch.py with its own (now false) default.
         self.enable_mission_logger = bool(
             self.declare_parameter('enable_mission_logger', False).value)
+        # Rust ports (output/rust/): supervisor_bringup.launch.py guard:=,
+        # the same shape as enable_mission_logger and for the same reason.
+        # Validated here as well as by the launch argument's choices: a bare
+        # `ros2 run` must not start a guard mode nobody asked for.
+        self.proximity_guard = str(self.declare_parameter('proximity_guard', 'off').value)
+        validate_rust_switches(self.proximity_guard)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
         # starts -- same "declared parameter, wired from supervisor_bringup.
         # launch.py's own launch argument, default sourced from stack_params.yaml"
@@ -712,6 +750,11 @@ class ComponentSupervisorNode(Node):
         # After the sim rewrite, on whichever registry is final: the logger
         # toggle is by launch_file, so it applies to the car and to sim alike.
         self._apply_mission_logger_override()
+        apply_rust_switches(self._registry, self.proximity_guard)
+        if self.proximity_guard != 'off':
+            self.get_logger().info(
+                f'[component_supervisor] Rust ports: guard:={self.proximity_guard} '
+                '(output/rust/)')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or
