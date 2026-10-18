@@ -140,14 +140,14 @@ class TestColours:
         slots = _by_slot(markers, 1)
         assert slots[wm.SLOT_PRISM].color.a < slots[wm.SLOT_LINE].color.a
 
-    def test_the_label_says_id_role_state_dist(self):
+    def test_the_label_says_id_role_source_state_dist(self):
         builder = wm.WallMarkerBuilder(0.6)
         markers = _build(builder, [_track(4, role='left',
                                           verify=wall_fusion.VERIFY_VERIFIED)],
                          distances={4: 1.25})
         text = _by_slot(markers, 4)[wm.SLOT_TEXT]
         assert text.type == Marker.TEXT_VIEW_FACING
-        assert text.text.split() == ['4', 'left', 'verified', '1.25m']
+        assert text.text.split() == ['4', 'left', 'lidar', 'verified', '1.25m']
 
     def test_the_label_cannot_contradict_the_alpha(self):
         builder = wm.WallMarkerBuilder(0.6)

@@ -476,6 +476,20 @@ class LidarFrontWallNode(Node):
             assoc_max_gap_m=float(param('wall_assoc_max_gap_m', 0.5)),
             extent_decay_s=float(param('wall_extent_decay_sec', 1.0)),
             delete_after_s=float(param('wall_tracker_delete_after_sec', 2.0)),
+            # The camera gates and the camera side zone (Q2 / P3).
+            camera_seg_min_ray_angle_rad=math.radians(
+                float(param('camera_seg_min_ray_angle_deg', 25.0))),
+            camera_seg_min_bearing_span_rad=math.radians(
+                float(param('camera_seg_min_bearing_span_deg', 3.0))),
+            stereo_max_rms_m=float(param('stereo_max_rms_m', 0.05)),
+            stereo_min_vertical_extent_m=float(param('stereo_min_vertical_extent_m', 0.4)),
+            stereo_min_length_m=float(param('stereo_min_length_m', 0.8)),
+            camera_confirm_fresh_only=bool(param('camera_confirm_fresh_only', True)),
+            camera_side_x_max_m=float(param('camera_side_x_max_m', 4.0)),
+            camera_side_max_normal_rad=math.radians(
+                float(param('camera_side_max_normal_deg', 30.0))),
+            camera_side_offset_min_m=float(param('camera_side_offset_min_m', 0.3)),
+            camera_side_offset_max_m=float(param('camera_side_offset_max_m', 3.0)),
             coast_max_odom_m=float(param('wall_coast_max_odom_m', 1.0)),
             max_sigma_rho_m=float(param('wall_tracker_max_sigma_rho_m', 0.3)),
             max_published=int(param('wall_tracker_max_tracks', 4)),
@@ -1429,6 +1443,15 @@ class LidarFrontWallNode(Node):
         # The occlusion rays start at the LASER, not at base_link: 30 cm of
         # lever arm decides whether a wall is behind another one at 15 m.
         self.wall_tracker.laser_xy = laser_pose[:2]
+        # Where the camera looks from, for the radial gate, and whether its
+        # data was fresh this cycle, for camera-only confirmation (Q2/P3).
+        cam = self._camera_transform(self._stereo_columns[1].camera_frame) \
+            if self._stereo_columns else None
+        if cam is not None:
+            self.wall_tracker.camera_xy = (float(cam[1][0]), float(cam[1][1]))
+        self.wall_tracker.camera_fresh = bool(
+            math.isfinite(self._stereo_age)
+            and self._stereo_age <= self.profile_max_age)
         self._objects_behind_wall = (
             self._count_objects_behind_walls(car, laser_pose, scan_stamp)
             if self.debug_tracks else 0)

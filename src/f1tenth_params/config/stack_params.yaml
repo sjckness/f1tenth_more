@@ -3001,6 +3001,36 @@ lidar_front_wall_wall_tracker_scan_decimation:
 lidar_front_wall_wall_extract_backend:
   default: "c"
   description: "Which implementation of the line extraction runs: \"c\" is corridor_perception_c's libextract_lines.so through ctypes, \"python\" is corridor_perception.extraction itself. The C is a PORT, not a reimplementation: tools/extract_backends_equiv.py runs both over all 2292 scans of corridor10m_20261015T171753 and gets the same segment count on every scan, the same per-gate drop counts, and a maximum difference of 7.1e-15 m on rho and the endpoints -- float64 summation order, nothing more. It costs 1.09 ms a scan p50 against the Python's 24.62 (22.5x), which on a box measured at 95-97 % CPU on 12 cores is the difference between the tracker fitting in its scan period and not. \"python\" is there to be the reference in an equivalence run and to be switched to if the C is ever suspected. If the library is absent the node logs ONE warning and runs the Python."
+lidar_front_wall_camera_seg_min_ray_angle_deg:
+  default: 25.0
+  description: "RADIAL GATE (Q2, 2026-10-18), on every wall observation the camera had a hand in: the minimum angle between the segment's direction and the ray from the camera to its own midpoint. A surface lying along the ray is not observable -- one pixel of lateral error moves it metres -- and a column profile turns that into the 45 deg \"fans\" that litter /perception/walls. The LiDAR gates the same thing by incidence; the camera never did. Measured over corridor10m_20261016T144537's analysis window (output/wall_v2/q1/report.md): 437 of 536 stereo segments dropped, spurious segments per frame 0.932 -> 0.112, residual at 1.5-2.5 m unchanged (0.131 -> 0.134 m), median angle error 5.70 -> 2.46 deg. THE PRICE, deliberately accepted and measured, not discovered later: side-wall coverage falls 58.9 % -> 14.2 % (left) and 25.6 % -> 5.7 % (right), because a corridor wall seen from a car driving ALONG it is nearly radial by construction. If side walls matter more than spurious ones for a given mission, lower this. 0 disables the test. SYNTHETIC."
+lidar_front_wall_camera_seg_min_bearing_span_deg:
+  default: 3.0
+  description: "The other half of the radial gate: the bearing span a camera segment must subtend from the camera. A segment under this is a handful of columns however well fitted, and its direction is noise. 3 deg at 640 px over a 101 deg field of view is about 19 columns. 0 disables it. SYNTHETIC."
+lidar_front_wall_stereo_max_rms_m:
+  default: 0.05
+  description: "A STEREO-ONLY observation fitted worse than this is dropped. Nothing cross-checks a stereo-only line, so the bar is a shape the LiDAR could not plausibly have missed by accident. Not applied to LIDAR or BOTH, whose rms is already judged by the confidence model. SYNTHETIC."
+lidar_front_wall_stereo_min_vertical_extent_m:
+  default: 0.4
+  description: "A STEREO-ONLY observation whose MEASURED wall points span less height than this is a kerb, a skirting board or a reflection edge, not a wall. Applied only when the height was actually measured (height_measured): a wall outside the columns the profile covers has no measured height and is not punished for it. SYNTHETIC."
+lidar_front_wall_stereo_min_length_m:
+  default: 0.8
+  description: "Minimum length of a STEREO-ONLY observation, on top of the extraction's own span gates. Same reasoning as stereo_max_rms_m: a short unverified line is the one thing the camera invents most readily on this floor. SYNTHETIC."
+lidar_front_wall_camera_confirm_fresh_only:
+  default: true
+  description: "Count a camera-only hit towards CONFIRMATION only on a cycle whose camera profile was fresh (age <= stereo_profile_max_age_s). The tracker runs at the scan rate and the camera at 5 Hz, so the same profile is re-presented over several cycles; without this, three cycles of one stale observation confirm a wall that was seen once. The track's STATE machine still runs on the ordinary hit, so a track does not start coasting merely because the camera was late. false restores the pre-2026-10-18 behaviour."
+lidar_front_wall_camera_side_x_max_m:
+  default: 4.0
+  description: "Far edge of the x window a CAMERA-only track must reach to be called a side wall (the LiDAR keeps side_x_max_m). The camera's angular error grows with range where the LiDAR's does not, so the stretch a camera wall may speak for is shorter. SYNTHETIC."
+lidar_front_wall_camera_side_max_normal_deg:
+  default: 30.0
+  description: "A CAMERA-only track's normal must be within this of the lateral axis to be a side wall, against the LiDAR's 45 deg. Tighter for the same reason as camera_side_x_max_m. SYNTHETIC."
+lidar_front_wall_camera_side_offset_min_m:
+  default: 0.3
+  description: "A CAMERA-only side wall must sit at least this far from the car laterally. Nearer than this it is the chassis the camera sees in the lower right of its own image, which is the failure stereo_min_rho_m already guards from the other direction. SYNTHETIC."
+lidar_front_wall_camera_side_offset_max_m:
+  default: 3.0
+  description: "And at most this far: beyond it the surface is the far side of a hall, not a wall the car is driving along, and calling it 'left' or 'right' invites a consumer to steer by it. SYNTHETIC."
 lidar_front_wall_wall_conf_range_ref_m:
   default: 5.0
   description: "Range [m] at which wall_fusion.confidence's references (inlier_ref 40 returns, rms_ref 0.03 m) hold as written. Past it both are stretched by range / this value -- fewer returns expected, a looser fit tolerated -- because a planar LiDAR's returns on a surface thin out as 1 / range and its range noise grows with range, while the two references are absolute. Measured on corridor10m_20261016T144537: 71 % of the observations inside 1.5 m reach the FRONT gate's 0.5, 1 % of those at 12-18 m and 0 % past 18 m, with the 12-18 m band's rms the BEST in the bag (0.0156) -- the far wall was being refused for being far, not for being badly fitted. Nothing changes INSIDE this range, which is where cpu-cleanup R2 block 3's phantom (a FRONT built at 1.9-3.3 m from the faces either side of a corridor mouth) lives, so the phantom defence is untouched. 5 m is the far end of the near band where the nominal references were chosen. SYNTHETIC."

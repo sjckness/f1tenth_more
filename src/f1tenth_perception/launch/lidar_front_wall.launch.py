@@ -142,6 +142,17 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_conf_range_ref_m', float),
     ('wall_conf_min_inlier_ref', float),
     ('wall_conf_max_rms_scale', float),
+    # The camera observation gates and the camera side zone (Q2 / P3).
+    ('camera_seg_min_ray_angle_deg', float),
+    ('camera_seg_min_bearing_span_deg', float),
+    ('stereo_max_rms_m', float),
+    ('stereo_min_vertical_extent_m', float),
+    ('stereo_min_length_m', float),
+    ('camera_confirm_fresh_only', bool),
+    ('camera_side_x_max_m', float),
+    ('camera_side_max_normal_deg', float),
+    ('camera_side_offset_min_m', float),
+    ('camera_side_offset_max_m', float),
 ]
 
 

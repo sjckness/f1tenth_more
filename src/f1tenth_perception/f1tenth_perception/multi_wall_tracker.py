@@ -391,11 +391,41 @@ class TrackerParams:
     # A STEREO-only observation whose line passes nearer base_link than this
     # is the car's own chassis, not a wall (step, THE NEAR FIELD).
     stereo_min_rho_m: float = 0.4
+    # --- CAMERA OBSERVATION GATES (Q2, 2026-10-18) ------------------------
+    # A surface lying ALONG the viewing ray is not observable: one pixel of
+    # lateral error moves it metres, and a column profile turns that into the
+    # 45 deg "fans" that litter /perception/walls. The LiDAR gates the same
+    # thing by incidence; the camera never did. Measured on
+    # corridor10m_20261016T144537 (output/wall_v2/q1): 437 of 536 stereo
+    # segments dropped, spurious segments per frame 0.932 -> 0.112, residual
+    # unchanged. THE PRICE, deliberately accepted and measured: side-wall
+    # coverage falls 58.9 % -> 14.2 %, because a corridor wall seen from a car
+    # driving along it IS nearly radial. LiDAR observations never see these.
+    camera_seg_min_ray_angle_rad: float = math.radians(25.0)
+    camera_seg_min_bearing_span_rad: float = math.radians(3.0)
+    #: A stereo-only line this badly fitted, this flat, or this short is not a
+    #: wall: nothing cross-checks it, so the bar is a shape the LiDAR could
+    #: not plausibly have missed by accident.
+    stereo_max_rms_m: float = 0.05
+    stereo_min_vertical_extent_m: float = 0.4
+    stereo_min_length_m: float = 0.8
+    #: Count a camera-only hit towards confirmation ONLY on a cycle whose
+    #: camera data was fresh (the node sets `camera_fresh`). A stale profile
+    #: repeated over three cycles is one observation, not three.
+    camera_confirm_fresh_only: bool = True
     # --- the geometric roles (WHAT A ROLE IS NOW) -------------------------
     back_x_m: float = 0.0                   # the rear edge of the strip, base_link
     side_x_min_m: float = -1.0              # the x window a side wall must reach
     side_x_max_m: float = 3.0
     side_max_normal_rad: float = math.radians(45.0)
+    #: A CAMERA-only track gets its own, tighter side zone: the camera's
+    #: angular error grows with range where the LiDAR's does not, so a
+    #: camera wall must be more clearly lateral and must sit at a plausible
+    #: corridor offset before it is called a reference wall.
+    camera_side_x_max_m: float = 4.0
+    camera_side_max_normal_rad: float = math.radians(30.0)
+    camera_side_offset_min_m: float = 0.3
+    camera_side_offset_max_m: float = 3.0
     role_hysteresis_m: float = 0.05         # the length half of the hysteresis
     # --- first obstacle: a wall behind a wall is not a reference wall ------
     occlusion_points: int = 5               # samples along the segment
@@ -544,6 +574,9 @@ class Track:
     #: Was the track associated with a LiDAR-backed (LIDAR or BOTH)
     #: observation, one entry per tracker cycle, newest last.
     lidar_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=3))
+    #: Like `history`, but a camera-only hit on a stale camera cycle counts as
+    #: a miss. Confirmation of a camera-only track reads this one.
+    fresh_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=12))  # noqa: E501
     #: The confidences of the last matched observations (front_confidence).
     conf_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=5))
     #: The strip's own beams against this track (strip_verdict) this cycle,
@@ -859,6 +892,28 @@ def side_role(track, car_pose, x_min, x_max, max_normal_rad, seg=None):
     return 'left' if 0.5 * (ys[0] + ys[1]) > 0.0 else 'right'
 
 
+def camera_side_role(track, car_pose, p, seg=None, widen_m=0.0, widen_rad=0.0):
+    """side_role with the CAMERA zone, plus a plausible lateral offset.
+
+    The camera's angular error grows with range where the LiDAR's does not,
+    so a camera-only wall must be more clearly lateral (30 deg, not 45), must
+    reach into a shorter x window, and must sit at a corridor-like distance
+    from the car before it is called a reference wall. A "side wall" 10 cm
+    away is the chassis; one 5 m away is the far side of a hall.
+    """
+    role = side_role(track, car_pose, p.side_x_min_m - widen_m,
+                     p.camera_side_x_max_m + widen_m,
+                     p.camera_side_max_normal_rad + widen_rad, seg)
+    if not role:
+        return ''
+    (x0, y0), (x1, y1) = segment_in_base_link(track, car_pose) if seg is None else seg
+    offset = abs(0.5 * (y0 + y1))
+    if not (p.camera_side_offset_min_m - widen_m <= offset
+            <= p.camera_side_offset_max_m + widen_m):
+        return ''
+    return role
+
+
 def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0, seg=None):
     """The track's role from GEOMETRY: front, back, left, right or other.
 
@@ -881,6 +936,8 @@ def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0, seg=None):
                        p.back_x_m + widen_m, p.strip_half_width_m + widen_m, seg)
     if strip:
         return strip
+    if track.source == wall_fusion.SOURCE_STEREO:
+        return camera_side_role(track, car_pose, p, seg, widen_m, widen_rad) or 'other'
     return side_role(track, car_pose, p.side_x_min_m - widen_m,
                      p.side_x_max_m + widen_m,
                      p.side_max_normal_rad + widen_rad, seg) or 'other'
@@ -902,6 +959,30 @@ def role_with_hysteresis(track, car_pose, current, p, seg=None):
     widened = geometric_role(track, car_pose, p, float(p.role_hysteresis_m),
                              float(p.role_hysteresis_rad), seg=seg)
     return current if widened == current else fresh
+
+
+def radial_verdict(seg, origin_xy, min_ray_rad, min_span_rad):
+    """(keep, ray_angle_rad, bearing_span_rad) for a camera segment.
+
+    A segment whose direction lies along the ray from the camera to its own
+    midpoint is seen end-on: its range is a guess. So is one that subtends
+    almost no bearing. Both are cheap scalar tests on the base_link segment.
+    """
+    (x0, y0), (x1, y1) = seg
+    ox, oy = float(origin_xy[0]), float(origin_xy[1])
+    mx, my = 0.5 * (x0 + x1), 0.5 * (y0 + y1)
+    rx, ry = mx - ox, my - oy
+    dx, dy = x1 - x0, y1 - y0
+    nr, nd = math.hypot(rx, ry), math.hypot(dx, dy)
+    if nr < 1e-6 or nd < 1e-6:
+        return False, 0.0, 0.0
+    cosang = min(1.0, abs(rx * dx + ry * dy) / (nr * nd))
+    ray = math.acos(cosang)
+    ray = min(ray, math.pi - ray)
+    b0 = math.atan2(y0 - oy, x0 - ox)
+    b1 = math.atan2(y1 - oy, x1 - ox)
+    span = abs(wrap_pi(b1 - b0))
+    return (ray >= float(min_ray_rad) and span >= float(min_span_rad)), ray, span
 
 
 def _bearing_sector(seg, laser_xy):
@@ -963,6 +1044,11 @@ class MultiWallTracker:
         #: The laser's (x, y) in base_link, for the occlusion rays. None means
         #: base_link's origin, which is 30 cm off on this car.
         self.laser_xy = None
+        #: Where the camera looks from, base_link, for the radial test. The
+        #: node sets it from /tf_static; without it the laser stands in.
+        self.camera_xy = None
+        #: Did THIS cycle have fresh camera data? The node sets it per step.
+        self.camera_fresh = True
         self._next_id = 1
         self._last_stamp = None
         self._last_yaw = None
@@ -988,6 +1074,7 @@ class MultiWallTracker:
         #: Last step's STEREO-only observations dropped as the car's own
         #: chassis (stereo_min_rho_m).
         self.n_stereo_near_rejected = 0
+        self.n_camera_rejected = 0
         #: [(code, track id or None, value)] of this step's refusals:
         #: 'gap_assoc' (value = gap m), 'gap_merge' (gap m), 'stereo_near'
         #: (rho_bl m). Capped: it is a debug trail, not a log.
@@ -1211,6 +1298,14 @@ class MultiWallTracker:
         # The window is the LONGER of the two: a track that turns out to be
         # stereo-only must not have already dropped the scans it needs.
         trk.history = collections.deque([True], maxlen=self._history_len())
+        # Seeded exactly like `history`, and with the same window: a camera
+        # cycle that was fresh enough to BIRTH the track was fresh enough to
+        # count, and a fresh_hist one entry short of history would never
+        # catch up inside stereo_confirm_window.
+        trk.fresh_hist = collections.deque(
+            [self.camera_fresh or not self.p.camera_confirm_fresh_only
+             or (obs is not None and obs.source != wall_fusion.SOURCE_STEREO)],
+            maxlen=self._history_len())
         trk.obs_ext.append((stamp, np.vstack([line.p_start, line.p_end]).astype(float)))
         trk.lidar_hist = collections.deque(
             [obs is None or obs.source != wall_fusion.SOURCE_STEREO],
@@ -1328,6 +1423,7 @@ class MultiWallTracker:
         kept, may_birth = [], []
         self.n_short_dropped = 0
         self.n_stereo_near_rejected = 0
+        self.n_camera_rejected = 0
         self.n_gap_rejected = 0
         self.n_merge_gap_refused = 0
         self.rejections = []
@@ -1347,6 +1443,38 @@ class MultiWallTracker:
                 self.n_stereo_near_rejected += 1
                 self._reject('stereo_near', None, abs(float(obs.line.d)))
                 continue
+            if obs.source == wall_fusion.SOURCE_STEREO:
+                # THE CAMERA QUALITY GATES (Q2). Nothing cross-checks a
+                # stereo-only line, so it must look like a wall on its own:
+                # tightly fitted, tall enough to be a surface rather than a
+                # kerb, and long enough that the LiDAR could not plausibly
+                # have missed it.
+                if span < self.p.stereo_min_length_m:
+                    self.n_camera_rejected += 1
+                    self._reject('stereo_short', None, span)
+                    continue
+                if float(obs.line.rms) > self.p.stereo_max_rms_m:
+                    self.n_camera_rejected += 1
+                    self._reject('stereo_rms', None, float(obs.line.rms))
+                    continue
+                height = float(obs.z_max) - float(obs.z_min)
+                if obs.height_measured and height < self.p.stereo_min_vertical_extent_m:
+                    self.n_camera_rejected += 1
+                    self._reject('stereo_flat', None, height)
+                    continue
+            if obs.source != wall_fusion.SOURCE_LIDAR:
+                # THE RADIAL GATE (Q2), on every observation the camera had a
+                # hand in. Judged from where the CAMERA looks, not the laser.
+                origin = self.camera_xy if self.camera_xy is not None else \
+                    (self.laser_xy if self.laser_xy is not None else (0.0, 0.0))
+                keep, ray, bspan = radial_verdict(
+                    obs.line.endpoints(), origin,
+                    self.p.camera_seg_min_ray_angle_rad,
+                    self.p.camera_seg_min_bearing_span_rad)
+                if not keep:
+                    self.n_camera_rejected += 1
+                    self._reject('camera_radial', None, math.degrees(ray))
+                    continue
             kept.append(obs)
             may_birth.append(span >= self.p.min_span_birth_m)
         observations = kept
@@ -1396,6 +1524,14 @@ class MultiWallTracker:
             hit = trk.id in hit_ids
             trk.history.append(hit)
             trk.lidar_hist.append(trk.id in lidar_ids)
+            # A camera-only hit counts towards CONFIRMATION only on a cycle
+            # whose camera data was fresh: the same stale profile repeated
+            # over three cycles is one observation, not three. The state
+            # machine still runs on `hit`, so a track does not start coasting
+            # merely because the camera was late.
+            trk.fresh_hist.append(
+                hit and (trk.id in lidar_ids or not self.p.camera_confirm_fresh_only
+                         or self.camera_fresh))
             if self._confirmed_by_history(trk):
                 trk.ever_confirmed = True
             if trk.ever_confirmed:
@@ -1631,7 +1767,10 @@ class MultiWallTracker:
 
     def _confirmed_by_history(self, trk):
         hits, window = self._confirm_rule(trk)
-        return sum(itertools.islice(reversed(trk.history), window)) >= hits
+        # A track the LiDAR has never seen is confirmed on the FRESH-cycle
+        # history; one the LiDAR has seen keeps the ordinary one.
+        hist = trk.history if trk.has_lidar else trk.fresh_hist
+        return sum(itertools.islice(reversed(hist), window)) >= hits
 
     def _expired(self, trk, stamp):
         if stamp - trk.last_seen > self.p.delete_after_s:

@@ -20,7 +20,7 @@ never collide with another's and each can be deleted by id:
 
     4 * track.id + 0   LINE_STRIP   the segment on the floor, 5 cm wide
     4 * track.id + 1   CUBE         the vertical prism, semi-transparent
-    4 * track.id + 2   TEXT         "id role state dist"
+    4 * track.id + 2   TEXT         "id role source state dist"
     4 * track.id + 3   LINE_STRIP   the cyan glass outline, glass panes only
 
 Colour is the ROLE and alpha is the STATE, so the two questions never compete
@@ -116,6 +116,15 @@ def z_span(track):
     if track.height_measured:
         return float(track.z_min), float(track.z_max)
     return DEFAULT_Z_SPAN
+
+
+def source_word(track):
+    """'lidar', 'stereo' or 'both' -- what the evidence behind this track is.
+
+    Track.source already ranks both > lidar > stereo and is sticky, so this
+    is a read, not a second opinion.
+    """
+    return wall_fusion.SOURCE_NAMES.get(getattr(track, 'source', None), '?')
 
 
 def set_lifetime(marker, seconds):
@@ -229,7 +238,11 @@ class WallMarkerBuilder:
         text.scale.z = TEXT_SIZE_M
         text.color.r = text.color.g = text.color.b = 1.0
         text.color.a = 1.0
-        text.text = f'{track.id} {role} {state_word(track)} {distance:.2f}m'
+        # The SOURCE is in the label because a wall the LiDAR has never seen
+        # and one both sensors agree on are not the same claim, and on
+        # /viz/walls they otherwise look identical (P3).
+        text.text = (f'{track.id} {role} {source_word(track)} '
+                     f'{state_word(track)} {distance:.2f}m')
         set_lifetime(text, self.lifetime_s)
 
         out = [line, prism, text]
