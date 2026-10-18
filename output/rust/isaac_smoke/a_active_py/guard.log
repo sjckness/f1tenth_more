@@ -1,0 +1,7 @@
+[INFO] [proximity_guard_node-1]: process started with pid [1282673]
+[proximity_guard_node-1] [INFO] [1792342878.376720677] [proximity_guard_node]: proximity_guard_node started: mode=active threshold=0.150 m from base_front (x=0.405 m), cone +-45.0 deg, scan timeout 200 ms, max invalid fraction 0.50, decisions on /proximity_guard/decision, stops on safety_stop (frame_id base_link/proximity_guard)
+[proximity_guard_node-1] [WARN] [1792342878.426922340] [proximity_guard_node]: front proximity no_scan_yet: no /scan for 54 ms (timeout 200 ms): STOPPING
+[proximity_guard_node-1] [WARN] [1792342879.422442710] [proximity_guard_node]: no base_link <- "laser" on /tf_static yet: front measured as if the LiDAR sat at base_link (trips early, never late), as IsProximityTooClose does
+[proximity_guard_node-1] [WARN] [1792342924.226725867] [proximity_guard_node]: front proximity stale: no /scan for 232 ms (timeout 200 ms): STOPPING
+[INFO] [proximity_guard_node-1]: sending signal 'SIGINT' to process[proximity_guard_node-1]
+[ERROR] [proximity_guard_node-1]: process has died [pid 1282673, exit code -2, cmd '/home/andreas/dev_ws/f1tenth_more_rust/install/f1tenth_proximity_guard/lib/f1tenth_proximity_guard/proximity_guard_node --ros-args -r __node:=proximity_guard_node -p use_sim_time:=True --params-file /home/andreas/dev_ws/f1tenth_more_rust/install/f1tenth_bringup/share/f1tenth_bringup/config/sim/isaac.yaml --params-file /tmp/launch_params_ehc70myz'].

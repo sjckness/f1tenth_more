@@ -1,0 +1,5 @@
+[sim_isaac 19:30:16] sourced host setup /home/andreas/dev_ws/jc_env.sh
+== ROS env (net local, domain 42, Discovery Server 127.0.0.1:11811, super client) ==
+FASTRTPS_DEFAULT_PROFILES_FILE=/home/andreas/dev_ws/f1tenth_more_rust/src/f1tenth_bringup/config/sim/dds/local.xml
+cmd: python3 /home/andreas/dev_ws/f1tenth_more_rust/tools/rust_parity/isaac/proc_cpu.py 70 costmap_boundary_node proximity_guard_node
+PROC_CPU {"costmap_boundary_node": {"pid": 1334540, "cpu_percent": 1.91, "rss_mb": 37.9, "exe": "tenth_costmap_boundary_rs/lib/f1tenth_costmap_boundary_rs/costmap_boundary_node --ros-args"}, "proximity_guard_node": {"pid": 1334614, "cpu_percent": 2.81, "rss_mb": 37.6, "exe": "nstall/f1tenth_proximity_guard/lib/f1tenth_proximity_guard/proximity_guard_node --ros-args"}}

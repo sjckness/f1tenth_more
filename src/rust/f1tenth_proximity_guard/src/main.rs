@@ -2,8 +2,9 @@
 //!
 //! Subscribes /scan and /tf_static (the laser's mount in base_link). On every
 //! scan it decides (crate::decision) and publishes the decision on
-//! `decision_topic` (diagnostic_msgs/DiagnosticStatus). A steady-clock
-//! watchdog decides `stale` / `no_scan_yet` when scans stop arriving.
+//! `decision_topic` (diagnostic_msgs/DiagnosticStatus). A watchdog decides
+//! `stale` / `no_scan_yet` when scans stop arriving: on the steady clock on
+//! the car, on ROS time under use_sim_time (watchdog.rs).
 //!
 //! mode:=shadow  decisions only, no command of any kind.
 //! mode:=active  also a zero-speed AckermannDriveStamped on `stop_topic`
@@ -21,8 +22,8 @@ use std::time::{Duration, Instant};
 use ackermann_msgs::msg::AckermannDriveStamped;
 use diagnostic_msgs::msg::{DiagnosticStatus, KeyValue};
 use rclrs::{
-    log_error, log_info, log_warn, Context, CreateBasicExecutor, IntoPrimitiveOptions, Node,
-    Publisher, QoSProfile, RclrsErrorFilter, SpinOptions, ToLogParams,
+    log_error, log_info, log_warn, ClockType, Context, CreateBasicExecutor, IntoPrimitiveOptions,
+    Node, Publisher, QoSProfile, RclrsErrorFilter, SpinOptions, ToLogParams,
 };
 use sensor_msgs::msg::LaserScan;
 use tf2_msgs::msg::TFMessage;
@@ -31,6 +32,7 @@ use f1tenth_proximity_guard::decision::{
     decide, no_data, Decision, GuardConfig, LaserPose, Reason, ScanView,
 };
 use f1tenth_proximity_guard::static_tf::{StaticTfTree, Transform};
+use f1tenth_proximity_guard::watchdog::{ros_age, verdict, ScanAge, StaleClock, Verdict};
 
 const NODE_NAME: &str = "proximity_guard_node";
 
@@ -61,6 +63,8 @@ struct Settings {
     cfg: GuardConfig,
     robot_frame: String,
     scan_timeout: Duration,
+    /// Steady on the car, the node clock (/clock) under use_sim_time (watchdog.rs).
+    stale_clock: StaleClock,
     stop_frame_id: String,
 }
 
@@ -75,7 +79,11 @@ struct Topics {
 struct State {
     tf: StaticTfTree,
     started: Instant,
-    last_scan_rx: Option<Instant>,
+    /// Steady-clock and node-clock time of the last scan's receipt.
+    last_scan_rx: Option<(Instant, i64)>,
+    /// Sim only: wall-clock gaps over the timeout that were not stale in ROS time.
+    sim_pauses: u64,
+    in_sim_pause: bool,
 }
 
 fn lock(state: &Mutex<State>) -> MutexGuard<'_, State> {
@@ -116,6 +124,7 @@ struct DecisionInfo {
     compute_us: Option<f64>,
     tf_fallback: bool,
     scan_age_ms: f64,
+    sim_pauses: u64,
 }
 
 fn decision_msg(d: &Decision, s: &Settings, info: &DecisionInfo) -> DiagnosticStatus {
@@ -149,6 +158,8 @@ fn decision_msg(d: &Decision, s: &Settings, info: &DecisionInfo) -> DiagnosticSt
             kv("sector_beams", d.eval.sector_beams.to_string()),
             kv("invalid_beams", d.eval.invalid_beams.to_string()),
             kv("too_close_beams", d.eval.too_close_beams.to_string()),
+            kv("stale_clock", s.stale_clock.as_str().to_owned()),
+            kv("sim_pauses", info.sim_pauses.to_string()),
         ],
     }
 }
@@ -237,6 +248,11 @@ fn read_settings(node: &Node) -> Result<(Settings, Topics), String> {
         },
         robot_frame: p_str("robot_frame", "base_link")?,
         scan_timeout: Duration::from_secs_f64(timeout_ms / 1000.0),
+        // use_sim_time switches the node clock to ROS time (rclrs TimeSource).
+        stale_clock: match node.get_clock().clock_type() {
+            ClockType::RosTime => StaleClock::Ros,
+            _ => StaleClock::Steady,
+        },
         stop_frame_id: p_str("stop_frame_id", "base_link/proximity_guard")?,
     };
     let topics = Topics {
@@ -262,6 +278,8 @@ fn run() -> Result<(), String> {
         tf: StaticTfTree::default(),
         started: Instant::now(),
         last_scan_rx: None,
+        sim_pauses: 0,
+        in_sim_pause: false,
     }));
     let err = |e: rclrs::RclrsError| e.to_string();
 
@@ -321,10 +339,15 @@ fn run() -> Result<(), String> {
             move |msg: LaserScan| {
                 let t0 = Instant::now();
                 let s = &*scan_settings;
-                let laser = {
+                let ros_now = scan_node.get_clock().now().nsec;
+                let (laser, sim_pauses) = {
                     let mut st = lock(&scan_state);
-                    st.last_scan_rx = Some(t0);
-                    st.tf.pose(&s.robot_frame, &msg.header.frame_id)
+                    st.last_scan_rx = Some((t0, ros_now));
+                    st.in_sim_pause = false;
+                    (
+                        st.tf.pose(&s.robot_frame, &msg.header.frame_id),
+                        st.sim_pauses,
+                    )
                 };
                 let tf_fallback = laser.is_none();
                 let scan = ScanView {
@@ -348,6 +371,7 @@ fn run() -> Result<(), String> {
                     compute_us: Some(compute_us),
                     tf_fallback,
                     scan_age_ms: 0.0,
+                    sim_pauses,
                 };
                 publish_decision(&scan_node, &scan_decision_pub, &d, s, &info);
                 if tf_fallback {
@@ -379,7 +403,8 @@ fn run() -> Result<(), String> {
         )
         .map_err(err)?;
 
-    // Watchdog (steady clock): no scan yet, or the last one too old -> stop.
+    // Watchdog: no scan yet, or the last one too old on the judging clock -> stop
+    // (watchdog.rs: steady on the car, ROS time under use_sim_time).
     let wd_node = Arc::clone(&node);
     let wd_state = Arc::clone(&state);
     let wd_settings = Arc::clone(&settings);
@@ -388,13 +413,37 @@ fn run() -> Result<(), String> {
     let _watchdog = node
         .create_timer_repeating(topics.watchdog, move || {
             let s = &*wd_settings;
-            let (reason, age) = {
-                let st = lock(&wd_state);
-                match st.last_scan_rx {
-                    None => (Some(Reason::NoScanYet), st.started.elapsed()),
-                    Some(t) if t.elapsed() > s.scan_timeout => (Some(Reason::Stale), t.elapsed()),
-                    Some(_) => (None, Duration::ZERO),
-                }
+            let ros_now = wd_node.get_clock().now().nsec;
+            let (reason, age, sim_pauses) = {
+                let mut st = lock(&wd_state);
+                let last = st.last_scan_rx.map(|(t, ros)| ScanAge {
+                    steady: t.elapsed(),
+                    ros: ros_age(ros_now, ros),
+                });
+                let v = verdict(s.stale_clock, last, s.scan_timeout);
+                let steady_age = last.map_or_else(|| st.started.elapsed(), |a| a.steady);
+                let reason = match v {
+                    Verdict::NoScanYet => Some(Reason::NoScanYet),
+                    Verdict::Stale => Some(Reason::Stale),
+                    Verdict::SimPause => {
+                        if !st.in_sim_pause {
+                            st.in_sim_pause = true;
+                            st.sim_pauses += 1;
+                            log_info!(
+                                wd_node.logger(),
+                                "simulator pause #{}: no /scan for {:.0} ms of wall time but \
+                                 {:.0} ms of ROS time (timeout {:.0} ms): not stale",
+                                st.sim_pauses,
+                                steady_age.as_secs_f64() * 1e3,
+                                last.and_then(|a| a.ros).unwrap_or_default().as_secs_f64() * 1e3,
+                                s.scan_timeout.as_secs_f64() * 1e3
+                            );
+                        }
+                        None
+                    }
+                    Verdict::Fresh => None,
+                };
+                (reason, steady_age, st.sim_pauses)
             };
             let Some(reason) = reason else { return };
             let d = no_data(reason);
@@ -407,6 +456,7 @@ fn run() -> Result<(), String> {
                 compute_us: None,
                 tf_fallback: false,
                 scan_age_ms: age.as_secs_f64() * 1e3,
+                sim_pauses,
             };
             publish_decision(&wd_node, &wd_decision_pub, &d, s, &info);
             log_warn!(
@@ -427,12 +477,13 @@ fn run() -> Result<(), String> {
     log_info!(
         node.logger(),
         "{NODE_NAME} started: mode={} threshold={:.3} m from base_front (x={:.3} m), cone +-{:.1} deg, \
-         scan timeout {:.0} ms, max invalid fraction {:.2}, decisions on {}{}",
+         scan timeout {:.0} ms ({} clock), max invalid fraction {:.2}, decisions on {}{}",
         settings.mode.as_str(),
         settings.cfg.threshold_m,
         settings.cfg.front_x,
         settings.cfg.cone_half_angle_rad.to_degrees(),
         settings.scan_timeout.as_secs_f64() * 1e3,
+        settings.stale_clock.as_str(),
         settings.cfg.max_invalid_fraction,
         topics.decision,
         match settings.mode {

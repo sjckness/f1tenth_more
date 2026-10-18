@@ -1,0 +1,163 @@
+[
+ {
+  "impl": "py",
+  "ticks": 708,
+  "cross_match": 708,
+  "self_match": 708,
+  "unmatched": [],
+  "latest_pose_used": 2,
+  "matched_rank": {
+   "1": 706,
+   "0": 2
+  },
+  "discriminating_ticks": 708,
+  "discriminating_matched": 708,
+  "frame_ids": [
+   "base_link"
+  ],
+  "constraints_per_tick": {
+   "3": 708
+  },
+  "stamp_step_s": {
+   "p50": 0.10000000000000142,
+   "min": 0.09999999999999432,
+   "max": 0.10000000000000853
+  },
+  "rate_hz_wall": 10.0,
+  "stamps_monotonic": true,
+  "maps": 15,
+  "rust_offline_us": {
+   "p50": 118.307,
+   "p95": 157.70135000000002,
+   "max": 205.862
+  },
+  "python_offline_tick_ms": {
+   "p50": 2.1073910174891353,
+   "p95": 2.2636352689005435,
+   "max": 2.7144309133291245,
+   "n": 1414
+  },
+  "run": "output/rust/isaac_smoke/r1_a_active_py"
+ },
+ {
+  "impl": "rust",
+  "ticks": 733,
+  "cross_match": 733,
+  "self_match": 733,
+  "unmatched": [],
+  "latest_pose_used": 2,
+  "matched_rank": {
+   "1": 731,
+   "0": 2
+  },
+  "discriminating_ticks": 733,
+  "discriminating_matched": 733,
+  "frame_ids": [
+   "base_link"
+  ],
+  "constraints_per_tick": {
+   "3": 733
+  },
+  "stamp_step_s": {
+   "p50": 0.10000000000000142,
+   "min": 0.09999999999999432,
+   "max": 0.10000000000000853
+  },
+  "rate_hz_wall": 10.0,
+  "stamps_monotonic": true,
+  "maps": 16,
+  "rust_offline_us": {
+   "p50": 115.973,
+   "p95": 154.652,
+   "max": 196.668
+  },
+  "python_offline_tick_ms": {
+   "p50": 2.123930025845766,
+   "p95": 2.2685417905449867,
+   "max": 15.53698698990047,
+   "n": 2953
+  },
+  "run": "output/rust/isaac_smoke/r2_a_active_rust"
+ },
+ {
+  "impl": "py",
+  "ticks": 719,
+  "cross_match": 719,
+  "self_match": 719,
+  "unmatched": [],
+  "latest_pose_used": 1,
+  "matched_rank": {
+   "1": 718,
+   "0": 1
+  },
+  "discriminating_ticks": 719,
+  "discriminating_matched": 719,
+  "frame_ids": [
+   "base_link"
+  ],
+  "constraints_per_tick": {
+   "3": 719
+  },
+  "stamp_step_s": {
+   "p50": 0.10000000000000142,
+   "min": 0.09999999999999432,
+   "max": 0.10000000000000853
+  },
+  "rate_hz_wall": 10.0,
+  "stamps_monotonic": true,
+  "maps": 16,
+  "rust_offline_us": {
+   "p50": 112.767,
+   "p95": 152.4049,
+   "max": 228.526
+  },
+  "python_offline_tick_ms": {
+   "p50": 2.101241087075323,
+   "p95": 2.271671104244888,
+   "max": 2.575399004854262,
+   "n": 1440
+  },
+  "run": "output/rust/isaac_smoke/r_b2_shadow_py"
+ },
+ {
+  "impl": "rust",
+  "ticks": 730,
+  "cross_match": 730,
+  "self_match": 730,
+  "unmatched": [],
+  "latest_pose_used": 25,
+  "matched_rank": {
+   "2": 439,
+   "1": 266,
+   "0": 25
+  },
+  "discriminating_ticks": 730,
+  "discriminating_matched": 730,
+  "frame_ids": [
+   "base_link"
+  ],
+  "constraints_per_tick": {
+   "3": 730
+  },
+  "stamp_step_s": {
+   "p50": 0.10000000000000142,
+   "min": 0.09999999999999432,
+   "max": 0.10000000000000853
+  },
+  "rate_hz_wall": 10.0,
+  "stamps_monotonic": true,
+  "maps": 15,
+  "rust_offline_us": {
+   "p50": 119.61,
+   "p95": 160.144,
+   "max": 244.828
+  },
+  "python_offline_tick_ms": {
+   "p50": 2.121297991834581,
+   "p95": 2.268147945869714,
+   "max": 2.7295619947835803,
+   "n": 2871
+  },
+  "run": "output/rust/isaac_smoke/r_b2_shadow_rust"
+ }
+]

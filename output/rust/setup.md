@@ -128,6 +128,13 @@ src/rust/
   Its paths are absolute and machine-specific: it is `.gitignore`d. Cargo prints "patch ... was
   not used in the crate graph" for the unused ones: noise. Do not run two colcon builds of Rust
   packages at once (both rewrite the file).
+- **Building one Rust package alone** (`--packages-select f1tenth_proximity_guard`): cargo
+  resolves every member of the workspace, but colcon-ros-cargo patches only the message crates
+  visible to the package it builds (its dependencies plus the /opt/ros underlay). A message
+  package built IN this workspace and used by another member (`f1tenth_messages`, used by
+  the costmap crate) must therefore be a `<build_depend>` of every member, or that
+  single-package build fails with "no matching package named `f1tenth_messages`". The guard's
+  package.xml carries it, with the reason (found 2026-10-18).
 - Gates used before each commit (from `src/rust`, the environment above sourced):
 
   ```bash

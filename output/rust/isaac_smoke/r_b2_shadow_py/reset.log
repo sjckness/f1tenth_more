@@ -1,0 +1,7 @@
+[sim_isaac 19:27:53] sourced host setup /home/andreas/dev_ws/jc_env.sh
+waiting for service to become available...
+requester: making request: std_srvs.srv.Trigger_Request()
+
+response:
+std_srvs.srv.Trigger_Response(success=True, message='reset #1: car and person at start poses')
+

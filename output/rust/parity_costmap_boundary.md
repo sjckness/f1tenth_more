@@ -174,3 +174,66 @@ Offline, the Python `_extraction_tick` alone (the parity run, 145,583 ticks on a
 maps) is p50 3.58 ms, p95 4.73 ms, max 31.2 ms; the live tick adds message construction and
 publishing. At 10 Hz the Python node uses ~6 % of a core in its tick alone; the Rust node
 ~0.3 %. Not measured on the Thor or the Orin.
+
+
+## 6. In Isaac: the recorded runs of scenarios A and B2 (2026-10-18, follow-up)
+
+Four runs of `tools/rust_parity/isaac/scenario.sh` with `RECORD=1`: A (2 m straight) and B2 (2.9 m
+into the box), each once with `impl:=py` and once with `impl:=rust`. Each bag holds `/slam/map`,
+`/ekf_global/odometry/filtered`, `/costmap/boundaries` and `/costmap/front_clearance` as the live
+node published them. Checked with `tools/rust_parity/costmap_boundary/isaac_parity.py`. The bags
+(mcap, 64 MB) stay on linus under `output/rust/isaac_smoke/r*/bag/`: `output/**/*.mcap` is
+git-ignored, so only their `metadata.yaml` is committed. To regenerate: `RECORD=1
+tools/rust_parity/isaac/scenario.sh ...`.
+
+For every recorded tick the inputs the node had are rebuilt:
+- **Map:** the latest `/slam/map` before the tick, and the one before it.
+- **Pose:** the last 4 global poses stamped at or before the tick's own stamp (+20 ms). The node
+  uses the latest pose it had received, which the recorder cannot know exactly.
+- **Check:** the OTHER implementation runs offline on each candidate. One candidate must reproduce
+  the recorded count, order, normals and offsets within 1e-12, and the paired front_clearance
+  within 0 Float32 ulps.
+- **Method checks:** the same implementation must reproduce itself, and every tick must be
+  *discriminating*: the candidates give different outputs, so a match picks out the inputs
+  instead of matching any of several identical candidates.
+
+| run (live impl) | scenario | ticks | reproduced by the other impl | by itself | discriminating ticks | matched pose candidate (0 = newest) | constraints per tick | frame_id | stamp step (sim) | rate |
+|---|---|---:|---:|---:|---:|---|---|---|---|---|
+| r1_a_active_py (py) | A | 708 | **708** | 708 | 708 (708 matched) | {'1': 706, '0': 2} | {'3': 708} | base_link | 0.100 s (min 0.100, max 0.100), monotonic | 10.0 Hz |
+| r2_a_active_rust (rust) | A | 733 | **733** | 733 | 733 (733 matched) | {'1': 731, '0': 2} | {'3': 733} | base_link | 0.100 s (min 0.100, max 0.100), monotonic | 10.0 Hz |
+| r_b2_shadow_py (py) | B2 | 719 | **719** | 719 | 719 (719 matched) | {'1': 718, '0': 1} | {'3': 719} | base_link | 0.100 s (min 0.100, max 0.100), monotonic | 10.0 Hz |
+| r_b2_shadow_rust (rust) | B2 | 730 | **730** | 730 | 730 (730 matched) | {'2': 439, '1': 266, '0': 25} | {'3': 730} | base_link | 0.100 s (min 0.100, max 0.100), monotonic | 10.0 Hz |
+
+**Result: 2,890 of 2,890 live ticks reproduced by the other implementation.** Every tick was
+discriminating and the self-check is 100 %.
+
+- **Recorded output:** `frame_id` always `base_link`. Stamps are the node clock at the tick (sim
+  time), spaced 0.100 s and monotonic. 10.0 Hz on wall time at RTF 1.0, 3 constraints every tick.
+- **Which pose was used:** the matching candidate is normally rank 1, i.e. the latest pose stamped
+  before the tick; rank 0 is a pose stamped up to 20 ms after the tick. In run B2-rust the node
+  often had the pose before that (rank 2, 439 ticks): the newest pose had not yet arrived at its
+  tick. That is delivery timing, not computation.
+
+**CPU (live, over the 70 s recording window, both runs on the same scenario):**
+
+| run | live impl | process CPU (100 % = one core) | RSS |
+|---|---|---:|---:|
+| r1_a_active_py | Python | 8.57 % | 90 MB |
+| r2_a_active_rust | Rust | 1.89 % | 38 MB |
+| r_b2_shadow_py | Python | 9.26 % | 90 MB |
+| r_b2_shadow_rust | Rust | 1.91 % | 38 MB |
+
+**Callback time on these Isaac inputs**, offline. Same machine, idle otherwise. The Python
+number is the whole unchanged `_extraction_tick` including building the messages; the Rust
+number is `extraction::extract`, the computation the tick calls.
+
+| on the inputs of | Python `_extraction_tick` p50 / p95 / max | Rust `extract` p50 / p95 / max |
+|---|---|---|
+| r1_a_active_py | 2.11 / 2.26 / 2.71 ms | 0.118 / 0.158 / 0.206 ms |
+| r2_a_active_rust | 2.12 / 2.27 / 15.54 ms | 0.116 / 0.155 / 0.197 ms |
+| r_b2_shadow_py | 2.10 / 2.27 / 2.58 ms | 0.113 / 0.152 / 0.229 ms |
+| r_b2_shadow_rust | 2.12 / 2.27 / 2.73 ms | 0.120 / 0.160 / 0.245 ms |
+
+On Isaac's maps (15-16 map messages per run, 121 x 121 cells at 0.05 m: the 6 x 6 m room) the Python tick is
+~2.2 ms, against 5.7 ms on the 240 x 215 car map of section 5. The Rust extraction is ~0.12 ms,
+18x faster.

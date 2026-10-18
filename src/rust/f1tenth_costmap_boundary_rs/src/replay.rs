@@ -1,7 +1,8 @@
 //! The parity harness's case format (tools/rust_parity/costmap_boundary).
 //!
 //! One JSON object per line: one grid and the poses to evaluate on it.
-//! Output: one JSON object per pose. Non-finite floats travel as the strings
+//! Output: one JSON object per pose (with `compute_us`, the extraction's own time).
+//! Non-finite floats travel as the strings
 //! "inf", "-inf", "nan" (JSON has no such numbers).
 
 use serde::Deserialize;
@@ -81,9 +82,13 @@ pub fn run_line(line: &str) -> Result<Vec<Value>, String> {
             y: num(y)?,
             yaw: num(yaw)?,
         };
-        let r = match extract(&grid, pose, &params) {
+        let t0 = std::time::Instant::now();
+        let extracted = extract(&grid, pose, &params);
+        // The extraction alone (what the node's tick computes), for the timing comparison.
+        let compute_us = t0.elapsed().as_secs_f64() * 1e6;
+        let r = match extracted {
             Ok(e) => json!({
-                "id": c.id, "pose_index": i, "error": Value::Null,
+                "id": c.id, "pose_index": i, "error": Value::Null, "compute_us": compute_us,
                 "constraints": e.constraints().iter()
                     .map(|&(nx, ny, off)| json!([out(nx), out(ny), out(off)]))
                     .collect::<Vec<_>>(),
