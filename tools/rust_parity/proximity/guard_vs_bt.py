@@ -120,6 +120,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--out', required=True)
     ap.add_argument('--seconds', type=float, default=0.0, help='0: until SIGINT/SIGTERM')
+    ap.add_argument('--stop-file', default=None, help='stop when this file exists')
     a = ap.parse_args()
     rclpy.init()
     node = Recorder()
@@ -130,8 +131,11 @@ def main():
     signal.signal(signal.SIGTERM, handler)
     signal.signal(signal.SIGINT, handler)
     end = time.monotonic() + a.seconds if a.seconds > 0 else None
+    import os
     while not stop['v'] and (end is None or time.monotonic() < end):
         rclpy.spin_once(node, timeout_sec=0.1)
+        if a.stop_file and os.path.exists(a.stop_file):
+            break
     s = node.summary()
     with open(a.out, 'w') as f:
         json.dump(s, f, indent=1, default=str)

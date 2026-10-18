@@ -6,6 +6,7 @@
 # Usage:
 #   scripts/sim/sim_stack.sh                          # --net eth enable_intelligence:=true
 #   scripts/sim/sim_stack.sh enable_intelligence:=false   # any supervisor_bringup k:=v passes through
+#   scripts/sim/sim_stack.sh guard:=shadow impl:=rust     # the Rust ports (output/rust/isaac_test.md)
 #   scripts/sim/sim_stack.sh --net local              # stack and Isaac on this one machine
 #   scripts/sim/sim_stack.sh --domain 43 --clean --dry-run
 #   scripts/sim/sim_stack.sh --gazebo                 # where the Gazebo version went (see below)

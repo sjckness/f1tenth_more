@@ -153,3 +153,11 @@ measured in a third process (DDS transport both ways included).
 The BT's own path adds its tick: a tripping scan is acted on by the emergency lane's Stop at
 the next 10 Hz tick (0-100 ms later); the event stop above is what cpu-cleanup added to remove
 that wait.
+
+## 6. In Isaac (2026-10-18)
+
+With the full stack in Isaac Sim on linus (`isaac_test.md` section 5), the guard's front decision
+matched the BT's own IsProximityTooClose front decision on every live scan: 35,120 + 9,965 scans
+in two e2e sessions (all clear), and 856 scans with a box 0.10 m from the bumper, 589 of them
+tripped on both sides. In `guard:=active` the guard's stops reached `/ackermann_drive` through the
+mux next to the BT's.
