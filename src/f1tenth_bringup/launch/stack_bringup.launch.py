@@ -90,6 +90,9 @@ def generate_launch_description():
     guard_la = DeclareLaunchArgument(
         'guard', default_value='off', choices=['off', 'shadow', 'active'],
         description='Rust front-proximity guard: off (not launched), shadow, active.')
+    impl_la = DeclareLaunchArgument(
+        'impl', default_value='py', choices=['py', 'rust'],
+        description='costmap_boundary_node implementation: py or rust.')
     discovery_server_address = LaunchConfiguration('discovery_server_address')
     discovery_server_port = LaunchConfiguration('discovery_server_port')
 
@@ -226,7 +229,8 @@ def generate_launch_description():
     # enable_slam flag as slam.launch.py itself (see that file's own module
     # docstring for why it shares the flag rather than a second toggle).
     autonomy_bringup.append(
-        include('f1tenth_costmap', 'costmap.launch.py', condition=is_calibration_disabled))
+        include('f1tenth_costmap', 'costmap.launch.py', condition=is_calibration_disabled,
+                costmap_boundary_impl=LaunchConfiguration('impl')))
 
     # ================================================================
     # 7. DIAGNOSTICS & INTELLIGENCE
@@ -273,6 +277,7 @@ def generate_launch_description():
         discovery_server_address_la,
         discovery_server_port_la,
         guard_la,
+        impl_la,
         discovery_server_env,
         discovery_server,
         vesc_bringup,

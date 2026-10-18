@@ -16,4 +16,5 @@
 resolver = "2"
 members = [
     "f1tenth_proximity_guard",
+    "f1tenth_costmap_boundary_rs",
 ]

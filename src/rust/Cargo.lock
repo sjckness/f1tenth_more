@@ -295,6 +295,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "f1tenth_costmap_boundary_rs"
+version = "0.1.0"
+dependencies = [
+ "builtin_interfaces",
+ "example_interfaces",
+ "f1tenth_messages",
+ "geometry_msgs",
+ "nav_msgs",
+ "rclrs",
+ "serde",
+ "serde_json",
+ "std_msgs",
+ "test_msgs",
+]
+
+[[package]]
+name = "f1tenth_messages"
+version = "0.0.1"
+dependencies = [
+ "builtin_interfaces",
+ "geometry_msgs",
+ "rosidl_runtime_rs",
+ "service_msgs",
+ "std_msgs",
+]
+
+[[package]]
 name = "f1tenth_proximity_guard"
 version = "0.1.0"
 dependencies = [
@@ -528,6 +555,17 @@ name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf8baf1c55e62ffcace7a9f06f4bd9cd3f0c4beb022d3b367256b91b87513d98"
+
+[[package]]
+name = "nav_msgs"
+version = "5.3.7"
+dependencies = [
+ "builtin_interfaces",
+ "geometry_msgs",
+ "rosidl_runtime_rs",
+ "service_msgs",
+ "std_msgs",
+]
 
 [[package]]
 name = "once_cell"
@@ -966,10 +1004,6 @@ name = "dwb_msgs"
 version = "1.3.11"
 
 [[patch.unused]]
-name = "f1tenth_messages"
-version = "0.0.1"
-
-[[patch.unused]]
 name = "geographic_msgs"
 version = "1.0.6"
 
@@ -1004,10 +1038,6 @@ version = "1.3.11"
 [[patch.unused]]
 name = "nav_2d_msgs"
 version = "1.3.11"
-
-[[patch.unused]]
-name = "nav_msgs"
-version = "5.3.7"
 
 [[patch.unused]]
 name = "object_recognition_msgs"

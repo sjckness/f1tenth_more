@@ -392,27 +392,31 @@ _SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
 
 # Rust ports (output/rust/): which launch file takes which switch.
 #   guard -> behavior_bringup.launch.py proximity_guard:=off|shadow|active
+#   impl  -> costmap.launch.py          costmap_boundary_impl:=py|rust
 _RUST_SWITCHES = {
     'behavior_bringup.launch.py': ('proximity_guard', ('off', 'shadow', 'active')),
+    'costmap.launch.py': ('costmap_boundary_impl', ('py', 'rust')),
 }
 
 
-def validate_rust_switches(proximity_guard):
+def validate_rust_switches(proximity_guard, costmap_boundary_impl):
     """Raise ValueError for a value the launch files do not accept."""
-    for value, (arg, choices) in zip((proximity_guard,), _RUST_SWITCHES.values()):
+    for value, (arg, choices) in zip(
+            (proximity_guard, costmap_boundary_impl), _RUST_SWITCHES.values()):
         if value not in choices:
             raise ValueError(f'{arg} must be one of {choices}, got {value!r}')
 
 
-def apply_rust_switches(registry, proximity_guard):
-    """Write guard into the args of the entries that launch that file.
+def apply_rust_switches(registry, proximity_guard, costmap_boundary_impl):
+    """Write guard/impl into the args of the entries that launch those files.
 
     Found by launch_file, like _apply_mission_logger_override, so moving an
     entry to another component cannot disconnect the switch. The defaults
-    (off) is written too: a components.yaml literal cannot silently
+    (off, py) are written too: a components.yaml literal cannot silently
     disagree with the supervisor's own parameter.
     """
-    values = {'behavior_bringup.launch.py': proximity_guard}
+    values = {'behavior_bringup.launch.py': proximity_guard,
+              'costmap.launch.py': costmap_boundary_impl}
     for entries in registry.values():
         for entry in entries:
             launch_file = str(entry.get('launch_file', ''))
@@ -659,12 +663,14 @@ class ComponentSupervisorNode(Node):
         # mission_logger.launch.py with its own (now false) default.
         self.enable_mission_logger = bool(
             self.declare_parameter('enable_mission_logger', False).value)
-        # Rust ports (output/rust/): supervisor_bringup.launch.py guard:=,
-        # the same shape as enable_mission_logger and for the same reason.
-        # Validated here as well as by the launch argument's choices: a bare
-        # `ros2 run` must not start a guard mode nobody asked for.
+        # Rust ports (output/rust/): supervisor_bringup.launch.py guard:= and
+        # impl:=, the same shape as enable_mission_logger and for the same
+        # reason. Validated here as well as by the launch arguments' choices:
+        # a bare `ros2 run` must not start a guard mode nobody asked for.
         self.proximity_guard = str(self.declare_parameter('proximity_guard', 'off').value)
-        validate_rust_switches(self.proximity_guard)
+        self.costmap_boundary_impl = str(
+            self.declare_parameter('costmap_boundary_impl', 'py').value)
+        validate_rust_switches(self.proximity_guard, self.costmap_boundary_impl)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
         # starts -- same "declared parameter, wired from supervisor_bringup.
         # launch.py's own launch argument, default sourced from stack_params.yaml"
@@ -750,11 +756,11 @@ class ComponentSupervisorNode(Node):
         # After the sim rewrite, on whichever registry is final: the logger
         # toggle is by launch_file, so it applies to the car and to sim alike.
         self._apply_mission_logger_override()
-        apply_rust_switches(self._registry, self.proximity_guard)
-        if self.proximity_guard != 'off':
+        apply_rust_switches(self._registry, self.proximity_guard, self.costmap_boundary_impl)
+        if self.proximity_guard != 'off' or self.costmap_boundary_impl != 'py':
             self.get_logger().info(
                 f'[component_supervisor] Rust ports: guard:={self.proximity_guard} '
-                '(output/rust/)')
+                f'impl:={self.costmap_boundary_impl} (output/rust/)')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or
