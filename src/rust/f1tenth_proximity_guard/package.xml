@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_proximity_guard</name>
+  <version>0.1.0</version>
+  <description>Front-proximity guard (rclrs): the front check of IsProximityTooClose as its own node, shadow or active</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>Apache-2.0</license>
+
+  <depend>builtin_interfaces</depend>
+  <depend>std_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>ackermann_msgs</depend>
+  <depend>diagnostic_msgs</depend>
+  <!-- ros2-rust/ros2_rust#557: rclrs 0.7 links these through its vendored
+       test crates; see output/rust/setup.md (test_msgs underlay). -->
+  <depend>example_interfaces</depend>
+  <depend>test_msgs</depend>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

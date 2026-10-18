@@ -54,12 +54,14 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 
+from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, LogInfo, RegisterEventHandler
+from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -263,6 +265,35 @@ def generate_launch_description():
             **avoidance_params,
         }],
     )
+    # Rust front-proximity guard (src/rust/f1tenth_proximity_guard), a port
+    # of IsProximityTooClose's FRONT check as its own node. It is not part of
+    # the tree: the BT's emergency lane is unchanged in every mode.
+    #   off     not launched (default)
+    #   shadow  decisions on /proximity_guard/decision only, no command
+    #   active  also stops on the safety_stop mux lane (priority 200), frame_id
+    #           base_link/proximity_guard, next to the BT's own stops
+    # Same front threshold and bumper as the BT's IsProximityTooClose.
+    # Outside the Nav2 readiness gate below: it does not depend on Nav2.
+    proximity_guard_la = DeclareLaunchArgument(
+        'proximity_guard', default_value='off', choices=['off', 'shadow', 'active'],
+        description='Rust front-proximity guard: off (not launched), shadow '
+                    '(decisions on /proximity_guard/decision only) or active '
+                    '(also a zero-speed stop on the safety_stop lane). '
+                    'supervisor_bringup/stack_bringup: guard:=...')
+    proximity_guard_node = Node(
+        package='f1tenth_proximity_guard',
+        executable='proximity_guard_node',
+        name='proximity_guard_node',
+        output='screen',
+        condition=IfCondition(PythonExpression(
+            ["'", LaunchConfiguration('proximity_guard'), "' != 'off'"])),
+        parameters=[{
+            'mode': LaunchConfiguration('proximity_guard'),
+            'base_front_x_m': base_front_x(),
+            'front_distance_threshold_m': ParameterValue(
+                LaunchConfiguration('proximity_front_threshold_m'), value_type=float),
+        }],
+    )
     twist_to_ackermann_node = Node(
         package='f1tenth_behavior',
         executable='twist_to_ackermann_node',
@@ -284,12 +315,14 @@ def generate_launch_description():
         mission_file_name_la,
         enable_mission_logger_la,
         behavior_cpu_affinity_la, behavior_nice_la,
+        proximity_guard_la,
     ]
 
     if not get_value('enable_nav2'):
         # No lifecycle_manager_navigation to ever wait for -- launch immediately. See
         # module docstring's "enable_nav2 false" paragraph.
         return LaunchDescription(declared_args + [
+            proximity_guard_node,
             LogInfo(msg='[behavior_bringup] enable_nav2 is false -- skipping the Nav2 '
                         'readiness gate, launching behavior_executor_node and '
                         'twist_to_ackermann_node immediately (navigation lane will '
@@ -328,6 +361,7 @@ def generate_launch_description():
         OnProcessExit(target_action=wait_for_nav2_node, on_exit=_on_readiness_exit))
 
     return LaunchDescription(declared_args + [
+        proximity_guard_node,
         wait_for_nav2_node,
         readiness_exit_handler,
     ])

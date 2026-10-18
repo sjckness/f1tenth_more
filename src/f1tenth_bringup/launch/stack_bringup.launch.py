@@ -95,6 +95,10 @@ def generate_launch_description():
     discovery_server_port_la = DeclareLaunchArgument(
         'discovery_server_port', default_value=str(discovery_server_port_default),
         description=discovery_server_port_desc)
+    # Rust ports (output/rust/), as in supervisor_bringup.launch.py.
+    guard_la = DeclareLaunchArgument(
+        'guard', default_value='off', choices=['off', 'shadow', 'active'],
+        description='Rust front-proximity guard: off (not launched), shadow, active.')
     discovery_server_address = LaunchConfiguration('discovery_server_address')
     discovery_server_port = LaunchConfiguration('discovery_server_port')
 
@@ -223,7 +227,8 @@ def generate_launch_description():
         include('f1tenth_navigation', 'navigation.launch.py', condition=is_calibration_disabled),
     ]
     if use_behavior_tree:
-        autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py'))
+        autonomy_bringup.append(include('f1tenth_behavior', 'behavior_bringup.launch.py',
+                                        proximity_guard=LaunchConfiguration('guard')))
     # slam.launch.py self-gates via its own enable_slam param (default false,
     # mirrors enable_foxglove's own pattern -- see that key's own stack_params.yaml
     # comment). Deferred behind is_calibration_disabled same as navigation_bringup
@@ -318,6 +323,7 @@ def generate_launch_description():
     return LaunchDescription([
         discovery_server_address_la,
         discovery_server_port_la,
+        guard_la,
         discovery_server_env,
         fastdds_profile_la,
         fastdds_profile_env,
