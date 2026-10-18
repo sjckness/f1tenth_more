@@ -26,11 +26,17 @@
 #   --layout NAME     scene layout preset (isaac/all; base_room: campaign (default), obstacle,
 #                     gazebo_6x6, e2e_legacy; see ~/isaac_ws/config/scenes/base_room.yaml)
 #   --gui             Isaac Sim GUI (isaac/all; default headless)
+#   --set KEY=VALUE   one more Isaac config override (isaac/all; repeatable), after the fixed
+#                     ones, e.g. --set "scene.obstacle.position=[1.955, 2.5]"
 #   --clean           scripts/kill_ros2.py -y first (stack/all)
 #   --dry-run         print the environment and the commands, launch nothing
 #   -h, --help        this text
 # Any other argument of 'stack'/'all' is passed to supervisor_bringup.launch.py (k:=v), e.g.
 # enable_intelligence:=true (llama-server = the 'intelligence' component, as on the car).
+# The Rust ports (output/rust/isaac_test.md) are two of those:
+#   guard:=off|shadow|active  Rust front-proximity guard (default off: not launched)
+#   impl:=py|rust             costmap_boundary_node implementation (default py)
+#   e.g. scripts/sim/sim_isaac.sh all guard:=shadow impl:=rust
 #
 # shell/run: the stack's ROS environment (domain, RMW, the rendered Fast DDS profile, the
 # Discovery Server, the workspace) as a Discovery Server SUPER CLIENT, so `ros2 topic list`
@@ -85,7 +91,7 @@ case "$CMD" in
   *) die "unknown subcommand '$CMD' (isaac|stack|all|reset|shell|run; --help)" ;;
 esac
 NET=local; DOMAIN="${ROS_DOMAIN_ID:-42}"; SCENE=base_room; LAYOUT=""; GUI=false; CLEAN=false; DRY=false
-LAUNCH_ARGS=(); RUN_CMD=()
+LAUNCH_ARGS=(); RUN_CMD=(); ISAAC_SETS=()
 while [ $# -gt 0 ]; do
   if [ "$CMD" = run ] && [ ${#RUN_CMD[@]} -eq 0 ]; then
     case "$1" in
@@ -103,6 +109,8 @@ while [ $# -gt 0 ]; do
     --layout) LAYOUT="${2:?--layout needs a preset name}"; shift 2 ;;
     --layout=*) LAYOUT="${1#*=}"; shift ;;
     --gui) GUI=true; shift ;;
+    --set) ISAAC_SETS+=("${2:?--set needs KEY=VALUE}"); shift 2 ;;
+    --set=*) ISAAC_SETS+=("${1#*=}"); shift ;;
     --clean) CLEAN=true; shift ;;
     --dry-run) DRY=true; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -275,6 +283,8 @@ isaac_cmd() {  # fills ISAAC_ENV and ISAAC_ARGS
     # EKF fuses only vyaw, weighted by this variance, which Isaac publishes as stddev^2.
     --set sensors.imu.noise.gyro_stddev=0.0013217)
   [ -n "$LAYOUT" ] && ISAAC_ARGS+=(--set "scene.layout=$LAYOUT")
+  local kv
+  for kv in "${ISAAC_SETS[@]}"; do ISAAC_ARGS+=(--set "$kv"); done
   $GUI && ISAAC_ARGS+=(--gui)
   return 0
 }

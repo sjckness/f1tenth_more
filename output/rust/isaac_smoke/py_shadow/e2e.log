@@ -1,0 +1,11 @@
+[e2e 15:09:48] starting: scripts/sim/sim_isaac.sh all --scene base_room guard:=shadow impl:=py enable_mission_logger:=true (log output/rust/isaac_smoke/py_shadow/sim_isaac.log)
+[e2e 15:10:39] stack launched (/clock at 15:10:36); waiting for /odometry/filtered and detector warm-up
+[e2e 15:11:21] step 1_up: PASS
+[e2e 15:11:29] step 2_graph: FAIL
+[e2e 15:11:50] step 3_hz: PASS
+[e2e 15:12:01] step 4_tf: FAIL
+[e2e 15:12:17] step 5_perception: PASS
+[e2e 15:12:56] step 6_mission: PASS
+[e2e 15:13:10] step 7_reset: PASS
+[e2e 15:13:31] step 8_person: PASS
+[e2e 15:13:51] step 9_perf: PASS

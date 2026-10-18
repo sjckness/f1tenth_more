@@ -1,0 +1,834 @@
+{
+ "seconds": 20.0,
+ "topics": {
+  "/bt/tree_visualization": {
+   "type": "sensor_msgs/msg/CompressedImage",
+   "publishers": [
+    "/behavior_executor_node"
+   ],
+   "subscribers": [],
+   "msgs": 45,
+   "hz": 2.25,
+   "avg_bytes": 121216,
+   "MB_per_s": 0.26
+  },
+  "/camera/camera_info": {
+   "type": "sensor_msgs/msg/CameraInfo",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/yolo_detector_node"
+   ],
+   "msgs": 303,
+   "hz": 15.15,
+   "avg_bytes": 416,
+   "MB_per_s": 0.006
+  },
+  "/camera/debug_image/compressed": {
+   "type": "sensor_msgs/msg/CompressedImage",
+   "publishers": [
+    "/yolo_detector_node"
+   ],
+   "subscribers": [],
+   "msgs": 101,
+   "hz": 5.05,
+   "avg_bytes": 19183,
+   "MB_per_s": 0.092
+  },
+  "/camera/detection_masks": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/yolo_detector_node"
+   ],
+   "subscribers": [
+    "/detection_3d_node",
+    "/front_clearance_node"
+   ],
+   "msgs": 281,
+   "hz": 14.05,
+   "avg_bytes": 230476,
+   "MB_per_s": 3.088
+  },
+  "/camera/image_annotated": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/yolo_detector_node"
+   ],
+   "subscribers": [
+    "/image_annotated_viz_throttle"
+   ],
+   "msgs": 77,
+   "hz": 3.85,
+   "avg_bytes": 691276,
+   "MB_per_s": 2.538
+  },
+  "/camera/image_annotated/viz": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/image_annotated_viz_throttle"
+   ],
+   "subscribers": [],
+   "msgs": 66,
+   "hz": 3.3,
+   "avg_bytes": 691276,
+   "MB_per_s": 2.175
+  },
+  "/camera/image_raw": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/front_clearance_node",
+    "/image_raw_viz_throttle",
+    "/yolo_detector_node"
+   ],
+   "msgs": 44,
+   "hz": 2.2,
+   "avg_bytes": 921676,
+   "MB_per_s": 1.934
+  },
+  "/camera/image_raw/viz": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/image_raw_viz_throttle"
+   ],
+   "subscribers": [],
+   "msgs": 77,
+   "hz": 3.85,
+   "avg_bytes": 921676,
+   "MB_per_s": 3.384
+  },
+  "/costmap/visualization": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/costmap_renderer_node"
+   ],
+   "subscribers": [],
+   "msgs": 40,
+   "hz": 2.0,
+   "avg_bytes": 45436,
+   "MB_per_s": 0.087
+  },
+  "/costmap/wall_cells": {
+   "type": "nav_msgs/msg/OccupancyGrid",
+   "publishers": [
+    "/semantic_layer_node"
+   ],
+   "subscribers": [],
+   "msgs": 101,
+   "hz": 5.05,
+   "avg_bytes": 57704,
+   "MB_per_s": 0.278
+  },
+  "/map": {
+   "type": "nav_msgs/msg/OccupancyGrid",
+   "publishers": [
+    "/map_server"
+   ],
+   "subscribers": [],
+   "msgs": 0,
+   "hz": 0.0,
+   "avg_bytes": 0,
+   "MB_per_s": 0.0
+  },
+  "/perception/scene_labels": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/detection_3d_node",
+    "/yolo_detector_node"
+   ],
+   "msgs": 97,
+   "hz": 4.85,
+   "avg_bytes": 14476,
+   "MB_per_s": 0.067
+  },
+  "/perception/scene_labels/classes": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ],
+   "msgs": 95,
+   "hz": 4.75,
+   "avg_bytes": 230476,
+   "MB_per_s": 1.044
+  },
+  "/perception/scene_labels/depth_mm": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ],
+   "msgs": 89,
+   "hz": 4.45,
+   "avg_bytes": 460876,
+   "MB_per_s": 1.956
+  },
+  "/perception/scene_labels/image": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [],
+   "msgs": 73,
+   "hz": 3.65,
+   "avg_bytes": 691276,
+   "MB_per_s": 2.406
+  },
+  "/perception/stereo_columns": {
+   "type": "f1tenth_messages/msg/StereoColumns",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ],
+   "msgs": 97,
+   "hz": 4.85,
+   "avg_bytes": 10352,
+   "MB_per_s": 0.048
+  },
+  "/perception/wall_points": {
+   "type": "sensor_msgs/msg/PointCloud2",
+   "publishers": [
+    "/front_clearance_node"
+   ],
+   "subscribers": [
+    "/lidar_front_wall_node"
+   ],
+   "msgs": 97,
+   "hz": 4.85,
+   "avg_bytes": 255460,
+   "MB_per_s": 1.181
+  },
+  "/scan": {
+   "type": "sensor_msgs/msg/LaserScan",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/behavior_executor_node",
+    "/front_clearance_node",
+    "/guard_vs_bt",
+    "/lidar_front_wall_node",
+    "/obstacle_clearance_node",
+    "/proximity_guard_node",
+    "/slam_toolbox",
+    "/swept_clearance_node"
+   ],
+   "msgs": 803,
+   "hz": 40.15,
+   "avg_bytes": 4384,
+   "MB_per_s": 0.168
+  },
+  "/slam/map": {
+   "type": "nav_msgs/msg/OccupancyGrid",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": [
+    "/costmap_boundary_node",
+    "/costmap_renderer_node",
+    "/slam_toolbox"
+   ],
+   "msgs": 4,
+   "hz": 0.2,
+   "avg_bytes": 15236,
+   "MB_per_s": 0.003
+  },
+  "/slam_toolbox/scan_visualization": {
+   "type": "sensor_msgs/msg/LaserScan",
+   "publishers": [
+    "/slam_toolbox"
+   ],
+   "subscribers": [],
+   "msgs": 0,
+   "hz": 0.0,
+   "avg_bytes": 0,
+   "MB_per_s": 0.0
+  },
+  "/viz/bt/tree_visualization": {
+   "type": "sensor_msgs/msg/CompressedImage",
+   "publishers": [
+    "/viz_throttle_bt_tree_visualization"
+   ],
+   "subscribers": [],
+   "msgs": 44,
+   "hz": 2.2,
+   "avg_bytes": 121216,
+   "MB_per_s": 0.254
+  },
+  "/viz/camera/image_annotated/compressed": {
+   "type": "sensor_msgs/msg/CompressedImage",
+   "publishers": [
+    "/viz_jpeg_node"
+   ],
+   "subscribers": [],
+   "msgs": 59,
+   "hz": 2.95,
+   "avg_bytes": 12453,
+   "MB_per_s": 0.035
+  },
+  "/viz/costmap/visualization/compressed": {
+   "type": "sensor_msgs/msg/CompressedImage",
+   "publishers": [
+    "/viz_jpeg_node"
+   ],
+   "subscribers": [],
+   "msgs": 39,
+   "hz": 1.95,
+   "avg_bytes": 2755,
+   "MB_per_s": 0.005
+  },
+  "/viz/scan": {
+   "type": "sensor_msgs/msg/LaserScan",
+   "publishers": [
+    "/viz_throttle_scan"
+   ],
+   "subscribers": [],
+   "msgs": 101,
+   "hz": 5.05,
+   "avg_bytes": 4384,
+   "MB_per_s": 0.021
+  },
+  "/viz_internal/camera/image_annotated": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/viz_throttle_camera_image_annotated"
+   ],
+   "subscribers": [],
+   "msgs": 39,
+   "hz": 1.95,
+   "avg_bytes": 691276,
+   "MB_per_s": 1.285
+  },
+  "/viz_internal/costmap/visualization": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/viz_throttle_costmap_visualization"
+   ],
+   "subscribers": [],
+   "msgs": 40,
+   "hz": 2.0,
+   "avg_bytes": 45436,
+   "MB_per_s": 0.087
+  },
+  "/zed2/zed_node/depth/camera_info": {
+   "type": "sensor_msgs/msg/CameraInfo",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/detection_3d_node",
+    "/front_clearance_node",
+    "/swept_clearance_node"
+   ],
+   "msgs": 301,
+   "hz": 15.05,
+   "avg_bytes": 416,
+   "MB_per_s": 0.006
+  },
+  "/zed2/zed_node/depth/depth_registered": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [
+    "/depth_throttle_5hz",
+    "/detection_3d_node",
+    "/front_clearance_node",
+    "/swept_clearance_node"
+   ],
+   "msgs": 226,
+   "hz": 11.3,
+   "avg_bytes": 921676,
+   "MB_per_s": 9.932
+  },
+  "/zed2/zed_node/depth/depth_registered_5hz": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/depth_throttle_5hz"
+   ],
+   "subscribers": [],
+   "msgs": 75,
+   "hz": 3.75,
+   "avg_bytes": 921676,
+   "MB_per_s": 3.296
+  },
+  "/zed2/zed_node/left/camera_info": {
+   "type": "sensor_msgs/msg/CameraInfo",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [],
+   "msgs": 301,
+   "hz": 15.05,
+   "avg_bytes": 416,
+   "MB_per_s": 0.006
+  },
+  "/zed2/zed_node/left/image_rect_color": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [],
+   "msgs": 281,
+   "hz": 14.05,
+   "avg_bytes": 921676,
+   "MB_per_s": 12.349
+  },
+  "/zed2/zed_node/right/camera_info": {
+   "type": "sensor_msgs/msg/CameraInfo",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [],
+   "msgs": 301,
+   "hz": 15.05,
+   "avg_bytes": 416,
+   "MB_per_s": 0.006
+  },
+  "/zed2/zed_node/right/image_rect_color": {
+   "type": "sensor_msgs/msg/Image",
+   "publishers": [
+    "/isaac_f1tenth_sim"
+   ],
+   "subscribers": [],
+   "msgs": 267,
+   "hz": 13.35,
+   "avg_bytes": 921676,
+   "MB_per_s": 11.733
+  }
+ },
+ "processes": {
+  "python3+": {
+   "pid": 988845,
+   "lang": "python",
+   "cpu_percent": 131.59,
+   "rss_mb": 4699.0
+  },
+  "front_clearance_node": {
+   "pid": 990036,
+   "lang": "python",
+   "cpu_percent": 41.95,
+   "rss_mb": 175.9
+  },
+  "yolo_detector_node": {
+   "pid": 990033,
+   "lang": "python",
+   "cpu_percent": 41.05,
+   "rss_mb": 1619.1
+  },
+  "python3+++++++++++++++++++++": {
+   "pid": 996617,
+   "lang": "python",
+   "cpu_percent": 31.45,
+   "rss_mb": 105.1
+  },
+  "lidar_front_wall_node": {
+   "pid": 989979,
+   "lang": "python",
+   "cpu_percent": 27.7,
+   "rss_mb": 151.1
+  },
+  "mpc_corr": {
+   "pid": 990451,
+   "lang": "python",
+   "cpu_percent": 21.45,
+   "rss_mb": 121.1
+  },
+  "detection_3d_node": {
+   "pid": 990034,
+   "lang": "python",
+   "cpu_percent": 17.6,
+   "rss_mb": 170.7
+  },
+  "reset_manager": {
+   "pid": 990522,
+   "lang": "python",
+   "cpu_percent": 16.55,
+   "rss_mb": 86.3
+  },
+  "behavior_executor_node": {
+   "pid": 989993,
+   "lang": "python",
+   "cpu_percent": 15.05,
+   "rss_mb": 120.9
+  },
+  "viz_relay_container": {
+   "pid": 990121,
+   "lang": "native",
+   "cpu_percent": 13.95,
+   "rss_mb": 85.9
+  },
+  "swept_clearance_node": {
+   "pid": 990325,
+   "lang": "python",
+   "cpu_percent": 12.45,
+   "rss_mb": 86.6
+  },
+  "semantic_layer_node": {
+   "pid": 995955,
+   "lang": "python",
+   "cpu_percent": 9.5,
+   "rss_mb": 114.5
+  },
+  "foxglove_bridge": {
+   "pid": 990327,
+   "lang": "native",
+   "cpu_percent": 7.55,
+   "rss_mb": 87.0
+  },
+  "obstacle_projector_node": {
+   "pid": 990035,
+   "lang": "python",
+   "cpu_percent": 7.5,
+   "rss_mb": 87.4
+  },
+  "python3": {
+   "pid": 988296,
+   "lang": "python",
+   "cpu_percent": 5.35,
+   "rss_mb": 117.8
+  },
+  "obstacle_clearance_node": {
+   "pid": 990087,
+   "lang": "python",
+   "cpu_percent": 5.25,
+   "rss_mb": 84.8
+  },
+  "costmap_renderer_node": {
+   "pid": 995956,
+   "lang": "python",
+   "cpu_percent": 4.2,
+   "rss_mb": 83.1
+  },
+  "viz_jpeg_node": {
+   "pid": 990122,
+   "lang": "python",
+   "cpu_percent": 4.15,
+   "rss_mb": 114.1
+  },
+  "diagnostics_server_node": {
+   "pid": 990097,
+   "lang": "python",
+   "cpu_percent": 3.45,
+   "rss_mb": 83.0
+  },
+  "joint_state_publisher": {
+   "pid": 990127,
+   "lang": "python",
+   "cpu_percent": 3.35,
+   "rss_mb": 82.1
+  },
+  "ekf_filter_node": {
+   "pid": 990123,
+   "lang": "native",
+   "cpu_percent": 3.3,
+   "rss_mb": 48.8
+  },
+  "depth_throttle_5hz": {
+   "pid": 990040,
+   "lang": "native",
+   "cpu_percent": 3.15,
+   "rss_mb": 49.5
+  },
+  "image_raw_viz_throttle": {
+   "pid": 990328,
+   "lang": "native",
+   "cpu_percent": 3.0,
+   "rss_mb": 51.5
+  },
+  "twist_to_ackermann_node": {
+   "pid": 989994,
+   "lang": "python",
+   "cpu_percent": 2.95,
+   "rss_mb": 80.2
+  },
+  "system_observer_node": {
+   "pid": 990115,
+   "lang": "python",
+   "cpu_percent": 2.95,
+   "rss_mb": 81.7
+  },
+  "slam_pose_relay_node": {
+   "pid": 990125,
+   "lang": "python",
+   "cpu_percent": 2.9,
+   "rss_mb": 79.5
+  },
+  "mission_logger_node": {
+   "pid": 990041,
+   "lang": "python",
+   "cpu_percent": 2.85,
+   "rss_mb": 269.5
+  },
+  "proximity_guard_node": {
+   "pid": 989992,
+   "lang": "native",
+   "cpu_percent": 2.8,
+   "rss_mb": 38.3
+  },
+  "slam_toolbox": {
+   "pid": 995987,
+   "lang": "native",
+   "cpu_percent": 2.4,
+   "rss_mb": 77.9
+  },
+  "image_annotated_viz_throttle": {
+   "pid": 990329,
+   "lang": "native",
+   "cpu_percent": 2.1,
+   "rss_mb": 50.0
+  },
+  "ekf_global_filter_node": {
+   "pid": 990124,
+   "lang": "native",
+   "cpu_percent": 2.05,
+   "rss_mb": 48.9
+  },
+  "costmap_boundary_node": {
+   "pid": 995957,
+   "lang": "native",
+   "cpu_percent": 1.7,
+   "rss_mb": 38.1
+  },
+  "lifecycle_manager_map": {
+   "pid": 990453,
+   "lang": "native",
+   "cpu_percent": 0.85,
+   "rss_mb": 45.5
+  },
+  "map_server": {
+   "pid": 990452,
+   "lang": "native",
+   "cpu_percent": 0.8,
+   "rss_mb": 66.9
+  },
+  "ackermann_mux": {
+   "pid": 990526,
+   "lang": "native",
+   "cpu_percent": 0.8,
+   "rss_mb": 40.3
+  },
+  "robot_state_publisher": {
+   "pid": 990126,
+   "lang": "native",
+   "cpu_percent": 0.75,
+   "rss_mb": 43.5
+  },
+  "static_baselink_to_imu": {
+   "pid": 989942,
+   "lang": "native",
+   "cpu_percent": 0.55,
+   "rss_mb": 40.2
+  },
+  "static_baselink_to_zed2": {
+   "pid": 989925,
+   "lang": "native",
+   "cpu_percent": 0.5,
+   "rss_mb": 40.0
+  },
+  "zed2_state_publisher": {
+   "pid": 989927,
+   "lang": "native",
+   "cpu_percent": 0.5,
+   "rss_mb": 43.0
+  },
+  "static_baselink_to_laser": {
+   "pid": 990128,
+   "lang": "native",
+   "cpu_percent": 0.5,
+   "rss_mb": 40.2
+  },
+  "python3+++++++": {
+   "pid": 989865,
+   "lang": "python",
+   "cpu_percent": 0.1,
+   "rss_mb": 48.4
+  },
+  "python3+++++++++++++++++": {
+   "pid": 989878,
+   "lang": "python",
+   "cpu_percent": 0.1,
+   "rss_mb": 92.5
+  },
+  "python3+++++++++": {
+   "pid": 989867,
+   "lang": "python",
+   "cpu_percent": 0.05,
+   "rss_mb": 48.3
+  },
+  "python3+++++++++++++++++++": {
+   "pid": 995932,
+   "lang": "python",
+   "cpu_percent": 0.05,
+   "rss_mb": 85.4
+  },
+  "python3++++++++++++++++++++": {
+   "pid": 995933,
+   "lang": "python",
+   "cpu_percent": 0.05,
+   "rss_mb": 48.4
+  },
+  "zsh": {
+   "pid": 961295,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 4.5
+  },
+  "tail": {
+   "pid": 961303,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 2.0
+  },
+  "bash": {
+   "pid": 988113,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 4.1
+  },
+  "bash+": {
+   "pid": 988377,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 4.1
+  },
+  "docker": {
+   "pid": 988602,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 28.2
+  },
+  "docker-compose": {
+   "pid": 988632,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 28.7
+  },
+  "bash++": {
+   "pid": 988757,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 3.3
+  },
+  "bash+++": {
+   "pid": 988840,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 3.2
+  },
+  "python3++": {
+   "pid": 989810,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.2
+  },
+  "component_supervisor_node": {
+   "pid": 989819,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 82.5
+  },
+  "python3+++": {
+   "pid": 989861,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.3
+  },
+  "python3++++": {
+   "pid": 989862,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.4
+  },
+  "python3+++++": {
+   "pid": 989863,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.2
+  },
+  "python3++++++": {
+   "pid": 989864,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.3
+  },
+  "python3++++++++": {
+   "pid": 989866,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.2
+  },
+  "python3++++++++++": {
+   "pid": 989870,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.2
+  },
+  "python3+++++++++++": {
+   "pid": 989871,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 47.2
+  },
+  "python3++++++++++++": {
+   "pid": 989872,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 47.2
+  },
+  "python3+++++++++++++": {
+   "pid": 989874,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.4
+  },
+  "python3++++++++++++++": {
+   "pid": 989875,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.3
+  },
+  "python3+++++++++++++++": {
+   "pid": 989876,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.2
+  },
+  "python3++++++++++++++++": {
+   "pid": 989877,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.2
+  },
+  "python3++++++++++++++++++": {
+   "pid": 989879,
+   "lang": "python",
+   "cpu_percent": 0.0,
+   "rss_mb": 48.3
+  },
+  "zsh+": {
+   "pid": 996420,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 4.5
+  },
+  "bash++++": {
+   "pid": 996430,
+   "lang": "native",
+   "cpu_percent": 0.0,
+   "rss_mb": 4.2
+  }
+ }
+}

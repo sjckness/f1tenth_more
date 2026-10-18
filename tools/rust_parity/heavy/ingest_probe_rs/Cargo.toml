@@ -1,0 +1,22 @@
+# Measurement probe for output/rust/heavy_msgs.md, not a port: subscribes to
+# heavy topics with no-op callbacks (optionally touching every byte) and
+# counts messages, so its CPU per message is rclrs transport + deserialization.
+# COLCON_IGNORE: built by hand with cargo from inside the colcon workspace
+# after a colcon build (the workspace's .cargo/config.toml supplies the
+# message crates):  cargo build --release
+[package]
+name = "ingest_probe_rs"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+rclrs = "=0.7.0"
+sensor_msgs = "*"
+example_interfaces = "*"
+test_msgs = "*"
+
+[lints.rust]
+unsafe_code = "forbid"
