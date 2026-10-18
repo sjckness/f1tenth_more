@@ -1,0 +1,262 @@
+Starting >>> f1tenth_params
+Starting >>> f1tenth_messages
+Starting >>> corridor_perception
+Starting >>> vesc_msgs
+Starting >>> teleop_tools_msgs
+Starting >>> ackermann_mux
+Starting >>> key_teleop
+Starting >>> corridor_perception_c
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+Finished <<< corridor_perception_c [0.69s]
+Starting >>> husarion_gz_worlds
+Finished <<< husarion_gz_worlds [0.02s]
+Starting >>> mouse_teleop
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+Finished <<< f1tenth_params [1.06s]
+Starting >>> f1tenth_description
+Finished <<< corridor_perception [1.37s]
+Starting >>> zed_msgs
+Finished <<< f1tenth_messages [1.57s]
+Starting >>> f1tenth_logger
+Finished <<< vesc_msgs [1.82s]
+Finished <<< key_teleop [1.81s]
+Starting >>> f1tenth_diagnostics
+Starting >>> vesc_ackermann
+Finished <<< f1tenth_description [1.19s]
+Starting >>> f1tenth_perception
+--- stderr: zed_msgs
+Errors while running CTest
+Output from these tests are in: /home/andreas/dev_ws/f1tenth_more_rust/build/zed_msgs/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.
+---
+Finished <<< zed_msgs [0.89s]	[ with test failures ]
+Starting >>> f1tenth_costmap
+Finished <<< mouse_teleop [1.79s]
+Starting >>> f1tenth_localization
+--- stderr: ackermann_mux
+Errors while running CTest
+Output from these tests are in: /home/andreas/dev_ws/f1tenth_more_rust/build/ackermann_mux/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.
+---
+Finished <<< ackermann_mux [3.84s]	[ with test failures ]
+Finished <<< f1tenth_localization [1.57s]
+--- stderr: vesc_ackermann
+Errors while running CTest
+Output from these tests are in: /home/andreas/dev_ws/f1tenth_more_rust/build/vesc_ackermann/Testing/Temporary/LastTest.log
+Use "--rerun-failed --output-on-failure" to re-run the failed cases verbosely.
+---
+Finished <<< vesc_ackermann [2.77s]	[ with test failures ]
+Finished <<< f1tenth_costmap [3.50s]
+--- stderr: f1tenth_diagnostics
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=863740) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_diagnostics [11.2s]	[ with test failures ]
+Starting >>> f1tenth_hardware
+Finished <<< teleop_tools_msgs [13.4s]
+Starting >>> joy_teleop
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'script-dir' will not be supported in future
+        versions. Please use the underscore name 'script_dir' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+/usr/lib/python3/dist-packages/setuptools/dist.py:744: SetuptoolsDeprecationWarning: Invalid dash-separated options
+!!
+
+        ********************************************************************************
+        Usage of dash-separated 'install-scripts' will not be supported in future
+        versions. Please use the underscore name 'install_scripts' instead.
+
+        This deprecation is overdue, please update your project and remove deprecated
+        calls to avoid build errors in the future.
+
+        See https://setuptools.pypa.io/en/latest/userguide/declarative_config.html for details.
+        ********************************************************************************
+
+!!
+  opt = self.warn_dash_deprecation(opt, section)
+Finished <<< f1tenth_hardware [0.66s]
+Starting >>> vesc_tuning
+Finished <<< vesc_tuning [0.70s]
+Finished <<< f1tenth_perception [18.5s]
+Starting >>> f1tenth_navigation
+Finished <<< f1tenth_navigation [0.64s]
+--- stderr: joy_teleop
+=============================== warnings summary ===============================
+joy_teleop/test/test_flake8.py::test_flake8
+joy_teleop/test/test_flake8.py::test_flake8
+joy_teleop/test/test_flake8.py::test_flake8
+joy_teleop/test/test_flake8.py::test_flake8
+joy_teleop/test/test_flake8.py::test_flake8
+joy_teleop/test/test_flake8.py::test_flake8
+joy_teleop/test/test_flake8.py::test_flake8
+joy_teleop/test/test_flake8.py::test_flake8
+  Warning: This process (pid=867758) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< joy_teleop [27.5s]	[ with test failures ]
+Starting >>> teleop_tools
+Finished <<< teleop_tools [0.02s]
+--- stderr: f1tenth_logger
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=863692) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_logger [48.4s]	[ with test failures ]
+Starting >>> f1tenth_behavior
+--- stderr: f1tenth_behavior
+=============================== warnings summary ===============================
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_old_writer_leaves_a_zero_byte_file
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_the_atomic_writer_leaves_the_destination_absent
+test/test_mission_report_atomic.py::TestInterruptedWrite::test_an_interrupted_write_does_not_damage_the_previous_report
+  Warning: This process (pid=870264) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_behavior [4.37s]	[ with test failures ]
+Starting >>> llm
+--- stderr: llm
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=870461) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< llm [8.60s]	[ with test failures ]
+Starting >>> mpc_controller
+--- stderr: mpc_controller
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=870754) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+[Processing: mpc_controller]
+Finished <<< mpc_controller [43.6s]	[ with test failures ]
+Starting >>> f1tenth_control
+Finished <<< f1tenth_control [0.74s]
+Starting >>> f1tenth_bringup
+--- stderr: f1tenth_bringup
+=============================== warnings summary ===============================
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+test/test_flake8.py::test_flake8
+  Warning: This process (pid=872118) is multi-threaded, use of fork() may lead to deadlocks in the child.
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+---
+Finished <<< f1tenth_bringup [2.85s]	[ with test failures ]
+Starting >>> f1tenth_more
+Finished <<< f1tenth_more [0.61s]
+
+Summary: 29 packages finished [1min 51s]
+  10 packages had stderr output: ackermann_mux f1tenth_behavior f1tenth_bringup f1tenth_diagnostics f1tenth_logger joy_teleop llm mpc_controller vesc_ackermann zed_msgs
+  10 packages had test failures: ackermann_mux f1tenth_behavior f1tenth_bringup f1tenth_diagnostics f1tenth_logger joy_teleop llm mpc_controller vesc_ackermann zed_msgs
+test rc=0 elapsed=111s
