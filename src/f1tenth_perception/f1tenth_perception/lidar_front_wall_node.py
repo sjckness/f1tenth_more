@@ -287,6 +287,34 @@ without it, the node logs an ERROR at startup and the tracker stays off.
   * The scan pose is /odometry/filtered interpolated at the scan stamp, the
     pose the EKF also publishes as odom -> base_link.
 
+DOOR DETECTION (door_detection_enabled, stack_params.yaml; default true)
+-------------------------------------------------------------------------
+PERCEPTION ONLY, and only with the tracker on. door_detection.py runs on
+every tracker cycle, on the tracker's own walls and the SAME scan the
+tracker was stepped with (object sectors cut, with the cut mask):
+
+  * door_candidates: a gap of door_width_min_m .. door_width_max_m between
+    two collinear pieces of a confirmed or coasting wall that every beam
+    crossing it sees THROUGH (door_behind_margin_m past the line, or no
+    return), with real jambs and enough beams (door_min_beams, scaled with
+    range by door_min_beam_fraction). The stereo's class mask and depth
+    (the rectangle verification's pair) raise the confidence when they see
+    no wall in the gap and floor beyond it; they are never required.
+  * DoorTracker: tentative -> confirmed (door_confirm_hits of
+    door_confirm_window cycles) -> coasting -> deleted
+    (door_delete_after_sec unseen), associated by centre, normal and width
+    in odom -- never by the parent wall ids, which re-spawn. A detected
+    PERSON inside a confirmed door sets occupied and keeps it alive; no
+    detection can create or confirm one.
+  * /perception/doors (f1tenth_messages/DoorArray) every tracker cycle, and
+    /viz/doors (door_markers.py) while something is subscribed. Nothing in
+    the stack consumes either: not the MPC, the costmap, the BT or the
+    missions.
+
+Every wall marker (/perception/walls/markers and /viz/walls) is drawn
+wall_viz_height_m tall from the floor, whatever height the stereo measured:
+visualisation only, the published wall data is unchanged.
+
 LASER POSE
 ----------
 base_link <- scan frame comes from /tf_static, fed into a tf2 Buffer this node
@@ -305,10 +333,10 @@ import numpy as np
 
 from f1tenth_description.vehicle_frames import base_front_x, MIN_FRONT_DISTANCE_M
 from f1tenth_messages.msg import (
-    MultiWallTrack, MultiWallTrackArray, StereoColumns, WallEstimate, WallLineFit,
-    WallObservation, WallObservationArray)
+    Door, DoorArray, MultiWallTrack, MultiWallTrackArray, StereoColumns, WallEstimate,
+    WallLineFit, WallObservation, WallObservationArray)
 from f1tenth_params.param_defaults import get_value
-from geometry_msgs.msg import Point
+from geometry_msgs.msg import Point, Vector3
 from visualization_msgs.msg import Marker, MarkerArray
 import rclpy
 from nav_msgs.msg import Odometry
@@ -340,6 +368,7 @@ from f1tenth_perception.lidar_front_wall import (
     virtual_wall_due,
 )
 from corridor_perception import extraction
+from f1tenth_perception import door_detection, door_markers
 from f1tenth_perception import multi_wall_tracker as mwt
 from f1tenth_perception import scene_labels, scene_mask, wall_fusion, wall_markers
 from f1tenth_perception.ground_plane import quat_to_matrix
@@ -687,13 +716,44 @@ class LidarFrontWallNode(Node):
         # costs one get_subscription_count() per tracker cycle.
         self.viz_walls_enabled = bool(param('viz_walls_enabled', True))
         self.viz_walls_max_hz = float(param('viz_walls_max_hz', 5.0))
-        self._viz_walls_builder = wall_markers.WallMarkerBuilder(self.wall_marker_lifetime_s)
+        # Every wall marker -- here and on /viz/walls -- is drawn this tall from
+        # the floor, whatever the stereo measured: visualisation only.
+        self.wall_viz_height_m = float(param('wall_viz_height_m', 2.5))
+        self._viz_walls_builder = wall_markers.WallMarkerBuilder(
+            self.wall_marker_lifetime_s, self.wall_viz_height_m)
         self._viz_walls_next = None
         # Which track ids the last MarkerArray drew, so a track that dies --
         # or merely drops out of published()'s four slots -- can be removed
         # with an explicit per-id DELETE instead of a blanket DELETEALL.
         self._drawn_track_ids = set()
         self.side_edge_half_width_m = float(get_value('swept_clearance_body_half_width_m'))
+
+        # ---- door detection (module docstring, DOOR DETECTION) --------------
+        self.door_enabled = bool(param('door_detection_enabled', True)) \
+            and self.wall_tracker is not None
+        self.door_params = door_detection.DoorParams(
+            collinear_angle_rad=math.radians(float(param('door_collinear_angle_deg', 5.0))),
+            collinear_offset_m=float(param('door_collinear_offset_m', 0.10)),
+            width_min_m=float(param('door_width_min_m', 0.70)),
+            width_max_m=float(param('door_width_max_m', 1.00)),
+            behind_margin_m=float(param('door_behind_margin_m', 0.30)),
+            # ON the wall line is what the negative evidence calls a hit.
+            wall_tol_m=float(tracker_params.negative_tol_m),
+            min_beams=int(param('door_min_beams', 8)),
+            min_beam_fraction=float(param('door_min_beam_fraction', 0.8)),
+            confirm_hits=int(param('door_confirm_hits', 3)),
+            confirm_window=int(param('door_confirm_window', 5)),
+            delete_after_s=float(param('door_delete_after_sec', 2.0)))
+        self.door_jamb_viz_diameter_m = float(param('door_jamb_viz_diameter_m', 0.10))
+        self.door_tracker = (door_detection.DoorTracker(self.door_params)
+                             if self.door_enabled else None)
+        self._viz_doors_builder = door_markers.DoorMarkerBuilder(
+            self.wall_marker_lifetime_s, self.wall_viz_height_m,
+            self.door_jamb_viz_diameter_m)
+        self._door_ms = math.nan
+        #: The class_id of each detection in self._detections[1], same order:
+        #: a person inside a confirmed door marks it occupied.
+        self._detection_classes = []
 
         declare_nice_param(self)
         apply_nice(self)
@@ -758,6 +818,9 @@ class LidarFrontWallNode(Node):
             # be subscribed to and the flag is a publish-time decision, not a
             # restart-time one.
             self.viz_walls_pub = self.create_publisher(MarkerArray, '/viz/walls', 10)
+        if self.door_tracker is not None:
+            self.doors_pub = self.create_publisher(DoorArray, '/perception/doors', 10)
+            self.viz_doors_pub = self.create_publisher(MarkerArray, '/viz/doors', 10)
         # Best-effort on purpose -- see the module docstring's NO COUPLING TO
         # THE E-STOP section -- and DEPTH 1 since the decimation: this node is
         # the slowest /scan consumer in the stack, and a queue deeper than one
@@ -805,14 +868,16 @@ class LidarFrontWallNode(Node):
         except TransformException:
             return
         rot = quat_to_matrix(t.rotation.x, t.rotation.y, t.rotation.z, t.rotation.w)
-        objs = []
+        objs, classes = [], []
         for det in msg.detections:
             p = det.bbox.center.position
             x, y, _ = rot @ (p.x, p.y, p.z) + (t.translation.x, t.translation.y,
                                                t.translation.z)
             objs.append((float(x), float(y), 0.5 * float(det.bbox.size.x)))
+            classes.append(str(det.results[0].hypothesis.class_id) if det.results else '')
         stamp = msg.header.stamp
         self._detections = (self._now(), objs, stamp.sec + stamp.nanosec * 1e-9)
+        self._detection_classes = classes
 
     def _stereo_columns_cb(self, msg):
         self._stereo_columns = (self._now(), msg)
@@ -1384,7 +1449,14 @@ class LidarFrontWallNode(Node):
             'tracks': self._track_payload(),
             'negative_killed': (None if self.wall_tracker is None
                                 else int(self.wall_tracker.n_negative_killed)),
-            'objects_behind_wall': self._objects_behind_wall})))
+            'objects_behind_wall': self._objects_behind_wall,
+            # Door detection (DOOR DETECTION): its cost this cycle, how many
+            # doors it holds, and the gaps it refused, [code, [ids], width m].
+            'door_ms': num(self._door_ms) if self.door_tracker is not None else None,
+            'doors': (len(self.door_tracker.doors)
+                      if self.door_tracker is not None else None),
+            'door_rejects': ([[c, list(ids), w] for c, ids, w in self.door_tracker.rejects]
+                             if self.door_tracker is not None else None)})))
         return state
 
     def _virtual_due(self, now):
@@ -1501,7 +1573,107 @@ class LidarFrontWallNode(Node):
         self._tracker_ms = (time.perf_counter() - t0) * 1e3
         self._log_tracker_cost(scan_stamp)
         self._publish_walls(msg.header.stamp, tracks, car)
+        if self.door_tracker is not None:
+            self._detect_doors(car, (neg_ranges, neg_bearings, laser_pose[:2], cut),
+                               scan_stamp, msg.header.stamp)
         return None if front is None else mwt.to_wall_line(front, car)
+
+    # ---- door detection (module docstring, DOOR DETECTION) ------------------
+
+    def _detect_doors(self, car, scan, scan_stamp, stamp):
+        """One door cycle on this tracker step: candidates, stereo, tracking, publish."""
+        t0 = time.perf_counter()
+        rejects = []
+        candidates = door_detection.door_candidates(
+            self.wall_tracker.tracks, car, scan, self.door_params, rejects)
+        geometry = self._door_mask_geometry(scan_stamp) if candidates else None
+        if geometry is not None:
+            for cand in candidates:
+                cand.stereo_support, _detail = door_detection.stereo_gap_support(
+                    cand, *geometry, p=self.door_params, depth_scale=0.001)
+        doors = self.door_tracker.step(candidates, car, scan_stamp,
+                                       self._persons_at(car, scan_stamp))
+        self.door_tracker.rejects = rejects
+        self._door_ms = (time.perf_counter() - t0) * 1e3
+        self._publish_doors(stamp, doors, car, scan_stamp)
+
+    def _persons_at(self, car, scan_stamp):
+        """
+        Return this cycle's PERSON detections, (x, y, half width) in base_link.
+
+        Carried from the detection stamp on odometry exactly like the object
+        sectors (_sectors), and dropped past wall_tracker_detection_max_age_sec.
+        """
+        if self._detections is None:
+            return []
+        people = [obj for obj, cls in zip(self._detections[1], self._detection_classes)
+                  if cls in self.door_params.person_classes]
+        det_stamp = self._detections[2]
+        if not people or scan_stamp - det_stamp > self.tracker_det_max_age:
+            return []
+        then = self._poses.at(det_stamp, self.pose_max_extrapolation_s)
+        if then is None:
+            return []
+        return mwt.propagate_objects(people, then, car)
+
+    def _door_mask_geometry(self, scan_stamp):
+        """
+        Return (labels, depth_mm, fx, fy, cx, cy, R, t) for stereo_gap_support, or None.
+
+        The same mask/depth pair, intrinsics and camera transform the
+        rectangle verification uses (_verify_tracks), so the door's optional
+        stereo evidence is the same measurement the walls' is.
+        """
+        if not self.rect_verify or self._stereo_columns is None:
+            return None
+        profile = self._stereo_columns[1]
+        pair = self._mask_pair(scan_stamp)
+        if pair is None or int(profile.width) < 1:
+            return None
+        labels, depth = pair[0], pair[1]
+        cam = self._camera_transform(self._mask_classes.header.frame_id)
+        if cam is None:
+            return None
+        scale = labels.shape[1] / float(profile.width)
+        return (labels, depth, float(profile.fx) * scale, float(profile.fy) * scale,
+                float(profile.cx) * scale, float(profile.cy) * scale, cam[0], cam[1])
+
+    def _publish_doors(self, stamp, doors, car, scan_stamp):
+        """/perception/doors every tracker cycle; /viz/doors while subscribed."""
+        out = DoorArray()
+        out.header.stamp = stamp
+        out.header.frame_id = self._odom_frame
+        to_bl = car.inverse()
+        for door in doors:
+            centre = door.centre
+            bl = to_bl.transform_points(np.vstack([centre, door.jamb0, door.jamb1]))
+            m = Door()
+            m.id = int(door.id)
+            m.state = int(door.state)
+            m.center = Point(x=float(centre[0]), y=float(centre[1]), z=0.0)
+            m.normal = Vector3(x=float(door.normal[0]), y=float(door.normal[1]), z=0.0)
+            m.width = float(door.width)
+            m.jamb0 = Point(x=float(door.jamb0[0]), y=float(door.jamb0[1]), z=0.0)
+            m.jamb1 = Point(x=float(door.jamb1[0]), y=float(door.jamb1[1]), z=0.0)
+            m.center_bl, m.jamb0_bl, m.jamb1_bl = (
+                Point(x=float(q[0]), y=float(q[1]), z=0.0) for q in bl)
+            m.parent_wall_id0, m.parent_wall_id1 = (int(i) for i in door.parents)
+            m.occupied = bool(door.occupied)
+            m.confidence = float(min(max(door.confidence, 0.0), 1.0))
+            m.stereo_support = bool(door.stereo_support)
+            m.hits = int(door.hits)
+            m.age = float(scan_stamp - door.born)
+            m.since_seen = float(scan_stamp - door.last_seen)
+            m.n_beams = int(min(max(door.n_beams, 0), 65535))
+            out.doors.append(m)
+        self.doors_pub.publish(out)
+        if self.viz_doors_pub.get_subscription_count() == 0:
+            # Same bargain as /viz/walls: nothing is built for nobody, and
+            # the markers already sent expire on their own lifetime.
+            self._viz_doors_builder.forget()
+            return
+        self.viz_doors_pub.publish(
+            self._viz_doors_builder.build(doors, stamp, self._odom_frame))
 
     def _count_objects_behind_walls(self, car, laser_pose, scan_stamp):
         """How many propagated object centres lie behind a CONFIRMED wall.
@@ -1632,10 +1804,12 @@ class LidarFrontWallNode(Node):
             # free-form JSON and costs no past run its readability.
             out.tracks.append(m)
             # A wall is a VERTICAL PLANE, so it is drawn as one: a thin slab
-            # from z_min to z_max, not a line on the floor. The height is the
-            # observed one when the stereo measured it and the default
-            # otherwise, which is visible at a glance because an assumed wall
-            # is always exactly wall_default_height_m tall.
+            # standing on the floor, not a line on it. EVERY slab is
+            # wall_viz_height_m tall whatever the stereo measured (z_min /
+            # z_max above are untouched): one corridor's walls used to be
+            # drawn at as many heights as the stereo reported. Whether the
+            # height was measured is the alpha below.
+            z_top = self.wall_viz_height_m
             (ax, ay), (bx, by) = (x0, y0), (x1, y1)
             length = math.hypot(bx - ax, by - ay)
             yaw = math.atan2(by - ay, bx - ax)
@@ -1644,12 +1818,12 @@ class LidarFrontWallNode(Node):
             slab.ns, slab.id, slab.type = 'walls', 2 * trk.id, Marker.CUBE
             slab.action = Marker.ADD
             slab.pose.position = Point(x=float(0.5 * (ax + bx)), y=float(0.5 * (ay + by)),
-                                       z=float(0.5 * (trk.z_min + trk.z_max)))
+                                       z=float(0.5 * z_top))
             slab.pose.orientation.z = math.sin(yaw / 2.0)
             slab.pose.orientation.w = math.cos(yaw / 2.0)
             slab.scale.x = max(float(length), 0.01)
             slab.scale.y = self.wall_marker_thickness_m
-            slab.scale.z = max(float(trk.z_max - trk.z_min), 0.01)
+            slab.scale.z = max(float(z_top), 0.01)
             r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR['other'])
             slab.color.r, slab.color.g, slab.color.b = r, g, b
             # A wall only assumed to be this tall is drawn fainter than one
@@ -1661,7 +1835,7 @@ class LidarFrontWallNode(Node):
             text.ns, text.id, text.type = 'walls', 2 * trk.id + 1, Marker.TEXT_VIEW_FACING
             text.action = Marker.ADD
             text.pose.position = Point(x=float(0.5 * (ax + bx)), y=float(0.5 * (ay + by)),
-                                       z=float(trk.z_max + 0.15))
+                                       z=float(z_top + 0.15))
             text.pose.orientation.w = 1.0
             text.scale.z = 0.2
             text.color.a = text.color.r = text.color.g = text.color.b = 1.0

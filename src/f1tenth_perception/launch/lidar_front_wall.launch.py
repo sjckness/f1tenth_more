@@ -153,6 +153,20 @@ LIDAR_FRONT_WALL_ARGS = [
     ('camera_side_max_normal_deg', float),
     ('camera_side_offset_min_m', float),
     ('camera_side_offset_max_m', float),
+    # Door detection (perception only) and the fixed wall marker height.
+    ('wall_viz_height_m', float),
+    ('door_detection_enabled', bool),
+    ('door_collinear_angle_deg', float),
+    ('door_collinear_offset_m', float),
+    ('door_width_min_m', float),
+    ('door_width_max_m', float),
+    ('door_behind_margin_m', float),
+    ('door_min_beams', int),
+    ('door_min_beam_fraction', float),
+    ('door_confirm_hits', int),
+    ('door_confirm_window', int),
+    ('door_delete_after_sec', float),
+    ('door_jamb_viz_diameter_m', float),
 ]
 
 

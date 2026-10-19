@@ -170,19 +170,31 @@ class TestGeometry:
         (x0, y0), (x1, y1) = trk.endpoints()
         assert [(p.x, p.y) for p in line.points] == pytest.approx([(x0, y0), (x1, y1)])
 
-    def test_the_prism_spans_zero_to_two_metres_when_nothing_measured_the_height(self):
+    @pytest.mark.parametrize('z_min, z_max, measured', [
+        (0.0, 2.5, False), (0.1, 1.3, True), (0.0, 0.4, True), (-0.3, 4.0, True),
+        (0.0, math.nan, False)])
+    def test_every_prism_is_2_5_m_tall_on_the_floor_whatever_was_measured(
+            self, z_min, z_max, measured):
+        """The fixed visual height (wall_viz_height_m): the input height is ignored."""
         builder = wm.WallMarkerBuilder(0.6)
-        prism = _by_slot(_build(builder, [_track(1, height_measured=False)]),
-                         1)[wm.SLOT_PRISM]
-        assert prism.scale.z == pytest.approx(2.0)
-        assert prism.pose.position.z == pytest.approx(1.0)
+        markers = _build(builder, [_track(1, z_min=z_min, z_max=z_max,
+                                          height_measured=measured)])
+        prism = _by_slot(markers, 1)[wm.SLOT_PRISM]
+        assert prism.scale.z == pytest.approx(2.5)
+        assert prism.pose.position.z == pytest.approx(1.25)     # base on the floor
+        assert _by_slot(markers, 1)[wm.SLOT_TEXT].pose.position.z > 2.5
 
-    def test_the_prism_uses_the_measured_span_when_there_is_one(self):
+    def test_the_drawing_does_not_touch_the_tracks_own_height(self):
         builder = wm.WallMarkerBuilder(0.6)
-        prism = _by_slot(_build(builder, [_track(1, z_min=0.1, z_max=1.3,
-                                                 height_measured=True)]),
-                         1)[wm.SLOT_PRISM]
-        assert prism.scale.z == pytest.approx(1.2)
+        trk = _track(1, z_min=0.1, z_max=1.3, height_measured=True)
+        _build(builder, [trk])
+        assert (trk.z_min, trk.z_max, trk.height_measured) == (0.1, 1.3, True)
+
+    def test_the_height_is_the_builders_parameter(self):
+        builder = wm.WallMarkerBuilder(0.6, wall_height_m=3.0)
+        prism = _by_slot(_build(builder, [_track(1)]), 1)[wm.SLOT_PRISM]
+        assert prism.scale.z == pytest.approx(3.0)
+        assert prism.pose.position.z == pytest.approx(1.5)
 
     def test_the_prism_runs_along_the_wall_and_is_thin_across_it(self):
         builder = wm.WallMarkerBuilder(0.6)
@@ -205,9 +217,9 @@ class TestGeometry:
 class TestGlass:
     """A pane gets a cyan outline, and loses it again when it stops being one."""
 
-    def test_a_glass_track_gets_a_cyan_outline_at_the_top_of_the_pane(self):
-        builder = wm.WallMarkerBuilder(0.6)
-        trk = _track(1, glass=True, z_min=0.0, z_max=1.8, height_measured=True)
+    def test_a_glass_track_gets_a_cyan_outline_at_the_top_of_the_drawn_pane(self):
+        builder = wm.WallMarkerBuilder(0.6, wall_height_m=1.8)
+        trk = _track(1, glass=True, z_min=0.0, z_max=1.2, height_measured=True)
         glass = _by_slot(_build(builder, [trk]), 1)[wm.SLOT_GLASS]
         assert glass.action == Marker.ADD
         assert glass.type == Marker.LINE_STRIP
@@ -330,6 +342,6 @@ def test_every_alpha_is_a_legal_opacity():
     assert all(0.0 < a <= 1.0 for a in wm.ALPHA.values())
 
 
-def test_the_default_prism_span_is_zero_to_two_metres():
-    assert wm.DEFAULT_Z_SPAN == (0.0, 2.0)
-    assert not math.isnan(wm.DEFAULT_Z_SPAN[1])
+def test_the_default_drawn_wall_height_is_2_5_m():
+    assert wm.WALL_VIZ_HEIGHT_M == 2.5
+    assert wm.WallMarkerBuilder(0.6).wall_height_m == 2.5
