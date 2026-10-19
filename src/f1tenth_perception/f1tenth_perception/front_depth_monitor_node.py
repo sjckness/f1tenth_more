@@ -64,6 +64,7 @@ import rclpy
 from cv_bridge import CvBridge, CvBridgeError
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_perception.front_clearance_node import from_front
+from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile
 from rclpy.time import Time
@@ -113,7 +114,7 @@ class FrontDepthMonitorNode(Node):
                 depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
                 history=HistoryPolicy.KEEP_LAST))
         self.depth_sub = self.create_subscription(
-            Image, self.depth_topic, self._depth_callback, 10)
+            Image, self.depth_topic, self._depth_callback, LATEST_FRAME_QOS)
 
         self.get_logger().info(
             f'front_depth_monitor_node up: "{self.depth_topic}" -> '

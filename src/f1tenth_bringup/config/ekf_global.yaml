@@ -83,7 +83,10 @@ slam_pose_relay_node:
 /ekf_global/ekf_global_filter_node:
   ros__parameters:
     # --- core ----------------------------------------------------------------
-    frequency: 50.0             # matches the local EKF -- smooth continuous
+    frequency: 50.0             # OVERRIDDEN by ekf_global.launch.py from stack_params
+                                 # ekf_frequency_hz (20 since cpu-cleanup R2;
+                                 # sensor_timeout 0.1 is then 2 odom0 periods).
+                                 # matches the local EKF -- smooth continuous
                                  # output even though pose0 corrections arrive
                                  # far less often (event-driven, tied to slam_
                                  # toolbox's own minimum_travel_distance/
@@ -98,7 +101,9 @@ slam_pose_relay_node:
     two_d_mode: true            # planar car: zero z, roll, pitch (same as local EKF)
     publish_tf: true            # this instance owns map -> odom
     publish_acceleration: false
-    transform_time_offset: 0.05  # post-date published TF ~50ms: urg_node stamps
+    transform_time_offset: 0.05  # OVERRIDDEN by ekf_global.launch.py from stack_params
+                                # ekf_transform_time_offset_s (0.08 at 20 Hz).
+                                # post-date published TF ~50ms: urg_node stamps
                                 # scans at reception, ~28ms ahead of this filter's
                                 # TF stamp, so time-correct map/odom <- laser
                                 # lookups all failed 'extrapolation into the future'

@@ -581,6 +581,15 @@ class TestSnapshotSpacing:
 
 class TestRecordedTopics:
 
+    def test_the_wall_tracker_and_the_virtual_wall_are_recorded_reliably(self):
+        from f1tenth_logger.mission_logger_node import (
+            _DEFAULT_BEST_EFFORT_TOPICS, _DEFAULT_TOPICS, recordable_topics)
+        for topic in ('/perception/walls', '/perception/walls/markers',
+                      '/perception/virtual_wall', '/perception/virtual_wall/debug'):
+            assert topic in recordable_topics(_DEFAULT_TOPICS)[0]
+            # lidar_front_wall_node publishes them RELIABLE (depth 10).
+            assert topic not in _DEFAULT_BEST_EFFORT_TOPICS
+
     def test_the_debug_video_and_its_wall_payload_are_recorded_reliably(self):
         from f1tenth_logger.mission_logger_node import (
             _DEFAULT_BEST_EFFORT_TOPICS, _DEFAULT_TOPICS)

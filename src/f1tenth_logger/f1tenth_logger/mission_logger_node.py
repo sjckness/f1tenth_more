@@ -254,7 +254,9 @@ _DEFAULT_TOPICS = [
     '/tf',
     '/tf_static',
     # --- perception ---
-    '/camera/image_annotated',
+    # /camera/image_annotated (raw bgr8, 75% of a bag) is NOT in this list:
+    # the 5 Hz debug video below shows the same detections. The
+    # record_annotated_image param adds it back.
     '/camera/detections',
     '/camera/detections_3d',
     '/camera/detection_masks',            # -seg configs only
@@ -274,13 +276,37 @@ _DEFAULT_TOPICS = [
     '/perception/virtual_wall',
     '/perception/virtual_wall/debug',
     '/perception/wall_planes',
+    # The multi-wall tracker (use_wall_tracker): up to 4 wall tracks in odom
+    # (f1tenth_messages/MultiWallTrackArray, its front track is the heading
+    # wall of the virtual wall) and their line/text markers.
+    '/perception/walls',
+    '/perception/walls/markers',
     '/perception/stereo_wall',
     '/perception/scene_labels',
     '/perception/scene_labels_debug',
     '/perception/unclassified_obstacles',
+    # The whole-frame scene mask (scene_mask.py, front_clearance_scene_mask_
+    # enabled): the per-class pixel fractions and the WALL point count in the
+    # car-width strip, plus the WALL points themselves in base_link. The
+    # overlay image is NOT recorded by default -- it is only rendered when
+    # something subscribes, and a bgr8 frame at 5 Hz is ~3.5 MB/s.
+    '/perception/scene_labels/stats',
+    # The scene mask's own liveness (front_clearance_node's watchdog): the
+    # three ages that tell a camera stall apart from a node stall, published
+    # on a timer so it keeps arriving exactly when the mask does not.
+    '/perception/scene_labels/health',
+    '/perception/wall_points',
+    # The per-cycle fusion: the stereo's column profile and the stateless wall
+    # observations the tracker consumes. Both are small and both are the
+    # evidence behind every wall decision a run made.
+    '/perception/stereo_columns',
+    '/perception/wall_observations',
     '/scan',
     # --- costmap / semantic ---
     '/costmap/semantic_markers',
+    # The wall layer: confirmed walls as map-frame cells carrying their role,
+    # and the track id per cell beside it (wall_raster.py).
+    '/costmap/wall_cells',
     '/costmap/boundaries',
     '/costmap/front_clearance',
     '/slam/map',
@@ -491,8 +517,44 @@ def _default_runs_dir():
         return os.path.join(os.path.expanduser('~'), 'f1tenth_archive')
 
 
+# The annotated camera stream, recorded only with record_annotated_image.
+_ANNOTATED_TOPIC = '/camera/image_annotated'
+
+# Depth and the intrinsics to back-project it, recorded with record_depth.
+# The depth is the 5 Hz copy mission_logger.launch.py's topic_tools throttle
+# publishes: the 30 Hz original is ~27.6 MB/s.
+_DEPTH_TOPICS = ['/zed2/zed_node/depth/depth_registered_5hz',
+                 '/zed2/zed_node/depth/camera_info', '/camera/camera_info']
+
+# Recording PROFILES (stack_params mission_logger_profile; cpu-cleanup R2,
+# block 4a). 'default' adds nothing. 'campaign' adds, all at ~5 Hz, what the
+# wall-tracker replay (tools/corridor_wall_replay.py) needs to show and
+# re-run what the car saw:
+#   /perception/scene_labels/classes  the per-pixel scene mask (mono8
+#                                     640x360, front_clearance_node's 5 Hz
+#                                     mask tick) -- the "scene-label image";
+#   /camera/image_raw_5hz             the camera frame YOLO and the mask
+#                                     actually use (bgra8 640x360), throttled
+#                                     to 5 Hz by mission_logger.launch.py;
+#   depth_registered_5hz + camera_infos (_DEPTH_TOPICS);
+#   /perception/wall_observations     (already in _DEFAULT_TOPICS, ~10 Hz).
+# Estimated ~+345 MB/min over the default list (classes 69, image 276,
+# observations 0.7), ~650-850 MB/min in total: output/cpu_cleanup/report.md.
+_PROFILE_TOPICS = {
+    'default': [],
+    'campaign': ['/perception/scene_labels/classes', '/camera/image_raw_5hz',
+                 '/perception/wall_observations', *_DEPTH_TOPICS],
+}
+
+
+def profile_topics(profile):
+    """Topics a recording profile adds; an unknown profile adds nothing."""
+    return list(_PROFILE_TOPICS.get(str(profile), []))
+
+
 # -- post-hoc snapshots -----------------------------------------------------
-_SNAPSHOT_TOPIC = '/camera/image_annotated'
+# The annotated stream when the bag has it, else the debug video's JPEGs.
+_SNAPSHOT_TOPICS = (_ANNOTATED_TOPIC, '/camera/debug_image/compressed')
 _SNAPSHOT_MAX = 10
 
 
@@ -524,8 +586,11 @@ def _open_snapshot_reader(bag_dir, storage_id, topic):
 
 
 def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
-                       topic=_SNAPSHOT_TOPIC, limit=_SNAPSHOT_MAX):
-    """Up to `limit` evenly spaced JPEGs from `topic`. Returns the paths written.
+                       topics=_SNAPSHOT_TOPICS, limit=_SNAPSHOT_MAX):
+    """Up to `limit` evenly spaced JPEGs from the first of `topics` in the bag.
+
+    Returns (paths written, topic used or None). A sensor_msgs/Image topic is
+    re-encoded and a CompressedImage JPEG is written as it is.
 
     Two passes over the bag: the first only counts messages (raw, never
     deserialized) because rosbag2's sequential reader cannot seek or report a
@@ -536,11 +601,16 @@ def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
     import cv2
     from cv_bridge import CvBridge
     from rclpy.serialization import deserialize_message
-    from sensor_msgs.msg import Image
+    from sensor_msgs.msg import CompressedImage, Image
 
-    reader = _open_snapshot_reader(bag_dir, storage_id, topic)
+    reader = topic = None
+    for topic in topics:
+        reader = _open_snapshot_reader(bag_dir, storage_id, topic)
+        if reader is not None:
+            break
     if reader is None:
-        return []
+        return [], None
+    compressed = topic.endswith('/compressed')
     total = 0
     while reader.has_next():
         reader.read_next()
@@ -548,7 +618,7 @@ def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
 
     wanted = set(_snapshot_indices(total, limit))
     if not wanted:
-        return []
+        return [], topic
 
     reader = _open_snapshot_reader(bag_dir, storage_id, topic)
     bridge = CvBridge()
@@ -560,12 +630,17 @@ def _extract_snapshots(bag_dir, out_dir, run_id, storage_id,
         _t, raw, _stamp = reader.read_next()
         if idx not in wanted:
             continue
+        path = os.path.join(out_dir, f'{run_id}.{len(written):03d}.jpg')
+        if compressed:
+            with open(path, 'wb') as f:
+                f.write(bytes(deserialize_message(raw, CompressedImage).data))
+            written.append(path)
+            continue
         image = bridge.imgmsg_to_cv2(
             deserialize_message(raw, Image), desired_encoding='bgr8')
-        path = os.path.join(out_dir, f'{run_id}.{len(written):03d}.jpg')
         if cv2.imwrite(path, image):
             written.append(path)
-    return written
+    return written, topic
 
 
 def _best_effort_qos(depth):
@@ -658,8 +733,21 @@ class MissionLoggerNode(Node):
         self.complete_dir = os.path.join(self.runs_dir, 'complete')
         self.incomplete_dir = os.path.join(self.runs_dir, 'incomplete')
         self.requested_storage_id = str(self.declare_parameter('storage_id', 'mcap').value)
-        self.topics, dropped = recordable_topics(
-            list(self.declare_parameter('topics', _DEFAULT_TOPICS).value))
+        topics = list(self.declare_parameter('topics', _DEFAULT_TOPICS).value)
+        # Off by default: the raw annotated stream was 134 of the 179 MB of
+        # the 2026-10-13 R007 bag, and the debug video covers it.
+        if (bool(self.declare_parameter('record_annotated_image', False).value)
+                and _ANNOTATED_TOPIC not in topics):
+            topics.append(_ANNOTATED_TOPIC)
+        if bool(self.declare_parameter('record_depth', False).value):
+            topics += [t for t in _DEPTH_TOPICS if t not in topics]
+        self.profile = str(self.declare_parameter('profile', 'default').value)
+        if self.profile not in _PROFILE_TOPICS:
+            self.get_logger().warn(
+                f'unknown recording profile "{self.profile}" -- recording the default list '
+                f'(known: {sorted(_PROFILE_TOPICS)})')
+        topics += [t for t in profile_topics(self.profile) if t not in topics]
+        self.topics, dropped = recordable_topics(topics)
         if dropped:
             self.get_logger().warn(f'not recording /viz relay copies: {dropped}')
         self.best_effort_topics = list(self.declare_parameter(
@@ -719,7 +807,7 @@ class MissionLoggerNode(Node):
         self.get_logger().info(
             f'mission_logger_node up (pid {os.getpid()}, lock {_lock_path()}): watching '
             f'"{status_topic}", runs -> "{self.runs_dir}" (active/ -> complete/, '
-            f'storage={self.storage_id}), {len(self.topics)} topics '
+            f'storage={self.storage_id}), {len(self.topics)} topics, profile {self.profile} '
             f'({len(self.best_effort_topics)} with BEST_EFFORT overrides), '
             f'sweep every {self.sweep_period_sec:.0f}s (action={self.sweep_action}), '
             f'recording from LOADED (timeout {self.loaded_timeout_sec:.0f}s). '
@@ -803,6 +891,7 @@ class MissionLoggerNode(Node):
                 'params_snapshot_path': os.path.join(run_dir, f'{run_id}.params.yaml'),
                 'manifest_path': os.path.join(run_dir, f'{run_id}.manifest.json'),
                 'storage_id': self.storage_id,
+                'profile': self.profile,
                 'mission_json_path': str(msg.json_path),
             }
 
@@ -1025,16 +1114,17 @@ class MissionLoggerNode(Node):
         of the finished bag rather than tapped live -- the recorder already
         captured those frames, and decoding them during the mission would cost
         CPU exactly when the car needs it."""
-        written = _extract_snapshots(
+        written, topic = _extract_snapshots(
             run['bag_path'], os.path.join(run['run_dir'], 'snapshots'),
             run['run_id'], self.storage_id)
         if written:
             self.get_logger().info(
-                f'{len(written)} snapshot(s) from {_SNAPSHOT_TOPIC} -> '
+                f'{len(written)} snapshot(s) from {topic} -> '
                 f'{os.path.join(run["run_dir"], "snapshots")}')
         else:
             self.get_logger().warn(
-                f'no {_SNAPSHOT_TOPIC} frames in "{run["run_id"]}" -- no snapshots.')
+                f'no {" or ".join(_SNAPSHOT_TOPICS)} frames in "{run["run_id"]}" '
+                '-- no snapshots.')
 
     def _spawn_sync(self, run):
         """Detached, never waited on. A failed sync is not a failed run: the

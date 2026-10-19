@@ -1718,6 +1718,10 @@ class MPCController(Node):
         )
 
         self.front_distance = 10.0
+        # The wall contract's CLEAR value (stack_params wall_clear_distance_m):
+        # at or above it the wall topics mean "nothing ahead", which must never
+        # reach the geometry or the solver -- see _fresh_front_distance.
+        self.wall_clear_distance_m = float(get_value('wall_clear_distance_m'))
         # Receipt time of the last front_distance message, for the wall_turn
         # increment's staleness check. None until one arrives, so the 10.0
         # bootstrap above is never mistaken for a measurement.
@@ -2999,13 +3003,26 @@ class MPCController(Node):
             tracker.reset()
 
     def _fresh_front_distance(self):
-        """/perception/front_distance as a distance, or None when it is not one.
+        """The wall distance (get_wall_distance_topic) as a distance, or None when it is not one.
 
         None when no message has arrived, when the last one is older than
-        corr_wall_turn_front_distance_max_age_sec, or when it is negative or
-        non-finite (front_clearance_node's -1.0 means "no reading" or "inside
-        the ZED's minimum range", never a distance). wall_turn.py treats None
-        as unknown rather than as a wall at zero.
+        corr_wall_turn_front_distance_max_age_sec, or when it is not positive
+        or non-finite (-1.0 is "no reading" on both wall topics:
+        /perception/virtual_wall with no valid wall, front_clearance_node with
+        none or inside the ZED's minimum range; never a distance). wall_turn.py
+        treats None as unknown rather than as a wall at zero.
+
+        ALSO None AT OR ABOVE wall_clear_distance_m (2026-10-15). That value
+        is the wall contract's CLEAR state -- "the sensors work and there is
+        nothing in the way" -- and it is NOT a wall 50 m away. Letting it
+        through would put 50 m into the corridor length, the distance cap and
+        the solver's geometry, all of which would silently accept it: the
+        turn would commit against a wall that is not there and the corridor
+        would stretch to the horizon. Returning None routes it to the SAME
+        "unknown" handling an absent reading already gets, which is exactly
+        right here: with no wall ahead there is no distance cap to apply.
+        Capping to a finite number instead would keep a phantom wall at the
+        cap, which is the error this contract exists to remove.
         """
         stamp = self.front_distance_stamp_sec
         if stamp is None:
@@ -3014,8 +3031,12 @@ class MPCController(Node):
         if age > self.corr_wall_turn_front_distance_max_age_sec:
             return None
         d_front = float(self.front_distance)
-        if not math.isfinite(d_front) or d_front < 0.0:
+        # <= 0, not < 0: the wire contract (get_wall_distance_topic) is "<= 0
+        # = no reading", for /perception/virtual_wall's -1.0 as for this one's.
+        if not math.isfinite(d_front) or d_front <= 0.0:
             return None
+        if d_front >= self.wall_clear_distance_m:
+            return None          # CLEAR: no wall ahead, not a wall at 50 m
         return d_front
 
     def _invalidate_move_state(self):
@@ -4400,6 +4421,10 @@ class MPCController(Node):
                 # dFront, exactly as before the tracker existed. getattr for
                 # the duck-typed corridor test stand-ins, as with drive_cmd.
                 d_front = self._fresh_front_distance()
+                # None (no usable distance) for the rule below; the corridor
+                # debug and the CORR/build log further down take -1.0, the
+                # wire's own "no reading" (float(None) used to raise out of the
+                # control loop on every wall_turn rebuild without a wall).
                 tracker = getattr(self, 'wall_tracker', None)
                 d_wall = None
                 if tracker is not None and tracker.has_wall:
@@ -5092,6 +5117,8 @@ class MPCController(Node):
         halfWidth = geom["halfWidth"]
         dpsi = geom["dpsi"]
         p_goal = geom["Pend"]
+        if d_front is None:
+            d_front = -1.0      # see the wall_turn branch: debug and log only
 
         corridor = {
             "xc": xc,

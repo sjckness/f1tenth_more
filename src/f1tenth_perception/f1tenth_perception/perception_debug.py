@@ -324,6 +324,7 @@ SCENE_TINT_ALPHA = 0.35
 COLOR_WALL = (0, 140, 255)
 COLOR_OTHER = (255, 0, 255)
 COLOR_FALLBACK = (0, 0, 255)
+COLOR_TRACK = (255, 255, 0)        # cyan: multi-wall tracker tracks
 
 
 def draw_scene_overlay(img, scene):
@@ -335,7 +336,9 @@ def draw_scene_overlay(img, scene):
                   wall, ceiling and ignore are tinted, OTHER is left clear
       img_wh      (w, h) of the depth image the px coordinates below are in
       walls       list of dicts with outline_px (4 corners, depth px) or None,
-                  and source ('lidar' or 'stereo')
+                  and source ('lidar' or 'stereo'); or, for a multi-wall
+                  tracker track, line_px (the floor line, >= 2 points) and
+                  label ('id:label d=x.xx'), drawn as an open line
       candidates  list of dicts with bbox_px (x0, y0, x1, y1), depth px
       virtual     /perception/virtual_wall/debug payload: distance, source
       fallback    True when anything fell back (stereo plane, disagreement)
@@ -352,6 +355,15 @@ def draw_scene_overlay(img, scene):
     sx, sy = w / float(src_w), h / float(src_h)
     virtual = scene.get('virtual') or {}
     for wall in scene.get('walls') or []:
+        line = wall.get('line_px')
+        if line:
+            pts = np.array([[int(round(u * sx)), int(round(v * sy))] for u, v in line], np.int32)
+            cv2.polylines(img, [pts], False, COLOR_TRACK, 2, cv2.LINE_AA)
+            top = pts[np.argmin(pts[:, 1])]
+            _text(img, str(wall.get('label', '')),
+                  (int(np.clip(top[0], 2, w - 90)), int(np.clip(top[1] - 4, 10, h - 3))),
+                  COLOR_TRACK)
+            continue
         outline = wall.get('outline_px')
         if not outline:
             continue
@@ -378,6 +390,26 @@ def draw_scene_overlay(img, scene):
                                   or scene.get('fallback'))) if on]
         _text(img, 'FALLBACK ' + ' '.join(flags), (3, 25), COLOR_FALLBACK)
         cv2.rectangle(img, (0, 0), (w - 1, h - 1), COLOR_FALLBACK, 2)
+
+
+def project_floor_segment(p0, p1, rotation, translation, k, z=0.0, samples=24, min_z=0.1):
+    """Pixel points [[u, v], ...] of the base_link floor segment p0-p1 at height z.
+
+    rotation/translation take optical-frame points into base_link (as
+    ground_plane.back_project's); k is (fx, fy, cx, cy). The segment is
+    sampled so the part behind the camera (optical z < min_z) is dropped
+    rather than wrapped. None when fewer than two samples are in front.
+    """
+    t = np.linspace(0.0, 1.0, int(samples))[:, None]
+    a = np.array([p0[0], p0[1], z], dtype=float)
+    b = np.array([p1[0], p1[1], z], dtype=float)
+    opt = (a + t * (b - a) - np.asarray(translation)) @ np.asarray(rotation)
+    opt = opt[opt[:, 2] > min_z]
+    if len(opt) < 2:
+        return None
+    fx, fy, cx, cy = k
+    return [[round(float(fx * x / zz + cx), 1), round(float(fy * y / zz + cy), 1)]
+            for x, y, zz in opt]
 
 
 def scene_frame(labels, scene_debug, candidates, virtual, front_x):

@@ -463,6 +463,18 @@ class TestCorridorWiring(unittest.TestCase):
         self.assertAlmostEqual(corridor['psiRef'], 0.2 + total, delta=1e-12)
         self.assertAlmostEqual(corridor['psiRefTurn'], 0.2, delta=1e-12)
 
+    def test_an_unknown_wall_distance_builds_a_corridor_without_raising(self):
+        # /perception/virtual_wall's -1.0 (or a stale reading) reaches the
+        # wall_turn branch as None; the corridor debug used to float(None).
+        for committed in (False, True):
+            fake = _FakeMPC(d_front=-1.0)
+            fake._d_front = None
+            fake.wall_turn_committed = committed
+            fake.wall_turn_commanded_rot = 0.3 if committed else None
+            corridor = _build(fake, 0.2)
+            self.assertEqual(corridor['dFront'], -1.0)
+            self.assertTrue(np.isfinite(corridor['psiRef']))
+
     def test_the_straight_drive_branch_is_unchanged(self):
         fake = _FakeMPC(mode='straight', d_front=2.0, psi_base=0.2)
         corridor = _build(fake, 0.25)
@@ -487,10 +499,12 @@ class _ClockFake:
 class TestFreshFrontDistanceAndReset(unittest.TestCase):
 
     class _Fake:
-        def __init__(self, value, stamp, now_sec=100.0):
+        def __init__(self, value, stamp, now_sec=100.0, clear_m=None):
             self.front_distance = value
             self.front_distance_stamp_sec = stamp
             self.corr_wall_turn_front_distance_max_age_sec = 0.5
+            self.wall_clear_distance_m = (
+                float(get_value('wall_clear_distance_m')) if clear_m is None else clear_m)
             self._clock = _ClockFake(now_sec)
 
         def get_clock(self):
@@ -499,12 +513,23 @@ class TestFreshFrontDistanceAndReset(unittest.TestCase):
     def _fresh(self, value, stamp):
         return MPCController._fresh_front_distance(self._Fake(value, stamp))
 
-    def test_only_a_recent_non_negative_finite_reading_is_a_distance(self):
+    def test_only_a_recent_positive_finite_reading_is_a_distance(self):
         self.assertEqual(self._fresh(2.5, 99.8), 2.5)
         self.assertIsNone(self._fresh(10.0, None))      # the bootstrap, never received
         self.assertIsNone(self._fresh(2.5, 99.0))       # stale
-        self.assertIsNone(self._fresh(-1.0, 99.9))      # front_clearance_node's sentinel
+        self.assertIsNone(self._fresh(-1.0, 99.9))      # "no reading" on both wall topics
+        self.assertIsNone(self._fresh(0.0, 99.9))       # the contract is <= 0
         self.assertIsNone(self._fresh(float('nan'), 99.9))
+
+    def test_the_clear_value_never_reaches_the_geometry(self):
+        """wall_clear_distance_m means "nothing ahead", not "a wall at 50 m".
+        It must arrive as UNKNOWN, so no distance cap and no corridor length
+        is ever built from it."""
+        clear = float(get_value('wall_clear_distance_m'))
+        self.assertIsNone(self._fresh(clear, 99.9))
+        self.assertIsNone(self._fresh(clear + 10.0, 99.9))
+        # Just under it is still a real wall and still gets through.
+        self.assertEqual(self._fresh(clear - 0.1, 99.9), clear - 0.1)
 
     def test_a_new_turn_starts_uncommitted_with_no_end_heading_to_hold(self):
         fake = _FakeMPC()

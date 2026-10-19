@@ -1,0 +1,13 @@
+[INFO] [1792342814.996534020] [front_clearance_node]: front_clearance_node up: depth "/camera/depth/image_raw", detections "/camera/detections", masks "/camera/detection_masks", obstacles "/perception/obstacles_2d" -> /perception/front_distance, front_wall, front_clearance, front_blocked; distances from base_front, 0.405 m ahead of base_link
+[INFO] [1792342815.008270865] [front_clearance_node]: base_link <- laser: x=0.305 y=0.000 yaw=0.0 deg
+[INFO] [1792342815.056980791] [front_clearance_node]: inferred floor: LUT rebuilt for 640x360, laser at x=0.305 yaw=0.0 deg, 1081 beams, r_max 3.00 m: 85104 of 230400 pixels can be inferred
+[INFO] [1792342815.100526656] [front_clearance_node]: base_link <- zed2_left_camera_optical_frame: x=0.230 y=0.060 yaw=-90.0 deg
+[INFO] [1792342815.102831994] [front_clearance_node]: front_wall None -> False (bg_pixels=18916, front_distance=1.92 m)
+[INFO] [1792342815.104084925] [front_clearance_node]: front_blocked None -> False (front_clearance=1.92 m)
+[INFO] [1792342815.142233984] [front_clearance_node]: front_wall False -> True (bg_pixels=18866, front_distance=1.93 m)
+/home/fabiocar/.local/lib/python3.10/site-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+  warnings.warn("Unable to import Axes3D. This may be due to multiple versions of "
+   topics skipped (recorded with an older message definition): /perception/walls
+== bag: depth on /zed2/zed_node/depth/depth_registered_5hz, 126 frames
+   camera zed2_left_camera_optical_frame at (0.230, 0.060, 0.220) m, yaw 0.00 deg
+   wrote output/wall_v2/p1/moving_11-18-01/wall_foot_eval.{json,md} and the frames

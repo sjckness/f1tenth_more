@@ -93,6 +93,7 @@ RViz/Foxglove readability, same convention wall_detector_node.py's own
 _wall_markers already uses for its own label markers).
 """
 
+import array
 import itertools
 import math
 
@@ -100,10 +101,12 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 
-from nav_msgs.msg import Odometry
-from std_msgs.msg import ColorRGBA
+import numpy as np
+from nav_msgs.msg import OccupancyGrid, Odometry
+from std_msgs.msg import ColorRGBA, Int32MultiArray
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
+from tf2_msgs.msg import TFMessage
 from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import (
     Detection3D,
@@ -112,7 +115,10 @@ from vision_msgs.msg import (
 )
 from visualization_msgs.msg import Marker, MarkerArray
 
+from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray
 from f1tenth_params.object_geometry import footprint_radius
+from f1tenth_params.param_defaults import get_value
+from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
 
 from f1tenth_costmap.semantic_layer import (
     compose_base_link_to_map, find_nearest_pose_by_stamp, pose_to_xytheta,
@@ -251,8 +257,29 @@ class SemanticLayerNode(Node):
         self.min_alpha_scale = float(p('min_alpha_scale').value)
         self.gate_sigma_scale = float(p('gate_sigma_scale').value)
 
+        # The one TF lookup here is camera -> base_link (_detections_cb), and
+        # every link of that chain is a fixed URDF joint (sensors.xacro:
+        # zed2_camera_joint, zed2_left_camera_joint, ..._optical_joint), i.e.
+        # /tf_static. A TransformListener also deserialises every /tf message
+        # (both EKFs at 50 Hz) on this node's executor for nothing, so by
+        # default (cpu-cleanup, 2026-10-16) the buffer is fed from the latched
+        # /tf_static alone -- the same "a handful of fixed edges, no
+        # TransformListener" choice yolo_detector_node and front_clearance_node
+        # already make. tf_static_only:=false restores the full listener, for
+        # a detections frame reached through a moving joint -- REQUIRED if the
+        # camera pan joint is ever enabled (stack_params.yaml
+        # semantic_layer_tf_static_only, where the default lives).
+        self.declare_parameter('tf_static_only', get_value('semantic_layer_tf_static_only'))
         self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
+        self.tf_listener = None
+        self.tf_static_sub = None
+        if bool(self.get_parameter('tf_static_only').value):
+            self.tf_static_sub = self.create_subscription(
+                TFMessage, '/tf_static', self._tf_static_cb, QoSProfile(
+                    depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                    history=HistoryPolicy.KEEP_LAST))
+        else:
+            self.tf_listener = TransformListener(self.tf_buffer, self)
 
         # Same BEST_EFFORT/VOLATILE match costmap_boundary_node.py in this
         # same package already uses for this exact topic, which in turn matches
@@ -275,6 +302,43 @@ class SemanticLayerNode(Node):
         self.tracks_pub = self.create_publisher(
             Detection3DArray, p('tracks_topic').value, 10)
 
+        # --- the wall layer (step 7) -------------------------------------
+        # Confirmed walls from the tracker, rasterised into the SAME semantic
+        # layer this node already owns: a tracked wall is "a thing of class
+        # wall is here", which is this layer's kind of truth, not the
+        # occupancy grid's "something reflected here once". The grid value is
+        # the ROLE (wall_raster.ROLE_VALUE) so it reads on its own; the ids
+        # go out beside it, because an int8 cell cannot hold both.
+        self.declare_parameter('wall_tracks_topic', '/perception/walls')
+        self.declare_parameter('wall_cells_topic', '/costmap/wall_cells')
+        self.declare_parameter('wall_ids_topic', '/costmap/wall_cell_ids')
+        self.declare_parameter('wall_layer_size_m', 12.0)
+        self.declare_parameter('wall_layer_resolution_m', 0.05)
+        self.declare_parameter('wall_thickness_m', 0.06)
+        self.wall_layer_size_m = float(p('wall_layer_size_m').value)
+        self.wall_layer_res_m = float(p('wall_layer_resolution_m').value)
+        self.wall_thickness_m = float(p('wall_thickness_m').value)
+        self.wall_cells_pub = self.create_publisher(
+            OccupancyGrid, p('wall_cells_topic').value, 1)
+        self.wall_ids_pub = self.create_publisher(
+            Int32MultiArray, p('wall_ids_topic').value, 1)
+        # cpu-cleanup (2026-10-16): the wall layer is rebuilt from the LATEST
+        # /perception/walls message at most wall_layer_rate_hz, on a timer,
+        # instead of on every message (~10 Hz: lidar_front_wall_node's
+        # tracker steps 1 scan in 4). Its two outputs have no live consumer:
+        # /costmap/wall_cells is only recorded by the mission logger and
+        # /costmap/wall_cell_ids is read by nothing. Each rebuild is a fresh
+        # raster of the newest message (never accumulated, see _walls_cb),
+        # so skipping an intermediate message loses nothing. 5 Hz, below
+        # mpc_corr's 10 Hz.
+        self.declare_parameter('wall_layer_rate_hz', 5.0)
+        self.wall_layer_rate_hz = float(p('wall_layer_rate_hz').value)
+        self._pending_walls = None
+        self.wall_sub = self.create_subscription(
+            MultiWallTrackArray, p('wall_tracks_topic').value, self._walls_msg_cb, 1)
+        self.wall_timer = self.create_timer(
+            1.0 / self.wall_layer_rate_hz, self._wall_layer_tick)
+
         self._pose_history: list = []  # [(stamp_sec, (x, y, yaw)), ...]
         self._objects: list = []       # [SemanticObject, ...] (tracks, confirmed + tentative)
         # Caller-owned, never-reused id source for update_tracks_batch()'s
@@ -289,6 +353,74 @@ class SemanticLayerNode(Node):
         self._last_published_marker_keys: set = set()
 
         self.get_logger().info('semantic_layer_node started')
+
+    # ------------------------------------------------------------------
+    def _tf_static_cb(self, msg: TFMessage):
+        for transform in msg.transforms:
+            self.tf_buffer.set_transform_static(transform, 'semantic_layer_tf_static')
+
+    def _walls_msg_cb(self, msg):
+        """Keep only the newest wall message; _wall_layer_tick rasterises it."""
+        self._pending_walls = msg
+
+    def _wall_layer_tick(self):
+        msg, self._pending_walls = self._pending_walls, None
+        if msg is not None:
+            self._walls_cb(msg)
+
+    # ------------------------------------------------------------------
+    def _walls_cb(self, msg):
+        """Rasterise this cycle's CONFIRMED walls into the map-frame layer.
+
+        Rebuilt from scratch every message, never accumulated: that is what
+        makes a track the lifecycle deleted or merged simply stop having
+        cells. An accumulating layer would need its own deletion logic, a
+        second lifecycle to keep in step with the tracker's, and the one that
+        drifts is the one that leaves a wall on the map after the tracker
+        decided it was never there.
+
+        The segments are taken in BASE_LINK (p0_bl/p1_bl) and placed with the
+        pose nearest the message's own stamp, the same "where the car was when
+        it saw this" rule the object tracks already follow -- not whatever
+        pose happens to be latest when this callback runs.
+        """
+        stamp_sec = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        pose = find_nearest_pose_by_stamp(self._pose_history, stamp_sec)
+        if pose is None:
+            return
+        walls = []
+        for track in msg.tracks:
+            if track.state != MultiWallTrack.STATE_CONFIRMED:
+                continue        # a tentative or coasting wall is not a fact
+            p0, p1 = transform_segment(
+                (track.p0_bl.x, track.p0_bl.y), (track.p1_bl.x, track.p1_bl.y), pose)
+            walls.append((int(track.id), str(track.role or track.label), p0, p1))
+
+        cells = max(1, int(round(self.wall_layer_size_m / self.wall_layer_res_m)))
+        origin_x = pose[0] - 0.5 * self.wall_layer_size_m
+        origin_y = pose[1] - 0.5 * self.wall_layer_size_m
+        roles, ids = rasterize_walls(
+            walls, origin_x, origin_y, self.wall_layer_res_m, cells, cells,
+            self.wall_thickness_m)
+
+        grid = OccupancyGrid()
+        grid.header.stamp = msg.header.stamp
+        grid.header.frame_id = self.get_parameter('map_frame').value
+        grid.info.resolution = self.wall_layer_res_m
+        grid.info.width = grid.info.height = cells
+        grid.info.origin.position.x = origin_x
+        grid.info.origin.position.y = origin_y
+        grid.info.origin.orientation.w = 1.0
+        # array.array, not .tolist(): the same values, but the generated
+        # message setters take an array of the right typecode as-is instead
+        # of building and checking a 57,600-element Python list per field
+        # (~4 ms of the ~4.3 ms this callback took on linus with no walls).
+        grid.data = array.array('b', roles.ravel().astype(np.int8).tobytes())
+        self.wall_cells_pub.publish(grid)
+        # The ids beside the grid, same row-major order, so a consumer can ask
+        # the tracker about a cell. -1 where no wall claims it.
+        self.wall_ids_pub.publish(Int32MultiArray(
+            data=array.array('i', ids.ravel().astype(np.int32).tobytes())))
 
     # ------------------------------------------------------------------
     def _pose_cb(self, msg: Odometry):

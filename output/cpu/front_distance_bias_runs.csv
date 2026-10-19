@@ -1,0 +1,2 @@
+run_id,date,mission_id,outcome,git_commit,git_dirty,commit_in_window,front_wall_msgs,frames_contaminated,pct_contaminated,median_front_distance_contaminated_m,median_front_distance_clean_m,front_offset_m_values,correction_m
+2026-10-15T15-18-27_mission-llm_86cff518e42d,2026-10-15T15:18:42,llm_86cff518e42d,COMPLETE,e3793e47f595,True,True,71,42,59.2,2.6158,2.8698,0.1756;0.405,0.2294

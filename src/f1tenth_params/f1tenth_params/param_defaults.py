@@ -85,13 +85,29 @@ def get_odom_topic():
 
 
 def get_wall_distance_topic():
-    """The single wall-truth topic every wall consumer reads (Float32, metres
-    from the front bumper, <= 0 = no reading): '/perception/virtual_wall'
-    (f1tenth_perception's lidar_front_wall_node, LiDAR + stereo WALL pixels +
-    odometry, scene_labels.py) when enable_scene_labels is true, else the
-    camera-only '/perception/front_distance' (front_clearance_node). One
-    switch, so the mission wall stop and the MPC's wall_turn can never read
-    two different walls.
+    """The single wall-truth topic every wall consumer reads:
+    '/perception/virtual_wall' (f1tenth_perception's lidar_front_wall_node).
+
+    Float32 from the FRONT BUMPER, under the three-state contract
+    (wall_fusion.front_wall_output, WallEstimate.state): a distance for WALL,
+    wall_clear_distance_m for CLEAR, -1.0 for NO_DATA.
+
+    ALWAYS THAT TOPIC SINCE 2026-10-15. It used to fall back to the
+    camera-only '/perception/front_distance' when enable_scene_labels was
+    false. That topic is front_clearance_node's depth ROI, and it is RETIRED
+    AS A WALL SOURCE: its ROI reaches below the horizon, so with nothing
+    ahead it reads the FLOOR -- it sat at ~2.0 m for a whole run with the
+    nearest surface more than 10 m away (corridor_phantom, 2026-10-15). It is
+    a single-sensor measurement of whatever fills a rectangle, with no LiDAR
+    to cross-check it and no way to say "clear". It is still published and
+    recorded as a diagnostic; nothing reads it as a wall.
+
+    THE CONSEQUENCE OF TURNING enable_scene_labels OFF is therefore that
+    there is NO wall distance at all: the topic has no publisher, consumers
+    see nothing, and the mission wall stop HOLDS the car (check_stop_
+    condition.py, WALL DISTANCE FRESHNESS) instead of driving on a floor
+    reading. That is the intended behaviour -- holding is the honest answer
+    when the wall pipeline is switched off -- and it is why the switch should
+    stay on.
     """
-    return ('/perception/virtual_wall' if get_value('enable_scene_labels')
-            else '/perception/front_distance')
+    return '/perception/virtual_wall'

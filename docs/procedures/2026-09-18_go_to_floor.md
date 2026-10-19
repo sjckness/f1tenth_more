@@ -60,7 +60,7 @@ front of the car to the near edge of the object**.
 cd ~/dev_ws/f1tenth_more
 ./scripts/kill_ros2.py -y
 source /opt/ros/humble/setup.bash && source install/setup.bash
-ros2 launch f1tenth_bringup supervisor_bringup.launch.py
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py enable_mission_logger:=true   # recording is opt-in since 2026-10-16
 ```
 In a second terminal:
 ```bash

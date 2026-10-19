@@ -1,0 +1,6 @@
+/home/fabiocar/.local/lib/python3.10/site-packages/matplotlib/projections/__init__.py:63: UserWarning: Unable to import Axes3D. This may be due to multiple versions of Matplotlib being installed (e.g. as a system package and as a pip package). As a result, the 3D projection is not available.
+  warnings.warn("Unable to import Axes3D. This may be due to multiple versions of "
+== corridor10m_20261016T144537: 625 mask frames (recorded /perception/scene_labels/classes)
+   pitch of the optical axis: -2.083 deg (nose down positive)
+   camera zed2_left_camera_optical_frame at (0.229, 0.060, 0.220) m, yaw 0.00 deg
+   wrote output/wall_v2/q1/wall_foot_eval.{json,md} and the frames

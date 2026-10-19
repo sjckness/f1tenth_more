@@ -10,6 +10,7 @@ stay base_front_x - 0.15 - 0.0151; moving one without the other moves every
 camera front distance.
 """
 
+import math
 import os
 import re
 
@@ -34,7 +35,22 @@ def test_the_zed_front_face_sits_0_15_behind_the_bumper():
     assert (parent, child) == ('base_link', 'zed2_camera_link')
     expected = base_front_x() - ZED_FACE_BEHIND_BUMPER_M - ZED2I_SCREW_TO_FACE_M
     assert float(x) == pytest.approx(expected, abs=1e-3)
-    assert (float(y), float(z), float(yaw), float(pitch), float(roll)) == (0.0, 0.15, 0.0, 0.0, 0.0)
+    assert (float(y), float(z), float(yaw), float(roll)) == (0.0, 0.205, 0.0, 0.0)
+
+
+def test_the_zed_mount_pitch_is_the_imu_measured_nose_up():
+    """2026-10-15: the ZED IMU in the static 1 m calib clip says 2.083 deg nose up.
+
+    REP-103: positive pitch about y is nose down, so nose up is negative. The
+    positional static_transform_publisher order is x y z YAW PITCH ROLL.
+    """
+    path = os.path.join(get_package_share_directory('f1tenth_perception'),
+                        'launch', 'camera.launch.py')
+    m = re.search(r"name='static_baselink_to_zed2',\s*arguments=\[([^\]]*)\]",
+                  open(path).read())
+    assert m, 'static_baselink_to_zed2 not found in camera.launch.py'
+    pitch = float(m.group(1).split(',')[4].strip().strip("'\""))
+    assert math.degrees(pitch) == pytest.approx(-2.083, abs=0.005)
 
 
 def test_the_wrapper_is_launched_as_the_zed2i_it_is():

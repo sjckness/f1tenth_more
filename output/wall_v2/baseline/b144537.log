@@ -1,0 +1,34 @@
+[INFO] [1792324386.708447772] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall
+[INFO] [1792324386.721687692] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792324386.748828689] [lidar_front_wall_node]: 1 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 122 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792324386.754704870] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792324386.757275424] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[WARN] [1792324391.761129874] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 196 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792324392.177010468] [lidar_front_wall_node]: wall tracker: 139 scans, per-scan ms p50 25.45 p95 35.64 max 41.00
+[WARN] [1792324396.761488384] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 209 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792324397.123078503] [lidar_front_wall_node]: 1 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792324397.416758190] [lidar_front_wall_node]: wall tracker: 155 scans, per-scan ms p50 21.35 p95 26.03 max 34.04
+[WARN] [1792324401.796345066] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 161 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792324402.608309284] [lidar_front_wall_node]: wall tracker: 110 scans, per-scan ms p50 33.94 p95 46.48 max 52.94
+[WARN] [1792324406.803712368] [lidar_front_wall_node]: 2 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 163 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[WARN] [1792324407.136055718] [lidar_front_wall_node]: 2 stereo-only wall observation(s) nearer than 0.40 m dropped as chassis: a run of these means the self polygon (front_clearance_scene_mask_self_polygons) misses part of the car
+[INFO] [1792324407.750096378] [lidar_front_wall_node]: wall tracker: 112 scans, per-scan ms p50 34.45 p95 40.77 max 43.63
+[INFO] [1792324409.556711638] [lidar_front_wall_node]: wall acquired at 10.228 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792324411.055015484] [lidar_front_wall_node]: wall acquired at 11.383 m after none (nan m): jump +nan m, 9.42 s since the last accepted fit
+[INFO] [1792324411.560969660] [lidar_front_wall_node]: wall tracker: front track 508 dropped (gone); virtual wall CLEAR (strip None)
+[WARN] [1792324411.831188670] [lidar_front_wall_node]: 5 wall observation(s) rejected: the LiDAR and the stereo contradict each other over 277 column(s). A run of this means the extrinsic or the depth is wrong, not that the wall moved.
+[INFO] [1792324412.852660268] [lidar_front_wall_node]: wall tracker: front track 508 dropped (coast_expired); virtual wall CLEAR (strip None)
+[INFO] [1792324412.853574440] [lidar_front_wall_node]: wall tracker: 123 scans, per-scan ms p50 30.59 p95 37.97 max 43.89
+== corridor10m_20261016T144537: 61035 messages on 20 topics in 1 file(s)
+   moving window:      57.48 ..   71.98 s   (14.50 s)
+   moving window:     124.88 ..  151.64 s   (26.76 s)
+   MISSING REQUIRED: /camera/detection_masks, /perception/wall_observations
+   summary/video span t = 56.57 .. 152.60 s (the replay itself still runs from the bag start)
+   no depth in this bag: the camera half is not replayed
+   tracker steps: 707 of 2830 recorded debug payloads (--tracker-steps car; record format per_scan, car decimation 4), 4 without their scan
+   9 step-to-step gaps over 1.5x the median 0.230 s (dropped or unpublished steps)
+   warm-up: replay cold from the first step at t = -0.77 s; 57.34 s (279 steps) before the span starts at t = 56.57 s
+   the CAR's oldest track at its first /perception/walls (t = -0.77 s) was 53.7 s old: a head start no replay has
+   lidar replay "rec": 703 cycles
+   rectangle check fed the None class mask + depth pair (one source only)
+   wrote output/wall_v2/baseline/b144537/corridor10m_20261016T144537.*

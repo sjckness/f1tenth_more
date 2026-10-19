@@ -544,9 +544,16 @@ class VirtualWall:
     cell in a cone and can be a person, which is the failure this exists to
     end. The stereo WALL distance (fresh within stereo_max_age_s) is fused by
     inverse variance when it agrees with the LiDAR; when the two differ by more
-    than disagree_m the LiDAR is trusted and the step is flagged. With no
-    LiDAR estimate the stereo distance is used alone, dead-reckoned with
-    odometry between stereo frames for up to stereo_dr_max_s.
+    than disagree_m the LiDAR is trusted and the step is flagged.
+
+    WITH NO LIDAR ESTIMATE THERE IS NO WALL (2026-10-15, step 5). The stereo
+    distance used to stand in on its own, dead-reckoned between frames. That
+    path is removed: an empty LiDAR strip meant the stereo plane became the
+    wall, and on an open corridor that plane was the SIDE wall, reported as a
+    front wall at 1.1 m (corridor_phantom). Stereo can support a wall only by
+    going through the observations and the tracker, where a wall has to cross
+    the car's strip to be the front wall at all. An empty strip is CLEAR, and
+    saying so is wall_fusion.front_wall_output's job.
     """
 
     def __init__(self, front_x, disagree_m=0.15, stereo_max_age_s=0.5,
@@ -614,9 +621,7 @@ class VirtualWall:
                     l2 = lidar_sigma ** 2
                     distance = (lidar_m / l2 + stereo_m / s2) / (1.0 / l2 + 1.0 / s2)
                     source += '+stereo'
-        elif stereo is not None:
-            distance = stereo_m
-            source = 'stereo_dr' if stereo[2] else 'stereo'
         else:
+            # No LiDAR estimate: no wall. See the class docstring.
             return VirtualStep(False, math.nan, 'none', False, False, lidar_m, stereo_m)
         return VirtualStep(True, float(distance), source, disagree, fallback, lidar_m, stereo_m)

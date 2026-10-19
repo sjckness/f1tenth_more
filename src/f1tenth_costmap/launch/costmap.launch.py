@@ -59,6 +59,7 @@ from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -132,15 +133,26 @@ def generate_launch_description():
                     "STARTING POINT, roughly matching wall_detector_node's "
                     "own retired roi_x_max ballpark.")
     boundary_rate_la = DeclareLaunchArgument(
-        'costmap_boundary_extraction_rate_hz', default_value='20.0',
+        'costmap_boundary_extraction_rate_hz', default_value='10.0',
         description="Periodic publish rate for costmap_boundary_node -- "
-                    "bumped from 5.0 by the periodic-publish pass. This is "
+                    "10 Hz since cpu-cleanup (was 20; 5 before the periodic-"
+                    "publish pass): mpc_corr reads it at 10 Hz and every "
+                    "downstream staleness gate is >= 0.5 s. This is "
                     "now the ONLY thing governing how often /costmap/"
                     "boundaries and /costmap/front_clearance are published "
                     "-- see that node's own module docstring's 'PERIODIC-"
                     "PUBLISH pass' paragraph for why upstream (/slam/map, "
                     "/ekf_global/odometry/filtered) recency no longer gates "
                     "the publish at all.")
+
+    semantic_rate_la = DeclareLaunchArgument(
+        'semantic_layer_rate_hz', default_value='5.0',
+        description="Max rate semantic_layer_node rebuilds its wall layer "
+                    "(/costmap/wall_cells, /costmap/wall_cell_ids) from the "
+                    "NEWEST /perception/walls message -- cpu-cleanup, was "
+                    "every message (~10 Hz). Neither output has a live "
+                    "consumer (logger only / none). Detections are still "
+                    "processed per batch: the track lifecycle counts batches.")
 
     semantic_layer_node = Node(
         package='f1tenth_costmap',
@@ -149,6 +161,8 @@ def generate_launch_description():
         output='screen',
         condition=IfCondition(LaunchConfiguration('enable_slam')),
         parameters=[{
+            'wall_layer_rate_hz': ParameterValue(
+                LaunchConfiguration('semantic_layer_rate_hz'), value_type=float),
             'score_threshold': LaunchConfiguration('semantic_score_threshold'),
             'merge_distance_m': LaunchConfiguration('semantic_merge_distance_m'),
             'confirm_hit_count': LaunchConfiguration('semantic_confirm_hit_count'),
@@ -235,6 +249,6 @@ def generate_launch_description():
         boundary_front_max_la, boundary_side_min_la, boundary_side_max_la,
         boundary_occupied_threshold_la, boundary_max_range_la, boundary_rate_la,
         boundary_use_polytope_la, boundary_polytope_r_local_la,
-        boundary_polytope_max_faces_la,
+        boundary_polytope_max_faces_la, semantic_rate_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
     ])

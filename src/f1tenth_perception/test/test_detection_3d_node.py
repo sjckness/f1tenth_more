@@ -399,3 +399,23 @@ class TestUseMaskDepthSyncWiring:
 if __name__ == '__main__':
     import sys
     sys.exit(pytest.main([__file__, '-v']))
+
+
+def test_scene_labels_are_paired_with_the_depth_frame_by_nearest_stamp():
+    """The labels nearest the detection's depth stamp are used, not the newest ones."""
+    from cv_bridge import CvBridge
+    from f1tenth_perception.scene_labels import LABEL_GROUND, LABEL_OTHER
+    node = _construct_with_params({'enable_scene_labels': True})
+    try:
+        bridge = CvBridge()
+        for t, value in ((100.0, LABEL_OTHER), (100.2, LABEL_GROUND)):
+            msg = bridge.cv2_to_imgmsg(np.full((9, 16), value, dtype=np.uint8), encoding='mono8')
+            msg.header.stamp.sec = int(t)
+            msg.header.stamp.nanosec = int(round((t - int(t)) * 1e9))
+            node._scene_labels_callback(msg)
+        sel = np.ones((36, 64), dtype=bool)
+        assert node._scene_other(sel, 100.02).all()
+        assert not node._scene_other(sel, 100.19).any()
+        assert node._scene_other(sel, 101.0) is None
+    finally:
+        node.destroy_node()
