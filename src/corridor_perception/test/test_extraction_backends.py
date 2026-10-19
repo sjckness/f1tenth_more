@@ -200,6 +200,77 @@ def test_a_glass_corridor_scan_agrees(glass_scans):
 
 
 # ---------------------------------------------------------------------------
+# the stack's merge gap, 0.70 m, at its boundary
+# ---------------------------------------------------------------------------
+
+#: The merge gap the stack has run the extraction with since door-detection
+#: step 2: f1tenth_perception's multi_wall_tracker.DOOR_WIDTH_MIN_M, deployed
+#: as lidar_front_wall_door_width_min_m (f1tenth_perception's tests pin those
+#: two to each other). Not ExtractionParams' own 1.5 m, which nothing deployed
+#: uses. A retune there leaves these tests valid, just at another number.
+STACK_MERGE_GAP = 0.70
+CENTRE = (N_BEAMS - 1) // 2
+
+
+def doorway_scan(gap, k=27, m=102):
+    """
+    Ranges of a wall square to the centre beam, with a doorway whose edges are ON beams.
+
+    The returns either side stop at beams CENTRE -+ k, and the wall's distance
+    puts those two exactly `gap` apart: a raycast doorway's gap runs from the
+    last return to the first, up to a beam spacing wider at each side, which
+    is useless at a boundary. Each side is m + 1 beams (~1.5 m), long enough
+    that the merged wall keeps its fill. Nothing returns through the doorway.
+    """
+    d = 0.5 * gap / math.tan(k * ANGLE_INC)
+    r = np.zeros(N_BEAMS)
+    sides = np.r_[CENTRE - k - m:CENTRE - k + 1, CENTRE + k:CENTRE + k + m + 1]
+    r[sides] = d / np.cos(ANGLES[sides])
+    return clean_ranges(r, 0.06, 20.0)
+
+
+@pytest.mark.parametrize('backend', ['python', pytest.param('c', marks=requires_c)])
+@pytest.mark.parametrize('gap, n_walls', [(0.69, 1), (STACK_MERGE_GAP + 1e-6, 2), (0.71, 2)],
+                         ids=['0.69', '0.70', '0.71'])
+def test_at_the_stack_merge_gap_0_69_merges_and_0_70_and_0_71_do_not(backend, gap, n_walls):
+    """
+    A doorway narrower than the merge gap is one wall; one as wide or wider is two.
+
+    The C half must also give exactly the reference's segments. The 0.70
+    doorway is built 1 um over the number: a gap fitted from float32 ranges is
+    only good to ~3e-8 m (built at exactly 0.70 it measures 0.6999999823 on
+    both backends, and merges), so this is the boundary to 40 times the
+    measurement's own error. The strict '<' at the exact number is pinned on
+    hand-built lines below.
+    """
+    py, c = both(doorway_scan(gap), ExtractionParams(merge_gap=STACK_MERGE_GAP))
+    if backend == 'c':
+        assert_same(py, c)
+    segs, _stats = py if backend == 'python' else c
+    assert len(segs) == n_walls
+    assert all(abs(s.alpha) < 1e-3 for s in segs)
+
+
+@pytest.mark.parametrize('gap, n_clusters', [(STACK_MERGE_GAP - 1e-6, 1), (STACK_MERGE_GAP, 2)],
+                         ids=['just_under', 'exactly'])
+def test_the_reference_merges_only_strictly_below_merge_gap(gap, n_clusters):
+    """
+    At exactly merge_gap the two pieces stay apart: '<', not '<='.
+
+    On hand-built lines along x = 3, whose gap is exact in floating point,
+    which a fit's is not. The reference only: the C's merge has no entry
+    point of its own, so the scan-level test above is its boundary test.
+    """
+    from corridor_perception.extraction import _merge_clusters
+    from corridor_perception.geometry import Line
+    half = 0.5 * gap
+    a = Line(3.0, 0.0, np.zeros((2, 2)), np.array([3.0, -2.0]), np.array([3.0, -half]), 100)
+    b = Line(3.0, 0.0, np.zeros((2, 2)), np.array([3.0, half]), np.array([3.0, 2.0]), 100)
+    assert float(b.p_start @ a.tangent - a.p_end @ a.tangent) == gap     # exact
+    assert len(_merge_clusters([a, b], ExtractionParams(merge_gap=STACK_MERGE_GAP))) == n_clusters
+
+
+# ---------------------------------------------------------------------------
 # the one thing the C's API cannot express
 # ---------------------------------------------------------------------------
 
