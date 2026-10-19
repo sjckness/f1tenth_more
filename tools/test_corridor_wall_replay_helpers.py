@@ -15,6 +15,7 @@ import json
 import math
 import re
 from pathlib import Path
+from types import SimpleNamespace as NS
 
 import numpy as np
 import pytest
@@ -25,9 +26,10 @@ FUNCTIONS = {
     'image_array', 'class_fractions', 'fraction_segments', 'tracker_steps', 'step_gaps',
     'wall_runs', 'classify_wall_episode', 'state_shares', 'error_stats', 'close_tracks',
     'pass_headline', 'num', 'pct', 'flat_headline', 'compare_rows', 'in_span', 'in_window',
-    'clip_window'}
+    'clip_window', 'door_segments'}
 CONSTANTS = {'RAW_PREFER_S', 'PHANTOM_MARGIN_M', 'END_WALL_RANGE_M', 'RHO_BL_CLOSE_M',
-             '_ENC_CHANNELS', 'COMPARE_METRICS'}
+             '_ENC_CHANNELS', 'COMPARE_METRICS', 'DOOR_COLOUR', 'DOOR_OCCUPIED_COLOUR',
+             'DOOR_STATE_NAMES'}
 
 
 @pytest.fixture(scope='module')
@@ -207,3 +209,20 @@ def test_clip_window(T):
     assert T.clip_window([(1.0, 3.0), (5.0, 9.0)], (2.0, 6.0)) == (2.0, 6.0)
     assert T.clip_window([(1.0, 3.0)], (4.0, 6.0)) is None
     assert T.clip_window([], None) is None
+
+
+def test_door_segments_draws_each_door_in_base_link(T):
+    """One segment per door, jamb to jamb in base_link, coloured by occupancy."""
+    def door(i, state, occupied):
+        return NS(id=i, state=state, occupied=occupied, width=0.85,
+                  jamb0_bl=NS(x=3.0, y=-0.43), jamb1_bl=NS(x=3.0, y=0.42))
+    msg = NS(doors=[door(1, 1, False), door(2, 2, True), door(3, 0, False)])
+    segs = T.door_segments(msg)
+    assert [s[0] for s in segs] == [(3.0, -0.43)] * 3
+    assert segs[0][2] == T.DOOR_COLOUR and segs[0][3] == 3
+    assert segs[0][4] == 'door 1 0.85m confirmed'
+    # Coasting is dimmed; occupied is its own colour and says so.
+    assert segs[1][2] == tuple(int(c * 0.55) for c in T.DOOR_OCCUPIED_COLOUR)
+    assert segs[1][4].endswith('OCCUPIED')
+    assert segs[2][3] == 1                       # tentative: thin
+    assert T.door_segments(None) == []
