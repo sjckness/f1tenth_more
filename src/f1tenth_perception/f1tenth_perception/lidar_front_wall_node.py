@@ -305,12 +305,21 @@ tracker was stepped with (object sectors cut, with the cut mask):
     the confidence when they see no wall in the gap and floor beyond it;
     they are never required. With door_stereo_glass_veto (default off) they
     can also reject a gap whose mask shows a wall ON the line.
+  * FRAME JAMBS (door_frame_jambs, default on): a glass partition is not a
+    tracked wall, only its frames are seen -- short straight pieces of the
+    scan, door_frame_min_pieces of them on one line. Gaps between them are
+    candidates too, judged by exactly the same beams; a frame jamb's parent
+    wall id is 0.
   * DoorTracker: tentative -> confirmed (door_confirm_hits of
-    door_confirm_window cycles) -> coasting -> deleted
-    (door_delete_after_sec unseen), associated by centre, normal and width
-    in odom -- never by the parent wall ids, which re-spawn. A detected
-    PERSON inside a confirmed door sets occupied and keeps it alive; no
-    detection can create or confirm one.
+    door_confirm_window cycles, AND door_square_looks cycles SEEN SQUARE-ON:
+    its core's beams within door_square_incidence_deg of its normal through
+    and none on its line -- glass returns the LiDAR only there) -> coasting
+    -> deleted (door_delete_after_sec unseen), associated by centre, normal
+    and width in odom -- never by the parent wall ids, which re-spawn. A
+    door not yet seen square-on whose core returns on its line is a PANE:
+    deleted and remembered door_pane_memory_sec. A detected PERSON inside a
+    confirmed door sets occupied and keeps it alive; no detection can create
+    or confirm one.
   * /perception/doors (f1tenth_messages/DoorArray) and /viz/doors
     (door_markers.py), both every tracker cycle. Nothing in
     the stack consumes either: not the MPC, the costmap, the BT or the
@@ -760,7 +769,23 @@ class LidarFrontWallNode(Node):
             # The stereo glass veto, OFF by default.
             stereo_glass_veto=bool(param('door_stereo_glass_veto', False)),
             stereo_plane_tol_m=float(param('door_stereo_plane_tol_m', 0.30)),
-            stereo_wall_veto_frac=float(param('door_stereo_wall_veto_frac', 0.5)))
+            stereo_wall_veto_frac=float(param('door_stereo_wall_veto_frac', 0.5)),
+            # FRAME JAMBS: doorways between the scan's short straight pieces
+            # too. A piece as long as a track needs to be born is a wall,
+            # which carries a door only once the tracker confirmed it.
+            frame_jambs=bool(param('door_frame_jambs', True)),
+            frame_min_pieces=int(param('door_frame_min_pieces', 3)),
+            frame_jamb_min_length_m=float(param('door_frame_jamb_min_length_m', 0.04)),
+            piece_max_rms_m=float(param('door_piece_max_rms_m', 0.015)),
+            piece_max_range_m=float(param('door_piece_max_range_m', 6.0)),
+            piece_max_length_m=float(tracker_params.min_span_birth_m),
+            # GLASS: seen square-on before confirmed, and the pane memory.
+            square_looks=int(param('door_square_looks', 1)),
+            square_incidence_rad=math.radians(float(param('door_square_incidence_deg', 2.0))),
+            square_min_beams=int(param('door_square_min_beams', 8)),
+            pane_min_on_beams=int(param('door_pane_min_on_beams', 2)),
+            pane_min_cycles=int(param('door_pane_min_cycles', 2)),
+            pane_memory_s=float(param('door_pane_memory_sec', 60.0)))
         self.door_jamb_viz_diameter_m = float(param('door_jamb_viz_diameter_m', 0.10))
         self.door_tracker = (door_detection.DoorTracker(self.door_params)
                              if self.door_enabled else None)
@@ -768,6 +793,7 @@ class LidarFrontWallNode(Node):
             self.wall_marker_lifetime_s, self.wall_viz_height_m,
             self.door_jamb_viz_diameter_m)
         self._door_ms = math.nan
+        self._door_pieces = 0
         #: The class_id of each detection in self._detections[1], same order:
         #: a person inside a confirmed door marks it occupied.
         self._detection_classes = []
@@ -1473,7 +1499,14 @@ class LidarFrontWallNode(Node):
             'doors': (len(self.door_tracker.doors)
                       if self.door_tracker is not None else None),
             'door_rejects': ([[c, list(ids), w] for c, ids, w in self.door_tracker.rejects]
-                             if self.door_tracker is not None else None)})))
+                             if self.door_tracker is not None else None),
+            # FRAME JAMBS and GLASS (door_detection): this cycle's frame
+            # pieces; the doors seen often enough but not yet square-on; the
+            # panes remembered, how many doors turned out to be one, and how
+            # many candidates a remembered pane has dropped.
+            **(self._door_glass_payload() if self.door_tracker is not None else {
+                'door_pieces': None, 'door_unsquared': None, 'door_panes': None,
+                'door_pane_kills': None, 'door_pane_suppressed': None})})))
         return state
 
     def _virtual_due(self, now):
@@ -1601,8 +1634,11 @@ class LidarFrontWallNode(Node):
         """One door cycle on this tracker step: candidates, stereo, tracking, publish."""
         t0 = time.perf_counter()
         rejects = []
+        pieces = (door_detection.scan_pieces(scan, self.door_params)
+                  if self.door_params.frame_jambs else [])
+        self._door_pieces = len(pieces)
         candidates = door_detection.door_candidates(
-            self.wall_tracker.tracks, car, scan, self.door_params, rejects)
+            self.wall_tracker.tracks, car, scan, self.door_params, rejects, pieces)
         geometry = self._door_mask_geometry(scan_stamp) if candidates else None
         if geometry is not None and self.door_params.stereo_glass_veto:
             # The glass veto first: a vetoed gap is not a candidate at all.
@@ -1620,10 +1656,22 @@ class LidarFrontWallNode(Node):
                 cand.stereo_support, _detail = door_detection.stereo_gap_support(
                     cand, *geometry, p=self.door_params, depth_scale=0.001)
         doors = self.door_tracker.step(candidates, car, scan_stamp,
-                                       self._persons_at(car, scan_stamp))
+                                       self._persons_at(car, scan_stamp), scan=scan)
         self.door_tracker.rejects = rejects
         self._door_ms = (time.perf_counter() - t0) * 1e3
         self._publish_doors(stamp, doors, car, scan_stamp)
+
+    def _door_glass_payload(self):
+        tr = self.door_tracker
+        return {
+            'door_pieces': int(self._door_pieces),
+            'door_unsquared': sum(
+                1 for d in tr.doors if not d.ever_confirmed
+                and d.square_looks < self.door_params.square_looks
+                and sum(d.history) >= self.door_params.confirm_hits),
+            'door_panes': len(tr.panes),
+            'door_pane_kills': int(tr.n_pane_kills),
+            'door_pane_suppressed': int(tr.n_pane_suppressed)}
 
     def _persons_at(self, car, scan_stamp):
         """

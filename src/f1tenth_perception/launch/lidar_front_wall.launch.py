@@ -172,6 +172,18 @@ LIDAR_FRONT_WALL_ARGS = [
     ('door_stereo_glass_veto', bool),
     ('door_stereo_plane_tol_m', float),
     ('door_stereo_wall_veto_frac', float),
+    # Frame jambs and glass: seen square-on, panes (door-detection step 3).
+    ('door_frame_jambs', bool),
+    ('door_frame_min_pieces', int),
+    ('door_frame_jamb_min_length_m', float),
+    ('door_piece_max_rms_m', float),
+    ('door_piece_max_range_m', float),
+    ('door_square_looks', int),
+    ('door_square_incidence_deg', float),
+    ('door_square_min_beams', int),
+    ('door_pane_min_on_beams', int),
+    ('door_pane_min_cycles', int),
+    ('door_pane_memory_sec', float),
 ]
 
 

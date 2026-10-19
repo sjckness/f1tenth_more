@@ -26,6 +26,8 @@ def _door(door_id, state=dd.STATE_CONFIRMED, occupied=False, j0=(3.0, -0.425),
                         np.array([1.0, 0.0]), born=0.0, last_seen=0.0, state=state)
     door.history = collections.deque([True], maxlen=5)
     door.occupied = occupied
+    door.parents = (7, 8)
+    door.square_looks = 1
     return door
 
 
@@ -65,6 +67,15 @@ class TestJambs:
         assert text.type == Marker.TEXT_VIEW_FACING
         assert text.text == 'door 3 0.85m confirmed OCCUPIED'
         assert text.pose.position.z > 2.5
+
+    def test_the_label_flags_a_frame_jamb_and_a_door_not_yet_seen_square_on(self):
+        door = _door(4, state=dd.STATE_TENTATIVE)
+        door.parents, door.square_looks = (dd.FRAME_ID, 9), 0
+        text = _slots(_build(dm.DoorMarkerBuilder(0.6), [door]), 4)[dm.SLOT_TEXT].text
+        assert text == 'door 4 0.85m tentative frame square?'
+        # Seen square-on, it no longer asks; confirmed, it never did.
+        door.square_looks = 1
+        assert dm.label_of(door) == 'door 4 0.85m tentative frame'
 
     def test_every_marker_carries_the_lifetime(self):
         for m in _build(dm.DoorMarkerBuilder(0.6), [_door(1)]):

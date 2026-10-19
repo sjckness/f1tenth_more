@@ -14,7 +14,12 @@ collide with another's and each can be deleted by id:
     4 * door.id + 1   CYLINDER     jamb1  standing on the floor (z = 0)
     4 * door.id + 2   LINE_STRIP   the threshold, jamb to jamb, on the floor
     4 * door.id + 3   TEXT         "door <id> <width>m <state>[ leaf <side>]
-                                    [ glass?][ OCCUPIED]"
+                                    [ frame][ square?][ glass?][ OCCUPIED]"
+
+"frame": a jamb is on a LiDAR frame piece, not a wall track (FRAME JAMBS).
+"square?": tentative, never yet seen square-on (door_detection, GLASS: SEEN
+SQUARE-ON) -- what still keeps it from being confirmed if it was seen often
+enough.
 
 Colour is OCCUPIED (orange) or not (green); alpha is the STATE: tentative
 faded, confirmed solid, coasting dimmed. A door that dies gets a DELETE on
@@ -70,6 +75,10 @@ def label_of(door):
     leaf = getattr(door, 'leaf_side', dd.LEAF_NONE)
     if leaf != dd.LEAF_NONE:
         text += f' leaf {dd.LEAF_NAMES[leaf]}'
+    if dd.FRAME_ID in tuple(getattr(door, 'parents', ())):
+        text += ' frame'
+    if door.state == dd.STATE_TENTATIVE and getattr(door, 'square_looks', 1) == 0:
+        text += ' square?'
     if getattr(door, 'glass_suspect', False):
         text += ' glass?'
     return text + (' OCCUPIED' if door.occupied else '')
