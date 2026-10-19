@@ -58,7 +58,7 @@ PER SCAN
        they see through for front_contradict_cycles cycles is CONTRADICTED.
      - Published: at most max_published (4) tracks that were ever confirmed,
        ranked by length * hits / distance.
-     - ROLE: front, back, left, right or OTHER, from GEOMETRY (geometric_role)
+     - ROLE: front, back, left, right or UNKNOWN, from GEOMETRY (geometric_role)
        with hysteresis at the thresholds. Ids are never reused.
 
 WHAT A ROLE IS, AND WHY IT IS NO LONGER A BEARING
@@ -76,18 +76,27 @@ three geometric questions, asked in base_link:
   left / right  the segment reaches into x in [-1, 3] AND its normal is
                 within 45 deg of the LATERAL axis. The side is the sign of
                 the mean y of the part inside that window.
-  other         none of the above -- or the rectangle REJECTED the track (E2),
+  unknown       none of the above -- or the rectangle REJECTED the track (E2),
                 or it is behind another confirmed wall (update_occlusion).
 
-'other' is a first-class answer, not a failure: the track is real, it is
+'unknown' is a first-class answer, not a failure: the track is real, it is
 tracked, it is drawn, it still occludes other walls, and it is a reference
-wall for nothing. is_front refuses it outright.
+wall for nothing. is_front refuses it outright. It was called 'other' until
+2026-10-19 (ROLE_UNKNOWN, LEGACY_ROLE_OTHER): the tracker never assigns
+'other' any more, and every READER accepts both -- and '', a track not yet
+classified -- through is_unknown_role.
+
+A TENTATIVE track is REPORTED as 'unknown' -- on /perception/walls, in the
+debug payload and in every drawing -- whatever its geometry says
+(reported_role): it has not yet earned a claim about where the wall is. Only
+what is reported changes. Track.role keeps the geometric answer, because the
+tracker's own decisions read it (reported_role says which).
 
 FIRST OBSTACLE, WALLS ONLY. A LiDAR beam reports its FIRST return, so a line
 fitted behind a wall the same scan also saw cannot be a surface that scan
 observed: it is the far side of the room through a gap, or a reflection. Five
 points along each segment, three of them behind a confirmed wall (glass
-included -- a pane really does stop the LiDAR), and the role becomes 'other'.
+included -- a pane really does stop the LiDAR), and the role becomes 'unknown'.
 OBJECTS ARE UNCHANGED by this: an object behind a wall is still an object and
 its sector is still cut out of the scan; it is only flagged
 (lidar_front_wall_node._count_objects_behind_walls).
@@ -113,7 +122,7 @@ held FRONT for 5 s and stopped the car ~5 m early. Three things let it:
 
 WHAT FRONT REQUIRES (front_reason, in order)
 --------------------------------------------
-Confirmed; not CONTRADICTED by the strip's own beams; role not 'other'; the
+Confirmed; not CONTRADICTED by the strip's own beams; role not 'unknown'; the
 measured segment meets the TRAVEL STRIP, |y| <= side_edge_half_width_m +
 front_strip_margin_m ahead of the bumper (front_x_m); if coasting, for at
 most front_max_coast_s AND front_max_coast_m, over a strip that does not see
@@ -231,6 +240,14 @@ STATE_CONFIRMED = 1
 STATE_COASTING = 2
 STATE_NAMES = {STATE_TENTATIVE: 'tentative', STATE_CONFIRMED: 'confirmed',
                STATE_COASTING: 'coasting'}
+
+#: The role of a wall that is a reference for NOTHING (WHAT A ROLE IS): the
+#: one role published() never spends a slot on and FRONT never accepts.
+ROLE_UNKNOWN = 'unknown'
+#: Its name until 2026-10-19. The tracker never assigns it any more, but a bag
+#: or a node from before then still says it, so every READER accepts it
+#: (is_unknown_role).
+LEGACY_ROLE_OTHER = 'other'
 
 #: both > lidar > stereo, the order Track.source keeps (_absorb).
 _SOURCE_RANK = {wall_fusion.SOURCE_STEREO: 0, wall_fusion.SOURCE_LIDAR: 1,
@@ -958,13 +975,14 @@ def camera_side_role(track, car_pose, p, seg=None, widen_m=0.0, widen_rad=0.0):
 
 
 def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0, seg=None):
-    """The track's role from GEOMETRY: front, back, left, right or other.
+    """The track's role from GEOMETRY: front, back, left, right or unknown.
 
-    'other' is a first-class answer, not a failure: the track is still
-    tracked, still drawn and still occludes other walls, it is simply not a
-    reference wall for anything. Before this every track got one of four
-    roles whether or not it was anywhere near the car, and a far wall whose
-    normal happened to point forwards became the FRONT wall.
+    'unknown' (ROLE_UNKNOWN, 'other' until 2026-10-19) is a first-class
+    answer, not a failure: the track is still tracked, still drawn and still
+    occludes other walls, it is simply not a reference wall for anything.
+    Before this every track got one of four roles whether or not it was
+    anywhere near the car, and a far wall whose normal happened to point
+    forwards became the FRONT wall.
 
     `widen_m` and `widen_rad` relax the length thresholds and the normal
     sector: the hysteresis below asks this same question with them widened
@@ -980,10 +998,10 @@ def geometric_role(track, car_pose, p, widen_m=0.0, widen_rad=0.0, seg=None):
     if strip:
         return strip
     if track.source == wall_fusion.SOURCE_STEREO:
-        return camera_side_role(track, car_pose, p, seg, widen_m, widen_rad) or 'other'
+        return camera_side_role(track, car_pose, p, seg, widen_m, widen_rad) or ROLE_UNKNOWN
     return side_role(track, car_pose, p.side_x_min_m - widen_m,
                      p.side_x_max_m + widen_m,
-                     p.side_max_normal_rad + widen_rad, seg) or 'other'
+                     p.side_max_normal_rad + widen_rad, seg) or ROLE_UNKNOWN
 
 
 def role_with_hysteresis(track, car_pose, current, p, seg=None):
@@ -1002,6 +1020,49 @@ def role_with_hysteresis(track, car_pose, current, p, seg=None):
     widened = geometric_role(track, car_pose, p, float(p.role_hysteresis_m),
                              float(p.role_hysteresis_rad), seg=seg)
     return current if widened == current else fresh
+
+
+def is_unknown_role(role):
+    """
+    Return whether `role` means "a reference wall for nothing".
+
+    'unknown', its legacy name 'other' (old bags, old nodes) and '' (a track
+    update_roles has not classified yet) all mean that to a reader. The
+    tracker itself only ever assigns ROLE_UNKNOWN.
+    """
+    return role in ('', ROLE_UNKNOWN, LEGACY_ROLE_OTHER)
+
+
+def is_tentative(track):
+    """
+    Return whether this track has not (yet) earned confirmation.
+
+    Never confirmed -- or, for the one cycle after _merge folded a confirmed
+    track into an older tentative one, still in the TENTATIVE state.
+    """
+    return not track.ever_confirmed or track.state == STATE_TENTATIVE
+
+
+def reported_role(track, role=None):
+    """
+    Return the role a track is REPORTED with: on the wire, in debug, drawn.
+
+    `role` defaults to track.role; pass MultiWallTracker.label's answer to
+    fill an unclassified track from the geometry. A TENTATIVE track
+    (is_tentative) is ROLE_UNKNOWN whatever its geometry says: it has not
+    earned a claim about where the wall is. Any unknown spelling
+    (is_unknown_role) is reported as ROLE_UNKNOWN.
+
+    Only what is REPORTED changes; Track.role keeps the geometric answer,
+    because the tracker's own decisions read it. role_with_hysteresis carries
+    a tentative track's role into its confirmation, and on the cycle after a
+    _merge a TENTATIVE-state track can be ever_confirmed, which published()
+    and front_reason then judge by that role.
+    """
+    role = track.role if role is None else role
+    if is_tentative(track) or is_unknown_role(role):
+        return ROLE_UNKNOWN
+    return role
 
 
 def radial_verdict(seg, origin_xy, min_ray_rad, min_span_rad):
@@ -1716,7 +1777,7 @@ class MultiWallTracker:
         distance at which the strip meets the track's MEASURED segment
         (strip_distance). front_contradict_cycles consecutive CONTRADICTED
         cycles make the track CONTRADICTED; it then is not FRONT, has the role
-        'other', and no longer occludes what is behind it, so the wall the
+        'unknown', and no longer occludes what is behind it, so the wall the
         beams actually reach can be FRONT on the same cycle. Only a SUPPORTED
         cycle (the beams land on the line again) clears it.
 
@@ -1853,7 +1914,7 @@ class MultiWallTracker:
         the far side of the room showing through a gap, or a reflection. Five
         points along the segment, and if at least occlusion_min_blocked of
         them are behind a confirmed wall the track is not a reference wall --
-        its role becomes 'other'. It is still tracked and still drawn.
+        its role becomes 'unknown'. It is still tracked and still drawn.
 
         GLASS COUNTS AS A BLOCKER. A pane is a real surface that really does
         stop the LiDAR, which is exactly why it has a track at all, so a wall
@@ -1949,7 +2010,7 @@ class MultiWallTracker:
         is what a corridor needs to stay centred in. Then BACK. Then any
         remaining side walls, so the budget is never left unspent.
 
-        'OTHER' NEVER TAKES A SLOT. It is the role for a wall that is a
+        'UNKNOWN' NEVER TAKES A SLOT. It is the role for a wall that is a
         reference for nothing (update_roles): not in the strip, not beside the
         car, rejected by the stereo rectangle, or behind another wall. It is
         still tracked, still drawn and still an occluder, and it is on
@@ -2013,9 +2074,9 @@ class MultiWallTracker:
                 trk.verify, trk.glass, verdict, self.rect, trk.rect_reject_streak)
 
     def update_roles(self, car_pose):
-        """Give every track its role: front, back, left, right or OTHER.
+        """Give every track its role: front, back, left, right or UNKNOWN.
 
-        Three ways to be 'other', and all three mean the same thing -- the
+        Four ways to be 'unknown', and all four mean the same thing -- the
         track is real, tracked and drawn, and is not a reference wall:
 
           * the geometry says so (geometric_role): it is not in the car's
@@ -2028,8 +2089,12 @@ class MultiWallTracker:
           * the travel strip's own beams CONTRADICTED it
             (_apply_strip_evidence): they pass through where it should be.
 
-        The hysteresis is on the geometric test only: the other two are
+        The hysteresis is on the geometric test only: the other three are
         already sticky in their own right.
+
+        Every track gets one, TENTATIVE ones included: this is the tracker's
+        own state, which the hysteresis carries into confirmation. What a
+        tentative track is REPORTED as is reported_role's business ('unknown').
         """
         # The base_link segments are computed ONCE here and shared with every
         # test below: the strip test, the side test, their widened repeats and
@@ -2040,13 +2105,15 @@ class MultiWallTracker:
         for trk in self.tracks:
             if (trk.verify == wall_fusion.VERIFY_REJECTED or trk.occluded
                     or trk.contradicted):
-                trk.role = 'other'
+                trk.role = ROLE_UNKNOWN
                 continue
             trk.role = role_with_hysteresis(trk, car_pose, trk.role, self.p,
                                             segments[trk.id])
 
     def label(self, trk, car_pose):
         """The track's role. Sticky once update_roles has run (step 4)."""
+        # The tracker's own answer: what is PUBLISHED goes through
+        # reported_role, which makes a tentative track 'unknown'.
         return trk.role or geometric_role(trk, car_pose, self.p)
 
     def coasting(self, trk):
@@ -2097,8 +2164,10 @@ class MultiWallTracker:
           unconfirmed        never confirmed: a maybe must never stop the car.
           contradicted       the strip's own beams passed through it for
                              front_contradict_cycles cycles.
-          role_other         rect REJECTED, behind another wall, or nowhere
-                             near the car (update_roles).
+          role_other         role 'unknown' (the code keeps the role's name
+                             before 2026-10-19): rect REJECTED, behind
+                             another wall, or nowhere near the car
+                             (update_roles).
           off_strip          its MEASURED segment does not meet the travel
                              strip ahead of the bumper.
           coast_expired      unassociated for more than front_max_coast_s or
@@ -2118,10 +2187,13 @@ class MultiWallTracker:
             return 'unconfirmed'
         if trk.contradicted:
             return 'contradicted'
-        # 'other' is the one role that is never a reference wall: the
+        # 'unknown' is the one role that is never a reference wall: the
         # rectangle rejected it, or it is behind another wall, or the geometry
-        # puts it nowhere near the car's path (update_roles).
-        if trk.role == 'other':
+        # puts it nowhere near the car's path (update_roles). The legacy
+        # 'other' is refused the same way. '' -- not classified yet -- has
+        # never been refused HERE and still is not: the checks below decide
+        # it, so this gate's verdicts are the same as before the rename.
+        if trk.role and is_unknown_role(trk.role):
             return 'role_other'
         d = strip_distance(segment_in_base_link(trk, car_pose), front_x,
                            self.p.strip_half_width_m)

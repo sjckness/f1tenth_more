@@ -55,8 +55,10 @@ def test_cells_away_from_any_wall_are_free_and_have_no_id():
     assert ids[row, col] == CELL_NO_ID
 
 
-def test_every_role_gets_its_own_distinct_value():
-    assert len(set(ROLE_VALUE.values())) == len(ROLE_VALUE)
+def test_every_role_gets_its_own_distinct_value_and_other_only_aliases_unknown():
+    current = {role: v for role, v in ROLE_VALUE.items() if role != 'other'}
+    assert len(set(current.values())) == len(current)
+    assert ROLE_VALUE['other'] == ROLE_VALUE['unknown']
     assert CELL_FREE not in ROLE_VALUE.values()
     # Never 100: these are not occupancy probabilities.
     assert 100 not in ROLE_VALUE.values()
@@ -336,23 +338,34 @@ class _Capture:
         self.last = msg
 
 
-def test_other_is_its_own_cell_value_and_not_back():
+def test_unknown_is_its_own_cell_value_and_not_back():
     """A wall the tracker uses as a reference for nothing is still a surface,
     and must not be filed as the wall BEHIND the car."""
     from f1tenth_costmap.wall_raster import ROLE_VALUE, VALUE_ROLE, rasterize_walls
-    assert ROLE_VALUE['other'] == 50
-    assert len(set(ROLE_VALUE.values())) == len(ROLE_VALUE)   # no value reused
-    assert VALUE_ROLE[50] == 'other'
-    roles, ids = rasterize_walls([(1, 'other', (0.0, 0.0), (1.0, 0.0))],
+    assert ROLE_VALUE['unknown'] == 50
+    assert VALUE_ROLE[50] == 'unknown'
+    roles, ids = rasterize_walls([(1, 'unknown', (0.0, 0.0), (1.0, 0.0))],
                                  -0.5, -0.5, 0.05, 40, 40)
-    assert (roles == ROLE_VALUE['other']).any()
+    assert (roles == ROLE_VALUE['unknown']).any()
     assert not (roles == ROLE_VALUE['back']).any()
     assert (ids == 1).any()
 
 
-def test_a_role_this_module_has_never_heard_of_is_other():
+def test_unknown_and_the_legacy_other_paint_the_same_cells_with_the_same_value():
+    # 'other' is the role's name before 2026-10-19: a bag or a node that still
+    # says it must paint exactly what 'unknown' paints, and read back as it.
+    from f1tenth_costmap.wall_raster import VALUE_ROLE, rasterize_walls
+    seg = ((0.0, 0.0), (1.0, 0.0))
+    r_unknown, ids_unknown = rasterize_walls([(1, 'unknown', *seg)], -0.5, -0.5, 0.05, 40, 40)
+    r_other, ids_other = rasterize_walls([(1, 'other', *seg)], -0.5, -0.5, 0.05, 40, 40)
+    assert (r_unknown == 50).any()
+    assert np.array_equal(r_other, r_unknown) and np.array_equal(ids_other, ids_unknown)
+    assert VALUE_ROLE[50] == 'unknown'
+
+
+def test_a_role_this_module_has_never_heard_of_is_unknown():
     from f1tenth_costmap.wall_raster import ROLE_VALUE, rasterize_walls
     roles, _ids = rasterize_walls([(7, 'spaceship', (0.0, 0.0), (1.0, 0.0))],
                                   -0.5, -0.5, 0.05, 40, 40)
-    assert (roles == ROLE_VALUE['other']).any()
+    assert (roles == ROLE_VALUE['unknown']).any()
     assert not (roles == ROLE_VALUE['back']).any()

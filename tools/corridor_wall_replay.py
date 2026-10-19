@@ -275,7 +275,9 @@ STATUS_COLOUR = {
 }
 ROLE_COLOUR = {'front': (60, 60, 255), 'left': (230, 170, 60),
                'right': (60, 210, 230), 'back': (170, 170, 170),
-               # Tracked, drawn, a reference wall for nothing.
+               # Tracked, drawn, a reference wall for nothing; every
+               # tentative track too. 'other' is its name before 2026-10-19.
+               'unknown': (120, 120, 130),
                'other': (120, 120, 130), '': (120, 120, 130)}
 CONTRACT_COLOUR = {'wall': (60, 60, 255), 'clear': (90, 220, 90), 'no_data': (0, 200, 255)}
 #: The class colours THIS TOOL draws with: scene_mask.CLASS_COLOURS, except
@@ -2605,7 +2607,7 @@ def draw_camera(src, frame, cam, scale=2, mask_src=None):
                 continue
             cu = float(np.mean(detail['u'][sel])) * sx
             cv_ = float(np.mean(detail['v'][sel])) * sy
-            colour = ROLE_COLOUR.get(tr['role'], ROLE_COLOUR['other'])
+            colour = ROLE_COLOUR.get(tr['role'], ROLE_COLOUR['unknown'])
             put(img, f"{tid} {tr['role']} sup {tr['rect_support']:.2f} "
                      f"cov {tr['rect_coverage']:.2f}"
                      f"{' G' if tr['glass'] else ''}",
@@ -2792,7 +2794,7 @@ def draw_topdown(src, frame, view, front_x, half):
             view.line(img, (o.p0.x, o.p0.y), (o.p1.x, o.p1.y), colour, 1)
 
     # Every LIVE track as a SEGMENT between its endpoints -- not only the
-    # published four, because 'other' and REJECTED are the interesting ones and
+    # published four, because 'unknown' and REJECTED are the interesting ones and
     # the publish cap keeps them off /perception/walls. Colour by role, solid
     # VERIFIED / dashed UNVERIFIED / dotted REJECTED, and a G for glass.
     front_track = None
@@ -2800,7 +2802,7 @@ def draw_topdown(src, frame, view, front_x, half):
         if tr['p0_bl'][0] is None or tr['p1_bl'][0] is None:
             continue
         a, b = tuple(tr['p0_bl']), tuple(tr['p1_bl'])
-        colour = ROLE_COLOUR.get(tr['role'], ROLE_COLOUR['other'])
+        colour = ROLE_COLOUR.get(tr['role'], ROLE_COLOUR['unknown'])
         thick = 4 if tr['is_front'] else 2 if tr['state'] != 'tentative' else 1
         if tr['state'] == 'coasting':
             colour = tuple(int(c * 0.55) for c in colour)

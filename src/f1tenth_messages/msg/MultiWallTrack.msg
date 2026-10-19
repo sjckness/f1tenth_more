@@ -6,8 +6,10 @@
 # the normal pointing from the frame origin toward the line.
 
 uint32 id                   # never reused
-string label                # front | back | left | right | other -- the GEOMETRIC role
-                            # (multi_wall_tracker.geometric_role), not a bearing sector
+string label                # front | back | left | right | unknown -- the GEOMETRIC role
+                            # (multi_wall_tracker.geometric_role), not a bearing sector.
+                            # 'unknown' was 'other' until 2026-10-19: readers accept
+                            # both, and '' (multi_wall_tracker.is_unknown_role).
 uint8 state
 uint8 STATE_TENTATIVE = 0   # seen, not yet confirmed (M of N hits)
 uint8 STATE_CONFIRMED = 1   # matched on this scan
@@ -30,15 +32,20 @@ float32 d_ray_front         # [m] along the heading ray from base_front to the s
 
 # --- since 2026-10-15 (step 4: the tracker consumes wall observations) -------
 # Additive only; every field above keeps its meaning.
-string role                 # front | back | left | right | other, WITH HYSTERESIS
+string role                 # front | back | left | right | unknown, WITH HYSTERESIS
                             # at the thresholds so a wall on one does not flip
-                            # every scan. 'other' is a first-class answer: the
+                            # every scan. 'unknown' is a first-class answer: the
                             # track is real, tracked and drawn, and is a
                             # reference wall for nothing -- because the
                             # geometry puts it nowhere near the car's path,
                             # because the rectangle REJECTED it, or because it
-                            # is behind another confirmed wall. Same value as
-                            # `label`, kept for compatibility; prefer this one.
+                            # is behind another confirmed wall. A TENTATIVE
+                            # track (state 0) is always 'unknown' here and in
+                            # `label`, whatever its geometry. 'unknown' was
+                            # 'other' until 2026-10-19 (still a plain string,
+                            # so old bags read as before): readers accept both.
+                            # Same value as `label`, kept for compatibility;
+                            # prefer this one.
 uint8 source                # the BEST evidence this track has ever had
 uint8 SOURCE_LIDAR = 0
 uint8 SOURCE_STEREO = 1     # nothing has ever cross-checked this wall
