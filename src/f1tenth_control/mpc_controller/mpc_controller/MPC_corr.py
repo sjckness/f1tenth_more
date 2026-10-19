@@ -22,6 +22,7 @@ from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
     ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
+from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
 from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
@@ -35,6 +36,8 @@ from mpc_controller.object_approach import (
     SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
+from mpc_controller.reverse_mpc import (
+    floor_moving_speed_signed, rear_probe_offsets, ReverseConfig, ReversePlanner)
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
@@ -1803,6 +1806,21 @@ class MPCController(Node):
         validate_speed_limits(self.max_forward_speed, self.max_reverse_speed)
         self.drive_clamp_pub = self.create_publisher(DriveClamp, '/mpc/drive_clamp', 10)
 
+        # REVERSE CHOSEN BY THE MPC (reverse_mpc.py). Off by default: with
+        # allow_reverse false, _mpc_solve is solve_mpc_step and nothing below
+        # is read on the control path (test_reverse_flag_off_identity.py).
+        self.allow_reverse = bool(self.declare_parameter(
+            'allow_reverse', get_value('allow_reverse')).value)
+        self.reverse_planner = None
+        self.reverse_debug_pub = None
+        reverse_cfg = self._reverse_config()   # declared either way, read only if on
+        if self.allow_reverse and reverse_cfg.allow_reverse:
+            self.reverse_planner = ReversePlanner(reverse_cfg)
+            self.reverse_debug_pub = self.create_publisher(
+                String, '/mpc/reverse/debug', 10)
+        else:
+            self.allow_reverse = False
+
         self.min_obstacle_distance_pub = self.create_publisher(
             Float32,
             '/mpc/min_obstacle_distance',
@@ -3480,6 +3498,72 @@ class MPCController(Node):
             msg.since_last_fit_sec = math.nan
         self.wall_track_pub.publish(msg)
 
+    def _reverse_config(self):
+        """
+        Build the reverse planner's config from the reverse_* parameters.
+
+        v_rev_max is capped at max_reverse_speed_mps: the /drive clamp is the
+        one authority on reverse speed, and a planner that may choose reverse
+        the clamp then zeroes would sit still in a reverse plan forever. With
+        the shipped clamp (0.0) that cap disables the feature, loudly.
+        """
+        def _p(key):
+            return self.declare_parameter(key, get_value(key)).value
+
+        v_rev_max = float(_p('reverse_v_rev_max_mps'))
+        if self.allow_reverse and self.max_reverse_speed < v_rev_max:
+            self.get_logger().error(
+                f'REVERSE | allow_reverse is true but max_reverse_speed_mps '
+                f'{self.max_reverse_speed:.2f} < reverse_v_rev_max_mps {v_rev_max:.2f}: '
+                + ('reverse DISABLED (the /drive clamp would zero every reverse '
+                   'command)' if self.max_reverse_speed <= 0.0 else
+                   f'reverse capped at {self.max_reverse_speed:.2f} m/s'))
+        v_rev_max = min(v_rev_max, self.max_reverse_speed)
+        front_x = base_front_x()
+        rear_x = float(get_value('swept_clearance_body_rear_x_m'))
+        return ReverseConfig(
+            allow_reverse=v_rev_max > 0.0,
+            switch_times_s=tuple(float(t) for t in _p('reverse_switch_times_s')),
+            v_rev_max=v_rev_max,
+            w_rev=float(_p('reverse_w_rev')),
+            switch_threshold=float(_p('reverse_switch_threshold')),
+            switch_threshold_rel=float(_p('reverse_switch_threshold_rel')),
+            commit_break_margin=float(_p('reverse_commit_break_margin')),
+            min_dwell_s=float(_p('reverse_min_dwell_s')),
+            stop_speed_mps=float(_p('reverse_stop_speed_mps')),
+            corr_back_length_m=float(_p('reverse_corr_back_length_m')),
+            rear_offsets_m=rear_probe_offsets(
+                self.params['L'], front_x, rear_x, SOLVER_FRONT_POINT_OFFSETS_M),
+        )
+
+    def _mpc_solve(self, **solve_kwargs):
+        """
+        Solve the tick: today's single forward solve unless allow_reverse.
+
+        With allow_reverse false this IS solve_mpc_step(**solve_kwargs) --
+        same call, same arguments -- which is what keeps the flag-off
+        behaviour bit-identical (pinned by test_reverse_flag_off_identity.py
+        on the existing closed-loop scenarios).
+        """
+        if not getattr(self, 'allow_reverse', False) or self.reverse_planner is None:
+            return solve_mpc_step(**solve_kwargs)
+        return self.reverse_planner.step(
+            now_sec=self.get_clock().now().nanoseconds * 1e-9, **solve_kwargs)
+
+    def _publish_reverse_debug(self, info):
+        """Per-candidate scores, winner and reason on /mpc/reverse/debug (JSON)."""
+        dbg = info.get('reverse')
+        if dbg is None or self.reverse_debug_pub is None:
+            return
+        self.reverse_debug_pub.publish(String(data=json.dumps(dbg)))
+        self.get_logger().info(
+            f'REVERSE | dir={dbg["direction"]} winner={dbg["winner"]} '
+            f'reason={dbg["reason"]} committed={dbg["committed"]} '
+            + ' '.join(f'{c["name"]}={c["score"] if c["score"] is not None else "x"}'
+                       for c in dbg['candidates'])
+            + f' tick={dbg["tick_ms"]:.1f}ms',
+            throttle_duration_sec=0.5)
+
     def _publish_drive(self, speed, steering_angle):
         requested = speed
         speed, clamped = clamp_drive_speed(
@@ -3962,7 +4046,7 @@ class MPCController(Node):
 
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
-        u0, info = solve_mpc_step(
+        u0, info = self._mpc_solve(
             x0=x0,
             last_u=self.last_u,
             pref_nom=pref_nom,
@@ -4060,6 +4144,8 @@ class MPCController(Node):
             status_msg.pred_v = x_pred_arr[:, 3].astype(np.float32).tolist()
         self.solver_status_pub.publish(status_msg)
         self._publish_campaign_status(info, solve_dt, status_msg.solver)
+        if self.allow_reverse:
+            self._publish_reverse_debug(info)
 
         self.get_logger().info(
             f'SOLVE/out | dt={solve_dt * 1e3:.1f} ms success={info.get("success")} '
@@ -4137,7 +4223,15 @@ class MPCController(Node):
             # The operating floor, on the command that actually goes out. Every
             # non-driving object tick returned above, so this is only ever a
             # moving approach; the top of the range is _publish_drive's clamp.
-            v_cmd_now = floor_moving_speed(v_cmd_now, self.min_moving_speed)
+            if self.allow_reverse:
+                # Same floor in the selected direction, none while braking
+                # for a direction change (reverse_mpc.floor_moving_speed_signed).
+                v_cmd_now = floor_moving_speed_signed(
+                    v_cmd_now, self.min_moving_speed,
+                    self.reverse_planner.selector.direction, float(self.v),
+                    self.reverse_planner.cfg.stop_speed_mps)
+            else:
+                v_cmd_now = floor_moving_speed(v_cmd_now, self.min_moving_speed)
 
         v_cmd_log = self.prev_v_cmd if self.prev_v_cmd is not None else float("nan")
         self.prev_v_cmd = v_cmd_now

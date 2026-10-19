@@ -362,6 +362,8 @@ _DEFAULT_TOPICS = [
     '/costmap/semantic_tracks',
     # Every tick mpc_corr's /drive speed clamp changed a command.
     '/mpc/drive_clamp',
+    # allow_reverse only: per-candidate scores, the winner and why (JSON).
+    '/mpc/reverse/debug',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',

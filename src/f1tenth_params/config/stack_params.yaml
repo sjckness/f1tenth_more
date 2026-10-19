@@ -1452,6 +1452,43 @@ min_moving_speed_mps:
 max_reverse_speed_mps:
   default: 0.0
   description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
+# REVERSE CHOSEN BY THE MPC (mpc_controller/reverse_mpc.py, branch
+# mpc_corr_v2_reverse). Consumed by: MPC_corr.py's declare_parameter() defaults
+# (get_value), no launch arg. allow_reverse false (the default) leaves the solve
+# bit-identical to before (test_reverse_flag_off_identity.py); true also needs
+# max_reverse_speed_mps > 0, or the node disables it at start and says so. The
+# car has NO rear sensing beyond the LiDAR's side window (output/reverse/
+# recon.md section 5): turning this on is an operator decision.
+allow_reverse:
+  default: false
+  description: "Let mpc_corr choose to drive in reverse: each tick it solves forward, reverse and reverse-then-forward candidates and picks one with hysteresis (reverse_mpc.py). Requires max_reverse_speed_mps >= reverse_v_rev_max_mps. Prototype, nominal-model tested only."
+reverse_switch_times_s:
+  default: [1.0, 2.0]
+  description: "Reverse-then-forward candidates C_T: reverse until T [s], forward after. A T at or past the horizon end (N * mpc_prediction_dt_s, 2.0 s at 0.1) is the all-reverse candidate and is dropped as a duplicate."
+reverse_v_rev_max_mps:
+  default: 0.3
+  description: "Largest reverse speed [m/s] a candidate may plan. Lower than forward on purpose: the rear is blind. Capped at max_reverse_speed_mps."
+reverse_w_rev:
+  default: 4.3
+  description: "Linear cost per m/s of reverse speed per stage (via a slack, scaled 7/N like every stage weight). The speed term tracks +-vdes in the travel direction, so standing still costs the same forward and reverse; w_rev >= 2 * mpc_w_v * vdes (2 * 4.2857 * 0.5 = 4.29) makes reversing at any speed cost at least as much as standing, so reverse is chosen only for what it buys (obstacles, corridor, cost-to-go), never for the speed term."
+reverse_switch_threshold:
+  default: 1.0
+  description: "A direction change needs the other direction's best score to beat the current one's by more than this (absolute) AND by reverse_switch_threshold_rel (relative)."
+reverse_switch_threshold_rel:
+  default: 0.1
+  description: "Relative part of the switch test: gain > this * |current best score|."
+reverse_commit_break_margin:
+  default: 3.0
+  description: "Once braking for a direction change has started, the old direction is taken back only if it beats the new one by more than this (larger than reverse_switch_threshold)."
+reverse_min_dwell_s:
+  default: 1.0
+  description: "Minimum time [s] between two direction changes."
+reverse_stop_speed_mps:
+  default: 0.05
+  description: "|v| below this [m/s] counts as stopped: ends a commitment, and is where the operating floor resumes in the new direction."
+reverse_corr_back_length_m:
+  default: 1.0
+  description: "Length [m] the candidates' corridor is extended behind its start, straight along its first tangent, heading reference unchanged."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
 # declare default = this value), for the go_to_object move (schema 4.0):
 # GoToObject (mission/object_handler.py) and CheckStopCondition's
