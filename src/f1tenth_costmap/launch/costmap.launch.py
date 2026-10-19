@@ -212,6 +212,50 @@ def generate_launch_description():
                     "it is reported on /costmap/safe_corridor_report, not "
                     "silently accepted.")
 
+    # ---- COSTMAP-MODE CLEANUP -- BUILT, DEFAULT OFF, same discipline as the
+    # polytope flag above. Both switches default false here AND in the node, so
+    # the filter is off under a bare `ros2 run` too. See costmap_boundary.py's
+    # own "COSTMAP-MODE CLEANUP" section for the failure these address: one
+    # occupied cell -- a map artefact, a person, a single spurious return -- is
+    # enough to produce a half-plane across the MPC's whole horizon, and the
+    # extraction cannot tell any of those from a wall.
+    #
+    # NEITHER TOUCHES /costmap/front_clearance, whichever way they are set:
+    # that scalar is recomputed from the raw grid on every tick because it
+    # feeds a live mission-stopping behaviour-tree condition.
+    boundary_component_filter_la = DeclareLaunchArgument(
+        'costmap_boundary_component_filter', default_value='false',
+        description="true: costmap_boundary_node ignores occupied connected "
+                    "components shorter than "
+                    "costmap_boundary_min_component_length_m, or seen in fewer "
+                    "than costmap_boundary_min_component_scans consecutive "
+                    "extraction ticks, when it builds /costmap/boundaries. "
+                    "Default false -- current behaviour.")
+    boundary_min_component_length_la = DeclareLaunchArgument(
+        'costmap_boundary_min_component_length_m', default_value='0.5',
+        description="Shortest occupied connected component (m, bounding-box "
+                    "diagonal) that may still produce a boundary row. Only "
+                    "read with costmap_boundary_component_filter true.")
+    boundary_min_component_scans_la = DeclareLaunchArgument(
+        'costmap_boundary_min_component_scans', default_value='2',
+        description="Consecutive EXTRACTION TICKS a component must be seen in "
+                    "before it may produce a boundary row. Ticks, not scans: "
+                    "this node reads the latched /slam/map on its own timer "
+                    "and never sees a scan. 1 disables the test.")
+    boundary_exclude_object_cells_la = DeclareLaunchArgument(
+        'costmap_boundary_exclude_tracked_object_cells', default_value='false',
+        description="true: occupied cells inside a tracked object's footprint "
+                    "plus costmap_boundary_object_footprint_margin_m "
+                    "(/perception/obstacles_2d) never produce a boundary row. "
+                    "They are already handled by the MPC's soft w_obs "
+                    "deflection cost, and the hard-ish copy is the one that "
+                    "can stop the car dead. Default false.")
+    boundary_object_margin_la = DeclareLaunchArgument(
+        'costmap_boundary_object_footprint_margin_m', default_value='0.12',
+        description="Margin (m) grown around each tracked object's own radius "
+                    "for the exclusion above -- the stack's shared "
+                    "obstacle_safety_margin_m, not a new number.")
+
     # Gated the SAME way as the two nodes above -- enable_slam, not a
     # separate toggle -- for the identical reason: this node is
     # structurally dependent on /slam/map existing at all (see its own
@@ -240,6 +284,16 @@ def generate_launch_description():
                 'costmap_boundary_polytope_r_local_m'),
             'polytope_max_faces': LaunchConfiguration(
                 'costmap_boundary_polytope_max_faces'),
+            'component_filter': LaunchConfiguration(
+                'costmap_boundary_component_filter'),
+            'min_component_length_m': LaunchConfiguration(
+                'costmap_boundary_min_component_length_m'),
+            'min_component_scans': LaunchConfiguration(
+                'costmap_boundary_min_component_scans'),
+            'exclude_tracked_object_cells': LaunchConfiguration(
+                'costmap_boundary_exclude_tracked_object_cells'),
+            'object_footprint_margin_m': LaunchConfiguration(
+                'costmap_boundary_object_footprint_margin_m'),
         }],
     )
 
@@ -250,5 +304,8 @@ def generate_launch_description():
         boundary_occupied_threshold_la, boundary_max_range_la, boundary_rate_la,
         boundary_use_polytope_la, boundary_polytope_r_local_la,
         boundary_polytope_max_faces_la, semantic_rate_la,
+        boundary_component_filter_la, boundary_min_component_length_la,
+        boundary_min_component_scans_la, boundary_exclude_object_cells_la,
+        boundary_object_margin_la,
         semantic_layer_node, costmap_renderer_node, costmap_boundary_node,
     ])

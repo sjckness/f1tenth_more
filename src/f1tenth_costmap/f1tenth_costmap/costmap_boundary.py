@@ -376,3 +376,254 @@ def front_clearance_from_extraction(extraction: dict, max_range_m: float,
             return max_range_m + 1.0
         return min_distance
     return max(math.hypot(px - front_x, py), min_distance)
+
+
+# ==============================================================================
+# COSTMAP-MODE CLEANUP (default OFF -- costmap_component_filter)
+#
+# The failure this removes. extract_boundary_constraints takes the SINGLE
+# nearest occupied cell in each window and makes a half-plane tangent to it.
+# One cell is enough: a stale map artefact, a person slam_toolbox integrated
+# once, a single spurious return, and the MPC gets a wall row across its whole
+# horizon at that cell's range -- which it then cannot satisfy, and the car
+# stops. The extraction cannot tell any of those from a wall, because a single
+# cell carries no evidence either way.
+#
+# What a WALL has that an island does not is length and persistence. Both are
+# measurable here, on the grid, without any new input:
+#
+#   * LENGTH -- the connected component the cell belongs to. A component
+#     shorter than min_component_length_m is not a surface the car can be
+#     bounded by. Measured as the component's BOUNDING-BOX DIAGONAL, which
+#     over-reports for an L-shaped or scattered component and therefore errs
+#     toward KEEPING it: the permissive direction, deliberately, since this
+#     filter's whole risk is throwing a real wall away.
+#
+#   * PERSISTENCE -- how many CONSECUTIVE extraction ticks the component has
+#     been seen in. Not scans: this node reads the latched /slam/map on its own
+#     timer (extraction_rate_hz) and never sees a scan, so "consecutive scans"
+#     has no meaning on this side. The map itself only changes every
+#     map_update_interval (5 s), so consecutive ticks mostly re-confirm the
+#     same grid -- which is exactly what makes a component that appears for one
+#     tick and vanishes suspicious.
+#
+# And one thing the grid cannot know, which the rest of the stack does: a cell
+# inside a tracked object's footprint is a PERSON or an obstacle, already
+# handled by the MPC's own soft w_obs deflection cost, and making it a hard-ish
+# wall row as well double-counts it -- with the hard-ish copy being the one that
+# can stop the car dead.
+#
+# NONE OF THIS TOUCHES front_clearance. That scalar feeds the behaviour tree's
+# own mission-stopping condition (condition_eval.py), and "would the car hit
+# something going straight" is a question a single cell is a perfectly good
+# answer to. Filtering it there would turn a filter bug into a failure to stop.
+# ==============================================================================
+
+# Free, in OccupancyGrid.data terms -- what a filtered-out occupied cell is
+# rewritten to. 0, not -1 (unknown): the cell WAS observed and the grid's own
+# record of that should survive this filter's opinion about what it means. The
+# extraction treats both identically anyway (neither clears a positive
+# occupied_threshold), so this is about not corrupting the provenance.
+FREE_CELL = 0
+
+
+class ComponentInfo:
+    """One connected component of occupied cells: where it is and how long."""
+
+    __slots__ = ('label', 'n_cells', 'centroid_x', 'centroid_y', 'length_m')
+
+    def __init__(self, label, n_cells, centroid_x, centroid_y, length_m):
+        self.label = int(label)
+        self.n_cells = int(n_cells)
+        self.centroid_x = float(centroid_x)
+        self.centroid_y = float(centroid_y)
+        self.length_m = float(length_m)
+
+    def __repr__(self):
+        return (f'ComponentInfo(label={self.label}, n={self.n_cells}, '
+                f'centroid=({self.centroid_x:.2f},{self.centroid_y:.2f}), '
+                f'length={self.length_m:.2f}m)')
+
+
+def occupied_components(grid_data, width: int, height: int, resolution: float,
+                        origin_x: float, origin_y: float,
+                        occupied_threshold: float):
+    """Return (labels, components) for the occupied cells of one grid.
+
+    8-connectivity, because a wall rendered into a grid at an angle is a
+    staircase of diagonally-touching cells and 4-connectivity would chop it
+    into a row of "short" components -- the exact mistake this filter exists
+    to avoid making. `labels` is the int array scipy.ndimage.label returns (0
+    where not occupied); `components` carries one ComponentInfo per label,
+    with the centroid in MAP metres so a caller can match it across ticks
+    while the robot moves.
+    """
+    from scipy import ndimage
+
+    arr = np.asarray(grid_data, dtype=np.int16).reshape(height, width)
+    occupied = arr >= occupied_threshold
+    structure = np.ones((3, 3), dtype=bool)  # 8-connectivity
+    labels, n_labels = ndimage.label(occupied, structure=structure)
+    components = []
+    if n_labels == 0:
+        return labels, components
+    objects = ndimage.find_objects(labels)
+    for idx, (row_slice, col_slice) in enumerate(objects, start=1):
+        if row_slice is None:
+            continue
+        rows, cols = np.nonzero(labels[row_slice, col_slice] == idx)
+        n_cells = int(rows.size)
+        if n_cells == 0:
+            continue
+        n_rows = int(row_slice.stop - row_slice.start)
+        n_cols = int(col_slice.stop - col_slice.start)
+        # Bounding-box diagonal in metres. Cell COUNTS, not count-1, so a
+        # 10-cell straight run at 0.05 m reads as 0.50 m rather than 0.45 --
+        # the length a human measuring that wall with a tape would get.
+        length_m = math.hypot(n_cols, n_rows) * resolution
+        cx = origin_x + (col_slice.start + cols.mean() + 0.5) * resolution
+        cy = origin_y + (row_slice.start + rows.mean() + 0.5) * resolution
+        components.append(ComponentInfo(idx, n_cells, cx, cy, length_m))
+    return labels, components
+
+
+class ComponentPersistence:
+    """Consecutive-tick count per occupied component, matched by centroid.
+
+    Matched on the MAP-frame centroid rather than on scipy's label index: the
+    label index is assigned per call and is meaningless across two of them (one
+    new component anywhere renumbers everything after it), while the centroid of
+    a real wall sits still in map coordinates no matter where the robot drives.
+
+    `tolerance_cells` is how far a centroid may move between ticks and still be
+    the same component -- one cell by default, which covers a wall whose far
+    end the robot has just brought into range (the centroid shifts) without
+    merging two genuinely distinct islands a few cells apart.
+    """
+
+    def __init__(self, tolerance_cells: float = 1.0, forget_after_ticks: int = 3):
+        self.tolerance_cells = float(tolerance_cells)
+        self.forget_after_ticks = int(forget_after_ticks)
+        self._tick = 0
+        #: (centroid_x, centroid_y, consecutive_count, last_tick)
+        self._seen = []
+
+    def step(self, components, resolution: float):
+        """Record one tick's components; return {label: consecutive_tick_count}.
+
+        A component seen this tick and last tick counts 2, and so on. A gap of
+        a single tick resets it to 1 -- CONSECUTIVE is the point: a component
+        that flickers is exactly the one-tick artefact this filter is for.
+        """
+        self._tick += 1
+        tol = self.tolerance_cells * float(resolution)
+        counts = {}
+        matched = []
+        for comp in components:
+            best, best_d = None, None
+            for entry in self._seen:
+                if entry in matched:
+                    continue
+                d = math.hypot(comp.centroid_x - entry[0], comp.centroid_y - entry[1])
+                if d <= tol and (best_d is None or d < best_d):
+                    best, best_d = entry, d
+            if best is not None and best[3] == self._tick - 1:
+                count = best[2] + 1
+            else:
+                count = 1
+            if best is not None:
+                matched.append(best)
+                self._seen.remove(best)
+            self._seen.append((comp.centroid_x, comp.centroid_y, count, self._tick))
+            counts[comp.label] = count
+        self._seen = [e for e in self._seen
+                      if self._tick - e[3] <= self.forget_after_ticks]
+        return counts
+
+
+def object_footprint_mask(width: int, height: int, resolution: float,
+                          origin_x: float, origin_y: float,
+                          disks_map, margin_m: float):
+    """Boolean mask (height, width) of the cells inside any tracked object's footprint.
+
+    `disks_map` is [(x, y, r), ...] in MAP metres -- the same (x, y, r) shape
+    f1tenth_messages/Obstacle2DArray carries, after the caller has moved it out
+    of base_link. Each disk is grown by margin_m, so the mask covers the
+    footprint PLUS the margin the task asks for.
+
+    An empty disk list returns an all-False mask rather than None, so a caller
+    can combine it unconditionally.
+    """
+    mask = np.zeros((height, width), dtype=bool)
+    if not disks_map:
+        return mask
+    cols = origin_x + (np.arange(width, dtype=np.float64) + 0.5) * resolution
+    rows = origin_y + (np.arange(height, dtype=np.float64) + 0.5) * resolution
+    grid_x, grid_y = np.meshgrid(cols, rows)
+    for ox, oy, r in disks_map:
+        radius = float(r) + float(margin_m)
+        if radius <= 0.0:
+            continue
+        mask |= (np.hypot(grid_x - float(ox), grid_y - float(oy)) <= radius)
+    return mask
+
+
+def filter_occupied_cells(grid_data, width: int, height: int, resolution: float,
+                          origin_x: float, origin_y: float,
+                          occupied_threshold: float,
+                          min_component_length_m: float = 0.0,
+                          min_component_ticks: int = 0,
+                          tick_counts=None,
+                          components=None,
+                          labels=None,
+                          object_disks_map=None,
+                          object_margin_m: float = 0.0):
+    """Return (filtered_data, report): a COPY of grid_data with ignored cells FREE.
+
+    A copy, never an in-place write: the caller's grid is the latched
+    /slam/map message and front_clearance is recomputed from it on the same
+    tick (see this module's own cleanup-section note on why that one must stay
+    unfiltered). Mutating it would silently filter that too.
+
+    `components`/`labels`/`tick_counts` are what occupied_components and
+    ComponentPersistence.step already produced for this tick -- passed in
+    rather than recomputed so the node's persistence bookkeeping and this
+    filter can never be looking at two different labellings of the same grid.
+    Omitting them recomputes the components here, which is what the length
+    test alone needs.
+
+    `report` names what was dropped and why, for the node's own diagnostic:
+    {'n_components', 'dropped_short', 'dropped_transient', 'dropped_object_cells'}.
+    """
+    arr = np.asarray(grid_data, dtype=np.int16).reshape(height, width).copy()
+    report = {'n_components': 0, 'dropped_short': 0, 'dropped_transient': 0,
+              'dropped_object_cells': 0}
+
+    want_components = (min_component_length_m > 0.0 or min_component_ticks > 1)
+    if want_components:
+        if labels is None or components is None:
+            labels, components = occupied_components(
+                arr, width, height, resolution, origin_x, origin_y, occupied_threshold)
+        report['n_components'] = len(components)
+        drop_labels = []
+        for comp in components:
+            if min_component_length_m > 0.0 and comp.length_m < min_component_length_m:
+                drop_labels.append(comp.label)
+                report['dropped_short'] += 1
+                continue
+            if min_component_ticks > 1:
+                seen = 0 if tick_counts is None else int(tick_counts.get(comp.label, 0))
+                if seen < min_component_ticks:
+                    drop_labels.append(comp.label)
+                    report['dropped_transient'] += 1
+        if drop_labels:
+            arr[np.isin(labels, drop_labels)] = FREE_CELL
+
+    if object_disks_map:
+        mask = object_footprint_mask(width, height, resolution, origin_x, origin_y,
+                                     object_disks_map, object_margin_m)
+        hit = mask & (arr >= occupied_threshold)
+        report['dropped_object_cells'] = int(np.count_nonzero(hit))
+        arr[hit] = FREE_CELL
+
+    return arr, report

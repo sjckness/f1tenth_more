@@ -239,12 +239,13 @@ from tf2_ros.transform_listener import TransformListener
 
 from f1tenth_description.vehicle_frames import (
     base_front_x, front_side_limit_m, MIN_FRONT_DISTANCE_M)
-from f1tenth_messages.msg import BoundaryConstraint, BoundaryConstraintArray
+from f1tenth_messages.msg import (
+    BoundaryConstraint, BoundaryConstraintArray, Obstacle2DArray)
 
 from f1tenth_costmap.costmap_boundary import (
-    boundary_from_nearest_point, extract_boundary_constraints,
-    front_clearance_from_extraction, nearest_occupied_in_strip,
-    nearest_occupied_in_window, yaw_from_quaternion)
+    ComponentPersistence, boundary_from_nearest_point, extract_boundary_constraints,
+    filter_occupied_cells, front_clearance_from_extraction, nearest_occupied_in_strip,
+    nearest_occupied_in_window, occupied_components, yaw_from_quaternion)
 from f1tenth_costmap.safe_corridor import (
     MAX_FACES_DEFAULT, assert_reference_contained, build_safe_corridor, faces_to_car_frame)
 
@@ -441,6 +442,33 @@ class CostmapBoundaryNode(Node):
         self.declare_parameter('polytope_min_area_m2', 0.25)
         self.declare_parameter('polytope_min_covered_fraction', 0.25)
 
+        # ---- COSTMAP-MODE CLEANUP (costmap_boundary.py's own cleanup
+        # section explains the failure and the two measures). DEFAULT OFF:
+        # component_filter false and exclude_tracked_object_cells false mean
+        # _extraction_tick extracts from the grid exactly as it arrived, which
+        # is the behaviour that shipped. The thresholds below carry their
+        # intended values anyway so turning the switch on needs one argument,
+        # not four.
+        #
+        # THE BOUNDARY ROWS ONLY. front_clearance is recomputed from the
+        # UNFILTERED grid on every tick whatever these say -- it feeds a live
+        # mission-stopping behaviour-tree condition, and a single cell is a
+        # perfectly good answer to "would the car hit something going
+        # straight". Filtering it would turn a filter bug into a failure to
+        # stop.
+        self.declare_parameter('component_filter', False)
+        self.declare_parameter('min_component_length_m', 0.5)
+        # Named _scans for the task's own wording; it counts EXTRACTION TICKS,
+        # which is what this node has -- it reads the latched map on its own
+        # timer and never sees a scan. See ComponentPersistence.
+        self.declare_parameter('min_component_scans', 2)
+        self.declare_parameter('exclude_tracked_object_cells', False)
+        self.declare_parameter('obstacles_topic', '/perception/obstacles_2d')
+        # Grown around each tracked object's own radius. Defaults to the
+        # stack's shared obstacle_safety_margin_m, the same buffer every other
+        # mechanism derives its standoff from -- not a new number.
+        self.declare_parameter('object_footprint_margin_m', 0.12)
+
         p = self.get_parameter
         self.robot_frame = str(p('robot_frame').value)
         self.front_facing_max_rad = math.radians(float(p('front_facing_max_deg').value))
@@ -462,6 +490,19 @@ class CostmapBoundaryNode(Node):
         self.polytope_min_seed_clearance_m = float(p('polytope_min_seed_clearance_m').value)
         self.polytope_min_area_m2 = float(p('polytope_min_area_m2').value)
         self.polytope_min_covered_fraction = float(p('polytope_min_covered_fraction').value)
+
+        self.component_filter = bool(p('component_filter').value)
+        self.min_component_length_m = float(p('min_component_length_m').value)
+        self.min_component_scans = int(p('min_component_scans').value)
+        self.exclude_tracked_object_cells = bool(p('exclude_tracked_object_cells').value)
+        self.object_footprint_margin_m = float(p('object_footprint_margin_m').value)
+        # Only built when something actually reads it, same discipline the TF
+        # listener now follows (cpu-cleanup, 2026-10-16).
+        self._persistence = (ComponentPersistence()
+                             if self.component_filter and self.min_component_scans > 1
+                             else None)
+        #: [(x, y, r), ...] base_link, from the newest /perception/obstacles_2d.
+        self._latest_obstacles_bl = []
 
         # Same transient-local QoS match costmap_renderer_node.py's own
         # module docstring already verified against slam_toolbox's own
@@ -526,6 +567,14 @@ class CostmapBoundaryNode(Node):
         # silently shrunk: see _publish_polytope.
         self.report_pub = self.create_publisher(
             String, str(p('polytope_report_topic').value), 10)
+        # Tracked objects, ONLY when they are going to be excluded. The
+        # projector publishes per detection frame, so an unread subscription
+        # here would deserialise every one of them for nothing.
+        self.obstacles_sub = None
+        if self.exclude_tracked_object_cells:
+            self.obstacles_sub = self.create_subscription(
+                Obstacle2DArray, str(p('obstacles_topic').value),
+                self._obstacles_cb, pose_qos)
         self.corridor_sub = self.create_subscription(
             MarkerArray, str(p('corridor_markers_topic').value),
             self._corridor_cb, 10)
@@ -706,6 +755,61 @@ class CostmapBoundaryNode(Node):
             throttle_duration_sec=2.0)
 
     # ------------------------------------------------------------------
+    def _obstacles_cb(self, msg: Obstacle2DArray):
+        """Cache the newest tracked-object disks, base_link (x, y, r)."""
+        self._latest_obstacles_bl = [
+            (float(o.x), float(o.y), float(o.r)) for o in msg.obstacles]
+
+    def _object_disks_map(self, robot_x, robot_y, robot_yaw):
+        """The cached base_link object disks, in MAP metres.
+
+        R(yaw) then translate -- the same base_link -> map rotation
+        costmap_boundary.extract_boundary_constraints inverts to go the other
+        way, applied with the robot's own map-frame pose. The radius is
+        frame-invariant, so only the centre moves.
+        """
+        cos_yaw, sin_yaw = math.cos(robot_yaw), math.sin(robot_yaw)
+        return [(robot_x + cos_yaw * x - sin_yaw * y,
+                 robot_y + sin_yaw * x + cos_yaw * y, r)
+                for x, y, r in self._latest_obstacles_bl]
+
+    def _grid_for_boundaries(self, grid, robot_x, robot_y, robot_yaw):
+        """(cell_data, report) the BOUNDARY extraction should run on this tick.
+
+        The grid's own data and an empty report when both cleanup switches are
+        off, which is the default and is byte-for-byte the previous behaviour.
+        Never the data front_clearance uses -- the caller keeps that on the raw
+        grid deliberately (see the component_filter parameter's own comment).
+        """
+        if not self.component_filter and not self.exclude_tracked_object_cells:
+            return grid.data, None
+
+        info = grid.info
+        labels = components = tick_counts = None
+        min_length = self.min_component_length_m if self.component_filter else 0.0
+        min_ticks = self.min_component_scans if self.component_filter else 0
+        if self.component_filter:
+            labels, components = occupied_components(
+                grid.data, info.width, info.height, info.resolution,
+                info.origin.position.x, info.origin.position.y,
+                self.occupied_threshold)
+            if self._persistence is not None:
+                tick_counts = self._persistence.step(components, info.resolution)
+
+        disks = (self._object_disks_map(robot_x, robot_y, robot_yaw)
+                 if self.exclude_tracked_object_cells else None)
+        return filter_occupied_cells(
+            grid.data, info.width, info.height, info.resolution,
+            info.origin.position.x, info.origin.position.y,
+            self.occupied_threshold,
+            min_component_length_m=min_length,
+            min_component_ticks=min_ticks,
+            tick_counts=tick_counts,
+            components=components,
+            labels=labels,
+            object_disks_map=disks,
+            object_margin_m=self.object_footprint_margin_m)
+
     def _extraction_tick(self):
         """periodic-publish pass: runs every timer tick unconditionally --
         see module docstring's own 'PERIODIC-PUBLISH pass' paragraph. Gated
@@ -733,8 +837,10 @@ class CostmapBoundaryNode(Node):
         if self.use_convex_polytope:
             polytope_published = self._polytope_tick(grid, pose)
 
+        boundary_cells, filter_report = self._grid_for_boundaries(
+            grid, robot_x, robot_y, robot_yaw)
         extraction = extract_boundary_constraints(
-            grid.data, grid.info.width, grid.info.height, grid.info.resolution,
+            boundary_cells, grid.info.width, grid.info.height, grid.info.resolution,
             grid.info.origin.position.x, grid.info.origin.position.y,
             robot_x, robot_y, robot_yaw,
             self.front_facing_max_rad, self.side_window_min_rad, self.side_window_max_rad,
@@ -791,8 +897,16 @@ class CostmapBoundaryNode(Node):
             min_distance=MIN_FRONT_DISTANCE_M, side_limit_m=self.front_side_limit_m)
         self.clearance_pub.publish(Float32(data=float(clearance)))
 
+        filter_note = ''
+        if filter_report is not None:
+            filter_note = (
+                f' filter(components={filter_report["n_components"]}'
+                f' short={filter_report["dropped_short"]}'
+                f' transient={filter_report["dropped_transient"]}'
+                f' object_cells={filter_report["dropped_object_cells"]})')
         self.get_logger().info(
-            f'n_constraints={n_published} front_clearance={clearance:.2f}m',
+            f'n_constraints={n_published} front_clearance={clearance:.2f}m'
+            + filter_note,
             throttle_duration_sec=2.0)
 
     def _publish_empty(self, have_map: bool, have_pose: bool):
