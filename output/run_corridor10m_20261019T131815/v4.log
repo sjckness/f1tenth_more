@@ -1,0 +1,32 @@
+[INFO] [1792409150.648143351] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall
+[INFO] [1792409150.655027961] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792409150.665511902] [lidar_front_wall_node]: wall tracker: no /odometry/filtered pose at the scan stamp; skipped
+[INFO] [1792409150.666902667] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792409151.264640760] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409152.248313727] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip 20.78080174452044)
+[INFO] [1792409153.107075094] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409153.532125608] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409153.730084661] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip 20.768212849043834)
+[INFO] [1792409154.452844849] [lidar_front_wall_node]: wall tracker: front track 20 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409155.238460009] [lidar_front_wall_node]: wall tracker: front track 20 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409155.587927652] [lidar_front_wall_node]: wall tracker: front track 20 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409156.053225784] [lidar_front_wall_node]: wall tracker: front track 20 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409158.359024368] [lidar_front_wall_node]: wall tracker: 286 scans, per-scan ms p50 15.84 p95 18.24 max 21.91
+[INFO] [1792409158.414105121] [lidar_front_wall_node]: wall tracker: front track 20 dropped (gone); virtual wall CLEAR (strip 20.783210953653438)
+[INFO] [1792409158.870740672] [lidar_front_wall_node]: wall tracker: front track 20 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409161.273892828] [lidar_front_wall_node]: wall acquired at 16.411 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792409161.337092378] [lidar_front_wall_node]: wall acquired at 16.321 m after dead_reckoned (16.368 m): jump -0.047 m, 0.23 s since the last accepted fit
+[INFO] [1792409163.833717203] [lidar_front_wall_node]: wall tracker: 183 scans, per-scan ms p50 16.56 p95 23.55 max 26.77
+== corridor10m_20261019T131815: 113394 messages on 155 topics in 1 file(s)
+   variant v4: wall_birth_relax_camera_max_angle_deg=10.0, wall_birth_relax_camera_max_offset_m=0.2, wall_birth_relax_side_max_heading_deg=20.0, wall_birth_relax_side_offset_max_m=3.0, wall_birth_relax_side_offset_min_m=0.3, wall_birth_relax_side_x_max_m=4.0, wall_birth_relax_side_x_min_m=-1.0, wall_min_span_birth_relaxed_m=0.5
+   moving window:      31.69 ..   79.07 s   (47.38 s)
+   MISSING REQUIRED: /perception/stereo_columns
+   no depth in this bag: the camera half is not replayed
+   tracker steps: 730 of 730 recorded debug payloads (--tracker-steps car; record format per_step, car decimation 4), 66 without their scan
+   50 step-to-step gaps over 1.5x the median 0.110 s (dropped or unpublished steps)
+   warm-up: replay cold from the first step at t = 0.08 s; 0.00 s (0 steps) before the span starts at t = 0.08 s
+   the CAR's oldest track at its first /perception/walls (t = 1.05 s) was 83.3 s old: a head start no replay has
+   lidar replay "rec": 664 cycles
+   rectangle check fed the None class mask + depth pair (one source only)
+   primary pass (summary, evidence, videos): "rec"
+   wrote output/run_corridor10m_20261019T131815/v4/corridor10m_20261019T131815.*

@@ -1,0 +1,35 @@
+[INFO] [1792409087.724536797] [lidar_front_wall_node]: lidar_front_wall_node up: /scan -> /perception/lidar_front_wall, /perception/lidar_front_wall_virtual; sector +-10.0 deg, odometry /odometry/filtered, seed /costmap/front_clearance; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, /perception/virtual_wall
+[INFO] [1792409087.775158375] [lidar_front_wall_node]: base_link <- laser: x=0.305 m y=0.000 m yaw=0.00 deg
+[WARN] [1792409087.800635038] [lidar_front_wall_node]: wall tracker: no /odometry/filtered pose at the scan stamp; skipped
+[INFO] [1792409087.806961595] [lidar_front_wall_node]: /odometry/filtered fresh: dead reckoning available
+[INFO] [1792409090.580753393] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409092.222535800] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip 20.78080174452044)
+[INFO] [1792409093.615635989] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409094.132511962] [lidar_front_wall_node]: wall tracker: front track 7 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409094.616405024] [lidar_front_wall_node]: wall tracker: front track 59 dropped (gone); virtual wall CLEAR (strip 20.768212849043834)
+[INFO] [1792409095.807688410] [lidar_front_wall_node]: wall tracker: front track 66 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409097.027538150] [lidar_front_wall_node]: wall tracker: front track 66 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409097.563993157] [lidar_front_wall_node]: wall tracker: front track 66 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409098.257879476] [lidar_front_wall_node]: wall tracker: front track 66 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409101.672710503] [lidar_front_wall_node]: wall tracker: 286 scans, per-scan ms p50 26.90 p95 54.11 max 182.35
+[INFO] [1792409101.758377667] [lidar_front_wall_node]: wall tracker: front track 66 dropped (gone); virtual wall CLEAR (strip 20.783210953653438)
+[INFO] [1792409102.439985623] [lidar_front_wall_node]: wall tracker: front track 66 dropped (gone); virtual wall CLEAR (strip None)
+[INFO] [1792409104.480509383] [lidar_front_wall_node]: wall acquired at 18.897 m after none (nan m): jump +nan m, nan s since the last accepted fit
+[INFO] [1792409104.907415359] [lidar_front_wall_node]: wall acquired at 17.982 m after dead_reckoned (18.131 m): jump -0.150 m, 1.88 s since the last accepted fit
+[INFO] [1792409105.008160556] [lidar_front_wall_node]: wall acquired at 17.846 m after dead_reckoned (17.821 m): jump +0.025 m, 0.55 s since the last accepted fit
+[INFO] [1792409105.117141767] [lidar_front_wall_node]: wall acquired at 17.649 m after dead_reckoned (17.802 m): jump -0.153 m, 0.30 s since the last accepted fit
+[INFO] [1792409105.999852845] [lidar_front_wall_node]: wall acquired at 16.620 m after dead_reckoned (16.549 m): jump +0.071 m, 2.30 s since the last accepted fit
+[INFO] [1792409109.283096805] [lidar_front_wall_node]: wall tracker: 183 scans, per-scan ms p50 25.08 p95 36.03 max 49.20
+== corridor10m_20261019T131815: 113394 messages on 155 topics in 1 file(s)
+   variant v3: wall_min_span_birth_m=0.5
+   moving window:      31.69 ..   79.07 s   (47.38 s)
+   MISSING REQUIRED: /perception/stereo_columns
+   no depth in this bag: the camera half is not replayed
+   tracker steps: 730 of 730 recorded debug payloads (--tracker-steps car; record format per_step, car decimation 4), 66 without their scan
+   50 step-to-step gaps over 1.5x the median 0.110 s (dropped or unpublished steps)
+   warm-up: replay cold from the first step at t = 0.08 s; 0.00 s (0 steps) before the span starts at t = 0.08 s
+   the CAR's oldest track at its first /perception/walls (t = 1.05 s) was 83.3 s old: a head start no replay has
+   lidar replay "rec": 664 cycles
+   rectangle check fed the None class mask + depth pair (one source only)
+   primary pass (summary, evidence, videos): "rec"
+   wrote output/run_corridor10m_20261019T131815/v3/corridor10m_20261019T131815.*
