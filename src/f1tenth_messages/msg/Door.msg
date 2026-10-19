@@ -46,3 +46,14 @@ uint32 hits                     # cycles the LiDAR saw it as a candidate
 float32 age                     # [s] since the door was born
 float32 since_seen              # [s] since the LiDAR last saw it: the coasting age
 uint16 n_beams                  # open beams through the gap on the last sighting
+                                # (an open leaf's returns included)
+
+# Appended (door-detection step 2); every field above keeps its meaning.
+uint8 leaf_side                 # LEAF_*: the jamb an OPEN LEAF hangs on, looking
+                                # along `normal` (door_detection.py, THE LEAF)
+uint8 LEAF_NONE = 0
+uint8 LEAF_LEFT = 1
+uint8 LEAF_RIGHT = 2
+bool glass_suspect              # door_stereo_glass_veto on and the stereo depth
+                                # over the gap mostly invalid: not vetoed, but
+                                # possibly a pane neither sensor ranged

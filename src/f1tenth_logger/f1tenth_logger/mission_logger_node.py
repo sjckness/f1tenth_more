@@ -281,6 +281,12 @@ _DEFAULT_TOPICS = [
     # wall of the virtual wall) and their line/text markers.
     '/perception/walls',
     '/perception/walls/markers',
+    # Door detection (lidar_front_wall_node, door_detection_enabled): the
+    # doors (f1tenth_messages/DoorArray) and their Foxglove markers, so a
+    # recorded run shows the doors exactly as the live view did. /viz/doors
+    # is an ORIGINAL, not a relay copy: see _RECORDED_VIZ_ORIGINALS.
+    '/perception/doors',
+    '/viz/doors',
     '/perception/stereo_wall',
     '/perception/scene_labels',
     '/perception/scene_labels_debug',
@@ -390,11 +396,21 @@ _DEFAULT_DEEP_QUEUE_TOPICS = [
 # names them.
 _NEVER_RECORDED_PREFIXES = ('/viz/', '/viz_internal/')
 
+# ...except these, which live under /viz/ but are published by a node in
+# their own right, not relayed from a source a bag already has: /viz/doors is
+# lidar_front_wall_node's door markers (door_markers.py), the only record of
+# the doors as Foxglove drew them.
+_RECORDED_VIZ_ORIGINALS = ('/viz/doors',)
+
+
+def _relay_copy(topic):
+    return topic.startswith(_NEVER_RECORDED_PREFIXES) and topic not in _RECORDED_VIZ_ORIGINALS
+
 
 def recordable_topics(topics):
     """(topics to record, topics dropped because they are /viz relay copies)."""
-    kept = [t for t in topics if not t.startswith(_NEVER_RECORDED_PREFIXES)]
-    dropped = [t for t in topics if t.startswith(_NEVER_RECORDED_PREFIXES)]
+    kept = [t for t in topics if not _relay_copy(t)]
+    dropped = [t for t in topics if _relay_copy(t)]
     return kept, dropped
 
 

@@ -256,9 +256,11 @@ without it, the node logs an ERROR at startup and the tracker stays off.
     wall_min_span_update_m is not a wall and never reaches the tracker;
     one shorter than wall_min_span_birth_m may only UPDATE an already
     confirmed track, never start one or feed a tentative one. The
-    extraction's collinear merge (wall_merge_max_gap_m) reunifies a wall
-    broken by an occluder first, so the span is the wall's, not the
-    visible piece's. multi_wall_tracker's "WHY THE SPAN GATE IS
+    extraction's collinear merge reunifies a wall broken by an occluder
+    first, so the span is the wall's, not the visible piece's -- across a
+    gap SHORTER than door_width_min_m only (multi_wall_tracker's THE
+    COLLINEAR GAP RULE: one number for the extraction's merge, the
+    association, the track merge and the extent). multi_wall_tracker's "WHY THE SPAN GATE IS
     HYSTERETIC" has the reasoning; the count of dropped observations is
     `short_obs` in /perception/virtual_wall/debug.
   * Up to 4 wall tracks in odom go out on /perception/walls
@@ -295,19 +297,22 @@ tracker was stepped with (object sectors cut, with the cut mask):
 
   * door_candidates: a gap of door_width_min_m .. door_width_max_m between
     two collinear pieces of a confirmed or coasting wall that every beam
-    crossing it sees THROUGH (door_behind_margin_m past the line, or no
-    return), with real jambs and enough beams (door_min_beams, scaled with
-    range by door_min_beam_fraction). The stereo's class mask and depth
-    (the rectangle verification's pair) raise the confidence when they see
-    no wall in the gap and floor beyond it; they are never required.
+    crossing its central door_core_fraction sees THROUGH
+    (door_behind_margin_m past the line, or no return) -- an open leaf hung
+    on a jamb is allowed in the outer parts -- with real jambs and enough
+    beams (door_min_beams, scaled with range by door_min_beam_fraction). The
+    stereo's class mask and depth (the rectangle verification's pair) raise
+    the confidence when they see no wall in the gap and floor beyond it;
+    they are never required. With door_stereo_glass_veto (default off) they
+    can also reject a gap whose mask shows a wall ON the line.
   * DoorTracker: tentative -> confirmed (door_confirm_hits of
     door_confirm_window cycles) -> coasting -> deleted
     (door_delete_after_sec unseen), associated by centre, normal and width
     in odom -- never by the parent wall ids, which re-spawn. A detected
     PERSON inside a confirmed door sets occupied and keeps it alive; no
     detection can create or confirm one.
-  * /perception/doors (f1tenth_messages/DoorArray) every tracker cycle, and
-    /viz/doors (door_markers.py) while something is subscribed. Nothing in
+  * /perception/doors (f1tenth_messages/DoorArray) and /viz/doors
+    (door_markers.py), both every tracker cycle. Nothing in
     the stack consumes either: not the MPC, the costmap, the BT or the
     missions.
 
@@ -496,13 +501,18 @@ class LidarFrontWallNode(Node):
         # ---- multi-wall tracker (module docstring) --------------------------
         self.use_wall_tracker = bool(param('use_wall_tracker', get_value('use_wall_tracker')))
         self.tracker_det_max_age = float(param('wall_tracker_detection_max_age_sec', 1.0))
+        # THE COLLINEAR GAP RULE (multi_wall_tracker): collinear LiDAR wall
+        # pieces are one wall only across a gap shorter than the narrowest
+        # door. ONE parameter, read once, for the extraction's merge, the
+        # tracker and the door detector.
+        self.door_width_min_m = float(param('door_width_min_m', mwt.DOOR_WIDTH_MIN_M))
         tracker_params = mwt.TrackerParams(
             process_noise_rho=float(param('wall_tracker_process_noise_rho', 1e-4)),
             process_noise_theta=float(param('wall_tracker_process_noise_theta', 1e-4)),
             k_yaw=float(param('wall_tracker_k_yaw', 0.1)),
-            # Block 3: the collinear gap (association AND merge) and the
-            # extent decay -- multi_wall_tracker's THE MEASURED EXTENT.
-            assoc_max_gap_m=float(param('wall_assoc_max_gap_m', 0.5)),
+            # THE COLLINEAR GAP RULE (association, track merge, extent) and
+            # the extent decay -- multi_wall_tracker's THE MEASURED EXTENT.
+            collinear_gap_m=self.door_width_min_m,
             extent_decay_s=float(param('wall_extent_decay_sec', 1.0)),
             delete_after_s=float(param('wall_tracker_delete_after_sec', 2.0)),
             # The camera gates and the camera side zone (Q2 / P3).
@@ -550,7 +560,6 @@ class LidarFrontWallNode(Node):
             # "WHY THE SPAN GATE IS HYSTERETIC".
             min_span_birth_m=float(param('wall_min_span_birth_m', 1.0)),
             min_span_update_m=float(param('wall_min_span_update_m', 0.5)),
-            merge_max_gap_m=float(param('wall_merge_max_gap_m', 1.5)),
             # Step 6 (E3): the geometric roles, the first-obstacle rule and
             # the negative evidence.
             back_x_m=float(param('wall_role_back_x_m', 0.0)),
@@ -615,11 +624,11 @@ class LidarFrontWallNode(Node):
         self._rect_age = math.nan
         self._rect_weight = 0.0
         self._rect_ms = math.nan
-        # The extraction's collinear merge has to reunify a wall broken by an
-        # occluder BEFORE its span is measured, so its gap is set from the same
-        # parameter block as the span thresholds.
+        # The extraction's collinear merge reunifies a wall broken by an
+        # occluder BEFORE its span is measured -- across a gap shorter than
+        # door_width_min_m only (THE COLLINEAR GAP RULE).
         self.extraction_params = mwt.extraction_params(
-            tracker_params.merge_max_gap_m,
+            tracker_params.collinear_gap_m,
             quality_gates=bool(param('wall_extract_quality_gates', True)),
             backend=str(param('wall_extract_backend', 'c')))
         # One warning, at startup, if the C backend was asked for and is not
@@ -734,7 +743,7 @@ class LidarFrontWallNode(Node):
         self.door_params = door_detection.DoorParams(
             collinear_angle_rad=math.radians(float(param('door_collinear_angle_deg', 5.0))),
             collinear_offset_m=float(param('door_collinear_offset_m', 0.10)),
-            width_min_m=float(param('door_width_min_m', 0.70)),
+            width_min_m=self.door_width_min_m,
             width_max_m=float(param('door_width_max_m', 1.00)),
             behind_margin_m=float(param('door_behind_margin_m', 0.30)),
             # ON the wall line is what the negative evidence calls a hit.
@@ -743,7 +752,15 @@ class LidarFrontWallNode(Node):
             min_beam_fraction=float(param('door_min_beam_fraction', 0.8)),
             confirm_hits=int(param('door_confirm_hits', 3)),
             confirm_window=int(param('door_confirm_window', 5)),
-            delete_after_s=float(param('door_delete_after_sec', 2.0)))
+            delete_after_s=float(param('door_delete_after_sec', 2.0)),
+            # THE LEAF: strict in the core, an open leaf allowed at a jamb.
+            core_fraction=float(param('door_core_fraction', 0.6)),
+            leaf_max_len_m=float(param('door_leaf_max_len_m', 1.0)),
+            leaf_hinge_tol_m=float(param('door_leaf_hinge_tol_m', 0.10)),
+            # The stereo glass veto, OFF by default.
+            stereo_glass_veto=bool(param('door_stereo_glass_veto', False)),
+            stereo_plane_tol_m=float(param('door_stereo_plane_tol_m', 0.30)),
+            stereo_wall_veto_frac=float(param('door_stereo_wall_veto_frac', 0.5)))
         self.door_jamb_viz_diameter_m = float(param('door_jamb_viz_diameter_m', 0.10))
         self.door_tracker = (door_detection.DoorTracker(self.door_params)
                              if self.door_enabled else None)
@@ -1413,7 +1430,7 @@ class LidarFrontWallNode(Node):
                            else [list(r) for r in self.wall_tracker.rejections]),
             # Observations the span gate dropped as too short to be a wall. A
             # run of these says the room is full of short faces, or that
-            # wall_merge_max_gap_m is too tight to reunify one wall.
+            # the collinear gap (door_width_min_m) is too tight to reunify one wall.
             'short_obs': (None if self.wall_tracker is None
                           else int(self.wall_tracker.n_short_dropped)),
             # What each EXTRACTION quality gate dropped this scan (seed size,
@@ -1587,6 +1604,17 @@ class LidarFrontWallNode(Node):
         candidates = door_detection.door_candidates(
             self.wall_tracker.tracks, car, scan, self.door_params, rejects)
         geometry = self._door_mask_geometry(scan_stamp) if candidates else None
+        if geometry is not None and self.door_params.stereo_glass_veto:
+            # The glass veto first: a vetoed gap is not a candidate at all.
+            kept = []
+            for cand in candidates:
+                veto, cand.glass_suspect, _detail = door_detection.stereo_glass_check(
+                    cand, *geometry, p=self.door_params, depth_scale=0.001)
+                if veto:
+                    door_detection.record_reject(rejects, 'stereo_wall', cand)
+                else:
+                    kept.append(cand)
+            candidates = kept
         if geometry is not None:
             for cand in candidates:
                 cand.stereo_support, _detail = door_detection.stereo_gap_support(
@@ -1639,7 +1667,7 @@ class LidarFrontWallNode(Node):
                 float(profile.cx) * scale, float(profile.cy) * scale, cam[0], cam[1])
 
     def _publish_doors(self, stamp, doors, car, scan_stamp):
-        """/perception/doors every tracker cycle; /viz/doors while subscribed."""
+        """Publish /perception/doors and /viz/doors, every tracker cycle."""
         out = DoorArray()
         out.header.stamp = stamp
         out.header.frame_id = self._odom_frame
@@ -1665,13 +1693,14 @@ class LidarFrontWallNode(Node):
             m.age = float(scan_stamp - door.born)
             m.since_seen = float(scan_stamp - door.last_seen)
             m.n_beams = int(min(max(door.n_beams, 0), 65535))
+            m.leaf_side = int(door.leaf_side)
+            m.glass_suspect = bool(door.glass_suspect)
             out.doors.append(m)
         self.doors_pub.publish(out)
-        if self.viz_doors_pub.get_subscription_count() == 0:
-            # Same bargain as /viz/walls: nothing is built for nobody, and
-            # the markers already sent expire on their own lifetime.
-            self._viz_doors_builder.forget()
-            return
+        # /viz/doors goes out on EVERY cycle door detection runs, subscribed
+        # or not -- unlike /viz/walls -- so a mission bag records it and the
+        # doors show in Foxglove on a recorded run too. A handful of markers
+        # at the tracker's ~10 Hz.
         self.viz_doors_pub.publish(
             self._viz_doors_builder.build(doors, stamp, self._odom_frame))
 

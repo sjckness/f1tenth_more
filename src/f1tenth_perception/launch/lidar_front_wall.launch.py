@@ -102,7 +102,6 @@ LIDAR_FRONT_WALL_ARGS = [
     # Minimum width for a LiDAR wall (multi_wall_tracker's span gate).
     ('wall_min_span_birth_m', float),
     ('wall_min_span_update_m', float),
-    ('wall_merge_max_gap_m', float),
     # E1: the extraction's own quality gates.
     ('wall_extract_quality_gates', bool),
     ('wall_extract_backend', str),
@@ -133,9 +132,8 @@ LIDAR_FRONT_WALL_ARGS = [
     ('wall_negative_miss_to_kill', int),
     ('wall_tracker_delete_after_sec', float),
     ('wall_coast_max_odom_m', float),
-    # Block 3: the measured extent and the collinear gap, and the FRONT coast
-    # on odometry.
-    ('wall_assoc_max_gap_m', float),
+    # Block 3: the measured extent and the FRONT coast on odometry. (The
+    # collinear gap is door_width_min_m since door-detection.)
     ('wall_extent_decay_sec', float),
     ('wall_tracker_front_max_coast_m', float),
     # The confidence model's range scaling (wall_fusion.confidence, RANGE).
@@ -167,6 +165,13 @@ LIDAR_FRONT_WALL_ARGS = [
     ('door_confirm_window', int),
     ('door_delete_after_sec', float),
     ('door_jamb_viz_diameter_m', float),
+    # The open leaf and the stereo glass veto (door-detection step 2).
+    ('door_core_fraction', float),
+    ('door_leaf_max_len_m', float),
+    ('door_leaf_hinge_tol_m', float),
+    ('door_stereo_glass_veto', bool),
+    ('door_stereo_plane_tol_m', float),
+    ('door_stereo_wall_veto_frac', float),
 ]
 
 

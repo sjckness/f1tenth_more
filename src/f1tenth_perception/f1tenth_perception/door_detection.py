@@ -17,12 +17,15 @@ sees through. A candidate must satisfy ALL of (door_candidates):
      same line within collinear_angle_rad and collinear_offset_m, measured at
      the facing ends. A corner is not a doorway.
   2. WIDTH. Jamb to jamb in [width_min_m, width_max_m].
-  3. THROUGH THE GAP. Every beam whose ray crosses the gap returns at least
-     behind_margin_m BEYOND the wall line, or not at all. A return ON the line
-     (within wall_tol_m, the tracker's negative_tol_m) is a pane or a dark
-     panel the LiDAR did see: not a door. A return between wall_tol_m and
-     behind_margin_m beyond is too shallow to call. And at least
-     n_required beams must cross it (BEAMS, below), or it is undecidable.
+  3. THROUGH THE GAP. Every beam whose ray crosses the central
+     core_fraction of the gap returns at least behind_margin_m BEYOND the
+     wall line, or not at all. A return ON the line (within wall_tol_m, the
+     tracker's negative_tol_m, short of it; on_behind_tol_m, past it)
+     anywhere in the gap is a pane or a dark panel the LiDAR did see: not a
+     door. A return between on_behind_tol_m and behind_margin_m beyond is
+     too shallow to call -- except in the OUTER
+     parts, where it may be THE LEAF (below). And at least n_required beams
+     must cross it (BEAMS, below), or it is undecidable.
   4. REAL JAMBS. A beam just inside the gap at either end that returns SHORT
      of the line means the wall end is a shadow cast by something in front
      of it -- a box, a bin -- not a jamb.
@@ -34,20 +37,44 @@ sees through. A candidate must satisfy ALL of (door_candidates):
   6. STEREO, optional. stereo_gap_support: no WALL pixels at the line's depth
      inside the gap's image rectangle, and floor (or inferred floor)
      continuing beyond the line. It raises the confidence; it is never
-     required, so a LiDAR-only door is a door.
+     required, so a LiDAR-only door is a door. With stereo_glass_veto on
+     (default OFF), stereo_glass_check can also REJECT a gap: WALL pixels
+     whose valid depth puts them ON the line over at least
+     stereo_wall_veto_frac of the gap ('stereo_wall' -- a pane the LiDAR saw
+     through); a gap whose depth is mostly invalid is kept and flagged
+     glass_suspect.
+
+THE LEAF (open door leaf, is_leaf)
+---------------------------------
+An open leaf hinged at a jamb is seen through the doorway as a short surface
+starting AT the jamb and running away from the wall line: near the hinge its
+returns are less than behind_margin_m past the line. So the strict rule of 3
+holds only in the central core_fraction of the gap; in each OUTER part the
+shallow returns are allowed when they all lie on one straight segment
+(rms <= leaf_max_rms_m) whose line passes within leaf_hinge_tol_m of that
+part's jamb, which starts at the jamb (not through it) and is at most
+leaf_max_len_m long. Anything else shallow in an outer part -- a box, a bin,
+a corner -- is 'not_a_leaf'. Leaf returns count as decided beams for BEAMS.
+leaf_side says which jamb, left or right looking along the crossing normal.
+The price, deliberately kept: a leaf open too little still crosses into the
+core shallower than behind_margin_m and is rejected ('shallow'). On a
+0.85 m door seen square-on from 2.7 m (test_door_detection) the smallest
+opening accepted is 65 deg at core_fraction 0.6, 55 at 0.5, 50 at 0.4 and
+45 at 0.3: a smaller core admits a less open leaf, and more clutter near the
+jambs.
 
 Closed doors are wall to the LiDAR and are out of scope; so are double doors
 (they fail the width).
 
 WHY THE GAP IS FOUND ON THE BEAMS, NOT BETWEEN TRACK ENDPOINTS
 --------------------------------------------------------------
-The extraction's collinear merge (merge_max_gap_m, 1.5 m) exists to reunify a
-wall broken by an occluder, and it does exactly that to the two faces either
-side of a 0.7-1.0 m doorway: they reach the tracker as ONE observation, so a
-doorway in a wall is usually INSIDE one track's extent rather than between
-two tracks. The tracker's own collinear gap (assoc_max_gap_m) keeps two
-tracks apart only across an opening wider than 0.5 m that the beams saw open.
-Both cases happen, so the gap is found the same way in both: the tracks give
+Since THE COLLINEAR GAP RULE (multi_wall_tracker) the extraction and the
+tracker join collinear wall pieces only across a gap shorter than
+width_min_m -- this very parameter -- so a doorway normally lies BETWEEN two
+tracks. The search still runs on the beams along the whole collinear group,
+INSIDE a track's extent too, as a fallback: the tracker measures a gap by
+its open part sampled every 5 cm, so a borderline doorway can still be read
+as just under the rule and joined into one track. Either way the tracks give
 the LINE and the stretch of it to look at, and the beams along that stretch
 give the pieces of wall (runs of ON returns at least jamb_min_length_m long)
 and the gaps between them. A piece's end is the last ON return; a jamb is
@@ -90,16 +117,24 @@ STATE_NAMES = {STATE_TENTATIVE: 'tentative', STATE_CONFIRMED: 'confirmed',
                STATE_COASTING: 'coasting'}
 
 #: What one beam says about the wall line it crosses (classify_beams).
-BEAM_ON = 0        # within wall_tol_m of the line: the wall
+BEAM_ON = 0        # on the line: wall_tol_m short of it .. on_behind_tol_m past
 BEAM_BEYOND = 1    # at least behind_margin_m past it: through an opening
 BEAM_NONE = 2      # no return at all (and not cut): through, as far as it knows
 BEAM_SHORT = 3     # more than wall_tol_m short of it: something in front
-BEAM_SHALLOW = 4   # past the line, but by less than behind_margin_m
+BEAM_SHALLOW = 4   # past the line by on_behind_tol_m .. behind_margin_m
 BEAM_CUT = 5       # cut out for a YOLO detection: no opinion
 
 #: The reject codes door_candidates reports, in the order they are checked.
 REJECT_CODES = ('not_collinear', 'untracked_jamb', 'width', 'on_line',
-                'jamb_occluded', 'blocked', 'object', 'shallow', 'few_beams')
+                'jamb_occluded', 'blocked', 'object', 'shallow', 'not_a_leaf',
+                'few_beams', 'stereo_wall')
+
+#: Which jamb an open leaf hangs on, looking along the crossing normal
+#: (Door.LEAF_* on the wire).
+LEAF_NONE = 0
+LEAF_LEFT = 1
+LEAF_RIGHT = 2
+LEAF_NAMES = {LEAF_NONE: 'none', LEAF_LEFT: 'left', LEAF_RIGHT: 'right'}
 
 
 @dataclass
@@ -109,12 +144,17 @@ class DoorParams:
     # --- the candidate (door_candidates) -----------------------------------
     collinear_angle_rad: float = math.radians(5.0)
     collinear_offset_m: float = 0.10
-    width_min_m: float = 0.70
+    #: THE COLLINEAR GAP RULE's number too (multi_wall_tracker.DOOR_WIDTH_MIN_M).
+    width_min_m: float = mwt.DOOR_WIDTH_MIN_M
     width_max_m: float = 1.00
     behind_margin_m: float = 0.30
-    #: ON the line: the tracker's own negative_tol_m, so a beam the negative
-    #: evidence would call a hit on the wall is a hit here too.
+    #: ON the line, on the near side: the tracker's own negative_tol_m.
     wall_tol_m: float = 0.15
+    #: ...and on the far side only this much (THE LEAF): a return further
+    #: past the line is not the wall's own surface. An open leaf's returns
+    #: next to its hinge are a few cm past the line, and counted as wall they
+    #: moved the jamb along the leaf and left stray ON returns in the gap.
+    on_behind_tol_m: float = 0.05
     min_beams: int = 8
     min_beam_fraction: float = 0.8
     #: A run of ON returns shorter than this is not a piece of wall: one
@@ -127,6 +167,13 @@ class DoorParams:
     min_incidence: float = 0.05
     #: Beams at each end of the gap whose SHORT return marks a shadow edge.
     edge_beams: int = 2
+    # --- the leaf (module docstring, THE LEAF) ------------------------------
+    #: The central share of the gap where EVERY beam must be open.
+    core_fraction: float = 0.6
+    leaf_max_len_m: float = 1.0
+    leaf_hinge_tol_m: float = 0.10
+    #: A leaf is flat: the rms of its returns about their own line.
+    leaf_max_rms_m: float = 0.03
     # --- the tracker (DoorTracker) -----------------------------------------
     confirm_hits: int = 3
     confirm_window: int = 5
@@ -149,6 +196,13 @@ class DoorParams:
     stereo_tol_base_m: float = 0.05
     stereo_tol_quad_per_m2: float = 0.012
     stereo_bonus: float = 0.2
+    # --- the stereo glass veto (stereo_glass_check), OFF by default ---------
+    stereo_glass_veto: bool = False
+    stereo_plane_tol_m: float = 0.30
+    stereo_wall_veto_frac: float = 0.5
+    #: Below this share of valid depth over the gap the stereo cannot say:
+    #: no veto, and the door is flagged glass_suspect.
+    stereo_min_valid_frac: float = 0.5
 
 
 @dataclass
@@ -165,6 +219,8 @@ class DoorCandidate:
     n_required: int
     stereo_support: object = None    # True / False, or None: not evaluated
     confidence: float = 0.0
+    leaf_side: int = LEAF_NONE
+    glass_suspect: object = None     # True / False, or None: not evaluated
 
     @property
     def centre(self):
@@ -274,6 +330,11 @@ def _reject(rejects, code, parents, width):
         rejects.append((code, tuple(int(x) for x in parents), round(float(width), 3)))
 
 
+def record_reject(rejects, code, cand):
+    """Record a candidate refused after door_candidates (the stereo glass veto)."""
+    _reject(rejects, code, cand.parents, cand.width)
+
+
 def classify_beams(r, cut, s, p):
     """BEAM_* per beam for returns r on rays meeting the wall line at s."""
     r = np.asarray(r, dtype=float)
@@ -282,7 +343,7 @@ def classify_beams(r, cut, s, p):
     finite = np.isfinite(r)
     with np.errstate(invalid='ignore'):
         diff = np.where(finite, r - s, np.inf)
-    out[finite & (np.abs(diff) <= p.wall_tol_m)] = BEAM_ON
+    out[finite & (diff >= -p.wall_tol_m) & (diff <= p.on_behind_tol_m)] = BEAM_ON
     out[finite & (diff >= p.behind_margin_m)] = BEAM_BEYOND
     out[finite & (diff < -p.wall_tol_m)] = BEAM_SHORT
     out[~finite] = BEAM_NONE
@@ -373,54 +434,115 @@ def _group_candidates(group, beams, inc, p, rejects):
         if width < 0.5 * p.width_min_m:
             # A dropout between two returns of one wall: not worth a reject.
             continue
-        code, n_open, n_req = _judge_gap(
-            cls[a1 + 1:b0], (j0, j1), (spans[k[a1]], spans[k[b0]]), u, (wa, wb), lxy, inc, p)
+        gap = slice(a1 + 1, b0)
+        code, n_open, n_req, leaf = _judge_gap(
+            cls[gap], (j0, j1), (spans[k[a1]], spans[k[b0]]), u, (wa, wb), lxy, inc, p,
+            tb[gap], pts[gap])
         if code:
             _reject(rejects, code, parents, width)
             continue
         centre = 0.5 * (j0 + j1)
         normal = n if float(n @ (centre - lxy)) >= 0.0 else -n
-        out.append(DoorCandidate(j0, j1, normal.copy(), parents, n_open, n_req))
+        cand = DoorCandidate(j0, j1, normal.copy(), parents, n_open, n_req)
+        if leaf is not None:
+            cand.leaf_side = side_of(leaf, centre, normal)
+        out.append(cand)
     return out
 
 
-def _judge_gap(gap, jambs, spans, u, walls, lxy, inc, p):
+def side_of(jamb, centre, normal):
+    """Return LEAF_LEFT or LEAF_RIGHT: the jamb's side looking along `normal`."""
+    left = np.array([-normal[1], normal[0]])
+    return LEAF_LEFT if float(left @ (np.asarray(jamb) - centre)) > 0.0 else LEAF_RIGHT
+
+
+def is_leaf(points, jamb, p):
     """
-    Return (reject code or '', open beams, required beams) for one gap.
+    Return whether shallow returns `points` form an open leaf hung on `jamb`.
+
+    One straight segment (rms about its own line at most leaf_max_rms_m)
+    whose line passes within leaf_hinge_tol_m of the jamb, which starts at
+    the jamb rather than running through it, and which is at most
+    leaf_max_len_m long measured from the jamb (module docstring, THE LEAF).
+    """
+    pts = np.asarray(points, dtype=float).reshape(-1, 2)
+    jamb = np.asarray(jamb, dtype=float)
+    if pts.shape[0] == 0:
+        return False
+    if pts.shape[0] == 1:
+        return float(np.hypot(*(pts[0] - jamb))) <= p.leaf_max_len_m
+    c = pts.mean(axis=0)
+    _w, vecs = np.linalg.eigh(np.cov((pts - c).T, bias=True))
+    e = vecs[:, 1]
+    normal = np.array([-e[1], e[0]])
+    resid = (pts - c) @ normal
+    if float(np.sqrt(np.mean(resid ** 2))) > p.leaf_max_rms_m:
+        return False
+    if abs(float(normal @ (jamb - c))) > p.leaf_hinge_tol_m:
+        return False
+    along = (pts - c) @ e
+    s_jamb = float(e @ (jamb - c))
+    lo, hi = float(along.min()), float(along.max())
+    if not (s_jamb <= lo + p.leaf_hinge_tol_m or s_jamb >= hi - p.leaf_hinge_tol_m):
+        return False      # the jamb is in the middle: a surface THROUGH it
+    return max(abs(hi - s_jamb), abs(lo - s_jamb)) <= p.leaf_max_len_m
+
+
+def _judge_gap(gap, jambs, spans, u, walls, lxy, inc, p, t_gap=None, pts_gap=None):
+    """
+    Return (reject code or '', decided beams, required beams, leaf jamb or None).
 
     `gap` is the BEAM_* classes strictly between the two pieces, in order;
     `jambs`, `spans` and `walls` are the two jambs, their walls' extents along
-    `u` and the walls themselves.
+    `u` and the walls themselves; `t_gap` and `pts_gap` are those beams'
+    crossings along `u` and return points (THE LEAF).
     """
     (j0, j1), (wa, wb) = jambs, walls
     for jamb, (lo, hi) in zip(jambs, spans):
         t = float(u @ jamb)
         if not (lo - p.jamb_extent_tol_m <= t <= hi + p.jamb_extent_tol_m):
-            return 'untracked_jamb', 0, 0
+            return 'untracked_jamb', 0, 0, None
     if wa.track_id != wb.track_id and not collinear(wa, wb, p)[0]:
-        return 'not_collinear', 0, 0
+        return 'not_collinear', 0, 0, None
     width = float(np.hypot(*(j1 - j0)))
     if not (p.width_min_m <= width <= p.width_max_m):
-        return 'width', 0, 0
+        return 'width', 0, 0, None
     if np.any(gap == BEAM_ON):
-        return 'on_line', 0, 0
+        return 'on_line', 0, 0, None
     edge = max(1, int(p.edge_beams))
     if np.any(gap[:edge] == BEAM_SHORT) or np.any(gap[-edge:] == BEAM_SHORT):
-        return 'jamb_occluded', 0, 0
+        return 'jamb_occluded', 0, 0, None
     if np.any(gap == BEAM_SHORT):
-        return 'blocked', 0, 0
+        return 'blocked', 0, 0, None
     if np.any(gap == BEAM_CUT):
-        return 'object', 0, 0
-    if np.any(gap == BEAM_SHALLOW):
-        return 'shallow', 0, 0
-    n_open = int(np.count_nonzero((gap == BEAM_BEYOND) | (gap == BEAM_NONE)))
+        return 'object', 0, 0, None
+    shallow = gap == BEAM_SHALLOW
+    leaf, n_leaf = None, 0
+    if np.any(shallow):
+        if t_gap is None or pts_gap is None:
+            return 'shallow', 0, 0, None
+        # THE LEAF: strict in the core, a leaf hung on a jamb in the outer parts.
+        t0, t1 = float(u @ j0), float(u @ j1)
+        frac = (np.asarray(t_gap, dtype=float) - t0) / (t1 - t0)
+        outer = 0.5 * (1.0 - min(max(float(p.core_fraction), 0.0), 1.0))
+        if np.any(shallow & (frac >= outer) & (frac <= 1.0 - outer)):
+            return 'shallow', 0, 0, None
+        sides = [(shallow & (frac < outer), j0), (shallow & (frac > 1.0 - outer), j1)]
+        hung = [jamb for mask, jamb in sides if np.any(mask)]
+        if len(hung) > 1:
+            return 'not_a_leaf', 0, 0, None     # one leaf per doorway
+        mask, jamb = next((m, j) for m, j in sides if np.any(m))
+        if not is_leaf(np.asarray(pts_gap)[mask], jamb, p):
+            return 'not_a_leaf', 0, 0, None
+        leaf, n_leaf = jamb, int(np.count_nonzero(mask))
+    n_open = int(np.count_nonzero((gap == BEAM_BEYOND) | (gap == BEAM_NONE))) + n_leaf
     va, vb = j0 - lxy, j1 - lxy
     span = abs(math.atan2(float(va[0] * vb[1] - va[1] * vb[0]), float(va @ vb)))
     n_expected = span / inc if math.isfinite(inc) and inc > 0.0 else 0.0
     n_req = max(int(p.min_beams), int(math.ceil(p.min_beam_fraction * n_expected)))
     if n_open < n_req:
-        return 'few_beams', n_open, n_req
-    return '', n_open, n_req
+        return 'few_beams', n_open, n_req, None
+    return '', n_open, n_req, leaf
 
 
 def door_candidates(tracks, car_pose, scan, p=None, rejects=None):
@@ -468,6 +590,51 @@ def lidar_confidence(cand):
 # Stereo support (optional)
 # ============================================================================
 
+def _gap_samples(cand):
+    """
+    Return (gap rectangle (N, 3), floor beyond the line (M, 3)) samples, or None.
+
+    The rectangle runs between the jambs, 0.1 m in from each, every 5 cm, at
+    0.3 .. 1.8 m above the floor; the floor samples lie 0.3 .. 1.2 m past the
+    line along the candidate's normal.
+    """
+    j0, normal = cand.jamb0, cand.normal
+    width = cand.width
+    if width <= 0.2:
+        return None
+    tang = (cand.jamb1 - j0) / width
+    ts = np.arange(0.1, width - 0.1 + 1e-9, 0.05)
+    zs = np.arange(0.3, 1.81, 0.1)
+    xy = j0 + ts[:, None] * tang
+    gap = np.column_stack([np.repeat(xy, zs.size, axis=0), np.tile(zs, ts.size)])
+    beyond = np.array([[*(j0 + t * tang + k * normal), 0.0]
+                       for t in ts for k in (0.3, 0.6, 0.9, 1.2)])
+    return gap, beyond
+
+
+def _sample_mask(points, labels, depth, fx, fy, cx, cy, rotation, translation, max_range,
+                 depth_scale):
+    """(classes, depth m (NaN invalid), expected optical z, n in image, n) of points."""
+    lab = np.asarray(labels)
+    dep = np.asarray(depth)
+    h, w = lab.shape[:2]
+    rot = np.asarray(rotation, dtype=float)
+    trans = np.asarray(translation, dtype=float).reshape(3)
+    uv = scene_mask.project_to_image(points, fx, fy, cx, cy, rot, trans)
+    exp = ((points - trans) @ rot)[:, 2]
+    with np.errstate(invalid='ignore'):
+        ok = (np.isfinite(uv[:, 0]) & (uv[:, 0] >= 0) & (uv[:, 0] < w)
+              & (uv[:, 1] >= 0) & (uv[:, 1] < h) & (exp <= max_range))
+    ui = np.rint(uv[ok, 0]).clip(0, w - 1).astype(int)
+    vi = np.rint(uv[ok, 1]).clip(0, h - 1).astype(int)
+    raw = dep[vi, ui]
+    dz = raw.astype(float) * depth_scale
+    if np.issubdtype(raw.dtype, np.integer):
+        dz[raw == 0] = np.nan
+    dz[~np.isfinite(dz) | (dz <= 0.0)] = np.nan
+    return lab[vi, ui], dz, exp[ok], int(np.count_nonzero(ok)), points.shape[0]
+
+
 def stereo_gap_support(cand, labels, depth, fx, fy, cx, cy, rotation, translation,
                        p=None, depth_scale=1.0):
     """
@@ -483,40 +650,13 @@ def stereo_gap_support(cand, labels, depth, fx, fy, cx, cy, rotation, translatio
     """
     p = p or DoorParams()
     detail = {'coverage': 0.0, 'wall_share': math.nan, 'floor_share': math.nan}
-    j0, j1, normal = cand.jamb0, cand.jamb1, cand.normal
-    width = cand.width
-    if width <= 0.2:
+    samples = _gap_samples(cand)
+    if samples is None:
         return None, detail
-    tang = (j1 - j0) / width
-    ts = np.arange(0.1, width - 0.1 + 1e-9, 0.05)
-    zs = np.arange(0.3, 1.81, 0.1)
-    xy = j0 + ts[:, None] * tang
-    gap = np.column_stack([np.repeat(xy, zs.size, axis=0), np.tile(zs, ts.size)])
-    beyond = np.array([[*(j0 + t * tang + k * normal), 0.0]
-                       for t in ts for k in (0.3, 0.6, 0.9, 1.2)])
-    lab = np.asarray(labels)
-    dep = np.asarray(depth)
-    h, w = lab.shape[:2]
-    rot = np.asarray(rotation, dtype=float)
-    trans = np.asarray(translation, dtype=float).reshape(3)
-
-    def sample(points):
-        uv = scene_mask.project_to_image(points, fx, fy, cx, cy, rot, trans)
-        exp = ((points - trans) @ rot)[:, 2]
-        with np.errstate(invalid='ignore'):
-            ok = (np.isfinite(uv[:, 0]) & (uv[:, 0] >= 0) & (uv[:, 0] < w)
-                  & (uv[:, 1] >= 0) & (uv[:, 1] < h) & (exp <= p.stereo_max_range_m))
-        ui = np.rint(uv[ok, 0]).clip(0, w - 1).astype(int)
-        vi = np.rint(uv[ok, 1]).clip(0, h - 1).astype(int)
-        raw = dep[vi, ui]
-        if np.issubdtype(raw.dtype, np.integer):
-            dz = raw.astype(float) * depth_scale
-            dz[raw == 0] = np.nan
-        else:
-            dz = raw.astype(float) * depth_scale
-        return lab[vi, ui], dz, exp[ok], int(np.count_nonzero(ok)), points.shape[0]
-
-    cls, dz, exp, n_in, n_all = sample(gap)
+    gap, beyond = samples
+    args = (labels, depth, fx, fy, cx, cy, rotation, translation, p.stereo_max_range_m,
+            depth_scale)
+    cls, dz, exp, n_in, n_all = _sample_mask(gap, *args)
     informative = (cls != scene_mask.CLASS_INVALID) & (cls != scene_mask.CLASS_SELF) & \
         (cls != scene_mask.CLASS_OBJECT)
     detail['coverage'] = float(np.count_nonzero(informative)) / max(n_all, 1)
@@ -527,7 +667,7 @@ def stereo_gap_support(cand, labels, depth, fx, fy, cx, cy, rotation, translatio
         wall_at = (cls == scene_mask.CLASS_WALL) & (np.abs(dz - exp) <= tol)
     detail['wall_share'] = float(np.count_nonzero(wall_at)) / max(
         int(np.count_nonzero(informative)), 1)
-    fcls, _fdz, _fexp, f_in, _f_all = sample(beyond)
+    fcls, _fdz, _fexp, f_in, _f_all = _sample_mask(beyond, *args)
     if f_in == 0:
         return None, detail
     floor = (fcls == scene_mask.CLASS_FLOOR) | (fcls == scene_mask.CLASS_FLOOR_INFERRED)
@@ -535,6 +675,45 @@ def stereo_gap_support(cand, labels, depth, fx, fy, cx, cy, rotation, translatio
     support = (detail['wall_share'] <= p.stereo_max_wall_share
                and detail['floor_share'] >= p.stereo_min_floor_share)
     return bool(support), detail
+
+
+def stereo_glass_check(cand, labels, depth, fx, fy, cx, cy, rotation, translation,
+                       p=None, depth_scale=1.0):
+    """
+    Return (veto, glass_suspect, detail) for one base_link candidate.
+
+    The stereo glass veto (stereo_glass_veto; the caller decides whether to
+    act on it). Over the gap's image rectangle, WALL pixels whose VALID depth
+    is within stereo_plane_tol_m of the wall line's own depth at that pixel
+    are a surface ON the line: at least stereo_wall_veto_frac of the valid
+    samples and the gap is a pane, veto True ('stereo_wall'). Wall pixels
+    farther than that -- the room behind an open door -- never count. With
+    less than stereo_min_valid_frac of the samples carrying valid depth the
+    stereo cannot say: no veto, glass_suspect True. veto is None (and
+    glass_suspect False) when the camera does not cover the gap at all.
+    Depths are optical z, the ZED's own depth convention.
+    """
+    p = p or DoorParams()
+    detail = {'coverage': 0.0, 'valid_frac': math.nan, 'on_line_frac': math.nan}
+    samples = _gap_samples(cand)
+    if samples is None:
+        return None, False, detail
+    cls, dz, exp, n_in, n_all = _sample_mask(
+        samples[0], labels, depth, fx, fy, cx, cy, rotation, translation,
+        p.stereo_max_range_m, depth_scale)
+    detail['coverage'] = n_in / max(n_all, 1)
+    if n_in == 0 or detail['coverage'] < p.stereo_min_coverage:
+        return None, False, detail
+    valid = np.isfinite(dz)
+    n_valid = int(np.count_nonzero(valid))
+    detail['valid_frac'] = n_valid / n_in
+    if detail['valid_frac'] < p.stereo_min_valid_frac:
+        return False, True, detail
+    with np.errstate(invalid='ignore'):
+        on_line = (cls == scene_mask.CLASS_WALL) & valid & \
+            (np.abs(dz - exp) <= p.stereo_plane_tol_m)
+    detail['on_line_frac'] = float(np.count_nonzero(on_line)) / n_valid
+    return detail['on_line_frac'] >= p.stereo_wall_veto_frac, False, detail
 
 
 # ============================================================================
@@ -569,6 +748,10 @@ class DoorTrack:
     stereo_support: bool = False
     parents: tuple = (0, 0)
     n_beams: int = 0
+    #: LEAF_*, of the last sighting, relative to `normal`.
+    leaf_side: int = LEAF_NONE
+    #: The last glass check said the gap's depth was mostly invalid.
+    glass_suspect: bool = False
 
     @property
     def centre(self):
@@ -696,6 +879,13 @@ class DoorTracker:
         door.last_seen = stamp
         door.parents = tuple(int(x) for x in cand.parents)
         door.n_beams = int(cand.n_beams)
+        # The leaf side is relative to the crossing normal, which this door
+        # keeps from birth: a sighting from the other side mirrors it.
+        flipped = float(normal @ door.normal) < 0.0
+        door.leaf_side = ({LEAF_LEFT: LEAF_RIGHT, LEAF_RIGHT: LEAF_LEFT}.get(
+            cand.leaf_side, cand.leaf_side) if flipped else cand.leaf_side)
+        if cand.glass_suspect is not None:
+            door.glass_suspect = bool(cand.glass_suspect)
         door.confidence = (1.0 - a) * door.confidence + a * self._confidence(cand)
         if cand.stereo_support is not None:
             door.stereo_support = bool(cand.stereo_support)
@@ -710,7 +900,8 @@ class DoorTracker:
     def _spawn(self, j0, j1, normal, cand, stamp):
         door = DoorTrack(self._next_id, j0.copy(), j1.copy(), normal.copy(), stamp, stamp,
                          parents=tuple(int(x) for x in cand.parents),
-                         n_beams=int(cand.n_beams))
+                         n_beams=int(cand.n_beams), leaf_side=int(cand.leaf_side),
+                         glass_suspect=bool(cand.glass_suspect))
         door.history = collections.deque([True], maxlen=max(1, int(self.p.confirm_window)))
         door.confidence = self._confidence(cand)
         door.stereo_support = bool(cand.stereo_support)

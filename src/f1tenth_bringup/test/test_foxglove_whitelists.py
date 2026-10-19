@@ -61,6 +61,7 @@ def test_topics_allow_only_the_viz_relays_and_latched_topics():
         '/joint_states',
         '/perception/walls/markers',       # pass-through: per-id DELETEs
         '/viz/walls',                      # covered by '^/viz/.*'
+        '/viz/doors',                      # door markers, covered by '^/viz/.*'
         '/map',
         '/mission/move_outcome',
         '/mission/status',

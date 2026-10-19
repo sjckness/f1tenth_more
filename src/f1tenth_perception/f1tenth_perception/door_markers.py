@@ -1,9 +1,10 @@
 """
 /viz/doors: every door track door_detection holds, drawn for Foxglove.
 
-Published by lidar_front_wall_node on the wall tracker's cycle, only while
-something is subscribed (the /viz/walls bargain), in the tracker's fixed
-frame. '^/viz/.*' in foxglove_topic_whitelist already carries it across the
+Published by lidar_front_wall_node on EVERY wall tracker cycle while door
+detection is on, subscribed or not (unlike /viz/walls), so the mission logger
+records it and recorded runs show doors in Foxglove too; in the tracker's
+fixed frame. '^/viz/.*' in foxglove_topic_whitelist carries it across the
 bridge. Nothing consumes it.
 
 HOW A DOOR IS DRAWN. Four marker slots per door, so one door's markers never
@@ -12,7 +13,8 @@ collide with another's and each can be deleted by id:
     4 * door.id + 0   CYLINDER     jamb0: diameter jamb_diameter_m, height_m tall,
     4 * door.id + 1   CYLINDER     jamb1  standing on the floor (z = 0)
     4 * door.id + 2   LINE_STRIP   the threshold, jamb to jamb, on the floor
-    4 * door.id + 3   TEXT         "door <id> <width>m <state>[ OCCUPIED]"
+    4 * door.id + 3   TEXT         "door <id> <width>m <state>[ leaf <side>]
+                                    [ glass?][ OCCUPIED]"
 
 Colour is OCCUPIED (orange) or not (green); alpha is the STATE: tentative
 faded, confirmed solid, coasting dimmed. A door that dies gets a DELETE on
@@ -63,8 +65,13 @@ def colour_of(door):
 
 
 def label_of(door):
-    """Return the text a door is labelled with: id, width, state, occupancy."""
+    """Return the text a door is labelled with: id, width, state, leaf, flags."""
     text = f'door {door.id} {door.width:.2f}m {dd.STATE_NAMES.get(door.state, "?")}'
+    leaf = getattr(door, 'leaf_side', dd.LEAF_NONE)
+    if leaf != dd.LEAF_NONE:
+        text += f' leaf {dd.LEAF_NAMES[leaf]}'
+    if getattr(door, 'glass_suspect', False):
+        text += ' glass?'
     return text + (' OCCUPIED' if door.occupied else '')
 
 

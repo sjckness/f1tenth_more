@@ -422,8 +422,14 @@ ROT = np.array([[0.0, 0.0, 1.0], [-1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
 CAM_T = np.array([0.12, 0.0, 0.3])
 
 
-def render(gap=True):
-    """(labels, depth_mm) of the door scene seen by a forward camera."""
+def render(gap=True, pane_depth=True):
+    """
+    Return (labels, depth_mm) of the door scene seen by a forward camera.
+
+    gap False closes the doorway with a surface ON the wall line (a pane the
+    stereo ranged). pane_depth False leaves that surface's depth invalid (0):
+    a pane the stereo saw as WALL-coloured but could not range.
+    """
     u, v = np.meshgrid(np.arange(W), np.arange(H))
     d_opt = np.stack([(u - CX) / FX, (v - CY) / FX, np.ones_like(u, dtype=float)], -1)
     d = d_opt @ ROT.T                              # base_link ray per unit optical z
@@ -443,6 +449,9 @@ def render(gap=True):
                 ok &= np.abs(y) > 0.425
             best = np.where(ok, s, best)
             cls[ok] = scene_mask.CLASS_WALL
+            if is_front and not gap and not pane_depth:
+                pane = ok & (np.abs(y) <= 0.425)
+                best = np.where(pane, 0.0, best)
     depth = np.where(np.isfinite(best), np.round(best * 1000.0), 0).astype(np.uint16)
     return cls, depth
 
@@ -516,3 +525,195 @@ class TestThroughTheRealTracker:
         assert out[0].centre == pytest.approx([WALL_X, 0.0], abs=0.04)
         live = {t.id for t in tracker.tracks}
         assert set(out[0].parents) <= live
+
+
+# ==============================================================================
+# THE COLLINEAR GAP RULE (multi_wall_tracker): merge gap = door_width_min_m
+# ==============================================================================
+
+def run_real_tracker(segments, cycles=6):
+    """Run the real extraction and MultiWallTracker on segments; return (tracker, doors)."""
+    tracker = mwt.MultiWallTracker()
+    tracker.laser_xy = LASER[:2]
+    p = mwt.extraction_params(backend='python')
+    doors = dd.DoorTracker()
+    out = []
+    for i in range(cycles):
+        ranges = raycast(ORIGIN, segments, seed=i)
+        lines = mwt.extract_lines(ranges, ANGLE_MIN, INC, 0.06, 30.0, LASER, params=p)
+        obs = [wall_fusion.Observation(mwt.line_to_wall_line(ln), 0.0, 2.5, False,
+                                       wall_fusion.SOURCE_LIDAR, 0.8) for ln in lines]
+        scan = scan_of(ranges)
+        tracker.step(obs, 0.1 * i, ORIGIN, scan=scan)
+        out = doors.step(dd.door_candidates(tracker.tracks, ORIGIN, scan), ORIGIN, 0.1 * i)
+    return tracker, out
+
+
+def walls_on_the_line(tracker):
+    """Return the confirmed tracks on the x = 3 wall line, ordered along it."""
+    on = [t for t in tracker.tracks if t.ever_confirmed
+          and abs(t.rho - WALL_X) < 0.1 and abs(math.sin(t.theta)) < 0.1]
+    return sorted(on, key=lambda t: t.t0)
+
+
+class TestTheCollinearGapRule:
+
+    def test_a_0_5_m_gap_is_merged_into_one_wall(self):
+        tracker, doors = run_real_tracker(wall_with_gap(-0.25, 0.25) + back_wall())
+        assert len(walls_on_the_line(tracker)) == 1
+        assert doors == []
+
+    def test_a_0_85_m_gap_stays_two_walls_with_one_door_between_them(self):
+        tracker, doors = run_real_tracker(DOOR_SCENE)
+        walls = walls_on_the_line(tracker)
+        assert len(walls) == 2
+        assert walls[0].t1 < -0.4 and walls[1].t0 > 0.4      # neither spans the door
+        assert len(doors) == 1 and doors[0].state == dd.STATE_CONFIRMED
+        assert set(doors[0].parents) == {walls[0].id, walls[1].id}
+
+    def test_a_1_4_m_gap_stays_two_walls_and_is_no_door(self):
+        tracker, doors = run_real_tracker(wall_with_gap(-0.7, 0.7) + back_wall())
+        assert len(walls_on_the_line(tracker)) == 2
+        assert doors == []
+
+    def test_the_extractions_merge_reads_the_same_number(self):
+        """The extraction alone: 0.5 m merged, 0.85 m not (one source of truth)."""
+        p = mwt.extraction_params(backend='python')
+        for half, n in ((0.25, 1), (0.425, 2)):
+            ranges = raycast(ORIGIN, wall_with_gap(-half, half) + back_wall())
+            lines = mwt.extract_lines(ranges, ANGLE_MIN, INC, 0.06, 30.0, LASER, params=p)
+            assert len([ln for ln in lines if abs(ln.rho - WALL_X) < 0.15]) == n
+
+    def test_the_door_search_inside_one_track_is_kept_as_a_fallback(self):
+        """A track that spans the doorway anyway (e.g. joined before the rule)."""
+        cands, _ = candidates(one_wall(), DOOR_SCENE)
+        assert len(cands) == 1 and cands[0].parents == (1, 1)
+
+
+# ==============================================================================
+# THE LEAF: an open door leaf hung on a jamb
+# ==============================================================================
+
+def leaf(deg, hinge=(WALL_X, -0.425), length=0.85, towards=1.0):
+    """Return an open leaf hinged at `hinge`, `deg` from the wall line, as a segment."""
+    th = math.radians(deg)
+    end = (hinge[0] + length * math.sin(th), hinge[1] + towards * length * math.cos(th))
+    return [(hinge, end)]
+
+
+class TestTheLeaf:
+
+    def test_a_leaf_open_at_90_deg_on_the_right_jamb_is_a_door_with_its_side(self):
+        cands, rejects = candidates(one_wall(), DOOR_SCENE + leaf(90.0))
+        assert len(cands) == 1, rejects
+        assert cands[0].width == pytest.approx(0.85, abs=0.04)
+        # Looking along the crossing normal (+x), y < 0 is the RIGHT jamb.
+        assert cands[0].leaf_side == dd.LEAF_RIGHT
+
+    def test_a_leaf_on_the_left_jamb_says_left(self):
+        left_leaf = leaf(90.0, hinge=(WALL_X, 0.425), towards=-1.0)
+        cands, _ = candidates(one_wall(), DOOR_SCENE + left_leaf)
+        assert [c.leaf_side for c in cands] == [dd.LEAF_LEFT]
+
+    def test_no_leaf_is_none(self):
+        cands, _ = candidates(one_wall(), DOOR_SCENE)
+        assert cands[0].leaf_side == dd.LEAF_NONE
+
+    def test_a_leaf_open_at_45_deg_crosses_the_core_and_needs_a_smaller_core(self):
+        """
+        Reject a 45 deg leaf with the default core, accept it with a 0.3 core.
+
+        At 45 deg the leaf passes through the central 60 % less than 0.30 m
+        past the line.
+        """
+        cands, rejects = candidates(one_wall(), DOOR_SCENE + leaf(45.0))
+        assert cands == []
+        assert codes(rejects) == {'shallow'}
+        cands, _ = candidates(one_wall(), DOOR_SCENE + leaf(45.0),
+                              p=dd.DoorParams(core_fraction=0.3))
+        assert [c.leaf_side for c in cands] == [dd.LEAF_RIGHT]
+
+    def test_a_box_face_in_the_outer_part_is_not_a_leaf(self):
+        """A box 0.2 m past the line beside the jamb: its face misses the hinge."""
+        box = [((WALL_X + 0.2, -0.40), (WALL_X + 0.2, -0.30)),
+               ((WALL_X + 0.2, -0.30), (WALL_X + 0.35, -0.30))]
+        cands, rejects = candidates(one_wall(), DOOR_SCENE + box)
+        assert cands == []
+        assert codes(rejects) == {'not_a_leaf'}
+
+    def test_a_box_corner_in_the_outer_part_is_not_a_leaf(self):
+        """A box turned corner-on, in the outer part: two faces, not one leaf."""
+        box = [((WALL_X + 0.28, -0.41), (WALL_X + 0.12, -0.34)),
+               ((WALL_X + 0.12, -0.34), (WALL_X + 0.28, -0.27))]
+        cands, rejects = candidates(one_wall(), DOOR_SCENE + box)
+        assert cands == []
+        assert codes(rejects) <= {'not_a_leaf', 'shallow'} and rejects
+
+    def test_is_leaf_wants_a_straight_segment_starting_at_the_jamb(self):
+        p = dd.DoorParams()
+        jamb = np.array([0.0, 0.0])
+        along = np.array([[0.0, 0.2], [0.0, 0.4], [0.0, 0.6]])
+        assert dd.is_leaf(along, jamb, p)
+        assert not dd.is_leaf(along + [0.2, 0.0], jamb, p)           # misses the hinge
+        assert not dd.is_leaf(np.array([[0.0, -0.3], [0.0, 0.3]]), jamb, p)  # through it
+        assert not dd.is_leaf(np.array([[0.0, 0.5], [0.0, 1.2]]), jamb, p)   # too long
+        assert not dd.is_leaf(np.array([[0.0, 0.2], [0.1, 0.4], [0.0, 0.6]]), jamb, p)
+
+    def test_the_leaf_side_is_mirrored_for_a_sighting_from_the_other_side(self):
+        tracker = dd.DoorTracker()
+        cand = door_candidate()
+        cand.leaf_side = dd.LEAF_RIGHT
+        tracker.step([cand], ORIGIN, 0.0)
+        other = door_candidate()
+        other.normal = -other.normal
+        other.leaf_side = dd.LEAF_LEFT
+        doors = tracker.step([other], ORIGIN, 0.1)
+        assert doors[0].leaf_side == dd.LEAF_RIGHT
+
+
+# ==============================================================================
+# The stereo glass veto (stereo_glass_veto, OFF by default)
+# ==============================================================================
+
+def glass_check(**render_kw):
+    labels, depth = render(**render_kw)
+    return dd.stereo_glass_check(door_candidate(), labels, depth, FX, FX, CX, CY, ROT,
+                                 CAM_T, depth_scale=0.001)
+
+
+class TestGlassVeto:
+
+    def test_it_is_off_by_default(self):
+        assert dd.DoorParams().stereo_glass_veto is False
+
+    def test_a_real_door_with_a_far_wall_behind_is_kept(self):
+        """The room behind is WALL in the mask, but beyond the line: it never counts."""
+        veto, suspect, detail = glass_check(gap=True)
+        assert veto is False and suspect is False
+        assert detail['on_line_frac'] < 0.1
+
+    def test_glass_on_the_line_with_valid_depth_is_vetoed(self):
+        veto, suspect, detail = glass_check(gap=False)
+        assert veto is True and suspect is False
+        assert detail['on_line_frac'] >= 0.5
+
+    def test_glass_with_invalid_depth_is_kept_and_flagged(self):
+        veto, suspect, detail = glass_check(gap=False, pane_depth=False)
+        assert veto is False and suspect is True
+        assert detail['valid_frac'] < 0.5
+
+    def test_no_camera_view_is_no_opinion(self):
+        labels = np.zeros((H, W), dtype=np.uint8)
+        depth = np.zeros((H, W), dtype=np.uint16)
+        cand = door_candidate()
+        cand.jamb0, cand.jamb1 = -cand.jamb0, -cand.jamb1       # behind the camera
+        veto, suspect, _ = dd.stereo_glass_check(cand, labels, depth, FX, FX, CX, CY, ROT,
+                                                 CAM_T, depth_scale=0.001)
+        assert veto is None and suspect is False
+
+    def test_glass_suspect_rides_on_the_door(self):
+        tracker = dd.DoorTracker()
+        cand = door_candidate()
+        cand.glass_suspect = True
+        doors = tracker.step([cand], ORIGIN, 0.0)
+        assert doors[0].glass_suspect is True

@@ -1395,14 +1395,53 @@ class TestDoors:
         finally:
             n.destroy_node()
 
-    def test_nothing_is_built_for_viz_doors_when_no_one_is_subscribed(self):
+    def test_viz_doors_is_published_every_cycle_even_with_no_subscriber(self):
+        """So a mission bag records it: doors show in Foxglove on recorded runs."""
         n = self._node()
         try:
             n.viz_doors_pub.get_subscription_count.return_value = 0
+            self._drive(n, cycles=5)
+            assert n.viz_doors_pub.publish.call_count == n.doors_pub.publish.call_count == 5
+            assert _last(n.doors_pub).doors
+            assert _last(n.viz_doors_pub).markers
+        finally:
+            n.destroy_node()
+
+    @staticmethod
+    def _pane_geometry():
+        """Return the mask/depth of a pane ON the wall line across the doorway."""
+        from test_door_detection import CAM_T, CX, CY, FX, ROT, render
+        labels, depth = render(gap=False)
+        return (labels, depth, FX, FX, CX, CY, ROT, CAM_T)
+
+    def test_the_glass_veto_rejects_a_pane_only_when_it_is_on(self):
+        for veto_on, expect_door in ((False, True), (True, False)):
+            n = self._node(door_stereo_glass_veto=veto_on, virtual_wall_rate_hz=0.0)
+            try:
+                n._door_mask_geometry = lambda stamp: self._pane_geometry()
+                self._drive(n)
+                assert bool(_last(n.doors_pub).doors) is expect_door
+                rejects = json.loads(_last(n.virtual_debug_pub).data)['door_rejects']
+                assert any(r[0] == 'stereo_wall' for r in rejects) is (not expect_door)
+            finally:
+                n.destroy_node()
+
+    def test_the_door_carries_its_leaf_side_and_glass_flag_on_the_wire(self):
+        n = self._node()
+        try:
             self._drive(n)
-            assert not n.viz_doors_pub.publish.called
-            assert n._viz_doors_builder.drawn_ids == set()
-            assert _last(n.doors_pub).doors      # the data topic still goes out
+            door = _last(n.doors_pub).doors[0]
+            assert door.leaf_side == door.LEAF_NONE
+            assert door.glass_suspect is False
+        finally:
+            n.destroy_node()
+
+    def test_one_parameter_is_the_door_width_and_the_collinear_gap(self):
+        n = self._node(door_width_min_m=0.8)
+        try:
+            assert n.door_params.width_min_m == pytest.approx(0.8)
+            assert n.wall_tracker.p.collinear_gap_m == pytest.approx(0.8)
+            assert n.extraction_params.merge_gap == pytest.approx(0.8)
         finally:
             n.destroy_node()
 

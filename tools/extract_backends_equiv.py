@@ -76,7 +76,8 @@ def main():
         same = clean_ranges(as32.astype(np.float64), -math.inf, math.inf)
         out = {}
         for backend in ('python', 'c'):
-            p = mwt.extraction_params(1.5, quality_gates=True)
+            # The stack's merge gap (THE COLLINEAR GAP RULE: door_width_min_m).
+            p = mwt.extraction_params(None, quality_gates=True)
             p.backend = backend
             st = {}
             t0 = time.perf_counter()
