@@ -3,7 +3,7 @@
 <package format="3">
   <name>f1tenth_control</name>
   <version>0.0.1</version>
-  <description>Metapackage aggregating the F1TENTH control packages (MPC controller).</description>
+  <description>F1TENTH control: the drive-command mux wiring, the MPC launch files, and the last-resort LiDAR stop (hard_stop_node).</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>
 
@@ -20,6 +20,15 @@
        depending on it here (not f1tenth_bringup) avoids a build-order cycle,
        since f1tenth_bringup itself includes this package's launch file. -->
   <exec_depend>f1tenth_params</exec_depend>
+  <!-- hard_stop_node: /scan in, a zero-speed AckermannDriveStamped out on the
+       mux's priority-200 safety lane, plus a JSON diagnostic. f1tenth_description
+       supplies the footprint the self-hit mask is built from (base_front_x), so the
+       mask is the URDF's own geometry and not a constant copied into this package. -->
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>ackermann_msgs</exec_depend>
+  <exec_depend>f1tenth_description</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
