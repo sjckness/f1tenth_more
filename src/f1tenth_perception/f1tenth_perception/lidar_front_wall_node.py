@@ -265,7 +265,9 @@ without it, the node logs an ERROR at startup and the tracker stays off.
     `short_obs` in /perception/virtual_wall/debug.
   * Up to 4 wall tracks in odom go out on /perception/walls
     (f1tenth_messages/MultiWallTrackArray), with line and text markers on
-    /perception/walls/markers.
+    /perception/walls/markers. Roles on the wire are front | back | left |
+    right | unknown ('other' until 2026-10-19; readers accept both), and a
+    TENTATIVE track is 'unknown' whatever its geometry (mwt.reported_role).
   * The heading wall: the front track (multi_wall_tracker.front_track and
     its WHAT FRONT REQUIRES: confirmed, not contradicted by the travel
     strip's own beams, its MEASURED segment meeting the strip, a LiDAR fit in
@@ -401,9 +403,12 @@ def _yaw_from_quaternion(q):
 #: Marker colours by role (r, g, b).
 _ROLE_COLOUR = {'front': (1.0, 0.25, 0.1), 'left': (0.2, 0.9, 0.3),
                 'right': (0.2, 0.5, 1.0), 'back': (0.6, 0.6, 0.6),
-                # 'other' is real and tracked and is a reference for nothing,
-                # so it is drawn -- dimly, and in nobody else's colour.
-                'other': (0.35, 0.35, 0.4)}
+                # 'unknown' is real and tracked and is a reference for
+                # nothing (and every tentative track is reported as it), so
+                # it is drawn -- dimly, in a neutral grey nobody else uses.
+                'unknown': (0.35, 0.35, 0.35),
+                # Its name before 2026-10-19, same colour.
+                'other': (0.35, 0.35, 0.35)}
 
 
 def _set_lifetime(marker, seconds):
@@ -1781,10 +1786,12 @@ class LidarFrontWallNode(Node):
     def _track_payload(self):
         """Every LIVE track as a dict, for /perception/virtual_wall/debug.
 
-        Not only the published four: the whole point of 'other' and of the
+        Not only the published four: the whole point of 'unknown' and of the
         rectangle's REJECTED is that a track can be real, tracked and a
         reference for nothing, and a payload that showed only the published
-        ones would hide exactly those.
+        ones would hide exactly those. `role` is the REPORTED one
+        (mwt.reported_role): 'unknown' for a tentative track, as on
+        /perception/walls and /viz/walls.
         """
         car = self._car_pose
         if not self.debug_tracks or self.wall_tracker is None or car is None:
@@ -1796,7 +1803,7 @@ class LidarFrontWallNode(Node):
             bl = mwt.track_in_base_link(trk, car)
             _perp, d_ray = mwt.front_distances(trk, car, self.front_x)
             out.append({
-                'id': int(trk.id), 'role': trk.role,
+                'id': int(trk.id), 'role': mwt.reported_role(trk),
                 'state': mwt.STATE_NAMES.get(trk.state), 'hits': int(trk.hits),
                 'age_s': num((self.wall_tracker._last_stamp or trk.born) - trk.born),
                 'length_m': num(trk.length), 'rho_bl': num(bl.rho),
@@ -1844,7 +1851,11 @@ class LidarFrontWallNode(Node):
         markers = MarkerArray()
         for trk in tracks:
             bl = mwt.track_in_base_link(trk, car)
-            label = self.wall_tracker.label(trk, car)
+            # The REPORTED role (mwt.reported_role): a TENTATIVE track is
+            # 'unknown' on the wire and in its marker whatever its geometry
+            # says. The tracker's own Track.role, which FRONT and published()
+            # read, is not touched.
+            label = mwt.reported_role(trk, self.wall_tracker.label(trk, car))
             d_perp, d_ray = mwt.front_distances(trk, car, self.front_x)
             (x0, y0), (x1, y1) = trk.endpoints()
             m = MultiWallTrack()
@@ -1901,7 +1912,7 @@ class LidarFrontWallNode(Node):
             slab.scale.x = max(float(length), 0.01)
             slab.scale.y = self.wall_marker_thickness_m
             slab.scale.z = max(float(z_top), 0.01)
-            r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR['other'])
+            r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR[mwt.ROLE_UNKNOWN])
             slab.color.r, slab.color.g, slab.color.b = r, g, b
             # A wall only assumed to be this tall is drawn fainter than one
             # whose height was actually seen.

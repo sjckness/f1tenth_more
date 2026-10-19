@@ -203,7 +203,7 @@ def test_a_camera_wall_too_far_out_is_not_a_side_wall():
     feed(t, [side(4.5)], 8)
     assert t.tracks
     t.update_roles(ORIGIN)
-    assert t.tracks[0].role == 'other', 'the far side of a hall is not a reference wall'
+    assert t.tracks[0].role == 'unknown', 'the far side of a hall is not a reference wall'
 
 
 def test_the_lidar_keeps_its_own_wider_zone():

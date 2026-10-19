@@ -4,16 +4,21 @@ WHY A SECOND TOPIC AND NOT A WIDER /perception/walls/markers.
 /perception/walls/markers draws what the node ASSERTS to the rest of the
 stack: wall_tracker.published(), which is at most four ever-confirmed tracks
 with a front/left/right/back role, and which deliberately never spends a slot
-on 'other' (multi_wall_tracker.published()'s own docstring). That topic is
+on 'unknown' (multi_wall_tracker.published()'s own docstring). That topic is
 also recorded into every mission bag, so widening it would change the meaning
 of a signal past runs are analysed against.
 
 This topic is the other question -- "what does the tracker actually hold right
-now" -- and answers it with EVERY track: 'other', tentative, coasting and
+now" -- and answers it with EVERY track: 'unknown', tentative, coasting and
 rejected included, because the walls that are missing from the four slots are
 exactly the ones you are looking at Foxglove to understand. It asserts
 nothing, nothing consumes it, and it is published only while something is
 subscribed.
+
+A TENTATIVE track is drawn as 'unknown' (multi_wall_tracker.reported_role),
+grey and labelled so, whatever its geometry says: it has not earned a role
+yet. 'unknown' was 'other' until 2026-10-19; ROLE_COLOUR keeps an 'other' key
+in the same grey, and role_of reads it (and '') as 'unknown'.
 
 HOW A TRACK IS DRAWN. Four marker slots per track, so one track's markers can
 never collide with another's and each can be deleted by id:
@@ -57,14 +62,16 @@ NS = 'viz_walls'
 SLOT_LINE, SLOT_PRISM, SLOT_TEXT, SLOT_GLASS = 0, 1, 2, 3
 SLOTS = (SLOT_LINE, SLOT_PRISM, SLOT_TEXT, SLOT_GLASS)
 
-#: Role -> (r, g, b). 'other' is the role for a wall that is a reference for
-#: nothing; it is the whole point of this topic that it is still drawn.
+#: Role -> (r, g, b). 'unknown' is the role for a wall that is a reference for
+#: nothing, and every tentative track's; it is the whole point of this topic
+#: that it is still drawn. 'other' is its name before 2026-10-19, same colour.
 ROLE_COLOUR = {
     'front': (1.00, 0.15, 0.10),   # red: the one that can stop the car
     'left': (0.15, 0.35, 1.00),    # blue
     'right': (1.00, 0.85, 0.10),   # yellow
     'back': (0.60, 0.60, 0.60),    # grey
-    'other': (0.30, 0.30, 0.35),   # dark grey
+    'unknown': (0.30, 0.30, 0.30),  # dark neutral grey
+    'other': (0.30, 0.30, 0.30),   # legacy name of 'unknown'
 }
 #: A pane the stereo saw through and the LiDAR ranged: outlined, not filled,
 #: because its colour already means its role.
@@ -87,12 +94,14 @@ TEXT_CLEARANCE_M = 0.15
 
 
 def role_of(track):
-    """The track's role, with the empty sticky role read as 'other'.
+    """The role the track is drawn with: multi_wall_tracker.reported_role.
 
-    update_roles() leaves role '' on a track it has not classified yet; that
-    is a wall that is a reference for nothing, which is what 'other' means.
+    'unknown' for a TENTATIVE track whatever its geometry says, and for the
+    empty role (update_roles() has not classified the track yet) and the
+    legacy 'other': each of those is a wall that is a reference for nothing,
+    which is what 'unknown' means.
     """
-    return track.role or 'other'
+    return mwt.reported_role(track)
 
 
 def state_word(track):
@@ -104,7 +113,9 @@ def state_word(track):
     confirmed outranks any verdict: a track that has not earned confirmation
     is tentative whatever the rectangle said about it.
     """
-    if not track.ever_confirmed or track.state == mwt.STATE_TENTATIVE:
+    # The same test reported_role uses, so a track drawn 'unknown' because it
+    # is tentative is also SAID to be tentative.
+    if mwt.is_tentative(track):
         return 'tentative'
     if track.verify == wall_fusion.VERIFY_REJECTED:
         return 'rejected'
@@ -200,7 +211,7 @@ class WallMarkerBuilder:
     def _track_markers(self, track, stamp, frame_id, distance):
         (x0, y0), (x1, y1) = track.endpoints()
         role = role_of(track)
-        r, g, b = ROLE_COLOUR.get(role, ROLE_COLOUR['other'])
+        r, g, b = ROLE_COLOUR.get(role, ROLE_COLOUR[mwt.ROLE_UNKNOWN])
         alpha = alpha_of(track)
         z_min, z_max = 0.0, self.wall_height_m
 

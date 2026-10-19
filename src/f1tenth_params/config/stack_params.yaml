@@ -2971,7 +2971,7 @@ lidar_front_wall_front_contradict_margin_m:
   description: "The travel strip's nearest LiDAR return, from the bumper, more than this [m] BEYOND where the strip meets a track CONTRADICTS the track: every in-strip beam went through where the wall should be. Within it the strip SUPPORTS the track; nearer is BLOCKED (a nearer surface, no evidence); no return at all (glass, range, beams cut for an object) is NO_RETURNS, never free space. 0.5 m is front_phantom_replay's PHANTOM_MARGIN_M. Applies to every confirmed track that meets the strip, LiDAR-fitted or not (a fit across an opening is what the extraction's 1.5 m collinear merge can build in one scan), and to GLASS too."
 lidar_front_wall_front_contradict_cycles:
   default: 2
-  description: "Consecutive CONTRADICTED tracker cycles that mark a track CONTRADICTED: it is no longer FRONT, its role becomes 'other', it stops occluding the wall the beams actually reach, and only a cycle whose strip SUPPORTS it again clears the mark. It is not deleted (deleting a FRONT used to latch NO_DATA). A coasting FRONT is dropped on the FIRST contradicting scan (lidar_front_wall_wall_tracker_front_max_coast_sec)."
+  description: "Consecutive CONTRADICTED tracker cycles that mark a track CONTRADICTED: it is no longer FRONT, its role becomes 'unknown', it stops occluding the wall the beams actually reach, and only a cycle whose strip SUPPORTS it again clears the mark. It is not deleted (deleting a FRONT used to latch NO_DATA). A coasting FRONT is dropped on the FIRST contradicting scan (lidar_front_wall_wall_tracker_front_max_coast_sec)."
 lidar_front_wall_front_clear_range_m:
   default: 2.0
   description: "r_clear [m, from the bumper]. With no FRONT track the virtual wall is CLEAR. If the travel strip still holds a LiDAR return nearer than this, /perception/virtual_wall/debug says front_reason 'unexplained_returns' -- an object, a contradicted or still-tentative wall -- but the contract stays CLEAR: objects are front_clearance's and IsProximityTooClose's business, a wall invented from raw returns is the phantom path all over again, and NO_DATA (-1) would hold the car on data that is not missing. Diagnostic only; 2.0 m is about 4 s at the mission speed."
@@ -3122,8 +3122,8 @@ lidar_front_wall_wall_min_span_update_m:
 # car happens to be along it -- and it is how a wall whose normal happened to
 # point forwards became the FRONT wall at 1.1 m (corridor_phantom). A role is
 # now GEOMETRY: in the car's strip, or beside the car with a lateral normal,
-# or 'other'. 'other' is a first-class answer: tracked, drawn, a reference for
-# nothing.
+# or 'unknown'. 'unknown' is a first-class answer: tracked, drawn, a reference
+# for nothing.
 lidar_front_wall_wall_role_back_x_m:
   default: 0.0
   description: "Rear edge [m, base_link] of the car-width strip for the BACK role. The description has no measured rear bumper (only base_front, vehicle_frames.base_front_x), so base_link's own origin is the boundary and this is the parameter that says so. A segment inside the strip but between back_x and the bumper is BESIDE the car, not in its way, and gets neither front nor back."
@@ -3141,7 +3141,7 @@ lidar_front_wall_wall_role_hysteresis_m:
   description: "Length half of the role hysteresis [m]: a track keeps the role it has while the same geometric test still passes with every threshold relaxed by this much (and the normal sector by lidar_front_wall_role_hysteresis_rad). Without it a wall sitting on a threshold changes role every scan as the car wobbles, and so does every consumer keyed on it."
 lidar_front_wall_wall_occlusion_margin_m:
   default: 0.1
-  description: "How much nearer [m] a confirmed wall must be crossed by the ray LiDAR->point for that point to count as BEHIND it (first obstacle). Five points along each segment; 3 of 5 behind a confirmed wall makes the role 'other'. A LiDAR beam reports its FIRST return, so a line fitted behind a wall the same scan also saw is not a surface that scan observed -- it is the far side of the room through a gap, or a reflection. GLASS COUNTS AS A BLOCKER: a pane really does stop the LiDAR, which is why it has a track at all. The 5-and-3 shape is in the code (TrackerParams.occlusion_points/_min_blocked), not here: it is the rule, not a knob."
+  description: "How much nearer [m] a confirmed wall must be crossed by the ray LiDAR->point for that point to count as BEHIND it (first obstacle). Five points along each segment; 3 of 5 behind a confirmed wall makes the role 'unknown'. A LiDAR beam reports its FIRST return, so a line fitted behind a wall the same scan also saw is not a surface that scan observed -- it is the far side of the room through a gap, or a reflection. GLASS COUNTS AS A BLOCKER: a pane really does stop the LiDAR, which is why it has a track at all. The 5-and-3 shape is in the code (TrackerParams.occlusion_points/_min_blocked), not here: it is the rule, not a knob."
 lidar_front_wall_wall_negative_tol_m:
   default: 0.15
   description: "How close [m] a beam's return must be to where it would meet a track's line to count as a HIT rather than a PASS (negative evidence). A beam more than this BEYOND the line went through where the wall should be; one SHORT of it is blocked by something nearer and says nothing about this wall. A no-return beam is a PASS: at these ranges a wall returns."
@@ -3179,7 +3179,7 @@ lidar_front_wall_wall_rect_support_verify:
   description: "Weighted fraction of the informative rectangle samples that must be AT or BEYOND the line for the track to become VERIFIED. A majority of what the stereo could speak about says the surface is there."
 lidar_front_wall_wall_rect_support_reject:
   default: 0.2
-  description: "Support at or below which the track becomes REJECTED -- four of five informative samples are an OBJECT, or a surface NEARER than the line. A REJECTED track is still tracked and still drawn; it is simply not a reference wall (its role becomes 'other'). Between this and the verify threshold NOTHING happens: the state is sticky and the dead band is the hysteresis, for the same reason the span gate and the role have one, and because the cost of the two mistakes is not symmetric."
+  description: "Support at or below which the track becomes REJECTED -- four of five informative samples are an OBJECT, or a surface NEARER than the line. A REJECTED track is still tracked and still drawn; it is simply not a reference wall (its role becomes 'unknown'). Between this and the verify threshold NOTHING happens: the state is sticky and the dead band is the hysteresis, for the same reason the span gate and the role have one, and because the cost of the two mistakes is not symmetric."
 lidar_front_wall_wall_rect_glass_beyond_share:
   default: 0.7
   description: "Fraction of a VERIFIED track's supporting samples that must be BEYOND the line for it to be called GLASS, whose distance then comes from the LiDAR alone. Glass is the one case where the stereo agrees a surface is there and reports it FURTHER than the LiDAR does: the pane is what the LiDAR ranged and the room behind it is what the stereo matched, so letting the stereo pull the fused distance would push the wall into the next room. The rule also requires 1 - beyond_share < 0.2 (hardly any sample AT the line), which makes the effective threshold 0.8; both halves are kept because the rule is that pair of statements, not one tuned number."
