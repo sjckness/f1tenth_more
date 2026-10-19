@@ -769,6 +769,20 @@ def test_the_collinear_gap_is_one_number_the_narrowest_door():
     assert DoorParams().width_min_m == pytest.approx(mwt.DOOR_WIDTH_MIN_M)
 
 
+def test_the_code_default_door_width_is_the_stack_params_value():
+    """
+    DOOR_WIDTH_MIN_M is lidar_front_wall_door_width_min_m, the deployed number.
+
+    The node overrides the code default from stack_params.yaml, but the
+    offline tools (tools/door_replay.py, tools/extract_backends_equiv.py,
+    tools/wall_foot_eval.py) and these tests run on the code default: a
+    retune of one without the other would have them check a different rule
+    from the car's. Change both in the same commit.
+    """
+    from f1tenth_params.param_defaults import get_value
+    assert mwt.DOOR_WIDTH_MIN_M == pytest.approx(get_value('lidar_front_wall_door_width_min_m'))
+
+
 def test_a_wall_with_a_person_in_front_of_it_is_merged_before_it_is_measured():
     """The merge gap decides whether a hole splits the extraction's wall.
 
