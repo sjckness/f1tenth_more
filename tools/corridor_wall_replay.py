@@ -5,7 +5,15 @@ Usage (after `source install/setup.bash`):
     python3 tools/corridor_wall_replay.py [--out DIR] [--no-video]
         [--mask auto|recorded|replay] [--t0 S] [--t1 S] [--end-wall-range M]
         [--tracker-steps car|debug] [--compare-summary OLD.summary.json|DIR]
+        [--param-file OVERRIDES.yaml] [--variant NAME]
         BAG [BAG ...]
+
+--param-file RUNS A VARIANT. The parameters in it override the installed
+stack_params.yaml defaults for lidar_front_wall_node and nothing else: the
+defaults are never read for those keys and never written, so two variants of
+one bag differ by exactly the file. summary.json records them under
+options.param_overrides, so a number can always be traced back to the
+parameters that produced it. tools/wall_variant_videos.py drives this.
 
 BAG is a bag directory (metadata.yaml + *.db3) or an archive run folder (the
 one holding bag/). A split bag's files (<name>_0.db3, _1.db3, ...) are all
@@ -131,6 +139,9 @@ OUTPUTS per bag in --out:
                          (distributions, no changes)
     <name>.summary.json  the same numbers, machine-readable
     <name>.compare.md    with --compare-summary: before/after of the headline
+    <name>.summary.*     also side_coverage: the share of cycles that published
+                         a track in each role, counted per cycle rather than
+                         per track instance
     <name>.camera.mp4    moving window, 5 Hz real time, left image + depth
     <name>.topdown.mp4   whole run, 10 Hz real time, base_link top-down
 
@@ -179,6 +190,7 @@ import front_phantom_replay as fpr  # noqa: E402
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
 import rclpy  # noqa: E402
+from rclpy._rclpy_pybind11 import RMWError  # noqa: E402
 from rclpy.serialization import deserialize_message  # noqa: E402
 from rosidl_runtime_py.utilities import get_message  # noqa: E402
 
@@ -189,6 +201,10 @@ from f1tenth_perception import multi_wall_tracker as mwt  # noqa: E402
 from f1tenth_perception import scene_mask, wall_fusion  # noqa: E402
 
 WS = Path(__file__).resolve().parents[1]
+#: --variant's label, drawn into every frame. Two variants of one bag are
+#: compared side by side, and a frame that does not say which one it is cannot
+#: be read at all once the two files sit next to each other.
+VARIANT = None
 CAM_HZ = 5.0
 TOP_HZ = 10.0
 SPEED_THRESHOLD = 0.05
@@ -383,6 +399,16 @@ class Src:
         self.name = self.path.name
         self.types, self.counts, self.msgs = {}, collections.Counter(), {}
         self.headerless = set()
+        #: topic -> why its messages could not be decoded. A bag recorded
+        #: before a .msg grew a field cannot be read back with the installed
+        #: definition (E3, c44b5036 on 2026-10-16, added fields to
+        #: MultiWallTrack, so every bag older than that fails on
+        #: /perception/walls). That is a reason to lose the RECORDED baseline
+        #: for that topic, not a reason to refuse the bag: the replay itself
+        #: produces its own messages with the installed definition. The topic
+        #: is dropped whole -- never half-read -- and reported everywhere the
+        #: missing topics are.
+        self.stale_types = {}
         bounds = []
         for db in self.dbs:
             con = sqlite3.connect(f'file:{db}?mode=ro', uri=True)
@@ -401,15 +427,26 @@ class Src:
                     continue
                 cls = get_message(self.types[name])
                 rows = self.msgs.setdefault(name, [])
-                for rowid, ts, data in con.execute(
-                        'SELECT id, timestamp, data FROM messages WHERE topic_id=?'
-                        ' ORDER BY timestamp', (ids[name],)):
-                    msg = deserialize_message(bytes(data), cls)
-                    stamp = self._stamp(name, msg, ts * 1e-9)
-                    if name in LAZY_TOPICS:
-                        msg = LazyMsg(db, rowid, cls)
-                    rows.append((stamp, ts * 1e-9, msg))
+                read = []
+                try:
+                    for rowid, ts, data in con.execute(
+                            'SELECT id, timestamp, data FROM messages WHERE topic_id=?'
+                            ' ORDER BY timestamp', (ids[name],)):
+                        msg = deserialize_message(bytes(data), cls)
+                        stamp = self._stamp(name, msg, ts * 1e-9)
+                        if name in LAZY_TOPICS:
+                            msg = LazyMsg(db, rowid, cls)
+                        read.append((stamp, ts * 1e-9, msg))
+                except RMWError as exc:
+                    self.stale_types[name] = f'{self.types[name]} ({exc})'
+                    continue
+                rows.extend(read)
             con.close()
+        for name in self.stale_types:
+            self.msgs.pop(name, None)
+            print(f'   CANNOT DECODE {name}: recorded with an older {self.stale_types[name]}'
+                  '. The topic is dropped whole; the replay produces its own, and every '
+                  'number that needed the RECORDED one is absent rather than wrong.')
         for rows in self.msgs.values():
             rows.sort(key=lambda r: r[0])
         self.counts = dict(self.counts)
@@ -555,6 +592,11 @@ def inventory(src, poses, window):
     for name, why in REQUIRED.items():
         ok = 'OK  ' if src.get(name) else 'MISS'
         lines.append(f'  [{ok}] {name:46s} {len(src.get(name)):5d}  {why}')
+    if src.stale_types:
+        lines.append('UNDECODABLE TOPICS (recorded with an older message definition, '
+                     'dropped whole)')
+        for name, why in sorted(src.stale_types.items()):
+            lines.append(f'  [STALE] {name:46s} {why}')
     lines.append('PREFERRED TOPICS')
     for name, why in PREFERRED.items():
         ok = 'OK  ' if src.get(name) else 'MISS'
@@ -578,7 +620,8 @@ def inventory(src, poses, window):
     return '\n'.join(lines), {'topics': rows, 'window': win,
                               'window_total_s': round(total, 2),
                               'missing_required': [m[0] for m in missing],
-                              'missing_preferred': [m[0] for m in thin]}
+                              'missing_preferred': [m[0] for m in thin],
+                              'undecodable_topics': dict(src.stale_types)}
 
 
 # ============================================================================
@@ -820,10 +863,10 @@ class WallReplay:
     reproduced exactly either way.
     """
 
-    def __init__(self, src, stereo='rec', replayed=None):
+    def __init__(self, src, stereo='rec', replayed=None, overrides=None):
         self.src, self.mode = src, stereo
         self.clock = [0.0]
-        node, caps = slr.make_node(True, self.clock)
+        node, caps = slr.make_node(True, self.clock, overrides)
         for attr in ('walls_pub', 'walls_markers_pub', 'observations_pub'):
             if getattr(node, attr, None) is not None:
                 caps[attr] = Capture()
@@ -1550,6 +1593,32 @@ def summarize(src, cycles, rows, mask_rows, poses, window, front_x, half, span=N
             'max_abs': num(max((abs(e) for e in err), default=math.nan))}
 
     # ---- track ID switches and stereo-only tracks --------------------------
+    # ---- side coverage: the roles a cycle PUBLISHED, cycle by cycle --------
+    # per_track counts role INSTANCES summed over cycles, which double-counts
+    # a cycle that published two left walls -- so "did this cycle have a left
+    # wall at all" is counted here instead, over every replayed cycle in the
+    # span (not only the cycles that published something), because a cycle
+    # with no walls message is a cycle with no wall.
+    for name, msgs, denom in (
+            ('recorded', [m for _t, _r, m in get('/perception/walls')],
+             len(get('/perception/walls'))),
+            ('replay', [r['walls'] for r in rows if r and r['walls']], len(rows))):
+        cycles_with, instances, per_cycle = collections.Counter(), collections.Counter(), []
+        for msg in msgs:
+            per_cycle.append(len(msg.tracks))
+            for role in {tr.role for tr in msg.tracks}:
+                cycles_with[role] += 1
+            for tr in msg.tracks:
+                instances[tr.role] += 1
+        out.setdefault('side_coverage', {})[name] = {
+            'cycles': denom,
+            'cycles_with_role': dict(cycles_with),
+            'pct_with_role': {r: round(100.0 * n / max(denom, 1), 1)
+                              for r, n in cycles_with.items()},
+            'role_instances': dict(instances),
+            'published_instances': int(sum(instances.values())),
+            'published_per_cycle_mean': round(sum(per_cycle) / max(denom, 1), 2)}
+
     for name, msgs in (('recorded', [m for _t, _r, m in get('/perception/walls')]),
                        ('replay', [r['walls'] for r in rows if r and r['walls']])):
         ids, born, roles = set(), [], collections.defaultdict(collections.Counter)
@@ -2622,7 +2691,8 @@ def draw_camera(src, frame, cam, scale=2, mask_src=None):
     # the bar (it used to be drawn at y = 116 of a 108 px bar, i.e. nowhere).
     bar = np.zeros((132, img.shape[1], 3), np.uint8)
     put(bar, f't {frame["rel"]:7.2f}s   speed {frame["speed"]:.3f} m/s'
-             f'   {"MOVING" if frame["moving"] else "still"}', (10, 20),
+             f'   {"MOVING" if frame["moving"] else "still"}'
+             f'{"   [" + VARIANT + "]" if VARIANT else ""}', (10, 20),
         (255, 255, 255) if frame['moving'] else (150, 150, 150), 0.52)
     put(bar, f'contract {state.upper():8s} {fmtm(value)}'
              f'   recorded {str(rec.get("state", "--")).upper():8s} {fmtm(rec.get("distance_m"))}'
@@ -2828,6 +2898,8 @@ def draw_panel(src, frame, w=520, h=760):
         y[0] += gap
 
     line(f't {frame["rel"]:.2f} s    speed {frame["speed"]:.3f} m/s', (255, 255, 255), 0.56, 28)
+    if VARIANT:
+        line(f'VARIANT {VARIANT}', (255, 210, 90), 0.52)
     line('MOVING' if frame['moving'] else 'stationary',
          (90, 220, 90) if frame['moving'] else (120, 120, 120), 0.5)
     y[0] += 6
@@ -3166,6 +3238,21 @@ def write_summary_md(path, src, summary, evidence, window, videos, steps_info=No
                 for k, v in summary['tracks'].items()],
                ['pass', 'ids', 'births', 'births/min', 'role switches', 'lidar only',
                 'both', 'stereo only', 'max confirmed age [s]']) + ['']
+    sc = summary.get('side_coverage') or {}
+    if sc:
+        L += ['### Side coverage, per cycle', '',
+              'Share of the cycles that published a track in each role. A cycle that '
+              'published two left walls counts once, and a cycle that published nothing '
+              'counts in the denominator: this is "did a consumer have a left wall this '
+              'cycle", which is what a coverage number is for. `instances` is the same '
+              'thing summed per track, the number the per-track table adds up to.', '']
+        roles = sorted({r for v in sc.values() for r in v['pct_with_role']})
+        L += table([[k, v['cycles'], v['published_instances'], v['published_per_cycle_mean']]
+                    + [f"{v['pct_with_role'].get(r, 0.0)} % "
+                       f"({v['cycles_with_role'].get(r, 0)} cyc, "
+                       f"{v['role_instances'].get(r, 0)} inst)" for r in roles]
+                    for k, v in sc.items()],
+                   ['pass', 'cycles', 'instances', 'per cycle'] + roles) + ['']
     per = summary.get('per_track') or []
     if per:
         L += ['### Every track of the replay', '',
@@ -3431,14 +3518,19 @@ def warmup_report(src, cycles, span):
 
 def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full'), mask_mode='auto',
             t0=None, t1=None, end_range=END_WALL_RANGE_M, tracker_steps_mode='car',
-            compare_path=None):
-    global LASER_Z
+            compare_path=None, overrides=None, variant=None, primary_pass='auto'):
+    global LASER_Z, VARIANT
+    VARIANT = variant
     out_dir = Path(out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
     src = Src(path)
     name = src.name
     print(f'== {name}: {sum(src.counts.values())} messages on {len(src.counts)} topics'
           f' in {len(src.dbs)} file(s)')
+    if variant or overrides:
+        print(f'   variant {variant or "-"}: ' + (', '.join(
+            f'{k}={v}' for k, v in sorted((overrides or {}).items()))
+            or 'the installed defaults, unchanged'))
     # Read the old summary first: a bad path should fail before the replay, not after.
     before = load_compare(compare_path, name) if compare_path is not None else None
 
@@ -3503,7 +3595,7 @@ def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full'), mask_mode=
     for mode in stereo_passes:
         if mode == 'full' and not mask_rows:
             continue
-        rp = WallReplay(src, stereo=mode, replayed=mask_rows)
+        rp = WallReplay(src, stereo=mode, replayed=mask_rows, overrides=overrides)
         rect_sources.add(rp.rect_source)
         rows[mode] = rp.run(cycles)
         rp.close()
@@ -3513,17 +3605,40 @@ def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full'), mask_mode=
     rows_rec = rows.get('rec') or [None] * len(cycles)
     rows_full = rows.get('full')
 
+    # THE PRIMARY PASS: which pass the summary, the parameter evidence and the
+    # videos speak for. 'rec' always, EXCEPT on a bag that recorded no
+    # /perception/stereo_columns at all: there the "rec" pass feeds the node no
+    # camera observation whatever, so every camera-side number it produces is
+    # the number for a LiDAR-only run and two variants of a camera parameter
+    # are identical by construction. On such a bag the camera half exists only
+    # in "full", so that is what is measured and drawn. Where the recorded
+    # columns DO exist, 'rec' stays primary and nothing about an older run
+    # changes.
+    primary = primary_pass
+    if primary == 'auto':
+        primary = 'full' if (rows_full and not src.get('/perception/stereo_columns')) \
+            else 'rec'
+    if primary == 'full' and not rows_full:
+        print('   NOTE: --primary-pass full asked for, but the full pass did not run '
+              '(no depth in this bag); falling back to rec')
+        primary = 'rec'
+    rows_primary = rows.get(primary) or rows_rec
+    print(f'   primary pass (summary, evidence, videos): "{primary}"'
+          + ('' if primary == 'rec' else ' -- this bag recorded no stereo columns, so the '
+             'camera half lives only in the recomputed pass'))
+
     cmp_out = compare(src, cycles, rows_rec, rows_full, mask_rows)
     write_replay_md(out_dir / f'{name}.replay.md', src, cmp_out, cycles,
                     rows_rec, rows_full, mask_rows, depth_topic)
     write_csv(out_dir / f'{name}.replay.csv', cycles, rows_rec, rows_full, src, poses, window)
     write_columns_csv(out_dir / f'{name}.columns.csv', mask_rows, rows_rec)
 
-    summary = summarize(src, cycles, rows_rec, mask_rows, poses, window, front_x, half, span)
+    summary = summarize(src, cycles, rows_primary, mask_rows, poses, window,
+                        front_x, half, span)
     summary['headline'] = headline(src, cycles, {'rec': rows.get('rec'), 'full': rows_full},
                                    window, front_x, half, span, end_range)
     summary['tracker_steps'] = steps_info
-    span_rows = [r for r in rows_rec if r and in_span(span, r['stamp'])]
+    span_rows = [r for r in rows_primary if r and in_span(span, r['stamp'])]
     span_masks = [r for r in mask_rows if in_span(span, r['stamp'])]
     evidence = param_evidence(src, span_rows, span_masks, self_mask, self_polygons, window)
 
@@ -3546,7 +3661,7 @@ def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full'), mask_mode=
         print(f'   camera video mask: {masks.source or masks.note} (--mask {mask_mode})')
         cam_span = clip_window(window, span)
         if cam_span:
-            frames = build_timeline(src, rows_rec, mask_rows, poses, window,
+            frames = build_timeline(src, rows_primary, mask_rows, poses, window,
                                     front_x, half, CAM_HZ, cam_span, masks)
             p = render_camera(src, frames, cam, out_dir / f'{name}.camera.mp4', masks,
                               bool(depth_topic))
@@ -3556,7 +3671,7 @@ def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full'), mask_mode=
         if span is not None:
             scan_t = src.stamps('/scan') or [src.t0, src.t1]
             top_span = (max(span[0], scan_t[0]), min(span[1], scan_t[-1]))
-        frames = build_timeline(src, rows_rec, mask_rows, poses, window,
+        frames = build_timeline(src, rows_primary, mask_rows, poses, window,
                                 front_x, half, TOP_HZ, top_span, masks)
         if frames:
             p = render_topdown(src, frames, window, front_x, half,
@@ -3571,12 +3686,42 @@ def run_bag(path, out_dir, video=True, stereo_passes=('rec', 'full'), mask_mode=
         {'bag': str(src.path), 'info': info_json, 'compare': cmp_out,
          'summary': summary, 'evidence': evidence, 'compare_summary': compare_out,
          'options': {'mask': mask_mode, 't0': t0, 't1': t1, 'end_wall_range_m': end_range,
-                     'tracker_steps': tracker_steps_mode, 'stereo': list(stereo_passes)},
+                     'tracker_steps': tracker_steps_mode, 'stereo': list(stereo_passes),
+                     'variant': variant, 'param_overrides': dict(overrides or {}),
+                     'primary_pass': primary},
          'videos': {k: str(v) for k, v in videos.items()}},
         indent=2, default=str))
     close_ro_connections()
     print(f'   wrote {out_dir}/{name}.*')
     return summary
+
+
+def load_param_file(path):
+    """{node parameter: value} from a YAML/JSON override file.
+
+    Accepts a flat mapping, a ros2 params-file (`<node>: ros__parameters:`),
+    and the `lidar_front_wall_` prefixed stack keys -- the prefix is stripped,
+    because the node declares the names its launch file passes. The values are
+    coerced to the stack default's type where the node construction happens
+    (scene_labels_replay.coerce_like_default), so `0` for a float key is not an
+    InvalidParameterTypeException.
+    """
+    import yaml
+    doc = yaml.safe_load(Path(path).expanduser().read_text()) or {}
+    if not isinstance(doc, dict):
+        raise SystemExit(f'{path}: expected a mapping of parameters, got {type(doc).__name__}')
+    # One ros2 params-file level, whatever the node is called in it.
+    for v in list(doc.values()):
+        if isinstance(v, dict) and 'ros__parameters' in v:
+            doc = dict(v['ros__parameters'])
+            break
+    out = {}
+    for k, v in doc.items():
+        if isinstance(v, dict):
+            raise SystemExit(f'{path}: {k} is a mapping; parameter overrides are flat')
+        out[str(k)[len('lidar_front_wall_'):] if str(k).startswith('lidar_front_wall_')
+            else str(k)] = v
+    return out
 
 
 def clip_window(window, span):
@@ -3614,17 +3759,33 @@ def main():
     ap.add_argument('--tracker-steps', choices=('car', 'debug'), default='car',
                     help='car: the tracker steps the car made (tracker_skipped == 0); '
                          'debug: one per recorded debug payload (pre-v2 behaviour)')
+    ap.add_argument('--param-file', type=Path, default=None,
+                    help='parameter overrides for lidar_front_wall_node, as a YAML or JSON '
+                         'mapping of NODE-level names (camera_seg_min_ray_angle_deg, not the '
+                         'lidar_front_wall_ prefixed stack key -- either is accepted). A '
+                         'ros2 params-file layout (<node>: ros__parameters:) works too. '
+                         'stack_params.yaml is never read for these and never written: a '
+                         'variant is an override on top of the installed defaults.')
+    ap.add_argument('--variant', default=None,
+                    help='label for this run, recorded in summary.json options.variant')
+    ap.add_argument('--primary-pass', choices=('auto', 'rec', 'full'), default='auto',
+                    help='which stereo pass the summary, the evidence and the videos speak '
+                         'for. auto: rec, unless the bag recorded no /perception/'
+                         'stereo_columns and the full pass ran -- there rec has no camera '
+                         'input at all and could not tell two camera variants apart.')
     ap.add_argument('--compare-summary', type=Path, default=None,
                     help='an older <bag>.summary.json (or the folder holding it): print '
                          'and write a before/after table of the headline metrics')
     cfg = ap.parse_args()
     SPEED_THRESHOLD, SPEED_PAD = cfg.speed_threshold, cfg.speed_pad
     passes = tuple(s.strip() for s in cfg.stereo.split(',') if s.strip())
+    overrides = load_param_file(cfg.param_file) if cfg.param_file else None
     rclpy.init()
     try:
         for bag in cfg.bags:
             run_bag(bag, cfg.out, not cfg.no_video, passes, cfg.mask, cfg.t0, cfg.t1,
-                    cfg.end_wall_range, cfg.tracker_steps, cfg.compare_summary)
+                    cfg.end_wall_range, cfg.tracker_steps, cfg.compare_summary,
+                    overrides, cfg.variant, cfg.primary_pass)
     finally:
         rclpy.shutdown()
     return 0

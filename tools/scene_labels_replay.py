@@ -131,7 +131,30 @@ class Capture:
         return items
 
 
-def make_node(enable, clock):
+def coerce_like_default(name, value):
+    """`value` as the type stack_params.yaml gives `lidar_front_wall_<name>`.
+
+    An override read from a YAML file arrives as whatever YAML made of it, and
+    `1` for a float parameter is an InvalidParameterTypeException at node
+    construction -- the same trap as a launch file's untyped string parameter.
+    The stack default is the only authority on the type, so it is asked.
+    """
+    entry = _load().get('lidar_front_wall_' + name)
+    if entry is None:
+        return value
+    want = type(entry['default'])
+    if want is bool:
+        return value if isinstance(value, bool) else str(value).lower() in ('1', 'true', 'yes')
+    if want is float:
+        return float(value)
+    if want is int and not isinstance(value, bool):
+        return int(value)
+    if want is str:
+        return str(value)
+    return value
+
+
+def make_node(enable, clock, overrides=None):
     # wall_debug_tracks is OFF on the car (it costs a transform and two
     # distances per live track per scan) and ON here: the per-track table and
     # the top-down drawing are exactly what it exists for.
@@ -152,6 +175,14 @@ def make_node(enable, clock):
     # cycle: WALL_TRACKER_DECIMATION overrides it if a run wants to see it.
     params.append(Parameter('wall_tracker_scan_decimation',
                             value=int(os.environ.get('WALL_TRACKER_DECIMATION', '1'))))
+    # `overrides` is the ONE way a caller changes the node's behaviour, and it
+    # never touches stack_params.yaml: a variant run is a parameter override on
+    # top of the installed defaults, exactly as a launch argument would be, so
+    # the defaults the car ships keep speaking for the car.
+    if overrides:
+        params = [p for p in params if p.name not in set(overrides)]
+        params += [Parameter(k, value=coerce_like_default(k, v))
+                   for k, v in overrides.items()]
     node = LidarFrontWallNode(parameter_overrides=params)
     node._now = lambda: clock[0]
     caps = {}
