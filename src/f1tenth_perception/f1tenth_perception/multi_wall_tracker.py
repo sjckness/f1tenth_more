@@ -18,11 +18,12 @@ PER SCAN
      shorter than collinear_gap_m (THE COLLINEAR GAP RULE), and segments of at
      least 10 points and 0.5 m. Lines are found in the laser frame, then moved
      to base_link and to odom at the scan stamp.
-  3. Span gate (min_span_update_m / min_span_birth_m). An observation shorter
-     than min_span_update_m is not a wall at all and is dropped before the
-     tracker sees it. One between that and min_span_birth_m may only UPDATE a
-     track that is already confirmed: it can neither start a track nor feed a
-     tentative one. See WHY THE SPAN GATE IS HYSTERETIC below.
+  3. Span gate (min_span_update_m / min_span_birth_m), on the span of the
+     WALL an observation is a piece of (THE WALL'S SPAN). An observation
+     shorter than min_span_update_m is not a wall at all and is dropped before
+     the tracker sees it. One between that and min_span_birth_m may only
+     UPDATE a track that is already confirmed: it can neither start a track
+     nor feed a tentative one. See WHY THE SPAN GATE IS HYSTERETIC below.
   4. Tracking (MultiWallTracker.step) on (rho, theta) in odom, one Kalman
      filter per track:
      - Static model with process noise q per second on both states, plus
@@ -153,17 +154,30 @@ sector -- is still that wall: min_span_update_m. The asymmetry is the same
 shape as HysteresisLatch's in front_clearance_node and the role hysteresis
 below, and for the same reason: the cost of being wrong is not symmetric.
 
-Note the gate is on the OBSERVATION's span, not the track's. A track's extent
-is the union of its recent observations, so gating on the track would let one
-long observation license every short one after it.
+Note the gate is on the OBSERVATION's span -- the wall as this scan saw it
+(THE WALL'S SPAN) -- not the track's. A track's extent is the union of its
+recent observations, so gating on the track would let one long observation
+license every short one after it.
 
-THE COLLINEAR MERGE COMES FIRST, and it already exists: step 2's extraction
-reunifies fragments of one wall across a gap shorter than collinear_gap_m with
-the same 6 deg / 5 cm tolerances it uses everywhere (corridor_perception.
-extraction._merge_clusters), globally rather than only between scan-adjacent
-groups, which is what survives an occluder standing in front of a wall. So a
-span is measured on the whole wall, not on whichever piece of it a person left
-visible -- which has to be true before any span threshold means anything.
+THE WALL'S SPAN (door-detection step 2 audit, 2026-10-19). A span threshold
+means something only if the span is the WALL's, not that of whichever piece of
+it a person left visible. The extraction's collinear merge used to see to that
+(at 1.5 m it reunited a wall around an occluder); since THE COLLINEAR GAP RULE
+it merges only across gaps shorter than collinear_gap_m measured end to end,
+so a detected person's cut sector that wide leaves two pieces, and in front
+of a narrow wall each is shorter than min_span_birth_m: the wall was never
+born (a 2.5 m wall with a person 0.5 m in front of it from the first scan: no
+FRONT on any cycle of a 3 m approach, the contract CLEAR). The gates
+therefore read _wall_spans: the LiDAR observations of one scan that _merge
+would join if they were tracks -- one line by the chi2 gate, less than
+collinear_gap_m of OPEN gap between them -- measured together. A stretch
+hidden behind a cut sector or by something nearer is not open, so the pieces
+around it are one wall from the first scan; a doorway the beams see through
+is, so the pieces either side of it are measured alone and stay two walls.
+One asymmetry with the association: a stretch NO beam looks at (the blind
+sector behind the laser) counts as open here. A wall nobody is looking at may
+keep a track whole; it is no evidence that a wall is there to be born (the two
+0.70 m arcs of the wall behind the car stay unborn).
 
 THE COLLINEAR GAP RULE (door-detection, 2026-10-19)
 ---------------------------------------------------
@@ -182,8 +196,9 @@ the tracker's 5 cm open-gap sampling read as just under the rule).
 
 The extraction measures the gap end to end between the two pieces' supports;
 the tracker counts only the part its beams saw OPEN (_gap_between), so a hole
-behind a person cut out of the scan never splits a TRACK even where it now
-splits the extraction's observation.
+behind a person cut out of the scan never splits a TRACK, nor the span a new
+one is born on (THE WALL'S SPAN), even where it now splits the extraction's
+observation.
 
 FRAMES. A line is rho = x cos(theta) + y sin(theta) with rho >= 0
 (corridor_perception.geometry.Line), the convention scene_labels.WallLine
@@ -1148,25 +1163,26 @@ class MultiWallTracker:
         return self._gap_between(trk.theta, trk.rho, trk.t0, trk.t1,
                                  float(m.min()), float(m.max()))
 
-    def _gap_between(self, theta, rho, a_lo, a_hi, b_lo, b_hi):
+    def _gap_between(self, theta, rho, a_lo, a_hi, b_lo, b_hi, unseen_open=False):
         """Gap [m] between two intervals along one line, counting only what is OPEN.
 
         A gap not shorter than collinear_gap_m is checked against this step's scan
         (_open_length): the part of it the LiDAR could not see -- beams cut
         for a detected object, or stopped short by something nearer -- is
         not an opening, it is a wall with a person in front of it (the M02
-        case the extraction's own 1.5 m merge exists for). Only what the
-        beams went THROUGH counts. With no scan, the whole gap counts.
+        case). Only what the beams went THROUGH counts. With no scan, the
+        whole gap counts. `unseen_open` is _open_length's, for the birth
+        span (THE WALL'S SPAN).
         """
         raw = max(b_lo - a_hi, a_lo - b_hi)
         if raw < self.p.collinear_gap_m:
             return raw
         lo, hi = (a_hi, b_lo) if b_lo - a_hi >= a_lo - b_hi else (b_hi, a_lo)
-        return self._open_length(theta, rho, lo, hi)
+        return self._open_length(theta, rho, lo, hi, unseen_open)
 
     _GAP_STEP_M = 0.05
 
-    def _open_length(self, theta, rho, t_lo, t_hi):
+    def _open_length(self, theta, rho, t_lo, t_hi, unseen_open=False):
         """Metres of the odom line stretch t_lo..t_hi that this step's beams saw OPEN.
 
         Sampled every 5 cm. A sample is OPEN when the beam towards it came
@@ -1175,6 +1191,12 @@ class MultiWallTracker:
         landed on it -- or when no beam points at it at all (the 90 deg blind
         sector behind the laser): a stretch the car has its back to is not
         an opening, it is a wall nobody is looking at.
+
+        `unseen_open` counts that last kind as open after all. That is the
+        BIRTH question (_wall_spans): a wall nobody is looking at may keep a
+        track whole, but it is no evidence that a wall is there to be born.
+        A cut or a nearer return is evidence -- of something standing in
+        front of the line -- and stays closed either way.
         """
         length = float(t_hi) - float(t_lo)
         ctx = self._scan_ctx
@@ -1208,7 +1230,130 @@ class MultiWallTracker:
         tol = float(self.p.negative_tol_m)
         with np.errstate(invalid='ignore'):
             open_ = in_fov & ~cut[idx] & (~np.isfinite(rv) | (rv > dist + tol))
+        if unseen_open:
+            open_ = open_ | ~in_fov
         return min(length, float(np.count_nonzero(open_)) * self._GAP_STEP_M)
+
+    def _wall_spans(self, observations, lines, eligible):
+        """
+        Per observation, the span [m] its span gates read (THE WALL'S SPAN).
+
+        A LiDAR-backed observation (LIDAR or BOTH: the extraction's own line)
+        is measured together with every other one of this scan that is ONE
+        WALL with it by _merge's own test, as if both were fresh tracks: the
+        same line (chi2 on (rho, theta) over both covariances) and a gap
+        between them shorter than collinear_gap_m, counting only what the
+        beams saw OPEN (_gap_between, a stretch no beam looks at counted as
+        open). Its span is then the extent of that group, along the line of
+        the group's longest piece. A stereo-only observation, or one
+        `eligible` excludes (a camera gate refuses it), keeps its own span and
+        lends none. `lines` are the observations as odom Lines.
+
+        Only the gates read this. The pieces stay separate observations: each
+        is associated or spawned on its own, and _merge joins the spawned ones
+        on this very step by the same test.
+        """
+        spans = [float(o.line.span) for o in observations]
+        idx = [k for k, o in enumerate(observations)
+               if eligible[k] and o.source != wall_fusion.SOURCE_STEREO]
+        # Only a piece too short to be born on its own can be changed by its
+        # group, so a scan without one costs nothing here.
+        if len(idx) < 2 or all(spans[k] >= self.p.min_span_birth_m for k in idx):
+            return spans
+        parent = list(range(len(idx)))
+
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        same_line = np.triu(self._chi2_between([lines[k] for k in idx]) <= self.p.gate_chi2, 1)
+        for i, j in zip(*np.nonzero(same_line)):
+            la, lb = lines[idx[i]], lines[idx[j]]
+            ta = _along(la.alpha, np.vstack([la.p_start, la.p_end]))
+            tb = _along(la.alpha, np.vstack([lb.p_start, lb.p_end]))
+            gap = self._gap_between(la.alpha, la.rho, float(ta.min()), float(ta.max()),
+                                    float(tb.min()), float(tb.max()), unseen_open=True)
+            if gap < self.p.collinear_gap_m:
+                parent[find(int(j))] = find(int(i))
+        groups = collections.defaultdict(list)
+        for i, k in enumerate(idx):
+            groups[find(i)].append(k)
+        for members in groups.values():
+            if len(members) < 2:
+                continue
+            ref = lines[max(members, key=lambda k: spans[k])]
+            t = _along(ref.alpha, np.vstack(
+                [np.vstack([lines[k].p_start, lines[k].p_end]) for k in members]))
+            group_span = float(t.max() - t.min())
+            for k in members:
+                spans[k] = max(spans[k], group_span)
+        return spans
+
+    def _chi2_between(self, lines):
+        """
+        (n, n) Mahalanobis distance squared between every two odom Lines.
+
+        _merge's test between two fresh tracks, all pairs at once: the
+        innovation in whichever sign of the second line is closer
+        (_innovation), over the sum of both _meas_cov, inverted in closed
+        form (2x2).
+        """
+        rho = np.array([float(ln.rho) for ln in lines])
+        alpha = np.array([float(ln.alpha) for ln in lines])
+        R = np.stack([self._meas_cov(ln) for ln in lines])
+        d_same = wrap_pi(alpha[None, :] - alpha[:, None])
+        d_flip = wrap_pi(alpha[None, :] + math.pi - alpha[:, None])
+        flip = np.abs(d_flip) < np.abs(d_same)
+        v0 = np.where(flip, -rho[None, :], rho[None, :]) - rho[:, None]
+        v1 = np.where(flip, d_flip, d_same)
+        S = R[:, None] + R[None, :]
+        a, b, c, d = S[..., 0, 0], S[..., 0, 1], S[..., 1, 0], S[..., 1, 1]
+        return (d * v0 * v0 - (b + c) * v0 * v1 + a * v1 * v1) / (a * d - b * c)
+
+    def _refusal(self, obs):
+        """
+        (code, value) of the first non-span gate `obs` fails, or None.
+
+        Pure: step counts and records the refusal itself, after the span
+        gate, in the order it always has.
+        """
+        span = float(obs.line.span)
+        # THE NEAR FIELD. A stereo-only line passing nearer base_link than
+        # stereo_min_rho_m runs through the car's own footprint: it is the
+        # chassis the camera sees in the lower right of its image, not a
+        # wall (23 throwaway 'right' tracks at rho 0.20 m on
+        # corridor10m_20261016T144537). Only STEREO: a LiDAR line that
+        # close is a real surface touching the car, and must stay.
+        if (obs.source == wall_fusion.SOURCE_STEREO
+                and abs(float(obs.line.d)) < self.p.stereo_min_rho_m):
+            return 'stereo_near', abs(float(obs.line.d))
+        if obs.source == wall_fusion.SOURCE_STEREO:
+            # THE CAMERA QUALITY GATES (Q2). Nothing cross-checks a
+            # stereo-only line, so it must look like a wall on its own:
+            # tightly fitted, tall enough to be a surface rather than a
+            # kerb, and long enough that the LiDAR could not plausibly
+            # have missed it.
+            if span < self.p.stereo_min_length_m:
+                return 'stereo_short', span
+            if float(obs.line.rms) > self.p.stereo_max_rms_m:
+                return 'stereo_rms', float(obs.line.rms)
+            height = float(obs.z_max) - float(obs.z_min)
+            if obs.height_measured and height < self.p.stereo_min_vertical_extent_m:
+                return 'stereo_flat', height
+        if obs.source != wall_fusion.SOURCE_LIDAR:
+            # THE RADIAL GATE (Q2), on every observation the camera had a
+            # hand in. Judged from where the CAMERA looks, not the laser.
+            origin = self.camera_xy if self.camera_xy is not None else \
+                (self.laser_xy if self.laser_xy is not None else (0.0, 0.0))
+            keep, ray, _bspan = radial_verdict(
+                obs.line.endpoints(), origin,
+                self.p.camera_seg_min_ray_angle_rad,
+                self.p.camera_seg_min_bearing_span_rad)
+            if not keep:
+                return 'camera_radial', math.degrees(ray)
+        return None
 
     def _gate(self, trk, line, may_birth=True):
         """(Mahalanobis distance squared or inf, refusal code or '').
@@ -1445,68 +1590,36 @@ class MultiWallTracker:
         self._last_car_t = car_pose.t
         # The span gate, before anything persistent is built on an observation
         # (module docstring, WHY THE SPAN GATE IS HYSTERETIC). The span is the
-        # observation's own extent: its inliers projected onto its line, which
-        # is what WallLine.span is and what the extraction's collinear merge
-        # has already reunified across occluders.
-        kept, may_birth = [], []
+        # WALL's (THE WALL'S SPAN): the observation's own extent, or that of
+        # the LiDAR pieces of this scan it is one wall with across a stretch
+        # the beams did not see through -- a detected person, something
+        # nearer -- because the extraction no longer reunites those.
+        kept, lines_odom, may_birth = [], [], []
         self.n_short_dropped = 0
         self.n_stereo_near_rejected = 0
         self.n_camera_rejected = 0
         self.n_gap_rejected = 0
         self.n_merge_gap_refused = 0
         self.rejections = []
-        for obs in observations:
-            span = float(obs.line.span)
+        lines = [observation_line(o, car_pose, self.p) for o in observations]
+        refusals = [self._refusal(obs) for obs in observations]
+        spans = self._wall_spans(observations, lines, [r is None for r in refusals])
+        for obs, line, span, refusal in zip(observations, lines, spans, refusals):
             if span < self.p.min_span_update_m:
                 self.n_short_dropped += 1
                 continue
-            # THE NEAR FIELD. A stereo-only line passing nearer base_link than
-            # stereo_min_rho_m runs through the car's own footprint: it is the
-            # chassis the camera sees in the lower right of its image, not a
-            # wall (23 throwaway 'right' tracks at rho 0.20 m on
-            # corridor10m_20261016T144537). Only STEREO: a LiDAR line that
-            # close is a real surface touching the car, and must stay.
-            if (obs.source == wall_fusion.SOURCE_STEREO
-                    and abs(float(obs.line.d)) < self.p.stereo_min_rho_m):
-                self.n_stereo_near_rejected += 1
-                self._reject('stereo_near', None, abs(float(obs.line.d)))
+            if refusal is not None:
+                code, value = refusal
+                if code == 'stereo_near':
+                    self.n_stereo_near_rejected += 1
+                else:
+                    self.n_camera_rejected += 1
+                self._reject(code, None, value)
                 continue
-            if obs.source == wall_fusion.SOURCE_STEREO:
-                # THE CAMERA QUALITY GATES (Q2). Nothing cross-checks a
-                # stereo-only line, so it must look like a wall on its own:
-                # tightly fitted, tall enough to be a surface rather than a
-                # kerb, and long enough that the LiDAR could not plausibly
-                # have missed it.
-                if span < self.p.stereo_min_length_m:
-                    self.n_camera_rejected += 1
-                    self._reject('stereo_short', None, span)
-                    continue
-                if float(obs.line.rms) > self.p.stereo_max_rms_m:
-                    self.n_camera_rejected += 1
-                    self._reject('stereo_rms', None, float(obs.line.rms))
-                    continue
-                height = float(obs.z_max) - float(obs.z_min)
-                if obs.height_measured and height < self.p.stereo_min_vertical_extent_m:
-                    self.n_camera_rejected += 1
-                    self._reject('stereo_flat', None, height)
-                    continue
-            if obs.source != wall_fusion.SOURCE_LIDAR:
-                # THE RADIAL GATE (Q2), on every observation the camera had a
-                # hand in. Judged from where the CAMERA looks, not the laser.
-                origin = self.camera_xy if self.camera_xy is not None else \
-                    (self.laser_xy if self.laser_xy is not None else (0.0, 0.0))
-                keep, ray, bspan = radial_verdict(
-                    obs.line.endpoints(), origin,
-                    self.p.camera_seg_min_ray_angle_rad,
-                    self.p.camera_seg_min_bearing_span_rad)
-                if not keep:
-                    self.n_camera_rejected += 1
-                    self._reject('camera_radial', None, math.degrees(ray))
-                    continue
             kept.append(obs)
+            lines_odom.append(line)
             may_birth.append(span >= self.p.min_span_birth_m)
         observations = kept
-        lines_odom = [observation_line(o, car_pose, self.p) for o in observations]
         dt = 0.0 if self._last_stamp is None else stamp - self._last_stamp
         self._last_stamp = stamp
         last_yaw, self._last_yaw = self._last_yaw, car_pose.theta
