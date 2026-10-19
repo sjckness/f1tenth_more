@@ -95,11 +95,11 @@ markers.
 
 ## 1. What a door candidate is (`door_detection.door_candidates`)
 
-The extraction's collinear merge (`wall_merge_max_gap_m`, 1.5 m) reunifies the two faces
-either side of a 0.7–1.0 m doorway into **one** observation. So a doorway is usually
-*inside* one track's extent, not between two tracks. Two tracks either side of a doorway
-also happen, when the tracker's own collinear gap keeps them apart. The detector handles
-both cases the same way:
+Since step 2 (§10) every collinear LiDAR merge uses one rule: pieces are one wall only
+across a gap shorter than `door_width_min_m`. A doorway therefore normally lies *between*
+two tracks. The search still runs inside a track's extent as a fallback, for a borderline
+gap the tracker joined anyway. (Before step 2 the extraction's 1.5 m merge put most
+doorways inside one track.) The detector handles both cases the same way:
 
 * Tracks that are confirmed or coasting are grouped when they lie on one line
   (collinear) and are at most a doorway apart.
@@ -240,10 +240,11 @@ door is in it, tentative and coasting included. `header.frame_id` is the odom fr
 * Open a **3D panel** with the display frame set to `odom` and enable `/viz/doors`.
   Enable `/viz/walls` or `/perception/walls/markers` too, to see the walls the doors are
   cut from. `/viz/doors` crosses the bridge without a whitelist change, because
-  `'^/viz/.*'` already matches it. It is built only while something is subscribed.
+  `'^/viz/.*'` already matches it. Since step 2 it is published on every tracker cycle
+  while door detection is on, subscribed or not, so bags record it.
 * **Each door** is drawn as two vertical cylinders (one per jamb, 0.10 m diameter, 2.5 m
   tall, standing on the floor), a line between them on the floor, and the label
-  `door <id> <width>m <state>[ OCCUPIED]` above.
+  `door <id> <width>m <state>[ leaf <side>][ glass?][ OCCUPIED]` above.
   * Colour: green for an open door, orange when a person is standing in it.
   * Alpha shows the state: tentative 0.3 (faded), confirmed 1.0 (solid), coasting 0.5
     and darker (dimmed).
@@ -270,10 +271,10 @@ door is in it, tentative and coasting included. `header.frame_id` is the odom fr
   transform in Python), so it cannot place anything in `map`. A door lives for seconds
   past its last sighting, so odom drift over its lifetime is small. If doors are ever
   wanted in `map`, the consumer should transform them; this node should not.
-* **Pre-existing build issue on linus.** `corridor_perception_c` does not compile with
-  gcc 13 on Jazzy (`M_PI` undeclared under the package's C standard). It was skipped on
-  linus, so the tracker ran on the Python extraction backend, which is the reference
-  implementation. This is unrelated to this branch and does not affect the Orin build.
+* **Jazzy TODO:** `corridor_perception_c` does not compile with gcc 13 on Jazzy
+  (`M_PI` undeclared under the package's C standard). Not fixed here. On linus it is
+  skipped, and the tracker runs on the Python extraction backend (the reference
+  implementation). The Orin (Humble) build is not affected.
 
 ## 7. Tests (synthetic scans, no stack)
 
@@ -324,22 +325,161 @@ completely.
 
 ## 8. Known limits, deviations, next steps
 
-* **An open door leaf seen near its hinge** returns 0.15–0.30 m past the line, so the gap
-  is rejected as `shallow`. This follows the spec ("every beam ≥ margin"). If real bags
-  show it often, the fix is to treat SHALLOW beams *contiguous with a jamb* as jamb
-  geometry (the reveal or the leaf), not to lower the margin.
-* **Glass the LiDAR does not see at all** reads as an opening (all NONE). The stereo
-  cannot tell either, because it also sees through glass. Real doorways almost always
-  return the next room (BEYOND), so requiring some BEYOND returns is a possible later
-  gate.
-* `/perception/doors` is **not recorded** by the mission logger. The logger is outside
-  "perception only". Adding it to the campaign profile is a one-line follow-up whenever
-  bags with doors are wanted.
+* **Open door leaf:** handled since step 2 (§10). A leaf open less than ~65° is still
+  rejected at the default core fraction.
+* **Glass the LiDAR does not see at all** reads as an opening (all NONE). The optional
+  stereo glass veto (§10, off by default) catches it only when the stereo ranges the pane;
+  otherwise the door is kept and flagged `glass_suspect`.
+* `/perception/doors` and `/viz/doors` are in the mission logger's default list since
+  step 2 (§10).
 * **Not validated on recorded data.** Only synthetic scans were allowed here. The
   obvious first check is a replay of `corridor10m_20261016T144537` (the corridor mouth
   behind track 955) with `tools/corridor_wall_replay.py`.
 
-## 9. Importing on the Orin
+## 10. Step 2 (2026-10-19): merge rule, open leaf, glass veto, Foxglove and logging
+
+### 10.1 One collinear merge rule: gap < `door_width_min_m`
+
+Every threshold that joined collinear LiDAR wall pieces before this change:
+
+| Where | Value | Since (git blame) | Status |
+|---|---|---|---|
+| `corridor_perception.extraction.ExtractionParams.merge_gap` (with `merge_alpha` 6°, `merge_rho` 0.05 m) | 1.5 m | `119f239` 2026-09-22, Step 0 baseline | Library default, **kept**. The stack never uses it: `mwt.extraction_params()` always sets `merge_gap`. |
+| `corridor_perception_c` `el_default_params` `merge_gap` | 1.5 m | `c421578` 2026-10-16, H1 C port | C library default, **kept**. The C backend receives `merge_gap` from the Python params. |
+| `multi_wall_tracker.TrackerParams.merge_max_gap_m` → the extraction's `merge_gap` | 1.5 m | `193fe1d` 2026-10-15, span gate | **Removed** |
+| `lidar_front_wall_wall_merge_max_gap_m` (stack_params, node, launch) | 1.5 m | `193fe1d` / `c44b503` 2026-10-16 | **Removed** |
+| `multi_wall_tracker.TrackerParams.assoc_max_gap_m`: association gate, `_merge`, `_refresh_extent`, `_gap_between` | 0.5 m | `d578963` 2026-10-16, block 3 | **Replaced** by `collinear_gap_m` |
+| `lidar_front_wall_wall_assoc_max_gap_m` (stack_params, node, launch) | 0.5 m | `d578963` 2026-10-16 | **Removed** |
+| `tools/extract_backends_equiv.py`: explicit merge gap | 1.5 m | — | Now uses the stack's rule |
+
+The **new rule** is `multi_wall_tracker` THE COLLINEAR GAP RULE. Two collinear pieces are
+merged only if the gap between them is **< `door_width_min_m`**; a gap of that size or
+larger keeps them as two walls. It applies everywhere pieces are joined: the extraction's
+merge, observation-to-track association, the merge of two tracks, and the rebuild of a
+track's extent.
+
+* **Single source:** the node reads `door_width_min_m` once and feeds
+  `TrackerParams.collinear_gap_m`, `extraction_params()` and `DoorParams.width_min_m`.
+  The library default is one constant, `multi_wall_tracker.DOOR_WIDTH_MIN_M = 0.70`, which
+  `DoorParams` also reads. The rule applies even with door detection disabled.
+* **How each side measures the gap:** the tracker counts only the gap its beams saw
+  **open**, as before, so cut beams (a person) never split a track. The extraction
+  measures the gap end to end.
+* **Fallback:** the in-track door search is kept.
+
+**Behaviour changes for every wall consumer.** These reach the FRONT contract and the
+costmap wall layer, through the walls only.
+
+* **The tracker now bridges open gaps up to 0.70 m (was 0.5 m).** That is wider than the
+  0.572 m travel strip. A gap of 0.572–0.70 m between two collinear faces can be read as
+  wall, i.e. a FRONT across an opening the strip would fit through. This is the rule as
+  asked.
+* **The extraction no longer bridges holes of 0.70 m or more (was 1.5 m).** A wall behind
+  a person whose cut sector is that wide reaches the tracker as two observations. They
+  are shorter, so a never-confirmed track may now fail `wall_min_span_birth_m`. A track
+  that is already confirmed still reunites them by open-gap association.
+
+### 10.2 Open door leaf (`door_core_fraction`, `door_leaf_*`)
+
+* **Core:** the "every beam ≥ `door_behind_margin_m` behind the line" test now applies
+  only to the central `door_core_fraction` (0.6) of the gap.
+* **Outer parts:** each outer 20 % may hold shallow returns only if they are **the leaf**:
+  * one straight segment (rms ≤ 3 cm),
+  * whose line passes within `door_leaf_hinge_tol_m` (0.10) of that side's jamb,
+  * starting at the jamb rather than running through it,
+  * at most `door_leaf_max_len_m` (1.0) long.
+
+  Anything else shallow there is rejected as `not_a_leaf`.
+* **ON band narrowed on the far side:** a return counts as ON the line only up to
+  `on_behind_tol_m` = 0.05 m past it (still 0.15 m in front). Without this, a leaf's
+  returns next to its hinge counted as wall: they moved the jamb along the leaf and left
+  stray ON returns in the gap.
+* **Output:** `Door.leaf_side` (`LEAF_NONE` / `LEAF_LEFT` / `LEAF_RIGHT`) is set relative
+  to the crossing normal, and mirrored for a sighting from the other side.
+
+**The literal rule rejects a 45° leaf at the default core.** At 45° the leaf crosses the
+core less than 0.30 m past the line. On a 0.85 m door seen square-on from 2.7 m
+(synthetic), the smallest leaf opening accepted is:
+
+| `door_core_fraction` | 0.6 | 0.5 | 0.4 | 0.3 |
+|---|---|---|---|---|
+| smallest leaf opening accepted | 65° | 55° | 50° | 45° |
+
+The tests pin this: 90° on either jamb → door, with its side; 45° → `shallow` at 0.6 and
+a door at 0.3; a box face, and a box turned corner-on, in the outer part → rejected.
+
+### 10.3 Stereo glass veto (`door_stereo_glass_veto`, default **false**)
+
+`stereo_glass_check` samples the gap's image rectangle and counts **WALL pixels whose
+valid depth is within `door_stereo_plane_tol_m` (0.30) of the wall line's own depth**.
+Depth is optical z, the ZED's convention; the request said "range", and optical z is the
+same quantity the rectangle verification uses.
+
+* **Pane:** if those pixels are ≥ `door_stereo_wall_veto_frac` (0.5) of the valid-depth
+  samples, the gap is rejected with code `stereo_wall`.
+* **Open door:** WALL pixels beyond the line (the room behind an open door) never count.
+* **Mostly invalid depth:** if under half the samples have valid depth, there is no veto
+  and `Door.glass_suspect` is set.
+* **Camera not covering the gap:** no opinion either way.
+
+Tests: a real door with a far wall behind it is kept; a pane on the line with valid depth
+is vetoed (node test: only with the flag on); a pane with invalid depth is kept and
+flagged `glass_suspect`.
+
+### 10.4 Foxglove and logging
+
+* `/viz/doors` is now published **on every tracker cycle while door detection is on**,
+  subscribed or not, unlike `/viz/walls`.
+* It is in the bridge allowlist through `'^/viz/.*'`, now pinned in
+  `test_foxglove_whitelists.py`.
+* `mission_logger_node` default topics now include `/perception/doors` and `/viz/doors`.
+  `/viz/doors` is exempted from the "never record `/viz/` relay copies" filter
+  (`_RECORDED_VIZ_ORIGINALS`) because it is an original, not a relay. The logger stays
+  disabled by default (`enable_mission_logger: false`). Nothing else in the logger
+  changed; `/viz/walls`, also an original, is still dropped.
+* **No saved Foxglove layout exists in the repo** (no layout JSON is tracked), so there
+  was no 3D panel to add `/viz/doors` to.
+
+### 10.5 New parameters (`lidar_front_wall_*`)
+
+| Parameter | Default |
+|---|---|
+| `door_core_fraction` | 0.6 |
+| `door_leaf_max_len_m` | 1.0 |
+| `door_leaf_hinge_tol_m` | 0.10 |
+| `door_stereo_glass_veto` | false |
+| `door_stereo_plane_tol_m` | 0.30 |
+| `door_stereo_wall_veto_frac` | 0.5 |
+| `wall_merge_max_gap_m` | **removed** |
+| `wall_assoc_max_gap_m` | **removed** |
+
+`door_width_min_m` (0.70) now also sets the merge rule.
+
+`Door.msg` gained two fields, appended at the end: `uint8 leaf_side` (with the `LEAF_*`
+constants) and `bool glass_suspect`. The message was new in this branch and has not been
+recorded anywhere yet, so appending is safe.
+
+### 10.6 Tests
+
+* **`f1tenth_perception`: 1072 → 1094 tests.** The failures are the same 2 as before:
+  colcon's environment isolation makes `f1tenth_bringup` / `f1tenth_hardware` unfindable
+  from inside the package's test run. Both tests pass in the full environment.
+* **Other packages:** the set of failing tests is identical to the previous branch head.
+* **`f1tenth_logger`** (per file; `test_extract_render_split` / `test_object_run_summary`
+  need `pyarrow`, which linus doesn't have, on both trees): `test_mission_logger_node`
+  went from 44 to 45 passed, `test_viz_topics_not_recorded` 5 passed.
+* **`f1tenth_bringup`:** `test_foxglove_whitelists` 2 passed.
+* **Merge rule:** the end-to-end tests run on the real extraction and tracker:
+
+| Gap | Result |
+|---|---|
+| 0.5 m | one wall |
+| 0.85 m | two walls and one door between them |
+| 1.4 m | two walls, no door |
+
+* **Lint:** flake8 and pep257 are not worse than the previous head on any changed file.
+
+## 11. Importing on the Orin
 
 On the Orin, in the workspace (it is on campaign-final; check for local changes first):
 
@@ -347,13 +487,14 @@ On the Orin, in the workspace (it is on campaign-final; check for local changes 
 cd ~/dev_ws/f1tenth_more
 git status --short                      # must be clean (or commit / stash by path first)
 git fetch origin door-detection
-git switch -c door-detection --track origin/door-detection
+git switch -c door-detection --track origin/door-detection   # first time
+# already on the branch from step 1:  git switch door-detection && git merge --ff-only origin/door-detection
 source /opt/ros/humble/setup.bash
-colcon build --symlink-install --packages-select f1tenth_messages f1tenth_params f1tenth_perception
+colcon build --symlink-install --packages-select f1tenth_messages f1tenth_params f1tenth_perception f1tenth_logger
 source install/setup.bash
 ros2 interface show f1tenth_messages/msg/DoorArray     # sanity: the new message is there
 ```
 
 Then restart the `lidar_front_wall` supervisor component, which picks up the new
 parameters from stack_params.yaml. Watch `/viz/doors` in Foxglove. To go back:
-`git switch campaign-final`, then rebuild the same three packages.
+`git switch campaign-final`, then rebuild the same four packages.
