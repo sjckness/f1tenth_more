@@ -4,10 +4,12 @@
 # missions reads it.
 #
 # A door is a gap of door_width_min_m .. door_width_max_m between two pieces
-# of one wall line the multi-wall tracker holds (confirmed or coasting), that
-# every LiDAR beam crossing it sees THROUGH. Closed doors are wall to the
-# LiDAR and never appear here. door_detection.py's module docstring has the
-# full rule.
+# of one wall line the multi-wall tracker holds (confirmed or coasting), or
+# between the short straight pieces (door frames) of a line the scan shows,
+# that every LiDAR beam crossing it sees THROUGH. It is CONFIRMED only once
+# it has also been seen square-on and clear: glass returns the LiDAR only
+# there. Closed doors are wall to the LiDAR and never appear here.
+# door_detection.py's module docstring has the full rule.
 #
 # Positions are in the tracker's fixed frame (DoorArray.header.frame_id, the
 # odom frame every wall track lives in), on the floor (z = 0); the *_bl
@@ -33,7 +35,9 @@ geometry_msgs/Point jamb1_bl
 
 uint32 parent_wall_id0          # MultiWallTrack ids of the walls at jamb0 and
 uint32 parent_wall_id1          # jamb1 on the last cycle that saw the door;
-                                # equal when the doorway lies inside one track
+                                # equal when the doorway lies inside one track;
+                                # 0: that jamb is on a LiDAR frame piece, not on
+                                # a wall track (track ids start at 1)
 
 bool occupied                   # a detected person is standing in it; that
                                 # keeps a CONFIRMED door alive while its beams

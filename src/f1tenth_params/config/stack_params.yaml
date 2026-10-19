@@ -2963,6 +2963,43 @@ lidar_front_wall_door_stereo_wall_veto_frac:
 lidar_front_wall_door_jamb_viz_diameter_m:
   default: 0.10
   description: "Diameter [m] of each jamb's vertical cylinder on /viz/doors. The cylinders are lidar_front_wall_wall_viz_height_m tall and stand on the floor. Visualisation only."
+# Frame jambs and glass (door-detection step 3). A glass partition is never a
+# tracked wall: the LiDAR sees its frames as 4-60 cm pieces and its panes only
+# square-on. Doorways are also searched between those pieces (FRAME JAMBS),
+# and no door confirms before it has been SEEN SQUARE-ON and clear (GLASS).
+lidar_front_wall_door_frame_jambs:
+  default: true
+  description: "Also look for doorways between the short straight pieces the scan itself shows -- door frames, mullions, panel edges -- not only between wall tracks. Glass corridor (corridor10m_20261016T144537): its partitions are never tracked walls (the tracker births a wall at lidar_front_wall_wall_min_span_birth_m, 1.0 m, and the frames are 0.1-0.6 m), so without this no doorway in it could ever be found. A frame jamb's parent wall id on /perception/doors is 0. A piece at least lidar_front_wall_wall_min_span_birth_m long is a WALL and carries a door only once the tracker confirms it."
+lidar_front_wall_door_frame_min_pieces:
+  default: 3
+  description: "A line made of frame pieces alone (no wall track on it) must have at least this many pieces on it to carry a door: two isolated posts 0.85 m apart are as likely a chair and a bin. THE PRICE: a lone doorway in a glass wall with only its two frames in view is not found until a third piece of the partition is."
+lidar_front_wall_door_frame_jamb_min_length_m:
+  default: 0.04
+  description: "Shortest run of returns ON a frame line that is a jamb [m]. A door frame seen square-on is 4-10 cm of the wall line; on a wall track the jamb minimum stays 0.10 m."
+lidar_front_wall_door_piece_max_rms_m:
+  default: 0.015
+  description: "A frame piece is straight: rms of its returns about their own line at most this [m]. The range noise is ~1 cm; an arc (a chair leg, a bin) is not a piece."
+lidar_front_wall_door_piece_max_range_m:
+  default: 6.0
+  description: "Frame pieces are taken only within this range [m] of the laser: beyond it a 6 cm frame is 2-3 returns and the beam spacing is 2.6 cm, and the pieces cost time (the extraction's own split runs once per cluster in Python)."
+lidar_front_wall_door_square_looks:
+  default: 1
+  description: "SEEN SQUARE-ON: a door is CONFIRMED only after this many cycles on which at least lidar_front_wall_door_square_min_beams of its core's beams within lidar_front_wall_door_square_incidence_deg of its normal went THROUGH and no beam of its core returned on its line. Applies to every door, on a wall track or on frames. Why: glass is invisible to the LiDAR obliquely -- the beams return from the room behind it, exactly like an open doorway -- and returns it only square-on (corridor10m_20261016T144537, a pane between two frames: ON on 100 / 94 / 51 / 19 / 0 % of its beams at 0-1 / 1-2 / 2-3 / 3-4 / 4-5 deg). Driving past a door, or towards it, gives that view; a door only ever seen obliquely stays TENTATIVE. 0 disables (the step 1-2 rule: confirmed on hits alone)."
+lidar_front_wall_door_square_incidence_deg:
+  default: 2.0
+  description: "How close to the door's normal [deg] a beam must run to count for a square look. 2: a pane returns 94-100 % of its beams there (3 deg would already be 51 %)."
+lidar_front_wall_door_square_min_beams:
+  default: 8
+  description: "Fewest square-on beams through a door's core for a square look. 4 deg of beams at 0.25 deg is 16, so the laser's foot on the door line must be well inside the core. A pane returns >= 94 % of those beams: 8 of them all clear would be ~1e-10 if beams were independent (they are not quite, so read it as: never seen in the bag)."
+lidar_front_wall_door_pane_min_on_beams:
+  default: 2
+  description: "PANES: a door NOT YET SEEN SQUARE-ON whose core returns at least this many beams ON its line, on lidar_front_wall_door_pane_min_cycles consecutive cycles, is a pane of glass seen at last: it is deleted and remembered. A door already seen square-on that returns on its line has been closed or blocked; it just goes unseen and is deleted as before."
+lidar_front_wall_door_pane_min_cycles:
+  default: 2
+  description: "Consecutive cycles of lidar_front_wall_door_pane_min_on_beams ON returns that make a door a pane."
+lidar_front_wall_door_pane_memory_sec:
+  default: 60.0
+  description: "A remembered pane drops every candidate that associates with it (centre, normal, width as door tracks do) for this long [s] after its glass was last seen ON. Panes are counted in /perception/debug/front_wall (door_panes, door_pane_kills, door_pane_suppressed). Cosmetic for confirmation (a pane never passes a square look); it keeps passed panes from coming back as tentative doors seen obliquely from behind."
 
 # --- minimum width for a LiDAR wall (multi_wall_tracker's span gate) ----------
 # A wall is long; an object face, a chair leg, the end of a counter and a

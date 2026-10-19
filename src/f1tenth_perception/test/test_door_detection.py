@@ -34,15 +34,26 @@ WALL_X = 3.0
 BACK_X = 6.0
 
 
-def raycast(car, segments, circles=(), noise=0.01, seed=0):
-    """Ranges of one scan from the laser on car (Pose2D) against segments and circles."""
+#: Glass returns the beam only this close to square-on (corridor10m_20261016T144537:
+#: a pane returned 100 / 94 / 51 / 19 / 0 % of its beams at 0-1 / ... / 4-5 deg).
+PANE_MAX_DEG = 3.0
+
+
+def raycast(car, segments, circles=(), noise=0.01, seed=0, panes=()):
+    """
+    Ranges of one scan from the laser on car (Pose2D) against segments and circles.
+
+    `panes` are segments of GLASS: invisible to a beam more than PANE_MAX_DEG
+    off their normal, which passes through to whatever is behind.
+    """
     rng = np.random.default_rng(seed)
     laser = car.compose(Pose2D(*LASER))
     origin = laser.t
     ang = laser.theta + ANGLE_MIN + np.arange(N_BEAMS) * INC
     d = np.stack([np.cos(ang), np.sin(ang)], axis=1)
     best = np.full(N_BEAMS, np.inf)
-    for (ax, ay), (bx, by) in segments:
+    glass = [False] * len(segments) + [True] * len(panes)
+    for ((ax, ay), (bx, by)), is_glass in zip(list(segments) + list(panes), glass):
         e = np.array([bx - ax, by - ay], dtype=float)
         w = np.array([ax, ay], dtype=float) - origin
         den = d[:, 0] * (-e[1]) - d[:, 1] * (-e[0])
@@ -50,6 +61,9 @@ def raycast(car, segments, circles=(), noise=0.01, seed=0):
             t = (w[0] * (-e[1]) - w[1] * (-e[0])) / den
             u = (d[:, 0] * w[1] - d[:, 1] * w[0]) / den
         hit = (np.abs(den) > 1e-12) & (t > 0) & (u >= 0) & (u <= 1)
+        if is_glass:
+            normal = np.array([-e[1], e[0]]) / np.hypot(*e)
+            hit &= np.abs(d @ normal) >= math.cos(math.radians(PANE_MAX_DEG))
         best = np.where(hit & (t < best), t, best)
     for (cx, cy), r in circles:
         oc = origin - np.array([cx, cy])
@@ -288,13 +302,15 @@ PERSON = (WALL_X, 0.0, 0.2)     # (x, y, half width): standing in the doorway
 DOOR_SCENE = wall_with_gap(-0.425, 0.425) + back_wall()
 
 
-def cycle(tracker, tracks, stamp, person=False, car=ORIGIN):
+def cycle(tracker, tracks, stamp, person=False, car=ORIGIN, segments=DOOR_SCENE):
+    """One door cycle as the node runs it: candidates, then the tracker on the same scan."""
     objects = (PERSON,) if person else ()
     circles = (((PERSON[0], PERSON[1]), PERSON[2]),) if person else ()
-    cands, rejects = candidates(tracks, DOOR_SCENE, circles, objects, car=car,
-                                seed=int(stamp * 10))
+    scan = scan_of(raycast(car, segments, circles, seed=int(stamp * 10)), objects)
+    rejects = []
+    cands = dd.door_candidates(tracks, car, scan, None, rejects)
     tracker.rejects = rejects
-    return tracker.step(cands, car, stamp, persons=list(objects))
+    return tracker.step(cands, car, stamp, persons=list(objects), scan=scan)
 
 
 def confirmed_tracker(tracks=None):
@@ -311,11 +327,16 @@ class TestTracking:
         tracker = dd.DoorTracker()
         states = [cycle(tracker, one_wall(), 0.1 * i)[0].state for i in range(3)]
         assert states == [dd.STATE_TENTATIVE, dd.STATE_TENTATIVE, dd.STATE_CONFIRMED]
-        # The doorway closes (a wall with no gap): it coasts, then goes.
+        # The doorway closes (a wall with no gap): it coasts, then goes. It
+        # was seen square-on and clear, so the leaf now ON its line is a
+        # closed door, not glass: no pane is remembered (GLASS, PANES).
         closed = [((WALL_X, -3.0), (WALL_X, 3.0))]
         scan = scan_of(raycast(ORIGIN, closed))
-        doors = tracker.step(dd.door_candidates(one_wall(), ORIGIN, scan), ORIGIN, 0.5)
+        for k in range(3):
+            doors = tracker.step(dd.door_candidates(one_wall(), ORIGIN, scan), ORIGIN,
+                                 0.5 + 0.1 * k, scan=scan)
         assert doors[0].state == dd.STATE_COASTING
+        assert tracker.panes == [] and tracker.n_pane_kills == 0
         assert tracker.step([], ORIGIN, 2.3) == []
 
     def test_a_door_seen_once_never_confirms_and_is_dropped(self):
@@ -487,12 +508,13 @@ class TestStereo:
     def test_stereo_support_raises_the_confidence_and_is_never_required(self):
         lidar_only = dd.DoorTracker()
         both = dd.DoorTracker()
+        scan = scan_of(raycast(ORIGIN, DOOR_SCENE))
         for i in range(3):
             cand = door_candidate()
-            lidar_only.step([cand], ORIGIN, 0.1 * i)
+            lidar_only.step([cand], ORIGIN, 0.1 * i, scan=scan)
             cand = door_candidate()
             cand.stereo_support = True
-            both.step([cand], ORIGIN, 0.1 * i)
+            both.step([cand], ORIGIN, 0.1 * i, scan=scan)
         assert lidar_only.doors[0].state == dd.STATE_CONFIRMED
         assert lidar_only.doors[0].stereo_support is False
         assert both.doors[0].stereo_support is True
@@ -518,7 +540,7 @@ class TestThroughTheRealTracker:
             scan = scan_of(ranges)
             tracker.step(obs, 0.1 * i, ORIGIN, scan=scan)
             out = doors.step(dd.door_candidates(tracker.tracks, ORIGIN, scan), ORIGIN,
-                             0.1 * i)
+                             0.1 * i, scan=scan)
         assert len(out) == 1
         assert out[0].state == dd.STATE_CONFIRMED
         assert out[0].width == pytest.approx(0.85, abs=0.04)
@@ -545,7 +567,8 @@ def run_real_tracker(segments, cycles=6):
                                        wall_fusion.SOURCE_LIDAR, 0.8) for ln in lines]
         scan = scan_of(ranges)
         tracker.step(obs, 0.1 * i, ORIGIN, scan=scan)
-        out = doors.step(dd.door_candidates(tracker.tracks, ORIGIN, scan), ORIGIN, 0.1 * i)
+        out = doors.step(dd.door_candidates(tracker.tracks, ORIGIN, scan), ORIGIN, 0.1 * i,
+                         scan=scan)
     return tracker, out
 
 
@@ -717,3 +740,226 @@ class TestGlassVeto:
         cand.glass_suspect = True
         doors = tracker.step([cand], ORIGIN, 0.0)
         assert doors[0].glass_suspect is True
+
+
+# ==============================================================================
+# FRAME JAMBS: doorways between the scan's short straight pieces
+# ==============================================================================
+
+def post(y0, y1, x=WALL_X, depth=0.08):
+    """Return a frame post on the x line: its face y0..y1 ON it, its sides running back."""
+    return [((x, y0), (x, y1)), ((x, y0), (x + depth, y0)), ((x, y1), (x + depth, y1))]
+
+
+def posts(*spans, x=WALL_X):
+    return [seg for y0, y1 in spans for seg in post(y0, y1, x=x)]
+
+
+#: A doorway 0.85 m wide between two posts, and the partition carrying on
+#: 1.455 m either side to two more: those gaps are too wide to be a door.
+FRAME_LINE = ((-2.0, -1.94), (-0.485, -0.425), (0.425, 0.485), (1.94, 2.0))
+
+
+class TestFrameJambs:
+
+    def test_a_doorway_between_frame_posts_with_no_wall_track_is_a_candidate(self):
+        cands, _rejects = candidates([], posts(*FRAME_LINE) + back_wall())
+        assert len(cands) == 1
+        door = cands[0]
+        assert door.parents == (dd.FRAME_ID, dd.FRAME_ID)
+        assert door.width == pytest.approx(0.85, abs=0.04)
+        assert door.centre == pytest.approx([WALL_X, 0.0], abs=0.03)
+        assert door.normal == pytest.approx([1.0, 0.0], abs=0.02)
+
+    def test_frame_jambs_off_finds_nothing_there(self):
+        cands, _rejects = candidates([], posts(*FRAME_LINE) + back_wall(),
+                                     p=dd.DoorParams(frame_jambs=False))
+        assert cands == []
+
+    def test_two_posts_alone_are_not_a_partition_line(self):
+        """frame_min_pieces: two isolated pieces 0.85 m apart may as well be a chair and a bin."""
+        cands, _rejects = candidates([], posts(*FRAME_LINE[1:3]) + back_wall())
+        assert cands == []
+
+    def test_partitions_running_away_from_the_corridor_are_not_a_line(self):
+        """Office partitions starting on a line: their ends line up, their pieces do not."""
+        stubs = [((WALL_X, y), (WALL_X + 0.25, y)) for y in (-0.85, 0.0, 0.85)]
+        cands, _rejects = candidates([], stubs + back_wall())
+        assert cands == []
+
+    def test_on_a_tracked_wall_the_frame_pieces_change_nothing(self):
+        """A piece lying on a tracked wall is that wall: the track is the better line."""
+        scene = wall_with_gap(-0.425, 0.425) + back_wall()
+        for tracks in (one_wall(), two_walls()):
+            on, _ = candidates(tracks, scene)
+            off, _ = candidates(tracks, scene, p=dd.DoorParams(frame_jambs=False))
+            assert [(c.parents, c.jamb0.tolist(), c.jamb1.tolist()) for c in on] == \
+                [(c.parents, c.jamb0.tolist(), c.jamb1.tolist()) for c in off]
+
+    def test_a_wall_no_track_holds_carries_no_door_even_through_its_pieces(self):
+        """Pieces as long as a track needs to be born are walls: tracker-confirmed only."""
+        cands, _rejects = candidates([], wall_with_gap(-0.425, 0.425) + back_wall())
+        assert cands == []
+
+    def test_scan_pieces_finds_the_post_faces_and_not_the_far_wall(self):
+        ranges = raycast(ORIGIN, posts(*FRAME_LINE) + back_wall())
+        pieces = dd.scan_pieces(scan_of(ranges))
+        faces = [pc for pc in pieces
+                 if abs(pc.a[0] - WALL_X) < 0.03 and abs(pc.b[0] - WALL_X) < 0.03]
+        assert len(faces) == 4
+        assert all(0.04 <= pc.length < 0.10 for pc in faces)
+        # The back wall is 12 m of straight returns beyond piece_max_range_m: no piece.
+        assert not any(pc.a[0] > 5.0 or pc.b[0] > 5.0 for pc in pieces)
+
+
+# ==============================================================================
+# GLASS: seen square-on before confirmed, and panes
+# ==============================================================================
+
+#: The doorway of DOOR_SCENE closed by a pane of glass.
+PANE = [((WALL_X, -0.425), (WALL_X, 0.425))]
+#: From here the laser's foot on the wall is 1.5 m off the door's centre:
+#: every beam through the gap is 20-37 deg off its normal.
+OBLIQUE = Pose2D(0.0, -1.5, 0.0)
+
+
+def glass_cycle(tracker, stamp, car, panes=PANE, tracks=None):
+    scan = scan_of(raycast(car, DOOR_SCENE, seed=int(stamp * 10), panes=panes))
+    cands = dd.door_candidates(tracks or one_wall(), car, scan)
+    return tracker.step(cands, car, stamp, scan=scan)
+
+
+class TestSeenSquareOn:
+
+    def test_the_gap_evidence_counts_the_square_on_beams(self):
+        ev = dd.gap_evidence((WALL_X, -0.425), (WALL_X, 0.425),
+                             scan_of(raycast(ORIGIN, DOOR_SCENE)))
+        assert ev['on'] == 0 and ev['n'] == ev['open'] > 0
+        # 4 deg of beams around the normal at 0.25 deg, all inside the core.
+        assert ev['square'] == ev['square_open'] >= 16
+        pane = dd.gap_evidence((WALL_X, -0.425), (WALL_X, 0.425),
+                               scan_of(raycast(ORIGIN, DOOR_SCENE, panes=PANE)))
+        assert pane['square_open'] == 0 and pane['on'] >= 16
+
+    def test_a_door_seen_only_obliquely_stays_tentative(self):
+        tracker = dd.DoorTracker()
+        for i in range(10):
+            doors = cycle(tracker, one_wall(), 0.1 * i, car=OBLIQUE)
+        assert len(doors) == 1
+        assert doors[0].state == dd.STATE_TENTATIVE
+        assert doors[0].hits == 10 and doors[0].square_looks == 0
+        # ...until the car comes level with it.
+        for i in range(10, 13):
+            doors = cycle(tracker, one_wall(), 0.1 * i)
+        assert doors[0].square_looks > 0 and doors[0].state == dd.STATE_CONFIRMED
+
+    def test_without_the_scan_no_door_is_ever_seen_square_on(self):
+        tracker = dd.DoorTracker()
+        for i in range(5):
+            cands, _ = candidates(one_wall(), DOOR_SCENE)
+            doors = tracker.step(cands, ORIGIN, 0.1 * i)
+        assert doors[0].state == dd.STATE_TENTATIVE
+
+    def test_square_looks_0_is_the_rule_of_steps_1_and_2(self):
+        tracker = dd.DoorTracker(dd.DoorParams(square_looks=0))
+        for i in range(3):
+            cands, _ = candidates(one_wall(), DOOR_SCENE)
+            doors = tracker.step(cands, ORIGIN, 0.1 * i)
+        assert doors[0].state == dd.STATE_CONFIRMED
+
+
+class TestPanes:
+
+    def test_a_pane_is_a_door_obliquely_and_glass_square_on(self):
+        """
+        Door 8 of corridor10m_20261016T144537, on a TRACKED glass wall.
+
+        Obliquely the pane is invisible and the gap a perfect doorway; the
+        car comes level, the glass returns, and the tentative door is a pane.
+        """
+        tracker = dd.DoorTracker()
+        for i in range(8):
+            doors = glass_cycle(tracker, 0.1 * i, OBLIQUE)
+        assert len(doors) == 1 and doors[0].state == dd.STATE_TENTATIVE
+        assert doors[0].hits == 8
+        door_id = doors[0].id
+        for i in range(8, 11):
+            doors = glass_cycle(tracker, 0.1 * i, ORIGIN)
+        assert doors == []
+        assert [pn.id for pn in tracker.panes] == [door_id] and tracker.n_pane_kills == 1
+        # Seen obliquely again, the remembered pane drops the candidate: no door.
+        for i in range(11, 21):
+            doors = glass_cycle(tracker, 0.1 * i, OBLIQUE)
+            assert doors == []
+        assert tracker.n_pane_suppressed == 10
+
+    def test_the_pane_is_forgotten_pane_memory_s_after_its_glass_was_last_seen(self):
+        tracker = dd.DoorTracker(dd.DoorParams(pane_memory_s=5.0))
+        for i in range(4):
+            glass_cycle(tracker, 0.1 * i, OBLIQUE)
+        for i in range(4, 7):
+            glass_cycle(tracker, 0.1 * i, ORIGIN)
+        assert len(tracker.panes) == 1
+        # Glass last seen ON at 0.6 s; at 5.5 s it is still remembered...
+        assert glass_cycle(tracker, 5.5, OBLIQUE) == []
+        # ...at 5.7 s it is not, and the oblique candidate is a door again.
+        doors = glass_cycle(tracker, 5.7, OBLIQUE)
+        assert tracker.panes == [] and len(doors) == 1
+
+    def test_a_person_in_the_doorway_is_never_a_pane(self):
+        """Their beams are cut for the detection: no opinion, never ON."""
+        tracker = dd.DoorTracker()
+        for i in range(3):
+            cycle(tracker, one_wall(), 0.1 * i, car=OBLIQUE)
+        for i in range(3, 8):
+            cycle(tracker, one_wall(), 0.1 * i, person=True)
+        assert tracker.panes == [] and tracker.n_pane_kills == 0
+
+
+# ==============================================================================
+# A glass corridor driven past: frames, panes and one doorway, no wall tracks
+# ==============================================================================
+
+#: The left side of a glass corridor at y = 1.2, the car driving along y = 0:
+#: five posts, three 0.90 m panes (door-wide!) and one 0.85 m open doorway,
+#: an office wall behind at y = 3. corridor10m_20261016T144537's partitions:
+#: posts every ~1 m, never a tracked wall.
+CORRIDOR_Y = 1.2
+CORRIDOR_POSTS = ((0.00, 0.06), (0.96, 1.02), (1.87, 1.93), (2.83, 2.89), (3.79, 3.85))
+CORRIDOR_PANES = ((0.06, 0.96), (1.93, 2.83), (2.89, 3.79))
+CORRIDOR_DOOR = (1.02, 1.87)
+
+
+def corridor_scene():
+    segs = []
+    for x0, x1 in CORRIDOR_POSTS:
+        segs += [((x0, CORRIDOR_Y), (x1, CORRIDOR_Y)), ((x0, CORRIDOR_Y), (x0, CORRIDOR_Y + 0.08)),
+                 ((x1, CORRIDOR_Y), (x1, CORRIDOR_Y + 0.08))]
+    segs += [((-3.0, 3.0), (8.0, 3.0))]
+    panes = [((x0, CORRIDOR_Y), (x1, CORRIDOR_Y)) for x0, x1 in CORRIDOR_PANES]
+    return segs, panes
+
+
+class TestAGlassCorridor:
+
+    def test_driving_past_finds_the_doorway_and_none_of_the_panes(self):
+        segs, panes = corridor_scene()
+        tracker = dd.DoorTracker()
+        confirmed = {}
+        for i, x in enumerate(np.arange(-1.5, 5.0, 0.05)):
+            car = Pose2D(float(x), 0.0, 0.0)
+            scan = scan_of(raycast(car, segs, seed=i, panes=panes))
+            doors = tracker.step(dd.door_candidates([], car, scan), car, 0.1 * i, scan=scan)
+            for d in doors:
+                if d.state == dd.STATE_CONFIRMED:
+                    confirmed[d.id] = d
+        # ONE confirmed door, the doorway, on its two frame posts.
+        assert len(confirmed) == 1
+        (door,) = confirmed.values()
+        assert door.centre == pytest.approx([sum(CORRIDOR_DOOR) / 2, CORRIDOR_Y], abs=0.04)
+        assert door.width == pytest.approx(0.85, abs=0.04)
+        assert door.parents == (dd.FRAME_ID, dd.FRAME_ID)
+        # Every pane the car came level with was glass in the end.
+        assert tracker.n_pane_kills >= 1
+        for pn in tracker.panes:
+            assert any(x0 < pn.centre[0] < x1 for x0, x1 in CORRIDOR_PANES)

@@ -1,5 +1,5 @@
 """
-door_detection.py: open doorways in the multi-wall tracker's walls, from /scan.
+door_detection.py: open doorways in the tracked walls and the door frames of /scan.
 
 Pure: numpy and this package's own modules, no rclpy. lidar_front_wall_node
 hosts it behind door_detection_enabled, on the wall tracker's own cycle, and
@@ -15,7 +15,8 @@ sees through. A candidate must satisfy ALL of (door_candidates):
   1. COLLINEAR. Both pieces lie on wall tracks that are confirmed or coasting
      (never tentative), and when they are two different tracks those are the
      same line within collinear_angle_rad and collinear_offset_m, measured at
-     the facing ends. A corner is not a doorway.
+     the facing ends. A corner is not a doorway. Or they lie on a FRAME LINE
+     (FRAME JAMBS, below).
   2. WIDTH. Jamb to jamb in [width_min_m, width_max_m].
   3. THROUGH THE GAP. Every beam whose ray crosses the central
      core_fraction of the gap returns at least behind_margin_m BEYOND the
@@ -44,6 +45,54 @@ sees through. A candidate must satisfy ALL of (door_candidates):
      through); a gap whose depth is mostly invalid is kept and flagged
      glass_suspect.
 
+FRAME JAMBS (frame_jambs; scan_pieces)
+--------------------------------------
+A glass partition is never a tracked wall: the tracker births a wall at
+1.0 m of returns, and the LiDAR sees a glass wall only as its frames --
+mullions, door frames, posts, 4-60 cm of returns each -- plus the glass
+itself where a beam meets it square-on (GLASS). So the scan's own short
+straight pieces (scan_pieces: the extraction's breakpoints and split,
+refined at the few-centimetre corner where a frame's face meets its side)
+are walls here too, with parent id FRAME_ID (0). A piece on a tracked wall
+is that wall (_uncovered); a piece as long as a track needs to be born is a
+wall the tracker has not confirmed, never a frame. Pieces too short to have
+a direction of their own join a line on where they lie (_collinear_short),
+up to frame_line_max_gap_m apart; a line of frame pieces alone must hold
+frame_min_pieces separate frames (_stations) and is refitted to every return
+on it (_refine_line), the line its doors' normals come from. Along it the
+doorways are found on the beams exactly as along a track (BEAMS), every
+criterion above unchanged except that a jamb is any run of at least
+frame_jamb_min_length_m of ON returns on the line -- a frame is a piece one
+scan and three returns the next -- shorter than a wall.
+
+GLASS: SEEN SQUARE-ON, and PANES (DoorTracker._glass_evidence)
+-------------------------------------------------------------
+Glass is invisible to the LiDAR obliquely -- the beams return from the room
+behind it, exactly like an open doorway -- and returns them only within a
+few degrees of its normal (corridor10m_20261016T144537, one pane between two
+frames: ON on 100 / 94 / 51 / 19 / 0 % of its beams at 0-1 / 1-2 / 2-3 /
+3-4 / 4-5 deg). Its panes are 1.05-1.15 m between frames there: every pane
+is a door-wide gap. So:
+
+  * SEEN SQUARE-ON. No door is confirmed before square_looks cycles on which
+    THE FAN -- every beam within square_incidence_rad of the door's normal
+    -- crossed its core, at least square_min_beams of them, all through, and
+    none of the core's beams returned on its line (gap_evidence,
+    is_square_look). The fan is wider than the pane's return zone by what a
+    door's normal can be off the glass's, so a pane never passes; a doorway
+    always does once the car drives past it or faces it. A door only ever
+    seen obliquely stays TENTATIVE. Every door, on tracks or on frames: a
+    tracked glass wall has panes too (door 8 of that bag).
+  * PANES. A door not yet seen square-on whose core returns at least
+    pane_min_on_beams ON its line on pane_min_cycles consecutive cycles is
+    a pane: deleted, and remembered pane_memory_s after its glass was last
+    seen ON; a candidate that associates with a remembered pane is dropped.
+    A door once seen square-on is not glass: if it later returns on its
+    line it has been closed or blocked, and simply goes unseen.
+
+Both need the cycle's scan (DoorTracker.step(scan=...)). A closed glass DOOR
+is a pane to the LiDAR and is never reported: closed doors are out of scope.
+
 THE LEAF (open door leaf, is_leaf)
 ---------------------------------
 An open leaf hinged at a jamb is seen through the doorway as a short surface
@@ -62,6 +111,12 @@ core shallower than behind_margin_m and is rejected ('shallow'). On a
 opening accepted is 65 deg at core_fraction 0.6, 55 at 0.5, 50 at 0.4 and
 45 at 0.3: a smaller core admits a less open leaf, and more clutter near the
 jambs.
+
+THE REVEAL (is_reveal). A jamb seen at an angle also shows the face running
+back from the line: the reveal of a frame in a wall, the side of a post.
+Shallow returns at most reveal_tol_m from their jamb along the line and
+reveal_max_depth_m past it are that face, allowed at both jambs and never a
+leaf; a 90 deg leaf reaches the margin there, a wall's thickness does not.
 
 Closed doors are wall to the LiDAR and are out of scope; so are double doors
 (they fail the width).
@@ -104,6 +159,8 @@ import collections
 from dataclasses import dataclass, field
 import math
 
+from corridor_perception.extraction import (
+    adaptive_breakpoints, ExtractionParams, iepf_split, polar_to_cartesian)
 from f1tenth_perception import multi_wall_tracker as mwt
 from f1tenth_perception import scene_mask
 from f1tenth_perception import wall_fusion
@@ -174,6 +231,12 @@ class DoorParams:
     leaf_hinge_tol_m: float = 0.10
     #: A leaf is flat: the rms of its returns about their own line.
     leaf_max_rms_m: float = 0.03
+    #: THE REVEAL (is_reveal): shallow returns within reveal_tol_m of their
+    #: jamb along the line and at most reveal_max_depth_m past it are the
+    #: jamb's own side, allowed at both jambs. A 90 deg leaf reaches the
+    #: margin there; a wall, a frame and its post are thinner.
+    reveal_tol_m: float = 0.05
+    reveal_max_depth_m: float = 0.20
     # --- the tracker (DoorTracker) -----------------------------------------
     confirm_hits: int = 3
     confirm_window: int = 5
@@ -203,6 +266,59 @@ class DoorParams:
     #: Below this share of valid depth over the gap the stereo cannot say:
     #: no veto, and the door is flagged glass_suspect.
     stereo_min_valid_frac: float = 0.5
+    # --- frame jambs (module docstring, FRAME JAMBS) ------------------------
+    #: Also look for doorways between the short straight pieces the scan
+    #: itself shows (door frames, mullions, panel edges), not only between
+    #: wall tracks.
+    frame_jambs: bool = True
+    piece_min_points: int = 3
+    piece_min_length_m: float = 0.04
+    piece_max_rms_m: float = 0.015
+    piece_max_range_m: float = 6.0
+    #: A straight piece at least this long is a WALL, and a wall carries a
+    #: door only once the tracker has confirmed it (criterion 1): 1.0 m is
+    #: the length the tracker needs to start one (wall_min_span_birth_m).
+    piece_max_length_m: float = 1.0
+    #: A piece shorter than this has no trusted direction of its own: it
+    #: joins a line on where its points lie, and its direction is checked
+    #: (within frame_angle_rad) only if it is at least twice
+    #: piece_min_length_m long.
+    piece_angle_min_length_m: float = 0.30
+    #: How many times a short run that is not straight is split again at its
+    #: corner (scan_pieces): a frame and its side, then a reveal.
+    piece_refine_depth: int = 3
+    frame_angle_rad: float = math.radians(20.0)
+    #: Two frame pieces this far apart along one line [m] are still one
+    #: partition: its panes can be wider than a door (1.05-1.15 m in
+    #: corridor10m_20261016T144537). Track to track it stays one doorway's
+    #: width_max_m + jamb_extent_tol_m.
+    frame_line_max_gap_m: float = 2.0
+    #: A line made of frame pieces alone needs at least this many of them, at
+    #: separate places along it (_stations).
+    frame_min_pieces: int = 3
+    #: The shortest run of ON returns that is a jamb on a frame line (a door
+    #: frame seen square-on is 4-10 cm of the wall line).
+    frame_jamb_min_length_m: float = 0.04
+    # --- glass (module docstring, GLASS: SEEN SQUARE-ON, PANES) --------------
+    #: SEEN SQUARE-ON: a door is confirmed only after this many SQUARE LOOKS,
+    #: cycles on which THE FAN -- every beam within square_incidence_rad of
+    #: its normal -- crossed its core, at least square_min_beams of them,
+    #: all through, and none of its core's beams returned on its line.
+    #: 0 disables (the step 1-2 rule).
+    square_looks: int = 1
+    #: A pane returns the beams within ~2 deg of its own normal (100 / 94 /
+    #: 51 / 19 / 0 % at 0-1 / 1-2 / 2-3 / 3-4 / 4-5 deg); the fan is wider by
+    #: what a door's normal can be off the glass's (~1-2 deg on a refined
+    #: frame line or a track), so it always holds the beams the glass returns.
+    square_incidence_rad: float = math.radians(3.0)
+    square_min_beams: int = 8
+    #: PANES: a door not yet seen square-on whose core returns at least this
+    #: many beams ON its line, on pane_min_cycles consecutive cycles, is a
+    #: pane of glass seen at last...
+    pane_min_on_beams: int = 2
+    pane_min_cycles: int = 2
+    #: ...and no candidate is accepted there again for this long [s].
+    pane_memory_s: float = 60.0
 
 
 @dataclass
@@ -231,6 +347,11 @@ class DoorCandidate:
         return float(np.hypot(*(self.jamb1 - self.jamb0)))
 
 
+#: The parent id of a jamb that lies on a LiDAR FRAME PIECE, not on a wall
+#: track (Door.parent_wall_id0/1 on the wire). Track ids start at 1.
+FRAME_ID = 0
+
+
 @dataclass
 class _Wall:
     track_id: int
@@ -238,6 +359,14 @@ class _Wall:
     b: np.ndarray
     n: np.ndarray
     d: float
+
+    @property
+    def is_frame(self):
+        return self.track_id == FRAME_ID
+
+    @property
+    def length(self):
+        return float(np.hypot(*(self.b - self.a)))
 
 
 def _wall_bl(trk, car_pose):
@@ -273,10 +402,47 @@ def collinear(wa, wb, p):
     wall's FACING end lies off the other wall's line, the larger of the two:
     two pieces either side of a doorway line up exactly there.
     """
+    short_a = wa.length < p.piece_angle_min_length_m
+    short_b = wb.length < p.piece_angle_min_length_m
+    if short_a or short_b:
+        return _collinear_short(wa, wb, p)
     angle = math.acos(min(1.0, abs(float(wa.n @ wb.n))))
     pa, pb = _facing_ends(wa, wb)
     offset = max(abs(float(wa.n @ pb) - wa.d), abs(float(wb.n @ pa) - wb.d))
     ok = angle <= p.collinear_angle_rad and offset <= p.collinear_offset_m
+    return ok, angle, offset
+
+
+def _collinear_short(wa, wb, p):
+    """
+    Return (ok, angle_rad, offset_m) when at least one piece is too short to trust.
+
+    A 5-20 cm piece's own direction is noise (a few returns), so the line is
+    the longer piece's when one is long enough, else the line through the
+    two pieces' midpoints. Both pieces' endpoints must lie within
+    collinear_offset_m of it, and a piece of at least twice
+    piece_min_length_m must run along it within frame_angle_rad -- which is
+    what keeps out the office partitions that start at a frame and run
+    AWAY from the corridor.
+    """
+    if wa.length >= p.piece_angle_min_length_m or wb.length >= p.piece_angle_min_length_m:
+        ref = wa if wa.length >= wb.length else wb
+        n, d = ref.n, ref.d
+    else:
+        ma, mb = 0.5 * (wa.a + wa.b), 0.5 * (wb.a + wb.b)
+        t = mb - ma
+        norm = float(np.hypot(*t))
+        if norm < 1e-6:
+            return False, math.pi / 2, math.inf
+        t = t / norm
+        n = np.array([-t[1], t[0]])
+        d = float(n @ ma)
+    offset = max(abs(float(n @ q) - d) for q in (wa.a, wa.b, wb.a, wb.b))
+    angle = 0.0
+    for w in (wa, wb):
+        if w.length >= 2.0 * p.piece_min_length_m:
+            angle = max(angle, math.acos(min(1.0, abs(float(w.n @ n)))))
+    ok = offset <= p.collinear_offset_m and angle <= p.frame_angle_rad
     return ok, angle, offset
 
 
@@ -299,27 +465,125 @@ def _groups(walls, p, rejects):
         return i
 
     reach = p.width_max_m + p.jamb_extent_tol_m
-    for i in range(len(walls)):
-        for j in range(i + 1, len(walls)):
-            wa, wb = walls[i], walls[j]
-            ok, _angle, _offset = collinear(wa, wb, p)
-            gap = _along_gap(wa, wb)
-            if ok and gap <= reach:
-                parent[find(j)] = find(i)
-                continue
-            if ok and gap <= 2.0 * p.width_max_m:
-                # One line, but too far apart to hold a single doorway.
-                _reject(rejects, 'width', (wa.track_id, wb.track_id), gap)
-                continue
-            if not ok:
-                pa, pb = _facing_ends(wa, wb)
-                dist = float(np.hypot(*(pa - pb)))
-                if 0.5 * p.width_min_m <= dist <= reach:
-                    _reject(rejects, 'not_collinear', (wa.track_id, wb.track_id), dist)
+    # Only pairs whose segments come within reach of each other can share a
+    # doorway: one vectorised point-to-segment pass instead of a collinearity
+    # test for every pair of a few dozen pieces.
+    near = np.triu(_near_pairs(walls, max(2.0 * p.width_max_m, p.frame_line_max_gap_m)), k=1)
+    frame = np.array([w.is_frame for w in walls])
+    ii, jj = np.nonzero(near)
+    # Two tracks: the scalar test, with its reject trail.
+    for i, j in zip(*(ii[~(frame[ii] | frame[jj])], jj[~(frame[ii] | frame[jj])])):
+        wa, wb = walls[i], walls[j]
+        ok, _angle, _offset = collinear(wa, wb, p)
+        gap = _along_gap(wa, wb)
+        if ok and gap <= reach:
+            parent[find(j)] = find(i)
+        elif ok and gap <= 2.0 * p.width_max_m:
+            # One line, but too far apart to hold a single doorway.
+            _reject(rejects, 'width', (wa.track_id, wb.track_id), gap)
+        elif not ok:
+            pa, pb = _facing_ends(wa, wb)
+            dist = float(np.hypot(*(pa - pb)))
+            if 0.5 * p.width_min_m <= dist <= reach:
+                _reject(rejects, 'not_collinear', (wa.track_id, wb.track_id), dist)
+    # A frame piece in the pair: the same test vectorised over all such
+    # pairs, and no rejects (frame pieces are everything straight in the
+    # scan; a reject for every pair that is not one line would drown the
+    # trail). The pieces of one partition may lie a pane apart, wider than
+    # a door: frame_line_max_gap_m.
+    sel = frame[ii] | frame[jj]
+    fi, fj = ii[sel], jj[sel]
+    if fi.size:
+        ok = (_collinear_pairs(walls, fi, fj, p)
+              & (_along_gap_pairs(walls, fi, fj) <= max(reach, p.frame_line_max_gap_m)))
+        for i, j in zip(fi[ok].tolist(), fj[ok].tolist()):
+            parent[find(j)] = find(i)
     out = collections.defaultdict(list)
     for i, w in enumerate(walls):
         out[find(i)].append(w)
     return list(out.values())
+
+
+def _near_pairs(walls, reach):
+    """(N, N) bool: segments i and j come within `reach` of each other."""
+    a = np.array([w.a for w in walls])
+    b = np.array([w.b for w in walls])
+    pts = np.concatenate([a, b, 0.5 * (a + b)])            # (3N, 2)
+    ab = b - a
+    den = np.maximum(np.sum(ab * ab, axis=1), 1e-12)
+    t = np.clip(np.einsum('kij,ij->ki', pts[:, None, :] - a[None, :, :], ab)
+                / den[None, :], 0.0, 1.0)                  # (3N, N)
+    proj = a[None, :, :] + t[:, :, None] * ab[None, :, :]
+    dist = np.hypot(pts[:, None, 0] - proj[..., 0], pts[:, None, 1] - proj[..., 1])
+    n = len(walls)
+    d = dist.reshape(3, n, n).min(axis=0)                  # point set of i vs segment j
+    return np.minimum(d, d.T) <= reach
+
+
+def _arrays(walls):
+    a = np.array([w.a for w in walls])
+    b = np.array([w.b for w in walls])
+    n = np.array([w.n for w in walls])
+    d = np.array([w.d for w in walls])
+    return a, b, n, d, np.hypot(*(b - a).T)
+
+
+def _collinear_pairs(walls, ii, jj, p):
+    """collinear(walls[i], walls[j], p)[0] for every pair (i, j), vectorised."""
+    a, b, n, d, length = _arrays(walls)
+    ai, bi, ni, di, li = a[ii], b[ii], n[ii], d[ii], length[ii]
+    aj, bj, nj, dj, lj = a[jj], b[jj], n[jj], d[jj], length[jj]
+    ok = np.zeros(ii.size, dtype=bool)
+
+    def dot(u, v):
+        return np.sum(u * v, axis=-1)
+
+    # Both long enough to trust their own lines: the facing-ends test.
+    lng = (li >= p.piece_angle_min_length_m) & (lj >= p.piece_angle_min_length_m)
+    if lng.any():
+        ends_i = np.stack([ai[lng], bi[lng]], axis=1)                # (K, 2, 2)
+        ends_j = np.stack([aj[lng], bj[lng]], axis=1)
+        dist = np.linalg.norm(ends_i[:, :, None, :] - ends_j[:, None, :, :], axis=-1)
+        best = dist.reshape(-1, 4).argmin(axis=1)
+        rows = np.arange(best.size)
+        pa, pb = ends_i[rows, best // 2], ends_j[rows, best % 2]
+        angle = np.arccos(np.minimum(1.0, np.abs(dot(ni[lng], nj[lng]))))
+        offset = np.maximum(np.abs(dot(ni[lng], pb) - di[lng]),
+                            np.abs(dot(nj[lng], pa) - dj[lng]))
+        ok[lng] = (angle <= p.collinear_angle_rad) & (offset <= p.collinear_offset_m)
+    # At least one too short (_collinear_short): the longer piece's line when
+    # it is long enough, else the line through the two midpoints.
+    sh = ~lng
+    if sh.any():
+        use_i = li[sh] >= lj[sh]
+        ref_n = np.where(use_i[:, None], ni[sh], nj[sh])
+        ref_d = np.where(use_i, di[sh], dj[sh])
+        by_mid = np.maximum(li[sh], lj[sh]) < p.piece_angle_min_length_m
+        mi, mj = 0.5 * (ai[sh] + bi[sh]), 0.5 * (aj[sh] + bj[sh])
+        tm = mj - mi
+        norm = np.hypot(tm[:, 0], tm[:, 1])
+        tm = tm / np.maximum(norm, 1e-12)[:, None]
+        mid_n = np.column_stack([-tm[:, 1], tm[:, 0]])
+        ref_n = np.where(by_mid[:, None], mid_n, ref_n)
+        ref_d = np.where(by_mid, dot(mid_n, mi), ref_d)
+        offset = np.max(np.abs(np.column_stack(
+            [dot(ref_n, q) for q in (ai[sh], bi[sh], aj[sh], bj[sh])]) - ref_d[:, None]), axis=1)
+        angle = np.zeros(offset.size)
+        for nw, lw in ((ni[sh], li[sh]), (nj[sh], lj[sh])):
+            ang = np.arccos(np.minimum(1.0, np.abs(dot(nw, ref_n))))
+            angle = np.maximum(angle, np.where(lw >= 2.0 * p.piece_min_length_m, ang, 0.0))
+        ok[sh] = ((offset <= p.collinear_offset_m) & (angle <= p.frame_angle_rad)
+                  & ~(by_mid & (norm < 1e-6)))
+    return ok
+
+
+def _along_gap_pairs(walls, ii, jj):
+    """_along_gap(walls[i], walls[j]) for every pair, vectorised."""
+    a, b, n, _d, _length = _arrays(walls)
+    u = np.column_stack([-n[ii, 1], n[ii, 0]])
+    ta = np.sort(np.column_stack([np.sum(u * a[ii], axis=1), np.sum(u * b[ii], axis=1)]), axis=1)
+    tb = np.sort(np.column_stack([np.sum(u * a[jj], axis=1), np.sum(u * b[jj], axis=1)]), axis=1)
+    return np.maximum(tb[:, 0] - ta[:, 1], ta[:, 0] - tb[:, 1])
 
 
 _MAX_REJECTS = 16
@@ -371,18 +635,39 @@ def _group_candidates(group, beams, inc, p, rejects):
     once per cycle for every group.
     """
     r, v, lxy, cut_all = beams
-    ref = max(group, key=lambda w: float(np.hypot(*(w.b - w.a))))
-    # Every member's line with its normal on the same side as the reference,
-    # so the crossing distances below are the same quantity for all of them.
-    members = []
-    for w in group:
-        if float(w.n @ ref.n) < 0.0:
-            w = _Wall(w.track_id, w.a, w.b, -w.n, -w.d)
-        members.append(w)
-    n, d = ref.n, ref.d
+    framed = any(w.is_frame for w in group)
+    pure_frame = framed and all(w.is_frame for w in group)
+    if framed:
+        # FRAME JAMBS: the pieces are too short for their own lines to be
+        # trusted, so every member is judged against ONE line fitted through
+        # all of them, each weighted by its length -- then refitted to every
+        # return on it (_refine_line): a door's normal is what a SQUARE LOOK
+        # is measured against.
+        min_frames = max(2, int(p.frame_min_pieces))
+        if pure_frame and len(group) < min_frames:
+            return []       # too few frames to be a partition line
+        n, d = _group_line(group)
+        if pure_frame and _stations(group, n, p.jamb_min_length_m) < min_frames:
+            return []
+        n, d = _refine_line(n, d, group, beams, p)
+        line = _Wall(FRAME_ID, group[0].a, group[0].b, n, d)
+        members = [_Wall(w.track_id, _foot(w.a, line), _foot(w.b, line), n, d) for w in group]
+        jamb_min = p.frame_jamb_min_length_m
+    else:
+        ref = max(group, key=lambda w: float(np.hypot(*(w.b - w.a))))
+        # Every member's line with its normal on the same side as the
+        # reference, so the crossing distances below are the same quantity
+        # for all of them.
+        members = []
+        for w in group:
+            if float(w.n @ ref.n) < 0.0:
+                w = _Wall(w.track_id, w.a, w.b, -w.n, -w.d)
+            members.append(w)
+        n, d = ref.n, ref.d
+        jamb_min = p.jamb_min_length_m
     u = np.array([-n[1], n[0]])
     spans = np.array([sorted((float(u @ w.a), float(u @ w.b))) for w in members])
-    if float(spans[:, 1].max() - spans[:, 0].min()) < p.width_min_m + 2.0 * p.jamb_min_length_m:
+    if float(spans[:, 1].max() - spans[:, 0].min()) < p.width_min_m + 2.0 * jamb_min:
         return []   # too short to hold a doorway and a piece of wall either side
     t_lo = float(spans[:, 0].min()) - p.jamb_extent_tol_m
     t_hi = float(spans[:, 1].max()) + p.jamb_extent_tol_m
@@ -422,8 +707,18 @@ def _group_candidates(group, beams, inc, p, rejects):
         [[0], (cls == BEAM_ON).astype(np.int8), [0]])))
     starts, ends = edges[0::2], edges[1::2] - 1
     length = np.abs((pts[ends] - pts[starts]) @ u)
-    keep = (ends > starts) & (length >= p.jamb_min_length_m)
+    keep = (ends > starts) & (length >= jamb_min)
+    if pure_frame:
+        # A partition line no track holds: a run of wall as long as a track
+        # needs to be born is a wall the tracker has not confirmed, never a
+        # jamb (criterion 1). Its returns stay ON the line, inside the gap.
+        keep &= length < p.piece_max_length_m
     pieces = list(zip(starts[keep].tolist(), ends[keep].tolist()))
+    # On a partition line no track holds, the line itself is the evidence
+    # (frame_min_pieces frames on it): a jamb is any run of ON returns along
+    # it, whether or not this scan made a piece of that frame -- a 6 cm
+    # frame is a piece one scan and three returns the next.
+    whole = (float(spans[:, 0].min()), float(spans[:, 1].max()))
 
     out = []
     for (_a0, a1), (b0, _b1) in zip(pieces, pieces[1:]):
@@ -436,8 +731,8 @@ def _group_candidates(group, beams, inc, p, rejects):
             continue
         gap = slice(a1 + 1, b0)
         code, n_open, n_req, leaf = _judge_gap(
-            cls[gap], (j0, j1), (spans[k[a1]], spans[k[b0]]), u, (wa, wb), lxy, inc, p,
-            tb[gap], pts[gap])
+            cls[gap], (j0, j1), (whole, whole) if pure_frame else (spans[k[a1]], spans[k[b0]]),
+            u, (wa, wb), lxy, inc, p, tb[gap], pts[gap])
         if code:
             _reject(rejects, code, parents, width)
             continue
@@ -448,6 +743,272 @@ def _group_candidates(group, beams, inc, p, rejects):
             cand.leaf_side = side_of(leaf, centre, normal)
         out.append(cand)
     return out
+
+
+def _refine_line(n, d, group, beams, p, bands=(0.10, 0.04)):
+    """
+    Return (n, d) refitted (TLS) to the scan's returns on the line, inside the group.
+
+    The group line through a few 5-10 cm pieces is off by a degree or more
+    (their endpoints are a few returns each); the returns along it -- every
+    frame, and any glass ranged square-on -- span metres. Each pass keeps the
+    uncut returns within `band` of the current line and within
+    jamb_extent_tol_m of the group's extent along it; fewer than
+    piece_min_points * 3 of them, or a spread under width_min_m, and the
+    line is kept as it was.
+    """
+    r, v, lxy, cut = beams
+    ok = np.isfinite(r) & ~np.asarray(cut, dtype=bool)
+    q = lxy + np.where(ok, r, 0.0)[:, None] * v
+    q = q[ok]
+    u = np.array([-n[1], n[0]])
+    ends = np.array([[float(u @ w.a), float(u @ w.b)] for w in group])
+    lo, hi = float(ends.min()) - p.jamb_extent_tol_m, float(ends.max()) + p.jamb_extent_tol_m
+    along = q @ u
+    inside = (along >= lo) & (along <= hi)
+    for band in bands:
+        on = inside & (np.abs(q @ n - d) <= band)
+        if (np.count_nonzero(on) < 3 * p.piece_min_points
+                or float(np.ptp(along[on])) < p.width_min_m):
+            break
+        c = q[on].mean(axis=0)
+        _vals, vecs = np.linalg.eigh(np.cov((q[on] - c).T, bias=True))
+        t = vecs[:, 1]
+        new_n = np.array([-t[1], t[0]])
+        if float(new_n @ n) < 0.0:
+            new_n = -new_n
+        n, d = new_n, float(new_n @ c)
+    return n, d
+
+
+def _stations(members, n, merge_gap):
+    """
+    Return how many separate places along the line (normal n) the members occupy.
+
+    Members whose extents along it overlap or lie within merge_gap of each
+    other are one place: a post's face and the side running back from it
+    are one frame, not two.
+    """
+    u = np.array([-n[1], n[0]])
+    spans = sorted(sorted((float(u @ w.a), float(u @ w.b))) for w in members)
+    count, end = 0, -math.inf
+    for lo, hi in spans:
+        if lo - end >= merge_gap:
+            count += 1
+        end = max(end, hi)
+    return count
+
+
+def _group_line(group):
+    """Return (n, d) of the line through a group's segments, length-weighted TLS."""
+    pts, wts = [], []
+    for w in group:
+        for q in (w.a, 0.5 * (w.a + w.b), w.b):
+            pts.append(q)
+            wts.append(max(w.length, 1e-3))
+    pts, wts = np.array(pts), np.array(wts)
+    c = (pts * wts[:, None]).sum(axis=0) / wts.sum()
+    q = pts - c
+    cov = (q * wts[:, None]).T @ q
+    _vals, vecs = np.linalg.eigh(cov)
+    t = vecs[:, 1]
+    n = np.array([-t[1], t[0]])
+    return n, float(n @ c)
+
+
+def _run_fits(pts, cs, s, e):
+    """
+    Return (centre, tangent, rms, lo, hi) of the TLS line through each run [s, e).
+
+    Laser-centred `pts`; `cs` are their prefix sums of (x, y, xx, xy, yy).
+    Every run is a contiguous block of returns, so its moments come from the
+    prefix sums: one vectorised 2x2 fit for all of them. The returns of a
+    straight piece are in scan order along it, so its first and last returns
+    are its ends (lo, hi: along the tangent from the centre).
+    """
+    n = (e - s).astype(float)
+    m = (cs[e] - cs[s]) / n[:, None]
+    cx, cy = m[:, 0], m[:, 1]
+    sxx, sxy, syy = m[:, 2] - cx * cx, m[:, 3] - cx * cy, m[:, 4] - cy * cy
+    phi = 0.5 * np.arctan2(2.0 * sxy, sxx - syy)          # the major axis
+    t = np.column_stack([np.cos(phi), np.sin(phi)])
+    lam_min = 0.5 * (sxx + syy) - np.hypot(0.5 * (sxx - syy), sxy)
+    c = np.column_stack([cx, cy])
+    ta = np.sum((pts[s] - c) * t, axis=1)
+    tb = np.sum((pts[e - 1] - c) * t, axis=1)
+    return c, t, np.sqrt(np.maximum(lam_min, 0.0)), np.minimum(ta, tb), np.maximum(ta, tb)
+
+
+def _split_at_corner(pts, s, e):
+    """Return the run [s, e) as two runs sharing its farthest return from its end-to-end chord."""
+    q = pts[s:e]
+    chord = q[-1] - q[0]
+    norm = math.hypot(chord[0], chord[1])
+    if norm < 1e-9:
+        return None
+    dev = np.abs(chord[0] * (q[:, 1] - q[0, 1]) - chord[1] * (q[:, 0] - q[0, 0])) / norm
+    k = int(np.argmax(dev[1:-1])) + 1 if q.shape[0] > 2 else 0
+    if k <= 0:
+        return None
+    return (s, s + k + 1), (s + k, e)
+
+
+def scan_pieces(scan, p=None):
+    """
+    Return the short straight pieces of one scan as _Wall frames, base_link.
+
+    The extraction's own adaptive breakpoints and iterative end-point split
+    (corridor_perception.extraction, the same split_dist), then a straight
+    piece is every run of at least piece_min_points returns, at least
+    piece_min_length_m and less than piece_max_length_m long (a piece as long
+    as a track needs to be born is a wall: criterion 1), with an rms about
+    its own line of at most piece_max_rms_m, within piece_max_range_m of the
+    laser. Unlike a wall observation there is NO minimum of 0.5 m and 10
+    points: a door frame seen in a glass partition is a few centimetres of
+    returns. The extraction's split smooths over a few returns and so never
+    breaks a corner only centimetres across -- a frame's face and the side
+    running back from it, or a jamb and its reveal -- so a short run that is
+    not straight is split again at its farthest return from its end-to-end
+    chord, piece_refine_depth times at most. Cut beams (object sectors) are
+    no-returns here, as everywhere.
+    """
+    p = p or DoorParams()
+    ranges, bearings = np.asarray(scan[0], dtype=float), np.asarray(scan[1], dtype=float)
+    lxy = np.asarray(scan[2], dtype=float).reshape(2)
+    cut = (np.asarray(scan[3], dtype=bool) if len(scan) > 3 and scan[3] is not None
+           else np.zeros(ranges.shape, dtype=bool))
+    # Returns past any piece that could pass the range test are dropped
+    # before the split: most of a corridor scan is far wall, and the split is
+    # the one per-cluster Python loop here.
+    reach = p.piece_max_range_m + 0.5 * p.piece_max_length_m
+    with np.errstate(invalid='ignore'):
+        r = np.where(cut | ~np.isfinite(ranges) | (ranges > reach), np.inf, ranges)
+    ep = ExtractionParams()
+    pts = polar_to_cartesian(np.where(np.isfinite(r), r, 0.0), bearings)   # laser-centred
+    runs = [(int(g[0]), int(g[-1]) + 1)
+            for cluster in adaptive_breakpoints(r, bearings, ep)
+            if cluster.size >= p.piece_min_points
+            for g in iepf_split(pts, cluster, ep) if g.size >= p.piece_min_points]
+    if not runs:
+        return []
+    x, y = pts[:, 0], pts[:, 1]
+    cs = np.vstack([np.zeros(5), np.cumsum(np.column_stack([x, y, x * x, x * y, y * y]),
+                                           axis=0)])
+    s, e = (np.array(v) for v in zip(*runs))
+    fit = _run_fits(pts, cs, s, e)
+    for _depth in range(max(0, int(p.piece_refine_depth))):
+        c, t, rms, lo, hi = fit
+        bent = ((hi - lo < p.piece_max_length_m) & (rms > p.piece_max_rms_m)
+                & (e - s >= 2 * p.piece_min_points - 1))
+        if not bent.any():
+            break
+        keep_s, keep_e = list(s[~bent]), list(e[~bent])
+        for k in np.flatnonzero(bent):
+            halves = _split_at_corner(pts, int(s[k]), int(e[k]))
+            for hs, he in halves or ():
+                if he - hs >= p.piece_min_points:
+                    keep_s.append(hs)
+                    keep_e.append(he)
+        s, e = np.array(keep_s, dtype=int), np.array(keep_e, dtype=int)
+        if s.size == 0:
+            return []
+        fit = _run_fits(pts, cs, s, e)
+    c, t, rms, lo, hi = fit
+    length = hi - lo
+    keep = ((np.hypot(c[:, 0], c[:, 1]) <= p.piece_max_range_m)
+            & (length >= p.piece_min_length_m) & (length < p.piece_max_length_m)
+            & (rms <= p.piece_max_rms_m))
+    out = []
+    for k in np.flatnonzero(keep):
+        nrm = np.array([-t[k, 1], t[k, 0]])
+        ck = c[k] + lxy
+        out.append(_Wall(FRAME_ID, ck + lo[k] * t[k], ck + hi[k] * t[k], nrm,
+                         float(nrm @ ck)))
+    return out
+
+
+def _uncovered(pieces, walls, p):
+    """
+    Return the pieces no eligible wall track already accounts for.
+
+    A piece lying on a tracked wall (its points within collinear_offset_m of
+    the line, within jamb_extent_tol_m of its extent) is a fragment of that
+    wall: the track is the better line, so where tracks exist the result is
+    exactly the track-only detector's.
+    """
+    if not walls or not pieces:
+        return list(pieces)
+    wa, wb, wn, wd, _length = _arrays(walls)
+    u = np.column_stack([-wn[:, 1], wn[:, 0]])                       # (W, 2)
+    lo = np.minimum(np.sum(u * wa, axis=1), np.sum(u * wb, axis=1)) - p.jamb_extent_tol_m
+    hi = np.maximum(np.sum(u * wa, axis=1), np.sum(u * wb, axis=1)) + p.jamb_extent_tol_m
+    covered = np.ones((len(pieces), len(walls)), dtype=bool)
+    for q in (np.array([pc.a for pc in pieces]), np.array([pc.b for pc in pieces])):
+        along = q @ u.T                                              # (P, W)
+        covered &= ((np.abs(q @ wn.T - wd[None, :]) <= p.collinear_offset_m)
+                    & (along >= lo[None, :]) & (along <= hi[None, :]))
+    return [pc for pc, cov in zip(pieces, covered.any(axis=1)) if not cov]
+
+
+def gap_evidence(jamb0, jamb1, scan, p=None):
+    """
+    Return what this scan's beams say across a door: counts of its core's beams.
+
+    Base_link jambs. The beams crossing the CENTRAL core_fraction of the
+    segment, classified against its line exactly as door_candidates does
+    (classify_beams): 'on', 'open' (beyond or no return), 'short', 'cut' and
+    'n' (all of them). THE FAN is every beam of the scan within
+    square_incidence_rad of the line's normal, wherever it crosses the line:
+    'fan' counts them, 'square' those crossing the core, 'square_open' those
+    of them through. A SQUARE LOOK is the whole fan inside the core, at least
+    square_min_beams of it, all through, and no 'on' at all (module
+    docstring, GLASS); 'on' is also what PANES count -- glass the LiDAR has
+    finally ranged, which an open doorway never returns.
+    """
+    p = p or DoorParams()
+    j0, j1 = np.asarray(jamb0, dtype=float), np.asarray(jamb1, dtype=float)
+    width = float(np.hypot(*(j1 - j0)))
+    out = {'on': 0, 'open': 0, 'short': 0, 'cut': 0, 'n': 0,
+           'fan': 0, 'square': 0, 'square_open': 0}
+    if width < 1e-6:
+        return out
+    t = (j1 - j0) / width
+    n = np.array([-t[1], t[0]])
+    d = float(n @ j0)
+    ranges, bearings = np.asarray(scan[0], dtype=float), np.asarray(scan[1], dtype=float)
+    lxy = np.asarray(scan[2], dtype=float).reshape(2)
+    cut = (np.asarray(scan[3], dtype=bool) if len(scan) > 3 and scan[3] is not None
+           else np.zeros(ranges.shape, dtype=bool))
+    v = np.column_stack([np.cos(bearings), np.sin(bearings)])
+    nv = v @ n
+    with np.errstate(divide='ignore', invalid='ignore'):
+        s = (d - float(n @ lxy)) / nv
+        along = (lxy @ t - float(j0 @ t)) + s * (v @ t)
+    outer = 0.5 * (1.0 - min(max(float(p.core_fraction), 0.0), 1.0)) * width
+    towards = (np.abs(nv) > p.min_incidence) & (s > 0.05)
+    in_core = (along >= outer) & (along <= width - outer)
+    fan = towards & (np.abs(nv) >= math.cos(p.square_incidence_rad))
+    out['fan'] = int(np.count_nonzero(fan))
+    sel = towards & in_core
+    if not sel.any():
+        return out
+    cls = classify_beams(ranges[sel], cut[sel], s[sel], p)
+    is_open = (cls == BEAM_BEYOND) | (cls == BEAM_NONE)
+    square = fan[sel]
+    out['on'] = int(np.count_nonzero(cls == BEAM_ON))
+    out['open'] = int(np.count_nonzero(is_open))
+    out['short'] = int(np.count_nonzero(cls == BEAM_SHORT))
+    out['cut'] = int(np.count_nonzero(cls == BEAM_CUT))
+    out['n'] = int(cls.size)
+    out['square'] = int(np.count_nonzero(square))
+    out['square_open'] = int(np.count_nonzero(square & is_open))
+    return out
+
+
+def is_square_look(ev, p):
+    """Return whether gap_evidence's counts are a SQUARE LOOK (module docstring, GLASS)."""
+    return (ev['on'] == 0 and ev['square'] >= p.square_min_beams
+            and ev['square'] == ev['fan'] and ev['square_open'] == ev['square'])
 
 
 def side_of(jamb, centre, normal):
@@ -486,6 +1047,25 @@ def is_leaf(points, jamb, p):
     if not (s_jamb <= lo + p.leaf_hinge_tol_m or s_jamb >= hi - p.leaf_hinge_tol_m):
         return False      # the jamb is in the middle: a surface THROUGH it
     return max(abs(hi - s_jamb), abs(lo - s_jamb)) <= p.leaf_max_len_m
+
+
+def is_reveal(points, jamb, wall, p):
+    """
+    Return whether shallow returns `points` are the jamb's own side: THE REVEAL.
+
+    A jamb seen at an angle shows the face running back from the wall line
+    -- the reveal of a door frame in a wall, the side of a glass
+    partition's post. Its returns lie at the jamb along the line (within
+    reveal_tol_m) and at most reveal_max_depth_m past it: a wall's thickness.
+    Both jambs may show one; neither is a leaf (module docstring, THE LEAF).
+    """
+    pts = np.asarray(points, dtype=float).reshape(-1, 2)
+    if pts.shape[0] == 0:
+        return False
+    tang = np.array([-wall.n[1], wall.n[0]])
+    along = np.abs(pts @ tang - float(tang @ np.asarray(jamb, dtype=float)))
+    depth = np.abs(pts @ wall.n - wall.d)
+    return bool(np.all(along <= p.reveal_tol_m) and np.all(depth <= p.reveal_max_depth_m))
 
 
 def _judge_gap(gap, jambs, spans, u, walls, lxy, inc, p, t_gap=None, pts_gap=None):
@@ -527,14 +1107,24 @@ def _judge_gap(gap, jambs, spans, u, walls, lxy, inc, p, t_gap=None, pts_gap=Non
         outer = 0.5 * (1.0 - min(max(float(p.core_fraction), 0.0), 1.0))
         if np.any(shallow & (frac >= outer) & (frac <= 1.0 - outer)):
             return 'shallow', 0, 0, None
-        sides = [(shallow & (frac < outer), j0), (shallow & (frac > 1.0 - outer), j1)]
-        hung = [jamb for mask, jamb in sides if np.any(mask)]
+        pts_gap = np.asarray(pts_gap, dtype=float)
+        hung = []
+        for mask, jamb, wall in ((shallow & (frac < outer), j0, wa),
+                                 (shallow & (frac > 1.0 - outer), j1, wb)):
+            if not np.any(mask):
+                continue
+            if is_reveal(pts_gap[mask], jamb, wall, p):
+                n_leaf += int(np.count_nonzero(mask))   # the jamb's own side
+            else:
+                hung.append((mask, jamb))
         if len(hung) > 1:
             return 'not_a_leaf', 0, 0, None     # one leaf per doorway
-        mask, jamb = next((m, j) for m, j in sides if np.any(m))
-        if not is_leaf(np.asarray(pts_gap)[mask], jamb, p):
-            return 'not_a_leaf', 0, 0, None
-        leaf, n_leaf = jamb, int(np.count_nonzero(mask))
+        if hung:
+            mask, jamb = hung[0]
+            if not is_leaf(pts_gap[mask], jamb, p):
+                return 'not_a_leaf', 0, 0, None
+            leaf = jamb
+            n_leaf += int(np.count_nonzero(mask))
     n_open = int(np.count_nonzero((gap == BEAM_BEYOND) | (gap == BEAM_NONE))) + n_leaf
     va, vb = j0 - lxy, j1 - lxy
     span = abs(math.atan2(float(va[0] * vb[1] - va[1] * vb[0]), float(va @ vb)))
@@ -545,7 +1135,7 @@ def _judge_gap(gap, jambs, spans, u, walls, lxy, inc, p, t_gap=None, pts_gap=Non
     return '', n_open, n_req, leaf
 
 
-def door_candidates(tracks, car_pose, scan, p=None, rejects=None):
+def door_candidates(tracks, car_pose, scan, p=None, rejects=None, pieces=None):
     """
     Return every doorway of this cycle, base_link at the scan stamp.
 
@@ -553,11 +1143,17 @@ def door_candidates(tracks, car_pose, scan, p=None, rejects=None):
     are picked here). `scan` is (ranges, base_link bearings, laser xy, cut),
     exactly what MultiWallTracker.step was given. `rejects`, when a list,
     collects (code, (parent ids), width) for the gaps that failed, capped at
-    16: a debug trail, not a log.
+    16: a debug trail, not a log. `pieces` are this scan's frame pieces
+    (scan_pieces); computed here when frame_jambs is on and none are given.
     """
     p = p or DoorParams()
+    if scan is None:
+        return []
     walls = [_wall_bl(t, car_pose) for t in tracks if eligible(t)]
-    if not walls or scan is None:
+    if pieces is None and p.frame_jambs:
+        pieces = scan_pieces(scan, p)
+    walls = walls + _uncovered(pieces or [], walls, p)
+    if not walls:
         return []
     ranges, bearings = np.asarray(scan[0], dtype=float), np.asarray(scan[1], dtype=float)
     cut = (np.asarray(scan[3], dtype=bool) if len(scan) > 3 and scan[3] is not None
@@ -752,6 +1348,10 @@ class DoorTrack:
     leaf_side: int = LEAF_NONE
     #: The last glass check said the gap's depth was mostly invalid.
     glass_suspect: bool = False
+    #: Consecutive cycles whose beams returned ON this door's line (PANES).
+    pane_hits: int = 0
+    #: Cycles it was seen square-on and clear (SEEN SQUARE-ON).
+    square_looks: int = 0
 
     @property
     def centre(self):
@@ -775,6 +1375,11 @@ class DoorTracker:
         self._next_id = 1
         #: (code, (parent ids), width) of the last cycle's failed gaps.
         self.rejects = []
+        #: PANES: where a "door" turned out to be glass, kept pane_memory_s
+        #: after the glass was last seen (DoorTrack records, odom).
+        self.panes = []
+        self.n_pane_kills = 0
+        self.n_pane_suppressed = 0
 
     def _in_odom(self, cand, car_pose):
         j0, j1 = car_pose.transform_points(np.vstack([cand.jamb0, cand.jamb1]))
@@ -809,18 +1414,30 @@ class DoorTracker:
                 return True
         return False
 
-    def step(self, candidates, car_pose, stamp, persons=()):
+    def step(self, candidates, car_pose, stamp, persons=(), scan=None):
         """
         Fold one cycle's base_link candidates in; return every live door.
 
         `persons` are (x, y, half width) of this cycle's person detections in
         base_link at the scan stamp (class already filtered). They never
         create or confirm a door; inside a CONFIRMED door they set occupied
-        and keep it alive.
+        and keep it alive. `scan` is the cycle's scan exactly as
+        door_candidates had it: what its beams say across every live door is
+        the glass evidence (module docstring, GLASS). Without it no door is
+        ever seen square-on, so with square_looks > 0 none confirms.
         """
         p = self.p
         stamp = float(stamp)
+        self.panes = [pn for pn in self.panes if stamp - pn.last_seen <= p.pane_memory_s]
         obs = [self._in_odom(c, car_pose) + (c,) for c in candidates]
+        # A candidate where a pane was seen is that pane again, not a door.
+        kept = []
+        for o in obs:
+            if any(math.isfinite(self._cost(pn, o[0], o[1], o[2])) for pn in self.panes):
+                self.n_pane_suppressed += 1
+            else:
+                kept.append(o)
+        obs = kept
         persons_odom = []
         if persons:
             pts = car_pose.transform_points(np.array([[x, y] for x, y, _ in persons]))
@@ -855,8 +1472,57 @@ class DoorTracker:
             if j not in used_o:
                 self._spawn(j0, j1, normal, cand, stamp)
         self._merge()
+        if scan is not None:
+            self._glass_evidence(car_pose, stamp, scan)
         self.doors = [d for d in self.doors if not self._expired(d, stamp)]
         return list(self.doors)
+
+    def _glass_evidence(self, car_pose, stamp, scan):
+        """
+        Fold this cycle's beams across every door in: square looks and panes.
+
+        Module docstring, GLASS. A cycle with no ON return in a door's core
+        and at least square_min_beams of its square-on beams through is a
+        SQUARE LOOK. A door with no square look yet whose core returns at
+        least pane_min_on_beams ON its line on pane_min_cycles consecutive
+        cycles is deleted and remembered as a pane for pane_memory_s,
+        refreshed whenever the glass is seen again. A door once seen
+        square-on is not glass: if it later returns on its line it has been
+        closed or blocked, and simply goes unseen.
+        """
+        to_bl = car_pose.inverse()
+        p = self.p
+
+        def look(rec):
+            j0, j1 = to_bl.transform_points(np.vstack([rec.jamb0, rec.jamb1]))
+            return gap_evidence(j0, j1, scan, p)
+
+        for pn in self.panes:
+            if look(pn)['on'] >= p.pane_min_on_beams:
+                pn.last_seen = stamp
+        keep = []
+        for door in self.doors:
+            ev = look(door)
+            if is_square_look(ev, p):
+                door.square_looks += 1
+                if door.history and door.history[-1]:
+                    self._maybe_confirm(door)
+            if door.square_looks == 0:
+                door.pane_hits = door.pane_hits + 1 if ev['on'] >= p.pane_min_on_beams else 0
+                if door.pane_hits >= max(1, int(p.pane_min_cycles)):
+                    door.last_seen = stamp
+                    self.panes.append(door)
+                    self.n_pane_kills += 1
+                    continue
+            keep.append(door)
+        self.doors = keep
+
+    def _maybe_confirm(self, door):
+        """Confirm a door seen on confirm_hits of its window and square_looks times square-on."""
+        if (sum(door.history) >= self.p.confirm_hits
+                and door.square_looks >= self.p.square_looks):
+            door.ever_confirmed = True
+        door.state = STATE_CONFIRMED if door.ever_confirmed else STATE_TENTATIVE
 
     def _update(self, door, j0, j1, normal, cand, stamp):
         a = self.p.smoothing
@@ -889,9 +1555,7 @@ class DoorTracker:
         door.confidence = (1.0 - a) * door.confidence + a * self._confidence(cand)
         if cand.stereo_support is not None:
             door.stereo_support = bool(cand.stereo_support)
-        if sum(door.history) >= self.p.confirm_hits:
-            door.ever_confirmed = True
-        door.state = STATE_CONFIRMED if door.ever_confirmed else STATE_TENTATIVE
+        self._maybe_confirm(door)
 
     def _confidence(self, cand):
         bonus = self.p.stereo_bonus if cand.stereo_support else 0.0
@@ -905,8 +1569,7 @@ class DoorTracker:
         door.history = collections.deque([True], maxlen=max(1, int(self.p.confirm_window)))
         door.confidence = self._confidence(cand)
         door.stereo_support = bool(cand.stereo_support)
-        if self.p.confirm_hits <= 1:
-            door.ever_confirmed, door.state = True, STATE_CONFIRMED
+        self._maybe_confirm(door)
         self._next_id += 1
         self.doors.append(door)
 
