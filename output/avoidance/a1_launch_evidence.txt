@@ -1,0 +1,42 @@
+navigation.launch.py -- declared and forwarded to mpc_corr.launch.py
+  boundary_hard                  default False
+  boundary_max_sources           default 4
+  boundary_slack_max             default 0.5
+  boundary_slack_weight          default 10000.0
+  boundary_source                default walls
+  max_wall_constraints           default 4
+  other_walls_as_obstacles       default True
+  wall_row_allow_stereo_only     default False
+  wall_row_coast_margin_m        default 0.1
+  wall_row_end_margin_m          default 0.3
+  wall_row_max_coast_s           default 1.0
+  wall_row_max_tf_age_s          default 0.5
+  wall_row_slack_weight          default 2000000.0
+  (13 forwarded, 0 forwarded-but-undeclared)
+
+mpc_corr parameters, SHIPPED DEFAULTS (no launch overrides)
+  boundary_source                = walls
+  boundary_max_sources           = 4
+  boundary_hard                  = False
+  boundary_slack_weight          = 10000.0
+  boundary_slack_max             = 0.5
+  max_wall_constraints           = 4
+  wall_row_max_coast_s           = 1.0
+  wall_row_coast_margin_m        = 0.1
+  wall_row_allow_stereo_only     = False
+  other_walls_as_obstacles       = True
+  wall_obstacle_spacing_m        = 0.25
+  wall_obstacle_radius_m         = 0.0
+  wall_row_end_margin_m          = 0.3
+  wall_row_merge_angle_deg       = 10.0
+  wall_row_merge_offset_m        = 0.3
+  wall_row_slack_weight          = 2000000.0
+  wall_row_max_tf_age_s          = 0.5
+  use_hard_boundary_constraints  = True
+  car_radius                     = 0.2
+  avoidance_margin               = 0.12
+
+mpc_corr parameters WITH boundary_source:=costmap
+  boundary_source                = costmap  <-- CHANGED
+
+  keys that differ in total: ['boundary_source']

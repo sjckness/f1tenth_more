@@ -209,6 +209,15 @@ def generate_launch_description():
     boundary_slack_weight_la = DeclareLaunchArgument(
         'boundary_slack_weight', default_value=str(boundary_slack_weight_default),
         description=boundary_slack_weight_desc)
+    # boundary_slack_max: the per-row slack cap. A parameter as of the
+    # avoidance pass -- it was a solve_mpc_step keyword mpc_corr never passed,
+    # so the shipped 0.5 m could not be moved from config at all. Default
+    # unchanged.
+    boundary_slack_max_default, boundary_slack_max_desc = get_default(
+        'boundary_slack_max')
+    boundary_slack_max_la = DeclareLaunchArgument(
+        'boundary_slack_max', default_value=str(boundary_slack_max_default),
+        description=boundary_slack_max_desc)
 
     # ---- WALL ROWS from the multi-wall tracker (wall_boundaries.py).
     # Every default comes from stack_params.yaml, where boundary_source is
@@ -378,6 +387,7 @@ def generate_launch_description():
             'boundary_hard': LaunchConfiguration('boundary_hard'),
             'boundary_max_sources': LaunchConfiguration('boundary_max_sources'),
             'boundary_slack_weight': LaunchConfiguration('boundary_slack_weight'),
+            'boundary_slack_max': LaunchConfiguration('boundary_slack_max'),
             'boundary_source': ParameterValue(
                 LaunchConfiguration('boundary_source'), value_type=str),
             'max_wall_constraints': LaunchConfiguration('max_wall_constraints'),
@@ -410,7 +420,7 @@ def generate_launch_description():
         delta_min_la, delta_max_la,
         obstacle_target_shift_m_la, corridor_heading_return_la,
         use_hard_boundary_constraints_la, boundary_hard_la,
-        boundary_max_sources_la, boundary_slack_weight_la,
+        boundary_max_sources_la, boundary_slack_weight_la, boundary_slack_max_la,
         boundary_source_la, max_wall_constraints_la, wall_row_max_coast_s_la,
         wall_row_coast_margin_m_la, wall_row_allow_stereo_only_la, other_walls_as_obstacles_la,
         wall_obstacle_spacing_m_la, wall_obstacle_radius_m_la, wall_row_end_margin_m_la,

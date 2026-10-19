@@ -859,6 +859,15 @@ class MPCController(Node):
         self.boundary_slack_weight = float(
             self.declare_parameter(
                 'boundary_slack_weight', get_value('boundary_slack_weight')).value)
+        # boundary_slack_max: the per-row slack cap, metres. A PARAMETER as of
+        # this pass -- it was a solve_mpc_step keyword this node never passed,
+        # so the shipped 0.5 m was untunable from config, and a wall the car
+        # was further than that inside produced an infeasible QP that the logs
+        # showed only as a discarded solve with no indication why. Default
+        # unchanged.
+        self.boundary_slack_max = float(
+            self.declare_parameter(
+                'boundary_slack_max', get_value('boundary_slack_max')).value)
 
         # ---- WALL ROWS (wall_boundaries.py) ---------------------------------
         # boundary_source picks where the rows come from, and 'costmap' -- the
@@ -3449,6 +3458,7 @@ class MPCController(Node):
             'max_wall_constraints': self.max_wall_constraints,
             'boundary_max_sources': self.boundary_max_sources,
             'slack_weight': self.wall_row_slack_weight,
+            'slack_max_m': self.boundary_slack_max,
             # Metres of violation per QP slot, from the PREVIOUS solve -- one
             # cycle behind the rows beside it, because the rows have to exist
             # before the solve that prices them. Row ids are stable across
@@ -4256,6 +4266,7 @@ class MPCController(Node):
             boundary_max_sources=self.boundary_max_sources,
             boundary_hard=self.boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
+            boundary_slack_max=self.boundary_slack_max,
             warm_start_z=self.warm_start_z,
             control_period=self.ts,
         )

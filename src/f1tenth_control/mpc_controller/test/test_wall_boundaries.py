@@ -572,9 +572,11 @@ class TestRowCapacity:
         assert wb.check_row_capacity('walls', 4, 8) == ''
 
     def test_the_check_does_not_fire_in_the_other_two_modes(self):
-        # boundary_max_sources 3 is the SHIPPED default and max_wall_constraints
-        # 4 is too, so the check firing outside 'walls' mode would make the
-        # default configuration refuse to start.
+        # The costmap path is still fine at 3 rows per stage (front/left/right
+        # is all it ever produces), so a run that goes back to it by lowering
+        # boundary_max_sources with it must not be refused for a cap that only
+        # applies to wall rows. The shipped pair is 4/4 since the avoidance
+        # pass -- see test_navigation_forwarding.py, which pins that.
         assert wb.check_row_capacity('costmap', 4, 3) == ''
         assert wb.check_row_capacity('none', 4, 3) == ''
 
