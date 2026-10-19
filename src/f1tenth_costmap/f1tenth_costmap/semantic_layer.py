@@ -56,17 +56,26 @@ alone. Replaced by update_tracks_batch() below:
     original ask -- nothing pruned tracks before this pass at all).
 Class-gating (same class_id required to match at all) is UNCHANGED from the
 original merge_or_add_object -- a cone and a person in roughly the same spot
-are still two distinct objects, not one. Whether frame-to-frame class-label
-flicker on the SAME physical object (the model calling it two different
-classes across frames) is also contributing to the duplicate-object symptom
-is a separate, still-open hypothesis this pass does not address -- gating
-stays strict class-match here regardless.
+are still two distinct objects, not one -- with ONE exception since obstacles
+v2: a track of class "unknown" (a LiDAR obstacle nothing recognised,
+unknown_objects.py) may be matched by a detection of ANY class, and is then
+UPGRADED in place: same track_id, the detection's class from then on.
+Whether frame-to-frame class-label flicker on the SAME physical object (the
+model calling it two different classes across frames) is also contributing to
+the duplicate-object symptom is a separate, still-open hypothesis this pass
+does not address -- gating stays strict class-match here regardless.
 """
 
 import math
 from typing import Optional
 
+from f1tenth_costmap.unknown_objects import UNKNOWN_CLASS
+
 from scipy.optimize import linear_sum_assignment
+
+#: Footprint width [m] assumed for a recognised track no detection has given
+#: a width yet: the size of the disk marker this layer has always drawn.
+NOMINAL_WIDTH_M = 0.3
 
 # Real detection/track pairs never cost anywhere near this (it's derived from
 # max_distance_m, itself normally well under a meter) -- large enough that
@@ -160,6 +169,29 @@ class SemanticObject:
         # pre-lifecycle behavior) -- supported explicitly rather than as an
         # off-by-one accident, since a caller might reasonably want that.
         self.confirmed = confirm_hit_count <= 1
+        # --- obstacles v2: LiDAR evidence (update_unknown_batch) ------------
+        #: (length, width) [m] of the LiDAR cluster, unknown tracks only.
+        self.extent = None
+        #: Start of the current run of CONSECUTIVE LiDAR sightings: an
+        #: unknown track is confirmed once that run spans persist_s.
+        self.streak_start_sec = float(stamp_sec)
+        #: Last LiDAR cycle a cluster was associated with this track.
+        self.last_lidar_hit_sec = None
+        #: The LiDAR has seen THROUGH this track's area since its last hit.
+        self.seen_through = False
+        #: When a detection upgraded this track from 'unknown' (else None).
+        self.upgraded_sec = None
+
+    @property
+    def is_unknown(self):
+        """Whether this track is an unrecognised LiDAR obstacle."""
+        return self.class_id == UNKNOWN_CLASS
+
+    def radius(self):
+        """Disk radius [m]: half the cluster's larger extent, else half the width."""
+        if self.is_unknown and self.extent is not None:
+            return 0.5 * max(self.extent)
+        return 0.5 * (self.width if self.width is not None else NOMINAL_WIDTH_M)
 
     def predict(self, stamp_sec: float) -> tuple:
         """Where this track is expected to be AT stamp_sec, extrapolated from
@@ -373,9 +405,12 @@ def update_tracks_batch(
         return tracks
 
     if not detections:
+        # An UNKNOWN track's lifecycle is the LiDAR's (update_unknown_batch):
+        # a camera frame that does not mention it is no evidence either way.
         for trk in tracks:
-            trk.mark_missed(confirm_grace_misses)
-        return [t for t in tracks if t.miss_streak < lost_miss_count]
+            if not trk.is_unknown:
+                trk.mark_missed(confirm_grace_misses)
+        return [t for t in tracks if t.is_unknown or t.miss_streak < lost_miss_count]
 
     n_det, n_trk = len(detections), len(tracks)
     # cost[i][j]: real distance if (detection i, track j) is a legal pairing
@@ -394,7 +429,8 @@ def update_tracks_batch(
         if gate_sigma_scale > 0.0 and sigma is not None and sigma > 0.0:
             gate += gate_sigma_scale * float(sigma)
         for j, trk in enumerate(tracks):
-            if trk.class_id != class_id:
+            # Same class, or an UNKNOWN track (upgraded below if chosen).
+            if trk.class_id != class_id and not trk.is_unknown:
                 continue
             px, py = trk.predict(stamp_sec)
             dist = math.hypot(px - x_map, py - y_map)
@@ -422,6 +458,13 @@ def update_tracks_batch(
             # pair had never been proposed at all.
             continue
         class_id, x_map, y_map, score, sigma = unpacked[i]
+        if tracks[j].is_unknown:
+            # THE UPGRADE: the same track, recognised from now on. Its lifecycle
+            # becomes the detections' own (hit/miss streaks), restarted here;
+            # an unknown track that was already published stays published.
+            tracks[j].class_id = class_id
+            tracks[j].upgraded_sec = float(stamp_sec)
+            tracks[j].miss_streak = 0
         tracks[j].update(x_map, y_map, score, stamp_sec,
                          _effective_alpha(alpha, sigma, alpha_sigma_ref_m, min_alpha_scale),
                          width=_unpack_width(detections[i]))
@@ -429,7 +472,7 @@ def update_tracks_batch(
         matched_trk_idx.add(j)
 
     for j, trk in enumerate(tracks):
-        if j not in matched_trk_idx:
+        if j not in matched_trk_idx and not trk.is_unknown:
             trk.mark_missed(confirm_grace_misses)
 
     for i, (class_id, x_map, y_map, score, _sigma) in enumerate(unpacked):
@@ -438,7 +481,139 @@ def update_tracks_batch(
                 next_track_id(), class_id, x_map, y_map, score, stamp_sec, confirm_hit_count,
                 width=_unpack_width(detections[i])))
 
-    return [t for t in tracks if t.miss_streak < lost_miss_count]
+    return [t for t in tracks if t.is_unknown or t.miss_streak < lost_miss_count]
+
+
+def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
+                         max_distance_m: float, alpha: float, next_track_id,
+                         observe=None):
+    """
+    One LiDAR cycle of unknown-object evidence, into the SAME track list.
+
+    Returns (tracks, stats). `candidates` are this cycle's
+    unknown_objects.Candidate list (map frame), `p` its UnknownParams.
+
+    Association: whole-cycle Hungarian against EVERY track, of any class, at
+    the track's predicted position, gated at max(max_distance_m, track
+    radius + candidate radius).
+      * matched UNKNOWN track: EMA position and extent (the same alpha as a
+        detection), last LiDAR hit; CONFIRMED once its run of consecutive
+        sightings spans persist_s.
+      * matched RECOGNISED track: ABSORBED -- the cluster is that object's own
+        LiDAR footprint, never a second, parallel unknown. Nothing else
+        changes: a recognised track keeps the detections' lifecycle.
+      * unmatched candidate: a new TENTATIVE unknown track.
+      * unmatched unknown track: tentative -> dropped (the sightings must be
+        consecutive); confirmed -> kept until decay_s after its last hit once
+        the LiDAR has seen THROUGH its area (observe(track) -> (observed,
+        passed)), or unobserved_decay_s if it never could.
+    """
+    stats = {'matched': 0, 'absorbed': 0, 'spawned': 0, 'confirmed': 0, 'deleted': 0}
+    stamp_sec = float(stamp_sec)
+    matched_trk, matched_cand = set(), set()
+    if tracks and candidates:
+        cost = [[math.inf] * len(tracks) for _ in candidates]
+        for i, cand in enumerate(candidates):
+            for j, trk in enumerate(tracks):
+                px, py = trk.predict(stamp_sec)
+                dist = math.hypot(px - cand.x, py - cand.y)
+                if dist <= max(max_distance_m, trk.radius() + cand.radius):
+                    cost[i][j] = dist
+        finite = [c for row in cost for c in row if math.isfinite(c)]
+        if finite:
+            sentinel = max(finite) * _INFEASIBLE_SENTINEL_MULTIPLIER + 1e6
+            rows, cols = linear_sum_assignment(
+                [[c if math.isfinite(c) else sentinel for c in row] for row in cost])
+            for i, j in zip(rows, cols):
+                if not math.isfinite(cost[i][j]):
+                    continue
+                matched_cand.add(i)
+                matched_trk.add(j)
+                trk, cand = tracks[j], candidates[i]
+                trk.last_lidar_hit_sec = stamp_sec
+                trk.seen_through = False
+                if not trk.is_unknown:
+                    stats['absorbed'] += 1
+                    continue
+                stats['matched'] += 1
+                trk.x_map = alpha * cand.x + (1.0 - alpha) * trk.x_map
+                trk.y_map = alpha * cand.y + (1.0 - alpha) * trk.y_map
+                ext = (cand.length, cand.width)
+                trk.extent = ext if trk.extent is None else tuple(
+                    alpha * a + (1.0 - alpha) * b for a, b in zip(ext, trk.extent))
+                trk.width = max(trk.extent)
+                trk.last_update_stamp_sec = stamp_sec
+                trk.hit_count += 1
+                if not trk.confirmed and stamp_sec - trk.streak_start_sec >= p.persist_s:
+                    trk.confirmed = True
+                    stats['confirmed'] += 1
+    kept = []
+    for j, trk in enumerate(tracks):
+        if j in matched_trk or not trk.is_unknown:
+            kept.append(trk)
+            continue
+        if not trk.confirmed:
+            stats['deleted'] += 1          # a broken run of sightings
+            continue
+        if observe is not None:
+            _observed, passed = observe(trk)
+            trk.seen_through = trk.seen_through or passed
+        age = stamp_sec - (trk.last_lidar_hit_sec if trk.last_lidar_hit_sec is not None
+                           else trk.streak_start_sec)
+        if (trk.seen_through and age > p.decay_s) or age > p.unobserved_decay_s:
+            stats['deleted'] += 1
+            continue
+        kept.append(trk)
+    for i, cand in enumerate(candidates):
+        if i in matched_cand:
+            continue
+        trk = SemanticObject(next_track_id(), UNKNOWN_CLASS, cand.x, cand.y, 0.0,
+                             stamp_sec, confirm_hit_count=1, width=2.0 * cand.radius)
+        trk.confirmed = p.persist_s <= 0.0
+        trk.extent = (cand.length, cand.width)
+        trk.last_lidar_hit_sec = stamp_sec
+        kept.append(trk)
+        stats['spawned'] += 1
+    return kept, stats
+
+
+def dedupe_tracks(tracks: list, max_distance_m: float):
+    """
+    Fold every pair that is ONE physical object into the older track.
+
+    Only pairs involving an UNKNOWN track (two recognised tracks keep today's
+    class-gated rule): centres within max(max_distance_m, the two radii).
+    The older track_id survives; a recognised class, position and width win
+    over an unknown's. Returns (tracks, number of folds) -- the folds are
+    the duplicates association let through, and should be 0.
+    """
+    merged = 0
+    tracks = sorted(tracks, key=lambda t: t.track_id)
+    i = 0
+    while i < len(tracks):
+        a = tracks[i]
+        j = i + 1
+        while j < len(tracks):
+            b = tracks[j]
+            if (a.is_unknown or b.is_unknown) and math.hypot(
+                    a.x_map - b.x_map, a.y_map - b.y_map) <= max(
+                    max_distance_m, a.radius() + b.radius()):
+                if a.is_unknown and not b.is_unknown:
+                    a.class_id, a.x_map, a.y_map = b.class_id, b.x_map, b.y_map
+                    a.width, a.score = b.width, b.score
+                    a.hit_streak, a.miss_streak = b.hit_streak, b.miss_streak
+                    a.upgraded_sec = b.last_update_stamp_sec
+                    a.extent = None
+                a.confirmed = a.confirmed or b.confirmed
+                a.hit_count += b.hit_count
+                hits = [t.last_lidar_hit_sec for t in (a, b) if t.last_lidar_hit_sec is not None]
+                a.last_lidar_hit_sec = max(hits) if hits else None
+                del tracks[j]
+                merged += 1
+                continue
+            j += 1
+        i += 1
+    return tracks, merged
 
 
 def find_nearest_pose_by_stamp(pose_history: list, target_stamp_sec: float):
