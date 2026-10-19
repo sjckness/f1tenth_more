@@ -84,15 +84,15 @@ class TestIds:
 class TestEveryTrackIsDrawn:
     """The reason this topic exists: published() drops these, this does not."""
 
-    def test_an_other_track_is_drawn_in_its_own_dark_grey(self):
+    def test_an_unknown_track_is_drawn_in_its_own_neutral_grey(self):
         builder = wm.WallMarkerBuilder(0.6)
-        markers = _build(builder, [_track(1, role='other')])
+        markers = _build(builder, [_track(1, role='unknown')])
         line = _by_slot(markers, 1)[wm.SLOT_LINE]
         assert (line.color.r, line.color.g, line.color.b) == pytest.approx(
-            wm.ROLE_COLOUR['other'])
+            wm.ROLE_COLOUR['unknown'])
 
-    def test_a_track_with_no_role_yet_reads_as_other(self):
-        assert wm.role_of(_track(1, role='')) == 'other'
+    def test_a_track_with_no_role_yet_reads_as_unknown(self):
+        assert wm.role_of(_track(1, role='')) == 'unknown'
 
     def test_a_tentative_track_is_drawn_too(self):
         builder = wm.WallMarkerBuilder(0.6)
@@ -100,11 +100,36 @@ class TestEveryTrackIsDrawn:
                                           state=mwt.STATE_TENTATIVE)])
         assert _by_slot(markers, 1)[wm.SLOT_LINE].action == Marker.ADD
 
+    @pytest.mark.parametrize('kw', [
+        {'ever_confirmed': False, 'state': mwt.STATE_TENTATIVE},
+        # The cycle after a merge folded a confirmed track into a tentative one.
+        {'ever_confirmed': True, 'state': mwt.STATE_TENTATIVE}])
+    def test_a_tentative_track_is_drawn_as_unknown_whatever_its_geometric_role(self, kw):
+        builder = wm.WallMarkerBuilder(0.6)
+        trk = _track(1, role='front', **kw)
+        slots = _by_slot(_build(builder, [trk]), 1)
+        for slot in (wm.SLOT_LINE, wm.SLOT_PRISM):
+            colour = slots[slot].color
+            assert (colour.r, colour.g, colour.b) == pytest.approx(wm.ROLE_COLOUR['unknown'])
+        assert slots[wm.SLOT_TEXT].text.split()[1:4] == ['unknown', 'lidar', 'tentative']
+        # Drawn so; the track's own role is untouched.
+        assert trk.role == 'front'
+
+    def test_a_legacy_other_role_is_drawn_exactly_like_unknown(self):
+        drawn = {}
+        for role in ('other', 'unknown'):
+            slots = _by_slot(_build(wm.WallMarkerBuilder(0.6), [_track(1, role=role)]), 1)
+            drawn[role] = ([(m.color.r, m.color.g, m.color.b, m.color.a)
+                            for m in (slots[wm.SLOT_LINE], slots[wm.SLOT_PRISM])],
+                           slots[wm.SLOT_TEXT].text)
+        assert drawn['other'] == drawn['unknown']
+        assert drawn['other'][1].split()[1] == 'unknown'
+
 
 class TestColours:
     """Role picks the colour, state picks the alpha, and they never swap."""
 
-    @pytest.mark.parametrize('role', ['front', 'left', 'right', 'back', 'other'])
+    @pytest.mark.parametrize('role', ['front', 'left', 'right', 'back', 'unknown'])
     def test_the_line_takes_its_role_s_colour(self, role):
         builder = wm.WallMarkerBuilder(0.6)
         markers = _build(builder, [_track(2, role=role)])
@@ -333,9 +358,16 @@ class TestDeleteOnDeath:
         assert not any(m.id // 4 == 2 for m in markers)
 
 
-def test_the_role_colours_cover_every_role_the_tracker_can_assign():
-    """Every bucket published() knows, plus 'other', has a colour."""
-    assert set(wm.ROLE_COLOUR) == {'front', 'left', 'right', 'back', 'other'}
+def test_the_role_colours_cover_every_role_the_tracker_can_assign_and_the_legacy_other():
+    """Every bucket published() knows, plus 'unknown' and its old name 'other'."""
+    assert set(wm.ROLE_COLOUR) == {'front', 'left', 'right', 'back', 'unknown', 'other'}
+
+
+def test_unknown_is_a_neutral_grey_unlike_back_and_the_legacy_other_shares_it():
+    r, g, b = wm.ROLE_COLOUR['unknown']
+    assert r == g == b
+    assert wm.ROLE_COLOUR['other'] == wm.ROLE_COLOUR['unknown']
+    assert wm.ROLE_COLOUR['unknown'] != wm.ROLE_COLOUR['back']
 
 
 def test_every_alpha_is_a_legal_opacity():

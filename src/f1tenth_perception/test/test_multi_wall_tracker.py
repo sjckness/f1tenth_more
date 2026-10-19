@@ -132,15 +132,15 @@ def test_room_from_two_poses_walls_correct_and_ids_kept():
     tracks_b = run(trk, b, ROOM, t0=1.0)
     # THE IDS ARE KEPT, which is a statement about the TRACKER, not about the
     # published four: since the cap became role-priority (H3) a wall whose
-    # role is 'other' takes no slot, and at this pose the y = 6 wall is one --
-    # the car has turned a radian, so it is neither in the strip nor beside
+    # role is 'unknown' takes no slot, and at this pose the y = 6 wall is one
+    # -- the car has turned a radian, so it is neither in the strip nor beside
     # the car with a lateral normal. It is still tracked, still confirmed and
     # still an occluder.
     live = {t.id for t in trk.tracks}
     assert ids < live and len(live) == 4
-    other = [t for t in trk.tracks if t.role == 'other']
-    assert len(other) == 1 and other[0].ever_confirmed
-    assert other[0] not in tracks_b
+    unknown = [t for t in trk.tracks if t.role == 'unknown']
+    assert len(unknown) == 1 and unknown[0].ever_confirmed
+    assert unknown[0] not in tracks_b
     assert by_label(trk, tracks_b, b)['front'].rho == pytest.approx(6.0, abs=0.03)
     # The late arrival is the wall that was behind the car at pose a.
     late = next(t for t in trk.tracks if t.id not in ids)
@@ -514,22 +514,22 @@ def test_a_wall_the_car_drives_along_is_a_side_wall():
     assert other.tracks[0].role == 'right'
 
 
-def test_a_perpendicular_segment_three_metres_to_the_left_is_other():
+def test_a_perpendicular_segment_three_metres_to_the_left_is_unknown():
     """In the x window, but its normal points along the car: not a side wall,
     not in the strip, so it is tracked and is a reference for nothing."""
     trk = mwt.MultiWallTracker()
     feed(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))], 3)
     track = trk.tracks[0]
-    assert track.role == 'other'
+    assert track.role == 'unknown'
     assert track in trk.tracks and track.ever_confirmed      # still tracked
     assert not trk.is_front(track, ORIGIN, FRONT_X)
 
 
-def test_a_side_wall_outside_the_x_window_is_other():
+def test_a_side_wall_outside_the_x_window_is_unknown():
     """The same wall 8 m behind the car: real, tracked, not a reference."""
     trk = mwt.MultiWallTracker()
     feed(trk, [obs(wall(1.2, nx=0.0, ny=1.0, t0=-9.0, t1=-8.0))], 3)
-    assert trk.tracks[0].role == 'other'
+    assert trk.tracks[0].role == 'unknown'
 
 
 def test_a_role_sticks_across_its_edge_instead_of_flipping():
@@ -542,7 +542,7 @@ def test_a_role_sticks_across_its_edge_instead_of_flipping():
     trk.update_roles(Pose2D(2.9, 0.0, 0.0))
     assert track.role == 'left'
     trk.update_roles(Pose2D(3.5, 0.0, 0.0))
-    assert track.role == 'other'
+    assert track.role == 'unknown'
 
 
 def test_a_rejected_track_is_never_a_reference_wall():
@@ -555,7 +555,7 @@ def test_a_rejected_track_is_never_a_reference_wall():
     for _ in range(trk.rect.reject_cycles):
         trk.apply_rect_verdicts({track.id: verdict})
     trk.update_roles(ORIGIN)
-    assert track.verify == wall_fusion.VERIFY_REJECTED and track.role == 'other'
+    assert track.verify == wall_fusion.VERIFY_REJECTED and track.role == 'unknown'
     assert not trk.is_front(track, ORIGIN, FRONT_X)
     assert trk.front_track(ORIGIN, FRONT_X) is None
 
@@ -567,9 +567,71 @@ def test_a_role_with_no_history_is_just_the_geometry():
     assert trk.label(trk.tracks[0], ORIGIN) == 'front'
 
 
+# --- 'unknown', its legacy name 'other', and the REPORTED role ---------------
+
+def _bare_track(role, ever_confirmed=True, state=mwt.STATE_CONFIRMED):
+    return mwt.Track(1, np.array([2.0, 0.0]), np.eye(2) * 0.01, -1.0, 1.0, 0.0, 0.0,
+                     ever_confirmed=ever_confirmed, state=state, role=role)
+
+
+def test_the_role_for_nothing_is_spelled_unknown_and_its_legacy_name_other():
+    assert mwt.ROLE_UNKNOWN == 'unknown'
+    assert mwt.LEGACY_ROLE_OTHER == 'other'
+
+
+def test_is_unknown_role_accepts_unknown_the_legacy_other_and_no_role_yet():
+    for role in ('unknown', 'other', ''):
+        assert mwt.is_unknown_role(role), role
+    for role in ('front', 'back', 'left', 'right'):
+        assert not mwt.is_unknown_role(role), role
+
+
+def test_a_tentative_track_is_reported_unknown_but_keeps_its_geometric_role():
+    # Only what is REPORTED changes: the tracker's own role stays the
+    # geometry's, and the same track is reported with it once confirmed.
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 1)
+    track = trk.tracks[0]
+    assert track.state == mwt.STATE_TENTATIVE and not track.ever_confirmed
+    assert track.role == 'front'
+    assert mwt.reported_role(track) == 'unknown'
+    assert mwt.reported_role(track, trk.label(track, ORIGIN)) == 'unknown'
+    feed(trk, [obs(wall(2.0))], 2, t0=1.05)
+    assert track.ever_confirmed and track.state == mwt.STATE_CONFIRMED
+    assert mwt.reported_role(track) == 'front'
+
+
+def test_a_track_still_in_the_tentative_state_is_reported_unknown_even_if_ever_confirmed():
+    """The cycle after _merge folded a confirmed track into an older tentative one."""
+    track = _bare_track('front', ever_confirmed=True, state=mwt.STATE_TENTATIVE)
+    assert mwt.is_tentative(track)
+    assert mwt.reported_role(track) == 'unknown'
+
+
+@pytest.mark.parametrize('role, reported', [
+    ('front', 'front'), ('back', 'back'), ('left', 'left'), ('right', 'right'),
+    ('unknown', 'unknown'), ('other', 'unknown'), ('', 'unknown')])
+def test_a_confirmed_track_is_reported_with_its_role_and_any_unknown_spelling_as_unknown(
+        role, reported):
+    for state in (mwt.STATE_CONFIRMED, mwt.STATE_COASTING):
+        assert mwt.reported_role(_bare_track(role, state=state)) == reported
+
+
+def test_the_front_gate_refuses_unknown_and_legacy_other_but_not_an_unclassified_role():
+    # front_reason's role check is the old `role == 'other'` under the new
+    # name: the legacy spelling is still refused, and '' still is not.
+    trk = mwt.MultiWallTracker()
+    feed(trk, [obs(wall(2.0))], 3)
+    track = trk.tracks[0]
+    assert trk.front_reason(track, ORIGIN, FRONT_X) == ''
+    for role, code in (('unknown', 'role_other'), ('other', 'role_other'), ('', '')):
+        track.role = role
+        assert trk.front_reason(track, ORIGIN, FRONT_X) == code, role
+
+
 # --- first obstacle: a wall behind a wall -----------------------------------
 
-def test_a_segment_behind_a_confirmed_wall_is_other():
+def test_a_segment_behind_a_confirmed_wall_is_unknown():
     trk = mwt.MultiWallTracker()
     trk.laser_xy = LASER[:2]
     feed(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),
@@ -577,7 +639,7 @@ def test_a_segment_behind_a_confirmed_wall_is_other():
     near = min(trk.tracks, key=lambda t: t.rho)
     far = max(trk.tracks, key=lambda t: t.rho)
     assert near.role == 'front'
-    assert far.occluded and far.role == 'other'
+    assert far.occluded and far.role == 'unknown'
     assert trk.front_track(ORIGIN, FRONT_X) is near
 
 
@@ -589,7 +651,7 @@ def test_glass_still_blocks_what_is_behind_it():
     near = min(trk.tracks, key=lambda t: t.rho)
     near.glass = True
     trk.update_roles(ORIGIN)
-    assert max(trk.tracks, key=lambda t: t.rho).role == 'other'
+    assert max(trk.tracks, key=lambda t: t.rho).role == 'unknown'
 
 
 def test_a_wall_beside_the_near_one_is_not_occluded_by_it():
@@ -1110,11 +1172,11 @@ def test_the_budget_is_front_then_nearest_left_then_nearest_right():
     assert published[1] is lefts[0] and published[2] is rights[0]
 
 
-def test_other_never_takes_a_slot_even_when_the_budget_is_free():
+def test_unknown_never_takes_a_slot_even_when_the_budget_is_free():
     trk = mwt.MultiWallTracker(mwt.TrackerParams(max_published=4))
     feed(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))], 4)
     track = trk.tracks[0]
-    assert track.role == 'other' and track.ever_confirmed
+    assert track.role == 'unknown' and track.ever_confirmed
     assert trk.published(ORIGIN) == []
 
 
@@ -1127,7 +1189,7 @@ def test_a_rejected_front_wall_gives_its_slot_up():
     for _ in range(trk.rect.reject_cycles):
         trk.apply_rect_verdicts({track.id: verdict})
     trk.update_roles(ORIGIN)
-    assert track.role == 'other'
+    assert track.role == 'unknown'
     assert trk.published(ORIGIN) == []
 
 
@@ -1239,7 +1301,7 @@ def test_a_front_track_losing_its_lidar_fit_over_a_strip_3_m_longer_is_dropped()
     assert trk.front_track(car, FRONT_X) is None
     assert trk.front_status['rejects'][front.id] == 'coast_contradicted'
     step(trk, car, t + 0.2, beyond)
-    assert front.contradicted and front.role == 'other'
+    assert front.contradicted and front.role == 'unknown'
     assert trk.front_track(car, FRONT_X) is None
     assert contract(trk) == (wall_fusion.STATE_CLEAR, CLEAR_M)
 

@@ -722,6 +722,101 @@ class TestTrackFieldsOnTheWire:
             n.destroy_node()
 
 
+class TestTentativeTracksAreReportedAsUnknown:
+    """A TENTATIVE track is 'unknown' on the wire, drawn and in the debug payload."""
+
+    @staticmethod
+    def _node():
+        # ONE scan of a wall square across the path 2 m ahead: the tracker
+        # holds it as a tentative track whose own (geometric) role is front.
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
+                                   Parameter('virtual_wall_rate_hz', value=0.0),
+                                   Parameter('wall_debug_tracks', value=True),
+                                   Parameter('use_wall_tracker', value=True)])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n.viz_walls_pub = MagicMock()
+        n.viz_walls_pub.get_subscription_count.return_value = 1
+        n._tf_static_cb(_tf_static())
+        # /perception/walls carries published()'s ever-confirmed tracks, so a
+        # tentative one reaches it only on the cycle after a merge; publishing
+        # every held track takes the same _publish_walls path.
+        n.wall_tracker.published = lambda car: list(n.wall_tracker.tracks)
+        n._odom_cb(_odom_at(7.0, 0.0))
+        n._scan_cb(_scan_at(2.0, 7.0))
+        return n
+
+    def test_the_tracker_keeps_the_tentative_track_s_geometric_role_front(self):
+        from f1tenth_perception import multi_wall_tracker as mwt
+        n = self._node()
+        try:
+            held = list(n.wall_tracker.tracks)
+            assert held and all(t.state == mwt.STATE_TENTATIVE for t in held)
+            assert 'front' in {t.role for t in held}
+        finally:
+            n.destroy_node()
+
+    def test_a_tentative_track_is_published_as_unknown_whatever_its_geometric_role(self):
+        n = self._node()
+        try:
+            wire = _last(n.walls_pub).tracks
+            assert {t.id for t in wire} == {t.id for t in n.wall_tracker.tracks}
+            for t in wire:
+                assert t.state == t.STATE_TENTATIVE
+                assert (t.role, t.label) == ('unknown', 'unknown')
+                assert math.isnan(t.d_side)
+        finally:
+            n.destroy_node()
+
+    def test_its_perception_walls_marker_is_the_unknown_grey_and_says_unknown(self):
+        from f1tenth_perception.lidar_front_wall_node import _ROLE_COLOUR
+        from visualization_msgs.msg import Marker
+        n = self._node()
+        try:
+            markers = _last(n.walls_markers_pub).markers
+            slabs = [m for m in markers if m.type == Marker.CUBE]
+            texts = [m for m in markers if m.type == Marker.TEXT_VIEW_FACING]
+            assert slabs and texts
+            for m in slabs:
+                assert (m.color.r, m.color.g, m.color.b) == pytest.approx(
+                    _ROLE_COLOUR['unknown'])
+            for m in texts:
+                words = m.text.split()
+                assert words[1] == 'unknown' and words[-1] == 'tentative'
+        finally:
+            n.destroy_node()
+
+    def test_it_is_drawn_as_unknown_on_viz_walls(self):
+        from f1tenth_perception import wall_markers as wm
+        n = self._node()
+        try:
+            markers = _last(n.viz_walls_pub).markers
+            lines = [m for m in markers if m.id % 4 == wm.SLOT_LINE]
+            texts = [m for m in markers if m.id % 4 == wm.SLOT_TEXT]
+            assert lines and texts
+            for m in lines:
+                assert (m.color.r, m.color.g, m.color.b) == pytest.approx(
+                    wm.ROLE_COLOUR['unknown'])
+            for m in texts:
+                assert m.text.split()[1] == 'unknown'
+        finally:
+            n.destroy_node()
+
+    def test_the_debug_payload_reports_it_as_unknown(self):
+        n = self._node()
+        try:
+            tracks = json.loads(_last(n.virtual_debug_pub).data)['tracks']
+            assert tracks
+            for t in tracks:
+                assert (t['state'], t['role']) == ('tentative', 'unknown')
+        finally:
+            n.destroy_node()
+
+
 class TestTheOutputContract:
     """Step 5: WALL / CLEAR / NO_DATA on the wire.
 

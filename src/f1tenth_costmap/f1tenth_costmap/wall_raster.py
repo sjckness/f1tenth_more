@@ -41,15 +41,23 @@ CELL_NO_ID = -1
 #: occupancy probabilities and must not be read as any.
 #: Cell value per wall ROLE. Multiples of ten inside the OccupancyGrid
 #: convention's 0..100, so the grid reads on its own in any viewer.
-#: 'other' (50) is a wall the tracker holds and uses as a reference for
+#: 'unknown' (50) is a wall the tracker holds and uses as a reference for
 #: NOTHING -- the geometry puts it nowhere near the car's path, or the stereo
 #: rectangle rejected it, or it is behind another confirmed wall
 #: (multi_wall_tracker, WHAT A ROLE IS). The cells are still a real surface
 #: and still occupied; what is NOT true of them is that they are the wall
 #: ahead, to the left or to the right. Before this role had a value of its
 #: own the .get() below silently filed them as 'back'.
-ROLE_VALUE = {'front': 10, 'left': 20, 'right': 30, 'back': 40, 'other': 50}
-VALUE_ROLE = {v: k for k, v in ROLE_VALUE.items()}
+#: 'other' is the same role's name until 2026-10-19 (old bags, old nodes):
+#: an alias with the SAME value, so either spelling paints the same cells.
+#: Both names are spelled out here rather than imported, because this module
+#: is numpy-only (multi_wall_tracker.ROLE_UNKNOWN / LEGACY_ROLE_OTHER).
+ROLE_UNKNOWN = 'unknown'
+LEGACY_ROLE_OTHER = 'other'
+ROLE_VALUE = {'front': 10, 'left': 20, 'right': 30, 'back': 40,
+              ROLE_UNKNOWN: 50, LEGACY_ROLE_OTHER: 50}
+#: Cell value -> role, under the CURRENT name only: 50 reads back as 'unknown'.
+VALUE_ROLE = {v: k for k, v in ROLE_VALUE.items() if k != LEGACY_ROLE_OTHER}
 
 
 def rasterize_walls(walls, origin_x, origin_y, resolution, width, height,
@@ -85,9 +93,9 @@ def rasterize_walls(walls, origin_x, origin_y, resolution, width, height,
         mask = _segment_mask(gx, gy, p0, p1, half)
         if not np.any(mask):
             continue
-        # An unknown role is 'other', not 'back': a role this module has
-        # never heard of is certainly not a claim about where the wall is.
-        roles[mask] = ROLE_VALUE.get(role, ROLE_VALUE['other'])
+        # A role this module has never heard of is 'unknown', not 'back': it
+        # is certainly not a claim about where the wall is.
+        roles[mask] = ROLE_VALUE.get(role, ROLE_VALUE[ROLE_UNKNOWN])
         ids[mask] = int(wall_id)
     return roles, ids
 
