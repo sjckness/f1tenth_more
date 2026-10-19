@@ -360,6 +360,9 @@ _DEFAULT_TOPICS = [
     '/mpc/object_status',
     '/mission/move_outcome',
     '/costmap/semantic_tracks',
+    # The semantic layer's objects with their memory state (TRACKED/MEMORY,
+    # confidence, in_fov): what a remembered object looked like to the MPC.
+    '/costmap/semantic_objects',
     # Every tick mpc_corr's /drive speed clamp changed a command.
     '/mpc/drive_clamp',
     # allow_reverse only: per-candidate scores, the winner and why (JSON).

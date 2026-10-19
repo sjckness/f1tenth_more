@@ -246,3 +246,166 @@ ROS callbacks, logging and publishing are not in it.
 - **Reverse braking is unmeasured.** The stop margin uses the forward fit.
 - **Nominal model, first-order speed plant.** The VESC's behaviour at a direction change
   is not modelled.
+
+---
+
+## Part B — Semantic layer: object memory with visibility-aware decay
+
+### B0 — Audit (line numbers at `868ec8a`)
+
+- **Detection source.** `/camera/detections_3d` (vision_msgs/Detection3DArray, frame
+  `zed2_left_camera_frame`) at `semantic_layer_node.py:163`. These are YOLO classes only:
+  no LiDAR object source feeds the layer. `/perception/obstacles_2d` is not used because it
+  carries no class label (node docstring :12-32).
+- **Pose.** `/ekf_global/odometry/filtered` (map frame), `semantic_layer_node.py:184`.
+- **Frame of stored objects.** MAP (`SemanticObject.x_map/y_map`, `semantic_layer.py:145-146`).
+  - camera → base_link is a TF lookup (node :465-467);
+  - base_link → map uses the pose nearest the batch stamp (node :474,
+    `compose_base_link_to_map` `semantic_layer.py:103-118`);
+  - markers and tracks are published in `map` (node :623, :703).
+- **Removal and timeouts.** There was **no wall-clock expiry** (`semantic_layer.py:126-128`).
+  - A track confirms after `confirm_hit_count = 3` consecutive hits, with
+    `confirm_grace_misses = 2` (node :217, :233).
+  - Any track, confirmed or not, was dropped at `lost_miss_count = 5` consecutive missed
+    detection batches (node :218; pruning `semantic_layer.py:378, 441`). That is about 0.4 s
+    at the ~12.5 Hz detection rate.
+  - Empty batches count as misses (node :448-463). With the camera silent, nothing counted
+    misses and tracks never expired.
+- **Association.** Gate `merge_distance_m 0.5` + `gate_sigma_scale 2.0` × sigma (node :203,
+  :244), against the predicted position (prediction capped at 2 s, `semantic_layer.py:86`).
+- **Other trackers.**
+  - The wall layer rebuilds from confirmed walls on every message (node :372-397). The wall
+    tracker deletes a wall after `lidar_front_wall_wall_tracker_delete_after_sec` 2.0 s.
+  - The MPC's obstacles were `/perception/obstacles_2d` only: live, no persistence
+    (`MPC_corr.py:674-677, 3171-3185`).
+  - The BT's go_to_object reads `/costmap/semantic_tracks`, which is stale after
+    `object_tracks_max_gap_sec`.
+- **Pre-existing, not fixed.** The node docstring :37-39 says "no map->odom edge exists".
+  `ekf_global.yaml:102` publishes it, and MPC_corr already looks it up.
+
+### What was built
+
+- **Visibility.** Ten times a second, `f1tenth_costmap/object_memory.py` (pure Python) works
+  out from the car's current map pose whether each sensor could see each confirmed object.
+  - **LiDAR** (`lidar_visibility`): the object must be inside the scan's **own**
+    `angle_min..angle_max`, trimmed to the beams actually present (±135° on the UST-10LX), so
+    the 90° rear blind cone is out of view by construction. Its near surface must be within
+    `range_min..range_max`, and it must not be occluded: ≥ 50 % of the beams spanning it
+    return closer than its near surface − `occlusion_margin_m`.
+  - **Stereo** (`stereo_frustum`, `columns_occluded`, `object_visibility`): the camera is live
+    (a batch processed within `sensor_stale_s`); the whole footprint is inside the 101°
+    frustum; the depth is within [0.8, 5.0] m; and it is not occluded, either by StereoColumns
+    wall depth or by the LiDAR verdict on the same object.
+  - **in_fov** uses the sensor able to detect the class: stereo for every YOLO class.
+    `LIDAR_ONLY_CLASSES` exists and is empty.
+- **Lifecycle** (`step_memory`, `memory_cycle`):
+
+  | Situation | Result |
+  |---|---|
+  | detected | TRACKED, confidence 1 |
+  | in view, undetected for > `fov_miss_remove_s` (1.5 s, cumulative since last seen) | **removed** |
+  | out of view or occluded | **MEMORY**: confidence 1 → 0 over `memory_decay_s` (15 s, the node enforces 10-20), then removed |
+  | MEMORY, back in view, undetected | decay continues and the 1.5 s rule applies |
+  | MEMORY, detected | TRACKED with the **same id**: the tracker keeps confirmed tracks (`prune_confirmed=False`), memory zeroes the stale velocity so the detection is matched at the stored position, and the gate is widened by the person growth |
+
+  A **person in MEMORY** grows by `person_memory_growth_mps` 0.2 m/s, with the growth capped
+  at `person_memory_growth_max_m` 0.6 m. Static classes don't grow. Everything stays in the
+  map frame: a map→odom jump changes what the car can see, never where a remembered object
+  is.
+- **Exposed** on `/costmap/semantic_objects` (new `SemanticObjectArray` / `SemanticObject`,
+  map frame, 10 Hz). Per object: id, class, x/y, base and effective radius, state
+  (TRACKED / MEMORY), confidence, time in memory, time left, time since seen, in-view time
+  unseen, and `in_fov` (overall, LiDAR, stereo).
+- **Foxglove:** `/viz/semantic_objects`. Remembered objects are drawn semi-transparent,
+  fading with confidence and labelled with the time left (e.g.
+  `person #4 MEM 7.3s r+0.40 [S-]`). It is built only while something subscribes, at 5 Hz
+  at most.
+- `/costmap/semantic_markers` and `/costmap/semantic_tracks` are unchanged, with one
+  exception: a remembered object that is detected again reappears at once under its old id.
+  `semantic_layer_memory_enabled: false` restores the old pruning exactly.
+- **Helper for odom consumers:**
+  `f1tenth_params.semantic_objects.objects_to_odom_circles(objects, map_to_odom,
+  include_memory, min_confidence, class_margins)`. It re-expresses through the current
+  map→odom every call, using the effective (grown) radius.
+
+### B4 — Consumers (mpc_corr)
+
+- **The obstacle list.** MPC_corr subscribes to `/costmap/semantic_objects`. Every tick it
+  adds the **MEMORY** objects to the obstacle list the solver (`w_obs`) and
+  `compute_local_target` use, as odom circles through the current map→odom with the
+  inflated radius and `obstacle_class_margin_m`. The TRACKED ones are already on
+  `/perception/obstacles_2d`; adding them twice would double the target deflection.
+- **Part A's rear pre-check and rear clearance** get **every** semantic object, TRACKED and
+  MEMORY.
+- **When nothing is added:** the message is older than `mpc_semantic_memory_max_age_s`
+  (0.5 s), there is no map→odom edge, or `mpc_semantic_memory_enabled: false`.
+- front_clearance, the e-stop and the BT are **not** touched.
+
+### Parameters
+
+| Key | Default | |
+|---|---|---|
+| `semantic_layer_memory_enabled` | true | false = the old lifecycle |
+| `semantic_layer_memory_rate_hz` | 10 | memory cycle and publish |
+| `semantic_layer_fov_miss_remove_s` | 1.5 | in view and undetected → removed |
+| `semantic_layer_memory_decay_s` | 15 (10–20 enforced) | MEMORY lifetime |
+| `semantic_layer_person_memory_growth_mps` / `_max_m` | 0.2 / 0.6 | person growth and its cap |
+| `semantic_layer_stereo_hfov_deg` | 101 | |
+| `semantic_layer_stereo_depth_min_m` / `_max_m` | 0.8 / 5.0 | **untuned**, class-blind |
+| `semantic_layer_occlusion_margin_m` | 0.15 | |
+| `semantic_layer_stereo_occlusion_use_lidar` | true | |
+| `semantic_layer_sensor_stale_s` | 0.5 | |
+| `semantic_layer_stereo_columns_max_age_s` | 1.0 | |
+| `mpc_semantic_memory_enabled` | true | B4 consumer on |
+| `mpc_semantic_memory_max_age_s` | 0.5 | |
+| `mpc_semantic_memory_min_confidence` | 0.0 | |
+
+### Messages
+
+`msg/SemanticObject.msg` and `msg/SemanticObjectArray.msg` (new). Build `f1tenth_messages`
+before `f1tenth_costmap` and `mpc_controller`.
+
+### Tests
+
+- **f1tenth_costmap:** 232 → **305 passed**.
+  - `test_object_memory.py` (56): every B5 case.
+    - leaves the view → about 15 s, then gone;
+    - in view and undetected → present at 1.4 s, removed by 1.6 s;
+    - occluded → MEMORY;
+    - person growth 0.2 m/s, capped at +0.6;
+    - reappears → same id;
+    - map→odom jump → unmoved in map;
+    - plus the visibility geometry.
+  - `test_object_memory_node.py` (17): node wiring, parameter range and the state-constant
+    match.
+- **f1tenth_params:** 54 → **69 passed** (`test_semantic_objects.py`, 15: the helper and the
+  frames).
+- **mpc_controller:** `test_semantic_memory_consumer.py` (7).
+  - MEMORY objects join the obstacle list with the grown radius, TRACKED ones do not;
+  - the rear check gets every object;
+  - stale, unplaceable or disabled gives nothing;
+  - the confidence filter;
+  - **a remembered person behind the car (out of view) refuses the reverse** (closed loop,
+    `rear_object`).
+- **Lint, flake8 / pep257, unchanged:** costmap 357 / 775, params 100 / 129, messages 0 / 0,
+  mpc_controller 1156 / 1197.
+
+### Open TODOs and risks (Part B)
+
+- **Not run live; CPU unmeasured on the Orin.** The semantic layer now also subscribes to
+  `/scan` (40 Hz, best-effort, depth 1) and `/perception/stereo_columns` (5 Hz), and runs a
+  10 Hz timer.
+- **Not implemented:**
+  - stereo occlusion by **another detected object** (StereoColumns masks object pixels, so
+    only the LiDAR catches it);
+  - a vertical field-of-view check;
+  - per-class depth windows;
+  - a LiDAR-only object class.
+- **The detector is about 0.4 s behind the pose**, so a fast turn can spend part of the
+  1.5 s "looked and it isn't there" budget before the detector has seen the frame.
+- **Re-association in a crowd:** a different person inside the gate (0.5 m + growth) can
+  inherit a remembered person's id.
+- `/costmap/semantic_tracks` consumers (FOLLOW, go_to_object) now see a remembered object
+  reappear immediately under its old id. The BT code is untouched; this is probably better.
+- **In sim**, scan and camera frame names may differ. A failed TF lookup counts as "not
+  looking", so objects go to MEMORY rather than being removed.

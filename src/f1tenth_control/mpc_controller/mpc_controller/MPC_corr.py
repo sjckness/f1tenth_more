@@ -21,10 +21,13 @@ from visualization_msgs.msg import Marker, MarkerArray
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
-    ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus, TurnGoal, WallTrack)
+    ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus, SemanticObjectArray,
+    TurnGoal, WallTrack)
 from f1tenth_messages.srv import RequestReverse
 from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
 from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
+from f1tenth_params.semantic_objects import MEMORY as SEMANTIC_MEMORY
+from f1tenth_params.semantic_objects import objects_to_odom_circles
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from mpc_controller.cost_to_go import CostToGo, LatticeConfig
 from f1tenth_params.corridor_geometry import (
@@ -1834,6 +1837,14 @@ class MPCController(Node):
         self.reverse_supervisor = None
         self._init_reverse_manoeuvre()
 
+        # OBJECT MEMORY (f1tenth_costmap's semantic layer, Part B): objects
+        # remembered out of view, with the radius inflated for people. The
+        # MEMORY ones join the obstacle list (the TRACKED ones arrive live on
+        # /perception/obstacles_2d already); all of them feed the reverse
+        # manoeuvre's rear pre-check. Map frame, re-expressed every tick
+        # through the current map -> odom.
+        self._init_semantic_memory()
+
         self.min_obstacle_distance_pub = self.create_publisher(
             Float32,
             '/mpc/min_obstacle_distance',
@@ -3599,6 +3610,50 @@ class MPCController(Node):
             f'L={cfg.corridor_length_m:.2f} m v_rev={cfg.v_rev_mps:.2f} m/s '
             f'N_rear={rear.n} costmap={costmap_topic}')
 
+    def _init_semantic_memory(self):
+        """Declare the semantic-memory consumer's parameters and subscribe."""
+        def _p(key):
+            return self.declare_parameter(key, get_value(key)).value
+
+        self.semantic_memory_enabled = bool(_p('mpc_semantic_memory_enabled'))
+        self.semantic_memory_max_age_s = float(_p('mpc_semantic_memory_max_age_s'))
+        self.semantic_memory_min_confidence = float(_p('mpc_semantic_memory_min_confidence'))
+        self._semantic_class_margins = get_value('obstacle_class_margin_m')
+        self._semantic_msg = None
+        self._semantic_t = None
+        if self.semantic_memory_enabled:
+            self.create_subscription(SemanticObjectArray, '/costmap/semantic_objects',
+                                     self._semantic_objects_cb, 10)
+
+    def _semantic_objects_cb(self, msg: SemanticObjectArray):
+        self._semantic_msg = msg
+        self._semantic_t = self.get_clock().now().nanoseconds * 1e-9
+
+    def _semantic_circles(self, memory_only: bool) -> List[Tuple[float, float, float]]:
+        """
+        Return the semantic layer's objects as odom (x, y, r) circles, or [].
+
+        memory_only keeps the MEMORY ones (the obstacle list's addition);
+        False keeps every object (the rear pre-check). Nothing when the layer
+        is off, its message older than mpc_semantic_memory_max_age_s, or no
+        map -> odom edge exists to place map-frame objects.
+        """
+        if (not self.semantic_memory_enabled or self._semantic_msg is None
+                or self._semantic_t is None):
+            return []
+        now = self.get_clock().now().nanoseconds * 1e-9
+        if now - self._semantic_t > self.semantic_memory_max_age_s:
+            return []
+        map_odom = self._lookup_map_odom()
+        if map_odom is None:
+            return []
+        objs = [o for o in self._semantic_msg.objects
+                if not memory_only or int(o.state) == SEMANTIC_MEMORY]
+        return objects_to_odom_circles(
+            objs, map_odom, include_memory=True,
+            min_confidence=self.semantic_memory_min_confidence,
+            class_margins=self._semantic_class_margins)
+
     def _bt_allow_cb(self, msg: Bool):
         self._bt_allow = bool(msg.data)
         self._bt_allow_t = self.get_clock().now().nanoseconds * 1e-9
@@ -3624,7 +3679,8 @@ class MPCController(Node):
         map_odom = self._lookup_map_odom() if self._rear_grid is not None else None
         return RearEnv(
             grid=self._rear_grid if map_odom is not None else None, map_to_odom=map_odom,
-            objects=list(obstacles_global), boundaries=list(live_boundaries),
+            objects=list(obstacles_global) + self._semantic_circles(memory_only=False),
+            boundaries=list(live_boundaries),
             bt_allow=self._bt_allow,
             bt_allow_age_s=(math.inf if self._bt_allow_t is None else now - self._bt_allow_t),
             abort=bool(self.hold or self._emergency_stop))
@@ -4185,6 +4241,10 @@ class MPCController(Node):
                 )
 
         obstacles_global = self.obstacles_global_live
+        if self.semantic_memory_enabled:
+            memory_obstacles = self._semantic_circles(memory_only=True)
+            if memory_obstacles:
+                obstacles_global = list(obstacles_global) + memory_obstacles
 
         self.get_logger().info(f'OBSTACLES WORLD={obstacles_global}')
         self.get_logger().info(f'DIST ROBOT-OSTACOLO = {d_robot_obs:.3f}')

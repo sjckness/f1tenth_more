@@ -33,6 +33,8 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/DriveClamp.msg"
   "msg/ReverseStatus.msg"
   "msg/MoveOutcome.msg"
+  "msg/SemanticObject.msg"
+  "msg/SemanticObjectArray.msg"
   "srv/RestartComponent.srv"
   "srv/ComponentControl.srv"
   "srv/RunDiagnostics.srv"

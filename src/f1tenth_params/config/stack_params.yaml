@@ -3110,6 +3110,68 @@ wall_clear_distance_m:
 semantic_layer_tf_static_only:
   default: true
   description: "semantic_layer_node reads TF from the latched /tf_static only (no TransformListener, which deserialises every /tf message). Correct while every joint between the camera and base_link is fixed (sensors.xacro). Set false whenever the camera pan joint is enabled."
+
+# Consumed by: MPC_corr.py (declare_parameter default = this value). The MPC
+# side of the semantic layer's object memory: MEMORY objects (inflated radius
+# for people) join the obstacle list; every semantic object feeds the reverse
+# manoeuvre's rear pre-check.
+mpc_semantic_memory_enabled:
+  default: true
+  description: "Read /costmap/semantic_objects in mpc_corr: MEMORY objects are added to the obstacle list (TRACKED ones already arrive on /perception/obstacles_2d), and all objects to the reverse manoeuvre's rear pre-check. False: neither."
+mpc_semantic_memory_max_age_s:
+  default: 0.5
+  description: "A /costmap/semantic_objects message older than this [s] contributes nothing."
+mpc_semantic_memory_min_confidence:
+  default: 0.0
+  description: "MEMORY objects below this confidence (it decays linearly to 0 over semantic_layer_memory_decay_s) are left out of the obstacle list."
+
+# --- semantic layer OBJECT MEMORY (Part B) ------------------------------------
+# Consumed by: f1tenth_costmap/semantic_layer_node.py (declare_parameter
+# defaults; the logic is f1tenth_costmap/object_memory.py). Output:
+# /costmap/semantic_objects (f1tenth_messages/SemanticObjectArray, map frame),
+# and /viz/semantic_objects for Foxglove. /costmap/semantic_markers and
+# /costmap/semantic_tracks keep showing only the tracks the old lifecycle held.
+# Tests in f1tenth_costmap/test/test_object_memory*.py encode the 1.5 / 15 /
+# 0.2 / 0.6 defaults: change them together.
+semantic_layer_memory_enabled:
+  default: true
+  description: "Object memory on. A CONFIRMED track is no longer dropped after lost_miss_count missed batches; it is removed when it was in view and undetected for semantic_layer_fov_miss_remove_s, or after semantic_layer_memory_decay_s out of view / occluded (MEMORY). false: the tracker prunes exactly as before and every object is reported TRACKED."
+semantic_layer_memory_rate_hz:
+  default: 10.0
+  description: "Rate [Hz] of the memory cycle: visibility, lifecycle and the /costmap/semantic_objects publish. 10 Hz, the MPC's own rate. Independent of the detection batch rate, so memory decays even when the camera is silent."
+semantic_layer_fov_miss_remove_s:
+  default: 1.5
+  description: "An object that was IN VIEW of a sensor able to detect it, and was not detected, for this long in total since its last detection is removed: we looked, it is not there. In view means visible, not merely in the sector: an occluded object is not in view."
+semantic_layer_memory_decay_s:
+  default: 15.0
+  description: "An object OUT OF VIEW (outside the frustum or depth window, occluded, or the camera not live) is kept as MEMORY with confidence 1 - t / this, and removed at 0. Allowed 10 to 20 s; the node rejects anything else."
+semantic_layer_person_memory_growth_mps:
+  default: 0.2
+  description: "A person in MEMORY may be walking: effective_radius_m = radius_m + this [m/s] times the time in memory, the growth capped by semantic_layer_person_memory_growth_max_m. The re-acquisition gate grows by the same amount. Every other class is static: no growth."
+semantic_layer_person_memory_growth_max_m:
+  default: 0.6
+  description: "Cap [m] on the GROWTH (not on the radius) of a person in MEMORY: 3 s of growth at 0.2 m/s."
+semantic_layer_stereo_hfov_deg:
+  default: 101.0
+  description: "Horizontal field of view [deg] of the detection camera, the ZED2 left lens at HD720 (sensors.xacro horizontal_fov 1.7633 rad). An object counts as in the camera view only if its whole footprint (radius, plus the growth for a remembered person) is inside it, so a detection cut by the image edge is not taken as absence."
+semantic_layer_stereo_depth_min_m:
+  default: 0.8
+  description: "Nearest depth [m, along the camera axis] at which a missed detection is evidence of absence. UNTUNED. Not the ZED's 0.2 m minimum: below about 0.8 m the vertical field of view cuts a standing person or a chair to a fragment the detector may not name, and forgetting an object right in front of the car because of that would be the dangerous failure."
+semantic_layer_stereo_depth_max_m:
+  default: 5.0
+  description: "Farthest depth [m] at which a missed detection is evidence of absence. UNTUNED and class-blind: small classes (bottle, cup) are not reliably detected this far. Beyond it an object is out of view and decays as MEMORY rather than being removed, which is the safe direction."
+semantic_layer_occlusion_margin_m:
+  default: 0.15
+  description: "Slack [m] for occlusion: a LiDAR return or a StereoColumns depth must be at least this much nearer than the object's near surface (centre range minus radius) to count as an occluder. Covers centre/width estimation error, so the object's own surface does not hide itself."
+semantic_layer_stereo_occlusion_use_lidar:
+  default: true
+  description: "The camera view also counts an object as occluded when the LiDAR sees a closer return on its bearing (the scan origin is within about 7 cm of the left lens: 3 cm lower, 6 cm to its right, 7 cm ahead). The StereoColumns depth carries WALL pixels only, with YOLO objects masked out, so without this a person standing in front of another is not an occluder."
+semantic_layer_sensor_stale_s:
+  default: 0.5
+  description: "A sensor whose last message is older than this [s] is not looking: the camera (last processed detection batch), the LiDAR (/scan) and the map pose. A stale camera puts every object out of view, so a stalled detector produces MEMORY, never removals."
+semantic_layer_stereo_columns_max_age_s:
+  default: 1.0
+  description: "Oldest /perception/stereo_columns [s] used for stereo occlusion: five of front_clearance's 5 Hz scene-mask ticks. Older or absent, the depth half of the stereo occlusion check is skipped (the LiDAR half still applies)."
 lidar_front_wall_wall_marker_thickness_m:
   default: 0.02
   description: "Thickness [m] of the vertical slab each confirmed wall is drawn as on /perception/walls/markers. A wall is a vertical PLANE, so it is drawn as one rather than as a line on the floor: the slab runs the wall's observed length and stands from z_min to z_max. A wall whose height was only assumed (height_measured false) is drawn fainter, so an assumed 2.5 m is visible at a glance."

@@ -91,18 +91,47 @@ costmap_renderer_node.py reads `ns` back as the authoritative class_id (not
 the separate TEXT_VIEW_FACING label marker, which exists purely for direct
 RViz/Foxglove readability, same convention wall_detector_node.py's own
 _wall_markers already uses for its own label markers).
+
+OBJECT MEMORY (Part B; the logic and its reasoning are object_memory.py's,
+this file only wires sensors and topics). A timer at memory_rate_hz (10 Hz)
+runs one memory cycle: for every CONFIRMED track it decides whether the LiDAR
+(/scan, its own sector and range, occlusion along the bearing) and the camera
+(live detection batches, frustum, depth window, StereoColumns depth and LiDAR
+occlusion) could see it from the car's CURRENT map pose (latest global EKF
+pose), then applies the TRACKED / MEMORY / removed lifecycle, and publishes
+  /costmap/semantic_objects  f1tenth_messages/SemanticObjectArray, map frame,
+                             every cycle: TRACKED and MEMORY objects, with
+                             state, confidence, timers, in_fov per sensor and
+                             the grown radius of a remembered person;
+  /viz/semantic_objects      MarkerArray for Foxglove, only while subscribed:
+                             MEMORY objects semi-transparent (alpha follows
+                             confidence) and labelled with their remaining time.
+The tracker keeps confirmed tracks for the memory to expire
+(update_tracks_batch(prune_confirmed=False)), which is also what keeps a
+remembered object's id when it is detected again. The two outputs that predate
+the memory, /costmap/semantic_markers and /costmap/semantic_tracks, are built
+from live_tracks() -- the set the old lost_miss_count lifecycle held -- so
+their content is unchanged, except that an object that comes back after
+being remembered reappears at once under its old id instead of as a new,
+not-yet-confirmed track. memory_enabled:=false restores the old pruning
+exactly.
+
+All stored positions stay in the MAP frame. A map -> odom jump changes the
+car's map pose and hence what is in view, never where a remembered object is.
 """
 
 import array
 import itertools
 import math
 
+from rcl_interfaces.msg import FloatingPointRange, ParameterDescriptor
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 
 import numpy as np
 from nav_msgs.msg import OccupancyGrid, Odometry
+from sensor_msgs.msg import LaserScan
 from std_msgs.msg import ColorRGBA, Int32MultiArray
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
@@ -115,13 +144,15 @@ from vision_msgs.msg import (
 )
 from visualization_msgs.msg import Marker, MarkerArray
 
-from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray
+from f1tenth_messages.msg import (
+    MultiWallTrack, MultiWallTrackArray, SemanticObject, SemanticObjectArray, StereoColumns)
 from f1tenth_params.object_geometry import footprint_radius
 from f1tenth_params.param_defaults import get_value
 from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
 
+from f1tenth_costmap import object_memory as om
 from f1tenth_costmap.semantic_layer import (
-    compose_base_link_to_map, find_nearest_pose_by_stamp, pose_to_xytheta,
+    compose_base_link_to_map, find_nearest_pose_by_stamp, live_tracks, pose_to_xytheta,
     update_tracks_batch)
 
 # How many pose samples to keep for find_nearest_pose_by_stamp. Sized when
@@ -340,7 +371,10 @@ class SemanticLayerNode(Node):
             1.0 / self.wall_layer_rate_hz, self._wall_layer_tick)
 
         self._pose_history: list = []  # [(stamp_sec, (x, y, yaw)), ...]
-        self._objects: list = []       # [SemanticObject, ...] (tracks, confirmed + tentative)
+        # [SemanticObject, ...]: tentative + confirmed, including the confirmed
+        # ones only the object memory is keeping (see _objects for the view
+        # the pre-memory outputs are built from).
+        self._tracks: list = []
         # Caller-owned, never-reused id source for update_tracks_batch()'s
         # own next_track_id param -- see semantic_layer.py's own docstring
         # for why that function takes a callable instead of owning a counter
@@ -352,7 +386,106 @@ class SemanticLayerNode(Node):
         # startup, same as _objects.
         self._last_published_marker_keys: set = set()
 
+        self._init_object_memory()
+
         self.get_logger().info('semantic_layer_node started')
+
+    # ------------------------------------------------------------------
+    def _init_object_memory(self):
+        """
+        Declare the memory parameters and wire its inputs and outputs.
+
+        Defaults are single-sourced in stack_params.yaml (semantic_layer_*),
+        the same way tf_static_only above is; topic and frame names stay
+        node-local like the other topics of this node.
+        """
+        def declare(name, key):
+            return self.declare_parameter(name, get_value(key)).value
+
+        def declare_float(name, key, descriptor=None):
+            if descriptor is None:
+                return float(self.declare_parameter(name, float(get_value(key))).value)
+            return float(self.declare_parameter(
+                name, float(get_value(key)), descriptor).value)
+
+        lo, hi = om.MEMORY_DECAY_RANGE_S
+        decay_descriptor = ParameterDescriptor(
+            description='Seconds a MEMORY object takes to decay to confidence 0.',
+            floating_point_range=[FloatingPointRange(from_value=lo, to_value=hi, step=0.0)])
+        self.memory_enabled = bool(declare('memory_enabled', 'semantic_layer_memory_enabled'))
+        rate_hz = declare_float('memory_rate_hz', 'semantic_layer_memory_rate_hz')
+        if not rate_hz > 0.0:
+            raise ValueError(f'memory_rate_hz must be > 0, got {rate_hz}')
+        self.memory_params = om.MemoryParams(
+            fov_miss_remove_s=declare_float(
+                'fov_miss_remove_s', 'semantic_layer_fov_miss_remove_s'),
+            memory_decay_s=declare_float(
+                'memory_decay_s', 'semantic_layer_memory_decay_s', decay_descriptor),
+            person_growth_mps=declare_float(
+                'person_memory_growth_mps', 'semantic_layer_person_memory_growth_mps'),
+            person_growth_max_m=declare_float(
+                'person_memory_growth_max_m', 'semantic_layer_person_memory_growth_max_m'))
+        self.visibility_params = om.VisibilityParams(
+            stereo_hfov_rad=math.radians(
+                declare_float('stereo_hfov_deg', 'semantic_layer_stereo_hfov_deg')),
+            stereo_depth_min_m=declare_float(
+                'stereo_depth_min_m', 'semantic_layer_stereo_depth_min_m'),
+            stereo_depth_max_m=declare_float(
+                'stereo_depth_max_m', 'semantic_layer_stereo_depth_max_m'),
+            occlusion_margin_m=declare_float(
+                'occlusion_margin_m', 'semantic_layer_occlusion_margin_m'),
+            stereo_occlusion_use_lidar=bool(declare(
+                'stereo_occlusion_use_lidar', 'semantic_layer_stereo_occlusion_use_lidar')))
+        self.sensor_stale_s = declare_float('sensor_stale_s', 'semantic_layer_sensor_stale_s')
+        self.stereo_columns_max_age_s = declare_float(
+            'stereo_columns_max_age_s', 'semantic_layer_stereo_columns_max_age_s')
+        # The detections' own frame (detection_3d_node's output_frame): a
+        # BODY-convention frame, x forward and y left, which is what the
+        # frustum test assumes. Not the optical frame.
+        self.stereo_camera_frame = str(
+            self.declare_parameter('stereo_camera_frame', 'zed2_left_camera_frame').value)
+        self.viz_objects_max_hz = float(self.declare_parameter('viz_objects_max_hz', 5.0).value)
+
+        # Clock read through one attribute so the tests can drive time.
+        self._now_sec = self._clock_now_sec
+        self._memory: dict = {}               # {track_id: object_memory.ObjectMemory}
+        self._last_memory_sec = None
+        self._last_pose_rx = None
+        self._last_detections_rx = None       # last batch the TRACKER processed
+        self._scan = None                     # (receipt sec, LaserScan)
+        self._columns = None                  # (receipt sec, StereoColumns)
+        self._viz_drawn_ids: set = set()
+        self._viz_next_sec = None
+
+        latest_only = QoSProfile(
+            depth=1, history=HistoryPolicy.KEEP_LAST, reliability=ReliabilityPolicy.BEST_EFFORT)
+        self.scan_sub = self.create_subscription(
+            LaserScan, self.declare_parameter('scan_topic', '/scan').value,
+            self._scan_cb, latest_only)
+        self.columns_sub = self.create_subscription(
+            StereoColumns,
+            self.declare_parameter('stereo_columns_topic', '/perception/stereo_columns').value,
+            self._stereo_columns_cb, latest_only)
+        self.objects_pub = self.create_publisher(
+            SemanticObjectArray,
+            self.declare_parameter('objects_topic', '/costmap/semantic_objects').value, 10)
+        self.viz_objects_pub = self.create_publisher(
+            MarkerArray,
+            self.declare_parameter('viz_objects_topic', '/viz/semantic_objects').value, 10)
+        self.memory_timer = self.create_timer(1.0 / rate_hz, self._memory_tick)
+
+    @property
+    def _objects(self) -> list:
+        """
+        Return the tracks the pre-memory lifecycle would hold (live_tracks).
+
+        /costmap/semantic_markers and /costmap/semantic_tracks are built from
+        this, so the object memory does not change what they carry.
+        """
+        return live_tracks(self._tracks, self.lost_miss_count)
+
+    def _clock_now_sec(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
 
     # ------------------------------------------------------------------
     def _tf_static_cb(self, msg: TFMessage):
@@ -429,6 +562,13 @@ class SemanticLayerNode(Node):
         self._pose_history.append((stamp_sec, xytheta))
         if len(self._pose_history) > _POSE_HISTORY_MAXLEN:
             self._pose_history.pop(0)
+        self._last_pose_rx = self._now_sec()
+
+    def _scan_cb(self, msg: LaserScan):
+        self._scan = (self._now_sec(), msg)
+
+    def _stereo_columns_cb(self, msg: StereoColumns):
+        self._columns = (self._now_sec(), msg)
 
     def _recent_pose_jump(self):
         """Step-0 diagnostic only (see module docstring): distance and dt
@@ -449,15 +589,19 @@ class SemanticLayerNode(Node):
             # Still a real "nothing matched any track this frame" signal for
             # the lifecycle (see module docstring) -- just nothing to
             # project, so the tf2/pose lookups below are skipped.
-            before_ids = {t.track_id for t in self._objects}
+            before_ids = {t.track_id for t in self._tracks}
             # confirm_grace_misses matters here too: an empty frame is the
             # single most common miss, so omitting it would let the empty-batch
             # path keep zeroing hit_streak and defeat the grace window entirely.
             # The alpha/gate params are irrelevant with no detections to match.
-            self._objects = update_tracks_batch(
-                self._objects, [], stamp_sec, self.merge_distance_m, self.ema_alpha,
+            self._tracks = update_tracks_batch(
+                self._tracks, [], stamp_sec, self.merge_distance_m, self.ema_alpha,
                 self.confirm_hit_count, self.lost_miss_count, self._next_track_id,
-                confirm_grace_misses=self.confirm_grace_misses)
+                confirm_grace_misses=self.confirm_grace_misses,
+                prune_confirmed=not self.memory_enabled)
+            # The camera LOOKED (an empty batch is a processed frame): the
+            # object memory's "camera live" test reads this.
+            self._last_detections_rx = self._now_sec()
             self._log_new_spawns(before_ids, map_pose=None)
             self._publish(msg.header.stamp)
             return
@@ -551,14 +695,16 @@ class SemanticLayerNode(Node):
             width = 2.0 * footprint_radius(det.bbox.size.x, det.bbox.size.z)
             batch.append((class_id, x_map, y_map, score, sigma, width))
 
-        before_ids = {t.track_id for t in self._objects}
-        self._objects = update_tracks_batch(
-            self._objects, batch, stamp_sec, self.merge_distance_m, self.ema_alpha,
+        before_ids = {t.track_id for t in self._tracks}
+        self._tracks = update_tracks_batch(
+            self._tracks, batch, stamp_sec, self.merge_distance_m, self.ema_alpha,
             self.confirm_hit_count, self.lost_miss_count, self._next_track_id,
             confirm_grace_misses=self.confirm_grace_misses,
             alpha_sigma_ref_m=self.alpha_sigma_ref_m,
             min_alpha_scale=self.min_alpha_scale,
-            gate_sigma_scale=self.gate_sigma_scale)
+            gate_sigma_scale=self.gate_sigma_scale,
+            prune_confirmed=not self.memory_enabled)
+        self._last_detections_rx = self._now_sec()
         self._log_new_spawns(before_ids, map_pose=map_pose)
 
         self._publish(msg.header.stamp)
@@ -572,7 +718,7 @@ class SemanticLayerNode(Node):
         projection and the most recent pose-to-pose jump, so a live run can
         be grepped afterward to check whether spawns cluster around pose
         jitter."""
-        new_tracks = [t for t in self._objects if t.track_id not in before_ids]
+        new_tracks = [t for t in self._tracks if t.track_id not in before_ids]
         if not new_tracks:
             return
         jump_m, jump_dt = self._recent_pose_jump()
@@ -727,6 +873,225 @@ class SemanticLayerNode(Node):
             message.detections.append(detection)
 
         self.tracks_pub.publish(message)
+
+    # ------------------------------------------------------------------
+    # object memory (Part B) -- see the module docstring and object_memory.py
+    def _memory_tick(self):
+        self._memory_step(self._now_sec())
+
+    def _memory_step(self, now_sec: float):
+        """One memory cycle at now_sec: visibility, lifecycle, publish."""
+        dt = 0.0 if self._last_memory_sec is None else now_sec - self._last_memory_sec
+        self._last_memory_sec = now_sec
+        views = self._sensor_views(now_sec)
+        self._tracks = om.memory_cycle(
+            self._tracks, self._memory, dt,
+            lambda trk: self._visibility(trk, views),
+            self.memory_params, enabled=self.memory_enabled)
+        self._publish_semantic_objects(now_sec)
+        self._publish_viz_objects(now_sec)
+
+    def _fresh(self, rx_sec, now_sec: float, max_age_s: float) -> bool:
+        return rx_sec is not None and now_sec - rx_sec <= max_age_s
+
+    def _lookup(self, target: str, source: str):
+        """Return lookup_transform(target, source) as ((t), (q)), or None."""
+        try:
+            ts = self.tf_buffer.lookup_transform(target, source, rclpy.time.Time())
+        except (LookupException, ConnectivityException, ExtrapolationException) as exc:
+            self.get_logger().warn(
+                f'object memory: tf2 lookup "{source}" -> "{target}" failed: {exc} '
+                '-- that sensor counts as not looking', throttle_duration_sec=5.0)
+            return None
+        t, q = ts.transform.translation, ts.transform.rotation
+        return (t.x, t.y, t.z), (q.x, q.y, q.z, q.w)
+
+    def _sensor_views(self, now_sec: float) -> dict:
+        """Collect what each sensor can contribute this cycle; None where it cannot."""
+        views = {'pose': None, 'scan': None, 'laser_tf': None, 'camera_live': False,
+                 'cam_tf': None, 'columns': None, 'opt_tf': None}
+        if not self._pose_history or not self._fresh(
+                self._last_pose_rx, now_sec, self.sensor_stale_s):
+            return views          # no current pose: nothing can be placed in any view
+        views['pose'] = self._pose_history[-1][1]
+        if self._scan is not None and self._fresh(self._scan[0], now_sec, self.sensor_stale_s):
+            scan = self._scan[1]
+            views['laser_tf'] = self._lookup(scan.header.frame_id, self.base_frame)
+            views['scan'] = scan if views['laser_tf'] is not None else None
+        if self._fresh(self._last_detections_rx, now_sec, self.sensor_stale_s):
+            views['cam_tf'] = self._lookup(self.stereo_camera_frame, self.base_frame)
+            views['camera_live'] = views['cam_tf'] is not None
+        if views['camera_live'] and self._columns is not None and self._fresh(
+                self._columns[0], now_sec, self.stereo_columns_max_age_s):
+            columns = self._columns[1]
+            views['opt_tf'] = self._lookup(columns.camera_frame, self.base_frame)
+            views['columns'] = columns if views['opt_tf'] is not None else None
+        return views
+
+    def _visibility(self, trk, views: dict) -> om.Visibility:
+        """Place one track in every sensor frame and ask object_memory."""
+        if views['pose'] is None:
+            return om.Visibility()
+        x_b, y_b = om.map_to_base(trk.x_map, trk.y_map, views['pose'])
+
+        def in_frame(tf):
+            # At the sensor's own height, i.e. in its horizontal plane.
+            if tf is None:
+                return None
+            return om.apply_transform(tf, (x_b, y_b, om.source_origin_height(tf)))
+
+        p_laser = in_frame(views['laser_tf'])
+        p_cam = in_frame(views['cam_tf'])
+        radius = om.track_base_radius(trk)
+        return om.object_visibility(
+            radius, p_laser, views['scan'], p_cam, views['camera_live'],
+            in_frame(views['opt_tf']), views['columns'], self.visibility_params,
+            view_radius=radius + trk.extra_gate_m)
+
+    def _memory_entries(self):
+        """Yield (track, ObjectMemory) for every confirmed track the memory holds."""
+        for trk in self._tracks:
+            mem = self._memory.get(trk.track_id)
+            if trk.confirmed and mem is not None:
+                yield trk, mem
+
+    def _publish_semantic_objects(self, now_sec: float):
+        """Publish /costmap/semantic_objects: every remembered object, map frame."""
+        msg = SemanticObjectArray()
+        msg.header.stamp = rclpy.time.Time(nanoseconds=int(now_sec * 1e9)).to_msg()
+        msg.header.frame_id = self.map_frame
+        params = self.memory_params
+        msg.fov_miss_remove_s = float(params.fov_miss_remove_s)
+        msg.memory_decay_s = float(params.memory_decay_s)
+        for trk, mem in self._memory_entries():
+            obj = SemanticObject()
+            obj.id = int(trk.track_id)
+            obj.class_id = str(trk.class_id)
+            obj.x = float(trk.x_map)
+            obj.y = float(trk.y_map)
+            obj.radius_m = float(om.track_base_radius(trk))
+            obj.effective_radius_m = float(om.effective_radius(trk, mem, params))
+            obj.state = int(mem.state)
+            obj.confidence = float(mem.confidence)
+            obj.score = float(trk.score)
+            obj.time_in_memory_s = float(mem.time_in_memory_s)
+            obj.memory_remaining_s = float(mem.remaining_s(params))
+            obj.time_since_seen_s = float(mem.time_since_seen_s)
+            obj.fov_unseen_s = float(mem.fov_unseen_s)
+            obj.in_fov = bool(mem.in_fov)
+            obj.in_fov_lidar = bool(mem.in_fov_lidar)
+            obj.in_fov_stereo = bool(mem.in_fov_stereo)
+            msg.objects.append(obj)
+        self.objects_pub.publish(msg)
+
+    def _publish_viz_objects(self, now_sec: float):
+        """
+        Publish /viz/semantic_objects for Foxglove, built only while watched.
+
+        Same bargain as lidar_front_wall_node's /viz/walls: the subscription
+        count, then a rate cap, and markers that carry a lifetime, so nothing
+        lingers if this node stops.
+        """
+        if self.viz_objects_pub.get_subscription_count() == 0:
+            self._viz_drawn_ids = set()    # the lifetime already cleared them
+            self._viz_next_sec = None
+            return
+        if self._viz_next_sec is not None and now_sec < self._viz_next_sec:
+            return
+        period = 1.0 / self.viz_objects_max_hz if self.viz_objects_max_hz > 0.0 else 0.0
+        self._viz_next_sec = now_sec + period
+        markers, self._viz_drawn_ids = build_object_markers(
+            list(self._memory_entries()), self.memory_params, self.map_frame,
+            self.get_clock().now().to_msg(), max(0.5, 3.0 * period), self._viz_drawn_ids)
+        self.viz_objects_pub.publish(markers)
+
+
+#: /viz/semantic_objects namespaces: one for the disks, one for the labels.
+VIZ_NS_DISK = 'semantic_objects'
+VIZ_NS_LABEL = 'semantic_objects_label'
+#: Alpha of a TRACKED disk; a MEMORY disk fades from VIZ_MEMORY_ALPHA_MAX
+#: at confidence 1 down to VIZ_MEMORY_ALPHA_MIN at 0, so it is never mistaken
+#: for one that is being seen and never quite vanishes before it is removed.
+VIZ_TRACKED_ALPHA = 0.8
+VIZ_MEMORY_ALPHA_MIN = 0.12
+VIZ_MEMORY_ALPHA_MAX = 0.45
+
+
+def object_label(trk, mem, params) -> str:
+    """Return the Foxglove label: class, id, state, remaining time, views."""
+    views = ('S' if mem.in_fov_stereo else '-') + ('L' if mem.in_fov_lidar else '-')
+    text = f'{trk.class_id} #{trk.track_id}'
+    if mem.state == om.MEMORY:
+        text += f' MEM {mem.remaining_s(params):.1f}s'
+        growth = om.memory_growth_m(trk.class_id, mem, params)
+        if growth > 0.0:
+            text += f' r+{growth:.2f}'
+    elif mem.fov_unseen_s > 0.0:
+        text += f' unseen {mem.fov_unseen_s:.1f}s'
+    return f'{text} [{views}]'
+
+
+def build_object_markers(entries, params, frame_id, stamp, lifetime_s, drawn_ids):
+    """
+    Build the MarkerArray for [(track, ObjectMemory)]: a disk and a label each.
+
+    The disk's diameter is the EFFECTIVE radius, so a remembered person is
+    drawn as large as the obstacle the planner is given. Returns the array
+    and the set of ids it drew; ids in drawn_ids that are gone get DELETEs.
+    """
+    out = MarkerArray()
+    seconds = int(lifetime_s)
+    lifetime = (seconds, int(round((lifetime_s - seconds) * 1e9)))
+    drawn = set()
+    for trk, mem in entries:
+        r, g, b = _color_for_class(trk.class_id)
+        if mem.state == om.MEMORY:
+            alpha = VIZ_MEMORY_ALPHA_MIN + (
+                VIZ_MEMORY_ALPHA_MAX - VIZ_MEMORY_ALPHA_MIN) * mem.confidence
+        else:
+            alpha = VIZ_TRACKED_ALPHA
+        disk = Marker()
+        disk.header.frame_id = frame_id
+        disk.header.stamp = stamp
+        disk.ns = VIZ_NS_DISK
+        disk.id = int(trk.track_id)
+        disk.type = Marker.CYLINDER
+        disk.action = Marker.ADD
+        disk.pose.position.x = float(trk.x_map)
+        disk.pose.position.y = float(trk.y_map)
+        disk.pose.position.z = 0.05
+        disk.pose.orientation.w = 1.0
+        disk.scale.x = disk.scale.y = 2.0 * float(om.effective_radius(trk, mem, params))
+        disk.scale.z = 0.1
+        disk.color = ColorRGBA(r=r, g=g, b=b, a=float(alpha))
+        disk.lifetime.sec, disk.lifetime.nanosec = lifetime
+
+        label = Marker()
+        label.header = disk.header
+        label.ns = VIZ_NS_LABEL
+        label.id = disk.id
+        label.type = Marker.TEXT_VIEW_FACING
+        label.action = Marker.ADD
+        label.pose.position.x = disk.pose.position.x
+        label.pose.position.y = disk.pose.position.y
+        label.pose.position.z = 0.4
+        label.pose.orientation.w = 1.0
+        label.scale.z = 0.12
+        label.color = ColorRGBA(r=1.0, g=1.0, b=1.0, a=1.0 if mem.state == om.TRACKED else 0.6)
+        label.text = object_label(trk, mem, params)
+        label.lifetime.sec, label.lifetime.nanosec = lifetime
+        out.markers.extend([disk, label])
+        drawn.add(disk.id)
+    for gone in sorted(drawn_ids - drawn):
+        for ns in (VIZ_NS_DISK, VIZ_NS_LABEL):
+            delete = Marker()
+            delete.header.frame_id = frame_id
+            delete.header.stamp = stamp
+            delete.ns = ns
+            delete.id = int(gone)
+            delete.action = Marker.DELETE
+            out.markers.append(delete)
+    return out, drawn
 
 
 def main(args=None):
