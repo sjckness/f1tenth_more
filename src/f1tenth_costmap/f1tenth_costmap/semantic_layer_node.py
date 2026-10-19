@@ -584,10 +584,13 @@ class SemanticLayerNode(Node):
         cands = uo.drop_behind_walls(cands, walls, (pose[0] + c * laser[0] - s * laser[1],
                                                     pose[1] + s * laser[0] + c * laser[1]))
 
+        island_xy = view.centres(owner == uo.OWNER_ISLAND)[2]
+
         def observe(trk):
             bl = uo.to_base_link([(trk.x_map, trk.y_map)], pose)[0]
             seen = uo.rays_pass_through(bl, trk.radius(), bearings, ranges, laser[:2], p)
-            return seen + (uo.cells_hit((trk.x_map, trk.y_map), trk.radius(), view, owner, p),)
+            return seen + (uo.cells_hit((trk.x_map, trk.y_map), trk.radius(), island_xy,
+                                        view.resolution),)
         self._objects, self._unknown_stats = update_unknown_batch(
             self._objects, cands, stamp, p, self.merge_distance_m, self.ema_alpha,
             self._next_track_id, observe)

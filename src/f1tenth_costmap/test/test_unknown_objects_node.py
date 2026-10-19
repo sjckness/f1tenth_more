@@ -108,10 +108,12 @@ class TestModes:
             _drive(node, objects=((2.0, 0.0, 0.15),))
             obs = _last(node.obstacles_pub)
             assert obs.header.frame_id == 'base_link'
-            assert len(obs.obstacles) == 1
-            o = obs.obstacles[0]
-            assert (o.x, o.y) == pytest.approx((1.95, 0.0), abs=0.08)
-            assert 0.1 <= o.r <= 0.3
+            # One object; the half-disk the LiDAR sees is elongated, so it may
+            # reach the MPC as a short chain of disks (track_disks).
+            assert 1 <= len(obs.obstacles) <= 4
+            for o in obs.obstacles:
+                assert (o.x, o.y) == pytest.approx((1.95, 0.0), abs=0.2)
+                assert 0.05 <= o.r <= 0.3
             # Its near edge is ~1.4 m past the bumper: beyond the 1.0 m cap.
             assert _last(node.speed_cap_pub).data == pytest.approx(-1.0)
             dbg = json.loads(_last(node.unknown_debug_pub).data)
@@ -209,7 +211,7 @@ class TestPureMpcHelpers:
         t = SemanticObject(1, cls, x, y, 0.9, 0.0, 1, width=width)
         t.confirmed = confirmed
         if cls == uo.UNKNOWN_CLASS:
-            t.extent = (width, width / 2)
+            t.extent = (width, width)
         return t
 
     def test_the_class_margin_and_the_frame(self):
@@ -222,3 +224,16 @@ class TestPureMpcHelpers:
     def test_tentative_tracks_never_reach_the_mpc(self):
         tracks = [self._track(uo.UNKNOWN_CLASS, 1.0, 0.0, confirmed=False)]
         assert uo.obstacles_for_mpc(tracks, (0.0, 0.0, 0.0), 'active') == []
+
+    def test_an_elongated_unknown_reaches_the_mpc_as_a_chain_of_small_disks(self):
+        """A 1.4 m run of cells is kept clear of where it is, not of its circle."""
+        run = self._track(uo.UNKNOWN_CLASS, 2.0, -1.0, width=1.4)
+        run.extent, run.angle = (1.4, 0.2), 0.0
+        disks = uo.obstacles_for_mpc([run], (0.0, 0.0, 0.0), 'active')
+        assert len(disks) >= 6
+        assert all(r == pytest.approx(0.1) for _x, _y, r in disks)
+        assert all(y == pytest.approx(-1.0) for _x, y, _r in disks)
+        assert min(x for x, _y, _r in disks) == pytest.approx(1.4, abs=0.01)
+        # ...and so it no longer reaches into the travel strip.
+        assert uo.speed_cap([run], (0.0, 0.0, 0.0), 'active', True, 0.4, 3.0, 0.405,
+                            0.286) == -1.0

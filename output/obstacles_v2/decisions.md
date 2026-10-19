@@ -67,3 +67,19 @@ D10. No per-cell or per-obstacle constraint rows exist on the obstacle path:
 an obstacle is a disk in the soft w_obs term (one min-distance term per
 horizon step), exactly as before v2. Cell-derived rows exist only in
 boundary_source:=costmap, unchanged.
+
+D11. An ELONGATED unknown cluster (length > 1.5 x width) reaches the MPC and the
+speed cap as a chain of disks of its half-width, 0.2 m apart along its
+principal axis (track_disks), not as one disk of half its length. On the
+corridor bag a 1.4 m run of cells 1 m beside the path was one 0.65 m disk that
+reached into the travel strip: 64 speed-cap cycles on a run with nothing in
+the way; with the chain, 0. Association, dedupe and decay keep the one disk.
+
+D12. Islands are clustered by single linkage at cluster_gap_m (a k-d tree's
+neighbour pairs + scipy.sparse.csgraph.connected_components) with the
+per-component moments in one np.bincount pass, instead of a binary dilation
++ ndimage.label over the whole grid and a per-component np.cov/eigh. Same
+rule ("cells within the gap are one object"), set by the island cells only:
+the LiDAR step went from 3.4-4.7 ms to 1.8-2.4 ms p50 on linus, and the
+clustering is steadier (obstacle bag: 38 -> 15 confirmed unknown objects,
+54 -> 2 folds, every remaining object alive for the whole 39 s).

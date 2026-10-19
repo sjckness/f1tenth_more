@@ -1,7 +1,7 @@
 """
 unknown_objects.py: LiDAR obstacles nothing recognised, as "unknown" objects.
 
-Pure: numpy and scipy.ndimage, no rclpy. semantic_layer_node hosts it
+Pure: numpy and scipy, no rclpy. semantic_layer_node hosts it
 (unknown_objects_mode), on a timer at most unknown_rate_hz, and feeds what it
 finds into the SAME object tracker the YOLO detections go through
 (semantic_layer.update_unknown_batch). Obstacles v2, 2026-10-19.
@@ -20,9 +20,10 @@ PER CYCLE
        OBJECT  inside a tracked object's footprint (recognised or unknown)
                grown by object_margin_m: that object is already tracked.
        ISLAND  everything else.
-  3. Candidates (island_candidates): ISLAND cells, bridged across gaps up to
-     cluster_gap_m (a person's two legs are one object), labelled
-     8-connected (scipy.ndimage.label); each component with at least
+  3. Candidates (island_candidates): ISLAND cells linked across gaps up to
+     cluster_gap_m (a person's two legs are one object; 8-connected cells
+     always are), as connected components of a k-d tree's neighbour graph
+     (scipy.spatial / scipy.sparse.csgraph); each component with at least
      min_cells cells becomes one observation: centroid, oriented extent
      (principal axes of its cells, plus one cell) and cell count.
 
@@ -34,7 +35,9 @@ from dataclasses import dataclass
 import math
 
 import numpy as np
-from scipy import ndimage
+from scipy.sparse import coo_matrix
+from scipy.sparse.csgraph import connected_components
+from scipy.spatial import cKDTree
 
 OWNER_FREE = 0
 OWNER_WALL = 1
@@ -212,54 +215,54 @@ def cell_ownership(view, walls, objects, p):
     return owner
 
 
-def _disk(radius_cells):
-    r = max(0, int(radius_cells))
-    yy, xx = np.mgrid[-r:r + 1, -r:r + 1]
-    return (xx * xx + yy * yy) <= r * r
-
-
 def island_candidates(view, owner, pose, p):
     """
     Return [Candidate] from the ISLAND cells, nearest the car first.
 
-    Islands closer than cluster_gap_m are bridged (a dilation by half the
-    gap before 8-connected labelling); each component's cells are the
-    ORIGINAL island cells inside it. Components with fewer than min_cells
-    cells, or whose centroid is further than range_m from the car, are
-    dropped.
+    Island cells within cluster_gap_m of each other are one component
+    (single linkage; 8-connected neighbours always are). Components with
+    fewer than min_cells cells, or whose centroid is further than range_m
+    from the car, are dropped.
     """
     islands = owner == OWNER_ISLAND
     if not islands.any():
         return []
-    bridge = int(round(0.5 * p.cluster_gap_m / view.resolution))
-    grown = ndimage.binary_dilation(islands, structure=_disk(bridge)) if bridge > 0 \
-        else islands
-    labels, n = ndimage.label(grown, structure=np.ones((3, 3), dtype=bool))
-    labels = np.where(islands, labels, 0)
     rows, cols, xy = view.centres(islands)
-    lab = labels[rows, cols]
-    counts = np.bincount(lab, minlength=n + 1)
-    out = []
-    for k in np.flatnonzero(counts >= max(1, int(p.min_cells))):
-        if k == 0:
-            continue
-        pts = xy[lab == k]
-        c = pts.mean(axis=0)
-        if math.hypot(c[0] - pose[0], c[1] - pose[1]) > p.range_m:
-            continue
-        if pts.shape[0] >= 2:
-            w, v = np.linalg.eigh(np.cov((pts - c).T, bias=True))
-            major = v[:, 1]
-            along = (pts - c) @ major
-            across = (pts - c) @ np.array([-major[1], major[0]])
-            length = float(along.max() - along.min()) + view.resolution
-            width = float(across.max() - across.min()) + view.resolution
-            angle = math.atan2(major[1], major[0])
-        else:
-            length = width = view.resolution
-            angle = 0.0
-        out.append(Candidate(float(c[0]), float(c[1]), length, width, angle,
-                             int(pts.shape[0])))
+    # Single linkage at cluster_gap_m (8-connected neighbours are well inside
+    # it): one k-d tree query and a sparse connected-components pass, cost
+    # set by the island cells only, never by the grid.
+    pairs = cKDTree(xy).query_pairs(p.cluster_gap_m, output_type='ndarray')
+    graph = coo_matrix((np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])),
+                       shape=(xy.shape[0], xy.shape[0])) if len(pairs) else \
+        coo_matrix((xy.shape[0], xy.shape[0]))
+    n, lab = connected_components(graph, directed=False)
+    # Per-component moments in one pass (np.bincount), so the cost does not
+    # grow with a Python loop per component: centroid, the principal axis of
+    # the second moments, and the extents along and across it.
+    cnt = np.bincount(lab, minlength=n).astype(float)
+    mx = np.bincount(lab, xy[:, 0], n) / cnt
+    my = np.bincount(lab, xy[:, 1], n) / cnt
+    dx, dy = xy[:, 0] - mx[lab], xy[:, 1] - my[lab]
+    sxx = np.bincount(lab, dx * dx, n)
+    syy = np.bincount(lab, dy * dy, n)
+    sxy = np.bincount(lab, dx * dy, n)
+    ang = 0.5 * np.arctan2(2.0 * sxy, sxx - syy)
+    along = dx * np.cos(ang[lab]) + dy * np.sin(ang[lab])
+    across = -dx * np.sin(ang[lab]) + dy * np.cos(ang[lab])
+    a_max = np.full(n, -np.inf)
+    a_min = np.full(n, np.inf)
+    c_max = np.full(n, -np.inf)
+    c_min = np.full(n, np.inf)
+    np.maximum.at(a_max, lab, along)
+    np.minimum.at(a_min, lab, along)
+    np.maximum.at(c_max, lab, across)
+    np.minimum.at(c_min, lab, across)
+    keep = (cnt >= max(1, int(p.min_cells))) & (
+        np.hypot(mx - pose[0], my - pose[1]) <= p.range_m)
+    res = view.resolution
+    out = [Candidate(float(mx[k]), float(my[k]), float(a_max[k] - a_min[k]) + res,
+                     float(c_max[k] - c_min[k]) + res, float(ang[k]), int(cnt[k]))
+           for k in np.flatnonzero(keep)]
     out.sort(key=lambda cd: math.hypot(cd.x - pose[0], cd.y - pose[1]))
     return out
 
@@ -295,13 +298,12 @@ def drop_behind_walls(candidates, walls, origin, margin_m=0.10):
     return [cd for cd, blk in zip(candidates, blocked) if not blk]
 
 
-def cells_hit(centre, radius, view, owner, p):
-    """Tell whether an ISLAND cell of this cycle lies inside the disk (grown by one cell)."""
-    rows, cols, xy = view.centres(owner == OWNER_ISLAND)
-    if xy.shape[0] == 0:
+def cells_hit(centre, radius, island_xy, resolution):
+    """Tell whether one of this cycle's ISLAND cells (map) lies inside the disk, plus a cell."""
+    if island_xy.shape[0] == 0:
         return False
-    d = np.hypot(xy[:, 0] - centre[0], xy[:, 1] - centre[1])
-    return bool(np.any(d <= radius + view.resolution))
+    d = np.hypot(island_xy[:, 0] - centre[0], island_xy[:, 1] - centre[1])
+    return bool(np.any(d <= radius + resolution))
 
 
 def fresh_recognised(tracks, now_sec, max_age_s):
@@ -348,11 +350,40 @@ def rays_pass_through(centre_bl, radius, bearings, ranges, laser_xy, p):
 
 MODES = ('off', 'shadow', 'active')
 
+#: Spacing [m] of the disks an elongated unknown object is drawn as.
+DISK_SPACING_M = 0.2
+
+
+def track_disks(trk, spacing_m=DISK_SPACING_M):
+    """
+    Return [(x, y, r)] map: the disks a track occupies.
+
+    One disk for a recognised object or a compact unknown cluster. An
+    ELONGATED unknown cluster (length more than 1.5 x its width -- the run of
+    a cabinet, a wall stub the tracker has not confirmed) is a chain of disks
+    of its half-width along its length, spacing_m apart, so it is kept clear
+    of where it IS rather than of the disk round its whole length: on
+    corridor10m_20261019T131815 a 1.4 m run of cells 1 m to the side became
+    one 0.65 m disk reaching into the travel strip (output/obstacles_v2,
+    D11).
+    """
+    if not trk.is_unknown or trk.extent is None:
+        return [(trk.x_map, trk.y_map, trk.radius())]
+    length, width = trk.extent
+    if length <= 1.5 * width:
+        return [(trk.x_map, trk.y_map, trk.radius())]
+    half = 0.5 * max(width, 0.1)
+    reach = 0.5 * length - half
+    n = int(math.ceil(2.0 * reach / spacing_m)) + 1
+    c, s = math.cos(trk.angle), math.sin(trk.angle)
+    return [(trk.x_map + u * c, trk.y_map + u * s, half)
+            for u in np.linspace(-reach, reach, n)]
+
 
 def obstacles_for_mpc(tracks, pose, mode, class_margin=None, now_sec=None,
                       recognised_max_age_s=math.inf):
     """
-    Return [(x, y, r)] base_link: every CONFIRMED track the MPC should avoid.
+    Return [(x, y, r)] base_link: the disks of every CONFIRMED track the MPC should avoid.
 
     Recognised objects updated within recognised_max_age_s of now_sec
     (fresh_recognised); unknown objects only in mode 'active' (shadow
@@ -365,11 +396,12 @@ def obstacles_for_mpc(tracks, pose, mode, class_margin=None, now_sec=None,
         (t.is_unknown and mode == 'active')
         or (not t.is_unknown and (now_sec is None
                                   or now_sec - t.last_update_stamp_sec <= recognised_max_age_s)))]
-    if not keep:
+    disks = [(x, y, r + margin.get(t.class_id, 0.0)) for t in keep
+             for x, y, r in track_disks(t)]
+    if not disks:
         return []
-    bl = to_base_link([(t.x_map, t.y_map) for t in keep], pose)
-    return [(float(p[0]), float(p[1]), float(t.radius() + margin.get(t.class_id, 0.0)))
-            for p, t in zip(bl, keep)]
+    bl = to_base_link([(x, y) for x, y, _r in disks], pose)
+    return [(float(p[0]), float(p[1]), float(d[2])) for p, d in zip(bl, disks)]
 
 
 def speed_cap(tracks, pose, mode, enabled, cap_mps, range_m, front_x, strip_half_m):
@@ -382,12 +414,11 @@ def speed_cap(tracks, pose, mode, enabled, cap_mps, range_m, front_x, strip_half
     """
     if mode != 'active' or not enabled:
         return -1.0
-    unknown = [t for t in tracks if t.confirmed and t.is_unknown]
-    if not unknown:
+    disks = [d for t in tracks if t.confirmed and t.is_unknown for d in track_disks(t)]
+    if not disks:
         return -1.0
-    bl = to_base_link([(t.x_map, t.y_map) for t in unknown], pose)
-    for (x, y), t in zip(bl, unknown):
-        r = t.radius()
+    bl = to_base_link([(x, y) for x, y, _r in disks], pose)
+    for (x, y), (_xm, _ym, r) in zip(bl, disks):
         if x + r >= front_x and x - r <= front_x + range_m and abs(y) - r <= strip_half_m:
             return float(cap_mps)
     return -1.0

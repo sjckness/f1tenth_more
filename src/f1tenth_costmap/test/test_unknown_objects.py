@@ -289,7 +289,8 @@ class TestFromTheBags:
         (obj,) = trk.confirmed_unknown()
         view = uo.cell_view(disk_points(1.5, 0.0), POSE, P)
         owner = uo.cell_ownership(view, [], [], P)
-        assert uo.cells_hit((obj.x_map, obj.y_map), obj.radius(), view, owner, P)
+        island_xy = view.centres(owner == uo.OWNER_ISLAND)[2]
+        assert uo.cells_hit((obj.x_map, obj.y_map), obj.radius(), island_xy, view.resolution)
         # No candidate at all this cycle, but its cells are still hit: alive.
         tracks, stats = sl.update_unknown_batch(
             trk.tracks, [], trk.t + 5.0, P, 0.5, 0.3, lambda: 99,

@@ -71,6 +71,8 @@ from typing import Optional
 
 from f1tenth_costmap.unknown_objects import UNKNOWN_CLASS
 
+import numpy as np
+
 from scipy.optimize import linear_sum_assignment
 
 #: Footprint width [m] assumed for a recognised track no detection has given
@@ -170,8 +172,10 @@ class SemanticObject:
         # off-by-one accident, since a caller might reasonably want that.
         self.confirmed = confirm_hit_count <= 1
         # --- obstacles v2: LiDAR evidence (update_unknown_batch) ------------
-        #: (length, width) [m] of the LiDAR cluster, unknown tracks only.
+        #: (length, width) [m] of the LiDAR cluster, unknown tracks only, and
+        #: the direction [rad, map] of its length (the latest cluster's).
         self.extent = None
+        self.angle = 0.0
         #: Start of the current run of CONSECUTIVE LiDAR sightings: an
         #: unknown track is confirmed once that run spans persist_s.
         self.streak_start_sec = float(stamp_sec)
@@ -516,20 +520,19 @@ def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
     stamp_sec = float(stamp_sec)
     matched_trk, matched_cand = set(), set()
     if tracks and candidates:
-        cost = [[math.inf] * len(tracks) for _ in candidates]
-        for i, cand in enumerate(candidates):
-            for j, trk in enumerate(tracks):
-                px, py = trk.predict(stamp_sec)
-                dist = math.hypot(px - cand.x, py - cand.y)
-                if dist <= max(max_distance_m, trk.radius() + cand.radius):
-                    cost[i][j] = dist
-        finite = [c for row in cost for c in row if math.isfinite(c)]
-        if finite:
-            sentinel = max(finite) * _INFEASIBLE_SENTINEL_MULTIPLIER + 1e6
-            rows, cols = linear_sum_assignment(
-                [[c if math.isfinite(c) else sentinel for c in row] for row in cost])
+        pred = np.array([trk.predict(stamp_sec) for trk in tracks])
+        t_rad = np.array([trk.radius() for trk in tracks])
+        cxy = np.array([(cand.x, cand.y) for cand in candidates])
+        c_rad = np.array([cand.radius for cand in candidates])
+        dist = np.hypot(cxy[:, None, 0] - pred[None, :, 0], cxy[:, None, 1] - pred[None, :, 1])
+        gate = np.maximum(max_distance_m, c_rad[:, None] + t_rad[None, :])
+        cost = np.where(dist <= gate, dist, np.inf)
+        finite = np.isfinite(cost)
+        if finite.any():
+            sentinel = cost[finite].max() * _INFEASIBLE_SENTINEL_MULTIPLIER + 1e6
+            rows, cols = linear_sum_assignment(np.where(finite, cost, sentinel))
             for i, j in zip(rows, cols):
-                if not math.isfinite(cost[i][j]):
+                if not finite[i, j]:
                     continue
                 matched_cand.add(i)
                 matched_trk.add(j)
@@ -546,6 +549,7 @@ def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
                 trk.extent = ext if trk.extent is None else tuple(
                     alpha * a + (1.0 - alpha) * b for a, b in zip(ext, trk.extent))
                 trk.width = max(trk.extent)
+                trk.angle = cand.angle
                 trk.last_update_stamp_sec = stamp_sec
                 trk.hit_count += 1
                 if not trk.confirmed and stamp_sec - trk.streak_start_sec >= p.persist_s:
@@ -592,6 +596,7 @@ def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
                              stamp_sec, confirm_hit_count=1, width=2.0 * cand.radius)
         trk.confirmed = p.persist_s <= 0.0
         trk.extent = (cand.length, cand.width)
+        trk.angle = cand.angle
         trk.last_lidar_hit_sec = stamp_sec
         kept.append(trk)
         stats['spawned'] += 1
