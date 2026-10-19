@@ -210,6 +210,79 @@ def generate_launch_description():
         'boundary_slack_weight', default_value=str(boundary_slack_weight_default),
         description=boundary_slack_weight_desc)
 
+    # ---- WALL ROWS from the multi-wall tracker (wall_boundaries.py).
+    # Every default comes from stack_params.yaml, where boundary_source is
+    # 'costmap' -- so declaring these changes nothing until one is overridden.
+    #
+    # boundary_source IS A STRING PARAMETER AND IS TYPED AS ONE. An untyped
+    # LaunchConfiguration string is re-parsed under YAML 1.1 rules on the way
+    # into the node, which is how 'off' becomes False and the node dies on
+    # InvalidParameterTypeException. None of the three values here happens to
+    # be a YAML boolean today, but the next one added might be, and the typed
+    # form costs nothing.
+    boundary_source_default, boundary_source_desc = get_default('boundary_source')
+    boundary_source_la = DeclareLaunchArgument(
+        'boundary_source', default_value=str(boundary_source_default),
+        description=boundary_source_desc)
+    max_wall_constraints_default, max_wall_constraints_desc = get_default('max_wall_constraints')
+    max_wall_constraints_la = DeclareLaunchArgument(
+        'max_wall_constraints', default_value=str(max_wall_constraints_default),
+        description=max_wall_constraints_desc)
+    wall_row_max_coast_s_default, wall_row_max_coast_s_desc = get_default('wall_row_max_coast_s')
+    wall_row_max_coast_s_la = DeclareLaunchArgument(
+        'wall_row_max_coast_s', default_value=str(wall_row_max_coast_s_default),
+        description=wall_row_max_coast_s_desc)
+    wall_row_coast_margin_m_default, wall_row_coast_margin_m_desc = get_default(
+        'wall_row_coast_margin_m')
+    wall_row_coast_margin_m_la = DeclareLaunchArgument(
+        'wall_row_coast_margin_m', default_value=str(wall_row_coast_margin_m_default),
+        description=wall_row_coast_margin_m_desc)
+    wall_row_allow_stereo_only_default, wall_row_allow_stereo_only_desc = get_default(
+        'wall_row_allow_stereo_only')
+    wall_row_allow_stereo_only_la = DeclareLaunchArgument(
+        'wall_row_allow_stereo_only', default_value=str(wall_row_allow_stereo_only_default),
+        description=wall_row_allow_stereo_only_desc)
+    other_walls_as_obstacles_default, other_walls_as_obstacles_desc = get_default(
+        'other_walls_as_obstacles')
+    other_walls_as_obstacles_la = DeclareLaunchArgument(
+        'other_walls_as_obstacles', default_value=str(other_walls_as_obstacles_default),
+        description=other_walls_as_obstacles_desc)
+    wall_obstacle_spacing_m_default, wall_obstacle_spacing_m_desc = get_default(
+        'wall_obstacle_spacing_m')
+    wall_obstacle_spacing_m_la = DeclareLaunchArgument(
+        'wall_obstacle_spacing_m', default_value=str(wall_obstacle_spacing_m_default),
+        description=wall_obstacle_spacing_m_desc)
+    wall_obstacle_radius_m_default, wall_obstacle_radius_m_desc = get_default(
+        'wall_obstacle_radius_m')
+    wall_obstacle_radius_m_la = DeclareLaunchArgument(
+        'wall_obstacle_radius_m', default_value=str(wall_obstacle_radius_m_default),
+        description=wall_obstacle_radius_m_desc)
+    wall_row_end_margin_m_default, wall_row_end_margin_m_desc = get_default(
+        'wall_row_end_margin_m')
+    wall_row_end_margin_m_la = DeclareLaunchArgument(
+        'wall_row_end_margin_m', default_value=str(wall_row_end_margin_m_default),
+        description=wall_row_end_margin_m_desc)
+    wall_row_merge_angle_deg_default, wall_row_merge_angle_deg_desc = get_default(
+        'wall_row_merge_angle_deg')
+    wall_row_merge_angle_deg_la = DeclareLaunchArgument(
+        'wall_row_merge_angle_deg', default_value=str(wall_row_merge_angle_deg_default),
+        description=wall_row_merge_angle_deg_desc)
+    wall_row_merge_offset_m_default, wall_row_merge_offset_m_desc = get_default(
+        'wall_row_merge_offset_m')
+    wall_row_merge_offset_m_la = DeclareLaunchArgument(
+        'wall_row_merge_offset_m', default_value=str(wall_row_merge_offset_m_default),
+        description=wall_row_merge_offset_m_desc)
+    wall_row_slack_weight_default, wall_row_slack_weight_desc = get_default(
+        'wall_row_slack_weight')
+    wall_row_slack_weight_la = DeclareLaunchArgument(
+        'wall_row_slack_weight', default_value=str(wall_row_slack_weight_default),
+        description=wall_row_slack_weight_desc)
+    wall_row_max_tf_age_s_default, wall_row_max_tf_age_s_desc = get_default(
+        'wall_row_max_tf_age_s')
+    wall_row_max_tf_age_s_la = DeclareLaunchArgument(
+        'wall_row_max_tf_age_s', default_value=str(wall_row_max_tf_age_s_default),
+        description=wall_row_max_tf_age_s_desc)
+
     car_radius_default, car_radius_desc = get_default('car_radius')
     car_radius_la = DeclareLaunchArgument(
         'car_radius', default_value=str(car_radius_default),
@@ -305,6 +378,20 @@ def generate_launch_description():
             'boundary_hard': LaunchConfiguration('boundary_hard'),
             'boundary_max_sources': LaunchConfiguration('boundary_max_sources'),
             'boundary_slack_weight': LaunchConfiguration('boundary_slack_weight'),
+            'boundary_source': ParameterValue(
+                LaunchConfiguration('boundary_source'), value_type=str),
+            'max_wall_constraints': LaunchConfiguration('max_wall_constraints'),
+            'wall_row_max_coast_s': LaunchConfiguration('wall_row_max_coast_s'),
+            'wall_row_coast_margin_m': LaunchConfiguration('wall_row_coast_margin_m'),
+            'wall_row_allow_stereo_only': LaunchConfiguration('wall_row_allow_stereo_only'),
+            'other_walls_as_obstacles': LaunchConfiguration('other_walls_as_obstacles'),
+            'wall_obstacle_spacing_m': LaunchConfiguration('wall_obstacle_spacing_m'),
+            'wall_obstacle_radius_m': LaunchConfiguration('wall_obstacle_radius_m'),
+            'wall_row_end_margin_m': LaunchConfiguration('wall_row_end_margin_m'),
+            'wall_row_merge_angle_deg': LaunchConfiguration('wall_row_merge_angle_deg'),
+            'wall_row_merge_offset_m': LaunchConfiguration('wall_row_merge_offset_m'),
+            'wall_row_slack_weight': LaunchConfiguration('wall_row_slack_weight'),
+            'wall_row_max_tf_age_s': LaunchConfiguration('wall_row_max_tf_age_s'),
             'model_log_path': ParameterValue(
                 LaunchConfiguration('mpc_model_log_path'), value_type=str),
         }],
@@ -323,5 +410,11 @@ def generate_launch_description():
         delta_min_la, delta_max_la,
         obstacle_target_shift_m_la, corridor_heading_return_la,
         use_hard_boundary_constraints_la, boundary_hard_la,
-        boundary_max_sources_la, boundary_slack_weight_la, model_log_path_la, mpc_corr_node,
+        boundary_max_sources_la, boundary_slack_weight_la,
+        boundary_source_la, max_wall_constraints_la, wall_row_max_coast_s_la,
+        wall_row_coast_margin_m_la, wall_row_allow_stereo_only_la, other_walls_as_obstacles_la,
+        wall_obstacle_spacing_m_la, wall_obstacle_radius_m_la, wall_row_end_margin_m_la,
+        wall_row_merge_angle_deg_la, wall_row_merge_offset_m_la, wall_row_slack_weight_la,
+        wall_row_max_tf_age_s_la,
+        model_log_path_la, mpc_corr_node,
     ])

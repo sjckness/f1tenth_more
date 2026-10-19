@@ -4,7 +4,7 @@ import math
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import rclpy
@@ -20,13 +20,14 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
-    ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
+    BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, MultiWallTrackArray,
+    ObjectApproachStatus, ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
 from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC,
     corridor_curves, corridor_curves_to_pose, wrap_pi)
+from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
@@ -707,6 +708,30 @@ class MPCController(Node):
         self.costmap_boundaries_last_time: Optional[float] = None
 
         # =========================
+        # WALL ROWS (boundary_source 'walls' -- see wall_boundaries.py)
+        # =========================
+        # Nothing is transformed on receipt here, unlike the costmap path above:
+        # a wall track is ALREADY in odom (MultiWallTrackArray.header.frame_id,
+        # the same local-EKF odom self.x/y/yaw live in), and the one thing that
+        # genuinely has to be re-derived every cycle -- which SIDE of each wall
+        # the car is on -- depends on the car's CURRENT position, not on the
+        # pose at the scan stamp. So the raw views are kept and the half-planes
+        # are built in _get_live_boundaries, at solve time.
+        self.wall_tracks: List[wb.WallTrackView] = []
+        self.wall_tracks_frame: str = ''
+        self.wall_tracks_last_time: Optional[float] = None
+        self.wall_tracks_stamp: float = 0.0
+        self.wall_coast_clock: Optional[wb.CoastClock] = None
+        self.wall_row_identity: Optional[wb.RowIdentity] = None
+        # Last cycle's rows/diagnostics, for /mpc/wall_constraints_diag and for
+        # naming the rows involved when a solve comes back infeasible.
+        self.wall_rows: List[wb.WallRow] = []
+        self.wall_rows_diag: List[dict] = []
+        # info['boundary_slack'] from the last solve, metres per QP slot. Empty
+        # whenever the rows were hard or there was nothing live to soften.
+        self.last_boundary_slack: List[float] = []
+
+        # =========================
         # MPC / modello
         # =========================
         self.last_u = np.array([0.0, 0.0], dtype=float)
@@ -834,6 +859,69 @@ class MPCController(Node):
         self.boundary_slack_weight = float(
             self.declare_parameter(
                 'boundary_slack_weight', get_value('boundary_slack_weight')).value)
+
+        # ---- WALL ROWS (wall_boundaries.py) ---------------------------------
+        # boundary_source picks where the rows come from, and 'costmap' -- the
+        # default -- is byte-for-byte the behaviour that existed before this
+        # pass: the /costmap/boundaries subscription, _select_live_boundaries,
+        # boundary_slack_weight. 'walls' swaps in the tracker's half-planes and
+        # wall_row_slack_weight; 'none' ships no rows at all, which is the A/B
+        # baseline (it is NOT the same as use_hard_boundary_constraints false --
+        # that also exists, is older, and is the MATLAB-comparison config).
+        self.boundary_source = str(
+            self.declare_parameter('boundary_source', get_value('boundary_source')).value)
+        if self.boundary_source not in ('costmap', 'walls', 'none'):
+            raise RuntimeError(
+                f"boundary_source must be 'costmap', 'walls' or 'none', "
+                f'got {self.boundary_source!r}')
+        self.max_wall_constraints = int(
+            self.declare_parameter(
+                'max_wall_constraints', get_value('max_wall_constraints')).value)
+        self.wall_row_max_coast_s = float(
+            self.declare_parameter(
+                'wall_row_max_coast_s', get_value('wall_row_max_coast_s')).value)
+        self.wall_row_coast_margin_m = float(
+            self.declare_parameter(
+                'wall_row_coast_margin_m', get_value('wall_row_coast_margin_m')).value)
+        self.wall_row_allow_stereo_only = bool(
+            self.declare_parameter(
+                'wall_row_allow_stereo_only',
+                get_value('wall_row_allow_stereo_only')).value)
+        self.other_walls_as_obstacles = bool(
+            self.declare_parameter(
+                'other_walls_as_obstacles', get_value('other_walls_as_obstacles')).value)
+        self.wall_obstacle_spacing_m = float(
+            self.declare_parameter(
+                'wall_obstacle_spacing_m', get_value('wall_obstacle_spacing_m')).value)
+        self.wall_obstacle_radius_m = float(
+            self.declare_parameter(
+                'wall_obstacle_radius_m', get_value('wall_obstacle_radius_m')).value)
+        self.wall_row_end_margin_m = float(
+            self.declare_parameter(
+                'wall_row_end_margin_m', get_value('wall_row_end_margin_m')).value)
+        self.wall_row_merge_angle_deg = float(
+            self.declare_parameter(
+                'wall_row_merge_angle_deg', get_value('wall_row_merge_angle_deg')).value)
+        self.wall_row_merge_offset_m = float(
+            self.declare_parameter(
+                'wall_row_merge_offset_m', get_value('wall_row_merge_offset_m')).value)
+        self.wall_row_slack_weight = float(
+            self.declare_parameter(
+                'wall_row_slack_weight', get_value('wall_row_slack_weight')).value)
+        self.wall_row_max_tf_age_s = float(
+            self.declare_parameter(
+                'wall_row_max_tf_age_s', get_value('wall_row_max_tf_age_s')).value)
+        # A MISMATCH IS A STARTUP ERROR, NEVER A SILENT TRUNCATION -- the
+        # rule and its reasoning live in wb.check_row_capacity, which is pure
+        # so it can be tested without constructing this node.
+        capacity_error = wb.check_row_capacity(
+            self.boundary_source, self.max_wall_constraints, self.boundary_max_sources)
+        if capacity_error:
+            raise RuntimeError(capacity_error)
+        if self.boundary_source == 'walls':
+            self.wall_coast_clock = wb.CoastClock()
+            self.wall_row_identity = wb.RowIdentity(
+                self.wall_row_merge_angle_deg, self.wall_row_merge_offset_m)
 
         # Max tangential shove applied to the lookahead target when it lands
         # inside an obstacle's safety radius -- see compute_local_target,
@@ -1716,6 +1804,29 @@ class MPCController(Node):
             self.costmap_boundaries_callback,
             10
         )
+
+        # /perception/walls, ONLY in boundary_source 'walls'. Subscribing
+        # unconditionally would deserialise up to four tracks at the tracker's
+        # ~10 Hz on this node's executor for nothing in the default
+        # configuration -- the same reason costmap_boundary_node's TF listener
+        # now only exists with use_convex_polytope (cpu-cleanup, 2026-10-16).
+        self.sub_wall_tracks = None
+        self.wall_diag_pub = None
+        if self.boundary_source == 'walls':
+            self.sub_wall_tracks = self.create_subscription(
+                MultiWallTrackArray,
+                '/perception/walls',
+                self.wall_tracks_callback,
+                10
+            )
+            # A String of JSON, not a custom message, for exactly the reason
+            # costmap_boundary_node's /costmap/safe_corridor_report is one: it
+            # is a DIAGNOSTIC whose field set is still being shaped, nothing in
+            # the stack parses it, and a .msg would freeze it prematurely --
+            # and, worse here, every bag recorded against an older definition
+            # would stop deserialising (CDR is positional).
+            self.wall_diag_pub = self.create_publisher(
+                String, '/mpc/wall_constraints_diag', 10)
 
         self.front_distance = 10.0
         # The wall contract's CLEAR value (stack_params wall_clear_distance_m):
@@ -3221,7 +3332,137 @@ class MPCController(Node):
             throttle_duration_sec=2.0
         )
 
-    def _get_live_boundaries(self) -> List[Tuple[float, float, float]]:
+    def wall_tracks_callback(self, msg: MultiWallTrackArray):
+        """Cache one /perception/walls message as plain odom-frame views.
+
+        Deliberately does NO geometry. The half-planes are built at solve time
+        (_wall_boundaries) because which side of each wall the car is on is a
+        question about the car's CURRENT position, and because the activity
+        test needs the corridor, which does not exist yet here. The costmap
+        path transforms on receipt instead, and it has to: its rows arrive
+        base_link-relative, so the pose they were computed against is the only
+        one that can be used.
+
+        The coast clock is updated here rather than at solve time, and that is
+        load-bearing: it has to see EVERY cycle's states to know when each
+        track was last CONFIRMED, including the cycles whose tracks are all
+        rejected and the cycles the control loop does not run on.
+        """
+        self.wall_tracks = [wb.WallTrackView.from_msg(t) for t in msg.tracks]
+        self.wall_tracks_frame = str(msg.header.frame_id)
+        self.wall_tracks_last_time = self.get_clock().now().nanoseconds * 1e-9
+        self.wall_tracks_stamp = (
+            msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
+        if self.wall_coast_clock is not None:
+            self.wall_coast_clock.update(self.wall_tracks, self.wall_tracks_stamp)
+
+        self.get_logger().info(
+            f'WALLS/in | n={len(self.wall_tracks)} frame={self.wall_tracks_frame}',
+            throttle_duration_sec=2.0)
+
+    def _wall_path_points(self, corridor: Optional[Dict]):
+        """The (x, y) odom points a wall row's extent is tested against.
+
+        The corridor's own centreline plus the car's current position, which is
+        what "the predicted horizon (or the corridor)" means in practice here:
+        the corridor is the reference the horizon is solved to track and it
+        exists BEFORE the solve, whereas the predicted states are last tick's.
+        The car's own position is included so a wall right beside a stationary
+        car still produces a row before any corridor has been built.
+        """
+        pts = []
+        if self.x is not None and self.y is not None:
+            pts.append((float(self.x), float(self.y)))
+        if corridor is not None:
+            xc = np.asarray(corridor['xc'], dtype=float).ravel()
+            yc = np.asarray(corridor['yc'], dtype=float).ravel()
+            pts.extend(zip(xc.tolist(), yc.tolist()))
+        return pts
+
+    def _wall_boundaries(self, corridor: Optional[Dict]):
+        """Wall rows for this cycle, rebuilt from scratch against the live pose.
+
+        Returns the (normal, offset) list for solve_mpc_step. Also refreshes
+        self.wall_rows/self.wall_rows_diag and publishes
+        /mpc/wall_constraints_diag, so a withheld cycle is visible as an empty
+        row list with a reason rather than as silence.
+        """
+        reason = wb.stale_reason(
+            self.wall_tracks_frame, self._odom_frame_name(),
+            (None if self.wall_tracks_last_time is None
+             else self.get_clock().now().nanoseconds * 1e-9 - self.wall_tracks_last_time),
+            self.wall_row_max_tf_age_s)
+        if reason:
+            self.wall_rows = []
+            self.wall_rows_diag = []
+            self._publish_wall_diag(reason)
+            self.get_logger().warn(
+                f'WALL ROWS WITHHELD -- {reason}', throttle_duration_sec=5.0)
+            return []
+        if self.x is None or self.y is None:
+            self.wall_rows, self.wall_rows_diag = [], []
+            self._publish_wall_diag('no odom pose yet')
+            return []
+
+        rows, diag = wb.build_wall_rows(
+            tracks=self.wall_tracks,
+            car_xy=(float(self.x), float(self.y)),
+            path_xy=self._wall_path_points(corridor),
+            stamp=self.wall_tracks_stamp,
+            coast_clock=self.wall_coast_clock,
+            identity=self.wall_row_identity,
+            max_rows=self.max_wall_constraints,
+            max_coast_s=self.wall_row_max_coast_s,
+            coast_margin_m=self.wall_row_coast_margin_m,
+            allow_stereo_only=self.wall_row_allow_stereo_only,
+            end_margin_m=self.wall_row_end_margin_m,
+            merge_angle_deg=self.wall_row_merge_angle_deg,
+            merge_offset_m=self.wall_row_merge_offset_m)
+        self.wall_rows, self.wall_rows_diag = rows, diag
+        self._publish_wall_diag('')
+        self.get_logger().info(
+            f'WALL ROWS | n={len(rows)} ids={[r.row_id for r in rows]}',
+            throttle_duration_sec=2.0)
+        return [r.constraint for r in rows]
+
+    def _odom_frame_name(self) -> str:
+        """The frame self.x/y/yaw are expressed in, for the wall frame check.
+
+        'odom' unconditionally: this node's state comes from get_odom_topic()
+        (the local EKF's /odometry/filtered, or raw /odom), both of which are
+        odom-frame by construction -- see _update_active_odom. A separate
+        parameter would only create a second place for the answer to be wrong.
+        """
+        return 'odom'
+
+    def _publish_wall_diag(self, withheld_reason: str):
+        """One JSON object per cycle on /mpc/wall_constraints_diag."""
+        if self.wall_diag_pub is None:
+            return
+        self.wall_diag_pub.publish(String(data=json.dumps({
+            'stamp': self.get_clock().now().nanoseconds * 1e-9,
+            'wall_stamp': self.wall_tracks_stamp,
+            'boundary_source': self.boundary_source,
+            'withheld': withheld_reason,
+            'n_tracks': len(self.wall_tracks),
+            'n_rows': len(self.wall_rows),
+            'max_wall_constraints': self.max_wall_constraints,
+            'boundary_max_sources': self.boundary_max_sources,
+            'slack_weight': self.wall_row_slack_weight,
+            # Metres of violation per QP slot, from the PREVIOUS solve -- one
+            # cycle behind the rows beside it, because the rows have to exist
+            # before the solve that prices them. Row ids are stable across
+            # cycles by construction (RowIdentity), so a reader can still line
+            # the two up; the name says which solve it is rather than letting
+            # the offset be discovered later. mpc_solver returns these in slot
+            # order and pad_boundary_constraints fills the slots in row order,
+            # so slot j belongs to rows[j] while j < n_rows.
+            'slack_m_last_solve': [round(v, 4) for v in self.last_boundary_slack],
+            'rows': self.wall_rows_diag,
+        }, sort_keys=True)))
+
+    def _get_live_boundaries(
+            self, corridor: Optional[Dict] = None) -> List[Tuple[float, float, float]]:
         """Freshness-gated list of (normal_x, normal_y, offset) hard
         boundary constraints, WORLD-frame (see costmap_boundaries_callback
         above), ready to pass straight into solve_mpc_step(boundaries=...).
@@ -3242,6 +3483,15 @@ class MPCController(Node):
         arriving."""
         if not self.use_hard_boundary_constraints:
             return []
+        if self.boundary_source == 'none':
+            # No rows at all: the A/B baseline. Distinct from
+            # use_hard_boundary_constraints false only in intent -- that flag
+            # is the older MATLAB-comparison switch and is documented as such,
+            # so a run that wants "costmap rows off, everything else as
+            # shipped" says so here instead of borrowing that one.
+            return []
+        if self.boundary_source == 'walls':
+            return self._wall_boundaries(corridor)
         now_sec = self.get_clock().now().nanoseconds * 1e-9
         return _select_live_boundaries(
             self.costmap_boundaries_world, self.costmap_boundaries_last_time,
@@ -3840,6 +4090,21 @@ class MPCController(Node):
                 )
 
         obstacles_global = self.obstacles_global_live
+        # CONFIRMED 'other' wall segments, as soft w_obs disks, in
+        # boundary_source 'walls' only. A NEW list -- never a mutation of
+        # self.obstacles_global_live, which also feeds
+        # compute_robot_obstacle_distance -> /mpc/min_obstacle_distance ->
+        # the mission obstacle_distance_below stop condition. A wall must not
+        # become a reason to stop a mission; it is a reason to steer.
+        if self.boundary_source == 'walls' and self.other_walls_as_obstacles:
+            wall_disks = wb.other_wall_obstacles(
+                self.wall_tracks, self.wall_obstacle_spacing_m,
+                self.wall_obstacle_radius_m)
+            if wall_disks:
+                obstacles_global = list(obstacles_global) + wall_disks
+                self.get_logger().info(
+                    f'WALL OBS | {len(wall_disks)} disks from other-role walls',
+                    throttle_duration_sec=2.0)
 
         self.get_logger().info(f'OBSTACLES WORLD={obstacles_global}')
         self.get_logger().info(f'DIST ROBOT-OSTACOLO = {d_robot_obs:.3f}')
@@ -3956,9 +4221,20 @@ class MPCController(Node):
             f'vdes={vdes:.3f} n_obs={len(obstacles_global)}'
         )
 
-        live_boundaries = self._get_live_boundaries()
+        live_boundaries = self._get_live_boundaries(corridor)
+        # A WALL row is penalised differently from a costmap row, and much
+        # harder: see wall_row_slack_weight's own derivation in
+        # stack_params.yaml. One number per source rather than one shared one,
+        # because the two carry different evidence -- a nearest-occupied-cell
+        # tangent is a guess about an island, a tracked wall is a surface that
+        # had to be confirmed, and treating a guess as near-inviolable is how
+        # the costmap rows came to stop the car in the first place.
+        boundary_slack_weight = (self.wall_row_slack_weight
+                                 if self.boundary_source == 'walls'
+                                 else self.boundary_slack_weight)
         self.get_logger().info(
-            f'BOUNDARY/live | n={len(live_boundaries)}', throttle_duration_sec=2.0)
+            f'BOUNDARY/live | source={self.boundary_source} n={len(live_boundaries)}',
+            throttle_duration_sec=2.0)
 
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
@@ -3979,12 +4255,31 @@ class MPCController(Node):
             boundaries=live_boundaries,
             boundary_max_sources=self.boundary_max_sources,
             boundary_hard=self.boundary_hard,
-            boundary_slack_weight=self.boundary_slack_weight,
+            boundary_slack_weight=boundary_slack_weight,
             warm_start_z=self.warm_start_z,
             control_period=self.ts,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
+
+        # ---- per-row boundary violation, metres, for the next cycle's
+        # /mpc/wall_constraints_diag. Slot order matches row order
+        # (pad_boundary_constraints fills the slots in the order it is handed
+        # the rows), so slot j belongs to wall_rows[j] while j < len(rows).
+        self.last_boundary_slack = [float(v) for v in info.get('boundary_slack', [])]
+
+        # ---- an infeasible solve NAMES THE ROWS. The existing fallback is
+        # unchanged (warm start held, last_u tiled -- see the note below); what
+        # this adds is the one thing it never told anyone: which constraint set
+        # the solve was given. Without it an infeasible wall row is
+        # indistinguishable from a bad linearisation in the log.
+        if not info.get('success', False) and live_boundaries:
+            self.get_logger().warn(
+                f'SOLVE INFEASIBLE with {len(live_boundaries)} boundary row(s), '
+                f'source={self.boundary_source}, '
+                f'row_ids={[r.row_id for r in self.wall_rows]}, '
+                f'status={info.get("status", "?")} -- falling back',
+                throttle_duration_sec=2.0)
 
         # ---- carry this solve forward as the next tick's warm start.
         # Done HERE, immediately on return, rather than further down beside

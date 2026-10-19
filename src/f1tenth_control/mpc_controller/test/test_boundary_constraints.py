@@ -245,8 +245,14 @@ class _FakeClock:
 
 class _FakeMPCForBoundaries:
     def __init__(self, use_hard_boundary_constraints, now_sec=10.0,
-                 world=None, last_time=10.0, timeout_sec=0.5):
+                 world=None, last_time=10.0, timeout_sec=0.5,
+                 boundary_source='costmap'):
         self.use_hard_boundary_constraints = use_hard_boundary_constraints
+        # boundary_source picks the ROW SOURCE (wall-rows pass): 'costmap' is
+        # the default and the one these gate tests are about -- the
+        # /costmap/boundaries feed plus _select_live_boundaries. 'walls' and
+        # 'none' have their own tests in test_wall_boundaries.py.
+        self.boundary_source = boundary_source
         self.costmap_boundaries_world = world if world is not None else [(1.0, 0.0, 2.0)]
         self.costmap_boundaries_last_time = last_time
         self.odom_stale_timeout_sec = timeout_sec
@@ -262,6 +268,13 @@ class TestGetLiveBoundariesGate:
         fake = _FakeMPCForBoundaries(use_hard_boundary_constraints=True)
         result = MPCController._get_live_boundaries(fake)
         assert result == [(1.0, 0.0, 2.0)]
+
+    def test_boundary_source_none_returns_empty_even_when_data_is_fresh(self):
+        fake = _FakeMPCForBoundaries(
+            use_hard_boundary_constraints=True, boundary_source='none')
+        assert MPCController._get_live_boundaries(fake) == [], (
+            "boundary_source 'none' is the A/B baseline: no rows at all, "
+            'whatever costmap_boundary_node is publishing')
 
     def test_disabled_returns_empty_even_when_data_is_fresh(self):
         fake = _FakeMPCForBoundaries(use_hard_boundary_constraints=False)

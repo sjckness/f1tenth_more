@@ -1562,6 +1562,60 @@ boundary_max_sources:
 boundary_slack_weight:
   default: 10000.0
   description: "Penalty on each wall face's worst violation over the horizon, when boundary_hard is false. Large relative to every cost weight, so the solve treats a wall as near-inviolable while still degrading to a reported violation instead of an infeasible QP. Never validated on the vehicle."
+# ---------------------------------------------------------------------------
+# WALL ROWS FROM THE MULTI-WALL TRACKER (mpc_controller/wall_boundaries.py).
+# Consumed by: f1tenth_control/mpc_corr.launch.py -> mpc_corr.
+#
+# WHY. The rows above come from costmap_boundary.py's nearest-OCCUPIED-CELL
+# extraction on /slam/map: one radial tangent per direction at the single
+# closest occupied cell. A small island of occupied cells -- a map artefact, a
+# person already handled by w_obs, one spurious return integrated once -- is
+# indistinguishable from a wall to that extraction and becomes a half-plane
+# across the whole horizon, which the solve then cannot satisfy and the car
+# stops. A TRACKED wall has a length, a lifecycle, measured ends, an evidence
+# source and a role; those are the admission tests.
+#
+# DEFAULTS ARE THE CURRENT BEHAVIOUR. boundary_source is 'costmap', so every
+# key below is inert until it is set to 'walls'.
+boundary_source:
+  default: costmap
+  description: "Where mpc_corr's boundary rows come from. 'costmap' (default, current behaviour): costmap_boundary_node's /costmap/boundaries, unchanged. 'walls': half-planes from the multi-wall tracker's /perception/walls, admitted by wall_boundaries.py's rule (confirmed or briefly-coasting, lidar-backed, role front/left/right, segment extent overlapping the horizon). 'none': no boundary rows at all -- the A/B baseline, which leaves only the soft w_obs deflection. In 'walls' mode boundary_max_sources MUST be >= max_wall_constraints or the node refuses to start, because pad_boundary_constraints would otherwise truncate rows silently."
+max_wall_constraints:
+  default: 4
+  description: "Most wall rows mpc_corr will ship in boundary_source 'walls', chosen by smallest clearance to the predicted corridor (nearest wall first). 4 matches the tracker's own max_published cap. boundary_max_sources (the QP's rows per stage) must be at least this, which is a STARTUP ERROR when it is not -- never a silent truncation. Inert unless boundary_source is 'walls'."
+wall_row_max_coast_s:
+  default: 1.0
+  description: "A COASTING wall track still produces a row for this long [s] after it was last CONFIRMED, with wall_row_coast_margin_m of extra standoff; past it, no row. A coast is a prediction carried on odometry, not an observation. Derived on the consumer side from the states seen on /perception/walls, because MultiWallTrack carries no coasting age and appending a field would make every bag already recorded undeserialisable (CDR is positional). A track first seen already coasting starts its clock then, which expires it sooner than the truth -- the safe direction."
+wall_row_coast_margin_m:
+  default: 0.10
+  description: "Extra standoff [m] on a row from a COASTING track, on top of the car_radius + obstacle_safety_margin_m the solver already subtracts from every row. The one producer-side shrink in the wall path: a surface nobody is currently looking at is held further away than one being observed."
+wall_row_allow_stereo_only:
+  default: false
+  description: "false (default): a track whose best evidence has only ever been the stereo (MultiWallTrack.source SOURCE_STEREO) never becomes a row. Nothing has cross-checked such a surface, and a stereo-only plane became the front wall at 1.1 m on an open corridor once already (corridor_phantom, 2026-10-15). SOURCE_LIDAR and SOURCE_BOTH are always eligible. Glass walls are admitted like any other -- glass is a real surface with real LiDAR trouble, not a lower grade of evidence."
+other_walls_as_obstacles:
+  default: true
+  description: "In boundary_source 'walls': CONFIRMED tracks whose role is 'other' (nowhere near the car's path, or rectangle-rejected, or behind another confirmed wall) are sampled along their segment and added to the soft w_obs obstacle set instead of becoming rows. A row from an 'other' track would be wrong -- it bounds nothing -- but discarding it loses a surface a turn can still reach. TENTATIVE 'other' tracks are ignored entirely. Inert unless boundary_source is 'walls'."
+wall_obstacle_spacing_m:
+  default: 0.25
+  description: "Sample spacing [m] along an 'other' wall segment when other_walls_as_obstacles turns it into w_obs disks. Finer than the car's own footprint so the segment reads as a surface rather than as beads the nose can pass between."
+wall_obstacle_radius_m:
+  default: 0.0
+  description: "ADDITIONAL inflation [m] on each 'other'-wall sample disk, on top of the car_radius + avoidance_margin the solver already applies around every obstacle. 0.0 (default) means the existing unified margin and nothing more."
+wall_row_end_margin_m:
+  default: 0.3
+  description: "A wall row is ACTIVE only where the predicted corridor overlaps the track's MEASURED extent along the wall, plus this margin [m] at each end. Without it a 2 m partition's half-plane closes the whole length of free space in line with it and the gap past its end -- the doorway, the corridor mouth -- goes infeasible. The test is along-wall only: lateral position is what the row is FOR."
+wall_row_merge_angle_deg:
+  default: 10.0
+  description: "Two wall rows whose normals are within this angle AND whose offsets are within wall_row_merge_offset_m are one physical surface: they merge, the MOST RESTRICTIVE (smallest) offset survives, and both track ids are reported. The tracker legitimately holds two tracks for one wall (the faces of a doorway reveal, a wall re-found under a new id, a wall split by a person's cut sector). The same tolerance also matches a row to the previous cycle's rows, so row ids survive a track re-birth."
+wall_row_merge_offset_m:
+  default: 0.3
+  description: "Offset tolerance [m] of the merge/identity test above. See wall_row_merge_angle_deg."
+wall_row_slack_weight:
+  default: 2000000.0
+  description: "Slack penalty on a WALL row, replacing boundary_slack_weight in boundary_source 'walls'. Chosen so a 0.05 m violation dominates the rest of the objective by >= 100x: the slack term is w*(s^2 + s), so 2.0e6 * (0.0025 + 0.05) = 1.05e5 against a generous 1.0e3 bound on every other cost term summed over the horizon (largest single term w_term 9.0 at a 3 m terminal miss = 81). Still finite, and boundary_slack_max caps the slack at 0.5 m, so a wall the car is already well inside degrades to a reported violation rather than an infeasible QP. See output/avoidance/wall_boundaries.md for the full derivation."
+wall_row_max_tf_age_s:
+  default: 0.5
+  description: "Age [s] past which this cycle's /perception/walls message withholds EVERY wall row, with a throttled WARN. Matches odom_stale_timeout_sec, the gate the costmap rows already use. NOTE on the name: no map->odom lookup is involved, because a wall track is odom-native (MultiWallTrackArray.header.frame_id is the same local-EKF odom mpc_corr's state lives in) -- what this gates is the WALL MESSAGE's own age. A frame_id that is not the MPC's odom frame withholds every row too, as a configuration error that must not be papered over by transforming."
 # Consumed by: f1tenth_control/mpc_corr.launch.py -> mpc_corr's model_log_path.
 # Model-validation CSV read by tools/mpc_model_check.py; see docs/DIAGNOSTICS.md.
 # Additive instrumentation: nothing reads it back into the control path.
