@@ -502,13 +502,17 @@ def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
       * matched RECOGNISED track: ABSORBED -- the cluster is that object's own
         LiDAR footprint, never a second, parallel unknown. Nothing else
         changes: a recognised track keeps the detections' lifecycle.
-      * unmatched candidate: a new TENTATIVE unknown track.
+      * unmatched candidate: a new TENTATIVE unknown track -- unless it lies
+        within the gate of a track already held, when it is a second cluster
+        of that object ('split') and only refreshes its last hit.
       * unmatched unknown track: tentative -> dropped (the sightings must be
         consecutive); confirmed -> kept until decay_s after its last hit once
         the LiDAR has seen THROUGH its area (observe(track) -> (observed,
-        passed)), or unobserved_decay_s if it never could.
+        passed[, hit]); hit: an occupied cell still lies inside its disk,
+        which keeps it alive), or unobserved_decay_s if it never could.
     """
-    stats = {'matched': 0, 'absorbed': 0, 'spawned': 0, 'confirmed': 0, 'deleted': 0}
+    stats = {'matched': 0, 'absorbed': 0, 'split': 0, 'spawned': 0, 'confirmed': 0,
+             'deleted': 0}
     stamp_sec = float(stamp_sec)
     matched_trk, matched_cand = set(), set()
     if tracks and candidates:
@@ -556,8 +560,14 @@ def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
             stats['deleted'] += 1          # a broken run of sightings
             continue
         if observe is not None:
-            _observed, passed = observe(trk)
-            trk.seen_through = trk.seen_through or passed
+            seen = observe(trk)
+            if len(seen) > 2 and seen[2]:
+                # Its cells are still hit -- the cluster merely went to another
+                # track or was bridged differently this cycle: still there.
+                trk.last_lidar_hit_sec = stamp_sec
+                trk.seen_through = False
+            else:
+                trk.seen_through = trk.seen_through or seen[1]
         age = stamp_sec - (trk.last_lidar_hit_sec if trk.last_lidar_hit_sec is not None
                            else trk.streak_start_sec)
         if (trk.seen_through and age > p.decay_s) or age > p.unobserved_decay_s:
@@ -566,6 +576,17 @@ def update_unknown_batch(tracks: list, candidates: list, stamp_sec: float, p,
         kept.append(trk)
     for i, cand in enumerate(candidates):
         if i in matched_cand:
+            continue
+        # A second cluster of an object a track already has (one physical
+        # object split into two components this cycle): evidence for that
+        # track, never a new one beside it.
+        near = [t for t in kept if math.hypot(t.x_map - cand.x, t.y_map - cand.y)
+                <= max(max_distance_m, t.radius() + cand.radius)]
+        if near:
+            for t in near:
+                if t.is_unknown:
+                    t.last_lidar_hit_sec = stamp_sec
+            stats['split'] += 1
             continue
         trk = SemanticObject(next_track_id(), UNKNOWN_CLASS, cand.x, cand.y, 0.0,
                              stamp_sec, confirm_hit_count=1, width=2.0 * cand.radius)

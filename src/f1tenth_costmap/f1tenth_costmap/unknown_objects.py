@@ -264,6 +264,61 @@ def island_candidates(view, owner, pose, p):
     return out
 
 
+def drop_behind_walls(candidates, walls, origin, margin_m=0.10):
+    """
+    Return the candidates NOT behind a wall as seen from `origin` (map, the laser).
+
+    The tracker's first-obstacle rule, applied to unknown objects: a LiDAR
+    beam reports its first return, so a cluster whose line of sight from the
+    laser crosses a wall segment more than margin_m before reaching it is
+    something seen THROUGH a gap in that wall (a doorway, the room beyond) --
+    real, but on the far side of a wall the car cannot drive through, so never
+    in its way.
+    """
+    if not candidates or not walls:
+        return list(candidates)
+    o = np.asarray(origin, dtype=float)
+    c = np.array([[cd.x, cd.y] for cd in candidates])
+    d = c - o
+    dist = np.hypot(d[:, 0], d[:, 1])
+    blocked = np.zeros(len(candidates), dtype=bool)
+    for a, b in walls:
+        a = np.asarray(a, dtype=float)
+        e = np.asarray(b, dtype=float) - a
+        q = a - o
+        den = d[:, 0] * e[1] - d[:, 1] * e[0]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            s = (q[0] * e[1] - q[1] * e[0]) / den         # along the sight line, 0..1
+            u = (q[0] * d[:, 1] - q[1] * d[:, 0]) / den    # along the wall, 0..1
+            near = s * dist < dist - margin_m
+        blocked |= (np.abs(den) > 1e-12) & (s > 0.0) & near & (u >= 0.0) & (u <= 1.0)
+    return [cd for cd, blk in zip(candidates, blocked) if not blk]
+
+
+def cells_hit(centre, radius, view, owner, p):
+    """Tell whether an ISLAND cell of this cycle lies inside the disk (grown by one cell)."""
+    rows, cols, xy = view.centres(owner == OWNER_ISLAND)
+    if xy.shape[0] == 0:
+        return False
+    d = np.hypot(xy[:, 0] - centre[0], xy[:, 1] - centre[1])
+    return bool(np.any(d <= radius + view.resolution))
+
+
+def fresh_recognised(tracks, now_sec, max_age_s):
+    """
+    Return the confirmed recognised tracks a detection updated within max_age_s.
+
+    The recognised lifecycle counts detection BATCHES, so when the camera
+    stops (output/avoidance/log.md, A3: depth died 0.8 s into both bags) it
+    never ticks and a track lives forever. Such a track is not deleted -- the
+    lifecycle is unchanged -- but it no longer owns cells (its LiDAR returns
+    become islands, i.e. an unknown object, which is what it now is) and it
+    never reaches the MPC.
+    """
+    return [t for t in tracks if t.confirmed and not t.is_unknown
+            and now_sec - t.last_update_stamp_sec <= max_age_s]
+
+
 def rays_pass_through(centre_bl, radius, bearings, ranges, laser_xy, p):
     """
     Return (observed, passed) for a disk at base_link centre_bl.
@@ -285,3 +340,54 @@ def rays_pass_through(centre_bl, radius, bearings, ranges, laser_xy, p):
     r = np.asarray(ranges, dtype=float)[beam]
     passed = bool(np.all(~np.isfinite(r) | (r > dist + radius + p.pass_margin_m)))
     return True, passed
+
+
+# ============================================================================
+# What the MPC receives (semantic_layer_node, B4/B5)
+# ============================================================================
+
+MODES = ('off', 'shadow', 'active')
+
+
+def obstacles_for_mpc(tracks, pose, mode, class_margin=None, now_sec=None,
+                      recognised_max_age_s=math.inf):
+    """
+    Return [(x, y, r)] base_link: every CONFIRMED track the MPC should avoid.
+
+    Recognised objects updated within recognised_max_age_s of now_sec
+    (fresh_recognised); unknown objects only in mode 'active' (shadow
+    computes and shows them, but keeps them off the MPC). r is the track's
+    disk radius plus its class's margin (obstacle_class_margin_m, 'unknown'
+    included), the rule obstacle_projector_node applies.
+    """
+    margin = class_margin or {}
+    keep = [t for t in tracks if t.confirmed and (
+        (t.is_unknown and mode == 'active')
+        or (not t.is_unknown and (now_sec is None
+                                  or now_sec - t.last_update_stamp_sec <= recognised_max_age_s)))]
+    if not keep:
+        return []
+    bl = to_base_link([(t.x_map, t.y_map) for t in keep], pose)
+    return [(float(p[0]), float(p[1]), float(t.radius() + margin.get(t.class_id, 0.0)))
+            for p, t in zip(bl, keep)]
+
+
+def speed_cap(tracks, pose, mode, enabled, cap_mps, range_m, front_x, strip_half_m):
+    """
+    Return the speed cap [m/s] an unknown object close ahead imposes, or -1.0 (none).
+
+    A CONFIRMED unknown object whose disk reaches the travel strip
+    (|y| <= strip_half_m) between the bumper and range_m ahead of it. Never in
+    shadow or off mode, never when disabled.
+    """
+    if mode != 'active' or not enabled:
+        return -1.0
+    unknown = [t for t in tracks if t.confirmed and t.is_unknown]
+    if not unknown:
+        return -1.0
+    bl = to_base_link([(t.x_map, t.y_map) for t in unknown], pose)
+    for (x, y), t in zip(bl, unknown):
+        r = t.radius()
+        if x + r >= front_x and x - r <= front_x + range_m and abs(y) - r <= strip_half_m:
+            return float(cap_mps)
+    return -1.0

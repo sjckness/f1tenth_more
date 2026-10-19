@@ -36,6 +36,7 @@ from mpc_controller.object_approach import (
     SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
+from mpc_controller.obstacle_select import apply_speed_cap, select_obstacles
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
@@ -676,6 +677,24 @@ class MPCController(Node):
         # message; no matching against previous frames, no timeout/decay)
         # =========================
         self.obstacles_global_live: List[Tuple[float, float, float]] = []
+        # OBSTACLES V2 (obstacle_select.py): ONE source for every obstacle,
+        # the semantic layer's object list (recognised + 'unknown'), and the
+        # list is aged and capped -- it used to latch forever when its
+        # publisher went quiet (output/avoidance/log.md, A3).
+        # obstacles_topic:=/perception/obstacles_2d restores the projector.
+        self.obstacles_topic = str(self.declare_parameter(
+            'obstacles_topic', get_value('mpc_obstacles_topic')).value)
+        self.obstacles_max = int(self.declare_parameter(
+            'obstacles_max', get_value('mpc_obstacles_max')).value)
+        self.obstacles_max_age_s = float(self.declare_parameter(
+            'obstacles_max_age_s', get_value('mpc_obstacles_max_age_s')).value)
+        self.obstacles_live_time: Optional[float] = None
+        # The semantic layer's second layer: an UNKNOWN object in the forward
+        # strip close ahead caps the desired speed (-1.0 = no cap).
+        self.unknown_speed_cap = None
+        self.unknown_speed_cap_time: Optional[float] = None
+        self.unknown_speed_cap_max_age_s = float(self.declare_parameter(
+            'unknown_speed_cap_max_age_s', 0.5).value)
 
         # =========================
         # Hard boundary constraints (see mpc_solver.py's own module
@@ -1802,10 +1821,12 @@ class MPCController(Node):
 
         self.sub_obstacles_2d = self.create_subscription(
             Obstacle2DArray,
-            '/perception/obstacles_2d',
+            self.obstacles_topic,
             self.obstacles_2d_callback,
             10
         )
+        self.sub_unknown_speed_cap = self.create_subscription(
+            Float32, '/costmap/unknown_speed_cap', self.unknown_speed_cap_callback, 10)
 
         self.sub_costmap_boundaries = self.create_subscription(
             BoundaryConstraintArray,
@@ -3302,6 +3323,7 @@ class MPCController(Node):
             obstacles_global.append((x_g, y_g, float(obs.r)))
 
         self.obstacles_global_live = obstacles_global
+        self.obstacles_live_time = self.get_clock().now().nanoseconds * 1e-9
 
         # ---- DEBUG: primo ostacolo in frame robot vs frame globale ----
         if msg.obstacles:
@@ -3313,6 +3335,23 @@ class MPCController(Node):
                 f'world=({g0[0]:+.3f},{g0[1]:+.3f},r={g0[2]:.3f})',
                 throttle_duration_sec=2.0
             )
+
+    def unknown_speed_cap_callback(self, msg: Float32):
+        self.unknown_speed_cap = float(msg.data)
+        self.unknown_speed_cap_time = self.get_clock().now().nanoseconds * 1e-9
+
+    def _solve_obstacles(self, now_sec):
+        """Return the obstacles this tick may use: fresh, the obstacles_max nearest."""
+        age = (None if self.obstacles_live_time is None
+               else now_sec - self.obstacles_live_time)
+        selected = select_obstacles(self.obstacles_global_live, self.x, self.y, age,
+                                    self.obstacles_max_age_s, self.obstacles_max)
+        if self.obstacles_global_live and not selected:
+            self.get_logger().warn(
+                f'obstacle list from {self.obstacles_topic} is {age:.2f} s old '
+                f'(> {self.obstacles_max_age_s:.2f} s): solving without it',
+                throttle_duration_sec=5.0)
+        return selected
 
     def costmap_boundaries_callback(self, msg: BoundaryConstraintArray):
         """base_link -> world transform (_boundary_to_world) for
@@ -3808,14 +3847,15 @@ class MPCController(Node):
 
         # Diagnostic, independent of autonomy/goal state -- no consumer yet, but
         # cheap and useful to have live every tick regardless of what else is gating.
-        d_robot_obs = self.compute_robot_obstacle_distance(self.obstacles_global_live)
+        solve_obstacles = self._solve_obstacles(loop_t0)
+        d_robot_obs = self.compute_robot_obstacle_distance(solve_obstacles)
         self.min_obstacle_distance_pub.publish(Float32(data=float(d_robot_obs)))
         # Forward-half-plane counterpart, published every tick beside the
         # omnidirectional one -- see min_obstacle_distance_forward_pub's own
         # comment for why this is a second topic and not a change to the
         # first. Published from the same obstacle list in the same breath, so
         # the two can never disagree about which frame they describe.
-        d_front_obs = self.compute_forward_obstacle_distance(self.obstacles_global_live)
+        d_front_obs = self.compute_forward_obstacle_distance(solve_obstacles)
         self.min_obstacle_distance_forward_pub.publish(Float32(data=float(d_front_obs)))
 
         if self.x is None or self.y is None or self.yaw is None or self.v is None:
@@ -4099,7 +4139,7 @@ class MPCController(Node):
                     throttle_duration_sec=3.0
                 )
 
-        obstacles_global = self.obstacles_global_live
+        obstacles_global = solve_obstacles
         # CONFIRMED 'other' wall segments, as soft w_obs disks, in
         # boundary_source 'walls' only. A NEW list -- never a mutation of
         # self.obstacles_global_live, which also feeds
@@ -4133,6 +4173,12 @@ class MPCController(Node):
             # baseline, so ramping it would leave the last approach's speed in
             # force for the next move.
             vdes = self._object_vdes
+        # The unknown-object speed cap (semantic layer, obstacles v2), last,
+        # so it also bounds an object approach's ramped speed.
+        cap_age = (None if self.unknown_speed_cap_time is None
+                   else loop_t0 - self.unknown_speed_cap_time)
+        vdes = apply_speed_cap(vdes, self.unknown_speed_cap, cap_age,
+                               self.unknown_speed_cap_max_age_s)
 
         now_time = self.get_clock().now()
         now_sec = now_time.nanoseconds * 1e-9

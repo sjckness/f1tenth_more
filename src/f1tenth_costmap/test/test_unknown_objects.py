@@ -259,3 +259,48 @@ def test_rays_pass_through_tells_seen_through_from_unobserved():
     narrow = np.linspace(2.0, 3.0, 100)        # nothing points at it
     assert uo.rays_pass_through((1.5, 0.0), 0.2, narrow, np.full(100, 5.0), (0.0, 0.0),
                                 P) == (False, False)
+
+
+# ==============================================================================
+# What the bags taught (D5-D7)
+# ==============================================================================
+
+class TestFromTheBags:
+
+    def test_a_cluster_seen_through_a_gap_in_a_wall_is_dropped(self):
+        wall = ((2.0, -2.0), (2.0, 2.0))
+        beyond = uo.Candidate(3.0, 0.0, 0.3, 0.3, 0.0, 10)
+        before = uo.Candidate(1.5, 0.0, 0.3, 0.3, 0.0, 10)
+        kept = uo.drop_behind_walls([beyond, before], [wall], (0.0, 0.0))
+        assert kept == [before]
+        assert uo.drop_behind_walls([beyond], [], (0.0, 0.0)) == [beyond]
+
+    def test_a_stale_recognised_track_owns_nothing_and_never_reaches_the_mpc(self):
+        chair = sl.SemanticObject(1, 'chair', 1.5, 0.0, 0.9, 0.0, 1, width=0.4)
+        assert uo.fresh_recognised([chair], 1.0, 2.0) == [chair]
+        assert uo.fresh_recognised([chair], 5.0, 2.0) == []
+        assert uo.obstacles_for_mpc([chair], POSE, 'active', None, 1.0, 2.0) != []
+        assert uo.obstacles_for_mpc([chair], POSE, 'active', None, 5.0, 2.0) == []
+
+    def test_a_still_hit_unknown_survives_losing_its_cluster_to_a_neighbour(self):
+        trk = Tracker()
+        for _ in range(8):
+            trk.lidar(disk_points(1.5, 0.0))
+        (obj,) = trk.confirmed_unknown()
+        view = uo.cell_view(disk_points(1.5, 0.0), POSE, P)
+        owner = uo.cell_ownership(view, [], [], P)
+        assert uo.cells_hit((obj.x_map, obj.y_map), obj.radius(), view, owner, P)
+        # No candidate at all this cycle, but its cells are still hit: alive.
+        tracks, stats = sl.update_unknown_batch(
+            trk.tracks, [], trk.t + 5.0, P, 0.5, 0.3, lambda: 99,
+            lambda t: (True, False, True))
+        assert [t.track_id for t in tracks] == [obj.track_id]
+
+    def test_a_second_cluster_of_a_held_object_is_not_a_new_track(self):
+        trk = Tracker()
+        for _ in range(8):
+            trk.lidar(disk_points(1.5, 0.0, radius=0.3))
+        n = len(trk.tracks)
+        stats, _merged = trk.lidar(np.vstack([disk_points(1.5, 0.0, radius=0.3),
+                                              disk_points(1.62, 0.32, radius=0.04, n=6)]))
+        assert len(trk.tracks) == n

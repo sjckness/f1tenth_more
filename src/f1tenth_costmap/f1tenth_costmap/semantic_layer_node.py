@@ -80,6 +80,21 @@ message type) so a live run can be grepped afterward to check whether spawns
 cluster around moments of larger pose jitter rather than being uniformly
 distributed, without needing to re-run anything.
 
+UNKNOWN OBJECTS (obstacles v2, unknown_objects_mode; f1tenth_costmap/
+unknown_objects.py has the cell rules). A timer at unknown_rate_hz (10 Hz)
+takes the latest /scan, splits its occupied cells into WALL (a confirmed
+/perception/walls segment), OBJECT (a confirmed recognised track's footprint)
+and ISLAND, turns persistent islands into tracks of class "unknown" in the
+SAME track list the detections feed (semantic_layer.update_unknown_batch),
+and folds duplicates (dedupe_tracks). On every tick it also publishes, for
+mpc_corr, /costmap/semantic_obstacles (f1tenth_messages/Obstacle2DArray,
+base_link): every confirmed track, recognised always and unknown only in
+'active' mode, r = disk radius + obstacle_class_margin_m -- the ONE obstacle
+path the MPC uses since v2 -- and /costmap/unknown_speed_cap (Float32, -1.0 =
+none). /costmap/unknown_objects/debug (JSON) carries the per-cycle counts and
+cost; /costmap/cell_owners (OccupancyGrid) the ownership grid, only while
+something is subscribed.
+
 Published as visualization_msgs/MarkerArray on /costmap/semantic_markers
 (map frame) -- not a new custom message type: MarkerArray already carries
 everything a first-pass semantic layer needs (position, a per-class color,
@@ -95,7 +110,9 @@ _wall_markers already uses for its own label markers).
 
 import array
 import itertools
+import json
 import math
+import time
 
 import rclpy
 from rclpy.node import Node
@@ -103,7 +120,9 @@ from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPo
 
 import numpy as np
 from nav_msgs.msg import OccupancyGrid, Odometry
-from std_msgs.msg import ColorRGBA, Int32MultiArray
+from rclpy.qos import qos_profile_sensor_data
+from sensor_msgs.msg import LaserScan
+from std_msgs.msg import ColorRGBA, Float32, Int32MultiArray, String
 from tf2_ros import ConnectivityException, ExtrapolationException, LookupException
 from tf2_ros.buffer import Buffer
 from tf2_msgs.msg import TFMessage
@@ -115,14 +134,17 @@ from vision_msgs.msg import (
 )
 from visualization_msgs.msg import Marker, MarkerArray
 
-from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray
+from f1tenth_messages.msg import (
+    MultiWallTrack, MultiWallTrackArray, Obstacle2D, Obstacle2DArray, WallObservationArray)
 from f1tenth_params.object_geometry import footprint_radius
 from f1tenth_params.param_defaults import get_value
+from f1tenth_costmap import unknown_objects as uo
 from f1tenth_costmap.wall_raster import rasterize_walls, transform_segment
+from f1tenth_description.vehicle_frames import base_front_x
 
 from f1tenth_costmap.semantic_layer import (
-    compose_base_link_to_map, find_nearest_pose_by_stamp, pose_to_xytheta,
-    update_tracks_batch)
+    compose_base_link_to_map, dedupe_tracks, find_nearest_pose_by_stamp, pose_to_xytheta,
+    update_tracks_batch, update_unknown_batch)
 
 # How many pose samples to keep for find_nearest_pose_by_stamp. Sized when
 # this node read slam_toolbox's own /slam/pose, which only updated on a real
@@ -144,13 +166,27 @@ _PALETTE = (
 )
 
 
+#: An unknown (LiDAR-only) object: grey, a colour no recognised class gets.
+UNKNOWN_COLOUR = (0.55, 0.55, 0.55)
+
+
 def _color_for_class(class_id: str) -> tuple:
     """Deterministic (r, g, b) in [0, 1] for `class_id` -- see module-level
     _PALETTE comment. Pure function, shared with costmap_renderer_node.py so
     the PNG render and the MarkerArray always agree on which color means
     which class."""
+    if class_id == uo.UNKNOWN_CLASS:
+        return UNKNOWN_COLOUR
     idx = hash(class_id) % len(_PALETTE)
     return _PALETTE[idx]
+
+
+def _class_margins(value):
+    """obstacle_class_margin_m as a dict, from the yaml's dict or a JSON string."""
+    if isinstance(value, dict):
+        return {str(k): float(v) for k, v in value.items()}
+    raw = json.loads(str(value) or '{}')
+    return {str(k): float(v) for k, v in raw.items()}
 
 
 class SemanticLayerNode(Node):
@@ -339,6 +375,65 @@ class SemanticLayerNode(Node):
         self.wall_timer = self.create_timer(
             1.0 / self.wall_layer_rate_hz, self._wall_layer_tick)
 
+        # ---- unknown objects (obstacles v2, module docstring) ---------------
+        def stack(name, key=None):
+            return self.declare_parameter(name, get_value(key or name)).value
+        self.unknown_mode = str(stack('unknown_objects_mode'))
+        if self.unknown_mode not in uo.MODES:
+            raise ValueError(f'unknown_objects_mode must be one of {uo.MODES}, '
+                             f'got {self.unknown_mode!r}')
+        half_width = float(get_value('swept_clearance_body_half_width_m'))
+        self.unknown_params = uo.UnknownParams(
+            range_m=float(stack('unknown_range_m')),
+            wall_tol_m=float(stack('unknown_wall_tol_m')),
+            object_margin_m=float(stack('unknown_object_margin_m')),
+            cluster_gap_m=float(stack('unknown_cluster_gap_m')),
+            min_cells=int(stack('unknown_min_cells')),
+            persist_s=float(stack('unknown_persist_s')),
+            decay_s=float(stack('unknown_decay_s')),
+            unobserved_decay_s=float(stack('unknown_unobserved_decay_s')),
+            front_x_m=float(base_front_x()),
+            half_width_m=half_width)
+        self.unknown_rate_hz = float(stack('unknown_rate_hz'))
+        self.recognised_max_age_s = float(stack('semantic_recognised_max_age_s'))
+        self.wall_obs_min_span_m = float(stack('unknown_wall_obs_min_span_m'))
+        self.speed_cap_enabled = bool(stack('unknown_speed_cap_enabled'))
+        self.speed_cap_mps = float(stack('unknown_speed_cap_mps'))
+        self.speed_cap_range_m = float(stack('unknown_speed_cap_range_m'))
+        self.strip_half_m = half_width + float(
+            get_value('lidar_front_wall_front_strip_margin_m'))
+        # A JSON string, as obstacle_projector_node takes it (a ROS parameter
+        # cannot be a dict); the yaml default is a dict.
+        margins = get_value('obstacle_class_margin_m')
+        self.class_margin = _class_margins(self.declare_parameter(
+            'obstacle_class_margin_m',
+            json.dumps(margins) if isinstance(margins, dict) else str(margins)).value)
+        self.declare_parameter('scan_topic', '/scan')
+        self.declare_parameter('obstacles_topic', '/costmap/semantic_obstacles')
+        self._scan = None             # the latest LaserScan, not yet processed
+        self._laser_pose = None       # (frame_id, (x, y, yaw) in base_frame)
+        self._latest_walls = None     # the latest MultiWallTrackArray
+        self._latest_wall_obs = None  # the latest WallObservationArray
+        self._owner_counts = [0, 0, 0, 0]
+        self._n_candidates = 0
+        self._unknown_stats = {}
+        self._n_upgrades = 0
+        self._n_dedupe = 0
+        self._unknown_ms = math.nan
+        self.obstacles_pub = self.create_publisher(
+            Obstacle2DArray, p('obstacles_topic').value, 10)
+        self.speed_cap_pub = self.create_publisher(Float32, '/costmap/unknown_speed_cap', 10)
+        self.unknown_debug_pub = self.create_publisher(
+            String, '/costmap/unknown_objects/debug', 10)
+        self.cell_owners_pub = self.create_publisher(OccupancyGrid, '/costmap/cell_owners', 1)
+        if self.unknown_mode != 'off':
+            self.scan_sub = self.create_subscription(
+                LaserScan, p('scan_topic').value, self._scan_cb, qos_profile_sensor_data)
+            self.wall_obs_sub = self.create_subscription(
+                WallObservationArray, '/perception/wall_observations',
+                self._wall_obs_cb, 1)
+        self.cycle_timer = self.create_timer(1.0 / self.unknown_rate_hz, self._cycle)
+
         self._pose_history: list = []  # [(stamp_sec, (x, y, yaw)), ...]
         self._objects: list = []       # [SemanticObject, ...] (tracks, confirmed + tentative)
         # Caller-owned, never-reused id source for update_tracks_batch()'s
@@ -362,6 +457,161 @@ class SemanticLayerNode(Node):
     def _walls_msg_cb(self, msg):
         """Keep only the newest wall message; _wall_layer_tick rasterises it."""
         self._pending_walls = msg
+        self._latest_walls = msg
+
+    def _scan_cb(self, msg):
+        self._scan = msg
+
+    def _wall_obs_cb(self, msg):
+        self._latest_wall_obs = msg
+
+    def _laser_pose_for(self, frame_id):
+        """Return (x, y, yaw) of the scan frame in base_frame, from /tf_static, or None."""
+        if self._laser_pose is not None and self._laser_pose[0] == frame_id:
+            return self._laser_pose[1]
+        try:
+            t = self.tf_buffer.lookup_transform(
+                self.base_frame, frame_id, rclpy.time.Time()).transform
+        except (LookupException, ConnectivityException, ExtrapolationException):
+            return None
+        q = t.rotation
+        yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        self._laser_pose = (frame_id, (t.translation.x, t.translation.y, yaw))
+        return self._laser_pose[1]
+
+    def _confirmed_walls_map(self):
+        """Return the CONFIRMED wall segments of the latest /perception/walls, map frame."""
+        msg = self._latest_walls
+        if msg is None:
+            return []
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        pose = find_nearest_pose_by_stamp(self._pose_history, stamp)
+        if pose is None:
+            return []
+        segs = [transform_segment((t.p0_bl.x, t.p0_bl.y), (t.p1_bl.x, t.p1_bl.y), pose)
+                for t in msg.tracks if t.state == MultiWallTrack.STATE_CONFIRMED]
+        return segs + self._observed_walls_map()
+
+    def _observed_walls_map(self):
+        """
+        Return this cycle's long LiDAR wall observations as map segments (D5).
+
+        /perception/walls carries at most 4 tracks and never 'other', so the
+        confirmed walls alone leave much of a corridor's own returns as
+        islands; a LiDAR-backed observation at least unknown_wall_obs_min_span_m
+        long -- what the tracker needs to START a wall -- owns its cells too.
+        """
+        msg = self._latest_wall_obs
+        if msg is None or self.wall_obs_min_span_m <= 0.0:
+            return []
+        stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+        pose = find_nearest_pose_by_stamp(self._pose_history, stamp)
+        if pose is None:
+            return []
+        return [transform_segment((o.p0.x, o.p0.y), (o.p1.x, o.p1.y), pose)
+                for o in msg.observations
+                if o.source != o.SOURCE_STEREO
+                and math.hypot(o.p1.x - o.p0.x, o.p1.y - o.p0.y) >= self.wall_obs_min_span_m]
+
+    # ------------------------------------------------------------------
+    def _cycle(self):
+        """
+        Run one LiDAR cycle (unknown objects) and publish the MPC's obstacle list.
+
+        The obstacle list and the speed cap go out on EVERY tick, also in
+        mode 'off' and also when no new scan arrived: they are the MPC's only
+        obstacle input and it drops a list older than mpc_obstacles_max_age_s.
+        """
+        if not self._pose_history:
+            return
+        scan, self._scan = self._scan, None
+        if scan is not None and self.unknown_mode != 'off':
+            self._lidar_step(scan)
+        pose_now = self._pose_history[-1][1]
+        out = Obstacle2DArray()
+        out.header.stamp = self.get_clock().now().to_msg()
+        out.header.frame_id = self.base_frame
+        now_sec = self._pose_history[-1][0]
+        obstacles = uo.obstacles_for_mpc(self._objects, pose_now, self.unknown_mode,
+                                         self.class_margin, now_sec, self.recognised_max_age_s)
+        out.obstacles = [Obstacle2D(x=x, y=y, r=r) for x, y, r in obstacles]
+        self.obstacles_pub.publish(out)
+        cap = uo.speed_cap(self._objects, pose_now, self.unknown_mode, self.speed_cap_enabled,
+                           self.speed_cap_mps, self.speed_cap_range_m,
+                           self.unknown_params.front_x_m, self.strip_half_m)
+        self.speed_cap_pub.publish(Float32(data=float(cap)))
+        unknown = [t for t in self._objects if t.is_unknown]
+        self.unknown_debug_pub.publish(String(data=json.dumps({
+            'mode': self.unknown_mode,
+            'cells': dict(zip(('free', 'wall', 'object', 'island'),
+                              (int(c) for c in self._owner_counts))),
+            'candidates': self._n_candidates,
+            'unknown_tentative': sum(1 for t in unknown if not t.confirmed),
+            'unknown_confirmed': sum(1 for t in unknown if t.confirmed),
+            'recognised_confirmed': sum(
+                1 for t in self._objects if t.confirmed and not t.is_unknown),
+            'stats': self._unknown_stats,
+            'upgrades_total': self._n_upgrades,
+            'duplicates_folded_total': self._n_dedupe,
+            'mpc_obstacles': len(obstacles),
+            'speed_cap': cap,
+            'lidar_ms': None if not math.isfinite(self._unknown_ms)
+            else round(self._unknown_ms, 3)})))
+
+    def _lidar_step(self, scan):
+        t0 = time.perf_counter()
+        stamp = scan.header.stamp.sec + scan.header.stamp.nanosec * 1e-9
+        pose = find_nearest_pose_by_stamp(self._pose_history, stamp)
+        laser = self._laser_pose_for(scan.header.frame_id)
+        if pose is None or laser is None:
+            self.get_logger().warn(
+                'unknown objects: no pose or no laser transform yet -- scan skipped',
+                throttle_duration_sec=5.0)
+            return
+        p = self.unknown_params
+        pts, bearings, ranges = uo.scan_points(
+            scan.ranges, scan.angle_min, scan.angle_increment, scan.range_min,
+            scan.range_max, laser)
+        objects = [(t.x_map, t.y_map, t.radius()) for t in uo.fresh_recognised(
+            self._objects, stamp, self.recognised_max_age_s)]
+        view = uo.cell_view(pts, pose, p)
+        walls = self._confirmed_walls_map()
+        owner = uo.cell_ownership(view, walls, objects, p)
+        cands = uo.island_candidates(view, owner, pose, p)
+        # First obstacle (D6): a cluster seen through a gap in a wall is not
+        # in the car's way.
+        c, s = math.cos(pose[2]), math.sin(pose[2])
+        cands = uo.drop_behind_walls(cands, walls, (pose[0] + c * laser[0] - s * laser[1],
+                                                    pose[1] + s * laser[0] + c * laser[1]))
+
+        def observe(trk):
+            bl = uo.to_base_link([(trk.x_map, trk.y_map)], pose)[0]
+            seen = uo.rays_pass_through(bl, trk.radius(), bearings, ranges, laser[:2], p)
+            return seen + (uo.cells_hit((trk.x_map, trk.y_map), trk.radius(), view, owner, p),)
+        self._objects, self._unknown_stats = update_unknown_batch(
+            self._objects, cands, stamp, p, self.merge_distance_m, self.ema_alpha,
+            self._next_track_id, observe)
+        self._objects, folded = dedupe_tracks(self._objects, self.merge_distance_m)
+        self._n_dedupe += folded
+        self._n_candidates = len(cands)
+        self._owner_counts = np.bincount(owner.ravel(), minlength=4).tolist()
+        self._unknown_ms = (time.perf_counter() - t0) * 1e3
+        if self.cell_owners_pub.get_subscription_count() > 0:
+            self._publish_owners(view, owner, scan.header.stamp)
+        self._publish(scan.header.stamp)
+
+    def _publish_owners(self, view, owner, stamp):
+        """Publish the ownership grid for a viewer: free 0, wall 40, object 70, island 100."""
+        grid = OccupancyGrid()
+        grid.header.stamp = stamp
+        grid.header.frame_id = self.map_frame
+        grid.info.resolution = view.resolution
+        grid.info.height, grid.info.width = owner.shape
+        grid.info.origin.position.x, grid.info.origin.position.y = view.origin
+        grid.info.origin.orientation.w = 1.0
+        value = np.array([0, 40, 70, 100], dtype=np.int8)[owner]
+        grid.data = array.array('b', value.ravel().tobytes())
+        self.cell_owners_pub.publish(grid)
 
     def _wall_layer_tick(self):
         msg, self._pending_walls = self._pending_walls, None
@@ -552,6 +802,7 @@ class SemanticLayerNode(Node):
             batch.append((class_id, x_map, y_map, score, sigma, width))
 
         before_ids = {t.track_id for t in self._objects}
+        unknown_before = {t.track_id for t in self._objects if t.is_unknown}
         self._objects = update_tracks_batch(
             self._objects, batch, stamp_sec, self.merge_distance_m, self.ema_alpha,
             self.confirm_hit_count, self.lost_miss_count, self._next_track_id,
@@ -559,6 +810,13 @@ class SemanticLayerNode(Node):
             alpha_sigma_ref_m=self.alpha_sigma_ref_m,
             min_alpha_scale=self.min_alpha_scale,
             gate_sigma_scale=self.gate_sigma_scale)
+        for trk in self._objects:
+            if trk.track_id in unknown_before and not trk.is_unknown:
+                self._n_upgrades += 1
+                self.get_logger().info(
+                    f'unknown track {trk.track_id} upgraded to {trk.class_id}')
+        self._objects, folded = dedupe_tracks(self._objects, self.merge_distance_m)
+        self._n_dedupe += folded
         self._log_new_spawns(before_ids, map_pose=map_pose)
 
         self._publish(msg.header.stamp)
@@ -630,7 +888,7 @@ class SemanticLayerNode(Node):
             disk.pose.position.y = obj.y_map
             disk.pose.position.z = 0.05
             disk.pose.orientation.w = 1.0
-            disk.scale.x = disk.scale.y = 0.3
+            disk.scale.x = disk.scale.y = (2.0 * obj.radius() if obj.is_unknown else 0.3)
             disk.scale.z = 0.1
             disk.color = ColorRGBA(r=r, g=g, b=b, a=0.8)
             marker_array.markers.append(disk)
