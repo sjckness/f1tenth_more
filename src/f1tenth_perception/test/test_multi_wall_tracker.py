@@ -776,8 +776,9 @@ def test_a_wall_with_a_person_in_front_of_it_is_merged_before_it_is_measured():
     two. The merge is what makes the span the WALL's: with the gap wider than
     the hole the extraction reports one wall, tightened below it two shorter
     ones. (Since THE COLLINEAR GAP RULE the stack's gap is door_width_min_m,
-    0.70 m: a hole that wide or wider stays split in the extraction, and only
-    the tracker's open-gap association reunites it.)
+    0.70 m: a hole that wide or wider stays split in the extraction, and the
+    tracker reunites it -- its span gate measures the pieces together (THE
+    WALL'S SPAN) and its association counts only the open gap.)
     """
     car = Pose2D(0.0, 0.0, 0.0)
     wall = [((4.0, -3.0), (4.0, 3.0))]
@@ -1437,3 +1438,125 @@ def test_strip_distance_is_where_the_strip_meets_the_measured_segment():
     assert d == pytest.approx(3.0 - half - FRONT_X, abs=1e-9)
     # Behind the bumper only: not ahead, no FRONT.
     assert math.isnan(mwt.strip_distance(((0.2, -1.0), (0.2, 1.0)), FRONT_X, half))
+
+
+# ===========================================================================
+# THE WALL'S SPAN (door-detection step 2 audit): the span gate reads the
+# span of the WALL a LiDAR piece belongs to. Since the extraction merges only
+# across gaps shorter than collinear_gap_m, a detected person in front of a
+# narrow wall left two pieces too short to be born, and the wall was never
+# tracked: no FRONT on any cycle of the approach, the contract CLEAR.
+# ===========================================================================
+
+#: A 2.5 m wall square across the path at x = 5, and the same 2.5 m of wall
+#: split by an OPEN 0.85 m doorway into two 1.25 m pieces.
+NARROW_X = 5.0
+NARROW = [((NARROW_X, -1.25), (NARROW_X, 1.25))]
+NARROW_DOORWAY = [((NARROW_X, -1.675), (NARROW_X, -0.425)),
+                  ((NARROW_X, 0.425), (NARROW_X, 1.675))]
+#: A person 0.5 m in front of it, on the path (odom), radius 0.25 m.
+PERSON_IN_FRONT = (NARROW_X - 0.5, 0.0)
+
+
+def approach(segments, cycles, person=None):
+    """
+    Drive from x = 0 towards x = 5 at 0.1 m a cycle; yield (cycle, car, tracker).
+
+    `person` is an odom (x, y): a 0.25 m radius person in the scan AND
+    detected, so their bearing sector is cut out of it as the node cuts a
+    /camera/detections_3d position (step's `objects`, base_link).
+    """
+    trk = mwt.MultiWallTracker()
+    trk.laser_xy = LASER[:2]
+    for i in range(cycles):
+        car = Pose2D(0.1 * i, 0.0, 0.0)
+        circles = [(person, 0.25)] if person else []
+        objects = [(person[0] - car.x, person[1] - car.y, 0.25)] if person else []
+        step(trk, car, 0.1 * i, segments, circles=circles, objects=objects,
+             rng=np.random.default_rng(i))
+        yield i, car, trk
+
+
+def on_the_narrow_line(trk, confirmed=True):
+    """Return the tracks on the x = 5 line, ordered along it."""
+    on = [t for t in trk.tracks if (t.ever_confirmed or not confirmed)
+          and abs(t.rho - NARROW_X) < 0.1 and abs(math.sin(t.theta)) < 0.1]
+    return sorted(on, key=lambda t: t.t0)
+
+
+def test_a_narrow_wall_first_seen_behind_a_detected_person_is_born_and_front_within_12_cycles():
+    """
+    The person's cut sector is ~1 m wide on the wall, wider than collinear_gap_m.
+
+    So the extraction reports two pieces, each shorter than min_span_birth_m
+    (asserted below: that is what makes this the audit's case). Measured on
+    the WALL they are 2.5 m: born on the first scan, and FRONT as soon as the
+    track is confirmed -- one wall across the hole behind the person.
+    """
+    p = mwt.TrackerParams()
+    sectors = detection_sectors([(PERSON_IN_FRONT[0], 0.0, 0.25)], LASER[:2],
+                                math.radians(3.0))
+    pieces = [ln for ln in mwt.extract_lines(
+        raycast(Pose2D(0.0, 0.0, 0.0), NARROW, [(PERSON_IN_FRONT, 0.25)]),
+        ANGLE_MIN, INC, 0.06, 30.0, LASER, sectors) if abs(ln.rho - NARROW_X) < 0.1]
+    assert len(pieces) == 2 and all(ln.length < p.min_span_birth_m for ln in pieces), \
+        'premise: the person splits the wall into two pieces too short to be born'
+    front = None
+    for i, car, trk in approach(NARROW, 12, person=PERSON_IN_FRONT):
+        front = trk.front_track(car, FRONT_X)
+        if front is not None:
+            break
+    assert front is not None, 'no FRONT in 12 cycles: the wall was never born'
+    assert front.rho == pytest.approx(NARROW_X, abs=0.03)
+    assert abs(front.theta) < math.radians(1.0)
+    assert front.t0 < -1.0 and front.t1 > 1.0            # the wall, not a piece of it
+    assert on_the_narrow_line(trk) == [front]
+    assert trk.front_status['distance_m'] == pytest.approx(
+        NARROW_X - car.x - FRONT_X, abs=0.03)
+
+
+def test_two_wall_pieces_either_side_of_an_open_0_85_m_doorway_stay_two_tracks():
+    """
+    The same 2.5 m of wall split by an OPEN 0.85 m doorway, and no person.
+
+    The beams see through the doorway, so nothing joins the pieces -- not
+    the birth span, the association, the merge or the extent: two tracks,
+    never one across the doorway (a door lies BETWEEN two tracks).
+    """
+    for i, _car, trk in approach(NARROW_DOORWAY, 12):
+        walls = on_the_narrow_line(trk, confirmed=False)
+        assert not any(t.t0 < -0.4 and t.t1 > 0.4 for t in walls), f'one wall at cycle {i}'
+    walls = on_the_narrow_line(trk)
+    assert len(walls) == 2
+    assert walls[0].t1 < -0.4 and walls[1].t0 > 0.4
+
+
+def test_two_stubs_either_side_of_an_open_doorway_are_measured_alone_and_start_no_track():
+    """
+    The 2.5 m wall with an OPEN 0.85 m doorway cut out of it: two 0.825 m stubs.
+
+    Unlike the hole behind a person, the doorway is seen through, so neither
+    stub lends the other its span: each is measured alone, is shorter than
+    min_span_birth_m, and no track starts on the line -- in particular none
+    across the doorway.
+    """
+    stubs = [((NARROW_X, -1.25), (NARROW_X, -0.425)), ((NARROW_X, 0.425), (NARROW_X, 1.25))]
+    assert 0.825 < mwt.TrackerParams().min_span_birth_m       # premise
+    for i, _car, trk in approach(stubs, 12):
+        assert on_the_narrow_line(trk, confirmed=False) == [], f'a track at cycle {i}'
+
+
+def test_a_narrow_wall_first_seen_behind_an_undetected_box_is_born_as_one_wall():
+    """
+    Returns IN FRONT of the line hide it as surely as a cut sector does.
+
+    A 0.8 m box 0.5 m in front of the 2.5 m wall, which nothing detects,
+    shadows ~0.9 m of it: the beams never reached that stretch, so it is not
+    an opening and the two pieces either side are one wall.
+    """
+    box = [((NARROW_X - 0.5, -0.4), (NARROW_X - 0.5, 0.4))]
+    for _i, _car, trk in approach(NARROW + box, 12):
+        pass
+    walls = on_the_narrow_line(trk)
+    assert len(walls) == 1
+    assert walls[0].t0 < -1.0 and walls[0].t1 > 1.0
