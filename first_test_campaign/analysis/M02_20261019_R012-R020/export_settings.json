@@ -1,0 +1,13 @@
+{
+  "written": "2026-10-19T16:04:27",
+  "campaign": "/tmp/claude-1000/-home-andreas-dev-ws/54bbb20d-5995-49b9-a4fb-50df28168537/scratchpad/camp",
+  "cutoff_hz": 5.0,
+  "deadband_rad": 0.02,
+  "filter_order": 2,
+  "csv_format": "excel-eu",
+  "separator": ";",
+  "decimal": ",",
+  "n_tests": 9,
+  "backfill": "backfill.json",
+  "n_backfilled": 0
+}

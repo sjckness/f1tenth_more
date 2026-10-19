@@ -1,0 +1,41 @@
+campaign: /tmp/claude-1000/-home-andreas-dev-ws/54bbb20d-5995-49b9-a4fb-50df28168537/scratchpad/camp
+runs: 9   missions: 1   evaluated by hand: 0   not yet evaluated: 9
+
+success is the MANUAL verdict; k/N counts evaluated tests only
+scope                             k/N   succ          95% CI  n/e   mean    med    p95  calls
+---------------------------------------------------------------------------------------------
+M02_approach_wall              0/0       -                 -    9 22011 20225 25799      9
+  P002                         0/0       -                 -    9 22011 20225 25799      9
+---------------------------------------------------------------------------------------------
+OVERALL                        0/0       -                 -    9 22011 20225 25799      9
+
+n/e = not yet evaluated. LLM latency in ms, over every recorded call.
+
+per-mission metrics from campaign_results.csv: median (min .. max)
+  M02_approach_wall
+    viol_rate_pct           0.000   (0.000 .. 0.000)
+    min_clear_m             0.084   (0.000 .. 1.350)
+    feas_pct               70.783   (42.005 .. 82.000)
+    max_infeas_streak_s     3.806   (1.999 .. 4.471)
+    jerk_rms                0.730   (0.017 .. 0.794)
+    steer_rev_per_m         0.482   (0.000 .. 0.550)
+
+failed by hand: 0
+
+aborted by the logger (automatic hint only): 5
+  M02_approach_wall P002-R014-20261019T154138  [unevaluated]  superseded by new test
+  M02_approach_wall P002-R015-20261019T154252  [unevaluated]  aborted via /mission/abort_mission
+  M02_approach_wall P002-R016-20261019T154450  [unevaluated]  mission aborted
+  M02_approach_wall P002-R018-20261019T155003  [unevaluated]  load_mission failed: /mission/load_mission: nessuna risposta entro 5.0s
+  M02_approach_wall P002-R019-20261019T155039  [unevaluated]  load_mission failed: /mission/load_mission: nessuna risposta entro 5.0s
+
+not yet evaluated: 9
+  M02_approach_wall P002-R012-20261019T153511  auto=completed
+  M02_approach_wall P002-R013-20261019T153701  auto=completed
+  M02_approach_wall P002-R014-20261019T154138  auto=aborted
+  M02_approach_wall P002-R015-20261019T154252  auto=aborted
+  M02_approach_wall P002-R016-20261019T154450  auto=aborted
+  M02_approach_wall P002-R017-20261019T154741  auto=completed
+  M02_approach_wall P002-R018-20261019T155003  auto=aborted
+  M02_approach_wall P002-R019-20261019T155039  auto=aborted
+  M02_approach_wall P002-R020-20261019T155113  auto=completed

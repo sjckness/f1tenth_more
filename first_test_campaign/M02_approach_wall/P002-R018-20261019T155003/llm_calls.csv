@@ -1,0 +1,2 @@
+call_idx,tag,t_sent,t_received,latency_ms,ttft_ms,prompt_chars,response_chars,ok,error
+0,initial,-28.3725,-8.25302,20119.5,,17,287,1,
