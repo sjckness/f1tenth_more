@@ -3002,6 +3002,22 @@ go_to_enabled:
   default: true
   description: "llm_planner_node (planner_path v2): true lets the LLM plan go_to phases, translated to go_to_object moves; false restores the refusal and banner of the planner without go_to. Read at node start."
 
+# ============================================================
+# llm_load_confirm_timeout_s -- llm/llm_planner_node.py
+# ============================================================
+# llm_planner_node calls /mission/start_mission the moment /mission/load_mission
+# confirms the load (the service response, success=true). This value is NOT a
+# delay: it is the longest the planner waits for that confirmation, service
+# discovery included. Expired, or the load refused -> start_mission is never
+# called and the reason is logged. The standstill countdown between
+# start_mission and the car moving is a different parameter of a different
+# node: f1tenth_behavior's mission_countdown_sec (behavior_executor_node, 15 s
+# by default, not in this file -- see f1tenth_logger/TEST_CAMPAIGN.md).
+# Read once at node start; a ROS parameter of the same name overrides it.
+llm_load_confirm_timeout_s:
+  default: 15.0
+  description: "llm_planner_node: the most it waits [s] for /mission/load_mission to confirm the load before giving up WITHOUT calling start_mission. A ceiling, not a delay: start_mission goes out the moment the confirmation arrives. Must be > 0. Read at node start."
+
 # --- per-cycle wall fusion (wall_fusion.py, lidar_front_wall_node) -----------
 # Step 3 of the wall pipeline: the LiDAR line fits and the stereo column
 # profile (/perception/stereo_columns) are cross-checked column by column and

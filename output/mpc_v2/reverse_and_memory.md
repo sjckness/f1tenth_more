@@ -409,3 +409,106 @@ before `f1tenth_costmap` and `mpc_controller`.
   reappear immediately under its old id. The BT code is untouched; this is probably better.
 - **In sim**, scan and camera frame names may differ. A failed TF lookup counts as "not
   looking", so objects go to MEMORY rather than being removed.
+
+---
+
+## Part D — BT integration
+
+**Not done: the task text was cut off.** The consolidated addendum ends at "D0. Audit: the
+tree (root Selector = [emergency, handle_obstacle, navigation]), what". Part A already
+consumes `/bt/allow_reverse` (Bool, must be < 0.5 s old), and it is the only input D has to
+provide for a reverse to ever start. Nothing publishes it on this branch.
+
+What the audit found so far (A0):
+
+- the root is `Selector[emergency, handle_obstacle, navigation]`
+  (`behavior_executor_node.py:499-574`);
+- there is no stuck branch;
+- mission stops reach mpc_corr as `/mpc/hold` or the next goal;
+- `/mission/status` carries IDLE / LOADED / RUNNING / HOLDING / COMPLETE / ABORTED.
+
+D will go **before** C on the branch once its text arrives (the commits are
+self-contained, so inserting it is a clean rebase).
+
+---
+
+## Part C — LLM: start as soon as loaded
+
+**Where the ~15 s came from.** Not from the LLM planner.
+
+- `llm_planner_node` already called `/mission/start_mission` right after
+  `/mission/load_mission` answered, with no sleep or timer in between
+  (`llm_planner_node.py:1410-1421` at `868ec8a`).
+- The wait is the behaviour node's start countdown:
+  - `f1tenth_behavior/mission/loader.py:239` sets `mission_countdown_sec = 15.0`;
+  - `start_mission` does not start the mission: it arms a 15 s timer (`loader.py:432`) and
+    answers "starting in 15.0 s" (`loader.py:440`);
+  - the mission stays in LOADED with the hold on until the timer fires (`loader.py:444`).
+- So "loaded" and "started" are 15 s apart in the status topic and in the test-campaign
+  events. The countdown exists so every test begins with a measured standstill and the bag
+  recorder has time to start (`f1tenth_logger/TEST_CAMPAIGN.md:172-185`).
+
+**What confirms the load.** The reply of `/mission/load_mission` itself. The loader only
+answers after the mission file is parsed and installed (`loader.py:694-702`). Before this
+change the planner waited at most 2 s to find the service plus 5 s for the reply, using two
+hard-coded constants it also uses for abort and start.
+
+**What changed.**
+
+- `llm_planner_node` calls `start_mission` the instant the load is confirmed (`_deliver_mission`).
+  Nothing waits a fixed time.
+- New parameter **`llm_load_confirm_timeout_s`** (default **15 s**, `stack_params.yaml`). It
+  is only the **longest** the planner waits for the confirmation: one deadline covering
+  finding the service and getting the reply (`wait_for_load_confirmation`). A confirmation
+  after 0.3 s starts at 0.3 s.
+- If the timeout runs out, the loader is unreachable, or the loader refuses the file, the
+  planner does **not** call `start_mission`. It logs why (`load_mission NON CONFERMATO …` /
+  `load_mission FALLITO …`, ending in `start_mission NON chiamato.`) and reports the
+  failure to the test-campaign logger.
+- A timeout ≤ 0 is rejected at node start.
+
+**Tests.** `src/f1tenth_intelligence/llm/test/test_load_then_start.py`, 9 tests with mocked
+services:
+
+- start follows a successful load within 0.1 s;
+- a refused load never starts;
+- no confirmation within the timeout never starts;
+- a late or unreachable loader never starts;
+- the timeout is a single deadline;
+- the shipped default is 15 s.
+
+The llm package suite is 12 failed / 242 passed / 25 skipped. The 12 failures are the same
+ones as before this change: stubs missing `_note_llm_sent` since `dc158d2`, untouched.
+flake8 is unchanged.
+
+**⚠ Decision for you — the 15 s countdown is still there.** "No fixed delay anywhere" is
+read here as the planner's own waiting. The countdown is a deliberate test-campaign
+feature, not a wait for the load, and **the car still waits 15 s after an LLM command**.
+To drop it:
+
+1. **Per session:** `ros2 param set /behavior_executor_node mission_countdown_sec 0`.
+2. **Or for the LLM path only:** add a `/mission/start_mission_now` (Trigger) to the loader
+   and have the planner call it. LLM-driven test runs would then lose the measured
+   standstill and the bag lead-in. This is a small change in `f1tenth_behavior`, and
+   `test_mission_countdown.py` would need extending.
+
+---
+
+## Branch and verification summary
+
+- **Commits** on `mpc_corr_v2_reverse`, oldest first: recon → v2 candidates → v2 cost-to-go
+  → v2 tests and report → **A** → **B** → **C**. The ids are in `git log`.
+- **Tests on linus:**
+  - mpc_controller: 19 failed (all 19 pre-existing at `868ec8a`) / 843 passed / 2 strict
+    xfails;
+  - f1tenth_costmap: 305 passed;
+  - f1tenth_params: 69 passed;
+  - llm: 12 pre-existing failures / 242 passed;
+  - f1tenth_logger: the suite **cannot be collected on linus** (`pyarrow` is not installed;
+    pre-existing, unrelated). My change there is three topic names in a list.
+- **Lint (flake8 / pep257):** no package is above its `868ec8a` baseline.
+- **Builds:** `colcon build --symlink-install --packages-up-to mpc_controller`, then
+  `f1tenth_messages`, `f1tenth_params` and `f1tenth_costmap` again after the message
+  changes. All in the worktree.
+- **Not done on purpose:** no stack launch, no car or Orin run, `max_reverse_speed_mps`
+  unchanged (0.0).
