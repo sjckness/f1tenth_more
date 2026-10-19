@@ -867,7 +867,7 @@ class WallReplay:
         self.src, self.mode = src, stereo
         self.clock = [0.0]
         node, caps = slr.make_node(True, self.clock, overrides)
-        for attr in ('walls_pub', 'walls_markers_pub', 'observations_pub'):
+        for attr in ('walls_pub', 'walls_markers_pub', 'observations_pub', 'doors_pub'):
             if getattr(node, attr, None) is not None:
                 caps[attr] = Capture()
                 setattr(node, attr, caps[attr])
@@ -1046,6 +1046,7 @@ class WallReplay:
         if 'walls_markers_pub' in caps:
             caps['walls_markers_pub'].pop()
         obs = caps['observations_pub'].pop() if 'observations_pub' in caps else []
+        doors = caps['doors_pub'].pop() if 'doors_pub' in caps else []
         d = json.loads(dbg[-1].data) if dbg else {}
         profile = self.node._stereo_columns
         return {
@@ -1054,6 +1055,9 @@ class WallReplay:
             'state': d.get('state'), 'value': d.get('distance_m'),
             'walls': walls[-1] if walls else None,
             'obs': obs[-1] if obs else None,
+            # /perception/doors of this cycle (DoorArray), None with door
+            # detection off or on a node that predates it.
+            'doors': doors[-1] if doors else None,
             'check': sink.get('check'), 'scan_cols': sink.get('scan_cols'),
             'scan_depths': sink.get('scan_depths'), 'stereo_m': sink.get('stereo_m'),
             'profile_stamp': stamp_s(profile[1].header) if profile else None,
@@ -2513,6 +2517,33 @@ def confirmed_tracks(frame):
     return [] if walls is None else [t for t in walls.tracks if t.state in (1, 2)]
 
 
+#: Door colours (BGR): green open, orange with a person in it; dimmed coasting.
+DOOR_COLOUR = (90, 220, 90)
+DOOR_OCCUPIED_COLOUR = (0, 140, 255)
+DOOR_STATE_NAMES = {0: 'tentative', 1: 'confirmed', 2: 'coasting'}
+
+
+def door_segments(doors):
+    """
+    Return [(jamb0_bl, jamb1_bl, BGR, thickness, label)] of one DoorArray, or [].
+
+    The top-down view is base_link, so the doors' *_bl copies are drawn:
+    they are base_link at the same scan stamp as the rest of the frame.
+    """
+    out = []
+    for door in ([] if doors is None else doors.doors):
+        state = DOOR_STATE_NAMES.get(int(door.state), '?')
+        colour = DOOR_OCCUPIED_COLOUR if door.occupied else DOOR_COLOUR
+        if state == 'coasting':
+            colour = tuple(int(c * 0.55) for c in colour)
+        thick = 1 if state == 'tentative' else 3
+        label = (f'door {door.id} {door.width:.2f}m {state}'
+                 + (' OCCUPIED' if door.occupied else ''))
+        out.append(((door.jamb0_bl.x, door.jamb0_bl.y), (door.jamb1_bl.x, door.jamb1_bl.y),
+                    colour, thick, label))
+    return out
+
+
 def payload_tracks(frame):
     """Every LIVE track of this cycle, from /perception/virtual_wall/debug.
 
@@ -2853,6 +2884,14 @@ def draw_topdown(src, frame, view, front_x, half):
                        f"{(' ' + flags) if flags else ''}{miss}", mid, colour, 0.40)
         if tr['is_front']:
             front_track = tr
+
+    # Doors (/perception/doors, perception only): a dot per jamb and the
+    # threshold between them, in base_link at the scan stamp.
+    for a, b, colour, thick, label in door_segments((rrow or {}).get('doors')):
+        view.line(img, a, b, colour, thick)
+        for end in (a, b):
+            cv2.circle(img, view.px(*end), 5, colour, -1, cv2.LINE_AA)
+        view.text(img, label, (0.5 * (a[0] + b[0]) + 0.15, 0.5 * (a[1] + b[1])), colour, 0.40)
 
     # the FRONT wall and its d_ray_front
     if front_track is not None and front_track['d_ray_front'] is not None:

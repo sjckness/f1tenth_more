@@ -1276,3 +1276,243 @@ class TestTrackerDecimation:
             assert all(p['tracker_skipped'] == 0 for p in payloads)
         finally:
             n.destroy_node()
+
+
+# ==============================================================================
+# Door detection (perception only) and the fixed wall marker height
+# ==============================================================================
+
+def _door_scan(stamp, gap=True, wall_x=3.0, half_gap=0.425, back_x=6.0):
+    """
+    Build a scan of a wall ahead at wall_x with a doorway at y in +-half_gap.
+
+    With gap False the wall is closed. The next room's wall is at back_x, and
+    the laser sits at x = LASER_X.
+    """
+    msg = _scan(distance=None, stamp_sec=int(stamp))
+    msg.header.stamp.nanosec = int(round((stamp - int(stamp)) * 1e9))
+    angles = ANGLE_MIN + np.arange(N_BEAMS) * ANGLE_INCREMENT
+    c, s = np.cos(angles), np.sin(angles)
+    ranges = np.full(N_BEAMS, np.inf)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        for x in (back_x, wall_x):
+            r = (x - LASER_X) / c
+            y = r * s
+            hit = (c > 0.05) & (np.abs(y) <= 6.0)
+            if x == wall_x and gap:
+                hit &= np.abs(y) > half_gap
+            ranges = np.where(hit, r, ranges)
+    msg.ranges = [float(r) for r in ranges.astype(np.float32)]
+    return msg
+
+
+class TestDoors:
+    """
+    /perception/doors and /viz/doors: the wiring.
+
+    The detection itself is tested in test_door_detection.py.
+    """
+
+    PUBS = ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub', 'virtual_debug_pub',
+            'observations_pub', 'walls_pub', 'walls_markers_pub', 'doors_pub')
+
+    def _node(self, **overrides):
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        params = {'enable_scene_labels': True, 'wall_tracker_scan_decimation': 1,
+                  'use_wall_tracker': True, 'wall_extract_backend': 'python'}
+        params.update(overrides)
+        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        for pub in self.PUBS:
+            if hasattr(n, pub):
+                getattr(n, pub).publish = MagicMock()
+        n.viz_doors_pub = MagicMock()
+        n.viz_doors_pub.get_subscription_count.return_value = 1
+        n._tf_static_cb(_tf_static())
+        return n
+
+    @staticmethod
+    def _drive(n, cycles=8, t0=7.0, gap=True):
+        for i in range(cycles):
+            n._odom_cb(_odom_at(t0 + i * 0.1, 0.0))
+            n._scan_cb(_door_scan(t0 + i * 0.1, gap=gap))
+
+    def test_a_doorway_in_the_wall_ahead_is_published_as_a_confirmed_door(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            msg = _last(n.doors_pub)
+            assert msg.header.frame_id == n._odom_frame
+            assert len(msg.doors) == 1
+            door = msg.doors[0]
+            assert door.state == door.STATE_CONFIRMED
+            assert door.width == pytest.approx(0.85, abs=0.04)
+            assert (door.center.x, door.center.y) == pytest.approx((3.0, 0.0), abs=0.04)
+            assert (door.normal.x, door.normal.y) == pytest.approx((1.0, 0.0), abs=1e-3)
+            # The car sits at the odom origin, so base_link is odom here.
+            assert (door.center_bl.x, door.center_bl.y) == pytest.approx(
+                (door.center.x, door.center.y), abs=1e-6)
+            assert door.occupied is False and 0.0 < door.confidence <= 1.0
+            live = {t.id for t in n.wall_tracker.tracks}
+            assert {door.parent_wall_id0, door.parent_wall_id1} <= live
+        finally:
+            n.destroy_node()
+
+    def test_every_tracker_cycle_publishes_even_with_no_door(self):
+        n = self._node()
+        try:
+            self._drive(n, cycles=4, gap=False)
+            assert n.doors_pub.publish.call_count == 4
+            assert _last(n.doors_pub).doors == []
+        finally:
+            n.destroy_node()
+
+    def test_the_debug_payload_says_what_the_doors_cost(self):
+        # The payload's own rate cap lifted, so the last cycle is the one read.
+        n = self._node(virtual_wall_rate_hz=0.0)
+        try:
+            self._drive(n, cycles=4)
+            d = json.loads(_last(n.virtual_debug_pub).data)
+            assert d['doors'] == 1
+            assert d['door_ms'] is not None and d['door_ms'] >= 0.0
+            assert isinstance(d['door_rejects'], list)
+        finally:
+            n.destroy_node()
+
+    def test_a_door_that_dies_is_deleted_from_viz_doors(self):
+        from visualization_msgs.msg import Marker
+        n = self._node()
+        try:
+            self._drive(n)
+            door_id = _last(n.doors_pub).doors[0].id
+            assert {m.id // 4 for m in _last(n.viz_doors_pub).markers} == {door_id}
+            # The doorway closes; past door_delete_after_sec the door is gone.
+            self._drive(n, cycles=2, t0=9.0, gap=False)
+            self._drive(n, cycles=1, t0=10.5, gap=False)
+            assert _last(n.doors_pub).doors == []
+            markers = _last(n.viz_doors_pub).markers
+            assert markers and all(m.action == Marker.DELETE for m in markers)
+            assert sorted(m.id for m in markers) == [4 * door_id + k for k in range(4)]
+        finally:
+            n.destroy_node()
+
+    def test_viz_doors_is_published_every_cycle_even_with_no_subscriber(self):
+        """So a mission bag records it: doors show in Foxglove on recorded runs."""
+        n = self._node()
+        try:
+            n.viz_doors_pub.get_subscription_count.return_value = 0
+            self._drive(n, cycles=5)
+            assert n.viz_doors_pub.publish.call_count == n.doors_pub.publish.call_count == 5
+            assert _last(n.doors_pub).doors
+            assert _last(n.viz_doors_pub).markers
+        finally:
+            n.destroy_node()
+
+    @staticmethod
+    def _pane_geometry():
+        """Return the mask/depth of a pane ON the wall line across the doorway."""
+        from test_door_detection import CAM_T, CX, CY, FX, ROT, render
+        labels, depth = render(gap=False)
+        return (labels, depth, FX, FX, CX, CY, ROT, CAM_T)
+
+    def test_the_glass_veto_rejects_a_pane_only_when_it_is_on(self):
+        for veto_on, expect_door in ((False, True), (True, False)):
+            n = self._node(door_stereo_glass_veto=veto_on, virtual_wall_rate_hz=0.0)
+            try:
+                n._door_mask_geometry = lambda stamp: self._pane_geometry()
+                self._drive(n)
+                assert bool(_last(n.doors_pub).doors) is expect_door
+                rejects = json.loads(_last(n.virtual_debug_pub).data)['door_rejects']
+                assert any(r[0] == 'stereo_wall' for r in rejects) is (not expect_door)
+            finally:
+                n.destroy_node()
+
+    def test_the_door_carries_its_leaf_side_and_glass_flag_on_the_wire(self):
+        n = self._node()
+        try:
+            self._drive(n)
+            door = _last(n.doors_pub).doors[0]
+            assert door.leaf_side == door.LEAF_NONE
+            assert door.glass_suspect is False
+        finally:
+            n.destroy_node()
+
+    def test_one_parameter_is_the_door_width_and_the_collinear_gap(self):
+        n = self._node(door_width_min_m=0.8)
+        try:
+            assert n.door_params.width_min_m == pytest.approx(0.8)
+            assert n.wall_tracker.p.collinear_gap_m == pytest.approx(0.8)
+            assert n.extraction_params.merge_gap == pytest.approx(0.8)
+        finally:
+            n.destroy_node()
+
+    def test_off_means_no_topic_and_no_work(self):
+        n = self._node(door_detection_enabled=False)
+        try:
+            assert n.door_tracker is None
+            assert not hasattr(n, 'doors_pub')
+            self._drive(n, cycles=3)
+            d = json.loads(_last(n.virtual_debug_pub).data)
+            assert d['doors'] is None and d['door_ms'] is None
+        finally:
+            n.destroy_node()
+
+    def test_a_person_detection_carries_its_class_to_the_door_check(self):
+        from vision_msgs.msg import Detection3D, Detection3DArray, ObjectHypothesisWithPose
+        n = self._node()
+        try:
+            msg = Detection3DArray()
+            msg.header.frame_id = 'base_link'
+            msg.header.stamp.sec = 7
+            for cls, y in (('person', 0.0), ('chair', 1.0)):
+                det = Detection3D()
+                det.bbox.center.position.x, det.bbox.center.position.y = 3.0, y
+                det.bbox.size.x = 0.4
+                hyp = ObjectHypothesisWithPose()
+                hyp.hypothesis.class_id = cls
+                det.results.append(hyp)
+                msg.detections.append(det)
+            n._tf_static_cb(_tf_static())
+            n._odom_cb(_odom_at(7.0, 0.0))
+            n._detections_cb(msg)
+            assert n._detection_classes == ['person', 'chair']
+            car = n._poses.at(7.0)
+            people = n._persons_at(car, 7.0)
+            assert people == [pytest.approx((3.0, 0.0, 0.2))]
+        finally:
+            n.destroy_node()
+
+
+class TestFixedWallHeight:
+    """Every wall marker is wall_viz_height_m tall from the floor, whatever was measured."""
+
+    def test_the_slab_is_2_5_m_on_the_floor_whatever_the_track_says(self):
+        from visualization_msgs.msg import Marker
+        n = TestDoors()._node()
+        try:
+            TestDoors._drive(n, cycles=6, gap=False)
+            car = n._car_pose
+            tracks = n.wall_tracker.published(car)
+            assert tracks
+            heights = [(0.1, 1.3, True), (0.0, 0.4, True), (-0.2, 4.0, True),
+                       (0.0, 2.5, False)]
+            for trk, (z0, z1, measured) in zip(tracks, heights):
+                trk.z_min, trk.z_max, trk.height_measured = z0, z1, measured
+            n._publish_walls(_door_scan(7.6, gap=False).header.stamp, tracks, car)
+            slabs = [m for m in _last(n.walls_markers_pub).markers if m.type == Marker.CUBE]
+            assert len(slabs) == len(tracks)
+            for slab in slabs:
+                assert slab.scale.z == pytest.approx(2.5)
+                assert slab.pose.position.z == pytest.approx(1.25)
+            # The data is untouched: the message still carries the track's height.
+            assert _last(n.walls_pub).tracks[0].z_max == pytest.approx(1.3)
+        finally:
+            n.destroy_node()
+
+    def test_the_height_is_a_parameter_and_feeds_viz_walls_too(self):
+        n = TestDoors()._node(wall_viz_height_m=3.0)
+        try:
+            assert n.wall_viz_height_m == pytest.approx(3.0)
+            assert n._viz_walls_builder.wall_height_m == pytest.approx(3.0)
+            assert n._viz_doors_builder.height_m == pytest.approx(3.0)
+        finally:
+            n.destroy_node()

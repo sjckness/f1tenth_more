@@ -590,6 +590,18 @@ class TestRecordedTopics:
             # lidar_front_wall_node publishes them RELIABLE (depth 10).
             assert topic not in _DEFAULT_BEST_EFFORT_TOPICS
 
+    def test_the_doors_and_their_markers_are_recorded_by_default(self):
+        """/viz/doors is an original, not a relay copy, so it is NOT dropped."""
+        from f1tenth_logger.mission_logger_node import (
+            _DEFAULT_BEST_EFFORT_TOPICS, _DEFAULT_TOPICS, recordable_topics)
+        kept, dropped = recordable_topics(_DEFAULT_TOPICS)
+        for topic in ('/perception/doors', '/viz/doors'):
+            assert topic in kept and topic not in dropped
+            # lidar_front_wall_node publishes both RELIABLE (depth 10).
+            assert topic not in _DEFAULT_BEST_EFFORT_TOPICS
+        # Every other /viz topic is still a relay copy and still dropped.
+        assert recordable_topics(['/viz/scan', '/viz/walls'])[0] == []
+
     def test_the_debug_video_and_its_wall_payload_are_recorded_reliably(self):
         from f1tenth_logger.mission_logger_node import (
             _DEFAULT_BEST_EFFORT_TOPICS, _DEFAULT_TOPICS)

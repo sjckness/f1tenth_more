@@ -2953,7 +2953,73 @@ semantic_layer_tf_static_only:
   description: "semantic_layer_node reads TF from the latched /tf_static only (no TransformListener, which deserialises every /tf message). Correct while every joint between the camera and base_link is fixed (sensors.xacro). Set false whenever the camera pan joint is enabled."
 lidar_front_wall_wall_marker_thickness_m:
   default: 0.02
-  description: "Thickness [m] of the vertical slab each confirmed wall is drawn as on /perception/walls/markers. A wall is a vertical PLANE, so it is drawn as one rather than as a line on the floor: the slab runs the wall's observed length and stands from z_min to z_max. A wall whose height was only assumed (height_measured false) is drawn fainter, so an assumed 2.5 m is visible at a glance."
+  description: "Thickness [m] of the vertical slab each confirmed wall is drawn as on /perception/walls/markers. A wall is a vertical PLANE, so it is drawn as one rather than as a line on the floor: the slab runs the wall's observed length and stands from the floor to lidar_front_wall_wall_viz_height_m, whatever height was measured. A wall whose height was only assumed (height_measured false) is drawn fainter."
+lidar_front_wall_wall_viz_height_m:
+  default: 2.5
+  description: "Height [m] every wall marker is DRAWN at, standing on the floor: the slabs on /perception/walls/markers and the prisms on /viz/walls, and the door jambs on /viz/doors. Visualisation only -- MultiWallTrack.z_min / z_max and every estimated wall quantity are unchanged. Drawing the measured span made one corridor's walls a row of different heights in Foxglove (2.0 m when assumed, whatever the stereo reported when measured). Whether a height was measured still shows on /perception/walls/markers as the slab's alpha."
+
+# --- door detection (f1tenth_perception/door_detection.py) --------------------
+# PERCEPTION ONLY: /perception/doors (f1tenth_messages/DoorArray) and /viz/doors.
+# Nothing consumes either -- not the MPC, the costmap boundaries, the BT or the
+# missions. Needs the wall tracker (use_wall_tracker). door_detection.py's module
+# docstring has the full rule; the six criteria in brief: collinear walls
+# (confirmed or coasting), a width in range, every beam through the gap seen
+# beyond the line, real jambs (no nearer return at a gap end), objects never
+# make a door (a person keeps a confirmed one alive, occupied), stereo optional.
+lidar_front_wall_door_detection_enabled:
+  default: true
+  description: "Run door detection on every wall tracker cycle and publish /perception/doors and /viz/doors. Off: neither topic exists and nothing is computed. Needs use_wall_tracker (the doors are found in the tracker's walls)."
+lidar_front_wall_door_collinear_angle_deg:
+  default: 5.0
+  description: "Two wall tracks either side of a doorway must be the same line within this angle [deg]. Within a single track (the door detector's fallback, for a borderline gap the tracker still joined into one) it holds by construction. A corner fails it: a corner is not a doorway."
+lidar_front_wall_door_collinear_offset_m:
+  default: 0.10
+  description: "...and within this perpendicular offset [m], measured where it matters: each wall's FACING end against the other wall's line."
+lidar_front_wall_door_width_min_m:
+  default: 0.70
+  description: "Narrowest doorway [m], jamb to jamb -- AND THE COLLINEAR GAP RULE for every LiDAR wall (multi_wall_tracker): two collinear wall pieces are ONE wall only across a gap SHORTER than this, in the extraction's collinear merge, the association of an observation to a track, the merge of two tracks and the rebuild of a track's extent; at or above it they stay two walls, so a doorway lies BETWEEN two tracks. Single source: it replaced lidar_front_wall_wall_merge_max_gap_m (1.5, the extraction) and lidar_front_wall_wall_assoc_max_gap_m (0.5, the tracker), and it applies whether or not door detection is enabled. THE PRICE, accepted: the tracker now bridges open gaps up to 0.70 m, wider than the 0.572 m travel strip, so a gap of 0.572-0.70 m between two collinear faces can be read as wall (a FRONT across an opening the car's strip would fit through); and the extraction no longer bridges a person-shaped hole wider than 0.70 m (the tracker still does: it counts only the OPEN part of a gap, never cut beams). The jambs are the last LiDAR returns ON the wall either side of the gap, so the measured width is the true one plus up to a beam spacing at each side (1.3 cm at 3 m)."
+lidar_front_wall_door_width_max_m:
+  default: 1.00
+  description: "Widest doorway [m]. Double doors and corridor mouths are wider and are out of scope."
+lidar_front_wall_door_behind_margin_m:
+  default: 0.30
+  description: "Every beam crossing the gap must return at least this far [m] BEYOND the wall line, or not at all. A return ON the line (within lidar_front_wall_wall_negative_tol_m, 0.15) is a pane or a dark panel the LiDAR saw: not a door. One between the two is too shallow to call: not a door either."
+lidar_front_wall_door_min_beams:
+  default: 8
+  description: "Floor on the beams that must cross the gap, else the gap is undecidable (no candidate). The requirement is max(this, ceil(lidar_front_wall_door_min_beam_fraction x the beams the gap's angular width promises at its range)). At the Hokuyo's 0.25 deg a 0.85 m gap square-on has 8 beams at 24 m, at 60 deg incidence at 12 m: the floor is what makes a far or grazing gap undecidable, and 8 beams is a width known to about +-1 beam spacing."
+lidar_front_wall_door_min_beam_fraction:
+  default: 0.8
+  description: "The range scaling of lidar_front_wall_door_min_beams: of the beams the gap's angular width promises at its range and incidence, this share must actually cross it as usable open beams. Near a door that is most of a hundred beams, so a handful that happened to pass cannot stand in for a gap the scan did not really look through."
+lidar_front_wall_door_confirm_hits:
+  default: 3
+  description: "Cycles (tracker cycles, ~10 Hz) a door must be seen in, within lidar_front_wall_door_confirm_window, before it is CONFIRMED. The same 3-in-5 as a LiDAR wall."
+lidar_front_wall_door_confirm_window:
+  default: 5
+  description: "The window lidar_front_wall_door_confirm_hits counts over; a TENTATIVE door that cannot make it inside one window is deleted."
+lidar_front_wall_door_delete_after_sec:
+  default: 2.0
+  description: "A door unseen for this long [s] is deleted; until then it is COASTING. A detected person inside a CONFIRMED door keeps it alive (occupied) however long they stand there: their beams are cut or blocked, which is no evidence the door closed. The same 2 s as a wall track."
+lidar_front_wall_door_core_fraction:
+  default: 0.6
+  description: "The central share of a gap where EVERY beam must return at least lidar_front_wall_door_behind_margin_m past the wall line, or not at all. In the two outer parts ((1 - this) / 2 each, 0.17 m of a 0.85 m door) returns shallower than that are allowed only when they are THE LEAF: one straight segment (rms <= 3 cm) hung on that side's jamb (lidar_front_wall_door_leaf_hinge_tol_m) and at most lidar_front_wall_door_leaf_max_len_m long; anything else shallow there is 'not_a_leaf'. The price, accepted: a leaf open too little still crosses into the core shallower than the margin and is rejected ('shallow'). On a 0.85 m door seen square-on from 2.7 m (synthetic) the smallest opening accepted is 65 deg at 0.6, 55 at 0.5, 50 at 0.4 and 45 at 0.3; a smaller core admits a less open leaf, and also more clutter near the jambs."
+lidar_front_wall_door_leaf_max_len_m:
+  default: 1.0
+  description: "Longest open door leaf [m], measured from its jamb along the leaf's own line: longer than a door is wide is a wall or furniture, not a leaf."
+lidar_front_wall_door_leaf_hinge_tol_m:
+  default: 0.10
+  description: "An open leaf's line must pass within this distance [m] of the jamb it hangs on, and must START there rather than run through it. A box face behind the wall line misses its jamb by its own depth and is not a leaf."
+lidar_front_wall_door_stereo_glass_veto:
+  default: false
+  description: "OFF by default. When on and the stereo class mask + depth cover a door gap: if WALL pixels whose valid depth lies within lidar_front_wall_door_stereo_plane_tol_m of the wall line make up at least lidar_front_wall_door_stereo_wall_veto_frac of the gap's valid samples, the gap is a pane the LiDAR saw through and is rejected ('stereo_wall'). WALL pixels farther than that (the room behind an open door) never count. When less than half the gap's samples carry valid depth the stereo cannot say: no veto, and the door is flagged glass_suspect."
+lidar_front_wall_door_stereo_plane_tol_m:
+  default: 0.30
+  description: "How close [m] to the wall line's own depth (optical z, the ZED's depth convention) a WALL pixel's depth must be to count as a surface ON the line for the glass veto."
+lidar_front_wall_door_stereo_wall_veto_frac:
+  default: 0.5
+  description: "Share of the gap's valid-depth samples that must be WALL ON the line for the glass veto to reject the gap."
+lidar_front_wall_door_jamb_viz_diameter_m:
+  default: 0.10
+  description: "Diameter [m] of each jamb's vertical cylinder on /viz/doors. The cylinders are lidar_front_wall_wall_viz_height_m tall and stand on the floor. Visualisation only."
 
 # --- minimum width for a LiDAR wall (multi_wall_tracker's span gate) ----------
 # A wall is long; an object face, a chair leg, the end of a counter and a
@@ -3017,12 +3083,9 @@ lidar_front_wall_wall_tracker_delete_after_sec:
 lidar_front_wall_wall_coast_max_odom_m:
   default: 1.0
   description: "Metres of ODOMETRY (path length, not displacement) a track may coast before it is deleted, whichever limit comes first. Standing still for two seconds costs a wall nothing and should not; driving a metre past a wall without one association means the wall is not where the track says it is."
-lidar_front_wall_wall_assoc_max_gap_m:
-  default: 0.5
-  description: "The COLLINEAR GAP [m]: an observation joins a track, and two tracks merge, only if the nearer ends are at most this far apart along the line; otherwise it is another wall on the same line (counted as gap_rejected / merge_gap_refused on /perception/virtual_wall/debug). Only the part of the gap the LiDAR saw OPEN counts (beams through it beyond the line, or no return): a gap behind a detected object (cut beams) or a nearer surface is not an opening. Replaces the 0.2 m overlap test (wall_tracker_min_overlap_m), which held for association but not for the merge -- the merge built a 13.67 m FRONT out of the two faces either side of a corridor mouth (corridor10m_20261016T144537, track 955). 0.5 m is narrower than the 0.572 m travel strip, so a bridged gap can never hide a passable opening. The extraction's own merge (lidar_front_wall_wall_merge_max_gap_m, 1.5) is separate and unchanged."
 lidar_front_wall_wall_extent_decay_sec:
   default: 1.0
-  description: "A track's extent is the MEASURED one: the union of its associated observations from the last this-many seconds (the newest always kept), only across open gaps of at most lidar_front_wall_wall_assoc_max_gap_m. An end no observation has reached for this long is dropped. It used to be the union of everything ever seen, so it only grew and FRONT could be a wall nobody had measured for seconds."
+  description: "A track's extent is the MEASURED one: the union of its associated observations from the last this-many seconds (the newest always kept), only across open gaps shorter than lidar_front_wall_door_width_min_m (THE COLLINEAR GAP RULE). An end no observation has reached for this long is dropped. It used to be the union of everything ever seen, so it only grew and FRONT could be a wall nobody had measured for seconds."
 # ---- E2: the rectangle verification (wall_fusion.py, THE RECTANGLE) --------
 # The column cross-check asks one question per BEARING, in the LiDAR's own
 # plane. These ask the same question over the wall's whole RECTANGLE -- along
@@ -3100,6 +3163,3 @@ lidar_front_wall_wall_conf_max_rms_scale:
 lidar_front_wall_wall_extract_quality_gates:
   default: true
   description: "Corridor_perception's extraction QUALITY GATES (extraction.py, WHY THE QUALITY GATES), on top of the point-count and length support filter: a range-dependent seed size N(r) = clip(3 + floor((r_med - 2.0) / 1.5), 3, 6) instead of a fixed 3, a perpendicular residual rms ceiling of 0.03 m applied AFTER the collinear merge, and an occlusion-aware fill ratio of 0.6 over the beams in the segment's own angular span. Steps 1-5 of the extraction only ask 'do these returns lie on a line?', and in a furnished room the answer is yes far too often: three returns on a chair leg are perfectly collinear, and the global merge will glue two unrelated 20 cm faces 1.4 m apart into one 1.5 m wall -- which is how a 1.39 m 'front wall' sat 2 m ahead of the car for 30 s of an EMPTY corridor (corridor10m_20261015T171753, track 8). FALSE restores the pre-gate extraction exactly, which is the only honest way to size what the gates change on a bag."
-lidar_front_wall_wall_merge_max_gap_m:
-  default: 1.5
-  description: "Largest end-to-end gap [m] across which the extraction merges two collinear segments into one wall (corridor_perception.extraction._merge_clusters' merge_gap, with its own 6 deg / 5 cm tolerances). This has to be set TOGETHER with the two span thresholds: it is what makes a span mean 'the length of this wall' rather than 'the length of the piece nothing was standing in front of'. 1.5 m is corridor_perception's own default and is deliberately wider than the 0.5 m a span gate alone would suggest -- a person cut out of the scan leaves a hole up to a metre wide at 2 m, and tightening this would split the wall the gate is then asked to measure. Narrowing it does not make the gate stricter; it makes it fire on halves of real walls."

@@ -19,7 +19,8 @@ HOW A TRACK IS DRAWN. Four marker slots per track, so one track's markers can
 never collide with another's and each can be deleted by id:
 
     4 * track.id + 0   LINE_STRIP   the segment on the floor, 5 cm wide
-    4 * track.id + 1   CUBE         the vertical prism, semi-transparent
+    4 * track.id + 1   CUBE         the vertical prism, semi-transparent, floor
+                                    to wall_height_m (2.5 m) for every track
     4 * track.id + 2   TEXT         "id role source state dist"
     4 * track.id + 3   LINE_STRIP   the cyan glass outline, glass panes only
 
@@ -27,6 +28,13 @@ Colour is the ROLE and alpha is the STATE, so the two questions never compete
 for the same channel. The state word in the text is produced by the same
 state_word() the alpha keys on, so a marker cannot say "verified" while being
 drawn at the tentative alpha.
+
+THE HEIGHT IS NOT A CHANNEL. Every wall is drawn wall_height_m tall, standing
+on the floor, whatever the stereo measured for it -- the drawing only,
+Track.z_min / z_max are untouched. Drawing the measured span made the walls of
+one corridor a row of different heights in the 3D panel (2.0 m when assumed,
+whatever the stereo reported when measured); one fixed height was asked for
+(door-detection, 2026-10-19).
 
 COLOURS DIFFER FROM lidar_front_wall_node._ROLE_COLOUR ON PURPOSE-ISH: left is
 blue and right is yellow here, green and blue there. That is what was asked
@@ -66,11 +74,10 @@ ALPHA = {'verified': 0.9, 'unverified': 0.5, 'rejected': 0.2, 'tentative': 0.2}
 
 LINE_WIDTH_M = 0.05
 GLASS_LINE_WIDTH_M = 0.08
-#: The prism when nothing measured the height. The tracker's own default
-#: z_max is 2.5 m; 2 m is what reads as a wall in a 3D panel without burying
-#: the car, and an assumed wall being a different height from a measured one
-#: is information, not an inconsistency.
-DEFAULT_Z_SPAN = (0.0, 2.0)
+#: Every wall's drawn height [m], floor to top (lidar_front_wall_node's
+#: wall_viz_height_m): the tracker's own default z_max, so an assumed wall and
+#: a measured one look the same, which is the point.
+WALL_VIZ_HEIGHT_M = 2.5
 PRISM_THICKNESS_M = 0.04
 #: The prism is a hint of volume behind the segment, not the thing you read
 #: the geometry off, so it is always fainter than its own line.
@@ -111,13 +118,6 @@ def alpha_of(track):
     return ALPHA[state_word(track)]
 
 
-def z_span(track):
-    """(z_min, z_max) for the prism: the measured span, or the default."""
-    if track.height_measured:
-        return float(track.z_min), float(track.z_max)
-    return DEFAULT_Z_SPAN
-
-
 def source_word(track):
     """'lidar', 'stereo' or 'both' -- what the evidence behind this track is.
 
@@ -149,8 +149,10 @@ class WallMarkerBuilder:
     slots rather than the whole namespace being cleared and rebuilt.
     """
 
-    def __init__(self, lifetime_s):
+    def __init__(self, lifetime_s, wall_height_m=WALL_VIZ_HEIGHT_M):
         self.lifetime_s = float(lifetime_s)
+        #: The prism's height for EVERY track; see the module docstring.
+        self.wall_height_m = float(wall_height_m)
         self.drawn_ids = set()
 
     def forget(self):
@@ -200,7 +202,7 @@ class WallMarkerBuilder:
         role = role_of(track)
         r, g, b = ROLE_COLOUR.get(role, ROLE_COLOUR['other'])
         alpha = alpha_of(track)
-        z_min, z_max = z_span(track)
+        z_min, z_max = 0.0, self.wall_height_m
 
         line = self._header(Marker(), stamp, frame_id)
         line.id = 4 * track.id + SLOT_LINE

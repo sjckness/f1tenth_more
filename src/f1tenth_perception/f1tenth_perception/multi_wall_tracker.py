@@ -14,7 +14,8 @@ PER SCAN
      max_detection_age_s (1.0 s) are dropped.
   2. Extraction (extract_lines): corridor_perception.extraction with its own
      defaults: adaptive breakpoints, IEPF split 0.045 m, TLS with a
-     (rho, alpha) covariance, collinear merge 6 deg / 0.05 m, and segments of at
+     (rho, alpha) covariance, collinear merge 6 deg / 0.05 m across gaps
+     shorter than collinear_gap_m (THE COLLINEAR GAP RULE), and segments of at
      least 10 points and 0.5 m. Lines are found in the laser frame, then moved
      to base_link and to odom at the scan stamp.
   3. Span gate (min_span_update_m / min_span_birth_m). An observation shorter
@@ -28,10 +29,11 @@ PER SCAN
        noise proportional to the odometry yaw change since the last scan
        (k_yaw), for the odometry's yaw scale error.
      - Association: Hungarian assignment of Mahalanobis distances, gated at
-       chi2(2 DOF, 99%) = 9.21, and the observation's nearer end must lie
-       within assoc_max_gap_m of the track's MEASURED extent (THE MEASURED
-       EXTENT). A STEREO-only line nearer base_link than stereo_min_rho_m is
-       the car's own chassis and never reaches it (THE NEAR FIELD).
+       chi2(2 DOF, 99%) = 9.21, and the open gap between the observation and
+       the track's MEASURED extent must be shorter than collinear_gap_m (THE
+       MEASURED EXTENT, THE COLLINEAR GAP RULE). A STEREO-only line nearer
+       base_link than stereo_min_rho_m is the car's own chassis and never
+       reaches it (THE NEAR FIELD).
      - Lifecycle: TENTATIVE becomes CONFIRMED at 3 hits in the last 5 scans.
        A confirmed track that goes unseen is COASTING while its covariance
        grows. A track is deleted after delete_after_s (2 s) unseen, after
@@ -48,8 +50,8 @@ PER SCAN
        survives for as long as the room keeps producing collinear triples
        near it. Glass is exempt: it is the surface beams are meant to pass
        through.
-     - Two tracks closer than the gate AND no more than assoc_max_gap_m
-       apart along their line are merged into the older one.
+     - Two tracks closer than the gate AND less than collinear_gap_m apart
+       along their line are merged into the older one.
      - THE TRAVEL STRIP'S OWN BEAMS (_apply_strip_evidence): the nearest
        return in the strip against where the strip meets each track; a track
        they see through for front_contradict_cycles cycles is CONTRADICTED.
@@ -99,12 +101,12 @@ held FRONT for 5 s and stopped the car ~5 m early. Three things let it:
   * _merge joined any two tracks on the same line, with no look at the gap
     between them, and the merged extent was the UNION of both. Association
     needed an overlap; the merge did not. Now both need the nearer ends to be
-    at most assoc_max_gap_m apart -- counting only the part of the gap the
+    less than collinear_gap_m apart -- counting only the part of the gap the
     beams saw OPEN (_gap_between): behind a detected person or a nearer
     surface the wall is unobserved, not absent.
   * The extent only ever grew. It is now rebuilt every step from the
     observations of the last extent_decay_s (_refresh_extent), across open
-    gaps of at most assoc_max_gap_m only, so an end nobody re-observes goes.
+    gaps shorter than collinear_gap_m only, so an end nobody re-observes goes.
   * FRONT was the heading ray against the extent plus 0.3 m. It is now where
     the travel strip meets the MEASURED segment (strip_distance).
 
@@ -156,12 +158,32 @@ is the union of its recent observations, so gating on the track would let one
 long observation license every short one after it.
 
 THE COLLINEAR MERGE COMES FIRST, and it already exists: step 2's extraction
-reunifies fragments of one wall across a gap of up to merge_max_gap_m with the
-same 6 deg / 5 cm tolerances it uses everywhere (corridor_perception.
+reunifies fragments of one wall across a gap shorter than collinear_gap_m with
+the same 6 deg / 5 cm tolerances it uses everywhere (corridor_perception.
 extraction._merge_clusters), globally rather than only between scan-adjacent
 groups, which is what survives an occluder standing in front of a wall. So a
 span is measured on the whole wall, not on whichever piece of it a person left
 visible -- which has to be true before any span threshold means anything.
+
+THE COLLINEAR GAP RULE (door-detection, 2026-10-19)
+---------------------------------------------------
+Every place that joins collinear LiDAR wall pieces -- the extraction's
+collinear merge, the association of an observation to a track, the merge of
+two tracks and the rebuild of a track's extent -- asks ONE question with ONE
+number: is the gap SHORTER than collinear_gap_m? Shorter: one wall. At or
+above it: two walls on one line. The number is the door detector's
+door_width_min_m (DOOR_WIDTH_MIN_M here, lidar_front_wall_door_width_min_m in
+stack_params.yaml), because the narrowest doorway is exactly the narrowest gap
+that must stay open: a door can then only ever be BETWEEN two tracks. It
+replaces two numbers, the extraction's merge gap (1.5 m, corridor_perception's
+default since 119f239) and the tracker's assoc_max_gap_m (0.5 m, d578963).
+door_detection still searches inside a track as a fallback (a borderline gap
+the tracker's 5 cm open-gap sampling read as just under the rule).
+
+The extraction measures the gap end to end between the two pieces' supports;
+the tracker counts only the part its beams saw OPEN (_gap_between), so a hole
+behind a person cut out of the scan never splits a TRACK even where it now
+splits the extraction's observation.
 
 FRAMES. A line is rho = x cos(theta) + y sin(theta) with rho >= 0
 (corridor_perception.geometry.Line), the convention scene_labels.WallLine
@@ -183,6 +205,11 @@ from f1tenth_perception.scene_labels import WallLine, in_sectors
 from f1tenth_perception import wall_fusion
 
 CHI2_2DOF_99 = 9.21
+
+#: THE COLLINEAR GAP RULE's number and the door detector's narrowest doorway
+#: (door_detection.DoorParams.width_min_m reads it): the ONE default, which
+#: lidar_front_wall_node overrides from lidar_front_wall_door_width_min_m.
+DOOR_WIDTH_MIN_M = 0.70
 
 STATE_TENTATIVE = 0
 STATE_CONFIRMED = 1
@@ -255,13 +282,15 @@ def propagate_objects(objects_xyr, pose_then, pose_now):
 # Extraction
 # ============================================================================
 
-def extraction_params(merge_max_gap_m=None, quality_gates=None, backend=None):
+def extraction_params(collinear_gap_m=None, quality_gates=None, backend=None):
     """The extraction's own defaults, with the merge gap and the gates overridden.
 
-    The merge is what makes a span mean "the length of this wall" rather than
-    "the length of the piece of it nothing was standing in front of", so the
-    one tolerance a wall-span threshold has to be set together with is this
-    gap. `quality_gates` is corridor_perception's seed/rms/fill gates (see
+    The merge gap is THE COLLINEAR GAP RULE's collinear_gap_m (default
+    DOOR_WIDTH_MIN_M), never corridor_perception's own 1.5 m: two pieces are
+    merged only across a gap shorter than the narrowest door. The merge is
+    also what makes a span mean "the length of this wall" rather than "the
+    length of the piece of it nothing was standing in front of".
+    `quality_gates` is corridor_perception's seed/rms/fill gates (see
     extraction.py, WHY THE QUALITY GATES); off, the extraction reports every
     collinear triple it can find, which is what the span gate below then has
     to clean up on its own. `backend` is 'c' (corridor_perception_c's
@@ -270,8 +299,7 @@ def extraction_params(merge_max_gap_m=None, quality_gates=None, backend=None):
     Everything else stays corridor_perception's own default.
     """
     p = ExtractionParams()
-    if merge_max_gap_m is not None:
-        p.merge_gap = float(merge_max_gap_m)
+    p.merge_gap = float(DOOR_WIDTH_MIN_M if collinear_gap_m is None else collinear_gap_m)
     if quality_gates is not None:
         p.quality_gates = bool(quality_gates)
     if backend is not None:
@@ -320,7 +348,7 @@ def extract_lines(ranges, angle_min, angle_increment, range_min, range_max, lase
     r, _bearings, angles = scan_in_base_link(
         ranges, angle_min, angle_increment, range_min, range_max, laser_pose, sectors)
     lx, ly, lyaw = laser_pose
-    lines = extract_segments(r, angles, params or ExtractionParams(), stats=stats)
+    lines = extract_segments(r, angles, params or extraction_params(), stats=stats)
     laser = Pose2D(float(lx), float(ly), float(lyaw))
     return [line.transform(laser, 'base_link') for line in lines]
 
@@ -339,12 +367,13 @@ class TrackerParams:
     meas_sigma_rho_min: float = 0.02       # [m] floor on the TLS sigma (odometry error)
     meas_sigma_theta_min: float = math.radians(0.5)
     gate_chi2: float = CHI2_2DOF_99
-    # The COLLINEAR GAP (THE MEASURED EXTENT, below): an observation joins a
-    # track, and two tracks merge, only if the nearer ends are at most this
-    # far apart along the line. It replaces the old 0.2 m OVERLAP test, which
-    # held for association but not for _merge -- and _merge is what built a
-    # 13.67 m front wall out of the two faces either side of a corridor mouth.
-    assoc_max_gap_m: float = 0.5
+    # THE COLLINEAR GAP RULE (module docstring): collinear pieces are one
+    # wall only across a gap SHORTER than this -- in the extraction's merge,
+    # the association, _merge and the extent. The door detector's
+    # door_width_min_m. It replaced assoc_max_gap_m (0.5 m), which had itself
+    # replaced the 0.2 m OVERLAP test that let _merge build a 13.67 m front
+    # wall out of the two faces either side of a corridor mouth.
+    collinear_gap_m: float = DOOR_WIDTH_MIN_M
     # An end of the extent that no associated observation has reached for
     # this long is dropped (THE MEASURED EXTENT).
     extent_decay_s: float = 1.0
@@ -377,7 +406,6 @@ class TrackerParams:
     # --- minimum width for a wall (see WHY THE SPAN GATE IS HYSTERETIC) ---
     min_span_birth_m: float = 1.0           # to START a track
     min_span_update_m: float = 0.5          # to keep a CONFIRMED one
-    merge_max_gap_m: float = 1.5            # extraction's collinear merge gap
     # --- what may be called FRONT (WHAT FRONT REQUIRES) --------------------
     front_x_m: float = 0.405                # vehicle_frames.base_front_x(): the bumper
     side_edge_half_width_m: float = 0.136   # swept_clearance_body_half_width_m
@@ -1114,7 +1142,7 @@ class MultiWallTracker:
 
         Negative when they overlap. Both ends are projected onto the TRACK's
         tangent, so this is the collinear gap the association and the merge
-        gate on (assoc_max_gap_m); see _gap_between for "open".
+        gate on (collinear_gap_m); see _gap_between for "open".
         """
         m = _along(trk.theta, np.vstack([p_a, p_b]))
         return self._gap_between(trk.theta, trk.rho, trk.t0, trk.t1,
@@ -1123,7 +1151,7 @@ class MultiWallTracker:
     def _gap_between(self, theta, rho, a_lo, a_hi, b_lo, b_hi):
         """Gap [m] between two intervals along one line, counting only what is OPEN.
 
-        A gap wider than assoc_max_gap_m is checked against this step's scan
+        A gap not shorter than collinear_gap_m is checked against this step's scan
         (_open_length): the part of it the LiDAR could not see -- beams cut
         for a detected object, or stopped short by something nearer -- is
         not an opening, it is a wall with a person in front of it (the M02
@@ -1131,7 +1159,7 @@ class MultiWallTracker:
         beams went THROUGH counts. With no scan, the whole gap counts.
         """
         raw = max(b_lo - a_hi, a_lo - b_hi)
-        if raw <= self.p.assoc_max_gap_m:
+        if raw < self.p.collinear_gap_m:
             return raw
         lo, hi = (a_hi, b_lo) if b_lo - a_hi >= a_lo - b_hi else (b_hi, a_lo)
         return self._open_length(theta, rho, lo, hi)
@@ -1193,7 +1221,7 @@ class MultiWallTracker:
         and consume the assignment a long segment needed.
 
         Then the line must pass the chi2 gate AND the observation's nearer end
-        must lie within assoc_max_gap_m of the track's MEASURED extent: a
+        must lie less than collinear_gap_m from the track's MEASURED extent: a
         collinear face across a doorway is the same line and a different
         wall ('gap').
         """
@@ -1204,7 +1232,7 @@ class MultiWallTracker:
         d2 = float(v @ np.linalg.solve(S, v))
         if d2 > self.p.gate_chi2:
             return math.inf, 'chi2'
-        if self._extent_gap(trk, line.p_start, line.p_end) > self.p.assoc_max_gap_m:
+        if self._extent_gap(trk, line.p_start, line.p_end) >= self.p.collinear_gap_m:
             return math.inf, 'gap'
         return d2, ''
 
@@ -1248,7 +1276,7 @@ class MultiWallTracker:
         the last extent_decay_s (the newest always kept, so a coasting track
         keeps what it was last seen as), projected onto the CURRENT line, and
         of those only the run of intervals that touches the newest one with
-        no OPEN gap wider than assoc_max_gap_m (_gap_between): an end nobody
+        no OPEN gap of collinear_gap_m or more (_gap_between): an end nobody
         has re-observed for extent_decay_s goes, and two pieces with an
         opening between them are never one extent.
         """
@@ -1263,13 +1291,13 @@ class MultiWallTracker:
         lo, hi = float(m.min()), float(m.max())
         spans = sorted((float(v.min()), float(v.max()))
                        for v in (_along(trk.theta, pts) for _s, pts in ext))
-        gap = float(self.p.assoc_max_gap_m)
+        gap = float(self.p.collinear_gap_m)
         grew = True
         while grew:
             grew = False
             for a, b in spans:
                 if (a < lo or b > hi) and self._gap_between(
-                        trk.theta, trk.rho, lo, hi, a, b) <= gap:
+                        trk.theta, trk.rho, lo, hi, a, b) < gap:
                     lo, hi, grew = min(lo, a), max(hi, b), True
         trk.t0, trk.t1 = lo, hi
 
@@ -1323,7 +1351,7 @@ class MultiWallTracker:
         """Fold every pair of tracks that are ONE wall into the older one.
 
         One wall means the same line (chi2 on (rho, theta)) AND a collinear
-        gap of at most assoc_max_gap_m between the measured extents: two
+        gap shorter than collinear_gap_m between the measured extents: two
         faces either side of a corridor mouth are one line and two walls, and
         merging them is what put track 955's 13.67 m front wall across an
         open doorway (corridor10m_20261016T144537).
@@ -1338,7 +1366,7 @@ class MultiWallTracker:
                 if float(v @ np.linalg.solve(S, v)) > self.p.gate_chi2:
                     continue
                 gap = self._extent_gap(a, *b.endpoints())
-                if gap > self.p.assoc_max_gap_m:
+                if gap >= self.p.collinear_gap_m:
                     if (a.id, b.id) not in refused:
                         refused.add((a.id, b.id))
                         self.n_merge_gap_refused += 1

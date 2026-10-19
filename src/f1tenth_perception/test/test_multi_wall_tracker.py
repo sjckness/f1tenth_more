@@ -755,21 +755,29 @@ def test_a_chair_leg_in_an_otherwise_empty_room_starts_no_wall():
     assert tracks == []
 
 
-def test_the_collinear_merge_gap_is_a_parameter_and_defaults_to_the_extraction():
-    from corridor_perception.extraction import ExtractionParams
-    assert mwt.extraction_params(None).merge_gap == ExtractionParams().merge_gap
+def test_the_collinear_gap_is_one_number_the_narrowest_door():
+    """
+    Default the extraction's merge, the tracker and the doors to one constant.
+
+    THE COLLINEAR GAP RULE: never corridor_perception's own 1.5 m.
+    """
+    from f1tenth_perception.door_detection import DoorParams
+    assert mwt.DOOR_WIDTH_MIN_M == pytest.approx(0.70)
+    assert mwt.extraction_params(None).merge_gap == pytest.approx(mwt.DOOR_WIDTH_MIN_M)
     assert mwt.extraction_params(0.5).merge_gap == pytest.approx(0.5)
-    assert mwt.TrackerParams().merge_max_gap_m == pytest.approx(
-        ExtractionParams().merge_gap)
+    assert mwt.TrackerParams().collinear_gap_m == pytest.approx(mwt.DOOR_WIDTH_MIN_M)
+    assert DoorParams().width_min_m == pytest.approx(mwt.DOOR_WIDTH_MIN_M)
 
 
 def test_a_wall_with_a_person_in_front_of_it_is_merged_before_it_is_measured():
-    """Why the merge gap is 1.5 m and not the 0.5 m a span gate alone suggests.
+    """The merge gap decides whether a hole splits the extraction's wall.
 
-    A person 1 m in front of a 6 m wall hides about 0.6 m of it at 2 m range
-    and splits it in two. Both halves are long here, but the merge is what
-    makes the span the WALL's: with the gap tightened below the hole the
-    tracker sees two shorter walls instead of one.
+    A person 1 m in front of a 6 m wall hides part of it and splits it in
+    two. The merge is what makes the span the WALL's: with the gap wider than
+    the hole the extraction reports one wall, tightened below it two shorter
+    ones. (Since THE COLLINEAR GAP RULE the stack's gap is door_width_min_m,
+    0.70 m: a hole that wide or wider stays split in the extraction, and only
+    the tracker's open-gap association reunites it.)
     """
     car = Pose2D(0.0, 0.0, 0.0)
     wall = [((4.0, -3.0), (4.0, 3.0))]
