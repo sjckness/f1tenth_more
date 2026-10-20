@@ -6,7 +6,8 @@ Usage (no ROS environment needed; numpy, scipy, matplotlib, PyYAML, rosbags):
     python3 tools/door_replay.py [--walls recorded|retrack-old|retrack-new]
         [--cadence steps|every] [--every N] [--params stack|code]
         [--set [tracker.|extraction.]FIELD=VALUE ...] [--no-frames]
-        [--src CHECKOUT] [--door-images all|confirmed|none] [--out DIR] BAG
+        [--src CHECKOUT] [--door-images all|confirmed|none] [--out DIR]
+        [--summary-md PATH] BAG
 
 BAG is a rosbag2 directory of .db3 files (sqlite3; mcap is not read). It is
 read with sqlite3 directly, read-only, and decoded with rosbags' CDR
@@ -21,6 +22,16 @@ tracks (WALLS); then [scan_pieces ->] door_candidates -> DoorTracker.step(...,
 scan=), as on the car. Nothing from the camera or YOLO reaches it: no stereo
 support and no glass veto, no object sectors cut (so 'object' rejects cannot
 occur), no persons (so no door is ever 'occupied').
+
+THE ADDENDUM'S CORE (ed6899a on; new_api): door_candidates returns EVERY
+evaluated gap as a DoorCandidate (code, its class, visible, detail, ...), so
+nothing inside the detector is wrapped. One ManhattanPrior lives for the whole
+replay, updated every cycle with the walls the detector gets; door_candidates
+runs with stereo=None (no camera here: jamb_height_unknown stays True, no
+stereo veto, no furniture) and manhattan= that prior. The tool follows what
+each record did to the door tracks: a positive (code '') FEEDS a door (spawn
+or hit), a STRONG visible one may STRIKE a door no positive saw this cycle
+(the second strike deletes it). Older cores go through the shims below.
 
 WALLS (--walls).
   recorded (default): the tracks the car itself published on
@@ -66,40 +77,60 @@ TrackerParams, the extraction's quality gates and the observation model, as
 lidar_front_wall_node builds them from the replayed checkout's
 stack_params.yaml -- STACK_TO_DOOR / STACK_TO_TRACKER / STACK_TO_NODE mirror
 its constructor (keep them in step), a field the checkout's dataclass lacks is
-skipped. code: the dataclass defaults. --set FIELD=VALUE overrides a
+skipped, and so is a key the checkout's yaml lacks (the field keeps its code
+default); the JSON's door_params_source lists which fields came from where.
+code: the dataclass defaults. --set FIELD=VALUE overrides a
 DoorParams field, tracker.FIELD=VALUE a TrackerParams one and
 extraction.FIELD=VALUE an ExtractionParams one, after everything else (radians
 where the field is *_rad; e.g. --set square_looks=0).
 
 --src CHECKOUT replays another checkout's detector and tracker with this tool
 (git worktree add --detach DIR COMMIT, or git archive COMMIT src | tar -x -C
-DIR). Detectors older than step 3 (no frame jambs, no scan argument, no panes)
-and trackers older than step 2 (no collinear_gap_m) are driven through feature
-tests (dataclass fields, inspect.signature, getattr), never version numbers.
+DIR). The addendum's core, detectors older than step 3 (no frame jambs, no
+scan argument, no panes) and trackers older than step 2 (no collinear_gap_m)
+are told apart by feature tests (dataclass fields, inspect.signature,
+getattr), never version numbers.
 
 OUTPUTS in --out (default ~/f1tenth_data/replays/doors_<bag>/<src>-<walls>-
 <cadence>; <tag> = <bag>.doors, <bag>.doors_noframes with --no-frames):
-  <tag>.json            the run (src, walls and rule, cadence, params), reject
-                        codes (the live trail's 16-entry cap lifted), EVERY
-                        door track's life and kind (frame / in-track /
-                        between), the pane kills, timing
-  <tag>.candidates.csv  every gap the detector judged and every pair of tracks
-                        _groups refused, every cycle (CSV_FIELDS): code (or
-                        accepted), width, beams, parents, jambs in odom (a
-                        pair's facing ends), the door track it fed
-  <tag>.cycles.csv      one row per cycle: walls (eligible), gaps, doors, cost;
-                        retrack: the extracted lines and the tracker's own
-                        collinear-gap refusals (observations, track merges)
+  <tag>.json            the run (src, api, walls and rule, cadence, params and
+                        where each came from), codes, EVERY door track's life
+                        and kind (frame / in-track / between), timing. Older
+                        cores: reject codes (the live trail's 16-entry cap
+                        lifted), the pane kills. The addendum's core: counts
+                        by code and by class, per door states seen,
+                        first_confirmed, hits, strikes, n_viewpoints,
+                        width_std, best sighting, deleted_by_strikes; the
+                        lifecycle totals; the Manhattan prior over time
+  <tag>.candidates.csv  every gap the detector judged, every cycle. Older
+                        cores (CSV_FIELDS), with every pair of tracks _groups
+                        refused: code (or accepted), width, beams, parents,
+                        jambs in odom (a pair's facing ends), the door track
+                        it fed. The addendum's core (CSV_FIELDS_NEW): one row
+                        per DoorCandidate -- code ('' a door), cls, visible,
+                        detail, width, n_beams / n_required, view_deg,
+                        behind_frac, boundary_hits, leaf, parents, jambs and
+                        centre in odom, range, and what it did (effect: spawn
+                        / hit a door, strike / delete one) to which door
+  <tag>.cycles.csv      one row per cycle: walls (eligible: the hosts on the
+                        addendum's core), gaps, doors, cost; retrack: the
+                        extracted lines and the tracker's own collinear-gap
+                        refusals (observations, track merges); the addendum's
+                        core: the Manhattan direction, the strikes
   <tag>.png             the accumulated scan in odom, the eligible walls, frame
-                        pieces, doors (green confirmed, orange tentative),
-                        panes
+                        pieces, doors (green confirmed solid, orange
+                        tentative / candidate faded), panes
   door_<id>.png         per door track, small (palette PNG): the
                         /camera/debug_image/compressed frame nearest its best
                         sighting by HEADER stamp (the capture stamp; the
                         recorder received them ~0.26 s late), plus the nearest
                         frame of its life +-5 s with both jambs in view when
-                        that one does not show it, jamb posts drawn; and a
+                        that one does not show it, jamb posts drawn (solid
+                        once confirmed, faded while a candidate); and a
                         top-down of that scan
+  --summary-md PATH     the candidates by class and code as markdown tables
+                        (rows, visible, median width and beams per code), to
+                        paste into a report next to another run's
 """
 
 import argparse
@@ -162,6 +193,29 @@ STACK_TO_DOOR = (
     ('door_pane_min_on_beams', 'pane_min_on_beams', int),
     ('door_pane_min_cycles', 'pane_min_cycles', int),
     ('door_pane_memory_sec', 'pane_memory_s', float),
+    # The addendum's core (ed6899a). The two *_deg fields are degrees in the
+    # dataclass too. door_confirm_window (above) is its evidence window now.
+    ('door_manhattan_prior', 'manhattan_prior', bool),
+    ('door_manhattan_tol_deg', 'manhattan_tol_deg', float),
+    ('door_manhattan_min_wall_len_m', 'manhattan_min_wall_len_m', float),
+    ('door_manhattan_tau_sec', 'manhattan_tau_s', float),
+    ('door_min_line_extent_m', 'min_line_extent_m', float),
+    ('door_min_side_len_m', 'min_side_len_m', float),
+    ('door_max_view_angle_deg', 'max_view_angle_deg', float),
+    ('door_behind_frac', 'behind_frac', float),
+    ('door_boundary_behind_min_m', 'boundary_behind_min_m', float),
+    ('door_boundary_max_hits', 'boundary_max_hits', int),
+    ('door_boundary_end_margin_m', 'boundary_end_margin_m', float),
+    ('door_on_line_min_beams', 'on_line_min_beams', int),
+    ('door_reveal_max_depth_m', 'reveal_max_depth_m', float),
+    ('door_jamb_height_check', 'jamb_height_check', bool),
+    ('door_jamb_min_height_m', 'jamb_min_height_m', float),
+    ('door_furniture_max_height_m', 'furniture_max_height_m', float),
+    ('door_min_viewpoints', 'min_viewpoints', int),
+    ('door_viewpoint_sep_m', 'viewpoint_sep_m', float),
+    ('door_width_std_max_m', 'width_std_max_m', float),
+    ('door_candidate_max_age_sec', 'candidate_max_age_s', float),
+    ('door_confirmed_max_age_sec', 'confirmed_max_age_s', float),
 )
 #: The same for its TrackerParams(...) (collinear_gap_m is set by the rule,
 #: --walls; the two pre-step-2 gaps exist only in older checkouts).
@@ -237,10 +291,20 @@ BEAM_NAMES = ('on', 'beyond', 'none', 'short', 'shallow', 'cut')    # BEAM_ON ..
 CSV_FIELDS = ('cycle', 't', 'stamp', 'stage', 'code', 'width', 'n_open', 'n_req', 'n_gap') \
     + BEAM_NAMES + ('leaf', 'parent0', 'parent1', 'j0x', 'j0y', 'j1x', 'j1y', 'cx', 'cy',
                     'range_m', 'view_deg', 'door', 'door_state')
+#: The addendum's core: one row per DoorCandidate (candidate_rows_new).
+CSV_FIELDS_NEW = ('cycle', 't', 'stamp', 'code', 'cls', 'visible', 'detail', 'width',
+                  'n_beams', 'n_required', 'view_deg', 'behind_frac', 'boundary_hits', 'leaf',
+                  'host_offset_deg', 'jamb_height_unknown', 'parent0', 'parent1', 'j0x', 'j0y',
+                  'j1x', 'j1y', 'cx', 'cy', 'range_m', 'effect', 'door', 'door_state')
 CYCLE_FIELDS = ('cycle', 't', 'stamp', 'walls', 'eligible', 'pieces', 'gaps', 'accepted',
                 'doors', 'confirmed', 'lines', 'gap_rejected', 'merge_gap_refused',
-                'walls_ms', 'door_ms')
+                'walls_ms', 'door_ms', 'manhattan_deg', 'strikes')
 RETRACK_COUNTS = ('lines', 'gap_rejected', 'merge_gap_refused')
+#: The code classes in the order the markdown summary lists them ('-': an
+#: older core's reject, which has none).
+CLASS_ORDER = ('ok', 'strong', 'weak', 'geometry', '-')
+#: Manhattan prior samples in the JSON, evenly spread over the run.
+MANHATTAN_SAMPLES = 12
 
 # The replayed checkout's modules (import_detector).
 dd = mwt = wall_fusion = Pose2D = None
@@ -264,6 +328,17 @@ def import_detector(src):
         raise SystemExit(f'door_detection was already imported from {door_detection.__file__},'
                          f' not from {src}: one checkout per process')
     dd, mwt, wall_fusion, Pose2D = door_detection, multi_wall_tracker, fusion, geometry.Pose2D
+
+
+def new_api():
+    """
+    Return whether the replayed detector is the addendum's core (ed6899a on).
+
+    Its door_candidates returns every evaluated gap with a code class and
+    takes the Manhattan prior; nothing inside it needs wrapping (capture).
+    """
+    return (hasattr(dd, 'code_class') and hasattr(dd, 'ManhattanPrior')
+            and 'manhattan' in inspect.signature(dd.door_candidates).parameters)
 
 
 def checkout_commit(src):
@@ -482,14 +557,48 @@ def apply_overrides(obj, overrides, prefix=''):
             raise SystemExit(f'--set {item}: {exc}') from exc
 
 
-def door_params(src, mode, frames, overrides):
-    """Return the DoorParams the node builds (mode 'stack') or the code defaults ('code')."""
+def door_params(src, mode, frames, overrides, record=None):
+    """
+    Return the DoorParams the node builds (mode 'stack') or the code defaults ('code').
+
+    `record`, a dict, is filled with where every field came from
+    (param_sources).
+    """
     values = stack_values(src, STACK_TO_DOOR) if mode == 'stack' else {}
+    from_yaml = set(values)
     if not frames:
         values['frame_jambs'] = False
     p = build(dd.DoorParams, values)
     apply_overrides(p, overrides)
+    if record is not None:
+        record.update(param_sources(dd.DoorParams, STACK_TO_DOOR, from_yaml, overrides,
+                                    frames, mode))
     return p
+
+
+def param_sources(cls, table, from_yaml, overrides, frames=True, mode='stack'):
+    """
+    Return where each field of dataclass `cls` came from, for the JSON.
+
+    yaml: read from the checkout's stack_params.yaml; override: --set (and
+    frame_jambs by --no-frames); code_default: everything else. In 'stack'
+    mode, also the table's keys the yaml lacks for a field `cls` has
+    (yaml_keys_absent: the code default stands in) and the yaml keys `cls`
+    has no field for (yaml_keys_ignored: an older or newer node's keys).
+    """
+    names = [f.name for f in dataclasses.fields(cls)]
+    over = {item.split('=', 1)[0] for item in overrides if '.' not in item.split('=', 1)[0]}
+    if not frames:
+        over.add('frame_jambs')
+    out = {'yaml': sorted(n for n in names if n in from_yaml and n not in over),
+           'override': sorted(n for n in names if n in over),
+           'code_default': sorted(n for n in names if n not in from_yaml and n not in over)}
+    if mode == 'stack':
+        out['yaml_keys_absent'] = sorted(NODE_PREFIX + key for key, name, _conv in table
+                                         if name in names and name not in from_yaml)
+        out['yaml_keys_ignored'] = sorted(NODE_PREFIX + key for key, name, _conv in table
+                                          if name in from_yaml and name not in names)
+    return out
 
 
 def wall_rule(tp, rule, width_min_m):
@@ -672,20 +781,40 @@ class Detector:
     """
     One door cycle of the replayed checkout (_detect_doors without stereo).
 
-    Feature tests, not versions: frame pieces only where DoorParams has
-    frame_jambs and the module scan_pieces; door_candidates(pieces=) and
+    Feature tests, not versions. The addendum's core (new_api): one
+    ManhattanPrior for the whole replay, updated every cycle with the walls
+    the detector gets, door_candidates(stereo=None, manhattan=) and
+    DoorTracker.step(scan=). Older cores: frame pieces only where DoorParams
+    has frame_jambs and the module scan_pieces; door_candidates(pieces=) and
     DoorTracker.step(scan=) only where their signatures take them.
     """
 
     def __init__(self, p):
         self.p = p
         self.tracker = dd.DoorTracker(p)
-        self.frames = bool(getattr(p, 'frame_jambs', False)) and hasattr(dd, 'scan_pieces')
+        self.new = new_api()
+        self.manhattan = dd.ManhattanPrior(p) if self.new else None
+        self.frames = (not self.new and bool(getattr(p, 'frame_jambs', False))
+                       and hasattr(dd, 'scan_pieces'))
         self.takes_pieces = 'pieces' in inspect.signature(dd.door_candidates).parameters
         self.takes_scan = 'scan' in inspect.signature(dd.DoorTracker.step).parameters
+        #: The addendum's core, the last cycle: the ids of the doors alive
+        #: before it, and [(door, deleted)] for every door a STRONG visible
+        #: record struck in it (deleted: by that, its second strike).
+        self.ids_before = set()
+        self.struck = []
 
     def cycle(self, walls, car, scan, t):
         """Return (pieces, candidates, live doors, rejects) of one cycle."""
+        if self.new:
+            before = [(door, door.strikes) for door in self.tracker.doors]
+            self.manhattan.update(walls, t)
+            cands = dd.door_candidates(walls, car, scan, self.p, stereo=None,
+                                       manhattan=self.manhattan)
+            doors = self.tracker.step(cands, car, t, scan=scan)
+            self.ids_before = {door.id for door, _k in before}
+            self.struck = [(door, door.strikes >= 2) for door, k in before if door.strikes > k]
+            return [], cands, doors, []
         rejects = []
         pieces = dd.scan_pieces(scan, self.p) if self.frames else []
         cands = dd.door_candidates(walls, car, scan, self.p, rejects,
@@ -699,9 +828,9 @@ def _normal(j):
     return np.array([-tang[1], tang[0]]) / max(float(np.hypot(*tang)), 1e-9)
 
 
-def door_of(tracker, doors, j_odom):
+def door_of(tracker, doors, j_odom, normal=None):
     """Return (door id, state name) a candidate (odom jambs) fed, by the tracker's own cost."""
-    normal = _normal(j_odom)
+    normal = _normal(j_odom) if normal is None else normal
     costs = sorted((tracker._cost(d, j_odom[0], j_odom[1], normal), d.id, d) for d in doors)
     if costs and math.isfinite(costs[0][0]):
         return str(costs[0][1]), dd.STATE_NAMES[costs[0][2].state]
@@ -748,6 +877,78 @@ def candidate_rows(records, cycle, t_rel, t, car, lxy, tracker, doors):
     return rows
 
 
+def _num(value, digits):
+    """Return value rounded, or '' when it is None or not finite (a CSV cell)."""
+    if value is None or not math.isfinite(float(value)):
+        return ''
+    return round(float(value), digits)
+
+
+def candidate_rows_new(cands, cycle, t_rel, t, car, lxy, detector, doors):
+    """
+    CSV rows (CSV_FIELDS_NEW) of one cycle of the addendum's core: one per DoorCandidate.
+
+    effect is what the record did to the door tracks: 'spawn' / 'hit' (code
+    '': the door it fed, born this cycle or alive before it), 'strike' /
+    'delete' (STRONG and visible: it struck a door no positive saw this
+    cycle -- demoted to candidate, or deleted by its second strike), ''
+    (nothing: WEAK and GEOMETRY records, and STRONG ones not visible or
+    with no door there). door / door_state: that door and its state after
+    the cycle ('deleted', or 'expired' when it aged out). A positive's door
+    is the tracker's cheapest by its own cost (door_of); the struck doors
+    are matched to the STRONG visible records cheapest first, one to one,
+    as DoorTracker.step struck them. Leaf: the record's leaf side, blank on
+    a GEOMETRY record (not evaluated).
+    """
+    tracker = detector.tracker
+    alive = {door.id for door in doors}
+    rows, strong = [], []
+    for cand in cands:
+        jb = np.array([cand.jamb0, cand.jamb1], dtype=float)
+        j = car.transform_points(jb)
+        normal = car.R @ np.asarray(cand.normal, dtype=float)
+        normal = normal / max(float(np.hypot(*normal)), 1e-9)
+        c = 0.5 * (j[0] + j[1])
+        row = dict.fromkeys(CSV_FIELDS_NEW, '')
+        row.update(
+            cycle=cycle, t=round(t_rel, 3), stamp=round(t, 6), code=cand.code, cls=cand.cls,
+            visible=int(bool(cand.visible)), detail=cand.detail, width=round(cand.width, 3),
+            n_beams=int(cand.n_beams), n_required=int(cand.n_required),
+            view_deg=_num(cand.view_deg, 1), behind_frac=_num(cand.behind_frac, 3),
+            boundary_hits=int(cand.boundary_hits),
+            leaf='' if cand.cls == 'geometry' else dd.LEAF_NAMES.get(cand.leaf_side, ''),
+            host_offset_deg=_num(cand.host_offset_deg, 2),
+            jamb_height_unknown=int(bool(cand.jamb_height_unknown)),
+            parent0=int(cand.parents[0]), parent1=int(cand.parents[1]),
+            j0x=round(float(j[0][0]), 3), j0y=round(float(j[0][1]), 3),
+            j1x=round(float(j[1][0]), 3), j1y=round(float(j[1][1]), 3),
+            cx=round(float(c[0]), 3), cy=round(float(c[1]), 3),
+            range_m=round(float(np.hypot(*(0.5 * (jb[0] + jb[1]) - np.asarray(lxy)))), 2))
+        if cand.code == '':
+            row['door'], row['door_state'] = door_of(tracker, doors, j, normal)
+            if row['door']:
+                row['effect'] = 'hit' if int(row['door']) in detector.ids_before else 'spawn'
+        elif cand.cls == 'strong' and cand.visible:
+            strong.append((row, j, normal))
+        rows.append(row)
+    pairs = sorted((tracker._cost(door, j[0], j[1], normal), i, k)
+                   for i, (door, _deleted) in enumerate(detector.struck)
+                   for k, (_row, j, normal) in enumerate(strong))
+    used_doors, used_rows = set(), set()
+    for cost, i, k in pairs:
+        if not math.isfinite(cost) or i in used_doors or k in used_rows:
+            continue
+        used_doors.add(i)
+        used_rows.add(k)
+        door, deleted = detector.struck[i]
+        row = strong[k][0]
+        row['effect'] = 'delete' if deleted else 'strike'
+        row['door'] = str(door.id)
+        row['door_state'] = (dd.STATE_NAMES[door.state] if door.id in alive
+                             else 'deleted' if deleted else 'expired')
+    return rows
+
+
 def write_csv(path, fields, rows):
     with open(path, 'w', newline='') as fh:
         writer = csv.DictWriter(fh, fieldnames=fields)
@@ -773,11 +974,17 @@ def _life_update(life, door, t_rel, t, car, seen=True):
     rec['states'].add(dd.STATE_NAMES[door.state])
     rec['last'] = round(t_rel, 2)
     rec['hits'] = max(rec['hits'], int(door.hits))
-    rec['window_hits'] = max(rec['window_hits'], int(sum(door.history)))
+    rec['window_hits'] = max(rec['window_hits'], int(sum(getattr(door, 'history', ()))))
     rec['square_looks'] = max(rec['square_looks'], int(getattr(door, 'square_looks', 0)))
     if door.state == dd.STATE_CONFIRMED and rec['first_confirmed'] is None:
         rec['first_confirmed'] = round(t_rel, 2)
-    if seen and door.last_seen == t:
+    lifecycle = hasattr(door, 'strikes')        # the addendum's core
+    if lifecycle:
+        rec['strikes'] = max(rec.get('strikes', 0), int(door.strikes))
+        rec['n_viewpoints'] = max(rec.get('n_viewpoints', 0), int(door.n_viewpoints))
+        rec.setdefault('deleted_by_strikes', False)
+    last = door.last_positive if lifecycle else door.last_seen
+    if seen and last == t:
         rec['sightings'].append({
             't': t, 'width': round(door.width, 3), 'n_beams': int(door.n_beams),
             'parents': [int(x) for x in door.parents],
@@ -785,8 +992,21 @@ def _life_update(life, door, t_rel, t, car, seen=True):
             'jambs': [[round(float(v), 3) for v in door.jamb0],
                       [round(float(v), 3) for v in door.jamb1]],
             'normal': [round(float(v), 3) for v in door.normal],
-            'car': [round(float(car.x), 3), round(float(car.y), 3), round(float(car.theta), 4)]})
+            'car': [round(float(car.x), 3), round(float(car.y), 3), round(float(car.theta), 4)],
+            **({'state': dd.STATE_NAMES[door.state], 'n_viewpoints': int(door.n_viewpoints),
+                'width_std': round(float(door.width_std), 4)} if lifecycle else {})})
+        if lifecycle:
+            rec['width_std'] = round(float(door.width_std), 4)
     return rec
+
+
+def fold_life_new(life, detector, doors, t_rel, t, car):
+    """Fold one cycle of the addendum's core into the life records (struck doors too)."""
+    for door in doors:
+        _life_update(life, door, t_rel, t, car)
+    for door, deleted in detector.struck:
+        rec = _life_update(life, door, t_rel, t, car, seen=False)
+        rec['deleted_by_strikes'] = rec['deleted_by_strikes'] or deleted
 
 
 def door_kind(parents, frame_id):
@@ -794,6 +1014,10 @@ def door_kind(parents, frame_id):
     if frame_id is not None and frame_id in parents:
         return 'frame'
     return 'in-track' if parents[0] == parents[1] else 'between'
+
+
+#: The life record's keys only the addendum's core fills (_life_update).
+LIFECYCLE_KEYS = ('strikes', 'n_viewpoints', 'width_std', 'deleted_by_strikes')
 
 
 def _track_summary(rec, t0, frame_id):
@@ -805,6 +1029,7 @@ def _track_summary(rec, t0, frame_id):
         'first_confirmed': rec['first_confirmed'], 'hits': rec['hits'],
         'window_hits': rec['window_hits'], 'square_looks': rec['square_looks'],
         'sightings': len(sights), 'pane_killed': rec['pane_killed'],
+        **{k: rec[k] for k in LIFECYCLE_KEYS if k in rec},
         'width': round(float(np.median([s['width'] for s in sights])), 3) if sights else None,
         'n_beams': int(np.median([s['n_beams'] for s in sights])) if sights else None,
         'parents': sorted({tuple(s['parents']) for s in sights}),
@@ -816,12 +1041,41 @@ def _pct(values, q):
     return round(float(np.percentile(values, q)), 2) if len(values) else None
 
 
+def manhattan_samples(priors, n=MANHATTAN_SAMPLES):
+    """Return about n of the per-cycle ManhattanPrior.to_debug() records, evenly spread."""
+    if not priors:
+        return []
+    idx = np.unique(np.linspace(0, len(priors) - 1, max(1, int(n))).round().astype(int))
+    return [priors[i] for i in idx]
+
+
+def lifecycle_summary(rows, detector, priors):
+    """Return the JSON's counts and totals of a replay on the addendum's core."""
+    tracker = detector.tracker
+    by_class = collections.defaultdict(collections.Counter)
+    for row in rows:
+        by_class[row['cls']][row['code']] += 1
+    return {
+        'gap_classes': dict(collections.Counter(row['cls'] for row in rows).most_common()),
+        'codes_by_class': {c: dict(by_class[c].most_common()) for c in CLASS_ORDER
+                           if c in by_class},
+        'strong_visible': sum(1 for row in rows if row['cls'] == 'strong' and row['visible']),
+        'effects': dict(collections.Counter(row['effect'] for row in rows
+                                            if row['effect']).most_common()),
+        'lifecycle': {'confirmations': int(tracker.n_confirmed),
+                      'strikes': int(tracker.n_strikes),
+                      'deleted_by_strikes': int(tracker.n_deleted_by_strikes)},
+        'manhattan': {'samples': manhattan_samples(priors),
+                      'final': detector.manhattan.to_debug()}}
+
+
 def replay(bag, out_dir=None, walls='recorded', cadence='steps', every=4, frames=True,
-           params='stack', overrides=(), src=REPO, images='all'):
+           params='stack', overrides=(), src=REPO, images='all', summary_md_path=None):
     """Run the replay and write its outputs; return the summary (the JSON)."""
     clock = time.perf_counter()
     src = Path(src).resolve()
-    p = door_params(src, params, frames, overrides)
+    sources = {}
+    p = door_params(src, params, frames, overrides, sources)
     store = typestore(src)
     data, undecoded = read_bag(bag, store, TOPICS + (IMAGE_TOPICS if images != 'none' else ()),
                                first_only=(IMAGE_TOPICS[1],))
@@ -839,17 +1093,19 @@ def replay(bag, out_dir=None, walls='recorded', cadence='steps', every=4, frames
         retrack = Retracker(tp, ep, node, lpose)
     detector = Detector(p)
     tracker = detector.tracker
+    new = detector.new
     out = Path(out_dir) if out_dir else default_out(bag, src, walls, cadence_run, frames)
     out.mkdir(parents=True, exist_ok=True)
 
-    life, kills, rows, cycle_rows = {}, [], [], []
+    life, kills, rows, cycle_rows, priors = {}, [], [], [], []
     codes = collections.Counter()
     acc, piece_xy, wall_xy, door_ms, walls_ms = [], [], [], [], []
     no_pose = 0
     t0 = stamp(data['/scan'][0])
     sink = []
     loop = time.perf_counter()
-    with capture(sink):
+    # The addendum's core returns every record itself: nothing to wrap.
+    with (contextlib.nullcontext(sink) if new else capture(sink)):
         for k, (msg, wmsg) in enumerate(plan):
             t = stamp(msg)
             car = poses.at(t)
@@ -867,26 +1123,41 @@ def replay(bag, out_dir=None, walls='recorded', cadence='steps', every=4, frames
             del sink[:]
             kill0 = getattr(tracker, 'n_pane_kills', 0)
             tic = time.perf_counter()
-            pieces, _cands, doors, rejects = detector.cycle(tracks, car, scan, t)
+            pieces, cands, doors, rejects = detector.cycle(tracks, car, scan, t)
             door_ms.append((time.perf_counter() - tic) * 1e3)
-            codes.update(code for code, _ids, _w in rejects)
-            new_kills = getattr(tracker, 'n_pane_kills', 0) - kill0
-            for pane in (tracker.panes[-new_kills:] if new_kills else []):
-                kills.append({'id': int(pane.id), 't': round(t - t0, 2)})
-                _life_update(life, pane, t - t0, t, car, seen=False)['pane_killed'] = True
-            for door in doors:
-                _life_update(life, door, t - t0, t, car)
-            new_rows = candidate_rows(sink, k, t - t0, t, car, lpose[:2], tracker, doors)
+            prior = {}
+            if new:
+                new_rows = candidate_rows_new(cands, k, t - t0, t, car, lpose[:2], detector,
+                                              doors)
+                fold_life_new(life, detector, doors, t - t0, t, car)
+                codes.update(row['code'] for row in new_rows if row['code'])
+                eligible = [trk for trk in tracks if dd.is_host(trk)]
+                prior = {'t': round(t - t0, 2), **detector.manhattan.to_debug()}
+                priors.append(prior)
+            else:
+                codes.update(code for code, _ids, _w in rejects)
+                new_kills = getattr(tracker, 'n_pane_kills', 0) - kill0
+                for pane in (tracker.panes[-new_kills:] if new_kills else []):
+                    kills.append({'id': int(pane.id), 't': round(t - t0, 2)})
+                    _life_update(life, pane, t - t0, t, car, seen=False)['pane_killed'] = True
+                for door in doors:
+                    _life_update(life, door, t - t0, t, car)
+                new_rows = candidate_rows(sink, k, t - t0, t, car, lpose[:2], tracker, doors)
+                eligible = [trk for trk in tracks if dd.eligible(trk)]
             rows += new_rows
-            eligible = [trk for trk in tracks if dd.eligible(trk)]
+            dominant = prior.get('dominant_deg')
             cycle_rows.append({
                 'cycle': k, 't': round(t - t0, 3), 'stamp': round(t, 6), 'walls': len(tracks),
-                'eligible': len(eligible), 'pieces': len(pieces), 'gaps': len(new_rows),
-                'accepted': sum(1 for row in new_rows if row['code'] == 'accepted'),
+                'eligible': len(eligible), 'pieces': '' if new else len(pieces),
+                'gaps': len(new_rows),
+                'accepted': sum(1 for row in new_rows
+                                if row['code'] == ('' if new else 'accepted')),
                 'doors': len(doors),
                 'confirmed': sum(1 for d in doors if d.state == dd.STATE_CONFIRMED),
                 **(retrack.counts if retrack is not None else dict.fromkeys(RETRACK_COUNTS, '')),
-                'walls_ms': round(walls_ms[-1], 2), 'door_ms': round(door_ms[-1], 2)})
+                'walls_ms': round(walls_ms[-1], 2), 'door_ms': round(door_ms[-1], 2),
+                'manhattan_deg': '' if dominant is None else dominant,
+                'strikes': len(detector.struck) if new else ''})
             ok = np.isfinite(r)
             pts = np.column_stack([lpose[0] + r[ok] * np.cos(b[ok]),
                                    lpose[1] + r[ok] * np.sin(b[ok])])
@@ -900,10 +1171,12 @@ def replay(bag, out_dir=None, walls='recorded', cadence='steps', every=4, frames
     n_cycles = len(cycle_rows)
     summary = {
         'bag': name, 'src': str(src), 'src_commit': checkout_commit(src),
+        'api': 'new' if new else 'old',
         'walls': walls, 'wall_rule': wall_record, 'cadence': cadence_run, 'every': every,
         'cycles': n_cycles, 'cycles_no_pose': no_pose, 'scans_missing_for_steps': missing,
         'undecoded_topics': undecoded, 'params': params, 'overrides': list(overrides),
-        'door_params': _rounded(p), 'frame_jambs': detector.frames,
+        'door_params': _rounded(p), 'door_params_source': sources,
+        'frame_jambs': detector.frames,
         'tracker_params': _rounded(retrack.trk.p) if retrack is not None else None,
         'door_tracks': len(tracks), 'confirmed_doors': len(confirmed),
         'confirmed_ids': [int(k) for k in confirmed],
@@ -924,15 +1197,16 @@ def replay(bag, out_dir=None, walls='recorded', cadence='steps', every=4, frames
                              if retrack is not None else None),
         'ms_linus': {'walls_p50': _pct(walls_ms, 50), 'walls_p95': _pct(walls_ms, 95),
                      'door_p50': _pct(door_ms, 50), 'door_p95': _pct(door_ms, 95)},
+        **(lifecycle_summary(rows, detector, priors) if new else {}),
         'out': str(out),
         'tracks': tracks,
     }
     tag = f'{name}.doors{"" if frames else "_noframes"}'
-    write_csv(out / f'{tag}.candidates.csv', CSV_FIELDS, rows)
+    write_csv(out / f'{tag}.candidates.csv', CSV_FIELDS_NEW if new else CSV_FIELDS, rows)
     write_csv(out / f'{tag}.cycles.csv', CYCLE_FIELDS, cycle_rows)
     draw(out / f'{tag}.png', acc, piece_xy, wall_xy, tracks, getattr(tracker, 'panes', []),
          data['/odometry/filtered'], f'{name}: {summary["src_commit"] or src.name}, '
-         f'walls {walls}, cadence {cadence_run}')
+         f'walls {walls}, cadence {cadence_run}', new)
     n_images = 0
     if images != 'none' and data.get(IMAGE_TOPICS[0]):
         for k, v in tracks.items():
@@ -943,7 +1217,90 @@ def replay(bag, out_dir=None, walls='recorded', cadence='steps', every=4, frames
     summary['seconds'] = {'read': round(read_s, 2), 'loop': round(loop_s, 2),
                           'total': round(time.perf_counter() - clock, 2)}
     (out / f'{tag}.json').write_text(json.dumps(summary, indent=1))
+    if summary_md_path:
+        Path(summary_md_path).expanduser().write_text(summary_md(rows, summary))
     return summary
+
+
+# ============================================================================
+# The markdown summary (--summary-md)
+# ============================================================================
+
+def _md_class(row, new):
+    """Return a row's code class: the record's own, or for an older core ok / '-'."""
+    if new:
+        return row['cls']
+    return 'ok' if row['code'] == 'accepted' else '-'
+
+
+def _md_beams(row, new):
+    """
+    Return a row's decided beams, or None where the detector never counted them.
+
+    The addendum's core: n_beams of an evaluated gap (n_required > 0; a
+    GEOMETRY record has none). An older core: a judged gap's beyond + none +
+    shallow beams -- its own n_open is 0 on most rejects -- and nothing for
+    a refused pair of tracks.
+    """
+    if new:
+        return int(row['n_beams']) if row['n_required'] else None
+    if row['stage'] != 'gap':
+        return None
+    return int(row['beyond']) + int(row['none']) + int(row['shallow'])
+
+
+def _median(values, digits):
+    values = [v for v in values if v is not None and v != '']
+    return f'{float(np.median(values)):.{digits}f}' if values else '-'
+
+
+def summary_md(rows, summary):
+    """Return the run's candidates by class and by code as markdown (--summary-md)."""
+    new = summary.get('api') == 'new'
+    groups = collections.defaultdict(list)
+    for row in rows:
+        groups[(_md_class(row, new), row['code'])].append(row)
+    total = max(len(rows), 1)
+    life = summary.get('lifecycle') or {}
+    lines = [
+        f"**{summary['bag']}** -- {summary['src_commit'] or Path(summary['src']).name} "
+        f"({'the addendum' if new else 'an older'} door core), walls {summary['walls']}, "
+        f"cadence {summary['cadence']}, params {summary['params']}"
+        + (f", --set {' '.join(summary['overrides'])}" if summary['overrides'] else ''),
+        '',
+        f"{summary['cycles']} cycles, {len(rows)} candidate rows; {summary['door_tracks']} "
+        f"door tracks, {summary['confirmed_doors']} confirmed"
+        + (f"; {life.get('strikes', 0)} strikes, {life.get('deleted_by_strikes', 0)} doors "
+           'deleted by strikes' if new else '')
+        + (f"; {summary['seconds']['total']:.1f} s wall-clock" if 'seconds' in summary else '')
+        + '.',
+        '',
+        '| class | rows | % | visible |',
+        '|---|---:|---:|---:|']
+    for cls in CLASS_ORDER:
+        mine = [row for (c, _code), rs in groups.items() if c == cls for row in rs]
+        if mine:
+            vis = sum(int(row['visible']) for row in mine) if new else '-'
+            lines.append(f'| {cls} | {len(mine)} | {100.0 * len(mine) / total:.1f} | {vis} |')
+    lines += ['', '| class | code | rows | % | visible | median width [m] | median beams '
+              '| detail |', '|---|---|---:|---:|---:|---:|---:|---|']
+    order = sorted(groups, key=lambda key: (CLASS_ORDER.index(key[0])
+                                            if key[0] in CLASS_ORDER else len(CLASS_ORDER),
+                                            -len(groups[key]), key[1]))
+    for cls, code in order:
+        mine = groups[(cls, code)]
+        vis = sum(int(row['visible']) for row in mine) if new else '-'
+        details = collections.Counter(row.get('detail', '') for row in mine)
+        detail = ', '.join(f'{d} {n}' for d, n in details.most_common() if d)
+        label = "`''` (door)" if new and code == '' else f'`{code}`'
+        lines.append(f'| {cls} | {label} | {len(mine)} | {100.0 * len(mine) / total:.1f} '
+                     f'| {vis} | {_median([row["width"] for row in mine], 3)} '
+                     f'| {_median([_md_beams(row, new) for row in mine], 0)} | {detail} |')
+    lines += ['', 'beams: decided beams across the gap -- '
+              + ('n_beams, over the evaluated gaps (GEOMETRY records have none).' if new else
+                 'beyond + none + shallow of a judged gap (an older core counts no n_open on '
+                 'most rejects); none for a refused pair of tracks.'), '']
+    return '\n'.join(lines)
 
 
 # ============================================================================
@@ -957,7 +1314,7 @@ def _pyplot():
     return plt
 
 
-def draw(path, acc, piece_xy, wall_xy, tracks, panes, odom, title):
+def draw(path, acc, piece_xy, wall_xy, tracks, panes, odom, title, new=False):
     """Draw the overview: accumulated scan, eligible walls, frame pieces, doors, panes."""
     plt = _pyplot()
     from matplotlib.collections import LineCollection
@@ -980,15 +1337,22 @@ def draw(path, acc, piece_xy, wall_xy, tracks, panes, odom, title):
         if not v['best']:
             continue
         j = np.array(v['best']['jambs'])
-        colour = '#10c040' if 'confirmed' in v['states'] else '#ff9020'
-        ax.plot(j[:, 0], j[:, 1], '-', color=colour, lw=3)
+        confirmed = 'confirmed' in v['states']
+        colour = '#10c040' if confirmed else '#ff9020'
+        alpha = 1.0 if confirmed or not new else 0.4       # the addendum: candidates faded
+        ax.plot(j[:, 0], j[:, 1], '-', color=colour, lw=3, alpha=alpha)
         ax.text(j[:, 0].mean() + 0.05, j[:, 1].mean() + 0.08, f'{k} {v["width"]:.2f}',
-                fontsize=8, color=colour)
+                fontsize=8, color=colour, alpha=alpha)
     ax.set_aspect('equal')
     ax.autoscale_view()
     ax.grid(True, alpha=0.3)
-    ax.set_title(f'{title} -- grey scan, dark eligible walls (every cycle), blue frame pieces, '
-                 'green confirmed / orange tentative doors (best sighting), cyan panes')
+    if new:
+        ax.set_title(f'{title} -- grey scan, dark host walls (every cycle), doors at their '
+                     'best sighting: green confirmed (solid), orange candidates (faded)')
+    else:
+        ax.set_title(f'{title} -- grey scan, dark eligible walls (every cycle), blue frame '
+                     'pieces, green confirmed / orange tentative doors (best sighting), cyan '
+                     'panes')
     fig.tight_layout()
     fig.savefig(path, dpi=60)
     plt.close(fig)
@@ -1083,11 +1447,33 @@ def save_small_png(fig, path, dpi):
     Image.open(buf).convert('RGB').quantize(colors=256).save(path, optimize=True)
 
 
+def door_style(track):
+    """
+    Return (camera colour, top-down colour, alpha, title) of door_<id>.png.
+
+    The addendum's core (a track with strikes): a door that was ever
+    confirmed is drawn solid green, a candidate faded orange, the title its
+    state, hits, viewpoints, width std and strikes. Older cores: as ever.
+    """
+    if 'strikes' not in track:
+        return 'lime', 'g', 1.0, (f'{"/".join(track["states"])}: square looks '
+                                  f'{track["square_looks"]}')
+    confirmed = 'confirmed' in track['states']
+    state = (f'confirmed at {track["first_confirmed"]:.1f} s' if confirmed else 'candidate')
+    deleted = ', deleted by strikes' if track.get('deleted_by_strikes') else ''
+    title = (f'{state}{deleted}: hits {track["hits"]}, viewpoints {track["n_viewpoints"]}, '
+             f'width std {track.get("width_std", 0.0):.3f} m, strikes {track["strikes"]}')
+    if confirmed:
+        return 'lime', 'g', 1.0, title
+    return 'orange', 'darkorange', 0.45, title
+
+
 def door_image(path, door_id, track, data, lpose, poses):
     """Write door_<id>.png: the debug frame(s) and a top-down of the door's best sighting."""
     plt = _pyplot()
     frames, best = data[IMAGE_TOPICS[0]], track['best']
     t = best['stamp']
+    colour, top_colour, alpha, state = door_style(track)
     infos = data.get(IMAGE_TOPICS[1]) or []
     cam = (camera_model(data['/tf_static'], infos[0], frames[0].header.frame_id)
            if infos else None)
@@ -1111,9 +1497,9 @@ def door_image(path, door_id, track, data, lpose, poses):
         if uv:
             (u0, v0), (u1, v1) = uv
             ax.fill([u0[0], u0[1], u1[1], u1[0]], [v0[0], v0[1], v1[1], v1[0]],
-                    color='lime', alpha=0.25, lw=0)
+                    color=colour, alpha=0.25 * alpha, lw=0)
             for u, v in uv:
-                ax.plot(u, v, '-', color='lime', lw=2)
+                ax.plot(u, v, '-', color=colour, lw=2, alpha=alpha)
         ax.set_xlim(0, img.shape[1])
         ax.set_ylim(img.shape[0], 0)
         note = ', jambs 0-2 m' if uv else (', door NOT in view' if cam else ', no camera_info')
@@ -1130,8 +1516,9 @@ def door_image(path, door_id, track, data, lpose, poses):
     pts = car.transform_points(np.column_stack([lpose[0] + r[ok] * np.cos(a[ok]),
                                                 lpose[1] + r[ok] * np.sin(a[ok])]))
     ax.scatter(pts[:, 0], pts[:, 1], s=1.5, c='#888888')
-    ax.plot(j[:, 0], j[:, 1], 'g-', lw=3)
-    ax.arrow(centre[0], centre[1], 0.4 * n[0], 0.4 * n[1], head_width=0.08, color='g')
+    ax.plot(j[:, 0], j[:, 1], '-', color=top_colour, lw=3, alpha=alpha)
+    ax.arrow(centre[0], centre[1], 0.4 * n[0], 0.4 * n[1], head_width=0.08, color=top_colour,
+             alpha=alpha)
     ax.plot(car.x, car.y, 'k^')
     ax.plot([car.x, car.x + 0.5 * math.cos(car.theta)],
             [car.y, car.y + 0.5 * math.sin(car.theta)], 'k-', lw=1)
@@ -1140,10 +1527,9 @@ def door_image(path, door_id, track, data, lpose, poses):
     ax.set_aspect('equal')
     ax.grid(alpha=0.3)
     ax.tick_params(labelsize=6)
-    ax.set_title(f'door {door_id} {"/".join(track["states"])}: w {best["width"]:.2f} m, '
-                 f'{best["n_beams"]} beams, parents {best["parents"]}\nleaf {best["leaf"]}, '
-                 f'square looks {track["square_looks"]}, t {best["t"]:.1f} s (top-down, odom)',
-                 fontsize=7)
+    ax.set_title(f'door {door_id} {state}\nbest: w {best["width"]:.2f} m, '
+                 f'{best["n_beams"]} beams, parents {best["parents"]}, leaf {best["leaf"]}, '
+                 f't {best["t"]:.1f} s (top-down, odom)', fontsize=7)
     fig.tight_layout()
     save_small_png(fig, path, dpi=80)
     plt.close(fig)
@@ -1163,6 +1549,8 @@ def main():
     ap.add_argument('--src', type=Path, default=REPO)
     ap.add_argument('--door-images', choices=('all', 'confirmed', 'none'), default='all')
     ap.add_argument('--out', type=Path, default=None)
+    ap.add_argument('--summary-md', type=Path, default=None, metavar='PATH',
+                    help='also write the candidates by class and code as markdown here')
     ap.add_argument('bag')
     args = ap.parse_args()
     src = args.src.expanduser().resolve()
@@ -1178,9 +1566,9 @@ def main():
                      'retrack-old / retrack-new')
     import_detector(src)
     s = replay(args.bag, args.out, args.walls, args.cadence, args.every, not args.no_frames,
-               args.params, args.set, src, args.door_images)
-    print(json.dumps({k: v for k, v in s.items()
-                      if k not in ('tracks', 'door_params', 'tracker_params')}, indent=1))
+               args.params, args.set, src, args.door_images, args.summary_md)
+    print(json.dumps({k: v for k, v in s.items() if k not in (
+        'tracks', 'door_params', 'door_params_source', 'tracker_params')}, indent=1))
 
 
 if __name__ == '__main__':
