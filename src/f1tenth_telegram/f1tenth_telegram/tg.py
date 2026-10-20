@@ -6,9 +6,11 @@ with edit_message_text after every action. /estop works without the panel.
 Updates are handled concurrently so 🛑 is never stuck behind a running
 killall; the controller still runs one other action at a time.
 
-Any other plain text is a command for the LLM planner (planner.py): asked
-for confirmation, sent, then the planner's answer is followed in one message
-that is edited as its output arrives.
+Any other plain text, or a voice message once transcribed (transcribe.py),
+is a command for the LLM planner, in two steps (flow.py): "Plan: «…»?" →
+the planner, plan-only, answers in one message edited as its output arrives
+→ the plan with [▶️ Start mission] → "🚗 The car will drive. Start?" →
+mission-load + mission-start. Never a start straight from a message.
 
 Imported only when the bot really talks to Telegram: --cli does not need
 the library.
@@ -22,7 +24,9 @@ import time
 from . import planner, view
 from .config import Config
 from .controller import Controller, summary_estop
-from .guard import allowed, Confirmations, is_stale
+from .flow import Flow
+from .guard import allowed, is_stale
+from .transcribe import Transcriber
 
 log = logging.getLogger('f1tenth_telegram')
 
@@ -54,16 +58,16 @@ def startup_line(cfg: Config) -> str:
             f'{len(cfg.allowed_user_ids)} whitelisted user(s)')
 
 
-def run_bot(cfg: Config, controller: Controller, token: str) -> None:
+def run_bot(cfg: Config, controller: Controller, token: str,
+            transcriber: Transcriber = None) -> None:
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
     from telegram.error import BadRequest
     from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
                               filters, MessageHandler)
 
     panels = {}          # chat id -> message id of the current panel
-    # Planner texts waiting for ✅ Send; they expire like any confirmation.
-    plan_confirms = Confirmations(cfg.max_command_age_s)
-    plan_busy = {'text': None}   # one planner command followed at a time
+    flow = Flow(controller.t, cfg)
+    transcriber = transcriber or Transcriber(cfg.transcription)
 
     def markup(rows):
         return InlineKeyboardMarkup(
@@ -85,6 +89,7 @@ def run_bot(cfg: Config, controller: Controller, token: str) -> None:
         panels[chat_id] = msg.message_id
 
     async def edit(bot, chat_id, message_id, text, rows=None, parse_mode=None):
+        """Edit a message; "not modified" is not an error."""
         try:
             await bot.edit_message_text(text, chat_id=chat_id, message_id=message_id,
                                         reply_markup=markup(rows) if rows else None,
@@ -135,8 +140,34 @@ def run_bot(cfg: Config, controller: Controller, token: str) -> None:
         if update.effective_chat.id in panels:
             await show(context.bot, update.effective_chat.id, panel)
 
+    async def propose(bot, chat_id, text, reply=None, message_id=None, prefix=''):
+        """Step 1: checks, then "Plan: «text»?" (a reply, or an edit of message_id)."""
+        r = await asyncio.to_thread(flow.propose, text)
+        rows = None
+        if r['kind'] == 'not_running':
+            panel = await asyncio.to_thread(controller.handle, 'status')
+            controller.note('📝 planner not running: tap ▶️ Planner, then send the command '
+                            'again')
+            await show(bot, chat_id, panel, new=True)
+            body = '📝 The planner is not running: see the panel.'
+        elif r['kind'] == 'ask':
+            body = f'Plan: «{r["text"]}»?'
+            rows = [[view.Button('🧭 Plan', f'pl:go:{r["nonce"]}'),
+                     view.Button('❌ Cancel', f'pl:no:{r["nonce"]}')]]
+        elif r['kind'] == 'invalid':
+            body = f'❌ Not a planner command: {r["why"]}.'
+        elif r['kind'] == 'refused':
+            body = f'⏳ Not planned: {r["why"]}.'
+        else:
+            body = f'❌ Cannot reach the planner: {r.get("why")}'
+        body = prefix + body
+        if message_id is not None:
+            await edit(bot, chat_id, message_id, body, rows)
+        elif reply is not None:
+            await reply(body, reply_markup=markup(rows) if rows else None)
+
     async def on_text(update, context):
-        """Treat a plain text message as a planner command, after a confirmation."""
+        """Treat a plain text message as a planner command (two steps)."""
         if not permitted(update):
             return
         msg = update.effective_message
@@ -144,72 +175,139 @@ def run_bot(cfg: Config, controller: Controller, token: str) -> None:
             await msg.reply_text(f'Dropped: older than {cfg.max_command_age_s:g} s. '
                                  'Send it again.')
             return
-        text, why = planner.validate(msg.text)
-        if why:
-            await msg.reply_text(f'❌ Not sent to the planner: {why}.')
-            return
-        res = await asyncio.to_thread(controller.t.ctl, ['planner-log'], cfg.timeout('status'))
-        if res.get('transport_error') or not res.get('ok'):
-            await msg.reply_text(f'❌ Cannot reach the planner: {res.get("error")}')
-            return
-        if not res.get('running'):
-            # A fresh panel, with ▶️ Planner on it once connected.
-            panel = await asyncio.to_thread(controller.handle, 'status')
-            controller.note('📝 planner not running: tap ▶️ Planner, then send the command '
-                            'again')
-            await show(context.bot, update.effective_chat.id, panel, new=True)
-            return
-        nonce = plan_confirms.ask(text)
-        await msg.reply_text(
-            f'Send to planner: «{text}»?',
-            reply_markup=markup([[view.Button('✅ Send', f'plan:send:{nonce}'),
-                                  view.Button('❌ Cancel', f'plan:cancel:{nonce}')]]))
+        await propose(context.bot, update.effective_chat.id, msg.text, reply=msg.reply_text)
 
-    async def on_plan_button(update, context):
-        """Handle ✅ Send / ❌ Cancel under a planner command, then follow the answer."""
-        q = update.callback_query
-        _, verb, nonce = (q.data.split(':', 2) + ['', ''])[:3]
-        chat_id, mid = q.message.chat_id, q.message.message_id
-        if verb != 'send':
-            plan_confirms.cancel(nonce)
-            await q.answer('Cancelled')
-            await edit(context.bot, chat_id, mid, '❌ Not sent to the planner.')
+    async def on_voice(update, context):
+        """Transcribe a voice note or an audio file, then the same two steps."""
+        if not permitted(update):
             return
-        text, why = plan_confirms.take(nonce)
-        if text is None:
-            await q.answer()
-            await edit(context.bot, chat_id, mid, f'⌛ Not sent: {why}.')
+        msg = update.effective_message
+        if not fresh(update):
+            await msg.reply_text(f'Dropped: older than {cfg.max_command_age_s:g} s. '
+                                 'Send it again.')
             return
-        if plan_busy['text'] is not None:
-            await q.answer()
-            await edit(context.bot, chat_id, mid, '⏳ Not sent: the planner is still answering '
-                       f'«{plan_busy["text"]}». Send it again afterwards.')
+        audio = msg.voice or msg.audio
+        why = transcriber.unavailable_message() or transcriber.too_long(
+            getattr(audio, 'duration', None))
+        if why:
+            await msg.reply_text(f'🎙 {why}.')
             return
-        await q.answer('Sending…')
-        plan_busy['text'] = text
+        status = await msg.reply_text('🎙 transcribing…')
+        tg_file = await audio.get_file()
+        data = bytes(await tg_file.download_as_bytearray())
+        suffix = '.ogg' if msg.voice else ('.' + (audio.file_name or 'a.ogg').rsplit('.', 1)[-1])
+
+        def write(path):
+            with open(path, 'wb') as f:
+                f.write(data)
         try:
-            ex = planner.Exchange(text)
-            if await asyncio.to_thread(ex.send, controller.t, cfg.timeout('default')):
-                log.info('user %s: planner command %r', update.effective_user.id, text)
-            else:
-                log.warning('user %s: planner command %r NOT sent: %s',
-                            update.effective_user.id, text, ex.error)
+            res = await asyncio.to_thread(transcriber.transcribe_bytes, write, suffix)
+        except Exception as exc:  # noqa: BLE001 - a bad file must not reach the user raw
+            log.warning('user %s: transcription failed: %s', update.effective_user.id, exc)
+            await edit(context.bot, status.chat_id, status.message_id,
+                       '🎙 Could not transcribe it: type the command as text.')
+            return
+        finally:
+            data = None
+        log.info('user %s: voice %.1f s, transcribed in %.2f s: %r', update.effective_user.id,
+                 res['duration_s'], res['transcribe_s'], res['text'])
+        why = transcriber.too_long(res['duration_s'])
+        if why:
+            await edit(context.bot, status.chat_id, status.message_id, f'🎙 {why}.')
+            return
+        await propose(context.bot, status.chat_id, res['text'], message_id=status.message_id,
+                      prefix=f'🎙 «{res["text"]}»\n(wrong? type the command as text)\n\n')
+
+    async def on_plan_button(update, context, verb, nonce):
+        """Step 2: 🧭 Plan / ❌ Cancel. The planner answers in this same message."""
+        q = update.callback_query
+        chat_id, mid = q.message.chat_id, q.message.message_id
+        if verb != 'go':
+            flow.cancel_plan(nonce)
+            await q.answer('Cancelled')
+            await edit(context.bot, chat_id, mid, '❌ Not planned.')
+            return
+        await q.answer('Planning…')
+        ex, why = await asyncio.to_thread(flow.begin_plan, nonce)
+        if ex is None:
+            await edit(context.bot, chat_id, mid, f'⌛ Not planned: {why}.')
+            return
+        log.info('user %s: planner command %r%s', update.effective_user.id, ex.text,
+                 '' if ex.error is None else f' NOT sent: {ex.error}')
+        offer = None
+        try:
             await edit(context.bot, chat_id, mid, ex.render(), parse_mode='HTML')
             while not ex.done:
                 await asyncio.sleep(planner.POLL_S)
                 await asyncio.to_thread(ex.poll, controller.t, cfg.timeout('status'))
-                # Every poll: the elapsed time on the message moves too.
                 await edit(context.bot, chat_id, mid, ex.render(), parse_mode='HTML')
         finally:
-            plan_busy['text'] = None
+            offer = flow.finish_plan(ex)
+        if offer is None:
+            await edit(context.bot, chat_id, mid, planner.render_failure(ex), parse_mode='HTML')
+            return
+        log.info('user %s: plan %s for %r', update.effective_user.id, offer.id, offer.text)
+        await edit(context.bot, chat_id, mid, planner.render_offer(offer.text, offer.entry),
+                   [[view.Button('▶️ Start mission', f'ms:offer:{offer.token}'),
+                     view.Button('❌ Discard', f'ms:drop:{offer.token}')]], parse_mode='HTML')
+
+    async def on_mission_button(update, context, verb, arg):
+        """Handle steps 3 and 4: ▶️ Start → "🚗 … Start?" → load + start."""
+        q = update.callback_query
+        chat_id, mid = q.message.chat_id, q.message.message_id
+        if verb == 'drop':
+            flow.discard(arg)
+            await q.answer('Discarded')
+            await context.bot.edit_message_reply_markup(chat_id=chat_id, message_id=mid,
+                                                        reply_markup=None)
+            return
+        if verb == 'offer':
+            r = flow.offer_start(arg)
+            if r['kind'] != 'ask':
+                await q.answer(r['why'], show_alert=True)
+                if r['kind'] in ('expired', 'gone'):
+                    await context.bot.edit_message_reply_markup(
+                        chat_id=chat_id, message_id=mid, reply_markup=None)
+                return
+            await q.answer()
+            offer = r['offer']
+            sm = offer.entry['stored'].get('summary') or {}
+            await context.bot.send_message(
+                chat_id, f'🚗 The car will drive. Start?\n{offer.id}: «{offer.text}», '
+                f"{sm.get('n_moves')} move(s), max {planner._fmt_speed(sm.get('max_speed_mps'))}",
+                reply_markup=markup([[view.Button('✅ Yes, start', f'ms:go:{r["nonce"]}'),
+                                      view.Button('❌ No', f'ms:no:{r["nonce"]}')]]))
+            return
+        if verb == 'no':
+            flow.cancel_start(arg)
+            await q.answer('Not started')
+            await edit(context.bot, chat_id, mid, '❌ Not started.')
+            return
+        await q.answer('Starting…')
+        res = await asyncio.to_thread(flow.start, arg)
+        log.warning('user %s: mission start %s: %s', update.effective_user.id,
+                    res.get('id'), 'started' if res['ok'] else f'refused: {res["why"]}')
+        if res['ok']:
+            text = (f'🚗 Mission {res["id"]} started: it begins after the '
+                    f'{res.get("countdown_s") or 15:g} s countdown. 🛑 EMERGENCY is on '
+                    'the panel.')
+        else:
+            text = f'❌ Not started: {res["why"]}'
+        await edit(context.bot, chat_id, mid, text)
+        if res['ok']:
+            panel = await asyncio.to_thread(controller.handle, 'status')
+            await show(context.bot, chat_id, panel, new=chat_id not in panels)
 
     async def on_button(update, context):
         q = update.callback_query
         if not permitted(update):
             await q.answer()
             return
-        if (q.data or '').startswith('plan:'):
-            await on_plan_button(update, context)
+        prefix, _, rest = (q.data or '').partition(':')
+        if prefix in ('pl', 'ms'):
+            verb, _, arg = rest.partition(':')
+            handler = on_plan_button if prefix == 'pl' else on_mission_button
+            await handler(update, context, verb, arg)
             return
         chat_id = q.message.chat_id
         if panels.get(chat_id) != q.message.message_id:
@@ -242,6 +340,9 @@ def run_bot(cfg: Config, controller: Controller, token: str) -> None:
     app.add_handler(CommandHandler('estop', cmd_estop))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+    app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
+    # The speech model loads in the background: start-up is not blocked.
+    transcriber.start()
     if not cfg.allowed_user_ids:
         log.warning('allowed_user_ids is empty: every update is ignored, and logged '
                     'with its user id')

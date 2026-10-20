@@ -20,6 +20,10 @@ EnvironmentFile=%h/.config/f1tenth_telegram/env
 # The venv that has python-telegram-bot (README.md).
 Environment=PYTHON=%h/.local/share/f1tenth_telegram/venv/bin/python
 Environment=PYTHONUNBUFFERED=1
+# Voice on the GPU: cuBLAS and cuDNN come from the venv's nvidia-cublas-cu12 /
+# nvidia-cudnn-cu12 wheels (README.md, Voice commands). Without them the
+# speech model falls back to the CPU.
+Environment=LD_LIBRARY_PATH=%h/.local/share/f1tenth_telegram/venv/lib/python3.12/site-packages/nvidia/cublas/lib:%h/.local/share/f1tenth_telegram/venv/lib/python3.12/site-packages/nvidia/cudnn/lib
 ExecStart=%h/dev_ws/f1tenth_more_telegram/src/f1tenth_telegram/bin/f1tenth_telegram --config %h/dev_ws/f1tenth_more_telegram/src/f1tenth_telegram/config/telegram.yaml
 # Always: a crash, or an exit after the network went away, comes back. The
 # bot also retries getMe and polling itself (bootstrap_retries=-1).

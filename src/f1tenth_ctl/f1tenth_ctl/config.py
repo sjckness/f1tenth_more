@@ -135,6 +135,8 @@ class Settings:
     abort_service: str
     status_topic: str
     estop_reset_wait_s: float
+    mission_max_age_s: float
+    mission_countdown_s: float
 
     @property
     def log_dir(self) -> str:
@@ -225,6 +227,10 @@ def settings_from_env(env_file: str, env: Dict[str, str]) -> Settings:
         abort_service=env.get('F1T_MISSION_ABORT_SERVICE', '/mission/abort_mission'),
         status_topic=env.get('F1T_MISSION_STATUS_TOPIC', '/mission/status'),
         estop_reset_wait_s=_float(env, 'F1T_ESTOP_RESET_WAIT_S', 60.0),
+        # A stored plan older than this is not loaded or started: plan again.
+        mission_max_age_s=_float(env, 'F1T_MISSION_MAX_AGE_S', 300.0),
+        # f1tenth_behavior's mission_countdown_sec, for telling "starting" apart.
+        mission_countdown_s=_float(env, 'F1T_MISSION_COUNTDOWN_S', 15.0),
     )
 
 

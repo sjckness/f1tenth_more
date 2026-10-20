@@ -128,20 +128,54 @@ def test_startup_line_has_no_ids_and_no_token():
     assert '857433485' not in line
 
 
-def test_cli_say_asks_then_sends_and_follows(monkeypatch):
+def test_cli_say_plans_then_starts_in_two_steps(monkeypatch):
     from f1tenth_telegram import planner
     monkeypatch.setattr(planner, 'POLL_S', 0)
     fake = FakeTransport()
     fake.state['planner'] = 'running'
     out = io.StringIO()
     cli.run(Controller(config.from_dict({}), fake),
-            ['say:go ahead 2 meters', 'confirm', 'say:two\nlines', 'say:x', 'cancel'], out=out)
+            ['say:vai dritto per due metri', 'plan', 'start', 'yes'], out=out)
     text = out.getvalue()
-    assert 'Send to planner: «go ahead 2 meters»?' in text
-    assert fake.sent == ['go ahead 2 meters']
-    assert '🏁 planner answered' in text and '✅ result: ok' in text
-    assert '"mission_id": "llm_go_ahead_2m"' in text
-    assert 'one line only' in text and '❌ not sent to the planner' in text
+    assert 'Plan: «vai dritto per due metri»? [plan / cancel]' in text
+    assert fake.sent == ['vai dritto per due metri']
+    assert '🧭 Plan for «vai dritto per due metri»' in text and '[start / discard]' in text
+    assert '🚗 The car will drive. Start? [yes / no]' in text
+    assert '🚗 mission 20261020T153012-abc123 started: countdown 15 s' in text
+    starts = [c for c in fake.calls if c[0] in ('mission-load', 'mission-start')]
+    assert starts == [['mission-load', '20261020T153012-abc123'],
+                      ['mission-start', '--id', '20261020T153012-abc123']]
+
+
+def test_cli_no_start_without_the_second_yes(monkeypatch):
+    from f1tenth_telegram import planner
+    monkeypatch.setattr(planner, 'POLL_S', 0)
+    fake = FakeTransport()
+    fake.state['planner'] = 'running'
+    out = io.StringIO()
+    cli.run(Controller(config.from_dict({}), fake),
+            ['say:vai dritto', 'plan', 'start', 'no', 'say:gira', 'cancel',
+             'say:x' * 101], out=out)
+    assert not any(c[0] in ('mission-load', 'mission-start') for c in fake.calls)
+    assert '❌ not started' in out.getvalue() and '❌ not planned' in out.getvalue()
+    assert 'at most 500' in out.getvalue()
+
+
+def test_cli_voice_uses_the_same_flow(monkeypatch, tmp_path):
+    from f1tenth_telegram import planner, transcribe
+    from test_transcribe import FakeModel
+    monkeypatch.setattr(planner, 'POLL_S', 0)
+    monkeypatch.setattr(transcribe, '_load_model', lambda cfg: (FakeModel(), 'cpu', 'int8'))
+    audio = tmp_path / 'cmd.ogg'
+    audio.write_bytes(b'OggS')
+    fake = FakeTransport()
+    fake.state['planner'] = 'running'
+    out = io.StringIO()
+    cli.run(Controller(config.from_dict({}), fake), [f'voice:{audio}', 'plan'], out=out)
+    text = out.getvalue()
+    assert '🎙 «vai dritto per due metri» (2.2 s of audio' in text
+    assert fake.sent == ['vai dritto per due metri'] and '[start / discard]' in text
+    assert not any(c[0] == 'mission-start' for c in fake.calls)
 
 
 def test_cli_say_when_the_planner_is_not_running():
@@ -160,4 +194,21 @@ def test_command_button_only_explains():
     c.handle('connect')
     fake.calls.clear()
     panel = c.handle('help:command')
-    assert fake.calls == [] and 'Write the command as a plain message' in panel.last
+    assert fake.calls == [] and 'Write the command as a message' in panel.last
+    assert '🧭 Plan' in panel.last and '✅ Yes, start' in panel.last
+
+
+def test_estop_is_the_first_row_while_a_mission_runs():
+    st = status_answer(stack='running', ready=True)
+    p = Panel('Orin', reach={'online': True}, connected=True, status=st)
+    assert view.buttons(p)[-1][0].action == 'estop'
+    for state in ('starting', 'running'):
+        st['mission'] = {'state': state, 'id': '20261020T153012-abc123', 'elapsed_s': 12.0}
+        rows = view.buttons(p)
+        assert rows[0][0].action == 'estop' and len(rows[0]) == 1
+        assert f'mission 20261020T153012-abc123: {state}, 12 s' in view.render(p)[0]
+    st['mission'] = {'state': 'finished', 'id': 'x'}
+    assert view.buttons(p)[0][0].action != 'estop'
+    assert '🏁 mission x: finished' in view.render(p)[0]
+    st['mission'] = {'state': 'idle'}
+    assert view.mission_line(st['mission']) == ''

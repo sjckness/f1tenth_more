@@ -1,6 +1,8 @@
 """The panel state machine against a fake transport."""
 
+import json
 import threading
+import time
 
 from f1tenth_telegram import config, view
 from f1tenth_telegram.controller import Controller, summary_estop, summary_startstop
@@ -21,6 +23,11 @@ def status_answer(stack='stopped', planner='stopped', logger='stopped', ready=Fa
             'estop_latched': latched, 'processes': procs, 'checks': checks}
 
 
+MISSION = {'mission_id': 'llm_go_ahead_2m', 'schema_version': '5.0',
+           'moves': [{'id': 'straight_1', 'drive': {'mode': 'straight', 'speed': 0.5},
+                      'stop_condition': {'type': 'distance_reached', 'distance': 2.0},
+                      'timeout_sec': 30, 'on_timeout': 'abort', 'terminal': True}]}
+# A recorded --dry-run answer of llm_planner_node: its prints, then RESULT.
 PLANNER_ANSWER = [
     '[INFO] [1792500861.95] [llm_planner_node]: comando ricevuto',
     'missione generata in 3.10s (v2, 1 tentativo), 1 mosse',
@@ -32,8 +39,41 @@ PLANNER_ANSWER = [
     '}',
     '',
     'scritta in: /tmp/m.json',
-    'comando> RESULT {"status": "ok", "stage": "delivery", "attempts": 1}',
+    '[WARN] [1792500862.01] [llm_planner_node]: --dry-run: NON caricata sul sistema missioni',
+    'comando> RESULT ' + json.dumps({'status': 'ok', 'stage': 'delivery', 'attempts': 1,
+                                     'mission_id': 'llm_go_ahead_2m', 'plan_seconds': 3.1,
+                                     'unsupported': [], 'notes': [], 'mission': MISSION}),
 ]
+PLANNER_ERROR = [
+    'comando> RESULT ' + json.dumps({'status': 'refused', 'stage': 'llm',
+                                     'error_type': 'EmptyPlanError',
+                                     'error_message': 'ambiguous command'}),
+]
+
+
+def ctl_results(lines, clock=time.time):
+    """Return what f1tenth_ctl's planner-log adds for RESULT lines: the stored mission."""
+    out = []
+    for line in lines:
+        line = line.replace('comando> ', '')
+        if not line.startswith('RESULT '):
+            continue
+        res = json.loads(line[len('RESULT '):])
+        entry = {k: res.get(k) for k in ('status', 'error_type', 'error_message')}
+        if res.get('status') == 'ok' and res.get('mission'):
+            entry['stored'] = {
+                'id': '20261020T153012-abc123', 'stored_at': clock(),
+                'mission_id': res['mission_id'], 'plan_seconds': res.get('plan_seconds'),
+                'unsupported': res.get('unsupported') or [], 'notes': res.get('notes') or [],
+                'summary': {'mission_id': res['mission_id'], 'n_moves': 1,
+                            'max_speed_mps': 0.5, 'reverse': False, 'targets': [],
+                            'distance_m': 2.0, 'max_duration_s': 30.0,
+                            'moves': [{'i': 0, 'id': 'straight_1', 'action': 'straight',
+                                       'speed_mps': 0.5, 'until': 'distance_reached 2.0',
+                                       'timeout_s': 30.0, 'on_timeout': 'abort'}]}}
+            entry['mission'] = res['mission']
+        out.append(entry)
+    return out
 
 
 def estop_answer(zero_ok=True, late=False):
@@ -58,7 +98,11 @@ class FakeTransport:
         self.latched = False
         # The planner's log: what each planner-log --since returns, in turn.
         self.planner_batches = [PLANNER_ANSWER]
+        self.answer_next = PLANNER_ANSWER
         self.sent = []
+        self.mission = {'state': 'idle'}
+        self.plan_only = True
+        self.clock = time.time
 
     def reachability(self, timeout):
         return {'online': self.online, 'ssh': self.online,
@@ -72,13 +116,26 @@ class FakeTransport:
             return self.answers[args[0]]
         if args[0] == 'planner-log':
             running = self.state['planner'] == 'running'
+            plan_only = self.plan_only if running else None
             if '--since' not in args:
-                return {'ok': True, 'running': running, 'cursor': 100, 'lines': []}
+                return {'ok': True, 'running': running, 'plan_only': plan_only, 'cursor': 100,
+                        'lines': []}
             lines = self.planner_batches.pop(0) if self.planner_batches else []
-            return {'ok': True, 'running': running, 'lines': lines,
+            return {'ok': True, 'running': running, 'plan_only': plan_only, 'lines': lines,
+                    'results': ctl_results(lines, self.clock),
                     'cursor': int(args[args.index('--since') + 1]) + 10 * len(lines)}
+        if args[0] == 'mission-status':
+            return {'ok': True, **self.mission}
+        if args[0] == 'mission-load':
+            return {'ok': True, 'id': args[1], 'load': {'ok': True}}
+        if args[0] == 'mission-start':
+            self.mission = {'state': 'starting', 'id': args[2]}
+            return {'ok': True, 'id': args[2], 'countdown_s': 15.0}
         if args[0] == 'send':
             self.sent.append(args[2])
+            if not self.planner_batches:
+                # Every command gets an answer: the recorded one, or answer_next.
+                self.planner_batches = [self.answer_next]
             return {'ok': True, 'sent': args[2], 'cursor': 100}
         if args[0] == 'connect':
             return {'ok': True, 'discovery': {'address': '127.0.0.1:11811'}}

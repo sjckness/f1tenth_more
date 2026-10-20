@@ -7,18 +7,20 @@ action name (refresh, connect, start:stack, ...) or q. Scripted: each
 and `cancel` answer the open confirmation, `wait:S` pauses S seconds and
 `until-ready:S` repeats status until READY (at most S seconds).
 
-`say:<text>` (or `say <text>` interactively) is what a plain Telegram message
-is: a command for the planner. It asks first; `confirm` sends it and follows
-the planner's answer to its RESULT line, `cancel` drops it.
+`say:<text>` (or `say <text>`) is a plain Telegram message, `voice:<file>`
+a voice message (transcribed here). Then the same two steps as Telegram:
+`plan` (or `cancel`) shows the planned mission, `start` (or `discard`) asks
+"🚗 The car will drive. Start?", `yes` (or `no`) loads and starts it.
 """
 
+import os
 import sys
 import time
 from typing import Iterable, Optional
 
 from . import planner, view
 from .controller import Controller, Panel
-from .guard import Confirmations
+from .flow import Flow
 
 
 def show(panel: Panel, out=sys.stdout) -> list:
@@ -66,52 +68,137 @@ def _wait(controller: Controller, token: str, out) -> Optional[list]:
 
 
 class PlannerChat:
-    """The Telegram text flow for the terminal: ask, then send and follow."""
+    """
+    The Telegram planner flow in a terminal (flow.py), same steps and checks.
 
-    def __init__(self, controller: Controller, out, sleep=time.sleep):
+        say:<text> | voice:<file>   then  plan | cancel
+        (a plan)                    then  start | discard
+        🚗 The car will drive. Start?  then  yes | no
+    """
+
+    WORDS = ('plan', 'cancel', 'start', 'discard', 'yes', 'no')
+
+    def __init__(self, controller: Controller, out, sleep=time.sleep, transcriber=None):
         self.c = controller
         self.out = out
         self.sleep = sleep
-        self.confirms = Confirmations(controller.cfg.max_command_age_s, controller.clock)
-        self.nonce = None
+        self.flow = Flow(controller.t, controller.cfg, controller.clock)
+        self.transcriber = transcriber
+        self.ask_nonce = None
+        self.offer = None
+        self.start_nonce = None
 
     @staticmethod
     def wants(token: str) -> bool:
-        return token.startswith(('say:', 'say '))
+        return token.startswith(('say:', 'say ', 'voice:', 'voice '))
 
-    def ask(self, token: str) -> None:
-        text, why = planner.validate(token[4:])
-        if why:
-            self.out.write(f'  ❌ not sent to the planner: {why}\n')
+    def pending(self, token: str) -> bool:
+        word = token.strip()
+        return word in self.WORDS and bool(
+            {'plan': self.ask_nonce, 'cancel': self.ask_nonce, 'start': self.offer,
+             'discard': self.offer, 'yes': self.start_nonce, 'no': self.start_nonce}[word])
+
+    def handle(self, token: str) -> None:
+        if token.startswith(('voice:', 'voice ')):
+            text = self._transcribe(token[6:].strip())
+            if text is None:
+                return
+        elif self.wants(token):
+            text = token[4:]
+        else:
+            {'plan': self.plan, 'cancel': self.cancel, 'start': self.ask_start,
+             'discard': self.discard, 'yes': self.start, 'no': self.no}[token.strip()]()
             return
-        res = self.c.t.ctl(['planner-log'], self.c.cfg.timeout('status'))
-        if res.get('transport_error') or not res.get('ok'):
-            self.out.write(f'  ❌ cannot reach the planner: {res.get("error")}\n')
-            return
-        if not res.get('running'):
+        r = self.flow.propose(text)
+        if r['kind'] == 'ask':
+            self.ask_nonce = r['nonce']
+            self.out.write(f'  Plan: «{r["text"]}»? [plan / cancel]\n')
+        elif r['kind'] == 'not_running':
             panel = self.c.handle('status')
             self.c.note('📝 planner not running: tap ▶️ Planner, then send the command again')
             show(panel, self.out)
-            return
-        self.nonce = self.confirms.ask(text)
-        self.out.write(f'  Send to planner: «{text}»? [confirm / cancel]\n')
+        else:
+            self.out.write(f'  ❌ not planned: {r.get("why")}\n')
 
-    def answer(self, yes: bool) -> None:
-        nonce, self.nonce = self.nonce, None
-        if not yes:
-            self.confirms.cancel(nonce)
-            self.out.write('  ❌ not sent to the planner\n')
+    def _transcribe(self, path: str):
+        if self.transcriber is None:
+            from .transcribe import Transcriber
+            self.transcriber = Transcriber(self.c.cfg.transcription)
+            self.transcriber.start(background=False)
+        why = self.transcriber.unavailable_message()
+        if why:
+            self.out.write(f'  🎙 {why}\n')
+            return None
+        try:
+            with open(path, 'rb') as f:
+                data = f.read()
+        except OSError as exc:
+            self.out.write(f'  🎙 cannot read {path}: {exc.strerror}\n')
+            return None
+
+        def write(p):
+            with open(p, 'wb') as f:
+                f.write(data)
+        res = self.transcriber.transcribe_bytes(write, os.path.splitext(path)[1] or '.ogg')
+        why = self.transcriber.too_long(res['duration_s'])
+        if why:
+            self.out.write(f'  🎙 {why}\n')
+            return None
+        self.out.write(f"  🎙 «{res['text']}» ({res['duration_s']} s of audio, "
+                       f"transcribed in {res['transcribe_s']} s; wrong? type it)\n")
+        return res['text']
+
+    def cancel(self) -> None:
+        self.flow.cancel_plan(self.ask_nonce)
+        self.ask_nonce = None
+        self.out.write('  ❌ not planned\n')
+
+    def plan(self) -> None:
+        nonce, self.ask_nonce = self.ask_nonce, None
+        ex, why = self.flow.begin_plan(nonce)
+        if ex is None:
+            self.out.write(f'  ⌛ not planned: {why}\n')
             return
-        text, why = self.confirms.take(nonce)
-        if text is None:
-            self.out.write(f'  ⌛ not sent: {why}\n')
-            return
-        ex = planner.Exchange(text)
-        if ex.send(self.c.t, self.c.cfg.timeout('default')):
+        try:
             while not ex.done:
                 self.sleep(planner.POLL_S)
                 ex.poll(self.c.t, self.c.cfg.timeout('status'))
-        self.out.write(ex.render(as_html=False) + '\n')
+        finally:
+            self.offer = self.flow.finish_plan(ex)
+        if self.offer is None:
+            self.out.write(planner.render_failure(ex, as_html=False) + '\n')
+            return
+        self.out.write(planner.render_offer(self.offer.text, self.offer.entry, as_html=False)
+                       + '\n  [start / discard]\n')
+
+    def discard(self) -> None:
+        self.flow.discard(self.offer.token)
+        self.offer = None
+        self.out.write('  ❌ plan discarded\n')
+
+    def ask_start(self) -> None:
+        r = self.flow.offer_start(self.offer.token)
+        if r['kind'] != 'ask':
+            self.offer = None
+            self.out.write(f'  ❌ {r["why"]}\n')
+            return
+        self.start_nonce = r['nonce']
+        self.out.write('  🚗 The car will drive. Start? [yes / no]\n')
+
+    def no(self) -> None:
+        self.flow.cancel_start(self.start_nonce)
+        self.start_nonce = None
+        self.out.write('  ❌ not started\n')
+
+    def start(self) -> None:
+        nonce, self.start_nonce = self.start_nonce, None
+        res = self.flow.start(nonce)
+        if res['ok']:
+            self.offer = None
+            self.out.write(f'  🚗 mission {res["id"]} started: countdown '
+                           f'{res.get("countdown_s") or 15:g} s\n')
+        else:
+            self.out.write(f'  ❌ not started: {res["why"]}\n')
 
 
 def run(controller: Controller, actions: Optional[Iterable[str]] = None,
@@ -123,13 +210,9 @@ def run(controller: Controller, actions: Optional[Iterable[str]] = None,
             if token.startswith(('wait:', 'until-ready:')):
                 flat = _wait(controller, token, out) or flat
                 continue
-            if PlannerChat.wants(token):
+            if PlannerChat.wants(token) or chat.pending(token):
                 out.write(f'> {token}\n')
-                chat.ask(token)
-                continue
-            if chat.nonce and token in ('confirm', 'yes', 'y', 'cancel', 'no', 'n'):
-                out.write(f'> {token}\n')
-                chat.answer(token in ('confirm', 'yes', 'y'))
+                chat.handle(token)
                 continue
             action = resolve(token, controller.panel, flat)
             out.write(f'> {token}' + (f'  ({action})' if action != token else '') + '\n')
@@ -147,11 +230,8 @@ def run(controller: Controller, actions: Optional[Iterable[str]] = None,
             return 0
         if token.strip() in ('q', 'quit', 'exit'):
             return 0
-        if PlannerChat.wants(token):
-            chat.ask(token)
-            continue
-        if chat.nonce and token.strip() in ('confirm', 'yes', 'y', 'cancel', 'no', 'n'):
-            chat.answer(token.strip() in ('confirm', 'yes', 'y'))
+        if PlannerChat.wants(token) or chat.pending(token):
+            chat.handle(token)
             continue
         action = resolve(token, controller.panel, flat)
         if action is None:

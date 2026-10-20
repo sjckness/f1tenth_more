@@ -42,3 +42,17 @@ telegram:
   force_ipv4: true
   # Connect, read, write and pool timeout of every Bot API request, seconds.
   timeout_s: 20
+
+# Voice messages: transcribed here on linus (faster-whisper), then the same
+# two steps as a typed command. The audio is deleted right after.
+transcription:
+  enabled: true
+  # medium: the 2026-10-20 Italian check had small get the verb wrong in 2 of
+  # 3 test commands ("vai dritto" -> "ma hai detto"), medium in 1. small uses
+  # ~0.7 GB VRAM / 0.8 GB RAM, medium ~2 GB / 2 GB (README.md).
+  model: medium
+  # auto: CUDA float16 if it works (needs the venv's nvidia-* wheels), else CPU int8.
+  device: auto
+  # A Whisper language code, or auto.
+  language: it
+  max_duration_s: 60

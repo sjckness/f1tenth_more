@@ -2,4 +2,15 @@
 # Runs f1tenth_telegram straight from this checkout (no build, no ROS).
 # PYTHON may name the venv that has python-telegram-bot (README.md).
 here="$(cd "$(dirname "$0")/.." && pwd)"
-PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec "${PYTHON:-python3}" -m f1tenth_telegram "$@"
+py="${PYTHON:-python3}"
+# Voice on CUDA: faster-whisper loads cuBLAS/cuDNN from the venv's nvidia-*
+# wheels, found only through LD_LIBRARY_PATH (the systemd unit sets the same).
+nv="$("$py" -c 'import importlib.util as u; s = u.find_spec("nvidia.cublas"); print(s.submodule_search_locations[0].rsplit("/", 1)[0] if s else "")' 2>/dev/null)"
+if [ -n "$nv" ]; then
+  case ":$LD_LIBRARY_PATH:" in
+    *":$nv/cublas/lib:"*) ;;
+    *) LD_LIBRARY_PATH="$nv/cublas/lib:$nv/cudnn/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+       export LD_LIBRARY_PATH ;;
+  esac
+fi
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec "$py" -m f1tenth_telegram "$@"

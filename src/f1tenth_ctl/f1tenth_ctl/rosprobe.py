@@ -22,6 +22,8 @@ estop_reset: clears the latch (see estop_reset() for the sequence) and
          checks on /mission/status that it is clear.
 estop_wait: waits until /mission/status says the latch is clear (after a
          full stack restart, which the CLI does itself).
+mission: validate / load / start / status of a stored mission (missions.py)
+         through the mission loader's own services and its validator.
 """
 
 from collections import deque
@@ -146,6 +148,7 @@ class Meter:
                 got = self.latest.get(name)
                 out[name] = ({'received': False} if got is None else
                              {'received': True, 'state': got[1].state,
+                              'json_path': got[1].json_path,
                               'emergency_stop_active': bool(got[1].emergency_stop_active)})
             elif kind == 'battery':
                 got = self.latest.get(name)
@@ -456,7 +459,8 @@ def _status_sub(node, spec, store):
     from rosidl_runtime_py.utilities import get_message
 
     def cb(msg):
-        store.append((time.monotonic(), bool(msg.emergency_stop_active), msg.state))
+        store.append((time.monotonic(), bool(msg.emergency_stop_active), msg.state,
+                      msg.json_path))
     node.create_subscription(get_message(spec.get('status_type',
                                                   'f1tenth_messages/msg/MissionStatus')),
                              spec.get('status_topic', '/mission/status'), cb,
@@ -629,6 +633,120 @@ def estop_wait(spec: dict) -> dict:
     return out
 
 
+def validate_mission_file(path: str) -> dict:
+    """Validate with the stack's own parser, the one /mission/load_mission uses."""
+    try:
+        from f1tenth_behavior.mission.mission_config import load_mission_file
+    except ImportError as exc:
+        return step_record('failed', f'validator unavailable: {exc}', 0.0)
+    t0 = time.monotonic()
+    try:
+        cfg = load_mission_file(path)
+    except Exception as exc:  # noqa: BLE001 - MissionConfigError, OSError, ValueError, ...
+        return step_record('failed', f'invalid mission: {type(exc).__name__}: {exc}',
+                           time.monotonic() - t0)
+    return step_record('ok', f'valid: {cfg.mission_id}, {len(cfg.moves)} move(s)',
+                       time.monotonic() - t0)
+
+
+def mission(spec: dict) -> dict:
+    """
+    One mission operation: validate | load | start | status.
+
+    load refuses an invalid file, a RUNNING/HOLDING mission (the loader would
+    replace it mid-run) and a start that is counting down. start refuses a
+    latched e-stop, a running mission, nothing loaded, or a loaded mission
+    other than the expected file. Each answer carries the mission status
+    as read before the operation.
+    """
+    op = spec.get('op')
+    if op == 'validate':
+        return {'validate': validate_mission_file(spec['path'])}
+
+    import rclpy
+    from rclpy.executors import SingleThreadedExecutor
+    from rosidl_runtime_py.utilities import get_service
+    from std_srvs.srv import Trigger
+
+    rclpy.init()
+    node = _node('f1tenth_ctl_mission', spec.get('use_sim_time', False))
+    ex = SingleThreadedExecutor()
+    ex.add_node(node)
+    statuses = []
+    _status_sub(node, spec, statuses)
+    load_type = get_service('f1tenth_messages/srv/LoadMission')
+    load_cli = node.create_client(load_type, spec.get('load_service', '/mission/load_mission'))
+    start_cli = node.create_client(Trigger, spec.get('start_service', '/mission/start_mission'))
+    end = time.monotonic() + float(spec.get('discover_s', 3.0))
+    while time.monotonic() < end:
+        ex.spin_once(timeout_sec=0.02)
+        ready = {'load': load_cli, 'start': start_cli}.get(op)
+        if statuses and (ready is None or ready.service_is_ready()):
+            break
+    out = {}
+    if statuses:
+        _, latched, state, json_path = statuses[-1]
+        out.update(ros_state=state, json_path=json_path, emergency_stop_active=latched)
+    if op == 'status':
+        out['ok'] = bool(statuses)
+        if not statuses:
+            out['error'] = 'no /mission/status: is behavior running?'
+        _close(ex, node)
+        return out
+
+    def refuse(why):
+        out.update(ok=False, error=why)
+        _close(ex, node)
+        return out
+
+    if not statuses:
+        return refuse('no /mission/status: is behavior running?')
+    state = out['ros_state']
+    if state in ('RUNNING', 'HOLDING'):
+        return refuse(f'another mission is running ({state})')
+    if op == 'load':
+        out['validate'] = validate_mission_file(spec['path'])
+        if not out['validate']['ok']:
+            return refuse(out['validate']['message'])
+        if spec.get('counting_down'):
+            return refuse('a mission start is counting down')
+        if not load_cli.service_is_ready():
+            return refuse('/mission/load_mission not available')
+        req = load_type.Request()
+        req.path = spec['path']
+        out['load'] = _call(ex, load_cli, req, 5.0)
+        target = spec['path']
+    elif op == 'start':
+        if out['emergency_stop_active']:
+            return refuse('the e-stop is latched')
+        if state != 'LOADED':
+            return refuse(f'nothing loaded (mission state {state})')
+        if spec.get('path') and out['json_path'] != spec['path']:
+            return refuse(f"the loaded mission is not this one ({out['json_path']})")
+        if not start_cli.service_is_ready():
+            return refuse('/mission/start_mission not available')
+        out['start'] = _call(ex, start_cli, Trigger.Request(), 5.0)
+        target = None
+    else:
+        return refuse(f'unknown op {op!r}')
+    step = out.get('load') or out.get('start')
+    out['ok'] = bool(step and step['ok'])
+    if not out['ok']:
+        out['error'] = step['message'] if step else 'failed'
+    # The status as published after the call (a load answers with the new path).
+    t_after = time.monotonic()
+    end = t_after + 2.0
+    while time.monotonic() < end:
+        ex.spin_once(timeout_sec=0.02)
+        if statuses[-1][0] >= t_after - 0.5 and (target is None or statuses[-1][3] == target):
+            break
+    _, latched, state, json_path = statuses[-1]
+    out['after'] = {'ros_state': state, 'json_path': json_path,
+                    'emergency_stop_active': latched}
+    _close(ex, node)
+    return out
+
+
 def _close(ex, node):
     ex.remove_node(node)
     node.destroy_node()
@@ -638,7 +756,7 @@ def _close(ex, node):
 def main(argv=None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     modes = {'probe': probe, 'estop': estop, 'estop_reset': estop_reset,
-             'estop_wait': estop_wait}
+             'estop_wait': estop_wait, 'mission': mission}
     if not argv or argv[0] not in tuple(modes) + ('monitor',):
         print('usage: F1T_PROBE_SPEC=<json> python3 -m f1tenth_ctl.rosprobe '
               + '|'.join(tuple(modes) + ('monitor',)), file=sys.stderr)

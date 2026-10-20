@@ -18,6 +18,7 @@ SOURCE_ROOT = os.path.dirname(PACKAGE_DIR)
 DEFAULT_TIMEOUTS = {
     'default': 20.0, 'reach': 8.0, 'status': 12.0, 'connect': 25.0, 'start': 30.0,
     'stop': 30.0, 'killall': 75.0, 'estop': 15.0, 'estop_reset': 240.0,
+    'mission': 40.0,
 }
 
 
@@ -42,6 +43,17 @@ class Target:
 
 
 @dataclass
+class Transcription:
+    """Voice messages, transcribed on linus with faster-whisper (transcribe.py)."""
+
+    enabled: bool = True
+    model: str = 'medium'
+    device: str = 'auto'          # auto (CUDA float16, else CPU int8) | cuda | cpu
+    language: str = 'it'          # a Whisper language code, or auto
+    max_duration_s: float = 60.0
+
+
+@dataclass
 class Config:
     target: Target
     timeouts: Dict[str, float]
@@ -53,6 +65,7 @@ class Config:
     # read, write and pool.
     force_ipv4: bool = True
     timeout_s: float = 20.0
+    transcription: Transcription = field(default_factory=Transcription)
 
     def timeout(self, cmd: str) -> float:
         return float(self.timeouts.get(cmd, self.timeouts['default']))
@@ -94,7 +107,28 @@ def from_dict(data: dict) -> Config:
     return Config(target=target, timeouts=timeouts, allowed_user_ids=ids,
                   max_command_age_s=float(tg.get('max_command_age_s', 10.0)),
                   token_env_file=tg.get('token_env_file', '~/.config/f1tenth_telegram/env'),
-                  force_ipv4=force_ipv4, timeout_s=timeout_s)
+                  force_ipv4=force_ipv4, timeout_s=timeout_s,
+                  transcription=_transcription(data.get('transcription') or {}))
+
+
+def _transcription(raw: dict) -> Transcription:
+    unknown = set(raw) - set(Transcription.__dataclass_fields__)
+    if unknown:
+        raise ConfigError(f'transcription: unknown keys {sorted(unknown)}')
+    t = Transcription(**raw)
+    if not isinstance(t.enabled, bool):
+        raise ConfigError('transcription.enabled must be true or false')
+    if t.device not in ('auto', 'cuda', 'cpu'):
+        raise ConfigError('transcription.device must be auto, cuda or cpu')
+    try:
+        t.max_duration_s = float(t.max_duration_s)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError('transcription.max_duration_s must be a number') from exc
+    if t.max_duration_s <= 0:
+        raise ConfigError('transcription.max_duration_s must be > 0')
+    t.language = str(t.language or 'auto')
+    t.model = str(t.model)
+    return t
 
 
 def load(path: Optional[str] = None) -> Config:

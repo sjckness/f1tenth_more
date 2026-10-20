@@ -427,3 +427,78 @@ What changed. **None of it ran against the sim or the car.**
 on linus; the parsing follows `llm_planner_node.py`'s prints, `JSON (…):` and
 `RESULT {…}`.
 
+## 10. Round 5: two-step planner commands and voice (2026-10-20, NOT sim-tested)
+
+**Recon.**
+- `llm_planner_node` already has a plan-only mode: `--dry-run`. It
+  translates, prints and writes the mission file, but never calls the
+  mission services, and it applies to every command in interactive mode.
+- **The planner package was not changed.** f1tenth_ctl starts it with
+  `--dry-run`.
+- The RESULT line of an `ok` plan already carries the full mission, and
+  f1tenth_ctl stores it from there.
+- **Interlock.** `planner-log` reports `plan_only`, read from the planner
+  process's argv. The bot plans only when it is `true`:
+  - a planner started by the old f1tenth_ctl (no `--dry-run`) would load and
+    start every plan by itself;
+  - so would an Orin that still has the old f1tenth_ctl.
+
+**What changed.**
+- **f1tenth_ctl:**
+  - the planner starts plan-only;
+  - `planner-log` stores each RESULT's mission;
+  - new commands `missions`, `mission-load`, `mission-start`,
+    `mission-status`;
+  - `status.mission`.
+- **Bot:**
+  - text, and voice once transcribed: Plan? → plan → ▶️ Start mission →
+    "🚗 The car will drive. Start?" → load + start;
+  - 10 s per question, plans live 5 min;
+  - one planning at a time, none while a mission runs;
+  - the panel shows the mission, and 🛑 comes first while it runs;
+  - `--cli` gets `say:` / `voice:` with plan/start/yes.
+
+**Unit tests:**
+
+| Package | Tests |
+|---|---|
+| f1tenth_ctl | 104 passed |
+| f1tenth_telegram, venv | 99 passed |
+| f1tenth_telegram, system Python | 82 passed, 17 skipped |
+
+New:
+- the plan/start state machine:
+  - plan → start / discard;
+  - stale taps on either question;
+  - plan older than 5 min, including when it ages between the questions;
+  - no plan while planning or while a mission runs;
+  - refusals from f1tenth_ctl: not READY, latched, mission running, invalid
+    file;
+- mission storage: a recorded success and a recorded error RESULT line,
+  dedupe by offset, unique ids, never regenerated;
+- refusals of `mission-load` / `mission-start`;
+- the summary;
+- voice:
+  - model loading, unavailable, disabled;
+  - duration limit;
+  - temp files deleted on success and on failure;
+  - language;
+  - the Telegram voice path to the same Plan question;
+- `--cli say:` and `voice:`.
+
+**Real checks:**
+
+| Check | Result |
+|---|---|
+| A stored-plan file through the stack's own validator (`load_mission_file`, sim workspace) | valid, `llm_a1b2c3, 3 move(s)`. A fixture with a wrong field was rejected with the loader's own message |
+| Italian commands made offline with libespeak-ng → OGG/Opus, `small` vs `medium` on CUDA float16 (RTX 5050) | **small**: 1 of 3 right ("vai dritto per due metri…" → "Ma hai detto per due metri…"), ~0.15 s each. **medium**: 2 of 3 right ("Vai dritto per due metri e poi fermati."; "vai verso la persona" → "MAI MERZO LA PERSONA"), ~0.27 s each. Default: **medium** |
+| The bot's own path (`--cli --do voice:check_it.ogg`, medium, device auto) | CUDA float16; model ready in 6.6 s; «Vai dritto per due metri e poi fermati.» in 0.32 s; then "planner not running" (no stack) |
+| Idle memory | without the model: RSS 48 MB. With medium: RSS 890 MB, VRAM 1984 MiB. small: ~0.7 GB VRAM |
+| PyAV | faster-whisper 1.2.1 fails with PyAV 19 (`metadata_errors`); PyAV 16.1.0 works |
+
+**Not tested:**
+- the real planner over this path (no llama-server on linus);
+- a mission actually loaded and started on a stack;
+- a human voice (only the synthetic one);
+- the bot under systemd with the speech model.
+

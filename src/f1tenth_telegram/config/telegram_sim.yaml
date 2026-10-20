@@ -25,3 +25,10 @@ telegram:
   token_env_file: ~/.config/f1tenth_telegram/env
   force_ipv4: true
   timeout_s: 20
+
+transcription:
+  enabled: true
+  model: medium
+  device: auto
+  language: it
+  max_duration_s: 60

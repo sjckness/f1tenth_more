@@ -23,10 +23,10 @@ from .guard import Confirmations, NEEDS_CONFIRM
 from .transport import Transport
 
 PROCS = ('stack', 'planner', 'logger')
-COMMAND_HELP = ('📝 Write the command as a plain message, e.g. «go ahead 2 meters» '
-                '(one line, at most 500 characters). The bot asks before it sends it to '
-                "the planner, then posts the planner's answer. The planner must be "
-                'running (▶️ Planner).')
+COMMAND_HELP = ('📝 Write the command as a message, or say it in a voice message, e.g. '
+                '«vai dritto per due metri» (at most 500 characters). Two steps: 🧭 Plan '
+                'shows the planned mission without starting it; ▶️ Start mission, then '
+                '✅ Yes, start runs it. The planner must be running (▶️ Planner).')
 LABEL = {'start:stack': 'start the stack', 'start:planner': 'start the planner',
          'killall': 'kill ALL ROS 2 processes',
          'estop-reset': 'reset the e-stop (aborts the mission, restarts behavior)'}

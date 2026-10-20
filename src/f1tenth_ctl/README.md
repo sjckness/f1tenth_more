@@ -21,6 +21,10 @@ f1tenth_ctl killall [--reset-discovery] [--dry-run]
 f1tenth_ctl check                            # environment check; warns if it differs from the shell
 f1tenth_ctl send planner "go ahead 2 meters" # one line (<= 500 chars) to the planner's stdin
 f1tenth_ctl planner-log [--since N]          # the planner's output after byte offset N
+f1tenth_ctl missions [-n N]                  # the stored plans, newest first
+f1tenth_ctl mission-load <id> [--allow-old]  # validate + load a stored plan
+f1tenth_ctl mission-start [--id ID]          # start it: READY, no e-stop, nothing running
+f1tenth_ctl mission-status                   # idle/loaded/starting/running/finished/aborted
 f1tenth_ctl logs stack|planner|logger|discovery|monitor [-n 30]
 ```
 
@@ -290,6 +294,60 @@ printed after that byte offset, ANSI codes stripped, and the next `cursor`.
 
 The Telegram bot uses the pair to follow one command's answer
 (`src/f1tenth_telegram/README.md`, "Talking to the planner").
+
+## Planned missions: plan-only planner, then load and start
+
+**The planner runs plan-only.** `F1T_PLANNER_CMD` is
+`ros2 run llm llm_planner_node --dry-run`, the planner's own flag:
+- each command is translated, printed and written to its file;
+- it **never** calls `/mission/abort_mission`, `/mission/load_mission` or
+  `/mission/start_mission`;
+- run by hand without `--dry-run`, the planner is unchanged and starts what
+  it plans.
+- `planner-log` reports `plan_only`. It is `true` only when one of the
+  planner unit's processes runs `llm_planner_node` with `--dry-run`, read
+  from `/proc/<pid>/cmdline`, not from the env file. It is `null` when the
+  planner is stopped. The bot refuses to plan unless it is `true`.
+
+**Storing the plan.** Its last line per command is `RESULT {json}`; with
+status `ok` it carries the whole mission (`mission`). When `planner-log`
+reads such a line:
+- the mission is stored under `~/.local/state/f1tenth_ctl/missions/` as
+  `<id>.mission.json` (byte for byte what the planner made) and `<id>.json`
+  (summary, unsupported parts, notes);
+- the id is `<YYYYmmddTHHMMSS>-<sha1 6>`;
+- the answer lists it under `results` (`stored`, `mission`);
+- one RESULT line is stored once, keyed by its byte offset in the planner
+  log;
+- a plan is never regenerated.
+
+| Command | What it does | Refuses |
+|---|---|---|
+| `missions [-n N]` | the stored plans, newest first: id, age, summary, whether still startable | — |
+| `mission-load <id>` | validates the stored file with `f1tenth_behavior.mission.mission_config.load_mission_file`, the parser `/mission/load_mission` itself uses, then loads it (`/mission/load_mission`, `f1tenth_messages/srv/LoadMission`, `path`) | a plan older than `F1T_MISSION_MAX_AGE_S` (300 s; `--allow-old`), an invalid file, a stack that is not running, a RUNNING/HOLDING mission (the loader would replace it mid-run), a start still counting down |
+| `mission-start [--id ID]` | starts the mission f1tenth_ctl loaded (`/mission/start_mission`, Trigger). The loader then counts down `mission_countdown_sec` (15 s) | nothing loaded by f1tenth_ctl, another id loaded, a plan too old, READY false (which covers a latched e-stop), another mission running, a different file loaded in the meantime |
+| `mission-status` | `/mission/status` + what f1tenth_ctl loaded: state, id, elapsed since the start | — |
+
+**States:**
+
+| `/mission/status` | `mission-status` |
+|---|---|
+| IDLE | idle |
+| LOADED | loaded, or `starting` during the countdown after our start |
+| RUNNING / HOLDING | running |
+| COMPLETE | finished |
+| ABORTED | aborted |
+
+`status` carries the same `mission` field, for the panel.
+
+**Every refusal** has its reason in `refused`.
+
+**The summary** (`missions.summarize`) is read from the mission document:
+- move by move: action, speed, stop condition, timeout;
+- max speed, targets and length (the sum of distance-based stops; "not known"
+  when a move ends on a condition);
+- the longest it can take (the sum of the timeouts);
+- reverse: always no, since this schema has no reverse.
 
 ## killall
 

@@ -15,6 +15,10 @@ object on stdout (--json, the default, for the Telegram bot) or a short text
     f1tenth_ctl check                        environment check only
     f1tenth_ctl send planner "<command>"     one line to the planner's stdin (<= 500 chars)
     f1tenth_ctl planner-log [--since N]      the planner's output after byte offset N
+    f1tenth_ctl missions [-n N]              the stored plans (one per planner RESULT)
+    f1tenth_ctl mission-load <id>            validate + load a stored plan
+    f1tenth_ctl mission-start                start it: READY, no e-stop, nothing running
+    f1tenth_ctl mission-status               idle/loaded/starting/running/finished/aborted
     f1tenth_ctl logs stack|planner|logger|discovery [-n N]
 
 The env file (--env, F1T_CTL_ENV, or config/ctl.env) configures everything;
@@ -32,7 +36,7 @@ import sys
 import threading
 import time
 
-from . import discovery, envcheck, human, monitor, procscan, ready, units
+from . import discovery, envcheck, human, missions, monitor, procscan, ready, units
 from .config import ConfigError, load, MANAGED, Settings, SOURCE_ROOT
 
 STATUS_BUDGET_S = 4.5      # status must answer in < 5 s, env sourcing included
@@ -289,8 +293,13 @@ def cmd_status(settings: Settings, args, t_begin: float) -> dict:
         procs[name] = st
     verdict = ready.evaluate(thr, measured, procs['stack']['state'] == 'running',
                              discovery_ok)
+    est = next((measured.get(c['name']) for c in thr['checks']
+                if c['kind'] == 'estop' and measured), None) or {}
+    mission = (missions.describe_state(settings, est.get('state'), est.get('json_path'),
+                                       countdown_s=settings.mission_countdown_s)
+               if est.get('received') else None)
     out = {'ok': True, 'ready': verdict['ready'], 'failing': verdict['failing'],
-           'estop_latched': ready.estop_latched(verdict['checks']),
+           'estop_latched': ready.estop_latched(verdict['checks']), 'mission': mission,
            'processes': procs, 'vars': ready.key_values(verdict['checks']),
            'checks': verdict['checks'],
            'probe': {'ran': measured is not None, 'source': res.get('source'),
@@ -547,11 +556,182 @@ def cmd_send(settings: Settings, args) -> dict:
     return {'target': args.target, **units.fifo_send(settings, args.target, ' '.join(args.text))}
 
 
+RESULT_PREFIX = 'RESULT '     # llm_planner_node._emit_result: one line per command, last
+PLANNER_PROMPT = 'comando> '  # its interactive prompt, glued to the next printed line
+
+
+def planner_results(settings: Settings, lines, offsets) -> list:
+    """
+    Return the RESULT lines among `lines`, each mission stored (missions.py).
+
+    Keyed by the line's byte offset in the planner log, so a RESULT read twice
+    (two readers, or a repeated cursor) is stored once.
+    """
+    out = []
+    for line, offset in zip(lines, offsets):
+        while line.startswith(PLANNER_PROMPT):
+            line = line[len(PLANNER_PROMPT):]
+        if not line.startswith(RESULT_PREFIX):
+            continue
+        try:
+            result = json.loads(line[len(RESULT_PREFIX):])
+        except ValueError:
+            out.append({'offset': offset, 'status': 'unparsed'})
+            continue
+        if not isinstance(result, dict):
+            continue
+        keep = ('status', 'stage', 'error_type', 'error_message', 'unsupported', 'notes',
+                'mission_id', 'plan_seconds')
+        entry = {'offset': offset}
+        entry.update({k: result[k] for k in keep if k in result})
+        rec = missions.store_result(settings, result, offset)
+        if rec:
+            entry['stored'] = rec
+            entry['mission'] = result.get('mission')
+        out.append(entry)
+    return out
+
+
 def cmd_planner_log(settings: Settings, args) -> dict:
     """Return the planner's output since a cursor (a byte offset of its log), ANSI stripped."""
     res = units.read_log_since(settings.log_path('planner'), args.since, args.max_bytes)
-    return {'ok': True, 'target': 'planner', 'since': args.since,
-            'running': units.is_running(settings, 'planner'), **res}
+    running = units.is_running(settings, 'planner')
+    out = {'ok': True, 'target': 'planner', 'since': args.since, 'running': running,
+           'plan_only': planner_plan_only(settings) if running else None, **res}
+    out['results'] = planner_results(settings, res['lines'], res['offsets'])
+    return out
+
+
+def planner_plan_only(settings: Settings) -> bool:
+    """
+    Say whether the running planner is plan-only (llm_planner_node --dry-run).
+
+    Read from the command lines of the planner unit's processes, not from the
+    env file: a planner started by an older f1tenth_ctl, without --dry-run,
+    loads and starts every mission it plans. The bot refuses to plan unless
+    this is true.
+    """
+    for pid in units.unit_pids(settings.procs['planner'].unit):
+        p = procscan.read_proc(pid)
+        if p and any('llm_planner_node' in a for a in p.argv) and '--dry-run' in p.argv:
+            return True
+    return False
+
+
+def _stack_up(settings: Settings) -> bool:
+    if units.unit_states(settings, ['stack'])['stack']['state'] == 'running':
+        return True
+    return bool(_strays(settings, 'stack'))
+
+
+def _sim(settings: Settings) -> bool:
+    try:
+        return bool(_thresholds(settings).get('use_sim_time'))
+    except ready.ReadyConfigError:
+        return False
+
+
+def _mission_spec(settings: Settings, **kw) -> dict:
+    return {'status_topic': settings.status_topic, 'use_sim_time': _sim(settings), **kw}
+
+
+def _plan_age(settings: Settings, rec: dict, args):
+    """Return a refusal for a plan older than the limit, else None."""
+    age = time.time() - float(rec.get('stored_at', 0))
+    if age > settings.mission_max_age_s and not getattr(args, 'allow_old', False):
+        return (f'the plan is {age:.0f} s old (limit {settings.mission_max_age_s:g} s): '
+                'plan it again')
+    return None
+
+
+def cmd_mission_load(settings: Settings, args) -> dict:
+    rec = missions.get(settings, args.id)
+    if rec is None:
+        return {'ok': False, 'error': f'no stored mission {args.id!r} (f1tenth_ctl missions)'}
+    out = {'id': rec['id'], 'mission_id': rec.get('mission_id'),
+           'age_s': round(time.time() - rec['stored_at'], 1)}
+    why = _plan_age(settings, rec, args)
+    if why:
+        return {**out, 'ok': False, 'refused': why, 'error': why}
+    if not _stack_up(settings):
+        return {**out, 'ok': False, 'refused': 'the stack is not running',
+                'error': 'the stack is not running'}
+    cur = missions.current(settings)
+    counting = bool(cur.get('started_at')) and (
+        time.time() - cur['started_at'] < settings.mission_countdown_s + 5.0)
+    res = run_rosprobe(settings, 'mission',
+                       _mission_spec(settings, op='load', path=rec['path'],
+                                     counting_down=counting), timeout=25.0)
+    out.update(res)
+    if res.get('ok'):
+        missions.set_current(settings, id=rec['id'], path=rec['path'], loaded_at=time.time(),
+                             started_at=None)
+    elif 'error' in res and 'refused' not in out:
+        out['refused'] = res['error']
+    out['ok'] = bool(res.get('ok'))
+    return out
+
+
+def cmd_mission_start(settings: Settings, args, t_begin: float) -> dict:
+    """
+    Start the mission f1tenth_ctl loaded, after the checks.
+
+    Refused, with the reason, when: nothing was loaded by f1tenth_ctl, the id
+    is not the loaded one, the plan is too old, READY is false (which covers a
+    latched e-stop), or another mission is running.
+    """
+    cur = missions.current(settings)
+    mid = args.id or cur.get('id')
+    rec = missions.get(settings, mid) if mid else None
+
+    def refuse(why, **extra):
+        return {'ok': False, 'id': mid, 'refused': why, 'error': why, **extra}
+
+    if rec is None:
+        return refuse('no mission loaded by f1tenth_ctl (mission-load <id> first)')
+    if cur.get('id') != rec['id']:
+        return refuse(f"{rec['id']} is not the loaded mission ({cur.get('id')}): "
+                      'mission-load it first')
+    why = _plan_age(settings, rec, args)
+    if why:
+        return refuse(why)
+    st = cmd_status(settings, args, t_begin)
+    if st.get('estop_latched'):
+        return refuse('the e-stop is latched (estop-reset first)', failing=st.get('failing'))
+    if not st.get('ready'):
+        return refuse('not READY: ' + ', '.join(st.get('failing') or ['unknown']),
+                      failing=st.get('failing'))
+    res = run_rosprobe(settings, 'mission',
+                       _mission_spec(settings, op='start', path=rec['path']), timeout=25.0)
+    out = {'id': rec['id'], 'mission_id': rec.get('mission_id'), 'ready': True,
+           'countdown_s': settings.mission_countdown_s, **res}
+    if res.get('ok'):
+        missions.set_current(settings, started_at=time.time())
+    else:
+        out['refused'] = res.get('error') or 'failed'
+    out['ok'] = bool(res.get('ok'))
+    return out
+
+
+def cmd_mission_status(settings: Settings, args) -> dict:
+    res = run_rosprobe(settings, 'mission', _mission_spec(settings, op='status'), timeout=15.0)
+    desc = missions.describe_state(settings, res.get('ros_state'), res.get('json_path'),
+                                   countdown_s=settings.mission_countdown_s)
+    out = {'ok': bool(res.get('ok')), **desc,
+           'emergency_stop_active': res.get('emergency_stop_active')}
+    if 'error' in res:
+        out['error'] = res['error']
+    return out
+
+
+def cmd_missions(settings: Settings, args) -> dict:
+    now = time.time()
+    recs = missions.recent(settings, args.n)
+    return {'ok': True, 'current': missions.current(settings),
+            'missions': [{'id': r['id'], 'mission_id': r.get('mission_id'),
+                          'age_s': round(now - r.get('stored_at', now), 1),
+                          'startable': now - r.get('stored_at', 0) <= settings.mission_max_age_s,
+                          'summary': r.get('summary')} for r in recs]}
 
 
 def cmd_logs(settings: Settings, args) -> dict:
@@ -605,6 +785,19 @@ def build_parser() -> argparse.ArgumentParser:
                     help='byte offset from `send` or a previous planner-log; '
                          'none: only the current end')
     pl.add_argument('--max-bytes', type=int, default=65536)
+    ml = sub.add_parser('mission-load', parents=[common],
+                        help='validate and load a stored mission (from `missions`)')
+    ml.add_argument('id')
+    ml.add_argument('--allow-old', action='store_true',
+                    help='load a plan older than F1T_MISSION_MAX_AGE_S')
+    ms = sub.add_parser('mission-start', parents=[common],
+                        help='start the loaded mission (READY, no e-stop, nothing running)')
+    ms.add_argument('--id', help='refuse unless this is the loaded mission')
+    ms.add_argument('--allow-old', action='store_true')
+    sub.add_parser('mission-status', parents=[common],
+                   help='idle / loaded / starting / running / finished / aborted, id, elapsed')
+    mi = sub.add_parser('missions', parents=[common], help='the last stored plans')
+    mi.add_argument('-n', type=int, default=10)
     lg = sub.add_parser('logs', parents=[common], help='tail of a process log')
     lg.add_argument('target', choices=MANAGED + ('discovery', 'monitor'))
     lg.add_argument('-n', '--lines', type=int, default=30)
@@ -616,6 +809,8 @@ COMMANDS = {
     'stop': cmd_stop, 'estop': cmd_estop, 'estop-reset': cmd_estop_reset,
     'killall': cmd_killall, 'check': cmd_check,
     'send': cmd_send, 'logs': cmd_logs, 'planner-log': cmd_planner_log,
+    'mission-load': cmd_mission_load, 'mission-status': cmd_mission_status,
+    'missions': cmd_missions,
 }
 
 
@@ -634,6 +829,8 @@ def main(argv=None) -> int:
         envelope['env_file'] = settings.env_file
         if args.cmd == 'status':
             result = cmd_status(settings, args, t_begin)
+        elif args.cmd == 'mission-start':
+            result = cmd_mission_start(settings, args, t_begin)
         else:
             result = COMMANDS[args.cmd](settings, args)
         if not result.get('ok', False):

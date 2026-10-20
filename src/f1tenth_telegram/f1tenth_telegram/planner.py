@@ -1,7 +1,8 @@
 """
 Plain-text messages as commands for the LLM planner (llm_planner_node).
 
-The planner runs on the car in interactive mode, its stdin on a FIFO:
+The planner runs on the car in interactive mode and PLAN-ONLY (its own
+--dry-run flag: it never loads or starts a mission), its stdin on a FIFO:
 `f1tenth_ctl send planner "<text>"` writes one line and answers the log's
 byte offset at that moment; `f1tenth_ctl planner-log --since <offset>`
 returns what the planner printed after it. An Exchange is one command: it
@@ -31,12 +32,15 @@ MAX_S = 60.0
 
 
 def validate(text: str):
-    """Return (line, None) for a sendable command, else (None, why) (pure)."""
+    """
+    Return (line, None) for a sendable command, else (None, why) (pure).
+
+    Line breaks and runs of spaces collapse to one space (a typed message or
+    a transcript); what is left must be 1-500 characters.
+    """
     if text is None:
         return None, 'empty text'
-    if '\n' in text or '\r' in text:
-        return None, 'one line only: the text contains a line break'
-    line = text.strip()
+    line = ' '.join(text.split())
     if not line:
         return None, 'empty text'
     if len(line) > MAX_LEN:
@@ -149,6 +153,7 @@ class Exchange:
         self.max_s = max_s
         self.cursor = None
         self.lines: List[str] = []
+        self.results: List[dict] = []     # f1tenth_ctl's RESULT entries (stored missions)
         self.started = None
         self.finished = None
         self.done = False
@@ -186,6 +191,7 @@ class Exchange:
             self.error = res.get('error') or 'planner-log failed'
         else:
             self.cursor = res.get('cursor', self.cursor)
+            self.results.extend(res.get('results') or [])
             new = res.get('lines') or []
             if new:
                 self.lines.extend(new)
@@ -201,3 +207,69 @@ class Exchange:
 
     def render(self, as_html: bool = True) -> str:
         return render(self.text, self.lines, self.state, self.elapsed(), as_html=as_html)
+
+    def final_result(self) -> Optional[dict]:
+        """Return f1tenth_ctl's entry for this command's RESULT line, if any."""
+        return self.results[-1] if self.results else None
+
+
+def _fmt_speed(v) -> str:
+    return f'{v:g} m/s' if v else 'controller default'
+
+
+def render_offer(text: str, entry: dict, as_html: bool = True) -> str:
+    """
+    Render the plan for a human to decide: summary first, the JSON collapsed.
+
+    entry is f1tenth_ctl's RESULT entry with a stored mission: `stored` (id,
+    summary, unsupported, notes, plan_seconds) and `mission`.
+    """
+    esc = html.escape if as_html else (lambda s: s)
+    rec = entry['stored']
+    sm = rec.get('summary') or {}
+    lines = [f'🧭 Plan for «{esc(text)}»'
+             + (f' ({rec["plan_seconds"]:.1f} s)' if rec.get('plan_seconds') else ''),
+             esc(f"mission {sm.get('mission_id')} · id {rec['id']}"),
+             esc(f"{sm.get('n_moves')} move(s) · max speed {_fmt_speed(sm.get('max_speed_mps'))}"
+                 f" · reverse: {'yes' if sm.get('reverse') else 'no'}")]
+    if sm.get('speed_note'):
+        lines.append(esc(f"({sm['speed_note']})"))
+    if sm.get('targets'):
+        lines.append(esc('target: ' + ', '.join(str(t) for t in sm['targets'])))
+    length = (f"~{sm['distance_m']:g} m" if sm.get('distance_m') is not None
+              else 'not known ahead (it stops on a condition)')
+    dur = f", at most {sm['max_duration_s']:g} s (timeouts)" if sm.get('max_duration_s') else ''
+    lines.append(esc(f'length: {length}{dur}'))
+    for m in sm.get('moves') or []:
+        lines.append(esc(f"{m['i'] + 1}. {m['action']} at {_fmt_speed(m.get('speed_mps'))}, "
+                         f"until {m['until']} ({m.get('timeout_s'):g} s → {m.get('on_timeout')})"
+                         if m.get('timeout_s') is not None else
+                         f"{m['i'] + 1}. {m['action']}, until {m['until']}"))
+    for item in rec.get('unsupported') or []:
+        lines.append(esc(f'⚠️ NOT translated, will not happen: {item}'))
+    for note in rec.get('notes') or []:
+        lines.append(esc(f'note: {note}'))
+    body = json.dumps(entry.get('mission') or {}, indent=2, ensure_ascii=False)
+    body = body if len(body) <= 2000 else body[:1990] + '\n…'
+    if as_html:
+        lines.append(f'<blockquote expandable>{esc(body)}</blockquote>')
+    else:
+        lines.append(body)
+    lines.append(esc('▶️ Start mission asks once more. A plan older than 5 min cannot be '
+                     'started: plan again.'))
+    return '\n'.join(lines)
+
+
+def render_failure(ex: 'Exchange', as_html: bool = True) -> str:
+    """No mission: the planner's reason, from its RESULT line, and its last output."""
+    entry = ex.final_result()
+    head = None
+    if entry is not None and entry.get('status') != 'ok':
+        head = result_line({k: entry.get(k) for k in ('status', 'error_type',
+                                                      'error_message')})
+    elif entry is not None:
+        head = '❌ the planner answered ok but no mission was stored'
+    out = ex.render(as_html)
+    if head and head not in out:
+        out = (html.escape(head) if as_html else head) + '\n' + out
+    return out + ('\n' if out else '') + 'No mission, nothing to start.'

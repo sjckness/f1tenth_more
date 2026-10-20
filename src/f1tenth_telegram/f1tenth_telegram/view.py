@@ -6,7 +6,8 @@ Buttons, by state:
 - online, not connected: 🔌 Connect, 🔄;
 - connected: ▶️/⏹ Stack, ▶️/⏹ Planner, ▶️/⏹ Logger, 🔄 Status, 📝 Command
   (explains that a plain message is a planner command), ☠️ Kill all ROS 2,
-  🛑 EMERGENCY, and 🔓 Reset e-stop while it is latched;
+  🛑 EMERGENCY, and 🔓 Reset e-stop while it is latched; 🛑 moves to the
+  first row while a mission is starting or running;
 - a confirmation open: ✅ yes / ✖ cancel, with 🛑 EMERGENCY still there.
 """
 
@@ -69,6 +70,25 @@ def _vars(status: dict) -> str:
     return ' · '.join(parts)
 
 
+MISSION_ICON = {'loaded': '📦', 'starting': '⏳', 'running': '🚗', 'finished': '🏁',
+                'aborted': '⛔'}
+
+
+def mission_line(m) -> str:
+    """Return the current mission's line: id, state, elapsed; nothing when idle."""
+    if not m or m.get('state') in (None, 'idle', 'unknown'):
+        return ''
+    icon = MISSION_ICON.get(m['state'], '🧭')
+    who = m.get('id') or 'not started by the bot'
+    elapsed = f", {m['elapsed_s']:.0f} s" if m.get('elapsed_s') is not None else ''
+    return f"{icon} mission {who}: {m['state']}{elapsed}"
+
+
+def mission_active(panel: Panel) -> bool:
+    m = (panel.status or {}).get('mission') or {}
+    return m.get('state') in ('starting', 'running')
+
+
 def render(panel: Panel) -> Tuple[str, List[List[Button]]]:
     lines = []
     if panel.online is None:
@@ -99,6 +119,9 @@ def render(panel: Panel) -> Tuple[str, List[List[Button]]]:
             lines.append(v)
         if st.get('estop_latched'):
             lines.append('🔴 E-STOP LATCHED: no mission will start until 🔓 Reset e-stop')
+        ml = mission_line(st.get('mission'))
+        if ml:
+            lines.append(ml)
         probe = st.get('probe') or {}
         if probe.get('error'):
             lines.append(f'probe: {probe["error"]}')
@@ -131,4 +154,7 @@ def buttons(panel: Panel) -> List[List[Button]]:
                   Button('☠️ Kill all ROS 2', 'killall')]]
     if (panel.status or {}).get('estop_latched'):
         rows.append([Button('🔓 Reset e-stop', 'estop-reset')])
+    if mission_active(panel):
+        # While the car may drive, 🛑 is the first thing under the thumb.
+        return [estop] + rows
     return rows + [estop]

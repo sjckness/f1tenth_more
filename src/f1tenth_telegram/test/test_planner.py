@@ -5,11 +5,11 @@ from f1tenth_telegram import planner
 from test_controller import FakeTransport, PLANNER_ANSWER
 
 
-def test_validate_one_line_up_to_500_chars():
+def test_validate_collapses_lines_and_allows_500_chars():
     assert planner.validate('  go ahead 2 meters ') == ('go ahead 2 meters', None)
     assert planner.validate('x' * 500)[0] == 'x' * 500
     assert 'at most 500' in planner.validate('x' * 501)[1]
-    assert planner.validate('go\nahead')[1].startswith('one line only')
+    assert planner.validate('go\n ahead\r\n') == ('go ahead', None)
     assert planner.validate('   ')[1] == 'empty text'
     assert planner.validate(None)[1] == 'empty text'
 
@@ -21,7 +21,7 @@ def test_parse_finds_the_mission_json_and_the_result():
     assert p['mission_json'].splitlines()[0] == '{'
     assert p['mission_json'].splitlines()[-1] == '}'
     assert not any(line.startswith(('RESULT', 'JSON (', '{', '}')) for line in p['body'])
-    assert p['body'][-1] == 'scritta in: /tmp/m.json'
+    assert 'scritta in: /tmp/m.json' in p['body']
 
 
 def test_parse_without_an_end_is_not_done():
@@ -79,6 +79,7 @@ def test_exchange_gives_up_after_60_s():
     fake = FakeTransport()
     fake.state['planner'] = 'running'
     fake.planner_batches = []
+    fake.answer_next = []              # the planner says nothing at all
     clock = Clock()
     ex = planner.Exchange('cmd', clock=clock)
     ex.send(fake, 5)
@@ -91,6 +92,7 @@ def test_exchange_gives_up_after_60_s():
 def test_exchange_stops_when_the_planner_dies_or_send_fails():
     fake = FakeTransport()
     fake.planner_batches = []      # it printed nothing, and is gone
+    fake.answer_next = []
     ex = planner.Exchange('cmd', clock=Clock())
     ex.send(fake, 5)
     assert ex.poll(fake, 5) and ex.done and 'not running any more' in ex.state
