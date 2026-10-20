@@ -278,13 +278,18 @@ class ServiceStep:
     """
 
     def __init__(self, node, srv_type, name: str, call_timeout: float, t0: float,
-                 ok_if=None):
+                 ok_if=None, client=None):
         self.srv_type = srv_type
         self.name = name
         self.call_timeout = call_timeout
         self.t0 = t0
         self.ok_if = ok_if
-        self.client = node.create_client(srv_type, name) if name else None
+        # A client made earlier (the PWA gateway keeps its e-stop clients
+        # from start-up, already matched), else one made now.
+        if client is not None:
+            self.client = client
+        else:
+            self.client = node.create_client(srv_type, name) if name else None
         self.future = None
         self.sent_at = None
         self.record = None
@@ -345,26 +350,44 @@ def estop(spec: dict) -> dict:
     """
     import rclpy
     from rclpy.executors import SingleThreadedExecutor
-    from std_srvs.srv import Trigger
 
     rclpy.init()
-    t0 = time.monotonic()
     node = _node('f1tenth_ctl_estop', spec.get('use_sim_time', False))
-    zero = ZeroDrive(node, spec['topic'], float(spec.get('publish_hz', 50.0)))
+    ex = SingleThreadedExecutor()
+    ex.add_node(node)
+    out = estop_with(node, spec, spin=lambda: ex.spin_once(timeout_sec=0.002))
+    _close(ex, node)
+    return out
+
+
+def estop_with(node, spec: dict, spin, zero_pub=None, clients=None) -> dict:
+    """
+    Run the e-stop's three steps on an existing node (estop() is this on a fresh one).
+
+    spin() lets the node's callbacks run: one executor step for estop(), a
+    short sleep for a node another thread is already spinning. zero_pub and
+    clients ({'emergency_stop': c, 'abort_mission': c}) are publishers and
+    clients made beforehand -- matched already, so the zeros reach the mux
+    at once (the PWA gateway's case).
+    """
+    from std_srvs.srv import Trigger
+
+    clients = clients or {}
+    t0 = time.monotonic()
+    zero = ZeroDrive(node, spec['topic'], float(spec.get('publish_hz', 50.0)), pub=zero_pub)
     steps = {
         'emergency_stop': ServiceStep(node, Trigger, spec.get('service', ''),
-                                      float(spec.get('service_timeout_s', 0.5)), t0),
+                                      float(spec.get('service_timeout_s', 0.5)), t0,
+                                      client=clients.get('emergency_stop')),
         'abort_mission': ServiceStep(node, Trigger, spec.get('abort_service', ''),
                                      float(spec.get('abort_timeout_s', 1.0)), t0,
-                                     ok_if=abort_ok),
+                                     ok_if=abort_ok, client=clients.get('abort_mission')),
     }
     publish_s = float(spec.get('publish_s', 2.0))
     match_grace = float(spec.get('match_grace_s', 3.0))
     window_end = t0 + match_grace + publish_s
     hard_end = window_end + 2.0
 
-    ex = SingleThreadedExecutor()
-    ex.add_node(node)
     while True:
         now = time.monotonic()
         if (now >= window_end and all(st.done for st in steps.values())) or now >= hard_end:
@@ -377,7 +400,7 @@ def estop(spec: dict) -> dict:
                 hard_end = window_end + 2.0
         for st in steps.values():
             st.poll(now, window_end)
-        ex.spin_once(timeout_sec=0.002)
+        spin()
     now = time.monotonic()
     for st in steps.values():
         st.give_up(now)
@@ -385,7 +408,6 @@ def estop(spec: dict) -> dict:
     out.update({name: st.record for name, st in steps.items()})
     car_held = out['zero_drive']['ok'] and (out['emergency_stop']['ok']
                                             or out['abort_mission']['ok'])
-    _close(ex, node)
     return {'steps': out, 'car_held': bool(car_held)}
 
 
@@ -411,11 +433,13 @@ def choose_reset_path(reset_service: str, reset_ready: bool, restart_ready: bool
 class ZeroDrive:
     """Zero speed and steering on the mux's top lane, at a fixed rate."""
 
-    def __init__(self, node, topic: str, hz: float):
+    def __init__(self, node, topic: str, hz: float, pub=None):
         from ackermann_msgs.msg import AckermannDriveStamped
         self.node = node
         self.topic = topic
-        self.pub = node.create_publisher(AckermannDriveStamped, topic, _qos(True, False, 10))
+        # pub: a publisher on `topic` made earlier (already matched), else new.
+        self.pub = pub if pub is not None else node.create_publisher(
+            AckermannDriveStamped, topic, _qos(True, False, 10))
         self.msg = AckermannDriveStamped()   # every drive field 0.0
         self.msg.header.frame_id = 'base_link/f1tenth_ctl_estop'
         self.period = 1.0 / hz
