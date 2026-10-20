@@ -663,3 +663,19 @@ still record with it on. Also run the new tests:
 |---|---|
 | `0146d17` | R3 block 5: EKF decided at 20 Hz, ekf_cost_observer removed |
 | (this commit) | R3 block 6: diagnostics group no longer "crashes" with the mission logger off |
+
+---
+
+# Replay v2 of corridor10m_20261016T144537 (new tracker + new replay tool, linus, offline)
+Output: `output/run_corridor10m_20261016T144537_v2/` (topdown.mp4, camera.mp4, summary.md/json, compare.md).
+- Phantom FRONT episodes: recorded 2 (t 147.0–150.06 moving, value 3.27→1.87 m, plus a 1 s parked one at t≈0) → replay **0**. At t=145–150.3 the replay never builds the bridge: CLEAR (`no_candidate`), then at 150.06 FRONT = track 508 with d_ray 6.78 m = LiDAR strip 6.78 m.
+- **Regression found: the FRONT confidence gate (≥ 0.5, block 3d) rejects the real end wall.** That wall is LiDAR-fitted and fresh, but its confidence is 0.22–0.46 at 16–21 m. Replay WALL 2.88 s / CLEAR 160.3 s, against recorded WALL 121.78 / CLEAR 20.87 / NO_DATA 21.61 s. Not fixed; proposal: don't apply the confidence floor to tracks with a LiDAR fit in the last 3 cycles, or make it range-aware.
+- End-wall err p95/max: n/a in both passes (no moving cycle with a true strip < 3 m). All-WALL err p95/max: recorded 0.006/4.96 m, replay 1.217/2.174 m. The latter is 11 cycles of track 508 while something nearer (4.48 m) entered the strip.
+- NO_DATA: recorded 13.12 % (6.8 % moving) → replay 0 %.
+- Tracks rho_bl < 0.5 m (confirmed, published): recorded 23 → replay 0; confirmed live ones 2.
+- Total track ids: recorded 36 published; replay 422 live ids incl. tentative.
+- Glass: none flagged. The see-through check never contradicted a track.
+- New false CLEAR (CLEAR while the strip < 3 m): 0. But CLEAR with the end wall at 16–21 m is the regression above.
+- Mask: this bag DOES record `/perception/scene_labels/classes`, so the panel draws the recorded mask (labelled RECORDED) and says DEPTH NOT RECORDED. It does not show MASK NOT RECORDED.
+- Replay tracker_ms on linus (Python extraction, no C lib): p50 22.8 / p95 30.9 ms.
+- **Where the output is (2026-10-20):** the two run folders were never committed. `output/run_corridor10m_20261016T144537/` (old analysis copied from the Orin, 0.9 MB) and `output/run_corridor10m_20261016T144537_v2/` (this replay, 20 MB incl. topdown.mp4 and camera.mp4) were moved out of the worktree to `~/f1tenth_data/replays/cpu_cleanup/` on linus. The `output/…` paths in this section refer to that copy.
