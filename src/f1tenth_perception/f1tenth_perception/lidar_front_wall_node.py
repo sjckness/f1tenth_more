@@ -265,7 +265,9 @@ without it, the node logs an ERROR at startup and the tracker stays off.
     `short_obs` in /perception/virtual_wall/debug.
   * Up to 4 wall tracks in odom go out on /perception/walls
     (f1tenth_messages/MultiWallTrackArray), with line and text markers on
-    /perception/walls/markers.
+    /perception/walls/markers. Roles on the wire are front | back | left |
+    right | unknown ('other' until 2026-10-19; readers accept both), and a
+    TENTATIVE track is 'unknown' whatever its geometry (mwt.reported_role).
   * The heading wall: the front track (multi_wall_tracker.front_track and
     its WHAT FRONT REQUIRES: confirmed, not contradicted by the travel
     strip's own beams, its MEASURED segment meeting the strip, a LiDAR fit in
@@ -291,39 +293,52 @@ without it, the node logs an ERROR at startup and the tracker stays off.
 
 DOOR DETECTION (door_detection_enabled, stack_params.yaml; default true)
 -------------------------------------------------------------------------
-PERCEPTION ONLY, and only with the tracker on. door_detection.py runs on
-every tracker cycle, on the tracker's own walls and the SAME scan the
-tracker was stepped with (object sectors cut, with the cut mask):
+PERCEPTION ONLY, and only with the tracker on: nothing in the control path,
+the costmap, the BT or the missions reads /perception/doors or /viz/doors.
+door_detection.py is the rule; this is how the node runs it, on every
+tracker cycle AFTER the walls are published, on the tracker's own tracks and
+the SAME scan it was stepped with (object sectors cut, with the cut mask):
 
-  * door_candidates: a gap of door_width_min_m .. door_width_max_m between
-    two collinear pieces of a confirmed or coasting wall that every beam
-    crossing its central door_core_fraction sees THROUGH
-    (door_behind_margin_m past the line, or no return) -- an open leaf hung
-    on a jamb is allowed in the outer parts -- with real jambs and enough
-    beams (door_min_beams, scaled with range by door_min_beam_fraction). The
-    stereo's class mask and depth (the rectangle verification's pair) raise
-    the confidence when they see no wall in the gap and floor beyond it;
-    they are never required. With door_stereo_glass_veto (default off) they
-    can also reject a gap whose mask shows a wall ON the line.
-  * FRAME JAMBS (door_frame_jambs, default on): a glass partition is not a
-    tracked wall, only its frames are seen -- short straight pieces of the
-    scan, door_frame_min_pieces of them on one line. Gaps between them are
-    candidates too, judged by exactly the same beams; a frame jamb's parent
-    wall id is 0.
-  * DoorTracker: tentative -> confirmed (door_confirm_hits of
-    door_confirm_window cycles, AND door_square_looks cycles SEEN SQUARE-ON:
-    its core's beams within door_square_incidence_deg of its normal through
-    and none on its line -- glass returns the LiDAR only there) -> coasting
-    -> deleted (door_delete_after_sec unseen), associated by centre, normal
-    and width in odom -- never by the parent wall ids, which re-spawn. A
-    door not yet seen square-on whose core returns on its line is a PANE:
-    deleted and remembered door_pane_memory_sec. A detected PERSON inside a
-    confirmed door sets occupied and keeps it alive; no detection can create
-    or confirm one.
-  * /perception/doors (f1tenth_messages/DoorArray) and /viz/doors
-    (door_markers.py), both every tracker cycle. Nothing in
-    the stack consumes either: not the MPC, the costmap, the BT or the
-    missions.
+  * HOSTS: only CONFIRMED wall tracks with role front, left or right carry a
+    door. An unknown segment (a tentative track, role unknown or back, a scan
+    fragment) never hosts one and is never evidence for or against one. The
+    node's door_detection.ManhattanPrior (door_manhattan_prior) is updated
+    from the tracks first: a host off the room's dominant direction hosts no
+    door, the others are snapped onto it for the gap tests.
+  * door_candidates judges EVERY gap between collinear hosts and returns a
+    record per gap with a CODE: '' (a door), STRONG (on_line, behind,
+    not_boundary, stereo_wall, furniture, short_line, short_side,
+    off_manhattan, not_a_leaf), WEAK (oblique_view, few_beams, jamb_occluded,
+    unknown_in_gap: undecidable this cycle) or GEOMETRY (not_collinear,
+    untracked_jamb, width: not a candidate). The stereo (the rectangle
+    verification's class mask + depth pair) is built LAZILY, at most once a
+    cycle and only when a gap reaches the stereo stage, and carried from the
+    mask stamp to the scan stamp on the odometry (extrinsic_at_scan); with no
+    pose at the mask stamp it is used as is only within 0.1 s of the scan,
+    else it has no opinion that cycle.
+  * DoorTracker: a positive record spawns or refreshes a CANDIDATE, which is
+    CONFIRMED once seen positive from door_min_viewpoints car positions
+    door_viewpoint_sep_m apart with a steady width (a car standing still
+    never confirms a door). A STRONG record on a VISIBLE gap strikes a door
+    (back to CANDIDATE; a second strike deletes it); WEAK and GEOMETRY records
+    change nothing. A candidate unseen for door_candidate_max_age_sec and a
+    confirmed door unseen for door_confirmed_max_age_sec are dropped, unless
+    a detected PERSON inside a confirmed door holds it (occupied). Doors are
+    associated by centre, normal and width in odom, never by the parent wall
+    ids, which re-spawn.
+  * PUBLISHED every door cycle, empty included, subscribed or not:
+    /perception/doors (f1tenth_messages/DoorArray) with the CONFIRMED doors
+    only -- the candidates too with door_publish_candidates -- and /viz/doors
+    (door_markers.py) with every live door, confirmed solid, candidate faded.
+    /perception/virtual_wall/debug carries door_candidates (every gap of the
+    cycle with its code, at most 32), door_manhattan, the lifecycle's
+    counters, door_ms, door_errors and door_mask_age_s.
+  * THE OVERLAY RULE: doors never modify, split or remove a wall or any LiDAR
+    data, and nothing may treat a doorway as free space because a door is
+    published there.
+  * A door cycle that raises never takes the walls with it (they are already
+    out): it is logged (throttled) and counted (door_errors), and after 50
+    consecutive failures door detection is off for the node's life.
 
 Every wall marker (/perception/walls/markers and /viz/walls) is drawn
 wall_viz_height_m tall from the floor, whatever height the stereo measured:
@@ -342,6 +357,7 @@ transform arrives every scan publishes no_transform.
 import json
 import math
 import time
+import traceback
 
 import numpy as np
 
@@ -401,9 +417,12 @@ def _yaw_from_quaternion(q):
 #: Marker colours by role (r, g, b).
 _ROLE_COLOUR = {'front': (1.0, 0.25, 0.1), 'left': (0.2, 0.9, 0.3),
                 'right': (0.2, 0.5, 1.0), 'back': (0.6, 0.6, 0.6),
-                # 'other' is real and tracked and is a reference for nothing,
-                # so it is drawn -- dimly, and in nobody else's colour.
-                'other': (0.35, 0.35, 0.4)}
+                # 'unknown' is real and tracked and is a reference for
+                # nothing (and every tentative track is reported as it), so
+                # it is drawn -- dimly, in a neutral grey nobody else uses.
+                'unknown': (0.35, 0.35, 0.35),
+                # Its name before 2026-10-19, same colour.
+                'other': (0.35, 0.35, 0.35)}
 
 
 def _set_lifetime(marker, seconds):
@@ -454,6 +473,122 @@ def _observation_array(stamp, frame_id, observations, n_rejected, n_disagree_col
         item.n_disagree = int(obs.counts.get('disagree', 0))
         msg.observations.append(item)
     return msg
+
+
+# ---- door detection helpers (module docstring, DOOR DETECTION) ---------------
+
+#: A perception-only overlay must never cost the walls, and a door cycle that
+#: fails every time only floods the log: after this many failures IN A ROW the
+#: node turns door detection off for its life.
+DOOR_MAX_CONSECUTIVE_FAILURES = 50
+#: At most this many door_candidates records a cycle on the debug topic,
+#: doors and STRONG records first (DOOR_DEBUG_ORDER).
+DOOR_DEBUG_MAX_CANDIDATES = 32
+DOOR_DEBUG_ORDER = {'ok': 0, 'strong': 1, 'weak': 2, 'geometry': 3}
+#: With no odometry pose at the mask stamp the door stereo is used as it is
+#: only this close [s] to the scan; further, it has no opinion that cycle.
+DOOR_STEREO_UNCOMPENSATED_MAX_S = 0.1
+#: The door keys of /perception/virtual_wall/debug, every one of them None
+#: when door detection is off.
+DOOR_DEBUG_KEYS = (
+    'door_ms', 'doors', 'doors_confirmed', 'door_candidates', 'door_candidates_total',
+    'door_manhattan', 'door_n_strikes', 'door_n_deleted_by_strikes', 'door_n_confirmed',
+    'door_errors', 'door_disabled', 'door_mask_age_s', 'door_stereo')
+
+
+def extrinsic_at_scan(rotation, translation, pose_scan, pose_mask):
+    """
+    Return (rotation, translation) that project base_link points taken at the SCAN stamp.
+
+    `rotation` (the camera's axes in base_link) and `translation` (its
+    position in base_link) take base_link points into the optical frame the
+    way scene_mask.project_to_image does, p_opt = R^T (p - t) -- base_link
+    AT THE IMAGE'S MOMENT. The door candidates are base_link at the scan's.
+    With the planar odometry poses (odom from base_link) at both stamps,
+    pose_scan and pose_mask, a point moves between the two base_links as
+    p_mask = R_ms p_scan + t_ms (a yaw and an xy shift; z unchanged), so
+
+        p_opt = R^T (R_ms p_scan + t_ms - t)
+              = (R_ms^T R)^T (p_scan - R_ms^T (t - t_ms)):
+
+    the car's motion folds into the extrinsic, and every projection in
+    door_detection stays exactly as it is.
+    """
+    rel = pose_mask.inverse().compose(pose_scan)    # base_link(mask) <- base_link(scan)
+    c, s = math.cos(rel.theta), math.sin(rel.theta)
+    r_ms = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+    t_ms = np.array([rel.x, rel.y, 0.0])
+    rot = np.asarray(rotation, dtype=float).reshape(3, 3)
+    trans = np.asarray(translation, dtype=float).reshape(3)
+    return r_ms.T @ rot, r_ms.T @ (trans - t_ms)
+
+
+def _json_num(x, digits):
+    """Return x rounded, or None for None, NaN or inf (strict JSON has no NaN)."""
+    if x is None:
+        return None
+    x = float(x)
+    return round(x, digits) if math.isfinite(x) else None
+
+
+def door_record(cand):
+    """Return one door_candidates record (base_link) as JSON-safe debug data."""
+    centre = cand.centre
+    return {
+        'code': str(cand.code), 'cls': str(cand.cls), 'visible': bool(cand.visible),
+        'detail': str(cand.detail), 'width': _json_num(cand.width, 3),
+        'n_beams': int(cand.n_beams), 'n_required': int(cand.n_required),
+        'view_deg': _json_num(cand.view_deg, 1),
+        'behind_frac': _json_num(cand.behind_frac, 3),
+        'boundary_hits': int(cand.boundary_hits),
+        'leaf_side': door_detection.LEAF_NAMES.get(int(cand.leaf_side), '?'),
+        'glass_suspect': None if cand.glass_suspect is None else bool(cand.glass_suspect),
+        'jamb_height_unknown': bool(cand.jamb_height_unknown),
+        'jamb_tops': [_json_num(top, 2) for top in cand.jamb_tops],
+        'host_offset_deg': _json_num(cand.host_offset_deg, 2),
+        'parents': [int(i) for i in cand.parents],
+        'centre_bl': [_json_num(centre[0], 3), _json_num(centre[1], 3)]}
+
+
+def _uint(value, bits):
+    """Clamp to an unsigned field of `bits` bits, as a Python int."""
+    return min(max(int(value), 0), (1 << bits) - 1)
+
+
+def door_message(door, to_bl, scan_stamp):
+    """
+    Return the f1tenth_messages/Door of one DoorTrack, every field its exact wire type.
+
+    Humble type-checks every message field setter (and Jazzy with
+    ROS_PYTHON_CHECK_FIELDS=1): numpy scalars and ints in a float field are
+    rejected, so every value is cast here. `to_bl` takes odom to base_link
+    at the scan stamp.
+    """
+    centre = door.centre
+    bl = to_bl.transform_points(np.vstack([centre, door.jamb0, door.jamb1]))
+    m = Door()
+    m.id = _uint(door.id, 32)
+    m.state = (Door.STATE_CONFIRMED if door.state == door_detection.STATE_CONFIRMED
+               else Door.STATE_CANDIDATE)
+    m.center = Point(x=float(centre[0]), y=float(centre[1]), z=0.0)
+    m.normal = Vector3(x=float(door.normal[0]), y=float(door.normal[1]), z=0.0)
+    m.width = float(door.width)
+    m.jamb0 = Point(x=float(door.jamb0[0]), y=float(door.jamb0[1]), z=0.0)
+    m.jamb1 = Point(x=float(door.jamb1[0]), y=float(door.jamb1[1]), z=0.0)
+    m.center_bl, m.jamb0_bl, m.jamb1_bl = (
+        Point(x=float(q[0]), y=float(q[1]), z=0.0) for q in bl)
+    m.parent_wall_id0, m.parent_wall_id1 = (_uint(i, 32) for i in door.parents)
+    m.occupied = bool(door.occupied)
+    m.confidence = float(min(max(float(door.confidence), 0.0), 1.0))
+    m.stereo_support = bool(door.stereo_support)
+    m.hits = _uint(door.hits, 32)
+    m.age = float(scan_stamp - door.born)
+    m.since_seen = float(scan_stamp - door.last_positive)
+    m.n_beams = _uint(door.n_beams, 16)
+    m.leaf_side = _uint(door.leaf_side, 8)
+    m.glass_suspect = bool(door.glass_suspect)
+    m.jamb_height_unknown = bool(door.jamb_height_unknown)
+    return m
 
 
 class LidarFrontWallNode(Node):
@@ -747,53 +882,88 @@ class LidarFrontWallNode(Node):
         self.side_edge_half_width_m = float(get_value('swept_clearance_body_half_width_m'))
 
         # ---- door detection (module docstring, DOOR DETECTION) --------------
-        self.door_enabled = bool(param('door_detection_enabled', True)) \
-            and self.wall_tracker is not None
+        # Every fallback below is DoorParams' own default (in degrees here
+        # where its field is *_rad). DoorParams, these fallbacks and
+        # stack_params.yaml's lidar_front_wall_door_* must agree
+        # (test_lidar_front_wall_node.py, TestDoorParamsCoupling).
+        door_requested = bool(param('door_detection_enabled', True))
+        self.door_enabled = door_requested and self.wall_tracker is not None
         self.door_params = door_detection.DoorParams(
+            # The gap's geometry and its beams.
             collinear_angle_rad=math.radians(float(param('door_collinear_angle_deg', 5.0))),
             collinear_offset_m=float(param('door_collinear_offset_m', 0.10)),
             width_min_m=self.door_width_min_m,
             width_max_m=float(param('door_width_max_m', 1.00)),
-            behind_margin_m=float(param('door_behind_margin_m', 0.30)),
             # ON the wall line is what the negative evidence calls a hit.
             wall_tol_m=float(tracker_params.negative_tol_m),
             min_beams=int(param('door_min_beams', 8)),
             min_beam_fraction=float(param('door_min_beam_fraction', 0.8)),
-            confirm_hits=int(param('door_confirm_hits', 3)),
-            confirm_window=int(param('door_confirm_window', 5)),
-            delete_after_s=float(param('door_delete_after_sec', 2.0)),
-            # THE LEAF: strict in the core, an open leaf allowed at a jamb.
+            # HOSTS and the MANHATTAN PRIOR.
+            manhattan_prior=bool(param('door_manhattan_prior', True)),
+            manhattan_tol_deg=float(param('door_manhattan_tol_deg', 10.0)),
+            manhattan_min_wall_len_m=float(param('door_manhattan_min_wall_len_m', 1.5)),
+            manhattan_tau_s=float(param('door_manhattan_tau_sec', 2.0)),
+            min_line_extent_m=float(param('door_min_line_extent_m', 2.0)),
+            host_front_facing=bool(param('door_host_front_facing', False)),
+            min_side_len_m=float(param('door_min_side_len_m', 0.5)),
+            # The gap tests, every depth PERPENDICULAR to the (snapped) line.
+            max_view_angle_deg=float(param('door_max_view_angle_deg', 45.0)),
+            behind_margin_m=float(param('door_behind_margin_m', 1.0)),
+            behind_frac=float(param('door_behind_frac', 0.7)),
+            boundary_behind_min_m=float(param('door_boundary_behind_min_m', 0.30)),
+            boundary_max_hits=int(param('door_boundary_max_hits', 2)),
+            boundary_end_margin_m=float(param('door_boundary_end_margin_m', 0.10)),
+            on_line_min_beams=int(param('door_on_line_min_beams', 2)),
+            # THE LEAF and THE REVEAL: an open leaf hung on a jamb is a door.
             core_fraction=float(param('door_core_fraction', 0.6)),
             leaf_max_len_m=float(param('door_leaf_max_len_m', 1.0)),
             leaf_hinge_tol_m=float(param('door_leaf_hinge_tol_m', 0.10)),
-            # The stereo glass veto, OFF by default.
+            reveal_max_depth_m=float(param('door_reveal_max_depth_m', 0.20)),
+            # The stereo: the glass veto (OFF by default) and the jamb height.
             stereo_glass_veto=bool(param('door_stereo_glass_veto', False)),
             stereo_plane_tol_m=float(param('door_stereo_plane_tol_m', 0.30)),
             stereo_wall_veto_frac=float(param('door_stereo_wall_veto_frac', 0.5)),
-            # FRAME JAMBS: doorways between the scan's short straight pieces
-            # too. A piece as long as a track needs to be born is a wall,
-            # which carries a door only once the tracker confirmed it.
-            frame_jambs=bool(param('door_frame_jambs', True)),
-            frame_min_pieces=int(param('door_frame_min_pieces', 3)),
-            frame_jamb_min_length_m=float(param('door_frame_jamb_min_length_m', 0.04)),
-            piece_max_rms_m=float(param('door_piece_max_rms_m', 0.015)),
-            piece_max_range_m=float(param('door_piece_max_range_m', 6.0)),
-            piece_max_length_m=float(tracker_params.min_span_birth_m),
-            # GLASS: seen square-on before confirmed, and the pane memory.
-            square_looks=int(param('door_square_looks', 1)),
-            square_incidence_rad=math.radians(float(param('door_square_incidence_deg', 2.0))),
-            square_min_beams=int(param('door_square_min_beams', 8)),
-            pane_min_on_beams=int(param('door_pane_min_on_beams', 2)),
-            pane_min_cycles=int(param('door_pane_min_cycles', 2)),
-            pane_memory_s=float(param('door_pane_memory_sec', 60.0)))
+            jamb_height_check=bool(param('door_jamb_height_check', True)),
+            jamb_min_height_m=float(param('door_jamb_min_height_m', 1.8)),
+            furniture_max_height_m=float(param('door_furniture_max_height_m', 1.3)),
+            # The LIFECYCLE: two viewpoints and a steady width to confirm.
+            min_viewpoints=int(param('door_min_viewpoints', 2)),
+            viewpoint_sep_m=float(param('door_viewpoint_sep_m', 0.3)),
+            width_std_max_m=float(param('door_width_std_max_m', 0.05)),
+            confirm_window=int(param('door_confirm_window', 20)),
+            candidate_max_age_s=float(param('door_candidate_max_age_sec', 10.0)),
+            confirmed_max_age_s=float(param('door_confirmed_max_age_sec', 60.0)),
+            # SEEN SQUARE-ON: an optional extra confirmation requirement, off.
+            square_looks=int(param('door_square_looks', 0)),
+            square_incidence_rad=math.radians(float(param('door_square_incidence_deg', 3.0))),
+            square_min_beams=int(param('door_square_min_beams', 8)))
+        # /perception/doors carries the CONFIRMED doors only unless this is
+        # set; /viz/doors always draws both states.
+        self.door_publish_candidates = bool(param('door_publish_candidates', False))
         self.door_jamb_viz_diameter_m = float(param('door_jamb_viz_diameter_m', 0.10))
         self.door_tracker = (door_detection.DoorTracker(self.door_params)
                              if self.door_enabled else None)
+        # The room's dominant wall direction, updated from the tracker's
+        # tracks on every door cycle before door_candidates reads it.
+        self._door_manhattan = door_detection.ManhattanPrior(self.door_params)
         self._viz_doors_builder = door_markers.DoorMarkerBuilder(
             self.wall_marker_lifetime_s, self.wall_viz_height_m,
             self.door_jamb_viz_diameter_m)
         self._door_ms = math.nan
-        self._door_pieces = 0
+        #: This cycle's door_candidates records as debug data (door_record),
+        #: their uncapped count, and the prior as the cycle left it.
+        self._door_records = []
+        self._door_candidates_total = 0
+        self._door_manhattan_debug = self._door_manhattan.to_debug()
+        #: The door stereo this cycle: its mask/depth pair's age (scan stamp
+        #: minus mask stamp) and what became of it (_door_stereo_frame).
+        self._door_mask_age = math.nan
+        self._door_stereo = 'unused'
+        #: Door cycles that raised, ever and in a row, and whether that turned
+        #: door detection off for the node's life (DOOR_MAX_CONSECUTIVE_FAILURES).
+        self._door_errors = 0
+        self._door_failures_in_a_row = 0
+        self._door_disabled = False
         #: The class_id of each detection in self._detections[1], same order:
         #: a person inside a confirmed door marks it occupied.
         self._detection_classes = []
@@ -880,7 +1050,8 @@ class LidarFrontWallNode(Node):
             f'{self.estimate_topic}; sector +-{math.degrees(self.sector_half_angle_rad):.1f} deg, '
             f'odometry {self.odom_topic}, seed {self.seed_topic}'
             + ('; SCENE LABELS ON: detection sectors cut, /perception/wall_planes, '
-               '/perception/virtual_wall' if self.scene_enabled else ''))
+               '/perception/virtual_wall' if self.scene_enabled else '')
+            + self._door_startup_summary(door_requested))
 
     def _now(self):
         return self.get_clock().now().nanoseconds * 1e-9
@@ -1493,20 +1664,15 @@ class LidarFrontWallNode(Node):
             'negative_killed': (None if self.wall_tracker is None
                                 else int(self.wall_tracker.n_negative_killed)),
             'objects_behind_wall': self._objects_behind_wall,
-            # Door detection (DOOR DETECTION): its cost this cycle, how many
-            # doors it holds, and the gaps it refused, [code, [ids], width m].
-            'door_ms': num(self._door_ms) if self.door_tracker is not None else None,
-            'doors': (len(self.door_tracker.doors)
-                      if self.door_tracker is not None else None),
-            'door_rejects': ([[c, list(ids), w] for c, ids, w in self.door_tracker.rejects]
-                             if self.door_tracker is not None else None),
-            # FRAME JAMBS and GLASS (door_detection): this cycle's frame
-            # pieces; the doors seen often enough but not yet square-on; the
-            # panes remembered, how many doors turned out to be one, and how
-            # many candidates a remembered pane has dropped.
-            **(self._door_glass_payload() if self.door_tracker is not None else {
-                'door_pieces': None, 'door_unsquared': None, 'door_panes': None,
-                'door_pane_kills': None, 'door_pane_suppressed': None})})))
+            # Door detection (DOOR DETECTION), all None with it off: its cost
+            # this cycle; the live doors and how many are CONFIRMED; EVERY gap
+            # door_candidates judged this cycle with its code (door_record, at
+            # most DOOR_DEBUG_MAX_CANDIDATES, doors and STRONG ones first) and
+            # how many there were; the Manhattan prior; the lifecycle's
+            # cumulative strikes, strike deletions and confirmations; failed
+            # cycles and whether they turned it off; the stereo pair's age and
+            # what became of it (_door_stereo_frame).
+            **self._door_payload()})))
         return state
 
     def _virtual_due(self, now):
@@ -1631,47 +1797,100 @@ class LidarFrontWallNode(Node):
     # ---- door detection (module docstring, DOOR DETECTION) ------------------
 
     def _detect_doors(self, car, scan, scan_stamp, stamp):
-        """One door cycle on this tracker step: candidates, stereo, tracking, publish."""
+        """
+        Run one door cycle on this tracker step; nothing it raises leaves it.
+
+        Called AFTER the walls are published. A failure is logged (throttled)
+        and counted (door_errors), and DOOR_MAX_CONSECUTIVE_FAILURES in a row
+        turn door detection off for the node's life: a perception-only
+        overlay never costs the walls or the virtual wall that follows.
+        """
+        self._door_records, self._door_candidates_total = [], 0
+        self._door_mask_age, self._door_stereo = math.nan, 'unused'
+        if self._door_disabled:
+            self._door_ms = math.nan
+            return
         t0 = time.perf_counter()
-        rejects = []
-        pieces = (door_detection.scan_pieces(scan, self.door_params)
-                  if self.door_params.frame_jambs else [])
-        self._door_pieces = len(pieces)
+        try:
+            self._door_cycle(car, scan, scan_stamp, stamp)
+        except Exception as exc:
+            self._door_failed(exc)
+        else:
+            self._door_failures_in_a_row = 0
+        self._door_ms = (time.perf_counter() - t0) * 1e3
+
+    def _door_cycle(self, car, scan, scan_stamp, stamp):
+        """Run the Manhattan prior, the candidates (stereo lazily), the tracker, the topics."""
+        tracks = self.wall_tracker.tracks
+        self._door_manhattan.update(tracks, scan_stamp)
+        self._door_manhattan_debug = self._door_manhattan.to_debug()
         candidates = door_detection.door_candidates(
-            self.wall_tracker.tracks, car, scan, self.door_params, rejects, pieces)
-        geometry = self._door_mask_geometry(scan_stamp) if candidates else None
-        if geometry is not None and self.door_params.stereo_glass_veto:
-            # The glass veto first: a vetoed gap is not a candidate at all.
-            kept = []
-            for cand in candidates:
-                veto, cand.glass_suspect, _detail = door_detection.stereo_glass_check(
-                    cand, *geometry, p=self.door_params, depth_scale=0.001)
-                if veto:
-                    door_detection.record_reject(rejects, 'stereo_wall', cand)
-                else:
-                    kept.append(cand)
-            candidates = kept
-        if geometry is not None:
-            for cand in candidates:
-                cand.stereo_support, _detail = door_detection.stereo_gap_support(
-                    cand, *geometry, p=self.door_params, depth_scale=0.001)
+            tracks, car, scan, self.door_params,
+            stereo=lambda: self._door_stereo_frame(car, scan_stamp),
+            manhattan=self._door_manhattan)
+        # The debug records are built here, inside the cycle's guard, so the
+        # debug publish only ever reads plain data.
+        ordered = sorted(candidates, key=lambda c: DOOR_DEBUG_ORDER.get(c.cls, 4))
+        self._door_records = [door_record(c) for c in ordered[:DOOR_DEBUG_MAX_CANDIDATES]]
+        self._door_candidates_total = len(candidates)
         doors = self.door_tracker.step(candidates, car, scan_stamp,
                                        self._persons_at(car, scan_stamp), scan=scan)
-        self.door_tracker.rejects = rejects
-        self._door_ms = (time.perf_counter() - t0) * 1e3
         self._publish_doors(stamp, doors, car, scan_stamp)
 
-    def _door_glass_payload(self):
+    def _door_failed(self, exc):
+        """Log and count a failed door cycle; turn door detection off after too many."""
+        self._door_errors += 1
+        self._door_failures_in_a_row += 1
+        frames = traceback.extract_tb(exc.__traceback__)
+        where = (f' (at {frames[-1].filename.rsplit("/", 1)[-1]}:{frames[-1].lineno} '
+                 f'in {frames[-1].name})' if frames else '')
+        self.get_logger().error(f'door detection failed: {exc!r}{where}',
+                                throttle_duration_sec=5.0)
+        if self._door_failures_in_a_row >= DOOR_MAX_CONSECUTIVE_FAILURES:
+            self._door_disabled = True
+            self.get_logger().error(
+                f'door detection DISABLED for the life of this node: '
+                f'{self._door_failures_in_a_row} consecutive door cycles failed (last: '
+                f'{exc!r}{where}). /perception/doors and /viz/doors stop; the walls '
+                'and the virtual wall are unaffected.')
+
+    def _door_startup_summary(self, requested):
+        """Return the startup log's door clause: on or off, and with which key numbers."""
+        if not self.door_enabled:
+            return '; door detection OFF' + (
+                ' (it needs use_wall_tracker)' if requested else '')
+        p = self.door_params
+        published = ('confirmed + candidates' if self.door_publish_candidates
+                     else 'confirmed only')
+        return (f'; DOOR DETECTION ON: /perception/doors {published}, /viz/doors all; '
+                f'width {p.width_min_m:.2f}-{p.width_max_m:.2f} m, behind '
+                f'{p.behind_margin_m:.2f} m x {p.behind_frac:.2f}, confirm on '
+                f'{p.min_viewpoints} viewpoints {p.viewpoint_sep_m:.2f} m apart, '
+                f'manhattan {"on" if p.manhattan_prior else "off"} '
+                f'({p.manhattan_tol_deg:.0f} deg), jamb height '
+                f'{"on" if p.jamb_height_check else "off"}, glass veto '
+                f'{"on" if p.stereo_glass_veto else "off"}')
+
+    def _door_payload(self):
+        """Return the door keys of /perception/virtual_wall/debug, all None when off."""
         tr = self.door_tracker
+        if tr is None:
+            return dict.fromkeys(DOOR_DEBUG_KEYS)
         return {
-            'door_pieces': int(self._door_pieces),
-            'door_unsquared': sum(
-                1 for d in tr.doors if not d.ever_confirmed
-                and d.square_looks < self.door_params.square_looks
-                and sum(d.history) >= self.door_params.confirm_hits),
-            'door_panes': len(tr.panes),
-            'door_pane_kills': int(tr.n_pane_kills),
-            'door_pane_suppressed': int(tr.n_pane_suppressed)}
+            'door_ms': _json_num(self._door_ms, 4),
+            'doors': len(tr.doors),
+            'doors_confirmed': sum(1 for d in tr.doors
+                                   if d.state == door_detection.STATE_CONFIRMED),
+            'door_candidates': list(self._door_records),
+            'door_candidates_total': int(self._door_candidates_total),
+            'door_manhattan': dict(self._door_manhattan_debug),
+            'door_n_strikes': int(tr.n_strikes),
+            'door_n_deleted_by_strikes': int(tr.n_deleted_by_strikes),
+            'door_n_confirmed': int(tr.n_confirmed),
+            'door_errors': int(self._door_errors),
+            'door_disabled': bool(self._door_disabled),
+            'door_mask_age_s': _json_num(self._door_mask_age, 3),
+            'door_stereo': self._door_stereo}
 
     def _persons_at(self, car, scan_stamp):
         """
@@ -1694,11 +1913,13 @@ class LidarFrontWallNode(Node):
 
     def _door_mask_geometry(self, scan_stamp):
         """
-        Return (labels, depth_mm, fx, fy, cx, cy, R, t) for stereo_gap_support, or None.
+        Return (labels, depth_mm, fx, fy, cx, cy, R, t, mask stamp) for the door stereo, or None.
 
         The same mask/depth pair, intrinsics and camera transform the
-        rectangle verification uses (_verify_tracks), so the door's optional
-        stereo evidence is the same measurement the walls' is.
+        rectangle verification uses (_verify_tracks), so the door's stereo
+        evidence is the same measurement the walls' is. R, t are the camera's
+        mount: base_link at the MASK's moment (_door_stereo_frame carries
+        them to the scan's).
         """
         if not self.rect_verify or self._stereo_columns is None:
             return None
@@ -1712,38 +1933,57 @@ class LidarFrontWallNode(Node):
             return None
         scale = labels.shape[1] / float(profile.width)
         return (labels, depth, float(profile.fx) * scale, float(profile.fy) * scale,
-                float(profile.cx) * scale, float(profile.cy) * scale, cam[0], cam[1])
+                float(profile.cx) * scale, float(profile.cy) * scale, cam[0], cam[1],
+                _stamp_sec(self._mask_classes.header))
+
+    def _door_stereo_frame(self, car, scan_stamp):
+        """
+        Return this cycle's door StereoFrame, valid for base_link at the scan stamp, or None.
+
+        door_candidates calls this at most once a cycle and only when a gap
+        reaches its STEREO stage. The candidates are base_link at the scan
+        stamp (`car` is the odometry pose there), the mask/depth pair is from
+        its own, older stamp: the camera extrinsic is carried across on the
+        odometry (extrinsic_at_scan). With no pose at the mask stamp the pair
+        is used as it is only within DOOR_STEREO_UNCOMPENSATED_MAX_S of the
+        scan; further, there is no stereo opinion this cycle. The mask's age
+        and what became of it go on the debug topic (door_mask_age_s,
+        door_stereo).
+        """
+        geometry = self._door_mask_geometry(scan_stamp)
+        if geometry is None:
+            self._door_stereo = 'no_pair'
+            return None
+        labels, depth, fx, fy, cx, cy, rot, trans, mask_stamp = geometry
+        age = scan_stamp - mask_stamp
+        self._door_mask_age = age
+        pose_mask = self._poses.at(mask_stamp, self.pose_max_extrapolation_s)
+        if car is not None and pose_mask is not None:
+            rot, trans = extrinsic_at_scan(rot, trans, car, pose_mask)
+            self._door_stereo = 'compensated'
+        elif abs(age) > DOOR_STEREO_UNCOMPENSATED_MAX_S:
+            self._door_stereo = 'no_pose'
+            return None
+        else:
+            self._door_stereo = 'uncompensated'
+        return door_detection.StereoFrame(labels, depth, fx, fy, cx, cy, rot, trans,
+                                          depth_scale=0.001)
 
     def _publish_doors(self, stamp, doors, car, scan_stamp):
-        """Publish /perception/doors and /viz/doors, every tracker cycle."""
+        """
+        Publish /perception/doors and /viz/doors, every door cycle, empty included.
+
+        /perception/doors carries the CONFIRMED doors only -- the CANDIDATES
+        too with door_publish_candidates. /viz/doors draws every live door,
+        confirmed solid and candidate faded, whatever that flag says.
+        """
         out = DoorArray()
         out.header.stamp = stamp
         out.header.frame_id = self._odom_frame
         to_bl = car.inverse()
         for door in doors:
-            centre = door.centre
-            bl = to_bl.transform_points(np.vstack([centre, door.jamb0, door.jamb1]))
-            m = Door()
-            m.id = int(door.id)
-            m.state = int(door.state)
-            m.center = Point(x=float(centre[0]), y=float(centre[1]), z=0.0)
-            m.normal = Vector3(x=float(door.normal[0]), y=float(door.normal[1]), z=0.0)
-            m.width = float(door.width)
-            m.jamb0 = Point(x=float(door.jamb0[0]), y=float(door.jamb0[1]), z=0.0)
-            m.jamb1 = Point(x=float(door.jamb1[0]), y=float(door.jamb1[1]), z=0.0)
-            m.center_bl, m.jamb0_bl, m.jamb1_bl = (
-                Point(x=float(q[0]), y=float(q[1]), z=0.0) for q in bl)
-            m.parent_wall_id0, m.parent_wall_id1 = (int(i) for i in door.parents)
-            m.occupied = bool(door.occupied)
-            m.confidence = float(min(max(door.confidence, 0.0), 1.0))
-            m.stereo_support = bool(door.stereo_support)
-            m.hits = int(door.hits)
-            m.age = float(scan_stamp - door.born)
-            m.since_seen = float(scan_stamp - door.last_seen)
-            m.n_beams = int(min(max(door.n_beams, 0), 65535))
-            m.leaf_side = int(door.leaf_side)
-            m.glass_suspect = bool(door.glass_suspect)
-            out.doors.append(m)
+            if self.door_publish_candidates or door.state == door_detection.STATE_CONFIRMED:
+                out.doors.append(door_message(door, to_bl, scan_stamp))
         self.doors_pub.publish(out)
         # /viz/doors goes out on EVERY cycle door detection runs, subscribed
         # or not -- unlike /viz/walls -- so a mission bag records it and the
@@ -1781,10 +2021,12 @@ class LidarFrontWallNode(Node):
     def _track_payload(self):
         """Every LIVE track as a dict, for /perception/virtual_wall/debug.
 
-        Not only the published four: the whole point of 'other' and of the
+        Not only the published four: the whole point of 'unknown' and of the
         rectangle's REJECTED is that a track can be real, tracked and a
         reference for nothing, and a payload that showed only the published
-        ones would hide exactly those.
+        ones would hide exactly those. `role` is the REPORTED one
+        (mwt.reported_role): 'unknown' for a tentative track, as on
+        /perception/walls and /viz/walls.
         """
         car = self._car_pose
         if not self.debug_tracks or self.wall_tracker is None or car is None:
@@ -1796,7 +2038,7 @@ class LidarFrontWallNode(Node):
             bl = mwt.track_in_base_link(trk, car)
             _perp, d_ray = mwt.front_distances(trk, car, self.front_x)
             out.append({
-                'id': int(trk.id), 'role': trk.role,
+                'id': int(trk.id), 'role': mwt.reported_role(trk),
                 'state': mwt.STATE_NAMES.get(trk.state), 'hits': int(trk.hits),
                 'age_s': num((self.wall_tracker._last_stamp or trk.born) - trk.born),
                 'length_m': num(trk.length), 'rho_bl': num(bl.rho),
@@ -1844,7 +2086,11 @@ class LidarFrontWallNode(Node):
         markers = MarkerArray()
         for trk in tracks:
             bl = mwt.track_in_base_link(trk, car)
-            label = self.wall_tracker.label(trk, car)
+            # The REPORTED role (mwt.reported_role): a TENTATIVE track is
+            # 'unknown' on the wire and in its marker whatever its geometry
+            # says. The tracker's own Track.role, which FRONT and published()
+            # read, is not touched.
+            label = mwt.reported_role(trk, self.wall_tracker.label(trk, car))
             d_perp, d_ray = mwt.front_distances(trk, car, self.front_x)
             (x0, y0), (x1, y1) = trk.endpoints()
             m = MultiWallTrack()
@@ -1901,7 +2147,7 @@ class LidarFrontWallNode(Node):
             slab.scale.x = max(float(length), 0.01)
             slab.scale.y = self.wall_marker_thickness_m
             slab.scale.z = max(float(z_top), 0.01)
-            r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR['other'])
+            r, g, b = _ROLE_COLOUR.get(label, _ROLE_COLOUR[mwt.ROLE_UNKNOWN])
             slab.color.r, slab.color.g, slab.color.b = r, g, b
             # A wall only assumed to be this tall is drawn fainter than one
             # whose height was actually seen.

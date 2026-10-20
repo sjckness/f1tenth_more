@@ -11,18 +11,26 @@ These defend the wire contract; test_lidar_front_wall.py covers the maths.
   * The message constants and the pure module's codes agree.
   * The node's parameter defaults equal stack_params.yaml's, and its odometry
     is the local EKF by decision rather than get_odom_topic().
+  * Doors (TestDoors, TestDoorStereo, TestDoorParamsCoupling): /perception/doors
+    carries CONFIRMED doors only unless door_publish_candidates, /viz/doors every
+    live door on every cycle; a failing door cycle never stops the walls; the
+    stereo pair is carried from its own stamp to the scan's; and every door
+    default is one number in DoorParams, the node and stack_params.yaml.
 
 Run standalone: python3 -m pytest test/test_lidar_front_wall_node.py -v
 """
 
+import dataclasses
 import json
 import math
-from unittest.mock import MagicMock
+import os
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 import rclpy
-from f1tenth_messages.msg import WallEstimate, WallLineFit
+from builtin_interfaces.msg import Time as StampMsg
+from f1tenth_messages.msg import Door, WallEstimate, WallLineFit
 from geometry_msgs.msg import TransformStamped
 from nav_msgs.msg import Odometry
 from rclpy.parameter import Parameter
@@ -30,11 +38,15 @@ from rclpy.qos import ReliabilityPolicy
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32
 from tf2_msgs.msg import TFMessage
+import yaml
 
+from corridor_perception.geometry import Pose2D
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_params.param_defaults import get_value
+from f1tenth_perception import door_detection, door_markers, scene_mask
 from f1tenth_perception import lidar_front_wall as logic
-from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode
+from f1tenth_perception.lidar_front_wall_node import (
+    DOOR_DEBUG_KEYS, DOOR_MAX_CONSECUTIVE_FAILURES, extrinsic_at_scan, LidarFrontWallNode)
 
 ANGLE_MIN = float(np.float32(-2.356194496154785))
 ANGLE_INCREMENT = float(np.float32(0.004363323096185923))
@@ -722,6 +734,101 @@ class TestTrackFieldsOnTheWire:
             n.destroy_node()
 
 
+class TestTentativeTracksAreReportedAsUnknown:
+    """A TENTATIVE track is 'unknown' on the wire, drawn and in the debug payload."""
+
+    @staticmethod
+    def _node():
+        # ONE scan of a wall square across the path 2 m ahead: the tracker
+        # holds it as a tentative track whose own (geometric) role is front.
+        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
+        n = N(parameter_overrides=[Parameter('enable_scene_labels', value=True),
+                                   Parameter('wall_tracker_scan_decimation', value=1),
+                                   Parameter('virtual_wall_rate_hz', value=0.0),
+                                   Parameter('wall_debug_tracks', value=True),
+                                   Parameter('use_wall_tracker', value=True)])
+        for pub in ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub',
+                    'virtual_debug_pub', 'observations_pub', 'walls_pub',
+                    'walls_markers_pub'):
+            getattr(n, pub).publish = MagicMock()
+        n.viz_walls_pub = MagicMock()
+        n.viz_walls_pub.get_subscription_count.return_value = 1
+        n._tf_static_cb(_tf_static())
+        # /perception/walls carries published()'s ever-confirmed tracks, so a
+        # tentative one reaches it only on the cycle after a merge; publishing
+        # every held track takes the same _publish_walls path.
+        n.wall_tracker.published = lambda car: list(n.wall_tracker.tracks)
+        n._odom_cb(_odom_at(7.0, 0.0))
+        n._scan_cb(_scan_at(2.0, 7.0))
+        return n
+
+    def test_the_tracker_keeps_the_tentative_track_s_geometric_role_front(self):
+        from f1tenth_perception import multi_wall_tracker as mwt
+        n = self._node()
+        try:
+            held = list(n.wall_tracker.tracks)
+            assert held and all(t.state == mwt.STATE_TENTATIVE for t in held)
+            assert 'front' in {t.role for t in held}
+        finally:
+            n.destroy_node()
+
+    def test_a_tentative_track_is_published_as_unknown_whatever_its_geometric_role(self):
+        n = self._node()
+        try:
+            wire = _last(n.walls_pub).tracks
+            assert {t.id for t in wire} == {t.id for t in n.wall_tracker.tracks}
+            for t in wire:
+                assert t.state == t.STATE_TENTATIVE
+                assert (t.role, t.label) == ('unknown', 'unknown')
+                assert math.isnan(t.d_side)
+        finally:
+            n.destroy_node()
+
+    def test_its_perception_walls_marker_is_the_unknown_grey_and_says_unknown(self):
+        from f1tenth_perception.lidar_front_wall_node import _ROLE_COLOUR
+        from visualization_msgs.msg import Marker
+        n = self._node()
+        try:
+            markers = _last(n.walls_markers_pub).markers
+            slabs = [m for m in markers if m.type == Marker.CUBE]
+            texts = [m for m in markers if m.type == Marker.TEXT_VIEW_FACING]
+            assert slabs and texts
+            for m in slabs:
+                assert (m.color.r, m.color.g, m.color.b) == pytest.approx(
+                    _ROLE_COLOUR['unknown'])
+            for m in texts:
+                words = m.text.split()
+                assert words[1] == 'unknown' and words[-1] == 'tentative'
+        finally:
+            n.destroy_node()
+
+    def test_it_is_drawn_as_unknown_on_viz_walls(self):
+        from f1tenth_perception import wall_markers as wm
+        n = self._node()
+        try:
+            markers = _last(n.viz_walls_pub).markers
+            lines = [m for m in markers if m.id % 4 == wm.SLOT_LINE]
+            texts = [m for m in markers if m.id % 4 == wm.SLOT_TEXT]
+            assert lines and texts
+            for m in lines:
+                assert (m.color.r, m.color.g, m.color.b) == pytest.approx(
+                    wm.ROLE_COLOUR['unknown'])
+            for m in texts:
+                assert m.text.split()[1] == 'unknown'
+        finally:
+            n.destroy_node()
+
+    def test_the_debug_payload_reports_it_as_unknown(self):
+        n = self._node()
+        try:
+            tracks = json.loads(_last(n.virtual_debug_pub).data)['tracks']
+            assert tracks
+            for t in tracks:
+                assert (t['state'], t['role']) == ('tentative', 'unknown')
+        finally:
+            n.destroy_node()
+
+
 class TestTheOutputContract:
     """Step 5: WALL / CLEAR / NO_DATA on the wire.
 
@@ -1306,133 +1413,354 @@ def _door_scan(stamp, gap=True, wall_x=3.0, half_gap=0.425, back_x=6.0):
     return msg
 
 
+#: The scene the door tests drive past, as test_door_detection.py's
+#: TestThroughTheRealTracker: a corridor along +x, its LEFT wall at y = SIDE_Y
+#: with a doorway at x in +-DOOR_HALF, the office behind it 3 m deep and the
+#: right wall at -SIDE_Y. The two pieces of the left wall are confirmed LEFT
+#: tracks: HOSTS. (A doorway straight AHEAD would not do: it splits the end
+#: wall into two pieces that are neither FRONT nor a side wall -- unknown,
+#: and an unknown segment never hosts a door.)
+SIDE_Y = 1.2
+DOOR_HALF = 0.425
+#: 2 m before the doorway to 0.5 m before it, 0.1 m a cycle: the gap is
+#: oblique_view first, then a door seen from enough places to be CONFIRMED.
+DRIVE_PAST = tuple(round(-2.0 + 0.1 * i, 3) for i in range(16))
+#: Standing still 1 m before it: a door seen from ONE place, a candidate.
+STAND = (-1.0,) * 6
+#: Nearly abeam the doorway, where the left-looking camera below sees it.
+ABEAM = tuple(round(-0.6 + 0.1 * i, 3) for i in range(6))
+
+#: Every key of one door_candidates record on the debug topic (door_record).
+RECORD_KEYS = {'code', 'cls', 'visible', 'detail', 'width', 'n_beams', 'n_required',
+               'view_deg', 'behind_frac', 'boundary_hits', 'leaf_side', 'glass_suspect',
+               'jamb_height_unknown', 'jamb_tops', 'host_offset_deg', 'parents',
+               'centre_bl'}
+
+
+def _corridor_segments(doorway=True):
+    """Return the corridor's walls (odom); doorway False closes the left wall."""
+    left = ([((-6.0, SIDE_Y), (-DOOR_HALF, SIDE_Y)), ((DOOR_HALF, SIDE_Y), (6.0, SIDE_Y))]
+            if doorway else [((-6.0, SIDE_Y), (6.0, SIDE_Y))])
+    return left + [((-6.0, -SIDE_Y), (6.0, -SIDE_Y)),
+                   ((-9.0, SIDE_Y + 3.0), (9.0, SIDE_Y + 3.0))]
+
+
+def _raycast_scan(stamp, car_x, segments):
+    """Return the scan of a car at (car_x, 0) heading +x, against segments (odom)."""
+    msg = _scan(distance=None, stamp_sec=int(stamp))
+    msg.header.stamp.nanosec = int(round((stamp - int(stamp)) * 1e9))
+    angles = ANGLE_MIN + np.arange(N_BEAMS) * ANGLE_INCREMENT
+    d = np.stack([np.cos(angles), np.sin(angles)], axis=1)
+    origin = np.array([car_x + LASER_X, 0.0])
+    best = np.full(N_BEAMS, np.inf)
+    for (ax, ay), (bx, by) in segments:
+        e = np.array([bx - ax, by - ay], dtype=float)
+        w = np.array([ax, ay], dtype=float) - origin
+        den = d[:, 0] * (-e[1]) - d[:, 1] * (-e[0])
+        with np.errstate(divide='ignore', invalid='ignore'):
+            t = (w[0] * (-e[1]) - w[1] * (-e[0])) / den
+            u = (d[:, 0] * w[1] - d[:, 1] * w[0]) / den
+        hit = (np.abs(den) > 1e-12) & (t > 0) & (u >= 0) & (u <= 1)
+        best = np.where(hit & (t < best), t, best)
+    msg.ranges = [float(r) for r in best.astype(np.float32)]
+    return msg
+
+
+def _strict_json(text):
+    """Parse a debug payload, failing on NaN or Infinity (not JSON)."""
+    def refuse(constant):
+        raise AssertionError(f'{constant} in the debug payload')
+    return json.loads(text, parse_constant=refuse)
+
+
+def _payloads(n):
+    """Return every /perception/virtual_wall/debug payload the node published, in order."""
+    return [_strict_json(c.args[0].data) for c in n.virtual_debug_pub.publish.call_args_list]
+
+
+def _door_track(door_id, state, x=0.0):
+    """Return a DoorTrack in the corridor's left wall, its numbers numpy scalars."""
+    door = door_detection.DoorTrack(
+        door_id, np.array([x - DOOR_HALF, SIDE_Y]), np.array([x + DOOR_HALF, SIDE_Y]),
+        np.array([0.0, 1.0]), born=6.0, last_positive=6.5, state=state,
+        hits=np.int64(4), parents=(np.int64(3), np.int64(4)), n_beams=np.int64(70000),
+        leaf_side=np.int64(door_detection.LEAF_LEFT))
+    door.confidence = np.float64(1.3)
+    return door
+
+
 class TestDoors:
     """
-    /perception/doors and /viz/doors: the wiring.
+    /perception/doors, /viz/doors and the door debug keys: the node's wiring.
 
-    The detection itself is tested in test_door_detection.py.
+    The detection itself is tested in test_door_detection.py. Here the car
+    drives past a doorway in a corridor's left wall through the node: the
+    real extraction, wall tracker, Manhattan prior and door tracker.
     """
 
     PUBS = ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub', 'virtual_debug_pub',
             'observations_pub', 'walls_pub', 'walls_markers_pub', 'doors_pub')
 
     def _node(self, **overrides):
-        from f1tenth_perception.lidar_front_wall_node import LidarFrontWallNode as N
         params = {'enable_scene_labels': True, 'wall_tracker_scan_decimation': 1,
-                  'use_wall_tracker': True, 'wall_extract_backend': 'python'}
+                  'use_wall_tracker': True, 'wall_extract_backend': 'python',
+                  # No publish-rate cap: every cycle's debug payload is read.
+                  'virtual_wall_rate_hz': 0.0}
         params.update(overrides)
-        n = N(parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
+        n = LidarFrontWallNode(
+            parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
         for pub in self.PUBS:
             if hasattr(n, pub):
                 getattr(n, pub).publish = MagicMock()
-        n.viz_doors_pub = MagicMock()
-        n.viz_doors_pub.get_subscription_count.return_value = 1
+        if hasattr(n, 'viz_doors_pub'):
+            # A bare mock, so a call to get_subscription_count() shows.
+            n.viz_doors_pub = MagicMock()
         n._tf_static_cb(_tf_static())
         return n
 
     @staticmethod
     def _drive(n, cycles=8, t0=7.0, gap=True):
+        """Stand still before a wall ahead at x = 3 (TestFixedWallHeight's scene)."""
         for i in range(cycles):
             n._odom_cb(_odom_at(t0 + i * 0.1, 0.0))
             n._scan_cb(_door_scan(t0 + i * 0.1, gap=gap))
 
-    def test_a_doorway_in_the_wall_ahead_is_published_as_a_confirmed_door(self):
+    @staticmethod
+    def _drive_past(n, xs=DRIVE_PAST, t0=7.0, doorway=True):
+        """Drive the corridor, a tracker cycle every 0.1 s at x = xs[i]: odometry, then scan."""
+        for i, x in enumerate(xs):
+            t = round(t0 + 0.1 * i, 6)
+            odom = _odom_at(t, 0.0)
+            odom.pose.pose.position.x = float(x)
+            n._odom_cb(odom)
+            n._scan_cb(_raycast_scan(t, x, _corridor_segments(doorway)))
+
+    def test_a_doorway_driven_past_is_published_as_a_confirmed_door(self):
         n = self._node()
         try:
-            self._drive(n)
+            self._drive_past(n)
             msg = _last(n.doors_pub)
             assert msg.header.frame_id == n._odom_frame
-            assert len(msg.doors) == 1
-            door = msg.doors[0]
-            assert door.state == door.STATE_CONFIRMED
-            assert door.width == pytest.approx(0.85, abs=0.04)
-            assert (door.center.x, door.center.y) == pytest.approx((3.0, 0.0), abs=0.04)
-            assert (door.normal.x, door.normal.y) == pytest.approx((1.0, 0.0), abs=1e-3)
-            # The car sits at the odom origin, so base_link is odom here.
+            (door,) = msg.doors
+            assert door.state == Door.STATE_CONFIRMED
+            assert door.width == pytest.approx(2 * DOOR_HALF, abs=0.04)
+            assert (door.center.x, door.center.y) == pytest.approx((0.0, SIDE_Y), abs=0.04)
+            assert (door.normal.x, door.normal.y) == pytest.approx((0.0, 1.0), abs=0.01)
+            car_x = DRIVE_PAST[-1]
             assert (door.center_bl.x, door.center_bl.y) == pytest.approx(
-                (door.center.x, door.center.y), abs=1e-6)
-            assert door.occupied is False and 0.0 < door.confidence <= 1.0
+                (door.center.x - car_x, door.center.y), abs=1e-6)
             live = {t.id for t in n.wall_tracker.tracks}
             assert {door.parent_wall_id0, door.parent_wall_id1} <= live
+            assert door.parent_wall_id0 != door.parent_wall_id1
+            assert door.hits >= 2 and door.since_seen == 0.0 and door.age > 0.0
+            assert door.occupied is False and 0.0 < door.confidence <= 1.0
+            assert door.n_beams > 0 and door.leaf_side == Door.LEAF_NONE
+            # No camera on this node: the jambs' height was never measured.
+            assert door.jamb_height_unknown is True and door.glass_suspect is False
+            # /viz/doors went out on every cycle, and nobody counted subscribers.
+            assert n.viz_doors_pub.publish.call_count == len(DRIVE_PAST)
+            n.viz_doors_pub.get_subscription_count.assert_not_called()
         finally:
             n.destroy_node()
 
-    def test_every_tracker_cycle_publishes_even_with_no_door(self):
+    def test_a_door_seen_from_one_place_is_a_candidate_kept_off_perception_doors(self):
         n = self._node()
         try:
-            self._drive(n, cycles=4, gap=False)
-            assert n.doors_pub.publish.call_count == 4
+            self._drive_past(n, xs=STAND)
+            (door,) = n.door_tracker.doors
+            assert door.state == door_detection.STATE_CANDIDATE and door.hits >= 2
             assert _last(n.doors_pub).doors == []
-        finally:
-            n.destroy_node()
-
-    def test_the_debug_payload_says_what_the_doors_cost(self):
-        # The payload's own rate cap lifted, so the last cycle is the one read.
-        n = self._node(virtual_wall_rate_hz=0.0)
-        try:
-            self._drive(n, cycles=4)
-            d = json.loads(_last(n.virtual_debug_pub).data)
-            assert d['doors'] == 1
-            assert d['door_ms'] is not None and d['door_ms'] >= 0.0
-            assert isinstance(d['door_rejects'], list)
-        finally:
-            n.destroy_node()
-
-    def test_a_door_that_dies_is_deleted_from_viz_doors(self):
-        from visualization_msgs.msg import Marker
-        n = self._node()
-        try:
-            self._drive(n)
-            door_id = _last(n.doors_pub).doors[0].id
-            assert {m.id // 4 for m in _last(n.viz_doors_pub).markers} == {door_id}
-            # The doorway closes; past door_delete_after_sec the door is gone.
-            self._drive(n, cycles=2, t0=9.0, gap=False)
-            self._drive(n, cycles=1, t0=10.5, gap=False)
-            assert _last(n.doors_pub).doors == []
+            # ...while /viz/doors draws it, faded.
             markers = _last(n.viz_doors_pub).markers
-            assert markers and all(m.action == Marker.DELETE for m in markers)
-            assert sorted(m.id for m in markers) == [4 * door_id + k for k in range(4)]
+            assert {m.id // 4 for m in markers} == {door.id}
+            assert [m.color.a for m in markers] == pytest.approx(
+                [door_markers.CANDIDATE_ALPHA] * 4)
         finally:
             n.destroy_node()
 
-    def test_viz_doors_is_published_every_cycle_even_with_no_subscriber(self):
-        """So a mission bag records it: doors show in Foxglove on recorded runs."""
-        n = self._node()
+    def test_door_publish_candidates_puts_the_candidate_on_perception_doors_too(self):
+        n = self._node(door_publish_candidates=True)
         try:
-            n.viz_doors_pub.get_subscription_count.return_value = 0
-            self._drive(n, cycles=5)
-            assert n.viz_doors_pub.publish.call_count == n.doors_pub.publish.call_count == 5
-            assert _last(n.doors_pub).doors
-            assert _last(n.viz_doors_pub).markers
+            self._drive_past(n, xs=STAND)
+            (door,) = _last(n.doors_pub).doors
+            assert door.state == Door.STATE_CANDIDATE
         finally:
             n.destroy_node()
 
-    @staticmethod
-    def _pane_geometry():
-        """Return the mask/depth of a pane ON the wall line across the doorway."""
-        from test_door_detection import CAM_T, CX, CY, FX, ROT, render
-        labels, depth = render(gap=False)
-        return (labels, depth, FX, FX, CX, CY, ROT, CAM_T)
-
-    def test_the_glass_veto_rejects_a_pane_only_when_it_is_on(self):
-        for veto_on, expect_door in ((False, True), (True, False)):
-            n = self._node(door_stereo_glass_veto=veto_on, virtual_wall_rate_hz=0.0)
+    def test_perception_doors_carries_only_the_confirmed_door_and_viz_doors_both(self):
+        """One door of each state on one cycle; the flag adds the candidate."""
+        for publish_candidates, ids in ((False, [1]), (True, [1, 2])):
+            n = self._node(door_publish_candidates=publish_candidates)
             try:
-                n._door_mask_geometry = lambda stamp: self._pane_geometry()
-                self._drive(n)
-                assert bool(_last(n.doors_pub).doors) is expect_door
-                rejects = json.loads(_last(n.virtual_debug_pub).data)['door_rejects']
-                assert any(r[0] == 'stereo_wall' for r in rejects) is (not expect_door)
+                doors = [_door_track(1, door_detection.STATE_CONFIRMED),
+                         _door_track(2, door_detection.STATE_CANDIDATE, x=2.0)]
+                n._publish_doors(StampMsg(sec=7), doors, Pose2D(-1.0, 0.0, 0.0), 7.0)
+                out = _last(n.doors_pub).doors
+                assert [d.id for d in out] == ids
+                assert [d.state for d in out] == [
+                    Door.STATE_CONFIRMED, Door.STATE_CANDIDATE][:len(ids)]
+                alpha = {m.id // 4: m.color.a for m in _last(n.viz_doors_pub).markers}
+                assert alpha == pytest.approx({1: 1.0, 2: door_markers.CANDIDATE_ALPHA})
             finally:
                 n.destroy_node()
 
-    def test_the_door_carries_its_leaf_side_and_glass_flag_on_the_wire(self):
+    def test_every_door_field_goes_out_clamped_and_as_its_exact_wire_type(self):
+        """Humble type-checks every field setter: numpy scalars are cast, ranges clamped."""
         n = self._node()
         try:
-            self._drive(n)
-            door = _last(n.doors_pub).doors[0]
-            assert door.leaf_side == door.LEAF_NONE
-            assert door.glass_suspect is False
+            door = _door_track(1, door_detection.STATE_CONFIRMED)
+            door.jamb_height_unknown = False
+            n._publish_doors(StampMsg(sec=7), [door], Pose2D(-1.0, 0.0, 0.0), 7.0)
+            (m,) = _last(n.doors_pub).doors
+            assert type(m.id) is int and type(m.hits) is int and m.hits == 4
+            assert (m.parent_wall_id0, m.parent_wall_id1) == (3, 4)
+            assert type(m.parent_wall_id0) is int
+            assert m.n_beams == 65535 and type(m.n_beams) is int
+            assert m.confidence == 1.0 and type(m.confidence) is float
+            assert m.leaf_side == Door.LEAF_LEFT and type(m.leaf_side) is int
+            assert m.since_seen == pytest.approx(0.5) and m.age == pytest.approx(1.0)
+            assert m.jamb_height_unknown is False and m.glass_suspect is False
+            assert (m.center_bl.x, m.center_bl.y) == pytest.approx((1.0, SIDE_Y))
+        finally:
+            n.destroy_node()
+
+    def test_viz_doors_goes_out_every_cycle_even_with_no_door_and_no_subscriber(self):
+        """So a mission bag records it: doors show in Foxglove on recorded runs."""
+        n = self._node()
+        try:
+            self._drive_past(n, xs=STAND[:4], doorway=False)
+            assert n.viz_doors_pub.publish.call_count == n.doors_pub.publish.call_count == 4
+            assert _last(n.viz_doors_pub).markers == [] and _last(n.doors_pub).doors == []
+            n.viz_doors_pub.get_subscription_count.assert_not_called()
+        finally:
+            n.destroy_node()
+
+    def test_the_door_topics_are_not_created_with_door_detection_off(self):
+        for enabled in (True, False):
+            n = self._node(door_detection_enabled=enabled)
+            try:
+                topics = {p.topic_name for p in n.publishers}
+                assert ('/perception/doors' in topics) is enabled
+                assert ('/viz/doors' in topics) is enabled
+                assert (n.door_tracker is not None) is enabled
+            finally:
+                n.destroy_node()
+
+    def test_off_means_no_door_work_and_every_door_debug_key_null(self):
+        n = self._node(door_detection_enabled=False)
+        try:
+            self._drive_past(n, xs=STAND[:3])
+            d = _payloads(n)[-1]
+            assert {k: d[k] for k in DOOR_DEBUG_KEYS} == dict.fromkeys(DOOR_DEBUG_KEYS)
+        finally:
+            n.destroy_node()
+
+    def test_the_debug_payload_lists_every_gap_with_its_code_and_the_manhattan_prior(self):
+        n = self._node()
+        try:
+            self._drive_past(n)
+            payloads = _payloads(n)
+            records = [r for d in payloads for r in d['door_candidates']]
+            first, last = records[0], payloads[-1]['door_candidates'][-1]
+            assert set(first) == set(last) == RECORD_KEYS
+            # Two metres before the doorway it is seen too obliquely to decide...
+            assert (first['code'], first['cls'], first['visible']) == (
+                'oblique_view', 'weak', False)
+            assert first['view_deg'] > 45.0
+            # ...and at the end it is a door between the two left wall tracks.
+            assert (last['code'], last['cls'], last['visible']) == ('', 'ok', True)
+            assert last['width'] == pytest.approx(2 * DOOR_HALF, abs=0.04)
+            assert last['n_beams'] >= last['n_required'] > 0
+            assert last['behind_frac'] == 1.0 and last['boundary_hits'] == 0
+            assert last['leaf_side'] == 'none' and last['glass_suspect'] is None
+            assert last['jamb_height_unknown'] is True and last['jamb_tops'] == [None, None]
+            assert last['host_offset_deg'] == pytest.approx(0.0, abs=0.5)
+            assert len(set(last['parents'])) == 2
+            assert last['centre_bl'] == pytest.approx([-DRIVE_PAST[-1], SIDE_Y], abs=0.04)
+            d = payloads[-1]
+            assert d['door_candidates_total'] == len(d['door_candidates']) == 1
+            assert d['doors'] == d['doors_confirmed'] == d['door_n_confirmed'] == 1
+            assert d['door_n_strikes'] == d['door_n_deleted_by_strikes'] == 0
+            assert d['door_errors'] == 0 and d['door_disabled'] is False
+            assert d['door_ms'] >= 0.0
+            prior = d['door_manhattan']
+            assert min(prior['dominant_deg'], 90.0 - prior['dominant_deg']) < 0.5
+            assert prior['n_walls'] >= 2 and prior['strength'] > 0.9
+            # No camera pair on this node: a gap reached the stereo stage and
+            # found nothing to use.
+            assert d['door_stereo'] == 'no_pair' and d['door_mask_age_s'] is None
+            for gone in ('door_rejects', 'door_pieces', 'door_unsquared', 'door_panes',
+                         'door_pane_kills', 'door_pane_suppressed'):
+                assert gone not in d
+        finally:
+            n.destroy_node()
+
+    def test_an_exception_in_the_door_cycle_is_logged_counted_and_the_walls_still_publish(self):
+        n = self._node()
+        logger = MagicMock()
+        n.get_logger = lambda: logger
+        try:
+            with patch.object(door_detection, 'door_candidates',
+                              side_effect=RuntimeError('boom')):
+                self._drive_past(n, xs=DRIVE_PAST[:5])
+            assert n.walls_pub.publish.call_count == 5
+            assert n.virtual_pub.publish.call_count == 5
+            assert n.doors_pub.publish.call_count == 0
+            d = _payloads(n)[-1]
+            assert d['door_errors'] == 5 and d['door_disabled'] is False
+            assert d['door_candidates'] == [] and d['door_ms'] >= 0.0
+            failed = [c for c in logger.error.call_args_list
+                      if c.args[0].startswith("door detection failed: RuntimeError('boom')")]
+            assert len(failed) == 5
+            assert all(c.kwargs == {'throttle_duration_sec': 5.0} for c in failed)
+        finally:
+            n.destroy_node()
+
+    def test_fifty_failures_in_a_row_turn_door_detection_off_for_good_with_one_error(self):
+        n = self._node()
+        logger = MagicMock()
+        n.get_logger = lambda: logger
+        try:
+            with patch.object(door_detection, 'door_candidates',
+                              side_effect=RuntimeError('boom')) as candidates:
+                for i in range(DOOR_MAX_CONSECUTIVE_FAILURES + 10):
+                    n._detect_doors(Pose2D(), None, 7.0 + 0.1 * i, StampMsg(sec=7))
+            assert DOOR_MAX_CONSECUTIVE_FAILURES == 50
+            assert candidates.call_count == 50
+            d = n._door_payload()
+            assert d['door_errors'] == 50 and d['door_disabled'] is True
+            assert d['door_ms'] is None and d['door_candidates'] == []
+            disabled = [c for c in logger.error.call_args_list if 'DISABLED' in c.args[0]]
+            assert len(disabled) == 1
+        finally:
+            n.destroy_node()
+
+    def test_a_good_cycle_resets_the_failure_streak(self):
+        n = self._node()
+        n.get_logger = lambda: MagicMock()
+        try:
+            boom = RuntimeError('boom')
+            effects = [boom] * 49 + [[]] + [boom] * 49
+            with patch.object(door_detection, 'door_candidates', side_effect=effects):
+                for i in range(len(effects)):
+                    n._detect_doors(Pose2D(), None, 7.0 + 0.1 * i, StampMsg(sec=7))
+            assert n._door_errors == 98 and n._door_disabled is False
+        finally:
+            n.destroy_node()
+
+    def test_a_candidate_that_ages_out_is_deleted_from_viz_doors(self):
+        from visualization_msgs.msg import Marker
+        n = self._node(door_candidate_max_age_sec=0.5)
+        try:
+            self._drive_past(n, xs=STAND)
+            (door,) = n.door_tracker.doors
+            assert {m.id // 4 for m in _last(n.viz_doors_pub).markers} == {door.id}
+            # The doorway closes; past door_candidate_max_age_sec the door is gone.
+            self._drive_past(n, xs=STAND, t0=7.6, doorway=False)
+            assert n.door_tracker.doors == []
+            deletes = [m for c in n.viz_doors_pub.publish.call_args_list
+                       for m in c.args[0].markers if m.action == Marker.DELETE]
+            assert sorted(m.id for m in deletes) == [4 * door.id + k for k in range(4)]
         finally:
             n.destroy_node()
 
@@ -1442,17 +1770,6 @@ class TestDoors:
             assert n.door_params.width_min_m == pytest.approx(0.8)
             assert n.wall_tracker.p.collinear_gap_m == pytest.approx(0.8)
             assert n.extraction_params.merge_gap == pytest.approx(0.8)
-        finally:
-            n.destroy_node()
-
-    def test_off_means_no_topic_and_no_work(self):
-        n = self._node(door_detection_enabled=False)
-        try:
-            assert n.door_tracker is None
-            assert not hasattr(n, 'doors_pub')
-            self._drive(n, cycles=3)
-            d = json.loads(_last(n.virtual_debug_pub).data)
-            assert d['doors'] is None and d['door_ms'] is None
         finally:
             n.destroy_node()
 
@@ -1480,6 +1797,246 @@ class TestDoors:
             assert people == [pytest.approx((3.0, 0.0, 0.2))]
         finally:
             n.destroy_node()
+
+
+# ---- the door stereo -----------------------------------------------------------
+
+FX, CX, CY, W, H = 262.0, 320.0, 180.0, 640, 360
+#: A camera looking LEFT, at the corridor's left wall: optical x = base x,
+#: optical y = -base z, optical z = base y. Mounted 1.2 m up, so from 1.2 m
+#: away it sees the wall from 0.4 to 2.0 m (the jamb height needs 1.8 m).
+ROT_LEFT = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]])
+CAM_T_LEFT = np.array([0.12, 0.0, 1.2])
+
+
+def _render_left(car_x, pane=False):
+    """
+    Return (labels, depth_mm) of the corridor's left side from the car at (car_x, 0).
+
+    The floor, the left wall either side of the doorway, 2.5 m tall, and the
+    office's far wall through it; pane True closes the doorway with a WALL
+    surface ON the line that the stereo ranged (glass the LiDAR saw through).
+    """
+    u, v = np.meshgrid(np.arange(W), np.arange(H))
+    d = np.stack([(u - CX) / FX, (v - CY) / FX, np.ones((H, W))], -1) @ ROT_LEFT.T
+    cam = CAM_T_LEFT + np.array([car_x, 0.0, 0.0])
+    best = np.full((H, W), np.inf)
+    labels = np.full((H, W), scene_mask.CLASS_INVALID, dtype=np.uint8)
+    planes = [(SIDE_Y + 3.0, -50.0, 50.0), (SIDE_Y, -50.0, -DOOR_HALF),
+              (SIDE_Y, DOOR_HALF, 50.0)] + ([(SIDE_Y, -DOOR_HALF, DOOR_HALF)] if pane else [])
+    with np.errstate(divide='ignore', invalid='ignore'):
+        s = -cam[2] / d[..., 2]
+        floor = (d[..., 2] < 0) & (s > 0)
+        best[floor] = s[floor]
+        labels[floor] = scene_mask.CLASS_FLOOR
+        for y0, x_lo, x_hi in planes:
+            s = (y0 - cam[1]) / d[..., 1]
+            x = cam[0] + s * d[..., 0]
+            z = cam[2] + s * d[..., 2]
+            hit = (s > 0) & (x >= x_lo) & (x <= x_hi) & (z >= 0.0) & (z <= 2.5) & (s < best)
+            best[hit] = s[hit]
+            labels[hit] = scene_mask.CLASS_WALL
+    depth = np.where(np.isfinite(best), np.round(best * 1000.0), 0).astype(np.uint16)
+    return labels, depth
+
+
+def _in_base(pose, world):
+    """World (odom) points (N, 3) in base_link at `pose` (planar: z unchanged)."""
+    xy = pose.inverse().transform_points(world[:, :2])
+    return np.column_stack([xy, world[:, 2]])
+
+
+class TestDoorStereo:
+    """The door stereo: the mask/depth pair carried from its own stamp to the scan's."""
+
+    def test_a_point_seen_at_the_scan_stamp_projects_where_the_mask_saw_it(self):
+        """extrinsic_at_scan, on a car that moved AND turned between the two stamps."""
+        pose_scan = Pose2D(1.3, -0.4, math.radians(25.0))
+        pose_mask = Pose2D(0.9, -0.55, math.radians(12.0))
+        world = np.array([[2.0, 1.5, 0.3], [0.5, 2.5, 1.7], [3.0, 0.8, 0.0]])
+        rot, trans = extrinsic_at_scan(ROT_LEFT, CAM_T_LEFT, pose_scan, pose_mask)
+        seen = scene_mask.project_to_image(_in_base(pose_mask, world), FX, FX, CX, CY,
+                                           ROT_LEFT, CAM_T_LEFT)
+        carried = scene_mask.project_to_image(_in_base(pose_scan, world), FX, FX, CX, CY,
+                                              rot, trans)
+        assert np.all(np.isfinite(seen))
+        assert carried == pytest.approx(seen, abs=1e-9)
+        # The optical depth too: the stereo tests compare it with the pixel's.
+        assert ((_in_base(pose_scan, world) - trans) @ rot)[:, 2] == pytest.approx(
+            ((_in_base(pose_mask, world) - CAM_T_LEFT) @ ROT_LEFT)[:, 2])
+        # Uncompensated, the same points land elsewhere: it is not a no-op.
+        naive = scene_mask.project_to_image(_in_base(pose_scan, world), FX, FX, CX, CY,
+                                            ROT_LEFT, CAM_T_LEFT)
+        assert np.max(np.abs(naive - seen)) > 20.0
+
+    def test_no_motion_leaves_the_extrinsic_as_it_is(self):
+        pose = Pose2D(0.7, 0.2, 0.3)
+        rot, trans = extrinsic_at_scan(ROT_LEFT, CAM_T_LEFT, pose, pose)
+        assert rot == pytest.approx(ROT_LEFT) and trans == pytest.approx(CAM_T_LEFT)
+
+    @staticmethod
+    def _node_with_odometry():
+        n = TestDoors()._node()
+        for t, x, yaw in ((7.0, 0.0, 0.0), (7.5, 0.5, math.radians(10.0))):
+            odom = _odom_at(t, yaw)
+            odom.pose.pose.position.x = x
+            n._odom_cb(odom)
+        return n
+
+    @staticmethod
+    def _blank_pair(mask_stamp):
+        labels = np.zeros((H, W), dtype=np.uint8)
+        depth = np.zeros((H, W), dtype=np.uint16)
+        return lambda scan_stamp: (labels, depth, FX, FX, CX, CY, ROT_LEFT, CAM_T_LEFT,
+                                   mask_stamp)
+
+    def test_the_frame_is_carried_on_odometry_from_the_mask_stamp_to_the_scan_stamp(self):
+        n = self._node_with_odometry()
+        try:
+            n._door_mask_geometry = self._blank_pair(7.2)
+            car = n._poses.at(7.5)
+            frame = n._door_stereo_frame(car, 7.5)
+            rot, trans = extrinsic_at_scan(ROT_LEFT, CAM_T_LEFT, car, n._poses.at(7.2))
+            assert frame.rotation == pytest.approx(rot)
+            assert frame.translation == pytest.approx(trans)
+            assert frame.depth_scale == 0.001
+            assert n._door_stereo == 'compensated'
+            assert n._door_mask_age == pytest.approx(0.3)
+        finally:
+            n.destroy_node()
+
+    def test_an_old_mask_with_no_pose_at_its_stamp_gives_no_stereo_opinion(self):
+        n = self._node_with_odometry()
+        try:
+            n._door_mask_geometry = self._blank_pair(6.0)     # before the odometry
+            assert n._door_stereo_frame(n._poses.at(7.5), 7.5) is None
+            assert n._door_stereo == 'no_pose' and n._door_mask_age == pytest.approx(1.5)
+        finally:
+            n.destroy_node()
+
+    def test_a_mask_within_0_1_s_and_no_pose_is_used_as_it_is(self):
+        n = self._node_with_odometry()
+        try:
+            # The odometry ends at 7.5; the scan at 7.64 still gets its end pose,
+            # the mask at 7.70 none -- 0.06 s from the scan.
+            n._door_mask_geometry = self._blank_pair(7.70)
+            frame = n._door_stereo_frame(n._poses.at(7.64, 0.15), 7.64)
+            assert frame.rotation == pytest.approx(ROT_LEFT)
+            assert frame.translation == pytest.approx(CAM_T_LEFT)
+            assert n._door_stereo == 'uncompensated'
+        finally:
+            n.destroy_node()
+
+    @staticmethod
+    def _camera(n, lag, pane=False):
+        """Hand the node the left camera's pair, taken `lag` s before each scan from there."""
+        def geometry(scan_stamp):
+            mask_stamp = scan_stamp - lag
+            then = n._poses.at(mask_stamp, 0.0)
+            if then is None:
+                return None
+            labels, depth = _render_left(then.x, pane)
+            return (labels, depth, FX, FX, CX, CY, ROT_LEFT, CAM_T_LEFT, mask_stamp)
+        n._door_mask_geometry = geometry
+
+    def test_the_stereo_measures_the_jambs_of_a_doorway_through_the_node(self):
+        """An image 0.2 s older than the scan, from 0.2 m back: carried, it fits."""
+        n = TestDoors()._node(door_publish_candidates=True)
+        try:
+            self._camera(n, lag=0.2)
+            TestDoors._drive_past(n, xs=ABEAM)
+            (door,) = _last(n.doors_pub).doors
+            assert door.jamb_height_unknown is False
+            d = _payloads(n)[-1]
+            (rec,) = d['door_candidates']
+            assert rec['code'] == '' and rec['jamb_height_unknown'] is False
+            assert min(rec['jamb_tops']) >= 1.8
+            assert d['door_stereo'] == 'compensated'
+            assert d['door_mask_age_s'] == pytest.approx(0.2)
+        finally:
+            n.destroy_node()
+
+    def test_the_glass_veto_rejects_a_pane_the_stereo_ranged_only_when_it_is_on(self):
+        for veto, code in ((False, ''), (True, 'stereo_wall')):
+            n = TestDoors()._node(door_publish_candidates=True, door_stereo_glass_veto=veto)
+            try:
+                self._camera(n, lag=0.0, pane=True)
+                TestDoors._drive_past(n, xs=ABEAM)
+                assert [r['code'] for r in _payloads(n)[-1]['door_candidates']] == [code]
+                assert bool(_last(n.doors_pub).doors) is (not veto)
+            finally:
+                n.destroy_node()
+
+
+# ---- the door parameters: three places, one default -------------------------
+
+def _stack_params():
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.realpath(__file__)))), 'f1tenth_params', 'config', 'stack_params.yaml')
+    with open(path) as f:
+        return yaml.safe_load(f)
+
+
+class TestDoorParamsCoupling:
+    """
+    Every door default lives in three places and they must agree (CLAUDE.md).
+
+    DoorParams' default, the node's declare_parameter fallback and
+    stack_params.yaml's lidar_front_wall_door_* (which the launch file
+    passes, test_lidar_front_wall_launch.py). A change to one is a change to
+    all three, in the same commit.
+    """
+
+    @staticmethod
+    def _node():
+        return TestDoors()._node()
+
+    def test_the_node_declares_exactly_the_stack_params_door_keys_with_their_defaults(self):
+        doc = _stack_params()
+        keys = {k[len('lidar_front_wall_'):] for k in doc
+                if k.startswith('lidar_front_wall_door_')}
+        n = self._node()
+        try:
+            declared = {name for name in n.list_parameters([], 0).names
+                        if name.startswith('door_')}
+            assert declared == keys
+            for name in sorted(declared):
+                fallback = n.get_parameter(name).value
+                default = doc['lidar_front_wall_' + name]['default']
+                # The type too: the launch passes the yaml's with an explicit
+                # value_type, and a declared int refuses a float at startup.
+                assert type(fallback) is type(default), name
+                assert fallback == default, name
+        finally:
+            n.destroy_node()
+
+    def test_the_node_s_fallbacks_build_exactly_the_core_s_door_params(self):
+        """Degrees in the parameter, radians in DoorParams: converted, still equal."""
+        core = door_detection.DoorParams()
+        n = self._node()
+        try:
+            for f in dataclasses.fields(door_detection.DoorParams):
+                assert getattr(n.door_params, f.name) == getattr(core, f.name), f.name
+        finally:
+            n.destroy_node()
+
+    def test_the_door_numbers_the_node_takes_from_elsewhere_have_the_core_s_defaults(self):
+        """wall_tol_m is the tracker's negative_tol_m; width_min_m the collinear gap."""
+        core = door_detection.DoorParams()
+        assert get_value('lidar_front_wall_wall_negative_tol_m') == core.wall_tol_m
+        assert get_value('lidar_front_wall_door_width_min_m') == core.width_min_m
+        assert get_value('lidar_front_wall_door_collinear_angle_deg') == pytest.approx(
+            math.degrees(core.collinear_angle_rad))
+        assert get_value('lidar_front_wall_door_square_incidence_deg') == pytest.approx(
+            math.degrees(core.square_incidence_rad))
+        assert get_value('lidar_front_wall_door_manhattan_tau_sec') == core.manhattan_tau_s
+        assert get_value('lidar_front_wall_door_candidate_max_age_sec') == \
+            core.candidate_max_age_s
+        assert get_value('lidar_front_wall_door_confirmed_max_age_sec') == \
+            core.confirmed_max_age_s
+
+    def test_candidates_stay_off_perception_doors_by_default(self):
+        assert get_value('lidar_front_wall_door_publish_candidates') is False
 
 
 class TestFixedWallHeight:

@@ -5,7 +5,8 @@ Published by lidar_front_wall_node on EVERY wall tracker cycle while door
 detection is on, subscribed or not (unlike /viz/walls), so the mission logger
 records it and recorded runs show doors in Foxglove too; in the tracker's
 fixed frame. '^/viz/.*' in foxglove_topic_whitelist carries it across the
-bridge. Nothing consumes it.
+bridge. Nothing consumes it. It draws EVERY live door, CANDIDATE and
+CONFIRMED alike, whatever /perception/doors carries (door_publish_candidates).
 
 HOW A DOOR IS DRAWN. Four marker slots per door, so one door's markers never
 collide with another's and each can be deleted by id:
@@ -14,15 +15,14 @@ collide with another's and each can be deleted by id:
     4 * door.id + 1   CYLINDER     jamb1  standing on the floor (z = 0)
     4 * door.id + 2   LINE_STRIP   the threshold, jamb to jamb, on the floor
     4 * door.id + 3   TEXT         "door <id> <width>m <state>[ leaf <side>]
-                                    [ frame][ square?][ glass?][ OCCUPIED]"
+                                    [ glass?][ jamb?][ OCCUPIED]"
 
-"frame": a jamb is on a LiDAR frame piece, not a wall track (FRAME JAMBS).
-"square?": tentative, never yet seen square-on (door_detection, GLASS: SEEN
-SQUARE-ON) -- what still keeps it from being confirmed if it was seen often
-enough.
+"glass?": the stereo found the gap's depth mostly invalid (glass_suspect).
+"jamb?": no positive sighting has had both jambs' wall height judged by the
+stereo (jamb_height_unknown), so the furniture check has not vouched for it.
 
-Colour is OCCUPIED (orange) or not (green); alpha is the STATE: tentative
-faded, confirmed solid, coasting dimmed. A door that dies gets a DELETE on
+Colour is OCCUPIED (orange) or not (green); alpha is the STATE, on all four
+markers: CONFIRMED solid, CANDIDATE faded. A door that dies gets a DELETE on
 each of its four slots; there is no DELETEALL, for the reason
 /perception/walls/markers dropped it (lidar_front_wall_node, HOW LONG A WALL
 MARKER OUTLIVES THE MESSAGE THAT DREW IT): every marker carries a lifetime,
@@ -43,10 +43,11 @@ SLOTS = (SLOT_JAMB0, SLOT_JAMB1, SLOT_LINE, SLOT_TEXT)
 
 DOOR_COLOUR = (0.10, 0.90, 0.40)       # green: an open doorway
 OCCUPIED_COLOUR = (1.00, 0.45, 0.00)   # orange: a person is standing in it
-ALPHA = {dd.STATE_TENTATIVE: 0.3, dd.STATE_CONFIRMED: 1.0, dd.STATE_COASTING: 0.5}
-#: A coasting door is also darker, so dimmed reads as "not seen now" even
-#: against a light background, where alpha alone is hard to see.
-COASTING_SHADE = 0.6
+#: A CANDIDATE is drawn faded, a CONFIRMED door solid. Any other state (the
+#: legacy coasting value, never produced any more) is drawn as a candidate:
+#: only CONFIRMED is solid.
+CANDIDATE_ALPHA = 0.35
+CONFIRMED_ALPHA = 1.0
 
 LINE_WIDTH_M = 0.03
 TEXT_SIZE_M = 0.2
@@ -62,11 +63,10 @@ def set_lifetime(marker, seconds):
 
 
 def colour_of(door):
-    """Return (r, g, b, a) for a door: occupied or not, by state."""
+    """Return (r, g, b, a) for a door: occupied or not, solid only when CONFIRMED."""
     r, g, b = OCCUPIED_COLOUR if door.occupied else DOOR_COLOUR
-    if door.state == dd.STATE_COASTING:
-        r, g, b = r * COASTING_SHADE, g * COASTING_SHADE, b * COASTING_SHADE
-    return r, g, b, ALPHA.get(door.state, 0.3)
+    alpha = CONFIRMED_ALPHA if door.state == dd.STATE_CONFIRMED else CANDIDATE_ALPHA
+    return r, g, b, alpha
 
 
 def label_of(door):
@@ -74,13 +74,11 @@ def label_of(door):
     text = f'door {door.id} {door.width:.2f}m {dd.STATE_NAMES.get(door.state, "?")}'
     leaf = getattr(door, 'leaf_side', dd.LEAF_NONE)
     if leaf != dd.LEAF_NONE:
-        text += f' leaf {dd.LEAF_NAMES[leaf]}'
-    if dd.FRAME_ID in tuple(getattr(door, 'parents', ())):
-        text += ' frame'
-    if door.state == dd.STATE_TENTATIVE and getattr(door, 'square_looks', 1) == 0:
-        text += ' square?'
+        text += f' leaf {dd.LEAF_NAMES.get(leaf, "?")}'
     if getattr(door, 'glass_suspect', False):
         text += ' glass?'
+    if getattr(door, 'jamb_height_unknown', False):
+        text += ' jamb?'
     return text + (' OCCUPIED' if door.occupied else '')
 
 
@@ -91,10 +89,6 @@ class DoorMarkerBuilder:
         self.lifetime_s = float(lifetime_s)
         self.height_m = float(height_m)
         self.jamb_diameter_m = float(jamb_diameter_m)
-        self.drawn_ids = set()
-
-    def forget(self):
-        """Drop the memory of what was drawn (nobody is subscribed any more)."""
         self.drawn_ids = set()
 
     def build(self, doors, stamp, frame_id):
@@ -154,7 +148,7 @@ class DoorMarkerBuilder:
                                    z=self.height_m + TEXT_CLEARANCE_M)
         text.pose.orientation.w = 1.0
         text.scale.z = TEXT_SIZE_M
-        text.color.r, text.color.g, text.color.b, text.color.a = r, g, b, 1.0
+        text.color.r, text.color.g, text.color.b, text.color.a = r, g, b, a
         text.text = label_of(door)
         out.append(set_lifetime(text, self.lifetime_s))
         return out

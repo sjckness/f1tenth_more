@@ -124,12 +124,13 @@ def feed(tracker, observations, n=6, t0=1.0, dt=0.1):
 def test_an_end_wall_with_a_door_is_front_because_a_piece_crosses_the_strip():
     """The corridor's end wall at 18 m with a doorway off to one side. The
     left piece still covers part of the car-width strip, so the car IS about
-    to drive into a wall and the contract must say so. The 0.7 m doorway is
-    wider than the collinear gap, so the two pieces stay two tracks: the
-    FRONT is the piece that is really there, not a line drawn across the
-    opening."""
+    to drive into a wall and the contract must say so. The doorway is 0.1 m
+    wider than the collinear gap (collinear_gap_m), well off the rule's
+    boundary, so the two pieces stay two tracks: the FRONT is the piece that
+    is really there, not a line drawn across the opening."""
     trk = mwt.MultiWallTracker()
-    feed(trk, [far_piece(18.0, -3.0, -0.1), far_piece(18.0, 0.6, 3.0)])
+    doorway = trk.p.collinear_gap_m + 0.1
+    feed(trk, [far_piece(18.0, -3.0, -0.1), far_piece(18.0, -0.1 + doorway, 3.0)])
     front = trk.front_track(ORIGIN, FRONT_X)
     assert front is not None, 'a piece crosses the strip: this is a wall'
     # The contract's FRONT distance is where the strip meets the MEASURED
