@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Telemetria</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#0A0C0F}
+a{color:#ECEEF1}a:hover{color:#FFFFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #0A0C0F; color: #ECEEF1; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 54px 16px 10px; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: rgba(52,210,123,0.12); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #34D27B; letter-spacing: 0.06em">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #34D27B"></span>ONLINE</div>
+<div style="display: flex; gap: 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums">
+<span><span style="color: #9099A6">LAT </span>31 ms</span>
+<span><span style="color: #9099A6">BATT </span>11.3 V · 61%</span>
+</div>
+</div>
+
+<main style="flex: 1; overflow-y: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.01em">Telemetria</h1>
+
+<section aria-label="Traiettoria" style="background: #13161B; border: 1px solid #262B34; border-radius: 20px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+<span style="color: #9099A6; letter-spacing: 0.1em">TRAIETTORIA 2D</span>
+<span>x 3.82 · y 1.04 · ψ 92°</span>
+</div>
+<svg viewBox="0 0 326 150" width="326" height="150" role="img" aria-label="Pista con traiettoria percorsa fino al 38 per cento del giro">
+<rect x="14" y="10" width="298" height="130" rx="65" fill="none" stroke="#2C323C" stroke-width="1.5"></rect>
+<rect x="66" y="58" width="194" height="34" rx="17" fill="none" stroke="#2C323C" stroke-width="1.5"></rect>
+<rect x="40" y="35" width="246" height="80" rx="40" fill="none" stroke="#5E6672" stroke-width="1.5" stroke-dasharray="4 5"></rect>
+<path d="M80 35 H246 A40 40 0 0 1 286 75" fill="none" stroke="#ECEEF1" stroke-width="3" stroke-linecap="round"></path>
+<line x1="80" y1="22" x2="80" y2="48" stroke="#9099A6" stroke-width="2"></line>
+<circle cx="286" cy="75" r="7" fill="#34D27B"></circle>
+<circle cx="286" cy="75" r="12" fill="none" stroke="#34D27B" stroke-opacity="0.35" stroke-width="2"></circle>
+</svg>
+<div style="display: flex; gap: 14px; font-size: 11px; color: #9099A6">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 3px; background: #ECEEF1"></span>percorsa</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 0; border-top: 2px dashed #5E6672"></span>raceline</span>
+</div>
+</section>
+
+<section aria-label="Velocità" style="background: #13161B; border: 1px solid #262B34; border-radius: 20px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; font-family: 'JetBrains Mono', monospace; font-size: 12px">
+<span style="color: #9099A6; letter-spacing: 0.1em">VELOCITÀ · 30 s</span>
+<span><span style="font-size: 18px; font-weight: 700">1.87</span><span style="color: #9099A6"> / 2.00 m/s</span></span>
+</div>
+<svg viewBox="0 0 326 104" width="326" height="104" role="img" aria-label="Grafico velocità reale contro comandata negli ultimi 30 secondi">
+<line x1="18" y1="10" x2="326" y2="10" stroke="#20252D"></line>
+<line x1="18" y1="40" x2="326" y2="40" stroke="#20252D"></line>
+<line x1="18" y1="70" x2="326" y2="70" stroke="#20252D"></line>
+<line x1="18" y1="100" x2="326" y2="100" stroke="#2C323C"></line>
+<text x="0" y="14" fill="#9099A6" font-family="JetBrains Mono, monospace" font-size="10">3</text>
+<text x="0" y="44" fill="#9099A6" font-family="JetBrains Mono, monospace" font-size="10">2</text>
+<text x="0" y="74" fill="#9099A6" font-family="JetBrains Mono, monospace" font-size="10">1</text>
+<polyline points="18,100 46,40 134,40 162,55 200,55 234,40 326,40" fill="none" stroke="#7D8693" stroke-width="1.5" stroke-dasharray="5 4"></polyline>
+<polyline points="18,100 36,80 56,54 76,43 134,41 162,50 180,56 204,54 238,44 266,41 326,42" fill="none" stroke="#ECEEF1" stroke-width="2.5" stroke-linejoin="round"></polyline>
+</svg>
+<div style="display: flex; gap: 14px; font-size: 11px; color: #9099A6">
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 3px; background: #ECEEF1"></span>reale</span>
+<span style="display: flex; align-items: center; gap: 6px"><span style="width: 14px; height: 0; border-top: 2px dashed #7D8693"></span>comandata</span>
+</div>
+</section>
+
+<section aria-label="Behavior tree" style="background: #13161B; border: 1px solid #262B34; border-radius: 20px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9099A6; letter-spacing: 0.1em">BEHAVIOR TREE</span>
+<div style="position: relative; width: 328px; height: 176px; font-family: 'JetBrains Mono', monospace; font-size: 11px">
+<div style="position: absolute; left: 164px; top: 34px; width: 1.5px; height: 18px; background: #3A404B"></div>
+<div style="position: absolute; left: 50px; top: 52px; width: 230px; height: 1.5px; background: #3A404B"></div>
+<div style="position: absolute; left: 50px; top: 52px; width: 1.5px; height: 18px; background: #3A404B"></div>
+<div style="position: absolute; left: 164px; top: 52px; width: 1.5px; height: 18px; background: #3A404B"></div>
+<div style="position: absolute; left: 279px; top: 52px; width: 1.5px; height: 18px; background: #3A404B"></div>
+<div style="position: absolute; left: 164px; top: 104px; width: 1.5px; height: 18px; background: #3A404B"></div>
+<div style="position: absolute; left: 112px; top: 122px; width: 105px; height: 1.5px; background: #3A404B"></div>
+<div style="position: absolute; left: 112px; top: 122px; width: 1.5px; height: 18px; background: #3A404B"></div>
+<div style="position: absolute; left: 216px; top: 122px; width: 1.5px; height: 18px; background: #3A404B"></div>
+
+<div style="position: absolute; left: 115px; top: 0; width: 100px; height: 34px; box-sizing: border-box; border: 1.5px solid #ECEEF1; background: rgba(236,238,241,0.10); border-radius: 8px; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700">→ Sequence</div>
+<div style="position: absolute; left: 0; top: 70px; width: 100px; height: 34px; box-sizing: border-box; border: 1.5px solid #34D27B; background: rgba(52,210,123,0.12); color: #34D27B; border-radius: 8px; display: flex; align-items: center; justify-content: center">IsReady</div>
+<div style="position: absolute; left: 115px; top: 70px; width: 100px; height: 34px; box-sizing: border-box; border: 1.5px solid #ECEEF1; background: rgba(236,238,241,0.10); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700">? Missione</div>
+<div style="position: absolute; left: 229px; top: 70px; width: 100px; height: 34px; box-sizing: border-box; border: 1.5px solid #34D27B; background: rgba(52,210,123,0.12); color: #34D27B; border-radius: 8px; display: flex; align-items: center; justify-content: center">Monitor</div>
+<div style="position: absolute; left: 62px; top: 140px; width: 100px; height: 34px; box-sizing: border-box; border: 1.5px solid #ECEEF1; background: rgba(236,238,241,0.10); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700">FollowLine</div>
+<div style="position: absolute; left: 167px; top: 140px; width: 100px; height: 34px; box-sizing: border-box; border: 1.5px dashed #5E6672; color: #9099A6; border-radius: 8px; display: flex; align-items: center; justify-content: center">StopAtBox</div>
+</div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: #9099A6">
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; border: 1.5px solid #34D27B; background: rgba(52,210,123,0.2)"></span>success</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; border: 1.5px solid #ECEEF1; background: rgba(236,238,241,0.2)"></span>running</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; border: 1.5px dashed #5E6672"></span>idle</span>
+<span style="display: flex; align-items: center; gap: 5px"><span style="width: 10px; height: 10px; border-radius: 3px; border: 1.5px solid #FF5A50; background: rgba(255,90,80,0.2)"></span>failure</span>
+</div>
+</section>
+</main>
+
+<div style="padding: 8px 16px 10px">
+<button type="button" style="width: 100%; height: 64px; border: 0; border-radius: 16px; background: #D7261E; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 12px; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 0.14em; cursor: pointer">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"></path><path d="M12 8v5M12 16.5v.01"></path></svg>EMERGENZA</button>
+</div>
+<nav aria-label="Sezioni" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid #262B34; background: #0E1014; padding: 6px 4px 26px">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"></path><path d="M12 16l4-5"></path></svg>Cockpit</a>
+<a href="Missione.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"></path><path d="M5 4h12l-2.5 4 2.5 4H5"></path></svg>Missione</a>
+<a href="Guida.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="2"></circle><path d="M3.5 10.5H10M14 10.5h6.5M12 14v7"></path></svg>Guida</a>
+<a href="Telemetria.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #ECEEF1; font-size: 11px; font-weight: 700"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Telemetria</a>
+<a href="Run.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9l5 3-5 3z"></path></svg>Run</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

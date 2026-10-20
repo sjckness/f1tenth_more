@@ -1,0 +1,139 @@
+# F1Tenth Lab Control — PWA iPhone · Specifica v1
+
+Web app mobile (PWA, Safari iOS, "Aggiungi a Home") per controllare la macchina F1Tenth in laboratorio.
+Riferimento visivo: cartella `design/` (7 artboard). Sono mockup statici in un formato proprietario
+(`<x-dc>`, `<sc-for>`, `{{hole}}`): servono **solo come riferimento di layout, colori, dimensioni e testi**,
+non vanno importati né riusati come codice.
+
+---
+
+## 1. Architettura proposta (da confermare in Fase 0)
+
+```
+iPhone (PWA, Safari) ──HTTPS/WSS via Tailscale──▶ f1tenth_gateway (Orin)
+                                                   ├─ serve la PWA (static build)
+                                                   ├─ REST + 1 WebSocket
+                                                   ├─ rclpy (Humble): topic/servizi dello stack
+                                                   └─ f1tenth_ctl: start/stop processi
+```
+
+- **Gateway sull'Orin, fuori dallo stack** (servizio systemd utente), perché deve poter avviare/fermare lo stack
+  e perché la guida manuale non può passare da una catena SSH (latenza). Il bot Telegram su linus resta com'è.
+- Python: FastAPI + uvicorn + rclpy. Riusare `f1tenth_ctl` e la logica di READY/check del branch telegram-control,
+  non riscriverle.
+- **HTTPS obbligatorio**: Safari dà accesso al microfono (`getUserMedia`) e al service worker solo in secure context.
+  Usare `tailscale serve` / `tailscale cert` sul nome `*.ts.net` dell'Orin.
+- Auth: token bearer in variabile d'ambiente (non nel repo), bind solo sull'interfaccia Tailscale.
+- Frontend: Vite + TypeScript + React (o Preact), nessuna UI library pesante. Font: Inter + JetBrains Mono.
+
+## 2. Design system
+
+| Token | Valore | Uso |
+|---|---|---|
+| bg | `#0A0C0F` | sfondo |
+| surface | `#13161B` | card |
+| surface-2 | `#1A1E25` | pulsanti secondari, riga attiva |
+| border | `#262B34` | bordi, divisori |
+| text | `#ECEEF1` | testo, dati |
+| muted | `#9099A6` | label (contrasto ≥ 4.5:1 su surface) |
+| disabled | `#5E6672` | solo elementi disattivi |
+| green | `#34D27B` | READY / ok / success |
+| amber | `#F5A524` | warning / abort |
+| red (testo) | `#FF5A50` | errore / failure |
+| e-stop | `#D7261E` | solo pulsante EMERGENZA (testo bianco) |
+
+- Il colore si usa **solo per gli stati**; grafici e dati sono neutri (bianco/grigi).
+- Numeri in JetBrains Mono con `font-variant-numeric: tabular-nums`; label MONO maiuscole 11–12 px, letter-spacing 0.1em.
+- Target touch ≥ 44 px (comandi principali 56–72 px). Uso con una mano: comandi in basso.
+- Safe area iOS: `env(safe-area-inset-*)`, niente status bar finta.
+
+## 3. Struttura
+
+Tab bar in basso con 5 sezioni: **Cockpit · Missione · Guida · Telemetria · Run**.
+Pulsante **EMERGENZA** fisso, sempre visibile sopra la tab bar (in Guida: in alto al centro).
+
+### Cockpit (`design/Main.dc.html`)
+- Barra connessione: ONLINE/OFFLINE, latenza RTT (ms), batteria (V e %).
+- Indicatore grande READY / NOT READY (verde/ambra) + `n/m CHECK OK` + lista dei **soli check falliti**
+  (icona errore rossa o warning ambra, nome, dettaglio con valore e soglia).
+- Tre interruttori di processo: **Stack, Planner, Logger**, con sottotitolo di stato (es. `running · 14 nodi · 00:12:31`).
+  Durante la transizione: stato "in avvio…/in arresto…", switch non toccabile.
+- Riga di numeri: velocità, temperatura VESC, CPU.
+
+### Missione (`design/Missione.dc.html`, `design/MissioneInCorso.dc.html`)
+- Input testo + pulsante microfono **hold-to-talk** (MediaRecorder, rilascio = invio → trascrizione → testo nel campo,
+  modificabile prima dell'invio).
+- Card PIANO: badge VALIDATO / ERRORI, riassunto (giri, v max, arrivo), passi numerati, **JSON espandibile**.
+- **Slide-to-start** (trascinare il cursore fino in fondo; un tap non basta). Disabilitato se NOT READY o piano non valido.
+- Missione in corso: stato, tempo, avanzamento, passo attivo, velocità reale, errore laterale,
+  **ABORT** con pressione prolungata (~1 s, con anello di progresso). Abort ≠ emergenza.
+
+### Guida (`design/Guida.dc.html`) — solo orizzontale
+- iOS non permette di bloccare l'orientamento in una PWA: se il telefono è in verticale mostrare "Ruota il telefono".
+- Joystick sinistro **verticale = gas**, joystick destro **orizzontale = sterzo**, entrambi tornano al centro al rilascio.
+- **Dead-man = pollice sul joystick del gas**: si muove solo finché quel tocco è attivo. Rilascio → stop immediato.
+  Il joystick si illumina di verde quando il dead-man è attivo.
+- Limite di velocità con stepper (− / +), applicato anche lato server.
+- Velocità reale (grande) vs comandata, con barra.
+- Pulsante "indietro" al Cockpit al posto della tab bar. Multi-touch obbligatorio (due pollici insieme).
+
+### Telemetria (`design/Telemetria.dc.html`)
+- Traiettoria 2D: pista/raceline tratteggiata, percorso fatto, posa della macchina; x, y, ψ.
+- Grafico velocità ultimi 30 s: reale (linea piena) vs comandata (tratteggiata).
+- Behavior tree come grafo colorato: success verde, running bianco, idle grigio tratteggiato, failure rosso.
+  Il BT è py_trees_ros: usare il topic snapshot del tree (verificare quale in Fase 0).
+
+### Run (`design/Run.dc.html`)
+- Ultime run: id, missione, esito (OK verde / ABORT ambra / E-STOP rosso), data, durata, link **Report** e **Video**.
+- Fonte: l'archivio del logger sull'Orin (`~/f1tenth_archive/...`, verificare il path reale). Se report/video non esistono
+  per quella run, link disattivato con motivo.
+
+### Stato "Connessione persa" (`design/ConnessionePersa.dc.html`)
+- Banner rosso in alto con tempo dall'ultimo messaggio e riconnessione automatica.
+- **Tutti i comandi disattivati** (switch, slide-to-start, abort, joystick); dati mostrati come fermi.
+- EMERGENZA sostituito da "EMERGENZA NON RAGGIUNGIBILE · arresto affidato al watchdog".
+- La navigazione tra le tab resta possibile.
+
+### Stato aggiuntivo: E-STOP attivo
+`/mission/emergency_stop` resta latched fino al riavvio di nodo/BT (nessun reset). L'app deve mostrarlo
+(banner rosso fisso "E-STOP ATTIVO · riavvia il BT/stack") e bloccare i comandi di missione finché non sparisce.
+
+## 4. API (contratto proposto)
+
+REST (tutte con `Authorization: Bearer <token>`):
+
+| Metodo | Path | Effetto |
+|---|---|---|
+| GET | `/api/status` | connessione, batteria, ready, checks[], processi, estop_latched, mission_state |
+| POST | `/api/process/{stack\|planner\|logger}` `{action: start\|stop}` | via f1tenth_ctl |
+| POST | `/api/estop` | `/mission/emergency_stop` + zero sul lane teleop |
+| POST | `/api/mission/transcribe` (audio) | → `{text}` (riusare il trascrittore del bot Telegram) |
+| POST | `/api/mission/plan` `{text}` | → `{plan_id, summary, steps[], json, valid, errors[]}` dal planner LLM |
+| POST | `/api/mission/start` `{plan_id}` | load_mission + start_mission |
+| POST | `/api/mission/abort` | `/mission/abort_mission` |
+| GET | `/api/runs?limit=20` | lista run |
+| GET | `/api/runs/{id}/report`, `/api/runs/{id}/video` | file statici |
+
+WebSocket `/ws`:
+- server → client, 10 Hz: `{t, pose, v_meas, v_cmd, mission_status, battery}`; `bt` solo quando cambia; `path` decimato.
+- client → server, 20 Hz solo in Guida con dead-man attivo: `{type:"teleop", seq, thr, steer}` (−1…1).
+- ping/pong per la latenza e per il rilevamento "connessione persa" (client: nessun messaggio da 1.5 s → persa).
+
+## 5. Requisiti di sicurezza (non negoziabili)
+
+1. **Watchdog teleop sul gateway**: nessun messaggio teleop valido da 250 ms → comando zero. Chiusura WS → zero.
+2. Rilascio del gas sul client → invio immediato di un messaggio zero (non aspettare il watchdog).
+3. Il teleop passa dal **lane teleop di ackermann_mux** (verificare topic e priorità): mai bypassare i lane di sicurezza
+   (safety_stop, emergenza, stop LiDAR di ultima istanza).
+4. Clamp lato server: limite di velocità, sterzo massimo, rate limit.
+5. Vincolo della macchina: mai in movimento sotto 0.4 m/s. Mappatura gas: zona morta → 0; fuori dalla zona morta
+   velocità da 0.4 m/s al limite. Retromarcia non abilitata nella v1.
+6. Un solo client di guida alla volta (il secondo riceve "guida occupata").
+7. Le azioni critiche (start missione, abort, process stop) non hanno retry automatici.
+
+## 6. Domande aperte (proporre un default in Fase 0)
+
+- Perdita del client **durante una missione autonoma**: fermare la missione (default proposto: sì, dopo 2 s) o lasciarla finire?
+- Dove si trova oggi la lista dei check di READY (bot Telegram, f1tenth_ctl, nodo dedicato?).
+- Interfaccia reale del planner LLM (servizio? topic?) per ottenere il piano senza avviarlo.
+- Dati pista/raceline per la mappa 2D: da quale topic/file.
