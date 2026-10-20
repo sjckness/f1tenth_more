@@ -35,7 +35,15 @@ first test it failed in the order below ('' when it passed them all: a door).
      collinear groups the gaps are searched along: nothing else is ever a
      jamb, and an UNKNOWN segment (a tentative track, a track with role
      unknown/other/back or none, a scan fragment no track holds) never hosts
-     a door and is never evidence for or against one.
+     a door and is never evidence for or against one. FRONT-FACING HOSTS,
+     optional (host_front_facing, default off): the tracker's 'front' is the
+     wall crossing the car's 0.57 m travel strip, so the two pieces either
+     side of a doorway STRAIGHT AHEAD are role unknown and that doorway has no
+     host. With the option on, a CONFIRMED track whose role is unknown for its
+     geometry alone (not REJECTED by the rectangle, not occluded, not
+     contradicted), lying entirely ahead of the car within
+     HOST_FRONT_HALF_WIDTH_M either side of its centreline and facing it
+     (normal within HOST_FRONT_MAX_NORMAL_RAD of the heading), hosts too.
      off_manhattan  the host is more than manhattan_tol_deg off the room's
                     dominant direction (MANHATTAN PRIOR, below);
      short_line     the union of the group's members along the line, less
@@ -196,6 +204,11 @@ STATE_NAMES = {STATE_CANDIDATE: 'candidate', STATE_CONFIRMED: 'confirmed',
 
 #: The roles of a wall track that may host a door (module docstring, HOST).
 HOST_ROLES = ('front', 'left', 'right')
+#: FRONT-FACING HOSTS (host_front_facing): the band ahead of the car [m] a
+#: role-unknown wall must reach into, and how far its normal may turn from
+#: the heading.
+HOST_FRONT_HALF_WIDTH_M = 1.5
+HOST_FRONT_MAX_NORMAL_RAD = math.radians(30.0)
 
 #: What one beam says about the wall line it crosses (classify_beams), by
 #: its PERPENDICULAR depth behind the line.
@@ -288,6 +301,9 @@ class DoorParams:
     manhattan_tau_s: float = 2.0
     min_line_extent_m: float = 2.0
     min_side_len_m: float = 0.5
+    #: FRONT-FACING HOSTS (module docstring, HOST): off = the user's rule
+    #: as written (roles front/left/right only).
+    host_front_facing: bool = False
     # --- the gap tests (module docstring, VISIBILITY and GAP) ----------------
     max_view_angle_deg: float = 45.0
     #: The share of the core's beams (not on the leaf) that must be through.
@@ -465,9 +481,40 @@ class _Wall:
                      float(n @ m), self.theta - self.offset, self.offset)
 
 
-def is_host(trk):
-    """Return whether a wall track may host a door: CONFIRMED, role front/left/right."""
-    return trk.state == mwt.STATE_CONFIRMED and getattr(trk, 'role', '') in HOST_ROLES
+def is_host(trk, car_pose=None, p=None):
+    """
+    Return whether a wall track may host a door (module docstring, HOST).
+
+    CONFIRMED with role front, left or right; with p.host_front_facing also a
+    CONFIRMED track that is role unknown for its geometry alone and faces the
+    car from ahead (FRONT-FACING HOSTS).
+    """
+    if trk.state != mwt.STATE_CONFIRMED:
+        return False
+    role = getattr(trk, 'role', '')
+    if role in HOST_ROLES:
+        return True
+    if p is None or not p.host_front_facing or car_pose is None \
+            or not mwt.is_unknown_role(role):
+        return False
+    if (getattr(trk, 'verify', None) == wall_fusion.VERIFY_REJECTED
+            or getattr(trk, 'occluded', False) or getattr(trk, 'contradicted', False)):
+        return False
+    return _faces_the_car_from_ahead(trk, car_pose)
+
+
+def _faces_the_car_from_ahead(trk, car_pose):
+    """Whether a track lies ahead within HOST_FRONT_HALF_WIDTH_M and faces the car."""
+    a, b = (np.asarray(q, dtype=float) for q in mwt.segment_in_base_link(trk, car_pose))
+    if min(a[0], b[0]) <= 0.0:
+        return False        # not entirely ahead of the car
+    if min(a[1], b[1]) > HOST_FRONT_HALF_WIDTH_M or max(a[1], b[1]) < -HOST_FRONT_HALF_WIDTH_M:
+        return False        # wholly to one side of the band ahead
+    th = trk.theta - car_pose.theta
+    n = np.array([math.cos(th), math.sin(th)])
+    if float(n @ (0.5 * (a + b))) < 0.0:
+        n = -n              # the normal from the car toward the line
+    return float(n[0]) >= math.cos(HOST_FRONT_MAX_NORMAL_RAD)
 
 
 def _wall_bl(trk, car_pose):
@@ -847,7 +894,7 @@ def door_candidates(tracks, car_pose, scan, p=None, stereo=None, manhattan=None)
     p = p or DoorParams()
     if scan is None:
         return []
-    hosts = [_wall_bl(t, car_pose) for t in tracks if is_host(t)]
+    hosts = [_wall_bl(t, car_pose) for t in tracks if is_host(t, car_pose, p)]
     if not hosts:
         return []
     cyc = _Cycle(p, tracks, car_pose, scan, stereo, manhattan)
