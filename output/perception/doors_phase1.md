@@ -242,3 +242,83 @@ confirmed / orange tentative doors):
   will publish tomorrow.
 - One bag, one corridor, one pass at 0.1-0.3 m/s. No ground-truth door list:
   the images are the check.
+
+---
+
+## Part 2: before vs after the addendum
+
+Same tool, bag, cadence (700 tracker steps) and params source (each
+checkout's `stack_params.yaml`). **Before** = `1148636` (this branch before the
+addendum: step 3's frame jambs, square-on and panes on); **after** = `148d58e`
+(the addendum's core, node and params). Also after with the optional
+front-facing hosts on (`--set host_front_facing=True`). Full outputs:
+`~/f1tenth_data/replays/doors_corridor10m_20261016T144537/addendum/`.
+
+| run | door tracks | confirmed | door step p50 / p95 (linus) |
+|---|---|---|---|
+| before, recorded walls | 15 (11 on frame lines) | 0 | 7.6 / 9.3 ms |
+| after, recorded walls | 0 | 0 | 1.05 / 1.9 ms |
+| after, recorded + front-facing hosts | 0 | 0 | 1.1 / 2.0 ms |
+| before, retrack-new | 14 (all frame) | 0 | 8.3 / 10.1 ms |
+| after, retrack-new | 0 | 0 | 1.2 / 1.6 ms |
+| after, retrack-new + front-facing hosts | 0 | 0 | 1.3 / 1.9 ms |
+
+### Candidates by code
+
+Every judged gap of the run, by its code. The old codes `shallow`, `blocked`
+and `object` became `behind` and `unknown_in_gap` (with a detail); `accepted`
+is now code `''` (a positive sighting).
+
+| code (class after) | before, recorded | after, recorded | after, recorded + front-facing | before, retrack | after, retrack | after, retrack + front-facing |
+|---|---:|---:|---:|---:|---:|---:|
+| positive (`accepted` before, `''` after) | 19 | 0 | 0 | 15 | 0 | 0 |
+| `not_a_leaf` (strong) | 1 | 1 | 1 | 1 | 0 | 0 |
+| `not_boundary` (strong) | - | 3 | 3 | - | 0 | 0 |
+| `on_line` (strong) | 51 | 0 | 0 | 83 | 0 | 0 |
+| `shallow` -> `behind` (strong) | 71 | 0 | 0 | 150 | 0 | 0 |
+| `short_line` (strong) | - | 3 | 3 | - | 2 | 4 |
+| `short_side` (strong) | - | 9 | 9 | - | 1 | 1 |
+| `blocked` -> `unknown_in_gap` (weak) | 11 | 0 | 0 | 7 | 0 | 0 |
+| `few_beams` (weak) | 4 | 2 | 2 | 5 | 0 | 0 |
+| `jamb_occluded` (weak) | 34 | 3 | 3 | 83 | 1 | 1 |
+| `oblique_view` (weak) | - | 71 | 71 | - | 9 | 9 |
+| `not_collinear` (geometry) | 24 | 13 | 13 | 585 | 0 | 0 |
+| `untracked_jamb` (geometry) | 6 | 0 | 0 | 99 | 0 | 0 |
+| `width` (geometry) | 1481 | 580 | 580 | 1546 | 198 | 229 |
+| **all judged gaps** | 1702 | 685 | 685 | 2574 | 211 | 244 |
+
+`-`: the code did not exist before the addendum.
+
+Classes after the addendum, recorded walls: STRONG 16 rows (5 visible), WEAK
+76 (1 visible), GEOMETRY 593; retrack: STRONG 3, WEAK 10, GEOMETRY 198 (none
+visible). No positive sighting in any run, so no door track, no strike.
+
+### What it says
+
+- **The door the old cores confirmed, at odom (14.19, 0.16)**: 9 gaps there
+  after the addendum -- `width` 4, `oblique_view` 3 (the car saw it at
+  46-54° off its normal, beyond the 45° limit), `not_boundary` 2 (251-279
+  returns behind the host segments: on this bag that recorded track runs
+  through glass, so its "wall" either side of the gap is see-through).
+- The other old candidates on the left wall, at (6.59, 1.21) and (1.62, 1.81):
+  `width` (the gap between the hosts is wider than 1.00 m), `oblique_view`,
+  one `not_a_leaf` and one `not_boundary` (48 hits).
+- **Step 3's 11 frame doors are gone**: frame lines are unknown fragments and
+  can never host a door (addendum A/B).
+- On LiDAR-only retracked walls the long through-glass tracks do not exist, so
+  the old in-track sites have no host pair at all; at (1.62, 1.81) the two
+  confirmed hosts are 1.2-2.4 m apart (`width`).
+- The Manhattan prior settles at 83.2° (the corridor's walls run at about -7°
+  in odom), strength 1.0, from 2 (recorded) or 4 (retrack) confirmed walls of
+  at least 1.5 m. No `off_manhattan` occurred.
+- Front-facing hosts change nothing here (+2 `short_line` on retrack): the car
+  never faced a doorway head-on in this run.
+- Cost: the door step is 7x cheaper without step 3's scan pieces.
+
+**Reading it for the car test**: in this glass-walled corridor the addendum's
+conservative rules confirm nothing, and that is their intent (see-through hosts
+fail `not_boundary`; doors only seen beyond 45° are undecidable). Doors in solid
+side walls, seen within 45° of their normal from two positions 0.3 m apart, are
+what it confirms (the synthetic tests F5, F9, the merge-rule 0.85 m case). This
+bag has no camera image or depth stream, so `furniture`, `stereo_wall` and the
+jamb height never ran offline (`jamb_height_unknown` throughout).
