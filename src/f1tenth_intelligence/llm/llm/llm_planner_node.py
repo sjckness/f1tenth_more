@@ -338,7 +338,30 @@ def _completion(system_prompt: str, command_text: str):
     try:
         response = requests.post(
             LLAMA_URL,
-            json={'prompt': prompt, 'n_predict': 512, 'temperature': 0.0},
+            json={
+                'prompt': prompt, 
+                'n_predict': 512, 
+                'temperature': 0.0,
+                # Forces llama-server to structurally constrain tokens and cut off instantly at the closing brace '}'
+                'json_schema': {
+                    "type": "object",
+                    "properties": {
+                        "plan": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        },
+                        "unsupported": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "required": ["plan", "unsupported"]
+                }
+            },
             timeout=LLAMA_TIMEOUT,
         )
     except requests.exceptions.ConnectionError as e:
