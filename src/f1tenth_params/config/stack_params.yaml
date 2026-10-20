@@ -1546,6 +1546,128 @@ reverse_ctg_wall_change_m:
 reverse_ctg_min_rebuild_period_s:
   default: 0.5
   description: "Minimum time [s] between two V rebuilds not caused by a goal change."
+# REAR BUMPER. There is no base_rear frame in the URDF and no tape
+# measurement: 0.082 m is the URDF chassis-mesh bound (the same number as
+# swept_clearance_body_rear_x_m, which stays as it is for its own consumer).
+# TODO(measure): tape-measure base_link (rear axle) to the rear bumper face,
+# as base_front.xacro's 0.405 was on 2026-10-13, and set it here.
+# Consumed by: MPC_corr.py (reverse manoeuvre: rear corridor start, rear
+# pre-check strip, rear clearance) and reverse_mpc's rear w_obs probes.
+car_rear_offset_m:
+  default: 0.082
+  description: "Rear bumper face behind base_link (the rear axle) [m], positive. UNMEASURED: the URDF chassis-mesh bound; TODO tape-measure it."
+
+# THE REVERSE MANOEUVRE (mpc_controller/reverse_manoeuvre.py). Consumed by:
+# MPC_corr.py's declare_parameter() defaults (get_value), no launch arg. The
+# forward MPC drives by default; a short reverse along a frozen rear corridor
+# is taken only when the forward side is STUCK for stuck_time_s, the rear side
+# is READY (pre-checks + a feasible rear solve) and the behaviour tree allows
+# it on /bt/allow_reverse (fresh within 0.5 s). Raw costs are never compared.
+# A reverse also needs max_reverse_speed_mps >= v_rev_mps: the /drive clamp is
+# the one authority on reverse speed, and with it at 0.0 (shipped) the rear
+# side reports "reverse_speed_limit" and never becomes ready.
+reverse_auto_enabled:
+  default: true
+  description: "Let mpc_corr start a reverse manoeuvre by itself when stuck (still gated by rear readiness, /bt/allow_reverse and max_reverse_speed_mps). /mpc/request_reverse works either way."
+rear_solver_mode:
+  default: "lazy"
+  description: "'lazy': the rear solver runs only while the stuck timer runs (normal driving never pays for it). 'always': every tick (for timing comparisons)."
+rear_corridor_length_m:
+  default: 0.5
+  description: "Length [m] of the rear corridor, from the rear bumper straight back along the heading at reverse start; also the cap on a requested distance."
+rear_corridor_half_width_m:
+  default: -1.0
+  description: "Rear corridor half-width [m] at the bumper; <= 0 uses corr_half_width_start_m. The far end is this times CORRIDOR_WIDTH_RATIO, the forward corridors' rule."
+v_rev_mps:
+  default: 0.4
+  description: "Reverse speed magnitude [m/s], fixed for the whole manoeuvre: the operating floor min_moving_speed_mps, never lower while moving."
+mpc_rear.prediction_dt_s:
+  default: 0.2
+  description: "The rear solver's prediction step [s]. Its horizon is ceil(rear_corridor_length_m / (v_rev_mps * this)) clamped to [5, 10]: 7 at 0.5 m, 0.4 m/s, 0.2 s."
+mpc_rear.w_term:
+  default: 9.0
+  description: "The rear solver's w_term (same meaning as mpc_w_term). Copied from mpc_w_term when the rear solver was added; tune separately."
+mpc_rear.w_v:
+  default: 4.2857
+  description: "The rear solver's w_v (same meaning as mpc_w_v). Copied from mpc_w_v when the rear solver was added; tune separately."
+mpc_rear.w_psi:
+  default: 4.5
+  description: "The rear solver's w_psi (same meaning as mpc_w_psi). Copied from mpc_w_psi when the rear solver was added; tune separately."
+mpc_rear.w_u_a:
+  default: 0.0
+  description: "The rear solver's w_u_a (same meaning as mpc_w_u_a). Copied from mpc_w_u_a when the rear solver was added; tune separately."
+mpc_rear.w_du_delta:
+  default: 8.33
+  description: "The rear solver's w_du_delta (same meaning as mpc_w_du_delta). Copied from mpc_w_du_delta when the rear solver was added; tune separately."
+mpc_rear.w_du_a:
+  default: 0.0
+  description: "The rear solver's w_du_a (same meaning as mpc_w_du_a). Copied from mpc_w_du_a when the rear solver was added; tune separately."
+mpc_rear.w_delta0:
+  default: 0.0
+  description: "The rear solver's w_delta0 (same meaning as mpc_w_delta0). Copied from mpc_w_delta0 when the rear solver was added; tune separately."
+mpc_rear.w_obs:
+  default: 8.0
+  description: "The rear solver's w_obs (same meaning as mpc_w_obs). Copied from mpc_w_obs when the rear solver was added; tune separately."
+mpc_rear.w_corr:
+  default: 3.5714
+  description: "The rear solver's w_corr (same meaning as mpc_w_corr). Copied from mpc_w_corr when the rear solver was added; tune separately."
+mpc_rear.w_line:
+  default: 1.1662
+  description: "The rear solver's w_line (same meaning as mpc_w_line). Copied from mpc_w_line when the rear solver was added; tune separately."
+mpc_rear.w_psi_stage:
+  default: 4.7736
+  description: "The rear solver's w_psi_stage (same meaning as mpc_w_psi_stage). Copied from mpc_w_psi_stage when the rear solver was added; tune separately."
+stuck_time_s:
+  default: 0.5
+  description: "The forward side is stuck when any stuck condition holds on every tick for this long [s]; one tick with none (or a tick the detector does not see) resets it."
+stuck_speed_mps:
+  default: 0.05
+  description: "|v| below this [m/s] is stopped: for stuck condition (b) and for the end of both gear changes."
+stuck_front_dist_m:
+  default: 0.6
+  description: "Stuck condition (b): an obstacle or wall within this [m] of the front bumper with the car stopped and the mission active. 0.6 is just above where w_obs parks the nose (0.5525 m probe reach + 0.32 m clearance - 0.405 m bumper = 0.47 m)."
+stuck_progress_m:
+  default: 0.05
+  description: "Stuck condition (c): the forward plan's predicted displacement over the horizon below this [m]."
+gear_change_dwell_s:
+  default: 0.3
+  description: "Both gear changes command zero speed and wait for |v| < stuck_speed_mps for this long [s]."
+forward_min_time_s:
+  default: 2.0
+  description: "After a reverse, drive forward at least this long [s] before another."
+reverse_max_attempts:
+  default: 3
+  description: "Consecutive reverses without reverse_progress_reset_m of forward progress before mpc_corr gives up: zero speed, mode 'stuck' on /mpc/reverse_status, no more reverses until a new move or mission."
+reverse_progress_reset_m:
+  default: 0.3
+  description: "Forward progress [m] since the last reverse that resets the attempt count."
+rear_stop_margin_m:
+  default: 0.15
+  description: "End the reverse when the free distance behind the rear bumper along the rear corridor (costmap, obstacles, semantic memory) falls below this [m]."
+rear_brake_delay_s:
+  default: 0.144
+  description: "Braking model for rear_stop_margin_m: the reverse ends at margin + |v| * this + v^2 / (2 * rear_brake_decel_mps2) of free distance, so the car is at REST with the margin left. The fit to the archived forward stops (BRAKING_MEASURED); reverse braking is unmeasured."
+rear_brake_decel_mps2:
+  default: 1.5
+  description: "Deceleration [m/s^2] of the braking model above (archived forward stops)."
+rear_check_margin_m:
+  default: 0.10
+  description: "Margin [m] added to the body half-width for the swept strip the rear pre-check and the rear clearance look at."
+rear_costmap_topic:
+  default: "/slam/map"
+  description: "OccupancyGrid the rear pre-check reads (map frame; -1 unknown is NOT free). The car never scans its rear live, so behind it this holds what was seen on the way in."
+rear_costmap_free_max:
+  default: 50
+  description: "Cell values in [0, this) are free, at or above occupied, -1 unknown."
+rear_solver_budget_s:
+  default: 0.05
+  description: "A rear solve slower than this [s] counts as a failure; two in a row end the reverse."
+reverse_timeout_factor:
+  default: 2.0
+  description: "End the reverse after this times its expected duration (requested distance / v_rev_mps)."
+bt_allow_reverse_max_age_s:
+  default: 0.5
+  description: "/bt/allow_reverse older than this [s] counts as not allowed."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
 # declare default = this value), for the go_to_object move (schema 4.0):
 # GoToObject (mission/object_handler.py) and CheckStopCondition's

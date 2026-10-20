@@ -12,7 +12,7 @@ from rclpy.node import Node
 from rclpy.qos import (
     QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
-from nav_msgs.msg import Odometry
+from nav_msgs.msg import OccupancyGrid, Odometry
 from std_msgs.msg import Bool, Float32, String
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Point, PoseStamped
@@ -20,8 +20,9 @@ from visualization_msgs.msg import Marker, MarkerArray
 
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
-    BoundaryConstraintArray, DriveClamp, DriveCommand, MpcSolverStatus, ObjectApproachStatus,
-    ObjectGoal, Obstacle2DArray, TurnGoal, WallTrack)
+    BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
+    ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus, TurnGoal, WallTrack)
+from f1tenth_messages.srv import RequestReverse
 from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
 from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
@@ -37,6 +38,8 @@ from mpc_controller.object_approach import (
     SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
+from mpc_controller.reverse_manoeuvre import (
+    Grid, ManoeuvreConfig, RearEnv, RearSolver, ReverseSupervisor)
 from mpc_controller.reverse_mpc import (
     extend_corridor_backwards, floor_moving_speed_signed, rear_probe_offsets, ReverseConfig,
     ReversePlanner)
@@ -1824,6 +1827,13 @@ class MPCController(Node):
         else:
             self.allow_reverse = False
 
+        # THE REVERSE MANOEUVRE (reverse_manoeuvre.py): a short reverse taken
+        # only when the forward MPC is stuck, the rear is ready and the BT
+        # allows it. Mutually exclusive with allow_reverse above, which lets
+        # the forward MPC choose reverse itself.
+        self.reverse_supervisor = None
+        self._init_reverse_manoeuvre()
+
         self.min_obstacle_distance_pub = self.create_publisher(
             Float32,
             '/mpc/min_obstacle_distance',
@@ -2066,6 +2076,9 @@ class MPCController(Node):
             self.get_logger().warn(f'{text} -- NOT the default ({default!r})')
 
     def hold_callback(self, msg: Bool):
+        if msg.data and getattr(self, 'reverse_supervisor', None) is not None:
+            # A hold is a BT abort for a reverse manoeuvre too: it ends it.
+            self.reverse_supervisor.abort('hold')
         if msg.data != self.hold:
             self.get_logger().info(f'HOLD | {"engaged" if msg.data else "released"}')
             # A hold RELEASE is this node's only view of "a mission just
@@ -3063,6 +3076,9 @@ class MPCController(Node):
     def _invalidate_move_state(self):
         """Drop every piece of per-move cached geometry.
 
+        Also starts the reverse manoeuvre's attempt count afresh (a new move
+        lifts a "stuck" give-up).
+
         Called by all three goal callbacks (goal_distance, goal_pose,
         goal_turn) the instant a new move is accepted.
 
@@ -3087,6 +3103,8 @@ class MPCController(Node):
         cleared below -- and unlike that stored plan it carries no stale
         corridor information at all, being a single number about the present.
         """
+        if getattr(self, 'reverse_supervisor', None) is not None:
+            self.reverse_supervisor.new_move()
         # Target smoothing / obstacle-deflection coast: previous move's state.
         self.smoothed_target = None
         self.last_deflection_vec = np.zeros(2)
@@ -3501,6 +3519,179 @@ class MPCController(Node):
             msg.since_last_fit_sec = math.nan
         self.wall_track_pub.publish(msg)
 
+    def _init_reverse_manoeuvre(self):
+        """
+        Declare the reverse manoeuvre's parameters and wire its topics.
+
+        /mpc/reverse_status (ReverseStatus, every tick), /mpc/request_reverse
+        (RequestReverse), and the inputs: /bt/allow_reverse (Bool, must be
+        fresh), /mission/status (transient local), the rear costmap
+        (rear_costmap_topic, transient local like costmap_boundary_node's).
+        """
+        def _p(key):
+            return self.declare_parameter(key, get_value(key)).value
+
+        hw = float(_p('rear_corridor_half_width_m'))
+        cfg = ManoeuvreConfig(
+            auto_enabled=bool(_p('reverse_auto_enabled')),
+            solver_mode=str(_p('rear_solver_mode')),
+            corridor_length_m=float(_p('rear_corridor_length_m')),
+            corridor_half_width_m=(hw if hw > 0.0 else float(self.corr_wmin)),
+            v_rev_mps=float(_p('v_rev_mps')),
+            rear_dt_s=float(_p('mpc_rear.prediction_dt_s')),
+            stuck_time_s=float(_p('stuck_time_s')),
+            stuck_speed_mps=float(_p('stuck_speed_mps')),
+            stuck_front_dist_m=float(_p('stuck_front_dist_m')),
+            stuck_progress_m=float(_p('stuck_progress_m')),
+            gear_change_dwell_s=float(_p('gear_change_dwell_s')),
+            forward_min_time_s=float(_p('forward_min_time_s')),
+            max_attempts=int(_p('reverse_max_attempts')),
+            progress_reset_m=float(_p('reverse_progress_reset_m')),
+            rear_stop_margin_m=float(_p('rear_stop_margin_m')),
+            brake_delay_s=float(_p('rear_brake_delay_s')),
+            brake_decel_mps2=float(_p('rear_brake_decel_mps2')),
+            rear_check_margin_m=float(_p('rear_check_margin_m')),
+            bt_allow_max_age_s=float(_p('bt_allow_reverse_max_age_s')),
+            solver_budget_s=float(_p('rear_solver_budget_s')),
+            timeout_factor=float(_p('reverse_timeout_factor')),
+            car_rear_offset_m=float(_p('car_rear_offset_m')),
+            car_half_width_m=float(get_value('swept_clearance_body_half_width_m')),
+            costmap_free_max=int(_p('rear_costmap_free_max')),
+            max_reverse_speed_mps=float(self.max_reverse_speed))
+        rear_weights = {k: float(_p(f'mpc_rear.{k}')) for k in self.weights}
+        costmap_topic = str(_p('rear_costmap_topic'))
+        if self.allow_reverse:
+            self.get_logger().warn(
+                'REVERSE/manoeuvre | disabled: allow_reverse is on (the forward MPC '
+                'chooses reverse itself); one reverse mechanism at a time')
+            return
+        if self.max_reverse_speed < cfg.v_rev_mps:
+            self.get_logger().warn(
+                f'REVERSE/manoeuvre | max_reverse_speed_mps {self.max_reverse_speed:.2f} < '
+                f'v_rev_mps {cfg.v_rev_mps:.2f}: the rear side will report '
+                '"reverse_speed_limit" and no reverse will start')
+        rear = RearSolver(
+            cfg, rear_weights, self.limits, self.params,
+            rear_probe_offsets(self.params['L'], base_front_x(), -cfg.car_rear_offset_m,
+                               SOLVER_FRONT_POINT_OFFSETS_M),
+            boundary_opts={'boundary_max_sources': self.boundary_max_sources,
+                           'boundary_hard': self.boundary_hard,
+                           'boundary_slack_weight': self.boundary_slack_weight})
+        self.reverse_supervisor = ReverseSupervisor(
+            cfg, rear, self.ts, car_radius=self.car_radius,
+            avoidance_margin=self.avoidance_margin)
+        self._bt_allow = None
+        self._bt_allow_t = None
+        self._mission_state = None
+        self._emergency_stop = False
+        self._rear_grid = None
+        latched = QoSProfile(reliability=ReliabilityPolicy.RELIABLE,
+                             durability=DurabilityPolicy.TRANSIENT_LOCAL,
+                             history=HistoryPolicy.KEEP_LAST, depth=1)
+        self.create_subscription(Bool, '/bt/allow_reverse', self._bt_allow_cb, 10)
+        self.create_subscription(MissionStatus, '/mission/status', self._mission_status_cb,
+                                 latched)
+        self.create_subscription(OccupancyGrid, costmap_topic, self._rear_costmap_cb, latched)
+        self.reverse_status_pub = self.create_publisher(ReverseStatus, '/mpc/reverse_status', 10)
+        self.create_service(RequestReverse, '/mpc/request_reverse', self._request_reverse_cb)
+        self.get_logger().info(
+            f'REVERSE/manoeuvre | auto={cfg.auto_enabled} solver={cfg.solver_mode} '
+            f'L={cfg.corridor_length_m:.2f} m v_rev={cfg.v_rev_mps:.2f} m/s '
+            f'N_rear={rear.n} costmap={costmap_topic}')
+
+    def _bt_allow_cb(self, msg: Bool):
+        self._bt_allow = bool(msg.data)
+        self._bt_allow_t = self.get_clock().now().nanoseconds * 1e-9
+
+    def _mission_status_cb(self, msg: MissionStatus):
+        self._mission_state = str(msg.state)
+        self._emergency_stop = bool(msg.emergency_stop_active)
+        if self._emergency_stop and self.reverse_supervisor is not None:
+            self.reverse_supervisor.abort('emergency_stop')
+
+    def _rear_costmap_cb(self, msg: OccupancyGrid):
+        info = msg.info
+        q = info.origin.orientation
+        yaw = math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+        self._rear_grid = Grid(
+            data=np.asarray(msg.data, dtype=np.int16).reshape(info.height, info.width),
+            resolution=float(info.resolution), origin_x=float(info.origin.position.x),
+            origin_y=float(info.origin.position.y), origin_yaw=float(yaw))
+
+    def _reverse_env(self, obstacles_global, live_boundaries):
+        """Build this tick's RearEnv: the costmap only with a map -> odom edge to place it."""
+        now = self.get_clock().now().nanoseconds * 1e-9
+        map_odom = self._lookup_map_odom() if self._rear_grid is not None else None
+        return RearEnv(
+            grid=self._rear_grid if map_odom is not None else None, map_to_odom=map_odom,
+            objects=list(obstacles_global), boundaries=list(live_boundaries),
+            bt_allow=self._bt_allow,
+            bt_allow_age_s=(math.inf if self._bt_allow_t is None else now - self._bt_allow_t),
+            abort=bool(self.hold or self._emergency_stop))
+
+    def _reverse_front_distance(self, live_boundaries):
+        """Return the free distance ahead of the front bumper (obstacles, wall topic, rows)."""
+        cands = []
+        d_obs = self.compute_forward_obstacle_distance(self.obstacles_global_live)
+        if d_obs < 1e5:
+            cands.append(d_obs)
+        d_wall = self._fresh_front_distance()
+        if d_wall is not None:
+            cands.append(d_wall)
+        bumper = self._front_bumper_xy()
+        if bumper is not None:
+            hx, hy = math.cos(self.yaw), math.sin(self.yaw)
+            for nx_, ny_, off in live_boundaries:
+                if math.isfinite(off) and nx_ * hx + ny_ * hy > 0.7:
+                    cands.append(max(off - (nx_ * bumper[0] + ny_ * bumper[1]), 0.0))
+        return min(cands) if cands else None
+
+    def _reverse_intentional_stop(self):
+        """Tell whether this is a stop the mission asked for (stuck timer held at 0)."""
+        if self._mission_state is not None and self._mission_state != 'RUNNING':
+            return True
+        return bool(self.hold or self.pose_goal_reached or self.goal_reached)
+
+    def _request_reverse_cb(self, request, response):
+        sup = self.reverse_supervisor
+        if self.x is None or self.yaw is None or self.v is None:
+            response.accepted, response.reason = False, 'no_state'
+            return response
+        env = self._reverse_env(self.obstacles_global_live, self._get_live_boundaries())
+        now = self.get_clock().now().nanoseconds * 1e-9
+        response.accepted, response.reason = sup.request(
+            now, np.array([self.x, self.y, self.yaw, self.v]), float(request.distance_m), env)
+        self.get_logger().info(
+            f'REVERSE/request | {request.distance_m:.2f} m -> '
+            f'{"accepted" if response.accepted else "refused"}: {response.reason}')
+        return response
+
+    def _publish_reverse_status(self):
+        st = self.reverse_supervisor.status()
+        msg = ReverseStatus()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.mode = st['mode']
+        msg.reverse_active = bool(st['reverse_active'])
+        msg.stuck = bool(st['stuck'])
+        msg.stuck_reason = st['stuck_reason']
+        msg.stuck_timer_s = float(st['stuck_timer_s'])
+        msg.intentional_stop = bool(st['intentional_stop'])
+        msg.rear_ready = bool(st['rear_ready'])
+        msg.rear_reason = st['rear_reason']
+        msg.rear_solver_running = bool(st['rear_solver_running'])
+        msg.rear_solve_ms = float(st['rear_solve_ms']) if math.isfinite(st['rear_solve_ms']) \
+            else math.nan
+        msg.rear_clearance_m = float(st['rear_clearance_m']) \
+            if math.isfinite(st['rear_clearance_m']) else math.nan
+        msg.bt_allow_reverse = bool(st['bt_allow_reverse'])
+        msg.bt_allow_fresh = bool(st['bt_allow_fresh'])
+        msg.attempts = int(min(st['attempts'], 255))
+        msg.last_switch_time_s = float(st['last_switch_time_s'])
+        msg.last_termination_reason = st['last_termination_reason']
+        msg.requested_m = float(st['requested_m'])
+        msg.travelled_m = float(st['travelled_m'])
+        self.reverse_status_pub.publish(msg)
+
     def _reverse_config(self):
         """
         Build the reverse planner's config from the reverse_* parameters.
@@ -3523,7 +3714,7 @@ class MPCController(Node):
                    f'reverse capped at {self.max_reverse_speed:.2f} m/s'))
         v_rev_max = min(v_rev_max, self.max_reverse_speed)
         front_x = base_front_x()
-        rear_x = float(get_value('swept_clearance_body_rear_x_m'))
+        rear_x = -float(get_value('car_rear_offset_m'))
         return ReverseConfig(
             allow_reverse=v_rev_max > 0.0,
             switch_times_s=tuple(float(t) for t in _p('reverse_switch_times_s')),
@@ -3566,7 +3757,7 @@ class MPCController(Node):
             goal_tolerance_m=float(_p('reverse_ctg_goal_tolerance_m')),
             footprint_margin_m=float(_p('reverse_ctg_footprint_margin_m')),
             front_x=base_front_x(),
-            rear_x=float(get_value('swept_clearance_body_rear_x_m')),
+            rear_x=-float(get_value('car_rear_offset_m')),
             half_width=float(get_value('swept_clearance_body_half_width_m')),
             wheelbase=self.params['L'], lr=self.params['lr'],
             steer_min=self.limits['delta_min'], steer_max=self.limits['delta_max'])
@@ -4116,6 +4307,18 @@ class MPCController(Node):
         if self.allow_reverse:
             self._update_cost_to_go(corridor, obstacles_global, live_boundaries, now_sec)
 
+        # REVERSE MANOEUVRE: while one runs, IT drives and the forward solver
+        # is not run at all (its warm start stays as it was).
+        reverse_env = None
+        if self.reverse_supervisor is not None:
+            reverse_env = self._reverse_env(obstacles_global, live_boundaries)
+            manoeuvre_cmd = self.reverse_supervisor.before_forward(now_sec, x0, reverse_env)
+            if manoeuvre_cmd is not None:
+                self.last_u = np.array([manoeuvre_cmd.steer, 0.0], dtype=float)
+                self._publish_drive(manoeuvre_cmd.speed, manoeuvre_cmd.steer)
+                self._publish_reverse_status()
+                return
+
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
         u0, info = self._mpc_solve(
@@ -4329,6 +4532,19 @@ class MPCController(Node):
             f'v_cmd={v_cmd_log:.3f} wheel_speed={wheel_speed:.3f} '
             f'v_real={v_real:.3f} a_imu={a_imu:.3f}'
         )
+
+        if self.reverse_supervisor is not None:
+            self.reverse_supervisor.set_steer(delta_cmd)
+            manoeuvre_cmd = self.reverse_supervisor.after_forward(
+                now_sec, x0, bool(info.get('success', False)), info.get('x_pred'),
+                self._mission_state == 'RUNNING' if self._mission_state is not None
+                else not self.hold,
+                self._reverse_intentional_stop(), self._reverse_front_distance(live_boundaries),
+                reverse_env)
+            if manoeuvre_cmd is not None:
+                # The tick a manoeuvre starts: zero speed instead of the plan.
+                v_cmd_now, delta_cmd = manoeuvre_cmd.speed, manoeuvre_cmd.steer
+            self._publish_reverse_status()
 
         self._publish_drive(v_cmd_now, delta_cmd)
 

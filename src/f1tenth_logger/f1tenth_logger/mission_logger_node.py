@@ -364,6 +364,9 @@ _DEFAULT_TOPICS = [
     '/mpc/drive_clamp',
     # allow_reverse only: per-candidate scores, the winner and why (JSON).
     '/mpc/reverse/debug',
+    # The reverse manoeuvre: mode, stuck reason and timer, rear readiness,
+    # BT permission, attempts, termination reason -- every control tick.
+    '/mpc/reverse_status',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',

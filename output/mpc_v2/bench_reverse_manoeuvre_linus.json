@@ -1,0 +1,61 @@
+{
+ "host": "linus",
+ "machine": "x86_64",
+ "python": "3.12.3",
+ "n": 1000,
+ "budget_ms": 100.0,
+ "results": {
+  "forward_corridor_build": {
+   "n": 1000,
+   "p50_ms": 0.18,
+   "p95_ms": 0.23,
+   "max_ms": 0.35,
+   "within_budget": true
+  },
+  "rear_corridor_build": {
+   "n": 1000,
+   "p50_ms": 0.15,
+   "p95_ms": 0.2,
+   "max_ms": 0.4,
+   "within_budget": true
+  },
+  "forward_alone": {
+   "n": 1000,
+   "p50_ms": 5.64,
+   "p95_ms": 6.15,
+   "max_ms": 6.95,
+   "within_budget": true
+  },
+  "rear_alone": {
+   "n": 1000,
+   "p50_ms": 2.52,
+   "p95_ms": 2.75,
+   "max_ms": 3.3,
+   "within_budget": true
+  },
+  "tick_normal_driving_lazy": {
+   "n": 1000,
+   "p50_ms": 5.71,
+   "p95_ms": 6.44,
+   "max_ms": 7.82,
+   "within_budget": true,
+   "rear_solves": 0
+  },
+  "tick_stuck_window_lazy": {
+   "n": 1000,
+   "p50_ms": 8.45,
+   "p95_ms": 9.23,
+   "max_ms": 11.83,
+   "within_budget": true,
+   "rear_solves": 1000
+  },
+  "tick_always_mode": {
+   "n": 1000,
+   "p50_ms": 8.47,
+   "p95_ms": 9.2,
+   "max_ms": 10.26,
+   "within_budget": true,
+   "rear_solves": 1000
+  }
+ }
+}
