@@ -124,6 +124,8 @@ class _FakeNode:
         self.timers = [t for t in getattr(self, 'timers', []) if t is not timer]
 
     def declare_parameter(self, name, default):
+        if name == 'enable_mission_logger':
+            return _FakeParam(True)  # the countdown these tests fire by hand
         return _FakeParam(default)  # mission_file_name unset -- no auto-load
 
     def get_logger(self):

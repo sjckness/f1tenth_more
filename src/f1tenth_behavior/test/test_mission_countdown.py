@@ -27,6 +27,7 @@ are the thing under test, not ROS's service dispatch.
 from __future__ import annotations
 
 import json
+import time
 import types
 from pathlib import Path
 
@@ -98,9 +99,10 @@ class _Timer:
 class _Node:
     """Enough of rclpy.node.Node for MissionLoader and its service handlers."""
 
-    def __init__(self, live_node_names, countdown_s=COUNTDOWN_S):
+    def __init__(self, live_node_names, countdown_s=COUNTDOWN_S, logger_on=True):
         self._live_node_names = live_node_names
         self._countdown_s = countdown_s
+        self._logger_on = logger_on
         self.publishers = {}
         self.timers = []
         self.logger = _Logger()
@@ -128,6 +130,8 @@ class _Node:
     def declare_parameter(self, name, default):
         if name == "mission_countdown_sec" and self._countdown_s is not None:
             return _Param(self._countdown_s)
+        if name == 'enable_mission_logger':
+            return _Param(self._logger_on)
         return _Param(default)
 
     def get_logger(self):
@@ -148,9 +152,9 @@ def _response():
     return types.SimpleNamespace(success=None, message=None)
 
 
-def _make_loader(countdown_s=COUNTDOWN_S):
+def _make_loader(countdown_s=COUNTDOWN_S, logger_on=True):
     node = _Node(live_node_names=["mpc_corr", "ackermann_to_vesc_node"],
-                 countdown_s=countdown_s)
+                 countdown_s=countdown_s, logger_on=logger_on)
     loader = MissionLoader(node)
     # Preflight reads this off the blackboard (CheckStopCondition writes it in
     # production); without it every start would fail preflight instead of
@@ -365,7 +369,8 @@ def test_loading_another_mission_cancels_a_pending_start():
 def test_the_countdown_is_read_live_so_it_can_be_retuned():
     """`ros2 param set` between tests must take effect without a restart."""
     loader, node = _make_loader()
-    node.get_parameter = lambda name: _Param(7.5)
+    node.get_parameter = lambda name: _Param(
+        True if name == 'enable_mission_logger' else 7.5)
     resp = loader._on_start_mission_service(_request(), _response())
     assert resp.message == "starting in 7.5 s"
     assert _countdown_timers(loader, node)[0].period_sec == 7.5
@@ -453,3 +458,28 @@ def test_default_countdown_is_15_s_to_cover_mission_recorder_discovery():
     node = _Node(live_node_names=[], countdown_s=None)
     loader = MissionLoader(node)
     assert loader._countdown_seconds() == 15.0
+
+
+# --------------------------------------------------------------------------
+# the countdown only while the mission logger records
+# --------------------------------------------------------------------------
+
+def test_logger_off_starts_at_once():
+    """enable_mission_logger false (the stack default): no standstill wait."""
+    loader, node = _make_loader(countdown_s=None, logger_on=False)
+    begins = _count_begins(loader)
+    t0 = time.monotonic()
+    resp = loader._on_start_mission_service(_request(), _response())
+    assert time.monotonic() - t0 < 0.1
+    assert resp.success is True and resp.message.startswith('started')
+    assert len(begins) == 1 and _state(loader) is MissionState.RUNNING
+    assert _countdown_timers(loader, node) == []
+    assert _events(node)[-1]['countdown_s'] == 0.0
+
+
+def test_logger_on_keeps_the_15_s_countdown():
+    loader, node = _make_loader(countdown_s=None, logger_on=True)
+    resp = loader._on_start_mission_service(_request(), _response())
+    assert resp.message == 'starting in 15.0 s'
+    assert _countdown_timers(loader, node)[0].period_sec == 15.0
+    assert _state(loader) is MissionState.LOADED

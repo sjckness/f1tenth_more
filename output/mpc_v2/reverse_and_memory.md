@@ -776,6 +776,50 @@ All 19 mpc_controller and 12 llm failures also fail on a `git archive 868ec8a` e
 
 ---
 
+## Countdown rule: the 15 s standstill only while recording
+
+**Rule** (`mission/loader.py`, `_countdown_seconds`). A start arms `mission_countdown_sec`
+only when `enable_mission_logger` is true. With the logger off, the stack default since
+2026-10-16, `/mission/start_mission` begins the mission inside the service call, with no
+timer. `mission_countdown_sec` keeps its 15 s default. Both values are read live at every
+start, so `ros2 param set` between tests still works. At construction, one INFO line says
+which mode is active.
+
+**The signal: `enable_mission_logger`,** the switch that already decides whether the
+recorder runs. Its live value is `component_supervisor_node`'s declared parameter
+(`supervisor_bringup.launch.py enable_mission_logger:=true`).
+
+- **Before:** the supervisor forwarded it only to the diagnostics component's
+  `mission_logger.launch.py`.
+- **Now `_apply_mission_logger_override`** also writes it, true or false, into the behavior
+  component's args.
+- **`behavior_bringup.launch.py`** declares it (default from `stack_params.yaml`) and
+  passes it to `behavior_executor_node` as a typed bool parameter. Typed, because the
+  string `'false'` would read as true.
+
+Two alternatives were rejected:
+
+- **`get_value()` alone** would miss the command-line override, which is how a campaign
+  turns the logger on.
+- **Looking for `mission_logger_node` in the ROS graph** would misread a logger that is
+  still starting as absent. Its 5–14 s of discovery is exactly what the countdown covers.
+
+**Standalone `behavior_bringup.launch.py`:** pass `enable_mission_logger:=true` alongside
+the logger, or the countdown is 0.
+
+**Tests:** in `test_mission_countdown.py`.
+
+- `test_logger_off_starts_at_once`: RUNNING within the service call, under 0.1 s, no
+  timer, `countdown_s` 0 in `mission_started`.
+- `test_logger_on_keeps_the_15_s_countdown`.
+- The existing countdown tests, and `test_mission_loader_hold_release.py`, now run with
+  the logger on.
+
+**Docs:** `TEST_CAMPAIGN.md` and the `stack_params.yaml` descriptions say the countdown
+needs the logger.
+
+---
+
 ## Part C — LLM: start as soon as loaded
 
 **Where the ~15 s came from.** Not from the LLM planner.
@@ -843,30 +887,43 @@ To drop it:
 
 ## Branch and verification summary
 
-- **Commits** on `mpc_corr_v2_reverse`, oldest first: recon → v2 candidates → v2 cost-to-go
-  → v2 tests and report → **A** → **B** → **C**. The ids are in `git log`.
-- **Tests on linus**, re-run after the review commit (`colcon test`, DDS isolated):
-  - mpc_controller: 869 tests, 21 failed / 845 passed / 1 skipped / 2 strict xfails.
-    - 19 failures are functional tests. All 19 also fail at `868ec8a`, checked by running
-      the same files on a `git archive` of it.
-    - The other 2 are `test_flake8` and `test_pep257`, also failing at baseline.
-  - f1tenth_costmap: 305 passed.
-  - f1tenth_params: 69 passed.
-  - llm: 14 failed / 242 passed / 25 skipped. The failures are 12 pre-existing
-    `_note_llm_sent` stubs plus flake8 and pep257.
-  - f1tenth_behavior (not touched on this branch): `colcon test` **cannot collect it on
-    linus**, because `py_trees_ros` is not installed.
-    - File by file, 365 pass.
-    - The 2 files that import `behavior_executor_node` cannot be collected, and the 6
-      `test_safety_stop_config` tests that import it fail on the same `ModuleNotFoundError`.
-    - Part D's BT tests will hit this.
-  - f1tenth_logger: the suite **cannot be collected on linus** (`pyarrow` is not installed;
-    pre-existing, unrelated). The topic-list tests that need no `pyarrow`
-    (`test_viz_topics_not_recorded`, plus the topic tests of `test_mission_logger_node`)
-    pass with the three new topics.
-- **Lint (flake8 / pep257):** no package is above its `868ec8a` baseline.
-- **Builds:** `colcon build --symlink-install --packages-up-to mpc_controller`, then
-  `f1tenth_messages`, `f1tenth_params` and `f1tenth_costmap` again after the message
-  changes. All in the worktree.
-- **Not done on purpose:** no stack launch, no car or Orin run, `max_reverse_speed_mps`
-  unchanged (0.0).
+- **Commits** on `mpc_corr_v2_reverse`, oldest first:
+  - recon → v2 candidates → v2 cost-to-go → v2 tests and report;
+  - **A** `b5f46ea` → **B** `c33f969` → **C** `9c24024`;
+  - review `ba8779e` → Part B fixes `6f48d19`;
+  - **D** `b7f9596` → reverse-mechanism refusal `f884400` → countdown (the last commit).
+- **Tests after D, the refusal and the countdown** (linus, DDS isolated). These were
+  targeted runs, as asked. The full mpc_controller and llm suites were **not** re-run after
+  `6f48d19`.
+  - **f1tenth_behavior:** `py_trees_ros` is **still not installed**, so `colcon test`
+    cannot collect the package.
+    - With a scratch import stub for `py_trees_ros` (`trees.BehaviourTree` only, not
+      committed), all **442 pass**. That includes the files that build the tree, the 8
+      Part D tests and the 2 countdown tests.
+    - Without the stub, the new files pass on their own.
+    - This needs a real run with `ros-jazzy-py-trees-ros`.
+  - **mpc_controller:** `test_reverse_manoeuvre.py` and `test_reverse_flag_off_identity.py`
+    pass, 45 including the 4 new cases. `mpc_corr` was also started by hand:
+    - defaults: starts, Part A built;
+    - `allow_reverse:=true`: the FATAL line, then `ValueError`;
+    - `allow_reverse:=true reverse_auto_enabled:=false`: starts.
+  - **f1tenth_params:** 80 pass.
+  - **f1tenth_bringup**, run from source (not built in this worktree; its dependencies
+    are not built here): 44 pass, 4 fail. The 4 are copyright, flake8, pep257 and
+    `test_reset_manager_component` (package not found), and all 4 fail the same way on a
+    `git archive HEAD` export.
+- **Tests after `6f48d19`** (full `colcon test`, before D):
+  - mpc_controller: 900 tests, the same 21 failures as `868ec8a` (19 functional, listed
+    above, plus flake8/pep257);
+  - costmap: 314 pass; params: 80; messages: 3;
+  - perception: 1018 tests, the 2 known `TestPlacement` failures;
+  - llm: the 12 `_note_llm_sent` stubs, plus flake8/pep257.
+  - f1tenth_logger cannot be collected on linus: `pyarrow` is missing (pre-existing).
+- **Lint:** every touched file is at or under its baseline count with `ament_flake8`'s
+  default config, the one the packages' `test_flake8` uses.
+- **Builds:** `colcon build --symlink-install` of `f1tenth_params`, `f1tenth_behavior` and
+  `mpc_controller` in the worktree.
+- **Not done on purpose:**
+  - no stack launch, no car or Orin run;
+  - `max_reverse_speed_mps` unchanged (0.0), so the car still never reverses: mpc_corr
+    reports `reverse_speed_limit` even with `/bt/allow_reverse` true.
