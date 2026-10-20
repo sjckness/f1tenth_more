@@ -17,6 +17,7 @@ process in the state directory, written on start and on stop.
 
 import json
 import os
+import re
 import signal
 import subprocess
 import time
@@ -321,20 +322,98 @@ def unit_pids(unit: str) -> List[int]:
     return []
 
 
-def fifo_send(settings: Settings, name: str, line: str) -> dict:
-    """Write one line to a running process's stdin FIFO."""
+MAX_LINE = 500
+_ANSI = re.compile(r'\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b[@-Z\\-_]')
+
+
+def check_line(text: str):
+    """Return (line, None) for one acceptable stdin line, else (None, why) (pure)."""
+    if '\n' in text or '\r' in text:
+        return None, 'one line only: the text contains a line break'
+    line = text.strip()
+    if not line:
+        return None, 'empty text'
+    if len(line) > MAX_LINE:
+        return None, f'too long: {len(line)} characters, at most {MAX_LINE}'
+    return line, None
+
+
+def log_size(settings: Settings, name: str) -> int:
+    try:
+        return os.path.getsize(settings.log_path(name))
+    except OSError:
+        return 0
+
+
+def fifo_send(settings: Settings, name: str, text: str) -> dict:
+    """
+    Write one line to a running process's stdin FIFO.
+
+    The answer carries `cursor`, the log's size just before the write: a
+    `planner-log --since <cursor>` then returns only what came after it.
+    """
+    line, why = check_line(text)
+    if why:
+        return {'ok': False, 'error': why}
     path = settings.fifo_path(name)
     if not is_running(settings, name):
-        return {'ok': False, 'error': f'{name} is not running'}
+        return {'ok': False, 'error': f'{name} is not running', 'running': False}
+    cursor = log_size(settings, name)
     try:
         fd = os.open(path, os.O_WRONLY | os.O_NONBLOCK)
     except OSError as exc:
         return {'ok': False, 'error': f'cannot open {path}: {exc.strerror}'}
     try:
-        os.write(fd, (line.replace('\n', ' ').strip() + '\n').encode())
+        os.write(fd, (line + '\n').encode())
     finally:
         os.close(fd)
-    return {'ok': True, 'sent': line}
+    return {'ok': True, 'sent': line, 'cursor': cursor, 'running': True}
+
+
+def strip_ansi(text: str) -> str:
+    return _ANSI.sub('', text)
+
+
+def read_log_since(path: str, since: Optional[int], max_bytes: int = 65536) -> dict:
+    """
+    Return the complete lines of a log after byte offset `since` (pure, file only).
+
+    `cursor` is where the next read starts: after the last complete line, so a
+    line still being written is returned whole, next time. Without `since`
+    nothing is read and `cursor` is the end of the file. A `since` past the
+    end means the file was replaced: it is read from the start (`reset`).
+    """
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        size = 0
+    out = {'size': size, 'lines': [], 'reset': False, 'truncated': False}
+    if since is None:
+        out['cursor'] = size
+        return out
+    start = since
+    if start > size or start < 0:
+        start = 0
+        out['reset'] = True
+    if size == start:
+        out['cursor'] = start
+        return out
+    with open(path, 'rb') as f:
+        f.seek(start)
+        chunk = f.read(max_bytes)
+    end = chunk.rfind(b'\n')
+    if end < 0:
+        # No complete line yet; a single line longer than max_bytes is cut.
+        if len(chunk) < max_bytes:
+            out['cursor'] = start
+            return out
+        end = len(chunk) - 1
+    body = chunk[:end + 1]
+    out['cursor'] = start + len(body)
+    out['truncated'] = start + len(chunk) < size
+    out['lines'] = [strip_ansi(line) for line in
+                    body.decode(errors='replace').splitlines()]
+    return out
 
 
 def main_pid(settings: Settings, name: str) -> Optional[int]:

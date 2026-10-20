@@ -13,7 +13,8 @@ object on stdout (--json, the default, for the Telegram bot) or a short text
     f1tenth_ctl estop-reset [--force]        clear the e-stop latch, and check it
     f1tenth_ctl killall [--reset-discovery] [--dry-run]
     f1tenth_ctl check                        environment check only
-    f1tenth_ctl send planner "<command>"     one line to the planner's stdin
+    f1tenth_ctl send planner "<command>"     one line to the planner's stdin (<= 500 chars)
+    f1tenth_ctl planner-log [--since N]      the planner's output after byte offset N
     f1tenth_ctl logs stack|planner|logger|discovery [-n N]
 
 The env file (--env, F1T_CTL_ENV, or config/ctl.env) configures everything;
@@ -546,6 +547,13 @@ def cmd_send(settings: Settings, args) -> dict:
     return {'target': args.target, **units.fifo_send(settings, args.target, ' '.join(args.text))}
 
 
+def cmd_planner_log(settings: Settings, args) -> dict:
+    """Return the planner's output since a cursor (a byte offset of its log), ANSI stripped."""
+    res = units.read_log_since(settings.log_path('planner'), args.since, args.max_bytes)
+    return {'ok': True, 'target': 'planner', 'since': args.since,
+            'running': units.is_running(settings, 'planner'), **res}
+
+
 def cmd_logs(settings: Settings, args) -> dict:
     lines = units.log_tail(settings, args.target, args.lines)
     return {'ok': True, 'target': args.target, 'log': settings.log_path(args.target),
@@ -590,7 +598,13 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser('check', parents=[common], help='environment check')
     s = sub.add_parser('send', parents=[common], help="one line to a process's stdin")
     s.add_argument('target', choices=('planner',))
-    s.add_argument('text', nargs='+')
+    s.add_argument('text', nargs='+', help=f'one line, at most {units.MAX_LINE} characters')
+    pl = sub.add_parser('planner-log', parents=[common],
+                        help="the planner's output since a cursor (byte offset of its log)")
+    pl.add_argument('--since', type=int, default=None,
+                    help='byte offset from `send` or a previous planner-log; '
+                         'none: only the current end')
+    pl.add_argument('--max-bytes', type=int, default=65536)
     lg = sub.add_parser('logs', parents=[common], help='tail of a process log')
     lg.add_argument('target', choices=MANAGED + ('discovery', 'monitor'))
     lg.add_argument('-n', '--lines', type=int, default=30)
@@ -601,7 +615,7 @@ COMMANDS = {
     'connect': cmd_connect, 'discovery': cmd_discovery, 'start': cmd_start,
     'stop': cmd_stop, 'estop': cmd_estop, 'estop-reset': cmd_estop_reset,
     'killall': cmd_killall, 'check': cmd_check,
-    'send': cmd_send, 'logs': cmd_logs,
+    'send': cmd_send, 'logs': cmd_logs, 'planner-log': cmd_planner_log,
 }
 
 
