@@ -904,6 +904,7 @@ class LidarFrontWallNode(Node):
             manhattan_min_wall_len_m=float(param('door_manhattan_min_wall_len_m', 1.5)),
             manhattan_tau_s=float(param('door_manhattan_tau_sec', 2.0)),
             min_line_extent_m=float(param('door_min_line_extent_m', 2.0)),
+            host_front_facing=bool(param('door_host_front_facing', False)),
             min_side_len_m=float(param('door_min_side_len_m', 0.5)),
             # The gap tests, every depth PERPENDICULAR to the (snapped) line.
             max_view_angle_deg=float(param('door_max_view_angle_deg', 45.0)),

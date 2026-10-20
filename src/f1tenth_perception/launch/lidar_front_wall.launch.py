@@ -166,6 +166,7 @@ LIDAR_FRONT_WALL_ARGS = [
     ('door_manhattan_min_wall_len_m', float),
     ('door_manhattan_tau_sec', float),
     ('door_min_line_extent_m', float),
+    ('door_host_front_facing', bool),
     ('door_min_side_len_m', float),
     # The beams and the gap tests, every depth perpendicular to the line.
     ('door_min_beams', int),

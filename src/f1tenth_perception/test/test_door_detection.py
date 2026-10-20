@@ -416,17 +416,9 @@ class TestTheHosts:
         assert door.code == ''
         assert car.transform_points(door.centre)[0] == pytest.approx([WALL_X, 0.0], abs=0.04)
 
-    def test_a_doorway_straight_ahead_has_no_host_because_its_two_pieces_are_role_other(self):
-        """
-        The real tracker's roles: beside the travel strip, a wall ahead is 'other'.
-
-        A consequence of the host rule (front/left/right only) with the
-        geometric roles (multi_wall_tracker, WHAT A ROLE IS): the pieces
-        either side of a doorway straight ahead do not cross the 0.57 m travel
-        strip, and their normal is not lateral -- so neither is a host, and
-        such a doorway is found only on a track spanning it (the in-track
-        fallback) or once it is beside the car (left/right).
-        """
+    @staticmethod
+    def _doorway_ahead_through_the_real_tracker():
+        """Run the real tracker 6 cycles at ORIGIN facing DOOR_SCENE's doorway; (tracker, scan)."""
         tracker = mwt.MultiWallTracker()
         tracker.laser_xy = LASER[:2]
         ep = mwt.extraction_params(backend='python')
@@ -436,9 +428,50 @@ class TestTheHosts:
             obs = [wall_fusion.Observation(mwt.line_to_wall_line(ln), 0.0, 2.5, False,
                                            wall_fusion.SOURCE_LIDAR, 0.8) for ln in lines]
             tracker.step(obs, 0.1 * i, ORIGIN, scan=scan_of(ranges))
+        return tracker, scan_of(ranges)
+
+    def test_a_doorway_straight_ahead_has_no_host_because_its_two_pieces_are_role_unknown(self):
+        """
+        The real tracker's roles: beside the travel strip, a wall ahead is 'unknown'.
+
+        A consequence of the host rule (front/left/right only) with the
+        geometric roles (multi_wall_tracker, WHAT A ROLE IS): the pieces
+        either side of a doorway straight ahead do not cross the 0.57 m travel
+        strip, and their normal is not lateral -- so neither is a host, and
+        such a doorway is found only on a track spanning it (the in-track
+        fallback) or once it is beside the car (left/right) -- unless
+        host_front_facing is on (the next tests).
+        """
+        tracker, scan = self._doorway_ahead_through_the_real_tracker()
         pieces = [t for t in tracker.tracks if abs(t.rho - WALL_X) < 0.1]
-        assert len(pieces) == 2 and {t.role for t in pieces} == {'other'}
-        assert dd.door_candidates(tracker.tracks, ORIGIN, scan_of(ranges)) == []
+        assert len(pieces) == 2 and {t.role for t in pieces} == {mwt.ROLE_UNKNOWN}
+        assert dd.door_candidates(tracker.tracks, ORIGIN, scan) == []
+
+    def test_with_front_facing_hosts_on_a_doorway_straight_ahead_is_a_door(self):
+        tracker, scan = self._doorway_ahead_through_the_real_tracker()
+        p = dd.DoorParams(host_front_facing=True)
+        door = only([r for r in dd.door_candidates(tracker.tracks, ORIGIN, scan, p)
+                     if r.code not in dd.GEOMETRY_CODES])
+        assert door.code == ''
+        assert door.width == pytest.approx(0.85, abs=0.05)
+
+    @pytest.mark.parametrize('flag', ['rejected', 'occluded', 'contradicted'])
+    def test_front_facing_hosts_never_include_a_wall_that_is_unknown_for_a_reason(self, flag):
+        tracker, scan = self._doorway_ahead_through_the_real_tracker()
+        p = dd.DoorParams(host_front_facing=True)
+        piece = [t for t in tracker.tracks if abs(t.rho - WALL_X) < 0.1][0]
+        if flag == 'rejected':
+            piece.verify = wall_fusion.VERIFY_REJECTED
+        else:
+            setattr(piece, flag, True)
+        assert [r for r in dd.door_candidates(tracker.tracks, ORIGIN, scan, p)
+                if r.code not in dd.GEOMETRY_CODES] == []
+
+    def test_front_facing_hosts_never_include_a_wall_behind_or_beside_the_car(self):
+        car = Pose2D(0.0, 0.0, math.pi)          # the doorway's wall is now behind
+        tracker, scan = self._doorway_ahead_through_the_real_tracker()
+        assert not any(dd.is_host(t, car, dd.DoorParams(host_front_facing=True))
+                       for t in tracker.tracks if abs(t.rho - WALL_X) < 0.1)
 
 
 # ==============================================================================

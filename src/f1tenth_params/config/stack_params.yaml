@@ -2957,6 +2957,9 @@ lidar_front_wall_door_min_line_extent_m:
 lidar_front_wall_door_min_side_len_m:
   default: 0.5
   description: "'short_side' (STRONG): each jamb's host track must run at least this far [m] from the jamb to its far end. A stub of wall beside a gap is as likely the side of a cabinet as a door frame."
+lidar_front_wall_door_host_front_facing:
+  default: false
+  description: "FRONT-FACING HOSTS (door_detection, HOST). Off (the addendum as written): only CONFIRMED walls with role front, left or right host a door. The tracker's 'front' is the wall crossing the car's 0.57 m travel strip, so the two pieces either side of a doorway STRAIGHT AHEAD are role unknown and such a doorway is found only once it is beside the car (left/right hosts) or inside one track. On: a CONFIRMED track that is role unknown for its geometry alone (not REJECTED by the rectangle, not occluded, not contradicted), lying entirely ahead of the car within 1.5 m either side of its centreline and facing it (normal within 30 deg of the heading), hosts too. Every other test applies unchanged."
 # The beams across the gap and what can be decided from them.
 lidar_front_wall_door_min_beams:
   default: 8

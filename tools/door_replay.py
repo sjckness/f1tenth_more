@@ -200,6 +200,7 @@ STACK_TO_DOOR = (
     ('door_manhattan_min_wall_len_m', 'manhattan_min_wall_len_m', float),
     ('door_manhattan_tau_sec', 'manhattan_tau_s', float),
     ('door_min_line_extent_m', 'min_line_extent_m', float),
+    ('door_host_front_facing', 'host_front_facing', bool),
     ('door_min_side_len_m', 'min_side_len_m', float),
     ('door_max_view_angle_deg', 'max_view_angle_deg', float),
     ('door_behind_frac', 'behind_frac', float),
