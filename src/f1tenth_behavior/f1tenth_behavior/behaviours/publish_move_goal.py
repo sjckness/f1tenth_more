@@ -50,6 +50,14 @@ goal_reached for it. The move ends when this tree's own CheckStopCondition
 says it ends, and nothing else. That is deliberate and is the whole reason the
 shape exists -- see mission_config.DriveSpec.
 
+THE MOVE'S WALL TARGET goes out alongside the goal shape, on
+/mpc/stop_target, for EVERY move -- see _publish_stop_target. It is not a
+fifth goal shape and it does not replace a stop_condition: it tells mpc_corr
+the distance a front_clearance move is aiming at, so the deceleration ramp
+(mpc_controller/stop_profile.py) has a stopping point to slow into. mpc_corr
+reads the wall DISTANCE itself and always has; the TARGET is the half that
+lives in the mission and nowhere else.
+
 THE SENTINEL CONVERSION HAPPENS HERE, and only here. DriveSpec models "not
 set" as Python None (approach_d_safe) because 0.0 is a legal, meaningful
 value; a ROS msg float32 field has no null, so DriveCommand.msg spends a
@@ -65,6 +73,7 @@ import math
 
 import py_trees
 from geometry_msgs.msg import PoseStamped
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import Float32
 
 from f1tenth_messages.msg import DriveCommand, TurnGoal
@@ -80,17 +89,20 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
         goal_pose_topic='/mpc/goal_pose',
         goal_turn_topic='/mpc/goal_turn',
         goal_drive_topic='/mpc/goal_drive',
+        stop_target_topic='/mpc/stop_target',
     ):
         super().__init__(name=name)
         self._goal_distance_topic = goal_distance_topic
         self._goal_pose_topic = goal_pose_topic
         self._goal_turn_topic = goal_turn_topic
         self._goal_drive_topic = goal_drive_topic
+        self._stop_target_topic = stop_target_topic
         self.node = None
         self.goal_distance_pub = None
         self.goal_pose_pub = None
         self.goal_turn_pub = None
         self.goal_drive_pub = None
+        self.stop_target_pub = None
         self.blackboard = self.attach_blackboard_client(name=name)
         self.blackboard.register_key(key=MISSION_KEY, access=py_trees.common.Access.WRITE)
 
@@ -107,6 +119,59 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
             TurnGoal, self._goal_turn_topic, 10)
         self.goal_drive_pub = self.node.create_publisher(
             DriveCommand, self._goal_drive_topic, 10)
+        # Transient-local, depth 1: mpc_corr must get this move's wall target
+        # even if it (re)starts after the move began, and only the latest
+        # value has any meaning. Matches that node's subscription.
+        self.stop_target_pub = self.node.create_publisher(
+            Float32, self._stop_target_topic,
+            QoSProfile(depth=1,
+                       reliability=ReliabilityPolicy.RELIABLE,
+                       durability=DurabilityPolicy.TRANSIENT_LOCAL))
+
+    def _publish_stop_target(self, move):
+        """Tell mpc_corr the wall distance this move stops at, or that it does not.
+
+        UNCONDITIONAL, once per move, and that is a contract mpc_corr depends
+        on: it never clears its own copy on a new goal, because the goal shape
+        and this value travel on two different topics and their arrival order
+        is not guaranteed, so the -1.0 published for a move with no wall stop
+        is the ONLY thing that clears a previous move's target. Skipping the
+        publish for the moves that have no wall stop would leave the ramp
+        braking the next move toward the last one's wall. See that node's
+        stop_target_callback.
+
+        -1.0, not 0.0, as "none" -- DriveCommand.d_safe spends its sentinel the
+        same way and for the same reason: zero is a legal (if unwise) target
+        and must survive as one.
+
+        WHY front_clearance IS THE ONLY TYPE SENT. It is the only stopping
+        point whose target lives in the mission and nowhere else. mpc_corr
+        already owns goal_distance and goal_pose, computes its own remaining
+        distance for both, and ramps them without being told anything;
+        object_reached has its own measured stop (ObjectStopLatch). Every
+        other stop_condition type -- a timeout, a turn, an obstacle distance --
+        names no stopping point in space at all, so there is nothing to ramp
+        toward and the ramp stays out of the way.
+        """
+        stop = getattr(move, 'stop_condition', None)
+        target = -1.0
+        if stop is not None and stop.type == 'front_clearance':
+            try:
+                target = float(stop.params['distance'])
+            except (KeyError, TypeError, ValueError):
+                # mission_config.py validates this at load time, so reaching
+                # here means a hand-built StopCondition; -1.0 (no ramp) is the
+                # safe answer and the move still runs exactly as it used to.
+                self.node.get_logger().warn(
+                    f"[mission] Move '{move.id}': front_clearance stop_condition "
+                    'with no usable distance; no stop ramp for this move.')
+                target = -1.0
+        self.stop_target_pub.publish(Float32(data=target))
+        self.node.get_logger().info(
+            f"[mission] Move '{move.id}': published stop_target={target:+.2f} "
+            'to /mpc/stop_target '
+            + ('(wall stop -- the ramp decelerates into it).' if target >= 0.0
+               else '(no wall stop for this move).'))
 
     def update(self):
         state: MissionRuntimeState = getattr(self.blackboard, MISSION_KEY)
@@ -116,6 +181,8 @@ class PublishMoveGoal(py_trees.behaviour.Behaviour):
 
         if not state.goal_dirty:
             return py_trees.common.Status.SUCCESS
+
+        self._publish_stop_target(move)
 
         if move.goal_distance is not None:
             self.goal_distance_pub.publish(Float32(data=float(move.goal_distance)))

@@ -154,6 +154,16 @@ class EvalContext:
     # A latched stop counts as arrival once the measured speed is at or below
     # this [m/s]. See the object_reached branch of evaluate().
     object_rest_speed_mps: float = 0.05
+    # THE DECELERATION RAMP'S ARRIVAL ARM, for front_clearance only.
+    # speed is the car's measured forward speed [m/s] on the active odometry
+    # topic, None until the first message (same convention as every other
+    # sensor field here). The two limits come from stack_params.yaml via
+    # CheckStopCondition; the defaults match them so a hand-built context
+    # behaves like the car. See the front_clearance branch of evaluate() for
+    # why a resting car needs an arm of its own at all.
+    speed: Optional[float] = None
+    stop_ramp_arrive_tol_m: float = 0.15
+    stop_ramp_rest_speed_mps: float = 0.05
 
 
 def debounce_ticks_for(condition: StopCondition) -> int:
@@ -371,7 +381,39 @@ def evaluate(condition: StopCondition, ctx: EvalContext) -> Optional[bool]:
         # never as a negative number on the wire.
         if ctx.front_clearance is None or ctx.front_clearance <= 0.0:
             return False
-        return ctx.front_clearance < float(p['distance'])
+        target = float(p['distance'])
+        if ctx.front_clearance < target:
+            return True
+
+        # THE SECOND ARM: ARRIVED AND STOPPED. Added with the deceleration
+        # ramp (mpc_controller/stop_profile.py), which exists to bring the car
+        # to rest AT this target instead of crossing it at speed -- and a car
+        # resting at exactly 2.00 m never satisfies "< 2.00 m". The strict
+        # inequality above was correct as long as the car was still moving when
+        # it fired, which is precisely what the ramp stops being true. Without
+        # this arm the move holds until its own timeout_sec, with the car
+        # parked on the target it was asked to stop at.
+        #
+        # The shape is object_reached's, deliberately, not a new invention:
+        # that type already fires either on its range tolerance OR on
+        # "mpc_corr latched its stop AND the measured speed is at rest"
+        # (object_reach_tol_m / object_rest_speed_mps). Same problem, same
+        # answer, one tolerance and one rest speed each.
+        #
+        # BOTH HALVES ARE REQUIRED, and the speed half is what keeps this from
+        # firing early: a car still rolling at 0.4 m/s within the tolerance has
+        # not arrived, it is arriving, and the first arm will say so a tick or
+        # two later. The tolerance half keeps it from firing LATE -- it has to
+        # cover d_final (0.133 m shipped) plus the estimate's noise, or a stop
+        # a little shy of the target reads as "never arrived".
+        #
+        # With the ramp disabled this arm is unreachable in practice: the car
+        # crosses the threshold at its cruise speed and the strict arm above
+        # has already fired long before it comes to rest.
+        if ctx.speed is None:
+            return False
+        return (ctx.front_clearance <= target + ctx.stop_ramp_arrive_tol_m
+                and abs(ctx.speed) <= ctx.stop_ramp_rest_speed_mps)
 
     if t == 'object_reached':
         # ONE range source: mpc_corr's live r (distance to the target minus the

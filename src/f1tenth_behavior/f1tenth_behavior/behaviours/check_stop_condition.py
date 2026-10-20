@@ -197,6 +197,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  object_reach_max_target_age_sec=1.0,
                  object_status_max_gap_sec=0.5,
                  object_rest_speed_mps=0.05,
+                 stop_ramp_arrive_tol_m=0.15,
+                 stop_ramp_rest_speed_mps=0.05,
                  wall_distance_max_age_s=0.5):
         super().__init__(name=name)
         # Module docstring, WALL DISTANCE FRESHNESS.
@@ -209,6 +211,10 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.object_reach_max_target_age_sec = float(object_reach_max_target_age_sec)
         self.object_status_max_gap_sec = float(object_status_max_gap_sec)
         self.object_rest_speed_mps = float(object_rest_speed_mps)
+        # The deceleration ramp's arrival arm for front_clearance -- see
+        # condition_eval.evaluate()'s front_clearance branch.
+        self.stop_ramp_arrive_tol_m = float(stop_ramp_arrive_tol_m)
+        self.stop_ramp_rest_speed_mps = float(stop_ramp_rest_speed_mps)
         self.object_end_pub = None
         self._odom_topic = odom_topic
         self._min_obstacle_distance_topic = min_obstacle_distance_topic
@@ -222,6 +228,12 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.x = None
         self.y = None
         self.yaw = None
+        # Measured forward speed [m/s] from the same odometry message, for the
+        # front_clearance arrival arm. An instance attribute and NOT a
+        # blackboard key, unlike the pose: nothing else in the tree reads it,
+        # and the keys exist to stop a second behaviour subscribing to odom
+        # again (module docstring) -- there is no second reader to serve here.
+        self.speed = None
         self._goal_reached_flag = False
         # (run_generation, move.id) -- NOT move.id alone. A move id is unique
         # within a mission and not across runs of it, so keying on the id
@@ -332,6 +344,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.x = msg.pose.pose.position.x
         self.y = msg.pose.pose.position.y
         self.yaw = _quaternion_to_yaw(msg.pose.pose.orientation)
+        # Body-frame forward speed, as mpc_corr reads it off the same topic.
+        self.speed = msg.twist.twist.linear.x
         # Unwrap-and-accumulate THIS message's own small step, not a re-derived
         # current-minus-start delta -- see module docstring's "Turn
         # accumulation" paragraph for why. Every odom message folds in here
@@ -589,6 +603,9 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             object_reach_max_target_age_sec=self.object_reach_max_target_age_sec,
             object_status_max_gap_sec=self.object_status_max_gap_sec,
             object_rest_speed_mps=self.object_rest_speed_mps,
+            speed=self.speed,
+            stop_ramp_arrive_tol_m=self.stop_ramp_arrive_tol_m,
+            stop_ramp_rest_speed_mps=self.stop_ramp_rest_speed_mps,
         )
         # Raw single-tick answer, then the debounce fold. For every condition
         # except a front_clearance that explicitly asks for debounce_ticks > 1

@@ -1483,6 +1483,46 @@ object_rest_speed_mps:
   default: 0.05
   description: "object_reached also fires when mpc_corr reports stop_latched (it stopped the approach on arrival, see object_stop_distance_m) and the vehicle's measured speed on /mpc/object_status is at or below this [m/s]. 'At rest', so the status the mission records is the resting one. The speed is mpc_corr's odometry state (/odometry/filtered with localization_source ekf), which is fed by VESC telemetry that reads exactly zero below vesc.yaml's erpm_deadband (500 ERPM = 0.091 m/s); in the archived stops the filtered speed was at or below 0.02 m/s within 0.5 s of the zero command."
 # ------------------------------------------------------------------
+# THE DECELERATION RAMP -- arriving at a stopping point instead of
+# crossing it. mpc_controller/stop_profile.py has the derivation.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value) for the
+# four tuning keys, and f1tenth_behavior's CheckStopCondition (bootstrap read,
+# declare default = this value) for the two arrival keys. No launch arg: edit
+# here and relaunch. min_moving_speed_mps above is the ramp's v_min -- the
+# ramp does not get a floor of its own.
+#
+# Every stopping point in this stack used to be a THRESHOLD crossed at cruise
+# speed (the mission's front_clearance guard, mpc_corr's distance and pose
+# arrivals): the command stepped to zero in one tick and the car covered its
+# whole stopping distance PAST the point it was asked to stop at. Under the
+# measured braking plant (object_stop_distance_m's own fit, tau 0.144 s,
+# a 1.50 m/s^2) that is 0.111 m at 0.4 m/s, 0.55 m at 1.0 and 0.97 m at 1.5 --
+# the error GREW with the approach speed, so 'stop 2 m from the wall' at
+# 1.5 m/s stopped at 1.03 m. The ramp caps the solver's vdes at
+# sqrt(2 a_dec (d_rem - d_final)) instead, hands over to a zero command at
+# d_final, and lands the car on the target at every approach speed.
+# NEVER RUN ON THE CAR: verified on the nominal model only (mpc_controller's
+# test_stop_profile.py and test_stop_ramp_closed_loop.py).
+enable_stop_ramp:
+  default: true
+  description: "Ramp the speed down into a move's stopping point instead of stopping at a threshold. true: mpc_corr caps the solver's vdes along the whole horizon by the braking parabola for whichever stopping point is nearest -- the mission's front_clearance target (/mpc/stop_target), its own goal_distance, or its own goal_pose -- and commands zero (latched for the move) one d_final short of it. false: not consulted at all, every mode behaves exactly as it did before the ramp existed; the car still stops, just as abruptly and as far past the target as its speed carries it. The ramp is a CAP: it never raises a commanded speed, never drives below min_moving_speed_mps except to stop, and never acts on a wall distance that is absent, stale or CLEAR (stop_profile.RAMP_UNKNOWN, logged at 2 s throttle)."
+stop_ramp_a_dec_mps2:
+  default: 0.6
+  description: "How hard the ramp CHOOSES to slow down [m/s^2] -- the one free tuning knob here, and the thing to change if the approach feels too abrupt (raise) or too drawn out (lower). The cap is sqrt(2 * this * (d_rem - d_final)), the speed from which this deceleration comes to rest in exactly the distance left, so the profile is feasible at every point by construction. It sets where the ramp starts binding: v_cruise^2/(2*this) + d_final out, i.e. 0.43 m at 0.6 m/s, 0.97 m at 1.0 and 2.01 m at 1.5. NOT the same quantity as stop_ramp_a_stop_mps2, which is measured, not chosen; 0.6 is 2.5x gentler than the car's own stop and that margin is the point of the feature."
+stop_ramp_a_stop_mps2:
+  default: 1.5
+  description: "MEASURED: the deceleration [m/s^2] the car actually achieves after the command goes to zero. Not a request -- the fit d = v*tau + v^2/(2a) over the six archived mid-mission stops with a usable LiDAR ground truth (tools/measure_stop_distance.py, 2026-09-17) gives tau 0.144 s and a 1.50 m/s^2, the same fit object_stop_distance_m ships 0.14 m from. The ramp spends it on d_final = v_min*tau_latency + v_min^2/(2*this), the distance it hands the car over to the zero command at; at the shipped values that is 0.133 m against object_stop_distance_m's independently measured 0.14, and test_stop_profile.py fails if the two ever drift more than 3 cm apart. Lower it (a softer stop) and the hand-over moves further out."
+stop_ramp_tau_latency_s:
+  default: 0.2
+  description: "Pipeline delay [s] the ramp compensates, spent twice. In d_pred = d_est - v*this it is SENSING delay: how stale the distance reading is by the time a command issued now reaches the wheels -- about 0.19 s on the 10-16 bag (/perception/virtual_wall at 17 Hz with a 28.6 ms median publish latency, consumed by the 10 Hz control loop). In d_final it is ACTUATION delay, the dead time of the braking fit, measured at 0.144 s. One key for two quantities of the same size, deliberately: every way of being wrong about it is then wrong in the SAME direction -- too large predicts the car closer than it is, hands over early, and the car rests SHORT of the target (further from the wall), about 2 cm of bias at 0.2 against the measured 0.144. Split it the day a run measures the two separately."
+stop_ramp_arrive_tol_m:
+  default: 0.15
+  description: "How far short of its target a RESTING car still counts as arrived [m], for the mission's front_clearance stop. Needed because the ramp parks the car AT the target and that guard is a strict inequality (distance < target), which a car resting at 2.00 m from a 2.00 m target never satisfies: it would hold the move until timeout_sec. So front_clearance also fires on 'distance <= target + this AND measured speed <= stop_ramp_rest_speed_mps' -- the same dual criterion object_reached already uses (object_reach_tol_m plus object_rest_speed_mps), for the same reason. Must cover d_final (0.133 m shipped) plus the estimate's own noise, and must stay well under the distance a move would be visibly short at. Only reachable while a front_clearance move is RUNNING; with enable_stop_ramp false the car never rests inside it before the strict arm has already fired."
+stop_ramp_rest_speed_mps:
+  default: 0.05
+  description: "What counts as 'at rest' [m/s] for the stop_ramp_arrive_tol_m arm of front_clearance: the car's measured forward speed on the active odometry topic (get_odom_topic, /odometry/filtered with localization_source ekf). Same value and same reasoning as object_rest_speed_mps, which is the object approach's version of this test: VESC telemetry reads exactly zero below vesc.yaml's erpm_deadband (500 ERPM = 0.091 m/s), and in the archived stops the filtered speed was at or below 0.02 m/s within 0.5 s of the zero command. A separate key rather than a reuse so that loosening the object arrival cannot silently loosen a wall stop."
+# ------------------------------------------------------------------
 # WALL TRACKER -- d_wall for the wall_turn increment.
 #
 # Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by

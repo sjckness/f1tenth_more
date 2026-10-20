@@ -417,6 +417,8 @@ def create_root(
     enable_sys_obs_load_trip=False,
     sys_obs_load_trip_consecutive_samples=3,
     object_params=None,
+    stop_ramp_arrive_tol_m=0.15,
+    stop_ramp_rest_speed_mps=0.05,
     wall_distance_max_age_s=0.5,
     enable_proximity_event_stop=False,
 ) -> py_trees.behaviour.Behaviour:
@@ -624,6 +626,11 @@ def create_root(
             object_reach_max_target_age_sec=op.get('object_reach_max_target_age_sec', 1.0),
             object_status_max_gap_sec=op.get('object_status_max_gap_sec', 0.5),
             object_rest_speed_mps=op.get('object_rest_speed_mps', 0.05),
+            # The deceleration ramp parks the car ON its wall target, which a
+            # strict "distance < target" never fires on -- see
+            # condition_eval's front_clearance branch.
+            stop_ramp_arrive_tol_m=stop_ramp_arrive_tol_m,
+            stop_ramp_rest_speed_mps=stop_ramp_rest_speed_mps,
             wall_distance_max_age_s=wall_distance_max_age_s),
         AdvanceMove(),
     ])
@@ -764,6 +771,14 @@ def main():
     # (check_stop_condition.py, WALL DISTANCE FRESHNESS). Same single-sourcing.
     wall_distance_max_age_s = float(bootstrap_node.declare_parameter(
         'wall_distance_max_age_s', get_value('wall_distance_max_age_s')).value)
+    # The deceleration ramp's arrival arm for that same stop. Read here even
+    # when enable_stop_ramp is false: the arm is harmless without the ramp (a
+    # car that crosses the threshold at speed fires the strict arm first) and
+    # keeping it unconditional means the tree is not built two different ways.
+    stop_ramp_arrive_tol_m = float(bootstrap_node.declare_parameter(
+        'stop_ramp_arrive_tol_m', get_value('stop_ramp_arrive_tol_m')).value)
+    stop_ramp_rest_speed_mps = float(bootstrap_node.declare_parameter(
+        'stop_ramp_rest_speed_mps', get_value('stop_ramp_rest_speed_mps')).value)
     # Event-driven lidar e-stop (cpu-cleanup) -- see create_root()'s docstring.
     enable_proximity_event_stop = bool(bootstrap_node.declare_parameter(
         'enable_proximity_event_stop', get_value('enable_proximity_event_stop')).value)
@@ -781,6 +796,8 @@ def main():
         sys_obs_load_trip_consecutive_samples=sys_obs_load_trip_consecutive_samples,
         object_params=object_params,
         wall_distance_max_age_s=wall_distance_max_age_s,
+        stop_ramp_arrive_tol_m=stop_ramp_arrive_tol_m,
+        stop_ramp_rest_speed_mps=stop_ramp_rest_speed_mps,
         enable_proximity_event_stop=enable_proximity_event_stop,
     )
     tree = py_trees_ros.trees.BehaviourTree(root=root)

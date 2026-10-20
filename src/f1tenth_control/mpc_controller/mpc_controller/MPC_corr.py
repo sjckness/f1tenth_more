@@ -31,6 +31,8 @@ from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
+from mpc_controller.stop_profile import (
+    RAMP_UNKNOWN, StopRampLatch, StopRampProfile)
 from mpc_controller.object_approach import (
     TargetBehindPersistence, assess_object_approach, build_object_centreline,
     SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
@@ -597,6 +599,50 @@ class MPCController(Node):
             float(self.declare_parameter(
                 'object_stop_distance_m', get_value('object_stop_distance_m')).value))
         self.object_speed_mode = None   # object_approach SPEED_*, this tick
+
+        # THE DECELERATION RAMP (stop_profile.py, which has the derivation).
+        # A cap on vdes -- the solver's speed reference along the whole horizon
+        # -- computed from the distance still to give away to whichever
+        # stopping point is nearest: the mission's wall target
+        # (/mpc/stop_target), this node's own goal_distance, or its own
+        # goal_pose. Not a drive lane, not a second controller: the solver
+        # still produces the command and clamp_drive_speed still limits it.
+        #
+        # OBJECT MODE IS NOT ONE OF THE THREE. Its arrival already has a
+        # measured, latched stop of exactly this shape (ObjectStopLatch above,
+        # whose docstring is the reason this ramp hands over to a zero command
+        # at all) and its speed reference is the one real per-move vdes path in
+        # this file. Running both would be two authorities on one number.
+        self.enable_stop_ramp = bool(self.declare_parameter(
+            'enable_stop_ramp', get_value('enable_stop_ramp')).value)
+        self.stop_ramp = None
+        self.stop_ramp_latch = None
+        if self.enable_stop_ramp:
+            # Raises ValueError on an unusable tuning, deliberately at node
+            # start rather than silently braking on invented numbers.
+            self.stop_ramp = StopRampProfile(
+                a_dec=float(self.declare_parameter(
+                    'stop_ramp_a_dec_mps2',
+                    get_value('stop_ramp_a_dec_mps2')).value),
+                a_stop=float(self.declare_parameter(
+                    'stop_ramp_a_stop_mps2',
+                    get_value('stop_ramp_a_stop_mps2')).value),
+                tau_latency_s=float(self.declare_parameter(
+                    'stop_ramp_tau_latency_s',
+                    get_value('stop_ramp_tau_latency_s')).value),
+                v_min=self.min_moving_speed)
+            # ONE latch, for the WALL stop only. The other two stopping points
+            # already have theirs -- goal_reached and pose_goal_reached, each
+            # of which makes its branch return a zero command for the rest of
+            # the move -- and a second latch over the top of those would be a
+            # duplicate piece of state to keep in sync for no gain.
+            self.stop_ramp_latch = StopRampLatch(self.stop_ramp)
+        # The mission's wall-distance target [m] for the current move, from
+        # /mpc/stop_target; None when this move does not stop on a wall.
+        self.stop_target_m: Optional[float] = None
+        # Per-tick ramp bookkeeping, for the log line and /mpc/status.
+        self.stop_ramp_mode = None
+        self.stop_ramp_d_rem = None
         # Per-tick flags (see _assess_object_tick). The heading margin is not a
         # parameter: it is derived from r_freeze, the closest range the
         # inside_turn_radius test runs at (object_approach.heading_margin_for).
@@ -1854,6 +1900,23 @@ class MPCController(Node):
             get_wall_distance_topic(),
             self.front_distance_callback,
             10
+        )
+
+        # THE MISSION'S WALL TARGET for the deceleration ramp: the distance a
+        # front_clearance move stops at, published once per move by
+        # f1tenth_behavior's PublishMoveGoal (negative = this move does not
+        # stop on a wall). This node reads the wall DISTANCE already, but the
+        # TARGET lives in the mission JSON and there is no other way for it to
+        # get here. Transient-local, depth 1: a value that changes once per
+        # move must survive this node restarting mid-mission, and only the
+        # latest one has any meaning.
+        self.sub_stop_target = self.create_subscription(
+            Float32,
+            '/mpc/stop_target',
+            self.stop_target_callback,
+            QoSProfile(depth=1,
+                       reliability=ReliabilityPolicy.RELIABLE,
+                       durability=DurabilityPolicy.TRANSIENT_LOCAL)
         )
 
         # The d_wall corridor correction. Subscribed even when
@@ -3159,6 +3222,173 @@ class MPCController(Node):
             return None          # CLEAR: no wall ahead, not a wall at 50 m
         return d_front
 
+    def _wall_stop_d_rem(self):
+        """Distance [m] still to give away to the mission's wall target, or None.
+
+        d_pred - target, with d_pred the latency-compensated wall distance
+        (stop_profile.predicted_distance): where the bumper will be by the time
+        a command issued on this tick reaches the wheels.
+
+        None whenever there is nothing legitimate to ramp on, and EVERY route
+        to None matters:
+
+          * no target -- this move does not stop on a wall;
+          * the ramp is disabled;
+          * _fresh_front_distance() says the reading is absent, stale, not
+            positive (the -1.0 NO_DATA sentinel) or at/above
+            wall_clear_distance_m, which is the contract's CLEAR state and not
+            a wall 50 m away.
+
+        The last one is the one worth being explicit about: an absent or
+        "clear" reading must NOT become a distance of zero, which would brake
+        the car to a stop on a dead sensor. The caller's answer to None is to
+        leave the speed alone -- and what a dead wall publisher should do to a
+        MOVE is not this node's call at all: check_stop_condition.py holds the
+        car on /mpc/hold for exactly that, which this node already obeys with
+        absolute priority several branches above the ramp.
+        """
+        if self.stop_ramp is None or self.stop_target_m is None:
+            return None
+        d_est = self._fresh_front_distance()
+        if d_est is None:
+            return None
+        return self.stop_ramp.predict(d_est, self.v) - self.stop_target_m
+
+    def _wall_stop_tick(self):
+        """Hand the wall stop over to a zero command, and report whether it has.
+
+        Returns True once the ramp has latched this move's wall stop, having
+        published the zero command itself -- the caller then returns without
+        solving, exactly as the object stop's own latched branch does. A HARD
+        zero, not a ramp through the solver: by this point the car is inside
+        its own stopping distance and the only thing left to do is stop.
+
+        LATCHED, and nothing but a new move clears it (_invalidate_move_state,
+        stop_target_callback). The wall reading keeps moving during the stop --
+        the car's own last centimetres, estimate jitter, the contract flicking
+        to CLEAR -- and re-arming on any of that would restart a car that is
+        already braking at the operating floor. object_approach.ObjectStopLatch
+        documents the same decision for the same reason.
+
+        The steering is HELD at the last published value rather than zeroed:
+        the move is not over (the mission's own guard ends it, see
+        check_stop_condition's arrival arm) and straightening the wheel mid-stop
+        is a jerk nobody asked for. Same choice the object stop-and-wait makes.
+        """
+        if self.stop_ramp is None:
+            return False
+        if not self.stop_ramp_latch.latched:
+            d_rem_wall = self._wall_stop_d_rem()
+            if d_rem_wall is None:
+                return False
+            if not self.stop_ramp_latch.update(
+                    self.stop_ramp.decide(d_rem_wall, self.vdes)):
+                return False
+            self.get_logger().info(
+                f'RAMP | wall stop: d_rem={d_rem_wall:+.3f} m <= d_final='
+                f'{self.stop_ramp.d_final:.3f} m at v={self.v:.3f} -- zero '
+                f'command, coasting onto the {self.stop_target_m:.2f} m target')
+        self.stop_ramp_mode = 'stop_latched'
+        self.stop_ramp_d_rem = self.stop_ramp_latch.latched_d_rem
+        self._publish_drive(0.0, self._last_published_steer)
+        return True
+
+    def _stop_ramp_limits(self, v_ref):
+        """`self.limits`, with vMax cut to what the ramp is asking for.
+
+        THE REFERENCE ALONE DOES NOT SLOW THE CAR, which is the one thing the
+        nominal-model rig found that no amount of reading would have
+        (test_stop_ramp_closed_loop.py). vdes enters the QP as a soft stage
+        cost at w_v 4.2857; w_term is 9.0 on a terminal point that sits at the
+        horizon's own reach, and getting there sooner is worth more to the
+        solver than tracking the reference. Traced tick by tick on a 1.0 m/s
+        approach, the solver asked for +0.2 m/s^2 the whole way down a
+        reference falling from 1.0 to 0.4 -- the cap was inert and the car
+        arrived at full speed.
+
+        So the profile also becomes a HARD row: the solver's own speed box on
+        every predicted stage (mpc_solver's `row_v`), which no cost can
+        outvote. Capping along the horizon is what the ramp was asked for; the
+        soft reference stays as well, so the predicted trajectory the steering
+        and corridor costs are built on is the one the car will actually fly.
+
+        FEASIBILITY IS WHY IT IS NOT SIMPLY vMax = v_ref. The box binds from
+        stage 1, which is at most one step of a_min away from the live speed:
+        demanding v_ref outright while the car is still above it by more than
+        a_min * ts makes the QP infeasible, and an infeasible QP here is a
+        worse failure than an inert cap. The box is therefore never asked for
+        more than one step of a_dec of braking -- max(v_ref, v - a_dec * ts) --
+        which is feasible by construction (a_dec 0.6 against |a_min| 2.0) and
+        which is itself exactly the profile: each tick's box is one a_dec step
+        below the last, until it reaches v_ref and stays there.
+
+        Returns self.limits unchanged when the ramp is not binding, so a tick
+        with no stopping point in range solves against exactly the box it
+        always did.
+        """
+        if self.stop_ramp is None or v_ref is None:
+            return self.limits
+        v_max = float(self.limits['vMax'])
+        if not (v_ref < v_max):
+            return self.limits
+        ts_pred = float(getattr(self, 'ts_pred', self.ts))
+        floor = float(self.v) - self.stop_ramp.a_dec * ts_pred
+        box = max(float(v_ref), floor)
+        if box >= v_max:
+            return self.limits
+        limits = dict(self.limits)
+        limits['vMax'] = box
+        return limits
+
+    def _apply_stop_ramp(self, vdes, d_rem_goal=None):
+        """Return `vdes` capped by the ramp for the NEAREST stopping point.
+
+        Two stopping points can be live at once -- "drive 6 m" and "stop 2 m
+        from the wall" is a perfectly ordinary move -- so the binding one is
+        simply the smaller d_rem. Taking the minimum is also what makes a
+        wall appearing mid-move do the right thing without any mode switching:
+        the moment the wall is closer than the distance left to travel, it
+        takes over the profile.
+
+        THIS ONLY CAPS. The three hand-overs to a zero command live with the
+        three arrivals instead -- _wall_stop_tick for the wall, and the
+        goal_reached / pose_goal_reached branches for the other two -- because
+        each of them also has to PUBLISH something and return, which a function
+        that exists to return a number must not be doing.
+
+        A HARD SPEED BOX GOES WITH THIS CAP, and the cap alone is not enough:
+        see _stop_ramp_limits, which is where the measurement that proves it
+        is written down.
+        """
+        self.stop_ramp_mode = None
+        self.stop_ramp_d_rem = None
+        if self.stop_ramp is None:
+            return vdes
+
+        d_rem_wall = self._wall_stop_d_rem()
+        candidates = [d for d in (d_rem_wall, d_rem_goal) if d is not None]
+        if not candidates:
+            if self.stop_target_m is not None:
+                # A wall stop was asked for and there is no usable distance to
+                # ramp on. Logged, not acted on -- see _wall_stop_d_rem.
+                self.stop_ramp_mode = RAMP_UNKNOWN
+                self.get_logger().warn(
+                    f'RAMP | wall target {self.stop_target_m:.2f} m but the wall '
+                    'distance is absent, stale or CLEAR: no ramp this tick',
+                    throttle_duration_sec=2.0)
+            return vdes
+
+        d_rem = min(candidates)
+        decision = self.stop_ramp.decide(d_rem, vdes)
+        self.stop_ramp_mode = decision.mode
+        self.stop_ramp_d_rem = decision.d_rem
+        self.get_logger().info(
+            f'RAMP | {decision.mode} d_rem={d_rem:+.3f} m '
+            f'(wall={d_rem_wall}, goal={d_rem_goal}) '
+            f'vdes {vdes:.3f} -> {decision.v_ref:.3f}',
+            throttle_duration_sec=1.0)
+        return decision.v_ref
+
     def _invalidate_move_state(self):
         """Drop every piece of per-move cached geometry.
 
@@ -3227,6 +3457,14 @@ class MPCController(Node):
         if latch is not None:
             latch.reset()
         self.object_speed_mode = None
+        # The ramp's wall stop, for the same reason as the object latch above:
+        # a new move re-arms it. The TARGET itself is not cleared here -- see
+        # stop_target_callback for why that would lose a race it must not lose.
+        ramp_latch = getattr(self, 'stop_ramp_latch', None)
+        if ramp_latch is not None:
+            ramp_latch.reset()
+        self.stop_ramp_mode = None
+        self.stop_ramp_d_rem = None
         # Corridor geometry: force a rebuild + marker publish on the next tick.
         self.cached_corridor = None
         # A new move's first corridor has nothing meaningful to be a step FROM
@@ -3558,6 +3796,35 @@ class MPCController(Node):
             throttle_duration_sec=2.0
         )
 
+    def stop_target_callback(self, msg):
+        """The current move's wall-distance target [m], or negative for none.
+
+        One message per move, from f1tenth_behavior's PublishMoveGoal. NEGATIVE
+        IS THE SENTINEL, exactly as DriveCommand.d_safe spends it: a mission
+        with no front_clearance stop publishes -1.0 and the ramp then has no
+        wall stopping point to aim at. Zero is NOT the sentinel, because a
+        target of zero is a real (if unwise) request.
+
+        DELIBERATELY NOT CLEARED BY _invalidate_move_state, unlike every other
+        per-move input here. The goal shape and this value are published by the
+        same behaviour on the same tick but on two different topics, so their
+        arrival order is not guaranteed; clearing on the goal would drop the
+        target whenever it lost the race. The BT publishes one of these for
+        EVERY move instead -- the -1.0 for the moves that do not stop on a
+        wall is what clears it -- so the last message is always the current
+        move's answer. f1tenth_behavior's test_stop_target_published pins that
+        it is published unconditionally, because this contract rests on it.
+        """
+        value = float(msg.data)
+        self.stop_target_m = value if value >= 0.0 else None
+        if self.stop_ramp_latch is not None:
+            # A new target is a new move: re-arm the wall stop.
+            self.stop_ramp_latch.reset()
+        self.get_logger().info(
+            f'STOP TARGET | wall stop at {self.stop_target_m} m'
+            if self.stop_target_m is not None else
+            'STOP TARGET | cleared: this move does not stop on a wall')
+
     def d_wall_correction_callback(self, msg):
         self.d_wall_correction = float(msg.data)
         self.d_wall_correction_stamp_sec = self.get_clock().now().nanoseconds * 1e-9
@@ -3835,6 +4102,16 @@ class MPCController(Node):
             self._publish_stop()
             return
 
+        # THE DECELERATION RAMP's hand-over to a zero command for the mission's
+        # wall target. Before the mode chain, because a wall stop belongs to
+        # the move whatever shape its goal has -- a drive, a goal_distance or a
+        # goal_pose move can all carry a front_clearance stop. After the hold,
+        # because a hold outranks everything and already publishes zero. No-op
+        # in object mode: goal_object_odom_xy moves never publish a
+        # /mpc/stop_target, so there is no target here to latch on.
+        if self._wall_stop_tick():
+            return
+
         # ONE map -> odom reprojection per tick, shared by the goal_distance
         # progress check below and by build_straight_corridor's own
         # goal_distance branch further down -- see _refresh_goal_anchor's own
@@ -3856,6 +4133,16 @@ class MPCController(Node):
         # every tick of a wall_turn (no-op otherwise), BEFORE the corridor
         # rebuild below reads it.
         self._wall_track_tick()
+
+        # The deceleration ramp's own-goal stopping point, filled in by
+        # whichever of the two branches below owns one (pose: the distance to
+        # the goal less its arrival tolerance; distance mode: the distance
+        # still to travel). None in every other mode, which leaves the ramp
+        # with only the mission's wall target to aim at. A LOCAL, not instance
+        # state: it is derived fresh every tick from quantities those branches
+        # compute anyway, and a stale copy of it would cap the speed for a
+        # stopping point the move no longer has.
+        d_rem_goal = None
 
         if self.drive_cmd is not None:
             # DRIVE MODE -- open-ended, and the ONLY branch here with no
@@ -3987,6 +4274,19 @@ class MPCController(Node):
                 f'tolerance={self.pose_goal_tolerance:.3f}'
             )
 
+            # THE RAMP's stopping point for this mode is the POSE ITSELF, not
+            # the edge of the arrival tolerance. Aiming at the tolerance circle
+            # would hand over to the zero command d_final OUTSIDE it and leave
+            # the car resting short of the very circle the move is judged by;
+            # aiming at the pose puts the hand-over inside it (0.133 m against
+            # the 0.15 m tolerance) and the car comes to rest about 4 cm short
+            # of the pose. The arrival check below therefore still fires, and
+            # still owns the arrival -- the ramp only sets the speed it is
+            # reached at. Its own stop is the backstop underneath, for a
+            # tolerance TIGHTER than d_final, where the check below could
+            # otherwise never fire at all.
+            d_rem_goal = dist_to_goal
+
             if dist_to_goal <= self.pose_goal_tolerance:
                 self.pose_goal_reached = True
                 self._publish_drive(0.0, 0.0)
@@ -3994,6 +4294,21 @@ class MPCController(Node):
                 self.get_logger().info(
                     f'Goal pose raggiunto: dist_to_goal={dist_to_goal:.3f} m <= '
                     f'tolerance={self.pose_goal_tolerance:.3f} m'
+                )
+                return
+
+            if (self.stop_ramp is not None
+                    and self.stop_ramp.decide(d_rem_goal, self.vdes).stopping):
+                # Inside the ramp's hand-over distance with a tolerance too
+                # tight for the check above: the car cannot stop any closer, so
+                # this IS the arrival. Reported the same way, on the same topic.
+                self.pose_goal_reached = True
+                self._publish_drive(0.0, 0.0)
+                self.goal_reached_pub.publish(Bool(data=True))
+                self.get_logger().info(
+                    f'Goal pose raggiunto (ramp): dist_to_goal={dist_to_goal:.3f} m '
+                    f'<= d_final={self.stop_ramp.d_final:.3f} m, tolerance '
+                    f'{self.pose_goal_tolerance:.3f} m is tighter than the stop'
                 )
                 return
             # altrimenti: prosegui verso la normale risoluzione MPC qui sotto
@@ -4065,6 +4380,26 @@ class MPCController(Node):
                 f'lateral={math.sqrt(max(displacement ** 2 - traveled ** 2, 0.0)):.4f} m'
             )
 
+            # THE RAMP's stopping point for this mode: the distance still to
+            # make good along the move's own reference line. Checked BEFORE the
+            # arrival below, because it fires d_final earlier -- that is the
+            # whole point. The car is commanded to zero one stopping distance
+            # short of the goal and coasts onto it, instead of being commanded
+            # to zero AT the goal and coasting a whole stopping distance past
+            # it (0.97 m at 1.5 m/s, and the error grew with the speed).
+            d_rem_goal = self.goal_distance - traveled
+            if (self.stop_ramp is not None
+                    and self.stop_ramp.decide(d_rem_goal, self.vdes).stopping):
+                self.goal_reached = True
+                self._publish_drive(0.0, 0.0)
+                self.goal_reached_pub.publish(Bool(data=True))
+                self.get_logger().info(
+                    f'Goal raggiunto (ramp): traveled={traveled:.3f} m, residuo '
+                    f'{d_rem_goal:+.3f} m <= d_final={self.stop_ramp.d_final:.3f} m '
+                    f'-- comando a zero, la macchina rotola sul goal'
+                )
+                return
+
             if traveled >= self.goal_distance:
                 self.goal_reached = True
                 self._publish_drive(0.0, 0.0)
@@ -4133,6 +4468,14 @@ class MPCController(Node):
             # baseline, so ramping it would leave the last approach's speed in
             # force for the next move.
             vdes = self._object_vdes
+        else:
+            # THE DECELERATION RAMP's cap on the speed reference the solver
+            # tracks across the whole horizon -- for the mission's wall target
+            # and for this node's own two goal shapes, never for object mode
+            # (which has its own, see __init__). Same reason the object branch
+            # writes the local and not self.vdes: this is a per-tick cap, and
+            # writing it back would leave the last approach's ramp in force.
+            vdes = self._apply_stop_ramp(vdes, d_rem_goal)
 
         now_time = self.get_clock().now()
         now_sec = now_time.nanoseconds * 1e-9
@@ -4256,7 +4599,7 @@ class MPCController(Node):
             horizon=self.N,
             ts=self.ts_pred,
             params=self.params,
-            limits=self.limits,
+            limits=self._stop_ramp_limits(vdes),
             weights=self._weights_for(corridor),
             obstacles=obstacles_global,
             dmin=self.dmin,
