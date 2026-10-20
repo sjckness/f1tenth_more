@@ -1,12 +1,10 @@
 """
-/viz/doors marker building: jamb cylinders, colours by state, and dying doors.
+/viz/doors marker building: jamb cylinders, faded candidates, labels and dying doors.
 
 Pure builder tests, the test_wall_markers.py convention: no node, no spin.
-The node wiring (published only while subscribed) is in
+The node wiring (every live door, every cycle, subscribed or not) is in
 test_lidar_front_wall_node.py's TestDoors.
 """
-
-import collections
 
 from builtin_interfaces.msg import Time
 
@@ -23,11 +21,11 @@ from visualization_msgs.msg import Marker
 def _door(door_id, state=dd.STATE_CONFIRMED, occupied=False, j0=(3.0, -0.425),
           j1=(3.0, 0.425)):
     door = dd.DoorTrack(door_id, np.array(j0, dtype=float), np.array(j1, dtype=float),
-                        np.array([1.0, 0.0]), born=0.0, last_seen=0.0, state=state)
-    door.history = collections.deque([True], maxlen=5)
+                        np.array([1.0, 0.0]), born=0.0, last_positive=0.0, state=state)
     door.occupied = occupied
     door.parents = (7, 8)
-    door.square_looks = 1
+    # Measured by the stereo, so the plain label carries no flag.
+    door.jamb_height_unknown = False
     return door
 
 
@@ -68,40 +66,56 @@ class TestJambs:
         assert text.text == 'door 3 0.85m confirmed OCCUPIED'
         assert text.pose.position.z > 2.5
 
-    def test_the_label_flags_a_frame_jamb_and_a_door_not_yet_seen_square_on(self):
-        door = _door(4, state=dd.STATE_TENTATIVE)
-        door.parents, door.square_looks = (dd.FRAME_ID, 9), 0
-        text = _slots(_build(dm.DoorMarkerBuilder(0.6), [door]), 4)[dm.SLOT_TEXT].text
-        assert text == 'door 4 0.85m tentative frame square?'
-        # Seen square-on, it no longer asks; confirmed, it never did.
-        door.square_looks = 1
-        assert dm.label_of(door) == 'door 4 0.85m tentative frame'
-
     def test_every_marker_carries_the_lifetime(self):
         for m in _build(dm.DoorMarkerBuilder(0.6), [_door(1)]):
             assert m.lifetime.sec + m.lifetime.nanosec * 1e-9 == pytest.approx(0.6)
             assert m.ns == dm.NS and m.header.frame_id == 'odom'
 
 
+class TestLabel:
+
+    def test_a_candidate_s_label_names_its_state_leaf_and_every_flag(self):
+        door = _door(4, state=dd.STATE_CANDIDATE, occupied=True)
+        door.leaf_side, door.glass_suspect, door.jamb_height_unknown = dd.LEAF_LEFT, True, True
+        text = _slots(_build(dm.DoorMarkerBuilder(0.6), [door]), 4)[dm.SLOT_TEXT].text
+        assert text == 'door 4 0.85m candidate leaf left glass? jamb? OCCUPIED'
+
+    def test_jamb_question_mark_means_the_stereo_never_measured_the_jambs(self):
+        door = _door(5)
+        assert dm.label_of(door) == 'door 5 0.85m confirmed'
+        door.jamb_height_unknown = True
+        assert dm.label_of(door) == 'door 5 0.85m confirmed jamb?'
+
+    def test_the_label_no_longer_says_frame_or_square(self):
+        """No frame jambs (parent 0) and no square looks by default any more."""
+        door = _door(6, state=dd.STATE_CANDIDATE)
+        door.parents, door.square_looks = (0, 9), 0
+        assert dm.label_of(door) == 'door 6 0.85m candidate'
+
+
 class TestColour:
 
-    def test_alpha_is_the_state(self):
+    def test_a_candidate_is_faded_and_a_confirmed_door_solid_on_all_four_markers(self):
         builder = dm.DoorMarkerBuilder(0.6)
-        alpha = {}
-        for state in (dd.STATE_TENTATIVE, dd.STATE_CONFIRMED, dd.STATE_COASTING):
-            post = _slots(_build(builder, [_door(1, state=state)]), 1)[dm.SLOT_JAMB0]
-            alpha[state] = post.color.a
-        assert alpha[dd.STATE_TENTATIVE] < alpha[dd.STATE_COASTING]
-        assert alpha[dd.STATE_COASTING] < alpha[dd.STATE_CONFIRMED] == 1.0
+        for state, alpha in ((dd.STATE_CANDIDATE, dm.CANDIDATE_ALPHA),
+                             (dd.STATE_CONFIRMED, 1.0)):
+            markers = _build(builder, [_door(1, state=state)])
+            assert len(markers) == 4
+            assert [m.color.a for m in markers] == pytest.approx([alpha] * 4)
+        assert dm.CANDIDATE_ALPHA == pytest.approx(0.35)
 
-    def test_coasting_is_dimmed_and_occupied_is_its_own_colour(self):
+    def test_only_confirmed_is_solid_a_legacy_coasting_state_is_faded(self):
+        post = _slots(_build(dm.DoorMarkerBuilder(0.6), [_door(1, state=dd.STATE_COASTING)]),
+                      1)[dm.SLOT_JAMB0]
+        assert post.color.a == pytest.approx(dm.CANDIDATE_ALPHA)
+
+    def test_occupied_is_its_own_colour_in_either_state(self):
         builder = dm.DoorMarkerBuilder(0.6)
         free = _slots(_build(builder, [_door(1)]), 1)[dm.SLOT_JAMB0].color
-        coast = _slots(_build(builder, [_door(1, state=dd.STATE_COASTING)]),
-                       1)[dm.SLOT_JAMB0].color
-        busy = _slots(_build(builder, [_door(1, occupied=True)]), 1)[dm.SLOT_JAMB0].color
-        assert coast.g < free.g
-        assert (busy.r, busy.g, busy.b) == pytest.approx(dm.OCCUPIED_COLOUR)
+        for state in (dd.STATE_CANDIDATE, dd.STATE_CONFIRMED):
+            busy = _slots(_build(builder, [_door(1, state=state, occupied=True)]),
+                          1)[dm.SLOT_JAMB0].color
+            assert (busy.r, busy.g, busy.b) == pytest.approx(dm.OCCUPIED_COLOUR)
         assert (free.r, free.g, free.b) == pytest.approx(dm.DOOR_COLOUR)
 
 
@@ -127,8 +141,9 @@ class TestDeletion:
         for doors in ([_door(1)], [], [_door(2)]):
             assert Marker.DELETEALL not in [m.action for m in _build(builder, doors)]
 
-    def test_forget_means_no_deletes_for_doors_no_client_saw(self):
+    def test_a_candidate_turning_confirmed_keeps_its_slots_and_is_not_deleted(self):
         builder = dm.DoorMarkerBuilder(0.6)
-        _build(builder, [_door(1)])
-        builder.forget()
-        assert _build(builder, []) == []
+        _build(builder, [_door(3, state=dd.STATE_CANDIDATE)])
+        markers = _build(builder, [_door(3)])
+        assert [m.action for m in markers] == [Marker.ADD] * 4
+        assert sorted(m.id for m in markers) == [12, 13, 14, 15]
