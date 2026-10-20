@@ -121,6 +121,52 @@ def trigger_range_hits(ranges, angle_min, angle_increment, range_min, range_max,
     return hits
 
 
+#: The mux lanes under /safety_stop (f1tenth_bringup/config/mux.yaml), by
+#: priority, and their common timeout: what the car would get if this node
+#: were quiet. Used only by the reverse gate below.
+LOWER_LANES = (('teleop', 100), ('calibration_drive', 50), ('drive', 10))
+LANE_TIMEOUT_S = 0.2
+
+
+def winning_speed(latest, now, lanes=LOWER_LANES, timeout_s=LANE_TIMEOUT_S):
+    """Return the speed the mux would pass from the lanes under the safety lane, or None.
+
+    latest: {lane: (receipt time, speed)}. The mux's own rule: the highest
+    priority lane whose last message is not older than its timeout.
+    """
+    for lane, _prio in sorted(lanes, key=lambda lp: -lp[1]):
+        got = latest.get(lane)
+        if got is not None and float(now) - got[0] <= timeout_s:
+            return float(got[1])
+    return None
+
+
+def all_ahead(hits, polygon):
+    """Tell whether every triggering return lies ahead of the bumper (the mask's front edge)."""
+    return bool(hits) and all(x > polygon[1] for _r, _b, x, _y in hits)
+
+
+def stop_now(engaged, allow_reverse, ahead_only, speed):
+    """Return whether to claim the safety lane with a zero right now.
+
+    hard_stop_allow_reverse (2026-10-20): with every triggering return AHEAD of
+    the bumper, the stop blocks only motion TOWARDS it -- it stays quiet while
+    the command the mux would pass is negative, so the MPC's reverse
+    manoeuvre (or a joystick) can back the car out. Zero and positive
+    commands are stopped as before: the gate re-claims the lane on the first
+    non-negative command, and a reverse always passes through a stop
+    (gear_change_dwell_s), so a forward command finds the lane claimed. A
+    return beside the nose (the body would swing into it) and no command at
+    all keep the stop as it always was. Quiet is not a release: the latch,
+    its clear hold and every other /safety_stop source are unchanged.
+    """
+    if not engaged:
+        return False
+    if not allow_reverse or not ahead_only:
+        return True
+    return not (speed is not None and speed < 0.0)
+
+
 class HardStopState:
     """The debounce and the latch, as a state machine over scans.
 

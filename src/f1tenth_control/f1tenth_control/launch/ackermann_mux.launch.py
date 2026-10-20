@@ -67,6 +67,14 @@ def generate_launch_description():
                     "an object at 0.18 m is exactly the one the LiDAR is about "
                     "to lose inside range_min or behind the body.")
 
+    hard_stop_allow_reverse_la = DeclareLaunchArgument(
+        'hard_stop_allow_reverse', default_value='true',
+        description="true: with every triggering return ahead of the bumper the "
+                    "stop blocks only forward motion -- it stays quiet while the "
+                    "command the mux would pass is negative, so the reverse "
+                    "manoeuvre can back the car out. false: it stops every "
+                    "direction, as before.")
+
     hard_stop_node = Node(
         package='f1tenth_control',
         executable='hard_stop_node',
@@ -81,6 +89,8 @@ def generate_launch_description():
                 LaunchConfiguration('hard_stop_debounce_scans'), value_type=int),
             'hard_stop_clear_s': ParameterValue(
                 LaunchConfiguration('hard_stop_clear_s'), value_type=float),
+            'hard_stop_allow_reverse': ParameterValue(
+                LaunchConfiguration('hard_stop_allow_reverse'), value_type=bool),
         }],
     )
 
@@ -94,6 +104,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         mux_la, hard_stop_enabled_la, hard_stop_range_la,
-        hard_stop_debounce_la, hard_stop_clear_la,
+        hard_stop_debounce_la, hard_stop_clear_la, hard_stop_allow_reverse_la,
         ackermann_mux_node, hard_stop_node,
     ])

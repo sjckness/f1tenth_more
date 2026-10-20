@@ -53,6 +53,17 @@ hard_stop_republish_hz (default 20, i.e. 4x the mux's timeout), and the latch's
 clear hold is re-evaluated there too (HardStopState.tick) so the release still
 happens on time when scans are flowing and never happens for want of one.
 
+DIRECTION-AWARE (hard_stop_allow_reverse, default true, 2026-10-20). With
+every triggering return ahead of the bumper, the stop blocks only motion
+towards it: it subscribes to the lanes under its own (/teleop,
+/calibration_drive, /drive), works out which one the mux would pass, and
+stays quiet while that command is negative, so the MPC's reverse manoeuvre
+can back the car out. Any non-negative command re-claims the lane at once
+(in the lane's own callback, not on the next timer tick); a return beside
+the nose keeps the stop total. hard_stop.stop_now has the rule. Quiet is
+never a release: the latch and its clear hold run as before, and the other
+/safety_stop sources (the BT's e-stop among them) are not affected.
+
 WHAT IT DOES NOT TOUCH: the 0.40 m behaviour-tree proximity e-stop
 (IsProximityTooClose) is unchanged and still runs; /costmap/front_clearance is
 unchanged; the BT stop logic is unchanged. This is an addition, not a
@@ -71,7 +82,9 @@ from ackermann_msgs.msg import AckermannDriveStamped
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import String
 
-from f1tenth_control.hard_stop import HardStopState, footprint_polygon, trigger_range_hits
+from f1tenth_control.hard_stop import (
+    all_ahead, HardStopState, LANE_TIMEOUT_S, LOWER_LANES, footprint_polygon, stop_now,
+    trigger_range_hits, winning_speed)
 
 #: frame_id this node stamps every stop with -- see the module docstring.
 HARD_STOP_FRAME_ID = 'base_link/hard_stop'
@@ -105,9 +118,18 @@ class HardStopNode(Node):
         # it as a parameter rather than through TF so it has no dependency on a
         # transform being available at the instant a stop is needed.
         self.declare_parameter('laser_x_m', 0.305)
+        # Direction-aware stop (hard_stop.stop_now): an obstacle ahead of the
+        # bumper blocks only forward motion. The lanes it reads are the mux's
+        # own (f1tenth_bringup/config/mux.yaml).
+        self.declare_parameter('hard_stop_allow_reverse', True)
+        self.declare_parameter('lane_timeout_s', LANE_TIMEOUT_S)
 
         p = self.get_parameter
         self.enabled = bool(p('hard_stop_enabled').value)
+        self.allow_reverse = bool(p('hard_stop_allow_reverse').value)
+        self.lane_timeout_s = float(p('lane_timeout_s').value)
+        self.ahead_only = False
+        self.lane_latest = {}
         self.trigger_range_m = float(p('hard_stop_range_m').value)
         self.laser_x = float(p('laser_x_m').value)
         self.polygon = footprint_polygon(
@@ -125,6 +147,12 @@ class HardStopNode(Node):
         self.scan_sub = self.create_subscription(
             LaserScan, str(p('scan_topic').value), self._scan_cb, qos_profile_sensor_data)
 
+        if self.allow_reverse:
+            for lane, _prio in LOWER_LANES:
+                self.create_subscription(
+                    AckermannDriveStamped, '/' + lane,
+                    lambda msg, lane=lane: self._lane_cb(lane, msg), 10)
+
         republish_hz = float(p('hard_stop_republish_hz').value)
         self.republish_timer = self.create_timer(1.0 / republish_hz, self._republish)
 
@@ -135,7 +163,8 @@ class HardStopNode(Node):
             f'debounce {self.state.debounce_scans} scans, clear hold {self.state.clear_s:.2f} s, '
             f'self-mask x[{self.polygon[0]:+.3f},{self.polygon[1]:+.3f}] '
             f'y[{self.polygon[2]:+.3f},{self.polygon[3]:+.3f}], '
-            f'stop -> {p("stop_topic").value} as {HARD_STOP_FRAME_ID}')
+            f'stop -> {p("stop_topic").value} as {HARD_STOP_FRAME_ID}, '
+            f'reverse {"allowed" if self.allow_reverse else "blocked"} past an obstacle ahead')
 
     # ------------------------------------------------------------------
     def _now(self):
@@ -151,8 +180,10 @@ class HardStopNode(Node):
             self.polygon, self.trigger_range_m)
         was_engaged = self.state.engaged
         engaged = self.state.update(bool(hits), self._now())
+        if hits:
+            self.ahead_only = all_ahead(hits, self.polygon)
 
-        if engaged:
+        if self._claim(engaged):
             self._publish_stop()
         if hits:
             # Throttled, but the FIRST trigger of each event is not: a stop
@@ -172,10 +203,10 @@ class HardStopNode(Node):
                 f'hard stop RELEASED after {self.state.clear_s:.2f} s clear '
                 f'(trigger #{self.state.trigger_count})')
 
-        self.diag_pub.publish(String(data=json.dumps(
-            self.state.as_dict(n_hits=len(hits),
-                               nearest=(hits[0][:2] if hits else None)),
-            sort_keys=True)))
+        diag = self.state.as_dict(n_hits=len(hits), nearest=(hits[0][:2] if hits else None))
+        diag.update(allow_reverse=self.allow_reverse, ahead_only=self.ahead_only,
+                    passing_reverse=bool(engaged and not self._claim(engaged)))
+        self.diag_pub.publish(String(data=json.dumps(diag, sort_keys=True)))
 
     def _republish(self):
         """Keep the mux lane claimed while engaged, and age the clear hold.
@@ -186,12 +217,25 @@ class HardStopNode(Node):
         if not self.enabled:
             return
         was_engaged = self.state.engaged
-        if self.state.tick(self._now()):
+        engaged = self.state.tick(self._now())
+        if self._claim(engaged):
             self._publish_stop()
-        elif was_engaged:
+        elif was_engaged and not engaged:
             self.get_logger().info(
                 f'hard stop RELEASED on the clear hold with no further scans '
                 f'(trigger #{self.state.trigger_count})')
+
+    def _speed(self):
+        return winning_speed(self.lane_latest, self._now(), timeout_s=self.lane_timeout_s)
+
+    def _claim(self, engaged):
+        return stop_now(engaged, self.allow_reverse, self.ahead_only, self._speed())
+
+    def _lane_cb(self, lane, msg):
+        """A command on a lane under ours: re-claim at once if it is not a reverse."""
+        self.lane_latest[lane] = (self._now(), float(msg.drive.speed))
+        if self.enabled and self._claim(self.state.engaged):
+            self._publish_stop()
 
     def _publish_stop(self):
         msg = AckermannDriveStamped()

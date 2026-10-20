@@ -22,12 +22,16 @@ import rclpy
 from rclpy.parameter import Parameter
 from sensor_msgs.msg import LaserScan
 
+from ackermann_msgs.msg import AckermannDriveStamped
 from f1tenth_control.hard_stop import (
+    all_ahead,
     HardStopState,
     SELF_MARGIN_M,
     footprint_polygon,
     is_self_hit,
+    stop_now,
     trigger_range_hits,
+    winning_speed,
 )
 from f1tenth_control.hard_stop_node import HARD_STOP_FRAME_ID, HardStopNode
 
@@ -350,10 +354,19 @@ class TestIndependentOfTheBT:
                 assert f'from {forbidden}' not in source
 
     def test_it_subscribes_to_the_raw_scan_and_nothing_from_the_bt(self, node):
-        # No /behavior/*, no /mission/*, no tree status. One sensor in.
-        names = [s.topic_name for s in node.node.subscriptions]
-        assert names == ['/scan'], (
-            f'exactly one input, the raw scan, at full rate -- got {names}')
+        # No /behavior/*, no /mission/*, no tree status. One sensor in, plus
+        # (hard_stop_allow_reverse) the mux's own command lanes under it,
+        # which only ever let it stay quiet for a reverse.
+        names = sorted(s.topic_name for s in node.node.subscriptions)
+        assert names == ['/calibration_drive', '/drive', '/scan', '/teleop'], (
+            f'the raw scan and the mux lanes, nothing from the BT -- got {names}')
+
+    def test_without_the_reverse_gate_the_scan_is_the_only_input(self, rclpy_ctx):
+        harness = _build({'hard_stop_allow_reverse': False})
+        try:
+            assert [s.topic_name for s in harness.node.subscriptions] == ['/scan']
+        finally:
+            harness.node.destroy_node()
 
     def test_it_stops_the_car_with_no_bt_input_whatsoever(self, node):
         # The functional form of the same claim: the node has received nothing
@@ -419,6 +432,82 @@ class TestDisabled:
             assert node.node.state.trigger_count == 0
         finally:
             node.node.destroy_node()
+
+
+# ==============================================================================
+# 6. Direction-aware: an obstacle ahead blocks only forward motion.
+# ==============================================================================
+
+class TestReverseGate:
+
+    def test_the_rule(self):
+        assert stop_now(False, True, True, -0.4) is False         # not engaged
+        assert stop_now(True, True, True, -0.4) is False          # ahead, reversing: quiet
+        assert stop_now(True, True, True, 0.0) is True            # stopped: claimed
+        assert stop_now(True, True, True, 0.4) is True            # forward: claimed
+        assert stop_now(True, True, True, None) is True           # no command: claimed
+        assert stop_now(True, True, False, -0.4) is True          # beside the nose: total
+        assert stop_now(True, False, True, -0.4) is True          # param off: total
+
+    def test_the_mux_s_own_lane_choice(self):
+        latest = {'drive': (0.0, -0.4), 'teleop': (0.0, 0.0)}
+        assert winning_speed(latest, 0.1) == 0.0                   # teleop outranks drive
+        assert winning_speed(latest, 0.25) is None                 # both timed out
+        assert winning_speed({'drive': (0.0, -0.4)}, 0.1) == -0.4
+
+    def test_only_returns_past_the_bumper_are_ahead(self):
+        assert all_ahead(hits(ranges_with([(0.0, 0.18)])), POLY)
+        beside = hits(ranges_with([(75.0, 0.18)]))
+        assert beside and not all_ahead(beside, POLY)
+
+    def _engaged_ahead(self, node):
+        node.scan(ranges_with([(0.0, 0.18)]))
+        node.scan(ranges_with([(0.0, 0.18)]))
+        assert node.node.state.engaged and node.node.ahead_only
+
+    @staticmethod
+    def _drive(node, lane, speed):
+        msg = AckermannDriveStamped()
+        msg.drive.speed = speed
+        node.node._lane_cb(lane, msg)
+
+    def test_a_reverse_command_passes_an_obstacle_ahead(self, node):
+        self._engaged_ahead(node)
+        self._drive(node, 'drive', -0.4)
+        count = node.stop_pub.publish.call_count
+        node.node._republish()
+        node.scan(ranges_with([(0.0, 0.18)]))
+        assert node.stop_pub.publish.call_count == count, 'quiet while reversing'
+        assert node.node.state.engaged, 'quiet is not a release'
+        assert json.loads(node.diag_pub.publish.call_args[0][0].data)['passing_reverse']
+
+    def test_the_first_non_negative_command_reclaims_the_lane_at_once(self, node):
+        self._engaged_ahead(node)
+        self._drive(node, 'drive', -0.4)
+        count = node.stop_pub.publish.call_count
+        self._drive(node, 'drive', 0.0)
+        assert node.stop_pub.publish.call_count == count + 1
+        self._drive(node, 'drive', 0.5)
+        assert node.stop_pub.publish.call_count == count + 2
+
+    def test_an_obstacle_beside_the_nose_blocks_reverse_too(self, node):
+        node.scan(ranges_with([(75.0, 0.18)]))
+        node.scan(ranges_with([(75.0, 0.18)]))
+        self._drive(node, 'drive', -0.4)
+        count = node.stop_pub.publish.call_count
+        node.node._republish()
+        assert node.stop_pub.publish.call_count == count + 1
+
+    def test_off_it_blocks_every_direction(self, rclpy_ctx):
+        harness = _build({'hard_stop_allow_reverse': False})
+        try:
+            self._engaged_ahead(harness)
+            self._drive(harness, 'drive', -0.4)
+            count = harness.stop_pub.publish.call_count
+            harness.node._republish()
+            assert harness.stop_pub.publish.call_count == count + 1
+        finally:
+            harness.node.destroy_node()
 
 
 # ==============================================================================
