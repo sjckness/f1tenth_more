@@ -1463,8 +1463,8 @@ min_moving_speed_mps:
   default: 0.4
   description: "Minimum forward speed [m/s] commanded while the car moves; zero only to stop. ENFORCED on: go_to_object moves -- the mission loader rejects go_to_object.speed below it, mpc_corr floors the published /drive speed at it while an object approach drives, and treats an ObjectGoal speed below it as stop-and-wait. NOT YET ENFORCED on drive, turn, goal_distance and goal_pose moves: drive_turn_180.json, test_04_turn_accuracy.json, turn_90_left.json and wall_turn_then_straight.json still request 0.3 m/s, and mpc_corr's other modes still let the solver's command fall below 0.4 near a goal."
 max_reverse_speed_mps:
-  default: 0.0
-  description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
+  default: 0.4
+  description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. A MAGNITUDE: it is always >= 0 and the sign is applied by the clamp (validate_speed_limits raises on a negative). 0.0 forbids reverse outright; 0.4 matches v_rev_mps, the speed the stuck manoeuvre plans at, so the rear side clears its reverse_speed_limit gate. The car still has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse beyond this is clamped and reported on /mpc/drive_clamp."
 # REVERSE CHOSEN BY THE MPC (mpc_controller/reverse_mpc.py, branch
 # mpc_corr_v2_reverse). Consumed by: MPC_corr.py's declare_parameter() defaults
 # (get_value), no launch arg. allow_reverse false (the default) leaves the solve

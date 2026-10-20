@@ -124,14 +124,16 @@ class TestDefaultsChangeNoRequestedSpeed:
         for source, key, speed in self._requested_speeds():
             assert -rev <= speed <= fwd, (source, key, speed)
 
-    def test_the_floor_defaults_are_forward_half_and_no_reverse(self):
-        """The 2026-09-18 floor values: 0.5 forward (was 1.0), no reverse.
+    def test_the_floor_defaults_are_forward_half_and_reverse_at_v_rev(self):
+        """0.5 forward (the 2026-09-18 floor), 0.4 reverse (2026-10-20).
 
         0.5 is the highest speed anything requests, so the limit still binds on
         no request (the test above) while cutting solver overshoot above it.
+        0.4 is v_rev_mps, the speed the stuck manoeuvre plans at: below it the
+        rear side reports "reverse_speed_limit" and no reverse ever starts.
         """
         assert float(get_value('max_forward_speed_mps')) == 0.5
-        assert float(get_value('max_reverse_speed_mps')) == 0.0
+        assert float(get_value('max_reverse_speed_mps')) == 0.4
 
     def test_the_go_to_approach_speed_is_the_operating_floor(self):
         """0.4 m/s is the minimum commanded speed while moving; go_to runs at it."""

@@ -45,11 +45,11 @@ from mpc_controller.object_approach import (
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
 from mpc_controller.reverse_manoeuvre import (
-    Grid, ManoeuvreConfig, RearEnv, RearSolver, ReverseSupervisor,
-    validate_reverse_mechanisms)
+    Grid, ManoeuvreConfig, MODE_FORWARD, MODE_REVERSE, MODE_STOPPING, RearEnv, RearSolver,
+    ReverseSupervisor, validate_reverse_mechanisms)
 from mpc_controller.reverse_mpc import (
     extend_corridor_backwards, floor_moving_speed_signed, rear_probe_offsets, ReverseConfig,
-    ReversePlanner)
+    ReversePlanner, REVERSE as REVERSE_DIR)
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
@@ -1842,6 +1842,7 @@ class MPCController(Node):
         # allows it. Mutually exclusive with allow_reverse above, which lets
         # the forward MPC choose reverse itself.
         self.reverse_supervisor = None
+        self.reverse_status_pub = None
         self._init_reverse_manoeuvre()
 
         # OBJECT MEMORY (f1tenth_costmap's semantic layer, Part B): objects
@@ -3586,10 +3587,19 @@ class MPCController(Node):
         except ValueError as exc:
             self.get_logger().fatal(f'REVERSE | STARTUP REFUSED: {exc}')
             raise
+        # /mpc/reverse_status is the BT's ONLY view of the MPC's direction: with
+        # bt_reverse_integration, a status that is missing or stale counts as
+        # forward and the front stops keep stopping in EVERY direction
+        # (reverse_integration.py D1), which zeroes a reverse on the safety lane.
+        # So the publisher is created whichever mechanism is enabled; the
+        # manoeuvre fills it from its supervisor, allow_reverse from the
+        # direction selector (_publish_reverse_status_from_planner).
+        self.reverse_status_pub = self.create_publisher(ReverseStatus, '/mpc/reverse_status', 10)
         if self.allow_reverse:
             self.get_logger().info(
                 'REVERSE/manoeuvre | not built: allow_reverse is on (the forward MPC '
-                'chooses reverse itself) and reverse_auto_enabled is off')
+                'chooses reverse itself) and reverse_auto_enabled is off; '
+                '/mpc/reverse_status is published from the direction selector')
             return
         if self.max_reverse_speed < cfg.v_rev_mps:
             self.get_logger().warn(
@@ -3618,7 +3628,6 @@ class MPCController(Node):
         self.create_subscription(MissionStatus, '/mission/status', self._mission_status_cb,
                                  latched)
         self.create_subscription(OccupancyGrid, costmap_topic, self._rear_costmap_cb, latched)
-        self.reverse_status_pub = self.create_publisher(ReverseStatus, '/mpc/reverse_status', 10)
         self.create_service(RequestReverse, '/mpc/request_reverse', self._request_reverse_cb)
         self.get_logger().info(
             f'REVERSE/manoeuvre | auto={cfg.auto_enabled} solver={cfg.solver_mode} '
@@ -3819,6 +3828,55 @@ class MPCController(Node):
         msg.last_termination_reason = st['last_termination_reason']
         msg.requested_m = float(st['requested_m'])
         msg.travelled_m = float(st['travelled_m'])
+        self.reverse_status_pub.publish(msg)
+
+    def _publish_reverse_status_from_planner(self):
+        """Publish /mpc/reverse_status for the allow_reverse path (no manoeuvre).
+
+        The BT needs two fields (reverse_integration.py D1/D3): reverse_active,
+        to stop the front cone from zeroing a reverse on the safety lane, and
+        mode, for the blackboard mirror. Here they come from the direction
+        selector, not the manoeuvre's supervisor:
+
+          direction REVERSE, |v| still forward  -> "stopping", active
+          direction REVERSE, otherwise          -> "reverse",  active
+          direction FORWARD                     -> "forward",  not active
+
+        "stuck" is never reported: that mode is the manoeuvre's attempt counter
+        (D3's stuck_after_reverse outcome), which this path has no equivalent of.
+        The manoeuvre-only fields are left at their neutral values.
+        """
+        if self.reverse_status_pub is None or self.reverse_planner is None:
+            return
+        direction = self.reverse_planner.selector.direction
+        stop_speed = float(self.reverse_planner.cfg.stop_speed_mps)
+        msg = ReverseStatus()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        if direction == REVERSE_DIR:
+            msg.mode = (MODE_STOPPING if float(self.v) > stop_speed else MODE_REVERSE)
+            msg.reverse_active = True
+        else:
+            msg.mode = MODE_FORWARD
+            msg.reverse_active = False
+        msg.stuck = False
+        msg.stuck_reason = ''
+        msg.stuck_timer_s = 0.0
+        msg.intentional_stop = False
+        msg.rear_ready = False
+        msg.rear_reason = 'allow_reverse'
+        msg.rear_solver_running = False
+        msg.rear_solve_ms = math.nan
+        msg.rear_clearance_m = math.nan
+        # Always False here: /bt/allow_reverse is subscribed on the manoeuvre
+        # path only (that mechanism gates on it), so this path has no reading to
+        # report and must not touch _bt_allow, which is not set on it either.
+        msg.bt_allow_reverse = False
+        msg.bt_allow_fresh = False
+        msg.attempts = 0
+        msg.last_switch_time_s = 0.0
+        msg.last_termination_reason = ''
+        msg.requested_m = 0.0
+        msg.travelled_m = 0.0
         self.reverse_status_pub.publish(msg)
 
     def _reverse_config(self):
@@ -4678,6 +4736,8 @@ class MPCController(Node):
                 # The tick a manoeuvre starts: zero speed instead of the plan.
                 v_cmd_now, delta_cmd = manoeuvre_cmd.speed, manoeuvre_cmd.steer
             self._publish_reverse_status()
+        elif self.allow_reverse:
+            self._publish_reverse_status_from_planner()
 
         self._publish_drive(v_cmd_now, delta_cmd)
 

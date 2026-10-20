@@ -58,7 +58,14 @@ def shipped_manoeuvre_config(**over) -> ManoeuvreConfig:
     from f1tenth_params.param_defaults import get_value
     hw = float(get_value('rear_corridor_half_width_m'))
     cfg = {
-        'auto_enabled': bool(get_value('reverse_auto_enabled')),
+        # PINNED, not read from stack_params: these scenarios exercise the
+        # manoeuvre mechanism itself, so it has to be on here whatever the
+        # deployment default is. It read the default until 2026-10-20, and
+        # when reverse_auto_enabled was briefly switched off (allow_reverse,
+        # the other mechanism, is mutually exclusive with it) every scenario
+        # silently became a no-op. Same reasoning as max_reverse_speed_mps
+        # below.
+        'auto_enabled': True,
         'solver_mode': str(get_value('rear_solver_mode')),
         'corridor_length_m': float(get_value('rear_corridor_length_m')),
         'corridor_half_width_m': hw if hw > 0.0 else float(get_value('corr_half_width_start_m')),
