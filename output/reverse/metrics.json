@@ -1,0 +1,349 @@
+{
+ "near_tie_scan": [
+  [
+   1.6,
+   24.406110627313485,
+   19.36614322818391
+  ],
+  [
+   1.7,
+   25.047150588010492,
+   20.26615665576098
+  ],
+  [
+   1.8,
+   24.67470927897157,
+   21.02932028951753
+  ],
+  [
+   1.9,
+   26.107389122329266,
+   22.29330020206568
+  ],
+  [
+   2.0,
+   26.269500593108745,
+   22.63570826105137
+  ],
+  [
+   2.1,
+   26.44685201860313,
+   22.727246042670394
+  ],
+  [
+   2.2,
+   26.358549499948957,
+   22.923378994070337
+  ],
+  [
+   2.3,
+   25.91276636750846,
+   23.38910297260668
+  ],
+  [
+   2.4,
+   25.666232153003634,
+   23.587931500533774
+  ],
+  [
+   2.5,
+   25.61204936586788,
+   23.61639938841165
+  ],
+  [
+   2.6,
+   25.511778573083443,
+   23.746856875350595
+  ],
+  [
+   2.7,
+   26.107894263130753,
+   22.26361420938901
+  ],
+  [
+   2.8,
+   15.712965327597058,
+   19.755858769050768
+  ],
+  [
+   2.9,
+   15.864597339222072,
+   20.048648897676088
+  ],
+  [
+   3.0,
+   16.023490300067166,
+   20.342351368323747
+  ],
+  [
+   3.1,
+   16.323471266859755,
+   20.640121278219294
+  ],
+  [
+   3.2,
+   16.62345163601141,
+   20.93799567962341
+  ],
+  [
+   3.3,
+   16.92343158190013,
+   21.23596743237358
+  ],
+  [
+   3.4,
+   17.22341124439328,
+   21.53403002911448
+  ],
+  [
+   3.5,
+   17.523390740343,
+   21.832177527341617
+  ],
+  [
+   3.6,
+   17.82337016753974,
+   22.130384091366455
+  ],
+  [
+   3.7,
+   18.12334960430003,
+   22.428663797989017
+  ],
+  [
+   3.8,
+   18.42332911426238,
+   22.727014296096897
+  ],
+  [
+   3.9,
+   18.7233087526435,
+   23.025431320320088
+  ],
+  [
+   4.0,
+   19.02328856220894,
+   23.323910940017
+  ]
+ ],
+ "a_free_corridor": {
+  "scenario": "a_free_corridor",
+  "allow_reverse": true,
+  "reached": true,
+  "time_to_goal_s": 10.7,
+  "final_dist_to_goal_m": 0.148,
+  "path_m": 4.852,
+  "reverse_m": 0.0,
+  "direction_changes": 0,
+  "selector_switches": 0,
+  "min_body_clearance_m": 0.864,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": 0.41,
+  "tick_ms_p50": 14.9,
+  "tick_ms_p95": 22.1,
+  "tick_ms_max": 124.0,
+  "cand_ms_p50": 5.7,
+  "cand_ms_p95": 6.4,
+  "ctg_builds": 3,
+  "ctg_build_ms_max": 102.2,
+  "ticks": 107
+ },
+ "a_free_corridor__flag_off": {
+  "scenario": "a_free_corridor",
+  "allow_reverse": false,
+  "reached": true,
+  "time_to_goal_s": 10.4,
+  "final_dist_to_goal_m": 0.121,
+  "path_m": 4.879,
+  "reverse_m": 0.0,
+  "direction_changes": 0,
+  "selector_switches": 0,
+  "min_body_clearance_m": 0.864,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": 0.5,
+  "tick_ms_p50": 4.9,
+  "tick_ms_p95": 5.1,
+  "tick_ms_max": 5.3,
+  "cand_ms_p50": null,
+  "cand_ms_p95": null,
+  "ctg_builds": 0,
+  "ctg_build_ms_max": null,
+  "ticks": 104
+ },
+ "a2_free_corridor_distance": {
+  "scenario": "a2_free_corridor_distance",
+  "allow_reverse": true,
+  "reached": true,
+  "time_to_goal_s": 10.5,
+  "final_dist_to_goal_m": 0.012,
+  "path_m": 5.012,
+  "reverse_m": 0.0,
+  "direction_changes": 0,
+  "selector_switches": 0,
+  "min_body_clearance_m": 0.864,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": 0.5,
+  "tick_ms_p50": 11.9,
+  "tick_ms_p95": 13.7,
+  "tick_ms_max": 18.4,
+  "cand_ms_p50": 5.4,
+  "cand_ms_p95": 6.1,
+  "ctg_builds": 0,
+  "ctg_build_ms_max": null,
+  "ticks": 105
+ },
+ "a2_free_corridor_distance__flag_off": {
+  "scenario": "a2_free_corridor_distance",
+  "allow_reverse": false,
+  "reached": true,
+  "time_to_goal_s": 10.5,
+  "final_dist_to_goal_m": 0.012,
+  "path_m": 5.012,
+  "reverse_m": 0.0,
+  "direction_changes": 0,
+  "selector_switches": 0,
+  "min_body_clearance_m": 0.864,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": 0.5,
+  "tick_ms_p50": 4.8,
+  "tick_ms_p95": 5.1,
+  "tick_ms_max": 5.5,
+  "cand_ms_p50": null,
+  "cand_ms_p95": null,
+  "ctg_builds": 0,
+  "ctg_build_ms_max": null,
+  "ticks": 105
+ },
+ "b_door_late": {
+  "scenario": "b_door_late",
+  "allow_reverse": true,
+  "reached": false,
+  "time_to_goal_s": null,
+  "final_dist_to_goal_m": 2.07,
+  "path_m": 4.672,
+  "reverse_m": 1.126,
+  "direction_changes": 1,
+  "selector_switches": 1,
+  "min_body_clearance_m": 0.342,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": -0.193,
+  "tick_ms_p50": 29.6,
+  "tick_ms_p95": 32.1,
+  "tick_ms_max": 87.0,
+  "cand_ms_p50": 9.1,
+  "cand_ms_p95": 10.2,
+  "ctg_builds": 3,
+  "ctg_build_ms_max": 56.6,
+  "ticks": 400
+ },
+ "b_door_late__flag_off": {
+  "scenario": "b_door_late",
+  "allow_reverse": false,
+  "reached": false,
+  "time_to_goal_s": null,
+  "final_dist_to_goal_m": 1.531,
+  "path_m": 4.317,
+  "reverse_m": 0.0,
+  "direction_changes": 0,
+  "selector_switches": 0,
+  "min_body_clearance_m": 0.032,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": -0.0,
+  "tick_ms_p50": 7.8,
+  "tick_ms_p95": 8.5,
+  "tick_ms_max": 9.3,
+  "cand_ms_p50": null,
+  "cand_ms_p95": null,
+  "ctg_builds": 0,
+  "ctg_build_ms_max": null,
+  "ticks": 400
+ },
+ "c_door_early": {
+  "scenario": "c_door_early",
+  "allow_reverse": true,
+  "reached": false,
+  "time_to_goal_s": null,
+  "final_dist_to_goal_m": 3.285,
+  "path_m": 3.833,
+  "reverse_m": 1.563,
+  "direction_changes": 13,
+  "selector_switches": 13,
+  "min_body_clearance_m": 0.402,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": -0.236,
+  "tick_ms_p50": 30.1,
+  "tick_ms_p95": 32.8,
+  "tick_ms_max": 88.7,
+  "cand_ms_p50": 9.0,
+  "cand_ms_p95": 10.6,
+  "ctg_builds": 3,
+  "ctg_build_ms_max": 57.3,
+  "ticks": 400
+ },
+ "d_goal_behind_1p5": {
+  "scenario": "d_goal_behind_1p5",
+  "allow_reverse": true,
+  "reached": true,
+  "time_to_goal_s": 9.4,
+  "final_dist_to_goal_m": 0.15,
+  "path_m": 1.35,
+  "reverse_m": 1.35,
+  "direction_changes": 0,
+  "selector_switches": 0,
+  "min_body_clearance_m": null,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": null,
+  "tick_ms_p50": 19.1,
+  "tick_ms_p95": 20.8,
+  "tick_ms_max": 121.0,
+  "cand_ms_p50": 5.5,
+  "cand_ms_p95": 6.0,
+  "ctg_builds": 1,
+  "ctg_build_ms_max": 100.0,
+  "ticks": 94
+ },
+ "e_goal_far_behind": {
+  "scenario": "e_goal_far_behind",
+  "allow_reverse": true,
+  "reached": true,
+  "time_to_goal_s": 26.2,
+  "final_dist_to_goal_m": 0.121,
+  "path_m": 12.567,
+  "reverse_m": 0.0,
+  "direction_changes": 0,
+  "selector_switches": 0,
+  "min_body_clearance_m": null,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": 0.408,
+  "tick_ms_p50": 13.6,
+  "tick_ms_p95": 20.1,
+  "tick_ms_max": 124.7,
+  "cand_ms_p50": 5.4,
+  "cand_ms_p95": 6.2,
+  "ctg_builds": 9,
+  "ctg_build_ms_max": 103.5,
+  "ticks": 262
+ },
+ "f_near_tie": {
+  "scenario": "f_near_tie",
+  "allow_reverse": true,
+  "reached": true,
+  "time_to_goal_s": 24.1,
+  "final_dist_to_goal_m": 0.13,
+  "path_m": 11.247,
+  "reverse_m": 0.112,
+  "direction_changes": 1,
+  "selector_switches": 1,
+  "min_body_clearance_m": null,
+  "wall_contact": false,
+  "min_cmd_speed_after_cruise": 0.428,
+  "tick_ms_p50": 13.6,
+  "tick_ms_p95": 20.6,
+  "tick_ms_max": 125.4,
+  "cand_ms_p50": 5.5,
+  "cand_ms_p95": 6.1,
+  "ctg_builds": 8,
+  "ctg_build_ms_max": 110.7,
+  "ticks": 241
+ }
+}
