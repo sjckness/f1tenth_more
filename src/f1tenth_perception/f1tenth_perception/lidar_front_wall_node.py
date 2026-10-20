@@ -291,8 +291,11 @@ without it, the node logs an ERROR at startup and the tracker stays off.
   * The scan pose is /odometry/filtered interpolated at the scan stamp, the
     pose the EKF also publishes as odom -> base_link.
 
-DOOR DETECTION (door_detection_enabled, stack_params.yaml; default true)
--------------------------------------------------------------------------
+DOOR DETECTION (door_detection_enabled, stack_params.yaml; default false)
+--------------------------------------------------------------------------
+Off by default since 2026-10-20: stack_params.yaml
+lidar_front_wall_door_detection_enabled and the node's own fallback agree
+(TestDoorParamsCoupling).
 PERCEPTION ONLY, and only with the tracker on: nothing in the control path,
 the costmap, the BT or the missions reads /perception/doors or /viz/doors.
 door_detection.py is the rule; this is how the node runs it, on every
@@ -886,7 +889,7 @@ class LidarFrontWallNode(Node):
         # where its field is *_rad). DoorParams, these fallbacks and
         # stack_params.yaml's lidar_front_wall_door_* must agree
         # (test_lidar_front_wall_node.py, TestDoorParamsCoupling).
-        door_requested = bool(param('door_detection_enabled', True))
+        door_requested = bool(param('door_detection_enabled', False))
         self.door_enabled = door_requested and self.wall_tracker is not None
         self.door_params = door_detection.DoorParams(
             # The gap's geometry and its beams.

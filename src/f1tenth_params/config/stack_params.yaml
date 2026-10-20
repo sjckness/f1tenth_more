@@ -3409,8 +3409,8 @@ lidar_front_wall_wall_viz_height_m:
 # DoorParams' default where it has the field (test_lidar_front_wall_node.py,
 # TestDoorParamsCoupling).
 lidar_front_wall_door_detection_enabled:
-  default: true
-  description: "Run door detection on every wall tracker cycle, after the walls are published, and publish /perception/doors and /viz/doors. Off: neither topic exists and nothing is computed. Needs use_wall_tracker (the doors are found in the tracker's walls). A door cycle that raises is logged (throttled) and counted (door_errors on /perception/virtual_wall/debug) and never stops the walls; after 50 consecutive failures the node turns door detection off for its life."
+  default: false
+  description: "OFF by default since 2026-10-20 (base for the lab tests: perception only, nothing in the control path reads it, and its cost is not needed there); set true to study doors. Run door detection on every wall tracker cycle, after the walls are published, and publish /perception/doors and /viz/doors. Off: neither topic exists and nothing is computed. Needs use_wall_tracker (the doors are found in the tracker's walls). A door cycle that raises is logged (throttled) and counted (door_errors on /perception/virtual_wall/debug) and never stops the walls; after 50 consecutive failures the node turns door detection off for its life."
 lidar_front_wall_door_publish_candidates:
   default: false
   description: "Also publish CANDIDATE doors on /perception/doors (Door.state says which). Off: /perception/doors carries CONFIRMED doors only, so a reader of the topic never sees a door the lifecycle has not confirmed -- one seen from a single place, or whose width is not yet steady. /viz/doors always draws both (confirmed solid, candidate faded), and the debug topic lists every gap with its code, whatever this says."

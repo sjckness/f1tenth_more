@@ -1501,11 +1501,15 @@ class TestDoors:
     PUBS = ('fit_pub', 'estimate_pub', 'planes_pub', 'virtual_pub', 'virtual_debug_pub',
             'observations_pub', 'walls_pub', 'walls_markers_pub', 'doors_pub')
 
-    def _node(self, **overrides):
+    def _node(self, door_on=True, **overrides):
         params = {'enable_scene_labels': True, 'wall_tracker_scan_decimation': 1,
                   'use_wall_tracker': True, 'wall_extract_backend': 'python',
                   # No publish-rate cap: every cycle's debug payload is read.
                   'virtual_wall_rate_hz': 0.0}
+        if door_on:
+            # Off by default since 2026-10-20 (stack_params and the node's
+            # fallback); these tests are about the doors.
+            params['door_detection_enabled'] = True
         params.update(overrides)
         n = LidarFrontWallNode(
             parameter_overrides=[Parameter(k, value=v) for k, v in params.items()])
@@ -1989,7 +1993,8 @@ class TestDoorParamsCoupling:
 
     @staticmethod
     def _node():
-        return TestDoors()._node()
+        # door_on=False: no override at all, so every value read is a fallback.
+        return TestDoors()._node(door_on=False)
 
     def test_the_node_declares_exactly_the_stack_params_door_keys_with_their_defaults(self):
         doc = _stack_params()
