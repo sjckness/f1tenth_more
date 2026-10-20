@@ -1,0 +1,64 @@
+# READY thresholds for `f1tenth_ctl status` on the car.
+#
+# READY = the discovery server listens + the stack runs + every check below
+# with required: true (the default) passes. Checks with required: false are
+# measured and shown only. Sources for each value: output/telegram/recon.md
+# section 4.
+
+# The probe listens at least this long, rates are measured over at least
+# this span, and past it the probe stops as soon as every check has its data.
+# While topics are still matching (a loaded machine) it keeps listening up
+# to the status deadline: status answers in < 5 s, env sourcing and rclpy
+# start-up included.
+window_s: 1.0
+use_sim_time: false
+
+checks:
+  # Local EKF, 20 Hz (stack_params.yaml ekf_frequency_hz).
+  - name: odometry
+    kind: topic_rate
+    topic: /odometry/filtered
+    type: nav_msgs/msg/Odometry
+    min_hz: 10.0
+
+  # urg_node, 40 Hz (sensors.yaml).
+  - name: scan
+    kind: topic_rate
+    topic: /scan
+    type: sensor_msgs/msg/LaserScan
+    min_hz: 20.0
+
+  # map->odom from the global EKF, odom->base_link from the local one.
+  - name: tf_map_base_link
+    kind: tf_age
+    parent: map
+    child: base_link
+    max_age_s: 0.5
+
+  # f1tenth_behavior's mission loader (behavior_executor_node).
+  - name: mission_service
+    kind: service
+    service: /mission/load_mission
+    type: f1tenth_messages/srv/LoadMission
+
+  # A latched e-stop blocks every mission start until 'behavior' restarts.
+  - name: estop_clear
+    kind: estop_clear
+    topic: /mission/status
+    type: f1tenth_messages/msg/MissionStatus
+
+  # diagnostics_server_node, 2 Hz; min_battery_voltage 10.8 V in
+  # stack_params.yaml.
+  - name: battery
+    kind: battery
+    topic: /diagnostics/battery_status
+    type: f1tenth_messages/msg/BatteryStatus
+    min_voltage: 10.8
+
+  # VESC wheel odometry, ~50 Hz. Shown, not required.
+  - name: wheel_odom
+    kind: topic_rate
+    topic: /odom
+    type: nav_msgs/msg/Odometry
+    min_hz: 0
+    required: false
