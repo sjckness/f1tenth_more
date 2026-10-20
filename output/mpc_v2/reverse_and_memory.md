@@ -339,6 +339,10 @@ ROS callbacks, logging and publishing are not in it.
   MEMORY.
 - **When nothing is added:** the message is older than `mpc_semantic_memory_max_age_s`
   (0.5 s), there is no map→odom edge, or `mpc_semantic_memory_enabled: false`.
+  - "No edge" includes `use_map_frame_goal_anchor: false`. `_lookup_map_odom()` returns
+    None then, and the flag defaults to true only for `localization_source: ekf`.
+  - With `raw_odom`, B4 is therefore silently off. Part A's rear grid is not placed either,
+    so the rear side stays `rear_unknown` and no reverse ever starts.
 - front_clearance, the e-stop and the BT are **not** touched.
 
 ### Parameters
@@ -380,13 +384,16 @@ before `f1tenth_costmap` and `mpc_controller`.
     match.
 - **f1tenth_params:** 54 → **69 passed** (`test_semantic_objects.py`, 15: the helper and the
   frames).
-- **mpc_controller:** `test_semantic_memory_consumer.py` (7).
+- **mpc_controller:** `test_semantic_memory_consumer.py` (9).
   - MEMORY objects join the obstacle list with the grown radius, TRACKED ones do not;
   - the rear check gets every object;
   - stale, unplaceable or disabled gives nothing;
   - the confidence filter;
+  - MPC_corr's own `_reverse_env` appends every semantic object to the live ones, and
+    nothing from a stale message (added in review);
   - **a remembered person behind the car (out of view) refuses the reverse** (closed loop,
-    `rear_object`).
+    `rear_object`). This one runs the supervisor on the harness, not MPC_corr's wiring:
+    the two `_reverse_env` tests above cover that.
 - **Lint, flake8 / pep257, unchanged:** costmap 357 / 775, params 100 / 129, messages 0 / 0,
   mpc_controller 1156 / 1197.
 
@@ -409,6 +416,29 @@ before `f1tenth_costmap` and `mpc_controller`.
   reappear immediately under its old id. The BT code is untouched; this is probably better.
 - **In sim**, scan and camera frame names may differ. A failed TF lookup counts as "not
   looking", so objects go to MEMORY rather than being removed.
+- **B4 changes the forward MPC by default** (`mpc_semantic_memory_enabled: true`). Part A's
+  "the forward MPC is unchanged" stops holding whenever a MEMORY object exists.
+  `test_reverse_flag_off_identity` runs without semantic messages, so it does not cover
+  this.
+- **B4 bypasses `obstacle_projector_node`'s plausibility filters.**
+  - The projector drops detections outside the height band `obstacle_z_min`..`obstacle_z_max`
+    (−0.1..2.0 m) and the radius gate `min_obstacle_radius`..`max_obstacle_radius`
+    (0.03..1.5 m). The semantic layer applies neither, only `score_threshold` 0.5 and the
+    3-hit confirmation.
+  - So a remembered object the projector rejected live can now enter the forward obstacle
+    list. The rear check gets the TRACKED ones too.
+  - `obstacle_class_margin_m` is read from `stack_params.yaml`. A launch override reaches
+    the projector's ROS parameter, but not the memory circles.
+- **The go_to target can become an obstacle at the end of its own approach.**
+  - Before B4, the target vanished from the obstacle list once the detector lost it at
+    close range. Now it stays as a MEMORY obstacle, for example inside the 0.8 m stereo
+    depth floor.
+  - A person target also grows by up to +0.6 m, which raises R_safe right where the
+    approach closes.
+  - Untested.
+- **MEMORY objects reach `RearEnv.objects` twice** on the control-loop path:
+  `_reverse_env` receives the list that already includes them, then adds every semantic
+  object. Harmless for a minimum-distance check, so it is left as it is.
 
 ---
 
@@ -427,8 +457,8 @@ What the audit found so far (A0):
 - mission stops reach mpc_corr as `/mpc/hold` or the next goal;
 - `/mission/status` carries IDLE / LOADED / RUNNING / HOLDING / COMPLETE / ABORTED.
 
-D will go **before** C on the branch once its text arrives (the commits are
-self-contained, so inserting it is a clean rebase).
+D will come as **new commits after C**. The branch is pushed, so no history is rewritten:
+no rebase, amend or force-push.
 
 ---
 
@@ -477,9 +507,12 @@ services:
 - the timeout is a single deadline;
 - the shipped default is 15 s.
 
-The llm package suite is 12 failed / 242 passed / 25 skipped. The 12 failures are the same
-ones as before this change: stubs missing `_note_llm_sent` since `dc158d2`, untouched.
-flake8 is unchanged.
+The llm package suite is 14 failed / 242 passed / 25 skipped.
+
+- 12 of the failures were there before this change: stubs missing `_note_llm_sent` since
+  `dc158d2`, untouched.
+- The other 2 are `test_flake8` (165 findings) and `test_pep257`, both also failing at
+  `868ec8a`. flake8 is unchanged.
 
 **⚠ Decision for you — the 15 s countdown is still there.** "No fixed delay anywhere" is
 read here as the planner's own waiting. The countdown is a deliberate test-campaign
@@ -498,14 +531,25 @@ To drop it:
 
 - **Commits** on `mpc_corr_v2_reverse`, oldest first: recon → v2 candidates → v2 cost-to-go
   → v2 tests and report → **A** → **B** → **C**. The ids are in `git log`.
-- **Tests on linus:**
-  - mpc_controller: 19 failed (all 19 pre-existing at `868ec8a`) / 843 passed / 2 strict
-    xfails;
-  - f1tenth_costmap: 305 passed;
-  - f1tenth_params: 69 passed;
-  - llm: 12 pre-existing failures / 242 passed;
+- **Tests on linus**, re-run after the review commit (`colcon test`, DDS isolated):
+  - mpc_controller: 869 tests, 21 failed / 845 passed / 1 skipped / 2 strict xfails.
+    - 19 failures are functional tests. All 19 also fail at `868ec8a`, checked by running
+      the same files on a `git archive` of it.
+    - The other 2 are `test_flake8` and `test_pep257`, also failing at baseline.
+  - f1tenth_costmap: 305 passed.
+  - f1tenth_params: 69 passed.
+  - llm: 14 failed / 242 passed / 25 skipped. The failures are 12 pre-existing
+    `_note_llm_sent` stubs plus flake8 and pep257.
+  - f1tenth_behavior (not touched on this branch): `colcon test` **cannot collect it on
+    linus**, because `py_trees_ros` is not installed.
+    - File by file, 365 pass.
+    - The 2 files that import `behavior_executor_node` cannot be collected, and the 6
+      `test_safety_stop_config` tests that import it fail on the same `ModuleNotFoundError`.
+    - Part D's BT tests will hit this.
   - f1tenth_logger: the suite **cannot be collected on linus** (`pyarrow` is not installed;
-    pre-existing, unrelated). My change there is three topic names in a list.
+    pre-existing, unrelated). The topic-list tests that need no `pyarrow`
+    (`test_viz_topics_not_recorded`, plus the topic tests of `test_mission_logger_node`)
+    pass with the three new topics.
 - **Lint (flake8 / pep257):** no package is above its `868ec8a` baseline.
 - **Builds:** `colcon build --symlink-install --packages-up-to mpc_controller`, then
   `f1tenth_messages`, `f1tenth_params` and `f1tenth_costmap` again after the message

@@ -70,6 +70,32 @@ def test_low_confidence_memory_is_left_out():
     assert MPCController._semantic_circles(_node(OBJS, min_conf=0.5), memory_only=True) == []
 
 
+def test_the_reverse_env_carries_the_live_obstacles_and_every_semantic_object():
+    """MPC_corr's own wiring: _reverse_env appends ALL semantic objects, TRACKED and MEMORY."""
+    node = _node(OBJS)
+    node._rear_grid = None
+    node._bt_allow, node._bt_allow_t = True, 9.9
+    node.hold, node._emergency_stop = False, False
+    node._semantic_circles = lambda memory_only: MPCController._semantic_circles(
+        node, memory_only=memory_only)
+    live = [(5.0, 5.0, 0.3)]
+    env = MPCController._reverse_env(node, live, [])
+    # map -> odom (1, 0, 0): the chair (3, 0) -> (2, 0) and the person (0, 1) -> (-1, 1).
+    assert env.objects == [live[0], pytest.approx((2.0, 0.0, 0.2)),
+                           pytest.approx((-1.0, 1.0, 0.65))]
+
+
+def test_the_reverse_env_gets_no_semantic_object_from_a_stale_message():
+    node = _node(OBJS, age=0.8)
+    node._rear_grid = None
+    node._bt_allow, node._bt_allow_t = None, None
+    node.hold, node._emergency_stop = False, False
+    node._semantic_circles = lambda memory_only: MPCController._semantic_circles(
+        node, memory_only=memory_only)
+    live = [(5.0, 5.0, 0.3)]
+    assert MPCController._reverse_env(node, live, []).objects == live
+
+
 def test_a_remembered_person_behind_refuses_the_reverse():
     cfg = H.shipped_manoeuvre_config()
     # A person the car drove past: out of the camera's view now, in MEMORY,
