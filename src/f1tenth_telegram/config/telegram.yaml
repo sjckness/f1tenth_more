@@ -37,3 +37,8 @@ telegram:
   # Messages older than this are dropped; confirmations expire after it.
   max_command_age_s: 10
   token_env_file: ~/.config/f1tenth_telegram/env
+  # Bot API networking. IPv6 is broken on linus (getMe timed out; curl -6
+  # fails, curl -4 answers in 0.2 s): connect over IPv4 only.
+  force_ipv4: true
+  # Connect, read, write and pool timeout of every Bot API request, seconds.
+  timeout_s: 20

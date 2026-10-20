@@ -21,6 +21,19 @@ def status_answer(stack='stopped', planner='stopped', logger='stopped', ready=Fa
             'estop_latched': latched, 'processes': procs, 'checks': checks}
 
 
+def estop_answer(zero_ok=True, late=False):
+    """f1tenth_ctl estop's JSON: one record per step, and car_held."""
+    def step(ok, msg, ms, **kw):
+        return {'status': 'ok' if ok else 'failed', 'ok': ok, 'message': msg,
+                'duration_ms': ms, **kw}
+    steps = {'zero_drive': step(zero_ok, '100 msgs to 1 subscriber(s)' if zero_ok
+                                else 'no subscriber matched (is ackermann_mux up?)', 2250),
+             'emergency_stop': step(True, 'emergency stop engaged', 640,
+                                    **({'late': True} if late else {})),
+             'abort_mission': step(True, 'no mission to abort (state=IDLE)', 9)}
+    return {'ok': zero_ok, 'car_held': zero_ok, 'steps': steps}
+
+
 class FakeTransport:
     def __init__(self, online=True):
         self.online = online
@@ -57,9 +70,7 @@ class FakeTransport:
                     'latched_after': False, 'verified': True}
         if args[0] == 'estop':
             self.latched = True
-            return {'ok': True, 'service': {'ok': True, 'call_s': 0.1, 'message': 'engaged'},
-                    'publish': {'ok': True, 'after_match': 100, 'rate_hz': 50.0,
-                                'subscribers': 1}}
+            return estop_answer()
         return {'ok': False, 'error': 'unexpected'}
 
 
@@ -159,7 +170,7 @@ def test_estop_runs_while_another_action_holds_the_lock(ctl):
     c._lock.acquire()
     try:
         panel = c.handle('estop')
-        assert fake.calls == [['estop']] and 'E-STOP sent' in panel.last
+        assert fake.calls == [['estop']] and 'car held ✅' in panel.last
         panel = c.handle('status')
         assert 'not queued' in panel.last and fake.calls == [['estop']]
     finally:
@@ -200,9 +211,13 @@ def test_ssh_failure_marks_the_car_offline(ctl):
 
 
 def test_summaries():
-    assert 'LATE 1.2 s' in summary_estop(
-        {'ok': True, 'service': {'ok': True, 'late': True, 'call_s': 1.2, 'message': 'm'},
-         'publish': {'ok': True, 'after_match': 100, 'rate_hz': 50.0, 'subscribers': 1}})
+    held = summary_estop(estop_answer(late=True)).splitlines()
+    assert held[0] == '🛑 E-STOP: car held ✅' and len(held) == 4
+    assert held[1].startswith('✅ zero drive') and 'LATE' in held[2]
+    assert held[3] == ('✅ abort_mission (mission + MPC hold): '
+                       'no mission to abort (state=IDLE) (9 ms)')
+    lost = summary_estop(estop_answer(zero_ok=False)).splitlines()
+    assert lost[0] == '🛑 E-STOP: car NOT confirmed held ❌' and lost[1].startswith('❌')
     assert 'E-STOP NOT SENT' in summary_estop({'ok': False, 'transport_error': 'timeout',
                                                'error': 'no answer within 15 s'})
     assert 'NOT started' in summary_startstop('start', 'stack',

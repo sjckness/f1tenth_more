@@ -323,3 +323,54 @@ Set-up:
   `ackermann_to_vesc_node`, so no mission could be started; the
   abort → `/mpc/hold` step ran only as "no mission to abort".
 
+## 8. Round 3: e-stop holds the mission, bot networking (2026-10-20, NOT sim-tested)
+
+What changed. **None of it ran against the sim or the car.**
+
+1. **`f1tenth_ctl estop`** runs three steps at once, each best effort:
+   - zero drive on `/safety_stop`;
+   - `/mission/emergency_stop` (0.5 s);
+   - `/mission/abort_mission` (1 s; "no mission to abort" is ok).
+
+   It answers one record per step (`status` ok/failed/skipped, `message`,
+   `duration_ms`) and
+   `car_held = zero drive AND (latch OR abort)`.
+   - `estop-reset` keeps its sequence. It now uses the same step records and
+     names for `zero_drive` and `abort_mission`.
+   - The bot's 🛑 reply shows the three steps, ✅/❌, and the result.
+2. **Bot networking:**
+   - `telegram.force_ipv4` (default true): an httpx transport bound to
+     `0.0.0.0`;
+   - `telegram.timeout_s` (default 20) for both the bot request and the
+     `get_updates` request;
+   - `run_polling(bootstrap_retries=-1, drop_pending_updates=True)`;
+   - one INFO line at start (no ids, no token);
+   - httpx's request log is held at WARNING, because Bot API URLs carry the
+     token;
+   - the unit: `Restart=always`, `RestartSec=5`.
+3. **Whitelist** `[857433485]` in `config/telegram.yaml`. It was already
+   committed in `f4a12c9`.
+4. **`output/telegram/estop_proposal.md`**: the e-stop aborts and holds
+   itself, plus `/mission/reset_estop`. A proposal only; no change in
+   `f1tenth_behavior`.
+5. **Docs:**
+   - the bot README: setup on linus, troubleshooting, security;
+   - the f1tenth_ctl README: what estop guarantees and what it does not.
+
+**Checks run:**
+
+| Check | Result |
+|---|---|
+| f1tenth_ctl unit tests | 88 passed |
+| f1tenth_telegram unit tests, venv with python-telegram-bot 22.8 | 56 passed |
+| f1tenth_telegram unit tests, without it | 48 passed, 8 skipped |
+| New tests | estop JSON shape and `car_held` with mocked steps; "no mission to abort" is ok; `force_ipv4`/`timeout_s` parsing and validation; the startup line has no ids; the requests use the configured timeout and an IPv4-bound transport |
+| getMe with the real token through the bot's own IPv4 request | ok, 0.19 s. The token was not printed |
+| `f1tenth_ctl estop --json` on linus, sim profile, no discovery server, no graph | 0.5 s; all three steps `skipped` ("discovery server down"); `car_held: false`; exit 1 |
+| The same with ROS sourced, no discovery server, isolated domain, nothing on the graph | 5.8 s; zero drive "no subscriber matched", both services "service not available"; `car_held: false`; exit 1 |
+
+**Not tested:**
+- the new estop against a running stack (sim or car);
+- the abort step during a RUNNING mission;
+- the bot under systemd with the new networking.
+

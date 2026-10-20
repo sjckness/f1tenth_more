@@ -21,8 +21,10 @@ EnvironmentFile=%h/.config/f1tenth_telegram/env
 Environment=PYTHON=%h/.local/share/f1tenth_telegram/venv/bin/python
 Environment=PYTHONUNBUFFERED=1
 ExecStart=%h/dev_ws/f1tenth_more_telegram/src/f1tenth_telegram/bin/f1tenth_telegram --config %h/dev_ws/f1tenth_more_telegram/src/f1tenth_telegram/config/telegram.yaml
-Restart=on-failure
-RestartSec=10
+# Always: a crash, or an exit after the network went away, comes back. The
+# bot also retries getMe and polling itself (bootstrap_retries=-1).
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=default.target

@@ -154,4 +154,18 @@ def test_estop_command(app):
     ctx = SimpleNamespace(bot=app.bot)
     upd, replies = message_update(OWNER, '/estop')
     run(app.handlers['estop'](upd, ctx))
-    assert app.fake.calls == [['estop']] and 'E-STOP sent' in replies[0]
+    assert app.fake.calls == [['estop']] and 'car held ✅' in replies[0]
+    assert len(replies[0].splitlines()) == 4   # result + one line per step
+
+
+def test_requests_are_ipv4_with_the_configured_timeout():
+    pytest.importorskip('telegram.request')
+    httpx = pytest.importorskip('httpx')
+    cfg = config.from_dict({'telegram': {'timeout_s': 12}})
+    req = tg.make_request(cfg, 32)
+    assert req.read_timeout == 12
+    transport = req._client._transport
+    assert isinstance(transport, httpx.AsyncHTTPTransport)
+    assert transport._pool._local_address == '0.0.0.0'
+    plain = tg.make_request(config.from_dict({'telegram': {'force_ipv4': False}}), 1)
+    assert getattr(plain._client._transport._pool, '_local_address', None) is None

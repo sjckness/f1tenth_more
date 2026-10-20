@@ -95,3 +95,34 @@ def test_token_missing(tmp_path):
     cfg = config.from_dict({'telegram': {'token_env_file': str(tmp_path / 'none')}})
     with pytest.raises(config.ConfigError, match='no TELEGRAM_BOT_TOKEN'):
         config.read_token(cfg, {})
+
+
+def test_network_settings_default_to_ipv4_and_20_s():
+    cfg = config.from_dict({})
+    assert cfg.force_ipv4 is True and cfg.timeout_s == 20.0
+    cfg = config.from_dict({'telegram': {'force_ipv4': False, 'timeout_s': 7.5}})
+    assert cfg.force_ipv4 is False and cfg.timeout_s == 7.5
+
+
+def test_network_settings_are_validated():
+    with pytest.raises(config.ConfigError, match='force_ipv4'):
+        config.from_dict({'telegram': {'force_ipv4': 'yes'}})
+    with pytest.raises(config.ConfigError, match='timeout_s'):
+        config.from_dict({'telegram': {'timeout_s': 'soon'}})
+    with pytest.raises(config.ConfigError, match='> 0'):
+        config.from_dict({'telegram': {'timeout_s': 0}})
+
+
+def test_shipped_car_config():
+    cfg = config.load(os.path.join(PKG, 'config', 'telegram.yaml'))
+    assert cfg.allowed_user_ids == [857433485]
+    assert cfg.force_ipv4 is True and cfg.timeout_s == 20.0
+
+
+def test_startup_line_has_no_ids_and_no_token():
+    from f1tenth_telegram.tg import startup_line
+    cfg = config.from_dict({'telegram': {'allowed_user_ids': [857433485, 42]}})
+    line = startup_line(cfg)
+    assert line == ('starting: ipv4 forced yes, timeout 20 s, target Orin (jetson-orin), '
+                    '2 whitelisted user(s)')
+    assert '857433485' not in line

@@ -128,6 +128,7 @@ class Settings:
     estop_service_timeout_s: float
     estop_publish_s: float
     estop_publish_hz: float
+    estop_abort_timeout_s: float
     estop_reset_service: str
     restart_service: str
     behavior_component: str
@@ -215,6 +216,7 @@ def settings_from_env(env_file: str, env: Dict[str, str]) -> Settings:
         estop_service_timeout_s=_float(env, 'F1T_ESTOP_SERVICE_TIMEOUT_S', 0.5),
         estop_publish_s=_float(env, 'F1T_ESTOP_PUBLISH_S', 2.0),
         estop_publish_hz=_float(env, 'F1T_ESTOP_PUBLISH_HZ', 50.0),
+        estop_abort_timeout_s=_float(env, 'F1T_ESTOP_ABORT_TIMEOUT_S', 1.0),
         # estop-reset: a service that clears the latch in place (none exists
         # today), else the supervisor restarts 'behavior', else a stack restart.
         estop_reset_service=env.get('F1T_ESTOP_RESET_SERVICE', ''),

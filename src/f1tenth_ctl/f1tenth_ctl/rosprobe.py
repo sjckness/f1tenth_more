@@ -251,16 +251,94 @@ def monitor(spec: dict) -> int:
     return 0
 
 
+def step_record(status: str, message: str, duration_s: float, **extra) -> dict:
+    """One step of estop / estop-reset: status ok | failed | skipped."""
+    return {'status': status, 'ok': status == 'ok', 'message': message,
+            'duration_ms': int(round(max(0.0, duration_s) * 1000)), **extra}
+
+
+ABORT_NOTHING = 'no mission to abort'
+
+
+def abort_ok(message: str) -> bool:
+    """`no mission to abort (state=...)` means nothing can resume: a success."""
+    return message.startswith(ABORT_NOTHING)
+
+
+class ServiceStep:
+    """
+    One service call inside estop, polled so it never blocks the others.
+
+    The call_timeout counts from the request. Finding the server runs inside
+    the zero-drive window, so it delays nothing; an answer that comes after
+    call_timeout but inside the window is still taken, marked late.
+    """
+
+    def __init__(self, node, srv_type, name: str, call_timeout: float, t0: float,
+                 ok_if=None):
+        self.srv_type = srv_type
+        self.name = name
+        self.call_timeout = call_timeout
+        self.t0 = t0
+        self.ok_if = ok_if
+        self.client = node.create_client(srv_type, name) if name else None
+        self.future = None
+        self.sent_at = None
+        self.record = None
+        if self.client is None:
+            self.record = step_record('skipped', 'no service configured', 0.0, service=name)
+
+    @property
+    def done(self) -> bool:
+        return self.record is not None
+
+    def poll(self, now: float, window_end: float) -> None:
+        if self.done:
+            return
+        if self.future is None:
+            if self.client.service_is_ready():
+                self.sent_at = now
+                self.future = self.client.call_async(self.srv_type.Request())
+            elif now >= window_end:
+                self.record = step_record('failed', 'service not available', now - self.t0,
+                                          service=self.name)
+            return
+        waited = now - self.sent_at
+        if self.future.done():
+            resp = self.future.result()
+            extra = {'service': self.name, 'call_ms': int(round(waited * 1000))}
+            if resp is None:
+                self.record = step_record('failed', str(self.future.exception()),
+                                          now - self.t0, **extra)
+                return
+            ok = bool(resp.success) or bool(self.ok_if and self.ok_if(resp.message))
+            if waited > self.call_timeout:
+                extra['late'] = True
+            self.record = step_record('ok' if ok else 'failed', resp.message, now - self.t0,
+                                      **extra)
+        elif waited > self.call_timeout and now >= window_end:
+            self.record = step_record('failed', f'no answer within {waited:.1f} s '
+                                      f'(timeout {self.call_timeout:g} s)', now - self.t0,
+                                      service=self.name)
+
+    def give_up(self, now: float) -> None:
+        if not self.done:
+            self.record = step_record('failed', 'gave up', now - self.t0, service=self.name)
+
+
 def estop(spec: dict) -> dict:
     """
-    Zero drive on the top mux lane and the e-stop service, at the same time.
+    Hold the car: three steps at once, each best effort, none waits for another.
 
-    Publishing runs for publish_s counted from the moment the first
-    subscriber (the mux) matched, not from start-up: on a loaded machine
-    matching took over a second (2026-10-20), and zeros sent before it reach
-    nobody. The service gets service_timeout_s to answer; a later answer
-    inside the publish window is still reported, marked late, because the
-    latch has engaged all the same.
+    a) zero_drive: zero speed and steering on the mux's top lane (/safety_stop,
+       priority 200, 0.2 s timeout) at publish_hz, starting at once, for
+       publish_s counted from the moment the mux matched;
+    b) emergency_stop: /mission/emergency_stop, which latches the behaviour
+       tree's own zero on the same lane (service_timeout_s, 0.5 s);
+    c) abort_mission: /mission/abort_mission, which ends a LOADED/RUNNING
+       mission and puts mpc_corr on /mpc/hold (abort_timeout_s, 1 s).
+       "No mission to abort" is a success.
+    car_held = a) published AND (b) ok OR c) ok).
     """
     import rclpy
     from rclpy.executors import SingleThreadedExecutor
@@ -270,60 +348,42 @@ def estop(spec: dict) -> dict:
     t0 = time.monotonic()
     node = _node('f1tenth_ctl_estop', spec.get('use_sim_time', False))
     zero = ZeroDrive(node, spec['topic'], float(spec.get('publish_hz', 50.0)))
-    client = node.create_client(Trigger, spec['service'])
+    steps = {
+        'emergency_stop': ServiceStep(node, Trigger, spec.get('service', ''),
+                                      float(spec.get('service_timeout_s', 0.5)), t0),
+        'abort_mission': ServiceStep(node, Trigger, spec.get('abort_service', ''),
+                                     float(spec.get('abort_timeout_s', 1.0)), t0,
+                                     ok_if=abort_ok),
+    }
     publish_s = float(spec.get('publish_s', 2.0))
-    call_timeout = float(spec.get('service_timeout_s', 0.5))
     match_grace = float(spec.get('match_grace_s', 3.0))
-    svc = {'state': 'waiting', 'future': None, 'sent_at': None}
-    svc_out = {'service': spec['service']}
-    end_publish = t0 + match_grace + publish_s
+    window_end = t0 + match_grace + publish_s
+    hard_end = window_end + 2.0
 
     ex = SingleThreadedExecutor()
     ex.add_node(node)
     while True:
         now = time.monotonic()
-        if now >= end_publish and svc['state'] == 'done':
+        if (now >= window_end and all(st.done for st in steps.values())) or now >= hard_end:
             break
-        if now < end_publish:
+        if now < window_end:
             matched = zero.first_match is not None
             zero.tick(now)
             if not matched and zero.first_match is not None:
-                end_publish = zero.first_match + publish_s
-        if svc['state'] == 'waiting':
-            if client.service_is_ready():
-                svc_out['found_after_s'] = round(now - t0, 3)
-                svc['future'] = client.call_async(Trigger.Request())
-                svc['sent_at'] = now
-                svc['state'] = 'sent'
-            elif now >= end_publish:
-                svc['state'] = 'done'
-                svc_out.update(ok=False, error='service not found')
-        elif svc['state'] == 'sent':
-            fut = svc['future']
-            waited = now - svc['sent_at']
-            if fut.done():
-                svc['state'] = 'done'
-                resp = fut.result()
-                svc_out['call_s'] = round(waited, 3)
-                svc_out['within_timeout'] = waited <= call_timeout
-                if resp is None:
-                    svc_out.update(ok=False, error=str(fut.exception()))
-                else:
-                    svc_out.update(ok=bool(resp.success), message=resp.message)
-                    if waited > call_timeout:
-                        svc_out['late'] = True
-            elif waited > call_timeout and now >= end_publish:
-                svc['state'] = 'done'
-                svc_out.update(ok=False, error=f'no response ({waited:.1f} s; timeout '
-                                               f'{call_timeout:g} s)')
+                window_end = zero.first_match + publish_s
+                hard_end = window_end + 2.0
+        for st in steps.values():
+            st.poll(now, window_end)
         ex.spin_once(timeout_sec=0.002)
-    publish_out = zero.report(time.monotonic())
-    publish_out['rate_hz'] = (round(zero.after_match / publish_s, 1)
-                              if zero.first_match is not None else 0.0)
-    if not publish_out['ok']:
-        publish_out['error'] = 'no subscriber matched (is ackermann_mux up?)'
+    now = time.monotonic()
+    for st in steps.values():
+        st.give_up(now)
+    out = {'zero_drive': zero.report(now, publish_s)}
+    out.update({name: st.record for name, st in steps.items()})
+    car_held = out['zero_drive']['ok'] and (out['emergency_stop']['ok']
+                                            or out['abort_mission']['ok'])
     _close(ex, node)
-    return {'service': svc_out, 'publish': publish_out}
+    return {'steps': out, 'car_held': bool(car_held)}
 
 
 def choose_reset_path(reset_service: str, reset_ready: bool, restart_ready: bool) -> str:
@@ -378,14 +438,18 @@ class ZeroDrive:
         if self.first_match is None and subs > 0:
             self.first_match = now
 
-    def report(self, now: float) -> dict:
+    def report(self, now: float, window_s: float = None) -> dict:
         span = now - self._t0 if self._t0 is not None else 0.0
-        return {'topic': self.topic, 'count': self.count, 'after_match': self.after_match,
-                'subscribers': self.subscribers,
-                'matched_after_s': (None if self.first_match is None
-                                    else round(self.first_match - self._t0, 3)),
-                'duration_s': round(span, 2),
-                'ok': self.first_match is not None and self.after_match > 0}
+        ok = self.first_match is not None and self.after_match > 0
+        extra = {'topic': self.topic, 'count': self.count, 'after_match': self.after_match,
+                 'subscribers': self.subscribers,
+                 'matched_after_ms': (None if self.first_match is None
+                                      else int(round((self.first_match - self._t0) * 1000)))}
+        if ok and window_s:
+            extra['rate_hz'] = round(self.after_match / window_s, 1)
+        message = (f'{self.after_match} msgs to {self.subscribers} subscriber(s)' if ok
+                   else 'no subscriber matched (is ackermann_mux up?)')
+        return step_record('ok' if ok else 'failed', message, span, **extra)
 
 
 def _status_sub(node, spec, store):
@@ -399,7 +463,7 @@ def _status_sub(node, spec, store):
                              _qos(True, True, 1))
 
 
-def _call(ex, client, request, timeout: float, busy=None) -> dict:
+def _call(ex, client, request, timeout: float, busy=None, ok_if=None) -> dict:
     """Call a service, spinning (and running `busy`) until the answer or the timeout."""
     t0 = time.monotonic()
     fut = client.call_async(request)
@@ -407,13 +471,14 @@ def _call(ex, client, request, timeout: float, busy=None) -> dict:
         ex.spin_once(timeout_sec=0.005)
         if busy:
             busy(time.monotonic())
-    took = round(time.monotonic() - t0, 3)
+    took = time.monotonic() - t0
     if not fut.done():
-        return {'ok': False, 'error': f'no answer within {timeout:g} s', 'call_s': took}
+        return step_record('failed', f'no answer within {timeout:g} s', took)
     resp = fut.result()
     if resp is None:
-        return {'ok': False, 'error': str(fut.exception()), 'call_s': took}
-    return {'ok': bool(resp.success), 'message': resp.message, 'call_s': took}
+        return step_record('failed', str(fut.exception()), took)
+    ok = bool(resp.success) or bool(ok_if and ok_if(resp.message))
+    return step_record('ok' if ok else 'failed', resp.message, took)
 
 
 def estop_reset(spec: dict) -> dict:
@@ -495,8 +560,9 @@ def estop_reset(spec: dict) -> dict:
         _close(ex, node)
         return out
     # 3. abort the interrupted mission: nothing may resume after the reset
-    out['abort'] = (_call(ex, abort_cli, Trigger.Request(), 3.0, zero.tick)
-                    if abort_cli.service_is_ready() else {'ok': False, 'error': 'not available'})
+    out['abort_mission'] = (
+        _call(ex, abort_cli, Trigger.Request(), 3.0, zero.tick, ok_if=abort_ok)
+        if abort_cli.service_is_ready() else step_record('failed', 'service not available', 0.0))
     # 4. the reset
     t_action = time.monotonic()
     if path == 'reset_service':

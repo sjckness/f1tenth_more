@@ -103,11 +103,17 @@ def render(out: dict) -> str:
         return (head + f"  ready to launch: {'yes' if out.get('ready_to_launch') else 'no'}\n"
                 + f"  discovery: {disc.get('state')} {disc.get('address', '')}\n"
                 + _items(out['check'].get('items', [])))
+    if out.get('cmd') == 'estop' and 'steps' in out:
+        lines = [f"  car held: {'YES' if out.get('car_held') else 'NO'}"]
+        for name, st in out['steps'].items():
+            lines.append(f"  {st.get('status', '?'):<7} {name:<15} {st.get('message', '')} "
+                         f"({st.get('duration_ms')} ms){' LATE' if st.get('late') else ''}")
+        return head + '\n' + '\n'.join(lines)
     if out.get('cmd') == 'estop-reset' and 'path' in out:
         lines = [f"  path: {out.get('path')}",
                  f"  latched before: {out.get('latched_before')}, "
                  f"after: {out.get('latched_after')}, verified: {out.get('verified')}"]
-        for key in ('abort', 'restart', 'reset', 'stop', 'start', 'zero_drive'):
+        for key in ('abort_mission', 'restart', 'reset', 'stop', 'start', 'zero_drive'):
             if key in out:
                 lines.append(f'  {key}: {json.dumps(out[key], default=str)}')
         return head + '\n' + '\n'.join(lines)

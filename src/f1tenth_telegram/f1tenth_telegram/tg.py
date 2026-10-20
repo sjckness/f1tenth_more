@@ -23,6 +23,33 @@ from .guard import allowed, is_stale
 log = logging.getLogger('f1tenth_telegram')
 
 
+def make_request(cfg: Config, pool_size: int):
+    """
+    Build an HTTPXRequest for the Bot API (python-telegram-bot 22.x).
+
+    One timeout for connect, read, write and pool. With force_ipv4, an httpx
+    transport bound to 0.0.0.0, so every connection is IPv4: linus's IPv6
+    route is broken, and getMe timed out on it. A custom transport ignores
+    the client's own limits, so the pool size is set on it too.
+    """
+    from telegram.request import HTTPXRequest
+    t = cfg.timeout_s
+    kwargs = {}
+    if cfg.force_ipv4:
+        import httpx
+        kwargs['httpx_kwargs'] = {'transport': httpx.AsyncHTTPTransport(
+            local_address='0.0.0.0', limits=httpx.Limits(max_connections=pool_size))}
+    return HTTPXRequest(connection_pool_size=pool_size, connect_timeout=t, read_timeout=t,
+                        write_timeout=t, pool_timeout=t, **kwargs)
+
+
+def startup_line(cfg: Config) -> str:
+    """Return the INFO line logged at start: never the token, never the user ids."""
+    return (f'starting: ipv4 forced {"yes" if cfg.force_ipv4 else "no"}, '
+            f'timeout {cfg.timeout_s:g} s, target {cfg.target.name} ({cfg.target.host}), '
+            f'{len(cfg.allowed_user_ids)} whitelisted user(s)')
+
+
 def run_bot(cfg: Config, controller: Controller, token: str) -> None:
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
     from telegram.error import BadRequest
@@ -113,14 +140,24 @@ def run_bot(cfg: Config, controller: Controller, token: str) -> None:
         panel = await work
         await show(context.bot, chat_id, panel)
 
-    app = Application.builder().token(token).concurrent_updates(True).build()
+    # httpx logs every request URL at INFO, and a Bot API URL contains the
+    # token: keep it out of the journal.
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    log.info(startup_line(cfg))
+    app = (Application.builder().token(token)
+           .request(make_request(cfg, 32))
+           # Long polling holds one connection; its read timeout gets the poll
+           # timeout added by get_updates itself.
+           .get_updates_request(make_request(cfg, 1))
+           .concurrent_updates(True).build())
     app.add_handler(CommandHandler(['start', 'panel'], cmd_panel))
     app.add_handler(CommandHandler('estop', cmd_estop))
     app.add_handler(CallbackQueryHandler(on_button))
     if not cfg.allowed_user_ids:
         log.warning('allowed_user_ids is empty: every update is ignored, and logged '
                     'with its user id')
-    log.info('polling as target %s (%s)', cfg.target.name, cfg.target.host)
     # Pending updates are dropped: nothing sent while the bot was down runs.
-    app.run_polling(drop_pending_updates=True,
+    # bootstrap_retries=-1: getMe and the start of polling are retried forever,
+    # so a network that is not up yet at boot does not end the service.
+    app.run_polling(drop_pending_updates=True, bootstrap_retries=-1,
                     allowed_updates=[Update.MESSAGE, Update.CALLBACK_QUERY])

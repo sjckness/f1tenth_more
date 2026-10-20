@@ -48,6 +48,11 @@ class Config:
     allowed_user_ids: List[int]
     max_command_age_s: float = 10.0
     token_env_file: str = '~/.config/f1tenth_telegram/env'
+    # Telegram API networking: IPv4 only (IPv6 is broken on linus: getMe timed
+    # out while `curl -4` answered in 0.2 s), and one timeout for connect,
+    # read, write and pool.
+    force_ipv4: bool = True
+    timeout_s: float = 20.0
 
     def timeout(self, cmd: str) -> float:
         return float(self.timeouts.get(cmd, self.timeouts['default']))
@@ -77,9 +82,19 @@ def from_dict(data: dict) -> Config:
         ids = [int(x) for x in (tg.get('allowed_user_ids') or [])]
     except (TypeError, ValueError) as exc:
         raise ConfigError('telegram.allowed_user_ids must be numeric user ids') from exc
+    force_ipv4 = tg.get('force_ipv4', True)
+    if not isinstance(force_ipv4, bool):
+        raise ConfigError('telegram.force_ipv4 must be true or false')
+    try:
+        timeout_s = float(tg.get('timeout_s', 20.0))
+    except (TypeError, ValueError) as exc:
+        raise ConfigError('telegram.timeout_s must be a number of seconds') from exc
+    if timeout_s <= 0:
+        raise ConfigError('telegram.timeout_s must be > 0')
     return Config(target=target, timeouts=timeouts, allowed_user_ids=ids,
                   max_command_age_s=float(tg.get('max_command_age_s', 10.0)),
-                  token_env_file=tg.get('token_env_file', '~/.config/f1tenth_telegram/env'))
+                  token_env_file=tg.get('token_env_file', '~/.config/f1tenth_telegram/env'),
+                  force_ipv4=force_ipv4, timeout_s=timeout_s)
 
 
 def load(path: Optional[str] = None) -> Config:

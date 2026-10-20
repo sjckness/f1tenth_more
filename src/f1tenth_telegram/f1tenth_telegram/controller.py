@@ -242,20 +242,24 @@ def summary_estop_reset(res: dict) -> str:
     return f'🔓 e-stop reset FAILED ({path}): {_err(res)}'
 
 
+ESTOP_STEP_LABEL = (('zero_drive', 'zero drive on /safety_stop'),
+                    ('emergency_stop', 'emergency_stop (latch)'),
+                    ('abort_mission', 'abort_mission (mission + MPC hold)'))
+STEP_ICON = {'ok': '✅', 'failed': '❌', 'skipped': '⏭'}
+
+
 def summary_estop(res: dict) -> str:
+    """One line for the result, then one line per step."""
     if res.get('transport_error'):
         return f'🛑 E-STOP NOT SENT: {_err(res)}'
-    svc = res.get('service') or {}
-    pub = res.get('publish') or {}
-    if svc.get('ok'):
-        late = f' LATE {svc.get("call_s")} s' if svc.get('late') else f' {svc.get("call_s")} s'
-        s = f'service ✅{late} ({svc.get("message")})'
-    else:
-        s = f'service ❌ {svc.get("error")}'
-    if pub.get('ok'):
-        p = (f'zero drive ✅ {pub.get("after_match")} msgs at {pub.get("rate_hz")} Hz '
-             f'to {pub.get("subscribers")} subscriber(s)')
-    else:
-        p = f'zero drive ❌ {pub.get("error")}'
-    head = '🛑 E-STOP sent' if res.get('ok') else '🛑 E-STOP FAILED'
-    return f'{head}: {s} · {p}'
+    steps = res.get('steps') or {}
+    head = ('🛑 E-STOP: car held ✅' if res.get('car_held')
+            else '🛑 E-STOP: car NOT confirmed held ❌')
+    lines = [head]
+    for key, label in ESTOP_STEP_LABEL:
+        st = steps.get(key) or {}
+        icon = STEP_ICON.get(st.get('status'), '❔')
+        late = ' LATE' if st.get('late') else ''
+        lines.append(f'{icon} {label}: {st.get("message", "no answer")} '
+                     f'({st.get("duration_ms", "?")} ms{late})')
+    return '\n'.join(lines)

@@ -168,18 +168,41 @@ Python node with raw subscriptions to the topics above.
 
 ## estop
 
-Two parts run at once, and each reports for itself:
+**Three steps, started together.** Each is best effort with its own timeout,
+and none waits for another:
 
-- **The service.** It calls `/mission/emergency_stop` (`std_srvs/Trigger`).
-  - The call timeout is 0.5 s; a later answer inside the publish window is
-    reported as late.
-  - The service latches until `behavior` restarts. Status then says
-    `estop_latched: true`, and READY is false with `estop_latched` failing.
-- **Zero drive.** It publishes zero speed and steering on `/safety_stop`,
-  the mux's highest-priority lane (priority 200, 0.2 s timeout).
-  - Rate 50 Hz, for 2 s counted from the moment the mux matched.
+| Step | What it does | Timeout |
+|---|---|---|
+| `zero_drive` | Zero speed and steering on `/safety_stop`, the mux's highest-priority lane (priority 200, 0.2 s timeout). It starts at once, at 50 Hz, and lasts 2 s counted from the moment the mux matched; only messages after that count | waits up to 3 s for the mux |
+| `emergency_stop` | `/mission/emergency_stop`: latches the behaviour tree's own zero on the same lane until `behavior` restarts. Status then says `estop_latched: true`, and READY fails | 0.5 s per call; a later answer inside the window is taken, marked `late` |
+| `abort_mission` | `/mission/abort_mission`: ends a LOADED/RUNNING mission and puts mpc_corr on `/mpc/hold`, so nothing resumes when the latch is cleared. "No mission to abort" counts as ok | 1 s per call |
 
-It never stops or kills anything.
+**The answer.** Each step reports `status` (`ok` / `failed` / `skipped`),
+`message`, `duration_ms` (from the start of the estop) and, for a service,
+`call_ms`. Overall:
+
+`car_held = zero_drive ok AND (emergency_stop ok OR abort_mission ok)`
+
+- With the discovery server down, nothing can be reached: every step is
+  `skipped` and the answer comes in about 0.5 s.
+- With no graph at all, the steps fail after the 5 s window.
+- It never stops or kills anything.
+
+**What it guarantees, and what it does not.**
+- **When `car_held` is true:** at that moment the mux had a zero command on
+  its top lane, and either the tree's own latched zero or the MPC hold was
+  engaged.
+- **It does not confirm the car stopped.** It reads no odometry, and a car
+  already rolling still needs its braking distance.
+- **The 0.2 s mux timeout.** The zero drive ends after 2 s. Afterwards only
+  the tree's 10 Hz zero (the latch) and the MPC hold keep the car still. On a
+  loaded machine the mux can let a single lower-lane command through between
+  two late zeros (`output/telegram/test.md` §7).
+- **If `behavior` crashes or is restarted while latched,** the latch is gone;
+  only the MPC hold from `abort_mission` remains.
+  `output/telegram/estop_proposal.md` proposes the fix.
+- **It needs the stack's mux, `behavior` and the network path.** None of them
+  is guaranteed when something is badly wrong.
 
 **Latency.** Over Telegram and ssh it takes seconds:
 
@@ -190,7 +213,8 @@ It never stops or kills anything.
 | Python + rclpy | ~1 s |
 | matching | 1–2 s on a loaded machine |
 
-This is not the primary e-stop.
+**This is not the primary e-stop.** The RC transmitter, or the physical
+switch, is.
 
 ## estop-reset
 

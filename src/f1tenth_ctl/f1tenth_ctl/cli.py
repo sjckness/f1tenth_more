@@ -345,22 +345,49 @@ def _measure(settings: Settings, thr: dict, t_begin: float) -> dict:
             'age_s': snap['age_s'], 'warming_up': snap['warming_up']}
 
 
+ESTOP_STEPS = ('zero_drive', 'emergency_stop', 'abort_mission')
+
+
+def estop_result(steps: dict, error: str = None) -> dict:
+    """
+    Build estop's answer from its step records (pure).
+
+    car_held = zero drive published AND (emergency_stop OK OR abort_mission OK).
+    A step that never ran (no ROS, no discovery server) is `skipped`.
+    """
+    full = {}
+    for name in ESTOP_STEPS:
+        full[name] = steps.get(name) or {'status': 'skipped', 'ok': False,
+                                         'message': error or 'not run', 'duration_ms': 0}
+    held = full['zero_drive']['ok'] and (full['emergency_stop']['ok']
+                                         or full['abort_mission']['ok'])
+    out = {'ok': bool(held), 'car_held': bool(held), 'steps': full,
+           'note': 'nothing was stopped or killed'}
+    if error:
+        out['error'] = error
+    return out
+
+
 def cmd_estop(settings: Settings, args) -> dict:
+    disc = discovery.status(settings)
+    if disc['state'] != 'disabled' and not disc.get('listening'):
+        # Nothing on this graph can be reached: answer at once.
+        return estop_result({}, 'discovery server down: nothing reachable')
     try:
         sim = bool(_thresholds(settings).get('use_sim_time'))
     except ready.ReadyConfigError:
         sim = False
     spec = {'topic': settings.estop_topic, 'service': settings.estop_service,
             'service_timeout_s': settings.estop_service_timeout_s,
+            'abort_service': settings.abort_service,
+            'abort_timeout_s': settings.estop_abort_timeout_s,
             'publish_s': settings.estop_publish_s, 'publish_hz': settings.estop_publish_hz,
             'use_sim_time': sim}
-    res = run_rosprobe(settings, 'estop', spec,
-                       timeout=settings.estop_publish_s + settings.estop_service_timeout_s + 8)
+    # Match grace 3 s + publish window + 2 s for late answers + start-up.
+    res = run_rosprobe(settings, 'estop', spec, timeout=settings.estop_publish_s + 10.0)
     if 'error' in res:
-        return {'ok': False, 'error': res['error']}
-    svc, pub = res['service'], res['publish']
-    return {'ok': bool(svc.get('ok') or pub.get('ok')), 'service': svc, 'publish': pub,
-            'note': 'nothing was stopped or killed'}
+        return estop_result({}, res['error'])
+    return estop_result(res.get('steps') or {})
 
 
 def cmd_estop_reset(settings: Settings, args) -> dict:

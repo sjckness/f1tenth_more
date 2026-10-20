@@ -23,3 +23,5 @@ telegram:
   allowed_user_ids: []
   max_command_age_s: 10
   token_env_file: ~/.config/f1tenth_telegram/env
+  force_ipv4: true
+  timeout_s: 20
