@@ -107,6 +107,23 @@ class ManoeuvreConfig:
     max_reverse_speed_mps: float = 0.0
 
 
+def validate_reverse_mechanisms(allow_reverse: bool, reverse_auto_enabled: bool) -> None:
+    """Raise ValueError if both reverse mechanisms are switched on.
+
+    allow_reverse (reverse_mpc.py: the forward MPC chooses reverse itself among
+    direction candidates) and reverse_auto_enabled (this module: a committed
+    manoeuvre when stuck) would both command the car's direction. Both stay in
+    the code; at most one may be enabled at startup.
+    """
+    if allow_reverse and reverse_auto_enabled:
+        raise ValueError(
+            'allow_reverse (multi-candidate reverse, reverse_mpc.py) and '
+            'reverse_auto_enabled (the stuck reverse manoeuvre, reverse_manoeuvre.py) '
+            'are both true: only one reverse mechanism may be enabled. Set one of them '
+            'false (stack_params.yaml defaults: allow_reverse false, '
+            'reverse_auto_enabled true).')
+
+
 def rear_horizon(cfg: ManoeuvreConfig) -> int:
     """N_rear = ceil(L / (v_rev * dt)), clamped to [n_min, n_max]."""
     n = int(math.ceil(cfg.corridor_length_m / max(cfg.v_rev_mps * cfg.rear_dt_s, 1e-9)))

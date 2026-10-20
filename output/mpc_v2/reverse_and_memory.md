@@ -723,6 +723,59 @@ real run once `ros-jazzy-py-trees-ros` is in.
 
 ---
 
+## Two reverse mechanisms: at most one at startup
+
+**Before:** with both on, mpc_corr only WARNed and silently dropped Part A. **Now** it
+refuses to start. The two mechanisms are `allow_reverse` (the multi-candidate MPC v2,
+`reverse_mpc.py`, default false) and `reverse_auto_enabled` (Part A's manoeuvre, default
+true). `validate_reverse_mechanisms` (`reverse_manoeuvre.py`) runs in
+`MPC_corr._init_reverse_manoeuvre`:
+
+- **Both true:** one FATAL line `REVERSE | STARTUP REFUSED: ...` naming both parameters
+  and the defaults, then a `ValueError` that ends the node.
+- **What it reads:** the parameters as set. `allow_reverse` is read before the speed-limit
+  check that can switch it off.
+- **Kept as before:** `allow_reverse` on with `reverse_auto_enabled` off still builds no
+  Part A supervisor (now an INFO line).
+- **Deleted:** neither mechanism.
+- **Tests:** 4 cases in `test_reverse_manoeuvre.py`.
+
+**Why the multi-candidate version fails door scenarios b and c**
+(`output/reverse/report.md`, "Why the door does not work"):
+
+- **The cause.** The selector scores each direction's QP plan with the lattice cost-to-go,
+  and the two disagree at a jamb. The cost-to-go checks the whole footprint. The QP sees
+  only its nose-line probes and the rear-axle point, so it cannot see a body corner meeting
+  the jamb.
+- **Scenario c (door seen early).** The forward plan's end flips between "collision" and
+  "free" every few centimetres of creep, its score between about 7 and about 150. The
+  selector dithers: 13 direction changes, no entry.
+- **Scenario b (door seen late).** The car brakes and reverses 1.1 m correctly. From there,
+  no forward plan the QP can produce ends free.
+- **The lattice is also optimistic about steering.** It changes steering instantly; the QP
+  is held to 0.5 rad/s, which costs about 0.3 m of path per full change, more than a 1.3 m
+  hall with a 0.9 m door leaves.
+
+## Pre-existing test failures (not fixed here)
+
+All 19 mpc_controller and 12 llm failures also fail on a `git archive 868ec8a` export
+(this branch's base). The causes are read from the failure messages, not root-caused.
+
+| Test | Count | Cause, one line |
+|---|---|---|
+| mpc_controller `test_corridor_direction_recovery` | 1 | Frozen-heading geometry assertion (`True is not false`). |
+| mpc_controller `test_corridor_sizing` | 1 | Passing-person half-width 0.8645 m < the asserted 0.870 m. |
+| mpc_controller `test_d_wall_correction` | 1 | `drive_stop_2m_from_wall.json` is a `straight` move; the test expects `wall_turn`. |
+| mpc_controller `test_drive_limits` | 1 | go_to approach speed: the stack has 0.5 m/s, the test expects 0.4. |
+| mpc_controller `test_model_log` | 1 | The model-log CSV header differs from the analysis script's header. |
+| mpc_controller `test_prediction_step` | 2 | dt 0.1 vs the expected 0.2 s; lookahead floor 1.25 vs 2.5 m. |
+| mpc_controller `test_steering_limits` | 8 | Package `f1tenth_hardware` is not built/found in this workspace. |
+| mpc_controller `test_wall_turn_increment` | 3 | Trigger 2.30 vs 3.71 m (work-order table), an asymmetry assertion, a psi increment of 0. |
+| mpc_controller `test_weight_set` | 1 | `w_du_delta` 2.9155 vs the expected 3.0. |
+| llm (`f1tenth_intelligence`) | 12 | The test stubs lack `_note_llm_sent` (missing since `dc158d2`). |
+
+---
+
 ## Part C — LLM: start as soon as loaded
 
 **Where the ~15 s came from.** Not from the LLM planner.

@@ -45,7 +45,8 @@ from mpc_controller.object_approach import (
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
 from mpc_controller.reverse_manoeuvre import (
-    Grid, ManoeuvreConfig, RearEnv, RearSolver, ReverseSupervisor)
+    Grid, ManoeuvreConfig, RearEnv, RearSolver, ReverseSupervisor,
+    validate_reverse_mechanisms)
 from mpc_controller.reverse_mpc import (
     extend_corridor_backwards, floor_moving_speed_signed, rear_probe_offsets, ReverseConfig,
     ReversePlanner)
@@ -1822,6 +1823,9 @@ class MPCController(Node):
         # is read on the control path (test_reverse_flag_off_identity.py).
         self.allow_reverse = bool(self.declare_parameter(
             'allow_reverse', get_value('allow_reverse')).value)
+        # As set, before the speed-limit check below may switch it off: the
+        # one-mechanism rule (_init_reverse_manoeuvre) is about the settings.
+        self._allow_reverse_param = self.allow_reverse
         self.reverse_planner = None
         self.reverse_debug_pub = None
         reverse_cfg = self._reverse_config()   # declared either way, read only if on
@@ -3576,10 +3580,16 @@ class MPCController(Node):
             max_reverse_speed_mps=float(self.max_reverse_speed))
         rear_weights = {k: float(_p(f'mpc_rear.{k}')) for k in self.weights}
         costmap_topic = str(_p('rear_costmap_topic'))
+        # One reverse mechanism at a time: both on refuses to start.
+        try:
+            validate_reverse_mechanisms(self._allow_reverse_param, cfg.auto_enabled)
+        except ValueError as exc:
+            self.get_logger().fatal(f'REVERSE | STARTUP REFUSED: {exc}')
+            raise
         if self.allow_reverse:
-            self.get_logger().warn(
-                'REVERSE/manoeuvre | disabled: allow_reverse is on (the forward MPC '
-                'chooses reverse itself); one reverse mechanism at a time')
+            self.get_logger().info(
+                'REVERSE/manoeuvre | not built: allow_reverse is on (the forward MPC '
+                'chooses reverse itself) and reverse_auto_enabled is off')
             return
         if self.max_reverse_speed < cfg.v_rev_mps:
             self.get_logger().warn(

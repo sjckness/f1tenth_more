@@ -1474,7 +1474,7 @@ max_reverse_speed_mps:
 # recon.md section 5): turning this on is an operator decision.
 allow_reverse:
   default: false
-  description: "Let mpc_corr choose to drive in reverse: each tick it solves forward, reverse and reverse-then-forward candidates and picks one with hysteresis (reverse_mpc.py). Requires max_reverse_speed_mps >= reverse_v_rev_max_mps. Prototype, nominal-model tested only."
+  description: "Let mpc_corr choose to drive in reverse: each tick it solves forward, reverse and reverse-then-forward candidates and picks one with hysteresis (reverse_mpc.py). Requires max_reverse_speed_mps >= reverse_v_rev_max_mps. Prototype, nominal-model tested only. mpc_corr refuses to start if this and reverse_auto_enabled are both true."
 reverse_switch_times_s:
   default: [1.0, 2.0]
   description: "Reverse-then-forward candidates C_T: reverse until T [s], forward after. A T at or past the horizon end (N * mpc_prediction_dt_s, 2.0 s at 0.1) is the all-reverse candidate and is dropped as a duplicate."
@@ -1581,7 +1581,7 @@ car_rear_offset_m:
 # side reports "reverse_speed_limit" and never becomes ready.
 reverse_auto_enabled:
   default: true
-  description: "Let mpc_corr start a reverse manoeuvre by itself when stuck (still gated by rear readiness, /bt/allow_reverse and max_reverse_speed_mps). /mpc/request_reverse works either way."
+  description: "Let mpc_corr start a reverse manoeuvre by itself when stuck (still gated by rear readiness, /bt/allow_reverse and max_reverse_speed_mps). /mpc/request_reverse works either way. mpc_corr refuses to start if this and allow_reverse are both true."
 rear_solver_mode:
   default: "lazy"
   description: "'lazy': the rear solver runs only while the stuck timer runs (normal driving never pays for it). 'always': every tick (for timing comparisons)."

@@ -12,7 +12,7 @@ import math
 from mpc_controller.reverse_manoeuvre import (
     Grid, map_to_odom_point, MODE_FORWARD, MODE_REVERSE, MODE_STOPPING, MODE_STUCK,
     odom_to_map_point, rear_corridor, rear_horizon, rear_strip_check, RearEnv,
-    ReverseSupervisor)
+    ReverseSupervisor, validate_reverse_mechanisms)
 import numpy as np
 import pytest
 
@@ -439,3 +439,13 @@ def test_a_new_move_lifts_the_stuck_give_up():
     sup.attempts = 3
     sup.new_move()
     assert sup.mode == MODE_FORWARD and sup.attempts == 0
+
+
+@pytest.mark.parametrize('allow_reverse,auto', [(False, True), (True, False), (False, False)])
+def test_one_reverse_mechanism_at_a_time_starts(allow_reverse, auto):
+    validate_reverse_mechanisms(allow_reverse, auto)
+
+
+def test_both_reverse_mechanisms_refuse_to_start():
+    with pytest.raises(ValueError, match='only one reverse mechanism'):
+        validate_reverse_mechanisms(True, True)
