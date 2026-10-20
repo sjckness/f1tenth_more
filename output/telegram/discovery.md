@@ -97,7 +97,9 @@ install space) from a hand-started one.
 - **For the bot: no difference.** Its probe and monitor are super clients
   either way.
 - **For a shell:** `ros2 topic list`, `ros2 topic echo` and the ros2 daemon
-  need it. That is why `~/.bashrc` sets it.
+  need it. That is why `~/.bashrc` sets it. Run the CLI with `--no-daemon`
+  (`ros2 topic list --no-daemon`): a daemon started from another environment
+  answers for its own graph, not this one.
 - **For the stack:** anything that finds topics through the graph needs it:
   - the mission logger's `rosbag2_py.Recorder` learns the types of the topics
     it records from the graph;

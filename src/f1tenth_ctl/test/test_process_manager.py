@@ -285,3 +285,17 @@ def test_bad_env_file_exits_2_with_json(tmp_path, capsys):
     code = cli.main(['status', '--env', str(bad)])
     out = json.loads(capsys.readouterr().out)
     assert code == 2 and out['ok'] is False and 'F1T_PLANNER_CMD' in out['error']
+
+
+def test_check_warns_when_the_discovery_server_has_no_super_client(env_file, capsys):
+    """A shell with this env file would see node names but no topics."""
+    with open(env_file, 'a') as f:
+        f.write('ROS_DISCOVERY_SERVER=127.0.0.1:1\nROS_SUPER_CLIENT=FALSE\n')
+    _code, out = ctl(env_file, 'check', capsys=capsys)
+    item = next(i for i in out['items'] if i['name'] == 'super_client')
+    assert item['ok'] is False and item['required'] is False
+    assert 'super_client' in out['warnings'] and '--no-daemon' in item['why']
+    with open(env_file, 'a') as f:
+        f.write('ROS_SUPER_CLIENT=TRUE\n')
+    _code, out = ctl(env_file, 'check', capsys=capsys)
+    assert next(i for i in out['items'] if i['name'] == 'super_client')['ok'] is True

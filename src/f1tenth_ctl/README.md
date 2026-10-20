@@ -121,6 +121,21 @@ in the graph.
 
 This is the `ros2 node list` check: the node list is read as a super client.
 
+**The same graph from a shell.** With the discovery server, the ros2 CLI sees
+what f1tenth_ctl sees only with the env file's environment
+(`ROS_DISCOVERY_SERVER=127.0.0.1:11811`, `ROS_SUPER_CLIENT=TRUE`) and
+**without the ros2 daemon**. The daemon keeps the environment of whoever
+started it, so through it `ros2 topic list` can show nothing, or another graph:
+
+```bash
+set -a; . ~/dev_ws/f1tenth_more/src/f1tenth_ctl/config/ctl.env; set +a
+ros2 node list --no-daemon
+ros2 topic list --no-daemon
+```
+
+`f1tenth_ctl check` warns (`super_client`) when the env file leaves
+`ROS_SUPER_CLIENT` unset.
+
 **Stop is a ladder:** SIGINT, up to 10 s; SIGTERM, up to 5 s; SIGKILL.
 
 - SIGINT goes to the main process's process group, which is exactly what

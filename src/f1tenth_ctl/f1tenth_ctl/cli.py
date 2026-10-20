@@ -164,6 +164,14 @@ def cmd_check(settings: Settings, args=None) -> dict:
     else:
         item('discovery', disc.get('listening'), disc.get('address'),
              why='discovery server not listening')
+        # With a discovery server a plain client sees node names but no
+        # topics (output/telegram/discovery.md): the app's own probes are
+        # super clients anyway, a shell needs this plus `ros2 ... --no-daemon`.
+        super_client = (env.get('ROS_SUPER_CLIENT') or '').upper() == 'TRUE'
+        item('super_client', super_client, env.get('ROS_SUPER_CLIENT') or 'unset',
+             required=False,
+             why='ROS_SUPER_CLIENT is not TRUE: `ros2 topic list --no-daemon` from a '
+                 'shell with this env file would list no topics')
     sysd = units.systemctl(['is-system-running'])
     state = sysd.stdout.strip()
     item('systemd_user', state in ('running', 'degraded'), state,
