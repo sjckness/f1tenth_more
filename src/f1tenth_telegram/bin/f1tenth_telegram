@@ -1,0 +1,5 @@
+#!/bin/sh
+# Runs f1tenth_telegram straight from this checkout (no build, no ROS).
+# PYTHON may name the venv that has python-telegram-bot (README.md).
+here="$(cd "$(dirname "$0")/.." && pwd)"
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec "${PYTHON:-python3}" -m f1tenth_telegram "$@"

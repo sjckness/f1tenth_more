@@ -1,0 +1,37 @@
+# f1tenth_telegram: the car (jetson-orin over Tailscale).
+# No secrets here. The token lives in telegram.token_env_file, chmod 600.
+
+target:
+  name: Orin
+  # ssh host as in ~/.ssh/config on linus (jetson-orin -> 100.96.201.7,
+  # user fabiocar). 'local' runs f1tenth_ctl on this machine instead.
+  host: jetson-orin
+  # Key for BatchMode ssh; empty uses ~/.ssh/config and the agent.
+  ssh_key: ~/.ssh/id_ed25519
+  ssh_options: []
+  connect_timeout_s: 5
+  # f1tenth_ctl from the car's checkout: runs without a build or ROS sourced
+  # (non-interactive ssh does not read ~/.bashrc).
+  ctl_command: ~/dev_ws/f1tenth_more/src/f1tenth_ctl/bin/f1tenth_ctl
+  # --env for f1tenth_ctl; empty = its config/ctl.env.
+  ctl_env:
+  ping: true
+
+# Per command, ssh included.
+timeouts_s:
+  default: 20
+  reach: 8
+  status: 12
+  connect: 25
+  start: 30
+  stop: 30
+  killall: 75
+  estop: 15
+
+telegram:
+  # Numeric Telegram user ids allowed to use the bot. Empty: everyone is
+  # ignored (and logged with their id, which is one way to find yours).
+  allowed_user_ids: []
+  # Messages older than this are dropped; confirmations expire after it.
+  max_command_age_s: 10
+  token_env_file: ~/.config/f1tenth_telegram/env
