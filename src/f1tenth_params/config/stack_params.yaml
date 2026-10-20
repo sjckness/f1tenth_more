@@ -2147,7 +2147,7 @@ interrogation:
   description: "Interrogation name key into llm/config/interrogations.yaml (executable, params_file)."
 # Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py.
 llama_server_path:
-  default: /scratch/fabiocar/llama.cpp/build/bin/llama-server
+  default: /home/llm/llama.cpp/build/bin/llama-server
   description: "Absolute path to the llama-server binary."
 # Consumed by: f1tenth_intelligence/llm/launch/llm.launch.py. A separate key from
 # llama_server_path, not derived from it: llama-server's cwd needs to be the
@@ -2156,7 +2156,7 @@ llama_server_path:
 # llama-server vs. cwd .../llama.cpp) -- not the binary's own containing directory,
 # so a simple os.path.dirname() of llama_server_path would give the wrong value.
 llama_server_cwd:
-  default: /scratch/fabiocar/llama.cpp
+  default: /home/llm/llama.cpp
   description: "Working directory llama-server is launched from (the llama.cpp project root, not the binary's own directory)."
 
 # ============================================================
