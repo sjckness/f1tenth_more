@@ -17,7 +17,7 @@ SOURCE_ROOT = os.path.dirname(PACKAGE_DIR)
 
 DEFAULT_TIMEOUTS = {
     'default': 20.0, 'reach': 8.0, 'status': 12.0, 'connect': 25.0, 'start': 30.0,
-    'stop': 30.0, 'killall': 75.0, 'estop': 15.0,
+    'stop': 30.0, 'killall': 75.0, 'estop': 15.0, 'estop_reset': 240.0,
 }
 
 

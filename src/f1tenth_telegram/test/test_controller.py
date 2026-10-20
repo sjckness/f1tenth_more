@@ -14,10 +14,11 @@ def status_answer(stack='stopped', planner='stopped', logger='stopped', ready=Fa
         procs[name] = {'state': state, 'managed': True}
     checks = [{'name': 'scan', 'kind': 'topic_rate', 'ok': ready, 'required': True,
                'value': 40.0 if ready else 0.0},
-              {'name': 'estop_clear', 'kind': 'estop_clear', 'ok': not latched,
+              {'name': 'estop_latched', 'kind': 'estop', 'ok': not latched,
                'required': True, 'value': latched, 'mission_state': 'IDLE'}]
-    return {'ok': True, 'cmd': 'status', 'ready': ready,
-            'failing': [] if ready else ['scan'], 'processes': procs, 'checks': checks}
+    failing = ([] if ready else ['scan']) + (['estop_latched'] if latched else [])
+    return {'ok': True, 'cmd': 'status', 'ready': ready and not latched, 'failing': failing,
+            'estop_latched': latched, 'processes': procs, 'checks': checks}
 
 
 class FakeTransport:
@@ -26,6 +27,7 @@ class FakeTransport:
         self.calls = []
         self.answers = {}
         self.state = {'stack': 'stopped', 'planner': 'stopped', 'logger': 'stopped'}
+        self.latched = False
 
     def reachability(self, timeout):
         return {'online': self.online, 'ssh': self.online,
@@ -40,7 +42,8 @@ class FakeTransport:
         if args[0] == 'connect':
             return {'ok': True, 'discovery': {'address': '127.0.0.1:11811'}}
         if args[0] == 'status':
-            return status_answer(**self.state, ready=self.state['stack'] == 'running')
+            return status_answer(**self.state, ready=self.state['stack'] == 'running',
+                                 latched=self.latched)
         if args[0] in ('start', 'stop'):
             self.state[args[1]] = 'running' if args[0] == 'start' else 'stopped'
             return {'ok': True, 'pid': 42, 'signals': ['SIGINT'], 'elapsed_s': 1.0}
@@ -48,7 +51,12 @@ class FakeTransport:
             self.state = dict.fromkeys(self.state, 'stopped')
             return {'ok': True, 'units': {}, 'strays': {'count': 0},
                     'discovery': {'state': 'running'}}
+        if args[0] == 'estop-reset':
+            self.latched = False
+            return {'ok': True, 'path': 'restart_behavior', 'latched_before': True,
+                    'latched_after': False, 'verified': True}
         if args[0] == 'estop':
+            self.latched = True
             return {'ok': True, 'service': {'ok': True, 'call_s': 0.1, 'message': 'engaged'},
                     'publish': {'ok': True, 'after_match': 100, 'rate_hz': 50.0,
                                 'subscribers': 1}}
@@ -201,3 +209,30 @@ def test_summaries():
                                               {'ok': False, 'error': 'already running'})
     assert 'SIGINT→SIGTERM' in summary_startstop(
         'stop', 'logger', {'ok': True, 'signals': ['SIGINT', 'SIGTERM'], 'elapsed_s': 11})
+
+
+def test_estop_latch_shows_and_reset_needs_a_confirmation(ctl):
+    c, fake = ctl
+    c.handle('connect')
+    c.handle('confirm:' + c.handle('start:stack').confirm[0])
+    assert 'estop-reset' not in actions(c.panel)
+    panel = c.handle('estop')
+    assert panel.status['estop_latched'] is True
+    assert 'estop-reset' in actions(panel)
+    text = view.render(panel)[0]
+    assert '🔴 E-STOP LATCHED' in text and 'READY ❌ estop_latched' in text
+    fake.calls.clear()
+    panel = c.handle('estop-reset')
+    assert fake.calls == [] and panel.confirm[1] == 'estop-reset'
+    panel = c.handle(f'confirm:{panel.confirm[0]}')
+    assert fake.calls == [['estop-reset'], ['status']]
+    assert 'e-stop reset (behavior restarted)' in panel.last
+    assert 'estop-reset' not in actions(panel) and 'READY ✅' in view.render(panel)[0]
+
+
+def test_failed_reset_is_reported():
+    from f1tenth_telegram.controller import summary_estop_reset
+    msg = summary_estop_reset({'ok': False, 'path': 'stack_restart',
+                               'error': 'this stack was not started by f1tenth_ctl'})
+    assert 'FAILED (stack restarted)' in msg and 'not started' in msg
+    assert 'nothing to do' in summary_estop_reset({'ok': True, 'path': 'none'})

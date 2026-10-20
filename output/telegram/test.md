@@ -209,3 +209,117 @@ test again:
 3. Set `F1T_SIM_WS` / `F1T_SIM_DEPS_WS` in a wrapper env file that sources
    `config/sim_linus.env`.
 4. Start Gazebo as in §1, then run the `--cli` sequence of §2.
+
+## 7. Follow-up: e-stop reset and discovery setup
+
+Also on 2026-10-20, with the changes of the follow-up:
+- `f1tenth_ctl estop-reset`;
+- the READY check renamed `estop_clear` → `estop_latched`, and status's
+  `estop_latched` field;
+- the bot's 🔓 button;
+- `sim_linus.env` taking its ROS environment from `sim_net.sh`;
+- `check`'s `shell_env` warning.
+
+The reset design is in `src/f1tenth_ctl/README.md`, estop-reset. The
+discovery answers are in `output/telegram/discovery.md`.
+
+### Through the bot
+
+The log is `output/telegram/test_cli_reset_run.log`. Sim profile: the new
+`sim_linus.env`.
+
+| Step | Panel | Result |
+|---|---|---|
+| connect, start stack (confirmed), until-ready | READY ✅ at the 2nd status | ✅ |
+| 🛑 estop | READY ❌ `estop_latched`; `🔴 E-STOP LATCHED: no mission will start until 🔓 Reset e-stop`; buttons now include 🔓 Reset e-stop | ✅ |
+| status | still latched, still READY ❌ | ✅ |
+| 🔓 estop-reset | "❓ really reset the e-stop (aborts the mission, restarts behavior)?" | ✅ asks first |
+| confirm | "🔓 e-stop reset (behavior restarted), latch clear, checked on /mission/status"; READY ✅; the 🔓 button is gone | ✅ |
+| killall (confirmed), status | all stopped, discovery left up | ✅ |
+
+### f1tenth_ctl estop-reset, JSON detail (stack running, after an estop)
+
+- **path:** `restart_behavior`;
+- **latched_before:** true; **latched_after:** false; **verified:** true;
+- **abort:** "no mission to abort (state=IDLE)";
+- **restart:** answered in 0.38 s, "'behavior' restarted -- behavior_bringup.launch.py: clean SIGINT exit in 0.4s";
+- **zero drive:** 198 messages after the mux matched (0.25 s), over 4.2 s;
+- **total:** 7.5 s, then status READY ✅, `estop_latched: false`.
+
+### The stack-restart path
+
+The same, with `F1T_SUPERVISOR_RESTART_SERVICE` pointed at a service that
+does not exist, as if there were no supervisor:
+- `path: stack_restart`;
+- stop with SIGINT in 2.6 s, start again;
+- verified; 18.1 s in all;
+- then READY ✅.
+
+### Does the car move while `behavior` restarts?
+
+Set-up:
+- `/teleop` (mux priority 100) asks for 0.3 m/s the whole time. It stands in
+  for any lower lane that still commands motion; on the car that is a RUNNING
+  mission's mpc_corr, which the e-stop leaves alone.
+- Motion is measured on `/sim/ground_truth/car`.
+
+| Run | Window | Car moved |
+|---|---|---|
+| latched, teleop on, 3 s | — | 0.000 m / 0.008 m |
+| plain `/restart_component behavior` | 6.1 s, until the new node published a clear latch | **1.533 m** |
+| `estop-reset`, first version | 12.3 s | 0.047 m |
+| `estop-reset` with the match gate | 10.8 s | 0.042 m |
+| `estop-reset` with the match gate, mux output logged | 9.6 s | 0.000 m |
+
+**What the numbers show.**
+- **The hazard is real.** The behaviour tree's zero on `/safety_stop` is the
+  only thing holding the car while latched, and it goes away with the
+  restart.
+- **First version.** The reset could start before the mux had matched
+  f1tenth_ctl's own zero drive: the abort answers in 3 ms, and matching took
+  0.25 s.
+- **Fix.** Nothing is reset until the mux has matched the zero drive and five
+  messages have gone out.
+- **What is left** is the stack's own behaviour at load 17–28: the mux lets a
+  single lower-lane message through when the top lane is late. The latched
+  tree leaks the same way: 0.008 m in 3 s, one sample in the logged run.
+
+### Discovery profile checks
+
+- **`f1tenth_ctl check`** with the new `sim_linus.env`: `shell_env` ok, "same
+  ROS environment as F1T_SHELL_REF snippet".
+- **With the first-round `sim_linus.env`:** a warning, "2 difference(s):
+  ROS_AUTOMATIC_DISCOVERY_RANGE, FASTRTPS_DEFAULT_PROFILES_FILE". `check` stays
+  ok, and the warning is listed under `warnings`.
+- **Plain vs super client, one participant, 5 s, sim graph:**
+
+  | | Nodes | Topics |
+  |---|---|---|
+  | plain | 67 | 2 |
+  | super | 67 | 137 |
+
+- **Car `ctl.env` vs the Orin's `~/.bashrc`:** identical on all 13 variables
+  (`discovery.md` §3). Read-only.
+
+### Unit tests
+
+| Package | Tests |
+|---|---|
+| f1tenth_ctl | 82 |
+| f1tenth_telegram (python-telegram-bot venv) | 51 |
+
+**New:**
+- READY false while latched, with `estop_latched` failing and named;
+- READY again once clear;
+- an unknown latch is not READY and not reported as clear;
+- the reset-path choice;
+- the env comparison: defaults, super-client spellings, graph-changing keys,
+  path entries, a snippet reference, `bash -i` reading a `~/.bashrc`;
+- the bot's latch line, the 🔓 button and its confirmation.
+
+**Not tested:**
+- the reset on the car;
+- a reset during a RUNNING mission. Preflight in this sim always fails on
+  `ackermann_to_vesc_node`, so no mission could be started; the
+  abort → `/mpc/hold` step ran only as "no mission to abort".
+

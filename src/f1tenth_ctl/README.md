@@ -16,8 +16,9 @@ f1tenth_ctl discovery up|down|status [--force]
 f1tenth_ctl start|stop stack|planner|logger
 f1tenth_ctl status                           # processes + READY, in < 5 s
 f1tenth_ctl estop                            # e-stop service + zero drive; never kills
+f1tenth_ctl estop-reset [--force]            # clear the e-stop latch, and check it
 f1tenth_ctl killall [--reset-discovery] [--dry-run]
-f1tenth_ctl check                            # environment check only
+f1tenth_ctl check                            # environment check; warns if it differs from the shell
 f1tenth_ctl send planner "go ahead 2 meters" # one line to the planner's stdin
 f1tenth_ctl logs stack|planner|logger|discovery|monitor [-n 30]
 ```
@@ -54,18 +55,29 @@ with `set -a`, and it holds:
 never sourced on top of the caller's shell. A test checks that the units and
 the CLI see the same variables.
 
-**Sync with the Orin's `~/.bashrc`.** The ROS part of `ctl.env` copies it on
-purpose (see `output/telegram/recon.md`):
+**One rule for every target: the env file gives exactly the ROS environment
+of a shell on that target.** The details are in `output/telegram/discovery.md`.
 
-- Humble and the workspace;
-- `ROS_DISCOVERY_SERVER=127.0.0.1:11811`;
-- `ROS_SUPER_CLIENT=TRUE`;
-- the CUDA `LD_LIBRARY_PATH`.
+- **Car:** `config/ctl.env` is a literal copy of the ROS part of the Orin's
+  `~/.bashrc`:
+  - Humble and the workspace;
+  - `ROS_DISCOVERY_SERVER=127.0.0.1:11811`;
+  - `ROS_SUPER_CLIENT=TRUE`;
+  - the CUDA `LD_LIBRARY_PATH`.
 
-When one of the two changes, change the other.
+  Read on 2026-10-20, it was identical on all 13 compared variables.
+- **Sim:** `config/sim_linus.env` sources jazzy's own `scripts/sim/sim_net.sh`,
+  with the discovery server on loopback. See also `output/telegram/test.md`.
 
-`config/sim_linus.env` is the profile for the Gazebo sim on linus; see that
-file and `output/telegram/test.md`.
+`check` compares the env file with the reference shell `F1T_SHELL_REF`:
+
+- `interactive` (the default) means `bash -i`, i.e. `~/.bashrc`; any other
+  value is a bash snippet;
+- it checks the domain, discovery server, super client, RMW, Fast DDS/Cyclone
+  profiles, `AMENT_PREFIX_PATH` and `LD_LIBRARY_PATH`;
+- a difference is a warning (`shell_env`), never a failure: it means the bot
+  and a shell on the target see, or run, different things.
+- `F1T_SHELL_REF=off` disables the comparison.
 
 ## Processes are transient systemd user units
 
@@ -130,7 +142,7 @@ READY needs all of these:
 | scan | `/scan` rate | ≥ 20 Hz |
 | `tf_map_base_link` | age of the latest map→base_link | ≤ 0.5 s |
 | `mission_service` | `/mission/load_mission` available | |
-| `estop_clear` | `/mission/status` received and the e-stop not latched | |
+| `estop_latched` | `/mission/status` received and the e-stop not latched | |
 | battery | `has_data` and voltage | ≥ 10.8 V |
 
 `wheel_odom` (`/odom`) is shown but not required.
@@ -161,8 +173,8 @@ Two parts run at once, and each reports for itself:
 - **The service.** It calls `/mission/emergency_stop` (`std_srvs/Trigger`).
   - The call timeout is 0.5 s; a later answer inside the publish window is
     reported as late.
-  - The service latches until `behavior` restarts, and READY then shows
-    `estop_clear` failing.
+  - The service latches until `behavior` restarts. Status then says
+    `estop_latched: true`, and READY is false with `estop_latched` failing.
 - **Zero drive.** It publishes zero speed and steering on `/safety_stop`,
   the mux's highest-priority lane (priority 200, 0.2 s timeout).
   - Rate 50 Hz, for 2 s counted from the moment the mux matched.
@@ -179,6 +191,62 @@ It never stops or kills anything.
 | matching | 1–2 s on a loaded machine |
 
 This is not the primary e-stop.
+
+## estop-reset
+
+**The latch.**
+- `/mission/emergency_stop` latches for the lifetime of
+  `behavior_executor_node`.
+- There is no reset service, on purpose: see the `mission/loader.py` and
+  `MissionStatus.msg` docstrings.
+- The documented way out is restarting the node.
+
+**The paths, cleanest first.** `estop-reset` takes the first one available:
+
+1. **Reset service** (`F1T_ESTOP_RESET_SERVICE`). Empty: none exists today.
+   The setting is there for when one does.
+2. **Restart `behavior` alone**, through the supervisor's
+   `/restart_component {component_name: behavior}`. This is the path on the
+   car today.
+3. **Full stack stop + start.** Only when there is no supervisor (e.g.
+   `stack_bringup.launch.py`), and only if f1tenth_ctl started the stack.
+
+**Why path 2 is guarded.** The e-stop does not touch the mission or
+`/mpc/hold`. While the latch holds, the behaviour tree's emergency lane
+publishes zero on `/safety_stop` (priority 200) and masks whatever the lower
+lanes ask for. Restarting `behavior` removes that lane: whatever a lower lane
+still commands, for example a RUNNING mission's mpc_corr on `/drive`, then
+reaches the motor.
+
+Measured in the sim, with `/teleop` (priority 100) asking for 0.3 m/s the
+whole time:
+
+| Restart | Car moved before the latch read clear |
+|---|---|
+| plain restart | **1.53 m** |
+| `estop-reset` | 0.042 m and 0.000 m in two runs |
+
+At load 17–28 the mux lets a single lower-lane command through now and then
+when the top lane is a few ms late. In the 0.042 m run, the latched tree
+itself leaked 0.008 m in 3 s; in the 0.000 m run, the logged mux output shows
+one such sample on each side.
+
+**The sequence.** `estop-reset`:
+
+1. reads the latch on `/mission/status`. Nothing to do if it is clear;
+   `--force` runs anyway.
+2. publishes zero drive on `/safety_stop` at 50 Hz, and goes on only once the
+   mux has matched it.
+3. calls `/mission/abort_mission`, so a LOADED/RUNNING mission is aborted and
+   mpc_corr is put on `/mpc/hold`. Nothing resumes after the reset.
+4. restarts `behavior` (path 2).
+5. waits for the new node's `/mission/status` with the latch clear. That is
+   the verification, `verified: true`. Then it keeps the zero drive 0.5 s
+   longer.
+
+The JSON names the path taken (`path`), `latched_before`, `latched_after`,
+`verified`, and the result of each step. In the sim: path 2 took 7–12 s,
+path 3 took 18 s.
 
 ## killall
 
@@ -209,8 +277,9 @@ These steps were not done yet.
 3. With the car on stands:
    1. `connect`, then `start stack`;
    2. `status --human` until READY;
-   3. `estop` (it latches: restart `behavior` afterwards);
-   4. `stop stack`.
+   3. `estop`, then status shows `estop_latched: true`;
+   4. `estop-reset`, then status is READY again;
+   5. `stop stack`.
    Check `status` timings on the Orin's CPU.
 4. Optional: `colcon build --symlink-install --packages-select f1tenth_ctl`
    for `ros2 run f1tenth_ctl f1tenth_ctl`.

@@ -10,6 +10,7 @@ object on stdout (--json, the default, for the Telegram bot) or a short text
     f1tenth_ctl start|stop stack|planner|logger
     f1tenth_ctl status                       processes + READY, in < 5 s
     f1tenth_ctl estop                        e-stop service + zero drive, never kills
+    f1tenth_ctl estop-reset [--force]        clear the e-stop latch, and check it
     f1tenth_ctl killall [--reset-discovery] [--dry-run]
     f1tenth_ctl check                        environment check only
     f1tenth_ctl send planner "<command>"     one line to the planner's stdin
@@ -30,7 +31,7 @@ import sys
 import threading
 import time
 
-from . import discovery, human, monitor, procscan, ready, units
+from . import discovery, envcheck, human, monitor, procscan, ready, units
 from .config import ConfigError, load, MANAGED, Settings, SOURCE_ROOT
 
 STATUS_BUDGET_S = 4.5      # status must answer in < 5 s, env sourcing included
@@ -177,8 +178,12 @@ def cmd_check(settings: Settings, args=None) -> dict:
              why='state dir not writable')
     except OSError as exc:
         item('state_dir', False, settings.state_dir, why=exc.strerror)
+    shell = envcheck.check(settings)
+    if shell is not None:
+        items.append(shell)
     failing = [i['name'] for i in items if i['required'] and not i['ok']]
-    return {'ok': not failing, 'failing': failing, 'items': items}
+    warnings = [i['name'] for i in items if not i['required'] and not i['ok']]
+    return {'ok': not failing, 'failing': failing, 'warnings': warnings, 'items': items}
 
 
 def cmd_connect(settings: Settings, args) -> dict:
@@ -284,6 +289,7 @@ def cmd_status(settings: Settings, args, t_begin: float) -> dict:
     verdict = ready.evaluate(thr, measured, procs['stack']['state'] == 'running',
                              discovery_ok)
     out = {'ok': True, 'ready': verdict['ready'], 'failing': verdict['failing'],
+           'estop_latched': ready.estop_latched(verdict['checks']),
            'processes': procs, 'vars': ready.key_values(verdict['checks']),
            'checks': verdict['checks'],
            'probe': {'ran': measured is not None, 'source': res.get('source'),
@@ -355,6 +361,64 @@ def cmd_estop(settings: Settings, args) -> dict:
     svc, pub = res['service'], res['publish']
     return {'ok': bool(svc.get('ok') or pub.get('ok')), 'service': svc, 'publish': pub,
             'note': 'nothing was stopped or killed'}
+
+
+def cmd_estop_reset(settings: Settings, args) -> dict:
+    """
+    Clear the e-stop latch by the cleanest path available, and check it.
+
+    rosprobe.estop_reset does the ROS part (abort the mission, zero drive,
+    reset service or restart of 'behavior', wait for the clear latch). When
+    neither exists it answers needs=stack_restart, and this restarts the
+    whole stack, if f1tenth_ctl manages it, then waits for the clear latch.
+    """
+    disc = discovery.status(settings)
+    if disc['state'] != 'disabled' and not disc.get('listening'):
+        return {'ok': False, 'error': 'discovery server down'}
+    stack = units.unit_states(settings, ['stack'])['stack']
+    managed = stack['state'] == 'running'
+    if not managed and not _strays(settings, 'stack'):
+        return {'ok': False, 'error': 'the stack is not running'}
+    try:
+        sim = bool(_thresholds(settings).get('use_sim_time'))
+    except ready.ReadyConfigError:
+        sim = False
+    spec = {'status_topic': settings.status_topic, 'reset_service': settings.estop_reset_service,
+            'restart_service': settings.restart_service,
+            'component': settings.behavior_component, 'abort_service': settings.abort_service,
+            'safety_topic': settings.estop_topic, 'publish_hz': settings.estop_publish_hz,
+            'wait_s': settings.estop_reset_wait_s, 'use_sim_time': sim,
+            'force': bool(getattr(args, 'force', False))}
+    res = run_rosprobe(settings, 'estop_reset', spec,
+                       timeout=settings.estop_reset_wait_s + 60.0)
+    if res.get('needs') != 'stack_restart':
+        return {'ok': bool(res.get('ok')), **res}
+    if not managed:
+        return {**res, 'ok': False,
+                'error': 'only a full stack restart would clear the latch, and this stack '
+                         'was not started by f1tenth_ctl: restart it by hand'}
+    # No other way: the whole stack, as stop + start would do it by hand.
+    out = {**res, 'path': 'stack_restart'}
+    out['stop'] = units.stop(settings, settings.procs['stack'])
+    if settings.monitor_enabled:
+        monitor.stop(settings)
+    start = units.start(settings, settings.procs['stack'])
+    out['start'] = {k: start.get(k) for k in ('ok', 'state', 'pid', 'error') if k in start}
+    if not start.get('ok'):
+        return {**out, 'ok': False, 'error': 'the stack did not start again'}
+    if settings.monitor_enabled:
+        monitor.ensure(settings, _thresholds(settings))
+    wait = run_rosprobe(settings, 'estop_wait',
+                        {'status_topic': settings.status_topic, 'use_sim_time': sim,
+                         'wait_s': 180.0}, timeout=200.0)
+    out.update(latched_after=wait.get('latched_after'), verified=bool(wait.get('verified')),
+               waited_s=wait.get('waited_s'))
+    out['ok'] = out['verified']
+    if out['ok']:
+        out.pop('error', None)
+    else:
+        out['error'] = wait.get('error') or 'the latch did not clear after the restart'
+    return out
 
 
 def cmd_killall(settings: Settings, args) -> dict:
@@ -488,6 +552,10 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser('status', parents=[common], help='processes and READY (< 5 s)')
     sub.add_parser('estop', parents=[common],
                    help='e-stop service + zero drive on the top mux lane; never kills')
+    r = sub.add_parser('estop-reset', parents=[common],
+                       help='clear the e-stop latch (abort + restart behavior) and verify')
+    r.add_argument('--force', action='store_true',
+                   help='run the reset even if the latch reads clear')
     k = sub.add_parser('killall', parents=[common], help='stop everything ROS 2')
     k.add_argument('--reset-discovery', action='store_true',
                    help='also stop the discovery server')
@@ -504,7 +572,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 COMMANDS = {
     'connect': cmd_connect, 'discovery': cmd_discovery, 'start': cmd_start,
-    'stop': cmd_stop, 'estop': cmd_estop, 'killall': cmd_killall, 'check': cmd_check,
+    'stop': cmd_stop, 'estop': cmd_estop, 'estop-reset': cmd_estop_reset,
+    'killall': cmd_killall, 'check': cmd_check,
     'send': cmd_send, 'logs': cmd_logs,
 }
 

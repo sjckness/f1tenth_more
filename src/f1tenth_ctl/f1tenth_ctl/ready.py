@@ -7,7 +7,8 @@ the decision is unit-testable without ROS. Check kinds:
 - topic_rate: messages per second over the probe window >= min_hz
 - tf_age:     latest parent->child transform no older than max_age_s
 - service:    the service is available
-- estop_clear: the mission status was received and the e-stop is not latched
+- estop:      the mission status was received and the e-stop is not latched
+              (named estop_latched in the shipped files: it fails while latched)
 - battery:    has_data and voltage >= min_voltage
 
 A check with `required: false` is measured and shown but never blocks READY.
@@ -17,7 +18,7 @@ sets ROS_DISCOVERY_SERVER, the discovery server listening.
 
 from typing import Dict, List, Optional
 
-KINDS = ('topic_rate', 'tf_age', 'service', 'estop_clear', 'battery')
+KINDS = ('topic_rate', 'tf_age', 'service', 'estop', 'battery')
 
 
 class ReadyConfigError(Exception):
@@ -50,7 +51,7 @@ def validate(data: dict, origin: str = 'thresholds') -> dict:
         if kind not in KINDS:
             raise ReadyConfigError(f'{origin}: check {name!r}: unknown kind {kind!r}')
         need = {'topic_rate': ('topic', 'type'), 'tf_age': ('parent', 'child'),
-                'service': ('service', 'type'), 'estop_clear': ('topic', 'type'),
+                'service': ('service', 'type'), 'estop': ('topic', 'type'),
                 'battery': ('topic', 'type')}[kind]
         for key in need:
             if not check.get(key):
@@ -97,15 +98,15 @@ def judge(check: dict, m: Optional[dict]) -> dict:
         out.update(ok=ok, value=ok, want='available', service=check['service'])
         if not ok:
             out['why'] = 'not available'
-    elif kind == 'estop_clear':
+    elif kind == 'estop':
         received = bool(m.get('received'))
-        latched = bool(m.get('emergency_stop_active'))
+        latched = bool(m.get('emergency_stop_active')) if received else None
         out.update(ok=received and not latched, value=latched, want='not latched',
                    mission_state=m.get('state'))
         if not received:
-            out['why'] = f"no {check['topic']}"
+            out['why'] = f"no {check['topic']}: e-stop state unknown"
         elif latched:
-            out['why'] = 'e-stop latched (restart behavior to clear)'
+            out['why'] = 'e-stop latched'
     elif kind == 'battery':
         want = float(check.get('min_voltage', 0.0))
         volts = m.get('voltage')
@@ -141,6 +142,14 @@ def evaluate(thresholds: dict, measured: Optional[Dict[str, dict]],
         checks.append(judge(check, m))
     failing = [c['name'] for c in checks if c['required'] and not c['ok']]
     return {'ready': not failing, 'failing': failing, 'checks': checks}
+
+
+def estop_latched(checks: List[dict]) -> Optional[bool]:
+    """Return True/False from the e-stop check, None if it is unknown or absent."""
+    for c in checks:
+        if c['kind'] == 'estop':
+            return c.get('value')
+    return None
 
 
 def key_values(checks: List[dict]) -> Dict[str, object]:

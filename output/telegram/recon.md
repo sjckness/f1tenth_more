@@ -260,4 +260,10 @@ Recorded here so this file does not mislead. Details are in
 - **The sim profile does not make every node a super client.** Only the
   probe and the monitor are. On one host, ~40 super clients overloaded the
   discovery server.
+- **The e-stop latch is cleared by `f1tenth_ctl estop-reset`.** It aborts the
+  mission, holds zero drive, restarts only `behavior` through the supervisor,
+  and verifies the clear latch. There is still no reset service.
+- **The READY check is named `estop_latched`.**
+- **ROS environment per target:** the env file equals the target's shell.
+  See `output/telegram/discovery.md`.
 

@@ -19,12 +19,14 @@ def test_render_connected_panel():
     p.status['processes']['logger']['exit_status'] = 1
     p.status['processes']['planner'] = {'state': 'running', 'managed': False}
     text, rows = view.render(p)
-    assert '🟢 online' in text and 'READY ✅' in text
+    # Latched: never READY, whatever else is fine.
+    assert '🟢 online' in text and 'READY ❌ estop_latched' in text
     assert 'stack 🟢 running' in text and 'logger 🔴 crashed (exit 1)' in text
     assert 'planner 🟠 running (not started by the bot)' in text
-    assert 'e-stop LATCHED' in text and 'scan 40 Hz' in text
+    assert 'E-STOP LATCHED' in text and 'scan 40 Hz' in text
     labels = [b.label for b in rows[0]]
     assert labels == ['⏹ Stack', '⏹ Planner', '▶️ Logger']
+    assert [b.action for b in rows[2]] == ['estop-reset'] and rows[3][0].action == 'estop'
 
 
 def test_render_not_checked_yet():

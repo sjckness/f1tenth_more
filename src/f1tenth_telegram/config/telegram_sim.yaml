@@ -16,6 +16,8 @@ timeouts_s:
   stop: 30
   killall: 75
   estop: 15
+  # Abort + restart of behavior + check: ~10 s; a full stack restart: minutes.
+  estop_reset: 240
 
 telegram:
   allowed_user_ids: []

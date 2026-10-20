@@ -4,7 +4,7 @@ The control panel's state and its actions, independent of Telegram.
 The Telegram front end (tg.py) and the terminal one (cli.py) both call
 Controller.handle(action) and render the Panel it returns (view.py). Actions:
 
-    refresh | connect | status | estop | killall
+    refresh | connect | status | estop | estop-reset | killall
     start:<proc> | stop:<proc>          proc = stack | planner | logger
     confirm:<nonce> | cancel:<nonce>
 
@@ -24,7 +24,8 @@ from .transport import Transport
 
 PROCS = ('stack', 'planner', 'logger')
 LABEL = {'start:stack': 'start the stack', 'start:planner': 'start the planner',
-         'killall': 'kill ALL ROS 2 processes'}
+         'killall': 'kill ALL ROS 2 processes',
+         'estop-reset': 'reset the e-stop (aborts the mission, restarts behavior)'}
 
 
 @dataclass
@@ -105,6 +106,10 @@ class Controller:
         elif action == 'killall':
             res = self._ctl(['killall'], 'killall')
             self._note(summary_killall(res))
+            self._status()
+        elif action == 'estop-reset':
+            res = self._ctl(['estop-reset'], 'estop_reset')
+            self._note(summary_estop_reset(res))
             self._status()
         elif action.split(':')[0] in ('start', 'stop') and action.split(':')[-1] in PROCS:
             verb, proc = action.split(':')
@@ -224,6 +229,17 @@ def summary_killall(res: dict) -> str:
     if left:
         out += f'; STILL RUNNING: {", ".join(str(p["pid"]) for p in left)}'
     return out
+
+
+def summary_estop_reset(res: dict) -> str:
+    path = {'restart_behavior': 'behavior restarted', 'reset_service': 'reset service',
+            'stack_restart': 'stack restarted', 'none': 'nothing to do'}.get(
+                res.get('path'), res.get('path') or '?')
+    if res.get('ok'):
+        if res.get('path') == 'none':
+            return '🔓 e-stop was not latched: nothing to do'
+        return f'🔓 e-stop reset ({path}), latch clear, checked on /mission/status'
+    return f'🔓 e-stop reset FAILED ({path}): {_err(res)}'
 
 
 def summary_estop(res: dict) -> str:

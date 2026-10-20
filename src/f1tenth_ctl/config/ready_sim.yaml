@@ -33,8 +33,8 @@ checks:
     service: /mission/load_mission
     type: f1tenth_messages/srv/LoadMission
 
-  - name: estop_clear
-    kind: estop_clear
+  - name: estop_latched
+    kind: estop
     topic: /mission/status
     type: f1tenth_messages/msg/MissionStatus
 

@@ -16,7 +16,7 @@ TF = {'name': 'tf', 'kind': 'tf_age', 'parent': 'map', 'child': 'base_link',
       'max_age_s': 0.5}
 SVC = {'name': 'mission', 'kind': 'service', 'service': '/mission/load_mission',
        'type': 'f1tenth_messages/srv/LoadMission'}
-ESTOP = {'name': 'estop', 'kind': 'estop_clear', 'topic': '/mission/status',
+ESTOP = {'name': 'estop_latched', 'kind': 'estop', 'topic': '/mission/status',
          'type': 'f1tenth_messages/msg/MissionStatus'}
 BATT = {'name': 'battery', 'kind': 'battery', 'topic': '/diagnostics/battery_status',
         'type': 'f1tenth_messages/msg/BatteryStatus', 'min_voltage': 10.8}
@@ -70,6 +70,36 @@ def test_estop_latched_or_unknown_blocks_ready():
     assert not ready.judge(ESTOP, {'received': False})['ok']
 
 
+def test_ready_is_false_while_the_estop_is_latched():
+    thr = ready.validate({'checks': [RATE, TF, SVC, ESTOP, BATT]})
+    m = _all_good()
+    m['estop_latched'] = {'received': True, 'emergency_stop_active': True, 'state': 'IDLE'}
+    res = ready.evaluate(thr, m, stack_running=True, discovery_ok=True)
+    assert res['ready'] is False and res['failing'] == ['estop_latched']
+    check = next(c for c in res['checks'] if c['name'] == 'estop_latched')
+    assert check['why'] == 'e-stop latched' and check['value'] is True
+    assert ready.estop_latched(res['checks']) is True
+
+
+def test_ready_again_once_the_latch_is_clear():
+    thr = ready.validate({'checks': [RATE, TF, SVC, ESTOP, BATT]})
+    res = ready.evaluate(thr, _all_good(), stack_running=True, discovery_ok=True)
+    assert res['ready'] is True and ready.estop_latched(res['checks']) is False
+
+
+def test_unknown_latch_is_not_ready_and_not_reported_as_clear():
+    thr = ready.validate({'checks': [RATE, TF, SVC, ESTOP, BATT]})
+    m = _all_good()
+    m['estop_latched'] = {'received': False}
+    res = ready.evaluate(thr, m, stack_running=True, discovery_ok=True)
+    assert res['failing'] == ['estop_latched']
+    assert ready.estop_latched(res['checks']) is None
+    assert 'unknown' in next(c for c in res['checks'] if c['name'] == 'estop_latched')['why']
+    # Without the stack nothing is measured: latched is unknown, not False.
+    res = ready.evaluate(thr, None, stack_running=False, discovery_ok=True)
+    assert ready.estop_latched(res['checks']) is None
+
+
 def test_battery_needs_data_and_voltage():
     assert ready.judge(BATT, {'received': True, 'has_data': True, 'voltage': 11.9})['ok']
     low = ready.judge(BATT, {'received': True, 'has_data': True, 'voltage': 10.5})
@@ -86,7 +116,7 @@ def test_measurement_error_fails_the_check():
 def _all_good():
     return {'scan': {'count': 60, 'hz': 40.0}, 'tf': {'found': True, 'age_s': 0.02},
             'mission': {'available': True},
-            'estop': {'received': True, 'emergency_stop_active': False},
+            'estop_latched': {'received': True, 'emergency_stop_active': False},
             'battery': {'received': True, 'has_data': True, 'voltage': 12.1}}
 
 
@@ -140,7 +170,7 @@ def test_shipped_threshold_files_are_valid(name):
     data = ready.load_thresholds(os.path.join(PKG, 'config', name))
     names = {c['name'] for c in data['checks']}
     assert {'odometry', 'scan', 'tf_map_base_link', 'mission_service',
-            'estop_clear', 'battery'} <= names
+            'estop_latched', 'battery'} <= names
     # status must answer in < 5 s, env sourcing and rclpy start-up included.
     assert data['window_s'] <= 2.0
 

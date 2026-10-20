@@ -57,6 +57,16 @@ The buttons:
 | 🔄 Status | refresh | no |
 | ☠️ Kill all ROS 2 | `f1tenth_ctl killall` | yes |
 | 🛑 EMERGENCY | `f1tenth_ctl estop` | **never** |
+| 🔓 Reset e-stop (only while latched) | `f1tenth_ctl estop-reset` | yes |
+
+**After 🛑:**
+- the e-stop latches;
+- the panel shows `🔴 E-STOP LATCHED` and READY ❌ `estop_latched`;
+- a 🔓 Reset e-stop button appears.
+
+**The reset** aborts the interrupted mission, holds zero drive on the top mux
+lane, restarts only `behavior`, and checks that the latch reads clear (see
+`src/f1tenth_ctl/README.md`, estop-reset). It takes about 10 s.
 
 **Busy handling.** One action runs at a time. A second tap meanwhile is
 refused, not queued, because a queued command would run late. 🛑 never waits:
@@ -73,7 +83,8 @@ it runs even while a killall is in progress. `/estop` works without the panel.
     differently:
     - pending updates are dropped when the bot starts;
     - a button of an old panel is refused;
-    - a confirmation expires 10 s after the question.
+    - a confirmation expires 10 s after the question. Confirmed actions:
+    start stack, start planner, kill all, reset e-stop.
 - **Timeouts.** Every ssh call has a hard timeout (`timeouts_s`). A timeout or
   an ssh failure triggers a fresh online check, so a car that went away shows
   as 🔴 offline.

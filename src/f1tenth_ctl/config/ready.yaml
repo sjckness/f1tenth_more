@@ -41,9 +41,10 @@ checks:
     service: /mission/load_mission
     type: f1tenth_messages/srv/LoadMission
 
-  # A latched e-stop blocks every mission start until 'behavior' restarts.
-  - name: estop_clear
-    kind: estop_clear
+  # Fails while /mission/emergency_stop is latched: the car will not take a
+  # mission until 'behavior' restarts (f1tenth_ctl estop-reset).
+  - name: estop_latched
+    kind: estop
     topic: /mission/status
     type: f1tenth_messages/msg/MissionStatus
 

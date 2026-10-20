@@ -27,11 +27,13 @@ timeouts_s:
   stop: 30
   killall: 75
   estop: 15
+  # Abort + restart of behavior + check: ~10 s; a full stack restart: minutes.
+  estop_reset: 240
 
 telegram:
   # Numeric Telegram user ids allowed to use the bot. Empty: everyone is
   # ignored (and logged with their id, which is one way to find yours).
-  allowed_user_ids: []
+  allowed_user_ids: [857433485]
   # Messages older than this are dropped; confirmations expire after it.
   max_command_age_s: 10
   token_env_file: ~/.config/f1tenth_telegram/env

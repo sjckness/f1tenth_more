@@ -62,5 +62,6 @@ def test_cancel():
 
 
 def test_what_needs_a_confirmation():
-    assert set(guard.NEEDS_CONFIRM) == {'start:stack', 'start:planner', 'killall'}
+    assert set(guard.NEEDS_CONFIRM) == {'start:stack', 'start:planner', 'killall',
+                                        'estop-reset'}
     assert 'estop' not in guard.NEEDS_CONFIRM

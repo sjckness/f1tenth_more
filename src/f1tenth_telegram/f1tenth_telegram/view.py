@@ -5,7 +5,7 @@ Buttons, by state:
 - offline (or not checked yet): 🔄 only;
 - online, not connected: 🔌 Connect, 🔄;
 - connected: ▶️/⏹ Stack, ▶️/⏹ Planner, ▶️/⏹ Logger, 🔄 Status,
-  ☠️ Kill all ROS 2, 🛑 EMERGENCY;
+  ☠️ Kill all ROS 2, 🛑 EMERGENCY, and 🔓 Reset e-stop while it is latched;
 - a confirmation open: ✅ yes / ✖ cancel, with 🛑 EMERGENCY still there.
 """
 
@@ -62,7 +62,7 @@ def _vars(status: dict) -> str:
                 # Under sim time the clock can trail the newest stamp by a tick.
                 value = max(value, 0.0)
             parts.append(f'{label} {_fmt(value, unit, nd)}{mark}')
-    est = checks.get('estop_clear')
+    est = checks.get('estop_latched')
     if est and est.get('mission_state'):
         parts.append(f'mission {est["mission_state"]}')
     return ' · '.join(parts)
@@ -96,9 +96,8 @@ def render(panel: Panel) -> Tuple[str, List[List[Button]]]:
         v = _vars(st)
         if v:
             lines.append(v)
-        est = next((c for c in st.get('checks', []) if c['name'] == 'estop_clear'), None)
-        if est and est.get('value') is True:
-            lines.append('⚠️ e-stop LATCHED: restart the stack (or behavior) to clear')
+        if st.get('estop_latched'):
+            lines.append('🔴 E-STOP LATCHED: no mission will start until 🔓 Reset e-stop')
         probe = st.get('probe') or {}
         if probe.get('error'):
             lines.append(f'probe: {probe["error"]}')
@@ -127,6 +126,7 @@ def buttons(panel: Panel) -> List[List[Button]]:
         running = procs.get(name, {}).get('state') in ('running', 'stopping')
         row.append(Button(f'⏹ {name.capitalize()}' if running else f'▶️ {name.capitalize()}',
                           f'stop:{name}' if running else f'start:{name}'))
-    return [row,
-            [Button('🔄 Status', 'status'), Button('☠️ Kill all ROS 2', 'killall')],
-            estop]
+    rows = [row, [Button('🔄 Status', 'status'), Button('☠️ Kill all ROS 2', 'killall')]]
+    if (panel.status or {}).get('estop_latched'):
+        rows.append([Button('🔓 Reset e-stop', 'estop-reset')])
+    return rows + [estop]

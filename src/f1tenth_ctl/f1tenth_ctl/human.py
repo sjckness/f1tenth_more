@@ -30,6 +30,8 @@ def _proc_line(name: str, st: dict) -> str:
 def _status(out: dict) -> str:
     lines = [f"READY: {'YES' if out.get('ready') else 'NO'}"
              + ('' if out.get('ready') else f"  (failing: {', '.join(out.get('failing', []))})")]
+    if out.get('estop_latched'):
+        lines.append('E-STOP LATCHED: missions refused until `f1tenth_ctl estop-reset`')
     lines.append('processes:')
     for name, st in out.get('processes', {}).items():
         lines.append(_proc_line(name, st))
@@ -55,6 +57,14 @@ def _items(items) -> str:
         mark = 'ok ' if i['ok'] else ('-- ' if not i.get('required', True) else 'NO ')
         why = f"  ({i['why']})" if i.get('why') and not i['ok'] else ''
         lines.append(f"  {mark}{i['name']:<13} {i.get('value')}{why}")
+        for d in i.get('differences', []):
+            if 'only_env_file' in d:
+                lines.append(f"       {d['key']}: only in env file {d['only_env_file']}, "
+                             f"only in shell {d['only_shell']}"
+                             + (' (same entries, other order)' if d.get('order_differs') else ''))
+            else:
+                lines.append(f"       {d['key']}: env file {d['env_file']!r}, "
+                             f"shell {d['shell']!r}")
     return '\n'.join(lines)
 
 
@@ -93,6 +103,14 @@ def render(out: dict) -> str:
         return (head + f"  ready to launch: {'yes' if out.get('ready_to_launch') else 'no'}\n"
                 + f"  discovery: {disc.get('state')} {disc.get('address', '')}\n"
                 + _items(out['check'].get('items', [])))
+    if out.get('cmd') == 'estop-reset' and 'path' in out:
+        lines = [f"  path: {out.get('path')}",
+                 f"  latched before: {out.get('latched_before')}, "
+                 f"after: {out.get('latched_after')}, verified: {out.get('verified')}"]
+        for key in ('abort', 'restart', 'reset', 'stop', 'start', 'zero_drive'):
+            if key in out:
+                lines.append(f'  {key}: {json.dumps(out[key], default=str)}')
+        return head + '\n' + '\n'.join(lines)
     if out.get('cmd') == 'killall' and 'units' in out:
         return head + '\n' + _killall(out)
     body = {k: v for k, v in out.items()

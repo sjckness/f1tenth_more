@@ -78,10 +78,22 @@ def test_shipped_env_files_define_every_process(name):
     for proc in config.MANAGED:
         assert re.search(rf'^F1T_{proc.upper()}_CMD=".+"', text, re.M), proc
         assert re.search(rf'^F1T_{proc.upper()}_NODES="/', text, re.M), proc
-    assert re.search(r'^ROS_DISCOVERY_SERVER=127\.0\.0\.1:11811$', text, re.M)
+    # The reference `check` compares with (envcheck.py).
+    assert re.search(r'^F1T_SHELL_REF=', text, re.M)
     # Every source line fails the whole file, so a missing workspace is loud.
     for line in re.findall(r'^source .*$', text, re.M):
         assert line.endswith('|| return 1'), line
+
+
+def test_discovery_server_on_loopback_in_both_profiles():
+    with open(os.path.join(PKG, 'config', 'ctl.env')) as f:
+        car = f.read()
+    assert re.search(r'^ROS_DISCOVERY_SERVER=127\.0\.0\.1:11811$', car, re.M)
+    with open(os.path.join(PKG, 'config', 'sim_linus.env')) as f:
+        sim = f.read()
+    # The sim takes its ROS environment from jazzy's sim scripts, on loopback.
+    assert re.search(r'^F1TENTH_SIM_DISCOVERY_IP=127\.0\.0\.1$', sim, re.M)
+    assert re.search(r'^source "\$F1T_SIM_WS/scripts/sim/sim_net\.sh"', sim, re.M)
 
 
 def test_car_env_matches_the_stack_defaults():
