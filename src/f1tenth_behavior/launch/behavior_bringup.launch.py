@@ -146,6 +146,10 @@ def generate_launch_description():
         ('bt_tick_hz', float),
         ('enable_proximity_event_stop', bool),
         ('bt_keep_qos_event_handlers', bool),
+        # Part D (reverse_integration.py): two bools and the floor.
+        ('bt_reverse_integration', bool),
+        ('direction_aware_front_stop', bool),
+        ('front_hard_floor_m', float),
     ]
     avoidance_las = []
     for _name, _type in _avoidance_args:

@@ -2222,6 +2222,25 @@ proximity_side_threshold_m:
   description: "IsProximityTooClose side/rear (outside the +-45 deg front cone) trip distance [m]. Was car_radius alone (0.20 m); tightened alongside the front threshold. The sides/rear have no camera or MPC-avoidance coverage at all, so this is the only protection in those directions -- tightened rather than removed for that reason."
 
 # --------------------------------------------------------------
+# BT integration of mpc_corr's reverse manoeuvre (Part D,
+# f1tenth_behavior/reverse_integration.py). Consumed by:
+# f1tenth_behavior/behavior_bringup.launch.py -> behavior_executor_node.
+# The thresholds above are unchanged by these: with the shipped 0.15 m front
+# threshold every front trip is already under the 0.20 m floor, so the
+# direction-aware gate changes nothing for IsProximityTooClose until that
+# threshold is raised above the floor; it does for handle_obstacle (1.0 m).
+# --------------------------------------------------------------
+bt_reverse_integration:
+  default: true
+  description: "behavior_executor_node publishes /bt/allow_reverse every tick (true only while the mission is RUNNING, no battery/operator e-stop/overheat trip and no proximity reading that blocks the rear), mirrors /mpc/reverse_status's mode (blackboard mpc_reverse_mode, the mpc_mode node, one log line per change) and fails the current move with stuck_after_reverse (mission aborted) when mpc_corr reports 'stuck'. false: nothing publishes /bt/allow_reverse and mpc_corr never starts a reverse by itself."
+direction_aware_front_stop:
+  default: true
+  description: "With bt_reverse_integration: the front stops (IsProximityTooClose's front cone, handle_obstacle's camera corridor) stop forward motion only. While /mpc/reverse_status says the MPC is stopping for or driving a reverse they do not publish zero on the safety lane, unless the front reading is under front_hard_floor_m. Side and rear proximity stop in every direction. A stale status (older than bt_allow_reverse_max_age_s) counts as forward. false: the front stops stop in every direction, as before."
+front_hard_floor_m:
+  default: 0.20
+  description: "Absolute front floor [m] for direction_aware_front_stop: a front trip closer than this stops the car in every direction and withdraws /bt/allow_reverse. Measured as the front stop it applies to measures (IsProximityTooClose and handle_obstacle: from the front bumper). Only matters for a front stop whose own threshold is above it."
+
+# --------------------------------------------------------------
 # IsSystemOverheated load-trip configuration
 # The 2026-09-01 analysis found this condition caused 3 of 9 stop episodes,
 # every one a false positive on the LOAD half of the check: single 1 Hz

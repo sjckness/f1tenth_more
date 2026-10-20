@@ -4,7 +4,8 @@ Branch `mpc_corr_v2_reverse`. The base is `868ec8a` (origin `campaign-final` on
 2026-10-19). The Orin's newer `campaign-final` / `campaign-final-doors` are not in this
 base, and this branch is to be rebased onto `campaign-final-doors`. Each part is one
 self-contained commit, in order: MPC v2 (4 commits, `output/reverse/report.md`), **A**,
-**B**, **D**, **C**.
+**B**, **C**, the review and the Part B fixes, then **D**. The branch was already pushed,
+so D came after C rather than before it.
 
 Everything below was built and tested on **linus**: Ubuntu 24.04, ROS 2 Jazzy, Python 3.12,
 i7-9700K. That means colcon builds, unit tests and offline benchmarks only. **Nothing ran
@@ -524,21 +525,201 @@ WARN in that case, none when B4 runs or is switched off.
 
 ## Part D — BT integration
 
-**Not done: the task text was cut off.** The consolidated addendum ends at "D0. Audit: the
-tree (root Selector = [emergency, handle_obstacle, navigation]), what". Part A already
-consumes `/bt/allow_reverse` (Bool, must be < 0.5 s old), and it is the only input D has to
-provide for a reverse to ever start. Nothing publishes it on this branch.
+### In one paragraph
 
-What the audit found so far (A0):
+`behavior_executor_node` now gives mpc_corr the permission Part A waits for. A post-tick
+handler publishes `/bt/allow_reverse` every tick: true only while the mission is RUNNING,
+no battery / operator e-stop / overheat condition is tripped and no proximity reading
+blocks the rear. The front stops are direction-aware. While `/mpc/reverse_status` says the
+MPC is stopping for a reverse or reversing, a front trip at or beyond `front_hard_floor_m`
+(0.20 m) no longer puts zero on the safety lane. Side and rear trips, and anything under the
+floor, still stop the car in every direction. When the MPC gives up (`stuck`, three
+reverses without progress), the move FAILS with `stuck_after_reverse` and the mission is
+aborted, the same path as go_to_object's failures. The MPC's mode is mirrored onto the
+blackboard and into the tree view, and each change is logged once. Everything sits behind
+`bt_reverse_integration` (default true). **Nothing reverses on the car yet:
+`max_reverse_speed_mps` is still 0.0**, so mpc_corr reports `reverse_speed_limit` (Part A).
 
-- the root is `Selector[emergency, handle_obstacle, navigation]`
-  (`behavior_executor_node.py:499-574`);
-- there is no stuck branch;
-- mission stops reach mpc_corr as `/mpc/hold` or the next goal;
-- `/mission/status` carries IDLE / LOADED / RUNNING / HOLDING / COMPLETE / ABORTED.
+### D0 — Audit
 
-D will come as **new commits after C**. The branch is pushed, so no history is rewritten:
-no rebase, amend or force-push.
+- **Tree** (`behavior_executor_node.create_root`): root `Selector(memory=False)` over
+  `emergency`, `handle_obstacle` (only with `enable_camera_obstacle_stop`, default
+  **false**), `mission`, `navigation`. The task's list leaves out `mission`.
+- **handle_obstacle**: `IsObstacleDetected` on `/camera/detections_3d`. It trips on a
+  detection centre within 1.0 m of the front bumper, inside a ±0.32 m corridor. Then
+  `Stop(safety_stop, base_link/obstacle)`.
+- **is_proximity_too_close**: in the emergency lane. Front cone ±45° measured from the
+  bumper, 0.15 m. Side/rear window on raw ranges, 0.15 m. Its `/scan` callback also
+  publishes the emergency stop directly (`enable_proximity_event_stop`, stack default
+  true). Both paths decide through one `should_stop()`.
+- **"front_clearance stop"**: there is no front_clearance stop on the safety lane.
+  - The mission's `front_clearance` stop condition (`CheckStopCondition`) ends a move
+    through `/mpc/hold`, never through the safety lane.
+  - `/perception/front_clearance` and `/front_blocked` have no subscribers, by design.
+  - The hold condition is left alone: while held, mpc_corr is never stuck, and a hold
+    during a reverse ends it (`abort`, Part A).
+  - So the two front stops gated here are IsProximityTooClose's front cone and
+    handle_obstacle's camera corridor.
+- **Mux lanes** (`f1tenth_bringup/config/mux.yaml`): safety_stop 200 > joystick 100 >
+  calibration 50 > navigation `/drive` 10, each with a 0.2 s timeout.
+- **Mission state** reaches the tree as `MissionRuntimeState` on the blackboard
+  (`MISSION_KEY`), behind `MissionActive` (RUNNING or HOLDING).
+
+### What was built
+
+| Piece | Where | What |
+|---|---|---|
+| D1 permission | `reverse_integration.py` `ReverseIntegration.decide` (`:158`), `post_tick` (`:170`) | `Bool` on `/bt/allow_reverse` once per tick, after the tree. False unless the mission is **RUNNING**; false if IsBatteryLow, IsEmergencyStopTriggered or IsSystemOverheated is SUCCESS this tick; false if a front stop's `blocks_reverse()`. Each change of the value is logged once, with its reason. |
+| Status order | `create_root` (`behavior_executor_node.py:532`) | IsProximityTooClose is now the **last** emergency condition. A memory=False Selector leaves the children after its first SUCCESS unticked, and the front trip that got the car stuck must not hide the battery/e-stop/overheat statuses D1 reads. |
+| D2 mode | `ReverseModeMonitor` (`:63`) | Holds `/mpc/reverse_status`. `reverse_active()` is true only on a fresh status (younger than `bt_allow_reverse_max_age_s`, 0.5 s, reused) that says stopping-toward-reverse or reverse. Stale or absent reads as forward. |
+| D2 front cone | `is_proximity_too_close.py` `_front_full_stop` (`:428`), `_tripped` (`:442`), `blocks_reverse` (`:447`), `_event_stop_held` (`:464`) | A front trip counts unless the monitor says reverse_active and the front return is ≥ `front_hard_floor_m`. Side/rear trips always count. The gate is inside `should_stop()`, so the scan callback and the tick still decide the same way. A front-only callback stop is not re-held for its 0.2 s once a reverse releases it. |
+| D2 camera corridor | `is_obstacle_detected.py` `blocks_reverse` (`:99`), `should_stop` (`:108`) | Same rule on the nearest blocker's distance ahead of the bumper (the callback now keeps the nearest one, not the first one). |
+| D3 give-up | `_stuck_this_move` (`:194`), `_fail_move_stuck` (`:205`) | Fires when mpc_corr's mode is `stuck` and that `stuck` arrived after the current move started. It does the same steps as GoToObject's failure outcomes, then the mission is ABORTED (details below). |
+| D4 visibility | `MpcReverseMode` (`:103`), blackboard `mpc_reverse_mode` | A pass-through node between MissionActive and mission_selector, renamed `mpc_mode: <mode>` every tick it runs, so the tree image shows `mpc_mode: reverse`. The blackboard key is written every tick by the post-tick handler. One INFO line per mode change (`[reverse] MPC mode forward -> stopping (attempts 0, ...)`), including the change to `unknown` when the status goes stale. |
+
+**Why D3 is not a node in the mission subtree.** While the front stop trips, the emergency
+lane wins every tick and the mission subtree is never ticked. A stuck-check node there
+would never see the give-up. This is the starvation shape `create_root`'s docstring already
+describes. The post-tick handler runs on every tick.
+
+**What follows a FAILED move** (existing logic, unchanged). The failure takes the path
+every failed move takes today, GoToObject's `target_lost`/`target_unreachable`:
+
+- `/mpc/hold` true;
+- `last_stop_reason = failed:stuck_after_reverse`, recorded in the move outcome and so on
+  `/mission/move_outcome`;
+- for a go_to_object move, the record's outcome `stuck_after_reverse` and the end on
+  `/mpc/goal_object_end`;
+- the summary written as ABORTED;
+- `state.abort()`, so `/mission/status` reads ABORTED and the campaign logger gets
+  `mission_finished`.
+
+There is no per-move failure policy to consult: `on_timeout` (abort / skip / stop) governs
+timeouts only. mpc_corr itself stays in `stuck` (zero speed) until it gets the next move's
+goal. A `stuck` left over from an earlier move started before the new move did and does not
+fail it.
+
+### Tree before / after
+
+Before (`6f48d19`):
+
+```
+root  Selector
+├── emergency  Sequence
+│   ├── emergency_condition  Selector
+│   │   ├── IsBatteryLow
+│   │   ├── IsEmergencyStopTriggered
+│   │   ├── IsProximityTooClose          (enable_lidar_safety_stop)
+│   │   └── IsSystemOverheated           (enable_sys_obs)
+│   └── Stop  safety_stop, base_link/emergency
+├── handle_obstacle  Sequence            (enable_camera_obstacle_stop, default off)
+│   ├── IsObstacleDetected
+│   └── Stop  safety_stop, base_link/obstacle
+├── mission  Sequence
+│   ├── MissionActive
+│   └── mission_selector  Selector
+│       ├── mission_object_response  [ObjectSeen, HandleObjectAction]
+│       └── mission_progress  [PublishMoveGoal, GoToObject, CheckStopCondition, AdvanceMove]
+└── navigation  [HasMpcGoal]  or  [HasGoalPose, NavigateThroughPosesClient]
+```
+
+After, with `bt_reverse_integration` true (`*` = direction-aware with
+`direction_aware_front_stop`):
+
+```
+root  Selector
+├── emergency  Sequence
+│   ├── emergency_condition  Selector
+│   │   ├── IsBatteryLow
+│   │   ├── IsEmergencyStopTriggered
+│   │   ├── IsSystemOverheated           (enable_sys_obs)
+│   │   └── IsProximityTooClose *        (moved last)
+│   └── Stop  safety_stop, base_link/emergency
+├── handle_obstacle  Sequence            (default off)
+│   ├── IsObstacleDetected *
+│   └── Stop  safety_stop, base_link/obstacle
+├── mission  Sequence
+│   ├── MissionActive
+│   ├── mpc_mode: <forward|stopping|reverse|stuck|unknown>     (new, always SUCCESS)
+│   └── mission_selector  (unchanged)
+└── navigation  (unchanged)
+post-tick: ReverseIntegration -> /bt/allow_reverse, stuck -> FAILED, blackboard mpc_reverse_mode
+```
+
+With `bt_reverse_integration` false, the tree is the old one, apart from the emergency
+order. Nothing publishes `/bt/allow_reverse`, and mpc_corr never starts a reverse.
+
+### Safety-lane (`/safety_stop`) publishers, and when they are suppressed now
+
+| Publisher | Frame | Stops when | Suppressed now |
+|---|---|---|---|
+| Emergency lane `Stop` (tree) | `base_link/emergency` | any emergency condition SUCCESS | **Only for a front-cone trip at or above the floor** while the MPC is stopping-for-reverse or reversing. Battery, operator e-stop, overheat, side/rear and under-floor front: never. |
+| IsProximityTooClose scan-callback stop | `base_link/emergency` | a scan trips `should_stop()` | The same rule (one decision). Its 0.2 s re-hold of a front-only stop also ends once a reverse releases it. |
+| handle_obstacle `Stop` (off by default) | `base_link/obstacle` | camera blocker ≤ 1.0 m ahead of the bumper | While the MPC is stopping-for-reverse or reversing, unless the nearest blocker is under the floor. |
+| `reset_manager_node` (f1tenth_bringup) | — | during `/reset_all` | Never; not touched. |
+
+**With the shipped thresholds the front-cone gate changes nothing.**
+`proximity_front_threshold_m` is 0.15 m, under the 0.20 m floor, so every front trip is
+already a full stop. The floor applies to front trips only: a reading between the
+threshold and the floor is not a trip. So the floor does not raise the forward threshold,
+and no threshold was changed. The gate starts to act on IsProximityTooClose only if that
+threshold is set above 0.20 m (D5 tests it at 0.40 m). It does act on handle_obstacle
+(1.0 m) whenever that lane is on.
+
+### Parameters (`stack_params.yaml`, forwarded by `behavior_bringup.launch.py`)
+
+| Name | Default | Meaning |
+|---|---|---|
+| `bt_reverse_integration` | true | D1, D3, D4, and D2's mode monitor. |
+| `direction_aware_front_stop` | true | D2. False: the front stops stop in every direction, as before. |
+| `front_hard_floor_m` | 0.20 | Absolute front floor for D2, measured from the front bumper. |
+
+`/mpc/reverse_status`'s staleness limit reuses mpc_corr's `bt_allow_reverse_max_age_s`
+(0.5 s) instead of a fourth parameter.
+
+### Tests (D5), `test/test_bt_reverse_integration.py`, 8 tests, mocked
+
+| Work-order case | Test |
+|---|---|
+| Stuck at 0.35 m from a wall with the front stop active: reverse allowed, no zero on the safety lane, the front stop resumes for forward | `test_stuck_at_the_front_stop_reverses_without_a_safety_stop_then_it_resumes` (front threshold test-configured at 0.40 m; callback and tick both checked) |
+| Front clearance 0.15 m: full stop, no reverse | `test_front_under_the_floor_stops_in_every_direction_and_forbids_reversing` |
+| Emergency active: allow false | `test_an_emergency_condition_withdraws_the_permission` |
+| Side obstacle during reverse: stop | `test_a_side_obstacle_during_the_reverse_stops_and_withdraws` |
+| 3 failed attempts: move FAILED `stuck_after_reverse` | `test_three_failed_attempts_fail_the_move_stuck_after_reverse`, plus `test_a_stuck_left_over_from_before_the_move_does_not_fail_it` |
+| `/bt/allow_reverse` stale: no reverse | mpc_corr's side, already covered by `test_reverse_manoeuvre.py` (`bt_allow_stale` in the permission table, `bt_withdrawn: bt_allow_stale` mid-reverse). The BT's own staleness rule is `test_a_stale_status_reads_as_forward`. |
+
+Also `test_no_permission_without_a_running_mission`. The tree wiring (`create_root`) was
+checked with a throw-away script, not a committed test. It covers the emergency order, the
+`mpc_mode` node, the monitor handed to both front stops, `direction_aware_front_stop:=false`
+leaving them ungated, and `bt_reverse_integration` off leaving the mission subtree as before.
+
+**`py_trees_ros` is still not installed on linus**, so `colcon test` still cannot collect
+f1tenth_behavior. The new test file does not import it and passes on its own. With a
+scratch import stub for `py_trees_ros` (`trees.BehaviourTree` only, kept out of the repo),
+the whole suite passes: 440 tests, including the files that build the tree. It needs a
+real run once `ros-jazzy-py-trees-ros` is in.
+
+### Risks of the direction-aware change
+
+- **The front is released on mpc_corr's word.** A stale or missing status reads as
+  forward, so that case fails safe. A fresh but wrong `reverse_active` does not: an MPC bug
+  that drove forward while reporting a reverse would lose the front stop down to the floor.
+- **During a reverse, only the floor guards the front.** Something that moves into the
+  front cone between the floor and the threshold is not a stop while the car backs away.
+  That is the intent, but it relies on the car actually moving backwards: a direction
+  change the VESC does not honour is not modelled (Part A risk).
+- **The rear is still blind.** The side/rear proximity window is what keeps blocking in
+  every direction, but the LiDAR never scans the rear 90° live (Part A). During a reverse,
+  an obstacle straight behind is caught only by mpc_corr's rear pre-check and
+  rear-clearance termination, which read the map and the perception objects.
+- **Hand-back latency.** The tree learns the mode from a 10 Hz status and ticks at 10 Hz,
+  so the front stop returns up to about 0.2 s after a reverse ends. mpc_corr's
+  stopping-toward-forward phase commands zero for at least `gear_change_dwell_s` (0.3 s),
+  so no forward command goes out before the front stop is back.
+- **Allow stays true while the front stop trips.** This is deliberate: that trip is what
+  makes the car stuck. Withdrawing it there would deadlock the case the reverse exists for.
+- **D3 aborts while the e-stop holds the car.** A stuck give-up against a persistent front
+  trip ends the mission: the operator restarts it, the car does not wait.
 
 ---
 

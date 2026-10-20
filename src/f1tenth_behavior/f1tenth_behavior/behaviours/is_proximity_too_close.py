@@ -213,8 +213,20 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         immediate_stop_frame_id='base_link/emergency',
         event_stop_hold_s=0.2,
         clock=time.monotonic,
+        reverse_mode=None,
+        front_hard_floor_m=0.20,
     ):
         super().__init__(name=name)
+        # DIRECTION-AWARE FRONT STOP (Part D, reverse_integration.py). With a
+        # ReverseModeMonitor here, the front trip stops only forward motion:
+        # while the MPC stops for or drives a reverse it does not count,
+        # unless the front return is under front_hard_floor_m. Side/rear
+        # always count. None (direction_aware_front_stop false, or no
+        # bt_reverse_integration) keeps the front trip a stop in every
+        # direction. The gate lives in _tripped(), i.e. in should_stop(), so
+        # the scan callback and the tick still decide the same way.
+        self.reverse_mode = reverse_mode
+        self.front_hard_floor_m = float(front_hard_floor_m)
         self.scan_topic = scan_topic
         # The front cone's apex: the URDF's base_front (module docstring).
         self.front_x = base_front_x() if base_front_x_m is None else float(base_front_x_m)
@@ -260,9 +272,11 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         # all, behavior_executor_node.create_root), mission phase, hold,
         # go_to_object, countdown and preflight never gate it, and it reads
         # no blackboard key. Any future gate (a docking/reverse override, a
-        # blackboard flag) MUST go into _active(), never into the tree's
-        # structure, or the callback would keep stopping a car the tree has
-        # released; test_bt_tick_and_event_estop.py enforces the structure.
+        # blackboard flag) MUST go into should_stop() -- _active(), or
+        # _tripped() as the direction-aware front gate does -- never into the
+        # tree's structure, or the callback would keep stopping a car the
+        # tree has released; test_bt_tick_and_event_estop.py enforces the
+        # structure.
         #
         # RE-ARM. The callback publishes only while scans trip. The mux holds
         # the safety_stop lane for its timeout after the LAST stop (0.2 s,
@@ -281,6 +295,9 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         self.event_stop_hold_s = float(event_stop_hold_s)
         self._clock = clock
         self._last_event_stop = None
+        # Whether that last callback stop was a front-only trip, which a
+        # reverse releases (_event_stop_held).
+        self._last_event_stop_front_only = False
 
     def setup(self, **kwargs):
         try:
@@ -375,6 +392,8 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
                 make_stop_msg(self.node, self.immediate_stop_frame_id))
             self.immediate_stop_count += 1
             self._last_event_stop = self._clock()
+            self._last_event_stop_front_only = not (
+                self._side_tripped() or self._front_full_stop())
 
         # ---- DIAGNOSTIC (live investigation, see chat) -- throttled, every
         # callback, so "not firing at all" vs. "firing but computing wrong"
@@ -394,16 +413,44 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
                 + (f'{min_front:.3f}' if min_front is not None else 'none'),
             )
 
-    def _tripped(self) -> bool:
-        front_tripped = (
+    def _front_raw_tripped(self) -> bool:
+        return (
             self.latest_lidar_front_min is not None
             and self.latest_lidar_front_min < self.front_distance_threshold
         )
-        lidar_tripped = (
+
+    def _side_tripped(self) -> bool:
+        return (
             self.latest_lidar_min_in_window is not None
             and self.latest_lidar_min_in_window < self.lidar_distance_threshold
         )
-        return front_tripped or lidar_tripped
+
+    def _front_full_stop(self) -> bool:
+        """Return True for a front trip that stops the car in every direction.
+
+        Always without the direction-aware gate, else only under
+        front_hard_floor_m.
+        """
+        return self._front_raw_tripped() and (
+            self.reverse_mode is None
+            or self.latest_lidar_front_min < self.front_hard_floor_m)
+
+    def _front_released(self) -> bool:
+        """Return True while the MPC stops for or drives a reverse (fresh status only)."""
+        return self.reverse_mode is not None and self.reverse_mode.reverse_active()
+
+    def _tripped(self) -> bool:
+        front_tripped = self._front_full_stop() or (
+            self._front_raw_tripped() and not self._front_released())
+        return front_tripped or self._side_tripped()
+
+    def blocks_reverse(self) -> bool:
+        """Return True for a reading that must also withdraw /bt/allow_reverse.
+
+        A side/rear trip, or a front trip under the floor. The front trip
+        above the floor is the one a reverse is for.
+        """
+        return self._side_tripped() or self._front_full_stop()
 
     def _active(self) -> bool:
         """The single enable predicate shared by both stop paths (see
@@ -415,7 +462,12 @@ class IsProximityTooClose(py_trees.behaviour.Behaviour):
         return self._active() and self._tripped()
 
     def _event_stop_held(self) -> bool:
-        """A callback stop the mux is still holding (RE-ARM in __init__)."""
+        """Return True for a callback stop the mux still holds (RE-ARM in __init__).
+
+        A front-only one is not re-published once a reverse has released it.
+        """
+        if self._last_event_stop_front_only and self._front_released():
+            return False
         return (self._last_event_stop is not None and self._active()
                 and self._clock() - self._last_event_stop <= self.event_stop_hold_s)
 

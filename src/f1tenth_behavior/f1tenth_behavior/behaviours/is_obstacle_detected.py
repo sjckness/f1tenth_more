@@ -45,8 +45,17 @@ class IsObstacleDetected(py_trees.behaviour.Behaviour):
         corridor_half_width=0.32,
         corridor_half_height=0.32,
         base_front_x_m=None,
+        reverse_mode=None,
+        front_hard_floor_m=0.20,
     ):
         super().__init__(name=name)
+        # Direction-aware, as IsProximityTooClose's front cone (Part D,
+        # reverse_integration.py): while the MPC stops for or drives a
+        # reverse, only a blocker under front_hard_floor_m stops the car.
+        self.reverse_mode = reverse_mode
+        self.front_hard_floor_m = float(front_hard_floor_m)
+        # The nearest blocker's distance ahead of the bumper, None if none.
+        self.nearest_ahead_m = None
         self.detections_topic = detections_topic
         # stop_distance is measured from here (module docstring).
         self.front_x = base_front_x() if base_front_x_m is None else float(base_front_x_m)
@@ -75,6 +84,7 @@ class IsObstacleDetected(py_trees.behaviour.Behaviour):
 
     def _detections_callback(self, msg):
         cx, _cy, cyaw = self._frames.pose(msg.header.frame_id) or (0.0, 0.0, 0.0)
+        nearest = None
         for detection in msg.detections:
             p = detection.bbox.center.position
             # Ahead of the front bumper, along base_link x (module docstring).
@@ -82,13 +92,26 @@ class IsObstacleDetected(py_trees.behaviour.Behaviour):
             if (p.x >= 0.0 and ahead_of_front <= self.stop_distance
                     and abs(p.y) <= self.corridor_half_width
                     and abs(p.z) <= self.corridor_half_height):
-                self.obstacle_present = True
-                return
-        self.obstacle_present = False
+                nearest = ahead_of_front if nearest is None else min(nearest, ahead_of_front)
+        self.obstacle_present = nearest is not None
+        self.nearest_ahead_m = nearest
+
+    def blocks_reverse(self) -> bool:
+        """Return True for a blocker that stops the car in every direction.
+
+        Any, without the direction-aware gate; else only one under
+        front_hard_floor_m.
+        """
+        return self.obstacle_present and (
+            self.reverse_mode is None or self.nearest_ahead_m < self.front_hard_floor_m)
+
+    def should_stop(self) -> bool:
+        released = self.reverse_mode is not None and self.reverse_mode.reverse_active()
+        return self.blocks_reverse() or (self.obstacle_present and not released)
 
     def update(self):
         return (
             py_trees.common.Status.SUCCESS
-            if self.obstacle_present
+            if self.should_stop()
             else py_trees.common.Status.FAILURE
         )
