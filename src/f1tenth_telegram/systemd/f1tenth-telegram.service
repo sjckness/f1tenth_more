@@ -1,0 +1,34 @@
+# f1tenth_telegram as a systemd USER unit on linus. Not installed by anything:
+#   mkdir -p ~/.config/systemd/user
+#   cp systemd/f1tenth-telegram.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now f1tenth-telegram
+#   sudo loginctl enable-linger andreas     # keep it running without a login
+#   journalctl --user -u f1tenth-telegram -f
+# One polling process per bot token: never run this unit and a second copy
+# (another machine, a terminal) with the same token. See README.md.
+
+[Unit]
+Description=F1Tenth Telegram control panel (f1tenth_telegram)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# The token: TELEGRAM_BOT_TOKEN=... in a chmod 600 file outside the repo.
+EnvironmentFile=%h/.config/f1tenth_telegram/env
+# The venv that has python-telegram-bot (README.md).
+Environment=PYTHON=%h/.local/share/f1tenth_telegram/venv/bin/python
+Environment=PYTHONUNBUFFERED=1
+# Voice on the GPU: cuBLAS and cuDNN come from the venv's nvidia-cublas-cu12 /
+# nvidia-cudnn-cu12 wheels (README.md, Voice commands). Without them the
+# speech model falls back to the CPU.
+Environment=LD_LIBRARY_PATH=%h/.local/share/f1tenth_telegram/venv/lib/python3.12/site-packages/nvidia/cublas/lib:%h/.local/share/f1tenth_telegram/venv/lib/python3.12/site-packages/nvidia/cudnn/lib
+ExecStart=%h/dev_ws/f1tenth_more_telegram/src/f1tenth_telegram/bin/f1tenth_telegram --config %h/dev_ws/f1tenth_more_telegram/src/f1tenth_telegram/config/telegram.yaml
+# Always: a crash, or an exit after the network went away, comes back. The
+# bot also retries getMe and polling itself (bootstrap_retries=-1).
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

@@ -56,6 +56,28 @@ Two habits that would have caught it:
 - **When a test encodes a config default, it is a coupling.** Changing the
   default in `stack_params.yaml` means updating the test in the same commit.
 
+### A module-level `pytest.importorskip` skips the whole directory
+
+With ROS sourced, the `launch_testing` pytest plugin imports every test
+module during collection. A module that calls `pytest.importorskip(...)` at
+import time does not skip just itself: the whole directory is skipped. The
+result is `collected 0 items / 1 skipped`, another green run that executed
+nothing (seen 2026-10-20 in `f1tenth_telegram/test/test_tg.py`).
+
+Skip per test instead: call `importorskip` inside a fixture or the test.
+
+## Processes
+
+### `ros2 run` does not forward SIGINT to its node
+
+`ros2 run` waits for its child and swallows `KeyboardInterrupt`. It counts on
+the terminal's Ctrl-C reaching the child through the process group.
+
+- A SIGINT sent to the `ros2 run` pid alone leaves the node running.
+- `f1tenth_ctl` once had to escalate to SIGKILL on the planner because of
+  this.
+- Stop a process tree the way Ctrl-C does: `os.killpg(pgid, SIGINT)`.
+
 ## Packaging
 
 ### Never put a literal `--` inside a `package.xml` XML comment
