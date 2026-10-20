@@ -117,6 +117,7 @@ import py_trees
 from ament_index_python.packages import get_package_share_directory
 from f1tenth_messages.msg import MissionStatus, MoveOutcome
 from f1tenth_messages.srv import LoadMission
+from f1tenth_params.param_defaults import get_value
 from rclpy.qos import QoSDurabilityPolicy, QoSHistoryPolicy, QoSProfile, QoSReliabilityPolicy
 from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
@@ -237,6 +238,19 @@ class MissionLoader:
         # whole drive.
         self._countdown_s = float(
             node.declare_parameter('mission_countdown_sec', 15.0).value)
+        # ...but only while the mission recorder runs: the standstill
+        # measurement and the bag's start-up only matter when recording. With
+        # enable_mission_logger false (the stack default since 2026-10-16) a
+        # start begins at once. The value is the supervisor's own
+        # enable_mission_logger, forwarded through behavior_bringup.launch.py
+        # -- the same one that decides whether mission_logger.launch.py runs.
+        self._logger_enabled = bool(node.declare_parameter(
+            'enable_mission_logger', get_value('enable_mission_logger')).value)
+        node.get_logger().info(
+            f'[mission] start countdown: {self._countdown_s:.1f} s while the mission '
+            f'logger runs; enable_mission_logger={self._logger_enabled}, so '
+            + ('armed on every start.' if self._logger_enabled else
+               'a start begins at once.'))
         # Read live at every start (see _countdown_seconds) so a campaign can
         # retune it with `ros2 param set` between tests, without a restart.
         self._countdown_timer = None
@@ -535,18 +549,24 @@ class MissionLoader:
     def _countdown_seconds(self) -> float:
         """The countdown as it is set RIGHT NOW, in seconds.
 
-        Falls back to the value read at construction when the node has no
-        get_parameter -- the unit tests drive this class with a minimal stub,
-        and a stub missing one accessor must not change the behaviour under
-        test.
+        0 while the mission logger is off (see __init__), else
+        mission_countdown_sec. Both are read live. Falls back to the values
+        read at construction when the node has no get_parameter -- the unit
+        tests drive this class with a minimal stub, and a stub missing one
+        accessor must not change the behaviour under test.
         """
+        if not self._live_param('enable_mission_logger', self._logger_enabled):
+            return 0.0
+        return float(self._live_param('mission_countdown_sec', self._countdown_s))
+
+    def _live_param(self, name, fallback):
         getter = getattr(self._node, 'get_parameter', None)
         if getter is None:
-            return self._countdown_s
+            return fallback
         try:
-            return float(getter('mission_countdown_sec').value)
+            return getter(name).value
         except Exception:  # noqa: BLE001 -- an undeclared/odd stub parameter
-            return self._countdown_s
+            return fallback
 
     def _cancel_countdown(self) -> bool:
         """Disarm a pending start. True if one was actually armed.

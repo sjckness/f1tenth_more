@@ -1,0 +1,7 @@
+# Manual reverse request to mpc_corr (/mpc/request_reverse). The same rear
+# pre-checks and /bt/allow_reverse permission the automatic arbitration uses
+# apply; the stuck condition does not.
+float32 distance_m   # <= 0: rear_corridor_length_m; capped at it
+---
+bool accepted
+string reason

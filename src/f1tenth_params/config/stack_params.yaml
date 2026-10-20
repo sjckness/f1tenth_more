@@ -375,7 +375,11 @@ sensors_config:
   default: config/sensors.yaml
   description: "Hokuyo LiDAR (urg_node) IP/port/frame config."
 # Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
-# is_zed-gated -- only declared/launched when detection_3d_node itself is).
+# is_zed-gated -- only declared/launched when detection_3d_node itself is),
+# and MPC_corr.py, which applies the same gate (obstacle_z_* and the two
+# *_obstacle_radius keys below, f1tenth_params.object_geometry.
+# passes_obstacle_filter) to the semantic layer's objects. A launch override
+# reaches the projector only: change the value here to move both.
 obstacle_z_min:
   default: -0.1
   description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, z = 0 is the floor: base_link is on the ground per base.xacro) -- detections whose centre is below this are dropped as ground-plane false positives. Untuned starting point."
@@ -384,6 +388,15 @@ obstacle_z_min:
 obstacle_z_max:
   default: 2.0
   description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame, height above the floor) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+# Consumed by: obstacle_projector_node.py (declare_parameter default) and
+# MPC_corr.py (the same gate for semantic objects). Moved here from the
+# projector's literals on 2026-10-20, values unchanged.
+min_obstacle_radius:
+  default: 0.03
+  description: "Lower bound [m] of the obstacle radius reject filter (the footprint radius before any class margin): smaller is noise-sized and dropped. Applied by obstacle_projector_node to every detection and by mpc_corr to every semantic-layer object (passes_obstacle_filter)."
+max_obstacle_radius:
+  default: 1.5
+  description: "Upper bound [m] of the obstacle radius reject filter: larger is a bad depth read and dropped. Applied by obstacle_projector_node and by mpc_corr to semantic-layer objects (passes_obstacle_filter). Tuned against legacy height radii, re-validate on the floor."
 # Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
 # is_zed-gated).
 #
@@ -1450,8 +1463,224 @@ min_moving_speed_mps:
   default: 0.4
   description: "Minimum forward speed [m/s] commanded while the car moves; zero only to stop. ENFORCED on: go_to_object moves -- the mission loader rejects go_to_object.speed below it, mpc_corr floors the published /drive speed at it while an object approach drives, and treats an ObjectGoal speed below it as stop-and-wait. NOT YET ENFORCED on drive, turn, goal_distance and goal_pose moves: drive_turn_180.json, test_04_turn_accuracy.json, turn_90_left.json and wall_turn_then_straight.json still request 0.3 m/s, and mpc_corr's other modes still let the solver's command fall below 0.4 near a goal."
 max_reverse_speed_mps:
+  default: 0.4
+  description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. A MAGNITUDE: it is always >= 0 and the sign is applied by the clamp (validate_speed_limits raises on a negative). 0.0 forbids reverse outright; 0.4 matches v_rev_mps, the speed the stuck manoeuvre plans at, so the rear side clears its reverse_speed_limit gate. The car still has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse beyond this is clamped and reported on /mpc/drive_clamp."
+# REVERSE CHOSEN BY THE MPC (mpc_controller/reverse_mpc.py, branch
+# mpc_corr_v2_reverse). Consumed by: MPC_corr.py's declare_parameter() defaults
+# (get_value), no launch arg. allow_reverse false (the default) leaves the solve
+# bit-identical to before (test_reverse_flag_off_identity.py); true also needs
+# max_reverse_speed_mps > 0, or the node disables it at start and says so. The
+# car has NO rear sensing beyond the LiDAR's side window (output/reverse/
+# recon.md section 5): turning this on is an operator decision.
+allow_reverse:
+  default: false
+  description: "Let mpc_corr choose to drive in reverse: each tick it solves forward, reverse and reverse-then-forward candidates and picks one with hysteresis (reverse_mpc.py). Requires max_reverse_speed_mps >= reverse_v_rev_max_mps. Prototype, nominal-model tested only. mpc_corr refuses to start if this and reverse_auto_enabled are both true."
+reverse_switch_times_s:
+  default: [1.0, 2.0]
+  description: "Reverse-then-forward candidates C_T: reverse until T [s], forward after. A T at or past the horizon end (N * mpc_prediction_dt_s, 2.0 s at 0.1) is the all-reverse candidate and is dropped as a duplicate."
+reverse_v_rev_max_mps:
+  default: 0.3
+  description: "Largest reverse speed [m/s] a candidate may plan. Lower than forward on purpose: the rear is blind. Capped at max_reverse_speed_mps."
+reverse_w_rev:
+  default: 4.3
+  description: "Linear cost per m/s of reverse speed per stage (via a slack, scaled 7/N like every stage weight). The speed term tracks +-vdes in the travel direction, so standing still costs the same forward and reverse; w_rev >= 2 * mpc_w_v * vdes (2 * 4.2857 * 0.5 = 4.29) makes reversing at any speed cost at least as much as standing, so reverse is chosen only for what it buys (obstacles, corridor, cost-to-go), never for the speed term."
+reverse_switch_threshold:
+  default: 1.0
+  description: "A direction change needs the other direction's best score to beat the current one's by more than this (absolute) AND by reverse_switch_threshold_rel (relative)."
+reverse_switch_threshold_rel:
+  default: 0.1
+  description: "Relative part of the switch test: gain > this * |current best score|."
+reverse_commit_break_margin:
+  default: 3.0
+  description: "Once braking for a direction change has started, the old direction is taken back only if it beats the new one by more than this (larger than reverse_switch_threshold)."
+reverse_min_dwell_s:
+  default: 1.0
+  description: "Minimum time [s] between two direction changes."
+reverse_stop_speed_mps:
+  default: 0.05
+  description: "|v| below this [m/s] counts as stopped: ends a commitment, and is where the operating floor resumes in the new direction."
+reverse_corr_back_length_m:
+  default: 1.0
+  description: "Length [m] the candidates' corridor is extended behind its start, straight along its first tangent, heading reference unchanged."
+# The candidates' terminal cost-to-go (mpc_controller/cost_to_go.py): a
+# backward Dijkstra over forward/reverse motion primitives on a local
+# (x, y, heading, gear) lattice, collision-checked with the car's footprint
+# against the same boundary half-planes the QP uses and the obstacle list.
+# Built only when a goal POSE exists (goal_pose, turn and object moves) and
+# rebuilt on goal / wall change or when the car nears the window edge.
+reverse_w_ctg:
+  default: 3.0
+  description: "Weight on the cost-to-go V (metres of path; reverse metres x reverse_ctg_k_rev, + reverse_ctg_gear_switch_cost per direction change) in each candidate's score, Score = J_QP + this * V(x_N). While a goal pose exists it also replaces the forward terminal pull (mpc_w_term to the lookahead, mpc_w_psi to psiRef) in EVERY candidate: each QP is pulled to its terminal target with this * reverse_ctg_h_xy / _h_psi."
+reverse_ctg_follow_m:
+  default: 0.6
+  description: "Terminal target [m]: V's optimal policy, restricted to the candidate's own sign schedule, is followed from the car's pose for the distance the candidate's nominal speed profile covers, plus this."
+reverse_ctg_h_xy:
+  default: 4.0
+  description: "Pull [1/m^2, x reverse_w_ctg] of the QP's terminal position toward the terminal target."
+reverse_ctg_h_psi:
+  default: 2.0
+  description: "Pull [1/rad^2, x reverse_w_ctg] of the QP's terminal heading toward the terminal target's."
+reverse_ctg_window_m:
+  default: 4.0
+  description: "Side [m] of the square lattice window, placed at the car-goal midpoint or slid from the car toward a far goal (the car keeps 1.2 m around it); a goal outside it is reached through the window border."
+reverse_ctg_resolution_m:
+  default: 0.10
+  description: "Lattice cell size [m]."
+reverse_ctg_n_theta:
+  default: 36
+  description: "Lattice heading bins (10 deg each)."
+reverse_ctg_primitive_length_m:
+  default: 0.30
+  description: "Length [m] of each motion primitive (forward and reverse at steering -max, -max/2, 0, +max/2, +max from mpc_steering_angle_min/max_rad)."
+reverse_ctg_k_rev:
+  default: 3.0
+  description: "Cost of a reverse metre in forward metres. With 1.0 for a gear switch, a goal straight behind is reversed to up to about 2-2.5 m and turned to beyond (output/reverse/report.md)."
+reverse_ctg_gear_switch_cost:
+  default: 1.0
+  description: "Cost [forward-metre equivalents] of each direction change on a lattice path."
+reverse_ctg_steer_cost_per_m:
+  default: 0.15
+  description: "Extra lattice cost per metre at full steering lock (pro rata). Every primitive is the same length, so without it a zigzag costs what a straight line does and the policy path wiggles; small enough to only choose between equally long manoeuvres."
+reverse_ctg_unreachable_cost:
+  default: 50.0
+  description: "V of a state that cannot reach the goal: large but FINITE, so a candidate ending there still has a defined score. 50 is well above any reachable V in a 4 m window (about 20 at most) without letting one interpolated corner swamp every other term of a score."
+reverse_ctg_goal_tolerance_m:
+  default: 0.15
+  description: "Lattice cells within this distance [m] of the goal position are goal states (any heading: goal_pose arrival is position-only)."
+reverse_ctg_footprint_margin_m:
+  default: 0.10
+  description: "Margin [m] around the car body (base_front to swept_clearance_body_rear_x_m, +-swept_clearance_body_half_width_m) for the lattice's collision check."
+reverse_ctg_use_corridor_bounds:
+  default: false
+  description: "Also forbid lattice states whose footprint leaves the corridor (extended backwards). Off by default: the corridor is synthetic, rebuilt from the car's pose toward the goal every corridor_update_period, so it rebuilds V every second and, aimed at a goal behind, it is a U-turn that excludes the very reverse path V exists to find (scenario e is unreachable with it on)."
+reverse_ctg_wall_change_m:
+  default: 0.10
+  description: "Rebuild V when a boundary half-plane offset, an obstacle centre/radius or (if used) the corridor moves by more than this [m]."
+reverse_ctg_min_rebuild_period_s:
+  default: 0.5
+  description: "Minimum time [s] between two V rebuilds not caused by a goal change."
+# REAR BUMPER. There is no base_rear frame in the URDF and no tape
+# measurement: 0.082 m is the URDF chassis-mesh bound (the same number as
+# swept_clearance_body_rear_x_m, which stays as it is for its own consumer).
+# TODO(measure): tape-measure base_link (rear axle) to the rear bumper face,
+# as base_front.xacro's 0.405 was on 2026-10-13, and set it here.
+# Consumed by: MPC_corr.py (reverse manoeuvre: rear corridor start, rear
+# pre-check strip, rear clearance) and reverse_mpc's rear w_obs probes.
+car_rear_offset_m:
+  default: 0.082
+  description: "Rear bumper face behind base_link (the rear axle) [m], positive. UNMEASURED: the URDF chassis-mesh bound; TODO tape-measure it."
+
+# THE REVERSE MANOEUVRE (mpc_controller/reverse_manoeuvre.py). Consumed by:
+# MPC_corr.py's declare_parameter() defaults (get_value), no launch arg. The
+# forward MPC drives by default; a short reverse along a frozen rear corridor
+# is taken only when the forward side is STUCK for stuck_time_s, the rear side
+# is READY (pre-checks + a feasible rear solve) and the behaviour tree allows
+# it on /bt/allow_reverse (fresh within 0.5 s). Raw costs are never compared.
+# A reverse also needs max_reverse_speed_mps >= v_rev_mps: the /drive clamp is
+# the one authority on reverse speed, and with it at 0.0 (shipped) the rear
+# side reports "reverse_speed_limit" and never becomes ready.
+reverse_auto_enabled:
+  default: true
+  description: "Let mpc_corr start a reverse manoeuvre by itself when stuck (still gated by rear readiness, /bt/allow_reverse and max_reverse_speed_mps). /mpc/request_reverse works either way. mpc_corr refuses to start if this and allow_reverse are both true."
+rear_solver_mode:
+  default: "lazy"
+  description: "'lazy': the rear solver runs only while the stuck timer runs (normal driving never pays for it). 'always': every tick (for timing comparisons)."
+rear_corridor_length_m:
+  default: 0.5
+  description: "Length [m] of the rear corridor, from the rear bumper straight back along the heading at reverse start; also the cap on a requested distance."
+rear_corridor_half_width_m:
+  default: -1.0
+  description: "Rear corridor half-width [m] at the bumper; <= 0 uses corr_half_width_start_m. The far end is this times CORRIDOR_WIDTH_RATIO, the forward corridors' rule."
+v_rev_mps:
+  default: 0.4
+  description: "Reverse speed magnitude [m/s], fixed for the whole manoeuvre: the operating floor min_moving_speed_mps, never lower while moving."
+mpc_rear.prediction_dt_s:
+  default: 0.2
+  description: "The rear solver's prediction step [s]. Its horizon is ceil(rear_corridor_length_m / (v_rev_mps * this)) clamped to [5, 10]: 7 at 0.5 m, 0.4 m/s, 0.2 s."
+mpc_rear.w_term:
+  default: 9.0
+  description: "The rear solver's w_term (same meaning as mpc_w_term). Copied from mpc_w_term when the rear solver was added; tune separately."
+mpc_rear.w_v:
+  default: 4.2857
+  description: "The rear solver's w_v (same meaning as mpc_w_v). Copied from mpc_w_v when the rear solver was added; tune separately."
+mpc_rear.w_psi:
+  default: 4.5
+  description: "The rear solver's w_psi (same meaning as mpc_w_psi). Copied from mpc_w_psi when the rear solver was added; tune separately."
+mpc_rear.w_u_a:
   default: 0.0
-  description: "Largest REVERSE speed magnitude [m/s] mpc_corr may put on /drive. 0.0 forbids reverse: no mission or code path requests it, and the car has no rear sensing beyond the 0.15 m LiDAR floor. Solver-chosen reverse is clamped to zero and reported on /mpc/drive_clamp."
+  description: "The rear solver's w_u_a (same meaning as mpc_w_u_a). Copied from mpc_w_u_a when the rear solver was added; tune separately."
+mpc_rear.w_du_delta:
+  default: 8.33
+  description: "The rear solver's w_du_delta (same meaning as mpc_w_du_delta). Copied from mpc_w_du_delta when the rear solver was added; tune separately."
+mpc_rear.w_du_a:
+  default: 0.0
+  description: "The rear solver's w_du_a (same meaning as mpc_w_du_a). Copied from mpc_w_du_a when the rear solver was added; tune separately."
+mpc_rear.w_delta0:
+  default: 0.0
+  description: "The rear solver's w_delta0 (same meaning as mpc_w_delta0). Copied from mpc_w_delta0 when the rear solver was added; tune separately."
+mpc_rear.w_obs:
+  default: 8.0
+  description: "The rear solver's w_obs (same meaning as mpc_w_obs). Copied from mpc_w_obs when the rear solver was added; tune separately."
+mpc_rear.w_corr:
+  default: 3.5714
+  description: "The rear solver's w_corr (same meaning as mpc_w_corr). Copied from mpc_w_corr when the rear solver was added; tune separately."
+mpc_rear.w_line:
+  default: 1.1662
+  description: "The rear solver's w_line (same meaning as mpc_w_line). Copied from mpc_w_line when the rear solver was added; tune separately."
+mpc_rear.w_psi_stage:
+  default: 4.7736
+  description: "The rear solver's w_psi_stage (same meaning as mpc_w_psi_stage). Copied from mpc_w_psi_stage when the rear solver was added; tune separately."
+stuck_time_s:
+  default: 0.5
+  description: "The forward side is stuck when any stuck condition holds on every tick for this long [s]; one tick with none (or a tick the detector does not see) resets it."
+stuck_speed_mps:
+  default: 0.05
+  description: "|v| below this [m/s] is stopped: for stuck condition (b) and for the end of both gear changes."
+stuck_front_dist_m:
+  default: 0.6
+  description: "Stuck condition (b): an obstacle or wall within this [m] of the front bumper with the car stopped and the mission active. 0.6 is just above where w_obs parks the nose (0.5525 m probe reach + 0.32 m clearance - 0.405 m bumper = 0.47 m)."
+stuck_progress_m:
+  default: 0.05
+  description: "Stuck condition (c): the forward plan's predicted displacement over the horizon below this [m]."
+gear_change_dwell_s:
+  default: 0.3
+  description: "Both gear changes command zero speed and wait for |v| < stuck_speed_mps for this long [s]."
+forward_min_time_s:
+  default: 2.0
+  description: "After a reverse, drive forward at least this long [s] before another."
+reverse_max_attempts:
+  default: 3
+  description: "Consecutive reverses without reverse_progress_reset_m of forward progress before mpc_corr gives up: zero speed, mode 'stuck' on /mpc/reverse_status, no more reverses until a new move or mission."
+reverse_progress_reset_m:
+  default: 0.3
+  description: "Forward progress [m] since the last reverse that resets the attempt count."
+rear_stop_margin_m:
+  default: 0.15
+  description: "End the reverse when the free distance behind the rear bumper along the rear corridor (costmap, obstacles, semantic memory) falls below this [m]."
+rear_brake_delay_s:
+  default: 0.144
+  description: "Braking model for rear_stop_margin_m: the reverse ends at margin + |v| * this + v^2 / (2 * rear_brake_decel_mps2) of free distance, so the car is at REST with the margin left. The fit to the archived forward stops (BRAKING_MEASURED); reverse braking is unmeasured."
+rear_brake_decel_mps2:
+  default: 1.5
+  description: "Deceleration [m/s^2] of the braking model above (archived forward stops)."
+rear_check_margin_m:
+  default: 0.10
+  description: "Margin [m] added to the body half-width for the swept strip the rear pre-check and the rear clearance look at."
+rear_costmap_topic:
+  default: "/slam/map"
+  description: "OccupancyGrid the rear pre-check reads (map frame; -1 unknown is NOT free). The car never scans its rear live, so behind it this holds what was seen on the way in."
+rear_costmap_free_max:
+  default: 50
+  description: "Cell values in [0, this) are free, at or above occupied, -1 unknown."
+rear_solver_budget_s:
+  default: 0.05
+  description: "A rear solve slower than this [s] counts as a failure; two in a row end the reverse."
+reverse_timeout_factor:
+  default: 2.0
+  description: "End the reverse after this times its expected duration (requested distance / v_rev_mps)."
+bt_allow_reverse_max_age_s:
+  default: 0.5
+  description: "/bt/allow_reverse older than this [s] counts as not allowed."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
 # declare default = this value), for the go_to_object move (schema 4.0):
 # GoToObject (mission/object_handler.py) and CheckStopCondition's
@@ -2090,6 +2319,25 @@ proximity_side_threshold_m:
   description: "IsProximityTooClose side/rear (outside the +-45 deg front cone) trip distance [m]. Was car_radius alone (0.20 m); tightened alongside the front threshold. The sides/rear have no camera or MPC-avoidance coverage at all, so this is the only protection in those directions -- tightened rather than removed for that reason."
 
 # --------------------------------------------------------------
+# BT integration of mpc_corr's reverse manoeuvre (Part D,
+# f1tenth_behavior/reverse_integration.py). Consumed by:
+# f1tenth_behavior/behavior_bringup.launch.py -> behavior_executor_node.
+# The thresholds above are unchanged by these: with the shipped 0.15 m front
+# threshold every front trip is already under the 0.20 m floor, so the
+# direction-aware gate changes nothing for IsProximityTooClose until that
+# threshold is raised above the floor; it does for handle_obstacle (1.0 m).
+# --------------------------------------------------------------
+bt_reverse_integration:
+  default: true
+  description: "behavior_executor_node publishes /bt/allow_reverse every tick (true only while the mission is RUNNING, no battery/operator e-stop/overheat trip and no proximity reading that blocks the rear), mirrors /mpc/reverse_status's mode (blackboard mpc_reverse_mode, the mpc_mode node, one log line per change) and fails the current move with stuck_after_reverse (mission aborted) when mpc_corr reports 'stuck'. false: nothing publishes /bt/allow_reverse and mpc_corr never starts a reverse by itself."
+direction_aware_front_stop:
+  default: true
+  description: "With bt_reverse_integration: the front stops (IsProximityTooClose's front cone, handle_obstacle's camera corridor) stop forward motion only. While /mpc/reverse_status says the MPC is stopping for or driving a reverse they do not publish zero on the safety lane, unless the front reading is under front_hard_floor_m. Side and rear proximity stop in every direction. A stale status (older than bt_allow_reverse_max_age_s) counts as forward. false: the front stops stop in every direction, as before."
+front_hard_floor_m:
+  default: 0.20
+  description: "Absolute front floor [m] for direction_aware_front_stop: a front trip closer than this stops the car in every direction and withdraws /bt/allow_reverse. Measured as the front stop it applies to measures (IsProximityTooClose and handle_obstacle: from the front bumper). Only matters for a front stop whose own threshold is above it."
+
+# --------------------------------------------------------------
 # IsSystemOverheated load-trip configuration
 # The 2026-09-01 analysis found this condition caused 3 of 9 stop episodes,
 # every one a false positive on the LOAD half of the check: single 1 Hz
@@ -2300,7 +2548,7 @@ enable_slam:
 # point is that nobody has to remember to turn it on.
 enable_mission_logger:
   default: false
-  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before."
+  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before. ALSO READ BY behavior_executor_node (forwarded by component_supervisor_node through behavior_bringup.launch.py): the mission start countdown (mission_countdown_sec, 15 s) is armed only when this is true; false starts a mission at once."
 # Consumed by: f1tenth_logger/mission_logger.launch.py: starts the 5 Hz depth
 # throttle (topic_tools) and forwards record_depth to mission_logger_node.
 mission_logger_record_depth:
@@ -2883,6 +3131,23 @@ go_to_enabled:
   default: true
   description: "llm_planner_node (planner_path v2): true lets the LLM plan go_to phases, translated to go_to_object moves; false restores the refusal and banner of the planner without go_to. Read at node start."
 
+# ============================================================
+# llm_load_confirm_timeout_s -- llm/llm_planner_node.py
+# ============================================================
+# llm_planner_node calls /mission/start_mission the moment /mission/load_mission
+# confirms the load (the service response, success=true). This value is NOT a
+# delay: it is the longest the planner waits for that confirmation, service
+# discovery included. Expired, or the load refused -> start_mission is never
+# called and the reason is logged. The standstill countdown between
+# start_mission and the car moving is a different parameter of a different
+# node: f1tenth_behavior's mission_countdown_sec (behavior_executor_node, 15 s
+# by default, armed only with enable_mission_logger true, not in this file --
+# see f1tenth_logger/TEST_CAMPAIGN.md).
+# Read once at node start; a ROS parameter of the same name overrides it.
+llm_load_confirm_timeout_s:
+  default: 15.0
+  description: "llm_planner_node: the most it waits [s] for /mission/load_mission to confirm the load before giving up WITHOUT calling start_mission. A ceiling, not a delay: start_mission goes out the moment the confirmation arrives. Must be > 0. Read at node start."
+
 # --- per-cycle wall fusion (wall_fusion.py, lidar_front_wall_node) -----------
 # Step 3 of the wall pipeline: the LiDAR line fits and the stereo column
 # profile (/perception/stereo_columns) are cross-checked column by column and
@@ -2991,6 +3256,78 @@ wall_clear_distance_m:
 semantic_layer_tf_static_only:
   default: true
   description: "semantic_layer_node reads TF from the latched /tf_static only (no TransformListener, which deserialises every /tf message). Correct while every joint between the camera and base_link is fixed (sensors.xacro). Set false whenever the camera pan joint is enabled."
+
+# Consumed by: MPC_corr.py (declare_parameter default = this value). The MPC
+# side of the semantic layer's object memory: MEMORY objects (inflated radius
+# for people) join the obstacle list; every semantic object feeds the reverse
+# manoeuvre's rear pre-check.
+mpc_semantic_memory_enabled:
+  default: true
+  description: "Read /costmap/semantic_objects in mpc_corr: MEMORY objects are added to the obstacle list (TRACKED ones already arrive on /perception/obstacles_2d), and all objects to the reverse manoeuvre's rear pre-check. False: neither."
+mpc_semantic_memory_max_age_s:
+  default: 0.5
+  description: "A /costmap/semantic_objects message older than this [s] contributes nothing."
+mpc_semantic_memory_min_confidence:
+  default: 0.0
+  description: "MEMORY objects below this confidence (it decays linearly to 0 over semantic_layer_memory_decay_s) are left out of the obstacle list."
+# Consumed by: MPC_corr.py. The current object move's TARGET is never an
+# obstacle (mpc_controller/move_target.py): not in the obstacle list, not in
+# the reverse manoeuvre's rear check, not in its stuck front distance. A
+# semantic object is the target by track id (ObjectGoal.track_id), or by class
+# and this distance from the goal point when the goal carries no id. A live
+# /perception/obstacles_2d circle has neither id nor class, so it is the target
+# when its centre lies within this distance of the goal point.
+mpc_target_exclusion_gate_m:
+  default: 0.5
+  description: "Centre distance [m] from the object move's target point within which a live obstacle (always) or a same-class semantic object (only when the ObjectGoal carries no track_id) is taken to be the target and left out of the obstacle list and the reverse checks. 0.5 = semantic_layer merge_distance_m. A different object closer than this to the target is left out too."
+
+# --- semantic layer OBJECT MEMORY (Part B) ------------------------------------
+# Consumed by: f1tenth_costmap/semantic_layer_node.py (declare_parameter
+# defaults; the logic is f1tenth_costmap/object_memory.py). Output:
+# /costmap/semantic_objects (f1tenth_messages/SemanticObjectArray, map frame),
+# and /viz/semantic_objects for Foxglove. /costmap/semantic_markers and
+# /costmap/semantic_tracks keep showing only the tracks the old lifecycle held.
+# Tests in f1tenth_costmap/test/test_object_memory*.py encode the 1.5 / 15 /
+# 0.2 / 0.6 defaults: change them together.
+semantic_layer_memory_enabled:
+  default: true
+  description: "Object memory on. A CONFIRMED track is no longer dropped after lost_miss_count missed batches; it is removed when it was in view and undetected for semantic_layer_fov_miss_remove_s, or after semantic_layer_memory_decay_s out of view / occluded (MEMORY). false: the tracker prunes exactly as before and every object is reported TRACKED."
+semantic_layer_memory_rate_hz:
+  default: 10.0
+  description: "Rate [Hz] of the memory cycle: visibility, lifecycle and the /costmap/semantic_objects publish. 10 Hz, the MPC's own rate. Independent of the detection batch rate, so memory decays even when the camera is silent."
+semantic_layer_fov_miss_remove_s:
+  default: 1.5
+  description: "An object that was IN VIEW of a sensor able to detect it, and was not detected, for this long in total since its last detection is removed: we looked, it is not there. In view means visible, not merely in the sector: an occluded object is not in view."
+semantic_layer_memory_decay_s:
+  default: 15.0
+  description: "An object OUT OF VIEW (outside the frustum or depth window, occluded, or the camera not live) is kept as MEMORY with confidence 1 - t / this, and removed at 0. Allowed 10 to 20 s; the node rejects anything else."
+semantic_layer_person_memory_growth_mps:
+  default: 0.2
+  description: "A person in MEMORY may be walking: effective_radius_m = radius_m + this [m/s] times the time in memory, the growth capped by semantic_layer_person_memory_growth_max_m. The re-acquisition gate grows by the same amount. Every other class is static: no growth."
+semantic_layer_person_memory_growth_max_m:
+  default: 0.6
+  description: "Cap [m] on the GROWTH (not on the radius) of a person in MEMORY: 3 s of growth at 0.2 m/s."
+semantic_layer_stereo_hfov_deg:
+  default: 101.0
+  description: "Horizontal field of view [deg] of the detection camera, the ZED2 left lens at HD720 (sensors.xacro horizontal_fov 1.7633 rad). An object counts as in the camera view only if its whole footprint (radius, plus the growth for a remembered person) is inside it, so a detection cut by the image edge is not taken as absence."
+semantic_layer_stereo_depth_min_m:
+  default: 0.8
+  description: "Nearest depth [m, along the camera axis] at which a missed detection is evidence of absence. UNTUNED. Not the ZED's 0.2 m minimum: below about 0.8 m the vertical field of view cuts a standing person or a chair to a fragment the detector may not name, and forgetting an object right in front of the car because of that would be the dangerous failure."
+semantic_layer_stereo_depth_max_m:
+  default: 5.0
+  description: "Farthest depth [m] at which a missed detection is evidence of absence. UNTUNED and class-blind: small classes (bottle, cup) are not reliably detected this far. Beyond it an object is out of view and decays as MEMORY rather than being removed, which is the safe direction."
+semantic_layer_occlusion_margin_m:
+  default: 0.15
+  description: "Slack [m] for occlusion: a LiDAR return or a StereoColumns depth must be at least this much nearer than the object's near surface (centre range minus radius) to count as an occluder. Covers centre/width estimation error, so the object's own surface does not hide itself."
+semantic_layer_stereo_occlusion_use_lidar:
+  default: true
+  description: "The camera view also counts an object as occluded when the LiDAR sees a closer return on its bearing (the scan origin is within about 7 cm of the left lens: 3 cm lower, 6 cm to its right, 7 cm ahead). The StereoColumns depth carries WALL pixels only, with YOLO objects masked out, so without this a person standing in front of another is not an occluder."
+semantic_layer_sensor_stale_s:
+  default: 0.5
+  description: "A sensor whose last message is older than this [s] is not looking: the camera (last processed detection batch), the LiDAR (/scan) and the map pose. A stale camera puts every object out of view, so a stalled detector produces MEMORY, never removals."
+semantic_layer_stereo_columns_max_age_s:
+  default: 1.0
+  description: "Oldest /perception/stereo_columns [s] used for stereo occlusion: five of front_clearance's 5 Hz scene-mask ticks. Older or absent, the depth half of the stereo occlusion check is skipped (the LiDAR half still applies)."
 lidar_front_wall_wall_marker_thickness_m:
   default: 0.02
   description: "Thickness [m] of the vertical slab each confirmed wall is drawn as on /perception/walls/markers. A wall is a vertical PLANE, so it is drawn as one rather than as a line on the floor: the slab runs the wall's observed length and stands from the floor to lidar_front_wall_wall_viz_height_m, whatever height was measured. A wall whose height was only assumed (height_measured false) is drawn fainter."

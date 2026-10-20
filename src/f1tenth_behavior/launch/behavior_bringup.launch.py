@@ -146,6 +146,10 @@ def generate_launch_description():
         ('bt_tick_hz', float),
         ('enable_proximity_event_stop', bool),
         ('bt_keep_qos_event_handlers', bool),
+        # Part D (reverse_integration.py): two bools and the floor.
+        ('bt_reverse_integration', bool),
+        ('direction_aware_front_stop', bool),
+        ('front_hard_floor_m', float),
     ]
     avoidance_las = []
     for _name, _type in _avoidance_args:
@@ -165,6 +169,17 @@ def generate_launch_description():
     mission_file_name_la = DeclareLaunchArgument(
         'mission_file_name', default_value=str(mission_file_name_default),
         description=mission_file_name_desc)
+    # Whether f1tenth_logger's mission recorder runs: MissionLoader arms the
+    # mission_countdown_sec standstill only then (mission/loader.py). The
+    # supervisor forwards its own enable_mission_logger here
+    # (component_supervisor_node._apply_mission_logger_override), the same
+    # value it gives mission_logger.launch.py. Typed bool, like the
+    # avoidance args above: the string 'false' must not read as true.
+    enable_mission_logger_default, enable_mission_logger_desc = get_default(
+        'enable_mission_logger')
+    enable_mission_logger_la = DeclareLaunchArgument(
+        'enable_mission_logger', default_value=str(enable_mission_logger_default).lower(),
+        description=enable_mission_logger_desc)
     # cpu_affinity/nice -- added by the stack-wide CPU-budget investigation
     # (found this node at ~45% CPU / 23 threads, unpinned -- lighter than
     # the perception nodes, but still real). Same "hardcoded default
@@ -242,6 +257,8 @@ def generate_launch_description():
             'proximity_front_extra_margin_m': LaunchConfiguration(
                 'proximity_front_extra_margin_m'),
             'mission_file_name': LaunchConfiguration('mission_file_name'),
+            'enable_mission_logger': ParameterValue(
+                LaunchConfiguration('enable_mission_logger'), value_type=bool),
             'nice': LaunchConfiguration('behavior_nice'),
             **avoidance_params,
         }],
@@ -265,6 +282,7 @@ def generate_launch_description():
         proximity_front_extra_margin_la,
         *avoidance_las,
         mission_file_name_la,
+        enable_mission_logger_la,
         behavior_cpu_affinity_la, behavior_nice_la,
     ]
 

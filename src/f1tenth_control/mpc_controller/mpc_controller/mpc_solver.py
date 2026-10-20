@@ -279,6 +279,12 @@ _STAGE_WEIGHT_KEYS = (
     "w_u_a",
     "w_du_delta",
     "w_du_a",
+    # Linear cost on reverse speed and the cost-to-go path guidance
+    # (reverse_mpc's candidates only). Absent from every forward weight set,
+    # so these entries change nothing there.
+    'w_rev',
+    'w_path',
+    'w_path_psi',
 )
 
 
@@ -337,6 +343,7 @@ def solve_mpc_step(
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     warm_start_z: Optional[np.ndarray] = None,
     control_period: Optional[float] = None,
+    stage_spec: Optional[Dict] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -378,11 +385,38 @@ def solve_mpc_step(
     turn can end tens of degrees away from anything the solver intends to
     do -- and which changes discontinuously every tick as last_u moves. The
     QP was being built around a reference nobody was steering toward.
+
+    stage_spec: None (default) is today's QP, operation for operation. A
+    dict turns on the per-stage pieces reverse_mpc's direction candidates
+    need, all RTI-only (SLSQP raises):
+      'v_lo', 'v_hi'  length-N speed box on x_{k+1}[3], replacing the scalar
+                      vMin/vMax -- this is how a candidate's sign schedule
+                      reaches the QP.
+      'vdes'          length-N speed reference, replacing the scalar vdes.
+      'rear'          length-N bools: stages whose w_obs term also probes
+                      the REAR bumper ('rear_offsets', metres along the
+                      heading from base_link, negative = behind).
+      weights['w_rev']  linear cost on reverse speed through one slack per
+                      stage that can go negative: r_k >= 0, r_k >= -v_{k+1},
+                      cost w_rev * r_k. Convex, and exact at the optimum.
+      'terminal'      optional local model of a terminal cost-to-go on
+                      (X, Y, psi): {'x_bar', 'g', 'h', 'w'} adds
+                      w * (g . dx + 0.5 * sum(h * dx^2)), dx = x_N - x_bar.
+                      The caller zeroes w_term / w_psi when it supplies one.
+      'path_ref'      optional (N, 3) per-stage (X, Y, psi) reference, NaN
+                      rows skipped: weights['w_path'] * |p - p_ref|^2 +
+                      weights['w_path_psi'] * (psi - psi_ref)^2.
+    'terminal' and 'path_ref' are GUIDANCE and are not part of the true cost
+    planner_cost_corridor reports (reverse_mpc scores candidates without
+    them, against the cost-to-go itself).
     """
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
     # evaluated against identical weights.
     weights = scale_stage_weights(weights, horizon)
+
+    if stage_spec is not None and solver != 'rti':
+        raise ValueError('stage_spec (reverse candidates) needs the rti solver')
 
     if solver == 'slsqp':
         return _solve_slsqp(
@@ -397,7 +431,8 @@ def solve_mpc_step(
             boundary_max_sources=boundary_max_sources,
             boundary_hard=boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
-            boundary_slack_max=boundary_slack_max)
+            boundary_slack_max=boundary_slack_max,
+            stage_spec=stage_spec)
     else:
         raise ValueError(f"Unknown solver={solver!r}, expected 'rti' or 'slsqp'")
 
@@ -555,7 +590,8 @@ def _softplus_sq_derivs(s: float, beta: float = _SOFTPLUS_BETA) -> Tuple[float, 
 
 
 def _d_front_at(X: float, Y: float, psi: float, L: float,
-                 obstacles_world: List[Tuple[float, float, float]]) -> float:
+                obstacles_world: List[Tuple[float, float, float]],
+                rear_offsets: Optional[Sequence[float]] = None) -> float:
     """Same front-clearance computation as planner_cost_corridor's obstacle
     block (3 nose-offset points, min distance over all obstacles), exposed
     standalone as a function of (X,Y,psi) so _linearize_obstacle_cost_rti
@@ -563,11 +599,18 @@ def _d_front_at(X: float, Y: float, psi: float, L: float,
     per-SLSQP-iteration like the original -- just once (plus a few central-
     difference perturbations) per horizon step per tick, which is what makes
     this affordable inside RTI's single-linearization-per-tick budget.
+
+    rear_offsets (reverse stages only): extra probe points at base_link +
+    offset * heading, offset < 0 behind. ADDED to the front points, never
+    instead of them -- reversing swings the nose too. None is today's set.
     """
     e = np.array([np.cos(psi), np.sin(psi)], dtype=float)
     p_nose = np.array([X, Y], dtype=float) + (L / 2.0) * e
     # Shared with go_to_object's gap geometry: f1tenth_params.object_geometry.
     front_points = [p_nose + offset * e for offset in SOLVER_FRONT_POINT_OFFSETS_M]
+    if rear_offsets:
+        p_base = np.array([X, Y], dtype=float)
+        front_points = front_points + [p_base + float(o) * e for o in rear_offsets]
 
     d_front = 1e6
     for pF in front_points:
@@ -583,6 +626,7 @@ def _linearize_obstacle_cost_rti(
     car_radius: float,
     avoidance_margin: float,
     obstacles_world: List[Tuple[float, float, float]],
+    rear_offsets: Optional[Sequence[float]] = None,
 ) -> Tuple[np.ndarray, float]:
     """Local quadratic model of w_obs's per-step cost term
     softplus((car_radius+avoidance_margin) - d_front(X,Y,psi))^2 around
@@ -606,13 +650,14 @@ def _linearize_obstacle_cost_rti(
     X, Y, psi = float(x_ref[0]), float(x_ref[1]), float(x_ref[2])
     eps = 1e-4
 
-    d0 = _d_front_at(X, Y, psi, L, obstacles_world)
-    dX = (_d_front_at(X + eps, Y, psi, L, obstacles_world)
-          - _d_front_at(X - eps, Y, psi, L, obstacles_world)) / (2 * eps)
-    dY = (_d_front_at(X, Y + eps, psi, L, obstacles_world)
-          - _d_front_at(X, Y - eps, psi, L, obstacles_world)) / (2 * eps)
-    dPsi = (_d_front_at(X, Y, psi + eps, L, obstacles_world)
-            - _d_front_at(X, Y, psi - eps, L, obstacles_world)) / (2 * eps)
+    ro = rear_offsets
+    d0 = _d_front_at(X, Y, psi, L, obstacles_world, ro)
+    dX = (_d_front_at(X + eps, Y, psi, L, obstacles_world, ro)
+          - _d_front_at(X - eps, Y, psi, L, obstacles_world, ro)) / (2 * eps)
+    dY = (_d_front_at(X, Y + eps, psi, L, obstacles_world, ro)
+          - _d_front_at(X, Y - eps, psi, L, obstacles_world, ro)) / (2 * eps)
+    dPsi = (_d_front_at(X, Y, psi + eps, L, obstacles_world, ro)
+            - _d_front_at(X, Y, psi - eps, L, obstacles_world, ro)) / (2 * eps)
 
     s_ref = (car_radius + avoidance_margin) - d0
     grad_s = np.array([-dX, -dY, -dPsi, 0.0], dtype=float)  # d(s)/d(X,Y,psi,v)
@@ -793,6 +838,7 @@ def _solve_rti(
     boundary_slack_weight: float = BOUNDARY_SLACK_WEIGHT_DEFAULT,
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     control_period: Optional[float] = None,
+    stage_spec: Optional[Dict] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -904,7 +950,25 @@ def _solve_rti(
     use_slack = bool(boundaries) and not boundary_hard
     n_slack = boundary_max_sources if use_slack else 0
 
-    n_z = N * (n_u + n_x) + n_slack
+    # ---- stage_spec (reverse candidates; see solve_mpc_step). None leaves
+    # every list below at today's scalar value, and n_rev at 0, so the QP is
+    # the same one, variable for variable.
+    spec = stage_spec
+    if spec is not None:
+        v_lo_stage = [float(v) for v in spec['v_lo']]
+        v_hi_stage = [float(v) for v in spec['v_hi']]
+        vdes_stage = [float(v) for v in spec['vdes']]
+        rear_stage = [bool(b) for b in spec.get('rear', [False] * N)]
+        rear_offsets = tuple(float(o) for o in spec.get('rear_offsets', ()))
+        w_rev = float(weights.get('w_rev', 0.0))
+        # One reverse-speed slack per stage whose box admits v < 0. A stage
+        # held at v >= 0 cannot reverse, and a slack there would be inert.
+        rev_stages = [k for k in range(N) if w_rev > 0.0 and v_lo_stage[k] < 0.0]
+    else:
+        rev_stages = []
+    n_rev = len(rev_stages)
+
+    n_z = N * (n_u + n_x) + n_slack + n_rev
 
     def u_idx(k):
         return slice(k * n_u, k * n_u + n_u)
@@ -915,6 +979,9 @@ def _solve_rti(
 
     def s_idx(j):  # j = 0..n_slack-1, only valid when use_slack
         return N * (n_u + n_x) + j
+
+    def r_idx(j):  # j = 0..n_rev-1, reverse-speed slack of stage rev_stages[j]
+        return N * (n_u + n_x) + n_slack + j
 
     P = np.zeros((n_z, n_z))
     q = np.zeros(n_z)
@@ -991,8 +1058,9 @@ def _solve_rti(
         # c*(e.x - r)^2 => P += 2c*outer(e,e), q += -2*c*r*e (const dropped).
         e_v = np.zeros(n_x)
         e_v[3] = 1.0
+        vdes_k = vdes if spec is None else vdes_stage[k]
         P[xk1_idx, xk1_idx] += 2.0 * weights["w_v"] * np.outer(e_v, e_v)
-        q[xk1_idx] += -2.0 * weights["w_v"] * vdes * e_v
+        q[xk1_idx] += -2.0 * weights["w_v"] * vdes_k * e_v
 
         # control effort: w_delta0*delta_k^2 + w_u_a*a_k^2 -- exact quadratic,
         # r=0 so no q contribution.
@@ -1020,7 +1088,8 @@ def _solve_rti(
         # obstacle soft cost: local quadratic model (see
         # _linearize_obstacle_cost_rti).
         M_obs, b_obs = _linearize_obstacle_cost_rti(
-            x_ref_k1, params["L"], car_radius, avoidance_margin, obstacles_world)
+            x_ref_k1, params["L"], car_radius, avoidance_margin, obstacles_world,
+            rear_offsets=(rear_offsets if spec is not None and rear_stage[k] else None))
         P[xk1_idx, xk1_idx] += 2.0 * weights["w_obs"] * M_obs
         q[xk1_idx] += weights["w_obs"] * b_obs
 
@@ -1105,7 +1174,19 @@ def _solve_rti(
         # speed bound: box on x_{k+1}[3].
         row_v = np.zeros(n_z)
         row_v[xk1_idx][3] = 1.0
-        add_row(row_v, limits["vMin"], limits["vMax"])
+        if spec is None:
+            add_row(row_v, limits["vMin"], limits["vMax"])
+        else:
+            add_row(row_v, v_lo_stage[k], v_hi_stage[k])
+            path_ref = spec.get('path_ref')
+            if path_ref is not None and np.all(np.isfinite(path_ref[k])):
+                w_p = float(weights.get('w_path', 0.0))
+                w_pp = float(weights.get('w_path_psi', 0.0))
+                ref = path_ref[k]
+                for i_s, w_s in ((0, w_p), (1, w_p), (2, w_pp)):
+                    if w_s:
+                        P[xk1_idx, xk1_idx][i_s, i_s] += 2.0 * w_s
+                        q[xk1_idx][i_s] += -2.0 * w_s * float(ref[i_s])
 
         # boundary constraints: ALWAYS exactly boundary_max_sources rows
         # (padded above), one per slot, at this stage's predicted (x, y) --
@@ -1141,6 +1222,19 @@ def _solve_rti(
             P[s_idx(j), s_idx(j)] += 2.0 * boundary_slack_weight
             q[s_idx(j)] += boundary_slack_weight
 
+    # ---- reverse-speed slack: r_j >= 0 and r_j + v_{k+1} >= 0, so at the
+    # optimum r_j = max(0, -v_{k+1}), the reverse speed, charged linearly.
+    # Linear in a slack keeps the QP convex where |v| itself would not be.
+    for j, k in enumerate(rev_stages):
+        row_r = np.zeros(n_z)
+        row_r[r_idx(j)] = 1.0
+        add_row(row_r, 0.0, math.inf)
+        row_rv = np.zeros(n_z)
+        row_rv[r_idx(j)] = 1.0
+        row_rv[x_idx(k + 1)][3] = 1.0
+        add_row(row_rv, 0.0, math.inf)
+        q[r_idx(j)] += w_rev
+
     # ---- terminal position cost: w_term * ||x_N[:2] - pref_nom||^2, exact
     # quadratic, only at the LAST state block.
     xN_idx = x_idx(N)
@@ -1164,6 +1258,21 @@ def _solve_rti(
         P[xN_idx, xN_idx][2, 2] += 2.0 * weights["w_psi"]
         q[xN_idx][2] += weights["w_psi"] * (-2.0 * psi_target)
 
+    # ---- terminal cost-to-go model (stage_spec['terminal'], reverse_mpc):
+    # w * (g . dx + 0.5 * sum(h * dx^2)) on (X, Y, psi), dx = x_N - x_bar.
+    # Expanded: P += w * diag(h), q += w * (g - h * x_bar); constant dropped.
+    # h > 0 keeps it convex; it is a trust region on the step, not V's
+    # curvature, which a Dijkstra field does not have in any useful sense.
+    terminal = spec.get('terminal') if spec is not None else None
+    if terminal is not None:
+        w_t = float(terminal['w'])
+        x_bar = np.asarray(terminal['x_bar'], dtype=float)
+        g_t = np.asarray(terminal['g'], dtype=float)
+        h_t = np.asarray(terminal['h'], dtype=float)
+        for i in range(3):
+            P[xN_idx, xN_idx][i, i] += w_t * h_t[i]
+            q[xN_idx][i] += w_t * (g_t[i] - h_t[i] * x_bar[i])
+
     # ---- assemble + solve.
     A_mat = np.array(rows, dtype=float)
     l_vec = np.array(lows, dtype=float)
@@ -1184,6 +1293,9 @@ def _solve_rti(
     # they are.
     z_guess = np.concatenate([
         warm_start_z, np.concatenate(x_ref[1:]), np.zeros(n_slack)])
+    if n_rev:
+        z_guess = np.concatenate([
+            z_guess, [max(0.0, -float(x_ref[k + 1][3])) for k in rev_stages]])
 
     prob = osqp.OSQP()
     # warm_starting/polishing: current osqp (>=1.x) setting names -- the
@@ -1233,7 +1345,7 @@ def _solve_rti(
     true_cost = planner_cost_corridor(
         z=zopt, x0=x0, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
         horizon=N, ts=ts, params=params, weights=weights, vdes=vdes,
-        control_period=t_first)
+        control_period=t_first, stage_spec=spec)
 
     info = {
         "success": success,
@@ -1253,8 +1365,13 @@ def _solve_rti(
         # only as a discarded infeasible solve with no indication of which
         # face or by how much.
         "boundary_slack": (
-            [float(v) for v in z_full[N * (n_u + n_x):]] if use_slack else []),
+            [float(v) for v in z_full[N * (n_u + n_x):N * (n_u + n_x) + n_slack]]
+            if use_slack else []),
     }
+    if spec is not None:
+        # Reverse speed the solver bought per slack stage (m/s), for the
+        # candidate's debug record.
+        info['rev_slack'] = [float(v) for v in z_full[N * (n_u + n_x) + n_slack:]]
 
     return u0, info
 
@@ -1271,7 +1388,16 @@ def planner_cost_corridor(
     weights: Dict,
     vdes: float,
     control_period: Optional[float] = None,
+    stage_spec: Optional[Dict] = None,
 ) -> float:
+    """
+    Return the true (nonlinear) cost of the control sequence z.
+
+    stage_spec mirrors _solve_rti's: per-stage vdes, rear probes on the
+    stages that ask for them, and w_rev * max(0, -v) on every stage. None is
+    the original objective. A spec's 'terminal' model is NOT evaluated here:
+    reverse_mpc scores the exact cost-to-go itself.
+    """
     z = np.asarray(z, dtype=float)
     t_first = ts if control_period is None else float(control_period)
     x = np.asarray(x0, dtype=float).copy()
@@ -1307,6 +1433,10 @@ def planner_cost_corridor(
 
         p_nose = np.array([x[0], x[1]], dtype=float) + (params["L"] / 2.0) * e
         front_points = [p_nose + offset * e for offset in SOLVER_FRONT_POINT_OFFSETS_M]
+        if stage_spec is not None and stage_spec.get('rear', [False] * horizon)[k]:
+            p_base = np.array([x[0], x[1]], dtype=float)
+            front_points = front_points + [
+                p_base + float(o) * e for o in stage_spec.get('rear_offsets', ())]
 
         d_front = 1e6
         for pF in front_points:
@@ -1329,7 +1459,10 @@ def planner_cost_corridor(
         J += weights["w_obs"] * pen ** 2
 
         # ================= velocità =================
-        J += weights["w_v"] * (v - vdes) ** 2
+        vdes_k = vdes if stage_spec is None else float(stage_spec['vdes'][k])
+        J += weights["w_v"] * (v - vdes_k) ** 2
+        if stage_spec is not None:
+            J += float(weights.get('w_rev', 0.0)) * max(0.0, -float(v))
 
         # ================= sforzo controllo =================
         J += weights["w_delta0"] * delta ** 2

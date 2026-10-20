@@ -1,0 +1,85 @@
+{
+ "recorded_at": "868ec8a",
+ "runs": {
+  "approach/45 deg off, 4 m/footprint": {
+   "n_solves": 63,
+   "sha256": "57a2dc38850f2b24707825d446b11bd8582f4d1ed37b3dd4620bd810932ab2bb"
+  },
+  "approach/45 deg off, 4 m/none": {
+   "n_solves": 63,
+   "sha256": "b085efd8a4be70266c35c1196bfde471479af6a051e2259d92ef9545ae634ed9"
+  },
+  "approach/70 deg off, 2.5 m/footprint": {
+   "n_solves": 38,
+   "sha256": "49790aad4cc54c8c261540f8b11719d6224625796d88adc9957cf2ec27f75c9d"
+  },
+  "approach/70 deg off, 2.5 m/none": {
+   "n_solves": 38,
+   "sha256": "e2c15b4f39b684d984a8892acabfddf3dea98edfb3ea6306bdf7d4b6e5da1ba4"
+  },
+  "approach/ahead 4 m/footprint": {
+   "n_solves": 61,
+   "sha256": "0b7af20012cb61bf3b9bd9123dce15fcce956ca881475365609239fd65ca9ee5"
+  },
+  "approach/ahead 4 m/none": {
+   "n_solves": 61,
+   "sha256": "c3024054055d1e3304c7dad339194f5bf920a2c985cc64b777d47bb4dc249922"
+  },
+  "approach/jitter 5 cm @ 12.5 Hz/footprint": {
+   "n_solves": 59,
+   "sha256": "043cf70eb4f61b6f1cce3f94985842eb2b0817997ef6ea1fb6cc69022b4be7ac"
+  },
+  "approach/jitter 5 cm @ 12.5 Hz/none": {
+   "n_solves": 59,
+   "sha256": "058860d8e1820596368088b840b492ff25db608eb3f1978fdb580f91af22d20a"
+  },
+  "approach/lateral 0.3 m/s, 8 s/footprint": {
+   "n_solves": 85,
+   "sha256": "8652c9f626fa79331653292cc6bcf848e95ee6171ac6b90d6977c537cc9da437"
+  },
+  "approach/lateral 0.3 m/s, 8 s/none": {
+   "n_solves": 85,
+   "sha256": "e7efb816328b5f3f189d6acb12eea9e6d8cf41f68a730fb68ac099ecfea0a928"
+  },
+  "direct/0": {
+   "n_solves": 1,
+   "sha256": "051d3257ffca7317971ba47208172e5b6f75caf74852fa9c7e6e4f5f8acb4590"
+  },
+  "direct/1": {
+   "n_solves": 1,
+   "sha256": "8ec4a46a5f41ac4fa95e65bf9d3dd700a3f05b5a620da38bd27f9eff14b86432"
+  },
+  "direct/2": {
+   "n_solves": 1,
+   "sha256": "dd46ef962bb9088c5949cfc27cc6e75ad24e017da6b97c8b10d3b24e5806cdcd"
+  },
+  "direct/3": {
+   "n_solves": 1,
+   "sha256": "927914547d17fbcd317222fddd1da6cac0780c765a9b120a71932b9c1b3a0f8a"
+  },
+  "person/footprint/0.0": {
+   "n_solves": 71,
+   "sha256": "1f9284ca278e997fce09743e49c9df38d2515b3ec75c7bbc589d7f989867ead6"
+  },
+  "person/footprint/0.3": {
+   "n_solves": 69,
+   "sha256": "539d9fc7316e8a3fb7d1f3d31cb046b8ec229cfcb8ba462f236b3e25260cb3e7"
+  },
+  "person/footprint/0.6": {
+   "n_solves": 70,
+   "sha256": "5363b5e178dba6726aeff9e75c63bc393fd700d2cd5a9d8034f30c142eacbb76"
+  },
+  "person/legacy/0.0": {
+   "n_solves": 250,
+   "sha256": "2f4147c2df48b0e6b0d9c47da0594511f4c23a4d8e3bb1fc8a46d04980982daa"
+  },
+  "person/legacy/0.3": {
+   "n_solves": 73,
+   "sha256": "cbb063eb221c6be0362b8d61956b1118c36e92f32fabe12ea64af68a95665953"
+  },
+  "person/legacy/0.6": {
+   "n_solves": 69,
+   "sha256": "09c8c51c4329962eaff37d94bfb61f07903e37130646632763cfc7a8d503589b"
+  }
+ }
+}

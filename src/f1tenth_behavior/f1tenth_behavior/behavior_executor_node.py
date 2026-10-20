@@ -13,11 +13,13 @@ why this builds its own dot-graph rather than using py_trees.display's.
 
 Priority structure (root Selector, first child that succeeds wins -- same as the old
 safety_stop_and_navigate.xml's ReactiveFallback):
-  1. emergency: (IsBatteryLow OR IsEmergencyStopTriggered OR IsProximityTooClose OR
-                 IsSystemOverheated) -> Stop
+  1. emergency: (IsBatteryLow OR IsEmergencyStopTriggered OR IsSystemOverheated OR
+                 IsProximityTooClose) -> Stop
   2. handle_obstacle: IsObstacleDetected -> Stop
-  3. mission: MissionActive? -> Selector[on-object response, move progression] -- see
-     "Mission subtree" below. Sits above navigation deliberately (see that section).
+  3. mission: MissionActive? -> [mpc_mode] -> Selector[on-object response, move
+     progression] -- see "Mission subtree" below. Sits above navigation
+     deliberately (see that section). mpc_mode exists only with
+     bt_reverse_integration (reverse_integration.py).
   4. navigation: enable_nav2 true  -> HasGoalPose -> NavigateThroughPosesClient
                  enable_nav2 false -> HasMpcGoal (mpc_corr.py drives itself, entirely
                  out of band from the BT, once /mpc/goal_distance arrives -- see
@@ -130,6 +132,8 @@ from f1tenth_behavior.behaviours.stop import Stop
 
 from f1tenth_behavior.mission.detected_classes_bridge import DetectedClassesBridge
 from f1tenth_behavior.mission.loader import MissionLoader
+from f1tenth_behavior.reverse_integration import (
+    MpcReverseMode, ReverseIntegration, ReverseModeMonitor)
 from f1tenth_behavior.safety_event import (
     active_lane as find_active_lane, emergency_trip as find_emergency_trip,
     make_safety_event_publisher)
@@ -421,6 +425,9 @@ def create_root(
     stop_ramp_rest_speed_mps=0.05,
     wall_distance_max_age_s=0.5,
     enable_proximity_event_stop=False,
+    reverse_monitor=None,
+    direction_aware_front_stop=True,
+    front_hard_floor_m=0.20,
 ) -> py_trees.behaviour.Behaviour:
     """Build the root Selector.
 
@@ -497,6 +504,13 @@ def create_root(
         still trips and stops on the next tick as before. See
         stack_params.yaml's enable_proximity_event_stop for the latency
         numbers this buys.
+
+    reverse_monitor (a reverse_integration.ReverseModeMonitor; None when
+    bt_reverse_integration is false, and for create_root() callers in tests):
+        Part D. Adds the mpc_mode node to the mission subtree and, with
+        direction_aware_front_stop, hands the monitor to IsProximityTooClose
+        and IsObstacleDetected: their front trips then stop forward motion
+        only, unless closer than front_hard_floor_m. See reverse_integration.py.
     """
     root = py_trees.composites.Selector(name='root', memory=False)
 
@@ -516,10 +530,22 @@ def create_root(
     # for why the old derivation no longer expresses the right intent.
     emergency_condition = py_trees.composites.Selector(
         name='emergency_condition', memory=False)
+    #
+    # IsProximityTooClose LAST (Part D): a memory=False Selector stops at its
+    # first SUCCESS and leaves the later children unticked, and
+    # /bt/allow_reverse (reverse_integration.py) reads the battery, operator
+    # e-stop and overheat statuses of every tick -- the front trip that got
+    # the car stuck must not hide them.
+    front_gate = reverse_monitor if direction_aware_front_stop else None
     emergency_children = [
         IsBatteryLow(),
         IsEmergencyStopTriggered(),
     ]
+    if get_value('enable_sys_obs'):
+        emergency_children.append(IsSystemOverheated(
+            max_temp_c=max_temp_c, max_load_percent=max_load_percent,
+            enable_load_trip=enable_sys_obs_load_trip,
+            load_trip_consecutive_samples=sys_obs_load_trip_consecutive_samples))
     if enable_lidar_safety_stop:
         emergency_children.append(IsProximityTooClose(
             front_distance_threshold=proximity_front_threshold_m,
@@ -527,12 +553,9 @@ def create_root(
             # Same topic and frame_id as the emergency lane's Stop below.
             immediate_stop_topic='safety_stop' if enable_proximity_event_stop else None,
             immediate_stop_frame_id='base_link/emergency',
+            reverse_mode=front_gate,
+            front_hard_floor_m=front_hard_floor_m,
         ))
-    if get_value('enable_sys_obs'):
-        emergency_children.append(IsSystemOverheated(
-            max_temp_c=max_temp_c, max_load_percent=max_load_percent,
-            enable_load_trip=enable_sys_obs_load_trip,
-            load_trip_consecutive_samples=sys_obs_load_trip_consecutive_samples))
     emergency_condition.add_children(emergency_children)
 
     # frame_id distinguishes THIS Stop from handle_obstacle's below. Both
@@ -563,6 +586,8 @@ def create_root(
                 stop_distance=1.0,
                 corridor_half_width=obstacle_corridor_half,
                 corridor_half_height=obstacle_corridor_half,
+                reverse_mode=front_gate,
+                front_hard_floor_m=front_hard_floor_m,
             ),
             Stop(output_topic='safety_stop', frame_id='base_link/obstacle'),
         ])
@@ -639,7 +664,10 @@ def create_root(
     mission_selector.add_children([mission_object_response, mission_progress])
 
     mission = py_trees.composites.Sequence(name='mission', memory=False)
-    mission.add_children([MissionActive(), mission_selector])
+    mission_children = [MissionActive(), mission_selector]
+    if reverse_monitor is not None:
+        mission_children.insert(1, MpcReverseMode(reverse_monitor))
+    mission.add_children(mission_children)
 
     # handle_obstacle is omitted entirely when enable_camera_obstacle_stop is
     # false. Ordering among the remaining lanes is unchanged.
@@ -782,7 +810,21 @@ def main():
     # Event-driven lidar e-stop (cpu-cleanup) -- see create_root()'s docstring.
     enable_proximity_event_stop = bool(bootstrap_node.declare_parameter(
         'enable_proximity_event_stop', get_value('enable_proximity_event_stop')).value)
+    # Part D (reverse_integration.py), same single-sourcing.
+    bt_reverse_integration = bool(bootstrap_node.declare_parameter(
+        'bt_reverse_integration', get_value('bt_reverse_integration')).value)
+    direction_aware_front_stop = bool(bootstrap_node.declare_parameter(
+        'direction_aware_front_stop', get_value('direction_aware_front_stop')).value)
+    front_hard_floor_m = float(bootstrap_node.declare_parameter(
+        'front_hard_floor_m', get_value('front_hard_floor_m')).value)
+    # The MPC's own staleness limit on /bt/allow_reverse, reused for the
+    # other direction (/mpc/reverse_status read by the BT).
+    reverse_status_max_age_s = float(bootstrap_node.declare_parameter(
+        'bt_allow_reverse_max_age_s', get_value('bt_allow_reverse_max_age_s')).value)
     bootstrap_node.destroy_node()
+
+    reverse_monitor = (ReverseModeMonitor(max_age_s=reverse_status_max_age_s)
+                       if bt_reverse_integration else None)
 
     root = create_root(
         max_temp_c=max_temp_c, max_load_percent=max_load_percent,
@@ -799,6 +841,9 @@ def main():
         stop_ramp_arrive_tol_m=stop_ramp_arrive_tol_m,
         stop_ramp_rest_speed_mps=stop_ramp_rest_speed_mps,
         enable_proximity_event_stop=enable_proximity_event_stop,
+        reverse_monitor=reverse_monitor,
+        direction_aware_front_stop=direction_aware_front_stop,
+        front_hard_floor_m=front_hard_floor_m,
     )
     tree = py_trees_ros.trees.BehaviourTree(root=root)
 
@@ -858,6 +903,19 @@ def main():
     # each trigger). Ungated for the same reason as /behavior/tree_status.
     safety_event_pub = node.create_publisher(String, '/safety/event', 10)
     tree.add_post_tick_handler(make_safety_event_publisher(node, safety_event_pub))
+
+    # Part D: /bt/allow_reverse, the stuck give-up, the mode mirror
+    # (reverse_integration.py). Absent with bt_reverse_integration false:
+    # nothing publishes /bt/allow_reverse, so mpc_corr never reverses itself.
+    if reverse_monitor is not None:
+        reverse_integration = ReverseIntegration(reverse_monitor, root)
+        reverse_integration.setup(node)
+        tree.add_post_tick_handler(reverse_integration)
+    node.get_logger().info(
+        f'BT reverse integration: {bt_reverse_integration} '
+        f'(direction_aware_front_stop={direction_aware_front_stop}, '
+        f'front_hard_floor_m={front_hard_floor_m:.2f}, '
+        f'/mpc/reverse_status max age {reverse_status_max_age_s:.2f} s)')
 
     node.get_logger().info(
         f'BT safety config: camera_obstacle_stop={enable_camera_obstacle_stop} '

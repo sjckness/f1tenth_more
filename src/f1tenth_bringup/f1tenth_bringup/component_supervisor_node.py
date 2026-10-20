@@ -1042,6 +1042,13 @@ class ComponentSupervisorNode(Node):
         component (system_observer, diagnostics_server) is untouched.
         """
         for entries in self._registry.values():
+            # behavior_bringup.launch.py gets the value either way: its
+            # MissionLoader arms the start countdown only while recording
+            # (f1tenth_behavior/mission/loader.py, _countdown_seconds).
+            for entry in entries:
+                if str(entry.get('launch_file', '')) == 'behavior_bringup.launch.py':
+                    entry.setdefault('args', {})['enable_mission_logger'] = (
+                        'true' if self.enable_mission_logger else 'false')
             if not self.enable_mission_logger:
                 entries[:] = [e for e in entries
                               if str(e.get('launch_file', '')) != 'mission_logger.launch.py']

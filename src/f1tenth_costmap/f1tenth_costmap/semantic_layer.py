@@ -61,6 +61,16 @@ flicker on the SAME physical object (the model calling it two different
 classes across frames) is also contributing to the duplicate-object symptom
 is a separate, still-open hypothesis this pass does not address -- gating
 stays strict class-match here regardless.
+
+OBJECT MEMORY (Part B, object_memory.py). With prune_confirmed=False a
+CONFIRMED track is no longer dropped at lost_miss_count: it stays in the list
+and object_memory.memory_cycle() decides when it goes, from what the sensors
+could see (in view and undetected for fov_miss_remove_s, or out of view for
+memory_decay_s). Staying in the list is what lets a remembered object that is
+detected again keep its id: it is an ordinary association candidate, matched
+at its stored position (memory zeroes its velocity) with a gate widened by its
+extra_gate_m. live_tracks() is the old pruning predicate, so the outputs that
+predate the memory still see exactly the tracks they always saw.
 """
 
 import math
@@ -123,9 +133,12 @@ class SemanticObject:
     velocity on every real (matched) update -- same alpha-blend formula
     TrackedWall.update()/TrackedBoundaryLine.update() already use elsewhere
     in this codebase for position, extended here to also blend a velocity
-    estimate (see predict()). No expiry by staleness/wall-clock time -- track
-    lifecycle is purely hit/miss-streak driven (confirmed/lost), matched
-    frame-by-frame in update_tracks_batch(), not a separate timeout.
+    estimate (see predict()). No expiry by staleness/wall-clock time HERE --
+    the tracker's own lifecycle is purely hit/miss-streak driven
+    (confirmed/lost), matched frame-by-frame in update_tracks_batch(). The
+    time- and visibility-based expiry of CONFIRMED tracks is the object
+    memory's (object_memory.py), applied when update_tracks_batch is called
+    with prune_confirmed=False.
 
     track_id is caller-assigned (see update_tracks_batch's next_track_id
     param) and is the ONLY thing marker identity should ever be keyed off of
@@ -135,12 +148,17 @@ class SemanticObject:
 
     def __init__(
             self, track_id, class_id: str, x_map: float, y_map: float, score: float,
-            stamp_sec: float, confirm_hit_count: int, width: Optional[float] = None):
+            stamp_sec: float, confirm_hit_count: int, width: Optional[float] = None,
+            z_base: Optional[float] = None):
         self.track_id = track_id
         # Fused footprint WIDTH [m] (obstacle_projector_node's footprint rule,
         # never the height), EMA-blended over associated detections with the
         # same alpha as position. None until a detection carrying a width lands.
         self.width = _valid_width(width)
+        # Fused height [m] of the object's CENTRE in base_link (z = 0 is the
+        # floor), the quantity obstacle_projector_node's height band tests.
+        # Blended like width; None until a detection carrying one lands.
+        self.z_base = _valid_z(z_base)
         self.class_id = class_id
         self.x_map = float(x_map)
         self.y_map = float(y_map)
@@ -160,6 +178,12 @@ class SemanticObject:
         # pre-lifecycle behavior) -- supported explicitly rather than as an
         # off-by-one accident, since a caller might reasonably want that.
         self.confirmed = confirm_hit_count <= 1
+        # Added to the association gate for THIS track only. 0 for every
+        # tracked object; the object memory sets it to the radius growth of a
+        # person in MEMORY (object_memory.apply_memory_to_track), so the gate
+        # that re-acquires a remembered person grows with how far they may
+        # have walked.
+        self.extra_gate_m = 0.0
 
     def predict(self, stamp_sec: float) -> tuple:
         """Where this track is expected to be AT stamp_sec, extrapolated from
@@ -172,7 +196,7 @@ class SemanticObject:
         return self.x_map + self.vx_map * dt, self.y_map + self.vy_map * dt
 
     def update(self, x_map: float, y_map: float, score: float, stamp_sec: float,
-               alpha: float, width: Optional[float] = None):
+               alpha: float, width: Optional[float] = None, z_base: Optional[float] = None):
         """Apply one real (matched) detection: EMA-blend both position and
         velocity from the RAW last stored state (not the predicted one --
         blending against a prediction that already incorporates the motion
@@ -194,6 +218,10 @@ class SemanticObject:
         if width is not None:
             self.width = width if self.width is None else (
                 alpha * width + (1.0 - alpha) * self.width)
+        z_base = _valid_z(z_base)
+        if z_base is not None:
+            self.z_base = z_base if self.z_base is None else (
+                alpha * z_base + (1.0 - alpha) * self.z_base)
         self.score = float(score)
         self.last_update_stamp_sec = float(stamp_sec)
         self.hit_count += 1
@@ -262,11 +290,25 @@ def _unpack_width(det):
     return det[5] if len(det) >= 6 else None
 
 
+def _valid_z(z_base):
+    """Return a usable centre height, or None (missing or non-finite)."""
+    if z_base is None:
+        return None
+    z_base = float(z_base)
+    return z_base if math.isfinite(z_base) else None
+
+
+def _unpack_z(det):
+    """Return the optional 7th element, the centre's base_link height [m], or None."""
+    return det[6] if len(det) >= 7 else None
+
+
 def _unpack_detection(det):
     """Accept both the original 4-tuple (class_id, x_map, y_map, score) and
     the 5-tuple form carrying a per-detection 1-sigma position uncertainty in
     metres, (class_id, x_map, y_map, score, sigma). A 6th element, when
-    present, is the footprint width (see _unpack_width).
+    present, is the footprint width (see _unpack_width), and a 7th the centre's
+    base_link height (see _unpack_z).
 
     Backward compatibility is deliberate rather than incidental: sigma only
     exists once detection_3d_node populates the pose covariance, and callers
@@ -311,7 +353,8 @@ def update_tracks_batch(
         confirm_grace_misses: int = 0,
         alpha_sigma_ref_m: float = 0.0,
         min_alpha_scale: float = 0.25,
-        gate_sigma_scale: float = 0.0) -> list:
+        gate_sigma_scale: float = 0.0,
+        prune_confirmed: bool = True) -> list:
     """One frame's worth of association + lifecycle, replacing the old
     per-detection merge_or_add_object() (see module docstring). Mutates
     `tracks` in place where possible and returns the (possibly shorter --
@@ -363,19 +406,27 @@ def update_tracks_batch(
         NOTE the widened gate is used for matching only; the cost matrix still
         holds true distances, so the assignment still prefers the nearest
         legal pairing.
+    prune_confirmed: True (default, the original behaviour) drops ANY track at
+        lost_miss_count consecutive misses. False drops only TENTATIVE ones
+        there: a confirmed track stays, for the object memory to expire
+        (object_memory.memory_cycle). Each track's own extra_gate_m is added
+        to its gate either way (0 unless the memory set it).
     """
+    def _survives(trk):
+        return trk.miss_streak < lost_miss_count or (trk.confirmed and not prune_confirmed)
+
     if not tracks:
         for det in detections:
             class_id, x_map, y_map, score, _sigma = _unpack_detection(det)
             tracks.append(SemanticObject(
                 next_track_id(), class_id, x_map, y_map, score, stamp_sec, confirm_hit_count,
-                width=_unpack_width(det)))
+                width=_unpack_width(det), z_base=_unpack_z(det)))
         return tracks
 
     if not detections:
         for trk in tracks:
             trk.mark_missed(confirm_grace_misses)
-        return [t for t in tracks if t.miss_streak < lost_miss_count]
+        return [t for t in tracks if _survives(t)]
 
     n_det, n_trk = len(detections), len(tracks)
     # cost[i][j]: real distance if (detection i, track j) is a legal pairing
@@ -398,12 +449,12 @@ def update_tracks_batch(
                 continue
             px, py = trk.predict(stamp_sec)
             dist = math.hypot(px - x_map, py - y_map)
-            if dist <= gate:
+            if dist <= gate + trk.extra_gate_m:
                 cost[i][j] = dist
 
     # Sentinel must exceed every legal cost, and legal costs are now bounded by
     # the WIDEST gate any detection used, not by max_distance_m alone.
-    max_gate = max_distance_m
+    max_gate = max_distance_m + max(trk.extra_gate_m for trk in tracks)
     if gate_sigma_scale > 0.0:
         sigmas = [sg for (_c, _x, _y, _s, sg) in unpacked if sg is not None and sg > 0.0]
         if sigmas:
@@ -424,7 +475,7 @@ def update_tracks_batch(
         class_id, x_map, y_map, score, sigma = unpacked[i]
         tracks[j].update(x_map, y_map, score, stamp_sec,
                          _effective_alpha(alpha, sigma, alpha_sigma_ref_m, min_alpha_scale),
-                         width=_unpack_width(detections[i]))
+                         width=_unpack_width(detections[i]), z_base=_unpack_z(detections[i]))
         matched_det_idx.add(i)
         matched_trk_idx.add(j)
 
@@ -436,8 +487,20 @@ def update_tracks_batch(
         if i not in matched_det_idx:
             tracks.append(SemanticObject(
                 next_track_id(), class_id, x_map, y_map, score, stamp_sec, confirm_hit_count,
-                width=_unpack_width(detections[i])))
+                width=_unpack_width(detections[i]), z_base=_unpack_z(detections[i])))
 
+    return [t for t in tracks if _survives(t)]
+
+
+def live_tracks(tracks: list, lost_miss_count: int) -> list:
+    """
+    Return the tracks the original lifecycle would still hold.
+
+    That is every track below lost_miss_count consecutive misses. With
+    prune_confirmed=True this is all of them; with the object memory on it
+    leaves out the confirmed tracks that only the memory is keeping, so
+    /costmap/semantic_markers and /costmap/semantic_tracks are unchanged by it.
+    """
     return [t for t in tracks if t.miss_streak < lost_miss_count]
 
 

@@ -31,13 +31,17 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/ObjectGoal.msg"
   "msg/ObjectApproachStatus.msg"
   "msg/DriveClamp.msg"
+  "msg/ReverseStatus.msg"
   "msg/MoveOutcome.msg"
   "msg/Door.msg"
   "msg/DoorArray.msg"
+  "msg/SemanticObject.msg"
+  "msg/SemanticObjectArray.msg"
   "srv/RestartComponent.srv"
   "srv/ComponentControl.srv"
   "srv/RunDiagnostics.srv"
   "srv/LoadMission.srv"
+  "srv/RequestReverse.srv"
   DEPENDENCIES
     std_msgs
     geometry_msgs

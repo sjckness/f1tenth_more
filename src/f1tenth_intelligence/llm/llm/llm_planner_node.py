@@ -11,6 +11,7 @@ flusso di servizi gia' in produzione:
     LLM -> normalize_plan -> validate_plan -> phases_to_mission()
         -> file JSON -> /mission/abort_mission (se una missione era gia'
            in corso) -> /mission/load_mission -> /mission/start_mission
+           (appena il load e' confermato, vedi "Load -> start" sotto)
 
 Uso (package reale: 'llm', non 'f110_autonomy'):
     ros2 run llm llm_planner_node "vai dritto, al muro gira a destra"
@@ -70,6 +71,18 @@ dentro get_plan_from_llm() stessa (server riavviato/crashato a meta'
 sessione, dopo che il warm-up era gia' passato).
 
 --------------------------------------------------------------------------
+Load -> start (vedi _deliver_mission): start_mission parte nell'istante in
+cui load_mission conferma il caricamento -- la RISPOSTA del servizio,
+success=true, che il loader manda solo a missione installata (state=LOADED).
+Nessuna sleep, nessun timer in mezzo. llm_load_confirm_timeout_s
+(stack_params.yaml, default 15 s) e' solo il TETTO di quell'attesa: scaduto,
+o load rifiutato -> start_mission NON viene chiamato e il motivo va nel log.
+I ~15 s fra "missione caricata" e l'auto che parte NON vengono da questo
+nodo: sono il countdown di f1tenth_behavior (mission_countdown_sec,
+mission/loader.py), armato da start_mission stesso -- lo stato resta LOADED
+per tutto il countdown (vedi f1tenth_logger/TEST_CAMPAIGN.md per il perche').
+
+--------------------------------------------------------------------------
 Rispetto alla versione originaria di questo file (loose, non pacchettizzata,
 pubblicava un array nudo di fasi su /corridor_cmd per un controller SLSQP
 che non usiamo piu'):
@@ -98,12 +111,14 @@ valle (invariato dalla versione originaria):
 """
 
 import argparse
+import functools
 import json
 import logging
 import os
 import sys
 import threading
 import time
+from typing import NamedTuple
 
 import requests
 
@@ -179,8 +194,10 @@ THRESH_RANGE = {
 }
 
 # Timeout per ciascuna chiamata di servizio verso il sistema missioni
-# (/mission/load_mission, /mission/start_mission, /mission/abort_mission) --
-# distinto da LLAMA_TIMEOUT sopra (quello e' per la chiamata HTTP all'LLM).
+# (/mission/start_mission, /mission/abort_mission) -- distinto da
+# LLAMA_TIMEOUT sopra (quello e' per la chiamata HTTP all'LLM).
+# /mission/load_mission NON li usa: la sua attesa ha un tetto proprio,
+# llm_load_confirm_timeout_s (vedi wait_for_load_confirmation).
 MISSION_SERVICE_WAIT_SEC = 2.0
 MISSION_SERVICE_CALL_TIMEOUT_SEC = 5.0
 
@@ -688,6 +705,59 @@ def go_to_enabled_default() -> bool:
     return bool(get_value('go_to_enabled'))
 
 
+def load_confirm_timeout_default() -> float:
+    """Return stack_params.yaml's llm_load_confirm_timeout_s (lazy: ament index)."""
+    from f1tenth_params.param_defaults import get_value
+    return float(get_value('llm_load_confirm_timeout_s'))
+
+
+class LoadConfirmation(NamedTuple):
+    """What /mission/load_mission answered, or why no answer counts."""
+
+    loaded: bool        # True only for a response with success=true
+    message: str        # the loader's message, or why there was none
+    waited_s: float     # from asking for the load to the end of the wait
+    timed_out: bool     # True: no answer within the timeout
+
+
+def wait_for_load_confirmation(client, request, spin_until_future_complete,
+                               timeout_s, clock=time.monotonic):
+    """
+    Wait at most timeout_s for /mission/load_mission to confirm the load.
+
+    The confirmation is the service RESPONSE: the loader sends it only once
+    the file is parsed and installed, state LOADED (f1tenth_behavior
+    mission/loader.py, _on_load_mission_service -> _load). This returns the
+    moment that response arrives -- spin_until_future_complete wakes on the
+    future, it does not poll -- so the caller can call start_mission straight
+    away. timeout_s is a ceiling only: ONE deadline for finding the service
+    and getting its answer, never a delay that is waited out.
+
+    `client` needs wait_for_service(timeout_sec) and call_async(request);
+    `spin_until_future_complete(future, timeout_sec=...)` is rclpy's, bound to
+    the node. Both are passed in so the timing is testable without a ROS graph.
+    """
+    service = '/mission/load_mission'
+    t0 = clock()
+    deadline = t0 + timeout_s
+    if not client.wait_for_service(timeout_sec=timeout_s):
+        return LoadConfirmation(
+            False, f'{service} non disponibile entro {timeout_s:.1f}s '
+            '(nessun server attivo?)', clock() - t0, True)
+    future = client.call_async(request)
+    # Clamped at 0: rclpy reads a NEGATIVE timeout_sec as "wait forever", and
+    # wait_for_service can overrun its own timeout by one 0.25 s poll.
+    spin_until_future_complete(future, timeout_sec=max(deadline - clock(), 0.0))
+    waited_s = clock() - t0
+    if not future.done() or future.result() is None:
+        return LoadConfirmation(
+            False, f'{service}: nessuna conferma entro {timeout_s:.1f}s',
+            waited_s, True)
+    response = future.result()
+    return LoadConfirmation(
+        bool(response.success), str(response.message), waited_s, False)
+
+
 # Prefisso della riga di esito macchina-leggibile (vedi _emit_result).
 RESULT_PREFIX = 'RESULT '
 
@@ -803,6 +873,10 @@ class LLMPlannerNode(Node):
         self.declare_parameter('test_plan_result_topic', '/test/plan_result')
         # go_to_enabled: stack_params.yaml's value, overridable per run.
         self.declare_parameter('go_to_enabled', go_to_enabled_default())
+        # llm_load_confirm_timeout_s: the CEILING on the wait for load_mission's
+        # confirmation, not a delay (see _deliver_mission). Same source.
+        self.declare_parameter(
+            'llm_load_confirm_timeout_s', load_confirm_timeout_default())
         LLAMA_URL = str(self.get_parameter('llm_url').value)
         LLAMA_TIMEOUT = float(self.get_parameter('llm_timeout_sec').value)
 
@@ -814,6 +888,15 @@ class LLMPlannerNode(Node):
             raise ValueError(
                 f'planner_path={self._planner_path!r} non valido: '
                 f'attesi {list(PLANNER_PATHS)}')
+
+        # <= 0 would never wait for the confirmation at all, so no mission
+        # would ever start: refused here, before the llama-server wait.
+        self._load_confirm_timeout_s = float(
+            self.get_parameter('llm_load_confirm_timeout_s').value)
+        if not self._load_confirm_timeout_s > 0.0:
+            raise ValueError(
+                'llm_load_confirm_timeout_s='
+                f'{self._load_confirm_timeout_s} non valido: deve essere > 0')
 
         # Il prompt viene dal FILE, non da una stringa inline, e viene letto
         # ADESSO -- prima di _wait_for_llama_server() sotto, che altrimenti
@@ -1040,19 +1123,14 @@ class LLMPlannerNode(Node):
         else:
             self.get_logger().info(f'Nessuna missione da abortire (o servizio assente): {message}')
 
-    def _call_load_mission(self, path: str):
-        if not self.load_client.wait_for_service(timeout_sec=MISSION_SERVICE_WAIT_SEC):
-            return False, '/mission/load_mission non disponibile (nessun server attivo?)'
+    def _call_load_mission(self, path: str) -> LoadConfirmation:
+        """Ask the loader to load `path`; wait for it at most llm_load_confirm_timeout_s."""
         req = LoadMission.Request()
         req.path = path
-        future = self.load_client.call_async(req)
-        rclpy.spin_until_future_complete(
-            self, future, timeout_sec=MISSION_SERVICE_CALL_TIMEOUT_SEC)
-        if not future.done() or future.result() is None:
-            return False, ('/mission/load_mission: nessuna risposta entro '
-                           f'{MISSION_SERVICE_CALL_TIMEOUT_SEC}s')
-        resp = future.result()
-        return bool(resp.success), str(resp.message)
+        return wait_for_load_confirmation(
+            self.load_client, req,
+            functools.partial(rclpy.spin_until_future_complete, self),
+            self._load_confirm_timeout_s)
 
     def _call_start_mission(self):
         return self._call_trigger_service(self.start_client, '/mission/start_mission')
@@ -1403,6 +1481,20 @@ class LLMPlannerNode(Node):
                     if unsupported else 'annullato')
                 return False
 
+        return self._deliver_mission(mission_path)
+
+    def _deliver_mission(self, mission_path: str) -> bool:
+        """
+        Abort the previous mission, load this one, start it once confirmed.
+
+        start_mission goes out the moment load_mission confirms the load: no
+        sleep and no timer in between (see wait_for_load_confirmation).
+        llm_load_confirm_timeout_s only caps the wait for that confirmation.
+        Expired, or the load refused: start_mission is never called, and the
+        reason is logged and sent on /test/plan_result. Any wait AFTER a
+        successful start is f1tenth_behavior's mission_countdown_sec, not this
+        node's.
+        """
         # 6) il test della campagna si apre ORA, prima di abort/load (vedi
         # _announce_plan); poi abort dell'eventuale missione in corso, load +
         # start. Un fallimento di load/start chiude quel test (vedi
@@ -1410,13 +1502,17 @@ class LLMPlannerNode(Node):
         self._announce_plan()
         self._call_abort_mission()
 
-        load_ok, load_message = self._call_load_mission(mission_path)
-        if not load_ok:
+        load = self._call_load_mission(mission_path)
+        if not load.loaded:
+            what = 'NON CONFERMATO' if load.timed_out else 'FALLITO'
             self.get_logger().error(
-                f'load_mission FALLITO: {load_message}. start_mission NON chiamato.')
-            self._report_delivery_failure('load_mission', load_message)
+                f'load_mission {what} dopo {load.waited_s:.2f}s: {load.message}. '
+                'start_mission NON chiamato.')
+            self._report_delivery_failure('load_mission', load.message)
             return False
-        self.get_logger().info(f'load_mission OK: {load_message}')
+        self.get_logger().info(
+            f'load_mission OK in {load.waited_s:.2f}s: {load.message} '
+            '-- start_mission subito')
 
         start_ok, start_message = self._call_start_mission()
         if not start_ok:

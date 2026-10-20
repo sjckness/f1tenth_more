@@ -215,7 +215,7 @@ vesc_to_odom_node:
     # calibration.launch.py run as gyro_variance_*/accel_variance_* above (n=3000) --
     # came back exactly 0.0 again, this time confirming (not just anticipating) the
     # structural limitation the previous placeholder's comment already called out:
-    # vesc_to_odom_backup's erpm_deadband forces vx to exactly 0.0 while genuinely
+    # vesc_driver's erpm_deadband forces vx to exactly 0.0 while genuinely
     # stationary (rejects near-zero ERPM as phantom hall-sensor noise), so a
     # stationary calibration is structurally unable to measure real vx noise --
     # constant-zero has zero sample variance by construction, this is not "no noise

@@ -12,9 +12,13 @@ each other for it and each needs the SAME numbers:
 * nose_reach(L) = L/2 + max offset: how far ahead of base_link that front is.
 * footprint_radius -- obstacle_projector_node's footprint rule (the object's
   WIDTH, never its height), also used to size semantic tracks.
+* passes_obstacle_filter -- obstacle_projector_node's plausibility gate (the
+  height band and the radius bounds), which mpc_corr applies to the semantic
+  layer's objects too, so a remembered object passes exactly the test a live
+  one did.
 * gap_min -- the closest a go_to_object move may ask to stop from an object.
 
-WHY gap_min IS WHAT IT IS. The target of a go_to_object move is also an
+WHY gap_min IS WHAT IT IS. The target of a go_to_object move was also an
 obstacle, and the solver's w_obs keeps the car's front car_radius +
 avoidance_margin + class_margin from an obstacle's footprint edge:
 
@@ -37,6 +41,10 @@ edge. gap_min is therefore a SAFETY minimum now, enforced where the gap is
 set: the mission loader rejects a smaller gap_m and the LLM translator raises
 one to it. A go_to never asks the car to stop inside the clearance the
 obstacle model keeps from everything else.
+
+Since 2026-10-20 mpc_corr leaves the current move's target out of its obstacle
+list, live and remembered (mpc_controller.move_target). gap_min is unchanged:
+it was already the safety minimum, enforced where the gap is set.
 
 THE FRONT A GAP IS MEASURED FROM (2026-10-12). GapLimits.front_x: the mission
 loader and the LLM translator pass the URDF's base_front -- the front bumper,
@@ -65,6 +73,9 @@ __all__ = [
     'gap_min',
     'nose_reach',
     'nominal_footprint_radius',
+    'ObstacleFilter',
+    'obstacle_filter',
+    'passes_obstacle_filter',
 ]
 
 SOLVER_FRONT_POINT_OFFSETS_M = (0.10, 0.25, 0.40)
@@ -92,6 +103,43 @@ def footprint_radius(size_x: float, size_z: float = 0.0,
 def nominal_footprint_radius(class_id: str) -> float:
     """Fallback radius [m] when no measured width is available."""
     return NOMINAL_FOOTPRINT_WIDTH_M.get(class_id, _NOMINAL_DEFAULT_WIDTH_M) / 2.0
+
+
+@dataclass(frozen=True)
+class ObstacleFilter:
+    """obstacle_projector_node's plausibility gate [m].
+
+    z: the object centre's height in base_link (z = 0 is the floor); outside
+    the band it is a ground-plane or overhead false positive. r: the footprint
+    radius BEFORE any class margin; outside the bounds it is noise-sized or a
+    bad depth read.
+    """
+
+    z_min: float
+    z_max: float
+    r_min: float
+    r_max: float
+
+
+def passes_obstacle_filter(z_m: float, radius_m: float, limits: ObstacleFilter) -> bool:
+    """Return True when an object may become an obstacle: z and r both inside the limits.
+
+    The ONE test for a live detection (obstacle_projector_node) and for a
+    semantic-layer object (mpc_corr). A NaN height or radius fails it, like
+    any comparison with NaN.
+    """
+    return (float(limits.z_min) <= float(z_m) <= float(limits.z_max)
+            and float(limits.r_min) <= float(radius_m) <= float(limits.r_max))
+
+
+def obstacle_filter(get_value=None) -> ObstacleFilter:
+    """Build the gate from stack_params.yaml's obstacle_z_* and *_obstacle_radius keys."""
+    if get_value is None:
+        from f1tenth_params.param_defaults import get_value
+    return ObstacleFilter(
+        z_min=float(get_value('obstacle_z_min')), z_max=float(get_value('obstacle_z_max')),
+        r_min=float(get_value('min_obstacle_radius')),
+        r_max=float(get_value('max_obstacle_radius')))
 
 
 def class_margin_for(margins, class_id: str) -> float:

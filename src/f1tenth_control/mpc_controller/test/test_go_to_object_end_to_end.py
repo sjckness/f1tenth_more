@@ -179,13 +179,13 @@ class _NodeMPC(rig._ObjectMPC):
         raise AttributeError(name)
 
 
-def _tracks_msg(clock):
+def _tracks_msg(clock, detected=True):
     stamp = clock.t - 0.2
     sec = int(math.floor(stamp))
     return SimpleNamespace(
         header=SimpleNamespace(frame_id='map', stamp=SimpleNamespace(
             sec=sec, nanosec=int(round((stamp - sec) * 1e9)))),
-        detections=[SimpleNamespace(
+        detections=[] if not detected else [SimpleNamespace(
             id='7',
             results=[SimpleNamespace(hypothesis=SimpleNamespace(class_id='person', score=0.9))],
             bbox=SimpleNamespace(
@@ -215,7 +215,7 @@ def _behaviours(clock, state):
 
 
 def _run_go_to_person(duration=40.0, mission_path=None,
-                      speed_limits=rig.SHIPPED_SPEED_LIMITS):
+                      speed_limits=rig.SHIPPED_SPEED_LIMITS, detect=None, obstacles_fn=None):
     """Run a one-move person mission; go_to_person.json unless `mission_path` is given.
 
     The MPC tick is MPC_corr's object branch, as the closed-loop rig's
@@ -225,6 +225,11 @@ def _run_go_to_person(duration=40.0, mission_path=None,
     min_moving_speed_mps. A zero command is braked through the rig's measured
     braking model. `speed_limits` (max_forward, max_reverse) is MPC_corr's
     /drive clamp, the shipped pair by default; None leaves it off.
+
+    detect(x, spec) -> bool: whether the detector sees the person this tick
+    (default: always); unseen, the tracks message is empty. obstacles_fn(mpc,
+    x, detected) -> list: the DRIVE tick's obstacle list (default: the person
+    itself at its footprint radius, as before the target was excluded).
     """
     clock = _SimClock()
     config = load_mission_file(str(mission_path or BEHAVIOR_MISSIONS / 'go_to_person.json'))
@@ -261,8 +266,12 @@ def _run_go_to_person(duration=40.0, mission_path=None,
         check.x, check.y, check.yaw = float(x[0]), float(x[1]), float(x[2])
 
         # perception -> behaviour tree (10 Hz, like the tree)
-        goto._tracks_cb(_tracks_msg(clock))
-        assert goto.update() == py_trees.common.Status.SUCCESS
+        detected = True if detect is None else bool(detect(x, spec))
+        goto._tracks_cb(_tracks_msg(clock, detected))
+        status = goto.update()
+        if status == py_trees.common.Status.FAILURE and detect is not None:
+            break                   # the handler ended the move (target_lost)
+        assert status == py_trees.common.Status.SUCCESS
         if check.update() == py_trees.common.Status.SUCCESS:
             reached_at = tick
             break
@@ -298,7 +307,8 @@ def _run_go_to_person(duration=40.0, mission_path=None,
             x[3] = rig._braking_speed(brake_t, brake_v0, rig.BRAKING_MEASURED)
         else:
             brake_t = None
-            obstacles = [(person_odom[0], person_odom[1], PERSON_RADIUS)]
+            obstacles = ([(person_odom[0], person_odom[1], PERSON_RADIUS)]
+                         if obstacles_fn is None else obstacles_fn(mpc, x, detected))
             corridor['obstacles_world'] = obstacles
             corridor['d_safe'] = rig.DMIN
             corridor['car_radius'] = rig.CAR_RADIUS

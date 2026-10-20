@@ -466,3 +466,38 @@ class TestFusedFootprintWidth:
     def test_old_tuple_shapes_still_work_without_a_width(self):
         (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9)], 0.0)
         assert trk.width is None
+
+
+class TestFusedCentreHeight:
+    """Tracks carry the centre's base_link height, fused like the width (7th element)."""
+
+    def _batch(self, tracks, dets, stamp):
+        ids = iter(range(100, 200))
+        return update_tracks_batch(tracks, dets, stamp, 0.5, 0.5, 1, 3, lambda: next(ids))
+
+    def test_a_new_track_takes_the_detections_height(self):
+        (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.48, 0.85)], 0.0)
+        assert trk.z_base == pytest.approx(0.85)
+
+    def test_associated_heights_are_ema_blended(self):
+        tracks = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.40, 0.80)], 0.0)
+        (trk,) = self._batch(tracks, [('person', 1.0, 2.0, 0.9, None, 0.40, 1.00)], 0.1)
+        assert trk.z_base == pytest.approx(0.5 * 1.00 + 0.5 * 0.80)
+
+    def test_a_detection_without_a_height_keeps_the_fused_one(self):
+        tracks = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.40, 0.80)], 0.0)
+        (trk,) = self._batch(tracks, [('person', 1.0, 2.0, 0.9, None, 0.40)], 0.1)
+        assert trk.z_base == pytest.approx(0.80)
+
+    def test_a_negative_height_is_a_height(self):
+        (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.4, -0.3)], 0.0)
+        assert trk.z_base == pytest.approx(-0.3)
+
+    @pytest.mark.parametrize('bad', [float('nan'), float('inf')])
+    def test_an_unusable_height_is_ignored(self, bad):
+        (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.4, bad)], 0.0)
+        assert trk.z_base is None
+
+    def test_old_tuple_shapes_still_work_without_a_height(self):
+        (trk,) = self._batch([], [('person', 1.0, 2.0, 0.9, None, 0.4)], 0.0)
+        assert trk.z_base is None
