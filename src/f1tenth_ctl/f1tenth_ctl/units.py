@@ -387,7 +387,7 @@ def read_log_since(path: str, since: Optional[int], max_bytes: int = 65536) -> d
         size = os.path.getsize(path)
     except OSError:
         size = 0
-    out = {'size': size, 'lines': [], 'reset': False, 'truncated': False}
+    out = {'size': size, 'lines': [], 'offsets': [], 'reset': False, 'truncated': False}
     if since is None:
         out['cursor'] = size
         return out
@@ -411,8 +411,13 @@ def read_log_since(path: str, since: Optional[int], max_bytes: int = 65536) -> d
     body = chunk[:end + 1]
     out['cursor'] = start + len(body)
     out['truncated'] = start + len(chunk) < size
-    out['lines'] = [strip_ansi(line) for line in
-                    body.decode(errors='replace').splitlines()]
+    raw_lines = body.split(b'\n')[:-1]
+    offsets, pos = [], start
+    for raw in raw_lines:
+        offsets.append(pos)
+        pos += len(raw) + 1
+    out['lines'] = [strip_ansi(raw.decode(errors='replace')).rstrip('\r') for raw in raw_lines]
+    out['offsets'] = offsets
     return out
 
 

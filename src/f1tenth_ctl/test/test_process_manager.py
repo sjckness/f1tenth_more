@@ -169,6 +169,22 @@ def test_send_takes_one_line_and_planner_log_follows_it(env_file, capsys):
     assert log3['running'] is False and log3['lines'] == []
 
 
+def test_planner_log_says_whether_the_planner_is_plan_only(env_file, capsys):
+    code, log = ctl(env_file, 'planner-log', capsys=capsys)
+    assert log['running'] is False and log['plan_only'] is None
+    ctl(env_file, 'start', 'planner', capsys=capsys)        # `cat`: no --dry-run
+    code, log = ctl(env_file, 'planner-log', capsys=capsys)
+    assert log['running'] is True and log['plan_only'] is False
+    ctl(env_file, 'stop', 'planner', capsys=capsys)
+    with open(env_file, 'a') as f:
+        f.write("F1T_PLANNER_CMD='python3 -c \"import time; time.sleep(300)\" "
+                "llm_planner_node --dry-run'\n")
+    ctl(env_file, 'start', 'planner', capsys=capsys)
+    code, log = ctl(env_file, 'planner-log', capsys=capsys)
+    assert log['plan_only'] is True
+    ctl(env_file, 'stop', 'planner', capsys=capsys)
+
+
 def test_a_process_that_dies_is_crashed(env_file, capsys, tmp_path):
     with open(env_file, 'a') as f:
         f.write('F1T_STACK_CMD="sh -c \'sleep 2; exit 3\'"\n')
