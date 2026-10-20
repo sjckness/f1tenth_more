@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { battery, drive, hello, online, rttMs, tel, wakeLockMissing } from '../store';
 import { send } from '../ws';
-import { EstopButton, Icon } from '../components/ui';
+import { EstopButton, Icon, MockBadge } from '../components/ui';
 import { Joystick } from '../components/Joystick';
 
 function useLandscape(): boolean {
@@ -120,7 +120,7 @@ export function Guida() {
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700,
             color: online.value ? 'var(--green)' : 'var(--red)' }}>
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }} />
-            {online.value ? `ONLINE · ${rttMs.value ?? '—'} ms` : 'OFFLINE'}</span>
+            {online.value ? `ONLINE · ${rttMs.value ?? '—'} ms` : 'OFFLINE'}<MockBadge /></span>
           <span><span class="muted">BATT </span>{b ? `${b.v.toFixed(1)} V` : '—'}</span>
           {wakeLockMissing.value && (
             <span style={{ color: 'var(--amber)' }} data-testid="wake-warning">schermo: può spegnersi (= stop)</span>)}

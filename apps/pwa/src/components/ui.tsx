@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { post } from '../api';
 import {
-  battery, conn, lastMsgAt, latched, online, rttMs, status, tel, toast, toasts,
+  battery, conn, lastMsgAt, latched, mockMode, online, rttMs, status, tel, toast, toasts,
 } from '../store';
 import { send } from '../ws';
 import { capture } from './pointer';
@@ -82,11 +82,19 @@ export function ConnPill({ readyMode = false }: { readyMode?: boolean }) {
   return <div class="pill ok"><span class="dot" />ONLINE</div>;
 }
 
+/** Always on screen with the pretend car (gateway --mock): nothing here drives a real car. */
+export function MockBadge() {
+  if (!mockMode.value) return null;
+  return <span class="mock-badge" data-testid="mock-badge" title="Gateway in modalità MOCK: nessuna macchina">MOCK</span>;
+}
+
 export function TopBar({ readyMode = false }: { readyMode?: boolean }) {
   const b = battery.value;
   return (
     <div class="topbar">
-      <ConnPill readyMode={readyMode} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <ConnPill readyMode={readyMode} /><MockBadge />
+      </div>
       <div class="topstats">
         <span><span class="k">LAT </span>{online.value && rttMs.value !== null ? `${rttMs.value} ms` : '—'}</span>
         <span><span class="k">BATT </span>{b ? `${b.v.toFixed(1)} V` : '—'}</span>
@@ -136,7 +144,7 @@ export function LostBanner() {
     <div class="banner lost" role="alert" data-testid="lost-banner">
       {Icon.wifiOff()}
       <div class="col">
-        <span class="t">CONNESSIONE PERSA</span>
+        <span class="t" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>CONNESSIONE PERSA<MockBadge /></span>
         <span class="s">{ago !== null && lastMsgAt.value ? `ultimo messaggio ${ago.toFixed(1)} s fa · ` : ''}riprovo…</span>
       </div>
     </div>

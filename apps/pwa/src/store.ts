@@ -39,6 +39,7 @@ export interface Hello {
             limit_step_mps: number; deadzone: number; max_steer_rad: number; watchdog_s: number };
   mission: { auto_abort_s: number };
   client: { lost_after_s: number; ping_s: number };
+  mock: boolean;
 }
 export interface BtNode { id: string; parent: string | null; children: string[]; name: string;
   kind: string; status: string }
@@ -56,6 +57,19 @@ export function setToken(value: string | null): void {
   try {
     if (value) localStorage.setItem(TOKEN_KEY, value); else localStorage.removeItem(TOKEN_KEY);
   } catch { /* private mode: the token lives for this session only */ }
+}
+
+// The gateway runs the pretend car (--mock). Kept across reloads, so the badge shows
+// while connecting or lost too; every hello sets it again.
+const MOCK_KEY = 'f1t-mock';
+export const mockMode = signal<boolean>((() => {
+  try { return localStorage.getItem(MOCK_KEY) === '1'; } catch { return false; }
+})());
+export function setMockMode(value: boolean): void {
+  mockMode.value = value;
+  try {
+    if (value) localStorage.setItem(MOCK_KEY, '1'); else localStorage.removeItem(MOCK_KEY);
+  } catch { /* private mode */ }
 }
 
 export const conn = signal<Conn>('idle');

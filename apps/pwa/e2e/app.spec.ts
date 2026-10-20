@@ -175,6 +175,20 @@ test('Guida in portrait asks to rotate the phone', async ({ page }) => {
   await expect(page.getByTestId('rotate')).toContainText('Ruota il telefono');
 });
 
+test('MOCK badge: on every screen with the pretend car, also when the link is lost', async ({ page, request }) => {
+  await openApp(page);
+  await expect(page.getByTestId('mock-badge')).toHaveText('MOCK');
+  await page.getByRole('link', { name: 'Missione' }).click();
+  await expect(page.getByTestId('mock-badge')).toBeVisible();
+  await page.getByRole('link', { name: 'Telemetria' }).click();
+  await expect(page.getByTestId('mock-badge')).toBeVisible();
+  await mock(request, 'freeze', { seconds: 4 });
+  await expect(page.getByTestId('lost-banner').getByTestId('mock-badge')).toBeVisible({ timeout: 3_000 });
+  // A reload while the gateway is silent: still MOCK (remembered), before any hello.
+  await page.reload();
+  await expect(page.getByTestId('lost-banner').getByTestId('mock-badge')).toBeVisible();
+});
+
 test('API: nothing without the token', async ({ request }) => {
   expect((await request.get('/api/status')).status()).toBe(401);
   expect((await request.get('/api/status', { headers: AUTH })).status()).toBe(200);

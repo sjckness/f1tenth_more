@@ -1,8 +1,8 @@
 // The one WebSocket: auth first, ping every 500 ms, "connection lost" after 1.5 s of silence,
 // reconnect with backoff. Everything the gateway pushes lands in the store.
 import {
-  bt, conn, drive, hello, lastMsgAt, mapVersion, path, pushSpeed, rttMs, status, tel, toast,
-  token,
+  bt, conn, drive, hello, lastMsgAt, mapVersion, path, pushSpeed, rttMs, setMockMode, status, tel,
+  toast, token,
 } from './store';
 
 let ws: WebSocket | null = null;
@@ -33,6 +33,7 @@ function onMessage(ev: MessageEvent): void {
   switch (m.type) {
     case 'hello':
       hello.value = m;
+      setMockMode(m.mock === true);
       conn.value = 'online';
       backoff = 500;
       break;

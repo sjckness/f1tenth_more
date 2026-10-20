@@ -101,3 +101,9 @@ test('with the Wake Lock, no warning', async ({ page }) => {
   await expect(page.getByTestId('deadman')).toBeVisible();
   await expect(page.getByTestId('wake-warning')).toHaveCount(0);
 });
+
+test('MOCK badge in Guida too', async ({ page }) => {
+  await openApp(page, 'guida');
+  await expect(page.getByTestId('deadman')).toBeVisible();
+  await expect(page.getByTestId('mock-badge')).toHaveText('MOCK');
+});

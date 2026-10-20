@@ -101,6 +101,13 @@ def test_everything_needs_the_token(gw):
             ws.receive_json()
 
 
+def test_hello_says_this_is_the_pretend_car(gw):
+    with gw.client.websocket_connect('/ws') as ws:
+        ws.send_json({'type': 'auth', 'token': TOKEN})
+        hello = ws.receive_json()
+        assert hello['type'] == 'hello' and hello['mock'] is True
+
+
 def test_too_many_failures_are_refused_for_a_minute(gw):
     for _ in range(5):
         gw.client.get('/api/status', headers={'Authorization': 'Bearer nope'})

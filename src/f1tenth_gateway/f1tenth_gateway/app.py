@@ -856,6 +856,7 @@ def create_app(gw: Gateway) -> FastAPI:
         t = cfg['teleop_cfg']
         await gw.send(client, {
             'type': 'hello', 'client_id': client.id,
+            'mock': gw.world is not None,          # the pretend car: the app shows MOCK
             'teleop': {'min_speed_mps': 0.4, 'max_speed_mps': t.max_speed_mps,
                        'default_limit_mps': t.default_limit_mps,
                        'limit_step_mps': t.limit_step_mps, 'deadzone': t.deadzone,
