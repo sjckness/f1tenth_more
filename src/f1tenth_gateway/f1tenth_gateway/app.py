@@ -775,6 +775,19 @@ def create_app(gw: Gateway) -> FastAPI:
                         w.v = float(body['v'])
                 gw.refresh_status()
                 return {'ok': True}
+            if op == 'reset':
+                w.reset()
+                gw.publish_now(gw.teleop.revoke('reset', gw.clock()))
+                gw.teleop.pop_events()
+                gw.plans.clear()
+                gw.events.clear()
+                with gw.tlock:
+                    gw.tracker = MissionTracker(gw.ctl.describe_state,
+                                                cfg['mission']['auto_abort_s'])
+                    gw.tracker.on_status('IDLE', '', False, gw.clock())
+                gw.frozen_until = 0.0
+                gw.refresh_status()
+                return {'ok': True}
             if op == 'freeze':
                 gw.frozen_until = gw.clock() + float(body.get('seconds', 3.0))
                 return {'ok': True}

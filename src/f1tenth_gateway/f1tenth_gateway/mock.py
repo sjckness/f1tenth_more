@@ -77,6 +77,27 @@ class MockWorld:
         self.path_version = 0
         self.bt_version = 1
 
+    def reset(self) -> None:
+        """Back to a READY, idle car (the e2e tests share one gateway)."""
+        with self._lock:
+            now = time.time()
+            self.procs = {name: {'state': 'running', 'since': now - 754.0}
+                          for name in ('stack', 'planner')}
+            self.procs['logger'] = {'state': 'stopped', 'since': None}
+            self.pending.clear()
+            self.failing = []
+            self.estop_latched = False
+            self.json_path, self.mission, self.start_t, self.run_t = None, None, None, None
+            self.moves_done = 0
+            self.x, self.y, self.yaw, self.v = 0.0, 0.0, 0.0, 0.0
+            self.cmd, self.teleop_t = (0.0, 0.0, 'mpc'), 0.0
+            self.teleop_others, self.mux_listens = 0, True
+            self.published.clear()
+            self.current = {}
+            self.plan_jobs = []
+            self.path, self.path_version = [], self.path_version + 1
+            self._set_state('IDLE')
+
     # ---- processes ---------------------------------------------------------------------
 
     def proc_state(self, name: str) -> Dict:
