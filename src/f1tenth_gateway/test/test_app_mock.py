@@ -15,11 +15,6 @@ from f1tenth_gateway import config
 from f1tenth_gateway.__main__ import build
 import pytest
 
-pytest.importorskip('fastapi')
-pytest.importorskip('httpx')
-
-from fastapi.testclient import TestClient  # noqa: E402, I100
-
 TOKEN = 'k' * 40
 H = {'Authorization': f'Bearer {TOKEN}'}
 CONFIG = os.path.join(os.path.dirname(__file__), '..', 'config', 'gateway_mock.yaml')
@@ -27,6 +22,11 @@ CONFIG = os.path.join(os.path.dirname(__file__), '..', 'config', 'gateway_mock.y
 
 @pytest.fixture
 def gw(monkeypatch):
+    # Skipped here, not at module level: under launch_testing a module-level
+    # importorskip skips the whole directory (CLAUDE.md).
+    pytest.importorskip('fastapi')
+    pytest.importorskip('httpx')
+    from fastapi.testclient import TestClient
     monkeypatch.setenv('F1T_GATEWAY_TOKEN', TOKEN)
     cfg = config.load(CONFIG, {'client': {'lost_after_s': 1.5}})
     gateway, app = build(cfg, True)
