@@ -61,13 +61,29 @@ class _Pub:
         return 1
 
 
-def _node(fwd=1.0, rev=0.0):
+def _node(fwd=1.0, rev=0.0, reversing=False):
+    """
+    Build a stand-in carrying exactly the state _publish_drive reads.
+
+    reversing picks the one condition under which a negative speed may go out:
+    the committed manoeuvre driving (see _reverse_manoeuvre_active). The two
+    real methods are bound rather than imitated, so this cannot drift from what
+    the node does.
+    """
     from builtin_interfaces.msg import Time
     logger = SimpleNamespace(info=lambda *a, **k: None, warn=lambda *a, **k: None)
-    return SimpleNamespace(
+    supervisor = (SimpleNamespace(status=lambda: {
+        'reverse_active': True, 'mode': 'reverse', 'last_termination_reason': '',
+        'travelled_m': 0.0, 'requested_m': 0.5, 'rear_reason': ''})
+        if reversing else None)
+    node = SimpleNamespace(
         max_forward_speed=fwd, max_reverse_speed=rev, pub=_Pub(), drive_clamp_pub=_Pub(),
+        reverse_supervisor=supervisor, reverse_suppressed=0, v=0.0,
         get_logger=lambda: logger,
         get_clock=lambda: SimpleNamespace(now=lambda: SimpleNamespace(to_msg=lambda: Time())))
+    node._reverse_manoeuvre_active = lambda: MPCController._reverse_manoeuvre_active(node)
+    node._log_ctrl = lambda *a: MPCController._log_ctrl(node, *a)
+    return node
 
 
 class TestPublishDriveIsTheChokePoint:
@@ -83,11 +99,20 @@ class TestPublishDriveIsTheChokePoint:
         assert event.applied_speed == pytest.approx(1.0)
         assert (event.max_forward_speed, event.max_reverse_speed) == (1.0, 0.0)
 
-    def test_reverse_goes_out_as_zero(self):
+    def test_reverse_goes_out_as_zero_with_no_manoeuvre_running(self):
         node = _node()
         MPCController._publish_drive(node, -0.23, -0.2)
         assert node.pub.msgs[0].drive.speed == 0.0
         assert len(node.drive_clamp_pub.msgs) == 1
+        assert node.reverse_suppressed == 1
+
+    def test_reverse_goes_out_while_the_manoeuvre_drives(self):
+        """The gate is about the SOURCE; the magnitude is still the clamp's."""
+        node = _node(rev=0.4, reversing=True)
+        MPCController._publish_drive(node, -0.4, -0.2, source='manoeuvre')
+        assert node.pub.msgs[0].drive.speed == pytest.approx(-0.4)
+        assert node.reverse_suppressed == 0
+        assert node.drive_clamp_pub.msgs == []
 
     def test_an_in_range_command_is_untouched_and_silent(self):
         node = _node()
