@@ -1,7 +1,7 @@
 // Guida (design/Guida.dc.html): landscape only, two thumbs. Gas = dead-man: the car moves
 // only while that thumb is down; lifting it sends a zero at once. 20 Hz while held.
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { battery, drive, hello, online, rttMs, tel } from '../store';
+import { battery, drive, hello, online, rttMs, tel, wakeLockMissing } from '../store';
 import { send } from '../ws';
 import { EstopButton, Icon } from '../components/ui';
 import { Joystick } from '../components/Joystick';
@@ -122,6 +122,8 @@ export function Guida() {
             <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'currentColor' }} />
             {online.value ? `ONLINE · ${rttMs.value ?? '—'} ms` : 'OFFLINE'}</span>
           <span><span class="muted">BATT </span>{b ? `${b.v.toFixed(1)} V` : '—'}</span>
+          {wakeLockMissing.value && (
+            <span style={{ color: 'var(--amber)' }} data-testid="wake-warning">schermo: può spegnersi (= stop)</span>)}
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ width: '240px' }}><EstopButton compact /></div>

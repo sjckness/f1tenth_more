@@ -88,3 +88,16 @@ test('no Guida during a mission or with a joystick on /teleop', async ({ page, r
   await openApp(page, 'guida');
   await expect(page.getByTestId('drive-reason')).toContainText('joystick');
 });
+
+test('no Screen Wake Lock: Guida says the screen may go off', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'wakeLock',
+    { get: () => undefined, configurable: true }));
+  await openApp(page, 'guida');
+  await expect(page.getByTestId('wake-warning')).toContainText('schermo');
+});
+
+test('with the Wake Lock, no warning', async ({ page }) => {
+  await openApp(page, 'guida');
+  await expect(page.getByTestId('deadman')).toBeVisible();
+  await expect(page.getByTestId('wake-warning')).toHaveCount(0);
+});

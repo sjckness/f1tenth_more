@@ -160,6 +160,16 @@ test('telemetry: map, path and pose after driving; the BT', async ({ page }) => 
   await expect(page.getByTestId('speed-chart').locator('polyline')).toHaveCount(2);
 });
 
+test('no Screen Wake Lock: a warning while a mission runs', async ({ page, request }) => {
+  await page.addInitScript(() => Object.defineProperty(Navigator.prototype, 'wakeLock',
+    { get: () => undefined, configurable: true }));
+  await mock(request, 'set', { move_s: 20.0 });
+  await openApp(page, 'missione');
+  await expect(page.getByText('SCHERMO')).toHaveCount(0);
+  await planAndStart(page);
+  await expect(page.getByText('Blocco schermo non impedibile')).toBeVisible({ timeout: 10_000 });
+});
+
 test('Guida in portrait asks to rotate the phone', async ({ page }) => {
   await openApp(page, 'guida');
   await expect(page.getByTestId('rotate')).toContainText('Ruota il telefono');
