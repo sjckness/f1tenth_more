@@ -61,7 +61,10 @@ def _node(objects, age=0.1, map_odom=(1.0, 0.0, 0.0), min_conf=0.0, enabled=True
         _obstacle_filter=obstacle_filter(), target_exclusion_gate_m=GATE,
         _semantic_msg=msg, _semantic_t=10.0 - age, obstacles_global_live=list(live),
         _rear_grid=None, _bt_allow=None, _bt_allow_t=None, hold=False,
-        _emergency_stop=False, object_psi_c=None, goal_object_map_xy=None)
+        _emergency_stop=False, object_psi_c=None, goal_object_map_xy=None,
+        # obstacles v2: the live list is aged and capped (_solve_obstacles).
+        obstacles_live_time=10.0, obstacles_max_age_s=1.0, obstacles_max=8,
+        obstacles_topic='/costmap/semantic_obstacles', x=0.0, y=0.0)
     node.get_clock = lambda: _Clock(10.0)
     node._lookup_map_odom = lambda: map_odom
     if target is not None:
@@ -127,7 +130,8 @@ def test_the_planning_list_is_live_plus_memory_once():
 
 def test_outside_an_object_move_the_live_list_is_passed_through_unchanged():
     node = _node([], live=[(5.0, 5.0, 0.3)])
-    assert MPCController._live_obstacles(node) is node.obstacles_global_live
+    # Equal, not the same list: since obstacles v2 it is a fresh, capped copy.
+    assert MPCController._live_obstacles(node) == node.obstacles_global_live
 
 
 def test_a_remembered_person_behind_refuses_the_reverse():

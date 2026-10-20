@@ -1,0 +1,309 @@
+{
+ "bag": "corridor_obstacles_20261019T135307",
+ "window": [
+  1792410795.512,
+  1792410834.628
+ ],
+ "window_rule": "no movement: whole bag",
+ "movements": 0,
+ "lidar_cycles": 337,
+ "cells_mean": {
+  "wall_cells": 59.1,
+  "object_cells": 0,
+  "island_cells": 149.3
+ },
+ "unknown_confirmed_objects": 15,
+ "unknown_confirmed_per_frame_max": 13,
+ "unknown_confirmed_per_frame_mean": 12.733,
+ "unknown_lifetime_s": {
+  "p50": 38.719,
+  "max": 38.719
+ },
+ "unknown_objects": {
+  "0": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.5889120597542226,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    0.38,
+    -1.4
+   ],
+   "where_bl": [
+    0.4,
+    -1.39
+   ],
+   "near_wall_m": 0.31
+  },
+  "1": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.14458268123607854,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -1.05,
+    -1.55
+   ],
+   "where_bl": [
+    -1.03,
+    -1.56
+   ],
+   "near_wall_m": 1.66
+  },
+  "2": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.1402135794160983,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -1.09,
+    1.7
+   ],
+   "where_bl": [
+    -1.11,
+    1.69
+   ],
+   "near_wall_m": 1.18
+  },
+  "3": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.5233578611759752,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -0.19,
+    -2.41
+   ],
+   "where_bl": [
+    -0.17,
+    -2.41
+   ],
+   "near_wall_m": 1.47
+  },
+  "4": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.7099607859334839,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -0.95,
+    -2.4
+   ],
+   "where_bl": [
+    -0.92,
+    -2.41
+   ],
+   "near_wall_m": 1.96
+  },
+  "5": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.8173199569548537,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    2.33,
+    -1.55
+   ],
+   "where_bl": [
+    2.34,
+    -1.52
+   ],
+   "near_wall_m": 0.88
+  },
+  "6": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.8237103999768574,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -1.25,
+    2.84
+   ],
+   "where_bl": [
+    -1.28,
+    2.82
+   ],
+   "near_wall_m": 1.75
+  },
+  "7": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.358140494028182,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -0.39,
+    3.28
+   ],
+   "where_bl": [
+    -0.42,
+    3.27
+   ],
+   "near_wall_m": 1.63
+  },
+  "8": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.16180339887498987,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    2.71,
+    2.0
+   ],
+   "where_bl": [
+    2.69,
+    2.03
+   ],
+   "near_wall_m": 1.25
+  },
+  "9": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.1914213562373096,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -1.87,
+    -2.67
+   ],
+   "where_bl": [
+    -1.84,
+    -2.69
+   ],
+   "near_wall_m": 2.87
+  },
+  "11": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.16173311572966864,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -1.47,
+    -3.12
+   ],
+   "where_bl": [
+    -1.44,
+    -3.13
+   ],
+   "near_wall_m": 2.83
+  },
+  "12": {
+   "born": 1792410795.8800218,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.3842615935828504,
+   "confirmed": 1792410796.4599996,
+   "where_map": [
+    -1.05,
+    3.44
+   ],
+   "where_bl": [
+    -1.09,
+    3.43
+   ],
+   "near_wall_m": 2.07
+  },
+  "14": {
+   "born": 1792410796.5600996,
+   "class0": "unknown",
+   "last": 1792410806.299849,
+   "max_size": 0.8581641729171332,
+   "confirmed": 1792410797.1800048,
+   "where_map": [
+    3.08,
+    -1.53
+   ],
+   "where_bl": [
+    3.09,
+    -1.49
+   ],
+   "near_wall_m": 1.57,
+   "died": 1792410806.4298697
+  },
+  "22": {
+   "born": 1792410806.9798741,
+   "class0": "unknown",
+   "last": 1792410808.2298675,
+   "max_size": 0.6618380686157355,
+   "confirmed": 1792410807.529874,
+   "where_map": [
+    3.06,
+    -1.55
+   ],
+   "where_bl": [
+    3.08,
+    -1.52
+   ],
+   "near_wall_m": 1.56,
+   "died": 1792410808.3598104
+  },
+  "26": {
+   "born": 1792410808.8098202,
+   "class0": "unknown",
+   "last": 1792410834.599462,
+   "max_size": 0.7039711959245455,
+   "confirmed": 1792410809.3897974,
+   "where_map": [
+    3.09,
+    -1.53
+   ],
+   "where_bl": [
+    3.1,
+    -1.49
+   ],
+   "near_wall_m": 1.58
+  }
+ },
+ "upgrades": 0,
+ "upgrade_delays_s": [],
+ "duplicates": 2,
+ "cell_rows_v2": 0,
+ "mpc_obstacles_v2_per_cycle": {
+  "mean": 31.76,
+  "max": 36
+ },
+ "speed_cap_cycles": 0,
+ "live_plan_to_v2_disks_m": {
+  "solves": 0,
+  "min": null,
+  "p5": null,
+  "below_0.32": 0,
+  "below_0.20": 0
+ },
+ "lidar_ms_linus": {
+  "p50": 1.999,
+  "p95": 2.439,
+  "max": 2.848
+ },
+ "live": {
+  "solves": 0,
+  "solve_ms": {
+   "p50": null,
+   "p95": null
+  },
+  "n_obstacles_per_solve": {
+   "mean": null,
+   "max": null
+  },
+  "n_boundary_constraints_per_solve": {
+   "mean": null
+  },
+  "obstacles_2d_msgs": 6,
+  "detections_3d_msgs": 5,
+  "last_detection_s_after_start": 0.66
+ },
+ "pngs": [
+  "output/obstacles_v2/corridor_obstacles_20261019T135307_topdown_0.png",
+  "output/obstacles_v2/corridor_obstacles_20261019T135307_topdown_1.png",
+  "output/obstacles_v2/corridor_obstacles_20261019T135307_topdown_2.png"
+ ]
+}

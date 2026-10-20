@@ -1848,7 +1848,16 @@ boundary_slack_weight:
 # key below is inert until it is set to 'walls'.
 boundary_source:
   default: walls
-  description: "Where mpc_corr's boundary rows come from. 'walls' (DEFAULT since 2026-10-19): half-planes from the multi-wall tracker's /perception/walls, admitted by wall_boundaries.py's rule (confirmed or briefly-coasting, lidar-backed, role front/left/right, segment extent overlapping the horizon). 'costmap': costmap_boundary_node's /costmap/boundaries, the nearest-occupied-cell rows -- exactly the behaviour that shipped before that date, kept for A/B. 'none': no boundary rows at all, which leaves only the soft w_obs deflection. WHY THE DEFAULT MOVED: one occupied cell is enough to make a costmap row, so a map artefact, a person already handled by w_obs, or a single spurious return becomes a half-plane across the whole horizon that the solve cannot satisfy, and the car stops. The MPC now avoids only what perception RECOGNISES -- wall tracks and recognised objects; unrecognised LiDAR obstacles are the last-resort stop's job (hard_stop_node), not the solver's. In 'walls' mode boundary_max_sources MUST be >= max_wall_constraints or the node refuses to start, because pad_boundary_constraints would otherwise truncate rows silently."
+  description: "Where mpc_corr's boundary rows come from. 'walls' (DEFAULT since 2026-10-19): half-planes from the multi-wall tracker's /perception/walls, admitted by wall_boundaries.py's rule (confirmed or briefly-coasting, lidar-backed, role front/left/right, segment extent overlapping the horizon). 'costmap': costmap_boundary_node's /costmap/boundaries, the nearest-occupied-cell rows -- exactly the behaviour that shipped before that date, kept for A/B. 'none': no boundary rows at all, which leaves only the soft w_obs deflection. WHY THE DEFAULT MOVED: one occupied cell is enough to make a costmap row, so a map artefact, a person already handled by w_obs, or a single spurious return becomes a half-plane across the whole horizon that the solve cannot satisfy, and the car stops. The MPC now avoids what perception TRACKS -- wall tracks as rows, and every object (recognised, and since obstacles v2 the LiDAR-only 'unknown' ones too) through the semantic layer's object list as soft w_obs disks (mpc_obstacles_topic); costmap cells never become rows outside this legacy mode. hard_stop_node remains the last resort. In 'walls' mode boundary_max_sources MUST be >= max_wall_constraints or the node refuses to start, because pad_boundary_constraints would otherwise truncate rows silently."
+mpc_obstacles_topic:
+  default: /costmap/semantic_obstacles
+  description: "Where mpc_corr's obstacle list comes from (f1tenth_messages/Obstacle2DArray, base_link). OBSTACLES V2 (2026-10-19): ONE path -- semantic_layer_node's /costmap/semantic_obstacles, every confirmed tracked object, recognised (YOLO) AND LiDAR-only 'unknown' (unknown_objects_mode), with r = footprint half-width + obstacle_class_margin_m, the same rule obstacle_projector_node uses. Same soft w_obs cost and the same margins (r + car_radius + avoidance_margin) as before. /perception/obstacles_2d restores the projector's recognised-only list for A/B."
+mpc_obstacles_max:
+  default: 8
+  description: "At most this many obstacles, the nearest to the car (edge distance), reach a solve; <= 0 keeps every one. There was no cap before obstacles v2. 8 measured within the timing budget (output/obstacles_v2/report.md): the obstacles are one soft min-distance term per horizon step, not one constraint each."
+mpc_obstacles_max_age_s:
+  default: 1.0
+  description: "An obstacle list older than this [s] (receipt time) is dropped from the solve. Before obstacles v2 the list was overwritten on arrival and never aged, so a dead publisher left its last obstacles in every solve -- one chair for 89 s on corridor10m_20261019T131815 (output/avoidance/log.md, A3). The semantic layer publishes at unknown_rate_hz (10 Hz) whatever the camera does."
 max_wall_constraints:
   default: 4
   description: "Most wall rows mpc_corr will ship in boundary_source 'walls', chosen by smallest clearance to the predicted corridor (nearest wall first). 4 matches the tracker's own max_published cap. boundary_max_sources (the QP's rows per stage) must be at least this, which is a STARTUP ERROR when it is not -- never a silent truncation. Inert unless boundary_source is 'walls'."
@@ -3253,6 +3262,51 @@ wall_clear_distance_m:
 # the branches that have it): the camera -> base_link chain then runs through
 # a moving joint published on /tf, not /tf_static, every detections lookup
 # fails (throttled WARN, batch skipped) and /costmap/semantic_tracks goes empty.
+unknown_objects_mode:
+  default: active
+  description: "LiDAR obstacles nothing recognised, as 'unknown' objects in the semantic layer (f1tenth_costmap/unknown_objects.py, obstacles v2). off: not computed. shadow: computed, tracked, published on /costmap/semantic_tracks, /costmap/semantic_markers and /costmap/unknown_objects/debug, but NOT on the MPC's obstacle list and no speed cap -- for a first live test. active: the MPC receives them like any object. Every occupied /scan cell is owned by a confirmed wall (within unknown_wall_tol_m), a confirmed recognised object (footprint + unknown_object_margin_m) or is an ISLAND; islands become candidates, candidates become tracks in the same tracker YOLO detections use; a detection that matches an unknown track upgrades it in place (same id)."
+unknown_rate_hz:
+  default: 10.0
+  description: "Rate [Hz] of the semantic layer's LiDAR cycle (cells, candidates, unknown tracks) and of its /costmap/semantic_obstacles publish. 10 Hz = mpc_corr's control rate; the work order caps everything feeding the MPC at 10 Hz."
+unknown_range_m:
+  default: 4.0
+  description: "Only LiDAR cells within this distance [m] of the car can make an unknown object."
+unknown_min_cells:
+  default: 2
+  description: "Fewest island cells (0.05 m) a candidate needs. One cell is a stray return."
+unknown_persist_s:
+  default: 0.5
+  description: "An unknown candidate must be seen on CONSECUTIVE LiDAR cycles for this long [s] before it is an object; a single missed cycle restarts it."
+unknown_decay_s:
+  default: 1.0
+  description: "A confirmed unknown object whose area the LiDAR rays now pass through dies this long [s] after its last hit (a person walking away). Recognised objects keep the detections' own lifecycle."
+unknown_unobserved_decay_s:
+  default: 3.0
+  description: "A confirmed unknown object the LiDAR cannot see at all (occluded, out of the field of view) is kept this long [s] after its last hit."
+unknown_wall_tol_m:
+  default: 0.10
+  description: "A LiDAR cell within this distance [m] of a CONFIRMED wall segment (/perception/walls) belongs to the wall, not to an unknown object."
+unknown_wall_obs_min_span_m:
+  default: 1.0
+  description: "A LiDAR cell within unknown_wall_tol_m of THIS cycle's LiDAR wall observation (/perception/wall_observations, LiDAR-backed) at least this long [m] also belongs to a wall. 1.0 = wall_min_span_birth_m, the length the tracker itself needs to START a wall. Needed because /perception/walls carries at most 4 tracks and never 'other': on corridor10m_20261019T131815 the confirmed walls alone left most of the corridor's own returns as islands, i.e. 'unknown objects' (output/obstacles_v2/decisions.md, D5). 0 disables it (confirmed walls only)."
+unknown_object_margin_m:
+  default: 0.10
+  description: "A LiDAR cell inside a confirmed recognised object's footprint grown by this much [m] is that object's own return: freed, never a parallel unknown object."
+unknown_cluster_gap_m:
+  default: 0.20
+  description: "Island cells closer than this [m] are one candidate (a person's two legs are one object)."
+semantic_recognised_max_age_s:
+  default: 2.0
+  description: "A confirmed RECOGNISED track no detection has updated for this long [s] stays tracked (its lifecycle is the detections' own and only counts detection batches) but no longer owns LiDAR cells and never reaches the MPC's obstacle list. The case it exists for: the camera stops (output/avoidance/log.md, A3 -- depth died 0.8 s into both 2026-10-19 bags) and its last chair stayed in every solve for 89 s. Its LiDAR returns then become an unknown object, which is what it is once nothing recognises it."
+unknown_speed_cap_enabled:
+  default: true
+  description: "Second layer: a confirmed unknown object in the travel strip within unknown_speed_cap_range_m of the bumper caps mpc_corr's desired speed at unknown_speed_cap_mps (/costmap/unknown_speed_cap; -1.0 = no cap). Never in shadow mode."
+unknown_speed_cap_mps:
+  default: 0.4
+  description: "The speed cap [m/s] an unknown object close ahead imposes."
+unknown_speed_cap_range_m:
+  default: 1.0
+  description: "How far ahead of the bumper [m] an unknown object in the travel strip triggers the speed cap."
 semantic_layer_tf_static_only:
   default: true
   description: "semantic_layer_node reads TF from the latched /tf_static only (no TransformListener, which deserialises every /tf message). Correct while every joint between the camera and base_link is fixed (sensors.xacro). Set false whenever the camera pan joint is enabled."

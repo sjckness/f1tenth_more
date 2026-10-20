@@ -68,6 +68,10 @@ class _Mpc:
         self.object_psi_c = None
         self.object_exit_ramping = False
         self.obstacles_global_live = []
+        # obstacles v2: the list's age and cap (MPC_corr._solve_obstacles).
+        self.obstacles_live_time = None
+        self.obstacles_max_age_s, self.obstacles_max = 1.0, 8
+        self.obstacles_topic = '/costmap/semantic_obstacles'
         self.max_forward_speed, self.max_reverse_speed = 1.0, 0.0
         self.pub, self.drive_clamp_pub = _Pub(), _Pub()
         self.min_obstacle_distance_pub = _Pub()

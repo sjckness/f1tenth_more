@@ -620,6 +620,32 @@ def _d_front_at(X: float, Y: float, psi: float, L: float,
     return d_front
 
 
+def _d_front_batch(X, Y, psi, L, obstacles_world, rear_offsets=None):
+    """
+    Evaluate _d_front_at for arrays of poses at once: one value per pose.
+
+    Element for element the same arithmetic as _d_front_at (nose point, the
+    SOLVER_FRONT_POINT_OFFSETS_M points ahead of it, and with rear_offsets
+    the extra points at base_link + offset * heading; min over every
+    obstacle of centre distance minus radius), vectorised over the poses,
+    the probe points and the obstacles.
+    """
+    obs = np.asarray(obstacles_world, dtype=float).reshape(-1, 3)
+    e = np.stack([np.cos(psi), np.sin(psi)], axis=-1)                    # (P, 2)
+    p_nose = np.stack([X, Y], axis=-1) + (L / 2.0) * e                  # (P, 2)
+    off = np.asarray(SOLVER_FRONT_POINT_OFFSETS_M, dtype=float)
+    front = p_nose[:, None, :] + off[None, :, None] * e[:, None, :]     # (P, F, 2)
+    if rear_offsets:
+        p_base = np.stack([X, Y], axis=-1)                              # (P, 2)
+        roff = np.asarray([float(o) for o in rear_offsets], dtype=float)
+        rear = p_base[:, None, :] + roff[None, :, None] * e[:, None, :]  # (P, R, 2)
+        front = np.concatenate([front, rear], axis=1)
+    d = (np.hypot(front[:, :, None, 0] - obs[None, None, :, 0],
+                  front[:, :, None, 1] - obs[None, None, :, 1])
+         - obs[None, None, :, 2])                                         # (P, F, N)
+    return [float(v) for v in d.reshape(d.shape[0], -1).min(axis=1)]
+
+
 def _linearize_obstacle_cost_rti(
     x_ref: np.ndarray,
     L: float,
@@ -650,14 +676,20 @@ def _linearize_obstacle_cost_rti(
     X, Y, psi = float(x_ref[0]), float(x_ref[1]), float(x_ref[2])
     eps = 1e-4
 
-    ro = rear_offsets
-    d0 = _d_front_at(X, Y, psi, L, obstacles_world, ro)
-    dX = (_d_front_at(X + eps, Y, psi, L, obstacles_world, ro)
-          - _d_front_at(X - eps, Y, psi, L, obstacles_world, ro)) / (2 * eps)
-    dY = (_d_front_at(X, Y + eps, psi, L, obstacles_world, ro)
-          - _d_front_at(X, Y - eps, psi, L, obstacles_world, ro)) / (2 * eps)
-    dPsi = (_d_front_at(X, Y, psi + eps, L, obstacles_world, ro)
-            - _d_front_at(X, Y, psi - eps, L, obstacles_world, ro)) / (2 * eps)
+    # The seven evaluations of _d_front_at (the point and its six central
+    # differences) in ONE array operation over every obstacle: the same
+    # numbers, without a Python loop over obstacles per evaluation, so the
+    # cost of an extra obstacle stays small (obstacles v2 timing budget:
+    # p95 with 8 obstacles <= 1.3 x p95 with 1). A reverse stage's rear probe
+    # points are part of the same operation.
+    d0, dxp, dxm, dyp, dym, dpp, dpm = _d_front_batch(
+        np.array([X, X + eps, X - eps, X, X, X, X]),
+        np.array([Y, Y, Y, Y + eps, Y - eps, Y, Y]),
+        np.array([psi, psi, psi, psi, psi, psi + eps, psi - eps]), L, obstacles_world,
+        rear_offsets)
+    dX = (dxp - dxm) / (2 * eps)
+    dY = (dyp - dym) / (2 * eps)
+    dPsi = (dpp - dpm) / (2 * eps)
 
     s_ref = (car_radius + avoidance_margin) - d0
     grad_s = np.array([-dX, -dY, -dPsi, 0.0], dtype=float)  # d(s)/d(X,Y,psi,v)

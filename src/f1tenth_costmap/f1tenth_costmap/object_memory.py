@@ -255,24 +255,29 @@ def apply_memory_to_track(trk, mem: ObjectMemory, params: MemoryParams):
 
 def memory_cycle(tracks: list, memories: dict, dt: float, visibility_of,
                  params: MemoryParams, enabled: bool = True,
-                 lidar_only_classes=LIDAR_ONLY_CLASSES) -> list:
+                 lidar_only_classes=LIDAR_ONLY_CLASSES, expire=None) -> list:
     """
     Run one memory cycle over the tracker's list; return the tracks to keep.
 
     tracks: the tracker's tracks (semantic_layer.SemanticObject or anything
         with track_id, class_id, confirmed, hit_count, width, x_map, y_map,
         vx_map, vy_map, extra_gate_m). Tentative tracks pass through untouched
-        -- the tracker's lost_miss_count still owns them.
+        -- the tracker's lost_miss_count still owns them -- and so do UNKNOWN
+        ones (is_unknown): no camera ever detects them, their lifecycle is the
+        LiDAR's (semantic_layer.update_unknown_batch).
     memories: {track_id: ObjectMemory}, owned by the caller and updated in
         place (entries are created on confirmation and dropped with the track).
     visibility_of: callable(track) -> Visibility, the caller's sensor wiring.
     enabled: False reports visibility and timers but never moves a track to
         MEMORY and never removes one (the tracker prunes, as before).
+    expire: callable(track) -> bool, asked for every track the memory removes;
+        True keeps the track (the caller changed it into something the memory
+        no longer owns: semantic_layer.hand_over_to_lidar).
     """
     kept = []
     alive_ids = set()
     for trk in tracks:
-        if not trk.confirmed:
+        if not trk.confirmed or getattr(trk, 'is_unknown', False):
             kept.append(trk)
             continue
         mem = memories.get(trk.track_id)
@@ -296,6 +301,8 @@ def memory_cycle(tracks: list, memories: dict, dt: float, visibility_of,
             alive = True
         if not alive:
             del memories[trk.track_id]
+            if expire is not None and expire(trk):
+                kept.append(trk)
             continue
         apply_memory_to_track(trk, mem, params)
         kept.append(trk)

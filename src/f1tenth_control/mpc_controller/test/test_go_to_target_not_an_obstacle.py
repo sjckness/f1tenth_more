@@ -108,6 +108,7 @@ class _World:
             self.drive_after_loss += 1
         mpc.obstacles_global_live = (
             [(PERSON_ODOM[0], PERSON_ODOM[1], e2e.PERSON_RADIUS)] if detected else [])
+        mpc.obstacles_live_time = stamp
         if detected:
             target = _semantic(7, e2e.PERSON_MAP, e2e.PERSON_RADIUS, e2e.PERSON_RADIUS,
                                SemanticObject.TRACKED)
@@ -144,6 +145,9 @@ class _World:
         mpc._rear_grid = None
         mpc._bt_allow = mpc._bt_allow_t = None
         mpc._emergency_stop = False
+        # obstacles v2: the live list is aged and capped (_solve_obstacles).
+        mpc.obstacles_max_age_s, mpc.obstacles_max = 1.0, 8
+        mpc.obstacles_topic = '/costmap/semantic_obstacles'
         mpc._wired = True
 
 
