@@ -1,0 +1,20 @@
+{
+  "mission_id": "llm_mock0001",
+  "final_state": "COMPLETE",
+  "timestamp": "20261020T143320",
+  "aggregate_score_percent": 91.5,
+  "moves": [
+    {
+      "move_id": "straight_1",
+      "outcome": "completed",
+      "stop_reason": "distance_reached",
+      "duration_s": 4.1
+    },
+    {
+      "move_id": "to_person",
+      "outcome": "completed",
+      "stop_reason": "object_reached",
+      "duration_s": 9.8
+    }
+  ]
+}

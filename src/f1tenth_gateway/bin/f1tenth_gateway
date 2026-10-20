@@ -1,0 +1,25 @@
+#!/bin/bash
+# Runs the gateway straight from this checkout (no colcon build needed).
+#
+# On the car: f1tenth_ctl's env file is sourced first (ROS Humble, the
+# workspace install, the discovery server, ROS_SUPER_CLIENT), so the gateway
+# sees the graph f1tenth_ctl sees; then the gateway's venv runs it.
+# --mock: a pretend car, no ROS and no env file (linus, tests).
+set -e
+here="$(cd "$(dirname "$0")/.." && pwd)"     # src/f1tenth_gateway
+src="$(dirname "$here")"                      # src
+venv="${F1T_GATEWAY_VENV:-$HOME/.local/share/f1tenth_gateway/venv}"
+mock=0
+for arg in "$@"; do [ "$arg" = "--mock" ] && mock=1; done
+if [ "$mock" = 0 ]; then
+    env_file="${F1T_CTL_ENV:-$src/f1tenth_ctl/config/ctl.env}"
+    set +u
+    set -a
+    # shellcheck disable=SC1090
+    . "$env_file"
+    set +a
+fi
+export PYTHONPATH="$here:$src/f1tenth_ctl:$src/f1tenth_telegram${PYTHONPATH:+:$PYTHONPATH}"
+config="${F1T_GATEWAY_CONFIG:-$here/config/gateway.yaml}"
+[ "$mock" = 1 ] && config="${F1T_GATEWAY_CONFIG:-$here/config/gateway_mock.yaml}"
+exec "$venv/bin/python" -m f1tenth_gateway --config "$config" "$@"

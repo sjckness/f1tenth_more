@@ -1,0 +1,11 @@
+# A pretend car on linus: no ROS, no f1tenth_ctl (f1tenth_gateway --mock).
+mock: true
+listen:
+  host: 127.0.0.1
+  port: 8770
+www_dir: ../../../apps/pwa/dist   # relative paths: from this file
+auth:
+  cookie_secure: false   # plain http on 127.0.0.1 in the tests
+archive:
+  root: ../test/fixtures/archive
+  workspace: ../test/fixtures/workspace

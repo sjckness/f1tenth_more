@@ -1,0 +1,11 @@
+# The gateway on the car. Every key and its default: f1tenth_gateway/config.py.
+# The token is NOT here: F1T_GATEWAY_TOKEN, from ~/.config/f1tenth_gateway/env.
+listen:
+  host: 127.0.0.1      # tailscale serve forwards https://<orin>.ts.net to this
+  port: 8770           # not 8765 (foxglove_bridge) nor 8083 (llama-server): check `ss -ltn`
+www_dir: ~/.local/share/f1tenth_gateway/www     # `npm run deploy` in apps/pwa copies the PWA here
+archive:
+  root: ~/f1tenth_archive
+  workspace: ~/dev_ws/f1tenth_more
+transcription:
+  model: small         # base: faster, worse on Italian

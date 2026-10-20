@@ -1,0 +1,8 @@
+# The gateway's own Python packages, in its venv (README, "Installazione").
+# Pinned to versions that run on the Orin's Python 3.10 and on linus' 3.12.
+fastapi==0.115.6
+uvicorn==0.32.1
+websockets==14.1
+python-multipart==0.0.20
+# Voice commands (transcribe_worker), CPU only on the Orin:
+#   faster-whisper==1.2.1 and av<17 (PyAV 17+ breaks faster-whisper 1.2.1)

@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_gateway</name>
+  <version>0.0.1</version>
+  <description>Gateway for the F1Tenth Lab Control PWA: REST and one WebSocket for the
+  phone, manual driving on the ackermann_mux /teleop lane with a 250 ms watchdog,
+  the e-stop on a node kept ready from start-up, missions planned and started
+  through f1tenth_ctl, the run archive. Runs on the car outside the stack, as a
+  systemd user unit behind tailscale serve. FastAPI and uvicorn come from a venv
+  (README), not from rosdep.</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>ackermann_msgs</exec_depend>
+  <exec_depend>f1tenth_messages</exec_depend>
+  <exec_depend>py_trees_ros_interfaces</exec_depend>
+  <exec_depend>f1tenth_ctl</exec_depend>
+  <exec_depend>python3-yaml</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

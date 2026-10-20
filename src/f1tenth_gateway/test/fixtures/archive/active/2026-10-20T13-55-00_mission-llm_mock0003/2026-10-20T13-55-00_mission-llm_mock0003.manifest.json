@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-10-20T13-55-00_mission-llm_mock0003",
+  "mission_id": "llm_mock0003",
+  "mission_json_path": "mission.json",
+  "start_time": "2026-10-20T13:55:15+00:00",
+  "end_time": null,
+  "outcome": null,
+  "preroll_s": 15.2,
+  "bag_bytes": 71296714,
+  "storage_id": "sqlite3",
+  "git": {
+    "branch": "campaign-final",
+    "commit": "e3793e47f595",
+    "dirty": false
+  }
+}

@@ -1,0 +1,26 @@
+# F1Tenth Lab Control gateway: the PWA's REST + WebSocket on the car.
+#
+# A systemd USER unit, outside the stack (f1tenth_ctl starts and stops the
+# stack; this must outlive it). Installed by hand, see README.md:
+#   cp src/f1tenth_gateway/systemd/f1tenth-gateway.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now f1tenth-gateway
+# Listens on 127.0.0.1 only (config/gateway.yaml); tailscale serve makes it
+# https://<orin>.ts.net. The token is in the EnvironmentFile (chmod 600).
+[Unit]
+Description=F1Tenth Lab Control gateway (PWA)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/f1tenth_gateway/env
+ExecStart=%h/dev_ws/f1tenth_more/src/f1tenth_gateway/bin/f1tenth_gateway
+# SIGINT: uvicorn's graceful shutdown, which revokes the driving lease and
+# publishes a last zero on /teleop.
+KillSignal=SIGINT
+TimeoutStopSec=10
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

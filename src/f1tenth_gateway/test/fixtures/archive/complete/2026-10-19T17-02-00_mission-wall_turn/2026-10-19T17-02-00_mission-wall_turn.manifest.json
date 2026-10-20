@@ -1,0 +1,16 @@
+{
+  "run_id": "2026-10-19T17-02-00_mission-wall_turn",
+  "mission_id": "wall_turn",
+  "mission_json_path": "mission.json",
+  "start_time": "2026-10-19T17:02:15+00:00",
+  "end_time": "2026-10-19T17:04:20+00:00",
+  "outcome": "COMPLETE",
+  "preroll_s": 15.2,
+  "bag_bytes": 71296714,
+  "storage_id": "sqlite3",
+  "git": {
+    "branch": "campaign-final",
+    "commit": "e3793e47f595",
+    "dirty": false
+  }
+}
