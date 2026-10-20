@@ -121,6 +121,10 @@ def render(out: dict) -> str:
         return head + '\n' + _killall(out)
     body = {k: v for k, v in out.items()
             if k not in ('cmd', 'host', 'time', 'env_file', 'ok', 'error', 'target', 'action')}
+    if out.get('cmd') == 'planner-log' and 'cursor' in out:
+        return (head + f"  (cursor {out['cursor']}, planner "
+                f"{'running' if out.get('running') else 'not running'})\n"
+                + '\n'.join(out.get('lines', [])))
     if out.get('cmd') == 'logs':
         return head + '\n' + '\n'.join(out.get('lines', []))
     return head + '\n' + json.dumps(body, indent=2, default=str)

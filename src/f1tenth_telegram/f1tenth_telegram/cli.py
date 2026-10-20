@@ -6,14 +6,19 @@ action name (refresh, connect, start:stack, ...) or q. Scripted: each
 --do ACTION runs in order and the panel is printed after each one; `confirm`
 and `cancel` answer the open confirmation, `wait:S` pauses S seconds and
 `until-ready:S` repeats status until READY (at most S seconds).
+
+`say:<text>` (or `say <text>` interactively) is what a plain Telegram message
+is: a command for the planner. It asks first; `confirm` sends it and follows
+the planner's answer to its RESULT line, `cancel` drops it.
 """
 
 import sys
 import time
 from typing import Iterable, Optional
 
-from . import view
+from . import planner, view
 from .controller import Controller, Panel
+from .guard import Confirmations
 
 
 def show(panel: Panel, out=sys.stdout) -> list:
@@ -60,13 +65,71 @@ def _wait(controller: Controller, token: str, out) -> Optional[list]:
         time.sleep(5.0)
 
 
+class PlannerChat:
+    """The Telegram text flow for the terminal: ask, then send and follow."""
+
+    def __init__(self, controller: Controller, out, sleep=time.sleep):
+        self.c = controller
+        self.out = out
+        self.sleep = sleep
+        self.confirms = Confirmations(controller.cfg.max_command_age_s, controller.clock)
+        self.nonce = None
+
+    @staticmethod
+    def wants(token: str) -> bool:
+        return token.startswith(('say:', 'say '))
+
+    def ask(self, token: str) -> None:
+        text, why = planner.validate(token[4:])
+        if why:
+            self.out.write(f'  ❌ not sent to the planner: {why}\n')
+            return
+        res = self.c.t.ctl(['planner-log'], self.c.cfg.timeout('status'))
+        if res.get('transport_error') or not res.get('ok'):
+            self.out.write(f'  ❌ cannot reach the planner: {res.get("error")}\n')
+            return
+        if not res.get('running'):
+            panel = self.c.handle('status')
+            self.c.note('📝 planner not running: tap ▶️ Planner, then send the command again')
+            show(panel, self.out)
+            return
+        self.nonce = self.confirms.ask(text)
+        self.out.write(f'  Send to planner: «{text}»? [confirm / cancel]\n')
+
+    def answer(self, yes: bool) -> None:
+        nonce, self.nonce = self.nonce, None
+        if not yes:
+            self.confirms.cancel(nonce)
+            self.out.write('  ❌ not sent to the planner\n')
+            return
+        text, why = self.confirms.take(nonce)
+        if text is None:
+            self.out.write(f'  ⌛ not sent: {why}\n')
+            return
+        ex = planner.Exchange(text)
+        if ex.send(self.c.t, self.c.cfg.timeout('default')):
+            while not ex.done:
+                self.sleep(planner.POLL_S)
+                ex.poll(self.c.t, self.c.cfg.timeout('status'))
+        self.out.write(ex.render(as_html=False) + '\n')
+
+
 def run(controller: Controller, actions: Optional[Iterable[str]] = None,
         out=sys.stdout, inp=input) -> int:
+    chat = PlannerChat(controller, out)
     if actions:
         flat = show(controller.panel, out)
         for token in actions:
             if token.startswith(('wait:', 'until-ready:')):
                 flat = _wait(controller, token, out) or flat
+                continue
+            if PlannerChat.wants(token):
+                out.write(f'> {token}\n')
+                chat.ask(token)
+                continue
+            if chat.nonce and token in ('confirm', 'yes', 'y', 'cancel', 'no', 'n'):
+                out.write(f'> {token}\n')
+                chat.answer(token in ('confirm', 'yes', 'y'))
                 continue
             action = resolve(token, controller.panel, flat)
             out.write(f'> {token}' + (f'  ({action})' if action != token else '') + '\n')
@@ -84,6 +147,12 @@ def run(controller: Controller, actions: Optional[Iterable[str]] = None,
             return 0
         if token.strip() in ('q', 'quit', 'exit'):
             return 0
+        if PlannerChat.wants(token):
+            chat.ask(token)
+            continue
+        if chat.nonce and token.strip() in ('confirm', 'yes', 'y', 'cancel', 'no', 'n'):
+            chat.answer(token.strip() in ('confirm', 'yes', 'y'))
+            continue
         action = resolve(token, controller.panel, flat)
         if action is None:
             out.write('  ? type a button number, an action name or q\n')

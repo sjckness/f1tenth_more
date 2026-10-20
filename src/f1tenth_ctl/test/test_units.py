@@ -105,3 +105,40 @@ def test_log_tail_reads_the_end(tmp_path):
         f.write('\n'.join(str(i) for i in range(100)))
     assert units.log_tail(s, 'stack', 3) == ['97', '98', '99']
     assert units.log_tail(s, 'planner') == []
+
+
+def test_check_line_accepts_one_line_up_to_500_chars():
+    assert units.check_line('  go ahead 2 meters ') == ('go ahead 2 meters', None)
+    assert units.check_line('x' * 500)[0] == 'x' * 500
+    line, why = units.check_line('x' * 501)
+    assert line is None and '501' in why
+    assert units.check_line('go\nahead')[1].startswith('one line only')
+    assert units.check_line('go\rahead')[1].startswith('one line only')
+    assert units.check_line('   ')[1] == 'empty text'
+
+
+def test_read_log_since_returns_complete_lines_only(tmp_path):
+    log = tmp_path / 'planner.log'
+    log.write_bytes(b'old line\n')
+    start = units.read_log_since(str(log), None)
+    assert start['cursor'] == 9 and start['lines'] == []
+    with open(log, 'ab') as f:
+        f.write(b'\x1b[32m[INFO] colored\x1b[0m\ncomando> RESULT {"status": "ok"}\npartial')
+    res = units.read_log_since(str(log), start['cursor'])
+    assert res['lines'] == ['[INFO] colored', 'comando> RESULT {"status": "ok"}']
+    # The unfinished line is not consumed: it comes whole next time.
+    assert res['cursor'] == log.stat().st_size - len(b'partial')
+    with open(log, 'ab') as f:
+        f.write(b' line\n')
+    assert units.read_log_since(str(log), res['cursor'])['lines'] == ['partial line']
+
+
+def test_read_log_since_after_a_reset_and_a_cap(tmp_path):
+    log = tmp_path / 'planner.log'
+    log.write_bytes(b'a\nb\n')
+    res = units.read_log_since(str(log), 999)
+    assert res['reset'] and res['lines'] == ['a', 'b'] and res['cursor'] == 4
+    log.write_bytes(b'0123456789\nxyz\n')
+    capped = units.read_log_since(str(log), 0, max_bytes=12)
+    assert capped['lines'] == ['0123456789'] and capped['truncated'] and capped['cursor'] == 11
+    assert units.read_log_since(str(tmp_path / 'missing.log'), 0)['lines'] == []

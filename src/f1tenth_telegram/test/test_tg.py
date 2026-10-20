@@ -29,8 +29,10 @@ class Bot:
         self.sent.append((chat_id, text, reply_markup))
         return SimpleNamespace(message_id=self.next_id)
 
-    async def edit_message_text(self, text, chat_id, message_id, reply_markup=None):
+    async def edit_message_text(self, text, chat_id, message_id, reply_markup=None,
+                                parse_mode=None):
         self.edits.append((chat_id, message_id, text, reply_markup))
+        self.parse_modes = getattr(self, 'parse_modes', []) + [parse_mode]
 
 
 @pytest.fixture
@@ -55,23 +57,31 @@ def app(monkeypatch):
         if isinstance(h, ext.CommandHandler):
             for c in h.commands:
                 by_kind[c] = h.callback
-        else:
+        elif isinstance(h, ext.CallbackQueryHandler):
             by_kind['button'] = h.callback
+        elif isinstance(h, ext.MessageHandler):
+            by_kind['text'] = h.callback
     return SimpleNamespace(handlers=by_kind, fake=fake, bot=Bot(), kwargs=captured['kwargs'],
-                           application=captured['app'])
+                           application=captured['app'], controller=controller)
 
 
 def message_update(user_id, text, age_s=0.0, chat_id=5):
-    replies = []
+    replies = Replies()
 
-    async def reply_text(t):
+    async def reply_text(t, reply_markup=None):
         replies.append(t)
+        replies.markups = getattr(replies, 'markups', []) + [reply_markup]
+        return SimpleNamespace(message_id=900 + len(replies))
 
     msg = SimpleNamespace(date=datetime.now(timezone.utc) - timedelta(seconds=age_s),
                           text=text, reply_text=reply_text)
     upd = SimpleNamespace(effective_user=SimpleNamespace(id=user_id, username='u'),
                           effective_message=msg, effective_chat=SimpleNamespace(id=chat_id))
     return upd, replies
+
+
+class Replies(list):
+    markups = []
 
 
 def button_update(user_id, data, message_id, chat_id=5):
@@ -169,3 +179,79 @@ def test_requests_are_ipv4_with_the_configured_timeout():
     assert transport._pool._local_address == '0.0.0.0'
     plain = tg.make_request(config.from_dict({'telegram': {'force_ipv4': False}}), 1)
     assert getattr(plain._client._transport._pool, '_local_address', None) is None
+
+
+def _plan_buttons(replies):
+    return [b.callback_data for row in replies.markups[-1].inline_keyboard for b in row]
+
+
+def test_text_is_a_planner_command_after_a_confirmation(app, monkeypatch):
+    from f1tenth_telegram import planner
+    monkeypatch.setattr(planner, 'POLL_S', 0)
+    app.fake.state['planner'] = 'running'
+    ctx = SimpleNamespace(bot=app.bot)
+    upd, replies = message_update(OWNER, 'go ahead 2 meters')
+    run(app.handlers['text'](upd, ctx))
+    assert replies[-1] == 'Send to planner: «go ahead 2 meters»?'
+    send, cancel = _plan_buttons(replies)
+    assert send.startswith('plan:send:') and cancel.startswith('plan:cancel:')
+    assert app.fake.sent == []
+    upd, answers = button_update(OWNER, send, message_id=901)
+    run(app.handlers['button'](upd, ctx))
+    assert app.fake.sent == ['go ahead 2 meters']
+    final = app.bot.edits[-1]
+    assert final[1] == 901 and app.bot.parse_modes[-1] == 'HTML'
+    assert '✅ result: ok' in final[2] and '<pre><code class="language-json">' in final[2]
+    # The confirmation was used up: a second tap sends nothing.
+    run(app.handlers['button'](button_update(OWNER, send, message_id=901)[0], ctx))
+    assert app.fake.sent == ['go ahead 2 meters']
+
+
+def test_planner_confirmation_expires(app, monkeypatch):
+    from f1tenth_telegram import guard
+    app.fake.state['planner'] = 'running'
+    ctx = SimpleNamespace(bot=app.bot)
+    upd, replies = message_update(OWNER, 'turn left')
+    run(app.handlers['text'](upd, ctx))
+    send = _plan_buttons(replies)[0]
+    monkeypatch.setattr(guard, 'is_stale', lambda *a: True)
+    run(app.handlers['button'](button_update(OWNER, send, message_id=901)[0], ctx))
+    assert app.fake.sent == [] and app.bot.edits[-1][2].startswith('⌛ Not sent')
+
+
+def test_planner_command_cancelled(app):
+    app.fake.state['planner'] = 'running'
+    ctx = SimpleNamespace(bot=app.bot)
+    upd, replies = message_update(OWNER, 'turn left')
+    run(app.handlers['text'](upd, ctx))
+    cancel = _plan_buttons(replies)[1]
+    run(app.handlers['button'](button_update(OWNER, cancel, message_id=901)[0], ctx))
+    assert app.fake.sent == [] and app.bot.edits[-1][2] == '❌ Not sent to the planner.'
+
+
+def test_text_when_the_planner_is_not_running_sends_a_panel(app):
+    app.controller.handle('connect')
+    ctx = SimpleNamespace(bot=app.bot)
+    upd, replies = message_update(OWNER, 'go ahead')
+    run(app.handlers['text'](upd, ctx))
+    assert replies == [] and app.fake.sent == []
+    chat, text, markup = app.bot.sent[-1]
+    assert 'planner not running: tap ▶️ Planner' in text
+    assert 'start:planner' in [b.callback_data for row in markup.inline_keyboard for b in row]
+
+
+def test_bad_or_foreign_text_is_not_sent(app):
+    app.fake.state['planner'] = 'running'
+    ctx = SimpleNamespace(bot=app.bot)
+    upd, replies = message_update(OWNER, 'line one\nline two')
+    run(app.handlers['text'](upd, ctx))
+    assert 'one line only' in replies[-1]
+    upd, replies = message_update(OWNER, 'x' * 501)
+    run(app.handlers['text'](upd, ctx))
+    assert 'at most 500' in replies[-1]
+    upd, replies = message_update(999, 'go ahead')
+    run(app.handlers['text'](upd, ctx))
+    assert replies == [] and app.fake.sent == []
+    upd, replies = message_update(OWNER, 'go ahead', age_s=30)
+    run(app.handlers['text'](upd, ctx))
+    assert replies[-1].startswith('Dropped') and app.fake.sent == []

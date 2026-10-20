@@ -126,3 +126,38 @@ def test_startup_line_has_no_ids_and_no_token():
     assert line == ('starting: ipv4 forced yes, timeout 20 s, target Orin (jetson-orin), '
                     '2 whitelisted user(s)')
     assert '857433485' not in line
+
+
+def test_cli_say_asks_then_sends_and_follows(monkeypatch):
+    from f1tenth_telegram import planner
+    monkeypatch.setattr(planner, 'POLL_S', 0)
+    fake = FakeTransport()
+    fake.state['planner'] = 'running'
+    out = io.StringIO()
+    cli.run(Controller(config.from_dict({}), fake),
+            ['say:go ahead 2 meters', 'confirm', 'say:two\nlines', 'say:x', 'cancel'], out=out)
+    text = out.getvalue()
+    assert 'Send to planner: «go ahead 2 meters»?' in text
+    assert fake.sent == ['go ahead 2 meters']
+    assert '🏁 planner answered' in text and '✅ result: ok' in text
+    assert '"mission_id": "llm_go_ahead_2m"' in text
+    assert 'one line only' in text and '❌ not sent to the planner' in text
+
+
+def test_cli_say_when_the_planner_is_not_running():
+    fake = FakeTransport()
+    out = io.StringIO()
+    c = Controller(config.from_dict({}), fake)
+    c.handle('connect')
+    cli.run(c, ['say:go ahead'], out=out)
+    assert fake.sent == [] and 'planner not running: tap ▶️ Planner' in out.getvalue()
+    assert '▶️ Planner' in out.getvalue()
+
+
+def test_command_button_only_explains():
+    fake = FakeTransport()
+    c = Controller(config.from_dict({}), fake)
+    c.handle('connect')
+    fake.calls.clear()
+    panel = c.handle('help:command')
+    assert fake.calls == [] and 'Write the command as a plain message' in panel.last

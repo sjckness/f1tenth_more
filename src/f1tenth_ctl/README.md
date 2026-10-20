@@ -19,7 +19,8 @@ f1tenth_ctl estop                            # e-stop service + zero drive; neve
 f1tenth_ctl estop-reset [--force]            # clear the e-stop latch, and check it
 f1tenth_ctl killall [--reset-discovery] [--dry-run]
 f1tenth_ctl check                            # environment check; warns if it differs from the shell
-f1tenth_ctl send planner "go ahead 2 meters" # one line to the planner's stdin
+f1tenth_ctl send planner "go ahead 2 meters" # one line (<= 500 chars) to the planner's stdin
+f1tenth_ctl planner-log [--since N]          # the planner's output after byte offset N
 f1tenth_ctl logs stack|planner|logger|discovery|monitor [-n 30]
 ```
 
@@ -271,6 +272,24 @@ one such sample on each side.
 The JSON names the path taken (`path`), `latched_before`, `latched_after`,
 `verified`, and the result of each step. In the sim: path 2 took 7–12 s,
 path 3 took 18 s.
+
+## The planner's stdin and output
+
+**`send planner "<text>"`** writes one line to the planner's stdin FIFO.
+- It refuses a text with a line break, an empty one, or one over 500
+  characters.
+- It answers `cursor`: the size of the planner's log just before the write.
+
+**`planner-log --since <cursor>`** returns the complete lines the planner
+printed after that byte offset, ANSI codes stripped, and the next `cursor`.
+- A line still being written comes whole on the next call.
+- `running` says whether the planner unit runs.
+- Without `--since`, it returns only the current end, as `cursor`.
+- A cursor past the end means the log was replaced: it reads from the start
+  (`reset: true`).
+
+The Telegram bot uses the pair to follow one command's answer
+(`src/f1tenth_telegram/README.md`, "Talking to the planner").
 
 ## killall
 

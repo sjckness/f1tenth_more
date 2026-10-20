@@ -374,3 +374,56 @@ What changed. **None of it ran against the sim or the car.**
 - the abort step during a RUNNING mission;
 - the bot under systemd with the new networking.
 
+## 9. Round 4: planner commands from Telegram (2026-10-20, NOT sim-tested)
+
+**What changed:**
+- **f1tenth_ctl:**
+  - `send planner` takes one line of at most 500 characters and answers the
+    log's byte offset (`cursor`);
+  - new `planner-log [--since N]` returns the planner's complete output lines
+    after it, ANSI stripped.
+- **Bot:**
+  - a plain text message is a planner command: one line, ≤ 500 chars, sent
+    < 10 s ago;
+  - planner not running → a panel with ▶️ Planner;
+  - planner running → `Send to planner: «…»?` with ✅/❌ (expires after
+    10 s);
+  - after ✅ the message is edited every 2 s with the planner's output;
+  - the mission JSON is shown as a code block;
+  - it stops at the planner's `RESULT {…}` line, at 60 s, or when the
+    planner stops;
+  - the panel has a 📝 Command button (an explanation only);
+  - commands sent are logged with the user id;
+  - `--cli` gets `say:<text>`.
+
+**Checks:**
+
+| Package | Tests |
+|---|---|
+| f1tenth_ctl | 92 passed |
+| f1tenth_telegram, venv with python-telegram-bot | 73 passed |
+| f1tenth_telegram, without it | 60 passed, 13 skipped |
+
+**New tests:**
+- line validation (break, length, empty);
+- the log cursor:
+  - complete lines only;
+  - a partial line arriving whole later;
+  - ANSI stripped;
+  - reset and cap;
+- `send` + `planner-log` against a real systemd unit (`cat` as the planner);
+- output parsing: the prompt removed, the mission JSON, RESULT;
+- trimming to 3500 chars and HTML escaping;
+- the exchange: result, 60 s timeout, planner gone, send refused;
+- the Telegram flow:
+  - confirmation and send;
+  - an expired confirmation;
+  - cancel;
+  - planner not running;
+  - bad, foreign and stale text;
+- `--cli say:`.
+
+**Not tested:** the real `llm_planner_node` over this path. No llama-server
+on linus; the parsing follows `llm_planner_node.py`'s prints, `JSON (…):` and
+`RESULT {…}`.
+

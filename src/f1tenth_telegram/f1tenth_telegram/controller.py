@@ -4,7 +4,7 @@ The control panel's state and its actions, independent of Telegram.
 The Telegram front end (tg.py) and the terminal one (cli.py) both call
 Controller.handle(action) and render the Panel it returns (view.py). Actions:
 
-    refresh | connect | status | estop | estop-reset | killall
+    refresh | connect | status | estop | estop-reset | killall | help:command
     start:<proc> | stop:<proc>          proc = stack | planner | logger
     confirm:<nonce> | cancel:<nonce>
 
@@ -23,6 +23,10 @@ from .guard import Confirmations, NEEDS_CONFIRM
 from .transport import Transport
 
 PROCS = ('stack', 'planner', 'logger')
+COMMAND_HELP = ('📝 Write the command as a plain message, e.g. «go ahead 2 meters» '
+                '(one line, at most 500 characters). The bot asks before it sends it to '
+                "the planner, then posts the planner's answer. The planner must be "
+                'running (▶️ Planner).')
 LABEL = {'start:stack': 'start the stack', 'start:planner': 'start the planner',
          'killall': 'kill ALL ROS 2 processes',
          'estop-reset': 'reset the e-stop (aborts the mission, restarts behavior)'}
@@ -111,6 +115,8 @@ class Controller:
             res = self._ctl(['estop-reset'], 'estop_reset')
             self._note(summary_estop_reset(res))
             self._status()
+        elif action == 'help:command':
+            self._note(COMMAND_HELP)
         elif action.split(':')[0] in ('start', 'stop') and action.split(':')[-1] in PROCS:
             verb, proc = action.split(':')
             res = self._ctl([verb, proc], verb)
@@ -180,6 +186,10 @@ class Controller:
         if not self.panel.online:
             self.panel.connected = False
             self.panel.status = None
+
+    def note(self, line: str) -> None:
+        """Put a line under Last: on the panel (front ends use it too)."""
+        self._note(line)
 
     def _note(self, line: str) -> None:
         self.panel.last = line

@@ -4,8 +4,9 @@ The panel as text and buttons, the same for Telegram and the terminal.
 Buttons, by state:
 - offline (or not checked yet): 🔄 only;
 - online, not connected: 🔌 Connect, 🔄;
-- connected: ▶️/⏹ Stack, ▶️/⏹ Planner, ▶️/⏹ Logger, 🔄 Status,
-  ☠️ Kill all ROS 2, 🛑 EMERGENCY, and 🔓 Reset e-stop while it is latched;
+- connected: ▶️/⏹ Stack, ▶️/⏹ Planner, ▶️/⏹ Logger, 🔄 Status, 📝 Command
+  (explains that a plain message is a planner command), ☠️ Kill all ROS 2,
+  🛑 EMERGENCY, and 🔓 Reset e-stop while it is latched;
 - a confirmation open: ✅ yes / ✖ cancel, with 🛑 EMERGENCY still there.
 """
 
@@ -126,7 +127,8 @@ def buttons(panel: Panel) -> List[List[Button]]:
         running = procs.get(name, {}).get('state') in ('running', 'stopping')
         row.append(Button(f'⏹ {name.capitalize()}' if running else f'▶️ {name.capitalize()}',
                           f'stop:{name}' if running else f'start:{name}'))
-    rows = [row, [Button('🔄 Status', 'status'), Button('☠️ Kill all ROS 2', 'killall')]]
+    rows = [row, [Button('🔄 Status', 'status'), Button('📝 Command', 'help:command'),
+                  Button('☠️ Kill all ROS 2', 'killall')]]
     if (panel.status or {}).get('estop_latched'):
         rows.append([Button('🔓 Reset e-stop', 'estop-reset')])
     return rows + [estop]

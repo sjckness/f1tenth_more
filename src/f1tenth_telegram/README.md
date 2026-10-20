@@ -55,6 +55,7 @@ The buttons:
 | ▶️/⏹ Planner | start/stop the LLM planner | start |
 | ▶️/⏹ Logger | start/stop the mission logger | no |
 | 🔄 Status | refresh | no |
+| 📝 Command | explains that a plain message is a planner command | no |
 | ☠️ Kill all ROS 2 | `f1tenth_ctl killall` | yes |
 | 🛑 EMERGENCY | `f1tenth_ctl estop` | **never** |
 | 🔓 Reset e-stop (only while latched) | `f1tenth_ctl estop-reset` | yes |
@@ -83,6 +84,56 @@ lane, restarts only `behavior`, and checks that the latch reads clear (see
 **Busy handling.** One action runs at a time. A second tap meanwhile is
 refused, not queued, because a queued command would run late. 🛑 never waits:
 it runs even while a killall is in progress. `/estop` works without the panel.
+
+## Talking to the planner
+
+**Any plain text message** from a whitelisted user (not a `/command`) is a
+command for the LLM planner (`llm_planner_node` on the car).
+
+1. **Checks before the question.** The text must be one line of at most 500
+   characters, sent less than 10 s ago. The bot then asks the car whether the
+   planner runs, with `f1tenth_ctl planner-log`.
+   - **Not running:** a fresh panel says `📝 planner not running: tap ▶️
+     Planner, then send the command again`. ▶️ Planner is on it once
+     connected; before that, 🔌 Connect.
+   - **Running:** `Send to planner: «text»?` with ✅ Send / ❌ Cancel. The
+     confirmation expires 10 s after the question, like every confirmation.
+2. **✅ Send** runs `f1tenth_ctl send planner "<text>"`. That writes one line
+   to the planner's stdin (a FIFO) and answers the planner log's byte offset
+   at that moment. The bot logs `user <id>: planner command '<text>'` to its
+   journal.
+3. **The confirmation message becomes the answer**, edited every 2 s with
+   `planner-log --since <offset>`:
+   - the planner's new output, ANSI codes stripped, trimmed to the last
+     ~3500 characters;
+   - the generated mission JSON, printed by the planner after a
+     `JSON (<mission_id>):` line, as a code block;
+   - the result line.
+
+   The end-of-answer marker is `RESULT {json}`. `llm_planner_node._emit_result`
+   prints exactly one per command, always last:
+
+   | Status | Shown as |
+   |---|---|
+   | `ok` | ✅ |
+   | `refused` | ⚠️ (an ambiguous command) |
+   | `llm_error`, `translator_error`, `node_error` | ❌ |
+
+   Following stops at the RESULT line, after 60 s, or when the planner stops.
+
+**One command at a time.** Another ✅ Send while an answer is being followed
+is refused ("still answering"). 📝 Command on the panel only explains this.
+
+**On the car:**
+- The planner needs llama-server: the stack's `intelligence` component. If
+  that is missing, the planner exits after 90 s and shows as crashed.
+- A command it accepts loads and starts a mission (`/mission/load_mission`
+  + `/mission/start_mission`): **the car drives**. Treat ✅ Send like a
+  start.
+
+**In a terminal:**
+`bin/f1tenth_telegram --cli --config … --do 'say:go ahead 2 meters' --do confirm`
+(interactively: `say go ahead 2 meters`, then `confirm`).
 
 ## Safety rules in the code
 
@@ -253,5 +304,8 @@ bin/f1tenth_telegram --cli --config config/telegram_sim.yaml \
   - `start:<p>` and `stop:<p>` for `p` = stack, planner or logger;
   - `confirm` and `cancel`.
 - Scripted mode also accepts `wait:S` and `until-ready:S`.
+- `help:command` is the 📝 Command button.
+- `say:<text>`, then `confirm` or `cancel`, is a plain Telegram message (see
+  "Talking to the planner").
 - `config/telegram_sim.yaml` runs f1tenth_ctl locally with the Gazebo sim
   profile. `config/telegram.yaml` is the car.

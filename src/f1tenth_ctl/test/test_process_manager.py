@@ -146,6 +146,29 @@ def test_planner_reads_lines_from_its_fifo(env_file, capsys):
     ctl(env_file, 'stop', 'planner', capsys=capsys)
 
 
+def test_send_takes_one_line_and_planner_log_follows_it(env_file, capsys):
+    ctl(env_file, 'start', 'planner', capsys=capsys)
+    code, out = ctl(env_file, 'send', 'planner', 'two\nlines', capsys=capsys)
+    assert code == 1 and 'one line only' in out['error']
+    code, out = ctl(env_file, 'send', 'planner', 'x' * 501, capsys=capsys)
+    assert code == 1 and 'at most 500' in out['error']
+    code, out = ctl(env_file, 'send', 'planner', 'turn left at the wall', capsys=capsys)
+    assert code == 0 and isinstance(out['cursor'], int)
+    lines = []
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline and 'turn left at the wall' not in lines:
+        code, log = ctl(env_file, 'planner-log', '--since', str(out['cursor']), capsys=capsys)
+        lines = log['lines']
+        time.sleep(0.2)
+    # `cat` echoes it: only what came after the cursor.
+    assert lines == ['turn left at the wall'] and log['running'] is True
+    code, log2 = ctl(env_file, 'planner-log', '--since', str(log['cursor']), capsys=capsys)
+    assert log2['lines'] == [] and log2['cursor'] == log['cursor']
+    ctl(env_file, 'stop', 'planner', capsys=capsys)
+    code, log3 = ctl(env_file, 'planner-log', capsys=capsys)
+    assert log3['running'] is False and log3['lines'] == []
+
+
 def test_a_process_that_dies_is_crashed(env_file, capsys, tmp_path):
     with open(env_file, 'a') as f:
         f.write('F1T_STACK_CMD="sh -c \'sleep 2; exit 3\'"\n')

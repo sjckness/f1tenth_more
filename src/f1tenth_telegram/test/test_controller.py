@@ -21,6 +21,21 @@ def status_answer(stack='stopped', planner='stopped', logger='stopped', ready=Fa
             'estop_latched': latched, 'processes': procs, 'checks': checks}
 
 
+PLANNER_ANSWER = [
+    '[INFO] [1792500861.95] [llm_planner_node]: comando ricevuto',
+    'missione generata in 3.10s (v2, 1 tentativo), 1 mosse',
+    '',
+    'JSON (llm_go_ahead_2m):',
+    '{',
+    '  "mission_id": "llm_go_ahead_2m",',
+    '  "moves": []',
+    '}',
+    '',
+    'scritta in: /tmp/m.json',
+    'comando> RESULT {"status": "ok", "stage": "delivery", "attempts": 1}',
+]
+
+
 def estop_answer(zero_ok=True, late=False):
     """f1tenth_ctl estop's JSON: one record per step, and car_held."""
     def step(ok, msg, ms, **kw):
@@ -41,6 +56,9 @@ class FakeTransport:
         self.answers = {}
         self.state = {'stack': 'stopped', 'planner': 'stopped', 'logger': 'stopped'}
         self.latched = False
+        # The planner's log: what each planner-log --since returns, in turn.
+        self.planner_batches = [PLANNER_ANSWER]
+        self.sent = []
 
     def reachability(self, timeout):
         return {'online': self.online, 'ssh': self.online,
@@ -52,6 +70,16 @@ class FakeTransport:
             return {'ok': False, 'transport_error': 'ssh', 'error': 'ssh: timed out'}
         if args[0] in self.answers:
             return self.answers[args[0]]
+        if args[0] == 'planner-log':
+            running = self.state['planner'] == 'running'
+            if '--since' not in args:
+                return {'ok': True, 'running': running, 'cursor': 100, 'lines': []}
+            lines = self.planner_batches.pop(0) if self.planner_batches else []
+            return {'ok': True, 'running': running, 'lines': lines,
+                    'cursor': int(args[args.index('--since') + 1]) + 10 * len(lines)}
+        if args[0] == 'send':
+            self.sent.append(args[2])
+            return {'ok': True, 'sent': args[2], 'cursor': 100}
         if args[0] == 'connect':
             return {'ok': True, 'discovery': {'address': '127.0.0.1:11811'}}
         if args[0] == 'status':
@@ -117,7 +145,7 @@ def test_connect_then_full_panel(ctl):
     panel = c.handle('connect')
     assert panel.connected and fake.calls == [['connect'], ['status']]
     assert actions(panel) == ['start:stack', 'start:planner', 'start:logger', 'status',
-                              'killall', 'estop']
+                              'help:command', 'killall', 'estop']
     assert 'ready to launch' in panel.last
 
 
