@@ -232,13 +232,14 @@ class TestReverseKinematics:
 
 # ------------------------------------------------------------- the selector
 
-def _res(name, direction, score):
+def _res(name, direction, score, move_dir=None):
     from mpc_controller.reverse_mpc import CandidateSpec
     spec = CandidateSpec(name=name, direction=direction, final_direction=direction,
                          signs=np.full(N, direction), constrained=np.ones(N, bool),
                          v_lo=np.zeros(N), v_hi=np.zeros(N), vdes=np.zeros(N),
                          rear=np.zeros(N, bool))
-    return CandidateResult(spec=spec, ok=True, score=score)
+    return CandidateResult(spec=spec, ok=True, score=score,
+                           move_dir=direction if move_dir is None else move_dir)
 
 
 class TestDirectionSelector:
@@ -284,6 +285,23 @@ class TestDirectionSelector:
         assert win.spec.name == 'B' and why == 'dwell'
         win, why = sel.select([_res('A', FORWARD, 1.0), _res('B', REVERSE, 10.0)], 0.0, 6.1)
         assert win.spec.name == 'A' and why == 'switched'
+
+    def test_a_plan_is_grouped_by_its_first_motion_not_its_label(self):
+        # "C: stand until T, then forward" is a FORWARD plan: chosen against A
+        # on score alone, no direction change involved.
+        sel = DirectionSelector(_cfg(switch_threshold=100.0))
+        win, why = sel.select([_res('A', FORWARD, 10.0), _res('C1.0', REVERSE, 9.0, +1)],
+                              0.3, 5.0)
+        assert win.spec.name == 'C1.0' and sel.direction == FORWARD and why != 'switched'
+
+    def test_a_stationary_current_plan_does_not_hold_the_direction(self):
+        # Stopped after reversing; reverse's best plan stands still, forward
+        # is better by less than the threshold: forward takes over anyway.
+        sel = DirectionSelector(_cfg(switch_threshold=5.0, min_dwell_s=0.0))
+        sel.direction = REVERSE
+        win, why = sel.select([_res('A', FORWARD, 13.0), _res('B', REVERSE, 13.5, 0)],
+                              0.0, 5.0)
+        assert win.spec.name == 'A' and why == 'switched_from_standstill'
 
     def test_an_infeasible_current_direction_switches_at_once(self):
         sel = DirectionSelector(_cfg())
@@ -351,6 +369,15 @@ class TestPlanner:
         assert all(c['ok'] for c in dbg['candidates'])
         assert min(c['score'] for c in dbg['candidates']) == pytest.approx(
             [c['score'] for c in dbg['candidates'] if c['name'] == 'A'][0])
+
+    def test_a_winning_c_plan_counts_down_and_suppresses_fresh_c_plans(self):
+        p = ReversePlanner(_cfg())
+        p.last_winner = 'C1.0'
+        p._countdown = 0.9
+        kw = _solve_kwargs((0.0, 0.0, 0.0, 0.0))
+        _u, info = p.step(now_sec=0.0, **kw)
+        names = [c['name'] for c in info['reverse']['candidates']]
+        assert 'C~' in names and 'C1.0' not in names
 
     def test_all_candidates_failing_falls_back_to_todays_solve(self, monkeypatch):
         p = ReversePlanner(_cfg())

@@ -1489,6 +1489,63 @@ reverse_stop_speed_mps:
 reverse_corr_back_length_m:
   default: 1.0
   description: "Length [m] the candidates' corridor is extended behind its start, straight along its first tangent, heading reference unchanged."
+# The candidates' terminal cost-to-go (mpc_controller/cost_to_go.py): a
+# backward Dijkstra over forward/reverse motion primitives on a local
+# (x, y, heading, gear) lattice, collision-checked with the car's footprint
+# against the same boundary half-planes the QP uses and the obstacle list.
+# Built only when a goal POSE exists (goal_pose, turn and object moves) and
+# rebuilt on goal / wall change or when the car nears the window edge.
+reverse_w_ctg:
+  default: 3.0
+  description: "Weight on the cost-to-go V (metres of path; reverse metres x reverse_ctg_k_rev, + reverse_ctg_gear_switch_cost per direction change) in each candidate's score, Score = J_QP + this * V(x_N). While a goal pose exists it also replaces the forward terminal pull (mpc_w_term to the lookahead, mpc_w_psi to psiRef) in EVERY candidate: each QP is pulled to its terminal target with this * reverse_ctg_h_xy / _h_psi."
+reverse_ctg_follow_m:
+  default: 0.6
+  description: "Terminal target [m]: V's optimal policy, restricted to the candidate's own sign schedule, is followed from the car's pose for the distance the candidate's nominal speed profile covers, plus this."
+reverse_ctg_h_xy:
+  default: 4.0
+  description: "Pull [1/m^2, x reverse_w_ctg] of the QP's terminal position toward the terminal target."
+reverse_ctg_h_psi:
+  default: 2.0
+  description: "Pull [1/rad^2, x reverse_w_ctg] of the QP's terminal heading toward the terminal target's."
+reverse_ctg_window_m:
+  default: 4.0
+  description: "Side [m] of the square lattice window, placed at the car-goal midpoint or slid from the car toward a far goal (the car keeps 1.2 m around it); a goal outside it is reached through the window border."
+reverse_ctg_resolution_m:
+  default: 0.10
+  description: "Lattice cell size [m]."
+reverse_ctg_n_theta:
+  default: 36
+  description: "Lattice heading bins (10 deg each)."
+reverse_ctg_primitive_length_m:
+  default: 0.30
+  description: "Length [m] of each motion primitive (forward and reverse at steering -max, -max/2, 0, +max/2, +max from mpc_steering_angle_min/max_rad)."
+reverse_ctg_k_rev:
+  default: 3.0
+  description: "Cost of a reverse metre in forward metres. With 1.0 for a gear switch, a goal straight behind is reversed to up to about 2-2.5 m and turned to beyond (output/reverse/report.md)."
+reverse_ctg_gear_switch_cost:
+  default: 1.0
+  description: "Cost [forward-metre equivalents] of each direction change on a lattice path."
+reverse_ctg_steer_cost_per_m:
+  default: 0.15
+  description: "Extra lattice cost per metre at full steering lock (pro rata). Every primitive is the same length, so without it a zigzag costs what a straight line does and the policy path wiggles; small enough to only choose between equally long manoeuvres."
+reverse_ctg_unreachable_cost:
+  default: 50.0
+  description: "V of a state that cannot reach the goal: large but FINITE, so a candidate ending there still has a defined score. 50 is well above any reachable V in a 4 m window (about 20 at most) without letting one interpolated corner swamp every other term of a score."
+reverse_ctg_goal_tolerance_m:
+  default: 0.15
+  description: "Lattice cells within this distance [m] of the goal position are goal states (any heading: goal_pose arrival is position-only)."
+reverse_ctg_footprint_margin_m:
+  default: 0.10
+  description: "Margin [m] around the car body (base_front to swept_clearance_body_rear_x_m, +-swept_clearance_body_half_width_m) for the lattice's collision check."
+reverse_ctg_use_corridor_bounds:
+  default: false
+  description: "Also forbid lattice states whose footprint leaves the corridor (extended backwards). Off by default: the corridor is synthetic, rebuilt from the car's pose toward the goal every corridor_update_period, so it rebuilds V every second and, aimed at a goal behind, it is a U-turn that excludes the very reverse path V exists to find (scenario e is unreachable with it on)."
+reverse_ctg_wall_change_m:
+  default: 0.10
+  description: "Rebuild V when a boundary half-plane offset, an obstacle centre/radius or (if used) the corridor moves by more than this [m]."
+reverse_ctg_min_rebuild_period_s:
+  default: 0.5
+  description: "Minimum time [s] between two V rebuilds not caused by a goal change."
 # Consumed by: f1tenth_behavior/behavior_executor_node.py (bootstrap read,
 # declare default = this value), for the go_to_object move (schema 4.0):
 # GoToObject (mission/object_handler.py) and CheckStopCondition's

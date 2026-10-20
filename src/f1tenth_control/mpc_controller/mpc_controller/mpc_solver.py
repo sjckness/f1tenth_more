@@ -279,9 +279,12 @@ _STAGE_WEIGHT_KEYS = (
     "w_u_a",
     "w_du_delta",
     "w_du_a",
-    # Linear cost on reverse speed (reverse_mpc's candidates only). Absent
-    # from every forward weight set, so this entry changes nothing there.
-    "w_rev",
+    # Linear cost on reverse speed and the cost-to-go path guidance
+    # (reverse_mpc's candidates only). Absent from every forward weight set,
+    # so these entries change nothing there.
+    'w_rev',
+    'w_path',
+    'w_path_psi',
 )
 
 
@@ -400,6 +403,12 @@ def solve_mpc_step(
                       (X, Y, psi): {'x_bar', 'g', 'h', 'w'} adds
                       w * (g . dx + 0.5 * sum(h * dx^2)), dx = x_N - x_bar.
                       The caller zeroes w_term / w_psi when it supplies one.
+      'path_ref'      optional (N, 3) per-stage (X, Y, psi) reference, NaN
+                      rows skipped: weights['w_path'] * |p - p_ref|^2 +
+                      weights['w_path_psi'] * (psi - psi_ref)^2.
+    'terminal' and 'path_ref' are GUIDANCE and are not part of the true cost
+    planner_cost_corridor reports (reverse_mpc scores candidates without
+    them, against the cost-to-go itself).
     """
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
@@ -1169,6 +1178,15 @@ def _solve_rti(
             add_row(row_v, limits["vMin"], limits["vMax"])
         else:
             add_row(row_v, v_lo_stage[k], v_hi_stage[k])
+            path_ref = spec.get('path_ref')
+            if path_ref is not None and np.all(np.isfinite(path_ref[k])):
+                w_p = float(weights.get('w_path', 0.0))
+                w_pp = float(weights.get('w_path_psi', 0.0))
+                ref = path_ref[k]
+                for i_s, w_s in ((0, w_p), (1, w_p), (2, w_pp)):
+                    if w_s:
+                        P[xk1_idx, xk1_idx][i_s, i_s] += 2.0 * w_s
+                        q[xk1_idx][i_s] += -2.0 * w_s * float(ref[i_s])
 
         # boundary constraints: ALWAYS exactly boundary_max_sources rows
         # (padded above), one per slot, at this stage's predicted (x, y) --

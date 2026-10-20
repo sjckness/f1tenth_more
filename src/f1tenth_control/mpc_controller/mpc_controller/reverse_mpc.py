@@ -58,12 +58,13 @@ Scoring and the terminal cost-to-go: see ReversePlanner._score. Selection:
 see DirectionSelector.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import math
 import time
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from mpc_controller.mpc_solver import solve_mpc_step
+from mpc_controller.mpc_solver import (
+    planner_cost_corridor, scale_stage_weights, shift_warm_start, solve_mpc_step)
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 import numpy as np
 
@@ -100,14 +101,45 @@ class ReverseConfig:
     corr_back_length_m: float = 1.0
     # Rear probe points, metres along the heading from base_link (< 0 behind).
     rear_offsets_m: Tuple[float, ...] = ()
-    # Weight on the terminal cost-to-go (V is in metres of path).
-    w_ctg: float = 1.0
-    # Trust-region curvature of the QP's local V model: (x, y) [1/m], psi.
-    ctg_h_xy: float = 2.0
-    ctg_h_psi: float = 0.5
-    # Clip on the local V gradient magnitude (x, y) [cost/m] and psi.
-    ctg_grad_max_xy: float = 6.0
-    ctg_grad_max_psi: float = 3.0
+    # Weight on the terminal cost-to-go (V is in metres of path) in the
+    # score, and on the QP's pull to the terminal target (x h_xy / h_psi).
+    w_ctg: float = 3.0
+    # The terminal target: where V's optimal policy, restricted to the
+    # candidate's own sign schedule, takes the car from where it is now, over
+    # the distance the candidate's nominal speed profile covers, plus
+    # ctg_follow_m (ReversePlanner._policy_path).
+    ctg_follow_m: float = 0.6
+    ctg_h_xy: float = 4.0
+    ctg_h_psi: float = 2.0
+
+    # EXPERIMENTAL, OFF BY DEFAULT. Each was measured in the closed-loop
+    # harness (output/reverse/report.md, "What did not work") and made at
+    # least one scenario worse; they stay as switches for the next tuning
+    # pass, not as behaviour.
+    #   w_path / w_path_psi  per-stage tracking of that same policy path
+    #                        (yaml scale, x 7/N): turned the 1.5 m reverse of
+    #                        scenario d into a dithering 0.5 m one.
+    #   ctg_v_tight          speed reference cap [m/s] on stages whose path
+    #                        ahead (ctg_tight_lookahead_m) curves more than
+    #                        ctg_tight_curvature [1/m]: did not get the car
+    #                        through the door either way.
+    #   own_warm_starts      re-linearize EVERY candidate around its own last
+    #                        solution, not only the winner (the task's rule
+    #                        is the profile rollout for the others): neutral
+    #                        on a/d/e, less dithering at the door, no entry.
+    #   score_speed_term     False scores without the speed-reference term:
+    #                        broke even the free corridor.
+    #   ctg_drops_corridor_costs  True hands w_corr / w_psi_stage / w_line
+    #                        over to the path: scenario d then turned round
+    #                        instead of reversing.
+    w_path: float = 0.0
+    w_path_psi: float = 0.0
+    ctg_v_tight: float = math.inf
+    ctg_tight_curvature: float = 0.5
+    ctg_tight_lookahead_m: float = 0.5
+    own_warm_starts: bool = False
+    score_speed_term: bool = True
+    ctg_drops_corridor_costs: bool = False
 
 
 def rear_probe_offsets(wheelbase: float, front_x: float, rear_x: float,
@@ -205,6 +237,7 @@ class CandidateSpec:
     v_hi: np.ndarray
     vdes: np.ndarray
     rear: np.ndarray        # bool: rear probes in w_obs at this stage
+    switch_t: Optional[float] = None   # C candidates: reverse-to-forward time [s]
 
     def stage_spec(self, rear_offsets) -> Dict:
         return {'v_lo': self.v_lo, 'v_hi': self.v_hi, 'vdes': self.vdes,
@@ -225,7 +258,8 @@ def _segments(signs: np.ndarray) -> List[Tuple[int, int, int]]:
 
 
 def build_candidates(v0: float, a0: float, n: int, ts: float, t_first: float,
-                     limits: Dict, vdes: float, cfg: ReverseConfig
+                     limits: Dict, vdes: float, cfg: ReverseConfig,
+                     countdown_t: Optional[float] = None
                      ) -> Tuple[List[CandidateSpec], List[Tuple[str, str]]]:
     """
     Build the tick's candidates, each with a feasible speed box; and the dropped ones.
@@ -235,19 +269,25 @@ def build_candidates(v0: float, a0: float, n: int, ts: float, t_first: float,
     horizon is B), 'no_reverse_stage' (the car cannot stop and reverse inside
     the horizon, or not before T), 'witness_outside_box' (the car is already
     outside today's [vMin, vMax] box, so no schedule is provably feasible).
+
+    countdown_t adds 'C~', the last tick's winning C plan with its switch
+    time one control period closer (see ReversePlanner.step). It comes before
+    the fixed C_T so a tie in the duplicate check keeps the countdown.
     """
     tol = sign_tolerance(limits, ts)
     witness = stop_witness(v0, a0, n, ts, t_first, limits, 0.5 * tol)
     t_stage = (np.arange(n) + 1) * ts
     v_min, v_max = float(limits['vMin']), float(limits['vMax'])
 
-    schedules = [('A', np.ones(n, dtype=int)), ('B', -np.ones(n, dtype=int))]
-    for t_sw in cfg.switch_times_s:
-        signs = np.where(t_stage <= float(t_sw) + 1e-9, -1, 1).astype(int)
-        schedules.append((f'C{float(t_sw):.1f}', signs))
+    schedules = [('A', np.ones(n, dtype=int), None), ('B', -np.ones(n, dtype=int), None)]
+    c_times = ([('C~', float(countdown_t))] if countdown_t is not None else []) + [
+        (f'C{float(t):.1f}', float(t)) for t in cfg.switch_times_s]
+    for name, t_sw in c_times:
+        signs = np.where(t_stage <= t_sw + 1e-9, -1, 1).astype(int)
+        schedules.append((name, signs, t_sw))
 
     out, dropped, seen = [], [], set()
-    for name, signs in schedules:
+    for name, signs, t_sw in schedules:
         lo_c = np.where(signs > 0, -tol, -float(cfg.v_rev_max))
         hi_c = np.where(signs > 0, v_max, tol)
         constrained = np.zeros(n, dtype=bool)
@@ -280,7 +320,7 @@ def build_candidates(v0: float, a0: float, n: int, ts: float, t_first: float,
         spec = CandidateSpec(
             name=name, direction=first_sign, final_direction=int(signs[-1]),
             signs=signs, constrained=constrained, v_lo=v_lo, v_hi=v_hi,
-            vdes=vdes_k, rear=rear)
+            vdes=vdes_k, rear=rear, switch_t=t_sw)
         if spec.key() in seen:
             dropped.append((name, 'duplicate'))
             continue
@@ -393,16 +433,27 @@ class DirectionSelector:
     """
     Pick a direction with hysteresis, commitment and dwell (no dithering).
 
-    Candidates are grouped by direction (what they do NOW: A forward, B and
-    C_T reverse). Within the current direction the cheapest wins freely. To
-    switch, the best of the other direction must beat the best of the
-    current one by more than switch_threshold AND by more than
-    switch_threshold_rel * |current|, and min_dwell_s must have passed since
-    the last change. A switch made while the car still moves the old way
-    starts a COMMITMENT: the new direction is kept until the car is stopped
-    (|v| < stop_speed_mps), unless the old direction becomes cheaper by
-    commit_break_margin (> switch_threshold). If the current direction has
-    no feasible candidate at all, the other one is taken immediately.
+    Candidates are grouped by the direction of their FIRST REAL MOTION (the
+    first predicted |v| above stop_speed_mps), not by their schedule's label:
+    "C_T, standing until T, then forward" is a forward plan. A plan that never
+    moves is stationary and counts as the current direction. Within the
+    current direction the cheapest wins freely. To switch, the best of the
+    other direction must beat the best of the current one by more than
+    switch_threshold AND by more than switch_threshold_rel * |current|, and
+    min_dwell_s must have passed since the last change. A switch made while
+    the car still moves the old way starts a COMMITMENT: the new direction is
+    kept until the car is stopped (|v| < stop_speed_mps), unless the old
+    direction becomes cheaper by commit_break_margin (> switch_threshold). If
+    the current direction has no feasible candidate at all, the other one is
+    taken immediately.
+
+    ONE DELIBERATE EXCEPTION to the threshold: when the best plan in the
+    current direction does not move at all, any moving plan that beats it
+    may take over (dwell still applies). Without it a car that has stopped
+    after a manoeuvre deadlocks: standing still in "reverse" is cheaper than
+    nothing, the forward plan is better but by less than the threshold, and
+    the threshold exists to stop dithering between two MOVING plans, which a
+    stopped car is not doing. Found in the door scenario.
     """
 
     def __init__(self, cfg: ReverseConfig):
@@ -416,8 +467,8 @@ class DirectionSelector:
                t_now: float) -> Tuple[Optional['CandidateResult'], str]:
         cfg = self.cfg
         ok = [r for r in results if r.ok]
-        same = [r for r in ok if r.spec.direction == self.direction]
-        other = [r for r in ok if r.spec.direction != self.direction]
+        same = [r for r in ok if (r.move_dir or self.direction) == self.direction]
+        other = [r for r in ok if (r.move_dir or self.direction) != self.direction]
         best_same = min(same, key=lambda r: r.score) if same else None
         best_other = min(other, key=lambda r: r.score) if other else None
 
@@ -441,11 +492,16 @@ class DirectionSelector:
                 self._switch(v_now, t_now)
                 return best_other, 'commit_broken'
             return best_same, 'committed'
-        if gain > cfg.switch_threshold and gain > cfg.switch_threshold_rel * abs(best_same.score):
+        if best_same.move_dir == 0:
+            threshold_met = gain > 0.0
+        else:
+            threshold_met = (gain > cfg.switch_threshold
+                             and gain > cfg.switch_threshold_rel * abs(best_same.score))
+        if threshold_met:
             if not dwell_ok:
                 return best_same, 'dwell'
             self._switch(v_now, t_now)
-            return best_other, 'switched'
+            return best_other, ('switched' if best_same.move_dir else 'switched_from_standstill')
         return best_same, 'threshold_not_met'
 
     def _switch(self, v_now, t_now):
@@ -468,6 +524,10 @@ class CandidateResult:
     slack_pen: float = 0.0
     score: float = math.inf
     solve_ms: float = math.nan
+    # Sign of the first predicted |v| > stop_speed_mps; 0 = never moves.
+    move_dir: int = 0
+    # Terminal target from the cost-to-go (x, y, psi), None without one.
+    target: Optional[Tuple[float, float, float]] = None
 
 
 class ReversePlanner:
@@ -476,7 +536,7 @@ class ReversePlanner:
 
     `ctg` is an optional terminal cost-to-go (cost_to_go.CostToGo): an object
     with a `ready` flag, value(x, y, psi, gear) -> finite float and
-    gradient(x, y, psi, gear) -> (dV/dx, dV/dy, dV/dpsi). While it is ready
+    policy_target(x, y, psi, gear, follow_m) -> (x, y, psi, gear). While it is ready
     EVERY candidate trades the forward terminal pull (w_term to pref_nom,
     w_psi to psiRef) for it, so all of them are still scored on one
     objective. Without one (or not ready: no goal pose, e.g. goal_distance and
@@ -489,6 +549,13 @@ class ReversePlanner:
         self.ctg = ctg
         self.selector = DirectionSelector(cfg)
         self.last_winner: Optional[str] = None
+        # A winning C plan's switch time, one control period on (C~): the
+        # receding horizon would otherwise re-plan "reverse until T" with T
+        # always 1 s away and never reach the forward part.
+        self._countdown: Optional[float] = None
+        # Every candidate solved last tick, its control sequence shifted one
+        # control period: its own nominal for this tick (see step()).
+        self._cand_warm: Dict[str, np.ndarray] = {}
         self.last_debug: Dict = {}
 
     def step(self, *, now_sec: float = 0.0, **kw) -> Tuple[np.ndarray, Dict]:
@@ -504,8 +571,13 @@ class ReversePlanner:
         t_first = float(kw.get('control_period') or ts)
         limits = kw['limits']
         vdes = float(kw['vdes'])
+        # While a C plan is being executed its countdown is the ONLY C
+        # candidate: a fresh C_T every tick would keep the switch T seconds
+        # away for ever (receding-horizon procrastination).
+        cand_cfg = cfg if self._countdown is None else replace(cfg, switch_times_s=())
         specs, dropped = build_candidates(
-            float(x0[3]), float(last_u[1]), n, ts, t_first, limits, vdes, cfg)
+            float(x0[3]), float(last_u[1]), n, ts, t_first, limits, vdes, cand_cfg,
+            countdown_t=self._countdown)
 
         corridor = extend_corridor_backwards(kw['corridor'], cfg.corr_back_length_m)
         warm = kw.get('warm_start_z')
@@ -517,24 +589,50 @@ class ReversePlanner:
             steer_guess = np.full(n, float(last_u[0]))
 
         results = []
+        last_was_c = self.last_winner is not None and self.last_winner.startswith('C')
         for spec in specs:
-            if warm is not None and spec.name == self.last_winner:
+            continuation = spec.name == self.last_winner or (spec.name == 'C~' and last_was_c)
+            own = self._cand_warm.get(spec.name)
+            if spec.name == 'C~' and own is None and last_was_c:
+                own = self._cand_warm.get(self.last_winner)
+            if warm is not None and continuation:
                 z_nom = nominal_controls(spec, x0[3], steer_guess, ts, 0.0, vdes,
                                          accel_seq=warm[1::2])
+            elif own is not None and cfg.own_warm_starts:
+                # NOT the spec's literal rule for non-winners (the model
+                # rolled out with the candidate's own speed profile), and
+                # deliberately: a candidate re-linearized from that crude
+                # profile every tick scores differently every tick, and the
+                # door scenario dithered on exactly that noise. Its own last
+                # solution, shifted and clipped into this tick's box, is the
+                # same profile refined -- still its own schedule's signs.
+                z_nom = nominal_controls(spec, x0[3], own[0::2], ts, 0.0, vdes,
+                                         accel_seq=own[1::2])
             else:
                 z_nom = nominal_controls(
                     spec, x0[3], steer_guess, ts,
                     cfg.v_rev_max * cfg.v_rev_nominal_frac, vdes)
             results.append(self._solve(spec, z_nom, kw, corridor))
+        step_fraction = t_first / ts
+        self._cand_warm = {}
+        for r in results:
+            if r.ok:
+                shifted = shift_warm_start(r.info.get('zopt'), n, step_fraction=step_fraction)
+                if shifted is not None:
+                    self._cand_warm[r.spec.name] = shifted
 
         winner, reason = self.selector.select(results, float(x0[3]), float(now_sec))
         fallback = winner is None
         if fallback:
             u0, info = solve_mpc_step(**kw)
             self.last_winner = None
+            self._countdown = None
         else:
             u0, info = winner.u0, dict(winner.info)
             self.last_winner = winner.spec.name
+            t_sw = winner.spec.switch_t
+            self._countdown = (t_sw - t_first) if (t_sw is not None and t_sw - t_first > 0.0) \
+                else None
         self.last_debug = {
             'winner': None if fallback else winner.spec.name,
             'direction': 'forward' if self.selector.direction == FORWARD else 'reverse',
@@ -542,10 +640,14 @@ class ReversePlanner:
             'committed': bool(self.selector.committed),
             'n_switches': int(self.selector.n_switches),
             'candidates': [{
-                'name': r.spec.name, 'dir': r.spec.direction, 'ok': bool(r.ok),
+                'name': r.spec.name, 'dir': r.spec.direction, 'move_dir': int(r.move_dir),
+                'ok': bool(r.ok),
                 'score': _num(r.score), 'j_qp': _num(r.j_qp), 'v_ctg': _num(r.v_ctg),
                 'slack': _num(r.slack_pen), 'solve_ms': _num(r.solve_ms),
                 'k_start': int(np.argmax(r.spec.constrained)) if r.spec.constrained.any() else -1,
+                'target': (None if r.target is None else [round(float(v), 3) for v in r.target]),
+                'x_n': (None if not r.ok else
+                        [round(float(v), 3) for v in np.asarray(r.info['x_pred'])[-1]]),
             } for r in results],
             'dropped': [{'name': nm, 'reason': rs} for nm, rs in dropped],
             'tick_ms': (time.perf_counter() - t_tick) * 1e3,
@@ -559,18 +661,35 @@ class ReversePlanner:
         stage_spec = spec.stage_spec(cfg.rear_offsets_m)
         weights = dict(kw['weights'])
         weights['w_rev'] = cfg.w_rev
-        n = int(kw['horizon'])
         if self._ctg_ready():
-            x_nom_n = _rollout_last(kw['x0'], z_nom, n, float(kw['ts']), kw['params'])
-            g = np.asarray(self.ctg.gradient(
-                x_nom_n[0], x_nom_n[1], x_nom_n[2], spec.final_direction), dtype=float)
-            gx, gy = _clip_mag(g[0], g[1], cfg.ctg_grad_max_xy)
-            g = np.array([gx, gy, float(np.clip(g[2], -cfg.ctg_grad_max_psi,
-                                                cfg.ctg_grad_max_psi))])
+            # TERMINAL: pulled toward where V's optimal policy, restricted
+            # to this candidate's own sign schedule, takes the car from where
+            # it is NOW: each segment of the schedule (reverse, then forward
+            # for C) is followed for the distance the candidate's nominal
+            # speed profile covers in it, plus ctg_follow_m on the last one.
+            # cost_to_go's policy_target steps along collision-checked edges,
+            # so the target is never on the far side of a wall and the
+            # candidate is aimed at the pose its own gears can reach, not at
+            # the end of a straight-line nominal.
+            target, path_ref, tight = self._policy_path(spec, z_nom, kw)
+            stage_spec['path_ref'] = path_ref
+            cap = np.where(tight, min(cfg.ctg_v_tight, abs(float(kw['vdes']))), np.inf)
+            stage_spec['vdes'] = np.sign(spec.vdes) * np.minimum(np.abs(spec.vdes), cap)
+            weights['w_path'] = cfg.w_path
+            weights['w_path_psi'] = cfg.w_path_psi
+            # The corridor's own stage pulls (centre line, its tangent, the
+            # object target line) aim at the goal in a straight line, through
+            # walls if need be; with a wall-aware path to follow they only
+            # fight it, so they hand over to it. The corridor's HARD lateral
+            # row stays.
+            if cfg.ctg_drops_corridor_costs:
+                weights['w_corr'] = 0.0
+                weights['w_psi_stage'] = 0.0
+                weights['w_line'] = 0.0
             weights['w_term'] = 0.0
             weights['w_psi'] = 0.0
             stage_spec['terminal'] = {
-                'x_bar': x_nom_n[:3], 'g': g, 'w': cfg.w_ctg,
+                'x_bar': np.asarray(target, dtype=float), 'g': np.zeros(3), 'w': cfg.w_ctg,
                 'h': np.array([cfg.ctg_h_xy, cfg.ctg_h_xy, cfg.ctg_h_psi])}
         call = dict(kw)
         call.update(weights=weights, corridor=corridor, warm_start_z=z_nom,
@@ -582,11 +701,59 @@ class ReversePlanner:
             return CandidateResult(spec=spec, ok=False, info={'error': repr(exc)},
                                    solve_ms=(time.perf_counter() - t0) * 1e3)
         res = CandidateResult(spec=spec, ok=bool(info.get('success', False)), u0=u0,
-                              info=info, solve_ms=(time.perf_counter() - t0) * 1e3)
+                              info=info, solve_ms=(time.perf_counter() - t0) * 1e3,
+                              target=(tuple(stage_spec['terminal']['x_bar'])
+                                      if 'terminal' in stage_spec else None))
         if not res.ok:
             return res
+        v_pred = np.asarray(res.info['x_pred'])[:, 3]
+        moving = np.flatnonzero(np.abs(v_pred) > cfg.stop_speed_mps)
+        res.move_dir = int(np.sign(v_pred[moving[0]])) if moving.size else 0
         self._score(res, kw, weights, stage_spec)
         return res
+
+    def _policy_path(self, spec: CandidateSpec, z_nom: np.ndarray, kw: Dict):
+        """
+        Return (terminal target, (N, 3) per-stage path reference) for spec.
+
+        V's optimal path from the current state, restricted segment by
+        segment to the candidate's sign schedule, each segment as long as the
+        distance its nominal speed profile covers there (the last one plus
+        ctg_follow_m). Stage k's reference is the path pose at the nominal arc
+        length travelled by stage k.
+        """
+        cfg = self.cfg
+        ts = float(kw['ts'])
+        x0 = np.asarray(kw['x0'], dtype=float)
+        v_nom = float(x0[3]) + ts * np.cumsum(z_nom[1::2])
+        step = np.abs(v_nom) * ts
+        x, y, psi = float(x0[0]), float(x0[1]), float(x0[2])
+        gear = int(np.sign(x0[3])) or self.selector.direction
+        poses = [(x, y, psi)]
+        segs = _segments(spec.signs)
+        for idx, (s0, s1, sg) in enumerate(segs):
+            dist = float(step[s0:s1 + 1].sum())
+            if idx == len(segs) - 1:
+                dist += cfg.ctg_follow_m
+            if dist <= 1e-6:
+                continue
+            seg = self.ctg.policy_path(x, y, psi, gear, dist, direction=sg)
+            poses.extend((p[0], p[1], p[2]) for p in seg[1:])
+            x, y, psi, gear = seg[-1]
+        P = np.asarray(poses, dtype=float)
+        s_path = np.concatenate([[0.0], np.cumsum(np.hypot(*np.diff(P[:, :2], axis=0).T))])
+        s_k = np.cumsum(step)
+        ref = np.column_stack([np.interp(s_k, s_path, P[:, i]) for i in range(3)])
+        # TIGHT stages: the path's heading changes faster than
+        # ctg_tight_curvature anywhere in the next ctg_tight_lookahead_m.
+        tight = np.zeros(len(s_k), dtype=bool)
+        if len(P) > 1:
+            ds = np.maximum(np.diff(s_path), 1e-9)
+            kappa = np.abs(np.diff(P[:, 2])) / ds
+            for k, sk in enumerate(np.concatenate([[0.0], s_k[:-1]])):
+                window = (s_path[1:] > sk) & (s_path[:-1] < sk + cfg.ctg_tight_lookahead_m)
+                tight[k] = bool(np.any(kappa[window] > cfg.ctg_tight_curvature))
+        return tuple(P[-1]), ref, tight
 
     def _ctg_ready(self) -> bool:
         return self.ctg is not None and bool(getattr(self.ctg, 'ready', False))
@@ -595,17 +762,38 @@ class ReversePlanner:
         """
         Score = J_QP + V(x_N) (+ the boundary slack the QP bought).
 
-        J_QP is the candidate's true cost (planner_cost_corridor at its
-        solution, the number solve_mpc_step reports), so every candidate is
-        measured with the same stage costs. With a cost-to-go, its terminal
-        pull replaced w_term/w_psi in every candidate, and V is evaluated
-        exactly (trilinear) at the predicted x_N in the candidate's FINAL
-        gear. The boundary slack penalty is the QP's own: a candidate that
-        clips a wall must not look cheap because the true cost does not see
-        the slack.
+        J_QP is the candidate's true cost at its solution (planner_cost_
+        corridor), measured with the SAME terms for every candidate.
+
+        Without a cost-to-go that is the number solve_mpc_step reports: today's
+        objective, every candidate with the same references.
+
+        With one, J_QP keeps only what every candidate pays on equal terms --
+        control effort and rates, the obstacle cost, the reverse-speed cost --
+        and drops the GUIDANCE terms that differ by construction between
+        candidates: the speed reference (+vdes for A, -vdes for B, a cap on
+        tight stretches), the per-stage path each candidate tracks and the
+        terminal attraction. Scored with them, two candidates with different
+        references were not comparable and the selector dithered on the
+        difference (measured: the door and free-corridor scenarios). Progress
+        is what V(x_N) measures, evaluated exactly (trilinear) at the predicted
+        x_N in the candidate's FINAL gear.
+
+        The boundary slack penalty is the QP's own: a candidate that clips a
+        wall must not look cheap because the true cost does not see the slack.
         """
         cfg = self.cfg
         res.j_qp = float(res.info.get('cost', math.nan))
+        if 'terminal' in stage_spec and self.ctg is not None and not cfg.score_speed_term:
+            score_w = scale_stage_weights(
+                dict(weights, w_v=0.0, w_term=0.0, w_psi=0.0), int(kw['horizon']))
+            res.j_qp = planner_cost_corridor(
+                z=res.info['zopt'], x0=np.asarray(kw['x0'], dtype=float),
+                last_u=np.asarray(kw['last_u'], dtype=float),
+                pref_nom=np.asarray(kw['pref_nom'], dtype=float), corridor=kw['corridor'],
+                horizon=int(kw['horizon']), ts=float(kw['ts']), params=kw['params'],
+                weights=score_w, vdes=float(kw['vdes']),
+                control_period=kw.get('control_period'), stage_spec=stage_spec)
         w_s = float(kw.get('boundary_slack_weight', 0.0) or 0.0)
         res.slack_pen = float(sum(w_s * s * s + w_s * s
                                   for s in res.info.get('boundary_slack', [])))
@@ -625,13 +813,6 @@ def _rollout_last(x0, z, n, ts, params):
         x = np.asarray(f1tenth_state_fcn_dt_beta(
             x, z[2 * k:2 * k + 2], ts, params['L'], params['lr']), dtype=float)
     return x
-
-
-def _clip_mag(gx, gy, cap):
-    mag = math.hypot(gx, gy)
-    if mag <= cap or mag == 0.0:
-        return float(gx), float(gy)
-    return float(gx) * cap / mag, float(gy) * cap / mag
 
 
 def _num(v):

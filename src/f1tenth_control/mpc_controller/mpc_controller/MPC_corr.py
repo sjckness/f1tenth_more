@@ -25,6 +25,7 @@ from f1tenth_messages.msg import (
 from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
 from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
+from mpc_controller.cost_to_go import CostToGo, LatticeConfig
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC,
     corridor_curves, corridor_curves_to_pose, wrap_pi)
@@ -37,7 +38,8 @@ from mpc_controller.object_approach import (
     heading_margin_for, object_speed_decision, plan_object_heading)
 from mpc_controller.object_guard import RefreshWatchdog, SteeringRamp
 from mpc_controller.reverse_mpc import (
-    floor_moving_speed_signed, rear_probe_offsets, ReverseConfig, ReversePlanner)
+    extend_corridor_backwards, floor_moving_speed_signed, rear_probe_offsets, ReverseConfig,
+    ReversePlanner)
 from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
@@ -1814,8 +1816,9 @@ class MPCController(Node):
         self.reverse_planner = None
         self.reverse_debug_pub = None
         reverse_cfg = self._reverse_config()   # declared either way, read only if on
+        reverse_ctg = self._reverse_cost_to_go()
         if self.allow_reverse and reverse_cfg.allow_reverse:
-            self.reverse_planner = ReversePlanner(reverse_cfg)
+            self.reverse_planner = ReversePlanner(reverse_cfg, ctg=reverse_ctg)
             self.reverse_debug_pub = self.create_publisher(
                 String, '/mpc/reverse/debug', 10)
         else:
@@ -3534,7 +3537,74 @@ class MPCController(Node):
             corr_back_length_m=float(_p('reverse_corr_back_length_m')),
             rear_offsets_m=rear_probe_offsets(
                 self.params['L'], front_x, rear_x, SOLVER_FRONT_POINT_OFFSETS_M),
+            w_ctg=float(_p('reverse_w_ctg')),
+            ctg_follow_m=float(_p('reverse_ctg_follow_m')),
+            ctg_h_xy=float(_p('reverse_ctg_h_xy')),
+            ctg_h_psi=float(_p('reverse_ctg_h_psi')),
         )
+
+    def _reverse_cost_to_go(self):
+        """
+        Build the terminal cost-to-go (cost_to_go.py) from the reverse_ctg_* parameters.
+
+        Geometry from the same sources the rest of the node uses: wheelbase
+        and steering limits from the MPC's own params, the front bumper from
+        the URDF, the rear bumper and body half-width from stack_params.
+        """
+        def _p(key):
+            return self.declare_parameter(key, get_value(key)).value
+
+        lattice = LatticeConfig(
+            window_m=float(_p('reverse_ctg_window_m')),
+            resolution_m=float(_p('reverse_ctg_resolution_m')),
+            n_theta=int(_p('reverse_ctg_n_theta')),
+            primitive_length_m=float(_p('reverse_ctg_primitive_length_m')),
+            k_rev=float(_p('reverse_ctg_k_rev')),
+            gear_switch_cost=float(_p('reverse_ctg_gear_switch_cost')),
+            steer_cost_per_m=float(_p('reverse_ctg_steer_cost_per_m')),
+            unreachable_cost=float(_p('reverse_ctg_unreachable_cost')),
+            goal_tolerance_m=float(_p('reverse_ctg_goal_tolerance_m')),
+            footprint_margin_m=float(_p('reverse_ctg_footprint_margin_m')),
+            front_x=base_front_x(),
+            rear_x=float(get_value('swept_clearance_body_rear_x_m')),
+            half_width=float(get_value('swept_clearance_body_half_width_m')),
+            wheelbase=self.params['L'], lr=self.params['lr'],
+            steer_min=self.limits['delta_min'], steer_max=self.limits['delta_max'])
+        self.reverse_ctg_use_corridor = bool(_p('reverse_ctg_use_corridor_bounds'))
+        return CostToGo(
+            lattice, wall_change_m=float(_p('reverse_ctg_wall_change_m')),
+            min_rebuild_period_s=float(_p('reverse_ctg_min_rebuild_period_s')))
+
+    def _update_cost_to_go(self, corridor, obstacles_global, live_boundaries, now_sec):
+        """
+        Keep the cost-to-go on this tick's goal and walls (allow_reverse only).
+
+        A goal POSE exists on goal_pose / turn moves (position-only arrival)
+        and on object moves (the standoff point); goal_distance and drive
+        moves have none, and the candidates then run without it. The walls are
+        the live boundary half-planes the QP's boundary rows use, the
+        obstacles this tick's list.
+        """
+        ctg = self.reverse_planner.ctg
+        if self.goal_object_odom_xy is not None and corridor.get('objectGoal') is not None:
+            goal = (corridor['objectGoal'][0], corridor['objectGoal'][1], None)
+        elif self.goal_distance is None and self.goal_pose_xy is not None:
+            goal = (self.goal_pose_xy[0], self.goal_pose_xy[1], None)
+        else:
+            ctg.clear()
+            return
+        rebuilt = ctg.update(
+            now_sec, (self.x, self.y), goal, halfplanes=live_boundaries,
+            circles=obstacles_global,
+            corridor=(extend_corridor_backwards(
+                corridor, self.reverse_planner.cfg.corr_back_length_m)
+                if self.reverse_ctg_use_corridor else None))
+        if rebuilt:
+            f = ctg.field
+            self.get_logger().info(
+                f'REVERSE/ctg | rebuilt ({ctg.last_rebuild_reason}) in {f.build_ms:.1f} ms: '
+                f'goal=({goal[0]:+.2f},{goal[1]:+.2f}) edges={f.n_edges} '
+                f'goal_states={f.n_goal_states}')
 
     def _mpc_solve(self, **solve_kwargs):
         """
@@ -4043,6 +4113,8 @@ class MPCController(Node):
         live_boundaries = self._get_live_boundaries()
         self.get_logger().info(
             f'BOUNDARY/live | n={len(live_boundaries)}', throttle_duration_sec=2.0)
+        if self.allow_reverse:
+            self._update_cost_to_go(corridor, obstacles_global, live_boundaries, now_sec)
 
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
