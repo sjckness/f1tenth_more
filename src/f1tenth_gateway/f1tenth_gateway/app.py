@@ -106,7 +106,15 @@ class Gateway:
 
     def _on_status(self, state, json_path, estop, now):
         with self.tlock:
+            was = self.tracker.estop_latched if self.tracker.ros_state is not None else None
             self.tracker.on_status(state, json_path, estop, now)
+        if was is not None and bool(estop) != bool(was) and self.clients and self._loop:
+            # READY changes with the latch: tell the phones now, not at the next status tick.
+            # The payload is built on the event loop, as status_loop does, not on ROS's thread.
+            asyncio.run_coroutine_threadsafe(self._push_status(), self._loop)
+
+    async def _push_status(self) -> None:
+        await self.broadcast(self.status_payload())
 
     def _on_outcome(self, mission_id, move_id):
         with self.tlock:
@@ -228,14 +236,18 @@ class Gateway:
                 p['uptime_s'] = round(self.wall() - since, 0)
             procs[name] = p
         procs['stack']['nodes'] = (st.get('probe') or {}).get('nodes')
-        checks = st.get('checks') or []
+        latched = self.estop_latched()
+        checks = [self._live_estop(c, latched) for c in st.get('checks') or []]
         required = [c for c in checks if c.get('required', True)]
+        failing = [c['name'] for c in required if not c.get('ok')]
+        if not checks:
+            failing = st.get('failing') or []
         system = latest.get('system') or {}
         return {
             'type': 'status', 'ok': st.get('ok', False), 'error': st.get('error'),
-            'ready': bool(st.get('ready')), 'failing': st.get('failing') or [],
+            'ready': bool(st.get('ready')) and not failing, 'failing': failing,
             'checks': checks, 'checks_ok': sum(1 for c in required if c.get('ok')),
-            'checks_total': len(required), 'estop_latched': self.estop_latched(),
+            'checks_total': len(required), 'estop_latched': latched,
             'processes': procs, 'mission': self.mission_view(),
             'battery': latest.get('battery'), 'vesc_temp_c': latest.get('vesc_temp_c'),
             'cpu_percent': system.get('cpu_percent'), 'cpu_temp_c': system.get('cpu_temp_c'),
@@ -243,6 +255,23 @@ class Gateway:
             'reset_allowed': self.reset_allowed(), 'transcription': self.transcriber.status(),
             'age_s': None if self.status_t is None else round(self.clock() - self.status_t, 1),
             'server_time': self.wall()}
+
+    def _live_estop(self, check: Dict, latched: bool) -> Dict:
+        """
+        Return the e-stop check as /mission/status has it now.
+
+        f1tenth_ctl's checks are refreshed every status_period_s; the latch comes from
+        /mission/status as it changes, so READY does not lag the E-STOP banner.
+        """
+        with self.tlock:
+            known = self.tracker.ros_state is not None
+        if check.get('kind') != 'estop' or not known or check.get('value') is latched:
+            return check
+        out = dict(check, ok=not latched, value=latched)
+        out.pop('why', None)
+        if latched:
+            out['why'] = 'e-stop latched'
+        return out
 
     # ---- preconditions -------------------------------------------------------------------------
 

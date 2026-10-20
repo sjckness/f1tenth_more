@@ -222,6 +222,32 @@ def test_estop_latches_and_publishes_on_the_safety_lane(gw):
     assert any(p[1] == '/safety_stop' and p[0] >= t0 for p in gw.world.published)
 
 
+def test_ready_follows_the_latch_before_the_checks_refresh(gw, monkeypatch):
+    # f1tenth_ctl's checks are only refreshed every status_period_s: hold them stale.
+    monkeypatch.setattr(gw, 'refresh_status', lambda: None)
+    assert gw.status_payload()['ready']
+    gw.client.post('/api/estop', headers=H)
+    assert wait(lambda: gw.estop_latched())
+    st = gw.status_payload()
+    assert not st['ready'] and 'estop_latched' in st['failing']
+    check = next(c for c in st['checks'] if c['kind'] == 'estop')
+    assert check['ok'] is False and check['value'] is True and check['why'] == 'e-stop latched'
+    stale = next(c for c in gw.status['checks'] if c['kind'] == 'estop')
+    assert stale['ok'] is True                              # the stale one, untouched
+
+
+def test_a_latch_change_is_pushed_at_once(gw, monkeypatch):
+    monkeypatch.setattr(gw, 'refresh_status', lambda: None)
+    gw.cfg['client']['status_period_s'] = 60.0
+    time.sleep(1.3)                             # the status loop is now in its long sleep
+    with connect(gw) as ws:
+        recv_until(ws, 'status', lambda m: m['ready'])
+        gw.client.post('/api/estop', headers=H)
+        t0 = time.time()
+        m = recv_until(ws, 'status', lambda m: not m['ready'], timeout=2.0)
+        assert m['estop_latched'] and time.time() - t0 < 1.0
+
+
 def test_reset_only_with_the_car_still(gw):
     gw.client.post('/api/estop', headers=H)
     gw.world.v = 0.3

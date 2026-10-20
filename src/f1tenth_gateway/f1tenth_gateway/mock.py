@@ -265,7 +265,11 @@ class MockCtl:
                         'wheel_odom': 'shown'}[name]
                 if not ok and name in ('odometry', 'scan'):
                     value = 4.0
-                checks.append({'name': name, 'ok': ok if stack_up else False, 'value': value,
+                kind = {'estop_latched': 'estop', 'battery': 'battery',
+                        'mission_service': 'service', 'tf_map_base_link': 'tf_age',
+                        }.get(name, 'topic_rate')
+                checks.append({'name': name, 'kind': kind, 'ok': ok if stack_up else False,
+                               'value': value,
                                'want': want, 'required': name != 'wheel_odom',
                                'why': None if ok else 'mock'})
             failing = [c['name'] for c in checks if c['required'] and not c['ok']]
