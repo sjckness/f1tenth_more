@@ -36,12 +36,13 @@ class _Pub:
 class _Logger:
     def __init__(self):
         self.warns = []
+        self.infos = []
 
     def warn(self, msg, **kw):
         self.warns.append(msg)
 
     def info(self, msg, **kw):
-        pass
+        self.infos.append(msg)
 
 
 class _Clock:
@@ -53,13 +54,18 @@ class _Clock:
 
 
 class _Supervisor:
-    """Only the one field _reverse_manoeuvre_active reads."""
+    """The fields _reverse_manoeuvre_active and _log_ctrl read."""
 
-    def __init__(self, reverse_active):
+    def __init__(self, reverse_active, mode='forward', travelled=0.0, requested=0.5):
         self._active = reverse_active
+        self._mode = mode
+        self._travelled = travelled
+        self._requested = requested
 
     def status(self):
-        return {'reverse_active': self._active}
+        return {'reverse_active': self._active, 'mode': self._mode,
+                'last_termination_reason': '', 'travelled_m': self._travelled,
+                'requested_m': self._requested, 'rear_reason': ''}
 
 
 class _FakeMPC:
@@ -72,6 +78,7 @@ class _FakeMPC:
         self.max_reverse_speed = 0.4
         self.drive_clamp_pub = _Pub()
         self.pub = _Pub()
+        self.v = 0.0
         self._logger = _Logger()
         self._last_published_steer = 0.0
 
@@ -85,6 +92,7 @@ class _FakeMPC:
     # /mpc/reverse_status must never disagree about what the car is doing, so
     # the test exercises the same code the node runs.
     _reverse_manoeuvre_active = MPCController._reverse_manoeuvre_active
+    _log_ctrl = MPCController._log_ctrl
 
 
 def _publish(mpc, speed, steer=0.05):
@@ -137,6 +145,50 @@ class TestTheManoeuvreStillReverses:
         mpc = _FakeMPC(supervisor=_Supervisor(reverse_active=True))
         assert _publish(mpc, 0.0) == 0.0
         assert mpc.reverse_suppressed == 0
+
+
+class TestTheCtrlLineReportsWhatWentOut:
+    """Every tick, including the reverse ones the old line never saw."""
+
+    def _ctrl(self, mpc):
+        lines = [m for m in mpc._logger.infos if m.startswith('CTRL |')]
+        assert len(lines) == 1, mpc._logger.infos
+        return lines[0]
+
+    def test_a_manoeuvre_tick_is_logged_with_its_real_speed(self):
+        mpc = _FakeMPC(supervisor=_Supervisor(reverse_active=True, mode='reverse',
+                                              travelled=0.082))
+        MPCController._publish_drive(mpc, -0.4, 0.12, source='manoeuvre')
+        line = self._ctrl(mpc)
+        assert 'src=manoeuvre' in line
+        assert 'v_pub=-0.400' in line
+        assert 'mode=reverse' in line
+        assert 'travelled=0.082/0.500' in line
+
+    def test_a_suppressed_negative_is_logged_as_clamp_zero(self):
+        mpc = _FakeMPC(supervisor=None)
+        MPCController._publish_drive(mpc, -0.153, 0.0)
+        line = self._ctrl(mpc)
+        assert 'src=clamp-0' in line
+        assert 'v_pub=+0.000' in line
+        assert 'req=-0.153' in line
+
+    def test_a_forward_tick_says_forward_and_carries_v_real(self):
+        mpc = _FakeMPC(supervisor=None)
+        mpc.v = 0.37
+        MPCController._publish_drive(mpc, 0.45, -0.02)
+        line = self._ctrl(mpc)
+        assert 'src=forward' in line
+        assert 'v_pub=+0.450' in line
+        assert 'v_real=+0.3700' in line
+
+    def test_logging_never_breaks_the_control_loop(self):
+        class _Broken:
+            def status(self):
+                raise RuntimeError('no status')
+        mpc = _FakeMPC(supervisor=_Broken())
+        MPCController._publish_drive(mpc, 0.3, 0.0)
+        assert 'mode=?' in self._ctrl(mpc)
 
 
 class TestForwardIsUntouched:

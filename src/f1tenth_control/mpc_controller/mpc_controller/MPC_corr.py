@@ -4040,7 +4040,7 @@ class MPCController(Node):
         except Exception:  # noqa: BLE001 -- a status we cannot read is not a reverse
             return False
 
-    def _publish_drive(self, speed, steering_angle):
+    def _publish_drive(self, speed, steering_angle, source='forward'):
         requested = speed
         # FINAL GATE: a negative speed leaves this node only while the reverse
         # manoeuvre is driving. Anything else that asks to go backwards -- a
@@ -4100,6 +4100,41 @@ class MPCController(Node):
                 'PUB /drive | nessun subscriber: il comando non raggiunge il VESC.',
                 throttle_duration_sec=5.0
             )
+        self._log_ctrl(source, requested, speed, steering_angle)
+
+    def _log_ctrl(self, source, requested, applied, steer):
+        """
+        Log one CTRL line for the command that was ACTUALLY published.
+
+        Emitted from _publish_drive, the single point every tick passes
+        through, so the reverse ticks appear too. The old CTRL line sat in
+        control_loop after the forward solve: it missed every before_forward
+        manoeuvre tick (which returns before reaching it) and, on an
+        after_forward tick, printed the forward solver's speed rather than the
+        manoeuvre command that actually went out. That is why the 2026-10-20
+        run could not say what speed the three reverses commanded.
+
+        source is 'forward', 'manoeuvre', or 'clamp-0' when the final gate
+        turned a negative request into a stop.
+        """
+        if requested is not None and math.isfinite(requested) and requested < 0.0 \
+                and applied == 0.0:
+            source = 'clamp-0'
+        v_real = float(self.v) if self.v is not None else math.nan
+        rev = 'mode=- reason=- travelled=-'
+        sup = getattr(self, 'reverse_supervisor', None)
+        if sup is not None:
+            try:
+                st = sup.status()
+                rev = (f'mode={st["mode"]} reason={st["last_termination_reason"] or "-"} '
+                       f'travelled={st["travelled_m"]:.3f}/{st["requested_m"]:.3f} '
+                       f'rear={st["rear_reason"] or "ok"}')
+            except Exception:  # noqa: BLE001 -- logging must never break the loop
+                rev = 'mode=? reason=? travelled=?'
+        self.get_logger().info(
+            f'CTRL | src={source} v_pub={applied:+.3f} req={requested:+.3f} '
+            f'steer={steer:+.4f} v_real={v_real:+.4f} {rev} '
+            f'supp={getattr(self, "reverse_suppressed", 0)}')
 
     def _write_model_log(self, x0, delta_cmd, a_cmd):
         """Write one model-validation row. Never raises into the control loop."""
@@ -4558,7 +4593,8 @@ class MPCController(Node):
             manoeuvre_cmd = self.reverse_supervisor.before_forward(now_sec, x0, reverse_env)
             if manoeuvre_cmd is not None:
                 self.last_u = np.array([manoeuvre_cmd.steer, 0.0], dtype=float)
-                self._publish_drive(manoeuvre_cmd.speed, manoeuvre_cmd.steer)
+                self._publish_drive(manoeuvre_cmd.speed, manoeuvre_cmd.steer,
+                                    source='manoeuvre')
                 self._publish_reverse_status()
                 return
 
@@ -4737,6 +4773,7 @@ class MPCController(Node):
         self.last_u = np.array([delta_cmd, a_cmd], dtype=float)
 
         v_cmd_now = self.v + a_cmd * self.ts
+        drive_source = 'forward'
         if self.goal_object_odom_xy is not None and self.object_speed_mode == SPEED_DRIVE:
             # The operating floor, on the command that actually goes out. Every
             # non-driving object tick returned above, so this is only ever a
@@ -4770,8 +4807,12 @@ class MPCController(Node):
         )
         self.control_log_file.flush()
 
+        # The CTRL line moved to _publish_drive (_log_ctrl): it has to report
+        # what actually went out, on every tick, and this point is skipped by
+        # the before_forward manoeuvre path. The CSV above keeps its columns --
+        # an analysis script parses them (test_model_log.py).
         self.get_logger().info(
-            f'CTRL | t_mpc={t_mpc:.3f} delta_cmd={delta_cmd:.3f} a_cmd={a_cmd:.3f} '
+            f'SOLVE/cmd | t_mpc={t_mpc:.3f} delta_cmd={delta_cmd:.3f} a_cmd={a_cmd:.3f} '
             f'v_cmd={v_cmd_log:.3f} wheel_speed={wheel_speed:.3f} '
             f'v_real={v_real:.3f} a_imu={a_imu:.3f}'
         )
@@ -4787,11 +4828,12 @@ class MPCController(Node):
             if manoeuvre_cmd is not None:
                 # The tick a manoeuvre starts: zero speed instead of the plan.
                 v_cmd_now, delta_cmd = manoeuvre_cmd.speed, manoeuvre_cmd.steer
+                drive_source = 'manoeuvre'
             self._publish_reverse_status()
         elif self.allow_reverse:
             self._publish_reverse_status_from_planner()
 
-        self._publish_drive(v_cmd_now, delta_cmd)
+        self._publish_drive(v_cmd_now, delta_cmd, source=drive_source)
 
         # Model-validation row -- see model_log_path in __init__. AFTER the publish,
         # so its file I/O can never delay the command; x0/delta_cmd/a_cmd are the
