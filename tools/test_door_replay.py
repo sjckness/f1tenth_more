@@ -497,16 +497,17 @@ def test_a_door_image_draws_a_confirmed_door_solid_and_a_candidate_faded_titled_
     life = {'states': ['candidate', 'confirmed'], 'first_confirmed': 12.34, 'hits': 7,
             'n_viewpoints': 3, 'width_std': 0.0123, 'strikes': 1, 'deleted_by_strikes': False,
             'square_looks': 0}
-    colour, _top, alpha, title = dr.door_style(life)
-    assert alpha == 1.0
+    _colour, _top, alpha, style, title = dr.door_style(life)
+    assert (alpha, style) == (1.0, '-')
     assert title == ('confirmed at 12.3 s: hits 7, viewpoints 3, width std 0.012 m, '
                      'strikes 1')
-    faded, _top, alpha, title = dr.door_style({**life, 'states': ['candidate'], 'strikes': 2,
-                                               'deleted_by_strikes': True})
-    assert alpha < 1.0 and faded != colour
+    _colour, _top, alpha, style, title = dr.door_style(
+        {**life, 'states': ['candidate'], 'strikes': 2, 'deleted_by_strikes': True})
+    assert alpha < 1.0 and style == '--'
     assert title.startswith('candidate, deleted by strikes: hits 7')
     # An older core's track (no strikes): drawn as it always was.
-    assert dr.door_style({'states': ['tentative'], 'square_looks': 2})[:3] == ('lime', 'g', 1.0)
+    assert dr.door_style({'states': ['tentative'], 'square_looks': 2})[:4] == (
+        'lime', 'g', 1.0, '-')
 
 
 # ==============================================================================
