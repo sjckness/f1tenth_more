@@ -26,3 +26,8 @@
 # Round 3 (Blocks 5-6)
 - 2026-10-16T16:22:30+02:00 Block 5: ekf_cost_observer deleted; grep clean outside docs/history and output/; flake8/ast OK. Orin-only: test_ekf_global_config.py (test_the_ekf_cost_observer_is_gone).
 - 2026-10-16T16:24:39+02:00 Block 6: evidence read over ssh (read-only): ~/dev_ws/f1tenth_more/output/live/stack_nolog.log, stack_log.log, ~/.ros/log/component_supervisor/*.log on the Orin; components.yaml there. Cause proven (mission_logger.launch.py with :=false exits 0 -> watchdog "crash"); fix applied; ROS-free test 2 passed, 1 skipped (needs launch_ros: Orin).
+
+# Replay of corridor10m_20261016T144537 with the new tracker (offline, linus)
+- 2026-10-16T16:39:52+02:00 environment: Jazzy rclpy + worktree sources on PYTHONPATH via a scratch prefix; f1tenth_messages (interface package only, unchanged) built with colcon into the session scratchpad because the Jazzy install lacks MultiWallTrack/StereoColumns; corridor_perception_c not built (Python extraction backend). Old analysis copied read-only from the Orin (summary/report/info only) into output/run_corridor10m_20261016T144537/ (it was not on linus; only the two mp4s were on the Desktop).
+- 2026-10-16T16:39:52+02:00 run OK, no tool change needed (no Jazzy/Humble reader or message-type failure): output/run_corridor10m_20261016T144537_v2/. Findings in report.md (Replay v2 section). Main one: the new FRONT confidence gate (>= 0.5) rejects the real LiDAR-fitted end wall (confidence 0.22-0.46 at 16-21 m): replay WALL 2.88 s vs recorded 121.78 s. Not fixed (out of scope of this task).
+- 2026-10-20 branch cleanup: the uncommitted notes above committed; the two run folders (not in git) moved to ~/f1tenth_data/replays/cpu_cleanup/ on linus (see report.md, Replay v2).
