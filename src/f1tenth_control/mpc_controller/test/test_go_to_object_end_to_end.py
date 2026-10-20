@@ -361,7 +361,8 @@ class TestGoToPersonEndToEnd:
         assert run.spec.gap_m + lo <= gap <= run.spec.gap_m + hi
 
     def test_the_goal_carried_the_centre_distance_for_the_default_gap(self, run):
-        assert run.spec.gap_m == pytest.approx(0.6), 'the default gap, from the bumper'
+        # 1.1 m for a person since obstacle_class_margin_m {person: 0.5}.
+        assert run.spec.gap_m == pytest.approx(1.1), 'the default gap, from the bumper'
         assert run.goto.goal_pub.msgs[-1].standoff == pytest.approx(run.centre_standoff)
 
     def test_the_person_went_through_the_map_to_odom_edge(self, run):

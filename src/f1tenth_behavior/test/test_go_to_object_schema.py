@@ -242,7 +242,7 @@ class TestShippedMissions:
         assert found >= 4
 
     @pytest.mark.parametrize('name, cls, gap', [
-        ('go_to_person_floor', 'person', 1.0), ('go_to_chair_floor', 'chair', None)])
+        ('go_to_person_floor', 'person', 1.1), ('go_to_chair_floor', 'chair', None)])
     def test_the_floor_missions_load(self, name, cls, gap):
         """The 2026-09-18 floor session's missions, with the REAL stack_params."""
         cfg = load_mission_file(str(MISSIONS / f'{name}.json'))
@@ -261,14 +261,16 @@ class TestShippedMissions:
         assert move.terminal is True
         assert move.timeout_sec is not None
 
-    @pytest.mark.parametrize('name, cls', [('go_to_person', 'person'), ('go_to_chair', 'chair')])
-    def test_they_load_as_single_object_moves(self, name, cls):
+    @pytest.mark.parametrize('name, cls, gap', [
+        # person: obstacle_class_margin_m {person: 0.5} since 2026-10-20.
+        ('go_to_person', 'person', 1.1), ('go_to_chair', 'chair', 0.6)])
+    def test_they_load_as_single_object_moves(self, name, cls, gap):
         """Loaded with the REAL stack_params: no distance in the file, the default gap."""
         cfg = load_mission_file(str(MISSIONS / f'{name}.json'))
         assert cfg.schema_version == '5.0'
         (move,) = cfg.moves
         assert move.go_to_object.target_class == cls
-        assert move.go_to_object.gap_m == pytest.approx(0.6), 'from the bumper'
+        assert move.go_to_object.gap_m == pytest.approx(gap), 'from the bumper'
         raw = json.loads((MISSIONS / f'{name}.json').read_text())
         assert 'gap_m' not in raw['moves'][0]['go_to_object'], 'no hardcoded distance'
         assert 'standoff_m' not in raw['moves'][0]['go_to_object']

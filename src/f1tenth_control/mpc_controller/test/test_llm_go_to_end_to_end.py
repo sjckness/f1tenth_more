@@ -92,7 +92,8 @@ class TestVaiDallaPersona:
     def test_it_rests_just_outside_the_default_gap(self, default_gap):
         """The stop latches past the gap and brakes in: see e2e.rig.stop_window."""
         run = default_gap[3]
-        assert run.spec.gap_m == pytest.approx(0.6), 'the default gap, from the bumper'
+        # 1.1 m for a person since obstacle_class_margin_m {person: 0.5}.
+        assert run.spec.gap_m == pytest.approx(1.1), 'the default gap, from the bumper'
         lo, hi = e2e.rig.stop_window()
         assert run.spec.gap_m + lo <= _final_gap(run) <= run.spec.gap_m + hi
 
@@ -113,9 +114,10 @@ class TestFermatiADieciCentimetri:
     def test_the_clamped_gap_is_what_the_loader_and_handler_use(self, clamped_gap):
         _case, result, _path, run = clamped_gap
         assert result.notes, 'the operator was told'
-        # gap_min from the bumper: 0.42 + the solver nose's 0.1475 lead (bumper
-        # 0.405, measured 2026-10-13), rounded up to 1 cm.
-        assert run.spec.gap_m == pytest.approx(0.57)
+        # gap_min from the bumper: 0.92 (0.42 + the person margin 0.5) + the
+        # solver nose's 0.1475 lead (bumper 0.405, measured 2026-10-13),
+        # rounded up to 1 cm.
+        assert run.spec.gap_m == pytest.approx(1.07)
         assert run.spec.gap_m >= run.spec.gap_min_m - 1e-9
 
     def test_object_reached_fires_at_the_clamped_gap(self, clamped_gap):

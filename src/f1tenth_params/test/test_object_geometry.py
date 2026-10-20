@@ -64,10 +64,10 @@ def test_the_stack_params_limits_read_the_solver_and_projector_keys():
 
 
 def test_the_shipped_person_limits():
-    """{} margin (no m*): 0.20 + 0.12 + 0 + 0.10 = 0.42, default gap 0.5."""
+    """{person: 0.5} margin: 0.20 + 0.12 + 0.50 + 0.10 = 0.92, default gap 1.0."""
     limits = gap_limits('person')
-    assert limits.gap_min == pytest.approx(0.42)
-    assert limits.default_gap == pytest.approx(0.5)
+    assert limits.gap_min == pytest.approx(0.92)
+    assert limits.default_gap == pytest.approx(1.0)
     assert 'gap_min(person)' in limits.explain()
 
 

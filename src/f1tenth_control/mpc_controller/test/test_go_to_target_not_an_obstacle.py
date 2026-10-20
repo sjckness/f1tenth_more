@@ -22,10 +22,11 @@ Every DRIVE tick is checked, before the loss too: while detected, the person
 was on the live list, and before the target was excluded it was an obstacle
 there on every tick of the approach.
 
-THE GEOMETRY. With the shipped 0.6 m gap the stop latch trips at a gap of
-about 0.84 m (object_reach_tol_m + object_stop_distance_m past it), so a loss
-at 0.8 m comes during the stop-and-wait, where no solve runs: the approach
-completes. A loss before the latch (here 1.2 m) gives DRIVE ticks on the
+THE GEOMETRY. With the shipped person gap of 1.1 m (0.6 until 2026-10-20,
+before obstacle_class_margin_m {person: 0.5}) the stop latch trips at a gap
+of about 1.34 m (object_reach_tol_m + object_stop_distance_m past it), so a
+loss at 1.3 m comes during the stop-and-wait, where no solve runs: the
+approach completes. A loss before the latch (here 1.7 m) gives DRIVE ticks on the
 remembered, grown target -- none of which may carry it -- and then ends
 target_lost: the handler waits in GRACE at speed 0 once its tracks are empty,
 because /costmap/semantic_tracks does not carry MEMORY objects. Excluding the
@@ -35,7 +36,7 @@ target in mpc_corr does not change that (report, Part B fixes).
 import math
 
 from f1tenth_messages.msg import SemanticObject, SemanticObjectArray
-from f1tenth_params.object_geometry import obstacle_filter
+from f1tenth_params.object_geometry import class_margin_for, obstacle_filter
 from f1tenth_params.param_defaults import get_value
 from f1tenth_params.semantic_objects import map_point_to_odom, odom_point_to_map
 from mpc_controller.MPC_corr import MPCController
@@ -44,8 +45,10 @@ import pytest
 import test_go_to_object_end_to_end as e2e
 import test_object_approach_closed_loop as rig
 
-LOST_GAP_M = 0.8
-EARLY_LOST_GAP_M = 1.2
+# The shipped person gap (1.1 m) + 0.2 and + 0.6: the same two places in the
+# approach the 0.8 / 1.2 m losses were when the gap was 0.6 m.
+LOST_GAP_M = 1.3
+EARLY_LOST_GAP_M = 1.7
 # semantic_layer_node keeps a lost confirmed track on /costmap/semantic_tracks
 # until lost_miss_count (5) consecutive missed batches: ~0.4 s at 12.5 Hz.
 TRACK_HOLD_S = 0.4
@@ -202,9 +205,11 @@ class TestADifferentPersonInMemoryIsStillAvoided:
 
     def test_it_is_an_obstacle_every_tick_with_its_grown_radius(self, lost_with_other):
         other = lost_with_other.world.other_odom
+        # The grown radius plus the person's class margin (objects_to_odom_circles).
+        margin = class_margin_for(get_value('obstacle_class_margin_m'), 'person')
         for circles in lost_with_other.world.planning:
             [c] = _near(circles, other, 0.05)
-            assert c[2] == pytest.approx(OTHER_GROWN)
+            assert c[2] == pytest.approx(OTHER_GROWN + margin)
         assert all(len(_near(c, other, 0.05)) == 1 for c in lost_with_other.world.rear)
 
     def test_the_car_steers_away_from_it(self, lost, lost_with_other):

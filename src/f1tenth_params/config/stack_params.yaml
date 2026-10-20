@@ -426,8 +426,8 @@ obstacle_radius_source:
 # twice. No class has a value yet; pick one from a measured edge-to-edge gap,
 # not from a run tuned on legacy radii.
 obstacle_class_margin_m:
-  default: {}
-  description: "Per-class extra clearance [m], class_id -> metres, e.g. {\"person\": 0.3}. Added to obstacle_projector_node's ground-disk radius in both radius modes, after the min/max radius reject filter, so it reaches R_safe = r + car_radius + avoidance_margin exactly once. Classes not listed get 0. Empty by default."
+  default: {person: 0.5}
+  description: "Per-class extra clearance [m], class_id -> metres: a YAML mapping with PLAIN keys ({person: 0.5}); a quoted/escaped key is a different string and never matches a class. person 0.5 since 2026-10-20. Added to obstacle_projector_node's ground-disk radius in both radius modes, after the min/max radius reject filter, so it reaches R_safe = r + car_radius + avoidance_margin exactly once. Classes not listed get 0. Empty by default."
 
 # ============================================================
 # Front clearance / front wall (f1tenth_perception/front_clearance_node.py)

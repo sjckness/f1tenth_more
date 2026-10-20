@@ -138,10 +138,10 @@ class TestObstacleRadiusLaunchArgs:
     """obstacle_radius_source and obstacle_class_margin_m reach the projector
     from stack_params.yaml; the margin map travels as a JSON string."""
 
-    def test_defaults_are_footprint_and_no_class_margin(self):
+    def test_defaults_are_footprint_and_a_person_margin(self):
         config = _resolve({})
         assert config['obstacle_radius_source'] == 'footprint'
-        assert config['obstacle_class_margin_m'] == '{}'
+        assert config['obstacle_class_margin_m'] == '{"person": 0.5}'
 
     def test_overrides_pass_through(self):
         config = _resolve({'obstacle_radius_source': 'legacy',
