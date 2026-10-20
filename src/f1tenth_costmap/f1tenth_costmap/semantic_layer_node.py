@@ -671,29 +671,34 @@ class SemanticLayerNode(Node):
             # numeric hop (no extra Pose message construction needed for
             # just a position, unlike detection_3d_node.py's own do_
             # transform_pose call, which also needs the orientation).
-            # Only the X/Y output components are computed -- the rotated Z
-            # (rz = 2*dot_uv*uz + (ww-dot(u,u))*z_cam + 2*qw*cross_z) is
-            # dropped deliberately, not an oversight: compose_base_link_to_
-            # map (the next hop) is a 2D-only composition, so nothing
-            # downstream of this node ever needs a map-frame Z coordinate.
+            # compose_base_link_to_map (the next hop) is a 2D-only
+            # composition, so nothing downstream needs a map-frame Z. The
+            # rotated Z is kept for one thing only: z_base, the centre's
+            # height above the floor, which obstacle_projector_node's height
+            # band tests and mpc_corr applies to these objects too
+            # (passes_obstacle_filter).
             ux, uy, uz = qx, qy, qz
             dot_uv = ux * x_cam + uy * y_cam + uz * z_cam
             cross_x = uy * z_cam - uz * y_cam
             cross_y = uz * x_cam - ux * z_cam
+            cross_z = ux * y_cam - uy * x_cam
             ww = qw * qw
             rx = (2.0 * dot_uv * ux + (ww - (ux * ux + uy * uy + uz * uz)) * x_cam
                   + 2.0 * qw * cross_x)
             ry = (2.0 * dot_uv * uy + (ww - (ux * ux + uy * uy + uz * uz)) * y_cam
                   + 2.0 * qw * cross_y)
+            rz = (2.0 * dot_uv * uz + (ww - (ux * ux + uy * uy + uz * uz)) * z_cam
+                  + 2.0 * qw * cross_z)
             x_base = rx + t.x
             y_base = ry + t.y
+            z_base = rz + t.z
 
             x_map, y_map = compose_base_link_to_map(x_base, y_base, map_pose)
             # Footprint WIDTH by obstacle_projector_node's own rule (shared in
             # f1tenth_params.object_geometry): the back-projected width, never
             # size.y (the height). Fused per track in semantic_layer.py.
             width = 2.0 * footprint_radius(det.bbox.size.x, det.bbox.size.z)
-            batch.append((class_id, x_map, y_map, score, sigma, width))
+            batch.append((class_id, x_map, y_map, score, sigma, width, z_base))
 
         before_ids = {t.track_id for t in self._tracks}
         self._tracks = update_tracks_batch(
@@ -970,6 +975,8 @@ class SemanticLayerNode(Node):
             obj.x = float(trk.x_map)
             obj.y = float(trk.y_map)
             obj.radius_m = float(om.track_base_radius(trk))
+            z_base = getattr(trk, 'z_base', None)
+            obj.z_m = float(z_base) if z_base is not None else math.nan
             obj.effective_radius_m = float(om.effective_radius(trk, mem, params))
             obj.state = int(mem.state)
             obj.confidence = float(mem.confidence)

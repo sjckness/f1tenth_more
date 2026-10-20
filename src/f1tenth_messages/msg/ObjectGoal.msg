@@ -25,9 +25,13 @@ std_msgs/Header header    # frame_id: "map". stamp: the DETECTION CAPTURE time
                           # of that cannot reconstruct it from arrival time
                           # (see semantic_layer_node._publish_tracks).
 string move_id            # stable for the move, distinct between moves
-string target_class       # what is being approached, for logs and status only
-                          # -- mpc_corr never matches on it. The sender owns
-                          # which track this point came from.
+string target_class       # what is being approached, for logs and status --
+                          # and, only when track_id is empty, how mpc_corr
+                          # recognises the target among the semantic layer's
+                          # objects (class + mpc_target_exclusion_gate_m from
+                          # `point`) to leave it out of its obstacles. It never
+                          # steers on it. The sender owns which track this
+                          # point came from.
 geometry_msgs/Point point # the TARGET itself in the header frame, not the
                           # standoff point. mpc_corr subtracts the standoff
                           # along its own held corridor heading, so the goal
@@ -40,9 +44,11 @@ float32 speed             # the approach speed [m/s]. mpc_corr drives at it,
                           # latch trips; 0 means stop and wait (the handler is
                           # acquiring, or holding a lost track's last point).
                           # A value between 0 and the floor is treated as 0.
-string track_id           # the semantic track this point came from, for
-                          # status and debugging only -- mpc_corr never
-                          # matches on it. Empty when unknown.
+string track_id           # the semantic track this point came from. mpc_corr
+                          # leaves the semantic object with this id out of its
+                          # obstacle list and its reverse checks: the target is
+                          # never an obstacle (mpc_controller/move_target.py).
+                          # Otherwise status and debugging. Empty when unknown.
 float32 gap_m             # the commanded gap [m], car front to the object's
                           # near edge, that `standoff` was built from
                           # (standoff = gap_m + nose_reach + target radius).

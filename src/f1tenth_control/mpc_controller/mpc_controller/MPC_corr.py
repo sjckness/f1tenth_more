@@ -24,12 +24,15 @@ from f1tenth_messages.msg import (
     ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus, SemanticObjectArray,
     TurnGoal, WallTrack)
 from f1tenth_messages.srv import RequestReverse
-from f1tenth_params.object_geometry import SOLVER_FRONT_POINT_OFFSETS_M
+from f1tenth_params.object_geometry import (
+    ObstacleFilter, passes_obstacle_filter, SOLVER_FRONT_POINT_OFFSETS_M)
 from f1tenth_params.param_defaults import get_odom_topic, get_value, get_wall_distance_topic
 from f1tenth_params.semantic_objects import MEMORY as SEMANTIC_MEMORY
 from f1tenth_params.semantic_objects import objects_to_odom_circles
 from mpc_controller.campaign_status import corridor_payload, mpc_status_payload
 from mpc_controller.cost_to_go import CostToGo, LatticeConfig
+from mpc_controller.move_target import (
+    MoveTarget, without_target_circles, without_target_objects)
 from f1tenth_params.corridor_geometry import (
     CORRIDOR_HANDLE_FRAC, CORRIDOR_WIDTH_RATIO, POSE_HANDLE_FRAC,
     corridor_curves, corridor_curves_to_pose, wrap_pi)
@@ -1842,7 +1845,9 @@ class MPCController(Node):
         # MEMORY ones join the obstacle list (the TRACKED ones arrive live on
         # /perception/obstacles_2d already); all of them feed the reverse
         # manoeuvre's rear pre-check. Map frame, re-expressed every tick
-        # through the current map -> odom.
+        # through the current map -> odom. Each passes the projector's own
+        # height/radius gate first, and the current object move's target is
+        # left out of every list, live and remembered (move_target.py).
         self._init_semantic_memory()
 
         self.min_obstacle_distance_pub = self.create_publisher(
@@ -3619,24 +3624,71 @@ class MPCController(Node):
         self.semantic_memory_max_age_s = float(_p('mpc_semantic_memory_max_age_s'))
         self.semantic_memory_min_confidence = float(_p('mpc_semantic_memory_min_confidence'))
         self._semantic_class_margins = get_value('obstacle_class_margin_m')
+        # obstacle_projector_node's gate, the same keys and the same function,
+        # so a remembered object passes exactly the test a live one did.
+        self._obstacle_filter = ObstacleFilter(
+            float(_p('obstacle_z_min')), float(_p('obstacle_z_max')),
+            float(_p('min_obstacle_radius')), float(_p('max_obstacle_radius')))
+        self.target_exclusion_gate_m = float(_p('mpc_target_exclusion_gate_m'))
         self._semantic_msg = None
         self._semantic_t = None
         if self.semantic_memory_enabled:
             self.create_subscription(SemanticObjectArray, '/costmap/semantic_objects',
                                      self._semantic_objects_cb, 10)
+            if not self.use_map_frame_goal_anchor:
+                # _lookup_map_odom() returns None while the anchor is off, so
+                # no map-frame object could ever be placed: say so once.
+                self.get_logger().warn(
+                    'SEMANTIC/memory | inactive: use_map_frame_goal_anchor is false '
+                    f'(localization_source={get_value("localization_source")!r}), so '
+                    'there is no map -> odom edge to place /costmap/semantic_objects; '
+                    'no remembered object reaches the obstacle list or the rear check, '
+                    'and the reverse manoeuvre cannot place its rear costmap either')
 
     def _semantic_objects_cb(self, msg: SemanticObjectArray):
         self._semantic_msg = msg
         self._semantic_t = self.get_clock().now().nanoseconds * 1e-9
+
+    def _move_target(self) -> Optional[MoveTarget]:
+        """Return the active object move's target, or None outside an object approach."""
+        if (getattr(self, 'object_psi_c', None) is None
+                or getattr(self, 'goal_object_map_xy', None) is None):
+            return None
+        return MoveTarget(
+            track_id=str(getattr(self, 'goal_object_track_id', '') or ''),
+            class_id=str(getattr(self, 'goal_object_target_class', '') or ''),
+            map_xy=tuple(self.goal_object_map_xy),
+            odom_xy=getattr(self, 'goal_object_odom_xy', None))
+
+    def _live_obstacles(self) -> List[Tuple[float, float, float]]:
+        """Return /perception/obstacles_2d's circles (odom) without the move's target."""
+        return without_target_circles(
+            self.obstacles_global_live, self._move_target(), self.target_exclusion_gate_m)
+
+    def _planning_obstacles(self) -> List[Tuple[float, float, float]]:
+        """
+        Return this tick's obstacle list: live circles plus remembered (MEMORY) objects.
+
+        What the solver's w_obs, compute_local_target and the predicted
+        clearance read. The move's target is in neither part.
+        """
+        live = self._live_obstacles()
+        if not self.semantic_memory_enabled:
+            return live
+        memory = self._semantic_circles(memory_only=True)
+        return list(live) + memory if memory else live
 
     def _semantic_circles(self, memory_only: bool) -> List[Tuple[float, float, float]]:
         """
         Return the semantic layer's objects as odom (x, y, r) circles, or [].
 
         memory_only keeps the MEMORY ones (the obstacle list's addition);
-        False keeps every object (the rear pre-check). Nothing when the layer
-        is off, its message older than mpc_semantic_memory_max_age_s, or no
-        map -> odom edge exists to place map-frame objects.
+        False keeps every object (the rear pre-check). Every object first
+        passes obstacle_projector_node's gate on its height and base radius
+        (passes_obstacle_filter), and the move's target is never one of them.
+        Nothing when the layer is off, its message older than
+        mpc_semantic_memory_max_age_s, or no map -> odom edge exists to place
+        map-frame objects.
         """
         if (not self.semantic_memory_enabled or self._semantic_msg is None
                 or self._semantic_t is None):
@@ -3648,7 +3700,9 @@ class MPCController(Node):
         if map_odom is None:
             return []
         objs = [o for o in self._semantic_msg.objects
-                if not memory_only or int(o.state) == SEMANTIC_MEMORY]
+                if (not memory_only or int(o.state) == SEMANTIC_MEMORY)
+                and passes_obstacle_filter(o.z_m, o.radius_m, self._obstacle_filter)]
+        objs = without_target_objects(objs, self._move_target(), self.target_exclusion_gate_m)
         return objects_to_odom_circles(
             objs, map_odom, include_memory=True,
             min_confidence=self.semantic_memory_min_confidence,
@@ -3673,22 +3727,31 @@ class MPCController(Node):
             resolution=float(info.resolution), origin_x=float(info.origin.position.x),
             origin_y=float(info.origin.position.y), origin_yaw=float(yaw))
 
-    def _reverse_env(self, obstacles_global, live_boundaries):
-        """Build this tick's RearEnv: the costmap only with a map -> odom edge to place it."""
+    def _reverse_env(self, live_boundaries):
+        """
+        Build this tick's RearEnv: the costmap only with a map -> odom edge to place it.
+
+        objects: the live circles and EVERY semantic object (TRACKED and
+        MEMORY), the move's target in neither.
+        """
         now = self.get_clock().now().nanoseconds * 1e-9
         map_odom = self._lookup_map_odom() if self._rear_grid is not None else None
         return RearEnv(
             grid=self._rear_grid if map_odom is not None else None, map_to_odom=map_odom,
-            objects=list(obstacles_global) + self._semantic_circles(memory_only=False),
+            objects=list(self._live_obstacles()) + self._semantic_circles(memory_only=False),
             boundaries=list(live_boundaries),
             bt_allow=self._bt_allow,
             bt_allow_age_s=(math.inf if self._bt_allow_t is None else now - self._bt_allow_t),
             abort=bool(self.hold or self._emergency_stop))
 
     def _reverse_front_distance(self, live_boundaries):
-        """Return the free distance ahead of the front bumper (obstacles, wall topic, rows)."""
+        """Return the free distance ahead of the front bumper (obstacles, wall topic, rows).
+
+        The move's target is not an obstacle here either: a car stopped at
+        its standoff from it is not stuck on it.
+        """
         cands = []
-        d_obs = self.compute_forward_obstacle_distance(self.obstacles_global_live)
+        d_obs = self.compute_forward_obstacle_distance(self._live_obstacles())
         if d_obs < 1e5:
             cands.append(d_obs)
         d_wall = self._fresh_front_distance()
@@ -3713,7 +3776,7 @@ class MPCController(Node):
         if self.x is None or self.yaw is None or self.v is None:
             response.accepted, response.reason = False, 'no_state'
             return response
-        env = self._reverse_env(self.obstacles_global_live, self._get_live_boundaries())
+        env = self._reverse_env(self._get_live_boundaries())
         now = self.get_clock().now().nanoseconds * 1e-9
         response.accepted, response.reason = sup.request(
             now, np.array([self.x, self.y, self.yaw, self.v]), float(request.distance_m), env)
@@ -4240,11 +4303,11 @@ class MPCController(Node):
                     throttle_duration_sec=3.0
                 )
 
-        obstacles_global = self.obstacles_global_live
-        if self.semantic_memory_enabled:
-            memory_obstacles = self._semantic_circles(memory_only=True)
-            if memory_obstacles:
-                obstacles_global = list(obstacles_global) + memory_obstacles
+        # Live + remembered, the object move's target in neither (see
+        # _planning_obstacles). d_robot_obs / d_front_obs above stay on the
+        # raw live list: they are reported distances (mission stop
+        # conditions read them), not avoidance.
+        obstacles_global = self._planning_obstacles()
 
         self.get_logger().info(f'OBSTACLES WORLD={obstacles_global}')
         self.get_logger().info(f'DIST ROBOT-OSTACOLO = {d_robot_obs:.3f}')
@@ -4371,7 +4434,7 @@ class MPCController(Node):
         # is not run at all (its warm start stays as it was).
         reverse_env = None
         if self.reverse_supervisor is not None:
-            reverse_env = self._reverse_env(obstacles_global, live_boundaries)
+            reverse_env = self._reverse_env(live_boundaries)
             manoeuvre_cmd = self.reverse_supervisor.before_forward(now_sec, x0, reverse_env)
             if manoeuvre_cmd is not None:
                 self.last_u = np.array([manoeuvre_cmd.steer, 0.0], dtype=float)

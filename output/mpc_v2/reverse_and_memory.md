@@ -341,8 +341,10 @@ ROS callbacks, logging and publishing are not in it.
   (0.5 s), there is no map→odom edge, or `mpc_semantic_memory_enabled: false`.
   - "No edge" includes `use_map_frame_goal_anchor: false`. `_lookup_map_odom()` returns
     None then, and the flag defaults to true only for `localization_source: ekf`.
-  - With `raw_odom`, B4 is therefore silently off. Part A's rear grid is not placed either,
-    so the rear side stays `rear_unknown` and no reverse ever starts.
+  - With `raw_odom`, B4 is therefore off. Part A's rear grid is not placed either, so the
+    rear side stays `rear_unknown` and no reverse ever starts. Since the review fixes this
+    is one WARN at startup (`SEMANTIC/memory | inactive: use_map_frame_goal_anchor is
+    false ...`), not silent.
 - front_clearance, the e-stop and the BT are **not** touched.
 
 ### Parameters
@@ -420,25 +422,103 @@ before `f1tenth_costmap` and `mpc_controller`.
   "the forward MPC is unchanged" stops holding whenever a MEMORY object exists.
   `test_reverse_flag_off_identity` runs without semantic messages, so it does not cover
   this.
-- **B4 bypasses `obstacle_projector_node`'s plausibility filters.**
-  - The projector drops detections outside the height band `obstacle_z_min`..`obstacle_z_max`
-    (−0.1..2.0 m) and the radius gate `min_obstacle_radius`..`max_obstacle_radius`
-    (0.03..1.5 m). The semantic layer applies neither, only `score_threshold` 0.5 and the
-    3-hit confirmation.
-  - So a remembered object the projector rejected live can now enter the forward obstacle
-    list. The rear check gets the TRACKED ones too.
-  - `obstacle_class_margin_m` is read from `stack_params.yaml`. A launch override reaches
-    the projector's ROS parameter, but not the memory circles.
-- **The go_to target can become an obstacle at the end of its own approach.**
-  - Before B4, the target vanished from the obstacle list once the detector lost it at
-    close range. Now it stays as a MEMORY obstacle, for example inside the 0.8 m stereo
-    depth floor.
-  - A person target also grows by up to +0.6 m, which raises R_safe right where the
-    approach closes.
-  - Untested.
-- **MEMORY objects reach `RearEnv.objects` twice** on the control-loop path:
-  `_reverse_env` receives the list that already includes them, then adds every semantic
-  object. Harmless for a minimum-distance check, so it is left as it is.
+- ~~B4 bypasses `obstacle_projector_node`'s plausibility filters~~ — **fixed**, see "Part B
+  fixes" below. Still open: `obstacle_class_margin_m` (and now the gate's four keys) are
+  read from `stack_params.yaml`. A launch override reaches the projector's ROS parameter,
+  but not mpc_corr.
+- ~~The go_to target can become an obstacle at the end of its own approach~~ — **fixed**,
+  see below. The original wording overstated the remembered half: with the shipped gap
+  the camera never gets inside the 0.8 m stereo depth floor of the target (camera to a
+  person's centre ≥ 1.03 m at a 0.5 m gap).
+- ~~MEMORY objects reach `RearEnv.objects` twice~~ — **fixed**: `_reverse_env` now
+  builds its own list.
+
+### Part B fixes after review
+
+Three fixes, in their own commit on top of the review commit. B4 stays on by default.
+
+**a) The current move's target is never an obstacle** (`mpc_controller/move_target.py`).
+- **Which object is the target.** During an object move (`object_psi_c` set by
+  `goal_object_callback`):
+  - a semantic object is the target when its id equals `ObjectGoal.track_id`;
+  - with no id, it is the target when its class equals `target_class` and its centre lies
+    within `mpc_target_exclusion_gate_m` (0.5 m) of the goal point;
+  - a live `/perception/obstacles_2d` circle has no id or class, so it is the target when
+    its centre lies within that gate of the goal point.
+- **Left out of:**
+  - the obstacle list (`_planning_obstacles`: the solver's `w_obs`, `compute_local_target`,
+    the predicted clearance);
+  - the rear check (`_reverse_env`, TRACKED and MEMORY);
+  - the stuck detector's front distance (`_reverse_front_distance`), so a car stopped at
+    its standoff is never "stuck" on its target.
+- **Growth.** The person growth has no path to the target: it is in none of those lists.
+- **Not changed:** `/mpc/min_obstacle_distance` and `_forward` still use the raw live list.
+  They are reported distances that mission stop conditions read, not avoidance.
+- **This changes the live approach too.** The target was a live obstacle by design: the
+  standoff is sized so the goal lies outside its R_safe (`min_standoff_clear_of`). Now
+  nothing deflects the car around its own target. What stops it there is the stop latch,
+  plus `front_clearance` and the proximity e-stop, which read the sensors directly.
+  `gap_min` stays the safety minimum where the gap is set.
+- **Risk:** a different object within 0.5 m of the target's centre is left out of the
+  live list with it (live circles carry no id). By id, an impostor on the goal point
+  stays an obstacle.
+- **Tests:**
+  - `test_go_to_target_not_an_obstacle.py` (10), on the go_to end-to-end rig (real
+    GoToObject, CheckStopCondition, goal callback, corridor and solver), with MPC_corr's
+    own `_planning_obstacles` and `_reverse_env` every DRIVE tick.
+  - **Lost at 0.8 m** (front bumper to near edge, the go_to gap measure): the move ends
+    `reached` in the stop window. The target is in no planning or rear list on any tick,
+    before the loss (live, TRACKED) or after (MEMORY, grown).
+  - **A different person in MEMORY** 0.7 m beside the path: an obstacle every tick with
+    its grown radius 0.55. The car passes it ≥ 0.02 m farther than without it, and ≥ 0.75
+    m (grown radius + car radius) from its centre. The approach completes.
+  - **Lost earlier, at 1.2 m:** DRIVE ticks run on the remembered, grown target (the BT's
+    tracks hold the person 0.4 s, as semantic_layer_node does). None carries it.
+  - **Mutation check:** with `_move_target` returning None, 9 tests fail.
+  - `test_semantic_memory_consumer.py`: by id, by class + position, the impostor, the live
+    gate, the stuck distance.
+- **The geometry, and a limit this does not fix.**
+  - With the shipped 0.6 m gap the stop latch trips at about 0.84 m
+    (`object_reach_tol_m` 0.10 + `object_stop_distance_m` 0.14 past the gap). A loss at
+    0.8 m therefore falls in the stop-and-wait, where no solve runs.
+  - A loss **before** the latch ends `target_lost`. The go_to handler waits in GRACE at
+    speed 0 once `/costmap/semantic_tracks` stops carrying the track, and semantic_tracks
+    never carries MEMORY objects.
+  - Finishing such an approach on the remembered position would need the handler to read
+    `/costmap/semantic_objects`. **Not done; your call.** The 1.2 m test pins today's
+    `target_lost`.
+
+**b) One gate for live and remembered objects** (`f1tenth_params.object_geometry`).
+- **The function.** `passes_obstacle_filter(z_m, radius_m, ObstacleFilter)`:
+  - `obstacle_z_min` ≤ z ≤ `obstacle_z_max`;
+  - `min_obstacle_radius` ≤ r ≤ `max_obstacle_radius`;
+  - NaN fails.
+- **The projector** calls it in place of its two inline checks.
+- **mpc_corr** calls it on every semantic object, on `z_m` and the **base** radius, before
+  the class margin.
+- **The radius bounds** moved from the projector's literals into `stack_params.yaml`, with
+  unchanged values (0.03 / 1.5). The projector's defaults now come from there.
+- **The height.** The semantic layer now keeps the rotated z it used to drop:
+  - per detection, `z_base` = the centre's base_link height;
+  - fused per track like the width;
+  - published as the new `SemanticObject.z_m` (NaN when no detection carried one).
+- **Tests:**
+  - params: the gate's bounds and NaN, the keys it reads, the old literals;
+  - perception: the projector's gate *is* `obstacle_filter()`, and its height band drops
+    what the function drops;
+  - costmap: height fusion (7), the published `z_m` with a pitched camera;
+  - mpc: overhead, ground, NaN, too wide and noise-sized remembered objects are dropped
+    from both lists. The growth does not rescue a noise-sized one, and the bounds
+    themselves pass.
+
+**c) The startup WARN.** With `mpc_semantic_memory_enabled` and `use_map_frame_goal_anchor:
+false`, `_init_semantic_memory` logs once:
+
+> `SEMANTIC/memory | inactive: use_map_frame_goal_anchor is false
+> (localization_source='raw_odom') ...`
+
+The message also says the reverse manoeuvre cannot place its rear costmap. Tested: one
+WARN in that case, none when B4 runs or is switched off.
 
 ---
 

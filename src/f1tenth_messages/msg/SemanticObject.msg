@@ -15,6 +15,8 @@ string class_id             # the YOLO class label
 float64 x                   # [m] map
 float64 y                   # [m] map
 float32 radius_m            # [m] footprint radius: fused measured width / 2, else the per-class nominal
+float32 z_m                 # [m] the centre's height above the floor (base_link z), fused over detections; NaN when none carried one.
+                            # With radius_m, what mpc_corr's obstacle gate (passes_obstacle_filter, the projector's) tests.
 float32 effective_radius_m  # [m] radius_m + memory growth (a person in MEMORY), else radius_m
 uint8 state                 # TRACKED | MEMORY
 float32 confidence          # [0, 1] 1 while TRACKED; in MEMORY 1 - time_in_memory_s / memory_decay_s

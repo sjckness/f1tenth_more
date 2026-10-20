@@ -157,6 +157,40 @@ def _detections(stamp_sec, entries):
 CHAIR = [('chair', 3.0, 0.0, 0.45)]
 
 
+def _pitched(pitch, t=(0.12, 0.0, 0.15)):
+    """Return camera -> base_link: a pitch about y and the ZED mount's translation."""
+    ts = TransformStamped()
+    ts.transform = Transform()
+    ts.transform.translation.x, ts.transform.translation.y, ts.transform.translation.z = t
+    ts.transform.rotation.y = math.sin(pitch / 2.0)
+    ts.transform.rotation.w = math.cos(pitch / 2.0)
+    return ts
+
+
+class TestTheCentreHeight:
+    """z_m: the centre's base_link height, what mpc_corr's obstacle gate tests."""
+
+    def _with_height(self, car, z_cam):
+        msg = _detections(car.now + DT, CHAIR)
+        msg.detections[0].bbox.center.position.z = z_cam
+        car.now += DT
+        car.node._pose_cb(_pose(*car.pose))
+        car.node._detections_cb(msg)
+        car.node._memory_step(car.now)
+
+    def test_identity_camera_publishes_the_detection_height(self, car):
+        self._with_height(car, 0.7)
+        assert car.one().z_m == pytest.approx(0.7)
+
+    def test_the_camera_pitch_and_mount_height_are_applied(self, car):
+        pitch = 0.1
+        car.node.tf_buffer.lookup_transform = MagicMock(return_value=_pitched(pitch))
+        self._with_height(car, 0.3)
+        # (x, z) = (3, 0.3) rotated by the pitch about y: z' = -x sin + z cos, + 0.15.
+        expected = -3.0 * math.sin(pitch) + 0.3 * math.cos(pitch) + 0.15
+        assert car.one().z_m == pytest.approx(expected, abs=1e-6)
+
+
 class TestPublishedEveryCycle:
 
     def test_a_confirmed_object_is_published_tracked_in_the_map_frame(self, car):

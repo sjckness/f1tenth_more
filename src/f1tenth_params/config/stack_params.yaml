@@ -375,7 +375,11 @@ sensors_config:
   default: config/sensors.yaml
   description: "Hokuyo LiDAR (urg_node) IP/port/frame config."
 # Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
-# is_zed-gated -- only declared/launched when detection_3d_node itself is).
+# is_zed-gated -- only declared/launched when detection_3d_node itself is),
+# and MPC_corr.py, which applies the same gate (obstacle_z_* and the two
+# *_obstacle_radius keys below, f1tenth_params.object_geometry.
+# passes_obstacle_filter) to the semantic layer's objects. A launch override
+# reaches the projector only: change the value here to move both.
 obstacle_z_min:
   default: -0.1
   description: "Lower bound [m] of obstacle_projector_node's height-band filter (base_link frame, z = 0 is the floor: base_link is on the ground per base.xacro) -- detections whose centre is below this are dropped as ground-plane false positives. Untuned starting point."
@@ -384,6 +388,15 @@ obstacle_z_min:
 obstacle_z_max:
   default: 2.0
   description: "Upper bound [m] of obstacle_projector_node's height-band filter (base_link frame, height above the floor) -- detections above this are dropped as overhead false positives (signage, gantries). Untuned starting point."
+# Consumed by: obstacle_projector_node.py (declare_parameter default) and
+# MPC_corr.py (the same gate for semantic objects). Moved here from the
+# projector's literals on 2026-10-20, values unchanged.
+min_obstacle_radius:
+  default: 0.03
+  description: "Lower bound [m] of the obstacle radius reject filter (the footprint radius before any class margin): smaller is noise-sized and dropped. Applied by obstacle_projector_node to every detection and by mpc_corr to every semantic-layer object (passes_obstacle_filter)."
+max_obstacle_radius:
+  default: 1.5
+  description: "Upper bound [m] of the obstacle radius reject filter: larger is a bad depth read and dropped. Applied by obstacle_projector_node and by mpc_corr to semantic-layer objects (passes_obstacle_filter). Tuned against legacy height radii, re-validate on the floor."
 # Consumed by: f1tenth_perception/detection.launch.py (obstacle_projector_node,
 # is_zed-gated).
 #
@@ -3140,6 +3153,16 @@ mpc_semantic_memory_max_age_s:
 mpc_semantic_memory_min_confidence:
   default: 0.0
   description: "MEMORY objects below this confidence (it decays linearly to 0 over semantic_layer_memory_decay_s) are left out of the obstacle list."
+# Consumed by: MPC_corr.py. The current object move's TARGET is never an
+# obstacle (mpc_controller/move_target.py): not in the obstacle list, not in
+# the reverse manoeuvre's rear check, not in its stuck front distance. A
+# semantic object is the target by track id (ObjectGoal.track_id), or by class
+# and this distance from the goal point when the goal carries no id. A live
+# /perception/obstacles_2d circle has neither id nor class, so it is the target
+# when its centre lies within this distance of the goal point.
+mpc_target_exclusion_gate_m:
+  default: 0.5
+  description: "Centre distance [m] from the object move's target point within which a live obstacle (always) or a same-class semantic object (only when the ObjectGoal carries no track_id) is taken to be the target and left out of the obstacle list and the reverse checks. 0.5 = semantic_layer merge_distance_m. A different object closer than this to the target is left out too."
 
 # --- semantic layer OBJECT MEMORY (Part B) ------------------------------------
 # Consumed by: f1tenth_costmap/semantic_layer_node.py (declare_parameter

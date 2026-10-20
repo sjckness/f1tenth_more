@@ -15,6 +15,9 @@ from f1tenth_params.object_geometry import (
     gap_min,
     nominal_footprint_radius,
     nose_reach,
+    ObstacleFilter,
+    obstacle_filter,
+    passes_obstacle_filter,
 )
 from f1tenth_params.param_defaults import get_value
 
@@ -71,3 +74,30 @@ def test_the_shipped_person_limits():
 def test_gap_limits_can_be_built_by_hand():
     limits = GapLimits('chair', 0.2, 0.12, 0.0, 0.1, 0.305)
     assert limits.nose_reach == pytest.approx(0.5525)
+
+
+GATE = ObstacleFilter(z_min=-0.1, z_max=2.0, r_min=0.03, r_max=1.5)
+
+
+@pytest.mark.parametrize('z, r, kept', [
+    (0.9, 0.25, True),
+    (-0.1, 0.03, True), (2.0, 1.5, True),          # the bounds are inside
+    (-0.11, 0.25, False), (2.01, 0.25, False),     # ground / overhead
+    (0.9, 0.029, False), (0.9, 1.51, False),       # noise-sized / bad depth
+    (float('nan'), 0.25, False), (0.9, float('nan'), False),
+])
+def test_the_obstacle_gate_is_the_height_band_and_the_radius_bounds(z, r, kept):
+    assert passes_obstacle_filter(z, r, GATE) is kept
+
+
+def test_the_obstacle_gate_reads_the_projectors_stack_params_keys():
+    assert obstacle_filter() == ObstacleFilter(
+        z_min=float(get_value('obstacle_z_min')), z_max=float(get_value('obstacle_z_max')),
+        r_min=float(get_value('min_obstacle_radius')),
+        r_max=float(get_value('max_obstacle_radius')))
+
+
+def test_the_radius_bounds_kept_the_projectors_old_literals():
+    """Moved from obstacle_projector_node's declare_parameter literals, values unchanged."""
+    assert (float(get_value('min_obstacle_radius')),
+            float(get_value('max_obstacle_radius'))) == (0.03, 1.5)

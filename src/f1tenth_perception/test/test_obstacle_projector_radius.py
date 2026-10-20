@@ -30,6 +30,7 @@ from vision_msgs.msg import (
     ObjectHypothesisWithPose,
 )
 
+from f1tenth_params.object_geometry import obstacle_filter, passes_obstacle_filter
 from f1tenth_perception.detection_3d_node import Detection3DNode
 from f1tenth_perception.obstacle_projector_node import (
     DETECTION_3D_DEPTH_EXTENT_IS_MEASURED,
@@ -248,6 +249,32 @@ class TestProjectorNodeRadius:
         finally:
             legacy.destroy_node()
             footprint.destroy_node()
+
+
+class TestTheSharedGate:
+    """The projector's height band and radius bounds ARE passes_obstacle_filter's.
+
+    mpc_corr applies the same function to the semantic layer's objects, so a
+    remembered object passes exactly the test a live detection did.
+    """
+
+    def test_the_gate_is_stack_params_by_default(self):
+        node = _projector()
+        try:
+            assert node.obstacle_filter == obstacle_filter()
+        finally:
+            node.destroy_node()
+
+    @pytest.mark.parametrize('z, kept', [(-0.11, False), (-0.1, True), (2.0, True),
+                                         (2.01, False)])
+    def test_the_height_band_drops_what_the_shared_function_drops(self, z, kept):
+        node = _projector()
+        try:
+            out = _project(node, [_det3d(PERSON_W, PERSON_H, 'person', z=z)])
+            assert bool(out) == kept
+            assert passes_obstacle_filter(z, PERSON_W / 2.0, node.obstacle_filter) == kept
+        finally:
+            node.destroy_node()
 
 
 class TestClassMarginParsing:

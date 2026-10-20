@@ -64,7 +64,9 @@ from tf2_ros.transform_listener import TransformListener
 from vision_msgs.msg import Detection3DArray
 
 from f1tenth_messages.msg import Obstacle2D, Obstacle2DArray
-from f1tenth_params.object_geometry import footprint_radius
+from f1tenth_params.object_geometry import (
+    footprint_radius, ObstacleFilter, passes_obstacle_filter)
+from f1tenth_params.param_defaults import get_value
 
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
@@ -149,9 +151,9 @@ class ObstacleProjectorNode(Node):
         self.output_frame = str(
             self.declare_parameter('output_frame', 'base_link').value)
         self.obstacle_z_min = float(
-            self.declare_parameter('obstacle_z_min', -0.1).value)
+            self.declare_parameter('obstacle_z_min', float(get_value('obstacle_z_min'))).value)
         self.obstacle_z_max = float(
-            self.declare_parameter('obstacle_z_max', 2.0).value)
+            self.declare_parameter('obstacle_z_max', float(get_value('obstacle_z_max'))).value)
         # Two or more projected obstacles with centers within this distance of
         # each other are collapsed into one (centroid position, radius = max of
         # the merged set) before publishing -- detection_3d_node has no
@@ -167,11 +169,18 @@ class ObstacleProjectorNode(Node):
         # rejects absurdly large ones (e.g. a bad depth read inflating a
         # box's back-projected real-world size). Revisit these two bounds if
         # the track's real obstacle set turns out to need a wider range.
+        # Defaults from stack_params.yaml, where mpc_corr reads the same two
+        # for the semantic layer's objects (passes_obstacle_filter).
         self.min_obstacle_radius = float(
-            self.declare_parameter('min_obstacle_radius', 0.03).value)
+            self.declare_parameter(
+                'min_obstacle_radius', float(get_value('min_obstacle_radius'))).value)
         # max_obstacle_radius: tuned against legacy height radii, re-validate on floor
         self.max_obstacle_radius = float(
-            self.declare_parameter('max_obstacle_radius', 1.5).value)
+            self.declare_parameter(
+                'max_obstacle_radius', float(get_value('max_obstacle_radius'))).value)
+        self.obstacle_filter = ObstacleFilter(
+            self.obstacle_z_min, self.obstacle_z_max,
+            self.min_obstacle_radius, self.max_obstacle_radius)
         # See obstacle_radius(). Validated here so a typo fails at startup, not
         # on the first detection.
         self.obstacle_radius_source = str(
@@ -220,13 +229,12 @@ class ObstacleProjectorNode(Node):
         for det in msg.detections:
             pose_out = tf2_geometry_msgs.do_transform_pose(det.bbox.center, transform)
 
-            if not (self.obstacle_z_min <= pose_out.position.z <= self.obstacle_z_max):
-                continue
-
             radius = obstacle_radius(
                 det.bbox.size.x, det.bbox.size.y, det.bbox.size.z,
                 self.obstacle_radius_source)
-            if not (self.min_obstacle_radius <= radius <= self.max_obstacle_radius):
+            # The height band and the radius bounds: the one gate a semantic
+            # object passes too before mpc_corr treats it as an obstacle.
+            if not passes_obstacle_filter(pose_out.position.z, radius, self.obstacle_filter):
                 continue
             class_id = det.results[0].hypothesis.class_id if det.results else ''
             radius += self.obstacle_class_margin_m.get(class_id, 0.0)

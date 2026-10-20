@@ -148,12 +148,17 @@ class SemanticObject:
 
     def __init__(
             self, track_id, class_id: str, x_map: float, y_map: float, score: float,
-            stamp_sec: float, confirm_hit_count: int, width: Optional[float] = None):
+            stamp_sec: float, confirm_hit_count: int, width: Optional[float] = None,
+            z_base: Optional[float] = None):
         self.track_id = track_id
         # Fused footprint WIDTH [m] (obstacle_projector_node's footprint rule,
         # never the height), EMA-blended over associated detections with the
         # same alpha as position. None until a detection carrying a width lands.
         self.width = _valid_width(width)
+        # Fused height [m] of the object's CENTRE in base_link (z = 0 is the
+        # floor), the quantity obstacle_projector_node's height band tests.
+        # Blended like width; None until a detection carrying one lands.
+        self.z_base = _valid_z(z_base)
         self.class_id = class_id
         self.x_map = float(x_map)
         self.y_map = float(y_map)
@@ -191,7 +196,7 @@ class SemanticObject:
         return self.x_map + self.vx_map * dt, self.y_map + self.vy_map * dt
 
     def update(self, x_map: float, y_map: float, score: float, stamp_sec: float,
-               alpha: float, width: Optional[float] = None):
+               alpha: float, width: Optional[float] = None, z_base: Optional[float] = None):
         """Apply one real (matched) detection: EMA-blend both position and
         velocity from the RAW last stored state (not the predicted one --
         blending against a prediction that already incorporates the motion
@@ -213,6 +218,10 @@ class SemanticObject:
         if width is not None:
             self.width = width if self.width is None else (
                 alpha * width + (1.0 - alpha) * self.width)
+        z_base = _valid_z(z_base)
+        if z_base is not None:
+            self.z_base = z_base if self.z_base is None else (
+                alpha * z_base + (1.0 - alpha) * self.z_base)
         self.score = float(score)
         self.last_update_stamp_sec = float(stamp_sec)
         self.hit_count += 1
@@ -281,11 +290,25 @@ def _unpack_width(det):
     return det[5] if len(det) >= 6 else None
 
 
+def _valid_z(z_base):
+    """Return a usable centre height, or None (missing or non-finite)."""
+    if z_base is None:
+        return None
+    z_base = float(z_base)
+    return z_base if math.isfinite(z_base) else None
+
+
+def _unpack_z(det):
+    """Return the optional 7th element, the centre's base_link height [m], or None."""
+    return det[6] if len(det) >= 7 else None
+
+
 def _unpack_detection(det):
     """Accept both the original 4-tuple (class_id, x_map, y_map, score) and
     the 5-tuple form carrying a per-detection 1-sigma position uncertainty in
     metres, (class_id, x_map, y_map, score, sigma). A 6th element, when
-    present, is the footprint width (see _unpack_width).
+    present, is the footprint width (see _unpack_width), and a 7th the centre's
+    base_link height (see _unpack_z).
 
     Backward compatibility is deliberate rather than incidental: sigma only
     exists once detection_3d_node populates the pose covariance, and callers
@@ -397,7 +420,7 @@ def update_tracks_batch(
             class_id, x_map, y_map, score, _sigma = _unpack_detection(det)
             tracks.append(SemanticObject(
                 next_track_id(), class_id, x_map, y_map, score, stamp_sec, confirm_hit_count,
-                width=_unpack_width(det)))
+                width=_unpack_width(det), z_base=_unpack_z(det)))
         return tracks
 
     if not detections:
@@ -452,7 +475,7 @@ def update_tracks_batch(
         class_id, x_map, y_map, score, sigma = unpacked[i]
         tracks[j].update(x_map, y_map, score, stamp_sec,
                          _effective_alpha(alpha, sigma, alpha_sigma_ref_m, min_alpha_scale),
-                         width=_unpack_width(detections[i]))
+                         width=_unpack_width(detections[i]), z_base=_unpack_z(detections[i]))
         matched_det_idx.add(i)
         matched_trk_idx.add(j)
 
@@ -464,7 +487,7 @@ def update_tracks_batch(
         if i not in matched_det_idx:
             tracks.append(SemanticObject(
                 next_track_id(), class_id, x_map, y_map, score, stamp_sec, confirm_hit_count,
-                width=_unpack_width(detections[i])))
+                width=_unpack_width(detections[i]), z_base=_unpack_z(detections[i])))
 
     return [t for t in tracks if _survives(t)]
 
