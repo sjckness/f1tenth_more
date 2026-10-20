@@ -118,16 +118,16 @@ OUTPUTS in --out (default ~/f1tenth_data/replays/doors_<bag>/<src>-<walls>-
                         refusals (observations, track merges); the addendum's
                         core: the Manhattan direction, the strikes
   <tag>.png             the accumulated scan in odom, the eligible walls, frame
-                        pieces, doors (green confirmed solid, orange
-                        tentative / candidate faded), panes
+                        pieces, doors (green confirmed, orange tentative;
+                        the addendum's candidates faded and dashed), panes
   door_<id>.png         per door track, small (palette PNG): the
                         /camera/debug_image/compressed frame nearest its best
                         sighting by HEADER stamp (the capture stamp; the
                         recorder received them ~0.26 s late), plus the nearest
                         frame of its life +-5 s with both jambs in view when
                         that one does not show it, jamb posts drawn (solid
-                        once confirmed, faded while a candidate); and a
-                        top-down of that scan
+                        once confirmed, faded and dashed while a candidate);
+                        and a top-down of that scan
   --summary-md PATH     the candidates by class and code as markdown tables
                         (rows, visible, median width and beams per code), to
                         paste into a report next to another run's
@@ -1339,8 +1339,9 @@ def draw(path, acc, piece_xy, wall_xy, tracks, panes, odom, title, new=False):
         j = np.array(v['best']['jambs'])
         confirmed = 'confirmed' in v['states']
         colour = '#10c040' if confirmed else '#ff9020'
-        alpha = 1.0 if confirmed or not new else 0.4       # the addendum: candidates faded
-        ax.plot(j[:, 0], j[:, 1], '-', color=colour, lw=3, alpha=alpha)
+        faded = new and not confirmed                       # the addendum: a candidate
+        alpha = 0.5 if faded else 1.0
+        ax.plot(j[:, 0], j[:, 1], '--' if faded else '-', color=colour, lw=3, alpha=alpha)
         ax.text(j[:, 0].mean() + 0.05, j[:, 1].mean() + 0.08, f'{k} {v["width"]:.2f}',
                 fontsize=8, color=colour, alpha=alpha)
     ax.set_aspect('equal')
@@ -1348,7 +1349,7 @@ def draw(path, acc, piece_xy, wall_xy, tracks, panes, odom, title, new=False):
     ax.grid(True, alpha=0.3)
     if new:
         ax.set_title(f'{title} -- grey scan, dark host walls (every cycle), doors at their '
-                     'best sighting: green confirmed (solid), orange candidates (faded)')
+                     'best sighting: green confirmed (solid), orange candidates (faded, dashed)')
     else:
         ax.set_title(f'{title} -- grey scan, dark eligible walls (every cycle), blue frame '
                      'pieces, green confirmed / orange tentative doors (best sighting), cyan '
@@ -1449,23 +1450,25 @@ def save_small_png(fig, path, dpi):
 
 def door_style(track):
     """
-    Return (camera colour, top-down colour, alpha, title) of door_<id>.png.
+    Return (camera colour, top-down colour, alpha, line style, title) of door_<id>.png.
 
     The addendum's core (a track with strikes): a door that was ever
-    confirmed is drawn solid green, a candidate faded orange, the title its
-    state, hits, viewpoints, width std and strikes. Older cores: as ever.
+    confirmed is drawn solid (lime posts, green top-down), a candidate faded
+    and dashed (lime posts -- the debug overlay's own boxes are orange --,
+    orange top-down), the title its state, hits, viewpoints, width std and
+    strikes. Older cores: as ever.
     """
     if 'strikes' not in track:
-        return 'lime', 'g', 1.0, (f'{"/".join(track["states"])}: square looks '
-                                  f'{track["square_looks"]}')
+        return 'lime', 'g', 1.0, '-', (f'{"/".join(track["states"])}: square looks '
+                                       f'{track["square_looks"]}')
     confirmed = 'confirmed' in track['states']
     state = (f'confirmed at {track["first_confirmed"]:.1f} s' if confirmed else 'candidate')
     deleted = ', deleted by strikes' if track.get('deleted_by_strikes') else ''
     title = (f'{state}{deleted}: hits {track["hits"]}, viewpoints {track["n_viewpoints"]}, '
              f'width std {track.get("width_std", 0.0):.3f} m, strikes {track["strikes"]}')
     if confirmed:
-        return 'lime', 'g', 1.0, title
-    return 'orange', 'darkorange', 0.45, title
+        return 'lime', 'g', 1.0, '-', title
+    return 'lime', 'darkorange', 0.7, '--', title
 
 
 def door_image(path, door_id, track, data, lpose, poses):
@@ -1473,7 +1476,7 @@ def door_image(path, door_id, track, data, lpose, poses):
     plt = _pyplot()
     frames, best = data[IMAGE_TOPICS[0]], track['best']
     t = best['stamp']
-    colour, top_colour, alpha, state = door_style(track)
+    colour, top_colour, alpha, style, state = door_style(track)
     infos = data.get(IMAGE_TOPICS[1]) or []
     cam = (camera_model(data['/tf_static'], infos[0], frames[0].header.frame_id)
            if infos else None)
@@ -1499,7 +1502,7 @@ def door_image(path, door_id, track, data, lpose, poses):
             ax.fill([u0[0], u0[1], u1[1], u1[0]], [v0[0], v0[1], v1[1], v1[0]],
                     color=colour, alpha=0.25 * alpha, lw=0)
             for u, v in uv:
-                ax.plot(u, v, '-', color=colour, lw=2, alpha=alpha)
+                ax.plot(u, v, style, color=colour, lw=2, alpha=alpha)
         ax.set_xlim(0, img.shape[1])
         ax.set_ylim(img.shape[0], 0)
         note = ', jambs 0-2 m' if uv else (', door NOT in view' if cam else ', no camera_info')
@@ -1516,7 +1519,7 @@ def door_image(path, door_id, track, data, lpose, poses):
     pts = car.transform_points(np.column_stack([lpose[0] + r[ok] * np.cos(a[ok]),
                                                 lpose[1] + r[ok] * np.sin(a[ok])]))
     ax.scatter(pts[:, 0], pts[:, 1], s=1.5, c='#888888')
-    ax.plot(j[:, 0], j[:, 1], '-', color=top_colour, lw=3, alpha=alpha)
+    ax.plot(j[:, 0], j[:, 1], style, color=top_colour, lw=3, alpha=alpha)
     ax.arrow(centre[0], centre[1], 0.4 * n[0], 0.4 * n[1], head_width=0.08, color=top_colour,
              alpha=alpha)
     ax.plot(car.x, car.y, 'k^')
