@@ -1384,7 +1384,17 @@ class MPCController(Node):
             "dDeltaMax": 0.5,
             "dAMin": -2.0,
             "dAMax": 2.0,
-            "vMin": -1.0,
+            # FORWARD ONLY, and 0.0 on purpose. The forward solver must never
+            # plan its way backwards: reverse is a committed manoeuvre
+            # (reverse_manoeuvre.py), not something braking falls into. With
+            # max_reverse_speed_mps at 0.0 the /drive clamp hid this, but once
+            # it was raised to 0.4 the forward solver's own braking undershoot
+            # (v + a*ts dipping below zero near a stop) reached the wheels: on
+            # 2026-10-20, 64 of 568 forward ticks commanded down to -0.153 m/s
+            # in five separate windows, carrying FORWARD steering. The rear
+            # solver is unaffected -- it overrides vMin/vMax with -v_rev on its
+            # own limits dict (reverse_manoeuvre.py's RearSolver.solve).
+            "vMin": 0.0,
             "vMax": 3.0,
         }
 
@@ -1843,6 +1853,8 @@ class MPCController(Node):
         # the forward MPC choose reverse itself.
         self.reverse_supervisor = None
         self.reverse_status_pub = None
+        # Negative speeds refused by _publish_drive's final gate (diagnostics).
+        self.reverse_suppressed = 0
         self._init_reverse_manoeuvre()
 
         # OBJECT MEMORY (f1tenth_costmap's semantic layer, Part B): objects
@@ -4012,11 +4024,51 @@ class MPCController(Node):
             + f' tick={dbg["tick_ms"]:.1f}ms',
             throttle_duration_sec=0.5)
 
+    def _reverse_manoeuvre_active(self) -> bool:
+        """Report whether the committed reverse manoeuvre is driving right now.
+
+        The one condition under which a negative speed may leave this node. It
+        reads the supervisor's own reverse_active (true while stopping toward a
+        reverse and while reversing), so the gate below and /mpc/reverse_status
+        can never disagree about what the car is doing.
+        """
+        sup = getattr(self, 'reverse_supervisor', None)
+        if sup is None:
+            return False
+        try:
+            return bool(sup.status()['reverse_active'])
+        except Exception:  # noqa: BLE001 -- a status we cannot read is not a reverse
+            return False
+
     def _publish_drive(self, speed, steering_angle):
         requested = speed
+        # FINAL GATE: a negative speed leaves this node only while the reverse
+        # manoeuvre is driving. Anything else that asks to go backwards -- a
+        # forward solve undershooting through zero, a stale command, a future
+        # caller -- is published as a stop, never as a reverse, and counted.
+        if (speed is not None and math.isfinite(speed) and speed < 0.0
+                and not self._reverse_manoeuvre_active()):
+            self.reverse_suppressed += 1
+            self.get_logger().warn(
+                f'DRIVE/no-reverse | {speed:+.3f} m/s requested outside a reverse '
+                f'manoeuvre -> 0.000 (suppressed {self.reverse_suppressed})',
+                throttle_duration_sec=1.0)
+            speed = 0.0
         speed, clamped = clamp_drive_speed(
             speed, self.max_forward_speed, self.max_reverse_speed)
         stamp = self.get_clock().now().to_msg()
+        if requested is not None and math.isfinite(requested) and requested < 0.0 \
+                and speed == 0.0 and not clamped:
+            # Report the suppression on the same topic the clamp uses: from a
+            # consumer's point of view the command was limited, and applied 0.0
+            # against a negative request says which limit did it.
+            event = DriveClamp()
+            event.header.stamp = stamp
+            event.requested_speed = float(requested)
+            event.applied_speed = 0.0
+            event.max_forward_speed = float(self.max_forward_speed)
+            event.max_reverse_speed = float(self.max_reverse_speed)
+            self.drive_clamp_pub.publish(event)
         if clamped:
             event = DriveClamp()
             event.header.stamp = stamp
