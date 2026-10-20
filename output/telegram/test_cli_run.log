@@ -1,0 +1,203 @@
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim ❔ not checked yet
+[1] 🔄
+────────────────────────────────────────────────────────────
+> refresh
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+updated 15:00:53
+[1] 🔌 Connect  [2] 🔄
+────────────────────────────────────────────────────────────
+> connect
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ stack not running
+stack ⚪ stopped · planner ⚪ stopped · logger ⚪ stopped
+odom –❗ · scan –❗ · TF –❗ · battery –
+Last: 🔌 connected: discovery 127.0.0.1:11811, environment ok, ready to launch
+updated 15:00:56
+[1] ▶️ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> wait:15
+> status
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ stack not running
+stack ⚪ stopped · planner ⚪ stopped · logger ⚪ stopped
+odom –❗ · scan –❗ · TF –❗ · battery –
+Last: 🔌 connected: discovery 127.0.0.1:11811, environment ok, ready to launch
+updated 15:01:11
+[1] ▶️ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> start:stack
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ stack not running
+stack ⚪ stopped · planner ⚪ stopped · logger ⚪ stopped
+odom –❗ · scan –❗ · TF –❗ · battery –
+Last: ❓ really start the stack?
+updated 15:01:11
+[1] ✅ Yes, start stack  [2] ✖ Cancel  [3] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> confirm  (confirm:cea60761)
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ odometry, tf_map_base_link, mission_service, estop_clear
+stack 🟢 running · planner ⚪ stopped · logger ⚪ stopped
+odom 0 Hz❗ · scan 35 Hz · TF –❗ · battery –
+Last: ▶️ stack started, pid 2369380, 4.35 s
+updated 15:01:19
+[1] ⏹ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> until-ready:240  (2 status calls, READY True)
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner ⚪ stopped · logger ⚪ stopped
+odom 44 Hz · scan 40 Hz · TF 0.00 s · battery – · mission IDLE
+Last: ▶️ stack started, pid 2369380, 4.35 s
+updated 15:01:28
+[1] ⏹ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> start:planner
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner ⚪ stopped · logger ⚪ stopped
+odom 44 Hz · scan 40 Hz · TF 0.00 s · battery – · mission IDLE
+Last: ❓ really start the planner?
+updated 15:01:28
+[1] ✅ Yes, start planner  [2] ✖ Cancel  [3] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> confirm  (confirm:f4688808)
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner 🟢 running · logger ⚪ stopped
+odom 42 Hz · scan 39 Hz · TF 0.00 s · battery – · mission IDLE
+Last: ▶️ planner started, pid 2370571, 2.63 s
+updated 15:01:32
+[1] ⏹ Stack  [2] ⏹ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> wait:5
+> status
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner 🟢 running · logger ⚪ stopped
+odom 46 Hz · scan 40 Hz · TF 0.00 s · battery – · mission IDLE
+Last: ▶️ planner started, pid 2370571, 2.63 s
+updated 15:01:38
+[1] ⏹ Stack  [2] ⏹ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> stop:planner
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner ⚪ stopped · logger ⚪ stopped
+odom 47 Hz · scan 40 Hz · TF 0.00 s · battery – · mission IDLE
+Last: ⏹ planner stopped (SIGINT, 1.2 s)
+updated 15:01:40
+[1] ⏹ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> start:logger
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner ⚪ stopped · logger 🟢 running
+odom 46 Hz · scan 40 Hz · TF 0.00 s · battery – · mission IDLE
+Last: ▶️ logger started, pid 2371119, 2.67 s
+updated 15:01:44
+[1] ⏹ Stack  [2] ▶️ Planner  [3] ⏹ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> wait:5
+> status
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner ⚪ stopped · logger 🟢 running
+odom 46 Hz · scan 40 Hz · TF 0.01 s · battery – · mission IDLE
+Last: ▶️ logger started, pid 2371119, 2.67 s
+updated 15:01:50
+[1] ⏹ Stack  [2] ▶️ Planner  [3] ⏹ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> stop:logger
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ✅
+stack 🟢 running · planner ⚪ stopped · logger ⚪ stopped
+odom 46 Hz · scan 40 Hz · TF 0.00 s · battery – · mission IDLE
+Last: ⏹ logger stopped (SIGINT, 2.3 s)
+updated 15:01:54
+[1] ⏹ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> estop
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ estop_clear
+stack 🟢 running · planner ⚪ stopped · logger ⚪ stopped
+odom 47 Hz · scan 40 Hz · TF 0.01 s · battery – · mission IDLE
+⚠️ e-stop LATCHED: restart the stack (or behavior) to clear
+Last: 🛑 E-STOP sent: service ✅ 0.003 s (emergency stop engaged) · zero drive ✅ 100 msgs at 50.0 Hz to 2 subscriber(s)
+updated 15:02:03
+[1] ⏹ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> killall
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ estop_clear
+stack 🟢 running · planner ⚪ stopped · logger ⚪ stopped
+odom 47 Hz · scan 40 Hz · TF 0.01 s · battery – · mission IDLE
+⚠️ e-stop LATCHED: restart the stack (or behavior) to clear
+Last: ❓ really kill ALL ROS 2 processes?
+updated 15:02:03
+[1] ✅ Yes, killall  [2] ✖ Cancel  [3] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> confirm  (confirm:d2aab8a1)
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ stack not running
+stack ⚪ stopped · planner ⚪ stopped · logger ⚪ stopped
+odom –❗ · scan –❗ · TF –❗ · battery –
+Last: ☠️ killall done: units stopped stack, monitor; 9 other ROS process(es) signalled; discovery running
+updated 15:02:08
+[1] ▶️ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> refresh
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ stack not running
+stack ⚪ stopped · planner ⚪ stopped · logger ⚪ stopped
+odom –❗ · scan –❗ · TF –❗ · battery –
+Last: ☠️ killall done: units stopped stack, monitor; 9 other ROS process(es) signalled; discovery running
+updated 15:02:09
+[1] ▶️ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+> status
+────────────────────────────────────────────────────────────
+🏎 F1Tenth · linus sim 🟢 online
+🔌 connected · discovery running
+READY ❌ stack not running
+stack ⚪ stopped · planner ⚪ stopped · logger ⚪ stopped
+odom –❗ · scan –❗ · TF –❗ · battery –
+Last: ☠️ killall done: units stopped stack, monitor; 9 other ROS process(es) signalled; discovery running
+updated 15:02:10
+[1] ▶️ Stack  [2] ▶️ Planner  [3] ▶️ Logger  [4] 🔄 Status  [5] ☠️ Kill all ROS 2  [6] 🛑 EMERGENCY
+────────────────────────────────────────────────────────────
+./bin/f1tenth_telegram --cli --config $S/simtest/telegram_sim_test.yaml --do   18.99s user 5.44s system 31% cpu 1:16.80 total

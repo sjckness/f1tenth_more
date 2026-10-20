@@ -1,0 +1,53 @@
+# READY thresholds for the Gazebo sim on linus (config/sim_linus.env).
+#
+# Same checks as ready.yaml, with two differences:
+# - rates are counted in wall time while the stack runs on sim time, and one
+#   host carries Gazebo plus the whole stack, so the real-time factor is
+#   below 1. The minimum rates are therefore lower;
+# - there is no VESC, so the battery never has data. It is shown only.
+
+window_s: 1.0
+use_sim_time: true
+
+checks:
+  - name: odometry
+    kind: topic_rate
+    topic: /odometry/filtered
+    type: nav_msgs/msg/Odometry
+    min_hz: 5.0
+
+  - name: scan
+    kind: topic_rate
+    topic: /scan
+    type: sensor_msgs/msg/LaserScan
+    min_hz: 5.0
+
+  - name: tf_map_base_link
+    kind: tf_age
+    parent: map
+    child: base_link
+    max_age_s: 1.0
+
+  - name: mission_service
+    kind: service
+    service: /mission/load_mission
+    type: f1tenth_messages/srv/LoadMission
+
+  - name: estop_latched
+    kind: estop
+    topic: /mission/status
+    type: f1tenth_messages/msg/MissionStatus
+
+  - name: battery
+    kind: battery
+    topic: /diagnostics/battery_status
+    type: f1tenth_messages/msg/BatteryStatus
+    min_voltage: 10.8
+    required: false
+
+  - name: wheel_odom
+    kind: topic_rate
+    topic: /odom
+    type: nav_msgs/msg/Odometry
+    min_hz: 0
+    required: false

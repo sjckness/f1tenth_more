@@ -1,0 +1,27 @@
+# f1tenth_telegram against the Gazebo sim on linus: f1tenth_ctl runs locally
+# with the sim profile (f1tenth_ctl/config/sim_linus.env). For --cli tests.
+
+target:
+  name: linus sim
+  host: local
+  ctl_command: ~/dev_ws/f1tenth_more_telegram/src/f1tenth_ctl/bin/f1tenth_ctl
+  ctl_env: ~/dev_ws/f1tenth_more_telegram/src/f1tenth_ctl/config/sim_linus.env
+
+timeouts_s:
+  default: 20
+  reach: 8
+  status: 12
+  connect: 25
+  start: 30
+  stop: 30
+  killall: 75
+  estop: 15
+  # Abort + restart of behavior + check: ~10 s; a full stack restart: minutes.
+  estop_reset: 240
+
+telegram:
+  allowed_user_ids: []
+  max_command_age_s: 10
+  token_env_file: ~/.config/f1tenth_telegram/env
+  force_ipv4: true
+  timeout_s: 20
