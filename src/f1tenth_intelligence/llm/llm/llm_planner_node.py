@@ -3,7 +3,7 @@
 LLM Planner Node -- versione llama-server (Qwen2.5-3B-Instruct locale).
 
 Traduce un comando in linguaggio naturale in un PIANO JSON (vocabolario
-invariato: modes {straight, wall_turn}, guards {wall, turned, front_object,
+invariato: modes {straight, wall_turn, reverse}, guards {wall, turned, front_object,
 distance}), poi lo traduce (plan_translate.phases_to_mission()) in una
 missione del sistema REALE di f1tenth_behavior e la consegna tramite il
 flusso di servizi gia' in produzione:
@@ -158,7 +158,7 @@ LLAMA_TIMEOUT = 90.0
 
 # Vocabolario ESATTO del piano LLM -- INVARIATO (validate_plan lo applica,
 # non ha nulla a che fare con lo schema missioni reale, vedi plan_translate.py).
-VALID_MODES = ("straight", "wall_turn")
+VALID_MODES = ("straight", "wall_turn", "reverse")
 VALID_GUARDS = ("wall", "turned", "front_object", "distance")
 
 # soglie plausibili, per intercettare allucinazioni numeriche -- INVARIATO
@@ -189,9 +189,10 @@ SYSTEM_PROMPT = """Sei un traduttore da linguaggio naturale a un piano di naviga
 Il robot esegue una SEQUENZA DI FASI. Ogni fase e' un oggetto JSON.
 
 CAMPI OBBLIGATORI:
-- "mode": uno tra ["straight", "wall_turn"]
+- "mode": uno tra ["straight", "wall_turn", "reverse"]
     - "straight": va dritto mantenendo l'orientamento iniziale.
     - "wall_turn": gira (serve "turn_sign").
+    - "reverse": va indietro mantenendo l'orientamento iniziale.
 - "guard": condizione che fa AVANZARE alla fase successiva. Uno tra:
     - "wall": muro davanti piu' vicino di "thresh" metri.
     - "turned": ruotato di piu' di "thresh" radianti.

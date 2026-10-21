@@ -855,6 +855,23 @@ def _intent_move(i, phase, cfg, prev_turn_sign, prov, *, go_to_enabled=True,
         prov[f'{at}.drive.speed'] = (CONFIG, 'speed_turn')
         prov[f'{at}.stop_condition.type'] = (CONST, 'orientation_delta')
         prov[f'{at}.stop_condition.value'] = (CONFIG, 'turn_magnitude_deg')
+    elif mode == 'reverse':
+    # Command a reverse drive mode and invert the straight speed
+        move['drive'] = {
+            'mode': 'reverse',
+            'speed': abs(cfg.speed_straight) 
+        }
+        prov[f'{at}.drive.mode'] = (INTENT, f'plan[{i}].mode "reverse"')
+        prov[f'{at}.drive.speed'] = (DERIVED, 'inverted config.speed_straight for reverse')
+
+        # Reversing only supports the 'distance' guard
+        guard = phase['guard']
+        cond_type, thresh_key, extra = GUARD_MAP[guard] 
+        
+        stop = {'type': cond_type, thresh_key: _round_m(phase['thresh'])}
+        prov[f'{at}.stop_condition.type'] = (INTENT, f'plan[{i}].guard {guard!r} via GUARD_MAP')
+        prov[f'{at}.stop_condition.{thresh_key}'] = (INTENT, f'plan[{i}].thresh, rounded to 2 dp')
+        move['stop_condition'] = stop
     else:
         guard = phase['guard']
         cond_type, thresh_key, extra = GUARD_MAP[guard]

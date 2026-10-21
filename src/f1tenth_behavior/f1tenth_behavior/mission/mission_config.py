@@ -52,7 +52,7 @@ VALID_TURN_REFERENCES = {'odometry_orientation'}
 # invented in between. "straight" holds the move's own start heading;
 # "wall_turn" turns by turn_sign * turn_mag_deg off that same start heading
 # and then holds the result. Neither carries a target -- see DriveSpec.
-DRIVE_MODES = {'straight', 'wall_turn'}
+DRIVE_MODES = {'straight', 'wall_turn', 'reverse'}
 
 # stop_condition.type values that are explicitly out of scope for this pass
 # (manual advance -- no mechanism planned). condition_eval.evaluate() returns
