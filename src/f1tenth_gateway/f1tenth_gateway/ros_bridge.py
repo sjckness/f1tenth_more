@@ -170,6 +170,20 @@ class RosBridge:
         pubs = self.node.count_publishers(topic)
         return {'subscribers': subs, 'other_publishers': max(0, pubs - 1)}
 
+    def estop_graph(self) -> Dict:
+        """
+        Tell whether the e-stop's two paths are there, for the app's button.
+
+        The e-stop is only as good as what it can reach: the zeros need the
+        mux subscribed to /safety_stop, and the latch needs
+        /mission/emergency_stop served. Both are made at start-up, so this is
+        a graph question, not a question about this node.
+        """
+        topic = self.estop_spec['topic']
+        return {'zero_subscribers': self.node.count_subscribers(topic),
+                'service_ready': bool(self._estop_cli.service_is_ready()),
+                'abort_ready': bool(self._abort_cli.service_is_ready())}
+
     # ---- e-stop and abort ------------------------------------------------------------------
 
     def estop(self) -> Dict:

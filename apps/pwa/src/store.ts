@@ -23,6 +23,7 @@ export interface Status {
   cpu_percent?: number | null; drive: { busy: boolean; blockers: string[] };
   reset_allowed: { ok: boolean; why: string | null };
   transcription: { state: string; reason?: string | null };
+  estop?: { available: boolean; why: string | null };
 }
 export interface Telemetry {
   t: number; pose?: { x: number; y: number; yaw: number } | null;
@@ -72,6 +73,51 @@ export function setMockMode(value: boolean): void {
   } catch { /* private mode */ }
 }
 
+/**
+ * The token out of a pairing link's fragment (`#token=...`), or null.
+ *
+ * The FRAGMENT, never the query string: a fragment is not sent with the
+ * request, so the token stays out of the gateway's log, out of tailscale's and
+ * out of any proxy in between. The QR code printed on the Orin
+ * (src/f1tenth_gateway/tools/pairing_qr.py) encodes exactly this link.
+ *
+ * Same floor as the ABBINA button and the gateway's auth.min_token_len: under
+ * 32 characters is not a token, so the link is ignored and the pairing screen
+ * asks for one by hand.
+ */
+export function tokenFromHash(hash: string): string | null {
+  const m = /^#\/?token=(.*)$/.exec(hash);
+  if (!m) return null;
+  let value = m[1];
+  try { value = decodeURIComponent(value); } catch { /* not encoded: take it as it came */ }
+  value = value.trim();
+  return value.length >= 32 ? value : null;
+}
+
+/**
+ * Read a pairing link and clear it from the address bar, at module load.
+ *
+ * The fragment goes whether or not it carried a usable token: a link left in
+ * the address bar ends up in a screenshot, in the back stack and in whatever
+ * the next person to pick up the phone sees. replaceState rather than
+ * assigning location.hash, which would push a history entry and fire
+ * hashchange.
+ */
+function pairFromLink(): void {
+  let hash = '';
+  try { hash = location.hash; } catch { return; }
+  if (!/^#\/?token=/.test(hash)) return;
+  const value = tokenFromHash(hash);
+  try {
+    history.replaceState(null, '', location.pathname + location.search);
+  } catch { /* no history API: the token still pairs, the link lingers */ }
+  if (value) setToken(value);
+}
+
+// Before the first render, so App() already sees a paired car: a scanned link
+// wins over whatever this phone had stored.
+pairFromLink();
+
 export const conn = signal<Conn>('idle');
 export const rttMs = signal<number | null>(null);
 export const lastMsgAt = signal<number>(0);
@@ -88,6 +134,34 @@ export const toasts = signal<Toast[]>([]);
 export const wakeLockMissing = signal(false);
 
 export const online = computed(() => conn.value === 'online');
+
+/**
+ * Whether the gateway answers at all, over either connection.
+ *
+ * The WebSocket is not the measure: REST is a separate connection and keeps
+ * working when the socket is down (ws.ts polls /api/status then). This is
+ * what EMERGENZA goes by, so it is driven by events rather than by a clock:
+ * any message from the gateway sets it, a failed poll clears it.
+ */
+export const gatewayUp = signal(true);
+
+/**
+ * Whether an E-STOP would reach the car, and why not.
+ *
+ * NOT a function of the WebSocket: /api/estop is REST, and the gateway runs
+ * the e-stop itself with f1tenth_ctl as its fallback. Only two things take
+ * the button away -- the gateway not answering, or the gateway reporting that
+ * it cannot reach /mission/emergency_stop or /safety_stop.
+ *
+ * With no report yet it fails OPEN: an older gateway sends no status.estop,
+ * and a button that works beats a truthful label.
+ */
+export const estopReach = computed<{ ok: boolean; why: string | null }>(() => {
+  if (!gatewayUp.value) return { ok: false, why: 'gateway non raggiungibile' };
+  const e = status.value?.estop;
+  if (!e) return { ok: true, why: null };
+  return e.available ? { ok: true, why: null } : { ok: false, why: e.why ?? null };
+});
 export const latched = computed(() =>
   tel.value?.estop_latched ?? status.value?.estop_latched ?? false);
 export const mission = computed<MissionView>(() =>

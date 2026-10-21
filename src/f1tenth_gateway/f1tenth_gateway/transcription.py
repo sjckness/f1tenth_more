@@ -12,6 +12,7 @@ FakeTranscriber is the mock's: canned text, no model.
 """
 
 import base64
+import importlib.util
 import itertools
 import json
 import os
@@ -21,6 +22,11 @@ import sys
 import threading
 import time
 from typing import Dict, Optional
+
+
+# What the app shows instead of a raw ModuleNotFoundError. The Orin's gateway
+# venv has no faster-whisper today, so this is the normal answer, not a crash.
+NOT_INSTALLED = 'faster-whisper non installato sul gateway'
 
 
 class TranscriptionError(Exception):
@@ -35,6 +41,12 @@ class TranscriberProcess:
         self.proc: Optional[subprocess.Popen] = None
         self.state = 'disabled' if not cfg.get('enabled', True) else 'idle'
         self.reason: Optional[str] = None
+        # Say it up front rather than after the app has recorded something and
+        # the worker has failed: the model lives in this same interpreter's
+        # environment, so find_spec answers for the worker too.
+        if self.state == 'idle' and self.python == sys.executable \
+                and importlib.util.find_spec('faster_whisper') is None:
+            self.state, self.reason = 'unavailable', NOT_INSTALLED
         self.info: Dict = {}
         self.last_used = 0.0
         self._lock = threading.Lock()
@@ -56,6 +68,8 @@ class TranscriberProcess:
         hello = self._read(timeout_s=float(self.cfg['timeout_s']) + 120.0)
         if not hello or not hello.get('ready'):
             self.reason = (hello or {}).get('error') or 'the worker did not start'
+            if 'faster_whisper' in str(self.reason):
+                self.reason = NOT_INSTALLED
             self.state = 'unavailable'
             self.stop()
             self.state = 'unavailable'

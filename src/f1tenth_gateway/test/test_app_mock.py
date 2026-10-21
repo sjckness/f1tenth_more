@@ -108,6 +108,38 @@ def test_hello_says_this_is_the_pretend_car(gw):
         assert hello['type'] == 'hello' and hello['mock'] is True
 
 
+def ws_refused(gw, send=None, timeout=8.0):
+    """Open /ws, optionally send one message, and return the close code."""
+    from starlette.websockets import WebSocketDisconnect
+    with pytest.raises(WebSocketDisconnect) as exc:
+        with gw.client.websocket_connect('/ws') as ws:
+            if send is not None:
+                ws.send_json(send)
+            ws.receive_json()
+    return exc.value.code
+
+
+def test_a_handshake_that_times_out_is_not_an_auth_failure(gw):
+    """
+    A client that does not authenticate in time gets 4408, never 4401.
+
+    The app stops reconnecting on 4401 and goes back to the pairing screen
+    (ws.ts), so answering a TRANSPORT failure with 4401 wedged it offline
+    until a reload -- no mission status, EMERGENZA disabled -- with a token
+    that was never wrong. iOS holds a backgrounded PWA's timers, so a resume
+    easily takes longer than ws_auth_timeout_s (2 s) to send its auth.
+    """
+    assert ws_refused(gw) == 4408
+
+
+def test_an_unreadable_auth_message_is_not_an_auth_failure(gw):
+    assert ws_refused(gw, send={'type': 'hello'}) == 4400
+
+
+def test_only_a_rejected_token_gets_4401(gw):
+    assert ws_refused(gw, send={'type': 'auth', 'token': 'nope'}) == 4401
+
+
 def test_too_many_failures_are_refused_for_a_minute(gw):
     for _ in range(5):
         gw.client.get('/api/status', headers={'Authorization': 'Bearer nope'})
@@ -125,6 +157,40 @@ def test_security_headers(gw):
     r = gw.client.get('/api/status', headers=H)
     assert "frame-ancestors 'none'" in r.headers['content-security-policy']
     assert r.headers['cache-control'] == 'no-store'
+
+
+# ---- the e-stop's reach -----------------------------------------------------------------------
+
+def test_status_says_whether_the_estop_can_be_reached(gw):
+    """
+    /api/status carries the e-stop's reach, so the app can say so explicitly.
+
+    Without it the app had nothing to go on and gated EMERGENZA on its
+    WebSocket instead -- which the e-stop does not use (/api/estop is REST),
+    so the button went away exactly when the link was shaky and stayed
+    offered when the mux was not listening at all.
+    """
+    c = gw.client
+    assert c.get('/api/status', headers=H).json()['estop'] == {
+        'available': True, 'why': None,
+        'zero_subscribers': 1, 'service_ready': True, 'abort_ready': True}
+
+    c.post('/api/_mock/set', headers=H, json={'mux_listens': False})
+    e = c.get('/api/status', headers=H).json()['estop']
+    assert e['available'] is False and '/safety_stop' in e['why']
+
+    c.post('/api/_mock/set', headers=H, json={'mux_listens': True,
+                                              'estop_service_ready': False})
+    e = c.get('/api/status', headers=H).json()['estop']
+    assert e['available'] is False and '/mission/emergency_stop' in e['why']
+
+
+def test_the_estop_reach_fails_open_when_ros_cannot_answer(gw, monkeypatch):
+    def boom():
+        raise RuntimeError('no graph')
+    monkeypatch.setattr(gw.ros, 'estop_graph', boom)
+    e = gw.estop_reach()
+    assert e['available'] is True and 'RuntimeError' in e['unknown']
 
 
 # ---- status and processes ---------------------------------------------------------------------

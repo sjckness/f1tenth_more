@@ -84,3 +84,26 @@ def test_no_mission_to_abort_counts_as_ok():
     assert not abort_ok('aborted mission x')    # a real abort answers success=True anyway
     rec = step_record('ok', 'x', 0.0123, call_ms=5)
     assert rec == {'status': 'ok', 'ok': True, 'message': 'x', 'duration_ms': 12, 'call_ms': 5}
+
+
+def test_the_mission_spec_carries_the_discovery_budget():
+    """
+    mission-load/start/status must give discovery the configured time.
+
+    The spec left discover_s out, so rosprobe fell back to its own 3 s. Under
+    the discovery server a fresh participant needs longer than that for the
+    transient-local /mission/status (6-10 s measured on the car), so every
+    mission was refused with "no /mission/status: is behavior running?" while
+    the BT had been publishing it all along. The callers allow 25 s.
+    """
+    from f1tenth_ctl import config
+
+    base = {f'F1T_{n.upper()}_CMD': 'true' for n in config.MANAGED}
+    settings = config.settings_from_env('ctl.env', {**base,
+                                                    'F1T_MISSION_DISCOVER_S': '12.5'})
+    spec = cli._mission_spec(settings, op='load', path='/tmp/m.json')
+    assert spec['discover_s'] == 12.5
+    assert spec['op'] == 'load'
+
+    # The default has to clear the measured discovery time, not the old 3 s.
+    assert config.settings_from_env('ctl.env', base).mission_discover_s >= 10.0

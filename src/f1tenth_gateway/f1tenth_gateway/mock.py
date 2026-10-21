@@ -73,6 +73,9 @@ class MockWorld:
         self.outcome_listeners = []
         self.teleop_others = 0
         self.mux_listens = True
+        # /mission/emergency_stop served: the e2e tests take it away to see
+        # the app say the e-stop is out of reach.
+        self.estop_service_ready = True
         self.path: List[tuple] = []
         self.path_version = 0
         self.bt_version = 1
@@ -92,6 +95,7 @@ class MockWorld:
             self.x, self.y, self.yaw, self.v = 0.0, 0.0, 0.0, 0.0
             self.cmd, self.teleop_t = (0.0, 0.0, 'mpc'), 0.0
             self.teleop_others, self.mux_listens = 0, True
+            self.estop_service_ready = True
             self.published.clear()
             self.current = {}
             self.plan_jobs = []
@@ -437,6 +441,12 @@ class MockRos:
     def teleop_graph(self) -> Dict:
         return {'subscribers': 1 if self.w.mux_listens else 0,
                 'other_publishers': self.w.teleop_others}
+
+    def estop_graph(self) -> Dict:
+        w = self.w
+        return {'zero_subscribers': 1 if w.mux_listens else 0,
+                'service_ready': w.estop_service_ready,
+                'abort_ready': w.estop_service_ready}
 
     def estop(self) -> Dict:
         w = self.w

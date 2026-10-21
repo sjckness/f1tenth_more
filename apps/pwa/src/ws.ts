@@ -1,14 +1,17 @@
 // The one WebSocket: auth first, ping every 500 ms, "connection lost" after 1.5 s of silence,
 // reconnect with backoff. Everything the gateway pushes lands in the store.
+import { api } from './api';
 import {
-  bt, conn, drive, hello, lastMsgAt, mapVersion, path, pushSpeed, rttMs, setMockMode, status, tel,
-  toast, token,
+  bt, conn, drive, gatewayUp, hello, lastMsgAt, mapVersion, path, pushSpeed, rttMs, setMockMode,
+  status, tel, toast, token,
 } from './store';
+import type { Status } from './store';
 
 let ws: WebSocket | null = null;
 let pingTimer: number | undefined;
 let watchTimer: number | undefined;
 let retryTimer: number | undefined;
+let statusTimer: number | undefined;
 let backoff = 500;
 let pingId = 0;
 const sentAt = new Map<number, number>();
@@ -29,6 +32,7 @@ function onMessage(ev: MessageEvent): void {
   let m: any;
   try { m = JSON.parse(ev.data); } catch { return; }
   lastMsgAt.value = performance.now();
+  gatewayUp.value = true;
   if (conn.value === 'lost') conn.value = 'online';
   switch (m.type) {
     case 'hello':
@@ -65,8 +69,29 @@ function onMessage(ev: MessageEvent): void {
   }
 }
 
+/**
+ * Keep the status coming while the WebSocket is down.
+ *
+ * Everything the screens read -- the mission, the READY checks, the e-stop's
+ * reach -- is pushed over the socket and nowhere else, so a socket that was
+ * down left the app with mission 'unknown' and no checks at all: the "nessuno
+ * stato" on the screen. REST is a separate connection and needs only the
+ * token, so poll it until the socket is back. Also the app's one liveness
+ * test for the gateway (gatewayUp), which EMERGENZA goes by.
+ */
+function pollStatusWhileOffline(): void {
+  clearInterval(statusTimer);
+  statusTimer = window.setInterval(() => {
+    if (!token.value || conn.value === 'online' || conn.value === 'unauthorized') return;
+    api<Status>('/api/status')
+      .then((s) => { status.value = s; gatewayUp.value = true; })
+      .catch(() => { gatewayUp.value = false; });
+  }, 2000);
+}
+
 export function connect(): void {
   if (!token.value) return;
+  pollStatusWhileOffline();
   clearTimeout(retryTimer);
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
   conn.value = conn.value === 'online' ? 'lost' : 'connecting';
@@ -105,6 +130,7 @@ export function connect(): void {
 export function disconnect(): void {
   clearInterval(pingTimer);
   clearInterval(watchTimer);
+  clearInterval(statusTimer);
   clearTimeout(retryTimer);
   const sock = ws;
   ws = null;

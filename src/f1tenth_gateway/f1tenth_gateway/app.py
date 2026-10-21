@@ -25,6 +25,7 @@ them:
 
 import asyncio
 from collections import deque
+import contextlib
 from concurrent.futures import ThreadPoolExecutor
 import hmac
 import json
@@ -253,6 +254,7 @@ class Gateway:
             'cpu_percent': system.get('cpu_percent'), 'cpu_temp_c': system.get('cpu_temp_c'),
             'drive': {'busy': self.teleop.holder is not None, 'blockers': self.drive_blockers()},
             'reset_allowed': self.reset_allowed(), 'transcription': self.transcriber.status(),
+            'estop': self.estop_reach(),
             'age_s': None if self.status_t is None else round(self.clock() - self.status_t, 1),
             'server_time': self.wall()}
 
@@ -274,6 +276,33 @@ class Gateway:
         return out
 
     # ---- preconditions -------------------------------------------------------------------------
+
+    def estop_reach(self) -> Dict:
+        """
+        Say whether an E-STOP would reach the car, for the app's button.
+
+        The app must never offer a button that cannot stop anything, and must
+        never hide one that can: this is about the graph (the mux subscribed
+        to /safety_stop, /mission/emergency_stop served), NOT about the
+        phone's WebSocket, which the e-stop does not go through -- /api/estop
+        is plain REST.
+
+        It fails OPEN. If the ROS port cannot answer at all we report
+        available, because f1tenth_ctl's own e-stop is still the fallback
+        (_estop_blocking) and a button that works is worth more than a
+        truthful label.
+        """
+        try:
+            graph = self.ros.estop_graph()
+        except Exception as exc:  # noqa: BLE001 - ROS not up yet
+            return {'available': True, 'why': None, 'unknown': f'{type(exc).__name__}: {exc}'}
+        missing = []
+        if not graph.get('service_ready'):
+            missing.append(self.ctl.estop_spec()['service'])
+        if graph.get('zero_subscribers', 0) < 1:
+            missing.append(self.ctl.estop_spec()['topic'])
+        return {'available': not missing, 'why': None if not missing else
+                'non raggiungibile: ' + ', '.join(missing), **graph}
 
     def drive_blockers(self) -> List[str]:
         why = []
@@ -794,7 +823,7 @@ def create_app(gw: Gateway) -> FastAPI:
             if op == 'set':
                 with w._lock:
                     for key in ('failing', 'battery_v', 'teleop_others', 'mux_listens',
-                                'countdown_s', 'move_s'):
+                                'countdown_s', 'move_s', 'estop_service_ready'):
                         if key in body:
                             setattr(w, key, body[key])
                     if 'estop_latched' in body:
@@ -834,20 +863,58 @@ def create_app(gw: Gateway) -> FastAPI:
 
     # ---- the WebSocket -------------------------------------------------------------------------
 
+    async def refuse(websocket: WebSocket, code: int, peer: str, why: str) -> None:
+        """
+        Close a WebSocket that never authenticated, and say why in the log.
+
+        Nothing used to be logged here, so every refusal was invisible: the
+        only trace was uvicorn's own 'Unexpected ASGI message websocket.close'
+        traceback when the client had already gone, which says nothing about
+        the cause. suppress() is for exactly that race.
+        """
+        log.warning('ws %s refused (%d): %s', peer, code, why)
+        with contextlib.suppress(RuntimeError):
+            await websocket.close(code=code)
+
     @app.websocket('/ws')
     async def ws(websocket: WebSocket):
+        # The close code is a contract with the app (ws.ts): 4401 means "this
+        # token is wrong", and on it the app stops reconnecting and goes back
+        # to the pairing screen. So 4401 is only ever for a token that was
+        # actually rejected. A handshake that timed out, came malformed or died
+        # with the client is a TRANSPORT failure and gets its own code, which
+        # the app retries -- otherwise one slow resume on the phone (iOS holds
+        # JS timers while the PWA is backgrounded, and ws_auth_timeout_s is
+        # 2 s) wedges it offline until a reload, with no mission status and
+        # EMERGENZA disabled.
         await websocket.accept()
+        peer = websocket.client.host if websocket.client else '?'
+        timeout_s = float(cfg['auth']['ws_auth_timeout_s'])
         try:
-            first = await asyncio.wait_for(websocket.receive_json(),
-                                           timeout=float(cfg['auth']['ws_auth_timeout_s']))
-            ok = first.get('type') == 'auth' and gw.check_token(str(first.get('token') or ''))
+            first = await asyncio.wait_for(websocket.receive_json(), timeout=timeout_s)
         except HTTPException:
-            await websocket.close(code=4429)
+            await refuse(websocket, 4429, peer, 'too many failures')
             return
-        except Exception:  # noqa: BLE001 - timeout, bad JSON, disconnect
-            ok = False
+        except asyncio.TimeoutError:
+            await refuse(websocket, 4408, peer, f'no auth message within {timeout_s:g} s')
+            return
+        except (WebSocketDisconnect, RuntimeError):
+            log.warning('ws %s: gone before it authenticated', peer)
+            return
+        except Exception as exc:  # noqa: BLE001 - bad JSON, anything else
+            await refuse(websocket, 4400, peer, f'unreadable auth message ({exc!r})')
+            return
+        if not isinstance(first, dict) or first.get('type') != 'auth':
+            kind = first.get('type') if isinstance(first, dict) else type(first).__name__
+            await refuse(websocket, 4400, peer, f'first message was {kind!r}, not auth')
+            return
+        try:
+            ok = gw.check_token(str(first.get('token') or ''))
+        except HTTPException:
+            await refuse(websocket, 4429, peer, 'too many failures')
+            return
         if not ok:
-            await websocket.close(code=4401)
+            await refuse(websocket, 4401, peer, 'token rejected')
             return
         user = websocket.headers.get('tailscale-user-login') or 'app'
         client = Client(websocket, user, gw.clock())

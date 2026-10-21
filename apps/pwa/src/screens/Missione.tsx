@@ -61,7 +61,9 @@ async function abort(): Promise<void> {
   }
 }
 
-function Mic({ disabled }: { disabled: boolean }) {
+const VOICE_OFF = ['unavailable', 'disabled'];
+
+function Mic({ disabled, off }: { disabled: boolean; off?: string | null }) {
   const [state, setState] = useState<'idle' | 'rec' | 'busy'>('idle');
   const rec = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -113,6 +115,25 @@ function Mic({ disabled }: { disabled: boolean }) {
       setState('idle');
     }
   };
+  // Voice the gateway cannot do at all: say so where the button is, instead of
+  // letting the user record and then showing the worker's own error.
+  if (off) {
+    return (
+      <div style={{ alignSelf: 'flex-end', width: '96px', display: 'flex',
+        flexDirection: 'column', alignItems: 'center', gap: '4px' }} data-testid="mic-off">
+        <button type="button" aria-label={off} disabled title={off}
+          style={{ width: '72px', height: '72px', borderRadius: '20px',
+            border: '1px solid var(--border)', background: 'var(--surface-2)', display: 'flex',
+            flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px',
+            opacity: 0.4 }}>
+          {Icon.mic()}
+          <span class="mono" style={{ fontSize: '9px', color: 'var(--muted)' }}>OFF</span>
+        </button>
+        <span style={{ fontSize: '10px', color: 'var(--muted)', textAlign: 'center',
+          lineHeight: 1.25 }}>{off}</span>
+      </div>
+    );
+  }
   return (
     <button type="button" aria-label="Tieni premuto per parlare" disabled={disabled || state === 'busy'}
       onPointerDown={down} onPointerUp={up} onPointerCancel={up} onContextMenu={(e) => e.preventDefault()}
@@ -288,7 +309,9 @@ export function Missione() {
                   borderRadius: '16px', color: 'var(--text)', fontFamily: 'var(--sans)', fontSize: '16px',
                   lineHeight: 1.4, padding: '12px 14px', outline: 'none' }} />
             </label>
-            <Mic disabled={!online.value || missionActive.value || drive.value.state === 'granted'} />
+            <Mic disabled={!online.value || missionActive.value || drive.value.state === 'granted'}
+              off={VOICE_OFF.includes(status.value?.transcription?.state ?? '')
+                ? 'voce non disponibile, usa la dettatura iOS' : null} />
           </div>
           <button type="button" class="btn primary" data-testid="plan"
             disabled={!online.value || planning.value || !text.value.trim()} onClick={makePlan}>

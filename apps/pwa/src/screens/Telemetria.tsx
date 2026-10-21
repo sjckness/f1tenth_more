@@ -2,7 +2,7 @@
 // the MPC's predicted horizon dashed (there is no raceline), speed over 30 s, the BT.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api';
-import { bt, mapVersion, path, speedHist, tel } from '../store';
+import { bt, mapVersion, missionActive, path, speedHist, tel } from '../store';
 import type { BtNode } from '../store';
 import { fmt } from '../components/ui';
 
@@ -106,8 +106,37 @@ const STATUS_STYLE: Record<string, { stroke: string; fill: string; color: string
   success: { stroke: '#34D27B', fill: 'rgba(52,210,123,0.12)', color: '#34D27B' },
   running: { stroke: '#ECEEF1', fill: 'rgba(236,238,241,0.10)', color: '#ECEEF1' },
   failure: { stroke: '#FF5A50', fill: 'rgba(255,90,80,0.12)', color: '#FF5A50' },
+  // A question answered "no", and anything failing on an idle car: not a
+  // fault, so not red. Readable as "false", distinct from idle (never ticked).
+  no: { stroke: '#5E6672', fill: 'rgba(94,102,114,0.10)', color: '#9099A6' },
   idle: { stroke: '#5E6672', fill: 'transparent', color: '#9099A6', dash: '4 3' },
 };
+const STATUS_LABEL: Record<string, string> = {
+  success: 'successo', running: 'in corso', failure: 'errore', no: 'falso', idle: 'inattivo',
+};
+
+// The stack names every condition Is*, Has*, or one of these three
+// (f1tenth_behavior/behaviours); any other leaf is an action.
+const CONDITIONS = new Set(['ObjectSeen', 'CheckStopCondition', 'MissionActive']);
+
+function isCondition(n: BtNode): boolean {
+  return !n.children.length && (/^(Is|Has)[A-Z]/.test(n.name) || CONDITIONS.has(n.name));
+}
+
+/**
+ * The style for a node, with red kept for failures that are really faults.
+ *
+ * Most of this tree answers questions, and FAILURE is how a condition says
+ * "no": IsProximityTooClose fails on every tick of a clear corridor,
+ * IsBatteryLow fails on a healthy battery, and the root Selector itself sits
+ * in FAILURE whenever the car is simply idle. Painting all of that red made a
+ * parked, healthy car look broken -- and left nothing to distinguish it from
+ * the one case that matters, an action or a composite giving up mid-mission.
+ */
+function styleOf(n: BtNode, running: boolean) {
+  if (n.status !== 'failure') return STATUS_STYLE[n.status] ?? STATUS_STYLE.idle;
+  return running && !isCondition(n) ? STATUS_STYLE.failure : STATUS_STYLE.no;
+}
 const KIND_MARK: Record<string, string> = { sequence: '→ ', selector: '? ', parallel: '⇉ ' };
 
 const BW = 104; const BH = 32; const GX = 12; const GY = 26;
@@ -176,7 +205,7 @@ function BtGraph() {
           {nodes.map((n) => {
             const p = pos.get(n.id);
             if (!p) return null;
-            const s = STATUS_STYLE[n.status] ?? STATUS_STYLE.idle;
+            const s = styleOf(n, missionActive.value);
             const name = (KIND_MARK[n.kind] ?? '') + n.name;
             return (
               <g key={n.id}>
@@ -190,9 +219,11 @@ function BtGraph() {
         </svg>
       </div>
       <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '11px', color: 'var(--muted)' }}>
-        {Object.entries(STATUS_STYLE).map(([k, s]) => (
-          <span key={k} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <span style={{ width: '10px', height: '10px', borderRadius: '3px', border: `1.5px ${s.dash ? 'dashed' : 'solid'} ${s.stroke}`, background: s.fill }} />{k}</span>))}
+        {Object.entries(STATUS_STYLE)
+          .filter(([k]) => k !== 'failure' || missionActive.value)
+          .map(([k, s]) => (
+            <span key={k} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: '10px', height: '10px', borderRadius: '3px', border: `1.5px ${s.dash ? 'dashed' : 'solid'} ${s.stroke}`, background: s.fill }} />{STATUS_LABEL[k] ?? k}</span>))}
       </div>
     </section>
   );
