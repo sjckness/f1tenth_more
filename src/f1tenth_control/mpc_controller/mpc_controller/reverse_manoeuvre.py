@@ -433,6 +433,7 @@ class ReverseSupervisor:
         self.travelled = 0.0
         self._stop_since: Optional[float] = None
         self._start: Optional[Tuple[float, float, float]] = None   # map frame
+        self._start_pose_odom: Optional[Tuple[float, float, float]] = None   # odom frame
         self._started_t = 0.0
         self._rear_fail = 0
         # Where (and facing which way) the car was stuck when the last reverse
@@ -636,6 +637,9 @@ class ReverseSupervisor:
         px, py = odom_to_map_point((x[0], x[1]), env.map_to_odom)
         yaw = float(x[2]) + (env.map_to_odom[2] if env.map_to_odom is not None else 0.0)
         self._start = (px, py, yaw)
+        # The distance travelled is counted from this anchor AND from the
+        # start pose in odom: see _reverse_tick.
+        self._start_pose_odom = (float(x[0]), float(x[1]), float(x[2]))
 
     def _start_odom(self, env: RearEnv):
         sx, sy, syaw = self._start
@@ -645,8 +649,22 @@ class ReverseSupervisor:
     def _reverse_tick(self, now, x, env: RearEnv) -> Command:
         cfg = self.cfg
         sx, sy, syaw = self._start_odom(env)
-        back = (-math.cos(syaw), -math.sin(syaw))
-        self.travelled = max(0.0, (x[0] - sx) * back[0] + (x[1] - sy) * back[1])
+        # DISTANCE: THE LARGER OF TWO COUNTS. The corridor stays anchored in
+        # map; how far the car has backed up is counted both as dead reckoning
+        # in odom from where the reverse began and as the displacement from the
+        # map anchor, and each can under-read on its own. Map -> odom can follow
+        # the car: the 2026-10-20 15:39 reverse ended on its 2.5 s timeout with
+        # less than 0.5 m counted through the map anchor while
+        # /odometry/filtered was 0.77 m back at that tick; on the 17:52-18:24
+        # reverses the map count sat at 0.000 for 1.0 s of motion and jumped up
+        # to 0.45 m in one tick. Odom can stop integrating while the
+        # localisation still sees the motion (vesc_driver zeroes speeds under
+        # its ERPM deadband). Either count can only shorten the reverse, never
+        # run it on past the strip the precheck validated.
+        ox, oy, oyaw = self._start_pose_odom
+        in_odom = -(x[0] - ox) * math.cos(oyaw) - (x[1] - oy) * math.sin(oyaw)
+        in_map = -(x[0] - sx) * math.cos(syaw) - (x[1] - sy) * math.sin(syaw)
+        self.travelled = max(0.0, in_odom, in_map)
         bx = x[0] - cfg.car_rear_offset_m * math.cos(x[2])
         by = x[1] - cfg.car_rear_offset_m * math.sin(x[2])
         remaining = max(self.requested - self.travelled, 0.0)

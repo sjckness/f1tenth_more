@@ -1,6 +1,7 @@
 # Reverse on `mpc_corr_v2_reverse` — status
 
-Last updated 2026-10-20, after the 15:37 run on the car.
+Last updated 2026-10-21 (night), from the mpc_corr and BT logs of the
+2026-10-20 runs in `~/.ros/log` on the Orin. Earlier text: after the 15:37 run.
 
 Two reverse mechanisms exist in the code and are **mutually exclusive** —
 `mpc_corr` refuses to start with both on (`validate_reverse_mechanisms`,
@@ -18,8 +19,14 @@ permission and no reverse can ever start).
 
 ## What works
 
-- **Reverse runs on the car.** Three manoeuvres in the 15:37 run, ending on
-  `timeout`, `bt_withdrawn: bt_disallowed` and `rear_clearance`.
+- **Reverse runs on the car, and odometry sees it.** The first two reverses of
+  the day, in the 15:33 run (15:35:05 and 15:35:10, BT log), both ended
+  `distance_done`. Three more in the 15:37 run, ending on `timeout`,
+  `bt_withdrawn: bt_disallowed` and `rear_clearance`, with
+  `/odometry/filtered` at -0.23 to -0.36 m/s throughout (`ODOM/hw` and
+  `SOLVE/in` lines). Thirteen more in the 17:52-18:24 runs, with
+  the per-tick `CTRL` line: 12 `distance_done`, 1 `rear_clearance`, `v_real`
+  -0.32 to -0.36 m/s for a -0.40 command, moving 0.18-0.21 s after it.
 - **The speed limit is lifted.** `max_reverse_speed_mps` 0.0 → 0.4, equal to
   `v_rev_mps`, so the manoeuvre's own permission check no longer refuses with
   `reverse_speed_limit`.
@@ -38,38 +45,50 @@ permission and no reverse can ever start).
 
 ## Open
 
-- **Odometry may not see the reverse.** `v_real` stayed at zero through all
-  three manoeuvres. The only deadband left in the chain is `vesc_driver`'s
-  `erpm_deadband: 500` (≈0.11 m/s, symmetric), which legitimately zeroes a
-  slower crawl. Window 1 ended on `timeout` rather than `distance_done`, so
-  `travelled` never reached 0.5 m — consistent with either a genuinely slow
-  reverse or a frozen odometry pose. **Undecided: no bag was recorded.**
-- **One reverse ended on `bt_disallowed` after 0.5 s.** The BT withdrew
-  permission mid-manoeuvre. Which condition fired is not in the log — the
-  candidates are a side/rear proximity trip or a front reading under
-  `front_hard_floor_m` (0.20 m), both of which call `blocks_reverse()`.
-- **VESC reverse ERPM polarity is unverified.** Whether the controller reports
-  *negative* ERPM when the wheels turn backwards has never been observed; every
-  sample on record is positive. `vesc_to_odom_backup.cpp` notes the sign may
-  depend on hall state. If reverse reads back as a positive speed, that is
-  where it comes from, and no code change in this repo will fix it.
-- **Steering during reverse is unaudited against data.** The model uses a
-  signed `v = -|v_rev|` and the rear corridor is expressed in the car's heading
-  frame, which agree; nothing in the output chain flips steering on a negative
-  speed. But no run has measured yaw rate during a reverse, so this is a code
-  argument, not a measurement.
+- **Resolved: "odometry may not see the reverse".** It did. "`v_real` stayed
+  at zero" came from the old `CTRL` line, which printed only forward ticks.
+  The `timeout` reverse (15:39:09) was 0.77 m back in odom at the timeout
+  tick (0.81 m at rest after braking), and the clearance to the obstacle
+  ahead grew 0.60 m; the `rear_clearance` one (15:39:28) was 0.71 m back at
+  the tick it ended (0.75 m at rest). Both passed 0.5 m without
+  `distance_done` because `travelled` was the displacement in MAP (the start
+  held in map, re-read through the current map -> odom): with odom 0.77 m
+  back at the timeout tick, a count under 0.5 m means map -> odom had moved at
+  least about 0.27 m with the car (inferred, the edge is not logged). On the
+  evening runs the same count sat at 0.000 for 1.0 s of motion and jumped up
+  to 0.45 m in one tick. `travelled` is now the larger of two counts: dead
+  reckoning in odom from the start pose, and the old map-anchored one, so
+  either can end the reverse and neither can stretch it past the 0.5 m strip
+  the precheck validated (odometry frozen under vesc_driver's ERPM deadband,
+  or map -> odom following the car). The rear corridor stays anchored in map
+  (`reverse_manoeuvre.py`, `_reverse_tick`).
+- **Resolved: the `bt_disallowed` reverse.** The BT log names it:
+  `/bt/allow_reverse False: IsProximityTooClose blocks the reverse` at
+  15:39:25.48, 0.20 s before the manoeuvre ended.
+- **Resolved: VESC reverse ERPM polarity.** Negative: `/odometry/filtered`
+  went to -0.36 m/s, and `vesc_to_odom_backup` is `(erpm - 0) / 4516.9`.
+- **Steering during reverse: one window agrees, no more.** The model uses a
+  signed `v = -|v_rev|` and nothing in the output chain flips steering on a
+  negative speed. In the 15:39:28 reverse (`SOLVE/in`, 15:39:29.4-30.7) the
+  EKF yaw fell 0.286 rad in 1.30 s (-0.22 rad/s) under a mean steering of
+  +0.197 rad at about -0.34 m/s; `v / L * tan(delta)` with L 0.305 m gives
+  -0.22 rad/s. Same sign, same size, one window.
 
 ## Next run
 
 ```
 ros2 bag record /drive /ackermann_drive /commands/motor/speed /commands/servo/position \
   /sensors/core /sensors/imu/raw /odom /odometry/filtered \
+  /tf /tf_static /ekf_global/odometry/filtered /slam/pose_calibrated \
   /mpc/reverse_status /bt/allow_reverse /mpc/drive_clamp
 ```
 
-`/sensors/core` settles the ERPM polarity, `/odom` and `/odometry/filtered`
-bracket the EKF, and `/sensors/imu/raw` gives the yaw rate the steering
-question needs. The `CTRL` line now reports every tick's published command with
+`/tf` (map -> odom from the global EKF), `/ekf_global/odometry/filtered` and
+`/slam/pose_calibrated` show directly whether map -> odom follows the car
+during a reverse, the one inferred link above. `/sensors/core`, `/odom` and
+`/odometry/filtered` bracket the EKF, and `/sensors/imu/raw` gives the yaw
+rate the steering question needs. Measure one reverse with a tape: odom moved
+0.81 m in the 15:39:09 reverse while the clearance ahead grew 0.60 m. The `CTRL` line now reports every tick's published command with
 its source and the manoeuvre's `travelled`, so the log alone answers what each
 reverse commanded.
 
