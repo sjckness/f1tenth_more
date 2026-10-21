@@ -27,9 +27,10 @@ tailscale serve :443 ──▶ 127.0.0.1:8770  f1tenth_gateway (uvicorn, unità 
 - **Carico dell'Orin** (`sysstats.py`, nel messaggio di stato, campo `system`):
   CPU totale e per core (`/proc/stat`, core online/offline), GPU % e frequenza,
   i processi vincolati a dei core (`Cpus_allowed_list`, cioè i `taskset -c` dei
-  launch) con il loro CPU %. Letto dal gateway stesso, a 1 Hz e solo con un
-  telefono collegato; i processi ogni 5 s. Niente jtop, tegrastats o sudo: solo
-  `/proc` e sysfs. GPU sull'Orin (L4T R36):
+  launch) con il loro CPU %; i thread del kernel sono contati a parte. Letto
+  dal gateway stesso, a 1 Hz e solo con un telefono collegato; i processi ogni
+  5 s. Niente jtop, tegrastats o sudo: solo `/proc` e sysfs. GPU sull'Orin
+  (L4T R36):
   `/sys/devices/platform/bus@0/17000000.gpu/load` (per mille) e
   `/sys/class/devfreq/17000000.gpu/cur_freq`; su linus `nvidia-smi`, altrimenti n/a.
 - **Missioni**:

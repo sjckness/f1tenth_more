@@ -16,14 +16,17 @@ the last sample (status_payload 'system').
   /sys/devices/platform/bus@0/17000000.gpu/load and
   /sys/class/devfreq/17000000.gpu. Without a Jetson GPU (linus), nvidia-smi
   if it is installed, run here (a pool thread, never the event loop) with a
-  1 s timeout, so at most once per sample; else n/a.
+  1 s timeout, so at most once per sample; else n/a. One stuck in the driver
+  (it outlives its SIGKILL) is left behind and nvidia-smi is off from then on.
 - Pinned processes, every PROCS_PERIOD_S: a process whose Cpus_allowed_list
   leaves out an online core (the launch files' `taskset -c` prefix,
   scripts/check_cpu_pinning.py). Kernel threads are left out: the per-CPU
   ones (ksoftirqd/N, migration/N, ...) are pinned by nature, 123 of them on
   the idle Orin, and would bury the stack's own. A process' CPU % is its
   utime + stime over the period, 100 = one core, as in top. Any process can go
-  away between two reads: it is then skipped, never an error.
+  away between two reads: it is then skipped, never an error. So is one on its
+  way out (a zombie, or no command line any more), which would otherwise show
+  up for one scan under its 15-character comm.
 """
 
 import glob
@@ -38,6 +41,7 @@ PROCS_PERIOD_S = 5.0
 STALE_S = 5.0                    # an older sample is not sent: nobody has been sampling
 NVIDIA_SMI_TIMEOUT_S = 1.0
 NVIDIA_SMI_RETRY_S = 30.0        # after a failure or a timeout
+NVIDIA_SMI_KILL_WAIT_S = 0.5     # for it to die after the timeout's SIGKILL
 CLK_TCK = os.sysconf('SC_CLK_TCK')
 
 GPU_LOAD_PATHS = (
@@ -51,6 +55,8 @@ GPU_LOAD_PATHS = (
 )
 GPU_DEVFREQ_NAMES = ('gpu', 'ga10b', 'gv11b', 'gp10b', 'gm20b')
 INTERPRETERS = re.compile(r'(python[0-9.]*|sh|bash|dash|zsh|perl|node)$')
+COMMAND_OPT = re.compile(r'-[A-Za-z]*c$')    # -c, bash -lc: a command string follows
+VALUE_OPTS = ('-W', '-X')                    # python options whose value is not the script
 
 
 # ---- parsing (pure: the tests feed it fixture files) ---------------------------------------
@@ -153,8 +159,9 @@ def friendly_name(cmdline: List[str], comm: str) -> str:
 
     The ROS node name (`__node:=` from launch's `-r`) first, then a launch
     file (`ros2 launch pkg x.launch.py`), then the program: the script an
-    interpreter runs, else the executable. The kernel's 15-character comm
-    when there is no command line (a zombie on its way out).
+    interpreter runs (sh -c: the command's first word; python -c: python),
+    else the executable. The kernel's 15-character comm when there is no
+    command line.
     """
     for arg in cmdline:
         if '__node:=' in arg:
@@ -175,6 +182,16 @@ def friendly_name(cmdline: List[str], comm: str) -> str:
         for arg in rest:
             if arg == '-m':
                 return next(rest, exe)
+            if COMMAND_OPT.match(arg):            # sh -c 'exe args': exe, never the whole string
+                words = next(rest, '').split()
+                if words[:1] == ['exec']:
+                    words = words[1:]
+                if exe.startswith('python') or not words:
+                    return exe
+                return os.path.basename(words[0])
+            if arg in VALUE_OPTS:
+                next(rest, None)
+                continue
             if arg.startswith('-'):
                 continue
             return os.path.basename(arg)
@@ -192,7 +209,7 @@ def scan_procs(proc: str, online: List[int]) -> Tuple[List[Dict], int, int]:
 
     pinned: [{pid, name, cores, ticks, start}] for every process that may not
     run on some online core. A process that goes away half way (status read,
-    stat gone) is skipped: it is in none of the three.
+    stat gone), or is on its way out, is skipped: it is in none of the three.
     """
     want = set(online)
     pinned, unpinned, kthreads = [], 0, 0
@@ -205,7 +222,7 @@ def scan_procs(proc: str, online: List[int]) -> Tuple[List[Dict], int, int]:
         try:
             st = parse_status(_read(base + '/status'))
             allowed = st.get('Cpus_allowed_list')
-            if allowed is None:
+            if allowed is None or st.get('State', '')[:1] in ('Z', 'X'):   # zombie, dead
                 continue
             if pid == 2 or st.get('PPid') == '2':   # kthreadd and its children
                 kthreads += 1
@@ -220,6 +237,8 @@ def scan_procs(proc: str, online: List[int]) -> Tuple[List[Dict], int, int]:
         except (OSError, ValueError, IndexError):  # gone between two reads, or a zombie
             continue
         cmdline = [a.decode('utf-8', 'replace') for a in raw.split(b'\0') if a]
+        if not cmdline:     # exiting: its memory, and with it the command line, already gone
+            continue
         pinned.append({'pid': pid, 'name': friendly_name(cmdline, st.get('Name', '?')),
                        'cores': cores, 'ticks': ticks, 'start': start})
     return pinned, unpinned, kthreads
@@ -343,13 +362,26 @@ class SysStats:
 
     def _nvidia_smi(self) -> Optional[Dict]:
         try:
-            res = subprocess.run(
+            proc = subprocess.Popen(
                 [self.smi, '--query-gpu=utilization.gpu,clocks.gr,clocks.max.gr',
                  '--format=csv,noheader,nounits'],
-                capture_output=True, text=True, timeout=NVIDIA_SMI_TIMEOUT_S, check=False)
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
         except (OSError, subprocess.SubprocessError):
             return None
-        return parse_nvidia_smi(res.stdout) if res.returncode == 0 else None
+        try:
+            out, _ = proc.communicate(timeout=NVIDIA_SMI_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            # Not subprocess.run: after the kill it waits for the child with no limit, and an
+            # nvidia-smi stuck in the driver (D state) outlives SIGKILL. The sample, and the
+            # pool thread the e-stop also uses, would never come back.
+            proc.kill()
+            try:
+                proc.wait(timeout=NVIDIA_SMI_KILL_WAIT_S)
+            except subprocess.TimeoutExpired:
+                self.smi = None                   # left behind; no more nvidia-smi this run
+            proc.stdout.close()
+            return None
+        return parse_nvidia_smi(out) if proc.returncode == 0 else None
 
     # ---- pinned processes ------------------------------------------------------------------
 
