@@ -114,8 +114,8 @@ BASE_FRAME = 'base_link'
 MASK_TOL_S = 0.12
 SCAN_TOL_S = 0.1
 OBJECT_TOL_S = 0.1
-#: The stamp search gives up after this many rows in a row that do not decode.
-UNDECODED_RUN = 8
+#: The stamp search gives up after this many rows in a row without a stamp.
+UNSTAMPED_RUN = 8
 
 #: The stack_params.yaml keys a rebuilt mask reads: front_clearance_node's
 #: mask and inferred-floor parameters, and the lidar_exclusion_* rectangle
@@ -370,13 +370,17 @@ class Topic:
             msg = self.decode(raw) if raw is not None else None
         except ValueError:
             msg = None
-        self._stamps[i] = self.stamp_of(msg) if msg is not None else None
+        stamp = self.stamp_of(msg) if msg is not None else None
+        # A zero stamp is an unstamped message (the last detection mask of
+        # corridor_obstacles_20261019T135307): no time to be found by.
+        self._stamps[i] = stamp if stamp is not None and stamp > 0.0 else None
         self._cache[i] = msg
         if len(self._cache) > self._cache_size:
             self._cache.popitem(last=False)
         return msg
 
     def stamp(self, i):
+        """Return row i's header stamp, or None (it does not decode, or is zero)."""
         if i not in self._stamps:
             self.message(i)
         return self._stamps[i]
@@ -390,8 +394,8 @@ class Topic:
         return self._lag
 
     def _key(self, i):
-        """Row i's stamp for the bisection; a row that does not decode takes the next one's."""
-        for j in range(i, min(i + UNDECODED_RUN, len(self.rows))):
+        """Row i's stamp for the bisection; a row without one takes the next row's."""
+        for j in range(i, min(i + UNSTAMPED_RUN, len(self.rows))):
             s = self.stamp(j)
             if s is not None:
                 return s
@@ -431,15 +435,15 @@ class Topic:
         first = self.first_at_or_after(t)
         best = None
         # Out from the bracket both ways until a stamp is past tol; a run of
-        # rows that do not decode ends the walk too.
+        # rows without a stamp ends the walk too.
         for start, step in ((first, 1), (first - 1, -1)):
-            i, undecoded = start, 0
-            while 0 <= i < n and undecoded < UNDECODED_RUN:
+            i, unstamped = start, 0
+            while 0 <= i < n and unstamped < UNSTAMPED_RUN:
                 s = self.stamp(i)
                 if s is None:
-                    undecoded += 1
+                    unstamped += 1
                 else:
-                    undecoded = 0
+                    unstamped = 0
                     if (s - t) * step > tol:
                         break
                     if abs(s - t) <= tol and (best is None or abs(s - t) < best[0]):

@@ -280,13 +280,16 @@ def test_a_message_is_found_by_its_stamp_however_late_it_was_received(tmp_path):
     # 20 Hz for 20 s, each message just its stamp. The recorder falls 0.7 s
     # behind for 2 s and catches up (/scan of corridor10m_20261019T131815
     # arrived -0.002 to 0.679 s after its stamp); then its clock runs at twice
-    # the stamps' rate (a sim at half real time). One message does not decode.
+    # the stamps' rate (a sim at half real time). One message does not decode,
+    # and the last is unstamped (corridor_obstacles_20261019T135307's last
+    # detection mask has a zero stamp).
     stamps = [100.0 + 0.05 * i for i in range(400)]
     rows, last = [], 0.0
     for i, s in enumerate(stamps):
         recv = s + (0.7 if 100 <= i < 140 else 0.0) if i < 200 else 1000.0 + 2.0 * (s - 110.0)
         last = max(recv, last + 1e-4)
         rows.append(('/x', 'test/Stamp', last, b'bad' if i == 50 else struct.pack('<d', s)))
+    rows.append(('/x', 'test/Stamp', last + 0.1, struct.pack('<d', 0.0)))
     _write_bag(tmp_path / 'run', rows)
     bag = mo.Bag([tmp_path / 'run' / 'bag' / 'bag_0.db3'])
     try:
