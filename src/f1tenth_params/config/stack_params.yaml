@@ -2855,6 +2855,35 @@ llama_server_cwd:
   default: /scratch/fabiocar/llama.cpp
   description: "Working directory llama-server is launched from (the llama.cpp project root, not the binary's own directory)."
 
+# ------------------------------------------------------------
+# LLM2 (two-llm-arch): a SECOND llama-server plus llm2_mpc_param_node, the
+# MPC-parameter interrogation (interrogations.yaml's llm2_mpc_params). OFF by
+# default; with enable_llm2 false stack_bringup.launch.py does not even load
+# llm2.launch.py, so the launch is the one it was before. Independent of
+# enable_intelligence (LLM1, the planner's server): enabling LLM2 starts
+# only the second server and the LLM2 node, never LLM1.
+# ------------------------------------------------------------
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py (includes
+# llm/launch/llm2.launch.py only when true).
+enable_llm2:
+  default: false
+  description: "true: start the second llama-server (llm2_model on llm2_port) and llm2_mpc_param_node. false (default): neither is started."
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_intelligence/llm/
+# launch/llm2.launch.py. Same .gguf file as LLM1's qwen25_3b_instruct, its own
+# entry because the second server is sized for one short request at a time
+# (see models.yaml).
+llm2_model:
+  default: qwen2.5-3b-instruct-q5km
+  description: "Model name key into llm/config/models.yaml for the LLM2 server (model_path, extra_args; its port field is NOT used, llm2_port is)."
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_intelligence/llm/
+# launch/llm2.launch.py. NOT 8083: that is LLM1's port (models.yaml
+# qwen25_3b_instruct, llm_planner_node's LLAMA_URL), and the 'intelligence'
+# component starts LLM1 by default, so a second server on 8083 could not bind.
+# llm2.launch.py also hands this port to llm2_mpc_param_node as server_url.
+llm2_port:
+  default: 8084
+  description: "TCP port of the LLM2 llama-server; llm2_mpc_param_node's server_url is built from it."
+
 # ============================================================
 # Simulation-flavored args of f1tenth_description/launch/description.launch.py --
 # Gazebo-specific in meaning, but this file is now included by BOTH f1tenth_sim

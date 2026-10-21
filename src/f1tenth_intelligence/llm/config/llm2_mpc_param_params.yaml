@@ -1,0 +1,9 @@
+# llm2_mpc_param_node (two-llm-arch, LLM2), interrogations.yaml's
+# llm2_mpc_params entry; loaded by llm2.launch.py. server_url is NOT set
+# here: llm2.launch.py injects it from the llm2_port launch argument, so the
+# port has one source of truth (stack_params.yaml's llm2_port).
+#
+# Placeholder until the node lands: the node's own parameters (rate,
+# timeout, mock parameter set) are added with it.
+/**:
+  ros__parameters: {}

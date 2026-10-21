@@ -29,3 +29,15 @@ planner:
   executable: llm_planner_node
   params_file: llm_planner_params.yaml
   default_model: qwen25_3b_instruct
+# LLM2 (two-llm-arch): MPC-parameter interrogation. Unlike `planner` above,
+# this one IS a long-running ROS node, and it is launched -- by llm2.launch.py
+# (stack_bringup's enable_llm2), never by llm.launch.py, which stays
+# server-only. llm2.launch.py reads executable/params_file from here and
+# starts the server with stack_params.yaml's llm2_model on llm2_port; it does
+# not use default_model, which is set for llm.launch.py's sake only (picking
+# interrogation:=llm2_mpc_params there serves the right file on the LLM2
+# entry's port).
+llm2_mpc_params:
+  executable: llm2_mpc_param_node
+  params_file: llm2_mpc_param_params.yaml
+  default_model: qwen2.5-3b-instruct-q5km

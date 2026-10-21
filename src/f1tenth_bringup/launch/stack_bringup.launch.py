@@ -29,6 +29,10 @@ docstring, "a working fallback") -- llm.launch.py is no longer reachable
 through it at all; use supervisor_bringup.launch.py's 'intelligence'
 component instead.)
 
+(enable_llm2 is unrelated to that: a real DeclareLaunchArgument, default
+false, that includes llm/launch/llm2.launch.py -- LLM2's own server and
+node, never LLM1's. See section 7.)
+
 (enable_safety_stop / safety_stop_controller retired -- the BT's own
 handle_obstacle lane, unconditional, already provides the same corridor-stop
 protection without needing an opt-in flag or a second obstacle-stop mechanism
@@ -65,7 +69,7 @@ from launch.actions import (
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch.conditions import UnlessCondition
+from launch.conditions import IfCondition, UnlessCondition
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -239,6 +243,29 @@ def generate_launch_description():
         include('f1tenth_diagnostics', 'diagnostics_server.launch.py'),
     ]
 
+    # LLM2 (two-llm-arch): the second llama-server + llm2_mpc_param_node, see
+    # llm/launch/llm2.launch.py. Real launch arguments (CLI-overridable),
+    # defaults from stack_params.yaml. With enable_llm2 false (the default)
+    # the include's condition is false and llm2.launch.py is never loaded, so
+    # the stack launches exactly as before. Starts ONLY those two processes:
+    # LLM1's server is not reachable through this file (see above).
+    enable_llm2_default, enable_llm2_desc = get_default('enable_llm2')
+    llm2_model_default, llm2_model_desc = get_default('llm2_model')
+    llm2_port_default, llm2_port_desc = get_default('llm2_port')
+    llm2_args = [
+        DeclareLaunchArgument(
+            'enable_llm2', default_value=str(enable_llm2_default).lower(),
+            description=enable_llm2_desc),
+        DeclareLaunchArgument(
+            'llm2_model', default_value=str(llm2_model_default), description=llm2_model_desc),
+        DeclareLaunchArgument(
+            'llm2_port', default_value=str(llm2_port_default), description=llm2_port_desc),
+    ]
+    llm2_bringup = include(
+        'llm', 'llm2.launch.py', condition=IfCondition(LaunchConfiguration('enable_llm2')),
+        llm2_model=LaunchConfiguration('llm2_model'),
+        llm2_port=LaunchConfiguration('llm2_port'))
+
     # ================================================================
     # 8. DEV TOOLS / VISUALIZATION
     # foxglove_bridge.launch.py is self-toggled via enable_foxglove (default true) --
@@ -270,6 +297,8 @@ def generate_launch_description():
         *command_control_bringup,
         *autonomy_bringup,
         *diagnostics_bringup,
+        *llm2_args,
+        llm2_bringup,
         foxglove_bringup,
         startup_sequence_bringup,
     ])
