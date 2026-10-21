@@ -1,0 +1,290 @@
+{
+ "checks": [
+  {
+   "name": "OK via tailscale while both answer (5-20 s)",
+   "ok": true,
+   "detail": [
+    [
+     "OK",
+     "tailscale"
+    ]
+   ]
+  },
+  {
+   "name": "local takes over when tailscale is silent (23-35 s)",
+   "ok": true,
+   "detail": [
+    [
+     "OK",
+     "local"
+    ]
+   ]
+  },
+  {
+   "name": "LOST when both are silent (38-49.5 s)",
+   "ok": true,
+   "detail": [
+    [
+     "LOST",
+     ""
+    ]
+   ]
+  },
+  {
+   "name": "DEGRADED with 35 % loss (53-65 s)",
+   "ok": true,
+   "detail": [
+    [
+     "DEGRADED",
+     "local"
+    ],
+    [
+     "DEGRADED",
+     "tailscale"
+    ]
+   ]
+  },
+  {
+   "name": "OK via tailscale at the end",
+   "ok": true,
+   "detail": [
+    "OK",
+    "tailscale"
+   ]
+  },
+  {
+   "name": "reconnect attempts only while LOST, never closer than retry_min_interval_s; new_cell while moving, time while parked",
+   "ok": true,
+   "detail": {
+    "nmcli_up_calls": 5,
+    "gaps_s": [
+     2.99,
+     2.5,
+     2.5,
+     2.0
+    ],
+    "triggers_seen": [
+     "new_cell",
+     "time"
+    ],
+    "nmcli_calls_total": 11,
+    "lost_s": [
+     37.2,
+     50.7
+    ]
+   }
+  },
+  {
+   "name": "no attempt after the link came back",
+   "ok": true,
+   "detail": 5
+  },
+  {
+   "name": "RSSI grid before the reset: levels, no-link cells, -1 for the rest",
+   "ok": true,
+   "detail": {
+    "size": [
+     11,
+     4
+    ],
+    "origin": [
+     0.0,
+     0.0
+    ],
+    "cells_level": 13,
+    "cells_no_link": 12,
+    "cells_no_link_beyond_x8": 7,
+    "cells_unknown": 19,
+    "level_min_max": [
+     1,
+     70
+    ]
+   }
+  },
+  {
+   "name": "RTT grid: same geometry, no-link cells match the RSSI grid",
+   "ok": true,
+   "detail": {
+    "cells_level": 13,
+    "cells_no_link": 12,
+    "cells_unknown": 19,
+    "level_max": 1
+   }
+  },
+  {
+   "name": "grids at most once per second",
+   "ok": true,
+   "detail": {
+    "messages": 68,
+    "min_gap_s": 0.997
+   }
+  },
+  {
+   "name": "cells JSON: every number, no-link samples on the LOST stretch",
+   "ok": true,
+   "detail": {
+    "cells": 25,
+    "counts": {
+     "samples": 79,
+     "tf_missing": 0,
+     "tf_stale": 0,
+     "rejected_extent": 0
+    },
+    "cells_with_no_link_samples_x_le_8": 5,
+    "example": {
+     "ix": 0,
+     "iy": 0,
+     "x": 0.5,
+     "y": 0.5,
+     "samples": 5,
+     "no_link": 0,
+     "no_link_cell": false,
+     "rssi_mean_dbm": -40.4,
+     "rssi_min_dbm": -42.0,
+     "rtt_p95_ms": 0.6,
+     "rtt_samples": 5,
+     "loss_pct": 25.0,
+     "rounds_answered": 6,
+     "rounds_lost": 2,
+     "first_t": 1792582203.013,
+     "last_t": 1792582261.012
+    }
+   }
+  },
+  {
+   "name": "reset empties the grid, then it grows again",
+   "ok": true,
+   "detail": {
+    "service": [
+     80.04,
+     true,
+     "cleared 25 cells"
+    ],
+    "first_after": [
+     1,
+     1
+    ],
+    "cells_at_end": 8
+   }
+  }
+ ],
+ "timeline": [
+  {
+   "t": 0.69,
+   "state": "DEGRADED",
+   "path": "",
+   "rtt_ms": null,
+   "loss_pct": null
+  },
+  {
+   "t": 1.19,
+   "state": "DEGRADED",
+   "path": "tailscale",
+   "rtt_ms": 0.2,
+   "loss_pct": 0.0
+  },
+  {
+   "t": 3.69,
+   "state": "OK",
+   "path": "tailscale",
+   "rtt_ms": 0.57,
+   "loss_pct": 0.0
+  },
+  {
+   "t": 21.19,
+   "state": "OK",
+   "path": "local",
+   "rtt_ms": 0.58,
+   "loss_pct": 0.0
+  },
+  {
+   "t": 36.19,
+   "state": "DEGRADED",
+   "path": "local",
+   "rtt_ms": 0.63,
+   "loss_pct": 0.0
+  },
+  {
+   "t": 37.19,
+   "state": "LOST",
+   "path": "",
+   "rtt_ms": null,
+   "loss_pct": 0.0
+  },
+  {
+   "t": 51.19,
+   "state": "DEGRADED",
+   "path": "tailscale",
+   "rtt_ms": 3.71,
+   "loss_pct": 94.1
+  },
+  {
+   "t": 52.69,
+   "state": "DEGRADED",
+   "path": "local",
+   "rtt_ms": 0.63,
+   "loss_pct": 78.9
+  },
+  {
+   "t": 56.19,
+   "state": "DEGRADED",
+   "path": "tailscale",
+   "rtt_ms": 0.59,
+   "loss_pct": 52.6
+  },
+  {
+   "t": 57.19,
+   "state": "DEGRADED",
+   "path": "local",
+   "rtt_ms": 0.6,
+   "loss_pct": 47.4
+  },
+  {
+   "t": 59.19,
+   "state": "DEGRADED",
+   "path": "tailscale",
+   "rtt_ms": 0.59,
+   "loss_pct": 31.6
+  },
+  {
+   "t": 64.69,
+   "state": "DEGRADED",
+   "path": "local",
+   "rtt_ms": 0.71,
+   "loss_pct": 10.0
+  },
+  {
+   "t": 68.19,
+   "state": "DEGRADED",
+   "path": "tailscale",
+   "rtt_ms": 0.58,
+   "loss_pct": 5.0
+  },
+  {
+   "t": 72.19,
+   "state": "OK",
+   "path": "tailscale",
+   "rtt_ms": 0.6,
+   "loss_pct": 0.0
+  }
+ ],
+ "cpu": {
+  "wifi_coverage_node": {
+   "steady_ok_pct_of_one_core": 1.06,
+   "whole_run_pct_of_one_core": 1.11,
+   "rss_mb": 59.5
+  },
+  "link_manager": {
+   "steady_ok_pct_of_one_core": 0.23,
+   "whole_run_pct_of_one_core": 0.39,
+   "rss_mb": 58.9
+  }
+ },
+ "tf_hz": 100.0,
+ "echoed": {
+  "tailscale": 116,
+  "local": 147
+ },
+ "python": "3.10.12",
+ "ros_distro": "humble"
+}

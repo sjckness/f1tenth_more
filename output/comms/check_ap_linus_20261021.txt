@@ -1,0 +1,17 @@
+== wlp4s0
+card:       Network controller: Realtek Semiconductor Co., Ltd. RTL8822CE 802.11ac PCIe Wireless Network Adapter
+driver:     rtw88_8822ce
+NM AP:      yes
+connection: eduroam
+uplink:     default route via wlp4s0
+phy:        phy0
+modes:      IBSS managed AP AP/VLAN monitor
+combos:     * #{ managed } <= 1, #{ AP } <= 1, total <= 2, #channels <= 1
+client on:  5280 MHz: 5280.0 MHz [56] (20.0 dBm) (radar detection)
+AP chans:   1 2 3 4 5 6 7 8 9 10 11 12 13 36 40 44 48 149 153 157 161 165   (no radar detection, no no-IR)
+
+== verdict
+AP mode:                    yes
+AP while connected (STA+AP): yes, on the client channel only (#channels <= 1)
+dedicated mode:             the radio carries the internet (wlp4s0): the car would get none
+concurrent mode:            NOT now: the client is on a radar/no-IR channel (5280 MHz)
