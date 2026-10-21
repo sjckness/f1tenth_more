@@ -1,9 +1,10 @@
 """
 LLM2's MPC-parameter updates, the pure half: mpc_controller/llm2_params.py.
 
-The whitelist (only cost weights, sane bounds), the validation of one update
-(whole message or nothing, no clamping), the one-slot pending store the
-control loop drains, and the startup warnings. No ROS. The node half -- no
+The whitelist (only cost weights, never w_obs, sane bounds), the validation
+of one update (whole message or nothing, no clamping, the reverse w_v limit),
+the one-slot pending store the control loop drains, and the startup warnings.
+No ROS. The node half -- no
 subscription when disabled, application only at the tick boundary -- is
 test_llm2_mpc_corr_node.py.
 
@@ -15,8 +16,8 @@ import threading
 
 from f1tenth_params.param_defaults import get_value
 from mpc_controller.llm2_params import (
-    build_whitelist, PendingUpdate, startup_warnings, tunable_weights, Update,
-    validate_update)
+    build_whitelist, PendingUpdate, reverse_w_v_limit, startup_warnings, tunable_weights,
+    Update, validate_update)
 import pytest
 
 # MPC_corr's self.weights keys (the _w() block in MPC_corr.__init__).
@@ -66,10 +67,17 @@ class TestOnlyCostWeightsCanBeWhitelisted:
         with pytest.raises(ValueError, match='not an MPC cost weight'):
             build_whitelist([name], [0.0], [1.0], _TUNABLE)
 
-    def test_every_weight_can_be_listed(self):
+    def test_every_weight_but_w_obs_can_be_listed(self):
         names = sorted(_TUNABLE)
         wl = build_whitelist(names, [0.0] * len(names), [1.0] * len(names), _TUNABLE)
-        assert set(wl) == {'mpc_' + key for key in _WEIGHT_KEYS}
+        assert set(wl) == {'mpc_' + key for key in _WEIGHT_KEYS if key != 'w_obs'}
+
+    def test_the_obstacle_weight_is_never_tunable(self):
+        # The obstacle cost has no hard row behind it: whitelisted with a
+        # minimum of 0, LLM2 could switch obstacle avoidance off.
+        assert 'mpc_w_obs' not in _TUNABLE
+        with pytest.raises(ValueError, match='never tunable'):
+            build_whitelist(['mpc_w_obs'], [0.0], [8.0], _TUNABLE)
 
     @pytest.mark.parametrize('names, mins, maxs, match', [
         (['mpc_w_v'], [1.0, 2.0], [3.0], 'not paired'),
@@ -120,6 +128,26 @@ class TestAnUpdateIsAllOrNothing:
         # returned to apply, and nothing is clamped into range.
         with pytest.raises(ValueError, match=match):
             validate_update(names, values, _WL)
+
+
+class TestTheReverseSpeedInvariant:
+    # reverse_mpc: w_rev >= 2 * w_v * vdes, so reversing never costs less than
+    # standing still. Shipped: 4.3 / (2 * 0.5) = 4.3, w_v today 4.2857.
+
+    def test_the_limit_is_w_rev_over_twice_vdes_and_none_without_reverse(self):
+        assert reverse_w_v_limit(4.3, 0.5) == pytest.approx(4.3)
+        assert reverse_w_v_limit(None, 0.5) is None
+        assert reverse_w_v_limit(4.3, 0.0) is None
+
+    def test_with_reverse_on_an_update_raising_w_v_past_the_limit_is_rejected_whole(self):
+        with pytest.raises(ValueError, match=r'w_rev / \(2 \* vdes\)'):
+            validate_update(['mpc_w_term', 'mpc_w_v'], [12.0, 4.31], _WL, w_v_limit=4.3)
+
+    def test_with_reverse_on_w_v_up_to_the_limit_passes(self):
+        assert validate_update(['mpc_w_v'], [4.3], _WL, w_v_limit=4.3) == {'mpc_w_v': 4.3}
+
+    def test_with_reverse_off_only_the_whitelist_range_applies(self):
+        assert validate_update(['mpc_w_v'], [10.0], _WL) == {'mpc_w_v': 10.0}
 
 
 class TestThePendingSlot:
@@ -187,3 +215,8 @@ class TestStartupWarnings:
         assert len(startup_warnings(_WL, current, w_rev=4.3, vdes=0.5)) == 1
         tight = {'mpc_w_v': (1.0, 4.3), 'mpc_w_term': (2.0, 20.0)}
         assert startup_warnings(tight, current, w_rev=4.3, vdes=0.5) == []
+
+    def test_a_current_w_v_already_past_the_reverse_limit_is_reported(self):
+        # Every update carrying mpc_w_v, the mock's echo included, is then rejected.
+        warnings = startup_warnings(_WL, {'mpc_w_v': 4.4}, w_rev=4.3, vdes=0.5)
+        assert len(warnings) == 2 and 'already above' in warnings[1]

@@ -2892,22 +2892,28 @@ llm2_port:
 # default (get_value).
 llm2_params_enabled:
   default: false
-  description: "true: mpc_corr subscribes to /llm2/mpc_params, applies a valid update at the start of the next control tick (through its declared mpc_w_* parameters, so ros2 param get shows the live value) and echoes it on /mpc/applied_params. false (default): no subscription at all; the controller is unchanged."
+  description: "true: mpc_corr subscribes to /llm2/mpc_params, applies a valid update at the start of the next control tick (through its declared mpc_w_* parameters, so ros2 param get shows the live value) and echoes it on /mpc/applied_params. false (default): no subscription at all; the controller is unchanged. Read-only at run time: changing it needs a restart of mpc_corr."
 # The whitelist: three parallel lists, one entry per parameter LLM2 may change,
 # bounds in DECLARED units (the numbers under MPC COST WEIGHTS, BEFORE the 7/N
-# stage scaling). Only mpc_w_* cost weights can be listed: any other name
-# refuses mpc_corr's start. An update with a name not listed here, a NaN or a
-# value outside [min, max] is rejected WHOLE, never clamped.
+# stage scaling). Only mpc_w_* cost weights can be listed, and never
+# mpc_w_obs: any other name refuses mpc_corr's start. An update with a name
+# not listed here, a NaN or a value outside [min, max] is rejected WHOLE,
+# never clamped. With allow_reverse on, so is an update raising mpc_w_v above
+# w_rev / (2 * vdes) (4.3 with the defaults), whatever llm2_param_max says:
+# reverse_mpc relies on w_rev >= 2 * w_v * vdes.
 # Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read
-# only when llm2_params_enabled is true. No launch args (lists); override with
-# a params file or -p.
+# only when llm2_params_enabled is true, once, as read-only parameters (a
+# runtime `ros2 param set` is refused; restart mpc_corr). No launch args
+# (lists); override with a params file or -p.
 #
 # The default set is the cost-SHAPE weights, each ~0.25x-2.5x of today's value
 # (output/two_llm/recon.md section 4); mpc_w_du_delta's maximum is its
 # rho/sigma^2 derivation, 23.8095, rounded up to 23.81. Left out on purpose:
 #   vdes         not a parameter: per-move mission state, set from each move's
 #                own speed, so an "unchanged" 0.5 would change a 0.4 m/s move
-#   mpc_w_obs    obstacle soft-deflection, a safety term
+#   mpc_w_obs    NEVER listable (refuses the start): the obstacle cost has no
+#                hard row behind it (the costmap boundary rows are soft by
+#                default), so near 0 it switches obstacle avoidance off
 #   mpc_w_line   always overridden by mpc_arc_line_sigma_m where it acts
 #   mpc_w_delta0, mpc_w_u_a, mpc_w_du_a   zero on purpose (see MPC COST WEIGHTS)
 # Every value llm2_mpc_param_node mocks (llm/config/llm2_mpc_param_params.yaml)

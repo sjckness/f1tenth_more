@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.node import Node
 from rclpy.parameter import Parameter
@@ -41,8 +42,8 @@ from f1tenth_params.corridor_geometry import (
 from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
 from mpc_controller.llm2_params import (
-    APPLIED_PARAMS_TOPIC, build_whitelist, LLM2_PARAMS_TOPIC, PendingUpdate, startup_warnings,
-    tunable_weights, Update, validate_update)
+    APPLIED_PARAMS_TOPIC, build_whitelist, LLM2_PARAMS_TOPIC, PendingUpdate,
+    reverse_w_v_limit, startup_warnings, tunable_weights, Update, validate_update)
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
 from mpc_controller.stop_profile import (
@@ -6969,15 +6970,22 @@ class MPCController(Node):
         reverse mechanisms do. Updates are then parked by
         _llm2_params_callback and applied by _llm2_apply_pending at the top of
         control_loop. The rules are in mpc_controller/llm2_params.py.
+
+        All four are READ-ONLY parameters: they are read here once, so a
+        runtime `ros2 param set` (switching LLM2 off, tightening a bound) is
+        refused with a reason instead of being accepted, shown by `ros2 param
+        get` and ignored. Changing them takes a restart of mpc_corr.
         """
         self._llm2_pending = None
+        fixed = ParameterDescriptor(
+            read_only=True, description='LLM2 (two-llm-arch): read once at start')
         if not bool(self.declare_parameter(
-                'llm2_params_enabled', get_value('llm2_params_enabled')).value):
+                'llm2_params_enabled', get_value('llm2_params_enabled'), fixed).value):
             return
         names = self.declare_parameter(
-            'llm2_param_whitelist', get_value('llm2_param_whitelist')).value
-        mins = self.declare_parameter('llm2_param_min', get_value('llm2_param_min')).value
-        maxs = self.declare_parameter('llm2_param_max', get_value('llm2_param_max')).value
+            'llm2_param_whitelist', get_value('llm2_param_whitelist'), fixed).value
+        mins = self.declare_parameter('llm2_param_min', get_value('llm2_param_min'), fixed).value
+        maxs = self.declare_parameter('llm2_param_max', get_value('llm2_param_max'), fixed).value
         self._llm2_tunable = tunable_weights(self.weights)
         try:
             self._llm2_whitelist = build_whitelist(names, mins, maxs, self._llm2_tunable)
@@ -6986,11 +6994,14 @@ class MPCController(Node):
             raise
         current = {name: self.weights[self._llm2_tunable[name]]
                    for name in self._llm2_whitelist}
+        # With allow_reverse on, an update raising mpc_w_v past w_rev /
+        # (2 * vdes_default) is rejected (reverse_mpc's invariant). Against
+        # vdes_default, the speed the shipped w_rev was sized for.
         planner = self.reverse_planner
+        w_rev = planner.cfg.w_rev if planner is not None else None
+        self._llm2_w_v_limit = reverse_w_v_limit(w_rev, self.vdes_default)
         for warning in startup_warnings(
-                self._llm2_whitelist, current,
-                w_rev=planner.cfg.w_rev if planner is not None else None,
-                vdes=self.vdes_default):
+                self._llm2_whitelist, current, w_rev=w_rev, vdes=self.vdes_default):
             self.get_logger().warn(f'LLM2 | {warning}')
         self._llm2_pending = PendingUpdate()
         self.llm2_applied_pub = self.create_publisher(MpcParamUpdate, APPLIED_PARAMS_TOPIC, 10)
@@ -7012,7 +7023,8 @@ class MPCController(Node):
         parked.
         """
         try:
-            values = validate_update(msg.names, msg.values, self._llm2_whitelist)
+            values = validate_update(msg.names, msg.values, self._llm2_whitelist,
+                                     w_v_limit=self._llm2_w_v_limit)
         except ValueError as exc:
             self.get_logger().warn(
                 f'LLM2 | REJECTED seq={msg.seq} source={msg.source!r}, whole update, '
@@ -7022,7 +7034,8 @@ class MPCController(Node):
         if merged_over is not None:
             self.get_logger().warn(
                 f'LLM2 | seq={msg.seq} merged over seq={merged_over}, which no tick '
-                f'had applied yet')
+                f'had applied yet: seq={merged_over} will not appear on '
+                f'{APPLIED_PARAMS_TOPIC}, its values go out under seq={msg.seq}')
 
     def _llm2_apply_pending(self):
         """

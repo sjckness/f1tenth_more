@@ -15,8 +15,17 @@ may be applied and holds it until the control loop applies it.
     MPC_corr's mpc_w_* parameters, i.e. a key of its self.weights. A whitelist
     naming anything else -- car_radius, avoidance_margin, the steering limits
     and rate bounds, the boundary flags, corridor geometry, vdes -- refuses
-    the node's start. A cost weight only reshapes the objective; the hard
-    constraints still bound every solution.
+    the node's start. Such a weight only reshapes the objective: the input
+    and speed boxes and the corridor's lateral bound stay hard rows of the
+    QP. NOT mpc_w_obs: the obstacle cost has no hard row behind it (the
+    costmap boundary rows are soft by default), so w_obs near 0 would switch
+    obstacle avoidance off. It is refused like a safety parameter
+    (NEVER_TUNABLE_WEIGHTS).
+  - WITH allow_reverse ON, an update may not raise mpc_w_v past
+    w_rev / (2 * vdes_default): reverse_mpc relies on w_rev >= 2 * w_v * vdes
+    so that reversing never costs less than standing still on the speed term
+    alone. Such an update is rejected whole like any other bad value
+    (validate_update's w_v_limit).
   - AN UPDATE IS ALL OR NOTHING. One name that is not whitelisted, one value
     that is not a finite number or lies outside its [min, max], rejects the
     WHOLE message. Nothing is clamped: a clamped value is a value nobody
@@ -37,6 +46,10 @@ from typing import Dict, List, Mapping, NamedTuple, Optional, Tuple
 LLM2_PARAMS_TOPIC = '/llm2/mpc_params'
 APPLIED_PARAMS_TOPIC = '/mpc/applied_params'
 
+#: self.weights keys that are cost weights but must never be tuned: w_obs, the
+#: obstacle cost, has no hard obstacle row behind it.
+NEVER_TUNABLE_WEIGHTS = frozenset({'w_obs'})
+
 
 class Update(NamedTuple):
     """One validated update: the sender's seq and source, {parameter name: value}."""
@@ -50,10 +63,11 @@ def tunable_weights(weights: Mapping[str, float]) -> Dict[str, str]:
     """
     Map every ROS parameter LLM2 could ever change to its self.weights key.
 
-    The cost weights and nothing else: MPC_corr declares weights[key] as the
-    parameter 'mpc_' + key (w_term -> mpc_w_term).
+    The cost weights and nothing else, NEVER_TUNABLE_WEIGHTS left out:
+    MPC_corr declares weights[key] as the parameter 'mpc_' + key
+    (w_term -> mpc_w_term).
     """
-    return {'mpc_' + key: key for key in weights}
+    return {'mpc_' + key: key for key in weights if key not in NEVER_TUNABLE_WEIGHTS}
 
 
 def build_whitelist(names, mins, maxs,
@@ -63,9 +77,9 @@ def build_whitelist(names, mins, maxs,
 
     Raises ValueError on a whitelist that cannot be applied as written:
     unpaired lists, an empty list, a repeated name, a name that is not a cost
-    weight, a bound that is not finite, a negative minimum (a negative weight
-    rewards the error it should charge, and the QP stops being convex), or
-    min > max.
+    weight or is a NEVER_TUNABLE_WEIGHTS one, a bound that is not finite, a
+    negative minimum (a negative weight rewards the error it should charge,
+    and the QP stops being convex), or min > max.
     """
     names, mins, maxs = list(names), list(mins), list(maxs)
     if not len(names) == len(mins) == len(maxs):
@@ -78,6 +92,10 @@ def build_whitelist(names, mins, maxs,
     for name, lo, hi in zip(names, mins, maxs):
         if name in whitelist:
             raise ValueError(f'{name!r} is listed twice in llm2_param_whitelist')
+        if name in {'mpc_' + key for key in NEVER_TUNABLE_WEIGHTS}:
+            raise ValueError(
+                f'{name!r} is never tunable: the obstacle cost has no hard obstacle '
+                f'row behind it, so a low value switches obstacle avoidance off')
         if name not in tunable:
             raise ValueError(
                 f'{name!r} is not an MPC cost weight; only these can be '
@@ -93,15 +111,30 @@ def build_whitelist(names, mins, maxs,
     return whitelist
 
 
-def validate_update(names, values,
-                    whitelist: Mapping[str, Tuple[float, float]]) -> Dict[str, float]:
+def reverse_w_v_limit(w_rev: Optional[float], vdes: Optional[float]) -> Optional[float]:
+    """
+    Return the largest mpc_w_v reverse_mpc's invariant allows, w_rev / (2 * vdes).
+
+    reverse_mpc relies on w_rev >= 2 * w_v * vdes: reversing never costs less
+    than standing still on the speed term alone. None when there is no
+    reverse planner (w_rev None) or no positive vdes: nothing to hold.
+    """
+    if w_rev is None or not vdes or vdes <= 0.0:
+        return None
+    return float(w_rev) / (2.0 * float(vdes))
+
+
+def validate_update(names, values, whitelist: Mapping[str, Tuple[float, float]],
+                    w_v_limit: Optional[float] = None) -> Dict[str, float]:
     """
     Return {name: value} for an update that may be applied as a whole.
 
     Raises ValueError, saying why, for anything else: unpaired names/values,
     no names, a repeated name, a name not in the whitelist, a value that is
     not a number (bool included), not finite, or outside its [min, max]
-    (bounds inclusive). One bad entry rejects the whole update.
+    (bounds inclusive), or -- w_v_limit given, i.e. allow_reverse on -- an
+    mpc_w_v above w_v_limit (reverse_w_v_limit). One bad entry rejects the
+    whole update.
     """
     names, values = list(names), list(values)
     if len(names) != len(values):
@@ -122,6 +155,10 @@ def validate_update(names, values,
         lo, hi = whitelist[name]
         if not lo <= value <= hi:
             raise ValueError(f'{name}={value:g} is outside [{lo:g}, {hi:g}]')
+        if name == 'mpc_w_v' and w_v_limit is not None and value > w_v_limit:
+            raise ValueError(
+                f'{name}={value:g} is above {w_v_limit:g} = w_rev / (2 * vdes): with '
+                f'allow_reverse on, reversing would cost less than standing still')
         update[name] = value
     return update
 
@@ -135,10 +172,11 @@ def startup_warnings(whitelist: Mapping[str, Tuple[float, float]],
 
     - A current value outside its own range: an update echoing it unchanged
       (the mock) would be rejected every time.
-    - With allow_reverse's planner on (w_rev and vdes given): reverse_mpc
-      relies on w_rev >= 2 * w_v * vdes, so that reversing never costs less
-      than standing still on the speed term alone. A whitelisted mpc_w_v
-      maximum above w_rev / (2 * vdes) lets an update break that.
+    - With allow_reverse's planner on (w_rev and vdes given): a whitelisted
+      mpc_w_v maximum above reverse_w_v_limit. Not refused -- validate_update
+      rejects every update past the limit -- but the whitelist range is then
+      not the range that applies. And a current mpc_w_v already above it:
+      every update carrying mpc_w_v (the mock's echo too) is rejected.
     """
     warnings = []
     for name, (lo, hi) in whitelist.items():
@@ -146,13 +184,18 @@ def startup_warnings(whitelist: Mapping[str, Tuple[float, float]],
             warnings.append(
                 f'{name} is {current[name]:g}, outside its whitelist range '
                 f'[{lo:g}, {hi:g}]: an update repeating it would be rejected')
-    if w_rev is not None and vdes and 'mpc_w_v' in whitelist:
-        limit = float(w_rev) / (2.0 * float(vdes))
+    limit = reverse_w_v_limit(w_rev, vdes)
+    if limit is not None and 'mpc_w_v' in whitelist:
         if whitelist['mpc_w_v'][1] > limit:
             warnings.append(
-                f'allow_reverse is on and mpc_w_v may go up to '
-                f'{whitelist["mpc_w_v"][1]:g}, above w_rev / (2 * vdes) = {limit:g}: '
-                f'past that, reversing can cost less than standing still')
+                f'allow_reverse is on: an update with mpc_w_v above w_rev / (2 * vdes) '
+                f'= {limit:g} is rejected whole, although the whitelist allows up to '
+                f'{whitelist["mpc_w_v"][1]:g} (past {limit:g}, reversing would cost '
+                f'less than standing still)')
+        if current.get('mpc_w_v', 0.0) > limit:
+            warnings.append(
+                f'allow_reverse is on and mpc_w_v is {current["mpc_w_v"]:g}, already above '
+                f'w_rev / (2 * vdes) = {limit:g}: every update carrying mpc_w_v is rejected')
     return warnings
 
 
@@ -165,6 +208,8 @@ class PendingUpdate:
     (per name the newer value wins; seq and source are the newer one's): each
     passed validation on its own and the ranges are per name, so the merge is
     valid too, and a partial update is not lost to the one that follows it.
+    The older seq then never appears on /mpc/applied_params; put() returns it
+    so the caller can log it.
     """
 
     def __init__(self):

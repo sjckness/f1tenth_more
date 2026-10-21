@@ -13,7 +13,11 @@ topics, no stack. Updates go straight into the subscription callback; the
     in self.weights (what the solver reads), in the declared parameter (what
     `ros2 param get` reads) and on /mpc/applied_params with the same seq;
   - a rejected update changes nothing, and does not displace a valid one;
-  - a whitelist naming a safety parameter refuses the start.
+  - with allow_reverse on, an update raising mpc_w_v past w_rev / (2 vdes)
+    is rejected;
+  - the switch and the whitelist are read-only: a runtime `ros2 param set`
+    is refused, not accepted and ignored;
+  - a whitelist naming a safety parameter, or mpc_w_obs, refuses the start.
 
 Run standalone: python3 -m pytest test/test_llm2_mpc_corr_node.py -v
 """
@@ -173,7 +177,54 @@ def test_a_rejected_update_does_not_displace_a_parked_valid_one(make_node):
     assert [m.seq for m in applied] == [1]
 
 
-def test_a_whitelist_naming_a_safety_parameter_refuses_the_start(make_node):
-    with pytest.raises(ValueError, match='not an MPC cost weight'):
-        make_node(llm2_params_enabled='true', llm2_param_whitelist="['car_radius']",
+def test_with_allow_reverse_on_an_update_raising_w_v_past_the_invariant_is_rejected(
+        make_node):
+    # reverse_mpc: w_rev >= 2 * w_v * vdes. Shipped: 4.3 / (2 * 0.5) = 4.3,
+    # inside the whitelist's [1, 10] for mpc_w_v.
+    node = make_node(llm2_params_enabled='true', allow_reverse='true',
+                     reverse_auto_enabled='false')
+    assert node.reverse_planner is not None
+    applied = []
+    node.llm2_applied_pub.publish = applied.append
+    node._llm2_params_callback(_update(1, mpc_w_v=10.0))
+    node.control_loop()
+    assert node.weights['w_v'] == _W_V and applied == []
+    node._llm2_params_callback(_update(2, mpc_w_v=4.0))
+    node.control_loop()
+    assert node.weights['w_v'] == 4.0 and [m.seq for m in applied] == [2]
+
+
+def test_a_runtime_param_set_cannot_switch_llm2_off_or_change_the_whitelist(make_node):
+    from rclpy.parameter import Parameter
+    node, applied = _enabled(make_node)
+    max_w_v = list(node.get_parameter('llm2_param_max').value)
+    tighter = [min(v, 5.0) for v in max_w_v]
+    results = node.set_parameters([
+        Parameter('llm2_params_enabled', Parameter.Type.BOOL, False),
+        Parameter('llm2_param_max', Parameter.Type.DOUBLE_ARRAY, tighter)])
+    assert [r.successful for r in results] == [False, False]
+    assert all('read-only' in r.reason for r in results)
+    # What `ros2 param get` shows is what is in force.
+    assert node.get_parameter('llm2_params_enabled').value is True
+    assert list(node.get_parameter('llm2_param_max').value) == max_w_v
+    node._llm2_params_callback(_update(4, mpc_w_v=9.0))
+    node.control_loop()
+    assert node.weights['w_v'] == 9.0 and [m.seq for m in applied] == [4]
+
+
+def test_a_runtime_param_set_cannot_switch_llm2_on(make_node):
+    from rclpy.parameter import Parameter
+    node = make_node()
+    (result,) = node.set_parameters([Parameter('llm2_params_enabled', Parameter.Type.BOOL, True)])
+    assert not result.successful
+    assert node.get_parameter('llm2_params_enabled').value is False
+
+
+@pytest.mark.parametrize('name, match', [
+    ('car_radius', 'not an MPC cost weight'),
+    ('mpc_w_obs', 'never tunable'),
+])
+def test_a_whitelist_naming_a_safety_parameter_refuses_the_start(make_node, name, match):
+    with pytest.raises(ValueError, match=match):
+        make_node(llm2_params_enabled='true', llm2_param_whitelist=f"['{name}']",
                   llm2_param_min='[0.0]', llm2_param_max='[1.0]')
