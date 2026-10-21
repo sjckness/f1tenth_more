@@ -151,7 +151,8 @@ by hand); a gateway that cannot reach it should show LLM2 as not running.
   /llm2_mpc_param_node start_active ...` is refused ("Trying to set a
   read-only parameter") instead of being accepted and ignored.
 - The pause is atomic against the publish: once the service has answered
-  `paused`, nothing more is published on `/llm2/mpc_params`.
+  `paused`, nothing more is published on `/llm2/mpc_params`, and every status
+  published from then on says `"state": "paused"`.
 
 ### `/llm2/status` JSON, exactly (for the gateway)
 
@@ -169,8 +170,8 @@ no value. A real paused tick:
 
 | Key | Values |
 |---|---|
-| `state` | `"active"` / `"paused"`: the node's state when this status was published. **The one key a UI toggle reads.** It changes on the next status after a `/llm2/set_active` call (every `1/rate_hz` = 2 s, or when an in-flight reply comes back); the service response carries the new state at once. |
-| `outcome` | What happened to this tick: `ok` (valid reply, published), `invalid`, `timeout`, `error`, `skipped` (active, previous request still in flight), `paused` (paused, nothing sent), `discarded` (the request was in flight at a pause, reply dropped). `outcome` and `state` are separate: a `discarded` status can carry `state` `active` (resumed before the reply came back). |
+| `state` | `"active"` / `"paused"`: the node's state when this status was published. It is read and published under the lock `/llm2/set_active` takes, so every status published after the service has answered carries the new state. **The one key a UI toggle reads.** It changes on the next status after a `/llm2/set_active` call (every `1/rate_hz` = 2 s, or when an in-flight reply comes back); the service response carries the new state at once. A status published just before the call can still reach the gateway after the response (topic and service are separate channels), so a gateway should take the response's `message` as the state and trust it over a status that arrives less than one period after the call. |
+| `outcome` | What happened to this tick: `ok` (valid reply, published), `invalid`, `timeout`, `error`, `skipped` (active, previous request still in flight), `paused` (paused, nothing sent), `discarded` (the request was in flight at a pause, reply dropped). `outcome` and `state` are separate: a `discarded` status can carry `state` `active` (resumed before the reply came back), and an `ok` status can carry `state` `paused` (its update went out just before the pause was answered). |
 | `seq` | The tick number (`uint32`, wraps), shared with `MpcParamUpdate.seq`. Paused ticks advance it too. |
 | `in_flight_seq` | For `skipped` and `paused`: the request still running, or `null`. |
 | `counters` | Cumulative since the node started: `ok`, `invalid`, `timeout`, `error`, `skipped`, `paused`, `discarded`, and `echo_match` (a subset of `ok`). Every tick ends in exactly one of the first seven, so their sum is the number of ticks reported. `skipped` keeps its meaning (an active tick that found a request in flight); a paused tick is never a skip. |
@@ -443,7 +444,7 @@ ros2 topic echo /llm2/status        # back to "outcome": "ok", "state": "active"
 | File | What it pins |
 |---|---|
 | `llm/test/test_llm2_protocol.py` | JSON validation (exact echo, changed value, 15 invalid replies), refused mock sets, request body (greedy, `cache_prompt`, exact-key schema, stable prefix), skip-when-in-flight on the gate (8 concurrent ticks start exactly 1 request), fake HTTP server: exact JSON with timings, timeout, invalid content, HTTP 503, closed port |
-| `llm/test/test_llm2_mpc_param_node.py` | The real node against the fake server, ticks by hand: publishes the echo (source, seq, names, values), publishes a valid non-echo as returned with `echo_match` false, skips while in flight, publishes nothing on an invalid reply, warm-up then short timeout, refuses unpaired lists; pause / resume through the `/llm2/set_active` callback: paused → no request, nothing on `/llm2/mpc_params`, status `paused` every tick (not counted as skipped), pausing twice is fine, resume → requests and publication restart; a reply in flight at the pause is discarded (also when resumed before it comes back); `start_active` false starts paused and a parameter set cannot resume it; config couplings (params file == `MOCK_PARAMS` == stack_params.yaml; shipped `start_active` true; the interrogation entry) |
+| `llm/test/test_llm2_mpc_param_node.py` | The real node against the fake server, ticks by hand: publishes the echo (source, seq, names, values), publishes a valid non-echo as returned with `echo_match` false, skips while in flight, publishes nothing on an invalid reply, warm-up then short timeout, refuses unpaired lists; pause / resume through the `/llm2/set_active` callback: paused → no request, nothing on `/llm2/mpc_params`, status `paused` every tick (not counted as skipped), pausing twice is fine, resume → requests and publication restart; a reply in flight at the pause is discarded (also when resumed before it comes back); a status published after the pause answer says `paused`; the service is served as `/llm2/set_active`, `std_srvs/SetBool`, with the tested callback; `start_active` false starts paused and a parameter set cannot resume it; config couplings (params file == `MOCK_PARAMS` == stack_params.yaml; shipped `start_active` true; the interrogation entry) |
 | `llm/test/test_llm2_launch.py` | `enable_llm2` defaults to false in stack_params.yaml; shipped `llm2_port` is not LLM1's; `llm2.launch.py` starts one server with `llm2_model`'s file and flags on `llm2_port` and gives the node the same port |
 | `f1tenth_bringup/test/test_stack_bringup_llm2_gate.py` | `stack_bringup` includes `llm2.launch.py` exactly once, and its condition is false with the defaults and with `enable_llm2:=false`, true only with `enable_llm2:=true` |
 | `llm/test/conftest.py` | The fake llama-server fixture |

@@ -5,7 +5,8 @@ The node is built for real (rclpy, its own parameters) but never spun: each
 test calls its timer callback by hand and replaces the two publishers with
 recorders, so nothing depends on DDS discovery or on timing of the 0.5 Hz
 timer. The request runs on the node's own worker thread, as on the car.
-/llm2/set_active is called the same way, through its callback.
+/llm2/set_active is called the same way, through its callback (one test
+pins the name and type it is served under).
 
 Also here: the mock set is a coupling with stack_params.yaml (CLAUDE.md). It
 must stay the launch-path values, or the "round trip changes nothing" premise
@@ -214,6 +215,35 @@ def test_a_reply_to_a_request_in_flight_at_the_pause_is_discarded_not_published(
         assert wait_for_statuses(node, 3)[-1]['outcome'] == 'ok'
         assert len(node._update_pub.msgs) == 1
     assert len(server.bodies) == (2 if resumed_before_the_reply else 1)
+
+
+def test_a_status_published_after_the_pause_answer_says_paused(make_node, fake_server):
+    # The worker publishes its status after its outcome is decided; a pause
+    # answered in between must show in that status, or a UI that mirrors
+    # 'state' flips back to active for a period.
+    node = make_node(fake_server())
+    answers = []
+    log_outcome = node._log_outcome
+
+    def log_then_pause(seq, result):     # runs between the outcome and the status
+        log_outcome(seq, result)
+        answers.append(set_active(node, False).message)
+
+    node._log_outcome = log_then_pause
+    node._on_tick()
+    (status,) = wait_for_statuses(node, 1)
+    assert answers == ['paused']
+    assert len(node._update_pub.msgs) == 1     # published before the pause answer
+    assert (status['outcome'], status['state']) == ('ok', 'paused')
+
+
+def test_pause_resume_is_served_as_std_srvs_setbool_on_llm2_set_active(make_node, fake_server):
+    # The app's gateway calls it by this name: the other tests call the
+    # callback directly and would not notice a rename.
+    node = make_node(fake_server())
+    service = node._set_active_srv
+    assert service.srv_name == '/llm2/set_active' and service.srv_type is SetBool
+    assert service.callback == node._on_set_active
 
 
 def test_start_active_false_starts_paused_and_param_set_cannot_resume_it(

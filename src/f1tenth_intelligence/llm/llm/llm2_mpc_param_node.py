@@ -28,7 +28,9 @@ One tick:
     when the reply, the timeout or the error comes back otherwise. It carries the
     outcome, echo_match (reply == sent), the wall latency, llama-server's
     prefill (prompt_ms) and generation (predicted_ms) times, the node's
-    state ('active' / 'paused'), and the cumulative counters ok / invalid /
+    state when the status is published ('active' / 'paused'; a tick's
+    outcome can predate a /llm2/set_active call that came in before its
+    status went out), and the cumulative counters ok / invalid /
     timeout / error / skipped / paused / discarded / echo_match.
 
 Pause / resume: the service /llm2/set_active (std_srvs/SetBool; true =
@@ -165,7 +167,8 @@ class Llm2MpcParamNode(Node):
         # _state_lock makes a pause atomic against the timer starting a
         # request and against the worker publishing its update, so nothing
         # reaches /llm2/mpc_params once /llm2/set_active has answered
-        # 'paused'. Lock order: _state_lock, then the gate's own lock.
+        # 'paused'; every status reads 'state' and is published under it too.
+        # Lock order: _state_lock, then the gate's own lock.
         self._state_lock = threading.Lock()
         self._active = bool(p('start_active'))
         self._pauses = 0
@@ -211,7 +214,7 @@ class Llm2MpcParamNode(Node):
         self._publish_status({
             'seq': seq, 'outcome': outcome, 'reason': reason,
             'in_flight_seq': gate.in_flight,
-        }, gate.counters, active)
+        }, gate.counters)
 
     def _run_request(self, seq, timeout_s, pauses):
         """Worker thread: one request, its publication and its status. Always releases the gate."""
@@ -226,11 +229,9 @@ class Llm2MpcParamNode(Node):
         # Warm or cold describes the server, so it holds whatever the node's state.
         self._warm = result.outcome in (OK, INVALID)
         outcome, reason, echo_match = result.outcome, result.reason, result.echo_match
-        active = False
         try:
             with self._state_lock:
-                active = self._active
-                if active and self._pauses == pauses:
+                if self._active and self._pauses == pauses:
                     if result.outcome == OK:
                         self._publish_update(seq, result.values)
                 else:
@@ -254,7 +255,7 @@ class Llm2MpcParamNode(Node):
             'tokens_cached': result.tokens_cached,
         }
         status.update(result.timings)
-        self._publish_status(status, counters, active)
+        self._publish_status(status, counters)
 
     # -- pause / resume -----------------------------------------------------
 
@@ -324,13 +325,18 @@ class Llm2MpcParamNode(Node):
         msg.values = [float(value) for value in values.values()]
         self._publish(self._update_pub, msg)
 
-    def _publish_status(self, fields, counters, active):
+    def _publish_status(self, fields, counters):
+        # 'state' is read and published under the state lock, so a status
+        # published after /llm2/set_active has answered carries the new state
+        # (the worker's status goes out after its outcome is decided, and a
+        # call can land in between). The caller must not hold the lock.
         status = dict.fromkeys(STATUS_KEYS)
         status.update(fields)
-        status['state'] = STATE_ACTIVE if active else STATE_PAUSED
-        status['source'] = SOURCE
-        status['counters'] = counters
-        self._publish(self._status_pub, String(data=json.dumps(status)))
+        with self._state_lock:
+            status['state'] = STATE_ACTIVE if self._active else STATE_PAUSED
+            status['source'] = SOURCE
+            status['counters'] = counters
+            self._publish(self._status_pub, String(data=json.dumps(status)))
 
     def _publish(self, publisher, msg):
         # The worker can finish after shutdown began; its last publish then
