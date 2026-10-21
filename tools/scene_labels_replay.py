@@ -109,13 +109,24 @@ def read_bag(run):
     return out
 
 
+#: Groups a launch file passes to the node under their OWN stack_params.yaml
+#: names, not prefix-stripped: THE CONFIRMATION LEVEL (wall_confirm_*,
+#: lidar_front_wall.launch.py WALL_CONFIRM_ARGS).
+UNPREFIXED = {'lidar_front_wall_': ('wall_confirm_',)}
+
+
 def prefixed_params(prefix, enable):
-    """The node's stack_params.yaml block (prefix stripped, as its launch file
-    passes it) plus enable_scene_labels."""
+    """Return the node's stack_params.yaml block as its launch file passes it.
+
+    Prefix stripped, plus its UNPREFIXED groups under their own names, plus
+    enable_scene_labels.
+    """
     params = [Parameter('enable_scene_labels', value=bool(enable))]
     for key, entry in _load().items():
         if key.startswith(prefix):
             params.append(Parameter(key[len(prefix):], value=entry['default']))
+        elif key.startswith(UNPREFIXED.get(prefix, ())):
+            params.append(Parameter(key, value=entry['default']))
     return params
 
 
@@ -132,7 +143,8 @@ class Capture:
 
 
 def coerce_like_default(name, value):
-    """`value` as the type stack_params.yaml gives `lidar_front_wall_<name>`.
+    """`value` as the type stack_params.yaml gives `lidar_front_wall_<name>`
+    (or `<name>` itself, for an UNPREFIXED group).
 
     An override read from a YAML file arrives as whatever YAML made of it, and
     `1` for a float parameter is an InvalidParameterTypeException at node
@@ -140,6 +152,8 @@ def coerce_like_default(name, value):
     The stack default is the only authority on the type, so it is asked.
     """
     entry = _load().get('lidar_front_wall_' + name)
+    if entry is None and name.startswith(UNPREFIXED['lidar_front_wall_']):
+        entry = _load().get(name)
     if entry is None:
         return value
     want = type(entry['default'])

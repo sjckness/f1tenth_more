@@ -80,9 +80,14 @@ promoted on the first cycle on which all of these hold (confirmation_reason):
   * its MEASURED segment is at least confirm_min_length_m (1.0 m) long.
   * over those same observations the perpendicular distance and the wall
     direction vary by at most confirm_max_dist_jitter_m (5 cm) and
-    confirm_max_angle_jitter_rad (3 deg), max - min. They are compared in
-    odom, where every observation is placed with the car pose of its own
-    scan, so the car's own motion is already out of them.
+    confirm_max_angle_jitter_rad (3 deg), max - min. Every observation is
+    placed in odom with the car pose of its own scan, so the car's own
+    motion is out of both. The distance is each line's distance from ONE
+    point at the wall -- the track's segment midpoint (line_jitter) -- not
+    its odom rho: rho is the distance from the odom ORIGIN, and a line's
+    angle noise moves it by that angle times the along-wall distance from
+    the origin, which is where the EKF started, not anything about the wall
+    (0.5 deg read as 8.7 cm 10 m along the wall).
 
 A stereo-only track therefore never confirms while confirm_require_lidar is
 on. Stereo support still raises a LiDAR wall's standing (front_confidence,
@@ -454,7 +459,7 @@ class TrackerParams:
     # the ONE promotion rule, which every reader of "confirmed" relies on.
     confirm_min_consecutive_hits: int = 5   # cycles in a row with a counting hit
     confirm_min_length_m: float = 1.0       # the MEASURED segment
-    confirm_max_dist_jitter_m: float = 0.05             # max - min, odom
+    confirm_max_dist_jitter_m: float = 0.05  # max - min, at the segment midpoint
     confirm_max_angle_jitter_rad: float = math.radians(3.0)
     confirm_require_lidar: bool = True      # only LIDAR / BOTH hits count
     # Coasting is bounded on TIME and on DISTANCE (coast_max_odom_m), and
@@ -1086,31 +1091,40 @@ def is_unknown_role(role):
     return role in ('', ROLE_UNKNOWN, LEGACY_ROLE_OTHER)
 
 
-def line_jitter(samples):
+def line_jitter(samples, ref_xy):
     """
     Return (distance spread m, direction spread rad) of (rho, theta) odom lines.
 
-    max - min of each over `samples`. Every line is first put in the sign
-    nearest the first one (_innovation): rho >= 0 normalisation can flip a
-    line through the odom origin to (-rho, theta + pi), which is the same
-    line and must not read as a 2 rho jump.
+    max - min of each over `samples`. The distance is each line's signed
+    distance from the odom point `ref_xy`, which the tracker puts at the wall
+    (the track's segment midpoint): there a line's angle noise barely moves
+    it, while its rho -- its distance from the odom ORIGIN -- moves by that
+    noise times the along-wall distance from the origin. Every line is first
+    put in the sign nearest the first one (_innovation): rho >= 0
+    normalisation can flip a line through the odom origin to
+    (-rho, theta + pi), which is the same line and must not read as a
+    2 rho jump.
     """
     rho0, theta0 = float(samples[0][0]), float(samples[0][1])
-    rhos, thetas = [], []
+    rx, ry = float(ref_xy[0]), float(ref_xy[1])
+    dists, thetas = [], []
     for rho, theta in samples:
         v = _innovation((rho0, theta0), float(rho), float(theta))
-        rhos.append(rho0 + float(v[0]))
+        th = theta0 + float(v[1])
+        dists.append(rho0 + float(v[0]) - (math.cos(th) * rx + math.sin(th) * ry))
         thetas.append(float(v[1]))
-    return max(rhos) - min(rhos), max(thetas) - min(thetas)
+    return max(dists) - min(dists), max(thetas) - min(thetas)
 
 
-def confirmation_reason(samples, length_m, p):
+def confirmation_reason(samples, length_m, p, ref_xy):
     """
     Return '' when a track meets THE CONFIRMATION LEVEL, else the first failing test.
 
     `samples` is Track.confirm_obs (newest last, None for a cycle without a
     counting hit), `length_m` the track's measured length, `p` the
-    TrackerParams. The codes, in the order checked: 'hits' (fewer than
+    TrackerParams, `ref_xy` the odom point at the wall the distance spread
+    is measured from (line_jitter; the tracker passes track_midpoint). The
+    codes, in the order checked: 'hits' (fewer than
     confirm_min_consecutive_hits counting cycles in a row), 'length',
     'dist_jitter', 'angle_jitter'. Pure, so the rule is testable on its own.
     """
@@ -1120,12 +1134,18 @@ def confirmation_reason(samples, length_m, p):
         return 'hits'
     if float(length_m) < float(p.confirm_min_length_m):
         return 'length'
-    dist, angle = line_jitter(recent)
+    dist, angle = line_jitter(recent, ref_xy)
     if dist > float(p.confirm_max_dist_jitter_m):
         return 'dist_jitter'
     if angle > float(p.confirm_max_angle_jitter_rad):
         return 'angle_jitter'
     return ''
+
+
+def track_midpoint(track):
+    """Return the odom midpoint of a track's measured extent: where its jitter is measured."""
+    p0, p1 = track.endpoints()
+    return 0.5 * (p0 + p1)
 
 
 def is_tentative(track):
@@ -1671,7 +1691,8 @@ class MultiWallTracker:
         """
         if self.p.confirm_require_lidar and trk.source == wall_fusion.SOURCE_STEREO:
             return 'no_lidar'
-        return confirmation_reason(trk.confirm_obs, trk.length, self.p)
+        return confirmation_reason(trk.confirm_obs, trk.length, self.p,
+                                   track_midpoint(trk))
 
     def _promote(self, trk, hit):
         """Apply THE CONFIRMATION LEVEL and set the state for this cycle.

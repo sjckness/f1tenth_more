@@ -7,7 +7,8 @@ The ONE rule that makes a wall track CONFIRMED, which every reader of
     row with a LiDAR-backed hit, and not one cycle before;
   * never on stereo alone (wall_confirm_require_lidar);
   * never while the distance or the direction of those observations jitters
-    beyond its bound, measured in odom, so the car's own motion is not jitter;
+    beyond its bound, measured in odom, so the car's own motion is not jitter,
+    and the distance at the wall, so where the car is in odom does not matter;
   * never on a segment shorter than wall_confirm_min_length_m;
   * no demotion: once confirmed, a missed or jittery cycle only makes the
     track COASTING;
@@ -191,25 +192,69 @@ def test_driving_towards_a_wall_is_not_jitter():
 
 
 def test_line_jitter_reads_a_line_flipped_through_the_origin_as_the_same_line():
-    dist, angle = mwt.line_jitter([(0.01, 0.0), (0.01, math.pi), (0.02, 0.0)])
+    dist, angle = mwt.line_jitter([(0.01, 0.0), (0.01, math.pi), (0.02, 0.0)], (0.0, 0.0))
     # (0.01, pi) is (-0.01, 0): 3 cm of spread, not 0, and no angle at all.
     assert dist == pytest.approx(0.03)
     assert angle == pytest.approx(0.0, abs=1e-12)
 
 
+def test_line_jitter_measures_the_distance_at_the_reference_point_not_at_the_odom_origin():
+    """Five lines through ONE wall point 10 m along the wall from the origin.
+
+    Their direction swings 0.5 deg: the wall does not move at that point,
+    while their rho -- the distance from the odom origin -- swings 8.7 cm.
+    """
+    wall_point = (2.0, 10.0)
+    samples = []
+    for i in range(N):
+        theta = math.radians(0.25 if i % 2 else -0.25)
+        samples.append((math.cos(theta) * wall_point[0] + math.sin(theta) * wall_point[1], theta))
+    dist, angle = mwt.line_jitter(samples, wall_point)
+    assert dist == pytest.approx(0.0, abs=1e-9)
+    assert math.degrees(angle) == pytest.approx(0.5)
+    assert mwt.line_jitter(samples, (0.0, 0.0))[0] == pytest.approx(0.087, abs=0.001)
+
+
 def test_the_reason_codes_come_in_the_order_they_are_checked():
     p = mwt.TrackerParams()
+    at_wall = (2.0, 0.0)
     steady = [(2.0, 0.0)] * N
-    assert mwt.confirmation_reason(steady, 2.0, p) == ''
-    assert mwt.confirmation_reason(steady[1:], 2.0, p) == 'hits'
-    assert mwt.confirmation_reason(steady[:-1] + [None], 2.0, p) == 'hits'
-    assert mwt.confirmation_reason(steady, 0.9, p) == 'length'
+    assert mwt.confirmation_reason(steady, 2.0, p, at_wall) == ''
+    assert mwt.confirmation_reason(steady[1:], 2.0, p, at_wall) == 'hits'
+    assert mwt.confirmation_reason(steady[:-1] + [None], 2.0, p, at_wall) == 'hits'
+    assert mwt.confirmation_reason(steady, 0.9, p, at_wall) == 'length'
     jumpy = steady[:-1] + [(2.06, math.radians(4.0))]
-    assert mwt.confirmation_reason(jumpy, 2.0, p) == 'dist_jitter'
+    assert mwt.confirmation_reason(jumpy, 2.0, p, at_wall) == 'dist_jitter'
     swung = steady[:-1] + [(2.0, math.radians(4.0))]
-    assert mwt.confirmation_reason(swung, 2.0, p) == 'angle_jitter'
+    assert mwt.confirmation_reason(swung, 2.0, p, at_wall) == 'angle_jitter'
     # Only the last N cycles are judged: older history neither helps nor hurts.
-    assert mwt.confirmation_reason([None, (9.0, 1.0)] + steady, 2.0, p) == ''
+    assert mwt.confirmation_reason([None, (9.0, 1.0)] + steady, 2.0, p, at_wall) == ''
+
+
+@pytest.mark.parametrize('car', [Pose2D(0.0, 10.0, 0.0), Pose2D(15.0, -7.0, 1.0),
+                                 Pose2D(-20.0, 4.0, -2.5)])
+def test_the_same_observations_confirm_on_the_same_cycle_wherever_the_car_is_in_odom(car):
+    """Identical base_link observations confirm on cycle N at any odom pose.
+
+    A wall 2 m ahead, its normal swinging 0.5 deg from scan to scan (well
+    inside the 3 deg bound). Where the car happens to be in odom -- 10 or
+    20 m from where the EKF started, turned or not -- is not a property of
+    the wall: the verdict, cycle for cycle, is the one at the origin.
+    Measured as odom rho, the swing times the 10 m to the origin's foot point
+    read as 8.7 cm and the wall never confirmed.
+    """
+    def first_confirmed_cycle(pose):
+        trk = mwt.MultiWallTracker()
+        for i in range(3 * N):
+            swing = 0.25 if i % 2 else -0.25
+            trk.step([obs(wall(2.0, angle_deg=swing))], 1.0 + 0.1 * i, pose)
+            if trk.tracks and only(trk).ever_confirmed:
+                assert trk.front_track(pose, FRONT_X) is only(trk)
+                return i + 1
+        return None
+
+    assert first_confirmed_cycle(ORIGIN) == N
+    assert first_confirmed_cycle(car) == N
 
 
 # --- no promotion on a short segment ---------------------------------------
@@ -250,7 +295,8 @@ def test_a_confirmed_wall_is_not_demoted_by_one_jittery_cycle():
     track = only(trk)
     t = feed(trk, [obs(wall(2.08))], 1, t0=t)
     assert only(trk) is track and track.hits == N + 1, 'the jump was associated'
-    assert mwt.confirmation_reason(track.confirm_obs, track.length, trk.p) == 'dist_jitter'
+    assert mwt.confirmation_reason(track.confirm_obs, track.length, trk.p,
+                                   mwt.track_midpoint(track)) == 'dist_jitter'
     assert track.ever_confirmed and track.state == mwt.STATE_CONFIRMED
     assert trk.front_track(ORIGIN, FRONT_X) is track
 
