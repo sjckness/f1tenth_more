@@ -64,6 +64,7 @@ function Pair() {
     <main class="scroll" style={{ justifyContent: 'center', paddingTop: 'calc(40px + var(--safe-top))' }}>
       <h1>F1Tenth Lab Control</h1>
       <p class="muted">Incolla il token del gateway (F1T_GATEWAY_TOKEN sull'Orin). Resta su questo iPhone.</p>
+      <p class="muted">Oppure inquadra il QR stampato sull'Orin (<span style={{ fontFamily: 'var(--mono)' }}>tools/pairing_qr.py</span>): abbina da solo.</p>
       <input type="password" value={value} onInput={(e) => setValue((e.target as HTMLInputElement).value)}
         autoComplete="off" placeholder="token" data-testid="token"
         style={{ minHeight: '52px', borderRadius: '14px', border: '1px solid var(--border)', background: 'var(--surface)',

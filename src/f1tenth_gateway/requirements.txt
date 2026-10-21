@@ -4,5 +4,9 @@ fastapi==0.115.6
 uvicorn==0.32.1
 websockets==14.1
 python-multipart==0.0.20
+# tools/pairing_qr.py, when `qrencode` is not installed: a pure-Python QR
+# encoder, no Pillow needed for the terminal output. The gateway itself never
+# imports it.
+qrcode==8.0
 # Voice commands (transcribe_worker), CPU only on the Orin:
 #   faster-whisper==1.2.1 and av<17 (PyAV 17+ breaks faster-whisper 1.2.1)

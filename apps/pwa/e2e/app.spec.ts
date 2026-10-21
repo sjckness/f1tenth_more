@@ -16,6 +16,25 @@ test('pairing: a wrong token is refused, the right one connects', async ({ page 
   await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
 });
 
+test('pairing by QR link: the fragment pairs and leaves the address bar', async ({ page }) => {
+  await page.goto(`/#token=${encodeURIComponent(TOKEN)}`);
+  await expect(page.locator('.pill', { hasText: 'ONLINE' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  // The link is gone from the address bar, and gone for good: a reload stays paired.
+  expect(new URL(page.url()).hash).toBe('');
+  expect(page.url()).not.toContain(TOKEN);
+  expect(await page.evaluate(() => localStorage.getItem('f1t-token'))).toBe(TOKEN);
+  await page.reload();
+  await expect(page.locator('.pill', { hasText: 'ONLINE' })).toBeVisible();
+});
+
+test('pairing by QR link: a short fragment is ignored, the link still goes', async ({ page }) => {
+  await page.goto('/#token=tooshort');
+  await expect(page.getByTestId('pair')).toBeVisible();
+  expect(new URL(page.url()).hash).toBe('');
+  expect(await page.evaluate(() => localStorage.getItem('f1t-token'))).toBeNull();
+});
+
 test('cockpit: READY, then NOT READY with only the failing checks', async ({ page, request }) => {
   await openApp(page);
   const card = page.getByTestId('ready-card');

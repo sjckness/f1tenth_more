@@ -136,13 +136,29 @@ schermata di abbinamento.
 ### 4. Unità systemd (utente)
 
 ```bash
-mkdir -p ~/.config/systemd/user
+mkdir -p ~/.config/systemd/user ~/.local/state/f1tenth_gateway
 cp src/f1tenth_gateway/systemd/f1tenth-gateway.service ~/.config/systemd/user/
 sudo loginctl enable-linger fabiocar     # le unità utente partono al boot, senza login
 systemctl --user daemon-reload
 systemctl --user enable --now f1tenth-gateway
-journalctl --user -u f1tenth-gateway -f
+tail -F ~/.local/state/f1tenth_gateway/gateway.log
 ```
+
+`~/.local/state/f1tenth_gateway` va creato **prima**: systemd apre il log anche
+per `ExecStartPre`, quindi crearlo da dentro l'unità fallisce con `209/STDOUT`.
+
+Il log va in un **file**, non nel journal: sull'Orin il journal è volatile
+(`/run/log/journal`, `root:systemd-journal`) e `fabiocar` non è né in `adm` né
+in `systemd-journal`, quindi `journalctl --user -u f1tenth-gateway` risponde
+"No journal files were opened due to insufficient permissions" -- un log vuoto
+proprio quando serve. Con sudo: `sudo journalctl --user-unit f1tenth-gateway`.
+
+Se il gateway gira da un **worktree** (`git worktree add ~/dev_ws/f1tenth_more_pwa
+pwa-control`, per non spostare il checkout principale), nella copia in
+`~/.config/systemd/user/` cambia `ExecStart` nel percorso del worktree. Tutto il
+resto resta: `ctl.env` del worktree sorgente comunque
+`~/dev_ws/f1tenth_more/install/setup.bash`, in sola lettura, che è quello che
+serve -- il gateway vede il grafo e i tipi di messaggio dello stack.
 
 `bin/f1tenth_gateway` esegue due passi:
 
@@ -186,10 +202,36 @@ non si raggiunge.
 Con una versione di `tailscale` più vecchia la sintassi di `serve` è diversa:
 vedi `tailscale serve --help`.
 
+### 7. Il QR di abbinamento
+
+```bash
+~/.local/share/f1tenth_gateway/venv/bin/python src/f1tenth_gateway/tools/pairing_qr.py
+```
+
+Stampa nel terminale il QR di `https://<orin>.<tailnet>.ts.net/#token=<token>`.
+L'app legge il token dal **frammento** (`apps/pwa/src/store.ts`,
+`tokenFromHash`), lo salva e lo toglie subito dalla barra degli indirizzi con
+`history.replaceState`.
+
+Il frammento, non la query string: un frammento non viene inviato con la
+richiesta, quindi il token non finisce nel log del gateway, in quello di
+tailscale, in un proxy di mezzo o in un `Referer`.
+
+Lo script non stampa il token né il link completo (`--show-url` lo fa, in un
+terminale di cui ti fidi). Usa `qrencode -t ansiutf8` se c'è, altrimenti il
+pacchetto `qrcode` del venv (Python puro).
+
+**Il QR abbina Safari, non l'app sulla Home.** `start_url` del manifest è
+`/#/cockpit`, e un'app aperta dall'icona ha una memoria separata: il frammento
+non ci arriva. Il QR serve per provare il giro completo in Safari senza
+digitare 43 caratteri; nell'app dall'icona il token va incollato una volta
+(gestore di password o AirDrop, come sotto).
+
 ## iPhone
 
 1. L'app **Tailscale** deve essere attiva e connessa allo stesso tailnet.
-2. Apri `https://jetson-orin.<tailnet>.ts.net` in **Safari**.
+2. Apri `https://jetson-orin.<tailnet>.ts.net` in **Safari**, o inquadra il QR
+   del passo 7: in Safari l'abbinamento è automatico.
 3. Scegli Condividi → **Aggiungi alla schermata Home**.
 4. Apri l'app **dall'icona**: sulla Home ha una memoria separata da Safari, quindi
    l'abbinamento va fatto lì.
@@ -267,5 +309,5 @@ uno; gli altri girano.
 | Cockpit sempre NOT READY "discovery" | discovery server giù o env diverso | `f1tenth_ctl check`; il gateway carica `ctl.env` |
 | Guida: "ackermann_mux non ascolta /teleop" | stack spento o mux senza la lane teleop | `ros2 topic info /teleop --no-daemon` (con `ctl.env`) |
 | Guida: "un altro nodo pubblica su /teleop" | joystick acceso | spegni il joy node |
-| Microfono: errore | faster-whisper non installato, o modello non scaricato | passo 2; `journalctl --user -u f1tenth-gateway` |
+| Microfono: errore | faster-whisper non installato, o modello non scaricato | passo 2; `~/.local/state/f1tenth_gateway/gateway.log` |
 | BT vuoto in Telemetria | `py_trees_ros_interfaces` assente, o il nodo del BT non espone gli snapshot stream | passo 2 |

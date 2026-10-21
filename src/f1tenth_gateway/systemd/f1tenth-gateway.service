@@ -6,6 +6,21 @@
 #   systemctl --user daemon-reload && systemctl --user enable --now f1tenth-gateway
 # Listens on 127.0.0.1 only (config/gateway.yaml); tailscale serve makes it
 # https://<orin>.ts.net. The token is in the EnvironmentFile (chmod 600).
+#
+# THE LOG GOES TO A FILE, not the journal. On this Orin the journal is volatile
+# (/run/log/journal, root:systemd-journal) and fabiocar is in neither 'adm' nor
+# 'systemd-journal', so `journalctl --user -u f1tenth-gateway` answers
+# "No journal files were opened due to insufficient permissions" -- an empty log
+# exactly when something is wrong. append: keeps it readable without sudo and
+# survives a restart of the unit. Follow it with:
+#   tail -F ~/.local/state/f1tenth_gateway/gateway.log
+# Drop the two Standard* lines below to go back to the journal (and read it
+# with `sudo journalctl --user-unit f1tenth-gateway`).
+#
+# The DIRECTORY has to exist before the unit starts -- systemd opens the log
+# for ExecStartPre too, so creating it from an ExecStartPre of its own fails
+# with 209/STDOUT. `mkdir -p ~/.local/state/f1tenth_gateway` is part of the
+# install (README, step 4).
 [Unit]
 Description=F1Tenth Lab Control gateway (PWA)
 After=network-online.target
@@ -15,6 +30,8 @@ Wants=network-online.target
 Type=simple
 EnvironmentFile=%h/.config/f1tenth_gateway/env
 ExecStart=%h/dev_ws/f1tenth_more/src/f1tenth_gateway/bin/f1tenth_gateway
+StandardOutput=append:%h/.local/state/f1tenth_gateway/gateway.log
+StandardError=append:%h/.local/state/f1tenth_gateway/gateway.log
 # SIGINT: uvicorn's graceful shutdown, which revokes the driving lease and
 # publishes a last zero on /teleop.
 KillSignal=SIGINT

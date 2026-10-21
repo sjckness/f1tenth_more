@@ -58,6 +58,51 @@ export function setToken(value: string | null): void {
   } catch { /* private mode: the token lives for this session only */ }
 }
 
+/**
+ * The token out of a pairing link's fragment (`#token=...`), or null.
+ *
+ * The FRAGMENT, never the query string: a fragment is not sent with the
+ * request, so the token stays out of the gateway's log, out of tailscale's and
+ * out of any proxy in between. The QR code printed on the Orin
+ * (src/f1tenth_gateway/tools/pairing_qr.py) encodes exactly this link.
+ *
+ * Same floor as the ABBINA button and the gateway's auth.min_token_len: under
+ * 32 characters is not a token, so the link is ignored and the pairing screen
+ * asks for one by hand.
+ */
+export function tokenFromHash(hash: string): string | null {
+  const m = /^#\/?token=(.*)$/.exec(hash);
+  if (!m) return null;
+  let value = m[1];
+  try { value = decodeURIComponent(value); } catch { /* not encoded: take it as it came */ }
+  value = value.trim();
+  return value.length >= 32 ? value : null;
+}
+
+/**
+ * Read a pairing link and clear it from the address bar, at module load.
+ *
+ * The fragment goes whether or not it carried a usable token: a link left in
+ * the address bar ends up in a screenshot, in the back stack and in whatever
+ * the next person to pick up the phone sees. replaceState rather than
+ * assigning location.hash, which would push a history entry and fire
+ * hashchange.
+ */
+function pairFromLink(): void {
+  let hash = '';
+  try { hash = location.hash; } catch { return; }
+  if (!/^#\/?token=/.test(hash)) return;
+  const value = tokenFromHash(hash);
+  try {
+    history.replaceState(null, '', location.pathname + location.search);
+  } catch { /* no history API: the token still pairs, the link lingers */ }
+  if (value) setToken(value);
+}
+
+// Before the first render, so App() already sees a paired car: a scanned link
+// wins over whatever this phone had stored.
+pairFromLink();
+
 export const conn = signal<Conn>('idle');
 export const rttMs = signal<number | null>(null);
 export const lastMsgAt = signal<number>(0);
