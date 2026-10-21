@@ -22,7 +22,7 @@ from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
     MultiWallTrackArray, ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus,
-    SemanticObjectArray, TurnGoal, WallTrack)
+    SemanticObjectArray, SpeedChannelStatus, TurnGoal, WallTrack)
 from f1tenth_messages.srv import RequestReverse
 from f1tenth_params.object_geometry import (
     ObstacleFilter, passes_obstacle_filter, SOLVER_FRONT_POINT_OFFSETS_M)
@@ -54,7 +54,11 @@ from mpc_controller.reverse_manoeuvre import (
 from mpc_controller.reverse_mpc import (
     extend_corridor_backwards, floor_moving_speed_signed, rear_probe_offsets, ReverseConfig,
     ReversePlanner, REVERSE as REVERSE_DIR)
-from mpc_controller.vehicle_model import f1tenth_state_fcn_dt_beta
+from mpc_controller.speed_channel import (
+    config_from as speed_config_from, FLOOR_ALL, FLOOR_OBJECT, SPEED_MODE_LEGACY,
+    SPEED_MODE_OFFSET_FREE, SpeedChannel)
+from mpc_controller.vehicle_model import (
+    f1tenth_state_fcn_dt_beta, f1tenth_state_fcn_dt_beta_lag)
 from mpc_controller.wall_tracker import PROVENANCE_NAMES, WallTracker, scan_to_odom_points
 from mpc_controller.wall_turn import (
     SMOOTHSTEP_PEAK_SLOPE, min_turn_radius, plan_wall_turn_step)
@@ -2061,6 +2065,10 @@ class MPCController(Node):
         self.reverse_suppressed = 0
         self._init_reverse_manoeuvre()
 
+        # THE SPEED LAW (speed_channel.py): legacy v + a * ts, or offset-free.
+        # After the reverse setup, which decides allow_reverse.
+        self._init_speed_channel()
+
         # OBJECT MEMORY (f1tenth_costmap's semantic layer, Part B): objects
         # remembered out of view, with the radius inflated for people. The
         # MEMORY ones join the obstacle list (the TRACKED ones arrive live on
@@ -2318,6 +2326,10 @@ class MPCController(Node):
             self.reverse_supervisor.abort('hold')
         if msg.data != self.hold:
             self.get_logger().info(f'HOLD | {"engaged" if msg.data else "released"}')
+            # An abort holds; a mission start releases. Either way the speed
+            # channel starts again from the zero the hold published.
+            if getattr(self, 'speed_channel', None) is not None:
+                self._speed_reset('hold' if msg.data else 'hold_release')
             # A hold RELEASE is this node's only view of "a mission just
             # started": the behaviour tree releases it as the mission goes
             # RUNNING. Logging the mode here puts it in the log next to the
@@ -3509,6 +3521,10 @@ class MPCController(Node):
         """
         if getattr(self, 'reverse_supervisor', None) is not None:
             self.reverse_supervisor.new_move()
+        # The speed channel's disturbance belongs to the move it was learnt on.
+        # getattr for the duck-typed stand-ins, which carry no channel.
+        if getattr(self, 'speed_channel', None) is not None:
+            self._speed_reset('goal_change')
         # Target smoothing / obstacle-deflection coast: previous move's state.
         self.smoothed_target = None
         self.last_deflection_vec = np.zeros(2)
@@ -4218,6 +4234,128 @@ class MPCController(Node):
             f'L={cfg.corridor_length_m:.2f} m v_rev={cfg.v_rev_mps:.2f} m/s '
             f'N_rear={rear.n} costmap={costmap_topic}')
 
+    def _init_speed_channel(self):
+        """
+        Declare the speed channel's parameters and wire its two topics.
+
+        /ackermann_drive (the mux output: what the VESC was actually sent) is
+        read so the model starts from the command in force and the estimator
+        freezes while another lane drives; /mpc/speed_channel
+        (SpeedChannelStatus) goes out on every /drive publish.
+
+        OFFSET-FREE NEEDS THE RTI SOLVER AND THE SINGLE-CANDIDATE PATH. The
+        SLSQP rollback has no speed model, and allow_reverse's direction
+        candidates build their sign schedules on the integrator model (their
+        feasibility witness is a jerk-limited stop of v itself). Either one
+        drops the channel to legacy, loudly: rolling back one of them must
+        not need a second edit.
+        """
+        def _p(key):
+            return self.declare_parameter(key, get_value(key)).value
+
+        cfg = speed_config_from(_p)
+        if cfg.mode == SPEED_MODE_OFFSET_FREE and (self.allow_reverse or not self.use_rti_solver):
+            why = 'allow_reverse is on' if self.allow_reverse else 'use_rti_solver is false'
+            self.get_logger().warn(
+                f'SPEED | speed_command_mode offset_free needs the forward RTI solve and '
+                f'{why}: running LEGACY (v_meas + a * ts)')
+            cfg.mode = SPEED_MODE_LEGACY
+        self.speed_channel = SpeedChannel(
+            cfg, self.ts, self.ts_pred, self.N, self.max_forward_speed,
+            self.max_reverse_speed, self.min_moving_speed)
+        self._speed_prev_source = 'forward'
+        self.create_subscription(
+            AckermannDriveStamped, '/ackermann_drive', self._ackermann_drive_cb, 10)
+        self.speed_channel_pub = self.create_publisher(
+            SpeedChannelStatus, '/mpc/speed_channel', 10)
+        ch = self.speed_channel
+        self.get_logger().info(
+            f'SPEED | mode={cfg.mode} tau={cfg.tau_s:.3f} s (alpha {ch.alpha:.3f}) '
+            f'delay={cfg.delay_ticks} tick(s) observer L_v={ch.l_v:.3f} L_d={ch.l_d:.3f} '
+            f'(bw {cfg.obs_bw_v_rad_s:.1f}/{cfg.obs_bw_d_rad_s:.1f} rad/s) '
+            f'|d|<={cfg.d_max_mps:.2f} ceiling={ch.ceiling:.2f} m/s '
+            f'breakaway={cfg.breakaway_mps:.2f} m/s floor={cfg.moving_floor}')
+
+    def _ackermann_drive_cb(self, msg: AckermannDriveStamped):
+        self.speed_channel.note_applied(
+            float(msg.drive.speed), self.get_clock().now().nanoseconds * 1e-9)
+
+    def _speed_offset_free(self) -> bool:
+        """Whether this tick's forward solve uses the offset-free speed model."""
+        ch = getattr(self, 'speed_channel', None)
+        return ch is not None and ch.offset_free
+
+    def _speed_floor_applies(self) -> bool:
+        """
+        Whether the operating floor bounds this solve's command (offset_free_moving_floor).
+
+        'object' is the legacy rule exactly -- an object approach while it
+        drives, the one place floor_moving_speed was ever applied -- moved from
+        a post-solve max into the QP's command box. 'all' extends "never
+        below min_moving_speed_mps while moving, zero only to stop" to every
+        forward solve (the stop paths still publish zero).
+        """
+        mode = self.speed_channel.cfg.moving_floor
+        if mode == FLOOR_ALL:
+            return True
+        if mode == FLOOR_OBJECT:
+            return (self.goal_object_odom_xy is not None
+                    and self.object_speed_mode == SPEED_DRIVE)
+        return False
+
+    def _speed_observe(self, now_sec):
+        """Advance the speed estimator over the step that just ended (every tick, first)."""
+        ch = getattr(self, 'speed_channel', None)
+        if ch is None:
+            return
+        stamp = getattr(self, 'state_stamp_sec', None)
+        recv = getattr(self, 'hw_odom_last_time', None)
+        if getattr(self, 'active_odom_source', None) == 'sim':
+            recv = getattr(self, 'sim_odom_last_time', None)
+        fresh = (self.v is not None and stamp is not None
+                 and stamp != getattr(self, '_speed_last_stamp', None)
+                 and (recv is None or now_sec - recv <= ch.cfg.odom_max_age_s))
+        self._speed_last_stamp = stamp
+        state = getattr(self, '_mission_state', None)
+        sup = getattr(self, 'reverse_supervisor', None)
+        reverse = (self._reverse_manoeuvre_active()
+                   or (sup is not None and sup.mode != MODE_FORWARD))
+        stopping = bool(self.goal_reached or self.pose_goal_reached
+                        or (self.stop_ramp_latch is not None and self.stop_ramp_latch.latched))
+        ch.observe(now_sec, self.v, fresh, hold=bool(self.hold),
+                   estop=bool(getattr(self, '_emergency_stop', False)),
+                   mission_active=(state is None or state == 'RUNNING'),
+                   stopping=stopping, reverse=reverse)
+
+    def _speed_reset(self, reason):
+        """Reset the speed channel (goal change, hold, e-stop, gear change)."""
+        ch = getattr(self, 'speed_channel', None)
+        if ch is None:
+            return
+        ch.reset(reason, self.v)
+        self.get_logger().info(
+            f'SPEED/reset | {reason}: d -> 0, command in force {ch.command_in_force:+.3f}')
+
+    def _publish_speed_status(self, stamp):
+        ch = getattr(self, 'speed_channel', None)
+        pub = getattr(self, 'speed_channel_pub', None)
+        if ch is None or pub is None:
+            return
+        st = ch.status()
+        msg = SpeedChannelStatus()
+        msg.header.stamp = stamp
+        msg.mode = st['mode']
+        for key in ('v_meas', 'v_hat', 'd_hat', 'innovation', 'v_cmd', 'v_cmd_in_force',
+                    'v_cmd_applied', 'stall_cap', 'v_cmd_ceiling', 'speed_slack', 'tau_s',
+                    'alpha', 'gain_l_v', 'gain_l_d'):
+            setattr(msg, key, float(st[key]))
+        for key in ('override', 'frozen', 'stalled', 'breakaway_active'):
+            setattr(msg, key, bool(st[key]))
+        msg.freeze_reasons = st['freeze_reasons']
+        msg.last_reset = st['last_reset']
+        msg.reset_count = int(st['reset_count'])
+        pub.publish(msg)
+
     def _init_semantic_memory(self):
         """Declare the semantic-memory consumer's parameters and subscribe."""
         def _p(key):
@@ -4325,7 +4463,11 @@ class MPCController(Node):
 
     def _mission_status_cb(self, msg: MissionStatus):
         self._mission_state = str(msg.state)
-        self._emergency_stop = bool(msg.emergency_stop_active)
+        estop = bool(msg.emergency_stop_active)
+        if (estop != bool(getattr(self, '_emergency_stop', False))
+                and getattr(self, 'speed_channel', None) is not None):
+            self._speed_reset('estop' if estop else 'estop_release')
+        self._emergency_stop = estop
         if self._emergency_stop and self.reverse_supervisor is not None:
             self.reverse_supervisor.abort('emergency_stop')
 
@@ -4637,6 +4779,20 @@ class MPCController(Node):
         speed, clamped = clamp_drive_speed(
             speed, self.max_forward_speed, self.max_reverse_speed)
         stamp = self.get_clock().now().to_msg()
+        # THE SPEED CHANNEL sees every command exactly as it left: it is the
+        # command in force the next solve starts from and the input of the
+        # estimator. A tick that published without planning ends the start-up
+        # intent; a switch into or out of the reverse manoeuvre resets d.
+        ch = getattr(self, 'speed_channel', None)
+        if ch is not None:
+            if not getattr(self, '_speed_tick_planned', False):
+                ch.no_plan()
+            prev = getattr(self, '_speed_prev_source', 'forward')
+            if (source == 'manoeuvre') != (prev == 'manoeuvre'):
+                self._speed_reset('reverse_switch')
+            self._speed_prev_source = source
+            ch.note_published(speed)
+            self._speed_tick_planned = False
         if requested is not None and math.isfinite(requested) and requested < 0.0 \
                 and speed == 0.0 and not clamped:
             # Report the suppression on the same topic the clamp uses: from a
@@ -4667,6 +4823,8 @@ class MPCController(Node):
         msg.drive.speed = speed
         msg.drive.steering_angle = steering_angle
         self.pub.publish(msg)
+        if ch is not None:
+            self._publish_speed_status(stamp)
 
         # ---- DEBUG: subs=0 significa che NESSUNO ascolta /drive
         # (ackermann_mux giu' o topic sbagliato) -> nessuna attuazione possibile.
@@ -4744,6 +4902,12 @@ class MPCController(Node):
         loop_t0 = self.get_clock().now().nanoseconds * 1e-9
 
         self._update_active_odom()
+        # The speed estimator advances over the step that just ended BEFORE
+        # anything can return early: a hold or a stop tick still has a
+        # measurement and a command that acted, and must freeze or re-sync on
+        # them rather than skip them.
+        self._speed_tick_planned = False
+        self._speed_observe(loop_t0)
 
         # Diagnostic, independent of autonomy/goal state -- no consumer yet, but
         # cheap and useful to have live every tick regardless of what else is gating.
@@ -5288,17 +5452,36 @@ class MPCController(Node):
                 self._publish_reverse_status()
                 return
 
+        # THE SPEED MODEL (speed_channel.py). Legacy: today's x0 and limits,
+        # argument for argument. Offset-free: x0 gains the command in force,
+        # the speed box moves onto the command (ceiling, ramp, stall cap, floor,
+        # start-up bound) and the real speed gets a soft cap; the stop ramp's
+        # box is handed over as a number instead of as limits['vMax'].
+        x0_solve, last_u_solve, speed_kwargs = x0, self.last_u, {}
+        solve_limits = self._stop_ramp_limits(vdes)
+        if self._speed_offset_free():
+            ch = self.speed_channel
+            last_u_solve = np.array([self.last_u[0], ch.rate_in_force()], dtype=float)
+            ramp_box = (float(solve_limits['vMax'])
+                        if solve_limits is not self.limits else None)
+            c0, speed_model = ch.plan(
+                float(self.v), float(last_u_solve[1]), self.limits, vdes=vdes,
+                ramp_box=ramp_box, floor=self._speed_floor_applies(), may_start=True)
+            x0_solve = np.append(x0, c0)
+            solve_limits = self.limits
+            speed_kwargs = {'speed_model': speed_model}
+
         solve_t0 = self.get_clock().now().nanoseconds * 1e-9
 
         u0, info = self._mpc_solve(
-            x0=x0,
-            last_u=self.last_u,
+            x0=x0_solve,
+            last_u=last_u_solve,
             pref_nom=pref_nom,
             corridor=corridor,
             horizon=self.N,
             ts=self.ts_pred,
             params=self.params,
-            limits=self._stop_ramp_limits(vdes),
+            limits=solve_limits,
             weights=self._weights_for(corridor),
             obstacles=obstacles_global,
             dmin=self.dmin,
@@ -5311,6 +5494,7 @@ class MPCController(Node):
             boundary_slack_max=self.boundary_slack_max,
             warm_start_z=self.warm_start_z,
             control_period=self.ts,
+            **speed_kwargs,
         )
 
         solve_dt = self.get_clock().now().nanoseconds * 1e-9 - solve_t0
@@ -5432,8 +5616,15 @@ class MPCController(Node):
         if "x_pred" in info and len(info["x_pred"]) > 0:
             # One CONTROL period ahead, where the next tick's ERR line
             # compares it; x_pred[0] is one PREDICTION step ahead.
-            self.prev_predicted_state = np.asarray(f1tenth_state_fcn_dt_beta(
-                x0, u0, self.ts, self.params['L'], self.params['lr']), dtype=float)
+            if speed_kwargs:
+                # The offset-free model's own one-tick prediction: the real
+                # speed through the lag, not v + a * ts.
+                self.prev_predicted_state = np.asarray(f1tenth_state_fcn_dt_beta_lag(
+                    x0_solve, u0, self.ts, self.params['L'], self.params['lr'],
+                    self.speed_channel.model_for(self.ts)), dtype=float)[:4]
+            else:
+                self.prev_predicted_state = np.asarray(f1tenth_state_fcn_dt_beta(
+                    x0, u0, self.ts, self.params['L'], self.params['lr']), dtype=float)
 
             # ---- DEBUG: traiettoria di velocita' predetta sull'orizzonte ----
             v_traj = [f'{float(s[3]):.3f}' for s in info["x_pred"]]
@@ -5482,9 +5673,17 @@ class MPCController(Node):
 
         self.last_u = np.array([delta_cmd, a_cmd], dtype=float)
 
-        v_cmd_now = self.v + a_cmd * self.ts
         drive_source = 'forward'
-        if self.goal_object_odom_xy is not None and self.object_speed_mode == SPEED_DRIVE:
+        if speed_kwargs:
+            # OFFSET-FREE: the command at stage 1, c0 + a0 * ts, inside the box
+            # the plan was given -- the operating floor included, so the
+            # legacy floor below has nothing left to do.
+            v_cmd_now = self.speed_channel.command(a_cmd, info)
+            self._speed_tick_planned = True
+        else:
+            v_cmd_now = self.v + a_cmd * self.ts
+        if (not speed_kwargs and self.goal_object_odom_xy is not None
+                and self.object_speed_mode == SPEED_DRIVE):
             # The operating floor, on the command that actually goes out. Every
             # non-driving object tick returned above, so this is only ever a
             # moving approach; the top of the range is _publish_drive's clamp.
@@ -5548,7 +5747,11 @@ class MPCController(Node):
         # Model-validation row -- see model_log_path in __init__. AFTER the publish,
         # so its file I/O can never delay the command; x0/delta_cmd/a_cmd are the
         # same values the solve used and the publish sent.
-        self._write_model_log(x0, delta_cmd, a_cmd)
+        # accel_cmd keeps its documented meaning in both modes, "the car is sent
+        # v + accel_cmd * ts" (docs/DIAGNOSTICS.md): offset-free sends a command
+        # that is not v + a * ts, so the row carries the acceleration it implies.
+        a_log = a_cmd if not speed_kwargs else (v_cmd_now - float(self.v)) / self.ts
+        self._write_model_log(x0, delta_cmd, a_log)
 
         self.get_logger().info(
             f'MPC | x={self.x:.2f} y={self.y:.2f} yaw={self.yaw:.2f} v={self.v:.2f} '

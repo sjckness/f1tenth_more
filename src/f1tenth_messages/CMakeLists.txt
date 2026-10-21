@@ -32,6 +32,7 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/ObjectApproachStatus.msg"
   "msg/DriveClamp.msg"
   "msg/ReverseStatus.msg"
+  "msg/SpeedChannelStatus.msg"
   "msg/MoveOutcome.msg"
   "msg/Door.msg"
   "msg/DoorArray.msg"

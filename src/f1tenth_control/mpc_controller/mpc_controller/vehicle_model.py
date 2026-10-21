@@ -108,3 +108,72 @@ def f1tenth_state_fcn_dt_beta_jacobian(
     ], dtype=float)
 
     return A, B
+
+
+def f1tenth_state_fcn_dt_beta_lag(
+    xk: Sequence[float],
+    uk: Sequence[float],
+    ts: float,
+    wheelbase: float,
+    lr: float,
+    speed_model: dict,
+) -> List[float]:
+    """
+    One step of the offset-free speed model (speed_channel.py has the design).
+
+    Stato:    [X, Y, psi, v, c]   v the REAL speed, c the command in force
+    Controllo [delta, a]          a the command RATE
+
+    X, Y and psi are f1tenth_state_fcn_dt_beta's, driven by the real speed v.
+    The speed channel replaces its v + ts * a:
+
+        c+ = c + ts * a
+        v+ = v + alpha * (c_eff + d - v)
+
+    alpha = speed_model['alpha'] (1 - exp(-ts / tau), the exact ZOH lag over
+    ONE step of THIS ts), d = speed_model['d'] (the disturbance, in command
+    m/s, constant over the horizon) and c_eff the command acting during the
+    step: the new one c + ts * a, or with speed_model['delay'] = 1 the one
+    already in force, c.
+    """
+    x_next = f1tenth_state_fcn_dt_beta(xk[:4], uk, ts, wheelbase, lr)
+    v = float(xk[3])
+    c = float(xk[4])
+    a = float(uk[1])
+    alpha = float(speed_model['alpha'])
+    c_next = c + ts * a
+    c_eff = c if int(speed_model.get('delay', 0)) else c_next
+    x_next[3] = v + alpha * (c_eff + float(speed_model['d']) - v)
+    x_next.append(c_next)
+    return x_next
+
+
+def f1tenth_state_fcn_dt_beta_lag_jacobian(
+    xk: Sequence[float],
+    uk: Sequence[float],
+    ts: float,
+    wheelbase: float,
+    lr: float,
+    speed_model: dict,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Analytic (A, B) of f1tenth_state_fcn_dt_beta_lag at (xk, uk).
+
+    The kinematic rows are f1tenth_state_fcn_dt_beta_jacobian's, with a zero
+    column for c (positions do not see the command, only the speed it
+    produces). The two speed rows are linear, so they are exact everywhere and
+    the affine term the RTI linearization adds carries d exactly.
+    """
+    A4, B4 = f1tenth_state_fcn_dt_beta_jacobian(xk[:4], uk, ts, wheelbase, lr)
+    alpha = float(speed_model['alpha'])
+    fresh = 0.0 if int(speed_model.get('delay', 0)) else 1.0
+    A = np.zeros((5, 5), dtype=float)
+    A[:3, :4] = A4[:3, :]
+    A[3, 3] = 1.0 - alpha
+    A[3, 4] = alpha
+    A[4, 4] = 1.0
+    B = np.zeros((5, 2), dtype=float)
+    B[:3, :] = B4[:3, :]
+    B[3, 1] = alpha * fresh * ts
+    B[4, 1] = ts
+    return A, B
