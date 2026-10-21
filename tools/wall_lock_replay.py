@@ -14,7 +14,10 @@ would fire on the raw wall topic and on the locked value (strict arm only,
 Each line also says what mpc_corr's deceleration ramp aims at on that step
 (mpc_controller/ramp_wall_source.py, fed the id the BT would publish on
 /mpc/stop_wall_id), and the summary counts the steps where that is not the
-raw wall value of the same publish.
+raw wall value of the same publish. Both are read from the same payload, so
+they can only differ on a not_front step whose FRONT is ANOTHER WALL -- a
+swerve: the count says whether the bag holds one, it does not test the ramp
+(test_ramp_wall_source.py does).
 
 THE TWO STOP COLUMNS PAIR TWO TOPICS BY BAG TIME, and the recorder does not
 keep them paired: corridor10m_20261019T131815 holds 716
@@ -137,7 +140,8 @@ def replay(bag, target, debounce, front_x):
                     fired[name] = (round(t - t0, 2), round(value, 3))
     print(f'\nphases (lock steps): {counts}')
     print(f'ramp sources (lock steps): {ramp_counts}; the ramp read other than the '
-          f'raw wall value of the same publish on {ramp_not_raw} step(s)')
+          f'raw wall value of the same publish on {ramp_not_raw} step(s) '
+          f'(a swerve: another wall FRONT while the lock holds)')
     print(f'stop < {target} m, {debounce} step(s): raw fires at {fired["raw"]}, '
           f'locked fires at {fired["lock"]}  (bag s, distance m)')
 

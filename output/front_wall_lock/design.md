@@ -323,10 +323,12 @@ car is.
 **Replay.** `tools/wall_lock_replay.py` now prints what the ramp aims at on
 every step, from the payload alone. bf7938: 122 raw (unlocked), 9 locked;
 corridor10m_20261019T131815: 88 raw (unlocked or lost), 636 locked, 6
-not_front (all with the front CLEAR). On both, the ramp reads exactly the raw
-contract value of the same publish on every step (0 differ): with no swerve,
-the change is a no-op. The one case it exists for is covered by unit tests
-only.
+not_front (all with the front CLEAR). On both, the ramp reads the raw
+contract value of the same publish on every step (0 differ). That holds by
+construction -- the tool takes both from the same payload, and they can only
+differ on a not_front step with another wall FRONT -- so it says these bags
+hold no swerve, not that the ramp is right. The one case the change exists for
+is covered by unit tests only (`mpc_controller/test/test_ramp_wall_source.py`).
 
 **Recorded.** The mission logger records `/mpc/stop_wall_id` next to
 `/mpc/stop_target`.
@@ -341,7 +343,11 @@ LEVEL"; keys `wall_confirm_*`): a track is CONFIRMED after
 `wall_confirm_min_consecutive_hits` (5) cycles in a row with a LiDAR-backed
 association, a measured length of at least `wall_confirm_min_length_m` (1.0 m),
 and its line steady over those cycles within `wall_confirm_max_dist_jitter_m`
-(5 cm) and `wall_confirm_max_angle_jitter_deg` (3°) in odom.
+(5 cm) and `wall_confirm_max_angle_jitter_deg` (3°) in odom. The distance is
+measured from the track's segment midpoint, not from the odom origin (review
+fix, 2026-10-22): odom rho moved by the line's angle noise times the
+along-wall distance from where the EKF started, so walls a few metres from the
+start failed on `dist_jitter` (0.5° read as 8.7 cm 10 m along the wall).
 `wall_confirm_require_lidar` (true) means a STEREO-only track never confirms.
 Every consumer (FRONT, `/perception/walls`, door hosts, wall markers, the MPC
 wall rows, the semantic layer, and this lock) reads that one level; the old
@@ -353,8 +359,23 @@ For the lock:
   never STEREO-only, so the bf7938 phantom (a stereo-only FRONT for two steps)
   cannot happen any more. The lock's own "never lock a STEREO-only FRONT" rule
   stays as a second line, for `require_lidar` false.
-- **Later.** Confirmation takes at least 0.5 s at the 10 Hz tracker rate
-  (0.3 s before), so the first FRONT, and the lock, come at least 0.2 s later.
+- **Later, and much later for a far wall.** Confirmation takes at least
+  0.5 s at the 10 Hz tracker rate (0.3 s before), but that is the floor: five
+  extractions IN A ROW is the binding part for a far or partly seen wall.
+  corridor10m_20261019T131815 re-tracked LiDAR-only (door_replay's
+  Retracker, every 4th scan, stack params): the end wall first becomes FRONT
+  15.7 m ahead, 12 s and 5.0 m after the car starts driving, against 20.4 m
+  and 0.7 s / 0.15 m before. FRONT is held on 51 % of the bag's 796 cycles
+  against 82 %: while standing at the start it is held on 0-40 % of the
+  cycles of each 5 s (42-68 % before), and from 45 s, 5 m into the approach,
+  on every cycle (from 35 s before). Birth to confirmation: median 4 cycles,
+  p90 4 (median 2, p90 3 before). The lock and the ramp need a FRONT, so they
+  engage later too.
+- **Fewer side-wall rows.** The same replay: a confirmed RIGHT wall within
+  2.5 m of the car (an MPC wall row) on 27 % of cycles against 34 % (13 %
+  before the midpoint fix). The right wall there is extracted on only some
+  cycles, so it rarely gets five in a row. Left: 85 %, unchanged. On the car, `confirm_reason=hits` on
+  `/perception/virtual_wall/debug` (`wall_debug_tracks:=true`) is this case.
 - **Odometry against the 5 cm bound.** `/odometry/filtered` reads distance
   ~17 % short, so a static wall drifts in odom while the car drives at it. In
   a synthetic head-on approach the spread before confirmation was 2.3-2.9 cm
