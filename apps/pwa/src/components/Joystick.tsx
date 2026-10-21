@@ -3,11 +3,12 @@
 import { useRef, useState } from 'preact/hooks';
 import { capture } from './pointer';
 
-export function Joystick({ axis, label, disabled, glow, onChange, testid }: {
+export function Joystick({ axis, label, disabled, glow, reverse, onChange, testid }: {
   axis: 'v' | 'h';
   label: string;
   disabled?: boolean;
   glow?: boolean;                       // the dead-man is held: green ring
+  reverse?: boolean;                    // gas: the lower half is reverse, ends AVANTI / RETRO (amber)
   onChange: (value: number, active: boolean) => void;
   testid?: string;
 }) {
@@ -54,6 +55,9 @@ export function Joystick({ axis, label, disabled, glow, onChange, testid }: {
   const off = value * travel;
   const kx = vertical ? (w - knob) / 2 : (w - knob) / 2 + off;
   const ky = vertical ? (h - knob) / 2 - off : (h - knob) / 2;
+  // The pad maps where the thumb is: a label at an end sits at full travel that way.
+  const endV = { position: 'absolute', left: 0, right: 0, textAlign: 'center', fontSize: '11px',
+    color: 'var(--muted)', letterSpacing: '0.1em', pointerEvents: 'none' } as const;
   return (
     <div ref={ref} role="slider" aria-label={label} aria-orientation={vertical ? 'vertical' : 'horizontal'}
       aria-valuemin={-100} aria-valuemax={100} aria-valuenow={Math.round(value * 100)} tabIndex={0}
@@ -73,7 +77,12 @@ export function Joystick({ axis, label, disabled, glow, onChange, testid }: {
         borderRadius: '50%', background: 'var(--text)', boxShadow: '0 6px 18px rgba(0,0,0,0.5)',
         pointerEvents: 'none' }} />
       {vertical
-        ? <span class="mono" style={{ position: 'absolute', left: 0, right: 0, bottom: '14px', textAlign: 'center', fontSize: '11px', color: 'var(--muted)', letterSpacing: '0.1em', pointerEvents: 'none' }}>GAS</span>
+        ? reverse
+          ? <>
+            <span class="mono" style={{ ...endV, top: '14px' }}>AVANTI</span>
+            <span class="mono" data-testid={testid && `${testid}-reverse-end`}
+              style={{ ...endV, bottom: '14px', color: 'var(--amber)', fontWeight: 700 }}>RETRO</span></>
+          : <span class="mono" style={{ ...endV, bottom: '14px' }}>GAS</span>
         : <>
           <span class="mono" style={{ position: 'absolute', left: '18px', top: `${h / 2 - 8}px`, fontSize: '11px', color: 'var(--muted)', pointerEvents: 'none' }}>SX</span>
           <span class="mono" style={{ position: 'absolute', right: '18px', top: `${h / 2 - 8}px`, fontSize: '11px', color: 'var(--muted)', pointerEvents: 'none' }}>DX</span></>}

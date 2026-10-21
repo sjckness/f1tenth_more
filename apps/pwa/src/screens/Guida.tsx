@@ -1,6 +1,7 @@
 // Guida (design/Guida.dc.html): landscape only, two thumbs. Gas = dead-man: the car moves
 // only while that thumb is down; lifting it sends a zero at once. 20 Hz while held.
-// Gas below the dead zone = reverse (gateway teleop.py): RETROMARCIA in amber while it lasts.
+// Gas below the dead zone = reverse (gateway teleop.py): RETROMARCIA in amber while it lasts,
+// and the pad's ends read AVANTI / RETRO (the lower half is no longer a safe place to rest).
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { battery, drive, hello, online, rttMs, tel, wakeLockMissing } from '../store';
 import { send } from '../ws';
@@ -152,7 +153,8 @@ export function Guida() {
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '28px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Joystick axis="v" label="Gas" disabled={!canDrive} glow={held} onChange={onGas} testid="gas" />
+          <Joystick axis="v" label="Gas" disabled={!canDrive} glow={held} reverse={maxRev > 0}
+            onChange={onGas} testid="gas" />
           <div class="mono" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <span class="muted" style={{ fontSize: '11px' }}>THR</span>
             <span style={{ fontSize: '20px', fontWeight: 700, color: reverse ? 'var(--amber)' : undefined }}>

@@ -136,7 +136,10 @@ WebSocket `/ws`:
    (default 0.05 m/s) nel verso opposto; senza misura fresca decide solo il tempo. Dead-man, watchdog 250 ms e
    rilascio = zero immediato sono gli stessi della marcia avanti. In Guida, finché il comando è negativo, un
    indicatore RETROMARCIA (etichetta e colore ambra) è sempre visibile, con "attesa arresto" durante lo zero
-   del cambio di verso. Attenzione: dietro l'auto non c'è sensore oltre la finestra del LiDAR.
+   del cambio di verso. Il joystick del gas mappa la posizione assoluta del pollice: con la retromarcia
+   abilitata la metà inferiore non è più una zona di riposo (nella v1 dava 0), e le estremità del joystick
+   sono etichettate AVANTI e RETRO (ambra). Attenzione: dietro l'auto non c'è sensore oltre la finestra
+   del LiDAR.
 6. Un solo client di guida alla volta (il secondo riceve "guida occupata").
 7. Le azioni critiche (start missione, abort, process stop) non hanno retry automatici.
 

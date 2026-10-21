@@ -42,6 +42,7 @@ test('gas held: the car gets 0.4..limit on /teleop; released: a zero at once', a
 test('gas pulled back: reverse down to -0.4 with RETROMARCIA shown; released: a zero at once', async ({ page, request }) => {
   await openApp(page, 'guida');
   await expect(page.getByTestId('reverse')).toBeHidden();
+  await expect(page.getByTestId('gas-reverse-end')).toHaveText('RETRO');   // the lower end says so
   await press(page, 'gas', 1, 0.5, 0.95);                  // full reverse
   await expect(page.getByTestId('reverse')).toBeVisible();
   await expect(page.getByTestId('reverse')).toContainText('RETROMARCIA');
