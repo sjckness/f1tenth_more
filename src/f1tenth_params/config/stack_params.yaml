@@ -2557,7 +2557,21 @@ enable_slam:
 # point is that nobody has to remember to turn it on.
 enable_mission_logger:
   default: false
-  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before. ALSO READ BY behavior_executor_node (forwarded by component_supervisor_node through behavior_bringup.launch.py): the mission start countdown (mission_countdown_sec, 15 s) is armed only when this is true; false starts a mission at once."
+  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before. ALSO READ BY behavior_executor_node (forwarded by component_supervisor_node through behavior_bringup.launch.py): the mission start countdown (mission_countdown_sec, 0.0 s since 2026-10-21) is armed only when this is true; false starts a mission at once."
+# ============================================================
+# mission_countdown_sec -- f1tenth_behavior/mission/loader.py
+# ============================================================
+# Consumed by: MissionLoader (behavior_executor_node). The standstill between
+# /mission/start_mission and the car actually moving: the state stays LOADED,
+# the mission subtree never ticks, /mpc/hold stays engaged. Armed only while
+# enable_mission_logger is true; with the logger off a start begins at once,
+# whatever this says. Read LIVE at every start, so `ros2 param set
+# /behavior_executor_node mission_countdown_sec 15.0` re-arms it between
+# tests without a restart.
+mission_countdown_sec:
+  default: 0.0
+  description: "Standstill [s] between start_mission and the first move. 0.0 SINCE 2026-10-21 (down from 15.0): the wait before every run was removed on request -- a start now begins at once. THE PRICE, accepted: mission_logger's recorder starts at LOADED and needs 5-14 s of discovery before its first message (median 8.2 s, first test campaign), and the countdown was what made the bag cover the whole drive, so with 0 the bag of a short mission begins mid-drive or stays empty, and the standstill the jerk numbers were measured against is gone. Set it back per session with `ros2 param set` (read live at every start) when a run's bag has to cover the start. Only ever armed with enable_mission_logger true."
+
 # Consumed by: f1tenth_logger/mission_logger.launch.py: starts the 5 Hz depth
 # throttle (topic_tools) and forwards record_depth to mission_logger_node.
 mission_logger_record_depth:
@@ -3149,9 +3163,9 @@ go_to_enabled:
 # discovery included. Expired, or the load refused -> start_mission is never
 # called and the reason is logged. The standstill countdown between
 # start_mission and the car moving is a different parameter of a different
-# node: f1tenth_behavior's mission_countdown_sec (behavior_executor_node, 15 s
-# by default, armed only with enable_mission_logger true, not in this file --
-# see f1tenth_logger/TEST_CAMPAIGN.md).
+# node: f1tenth_behavior's mission_countdown_sec (behavior_executor_node, 0.0 s
+# by default since 2026-10-21, armed only with enable_mission_logger true --
+# see that key above and f1tenth_logger/TEST_CAMPAIGN.md).
 # Read once at node start; a ROS parameter of the same name overrides it.
 llm_load_confirm_timeout_s:
   default: 15.0

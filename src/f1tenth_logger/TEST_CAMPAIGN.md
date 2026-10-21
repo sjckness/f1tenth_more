@@ -169,23 +169,28 @@ or start then fails, a follow-up `/test/plan_result` with `kind: delivery`
 records `delivery_failed` in the test and closes it. The abort's own
 `mission_aborted` (the previous mission's end) lands in the new test before
 its `mission_loaded`; it is recorded as `stale_mission_event` and ignored. The mission waits
-`mission_countdown_sec` (default 15 s) at a standstill before it drives. That
-standstill is the noise floor every jerk number is measured against. It is 15 s
-because the mission bag recorder starts at LOADED and needs 5-14 s of discovery
-before its first message; a shorter countdown means a late bag. The countdown is
-armed only with `enable_mission_logger:=true`, which a campaign run needs anyway;
-with the logger off (the default) a mission starts at once.
+`mission_countdown_sec` at a standstill before it drives, and that standstill is
+the noise floor every jerk number is measured against. **It is 0.0 since
+2026-10-21** (`stack_params.yaml`), down from 15 s: the wait before every run
+was removed on request, so a start begins at once. The 15 s were there because
+the mission bag recorder starts at LOADED and needs 5-14 s of discovery before
+its first message, so with 0 a short mission's bag begins mid-drive or stays
+empty, and `standstill_jerk_rms` is empty. Put the countdown back for a run
+whose bag has to cover the start (next paragraph). It is armed only with
+`enable_mission_logger:=true`, which a campaign run needs anyway; with the
+logger off a mission starts at once whatever the value.
 
 The countdown is a parameter of the behaviour node. It is read fresh at every
 start, so you can retune it between tests without restarting anything:
 
 ```bash
-ros2 param get /behavior_executor_node mission_countdown_sec     # 15.0 by default
-ros2 param set /behavior_executor_node mission_countdown_sec 5.0
+ros2 param get /behavior_executor_node mission_countdown_sec     # 0.0 by default
+ros2 param set /behavior_executor_node mission_countdown_sec 15.0
 ```
 
-It is not in `stack_params.yaml`, so a restart goes back to 15.0. Set it once
-per session, or add it there if you want it permanent.
+It IS in `stack_params.yaml` since 2026-10-21, so a restart goes back to that
+file's value (0.0) and a `param set` lasts for the session. Change the yaml to
+make a different countdown permanent.
 
 ### 5. Export, judge, analyse
 
@@ -426,8 +431,9 @@ It is verified end to end on the car during the pilot.
   `/mission/emergency_stop` both cancel a pending start, and the timer
   re-checks before it starts anything. The car never drives off after a stop.
   Such a run is recorded as `aborted / "cancelled before start"`.
-- **`mission_countdown_sec: 0`** restores the old behaviour — start_mission
-  starts the mission immediately. `standstill_jerk_rms` is then empty.
+- **`mission_countdown_sec: 0`** (THE DEFAULT since 2026-10-21) — start_mission
+  starts the mission immediately. `standstill_jerk_rms` is then empty, and the
+  bag no longer gets its pre-roll.
 - **A failed LLM call is still a test.** It gets a folder, the call is recorded
   with `ok=0`, and the test closes as aborted. Do not treat a missing folder as
   "the LLM failed"; a missing folder means the recorder was not running.

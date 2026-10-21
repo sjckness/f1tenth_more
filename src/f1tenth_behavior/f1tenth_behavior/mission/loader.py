@@ -232,12 +232,17 @@ class MissionLoader:
         # succeeds on RUNNING/HOLDING, so the mission subtree never ticks and no
         # goal is ever published; /mpc/hold stays engaged until the timer fires.
         # /mission/emergency_stop and /mission/abort_mission both cancel it.
-        # 15 s, not 3 s: f1tenth_logger's mission recorder starts at LOADED
-        # and needs 5-14 s of discovery (first test campaign) before its
-        # first message, so the countdown is what makes the bag cover the
-        # whole drive.
+        # 0.0 by default since 2026-10-21 (stack_params.yaml, which has the
+        # reason and the price): the wait before every run was removed, so a
+        # start begins at once. It was 15 s because f1tenth_logger's mission
+        # recorder starts at LOADED and needs 5-14 s of discovery (first test
+        # campaign) before its first message, so the countdown was what made
+        # the bag cover the whole drive -- with 0 a short mission's bag starts
+        # mid-drive. Set it back per session with `ros2 param set` when that
+        # matters (read live, see _countdown_seconds).
         self._countdown_s = float(
-            node.declare_parameter('mission_countdown_sec', 15.0).value)
+            node.declare_parameter(
+                'mission_countdown_sec', get_value('mission_countdown_sec')).value)
         # ...but only while the mission recorder runs: the standstill
         # measurement and the bag's start-up only matter when recording. With
         # enable_mission_logger false (the stack default since 2026-10-16) a

@@ -20,7 +20,8 @@ PRE-ROLL: recording starts at LOADED, not at RUNNING, because the recorder
 needs 5-14 s of discovery before its first message (first test campaign,
 2026-09/10: median 8.2 s after the mission start, 17 of 58 bags empty when it
 started at RUNNING). f1tenth_behavior's mission_countdown_sec (LOADED ->
-RUNNING) was raised to cover that window. The manifest's start_time still
+RUNNING) was raised to cover that window, and is 0.0 again since 2026-10-21
+(stack_params.yaml), so the pre-roll is only what discovery itself manages. The manifest's start_time still
 means the MISSION start (the RUNNING edge): the MATLAB exporter matches runs
 on it within 2 s. record_start_time (the LOADED edge), mission_start_time and
 preroll_s are additions. A run that never reaches RUNNING keeps
