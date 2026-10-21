@@ -136,8 +136,17 @@ def test_the_direction_change_waits_for_the_measured_speed_to_reach_0(tele):
     rev = _run(tele, -1.0, 1.0, 2.0, v_meas=rolling)
     first = next(n for n, v in rev if v != 0.0)
     assert first >= 1.55 - 1e-9                                     # |v| <= 0.05 from 1.55
+    assert first < 1.55 + 0.05                                      # and no longer than that
     assert all(v == 0.0 for n, v in rev if n < first)
     assert tele.snapshot()['reverse']
+
+
+def test_a_measured_speed_under_stop_speed_does_not_hold_the_direction_change(tele):
+    """0.03 m/s forward is "stopped" (stop_speed_mps 0.05): the hold time alone decides."""
+    _run(tele, 1.0, 0.0, 1.0)
+    rev = _run(tele, -1.0, 1.0, 2.0, v_meas=lambda now: 0.03)
+    first = next(n for n, v in rev if v != 0.0)
+    assert 1.0 + 0.3 - 1e-9 <= first < 1.0 + 0.3 + 0.05
 
 
 def test_reverse_to_forward_goes_through_0_as_well(tele):
@@ -164,9 +173,18 @@ def test_moving_against_the_stick_waits_even_without_a_previous_command(tele):
 
 
 def test_releasing_the_deadman_in_reverse_gives_a_zero_at_once(tele):
-    _run(tele, -1.0, 0.0, 1.0)
+    rev = _run(tele, -1.0, 0.0, 1.0)
+    assert rev[-1][1] == pytest.approx(-0.4)                        # really reversing
     status, cmd = tele.on_input('a', {'deadman': False}, 1.0)
     assert status == 'released' and cmd.speed == 0.0
+
+
+def test_the_hold_counts_from_the_release_zero_not_from_the_next_input(tele):
+    """Released in reverse at 1.0, forward from 1.35: the 0.3 s at 0 are behind it."""
+    _run(tele, -1.0, 0.0, 1.0)
+    tele.on_input('a', {'deadman': False}, 1.0)
+    fwd = _run(tele, 1.0, 1.35, 1.6)
+    assert fwd[0] == (1.35, pytest.approx(0.4))
 
 
 def test_the_watchdog_zeroes_reverse_too(tele):
