@@ -233,7 +233,6 @@ STACK_TO_TRACKER = (
     ('stereo_max_rms_m', 'stereo_max_rms_m', float),
     ('stereo_min_vertical_extent_m', 'stereo_min_vertical_extent_m', float),
     ('stereo_min_length_m', 'stereo_min_length_m', float),
-    ('camera_confirm_fresh_only', 'camera_confirm_fresh_only', bool),
     ('camera_side_x_max_m', 'camera_side_x_max_m', float),
     ('camera_side_max_normal_deg', 'camera_side_max_normal_rad', math.radians),
     ('camera_side_offset_min_m', 'camera_side_offset_min_m', float),
@@ -248,8 +247,6 @@ STACK_TO_TRACKER = (
     ('stereo_sigma_base_m', 'stereo_sigma_base_m', float),
     ('stereo_sigma_quad_per_m2', 'stereo_sigma_quad_per_m2', float),
     ('min_span_for_angle_m', 'min_span_for_angle_m', float),
-    ('stereo_confirm_hits', 'stereo_confirm_hits', int),
-    ('stereo_confirm_window', 'stereo_confirm_window', int),
     ('role_hysteresis_rad', 'role_hysteresis_rad', float),
     ('stereo_front_max_normal_rad', 'stereo_front_max_normal_rad', float),
     ('front_strip_margin_m', 'front_strip_margin_m', float),
@@ -270,6 +267,16 @@ STACK_TO_TRACKER = (
     ('wall_negative_min_beams', 'negative_min_beams', int),
     ('wall_negative_pass_frac', 'negative_pass_frac', float),
     ('wall_negative_miss_to_kill', 'negative_miss_to_kill', int),
+)
+#: THE CONFIRMATION LEVEL's group, whose yaml keys carry no NODE_PREFIX
+#: (wall_confirm_*, 2026-10-21; it replaced stereo_confirm_hits / _window and
+#: camera_confirm_fresh_only, which an older checkout's yaml still has).
+STACK_TO_TRACKER_CONFIRM = (
+    ('wall_confirm_min_consecutive_hits', 'confirm_min_consecutive_hits', int),
+    ('wall_confirm_min_length_m', 'confirm_min_length_m', float),
+    ('wall_confirm_max_dist_jitter_m', 'confirm_max_dist_jitter_m', float),
+    ('wall_confirm_max_angle_jitter_deg', 'confirm_max_angle_jitter_rad', math.radians),
+    ('wall_confirm_require_lidar', 'confirm_require_lidar', bool),
 )
 #: ...and what else the node takes from the yaml for the walls: the
 #: extraction's gates, the LiDAR observation's height and confidence model.
@@ -629,6 +636,7 @@ def wall_setup(src, mode, rule, p, overrides):
     if mode == 'stack':
         tracker_kw.update(stack_values(src, (('swept_clearance_body_half_width_m',
                                               'side_edge_half_width_m', float),), prefix=''))
+        tracker_kw.update(stack_values(src, STACK_TO_TRACKER_CONFIRM, prefix=''))
     tp = build(mwt.TrackerParams, tracker_kw)
     merge_gap, how = wall_rule(tp, rule, p.width_min_m)
     apply_overrides(tp, overrides, 'tracker.')

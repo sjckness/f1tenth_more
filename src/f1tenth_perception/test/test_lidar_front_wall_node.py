@@ -1435,7 +1435,11 @@ DRIVE_PAST = tuple(round(-2.0 + 0.1 * i, 3) for i in range(16))
 #: Standing still 1 m before it: a door seen from ONE place, a candidate.
 STAND = (-1.0,) * 6
 #: Nearly abeam the doorway, where the left-looking camera below sees it.
-ABEAM = tuple(round(-0.6 + 0.1 * i, 3) for i in range(6))
+#: Nine cycles, not six: THE CONFIRMATION LEVEL needs five in a row before
+#: the two wall pieces either side of the doorway are confirmed HOSTS, and
+#: the piece beyond it shrinks below the birth span as the car comes abeam,
+#: so starting at -0.6 m it never confirms and there is no door to measure.
+ABEAM = tuple(round(-0.9 + 0.1 * i, 3) for i in range(9))
 
 #: Every key of one door_candidates record on the debug topic (door_record).
 RECORD_KEYS = {'code', 'cls', 'visible', 'detail', 'width', 'n_beams', 'n_required',

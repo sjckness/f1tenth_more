@@ -6,7 +6,10 @@ was sent to approach" — it just asks a single live estimator "is something
 close, dead ahead, right now." This proposes closing that gap by mirroring a
 pattern the codebase already has for objects, not inventing a new one.
 
-Nothing here is implemented yet. Design only.
+Sections 1-5 are the design as written before any code. What was built, and
+where it departs, is in the implementation notes (2026-10-21) and the two
+2026-10-22 sections at the end: the deceleration ramp now aims at the locked
+wall, and every wall consumer shares one confirmation level.
 
 ## 1. What's wrong today
 
@@ -180,14 +183,23 @@ None for "not yet".
   evaluated as `_predict()` does: the anchor line, static in odom, seen from
   the current bumper.
 - **An angle gate (15°) next to the distance gate.** A one-number gate cannot
-  refuse a side wall at the same distance, which is §4's case. 15° is not
-  measured: far above line-normal noise and one move's yaw drift, far below a
-  side wall's 90°.
+  refuse a side wall at the same distance, which is §4's case. **15° is NOT
+  MEASURED**: far above line-normal noise and one move's yaw drift, far below a
+  side wall's 90°. See the parameter table below.
 - **"Grace" is the tracker's own FRONT coast caps** (0.5 s / 0.3 m of path),
   read from the same keys.
 - **"Hold" means the stop reads "not yet"** (`condition_eval.py`'s fail-safe
   for an absent reading), not `/mpc/hold`. The car keeps driving under the
   MPC, and the move stays bounded by its `timeout_sec`.
+
+### Parameters
+
+| key (`stack_params.yaml`) | value | where it comes from |
+|---|---|---|
+| `wall_lock_enabled` | true | switch. false: the stop and (since 2026-10-22) the ramp read `/perception/virtual_wall` alone, as before 10-21 |
+| `wall_follow_gate_m` | 0.30 m | `lidar_front_wall_wrong_surface_gate_m`: the valley of WallEstimator's recorded innovation histogram (same-wall re-acquisitions -16/+6 cm p10/p90). Measured, but on the single-scalar estimator, not on tracker re-acquisitions |
+| `wall_follow_gate_deg` | 15° | **NOT MEASURED.** Chosen between the line-normal noise (0.4-0.8° 1-sigma) plus one move's odometry yaw drift, and the 90° of a side wall. The two re-acquisitions on record are 1.7° and 1.1° (corridor10m_20261019T131815). To measure it: a bagged swerve (the M02 run with a person in the path), replayed with `tools/wall_lock_replay.py`, which prints the angle of every re-acquisition and refusal |
+| coast caps | 0.5 s / 0.3 m | `lidar_front_wall_wall_tracker_front_max_coast_sec` / `_m`, the tracker's own FRONT caps, read from the same keys |
 
 ### Replays (`tools/wall_lock_replay.py`, 2026-10-21)
 
@@ -211,15 +223,22 @@ completed, would have run into its timeout. Hence the stereo-only rule.
 The 10-14 / 10-15 mission bags predate `front_id` in the payload (the lock
 never engages there) and their `/perception/walls` no longer decodes.
 
+**Re-run 2026-10-22: the corridor10m row does not reproduce as "same step".**
+The same tool, from `night-start/campaign-final`, prints raw 78.52 s /
+1.734 m against locked 77.14 s / 1.98 m on that bag. The difference is the
+recording, not the lock: the tool pairs `/perception/virtual_wall` and its
+debug payload by bag time, and the bag holds 716 Float32 messages against
+730 payloads, written in bursts (369 of the 730 payloads follow a Float32
+that is not theirs). The Float32s carrying 1.98 m and 1.89 m are not in the
+bag, so "raw" first reads under 2.0 m at 1.734. Live, the stop reads the
+Float32 of the same publish, 1.98 m, on the same step as the locked value.
+The tool's docstring now says so.
+
 ### Not done
 
-- **The MPC's deceleration ramp still ramps on the raw
-  `/perception/virtual_wall`**, and its stop latches until the next move. In
-  the R029 case (a side wall becomes FRONT nearer than the target) the ramp
-  still stops the car by the side wall. The lock removes the false "arrived";
-  the move then ends on its `timeout_sec`. Fixing the stop itself means
-  feeding the ramp the locked distance (`MPC_corr._wall_stop_d_rem`), which is
-  in the MPC speed path and was left out.
+- ~~**The MPC's deceleration ramp still ramps on the raw
+  `/perception/virtual_wall`**~~ Done 2026-10-22: see "The ramp aims at the
+  locked wall" below.
 - **Not run on the car, and never on a swerve.** The case the lock exists for
   is covered by unit tests only (`test_wall_lock.py`,
   `test_wall_lock_behaviour.py`). The next M02 run with a person in the path
@@ -229,5 +248,138 @@ never engages there) and their `/perception/walls` no longer decodes.
   for the same reason.
 - **A different wall nearer than the locked one is refused too**, by the
   0.30 m gate, not only a side wall. A partition or a closed door across the
-  path after the lock is taken ends the move on its timeout (the ramp still
-  stops the car by it), where it used to end as "arrived".
+  path after the lock is taken ends the move on its timeout, where it used to
+  end as "arrived". Since 2026-10-22 the ramp does not slow for it while the
+  locked wall is still tracked behind it (see the next section); it does once
+  the locked wall is lost.
+
+---
+
+## The ramp aims at the locked wall (2026-10-22, branch `night-walls`)
+
+The R029 gap left above: the lock stopped the false "arrived", but the
+deceleration ramp kept reading the raw `/perception/virtual_wall`, so in a
+swerve it still braked the car to rest by the side wall and latched there.
+Now, with `wall_lock_enabled`, the ramp aims at the locked wall.
+
+**The wire.** The BT keeps every rule of the lock; the MPC only reads its
+answer, so the two can never disagree on which wall is locked.
+
+- `CheckStopCondition` publishes `/mpc/stop_wall_id` (`std_msgs/Int32`) on
+  every tick it runs the lock: `wall_lock.ramp_wall_id(step)`, the locked
+  track id in phases `locked`, `not_front` and `no_reading`, -1 in `unlocked`
+  and `lost`. Nothing in the lock's decisions changed; the topic carries them.
+- `MPC_corr` subscribes to it and to `/perception/virtual_wall/debug` (only
+  with `wall_lock_enabled`) and asks `mpc_controller/ramp_wall_source.py`
+  (pure, no ROS) for the distance on every tick of a wall stop
+  (`_ramp_wall_distance`, read by `_wall_stop_d_rem`, so both the speed cap and
+  the latched hand-over use it).
+- The distance comes from the debug payload, not from the BT: `state`,
+  `distance_m` and `front_id` of one publish, the same pairing the lock relies
+  on, at the same latency as the raw Float32. The BT's own value would add up
+  to one BT tick (0.1 s) on top.
+
+**The cases** (`select_ramp_distance`; tested in
+`mpc_controller/test/test_ramp_wall_source.py`):
+
+| lock state | the ramp aims at |
+|---|---|
+| `wall_lock_enabled` false | `_fresh_front_distance()`, exactly as before; neither topic is subscribed |
+| not locked yet (-1) | the raw wall distance, as before |
+| locked, its wall FRONT | the payload's `distance_m`: the locked track's contract value, the number the stop reads. A move that never changes front wall ramps on the same value as before |
+| locked, another wall (or none) FRONT | nothing: no wall ramp this tick (the swerve) |
+| locked wall lost (-1) | the raw wall distance until the BT re-acquires under its gates. Conservative: a lost lock can only brake more |
+| no fresh `/mpc/stop_wall_id` (> `wall_distance_max_age_s`), or locked without a usable payload | the raw wall distance (conservative) |
+
+**Why "nothing" while another wall is FRONT.** The ramp is deceleration
+toward the wall the move was sent to, and that wall is not in the strip.
+Another wall or obstacle in the way stays with what already handles any wall
+that is not FRONT: the solver's wall rows (a confirmed front/left/right wall
+on `/perception/walls` is a hard row whether or not it is locked:
+`wall_boundaries.admit_track`), the obstacle avoidance, the stop-and-reverse
+logic and the 20 cm LiDAR stop. No new logic was added for it.
+
+**Per move.** `stop_target_callback` forgets the lock id, so each move starts
+on the raw value until the BT's first id of that move (at most one BT tick,
+and the order of the two topics is not guaranteed either way, so either
+race ends on the raw value). A BT that stops running the lock (holding the
+car, another move type, dead) leaves the id stale within 0.5 s, and the
+ramp goes back to the raw value.
+
+**What the swerve looks like now** (R029, not run): side wall FRONT under the
+target → no ramp, no latch, the stop reads "not yet", the car keeps its
+mission speed under the wall rows; back on the target wall → the ramp resumes
+on it. If the target wall is lost meanwhile (gone, coasted past 0.5 s / 0.3 m,
+'unknown') and the side wall is refused, the ramp brakes for the side wall and
+the move ends on its timeout, as all of it did before.
+
+**Risk.** While the locked wall is still tracked behind a nearer surface
+across the path (a partition, a closed door), the ramp does not slow for that
+surface. Only the wall rows, the avoidance and the LiDAR stop act, until the
+locked wall is lost (occluded tracks turn 'unknown' or coast out within the
+0.5 s / 0.3 m caps), and from then the ramp brakes for it from wherever the
+car is.
+
+**Replay.** `tools/wall_lock_replay.py` now prints what the ramp aims at on
+every step, from the payload alone. bf7938: 122 raw (unlocked), 9 locked;
+corridor10m_20261019T131815: 88 raw (unlocked or lost), 636 locked, 6
+not_front (all with the front CLEAR). On both, the ramp reads the raw
+contract value of the same publish on every step (0 differ). That holds by
+construction -- the tool takes both from the same payload, and they can only
+differ on a not_front step with another wall FRONT -- so it says these bags
+hold no swerve, not that the ramp is right. The one case the change exists for
+is covered by unit tests only (`mpc_controller/test/test_ramp_wall_source.py`).
+
+**Recorded.** The mission logger records `/mpc/stop_wall_id` next to
+`/mpc/stop_target`.
+
+---
+
+## One wall confirmation level (2026-10-22, branch `night-walls`)
+
+Not part of the lock, but it changes what the lock can see. The multi-wall
+tracker now has one promotion rule (`multi_wall_tracker.py`, "THE CONFIRMATION
+LEVEL"; keys `wall_confirm_*`): a track is CONFIRMED after
+`wall_confirm_min_consecutive_hits` (5) cycles in a row with a LiDAR-backed
+association, a measured length of at least `wall_confirm_min_length_m` (1.0 m),
+and its line steady over those cycles within `wall_confirm_max_dist_jitter_m`
+(5 cm) and `wall_confirm_max_angle_jitter_deg` (3°) in odom. The distance is
+measured from the track's segment midpoint, not from the odom origin (review
+fix, 2026-10-22): odom rho moved by the line's angle noise times the
+along-wall distance from where the EKF started, so walls a few metres from the
+start failed on `dist_jitter` (0.5° read as 8.7 cm 10 m along the wall).
+`wall_confirm_require_lidar` (true) means a STEREO-only track never confirms.
+Every consumer (FRONT, `/perception/walls`, door hosts, wall markers, the MPC
+wall rows, the semantic layer, and this lock) reads that one level; the old
+3-of-5 and stereo 5-of-7 counts are gone.
+
+For the lock:
+
+- **FRONT is confirmed by construction**, and with `require_lidar` true it is
+  never STEREO-only, so the bf7938 phantom (a stereo-only FRONT for two steps)
+  cannot happen any more. The lock's own "never lock a STEREO-only FRONT" rule
+  stays as a second line, for `require_lidar` false.
+- **Later, and much later for a far wall.** Confirmation takes at least
+  0.5 s at the 10 Hz tracker rate (0.3 s before), but that is the floor: five
+  extractions IN A ROW is the binding part for a far or partly seen wall.
+  corridor10m_20261019T131815 re-tracked LiDAR-only (door_replay's
+  Retracker, every 4th scan, stack params): the end wall first becomes FRONT
+  15.7 m ahead, 12 s and 5.0 m after the car starts driving, against 20.4 m
+  and 0.7 s / 0.15 m before. FRONT is held on 51 % of the bag's 796 cycles
+  against 82 %: while standing at the start it is held on 0-40 % of the
+  cycles of each 5 s (42-68 % before), and from 45 s, 5 m into the approach,
+  on every cycle (from 35 s before). Birth to confirmation: median 4 cycles,
+  p90 4 (median 2, p90 3 before). The lock and the ramp need a FRONT, so they
+  engage later too.
+- **Fewer side-wall rows.** The same replay: a confirmed RIGHT wall within
+  2.5 m of the car (an MPC wall row) on 27 % of cycles against 34 % (13 %
+  before the midpoint fix). The right wall there is extracted on only some
+  cycles, so it rarely gets five in a row. Left: 85 %, unchanged. On the car, `confirm_reason=hits` on
+  `/perception/virtual_wall/debug` (`wall_debug_tracks:=true`) is this case.
+- **Odometry against the 5 cm bound.** `/odometry/filtered` reads distance
+  ~17 % short, so a static wall drifts in odom while the car drives at it. In
+  a synthetic head-on approach the spread before confirmation was 2.3-2.9 cm
+  at 0.5 m/s and 3.3-4.0 cm at 0.7 m/s; at 1.0 m/s the front wall never
+  confirmed. If FRONT shows up late on the car: `wall_debug_tracks:=true`,
+  read `confirm_reason` on `/perception/virtual_wall/debug`, and if it says
+  `dist_jitter` raise `wall_confirm_max_dist_jitter_m`.

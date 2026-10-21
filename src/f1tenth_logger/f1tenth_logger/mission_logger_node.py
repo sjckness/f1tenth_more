@@ -392,6 +392,8 @@ _DEFAULT_TOPICS = [
     # (transient-local, recorded on rosbag2's own QoS adaptation like
     # /mission/status): whether the ramp had a target at all.
     '/mpc/stop_target',
+    # The wall it aimed at: the front-wall lock's track id, -1 = none (~10 Hz).
+    '/mpc/stop_wall_id',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',

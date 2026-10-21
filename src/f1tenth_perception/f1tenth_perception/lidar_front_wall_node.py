@@ -263,6 +263,14 @@ without it, the node logs an ERROR at startup and the tracker stays off.
     association, the track merge and the extent). multi_wall_tracker's "WHY THE SPAN GATE IS
     HYSTERETIC" has the reasoning; the count of dropped observations is
     `short_obs` in /perception/virtual_wall/debug.
+  * A track is CONFIRMED at multi_wall_tracker's THE CONFIRMATION LEVEL,
+    the wall_confirm_* parameters (2026-10-21): wall_confirm_min_consecutive_hits
+    cycles in a row with a LiDAR-backed hit, a measured segment of at least
+    wall_confirm_min_length_m, and the distance and direction of those
+    observations steady within wall_confirm_max_dist_jitter_m and
+    wall_confirm_max_angle_jitter_deg. Sticky once reached. With
+    wall_debug_tracks on, each track's `confirm_reason` in the debug payload
+    says which test a tentative one is still failing.
   * Up to 4 wall tracks in odom go out on /perception/walls
     (f1tenth_messages/MultiWallTrackArray), with line and text markers on
     /perception/walls/markers. Roles on the wire are front | back | left |
@@ -670,7 +678,6 @@ class LidarFrontWallNode(Node):
             stereo_max_rms_m=float(param('stereo_max_rms_m', 0.05)),
             stereo_min_vertical_extent_m=float(param('stereo_min_vertical_extent_m', 0.4)),
             stereo_min_length_m=float(param('stereo_min_length_m', 0.8)),
-            camera_confirm_fresh_only=bool(param('camera_confirm_fresh_only', True)),
             camera_side_x_max_m=float(param('camera_side_x_max_m', 4.0)),
             camera_side_max_normal_rad=math.radians(
                 float(param('camera_side_max_normal_deg', 30.0))),
@@ -687,8 +694,15 @@ class LidarFrontWallNode(Node):
             stereo_sigma_base_m=float(param('stereo_sigma_base_m', 0.03)),
             stereo_sigma_quad_per_m2=float(param('stereo_sigma_quad_per_m2', 0.012)),
             min_span_for_angle_m=float(param('min_span_for_angle_m', 0.3)),
-            stereo_confirm_hits=int(param('stereo_confirm_hits', 5)),
-            stereo_confirm_window=int(param('stereo_confirm_window', 7)),
+            # THE CONFIRMATION LEVEL (multi_wall_tracker): the ONE promotion
+            # rule every reader of "confirmed" relies on, the wall_confirm_*
+            # group of stack_params.yaml under its own names.
+            confirm_min_consecutive_hits=int(param('wall_confirm_min_consecutive_hits', 5)),
+            confirm_min_length_m=float(param('wall_confirm_min_length_m', 1.0)),
+            confirm_max_dist_jitter_m=float(param('wall_confirm_max_dist_jitter_m', 0.05)),
+            confirm_max_angle_jitter_rad=math.radians(
+                float(param('wall_confirm_max_angle_jitter_deg', 3.0))),
+            confirm_require_lidar=bool(param('wall_confirm_require_lidar', True)),
             role_hysteresis_rad=float(param('role_hysteresis_rad', math.radians(5.0))),
             stereo_front_max_normal_rad=float(
                 param('stereo_front_max_normal_rad', math.radians(30.0))),
@@ -2048,6 +2062,10 @@ class LidarFrontWallNode(Node):
             out.append({
                 'id': int(trk.id), 'role': mwt.reported_role(trk),
                 'state': mwt.STATE_NAMES.get(trk.state), 'hits': int(trk.hits),
+                # THE CONFIRMATION LEVEL: '' once confirmed (sticky), else the
+                # test a tentative track is still failing (confirm_reason).
+                'confirm_reason': ('' if trk.ever_confirmed
+                                   else self.wall_tracker.confirm_reason(trk)),
                 'age_s': num((self.wall_tracker._last_stamp or trk.born) - trk.born),
                 'length_m': num(trk.length), 'rho_bl': num(bl.rho),
                 'd_ray_front': num(d_ray),

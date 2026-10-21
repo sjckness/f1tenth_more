@@ -35,12 +35,13 @@ PER SCAN
        MEASURED EXTENT, THE COLLINEAR GAP RULE). A STEREO-only line nearer
        base_link than stereo_min_rho_m is the car's own chassis and never
        reaches it (THE NEAR FIELD).
-     - Lifecycle: TENTATIVE becomes CONFIRMED at 3 hits in the last 5 scans.
-       A confirmed track that goes unseen is COASTING while its covariance
-       grows. A track is deleted after delete_after_s (2 s) unseen, after
-       coast_max_odom_m (1 m) of ODOMETRY since its last association,
-       when sigma_rho > max_sigma_rho_m, or (if still TENTATIVE) when 5 scans
-       hold fewer than 3 hits. Time and distance are both needed: standing
+     - Lifecycle: TENTATIVE becomes CONFIRMED at THE CONFIRMATION LEVEL
+       (below) and stays confirmed until it is deleted. A confirmed track
+       that goes unseen is COASTING while its covariance grows. A track is
+       deleted after delete_after_s (2 s) unseen, after coast_max_odom_m
+       (1 m) of ODOMETRY since its last association, when sigma_rho >
+       max_sigma_rho_m, or (if still TENTATIVE) on the first cycle nothing
+       is associated with it. Time and distance are both needed: standing
        still costs a wall nothing and driving a metre past one without a
        single association means the wall is not where the track says it is.
      - NEGATIVE EVIDENCE (step 5): a confirmed, non-glass track whose own
@@ -60,6 +61,51 @@ PER SCAN
        ranked by length * hits / distance.
      - ROLE: front, back, left, right or UNKNOWN, from GEOMETRY (geometric_role)
        with hysteresis at the thresholds. Ids are never reused.
+
+THE CONFIRMATION LEVEL (wall_confirm_* in stack_params.yaml, 2026-10-21)
+-----------------------------------------------------------------------
+ONE rule decides when a wall track is real, and every reader of "confirmed"
+uses its answer -- Track.ever_confirmed here, MultiWallTrack.state CONFIRMED
+or COASTING on the wire -- with no count of its own: FRONT and so the virtual
+wall, published() and so /perception/walls, the strip and negative evidence,
+the occlusion blockers, the door hosts, the behaviour tree's front-wall lock,
+the MPC's wall rows and the semantic layer's wall cells. A TENTATIVE track is
+promoted on the first cycle on which all of these hold (confirmation_reason):
+
+  * each of the last confirm_min_consecutive_hits (5) cycles associated it
+    with an observation that COUNTS: a LiDAR-backed one (LIDAR or BOTH).
+    With confirm_require_lidar off a camera-only one counts as well, on a
+    cycle whose camera data was fresh: a stale profile re-presented over
+    three cycles is one observation, not three.
+  * its MEASURED segment is at least confirm_min_length_m (1.0 m) long.
+  * over those same observations the perpendicular distance and the wall
+    direction vary by at most confirm_max_dist_jitter_m (5 cm) and
+    confirm_max_angle_jitter_rad (3 deg), max - min. Every observation is
+    placed in odom with the car pose of its own scan, so the car's own
+    motion is out of both. The distance is each line's distance from ONE
+    point at the wall -- the track's segment midpoint (line_jitter) -- not
+    its odom rho: rho is the distance from the odom ORIGIN, and a line's
+    angle noise moves it by that angle times the along-wall distance from
+    the origin, which is where the EKF started, not anything about the wall
+    (0.5 deg read as 8.7 cm 10 m along the wall).
+
+A stereo-only track therefore never confirms while confirm_require_lidar is
+on. Stereo support still raises a LiDAR wall's standing (front_confidence,
+the rectangle verdict) but is never required: glass gives the camera little
+to see.
+
+HYSTERESIS. Confirmation is sticky: a missed or jittery cycle never demotes
+a confirmed track -- it coasts, and only the deletion rules above remove it.
+A TENTATIVE track that misses a cycle has lost its run of consecutive hits,
+which leaves it exactly as far from confirmation as a track born from its
+next observation, so it is deleted rather than kept around.
+
+It replaced three rules: 3 hits in the last 5 scans (confirm_hits /
+confirm_window, code defaults, never launch parameters), 5 in 7 for a track
+the LiDAR had never seen (lidar_front_wall_stereo_confirm_hits / _window),
+and camera-only hits counting on fresh cycles only
+(lidar_front_wall_camera_confirm_fresh_only, now always so when camera hits
+count at all).
 
 WHAT A ROLE IS, AND WHY IT IS NO LONGER A BEARING
 -------------------------------------------------
@@ -157,7 +203,7 @@ s of an empty corridor (corridor10m_20261015T171753, track 8).
 Birth and maintenance are different questions, so they get different
 thresholds. STARTING a wall is a claim about the world and needs real extent:
 min_span_birth_m. KEEPING one is a claim about a wall that has already proven
-itself over confirm_hits scans, and a confirmed wall briefly seen short --
+itself (THE CONFIRMATION LEVEL), and a confirmed wall briefly seen short --
 someone walks past it, the car turns and grazes it, half of it leaves the
 sector -- is still that wall: min_span_update_m. The asymmetry is the same
 shape as HysteresisLatch's in front_clearance_node and the role hysteresis
@@ -409,8 +455,13 @@ class TrackerParams:
     # An end of the extent that no associated observation has reached for
     # this long is dropped (THE MEASURED EXTENT).
     extent_decay_s: float = 1.0
-    confirm_hits: int = 3
-    confirm_window: int = 5
+    # --- THE CONFIRMATION LEVEL (module docstring), the wall_confirm_* group:
+    # the ONE promotion rule, which every reader of "confirmed" relies on.
+    confirm_min_consecutive_hits: int = 5   # cycles in a row with a counting hit
+    confirm_min_length_m: float = 1.0       # the MEASURED segment
+    confirm_max_dist_jitter_m: float = 0.05  # max - min, at the segment midpoint
+    confirm_max_angle_jitter_rad: float = math.radians(3.0)
+    confirm_require_lidar: bool = True      # only LIDAR / BOTH hits count
     # Coasting is bounded on TIME and on DISTANCE (coast_max_odom_m), and
     # the time was 3.0 s: at the mission speed that is 1.5 m of travel on a
     # wall nobody has seen, with the covariance growing the whole way.
@@ -432,9 +483,6 @@ class TrackerParams:
     stereo_sigma_base_m: float = 0.03
     stereo_sigma_quad_per_m2: float = 0.012
     min_span_for_angle_m: float = 0.3
-    # --- lifecycle: stereo-only evidence is weaker, so it needs more of it --
-    stereo_confirm_hits: int = 5
-    stereo_confirm_window: int = 7
     # --- minimum width for a wall (see WHY THE SPAN GATE IS HYSTERETIC) ---
     min_span_birth_m: float = 1.0           # to START a track
     min_span_update_m: float = 0.5          # to keep a CONFIRMED one
@@ -469,10 +517,6 @@ class TrackerParams:
     stereo_max_rms_m: float = 0.05
     stereo_min_vertical_extent_m: float = 0.4
     stereo_min_length_m: float = 0.8
-    #: Count a camera-only hit towards confirmation ONLY on a cycle whose
-    #: camera data was fresh (the node sets `camera_fresh`). A stale profile
-    #: repeated over three cycles is one observation, not three.
-    camera_confirm_fresh_only: bool = True
     # --- the geometric roles (WHAT A ROLE IS NOW) -------------------------
     back_x_m: float = 0.0                   # the rear edge of the strip, base_link
     side_x_min_m: float = -1.0              # the x window a side wall must reach
@@ -499,6 +543,20 @@ class TrackerParams:
     negative_miss_to_kill: int = 5
     # --- coasting ---------------------------------------------------------
     coast_max_odom_m: float = 1.0           # metres of odometry, not displacement
+
+    def __post_init__(self):
+        # THE CONFIRMATION LEVEL is what every consumer trusts, so a value
+        # that makes it unreachable (no hits) or meaningless (a negative
+        # bound) stops the node at construction rather than silently
+        # confirming everything or nothing.
+        if int(self.confirm_min_consecutive_hits) < 1:
+            raise ValueError('confirm_min_consecutive_hits must be >= 1, got '
+                             f'{self.confirm_min_consecutive_hits!r}')
+        for name in ('confirm_min_length_m', 'confirm_max_dist_jitter_m',
+                     'confirm_max_angle_jitter_rad'):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or value < 0.0:
+                raise ValueError(f'{name} must be finite and >= 0, got {value!r}')
 
     @property
     def strip_half_width_m(self):
@@ -593,7 +651,10 @@ class Track:
     born: float
     last_seen: float
     hits: int = 1
-    history: collections.deque = field(default_factory=lambda: collections.deque(maxlen=5))
+    #: THE CONFIRMATION LEVEL's window, one entry per tracker cycle, newest
+    #: last: the (rho, theta) odom line of the observation that COUNTED on
+    #: that cycle, or None for a cycle with no counting hit.
+    confirm_obs: collections.deque = field(default_factory=lambda: collections.deque(maxlen=5))
     ever_confirmed: bool = False
     state: int = STATE_TENTATIVE
     # What the evidence behind this track has been (step 4).
@@ -634,9 +695,6 @@ class Track:
     #: Was the track associated with a LiDAR-backed (LIDAR or BOTH)
     #: observation, one entry per tracker cycle, newest last.
     lidar_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=3))
-    #: Like `history`, but a camera-only hit on a stale camera cycle counts as
-    #: a miss. Confirmation of a camera-only track reads this one.
-    fresh_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=12))  # noqa: E501
     #: The confidences of the last matched observations (front_confidence).
     conf_hist: collections.deque = field(default_factory=lambda: collections.deque(maxlen=5))
     #: The strip's own beams against this track (strip_verdict) this cycle,
@@ -1033,12 +1091,70 @@ def is_unknown_role(role):
     return role in ('', ROLE_UNKNOWN, LEGACY_ROLE_OTHER)
 
 
+def line_jitter(samples, ref_xy):
+    """
+    Return (distance spread m, direction spread rad) of (rho, theta) odom lines.
+
+    max - min of each over `samples`. The distance is each line's signed
+    distance from the odom point `ref_xy`, which the tracker puts at the wall
+    (the track's segment midpoint): there a line's angle noise barely moves
+    it, while its rho -- its distance from the odom ORIGIN -- moves by that
+    noise times the along-wall distance from the origin. Every line is first
+    put in the sign nearest the first one (_innovation): rho >= 0
+    normalisation can flip a line through the odom origin to
+    (-rho, theta + pi), which is the same line and must not read as a
+    2 rho jump.
+    """
+    rho0, theta0 = float(samples[0][0]), float(samples[0][1])
+    rx, ry = float(ref_xy[0]), float(ref_xy[1])
+    dists, thetas = [], []
+    for rho, theta in samples:
+        v = _innovation((rho0, theta0), float(rho), float(theta))
+        th = theta0 + float(v[1])
+        dists.append(rho0 + float(v[0]) - (math.cos(th) * rx + math.sin(th) * ry))
+        thetas.append(float(v[1]))
+    return max(dists) - min(dists), max(thetas) - min(thetas)
+
+
+def confirmation_reason(samples, length_m, p, ref_xy):
+    """
+    Return '' when a track meets THE CONFIRMATION LEVEL, else the first failing test.
+
+    `samples` is Track.confirm_obs (newest last, None for a cycle without a
+    counting hit), `length_m` the track's measured length, `p` the
+    TrackerParams, `ref_xy` the odom point at the wall the distance spread
+    is measured from (line_jitter; the tracker passes track_midpoint). The
+    codes, in the order checked: 'hits' (fewer than
+    confirm_min_consecutive_hits counting cycles in a row), 'length',
+    'dist_jitter', 'angle_jitter'. Pure, so the rule is testable on its own.
+    """
+    n = max(1, int(p.confirm_min_consecutive_hits))
+    recent = list(samples)[-n:]
+    if len(recent) < n or any(s is None for s in recent):
+        return 'hits'
+    if float(length_m) < float(p.confirm_min_length_m):
+        return 'length'
+    dist, angle = line_jitter(recent, ref_xy)
+    if dist > float(p.confirm_max_dist_jitter_m):
+        return 'dist_jitter'
+    if angle > float(p.confirm_max_angle_jitter_rad):
+        return 'angle_jitter'
+    return ''
+
+
+def track_midpoint(track):
+    """Return the odom midpoint of a track's measured extent: where its jitter is measured."""
+    p0, p1 = track.endpoints()
+    return 0.5 * (p0 + p1)
+
+
 def is_tentative(track):
     """
     Return whether this track has not (yet) earned confirmation.
 
-    Never confirmed -- or, for the one cycle after _merge folded a confirmed
-    track into an older tentative one, still in the TENTATIVE state.
+    Never confirmed -- the same thing as the TENTATIVE state since _merge
+    sets a merged track's state from its (sticky) confirmation. The state
+    test stays as a guard for a track built by hand.
     """
     return not track.ever_confirmed or track.state == STATE_TENTATIVE
 
@@ -1054,10 +1170,9 @@ def reported_role(track, role=None):
     (is_unknown_role) is reported as ROLE_UNKNOWN.
 
     Only what is REPORTED changes; Track.role keeps the geometric answer,
-    because the tracker's own decisions read it. role_with_hysteresis carries
-    a tentative track's role into its confirmation, and on the cycle after a
-    _merge a TENTATIVE-state track can be ever_confirmed, which published()
-    and front_reason then judge by that role.
+    because the tracker's own decisions read it: role_with_hysteresis carries
+    a tentative track's role into its confirmation, and published() and
+    front_reason judge a track by it on the cycle it confirms.
     """
     role = track.role if role is None else role
     if is_tentative(track) or is_unknown_role(role):
@@ -1529,29 +1644,68 @@ class MultiWallTracker:
         trk = Track(self._next_id, np.array([line.rho, line.alpha], dtype=float),
                     self._meas_cov(line), float(m.min()), float(m.max()), stamp, stamp)
         trk.odo_at_last_seen = self._odometer
-        # The window is the LONGER of the two: a track that turns out to be
-        # stereo-only must not have already dropped the scans it needs.
-        trk.history = collections.deque([True], maxlen=self._history_len())
-        # Seeded exactly like `history`, and with the same window: a camera
-        # cycle that was fresh enough to BIRTH the track was fresh enough to
-        # count, and a fresh_hist one entry short of history would never
-        # catch up inside stereo_confirm_window.
-        trk.fresh_hist = collections.deque(
-            [self.camera_fresh or not self.p.camera_confirm_fresh_only
-             or (obs is not None and obs.source != wall_fusion.SOURCE_STEREO)],
-            maxlen=self._history_len())
+        # The birth cycle is the first of the run THE CONFIRMATION LEVEL
+        # counts, if its observation counts at all.
+        source = wall_fusion.SOURCE_LIDAR if obs is None else obs.source
+        trk.confirm_obs = collections.deque(
+            [self._confirm_sample(line, source)],
+            maxlen=max(1, int(self.p.confirm_min_consecutive_hits)))
         trk.obs_ext.append((stamp, np.vstack([line.p_start, line.p_end]).astype(float)))
         trk.lidar_hist = collections.deque(
             [obs is None or obs.source != wall_fusion.SOURCE_STEREO],
             maxlen=max(1, int(self.p.front_lidar_recent_cycles)))
-        trk.conf_hist = collections.deque(maxlen=max(1, int(self.p.confirm_window)))
+        # front_confidence's window: the same last N observations the
+        # confirmation level judges.
+        trk.conf_hist = collections.deque(
+            maxlen=max(1, int(self.p.confirm_min_consecutive_hits)))
         if obs is not None:
             self._absorb(trk, obs)
+        self._promote(trk, True)
         self._next_id += 1
         self.tracks.append(trk)
 
-    def _history_len(self):
-        return max(self.p.confirm_window, self.p.stereo_confirm_window)
+    # ---- THE CONFIRMATION LEVEL ---------------------------------------------
+
+    def _confirm_sample(self, line, source):
+        """The odom (rho, theta) an associated observation adds to confirm_obs, or None.
+
+        A LiDAR-backed observation (LIDAR or BOTH) always counts. A camera-only
+        one counts only with confirm_require_lidar off, and then only on a
+        cycle whose camera data was fresh (`camera_fresh`): the tracker runs
+        at the scan rate and the camera at 5 Hz, so one profile re-presented
+        over three cycles is one observation, not three.
+        """
+        if source == wall_fusion.SOURCE_STEREO and (
+                self.p.confirm_require_lidar or not self.camera_fresh):
+            return None
+        return float(line.rho), float(line.alpha)
+
+    def confirm_reason(self, trk):
+        """'' when trk meets THE CONFIRMATION LEVEL now, else why not.
+
+        confirmation_reason's codes, plus 'no_lidar' first for a track the
+        LiDAR has never seen while confirm_require_lidar is on: no amount of
+        stereo will confirm it, and the debug payload should say so rather
+        than 'hits'. Says nothing about a track already confirmed, which
+        stays so (HYSTERESIS).
+        """
+        if self.p.confirm_require_lidar and trk.source == wall_fusion.SOURCE_STEREO:
+            return 'no_lidar'
+        return confirmation_reason(trk.confirm_obs, trk.length, self.p,
+                                   track_midpoint(trk))
+
+    def _promote(self, trk, hit):
+        """Apply THE CONFIRMATION LEVEL and set the state for this cycle.
+
+        Sticky: once ever_confirmed, a track is never re-judged, so a missed
+        or jittery cycle makes it COASTING at worst, never TENTATIVE again.
+        """
+        if not trk.ever_confirmed and not self.confirm_reason(trk):
+            trk.ever_confirmed = True
+        if trk.ever_confirmed:
+            trk.state = STATE_CONFIRMED if hit else STATE_COASTING
+        else:
+            trk.state = STATE_TENTATIVE
 
     def _merge(self):
         """Fold every pair of tracks that are ONE wall into the older one.
@@ -1607,13 +1761,18 @@ class MultiWallTracker:
                 a.has_lidar = a.has_lidar or b.has_lidar
                 a.has_both = a.has_both or b.has_both
                 a.source = max(a.source, b.source, key=_SOURCE_RANK.get)
+                # The merged track's state follows its (sticky) confirmation
+                # on THIS cycle, so no reader of MultiWallTrack.state sees a
+                # confirmed wall as TENTATIVE for the cycle after a merge.
+                if a.ever_confirmed:
+                    a.state = STATE_COASTING if self.coasting(a) else STATE_CONFIRMED
                 # Newest-aligned: the histories end on the same cycle, so they
-                # are OR-ed from the newest entry back (zip over the reversed
-                # deques), in the full window the confirm rule needs.
-                a.history = collections.deque(reversed(
-                    [x or y for x, y in itertools.zip_longest(
-                        reversed(a.history), reversed(b.history), fillvalue=False)]),
-                    maxlen=self._history_len())
+                # are combined from the newest entry back (zip over the
+                # reversed deques): a cycle on which either counted, counted.
+                a.confirm_obs = collections.deque(reversed(
+                    [x if x is not None else y for x, y in itertools.zip_longest(
+                        reversed(a.confirm_obs), reversed(b.confirm_obs))]),
+                    maxlen=a.confirm_obs.maxlen)
                 a.lidar_hist = collections.deque(reversed(
                     [x or y for x, y in itertools.zip_longest(
                         reversed(a.lidar_hist), reversed(b.lidar_hist), fillvalue=False)]),
@@ -1687,6 +1846,7 @@ class MultiWallTracker:
         self._predict(dt, 0.0 if last_yaw is None else wrap_pi(car_pose.theta - last_yaw))
 
         used_lines, hit_ids, lidar_ids = set(), set(), set()
+        samples = {}       # track id -> its confirm_obs entry (_confirm_sample)
         gap_refused = {}   # observation j -> (track id, gap) it was refused by
         if self.tracks and lines_odom:
             cost = np.full((len(self.tracks), len(lines_odom)), math.inf)
@@ -1716,6 +1876,8 @@ class MultiWallTracker:
                         hit_ids.add(self.tracks[i].id)
                         if observations[j].source != wall_fusion.SOURCE_STEREO:
                             lidar_ids.add(self.tracks[i].id)
+                        samples[self.tracks[i].id] = self._confirm_sample(
+                            lines_odom[j], observations[j].source)
         for j, (tid, gap) in gap_refused.items():
             # Counted only when the gap is WHY the observation stayed
             # unassociated: it matched a track's line and not its extent.
@@ -1724,22 +1886,12 @@ class MultiWallTracker:
                 self._reject('gap_assoc', tid, gap)
         for trk in self.tracks:
             hit = trk.id in hit_ids
-            trk.history.append(hit)
             trk.lidar_hist.append(trk.id in lidar_ids)
-            # A camera-only hit counts towards CONFIRMATION only on a cycle
-            # whose camera data was fresh: the same stale profile repeated
-            # over three cycles is one observation, not three. The state
-            # machine still runs on `hit`, so a track does not start coasting
-            # merely because the camera was late.
-            trk.fresh_hist.append(
-                hit and (trk.id in lidar_ids or not self.p.camera_confirm_fresh_only
-                         or self.camera_fresh))
-            if self._confirmed_by_history(trk):
-                trk.ever_confirmed = True
-            if trk.ever_confirmed:
-                trk.state = STATE_CONFIRMED if hit else STATE_COASTING
-            else:
-                trk.state = STATE_TENTATIVE
+            # THE CONFIRMATION LEVEL counts only some hits (_confirm_sample);
+            # the state machine still runs on `hit`, so a confirmed track does
+            # not start coasting merely because its only hit was the camera's.
+            trk.confirm_obs.append(samples.get(trk.id))
+            self._promote(trk, hit)
             if not hit:
                 # The decay runs on every track, not only on the updated ones.
                 self._refresh_extent(trk, stamp)
@@ -1951,29 +2103,6 @@ class MultiWallTracker:
             trk.occluded = int(np.count_nonzero(blocked)) >= int(
                 self.p.occlusion_min_blocked)
 
-    def _confirm_rule(self, trk):
-        """(hits, window) this track must meet: stereo-only evidence needs more.
-
-        A track the LiDAR has never seen rests entirely on stereo, which on
-        this building's floor invents whole surfaces out of reflections, so it
-        must survive stereo_confirm_hits of stereo_confirm_window scans. A
-        LiDAR or BOTH hit promotes the track to the ordinary rule IMMEDIATELY
-        -- it is no longer stereo-only, so the stricter bar no longer applies
-        and the standard confirm_hits-in-confirm_window decides it. (Note it
-        does NOT confirm the track on the spot: one spurious line must still
-        not make a wall, which is the lifecycle this keeps unchanged.)
-        """
-        if trk.has_lidar:
-            return self.p.confirm_hits, self.p.confirm_window
-        return self.p.stereo_confirm_hits, self.p.stereo_confirm_window
-
-    def _confirmed_by_history(self, trk):
-        hits, window = self._confirm_rule(trk)
-        # A track the LiDAR has never seen is confirmed on the FRESH-cycle
-        # history; one the LiDAR has seen keeps the ordinary one.
-        hist = trk.history if trk.has_lidar else trk.fresh_hist
-        return sum(itertools.islice(reversed(hist), window)) >= hits
-
     def _expired(self, trk, stamp):
         if stamp - trk.last_seen > self.p.delete_after_s:
             return True
@@ -1981,9 +2110,10 @@ class MultiWallTracker:
             return True
         if math.sqrt(max(trk.P[0, 0], 0.0)) > self.p.max_sigma_rho_m:
             return True
-        hits, window = self._confirm_rule(trk)
-        return (not trk.ever_confirmed and len(trk.history) >= window
-                and sum(itertools.islice(reversed(trk.history), window)) < hits)
+        # A TENTATIVE track nothing was associated with on this cycle has lost
+        # its run of consecutive hits: it is no nearer THE CONFIRMATION LEVEL
+        # than a track its next observation would start, so it goes.
+        return not trk.ever_confirmed and trk.last_seen < stamp
 
     def score(self, trk, car_pose):
         n = np.array([math.cos(trk.theta), math.sin(trk.theta)])
@@ -2142,8 +2272,10 @@ class MultiWallTracker:
         """The track's confidence [0, 1] for the FRONT gate.
 
         Track.confidence used to be the LAST observation's and nothing read
-        it. This is the mean of the last confirm_window matched observations'
-        wall_fusion.confidence -- one poor fit does not flip FRONT -- raised to
+        it. This is the mean of the last confirm_min_consecutive_hits matched
+        observations' wall_fusion.confidence (5, the window the 3-in-5 rule's
+        confirm_window gave it before THE CONFIRMATION LEVEL) -- one poor fit
+        does not flip FRONT -- raised to
         the rectangle's support when the rectangle VERIFIED the track (support
         >= support_verify, 0.5, by the verify rule). On that scale a LiDAR
         wall with a few dozen tight inliers is 0.6-0.9 and a stereo-only line

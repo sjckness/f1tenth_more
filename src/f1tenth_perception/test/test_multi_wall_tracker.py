@@ -319,6 +319,21 @@ def feed(tracker, observations, n, car=ORIGIN, t0=1.0, dt=0.05):
     return out
 
 
+#: THE CONFIRMATION LEVEL's run (wall_confirm_min_consecutive_hits): a steady
+#: LiDAR wall fed this many cycles in a row is confirmed on the last of them.
+N_CONFIRM = mwt.TrackerParams().confirm_min_consecutive_hits
+
+
+def confirm(tracker, observations, car=ORIGIN, t_end=1.1, dt=0.05):
+    """Feed exactly the N_CONFIRM cycles that confirm a steady wall, ending at t_end.
+
+    Ends where the 3-in-5 rule's three-cycle feed did (1.1), so what a test
+    does AFTER the wall is confirmed keeps its timing.
+    """
+    return feed(tracker, observations, N_CONFIRM, car=car,
+                t0=t_end - (N_CONFIRM - 1) * dt, dt=dt)
+
+
 # --- the measurement covariance model --------------------------------------
 
 def test_stereo_noise_grows_with_range_and_lidar_barely_does():
@@ -350,45 +365,21 @@ def test_a_short_segments_angle_is_trusted_less_than_a_long_ones():
 
 # --- lifecycle --------------------------------------------------------------
 
-def test_a_stereo_only_wall_needs_more_scans_than_a_lidar_one():
-    p = mwt.TrackerParams()
-    lidar_t = mwt.MultiWallTracker(p)
-    feed(lidar_t, [obs(wall(2.0))], p.confirm_hits)
-    assert lidar_t.tracks[0].ever_confirmed
-
-    stereo_t = mwt.MultiWallTracker(p)
-    feed(stereo_t, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], p.confirm_hits)
-    assert not stereo_t.tracks[0].ever_confirmed, 'three scans is not enough on stereo alone'
-    feed(stereo_t, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)],
-         p.stereo_confirm_hits - p.confirm_hits, t0=2.0)
-    assert stereo_t.tracks[0].ever_confirmed
-
+# THE CONFIRMATION LEVEL itself -- promotion after exactly N hits, never on
+# stereo alone, never above the jitter bounds, never demoted -- is
+# test_wall_confirm_level.py's. These are the lifecycle around it.
 
 def test_a_one_frame_reflection_never_confirms():
     """A glossy-floor reflection appears for a frame and is gone. It must not
-    leave a confirmed wall behind."""
+    leave a confirmed wall behind -- nor a tentative one: the first cycle
+    without it ends its run, and the track with it."""
     p = mwt.TrackerParams()
     trk = mwt.MultiWallTracker(p)
     trk.step([obs(wall(1.1), wall_fusion.SOURCE_STEREO)], 1.0, ORIGIN)
-    for i in range(p.stereo_confirm_window + 1):
+    for i in range(N_CONFIRM + 1):
         trk.step([], 1.05 + i * 0.05, ORIGIN)
-    assert all(not t.ever_confirmed for t in trk.tracks)
+    assert trk.tracks == []
     assert trk.published(ORIGIN) == []
-
-
-def test_a_lidar_hit_promotes_a_stereo_track_to_the_ordinary_rule():
-    """Not an instant confirm -- one line must still not make a wall -- but the
-    stricter stereo-only bar stops applying the moment the LiDAR sees it."""
-    p = mwt.TrackerParams()
-    trk = mwt.MultiWallTracker(p)
-    feed(trk, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], 2)
-    track = trk.tracks[0]
-    assert not track.ever_confirmed
-    assert trk._confirm_rule(track) == (p.stereo_confirm_hits, p.stereo_confirm_window)
-    trk.step([obs(wall(2.0), wall_fusion.SOURCE_LIDAR)], 1.1, ORIGIN)
-    assert trk._confirm_rule(track) == (p.confirm_hits, p.confirm_window)
-    assert track.ever_confirmed           # 3 hits in 5 now satisfied
-    assert track.source == wall_fusion.SOURCE_LIDAR
 
 
 def test_a_track_the_lidar_has_seen_never_decays_to_stereo_only():
@@ -423,7 +414,7 @@ def test_a_measured_height_is_carried_onto_the_track():
 
 def test_a_wall_across_the_path_is_front_with_the_right_ray_distance():
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 4)
+    confirm(trk, [obs(wall(2.0))])
     front = trk.front_track(ORIGIN, FRONT_X)
     assert front is not None
     _perp, d_ray = mwt.front_distances(front, ORIGIN, FRONT_X)
@@ -457,10 +448,15 @@ def test_a_glancing_stereo_only_wall_is_not_front_but_a_square_verified_one_is()
     """UPDATED for block 3 (WHAT FRONT REQUIRES): a square stereo-only wall
     used to be FRONT on the stereo's word alone. It now needs the rectangle to
     have VERIFIED it -- nothing else has measured it (no LiDAR fit in the last
-    front_lidar_recent_cycles cycles) -- and a glancing one stays refused."""
-    p = mwt.TrackerParams()
+    front_lidar_recent_cycles cycles) -- and a glancing one stays refused.
+
+    Run with wall_confirm_require_lidar OFF: with it on (the default) a
+    stereo-only track never confirms at all (test_wall_confirm_level.py), and
+    these FRONT rules are what still guard the stereo-only walls that setting
+    lets through."""
+    p = mwt.TrackerParams(confirm_require_lidar=False)
     square = mwt.MultiWallTracker(p)
-    feed(square, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], p.stereo_confirm_hits)
+    feed(square, [obs(wall(2.0), wall_fusion.SOURCE_STEREO)], N_CONFIRM)
     assert square.front_track(ORIGIN, FRONT_X) is None
     assert square.front_status['reason'] == 'unverified'
     square.apply_rect_verdicts({square.tracks[0].id: VERIFIED})
@@ -470,7 +466,7 @@ def test_a_glancing_stereo_only_wall_is_not_front_but_a_square_verified_one_is()
     # 40 deg off the heading: still crosses the strip, but nothing cross-checks it.
     a = math.radians(40.0)
     slanted = wall(2.0, nx=math.cos(a), ny=math.sin(a), t0=-2.0, t1=2.0)
-    feed(oblique, [obs(slanted, wall_fusion.SOURCE_STEREO)], p.stereo_confirm_hits)
+    feed(oblique, [obs(slanted, wall_fusion.SOURCE_STEREO)], N_CONFIRM)
     assert oblique.tracks[0].ever_confirmed
     oblique.apply_rect_verdicts({oblique.tracks[0].id: VERIFIED})
     assert oblique.front_reason(oblique.tracks[0], ORIGIN) == 'stereo_oblique'
@@ -478,7 +474,7 @@ def test_a_glancing_stereo_only_wall_is_not_front_but_a_square_verified_one_is()
     assert oblique.front_track(ORIGIN, FRONT_X) is None
     # The same geometry seen by the LiDAR is allowed to be the front wall.
     lidar = mwt.MultiWallTracker(p)
-    feed(lidar, [obs(slanted, wall_fusion.SOURCE_LIDAR)], p.confirm_hits)
+    feed(lidar, [obs(slanted, wall_fusion.SOURCE_LIDAR)], N_CONFIRM)
     assert lidar.front_track(ORIGIN, FRONT_X) is not None
 
 
@@ -518,7 +514,7 @@ def test_a_perpendicular_segment_three_metres_to_the_left_is_unknown():
     """In the x window, but its normal points along the car: not a side wall,
     not in the strip, so it is tracked and is a reference for nothing."""
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))], 3)
+    confirm(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))])
     track = trk.tracks[0]
     assert track.role == 'unknown'
     assert track in trk.tracks and track.ever_confirmed      # still tracked
@@ -596,13 +592,15 @@ def test_a_tentative_track_is_reported_unknown_but_keeps_its_geometric_role():
     assert track.role == 'front'
     assert mwt.reported_role(track) == 'unknown'
     assert mwt.reported_role(track, trk.label(track, ORIGIN)) == 'unknown'
-    feed(trk, [obs(wall(2.0))], 2, t0=1.05)
+    feed(trk, [obs(wall(2.0))], N_CONFIRM - 1, t0=1.05)
     assert track.ever_confirmed and track.state == mwt.STATE_CONFIRMED
     assert mwt.reported_role(track) == 'front'
 
 
 def test_a_track_still_in_the_tentative_state_is_reported_unknown_even_if_ever_confirmed():
-    """The cycle after _merge folded a confirmed track into an older tentative one."""
+    """A hand-built inconsistent track: the state test in is_tentative still
+    guards it, although _merge no longer leaves a confirmed track TENTATIVE
+    (test_wall_confirm_level.py)."""
     track = _bare_track('front', ever_confirmed=True, state=mwt.STATE_TENTATIVE)
     assert mwt.is_tentative(track)
     assert mwt.reported_role(track) == 'unknown'
@@ -621,7 +619,7 @@ def test_the_front_gate_refuses_unknown_and_legacy_other_but_not_an_unclassified
     # front_reason's role check is the old `role == 'other'` under the new
     # name: the legacy spelling is still refused, and '' still is not.
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     assert trk.front_reason(track, ORIGIN, FRONT_X) == ''
     for role, code in (('unknown', 'role_other'), ('other', 'role_other'), ('', '')):
@@ -634,8 +632,8 @@ def test_the_front_gate_refuses_unknown_and_legacy_other_but_not_an_unclassified
 def test_a_segment_behind_a_confirmed_wall_is_unknown():
     trk = mwt.MultiWallTracker()
     trk.laser_xy = LASER[:2]
-    feed(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),
-               obs(wall(5.0, t0=-1.5, t1=1.5))], 4)
+    confirm(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),
+                  obs(wall(5.0, t0=-1.5, t1=1.5))])
     near = min(trk.tracks, key=lambda t: t.rho)
     far = max(trk.tracks, key=lambda t: t.rho)
     assert near.role == 'front'
@@ -646,8 +644,8 @@ def test_a_segment_behind_a_confirmed_wall_is_unknown():
 def test_glass_still_blocks_what_is_behind_it():
     trk = mwt.MultiWallTracker()
     trk.laser_xy = LASER[:2]
-    feed(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),
-               obs(wall(5.0, t0=-1.5, t1=1.5))], 4)
+    confirm(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),
+                  obs(wall(5.0, t0=-1.5, t1=1.5))])
     near = min(trk.tracks, key=lambda t: t.rho)
     near.glass = True
     trk.update_roles(ORIGIN)
@@ -782,14 +780,19 @@ def test_the_span_is_the_observations_own_extent_not_the_tracks():
     trk = mwt.MultiWallTracker(mwt.TrackerParams(min_span_birth_m=1.0,
                                                  min_span_update_m=0.5))
     car = Pose2D(0.0, 0.0, 0.0)
-    trk.step(obs_of_span(3.0), 0.0, car)
+    # Confirmed, so the short observation's one way in (an UPDATE of a
+    # confirmed track) is open, and a miss cannot end the track either.
+    for i in range(N_CONFIRM):
+        trk.step(obs_of_span(3.0), i * 0.05, car)
     long_track = trk.tracks[0]
+    assert long_track.ever_confirmed
     assert long_track.length == pytest.approx(3.0, abs=0.01)
+    hits = long_track.hits
     # A 0.3 m observation of the SAME line is still dropped, although the
     # track it would match is 3 m long.
-    trk.step(obs_of_span(0.3), 0.05, car)
+    trk.step(obs_of_span(0.3), N_CONFIRM * 0.05, car)
     assert trk.n_short_dropped == 1
-    assert trk.tracks[0].hits == 1
+    assert long_track.hits == hits
 
 
 def test_the_real_walls_of_a_room_still_survive_the_gate():
@@ -940,7 +943,7 @@ def on_the_line(d, laser_x=LASER[0]):
 
 def test_beams_passing_through_a_wall_kill_it_in_five_scans():
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     assert track.ever_confirmed
     # Everything in the wall's span now reads 6 m: the beams are going
@@ -967,7 +970,7 @@ def test_beams_landing_on_the_wall_are_not_negative_evidence():
 
 def test_one_good_scan_resets_the_count():
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     through = neg_scan(lambda b: np.full(b.size, 6.0))
     for i in range(3):
@@ -980,7 +983,7 @@ def test_one_good_scan_resets_the_count():
 def test_glass_is_never_killed_by_beams_going_through_it():
     """Glass is the surface the beams are SUPPOSED to pass through."""
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     track.verify, track.glass = wall_fusion.VERIFY_VERIFIED, True
     through = neg_scan(lambda b: np.full(b.size, 6.0))
@@ -994,7 +997,7 @@ def test_glass_is_never_killed_by_beams_going_through_it():
 def test_a_beam_blocked_by_something_nearer_says_nothing():
     """Short returns are an occluder, not evidence against the wall."""
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     short = neg_scan(lambda b: np.full(b.size, 1.0))
     for i in range(8):
@@ -1016,7 +1019,7 @@ def test_a_tentative_track_is_not_judged_by_negative_evidence():
 
 def test_a_coasting_track_dies_after_two_seconds():
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     trk.step([], 1.1 + 1.9, ORIGIN)
     assert track in trk.tracks
@@ -1027,7 +1030,7 @@ def test_a_coasting_track_dies_after_two_seconds():
 def test_a_coasting_track_dies_after_a_metre_of_odometry():
     """Standing still costs a wall nothing; driving past it does."""
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     trk.step([], 1.2, Pose2D(0.9, 0.0, 0.0))
     assert track in trk.tracks
@@ -1053,10 +1056,10 @@ def test_only_the_pairs_whose_sectors_overlap_are_tested_for_occlusion():
     """
     trk = mwt.MultiWallTracker()
     trk.laser_xy = LASER[:2]
-    feed(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),      # near, dead ahead
-               obs(wall(5.0, t0=-1.5, t1=1.5)),      # behind it: occluded
-               obs(wall(3.0, nx=0.0, ny=1.0, t0=-2.0, t1=2.0)),   # left wall
-               obs(wall(3.0, nx=0.0, ny=-1.0, t0=-2.0, t1=2.0))], 4)  # right wall
+    confirm(trk, [obs(wall(2.0, t0=-1.5, t1=1.5)),      # near, dead ahead
+                  obs(wall(5.0, t0=-1.5, t1=1.5)),      # behind it: occluded
+                  obs(wall(3.0, nx=0.0, ny=1.0, t0=-2.0, t1=2.0)),   # left wall
+                  obs(wall(3.0, nx=0.0, ny=-1.0, t0=-2.0, t1=2.0))])  # right wall
     by_rho = {round(t.rho, 1): t for t in trk.tracks}
     assert by_rho[5.0].occluded          # behind the near wall
     assert not by_rho[2.0].occluded      # nothing in front of it
@@ -1096,7 +1099,7 @@ def test_association_survives_four_centimetres_a_cycle_at_ten_hz():
     """0.4 m/s at a decimated 10 Hz is 4 cm of travel between tracker steps."""
     trk = mwt.MultiWallTracker()
     car = Pose2D(0.0, 0.0, 0.0)
-    feed(trk, [wall_in_base_link(car)], 3, car=car)
+    confirm(trk, [wall_in_base_link(car)], car=car)
     track = trk.tracks[0]
     assert track.ever_confirmed
     hits = track.hits
@@ -1160,7 +1163,7 @@ def test_the_front_wall_is_never_the_one_the_cap_drops():
             obs(wall(1.2, nx=0.0, ny=-1.0, t0=-4.0, t1=4.0, inliers=400)),
             obs(wall(1.3, nx=0.0, ny=1.0, t0=-4.0, t1=4.0, inliers=400)),
             obs(wall(15.5, t0=-1.5, t1=1.5, inliers=60))]
-    feed(trk, obss, 4)
+    confirm(trk, obss)
     published = trk.published(ORIGIN)
     front = [t for t in trk.tracks if t.role == 'front']
     assert front, 'the test needs a front wall to be hidden'
@@ -1172,11 +1175,11 @@ def test_the_budget_is_front_then_nearest_left_then_nearest_right():
     p = mwt.TrackerParams(max_published=4)
     trk = mwt.MultiWallTracker(p)
     trk.laser_xy = LASER[:2]
-    feed(trk, [obs(wall(5.0, t0=-1.5, t1=1.5)),
-               obs(wall(1.2, nx=0.0, ny=1.0, t0=-3.0, t1=3.0)),
-               obs(wall(2.4, nx=0.0, ny=1.0, t0=-3.0, t1=3.0)),
-               obs(wall(1.1, nx=0.0, ny=-1.0, t0=-3.0, t1=3.0)),
-               obs(wall(2.6, nx=0.0, ny=-1.0, t0=-3.0, t1=3.0))], 4)
+    confirm(trk, [obs(wall(5.0, t0=-1.5, t1=1.5)),
+                  obs(wall(1.2, nx=0.0, ny=1.0, t0=-3.0, t1=3.0)),
+                  obs(wall(2.4, nx=0.0, ny=1.0, t0=-3.0, t1=3.0)),
+                  obs(wall(1.1, nx=0.0, ny=-1.0, t0=-3.0, t1=3.0)),
+                  obs(wall(2.6, nx=0.0, ny=-1.0, t0=-3.0, t1=3.0))])
     published = trk.published(ORIGIN)
     roles = [t.role for t in published]
     assert roles[0] == 'front'
@@ -1189,7 +1192,7 @@ def test_the_budget_is_front_then_nearest_left_then_nearest_right():
 
 def test_unknown_never_takes_a_slot_even_when_the_budget_is_free():
     trk = mwt.MultiWallTracker(mwt.TrackerParams(max_published=4))
-    feed(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))], 4)
+    confirm(trk, [obs(wall(2.0, nx=1.0, ny=0.0, t0=2.0, t1=4.0))])
     track = trk.tracks[0]
     assert track.role == 'unknown' and track.ever_confirmed
     assert trk.published(ORIGIN) == []
@@ -1197,7 +1200,7 @@ def test_unknown_never_takes_a_slot_even_when_the_budget_is_free():
 
 def test_a_rejected_front_wall_gives_its_slot_up():
     trk = mwt.MultiWallTracker(mwt.TrackerParams(max_published=4))
-    feed(trk, [obs(wall(2.0))], 4)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     assert trk.published(ORIGIN) == [track]
     verdict = {'coverage': 0.9, 'support': 0.0, 'beyond_share': 0.0}
@@ -1295,7 +1298,7 @@ def test_a_real_front_wall_across_the_strip_is_front_from_the_bumper():
     assert state == wall_fusion.STATE_WALL and value == pytest.approx(3.095, abs=0.03)
 
 
-def _confirmed_front_at_3_5(trk, car, n=4):
+def _confirmed_front_at_3_5(trk, car, n=N_CONFIRM):
     for i in range(n):
         step(trk, car, i * 0.1, [((WALL_X, -3.0), (WALL_X, 3.0))])
     front = trk.front_track(car, FRONT_X)
@@ -1372,7 +1375,7 @@ def test_a_stereo_observation_at_rho_0_2_is_the_chassis_and_is_dropped():
 def test_an_observation_past_the_collinear_gap_starts_its_own_track():
     p = mwt.TrackerParams()
     trk = mwt.MultiWallTracker(p)
-    feed(trk, [obs(wall(2.0, t0=-2.5, t1=-1.0))], 3)
+    confirm(trk, [obs(wall(2.0, t0=-2.5, t1=-1.0))])
     first = trk.tracks[0]
     # Same line, 1.0 m beyond the extent: refused, counted, its own track.
     trk.step([obs(wall(2.0, t0=0.0, t1=1.5))], 1.2, ORIGIN)
@@ -1381,7 +1384,7 @@ def test_an_observation_past_the_collinear_gap_starts_its_own_track():
     assert len(trk.tracks) == 2 and first.t1 == pytest.approx(-1.0, abs=0.01)
     # 0.4 m beyond: inside the gap, the same wall, and the extent follows it.
     near = mwt.MultiWallTracker(p)
-    feed(near, [obs(wall(2.0, t0=-2.5, t1=-1.0))], 3)
+    confirm(near, [obs(wall(2.0, t0=-2.5, t1=-1.0))])
     near.step([obs(wall(2.0, t0=-0.6, t1=0.9))], 1.2, ORIGIN)
     assert len(near.tracks) == 1 and near.n_gap_rejected == 0
     assert near.tracks[0].t1 == pytest.approx(0.9, abs=0.01)
@@ -1460,7 +1463,7 @@ def test_cut_beams_are_not_free_space_in_the_strip():
 def test_cut_beams_are_not_negative_evidence():
     """The pre-block-3 defect: a cut beam is inf, and inf counted as a PASS."""
     trk = mwt.MultiWallTracker()
-    feed(trk, [obs(wall(2.0))], 3)
+    confirm(trk, [obs(wall(2.0))])
     track = trk.tracks[0]
     r, b, lxy = neg_scan(lambda x: np.full(x.size, np.inf))
     every = np.ones(N_BEAMS, dtype=bool)
