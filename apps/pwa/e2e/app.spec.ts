@@ -13,13 +13,13 @@ test('pairing: a wrong token is refused, the right one connects', async ({ page 
   await page.getByTestId('token').fill(TOKEN);
   await page.getByTestId('pair').click();
   await expect(page.locator('.pill', { hasText: 'ONLINE' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'lamacchinina', exact: true })).toBeVisible();
 });
 
 test('pairing by QR link: the fragment pairs and leaves the address bar', async ({ page }) => {
   await page.goto(`/#token=${encodeURIComponent(TOKEN)}`);
   await expect(page.locator('.pill', { hasText: 'ONLINE' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Cockpit' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'lamacchinina', exact: true })).toBeVisible();
   // The link is gone from the address bar, and gone for good: a reload stays paired.
   expect(new URL(page.url()).hash).toBe('');
   expect(page.url()).not.toContain(TOKEN);

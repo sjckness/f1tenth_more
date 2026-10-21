@@ -1,4 +1,5 @@
-// Cockpit (docs/pwa/design/Main.dc.html): READY, the failing checks, the three processes,
+// lamacchinina, the view once called Cockpit: route and code keep "cockpit"
+// (docs/pwa/design/Main.dc.html). READY, the failing checks, the three processes,
 // speed / VESC temperature / CPU.
 import { post, waitJob } from '../api';
 import { online, status, tel, toast } from '../store';
@@ -58,7 +59,7 @@ export function Cockpit() {
   const t = tel.value;
   return (
     <>
-      <div class="titlerow"><h1>Cockpit</h1><span class="mono muted" style={{ fontSize: '13px' }}>F1T-01</span></div>
+      <div class="titlerow"><h1>lamacchinina</h1><span class="mono muted" style={{ fontSize: '13px' }}>F1T-01</span></div>
       {!online.value ? (
         <section aria-label="Stato di prontezza" data-testid="ready-card" style={{
           border: '1.5px dashed #3A404B', borderRadius: '20px', padding: '18px',

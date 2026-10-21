@@ -49,10 +49,12 @@ iPhone (PWA, Safari) ──HTTPS/WSS via Tailscale──▶ f1tenth_gateway (Ori
 
 ## 3. Struttura
 
-Tab bar in basso con 5 sezioni: **Cockpit · Missione · Guida · Telemetria · Run**.
+Tab bar in basso con 5 sezioni: **lamacchinina · Missione · Guida · Telemetria · Run**.
 Pulsante **EMERGENZA** fisso, sempre visibile sopra la tab bar (in Guida: in alto al centro).
 
-### Cockpit (`design/Main.dc.html`)
+### lamacchinina (`design/Main.dc.html`)
+- Il nome visibile è **lamacchinina**, così: minuscolo, una parola (tab, titolo, link "indietro").
+  Prima si chiamava Cockpit: route `#/cockpit` e componente `Cockpit.tsx` restano col vecchio nome.
 - Barra connessione: ONLINE/OFFLINE, latenza RTT (ms), batteria (V e %).
 - Indicatore grande READY / NOT READY (verde/ambra) + `n/m CHECK OK` + lista dei **soli check falliti**
   (icona errore rossa o warning ambra, nome, dettaglio con valore e soglia).
@@ -75,7 +77,7 @@ Pulsante **EMERGENZA** fisso, sempre visibile sopra la tab bar (in Guida: in alt
   Il joystick si illumina di verde quando il dead-man è attivo.
 - Limite di velocità con stepper (− / +), applicato anche lato server.
 - Velocità reale (grande) vs comandata, con barra.
-- Pulsante "indietro" al Cockpit al posto della tab bar. Multi-touch obbligatorio (due pollici insieme).
+- Pulsante "indietro" a lamacchinina al posto della tab bar. Multi-touch obbligatorio (due pollici insieme).
 
 ### Telemetria (`design/Telemetria.dc.html`)
 - Traiettoria 2D: pista/raceline tratteggiata, percorso fatto, posa della macchina; x, y, ψ.

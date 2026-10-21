@@ -310,7 +310,7 @@ uno; gli altri girano.
 | Il gateway non parte: `token` | `F1T_GATEWAY_TOKEN` assente o < 32 caratteri | `systemctl --user cat f1tenth-gateway`, `~/.config/f1tenth_gateway/env` |
 | `address already in use` | porta occupata | `ss -ltnp \| grep 8770`; cambia `listen.port` e `tailscale serve` |
 | Safari: sito non raggiungibile | Tailscale spento sull'iPhone, o `serve` non attivo | `tailscale serve status` sull'Orin |
-| Cockpit sempre NOT READY "discovery" | discovery server giù o env diverso | `f1tenth_ctl check`; il gateway carica `ctl.env` |
+| lamacchinina sempre NOT READY "discovery" | discovery server giù o env diverso | `f1tenth_ctl check`; il gateway carica `ctl.env` |
 | Guida: "ackermann_mux non ascolta /teleop" | stack spento o mux senza la lane teleop | `ros2 topic info /teleop --no-daemon` (con `ctl.env`) |
 | Guida: "un altro nodo pubblica su /teleop" | joystick acceso | spegni il joy node |
 | Microfono: errore | faster-whisper non installato, o modello non scaricato | passo 2; `~/.local/state/f1tenth_gateway/gateway.log` |

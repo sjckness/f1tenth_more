@@ -99,7 +99,7 @@ export function Guida() {
           <rect x="7" y="2" width="10" height="20" rx="2" /><path d="M2 14a8 8 0 0 0 8 8M22 10a8 8 0 0 0-8-8" /></svg>
         <span style={{ fontSize: '22px', fontWeight: 800 }}>Ruota il telefono</span>
         <span class="muted" style={{ fontSize: '14px' }}>La guida manuale funziona solo in orizzontale, con due pollici.</span>
-        <a href="#/cockpit" class="btn" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Torna al Cockpit</a>
+        <a href="#/cockpit" class="btn" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>Torna a lamacchinina</a>
       </div>
     );
   }
@@ -121,7 +121,7 @@ export function Guida() {
       padding: 'calc(12px + var(--safe-top)) calc(24px + var(--safe-right)) calc(14px + var(--safe-bottom)) calc(24px + var(--safe-left))',
       overflow: 'hidden' }} data-testid="guida">
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', height: '52px' }}>
-        <a href="#/cockpit" aria-label="Torna al Cockpit" style={{ width: '48px', height: '48px', borderRadius: '14px',
+        <a href="#/cockpit" aria-label="Torna a lamacchinina" style={{ width: '48px', height: '48px', borderRadius: '14px',
           background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center',
           justifyContent: 'center', color: 'var(--text)' }}>{Icon.back()}</a>
         <div class="mono" style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '12px' }}>
