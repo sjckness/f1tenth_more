@@ -12,6 +12,15 @@ reads those JPEG bytes straight out of the run's bag and hands them to ffmpeg.
 <run_dir> is a mission_logger run folder (the one holding bag/), a bag
 directory, or a .db3 file. Output: <out_dir>/<run_id>.debug.mp4.
 
+THE RUN-REPORT OVERLAY FIRST (--source auto, the default). When the run has a
+clean camera frame and a scene mask (mission_overlay's module docstring),
+every camera frame is drawn with the mask and the LiDAR on it, here, and those
+frames are the video; the app's Run view offers it under the same name. A run
+without that data, or a host without OpenCV or f1tenth_perception, gets the
+recorded debug JPEGs as before. --source recorded always takes the JPEGs,
+--source overlay never does. --alpha / --point-px / --no-legend override
+stack_params.yaml's mission_report_overlay_*.
+
 NO ROS NEEDED, like mission_render.py: the bag is a sqlite3 database and a
 sensor_msgs/CompressedImage is decoded by hand from its CDR bytes (header,
 format, data), the same technique mission_extract._decode_legacy_solver_status
@@ -136,20 +145,28 @@ def frame_durations(stamps):
 
 
 def write_mp4(frames, out_path, fps=10, crf=28):
-    """Encode frames [(stamp, jpeg)] into out_path with ffmpeg. Return out_path."""
+    """
+    Encode frames, an iterable of (stamp, jpeg), into out_path with ffmpeg; return out_path.
+
+    The JPEGs go to a temporary directory as they come, so a generator of
+    drawn frames is never held in memory whole. ValueError when there are none.
+    """
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='debug_video_') as tmp:
-        lines = ['ffconcat version 1.0']
-        durations = frame_durations([s for s, _ in frames])
-        for i, ((_stamp, jpeg), duration) in enumerate(zip(frames, durations)):
-            name = f'f{i:06d}.jpg'
-            with open(os.path.join(tmp, name), 'wb') as fh:
+        stamps = []
+        for i, (stamp, jpeg) in enumerate(frames):
+            with open(os.path.join(tmp, f'f{i:06d}.jpg'), 'wb') as fh:
                 fh.write(jpeg)
-            lines += [f"file '{name}'", f'duration {duration:.4f}']
+            stamps.append(stamp)
+        if not stamps:
+            raise ValueError('no frames')
+        lines = ['ffconcat version 1.0']
+        for i, duration in enumerate(frame_durations(stamps)):
+            lines += [f"file 'f{i:06d}.jpg'", f'duration {duration:.4f}']
         # The concat demuxer ignores the last entry's duration unless the file
         # is listed once more.
-        lines.append(f"file 'f{len(frames) - 1:06d}.jpg'")
+        lines.append(f"file 'f{len(stamps) - 1:06d}.jpg'")
         listing = os.path.join(tmp, 'frames.ffconcat')
         with open(listing, 'w') as fh:
             fh.write('\n'.join(lines) + '\n')
@@ -162,34 +179,83 @@ def write_mp4(frames, out_path, fps=10, crf=28):
     return out_path
 
 
-def render_run(run, out_dir, topic=DEBUG_IMAGE_TOPIC, fps=10, crf=28):
+def open_overlay(run, style_overrides=None):
+    """Return mission_overlay.open_run, or (None, reason) where it cannot run."""
+    try:
+        from f1tenth_logger import mission_overlay
+    except ImportError as exc:
+        return None, f'overlay unavailable on this host: {exc}'
+    try:
+        return mission_overlay.open_run(
+            run, mission_overlay.style_from_params(**(style_overrides or {})))
+    except Exception as exc:  # noqa: BLE001 - a bad overlay must not cost the video
+        return None, f'overlay failed: {exc}'
+
+
+def render_run(run, out_dir, topic=DEBUG_IMAGE_TOPIC, fps=10, crf=28, source='auto',
+               style_overrides=None):
     """
     Write <out_dir>/<run_id>.debug.mp4 for one run; return its path, or None.
 
-    None, with the reason on stderr, when the run has no sqlite3 bag, no
-    frames on topic, or ffmpeg fails.
+    The run-report overlay's frames when `source` allows it and the run has
+    them (module docstring), else the recorded JPEGs on topic. None, with the
+    reason on stderr, when the run has no sqlite3 bag, no frames, or ffmpeg
+    fails.
     """
     db3 = find_db3(run)
     if not db3:
         print(f'{run}: no .db3 found (only sqlite3 bags are supported)', file=sys.stderr)
         return None
-    frames = read_frames(db3, topic)
-    if not frames:
-        print(f'{run}: no {topic} frames', file=sys.stderr)
-        return None
+    overlay = frames = None
+    what = topic
+    if source != 'recorded':
+        overlay, why = open_overlay(run, style_overrides)
+        if overlay is not None:
+            frames = overlay.jpegs()
+            what = f'overlay on {overlay.camera.name}, {overlay.mask_source} mask'
+        elif source == 'overlay':
+            print(f'{run}: no overlay ({why})', file=sys.stderr)
+            return None
+        else:
+            print(f'{run}: no overlay ({why}) -- the recorded {topic} frames instead',
+                  file=sys.stderr)
     out = Path(out_dir).expanduser() / f'{run_id_of(run)}.debug.mp4'
+    stamps = []
+
+    def counted(source_frames):
+        for stamp, jpeg in source_frames:
+            stamps.append(stamp)
+            yield stamp, jpeg
+
     try:
-        write_mp4(frames, out, fps, crf)
+        if frames is not None:
+            try:
+                write_mp4(counted(frames), out, fps, crf)
+            except Exception as exc:  # noqa: BLE001 - a bad overlay must not cost the video
+                print(f'{run}: overlay failed ({exc})', file=sys.stderr)
+                if source == 'overlay':
+                    return None
+                frames, what = None, topic
+                stamps.clear()
+        if frames is None:
+            frames = read_frames(db3, topic)
+            if not frames:
+                print(f'{run}: no {topic} frames', file=sys.stderr)
+                return None
+            write_mp4(counted(frames), out, fps, crf)
     except (OSError, subprocess.CalledProcessError) as exc:
         print(f'{run}: ffmpeg failed: {exc}', file=sys.stderr)
         return None
-    span = frames[-1][0] - frames[0][0]
-    print(f'{out}  ({len(frames)} frames over {span:.1f} s)')
+    finally:
+        if overlay is not None:
+            overlay.close()
+    span = stamps[-1] - stamps[0]
+    print(f'{out}  ({len(stamps)} frames over {span:.1f} s, {what})')
     return out
 
 
 def main(argv=None):
-    """Turn each run's recorded debug JPEGs into an MP4. No ROS required."""
+    """Turn each run's overlay frames, or its recorded debug JPEGs, into an MP4. No ROS."""
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('runs', nargs='+', type=Path,
@@ -199,7 +265,16 @@ def main(argv=None):
     ap.add_argument('--topic', default=DEBUG_IMAGE_TOPIC)
     ap.add_argument('--fps', type=int, default=10)
     ap.add_argument('--crf', type=int, default=28)
+    ap.add_argument('--source', choices=('auto', 'overlay', 'recorded'), default='auto',
+                    help='auto: the run-report overlay when the run has it, else the '
+                         'recorded --topic JPEGs')
+    ap.add_argument('--alpha', type=float, default=None,
+                    help='overlay mask fill opacity (default: mission_report_overlay_alpha)')
+    ap.add_argument('--point-px', type=int, default=None,
+                    help='overlay LiDAR dot size (default: mission_report_overlay_point_px)')
+    ap.add_argument('--no-legend', dest='legend', action='store_false', default=None)
     cfg = ap.parse_args(argv)
+    overrides = {'alpha': cfg.alpha, 'point_px': cfg.point_px, 'legend': cfg.legend}
 
     out_dir = cfg.out_dir
     if out_dir is None:
@@ -208,7 +283,8 @@ def main(argv=None):
     if out_dir is None:
         ap.error('--out-dir is required: no source workspace above this module.')
 
-    written = [render_run(run, out_dir, cfg.topic, cfg.fps, cfg.crf) for run in cfg.runs]
+    written = [render_run(run, out_dir, cfg.topic, cfg.fps, cfg.crf, cfg.source, overrides)
+               for run in cfg.runs]
     return 0 if any(written) else 1
 
 

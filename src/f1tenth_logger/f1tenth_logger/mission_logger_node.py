@@ -268,6 +268,12 @@ _DEFAULT_TOPICS = [
     # mission_debug_video; /perception/front_distance itself is not recorded,
     # so the JSON is also the only record of the mission wall guard's input.
     '/camera/debug_image/compressed',
+    # The same tick frame with nothing drawn on it (~12 KiB JPEG at 5 Hz):
+    # the camera image of the run report's overlay, which mission_overlay
+    # draws from this bag AFTER the run (scene mask + LiDAR), never on the
+    # car during it. yolo_detector_node only encodes it while this recorder
+    # subscribes.
+    '/camera/debug_image/clean/compressed',
     '/perception/debug/front_wall',
     # Scene labels (enable_scene_labels, f1tenth_perception/scene_labels.py):
     # the virtual wall every wall consumer reads, its source/flags, the LiDAR
@@ -1147,10 +1153,25 @@ class MissionLoggerNode(Node):
         """Evenly-spaced stills from the annotated camera stream, read back out
         of the finished bag rather than tapped live -- the recorder already
         captured those frames, and decoding them during the mission would cost
-        CPU exactly when the car needs it."""
+        CPU exactly when the car needs it.
+
+        The run-report overlay first (mission_overlay: the clean camera frame
+        with the scene mask and the LiDAR drawn on it, here, after the run);
+        a run without the data for it, or any failure of it, gets the stills
+        it always got."""
+        out_dir = os.path.join(run['run_dir'], 'snapshots')
+        try:
+            from f1tenth_logger.mission_overlay import style_from_params, write_snapshots
+            written, why = write_snapshots(
+                run['bag_path'], out_dir, run['run_id'], style=style_from_params())
+        except Exception as exc:  # noqa: BLE001 - the plain stills must still be written
+            written, why = [], f'overlay failed: {exc}'
+        if written:
+            self.get_logger().info(f'{len(written)} overlay snapshot(s) -> {out_dir}')
+            return
+        self.get_logger().info(f'no overlay snapshots ({why}) -- recorded frames instead.')
         written, topic = _extract_snapshots(
-            run['bag_path'], os.path.join(run['run_dir'], 'snapshots'),
-            run['run_id'], self.storage_id)
+            run['bag_path'], out_dir, run['run_id'], self.storage_id)
         if written:
             self.get_logger().info(
                 f'{len(written)} snapshot(s) from {topic} -> '

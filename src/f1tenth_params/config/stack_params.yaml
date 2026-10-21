@@ -2695,6 +2695,20 @@ mission_logger_profile:
 mission_logger_runs_dir:
   default: "~/f1tenth_archive"
   description: "Root of the mission run archive. Bags record into <dir>/active/<run_id>/bag/ and move whole to <dir>/complete/<run_id>/ at finalize. '~' is expanded."
+# Consumed by: f1tenth_logger/mission_overlay.py (style_from_params): the
+# run-report overlay, the camera frame with the scene mask and the LiDAR drawn
+# on it AFTER the run from the bag -- the run's snapshots/ at finalize, and
+# mission_debug_video's MP4. Viewing preferences, read live rather than from a
+# run's params snapshot: re-rendering an old run uses today's values.
+mission_report_overlay_alpha:
+  default: 0.3
+  description: "Opacity of the scene-mask fills (wall, floor, inferred floor, object) on the run report's camera frames. 0.25-0.3 keeps the camera image readable; each region larger than 0.2 % of the frame also gets a 1 px outline in its colour. Only these four classes are tinted: invalid, self, reflection and ceiling stay clear."
+mission_report_overlay_point_px:
+  default: 2
+  description: "Size [px] of each LiDAR return projected on the run report's camera frames: a square dot coloured by range, red near, yellow, white at 8 m and beyond. 1 or 2 keeps the image readable."
+mission_report_overlay_legend:
+  default: true
+  description: "Draw the run report's small top-left legend (the four class colours and the LiDAR range scale). false: no text at all on the report images."
 enable_sys_obs:
   default: true
   description: "Run system_observer_node (CPU/GPU/RAM temp+usage) and include IsSystemOverheated in the BT emergency lane. false: both are fully skipped, not just idle."
