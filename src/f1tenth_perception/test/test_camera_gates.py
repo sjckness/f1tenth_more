@@ -6,8 +6,10 @@ What the camera may say, and how much of it counts:
     was fitted -- the radial gate;
   * a stereo-only line nothing cross-checks must look like a wall on its own
     -- tight, tall, long;
-  * the same stale profile re-presented over three tracker cycles is ONE
-    observation, so only a fresh cycle counts towards confirmation;
+  * with wall_confirm_require_lidar on (the default) no camera-only hit
+    counts towards confirmation at all; with it off, the same stale profile
+    re-presented over three tracker cycles is ONE observation, so only a
+    fresh cycle counts;
   * a camera-only track is a side wall only inside a tighter zone than the
     LiDAR's, and at a corridor-like offset;
   * a wall both sensors saw is one track, labelled 'both'.
@@ -146,38 +148,31 @@ def wide(d=2.0):
     return line(d, t0=-1.0, t1=1.0)
 
 
-def test_a_camera_only_track_confirms_on_fresh_cycles():
-    p = mwt.TrackerParams()
-    t = tracker()
-    feed(t, [obs(wide())], p.stereo_confirm_hits + 1)
+N_CONFIRM = mwt.TrackerParams().confirm_min_consecutive_hits
+
+
+def test_with_require_lidar_off_a_camera_only_track_confirms_on_fresh_cycles():
+    t = tracker(confirm_require_lidar=False)
+    feed(t, [obs(wide())], N_CONFIRM)
     assert t.tracks[0].ever_confirmed
 
 
 def test_a_stale_camera_cycle_does_not_count_towards_confirmation():
     """The same profile, re-presented while the camera is late, is one
     observation. The track still exists and still tracks; it just does not
-    graduate on repetition."""
-    p = mwt.TrackerParams()
-    t = tracker()
+    graduate on repetition. (wall_confirm_require_lidar off: with it on no
+    camera-only hit counts at all.)"""
+    t = tracker(confirm_require_lidar=False)
     t.camera_fresh = False
-    feed(t, [obs(wide())], p.stereo_confirm_hits + 4)
+    feed(t, [obs(wide())], N_CONFIRM + 4)
     assert t.tracks, 'the track is still tracked'
     assert not t.tracks[0].ever_confirmed
 
 
-def test_turning_the_rule_off_restores_the_old_behaviour():
-    p = mwt.TrackerParams()
-    t = tracker(camera_confirm_fresh_only=False)
-    t.camera_fresh = False
-    feed(t, [obs(wide())], p.stereo_confirm_hits + 1)
-    assert t.tracks[0].ever_confirmed
-
-
 def test_a_lidar_backed_track_is_unaffected_by_a_stale_camera():
-    p = mwt.TrackerParams()
     t = tracker()
     t.camera_fresh = False
-    feed(t, [obs(wide(), wall_fusion.SOURCE_LIDAR, confidence=0.8)], p.confirm_hits + 1)
+    feed(t, [obs(wide(), wall_fusion.SOURCE_LIDAR, confidence=0.8)], N_CONFIRM)
     assert t.tracks[0].ever_confirmed
 
 

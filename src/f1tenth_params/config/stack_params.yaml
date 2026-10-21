@@ -3325,12 +3325,33 @@ lidar_front_wall_stereo_sigma_quad_per_m2:
 lidar_front_wall_min_span_for_angle_m:
   default: 0.3
   description: "Shortest span [m] used when turning a distance sigma into an angle sigma (sigma_theta = sigma_rho / span). A 5 cm uncertainty on a 3 m wall pins the angle far better than the same 5 cm on a 40 cm stub, and a short segment's angle is exactly what must not be trusted. The floor stops a tiny segment producing an absurd angle sigma."
-lidar_front_wall_stereo_confirm_hits:
+# --- THE CONFIRMATION LEVEL (wall_confirm_*, 2026-10-21) ---------------------
+# ONE rule promotes a wall track from TENTATIVE to CONFIRMED (multi_wall_
+# tracker's THE CONFIRMATION LEVEL), and every reader of "confirmed" uses its
+# answer with no count of its own: FRONT and the virtual wall,
+# /perception/walls, the door hosts, the behaviour tree's front-wall lock,
+# mpc_corr's wall rows and the semantic layer's wall cells. Read by
+# lidar_front_wall_node under these names. It REPLACED the code-default 3 hits
+# in the last 5 scans (TrackerParams.confirm_hits / confirm_window, never
+# launch parameters), lidar_front_wall_stereo_confirm_hits 5 /
+# lidar_front_wall_stereo_confirm_window 7, and
+# lidar_front_wall_camera_confirm_fresh_only true (now always so). Counts are
+# TRACKER cycles: 10 Hz at lidar_front_wall_wall_tracker_scan_decimation 4.
+wall_confirm_min_consecutive_hits:
   default: 5
-  description: "Hits within lidar_front_wall_stereo_confirm_window that confirm a track the LiDAR has NEVER seen. Stricter than the ordinary 3-in-5 because stereo-only evidence is the weak kind: on this building's floor the stereo invents whole surfaces out of reflections, and a one-frame reflection must never leave a confirmed wall behind. A LiDAR or BOTH hit promotes the track to the ordinary rule immediately (it is no longer stereo-only); it does NOT confirm it on the spot, so one spurious line still cannot make a wall."
-lidar_front_wall_stereo_confirm_window:
-  default: 7
-  description: "The window the stereo-only confirm rule counts over. Longer than the ordinary 5 so a wall must persist across more of the scene before anything acts on it."
+  description: "Tracker cycles IN A ROW in which a wall track must be associated with an observation that counts -- a LiDAR-backed one (LIDAR or BOTH) while wall_confirm_require_lidar is true -- before it is CONFIRMED. One cycle without a counting hit restarts the count, and a TENTATIVE track that goes a cycle with no association at all is deleted: it is no nearer confirmation than a track its next observation would start. 5 at the 10 Hz tracker rate is 0.5 s of unbroken evidence (the 3-in-5 rule it replaced could confirm in 0.3 s and tolerated two misses). Also the window of the two jitter tests below and of the FRONT gate's mean confidence. Must be >= 1."
+wall_confirm_min_length_m:
+  default: 1.0
+  description: "Shortest MEASURED segment [m] -- the track's extent, rebuilt from its recent observations -- a wall track may have to be CONFIRMED. The same number as lidar_front_wall_wall_min_span_birth_m, the span one observation needs to START a track: birth is judged on one scan, confirmation on the track. A confirmed wall later seen shorter stays confirmed."
+wall_confirm_max_dist_jitter_m:
+  default: 0.05
+  description: "max - min [m] of the wall line's perpendicular distance over the last wall_confirm_min_consecutive_hits counted observations, compared in odom: each observation is placed with its own scan's car pose, so the car's own motion is already out of it. Above this the track stays TENTATIVE. NOTE the odometry: /odometry/filtered reads distance ~17% short (lidar_front_wall_odom_topic), which moves a static wall in odom by 0.17 m per metre driven towards it -- at 0.5 m/s over the 0.4 s these five cycles span that is 3.4 cm of this 5 cm budget, so a fast head-on approach can hold a wall tentative."
+wall_confirm_max_angle_jitter_deg:
+  default: 3.0
+  description: "max - min [deg] of the wall line's direction over the same observations as wall_confirm_max_dist_jitter_m, in odom. A LiDAR wall's line-normal noise is 0.4-0.8 deg 1-sigma (f1tenth_behavior mission/wall_lock.py, the front-wall lock's gate_rad note), so 3 deg passes a real wall and refuses a line that swings from scan to scan, which is what a fit across clutter or round a corner does."
+wall_confirm_require_lidar:
+  default: true
+  description: "true: only LiDAR-backed hits (LIDAR or BOTH) count towards confirmation, so a STEREO-only track is never CONFIRMED -- it stays tentative, is reported 'unknown', never reaches /perception/walls and is never FRONT. Stereo support still counts for something: it raises a LiDAR wall's FRONT confidence and the rectangle can VERIFY it. It is just never required, because glass gives the camera little to see. false: a camera-only hit counts too, but only on a cycle whose camera profile was fresh (age <= lidar_front_wall_stereo_profile_max_age_s): one profile re-presented over three cycles is one observation, not three."
 lidar_front_wall_role_hysteresis_rad:
   default: 0.0873
   description: "How far past its 45 deg sector edge [rad, 5 deg] a wall keeps the role it already had. Without it a wall sitting on a boundary flips between front and left every scan as the car wobbles, and every consumer keyed on the role flips with it."
@@ -3749,7 +3770,7 @@ lidar_front_wall_wall_rect_reject_cycles:
   description: "Consecutive VERIFIABLE cycles (coverage >= lidar_front_wall_wall_rect_coverage_min) whose support is at or below the reject threshold before a track is REJECTED. VERIFIED stays immediate: verifying adds evidence for a wall the LiDAR already fitted, while rejecting TAKES THE WALL AWAY from every consumer, and one frame of a person, a reflection or a stale profile must not do that. Cycles where the rectangle had no coverage neither advance nor reset the count, so a wall that simply leaves the camera's view does not accumulate rejections. The rectangle's tolerance is NOT a parameter of its own: it is lidar_front_wall_wall_obs_tol_base_m + lidar_front_wall_wall_obs_tol_quad_per_m2 * d^2, the same model and the same two numbers the column cross-check uses, because a rectangle sample is the same measurement a column is, one pixel at a time."
 lidar_front_wall_wall_tracker_scan_decimation:
   default: 4
-  description: "The wall tracker processes one /scan in N; 1 is every scan. ONLY the tracker -- the node still publishes its WallLineFit and WallEstimate on every scan (that contract is in lidar_front_wall_node's own docstring), the estimator still fits every scan, and every OTHER /scan consumer is a separate process with its own subscription and is untouched: the behaviour tree's proximity e-stop, MPC_corr, swept_clearance_node, obstacle_clearance_node, wall_distance_node, front_clearance_node, slam_toolbox and nav2's obstacle layer all still receive 40 Hz. On a skipped scan the tracker's last verdict STANDS (it is a 10 Hz quantity published at the scan rate; flapping the contract three scans in four would be the worse lie). Deterministic by counter, not by clock, so a replay decimates identically. 4 is 10 Hz at the nominal 40 Hz scan rate, which is FASTER than the ~4 observations/s the node actually managed when it was CPU-bound (output/logger_check.md). Read the cycle-count thresholds -- confirm_hits, stereo_confirm_hits, wall_negative_miss_to_kill, wall_rect_reject_cycles -- against 10 Hz now: the table is in output/cpu/report.md."
+  description: "The wall tracker processes one /scan in N; 1 is every scan. ONLY the tracker -- the node still publishes its WallLineFit and WallEstimate on every scan (that contract is in lidar_front_wall_node's own docstring), the estimator still fits every scan, and every OTHER /scan consumer is a separate process with its own subscription and is untouched: the behaviour tree's proximity e-stop, MPC_corr, swept_clearance_node, obstacle_clearance_node, wall_distance_node, front_clearance_node, slam_toolbox and nav2's obstacle layer all still receive 40 Hz. On a skipped scan the tracker's last verdict STANDS (it is a 10 Hz quantity published at the scan rate; flapping the contract three scans in four would be the worse lie). Deterministic by counter, not by clock, so a replay decimates identically. 4 is 10 Hz at the nominal 40 Hz scan rate, which is FASTER than the ~4 observations/s the node actually managed when it was CPU-bound (output/logger_check.md). Read the cycle-count thresholds -- wall_confirm_min_consecutive_hits (confirm_hits and stereo_confirm_hits in that table, which it replaced), wall_negative_miss_to_kill, wall_rect_reject_cycles -- against 10 Hz now: the table is in output/cpu/report.md."
 lidar_front_wall_wall_extract_backend:
   default: "c"
   description: "Which implementation of the line extraction runs: \"c\" is corridor_perception_c's libextract_lines.so through ctypes, \"python\" is corridor_perception.extraction itself. The C is a PORT, not a reimplementation: tools/extract_backends_equiv.py runs both over all 2292 scans of corridor10m_20261015T171753 and gets the same segment count on every scan, the same per-gate drop counts, and a maximum difference of 7.1e-15 m on rho and the endpoints -- float64 summation order, nothing more. It costs 1.09 ms a scan p50 against the Python's 24.62 (22.5x), which on a box measured at 95-97 % CPU on 12 cores is the difference between the tracker fitting in its scan period and not. \"python\" is there to be the reference in an equivalence run and to be switched to if the C is ever suspected. If the library is absent the node logs ONE warning and runs the Python."
@@ -3768,9 +3789,6 @@ lidar_front_wall_stereo_min_vertical_extent_m:
 lidar_front_wall_stereo_min_length_m:
   default: 0.8
   description: "Minimum length of a STEREO-ONLY observation, on top of the extraction's own span gates. Same reasoning as stereo_max_rms_m: a short unverified line is the one thing the camera invents most readily on this floor. SYNTHETIC."
-lidar_front_wall_camera_confirm_fresh_only:
-  default: true
-  description: "Count a camera-only hit towards CONFIRMATION only on a cycle whose camera profile was fresh (age <= stereo_profile_max_age_s). The tracker runs at the scan rate and the camera at 5 Hz, so the same profile is re-presented over several cycles; without this, three cycles of one stale observation confirm a wall that was seen once. The track's STATE machine still runs on the ordinary hit, so a track does not start coasting merely because the camera was late. false restores the pre-2026-10-18 behaviour."
 lidar_front_wall_camera_side_x_max_m:
   default: 4.0
   description: "Far edge of the x window a CAMERA-only track must reach to be called a side wall (the LiDAR keeps side_x_max_m). The camera's angular error grows with range where the LiDAR's does not, so the stretch a camera wall may speak for is shorter. SYNTHETIC."

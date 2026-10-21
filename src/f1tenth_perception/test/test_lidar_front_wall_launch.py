@@ -71,6 +71,23 @@ class TestArguments:
             arg = declared['lidar_front_wall_' + name]
             assert _text(arg.default_value, context) == str(get_value('lidar_front_wall_' + name))
 
+    def test_the_confirmation_level_args_cover_exactly_the_wall_confirm_group(self):
+        """multi_wall_tracker's THE CONFIRMATION LEVEL: its own stack_params
+        group, declared and passed to the node under the full key."""
+        with open(os.path.join(_SRC_DIR, 'f1tenth_params', 'config', 'stack_params.yaml')) as f:
+            keys = {k for k in yaml.safe_load(f) if k.startswith('wall_confirm_')}
+        module = _wall_launch()
+        assert {name for name, _ in module.WALL_CONFIRM_ARGS} == keys
+        launch_description = module.generate_launch_description()
+        declared = _declared(launch_description)
+        context = LaunchContext()
+        node = _nodes(launch_description)[0]
+        params = {_text(key, context) for key in node._Node__parameters[0]}
+        for name, value_type in module.WALL_CONFIRM_ARGS:
+            assert type(get_value(name)) is value_type, name
+            assert _text(declared[name].default_value, context) == str(get_value(name))
+            assert name in params, name
+
 
 class TestNode:
 

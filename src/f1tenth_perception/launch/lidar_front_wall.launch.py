@@ -87,8 +87,6 @@ LIDAR_FRONT_WALL_ARGS = [
     ('stereo_sigma_base_m', float),
     ('stereo_sigma_quad_per_m2', float),
     ('min_span_for_angle_m', float),
-    ('stereo_confirm_hits', int),
-    ('stereo_confirm_window', int),
     ('role_hysteresis_rad', float),
     ('stereo_front_max_normal_rad', float),
     # Block 3 (2026-10-16): the travel strip and what FRONT requires.
@@ -146,7 +144,6 @@ LIDAR_FRONT_WALL_ARGS = [
     ('stereo_max_rms_m', float),
     ('stereo_min_vertical_extent_m', float),
     ('stereo_min_length_m', float),
-    ('camera_confirm_fresh_only', bool),
     ('camera_side_x_max_m', float),
     ('camera_side_max_normal_deg', float),
     ('camera_side_offset_min_m', float),
@@ -202,6 +199,18 @@ LIDAR_FRONT_WALL_ARGS = [
     ('door_square_min_beams', int),
 ]
 
+# THE CONFIRMATION LEVEL (multi_wall_tracker): the ONE rule that promotes a
+# wall track to confirmed, which every reader of "confirmed" relies on. Its
+# own group in stack_params.yaml, wall_confirm_*, and passed to the node under
+# those full names (no lidar_front_wall_ prefix to strip).
+WALL_CONFIRM_ARGS = [
+    ('wall_confirm_min_consecutive_hits', int),
+    ('wall_confirm_min_length_m', float),
+    ('wall_confirm_max_dist_jitter_m', float),
+    ('wall_confirm_max_angle_jitter_deg', float),
+    ('wall_confirm_require_lidar', bool),
+]
+
 
 def generate_launch_description():
     use_lidar_default, use_lidar_desc = get_default('use_lidar')
@@ -216,6 +225,11 @@ def generate_launch_description():
             description=description))
         params[name] = ParameterValue(
             LaunchConfiguration('lidar_front_wall_' + name), value_type=value_type)
+    for name, value_type in WALL_CONFIRM_ARGS:
+        default, description = get_default(name)
+        declared.append(DeclareLaunchArgument(
+            name, default_value=str(default), description=description))
+        params[name] = ParameterValue(LaunchConfiguration(name), value_type=value_type)
 
     declared.append(DeclareLaunchArgument(
         'lidar_front_wall_cpu_affinity', default_value='5',
