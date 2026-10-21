@@ -53,7 +53,7 @@ A plain `ros2 topic list` as a Discovery-Server client shows only
 `scripts/env/jazzy.sh`, which gives you the **`ros2cli`** helper (super-client):
 
 ```bash
-source scripts/env/jazzy.sh      # in any shell on either host (sets domain/DS too if you export them first)
+source scripts/sim/sim_net.sh    # bash or zsh, either host: sim domain + DS + jazzy.sh
 ros2cli topic list
 ros2cli node list
 ```
