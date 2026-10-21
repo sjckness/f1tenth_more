@@ -13,7 +13,7 @@ from rclpy.qos import (
     QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
 from nav_msgs.msg import OccupancyGrid, Odometry
-from std_msgs.msg import Bool, Float32, String
+from std_msgs.msg import Bool, Float32, Int32, String
 from ackermann_msgs.msg import AckermannDriveStamped
 from geometry_msgs.msg import Point, PoseStamped
 from visualization_msgs.msg import Marker, MarkerArray
@@ -42,6 +42,7 @@ from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
 from mpc_controller.stop_profile import (
     RAMP_UNKNOWN, StopRampLatch, StopRampProfile)
+from mpc_controller import ramp_wall_source
 from mpc_controller.object_approach import (
     TargetBehindPersistence, assess_object_approach, build_object_centreline,
     SPEED_BELOW_FLOOR, SPEED_DRIVE, ObjectStopLatch, floor_moving_speed,
@@ -1969,6 +1970,26 @@ class MPCController(Node):
                        durability=DurabilityPolicy.TRANSIENT_LOCAL)
         )
 
+        # THE FRONT-WALL LOCK, for the ramp (ramp_wall_source.py has the
+        # cases). With wall_lock_enabled the ramp aims at the wall the mission
+        # locked -- f1tenth_behavior publishes its track id on
+        # /mpc/stop_wall_id -- reading its distance from the same /debug
+        # payload the lock reads, instead of whichever wall the travel strip
+        # meets on this scan. false: neither topic is subscribed and
+        # _ramp_wall_distance is _fresh_front_distance, exactly as before.
+        self.ramp_wall_source = None
+        self.ramp_wall_pick = None      # this tick's RampWallPick, for the log
+        if bool(self.declare_parameter(
+                'wall_lock_enabled', get_value('wall_lock_enabled')).value):
+            self.ramp_wall_source = ramp_wall_source.RampWallSource(
+                max_age_s=float(get_value('wall_distance_max_age_s')),
+                clear_distance_m=self.wall_clear_distance_m)
+            self.sub_stop_wall_id = self.create_subscription(
+                Int32, '/mpc/stop_wall_id', self.stop_wall_id_callback, 10)
+            self.sub_virtual_wall_debug = self.create_subscription(
+                String, '/perception/virtual_wall/debug',
+                self.virtual_wall_debug_callback, 10)
+
         # The d_wall corridor correction. Subscribed even when
         # corr_d_wall_correction_enable is false, so the trace is on the wire
         # and in the bag either way and a run can be analysed for what the
@@ -3334,6 +3355,9 @@ class MPCController(Node):
 
           * no target -- this move does not stop on a wall;
           * the ramp is disabled;
+          * the mission's front-wall lock holds and the locked wall is not the
+            FRONT one (_ramp_wall_distance): the wall in the strip is not the
+            one this move stops at;
           * _fresh_front_distance() says the reading is absent, stale, not
             positive (the -1.0 NO_DATA sentinel) or at/above
             wall_clear_distance_m, which is the contract's CLEAR state and not
@@ -3349,10 +3373,36 @@ class MPCController(Node):
         """
         if self.stop_ramp is None or self.stop_target_m is None:
             return None
-        d_est = self._fresh_front_distance()
+        d_est = self._ramp_wall_distance()
         if d_est is None:
             return None
         return self.stop_ramp.predict(d_est, self.v) - self.stop_target_m
+
+    def _ramp_wall_distance(self):
+        """Return the wall distance the ramp aims at, or None (ramp_wall_source.py).
+
+        _fresh_front_distance() itself with wall_lock_enabled false, and while
+        no lock is in force (not locked yet, or the locked wall lost). While
+        the mission's wall is locked: that wall's own value while it is FRONT,
+        and None -- no wall ramp -- while another wall, or none, is. Every
+        _fresh_front_distance rule above still applies to both values.
+        """
+        raw = self._fresh_front_distance()
+        # getattr for the duck-typed test stand-ins, which predate the lock.
+        source = getattr(self, 'ramp_wall_source', None)
+        if source is None:
+            return raw
+        pick = source.select(raw, self.get_clock().now().nanoseconds * 1e-9)
+        previous = self.ramp_wall_pick
+        self.ramp_wall_pick = pick
+        if (previous is None or pick.source != previous.source
+                or pick.track_id != previous.track_id):
+            # Throttled: a far wall's FRONT flickers with CLEAR, and with it
+            # locked / not_front (check_stop_condition logs the same way).
+            self.get_logger().info(
+                f'RAMP | aiming at {ramp_wall_source.describe(pick)}',
+                throttle_duration_sec=2.0)
+        return pick.distance
 
     def _wall_stop_tick(self):
         """Hand the wall stop over to a zero command, and report whether it has.
@@ -3472,10 +3522,15 @@ class MPCController(Node):
                 # A wall stop was asked for and there is no usable distance to
                 # ramp on. Logged, not acted on -- see _wall_stop_d_rem.
                 self.stop_ramp_mode = RAMP_UNKNOWN
-                self.get_logger().warn(
-                    f'RAMP | wall target {self.stop_target_m:.2f} m but the wall '
-                    'distance is absent, stale or CLEAR: no ramp this tick',
-                    throttle_duration_sec=2.0)
+                # Not while the locked wall is simply not the one in the strip:
+                # that is the swerve case, expected, and _ramp_wall_distance
+                # has logged it.
+                pick = getattr(self, 'ramp_wall_pick', None)
+                if pick is None or pick.source != ramp_wall_source.SOURCE_NOT_FRONT:
+                    self.get_logger().warn(
+                        f'RAMP | wall target {self.stop_target_m:.2f} m but the wall '
+                        'distance is absent, stale or CLEAR: no ramp this tick',
+                        throttle_duration_sec=2.0)
             return vdes
 
         d_rem = min(candidates)
@@ -3953,10 +4008,27 @@ class MPCController(Node):
         if self.stop_ramp_latch is not None:
             # A new target is a new move: re-arm the wall stop.
             self.stop_ramp_latch.reset()
+        if getattr(self, 'ramp_wall_source', None) is not None:
+            # ...and forget the last move's locked wall: until the BT's first
+            # /mpc/stop_wall_id of this move the ramp reads the raw wall topic.
+            self.ramp_wall_source.reset()
         self.get_logger().info(
             f'STOP TARGET | wall stop at {self.stop_target_m} m'
             if self.stop_target_m is not None else
             'STOP TARGET | cleared: this move does not stop on a wall')
+
+    def stop_wall_id_callback(self, msg):
+        """Keep the wall tracker id the mission's wall stop is locked on, or -1.
+
+        f1tenth_behavior's CheckStopCondition, every tick it runs the
+        front-wall lock (wall_lock.ramp_wall_id). Read by _ramp_wall_distance.
+        """
+        self.ramp_wall_source.on_lock_id(
+            int(msg.data), self.get_clock().now().nanoseconds * 1e-9)
+
+    def virtual_wall_debug_callback(self, msg):
+        self.ramp_wall_source.on_debug(
+            msg.data, self.get_clock().now().nanoseconds * 1e-9)
 
     def d_wall_correction_callback(self, msg):
         self.d_wall_correction = float(msg.data)

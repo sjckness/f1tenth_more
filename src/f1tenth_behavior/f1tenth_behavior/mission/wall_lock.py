@@ -90,6 +90,17 @@ the locked wall for at most coast_max_sec and coast_max_m of odometry since
 it was last CONFIRMED -- the tracker's own FRONT coast caps
 (lidar_front_wall_wall_tracker_front_max_coast_sec / _m), read from the same
 stack_params keys. Past them it is lost, and a gated FRONT may replace it.
+
+THE RAMP AIMS AT THE SAME WALL (2026-10-22). mpc_corr's deceleration ramp used
+to read the raw wall topic, so in the swerve case it still braked the car to
+rest by the side wall. CheckStopCondition now publishes ramp_wall_id(step) on
+/mpc/stop_wall_id every tick it runs the lock, and mpc_corr
+(mpc_controller/ramp_wall_source.py) ramps on the locked wall's contract
+value while it is FRONT, not at all while the lock holds and another wall or
+none is (not_front, no_reading), and on the raw value while no lock is in
+force (unlocked, lost) -- the last one conservative: a lost lock can only
+brake more. Nothing here changed for it: the phases decide, the topic only
+carries the answer.
 """
 
 import math
@@ -109,6 +120,10 @@ SOURCE_BOTH = 2
 FRONT_WALL = 'wall'
 FRONT_CLEAR = 'clear'
 FRONT_NO_DATA = 'no_data'
+
+# /mpc/stop_wall_id while no lock is in force (ramp_wall_id); mpc_corr's
+# ramp_wall_source.NO_LOCK, which its test asserts stays equal.
+NO_LOCK_ID = -1
 
 UNLOCKED = 'unlocked'
 LOCKED = 'locked'
@@ -192,6 +207,21 @@ def same_wall(anchor: Tuple[float, float], candidate: Tuple[float, float],
     off_c = rho_c - (x * math.cos(th_c) + y * math.sin(th_c))
     offset = abs(off_c - off_a)
     return offset <= gate_m and angle <= gate_rad, offset, angle
+
+
+def ramp_wall_id(step: LockStep) -> int:
+    """Return the wall mpc_corr's ramp aims at, as /mpc/stop_wall_id says it.
+
+    The locked track's id while the lock holds -- locked, not_front and
+    no_reading: the move still approaches that wall, and the ramp reads its
+    distance only while it is FRONT -- else NO_LOCK_ID: unlocked (nothing is
+    chosen yet) and lost (the locked wall is gone, and until a gated FRONT
+    re-acquires it the ramp brakes for whatever wall is FRONT). See THE RAMP
+    AIMS AT THE SAME WALL above.
+    """
+    if step.phase in (LOCKED, NOT_FRONT, NO_READING) and step.track_id is not None:
+        return int(step.track_id)
+    return NO_LOCK_ID
 
 
 class FrontWallLock:

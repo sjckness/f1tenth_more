@@ -95,7 +95,13 @@ go_to_object, RUNNING), and is reset on the same (run_generation, move.id)
 trigger as the goal_reached latch. Until a lockable FRONT track has been seen
 the stop reads the wall topic exactly as before, and with wall_lock_enabled
 false it always does. Transitions are logged (INFO), a refused re-acquisition WARNs
-every 2 s.
+every 2 s. Every tick the lock runs, the wall it holds goes out on
+/mpc/stop_wall_id (std_msgs/Int32, wall_lock.ramp_wall_id: the locked track id,
+-1 while unlocked or lost) for mpc_corr's deceleration ramp, which then aims
+at the same wall (wall_lock.py, THE RAMP AIMS AT THE SAME WALL). Not published
+with wall_lock_enabled false, nor on a tick that holds or does not run the
+lock: mpc_corr reads a missing or stale id as "no lock" and ramps on the raw
+wall topic.
 
 Also owns /mpc/goal_reached (std_msgs/Bool, published by mpc_corr for BOTH its
 distance-mode and pose-mode arrival -- same topic, mode-agnostic on the wire),
@@ -166,7 +172,7 @@ import time
 
 import py_trees
 from nav_msgs.msg import Odometry
-from std_msgs.msg import Bool, Float32, String
+from std_msgs.msg import Bool, Float32, Int32, String
 
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import MultiWallTrackArray, ObjectApproachStatus
@@ -269,6 +275,7 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  wall_lock_coast_max_m=0.3,
                  walls_topic='/perception/walls',
                  wall_debug_topic='/perception/virtual_wall/debug',
+                 stop_wall_id_topic='/mpc/stop_wall_id',
                  base_front_x_m=None):
         super().__init__(name=name)
         # Module docstring, WALL DISTANCE FRESHNESS.
@@ -284,6 +291,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             coast_max_m=float(wall_lock_coast_max_m))) if wall_lock_enabled else None)
         self._walls_topic = walls_topic
         self._wall_debug_topic = wall_debug_topic
+        self._stop_wall_id_topic = stop_wall_id_topic
+        self.stop_wall_id_pub = None        # the locked wall, for mpc_corr's ramp
         self._base_front_x_m = base_front_x_m   # resolved on first use (URDF)
         self._walls = None                  # {id: WallTrack} of the last message
         self._walls_rx = None
@@ -409,6 +418,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                 MultiWallTrackArray, self._walls_topic, self._walls_cb, 10)
             self.node.create_subscription(
                 String, self._wall_debug_topic, self._wall_debug_cb, 10)
+            self.stop_wall_id_pub = self.node.create_publisher(
+                Int32, self._stop_wall_id_topic, 10)
 
     def _walls_cb(self, msg):
         self._walls = walls_from_message(msg)
@@ -527,6 +538,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             self._front_reading if fresh(self._front_reading_rx) else None,
             self._walls if fresh(self._walls_rx) else None,
             bumper_xy, odometer)
+        if self.stop_wall_id_pub is not None:
+            self.stop_wall_id_pub.publish(Int32(data=wall_lock.ramp_wall_id(step)))
 
         log = self.node.get_logger()
         tag = f"[mission] Move '{move.id}'"

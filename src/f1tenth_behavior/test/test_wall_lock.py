@@ -14,8 +14,8 @@ import pytest
 from f1tenth_behavior.mission.wall_lock import (
     EVENT_ACQUIRED, EVENT_REACQUIRED, EVENT_REFUSED, LOCKED, LOST, NO_READING,
     NOT_FRONT, SOURCE_BOTH, SOURCE_LIDAR, SOURCE_STEREO, STATE_COASTING,
-    STATE_CONFIRMED, STATE_TENTATIVE, UNLOCKED,
-    FrontReading, FrontWallLock, LockParams, WallTrack, same_wall)
+    NO_LOCK_ID, STATE_CONFIRMED, STATE_TENTATIVE, UNLOCKED,
+    FrontReading, FrontWallLock, LockParams, LockStep, WallTrack, ramp_wall_id, same_wall)
 
 TARGET = 7
 SIDE = 9
@@ -279,3 +279,30 @@ def test_same_wall_refuses_a_rotated_line():
     ok, _, angle = same_wall((4.0, 0.0), (4.0, math.radians(20.0)), (4.0, 0.0),
                              GATE_M, GATE_RAD)
     assert not ok and math.degrees(angle) == pytest.approx(20.0)
+
+
+# -- what goes out for the deceleration ramp ---------------------------------------
+
+@pytest.mark.parametrize('phase, track_id, expected', [
+    (LOCKED, TARGET, TARGET),
+    (NOT_FRONT, TARGET, TARGET),        # the swerve: still the wall the move approaches
+    (NO_READING, TARGET, TARGET),
+    (UNLOCKED, None, NO_LOCK_ID),
+    (LOST, TARGET, NO_LOCK_ID),         # lost: the ramp falls back to the raw wall
+])
+def test_ramp_wall_id_is_the_locked_track_only_while_the_lock_holds(phase, track_id, expected):
+    assert ramp_wall_id(LockStep(phase, None, track_id)) == expected
+
+
+def test_ramp_wall_id_follows_a_lock_through_swerve_loss_and_reacquisition():
+    lock = _locked()
+    ids = [ramp_wall_id(lock.update(0.1, 3.5, _front(TARGET, 3.5), _tracks(_wall(), _side()),
+                                    (0.5, 0.0), 0.1))]
+    ids.append(ramp_wall_id(lock.update(0.2, 0.8, _front(SIDE, 0.8),
+                                        _tracks(_wall(), _side()), (1.2, 0.3), 0.9)))
+    ids.append(ramp_wall_id(lock.update(0.3, 0.8, _front(SIDE, 0.8), _tracks(_side()),
+                                        (1.3, 0.3), 1.0)))
+    ids.append(ramp_wall_id(lock.update(0.4, 2.0, _front(TWIN, 2.0),
+                                        _tracks(_wall(TWIN, rho=4.05), _side()),
+                                        (2.0, 0.0), 1.7)))
+    assert ids == [TARGET, TARGET, NO_LOCK_ID, TWIN]

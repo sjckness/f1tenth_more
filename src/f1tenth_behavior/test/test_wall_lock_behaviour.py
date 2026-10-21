@@ -35,7 +35,7 @@ from f1tenth_behavior.mission.runtime import (  # noqa: E402
 )
 from f1tenth_messages.msg import MultiWallTrack, MultiWallTrackArray  # noqa: E402
 from nav_msgs.msg import Odometry  # noqa: E402
-from std_msgs.msg import Float32, String  # noqa: E402
+from std_msgs.msg import Float32, Int32, String  # noqa: E402
 
 S = py_trees.common.Status
 STOP_AT = 1.0
@@ -294,6 +294,58 @@ def test_a_stale_debug_payload_is_not_used(clock):
     clock.t += 0.6                      # > wall_distance_max_age_s for all three...
     b._front_clearance_cb(Float32(data=0.9))   # ...but the Float32 is fresh again
     assert b.update() == S.RUNNING
+
+
+# -- /mpc/stop_wall_id: the wall mpc_corr's deceleration ramp aims at ---------------
+
+def test_the_locked_wall_goes_out_for_the_ramp_on_every_tick(clock):
+    """Locked, the swerve (still the locked wall), then lost: -1.
+
+    On -1 mpc_corr ramps on the raw wall topic again.
+    """
+    b = _check(_mission([_wall_move()]))
+    b.stop_wall_id_pub = _Pub()
+    _approach(b, clock)
+    _odom(b, 1.2, 0.3)
+    _scan(b, 0.8, SIDE, [_target(), _side()])
+    clock.t += 0.1
+    assert b.update() == S.RUNNING
+    _scan(b, 0.8, SIDE, [_side()])      # track 7 gone; the side wall is refused
+    clock.t += 0.1
+    assert b.update() == S.RUNNING
+    assert b.stop_wall_id_pub.msgs == [TARGET, TARGET, -1]
+
+
+def test_a_tick_that_holds_the_car_sends_no_lock_id(clock):
+    """mpc_corr reads a stale id as no lock: the raw wall topic."""
+    b = _check(_mission([_wall_move()]))
+    b.stop_wall_id_pub = _Pub()
+    _approach(b, clock)
+    clock.t += 0.6                      # every wall input stale: WALL DISTANCE FRESHNESS
+    assert b.update() == S.RUNNING
+    assert b.hold_pub.msgs == [True]
+    assert b.stop_wall_id_pub.msgs == [TARGET]
+
+
+class _SetupNode:
+    def __init__(self):
+        self.publishers = []
+
+    def create_subscription(self, *args, **kwargs):
+        return None
+
+    def create_publisher(self, msg_type, topic, qos):
+        self.publishers.append((msg_type, topic))
+        return _Pub()
+
+
+@pytest.mark.parametrize('enabled', [True, False])
+def test_the_ramp_topic_exists_only_with_the_lock(enabled):
+    b = CheckStopCondition(base_front_x_m=FRONT_X, wall_lock_enabled=enabled)
+    node = _SetupNode()
+    b.setup(node=node)
+    assert ((Int32, '/mpc/stop_wall_id') in node.publishers) == enabled
+    assert (b.stop_wall_id_pub is not None) == enabled
 
 
 def test_the_odometer_is_path_length():
