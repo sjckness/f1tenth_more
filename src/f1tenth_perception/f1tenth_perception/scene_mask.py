@@ -234,22 +234,174 @@ def project_to_image(points, fx, fy, cx, cy, rotation, translation):
     return np.column_stack([u, v])
 
 
-def overlay(image_bgr, labels, scan_px=None, alpha=0.5):
+def scan_to_base(ranges, angle_min, angle_increment, range_min, range_max,
+                 rotation, translation):
+    """Return the (N, 3) base-frame points of a scan's valid returns and their (N,) ranges.
+
+    `rotation`/`translation` take laser-frame points into the base frame. The
+    scan plane is a plane in base_link, so the z of every return is the
+    laser's own mount height; the cross-check only ever uses x and y, and the
+    overlay wants the real height to land on the right rows. One definition
+    for front_clearance_node's live overlay and the run report's offline one
+    (f1tenth_logger.mission_overlay).
+    """
+    r = np.asarray(ranges, dtype=float)
+    a = angle_min + np.arange(r.size) * angle_increment
+    with np.errstate(invalid='ignore'):
+        ok = np.isfinite(r) & (r >= range_min) & (r <= range_max)
+    r, a = r[ok], a[ok]
+    local = np.column_stack([r * np.cos(a), r * np.sin(a), np.zeros(r.size)])
+    pts = local @ np.asarray(rotation, dtype=float).T + np.asarray(translation, dtype=float)
+    return pts, r
+
+
+#: The classes a run report tints (f1tenth_logger.mission_overlay): the
+#: surfaces every wall and floor decision is made from, and the objects.
+#: INVALID, SELF, REFLECTION and CEILING stay clear, so the camera image reads
+#: through them.
+REPORT_CLASSES = (CLASS_WALL, CLASS_FLOOR, CLASS_FLOOR_INFERRED, CLASS_OBJECT)
+
+#: BGR ramp of LiDAR points coloured by range (range_colours), near to far:
+#: red, yellow, white. None of the three is a class colour, so a point stays
+#: readable on every fill.
+RANGE_RAMP = ((0, 0, 255), (0, 255, 255), (255, 255, 255))
+
+#: No outline round a tinted region smaller than this fraction of the frame:
+#: the stereo mask is speckled, and a ring round every speckle hides the image
+#: instead of outlining a surface.
+OUTLINE_MIN_FRAC = 0.002
+
+
+def range_colours(ranges, range_max_m):
+    """Return (N, 3) uint8 BGR of finite ranges on RANGE_RAMP over [0, range_max_m], clamped."""
+    ramp = np.asarray(RANGE_RAMP, dtype=float)
+    t = np.clip(np.asarray(ranges, dtype=float).reshape(-1) / max(float(range_max_m), 1e-6),
+                0.0, 1.0) * (len(ramp) - 1)
+    i = np.minimum(t.astype(int), len(ramp) - 2)
+    f = (t - i)[:, None]
+    return np.round(ramp[i] * (1.0 - f) + ramp[i + 1] * f).astype(np.uint8)
+
+
+def overlay(image_bgr, labels, scan_px=None, alpha=0.5, classes=None, outline_px=0,
+            scan_colours=None, point_px=1, legend_range_m=None):
     """The class-coloured debug overlay, with the projected /scan drawn on top.
 
     `scan_px` is an (M, 2) array of (u, v) pixel coordinates of the LiDAR
     returns that fall in the frame; they are drawn last so the comparison the
-    cross-check makes is visible by eye.
+    cross-check makes is visible by eye. `labels` is resized (nearest) to the
+    image when the two differ, and None draws the scan alone.
+
+    The defaults are the live debug image's (front_clearance_node,
+    /perception/scene_labels/image): every class tinted over the whole frame,
+    white dots. A run report (f1tenth_logger.mission_overlay) draws with this
+    same function and asks for less ink:
+
+      classes         tint only these (REPORT_CLASSES); every other pixel
+                      stays exactly as the camera saw it
+      outline_px      > 0: a full-colour outline this thick round each tinted
+                      region of at least OUTLINE_MIN_FRAC of the frame
+      scan_colours    (M, 3) BGR per point (range_colours), drawn as square
+                      dots point_px wide instead of the white circles; later
+                      points cover earlier ones
+      legend_range_m  the corner legend (draw_legend): the tinted classes and
+                      the range scale from 0 to this range
     """
     import cv2  # local: keep the module importable where cv2 is absent
     img = np.ascontiguousarray(image_bgr)
-    tint = np.zeros_like(img)
-    lab = np.asarray(labels)
-    for cls, colour in CLASS_COLOURS.items():
-        tint[lab == cls] = colour
-    out = cv2.addWeighted(img, 1.0 - alpha, tint, alpha, 0.0)
-    if scan_px is not None:
+    h, w = img.shape[:2]
+    lab = None if labels is None else np.asarray(labels)
+    if lab is not None and lab.shape[:2] != (h, w):
+        lab = cv2.resize(lab, (w, h), interpolation=cv2.INTER_NEAREST)
+    if lab is None:
+        out = img.copy()
+    elif classes is None:
+        tint = np.zeros_like(img)
+        for cls, colour in CLASS_COLOURS.items():
+            tint[lab == cls] = colour
+        out = cv2.addWeighted(img, 1.0 - alpha, tint, alpha, 0.0)
+    else:
+        out = _tint_classes(img, lab, classes, alpha, outline_px)
+    if scan_px is not None and scan_colours is None:
         for u, v in np.asarray(scan_px, dtype=float).reshape(-1, 2):
             if np.isfinite(u) and np.isfinite(v):
                 cv2.circle(out, (int(round(u)), int(round(v))), 1, (255, 255, 255), -1)
+    elif scan_px is not None:
+        _draw_dots(out, scan_px, scan_colours, point_px)
+    if legend_range_m is not None:
+        draw_legend(out, CLASS_COLOURS if classes is None else classes, legend_range_m)
     return out
+
+
+def _tint_classes(img, lab, classes, alpha, outline_px):
+    """Blend only the pixels of `classes`, then outline them (overlay's report path)."""
+    import cv2  # local: keep the module importable where cv2 is absent
+    out = img.copy()
+    tint = np.zeros_like(img)
+    sel = np.zeros(lab.shape[:2], dtype=bool)
+    for cls in classes:
+        hit = lab == cls
+        tint[hit] = CLASS_COLOURS[cls]
+        sel |= hit
+    blend = cv2.addWeighted(img, 1.0 - alpha, tint, alpha, 0.0)
+    out[sel] = blend[sel]
+    if outline_px > 0:
+        min_area = OUTLINE_MIN_FRAC * lab.shape[0] * lab.shape[1]
+        for cls in classes:
+            contours, _ = cv2.findContours((lab == cls).astype(np.uint8),
+                                           cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            big = [c for c in contours if cv2.contourArea(c) >= min_area]
+            if big:
+                cv2.drawContours(out, big, -1, CLASS_COLOURS[cls], int(outline_px))
+    return out
+
+
+def _draw_dots(out, scan_px, colours, size):
+    """Draw square dots `size` px wide at (u, v), one colour each, clipped to the image."""
+    uv = np.asarray(scan_px, dtype=float).reshape(-1, 2)
+    col = np.asarray(colours, dtype=np.uint8).reshape(-1, 3)
+    ok = np.isfinite(uv).all(axis=1)
+    u = np.round(uv[ok, 0]).astype(int)
+    v = np.round(uv[ok, 1]).astype(int)
+    col = col[ok]
+    h, w = out.shape[:2]
+    s = max(1, int(size))
+    lo = -(s // 2)
+    for dy in range(lo, lo + s):
+        for dx in range(lo, lo + s):
+            x, y = u + dx, v + dy
+            inside = (x >= 0) & (x < w) & (y >= 0) & (y < h)
+            out[y[inside], x[inside]] = col[inside]
+
+
+def draw_legend(img, classes, range_max_m):
+    """Draw the report's corner legend in place: a swatch per class, the range scale.
+
+    Top-left, on a half-transparent dark box, in type a few pixels high, and
+    sized from the image width so it stays a corner at any resolution (a
+    480 px frame, the debug image's width, is the reference).
+    """
+    import cv2  # local: keep the module importable where cv2 is absent
+    h, w = img.shape[:2]
+    k = min(1.5, max(0.6, w / 480.0))
+    font, scale = cv2.FONT_HERSHEY_SIMPLEX, 0.3 * k
+    row, sw, pad = int(round(10 * k)), int(round(7 * k)), int(round(3 * k))
+    bar_w = 3 * sw
+    lines = [(cls, CLASS_NAMES[cls].replace('_', ' ')) for cls in classes]
+    lines.append((None, 'lidar 0-{:g} m'.format(float(range_max_m))))
+    text_w = max(cv2.getTextSize(text, font, scale, 1)[0][0] for _, text in lines)
+    box_w = min(w, pad * 3 + bar_w + text_w)
+    box_h = min(h, pad * 2 + row * len(lines))
+    x0 = y0 = pad
+    x1, y1 = min(w, x0 + box_w), min(h, y0 + box_h)
+    img[y0:y1, x0:x1] = (img[y0:y1, x0:x1] * 0.45).astype(img.dtype)
+    for i, (cls, text) in enumerate(lines):
+        top = y0 + pad + i * row
+        mid = top + row // 2
+        if cls is None:
+            bar = img[mid - 1:mid + 2, x0 + pad:x0 + pad + bar_w]
+            ramp = range_colours(np.linspace(0.0, range_max_m, bar_w), range_max_m)
+            bar[:] = ramp[None, :bar.shape[1], :]
+        else:
+            img[mid - sw // 2:mid - sw // 2 + sw, x0 + pad:x0 + pad + sw] = CLASS_COLOURS[cls]
+        cv2.putText(img, text, (x0 + pad * 2 + bar_w, mid + int(round(3 * k))), font, scale,
+                    (235, 235, 235), 1, cv2.LINE_AA)

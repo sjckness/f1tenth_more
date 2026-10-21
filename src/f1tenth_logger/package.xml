@@ -53,6 +53,12 @@
        The render half needs it on the report machine too, where it is the
        only non-stdlib dependency besides numpy and matplotlib. -->
   <exec_depend>python3-pyarrow</exec_depend>
+  <!-- mission_overlay.py, the run-report overlay: it draws with
+       f1tenth_perception's pure scene_mask / inferred_floor modules (the
+       renderer of the live scene-mask debug image) and OpenCV. Imported
+       lazily; a host without them gets the recorded debug frames. -->
+  <exec_depend>f1tenth_perception</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
   <!-- The test-campaign logger (f1tenth_logger/test_campaign). PyYAML reads the
        prompt table; scipy filters jerk and steering in the export; the
        recorder subscribes to /drive as AckermannDriveStamped. numpy and

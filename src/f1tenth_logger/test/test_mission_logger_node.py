@@ -602,10 +602,11 @@ class TestRecordedTopics:
         # Every other /viz topic is still a relay copy and still dropped.
         assert recordable_topics(['/viz/scan', '/viz/walls'])[0] == []
 
-    def test_the_debug_video_and_its_wall_payload_are_recorded_reliably(self):
+    def test_the_debug_video_its_clean_frame_and_wall_payload_are_recorded_reliably(self):
         from f1tenth_logger.mission_logger_node import (
             _DEFAULT_BEST_EFFORT_TOPICS, _DEFAULT_TOPICS)
-        for topic in ('/camera/debug_image/compressed', '/perception/debug/front_wall'):
+        for topic in ('/camera/debug_image/compressed', '/camera/debug_image/clean/compressed',
+                      '/perception/debug/front_wall'):
             assert topic in _DEFAULT_TOPICS
-            # Both publishers are RELIABLE (rclpy's default profile).
+            # All three publishers are RELIABLE (rclpy's default profile).
             assert topic not in _DEFAULT_BEST_EFFORT_TOPICS

@@ -920,6 +920,29 @@ class TestDebugImage:
         finally:
             node.destroy_node()
 
+    def test_the_clean_tick_frame_is_published_undrawn_and_only_while_subscribed(self):
+        import cv2
+        node = _construct_with_params({'debug_image_rate_hz': 5.0})
+        try:
+            node.debug_clean_pub.publish = MagicMock()
+            image = np.full((36, 64, 3), 77, dtype=np.uint8)
+            node.debug_clean_pub.get_subscription_count = MagicMock(return_value=0)
+            node._debug_capture(image, _bgr_msg(100.0).header, [], None, [])
+            assert node.debug_clean_pub.publish.call_count == 0
+            node.debug_clean_pub.get_subscription_count = MagicMock(return_value=1)
+            header = _bgr_msg(100.2).header
+            node._debug_capture(image, header, [], None, [])
+            assert node.debug_clean_pub.publish.call_count == 1
+            out = node.debug_clean_pub.publish.call_args[0][0]
+            assert out.format == 'jpeg'
+            assert out.header.stamp == header.stamp
+            clean = cv2.imdecode(np.frombuffer(bytes(out.data), np.uint8), cv2.IMREAD_COLOR)
+            # 64 px is under debug_image_width: never upscaled, and nothing on it.
+            assert clean.shape == (36, 64, 3)
+            assert abs(float(clean.mean()) - 77.0) < 2.0
+        finally:
+            node.destroy_node()
+
 
 if __name__ == '__main__':
     import sys as _sys

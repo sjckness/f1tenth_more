@@ -61,6 +61,10 @@ setup(
             # Recorded perception debug JPEGs -> MP4, straight from the bag's
             # sqlite3 file; needs no ROS (see its docstring).
             'mission_debug_video = f1tenth_logger.mission_debug_video:main',
+            # The run-report overlay stills (camera + scene mask + LiDAR) of
+            # a recorded run, offline; mission_logger_node writes the same at
+            # finalize. Needs no ROS either.
+            'mission_overlay = f1tenth_logger.mission_overlay:main',
             # The test-campaign logger (f1tenth_logger/test_campaign/,
             # TEST_CAMPAIGN.md). Started by hand only, never by a bringup.
             'test_campaign_logger = f1tenth_logger.test_campaign.logger_node:main',

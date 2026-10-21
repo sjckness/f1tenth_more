@@ -1164,18 +1164,15 @@ class FrontClearanceNode(Node):
         The scan plane is a plane in base_link, so the z of every return is
         the laser's own mount height; the cross-check only ever uses x and y,
         and the overlay wants the real height to land on the right rows.
+        scene_mask.scan_to_base does it, for the run report's overlay too.
         """
         pose = self._frame_transform(scan.header.frame_id)
         if pose is None:
             return None
-        rot, trans = pose
-        r = np.asarray(scan.ranges, dtype=float)
-        a = scan.angle_min + np.arange(r.size) * scan.angle_increment
-        with np.errstate(invalid='ignore'):
-            ok = np.isfinite(r) & (r >= scan.range_min) & (r <= scan.range_max)
-        r, a = r[ok], a[ok]
-        local = np.column_stack([r * np.cos(a), r * np.sin(a), np.zeros(r.size)])
-        return local @ rot.T + trans
+        pts, _ranges = scene_mask.scan_to_base(
+            scan.ranges, scan.angle_min, scan.angle_increment, scan.range_min,
+            scan.range_max, *pose)
+        return pts
 
     def _scene_mask_tick(self, depth, header, now):
         """One whole-frame classification (scene_mask.py). Publishes the class
