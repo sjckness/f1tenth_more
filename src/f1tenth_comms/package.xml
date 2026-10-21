@@ -3,10 +3,14 @@
 <package format="3">
   <name>f1tenth_comms</name>
   <version>0.0.1</version>
-  <description>The car side of the link to the base PC. wifi_coverage_node maps
-  Wi-Fi RSSI, round trip and loss to the base per 1 m cell of the map frame,
-  for this session only, as two latched OccupancyGrids. Reports only: nothing
-  in the stack drives or stops on it. Setup and tests: output/comms/setup.md.</description>
+  <description>The car side of the link to the base PC. link_manager sends a UDP
+  heartbeat to the base (Tailscale first, the hotspot address as fallback),
+  publishes OK/DEGRADED/LOST on /comms/link_status and, while LOST, asks
+  NetworkManager to bring the hotspot profile up again (rate-limited).
+  wifi_coverage_node maps Wi-Fi RSSI, round trip and loss per 1 m cell of the
+  map frame, for this session only, as two latched OccupancyGrids. Reports
+  only: nothing in the stack drives or stops on them. Setup and tests:
+  output/comms/setup.md.</description>
   <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
   <license>MIT</license>
 
@@ -17,6 +21,8 @@
   <exec_depend>std_srvs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
+  <!-- link_manager also runs `nmcli` (NetworkManager, on every Ubuntu
+       desktop and on the Orin) for reconnect attempts; not a rosdep key. -->
   <exec_depend>f1tenth_messages</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

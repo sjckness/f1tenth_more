@@ -28,6 +28,7 @@ setup(
     entry_points={
         'console_scripts': [
             'wifi_coverage_node = f1tenth_comms.coverage_node:main',
+            'link_manager = f1tenth_comms.link_manager_node:main',
         ],
     },
 )

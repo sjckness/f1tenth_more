@@ -29,3 +29,43 @@ wifi_coverage_node:
     rtt_topic: /comms/coverage_rtt
     cells_topic: /comms/coverage_cells
     reset_service: /comms/coverage_reset
+
+link_manager:
+  ros__parameters:
+    # The base. Tailscale first, the hotspot address as the fallback; '' drops
+    # a path. An IP needs no DNS (MagicDNS names are resolved in a thread).
+    tailscale_host: '100.89.193.76'   # linus = linus.tail5ddb73.ts.net; tpad: 100.108.225.104
+    local_host: '10.42.50.1'          # HOTSPOT_ADDRESS in the base's hotspot.conf
+    port: 47800                       # heartbeat_responder --port
+    period_s: 0.5                     # one heartbeat round (both paths)
+    timeout_s: 2.0                    # no reply on any path this long: LOST
+    window_s: 10.0                    # loss and mean RTT window
+    degraded_loss_pct: 20.0           # active path above this: DEGRADED
+    degraded_rtt_ms: 250.0            # active path mean RTT above this: DEGRADED
+    degraded_silence_s: 1.2           # active path silent this long: DEGRADED
+    failback_s: 3.0                   # Tailscale fresh this long before it is active again
+    ok_after_s: 2.0                   # DEGRADED -> OK only after this long without a reason
+    resolve_period_s: 30.0
+    status_topic: /comms/link_status
+    wifi_interface: ''
+    use_iw_fallback: true
+    # Reconnect (only while LOST): nmcli connection up id <hotspot_connection>.
+    reconnect_enabled: true
+    reconnect_dry_run: false          # true: log the command, never run it
+    hotspot_connection: f1tenth-base  # the profile scripts/orin/comms_network.sh creates
+    hotspot_ssid: ''                  # '' = read it from that profile
+    retry_period_s: 2.5               # time trigger (0 = off)
+    retry_backoff_max_s: 0.0          # > 0: double the period per attempt up to this
+    retry_distance_m: 3.0             # distance trigger, odom frame (0 = off)
+    retry_on_new_cell: true           # entering a coverage cell not mapped yet
+    retry_min_interval_s: 2.0         # never two attempts closer than this
+    nmcli_wait_s: 15.0                # nmcli --wait for connection up
+    skip_if_rssi_above_dbm: -65.0     # on the hotspot with a better signal: skip (0 = never skip)
+    require_ssid_in_scan: true        # on eduroam: switch only if the hotspot is in the scan
+    nmcli_rescan: auto                # nmcli wifi list --rescan (auto | yes | no)
+    nmcli: nmcli
+    map_frame: map
+    odom_frame: odom
+    base_frame: base_link
+    tf_polling: true                  # TF only while LOST, polled (tf_poll.py)
+    coverage_topic: /comms/coverage_rssi
