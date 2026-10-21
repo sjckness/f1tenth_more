@@ -15,7 +15,8 @@ does not exist yet (hotspot down) is fine.
 
 Every --log-every seconds (0: never) one line: how many heartbeats were
 echoed, per sender address and per path the car meant (byte 5 of the
-packet: 0 tailscale, 1 local). `journalctl --user -u f1tenth-heartbeat -f`
+packet: 0 tailscale, 1 local). A silent period is logged once, when the
+car goes quiet, not every period after. `journalctl --user -u f1tenth-heartbeat -f`
 then shows whether the car is reaching this base, and how.
 
 Standard library only (Python 3.8+): it runs on linus or the tpad without
@@ -63,6 +64,7 @@ def serve(socks: List[socket.socket], log_every: float = 60.0, stop=None,
         sel.register(s, selectors.EVENT_READ)
     counts: Dict[Tuple[str, str], int] = {}     # (sender, path) -> echoed
     dropped = 0
+    quiet = False                   # the last period logged had no heartbeat
     t_log = time.monotonic()
     try:
         while stop is None or not stop():
@@ -88,9 +90,11 @@ def serve(socks: List[socket.socket], log_every: float = 60.0, stop=None,
             if log_every > 0 and now - t_log >= log_every:
                 total = sum(counts.values())
                 who = ', '.join(f'{src} {path} {n}' for (src, path), n in sorted(counts.items()))
-                print(f'heartbeat: {total} echoed in {now - t_log:.0f} s'
-                      f'{": " + who if who else " (no car)"}'
-                      f'{f", {dropped} dropped" if dropped else ""}', file=out, flush=True)
+                if total or dropped or not quiet:
+                    print(f'heartbeat: {total} echoed in {now - t_log:.0f} s'
+                          f'{": " + who if who else " (no car)"}'
+                          f'{f", {dropped} dropped" if dropped else ""}', file=out, flush=True)
+                quiet = not total
                 counts.clear()
                 dropped = 0
                 t_log = now

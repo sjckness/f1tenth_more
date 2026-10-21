@@ -32,8 +32,11 @@ HOTSPOT_ADDRESS=10.42.50.1/24
 # rtw88 cannot do as an AP). bg = 2.4 GHz: 1, 6 or 11.
 # linus's USB RTL8822BU, 2026-10-21: on 5 GHz 36 an iPhone joined, got a
 # lease and had internet through the base; on 2.4 GHz 6 it sent no beacons
-# at all (nothing saw the SSID, not even linus's own internal radio). 2.4
-# GHz was tried once, right after plugging in: try it again before using it.
+# at all (nothing saw the SSID, not even linus's own internal radio); the
+# retry hit one of the adapter's USB drops (output/comms/setup.md 4.7). The
+# driver's own hint: rtw88_usb switch_usb_mode=N ("avoid potential
+# interference in the 2.4 GHz band"). One run on another band:
+#   HOTSPOT_BAND=bg HOTSPOT_CHANNEL=6 scripts/base/hotspot.sh up
 HOTSPOT_BAND=a
 HOTSPOT_CHANNEL=36
 

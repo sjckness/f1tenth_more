@@ -85,7 +85,9 @@ the first USB 2 enumeration: that is the driver switching the adapter to USB
 
 **Layout: the preferred one.** USB adapter = AP, internal card = eduroam: the
 internal card keeps the internet exactly as before, and the USB radio can be
-an AP. The fallback (internal = AP, USB = eduroam) was not needed.
+an AP. The fallback (internal = AP, USB = eduroam) would put linus's internet
+on the adapter, which later fell off the USB bus repeatedly (§4.7): not
+an option either until that is fixed.
 
 Without the USB adapter, linus has one radio that is also its only internet
 (`enp5s0` is `thor-link`, manual 10.42.0.1/24, no internet; eduroam often sits
@@ -138,9 +140,9 @@ The radios are given by MAC (or a stable name), never `wlan0`/`wlan1`:
 | `HOTSPOT_UPLINK_CONS` | `eduroam`: client profiles bound to the uplink radio |
 | `HOTSPOT_BAND` / `HOTSPOT_CHANNEL` | `a` / `36` (tested); 36–48 only on 5 GHz |
 
-On the test day `scripts/base/hotspot.conf` was created on linus with a
-random password (the one the iPhone used). Keep it or change it; the Orin's
-profile needs the same one.
+On linus `scripts/base/hotspot.conf` exists (git-ignored, mode 600) and
+holds the password; it was rotated after the first test and the NM profile
+updated with it. The Orin's profile needs the same file.
 
 Use the **same SSID, password and address on both bases**: the car's single
 profile then joins either, and `local_host` never changes. Only
@@ -161,10 +163,9 @@ scripts/base/hotspot.sh down             # the profile stays; autoconnect is off
    (`connection.interface-name` + `802-11-wireless.mac-address`). linus's
    eduroam already was bound to `wlp4s0` by name, so it was left as it is;
 3. warns about autoconnecting client profiles that could take the AP radio.
-   On linus: **`TIM-71892397` is bound to `wlx90de80251dc2`** (the USB
-   adapter) with autoconnect on, so at home it would take the hotspot's
-   radio. Not changed; to move it:
-   `nmcli connection modify id TIM-71892397 connection.interface-name wlp4s0`;
+   On linus `TIM-71892397` was bound to `wlx90de80251dc2` (the USB adapter)
+   with autoconnect on; it was moved to `wlp4s0` on 2026-10-21, and no
+   other autoconnect profile is bound to the USB adapter;
 4. creates or updates the NM profile `f1tenth-base`, bound to the AP radio by
    name **and** MAC: `802-11-wireless.mode ap`, WPA2 (RSN/CCMP),
    `ipv4.method shared` at 10.42.50.1/24 (NM runs DHCP 10.42.50.10–254 and
@@ -205,6 +206,10 @@ sudo loginctl enable-linger $USER          # keep it running without a login ses
 journalctl --user -u f1tenth-heartbeat -f  # every 60 s: echoes per car address and path
 scripts/base/install_heartbeat.sh --uninstall
 ```
+
+Installed on linus on 2026-10-21 (linger was already on); `systemctl
+--user status f1tenth-heartbeat`. A reinstall restarts it with the new copy.
+After a silent period it logs one "no car" line, not one per minute.
 
 UDP 47800 on 0.0.0.0, so the Tailscale and the hotspot addresses are both
 covered, also when they come up later. It answers only packets that start
@@ -264,6 +269,35 @@ whole test. The responder was started by hand, not installed.
 | Heartbeat from a client | **not tested**: a phone cannot send UDP. The responder listened on 0.0.0.0:47800; no firewall in the way. The one-liner for a laptop client is in §4.5 |
 | End state | `hotspot.sh down`: `wlx90de80251dc2` disconnected with no address, responder stopped, eduroam connected, internet ok. The NM profile `f1tenth-base` stays (autoconnect off, 5 GHz 36) |
 
+**2.4 GHz retry and the adapter falling off USB (14:01–14:15).** Two
+minutes after the test the adapter started dropping off the USB bus on its
+own: `usb 2-6: USB disconnect` and a fresh enumeration 31 times between
+14:01 and 14:14 (22 in 14:01–14:05, none 14:05–14:12, 9 in 14:12–14:14),
+with `write register … failed with -110`, `failed to do USB write, ret=-19`,
+`failed to download firmware` and a mac80211 warning ("Have pending ack
+frames") at the first one. Nothing on linus was using it at the time
+(hotspot down). The 2.4 GHz retry at 14:14 hit one of these drops: NM's
+activation failed, `hotspot.sh` took the profile down, and the internal
+radio saw no `f1tenth-base` in 3 scans. So 2.4 GHz is **still unanswered**,
+and the adapter is **not stable** as it is. eduroam on the internal card
+was not affected (32/32 guard checks).
+
+What to try, in this order (all need sudo or hands):
+1. another port: a rear USB 3 port on the board, not the front panel; a
+   short USB extension to get the dongle away from the case;
+2. keep it in USB 2 mode: `rtw88_usb` has `switch_usb_mode` ("Set to N to
+   disable switching to USB 3 mode to avoid potential interference in the
+   2.4 GHz band"), the likely cause of both the 2.4 GHz silence and the
+   drops. `echo 'options rtw88_usb switch_usb_mode=N' | sudo tee
+   /etc/modprobe.d/rtw88_usb.conf`, then unplug and replug (480 Mb/s is
+   plenty for a hotspot);
+3. then retest: leave it idle 15 min and count `journalctl -k | grep 'usb
+   2-6: USB disconnect'`; `HOTSPOT_BAND=bg HOTSPOT_CHANNEL=6
+   scripts/base/hotspot.sh up`, look for the SSID from `wlp4s0`; the same on
+   5 GHz 36 with a client for 30 min;
+4. if it still drops: an adapter on the `mt76` driver (MediaTek MT7612U or
+   MT7921AU), the usual choice for an AP on Linux; or the travel router.
+
 ## 5. Orin setup (by hand, ON THE ORIN; nothing here was run)
 
 ### 5.1 The hotspot profile
@@ -317,7 +351,14 @@ nothing that uses the existing ones needs a rebuild.
 
 ### 5.4 Running it
 
-Off by default. With the stack up, start it as a component:
+Off by default. Start it with the stack:
+
+```bash
+ros2 launch f1tenth_bringup supervisor_bringup.launch.py enable_comms:=true
+# f1tenth_ctl: append enable_comms:=true to F1T_STACK_CMD in src/f1tenth_ctl/config/ctl.env
+```
+
+or, with the stack already up, as a component:
 
 ```bash
 ./scripts/stackctl.py start comms           # stop comms / restart comms likewise
@@ -330,9 +371,9 @@ ros2 launch f1tenth_comms comms.launch.py comms_reconnect_dry_run:=true
 ros2 launch f1tenth_comms comms.launch.py comms_tailscale_host:=100.108.225.104   # the tpad as base
 ```
 
-To start it with every stack: `enable_comms: true` in
-`f1tenth_params/config/stack_params.yaml` (it is not a CLI argument of
-`supervisor_bringup.launch.py`, like `enable_wall_distance`).
+`enable_comms` is a launch argument of `supervisor_bringup.launch.py` and
+`stack_bringup.launch.py` (like `enable_intelligence`); `enable_comms: true`
+in `f1tenth_params/config/stack_params.yaml` only changes its default.
 
 **First runs: `comms_reconnect_dry_run:=true`.** link_manager then logs the
 `nmcli connection up` it would run and never runs it. Note that
@@ -513,7 +554,7 @@ Wheels up or stack not driving for steps 1–4.
 9. **Watchdog unchanged.** An app mission with the phone's Wi-Fi switched off:
    it still aborts after 2 s, as before; link_manager plays no part.
 
-Only after that: `enable_comms: true`, if it should start with every stack.
+Only after that: `enable_comms:=true` in the stack command (or the default in `stack_params.yaml`), if it should start with every stack.
 
 ## 11. Synthetic run (linus, Humble)
 
@@ -550,16 +591,14 @@ never closer than 0.997 s.
   outages make the logs or NM noisy.
 - **Which base.** One `tailscale_host` at a time (linus by default).
   Switching to the tpad: `comms_tailscale_host:=100.108.225.104`, or the yaml.
-- **2.4 or 5 GHz.** 5 GHz 36 works with the USB adapter; 2.4 GHz sent no
-  beacons on the one try. 5 GHz has less range through walls: the first
-  coverage walk will tell whether that matters. Retry 2.4 GHz once (change
-  `HOTSPOT_BAND=bg`, `HOTSPOT_CHANNEL=6`, `up`, look for the SSID) before ruling it out.
-- **`TIM-71892397` on linus** is bound to the USB adapter (§4.2): move it to
-  `wlp4s0`?
+- **The USB adapter's stability** (§4.7): it fell off the bus 31 times in
+  13 min while idle. Port, `switch_usb_mode=N`, or another adapter? Until
+  that is settled the linus base is not dependable.
+- **2.4 or 5 GHz.** 5 GHz 36 worked for 12 min with a client; 2.4 GHz is
+  unanswered (no beacons on the first try, the retry hit a USB drop). 5 GHz
+  has less range through walls: the first coverage walk will tell.
 - **The heartbeat from a real client** over the hotspot is still to be seen:
   the tpad one-liner (§4.5) or the car itself (§10 step 3).
 - **eduroam with the hotspot in range but Tailscale fine.** No switch today
   (reconnect runs only while LOST). Should the car prefer the hotspot then?
-- **`enable_comms` from the command line** (like `enable_mission_logger`)
-  instead of only the yaml: needs a supervisor change; not done.
 - **PWA.** `link` is in the gateway status; showing it is the next step.

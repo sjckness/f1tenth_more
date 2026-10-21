@@ -33,8 +33,14 @@ die() { echo "hotspot: $*" >&2; exit 1; }
 note() { echo "hotspot: $*"; }
 
 [ -f "$conf" ] || die "no $conf: cp $here/hotspot.conf.example $here/hotspot.conf and edit it"
+# Band, channel and guard can be overridden for one run from the environment:
+#   HOTSPOT_BAND=bg HOTSPOT_CHANNEL=6 scripts/base/hotspot.sh up
+env_band="${HOTSPOT_BAND:-}" env_channel="${HOTSPOT_CHANNEL:-}" env_guard="${HOTSPOT_GUARD_S:-}"
 # shellcheck source=/dev/null
 source "$conf"
+HOTSPOT_BAND="${env_band:-${HOTSPOT_BAND:-}}"
+HOTSPOT_CHANNEL="${env_channel:-${HOTSPOT_CHANNEL:-}}"
+HOTSPOT_GUARD_S="${env_guard:-${HOTSPOT_GUARD_S:-}}"
 HOTSPOT_AP_IF="${HOTSPOT_AP_IF:-${HOTSPOT_IFNAME:-}}"        # HOTSPOT_IFNAME: the old name
 : "${HOTSPOT_CON:?}" "${HOTSPOT_SSID:?}" "${HOTSPOT_PSK:?}" "${HOTSPOT_ADDRESS:?}"
 : "${HOTSPOT_UPLINK_IF:=}" "${HOTSPOT_UPLINK_CONS:=}" "${HOTSPOT_GUARD_S:=10}"

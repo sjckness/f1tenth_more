@@ -9,7 +9,7 @@
 # What it does:
 #   ~/.local/bin/f1tenth_heartbeat_responder.py   <- heartbeat_responder.py
 #   ~/.config/systemd/user/f1tenth-heartbeat.service
-#   systemctl --user enable --now f1tenth-heartbeat
+#   systemctl --user enable f1tenth-heartbeat; restart it
 # Then it prints what it could not do for you: linger (to run without a
 # login session) and the firewall rule if ufw is active.
 set -euo pipefail
@@ -30,7 +30,8 @@ mkdir -p "$(dirname "$bin")" "$unit_dir"
 install -m 0755 "$here/heartbeat_responder.py" "$bin"
 install -m 0644 "$here/f1tenth-heartbeat.service" "$unit"
 systemctl --user daemon-reload
-systemctl --user enable --now f1tenth-heartbeat
+systemctl --user enable f1tenth-heartbeat
+systemctl --user restart f1tenth-heartbeat       # a reinstall runs the new copy
 sleep 1
 systemctl --user --no-pager --lines=3 status f1tenth-heartbeat || true
 
