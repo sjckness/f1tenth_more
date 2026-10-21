@@ -2,9 +2,9 @@
 wifi_coverage_node and link_manager (f1tenth_comms): the car's side of the link to the base.
 
 Registered as the `comms` component in f1tenth_bringup/config/components.yaml.
-The supervisor starts it only with stack_params.yaml enable_comms: true
-(default false); stack_bringup.launch.py includes it on the same key. With
-the stack already up, on demand:
+The supervisor starts it only with the launch argument enable_comms:=true
+(default false, from stack_params.yaml); stack_bringup.launch.py includes it
+on the same argument. With the stack already up, on demand:
 
     ./scripts/stackctl.py start comms
 

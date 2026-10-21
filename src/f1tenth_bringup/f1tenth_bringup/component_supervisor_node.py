@@ -345,8 +345,10 @@ _CONDITIONAL_AUTO_START = {
     # cpu-cleanup (2026-10-16): off by default, still registered so it can be
     # restarted by name. stack_params.yaml's enable_wall_distance says why.
     'wall_distance': 'enable_wall_distance',
-    # f1tenth_comms (2026-10-21): off by default until the base is set up;
-    # `stackctl.py start comms` runs it on demand. See stack_params.yaml.
+    # f1tenth_comms (2026-10-21): off by default until the base is set up.
+    # Like 'intelligence', gated on this node's own declared parameter
+    # (self.enable_comms, launch argument enable_comms), defaulting from
+    # stack_params.yaml; `stackctl.py start comms` runs it on demand.
     'comms': 'enable_comms',
 }
 
@@ -554,6 +556,13 @@ class ComponentSupervisorNode(Node):
         # invocation falls back to).
         self.enable_intelligence = bool(
             self.declare_parameter('enable_intelligence', True).value)
+        # f1tenth_comms (2026-10-21): whether 'comms' auto-starts. The same
+        # declared-parameter shape as enable_intelligence, so
+        # `supervisor_bringup.launch.py enable_comms:=true` works without
+        # editing stack_params.yaml; a bare invocation falls back to that
+        # file's own enable_comms (false).
+        self.enable_comms = bool(
+            self.declare_parameter('enable_comms', bool(get_value('enable_comms'))).value)
         # 'localization' deferred-start (calibration-restart gap fix) -- see module
         # docstring's own paragraph and _defer_localization_start()'s docstring.
         # Generous margin above the documented ~60-130s calibration-cycle figure
@@ -648,16 +657,7 @@ class ComponentSupervisorNode(Node):
                 f'those sets in component_supervisor_node.py.'
             )
 
-        auto_start = set(_ALWAYS_AUTO_START)
-        for name, flag in _CONDITIONAL_AUTO_START.items():
-            # 'intelligence' reads this node's own live declared parameter
-            # (self.enable_intelligence), not a stack_params.yaml get_value()
-            # lookup -- see _CONDITIONAL_AUTO_START's own comment for why.
-            # Every other entry ('behavior' today) keeps the original
-            # get_value(flag) path unchanged.
-            gate = self.enable_intelligence if name == 'intelligence' else get_value(flag)
-            if gate:
-                auto_start.add(name)
+        auto_start = self._auto_start_set()
 
         self.get_logger().info(
             f'[component_supervisor] Registry: {sorted(self._registry)}. '
@@ -1019,6 +1019,24 @@ class ComponentSupervisorNode(Node):
         (see __init__), not shared with anything else."""
         for entry in self._registry.get('hardware', []):
             entry['args']['calibration'] = 'true' if self.calibration else 'false'
+
+    def _auto_start_set(self):
+        """
+        Return the components to start now: the always ones, plus each gated one that is on.
+
+        'intelligence' and 'comms' read this node's own live declared parameters
+        (self.enable_intelligence, self.enable_comms), not a stack_params.yaml
+        get_value() lookup -- see _CONDITIONAL_AUTO_START's own comment for why.
+        Every other entry ('behavior', 'wall_distance') keeps the original
+        get_value(flag) path unchanged.
+        """
+        live = {'intelligence': self.enable_intelligence, 'comms': self.enable_comms}
+        auto_start = set(_ALWAYS_AUTO_START)
+        for name, flag in _CONDITIONAL_AUTO_START.items():
+            gate = live[name] if name in live else get_value(flag)
+            if gate:
+                auto_start.add(name)
+        return auto_start
 
     def _apply_mission_logger_override(self):
         """Pass enable_mission_logger down to the one component that launches it.

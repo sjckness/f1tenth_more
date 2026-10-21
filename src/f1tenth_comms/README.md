@@ -13,8 +13,8 @@ The base runs `scripts/base/heartbeat_responder.py` (UDP echo, port 47800).
 Both grids: `-1` never visited / no data, `0..100` good..bad, `-128` no link.
 The scaling is in `f1tenth_comms/coverage.py` and `config/comms.yaml`.
 
-Started by the supervisor as the `comms` component only with
-`enable_comms: true` in `stack_params.yaml` (default `false`). Nothing in
+Started by the supervisor as the `comms` component only with the launch
+argument `enable_comms:=true` (default `false`, from `stack_params.yaml`). Nothing in
 the stack reads `/comms/*` to drive, stop or abort; the gateway's
 "no client for 2 s -> abort" is its own.
 

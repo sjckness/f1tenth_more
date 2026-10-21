@@ -65,7 +65,7 @@ from launch.actions import (
 )
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
-from launch.conditions import UnlessCondition
+from launch.conditions import IfCondition, UnlessCondition
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -238,11 +238,15 @@ def generate_launch_description():
         include('f1tenth_diagnostics', 'system_observer.launch.py'),
         include('f1tenth_diagnostics', 'diagnostics_server.launch.py'),
     ]
-    # The link to the base PC (f1tenth_comms): off unless stack_params.yaml
-    # enable_comms is true, read at parse time like the branching args above
-    # (the supervisor path gates its `comms` component on the same key).
-    if get_value('enable_comms'):
-        diagnostics_bringup.append(include('f1tenth_comms', 'comms.launch.py'))
+    # The link to the base PC (f1tenth_comms): a real launch argument,
+    # enable_comms:=true, default from stack_params.yaml (false). The
+    # supervisor path gates its `comms` component on the same argument.
+    enable_comms_default, enable_comms_desc = get_default('enable_comms')
+    enable_comms_la = DeclareLaunchArgument(
+        'enable_comms', default_value=str(enable_comms_default).lower(),
+        description=enable_comms_desc)
+    diagnostics_bringup.append(include('f1tenth_comms', 'comms.launch.py',
+                                       condition=IfCondition(LaunchConfiguration('enable_comms'))))
 
     # ================================================================
     # 8. DEV TOOLS / VISUALIZATION
@@ -267,6 +271,7 @@ def generate_launch_description():
         discovery_server_port_la,
         discovery_server_env,
         discovery_server,
+        enable_comms_la,
         vesc_bringup,
         localization_bringup,
         description_bringup,

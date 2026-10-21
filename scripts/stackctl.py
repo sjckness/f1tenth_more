@@ -22,6 +22,7 @@ Usage:
   ./scripts/stackctl.py restart navigation     # RestartComponent
   ./scripts/stackctl.py start   diagnostics    # ComponentControl START
   ./scripts/stackctl.py stop    intelligence   # ComponentControl SHUTDOWN
+  ./scripts/stackctl.py start   comms          # f1tenth_comms, off unless enable_comms:=true
   ./scripts/stackctl.py --settle 20 status     # longer discovery wait on a busy graph
 
 Exit code is 0 on success, 1 on failure, so it composes in shell scripts.

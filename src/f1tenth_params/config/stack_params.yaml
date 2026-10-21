@@ -3697,8 +3697,9 @@ lidar_front_wall_wall_extract_quality_gates:
 # component: wifi_coverage_node + link_manager). Off by default: it needs the
 # base set up first (output/comms/setup.md). It only reports on /comms/*;
 # the gateway's "no client for 2 s -> abort" and the e-stop do not read it.
-# With the stack up, start it without editing this file:
-#   ./scripts/stackctl.py start comms
+# Without editing this file: `enable_comms:=true` on supervisor_bringup.launch.py
+# or stack_bringup.launch.py (this key is only the default), or with the
+# stack already up: ./scripts/stackctl.py start comms
 enable_comms:
   default: false
-  description: "Auto-start the comms component (f1tenth_comms comms.launch.py: Wi-Fi coverage grids and the link to the base on /comms/*). Report only, nothing drives or stops on it."
+  description: "Auto-start the comms component (f1tenth_comms comms.launch.py: Wi-Fi coverage grids and the link to the base on /comms/*). Report only, nothing drives or stops on it. Launch argument of supervisor_bringup.launch.py and stack_bringup.launch.py."
