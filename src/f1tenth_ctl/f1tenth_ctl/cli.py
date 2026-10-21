@@ -666,8 +666,10 @@ def cmd_mission_load(settings: Settings, args) -> dict:
         return {**out, 'ok': False, 'refused': 'the stack is not running',
                 'error': 'the stack is not running'}
     cur = missions.current(settings)
+    armed = cur.get('countdown_s')
+    armed = settings.mission_countdown_s if armed is None else float(armed)
     counting = bool(cur.get('started_at')) and (
-        time.time() - cur['started_at'] < settings.mission_countdown_s + 5.0)
+        time.time() - cur['started_at'] < armed + 5.0)
     res = run_rosprobe(settings, 'mission',
                        _mission_spec(settings, op='load', path=rec['path'],
                                      counting_down=counting), timeout=25.0)
@@ -712,10 +714,11 @@ def cmd_mission_start(settings: Settings, args, t_begin: float) -> dict:
                       failing=st.get('failing'))
     res = run_rosprobe(settings, 'mission',
                        _mission_spec(settings, op='start', path=rec['path']), timeout=25.0)
+    countdown = missions.armed_countdown(res.get('start'), settings.mission_countdown_s)
     out = {'id': rec['id'], 'mission_id': rec.get('mission_id'), 'ready': True,
-           'countdown_s': settings.mission_countdown_s, **res}
+           'countdown_s': countdown, **res}
     if res.get('ok'):
-        missions.set_current(settings, started_at=time.time())
+        missions.set_current(settings, started_at=time.time(), countdown_s=countdown)
     else:
         out['refused'] = res.get('error') or 'failed'
     out['ok'] = bool(res.get('ok'))

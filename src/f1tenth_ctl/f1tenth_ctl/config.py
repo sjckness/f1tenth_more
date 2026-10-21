@@ -230,8 +230,11 @@ def settings_from_env(env_file: str, env: Dict[str, str]) -> Settings:
         estop_reset_wait_s=_float(env, 'F1T_ESTOP_RESET_WAIT_S', 60.0),
         # A stored plan older than this is not loaded or started: plan again.
         mission_max_age_s=_float(env, 'F1T_MISSION_MAX_AGE_S', 300.0),
-        # f1tenth_behavior's mission_countdown_sec, for telling "starting" apart.
-        mission_countdown_s=_float(env, 'F1T_MISSION_COUNTDOWN_S', 15.0),
+        # f1tenth_behavior's mission_countdown_sec, for telling "starting" apart:
+        # 0.0 like stack_params.yaml since 2026-10-21. Only a fallback: a start
+        # takes the countdown from the loader's own answer
+        # (missions.armed_countdown).
+        mission_countdown_s=_float(env, 'F1T_MISSION_COUNTDOWN_S', 0.0),
         # How long a fresh participant gets to receive /mission/status before
         # mission-load/start/status give up. Under the discovery server this is
         # NOT quick: measured on the car 2026-10-21, a new node needed between

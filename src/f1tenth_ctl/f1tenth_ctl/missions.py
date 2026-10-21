@@ -18,6 +18,7 @@ Layout under <state_dir>/missions/:
 import hashlib
 import json
 import os
+import re
 import time
 from typing import List, Optional
 
@@ -203,12 +204,35 @@ def set_current(settings: Settings, **fields) -> dict:
     return data
 
 
+def armed_countdown(start: Optional[dict], fallback: float) -> float:
+    """
+    Return the countdown the loader armed, read from its start_mission answer.
+
+    MissionLoader answers "starting in 15.0 s" when it arms one and
+    "started '<id>'" when the mission begins at once (mission_countdown_sec
+    0.0, the default since 2026-10-21, or enable_mission_logger false). The
+    answer, not F1T_MISSION_COUNTDOWN_S: the loader reads its parameter live
+    at every start, so a `ros2 param set` changes it without telling this
+    side, and a stale 15 here had the app announce "Avvio tra 15 s" for a car
+    that was already moving. fallback only when the answer says neither.
+    """
+    msg = str((start or {}).get('message') or '')
+    m = re.match(r'starting in ([0-9]+(?:\.[0-9]+)?) s', msg)
+    if m:
+        return float(m.group(1))
+    if msg.startswith('started'):
+        return 0.0
+    return float(fallback)
+
+
 def describe_state(settings: Settings, ros_state: Optional[str], json_path: Optional[str],
                    now: float = None, countdown_s: float = 15.0) -> dict:
     """mission-status from /mission/status and current.json (pure apart from the read)."""
     now = time.time() if now is None else now
     cur = current(settings)
     ours = bool(json_path) and json_path == cur.get('path')
+    if ours and cur.get('countdown_s') is not None:
+        countdown_s = float(cur['countdown_s'])     # what our last start armed
     state = STATE_NAMES.get(ros_state or '', 'unknown' if ros_state is None else ros_state)
     started = cur.get('started_at') if ours else None
     if state == 'loaded' and started and now - started <= countdown_s + 5.0:

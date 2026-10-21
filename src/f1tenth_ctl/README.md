@@ -340,7 +340,7 @@ reads such a line:
 |---|---|---|
 | `missions [-n N]` | the stored plans, newest first: id, age, summary, whether still startable | — |
 | `mission-load <id>` | validates the stored file with `f1tenth_behavior.mission.mission_config.load_mission_file`, the parser `/mission/load_mission` itself uses, then loads it (`/mission/load_mission`, `f1tenth_messages/srv/LoadMission`, `path`) | a plan older than `F1T_MISSION_MAX_AGE_S` (300 s; `--allow-old`), an invalid file, a stack that is not running, a RUNNING/HOLDING mission (the loader would replace it mid-run), a start still counting down |
-| `mission-start [--id ID]` | starts the mission f1tenth_ctl loaded (`/mission/start_mission`, Trigger). The loader then counts down `mission_countdown_sec` (15 s) | nothing loaded by f1tenth_ctl, another id loaded, a plan too old, READY false (which covers a latched e-stop), another mission running, a different file loaded in the meantime |
+| `mission-start [--id ID]` | starts the mission f1tenth_ctl loaded (`/mission/start_mission`, Trigger). The loader then counts down `mission_countdown_sec` (0 s, i.e. starts at once, since 2026-10-21); the answer's `countdown_s` is the one the loader says it armed | nothing loaded by f1tenth_ctl, another id loaded, a plan too old, READY false (which covers a latched e-stop), another mission running, a different file loaded in the meantime |
 | `mission-status` | `/mission/status` + what f1tenth_ctl loaded: state, id, elapsed since the start | — |
 
 **States:**

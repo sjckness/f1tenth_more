@@ -181,3 +181,34 @@ def test_start_ok_records_the_time(settings, monkeypatch):
     out = cli.cmd_mission_start(settings, Args(), time.monotonic())
     assert out['ok'] and out['countdown_s'] == 15.0
     assert missions.current(settings)['started_at'] > 0
+
+
+def test_start_reports_no_countdown_when_the_loader_starts_at_once(settings, monkeypatch):
+    """
+    The countdown comes from the loader's answer, not from F1T_MISSION_COUNTDOWN_S.
+
+    mission_countdown_sec is 0.0 since 2026-10-21 and the loader answers
+    "started '<id>'": a stale 15 s here made the app announce "Avvio tra 15 s"
+    for a car already moving, and refused the next mission-load for 20 s.
+    """
+    mid = _stored(settings)
+    missions.set_current(settings, id=mid, path=missions.mission_path(settings, mid))
+    monkeypatch.setattr(cli, 'cmd_status', lambda *a: {'ready': True, 'estop_latched': False})
+    monkeypatch.setattr(cli, 'run_rosprobe', lambda *a, **k: {
+        'ok': True, 'start': {'ok': True, 'message': "started 'llm_a1b2c3'"}})
+    out = cli.cmd_mission_start(settings, Args(), time.monotonic())
+    assert out['ok'] and out['countdown_s'] == 0.0
+    cur = missions.current(settings)
+    assert cur['countdown_s'] == 0.0
+    # LOADED 6 s after a start that armed nothing is not "starting" any more
+    st = missions.describe_state(settings, 'LOADED', cur['path'], now=cur['started_at'] + 6.0,
+                                 countdown_s=15.0)
+    assert st['state'] == 'loaded'
+
+
+def test_armed_countdown_reads_the_loader_answer():
+    assert missions.armed_countdown({'message': 'starting in 15.0 s'}, 0.0) == 15.0
+    assert missions.armed_countdown({'message': 'starting in 3 s'}, 0.0) == 3.0
+    assert missions.armed_countdown({'message': "started 'm1'"}, 15.0) == 0.0
+    assert missions.armed_countdown({'message': 'something else'}, 7.0) == 7.0
+    assert missions.armed_countdown(None, 7.0) == 7.0
