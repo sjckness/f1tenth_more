@@ -4,9 +4,10 @@ mission_overlay.py: the run-report overlay, drawn offline from a run's bag.
 One frame from fixture data (an image, a mask, three LiDAR returns) through
 the report's draw(); a run recorded the default way (the clean camera frame
 and the 5 Hz depth, no recorded mask) into stills; and a run with no mask at
-all, which must get no overlay and keep its recorded frames. The bags use the
-sqlite3 schema rosbag2 writes, with messages serialized by rclpy, so the
-hand-written CDR decoders are checked against the real serializer.
+all, which must get no overlay and keep its recorded frames, through
+mission_logger_node's own finalize step too. The bags use the sqlite3 schema
+rosbag2 writes, with messages serialized by rclpy, so the hand-written CDR
+decoders are checked against the real serializer.
 """
 
 import array
@@ -14,6 +15,8 @@ import ast
 import math
 import shutil
 import sqlite3
+import struct
+from types import SimpleNamespace
 
 import cv2
 from f1tenth_logger import mission_debug_video as mdv
@@ -34,6 +37,8 @@ OPTICAL_Q = (-0.5, 0.5, -0.5, 0.5)
 #: A wall across the whole view at base_link x = WALL_X, on the floor z = 0.
 WALL_X = 2.0
 GREY = 128
+#: Every recorded camera frame of _recorded_run, clean and debug alike.
+GREY_JPEG = cv2.imencode('.jpg', np.full((H, W, 3), GREY, np.uint8))[1].tobytes()
 
 
 def test_the_optical_quaternion_is_the_optical_rotation():
@@ -129,7 +134,26 @@ def _scene_depth():
     return np.minimum(wall, floor).astype(np.float32)
 
 
-def _recorded_run(tmp_path, ros, depth=True, frames=6):
+def _write_rosbag(run, messages):
+    """Write the same through rosbag2_py, metadata.yaml included, for its own reader."""
+    rosbag2_py = pytest.importorskip('rosbag2_py')
+    writer = rosbag2_py.SequentialWriter()
+    writer.open(rosbag2_py.StorageOptions(uri=str(run / 'bag'), storage_id='sqlite3'),
+                rosbag2_py.ConverterOptions('', ''))
+    topics = set()
+    for topic, type_name, t, raw in messages:
+        if topic not in topics:
+            topics.add(topic)
+            meta = {'name': topic, 'type': type_name, 'serialization_format': 'cdr'}
+            try:
+                writer.create_topic(rosbag2_py.TopicMetadata(**meta))
+            except TypeError:   # rosbag2 after Humble wants the topic id first
+                writer.create_topic(rosbag2_py.TopicMetadata(id=len(topics), **meta))
+        writer.write(topic, raw, int(round(t * 1e9)))
+    del writer   # closing writes metadata.yaml (Humble's binding has no close())
+
+
+def _recorded_run(tmp_path, ros, depth=True, frames=6, write=_write_bag):
     serialize, sensor, tf2, geo = ros
 
     def stamped(msg, t, frame):
@@ -155,7 +179,7 @@ def _recorded_run(tmp_path, ros, depth=True, frames=6):
     info.k = [FX, 0.0, CX, 0.0, FY, CY, 0.0, 0.0, 1.0]
     messages = [('/tf_static', 'tf2_msgs/msg/TFMessage', 99.0, serialize(tfm)),
                 ('/camera/camera_info', 'sensor_msgs/msg/CameraInfo', 100.0, serialize(info))]
-    jpeg = array.array('B', cv2.imencode('.jpg', np.full((H, W, 3), GREY, np.uint8))[1].tobytes())
+    jpeg = array.array('B', GREY_JPEG)
     angles = -math.pi / 2 + np.arange(181) * math.pi / 180
     ranges = [(WALL_X - LASER_T[0]) / math.cos(a) if math.cos(a) > 0.2 else math.inf
               for a in angles]
@@ -177,7 +201,7 @@ def _recorded_run(tmp_path, ros, depth=True, frames=6):
             d.data = array.array('B', _scene_depth().tobytes())
             messages.append((mo.DEPTH_TOPIC, 'sensor_msgs/msg/Image', t + 0.1, serialize(d)))
     run = tmp_path / '2026-10-22T01-00-00_mission-overlay'
-    _write_bag(run, messages)
+    write(run, messages)
     return run
 
 
@@ -216,6 +240,97 @@ def test_the_video_of_a_run_without_a_mask_is_its_recorded_debug_frames(
     captured = capsys.readouterr()
     assert 'the recorded /camera/debug_image/compressed frames instead' in captured.err
     assert '6 frames' in captured.out
+
+
+def _finalize_snapshots(tmp_path, ros, depth):
+    """mission_logger_node's finalize step on a recorded run: (stills, log lines)."""
+    node_module = pytest.importorskip('f1tenth_logger.mission_logger_node')
+    run = _recorded_run(tmp_path, ros, depth=depth, write=_write_rosbag)
+    log = []
+    logger = SimpleNamespace(info=log.append, warn=log.append, error=log.append)
+    node = SimpleNamespace(storage_id='sqlite3', get_logger=lambda: logger)
+    node_module.MissionLoggerNode._write_snapshots(
+        node, {'run_dir': str(run), 'bag_path': str(run / 'bag'), 'run_id': run.name})
+    return sorted((run / 'snapshots').glob('*.jpg')), log
+
+
+def test_the_logger_keeps_the_recorded_stills_for_a_run_without_a_mask(tmp_path, ros):
+    # What every older run relies on: no overlay, then exactly the stills the
+    # logger always wrote, the recorded debug JPEGs byte for byte.
+    paths, log = _finalize_snapshots(tmp_path, ros, depth=False)
+    assert len(paths) == 6
+    assert all(p.read_bytes() == GREY_JPEG for p in paths)
+    assert any(line.startswith('no overlay snapshots (no scene mask') for line in log)
+
+
+def test_the_logger_writes_overlay_stills_for_a_run_with_a_mask(tmp_path, ros):
+    paths, log = _finalize_snapshots(tmp_path, ros, depth=True)
+    assert len(paths) == 6
+    assert not any(p.read_bytes() == GREY_JPEG for p in paths)
+    assert any(line.startswith('6 overlay snapshot(s)') for line in log)
+
+
+def _decode_stamp(raw):
+    if len(raw) != 8:
+        raise ValueError('not a stamp')
+    return struct.unpack('<d', raw)
+
+
+def test_a_message_is_found_by_its_stamp_however_late_it_was_received(tmp_path):
+    # 20 Hz for 20 s, each message just its stamp. The recorder falls 0.7 s
+    # behind for 2 s and catches up (/scan of corridor10m_20261019T131815
+    # arrived -0.002 to 0.679 s after its stamp); then its clock runs at twice
+    # the stamps' rate (a sim at half real time). One message does not decode.
+    stamps = [100.0 + 0.05 * i for i in range(400)]
+    rows, last = [], 0.0
+    for i, s in enumerate(stamps):
+        recv = s + (0.7 if 100 <= i < 140 else 0.0) if i < 200 else 1000.0 + 2.0 * (s - 110.0)
+        last = max(recv, last + 1e-4)
+        rows.append(('/x', 'test/Stamp', last, b'bad' if i == 50 else struct.pack('<d', s)))
+    _write_bag(tmp_path / 'run', rows)
+    bag = mo.Bag([tmp_path / 'run' / 'bag' / 'bag_0.db3'])
+    try:
+        topic = mo.Topic(bag, '/x', _decode_stamp)
+        found = [topic.nearest(s + 0.01, 0.02) for s in stamps]
+        assert found == [None if i == 50 else i for i in range(len(stamps))]
+        assert topic.nearest(stamps[0] - 0.5, 0.1) is None
+        assert topic.nearest(stamps[-1] + 0.5, 0.1) is None
+        # One lookup reads around the answer, not the run.
+        fresh = mo.Topic(bag, '/x', _decode_stamp)
+        assert fresh.nearest(stamps[120], 0.01) == 120
+        assert len(fresh._stamps) < 40
+    finally:
+        bag.close()
+
+
+def test_neighbouring_stills_that_pick_across_each_other_come_out_in_time_order():
+    # 8 frames, 5 stills at frames 0, 2, 4, 5, 7. Frame 5's mask is the
+    # nearest in time, then frame 4's: the still for frame 2 takes frame 5,
+    # the one for frame 4 takes frame 4, before it in time.
+    offsets = {5: 0.0, 4: 0.01}
+    picked = mo.pick_stills(8, lambda i: offsets.get(i, 0.08), limit=5, search=3)
+    assert picked == [0, 4, 5, 6, 7]
+
+
+def test_a_run_without_a_params_snapshot_masks_with_stack_params_not_node_code_defaults():
+    # The launch files hand front_clearance_node stack_params.yaml: a bag
+    # with no snapshot is rebuilt with the traced self polygons the car used,
+    # not the node's '' (the lidar_exclusion rectangle), and a key the run's
+    # snapshot has wins over today's yaml.
+    get_value = pytest.importorskip('f1tenth_params.param_defaults').get_value
+    for key in mo.MASK_PARAMS:
+        get_value(key)
+    today = mo.RebuiltMask(None, None, None, None, None, {})
+    assert today.polygons == (
+        mo._polygons(get_value('front_clearance_scene_mask_self_polygons'))
+        + mo._polygons(get_value('front_clearance_scene_mask_occluded_polygons')))
+    assert today.floor_r_max == get_value('front_clearance_inferred_floor_r_max_m')
+    run = mo.RebuiltMask(None, None, None, None, None, {
+        'front_clearance_scene_mask_self_polygons': '',
+        'front_clearance_inferred_floor_r_max_m': 2.5})
+    assert run.polygons[0] == sm.rect_polygon(*(get_value('lidar_exclusion_' + k) for k in (
+        'x_min', 'y_min', 'x_max', 'y_max')))
+    assert run.floor_r_max == 2.5
 
 
 def test_the_style_defaults_are_stack_params_mission_report_overlay_defaults():

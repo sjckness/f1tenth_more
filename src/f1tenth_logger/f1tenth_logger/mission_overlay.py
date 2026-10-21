@@ -46,7 +46,8 @@ THE DATA, best source first:
                                         run's OWN params snapshot -- the pure
                                         functions front_clearance_node's mask
                                         tick calls, on the parameters the run
-                                        flew with
+                                        flew with (a key the snapshot lacks:
+                                        today's stack_params.yaml)
   LiDAR     /scan
   geometry  /camera/camera_info, else the depth's; /tf_static for base_link
             to the camera's optical frame and to the laser (/tf only for a
@@ -59,9 +60,9 @@ recorded debug JPEGs). A run that only lacks data is never an error.
 PAIRING. By header stamp: the mask nearest a camera frame within MASK_TOL_S,
 the scan within SCAN_TOL_S. A frame with no mask that near is drawn with the
 LiDAR alone in the video and is not used as a still. The bag is indexed by
-receive time without reading a blob, and a message is found from the
-topic's own receive-minus-header delay (measured on a few messages), so a
-still costs a few depth frames read, not the whole run.
+receive time without reading a blob, and a message is found by bisecting on
+the stamps of the rows the search touches (Topic), so a still costs a few
+depth frames read, not the whole run, however late the recorder was.
 
 A REBUILT MASK IS THE CAR'S RULES ON THE NEAREST INPUTS, not the car's mask:
 the recorder's 5 Hz depth is not the frame the car's own 5 Hz mask tick used,
@@ -113,25 +114,20 @@ BASE_FRAME = 'base_link'
 MASK_TOL_S = 0.12
 SCAN_TOL_S = 0.1
 OBJECT_TOL_S = 0.1
-#: How far a message's receive time may stray from the topic's typical delay
-#: before the stamp search misses it.
-SLACK_S = 0.25
+#: The stamp search gives up after this many rows in a row that do not decode.
+UNDECODED_RUN = 8
 
-#: The node's own defaults (front_clearance_node), for a bag without a params
-#: snapshot or a snapshot without the key.
-_MASK_DEFAULTS = {
-    'scene_mask_floor_tol_m': 0.05, 'scene_mask_ceiling_min_z_m': 2.0,
-    'scene_mask_min_depth_m': 0.2, 'scene_mask_max_depth_m': 20.0,
-    'scene_mask_self_polygons': '',
-    'scene_mask_occluded_polygons': '[[[0.0, 0.78], [0.16, 0.78], [0.16, 1.0], [0.0, 1.0]]]',
-    'inferred_floor_enabled': True, 'inferred_floor_r_max_m': 3.0,
-    'inferred_floor_margin_m': 0.15, 'inferred_floor_window_k': 3,
-    'inferred_floor_sigma_beams': 1.5, 'inferred_floor_max_scan_age_s': 0.15,
-}
-#: yolo_detector_node's lidar_exclusion_* defaults: the self mask when no
-#: polygon is configured.
-_EXCLUSION_DEFAULTS = {'lidar_exclusion_x_min': 0.75, 'lidar_exclusion_y_min': 0.55,
-                       'lidar_exclusion_x_max': 1.0, 'lidar_exclusion_y_max': 1.0}
+#: The stack_params.yaml keys a rebuilt mask reads: front_clearance_node's
+#: mask and inferred-floor parameters, and the lidar_exclusion_* rectangle
+#: that is its self mask when no polygon is configured.
+MASK_PARAMS = tuple('front_clearance_' + name for name in (
+    'scene_mask_floor_tol_m', 'scene_mask_ceiling_min_z_m', 'scene_mask_min_depth_m',
+    'scene_mask_max_depth_m', 'scene_mask_self_polygons', 'scene_mask_occluded_polygons',
+    'inferred_floor_enabled', 'inferred_floor_r_max_m', 'inferred_floor_margin_m',
+    'inferred_floor_window_k', 'inferred_floor_sigma_beams',
+    'inferred_floor_max_scan_age_s')) + (
+    'lidar_exclusion_x_min', 'lidar_exclusion_y_min', 'lidar_exclusion_x_max',
+    'lidar_exclusion_y_max')
 
 
 @dataclass
@@ -156,7 +152,9 @@ def style_from_params(**overrides):
     Return the Style in stack_params.yaml (the installed copy), then `overrides`.
 
     A report host without f1tenth_params installed gets the Style defaults,
-    which are the yaml's. An override of None is no override.
+    which are the yaml's. An override of None is no override. param_defaults
+    reads the yaml once per process: the commands see an edit on their next
+    run, mission_logger_node's finalize stills at its next start.
     """
     style = Style()
     try:
@@ -337,9 +335,15 @@ class Topic:
     One topic, found by HEADER stamp without reading every blob.
 
     `decode` returns a tuple or dict whose stamp `stamp_of` extracts. The rows
-    are indexed by receive time; the search for stamp t starts at t plus the
+    are indexed by receive time, and the stamps of one publisher's topic rise
+    in that order, so a stamp is found by bisecting on the stamps themselves,
+    decoding only the rows the search touches. It starts at t plus the
     topic's median receive-minus-header delay, measured on up to five
-    messages spread over the run. Decoded messages are kept in a small LRU,
+    messages spread over the run, so a lookup usually costs two or three
+    blobs. The delay only places the start: a recorder that falls behind
+    (/scan of corridor10m_20261019T131815 arrived -0.002 to 0.679 s after its
+    stamp) or a clock that runs at another rate (a sim below real time) costs
+    a few more blobs, never a miss. Decoded messages are kept in a small LRU,
     stamps for good.
     """
 
@@ -385,18 +389,62 @@ class Topic:
             self._lag = float(np.median(lags)) if lags else 0.0
         return self._lag
 
+    def _key(self, i):
+        """Row i's stamp for the bisection; a row that does not decode takes the next one's."""
+        for j in range(i, min(i + UNDECODED_RUN, len(self.rows))):
+            s = self.stamp(j)
+            if s is not None:
+                return s
+        return math.inf
+
+    def first_at_or_after(self, t):
+        """Return the first row stamped at or after t (len(self) if none)."""
+        n, key = len(self.rows), self._key
+        g = min(bisect.bisect_left(self.recv, t + self.lag()), n - 1)
+        # Gallop from the guess to a bracket lo < answer <= hi (lo -1 and hi
+        # n stand for the ends), then bisect it.
+        if key(g) < t:
+            lo, hi, step = g, g + 1, 1
+            while hi < n and key(hi) < t:
+                lo, step = hi, step * 2
+                hi = lo + step
+            hi = min(hi, n)
+        else:
+            lo, hi, step = g - 1, g, 1
+            while lo >= 0 and key(lo) >= t:
+                hi, step = lo, step * 2
+                lo = hi - step
+            lo = max(lo, -1)
+        while hi - lo > 1:
+            mid = (lo + hi) // 2
+            if key(mid) < t:
+                lo = mid
+            else:
+                hi = mid
+        return hi
+
     def nearest(self, t, tol):
         """Return the row whose header stamp is nearest t, within tol, or None."""
-        if not self.rows:
+        n = len(self.rows)
+        if not n:
             return None
-        lag = self.lag()
-        lo = bisect.bisect_left(self.recv, t + lag - tol - SLACK_S)
-        hi = bisect.bisect_right(self.recv, t + lag + tol + SLACK_S)
+        first = self.first_at_or_after(t)
         best = None
-        for i in range(lo, hi):
-            s = self.stamp(i)
-            if s is not None and abs(s - t) <= tol and (best is None or abs(s - t) < best[0]):
-                best = (abs(s - t), i)
+        # Out from the bracket both ways until a stamp is past tol; a run of
+        # rows that do not decode ends the walk too.
+        for start, step in ((first, 1), (first - 1, -1)):
+            i, undecoded = start, 0
+            while 0 <= i < n and undecoded < UNDECODED_RUN:
+                s = self.stamp(i)
+                if s is None:
+                    undecoded += 1
+                else:
+                    undecoded = 0
+                    if (s - t) * step > tol:
+                        break
+                    if abs(s - t) <= tol and (best is None or abs(s - t) < best[0]):
+                        best = (abs(s - t), i)
+                i += step
         return None if best is None else best[1]
 
 
@@ -452,9 +500,12 @@ def run_dir_of(run):
 def run_params(run):
     """{key: default} of the run's own params snapshot (<run_dir>/*.params.yaml), or {}."""
     run_dir = run_dir_of(run)
+    # libyaml's loader when PyYAML has it (Ubuntu's does): the pure-Python one
+    # spends 0.7 s on the 340 KB snapshot, most of a finalize's ten stills.
+    loader = getattr(yaml, 'CSafeLoader', yaml.SafeLoader)
     for path in sorted(run_dir.glob('*.params.yaml')) if run_dir is not None else ():
         try:
-            data = yaml.safe_load(path.read_text()) or {}
+            data = yaml.load(path.read_text(), Loader=loader) or {}
         except (OSError, yaml.YAMLError):
             continue
         return {k: v['default'] for k, v in data.items()
@@ -501,8 +552,20 @@ class RebuiltMask:
     """The scene mask rebuilt from the recorded 5 Hz depth (module docstring)."""
 
     def __init__(self, depth, depth_info, masks, scans, tf, params):
+        """
+        `params` is the run's params snapshot (run_params).
+
+        A key the snapshot lacks (a run older than the key, a bag with no
+        snapshot) comes from the installed stack_params.yaml: that is what
+        the launch files hand the node, never the node's code default.
+        Raises KeyError for a key in neither (MASK_PARAMS).
+        """
         def p(name):
-            return params.get('front_clearance_' + name, _MASK_DEFAULTS[name])
+            key = name if name.startswith('lidar_') else 'front_clearance_' + name
+            if key in params:
+                return params[key]
+            from f1tenth_params.param_defaults import get_value
+            return get_value(key)
 
         self.depth, self.depth_info, self.masks, self.scans, self.tf = (
             depth, depth_info, masks, scans, tf)
@@ -511,9 +574,8 @@ class RebuiltMask:
         self.min_depth = float(p('scene_mask_min_depth_m'))
         self.max_depth = float(p('scene_mask_max_depth_m'))
         self.polygons = _polygons(p('scene_mask_self_polygons')) or [scene_mask.rect_polygon(
-            *(float(params.get(k, _EXCLUSION_DEFAULTS[k])) for k in (
-                'lidar_exclusion_x_min', 'lidar_exclusion_y_min',
-                'lidar_exclusion_x_max', 'lidar_exclusion_y_max')))]
+            *(float(p(k)) for k in ('lidar_exclusion_x_min', 'lidar_exclusion_y_min',
+                                    'lidar_exclusion_x_max', 'lidar_exclusion_y_max')))]
         self.polygons += _polygons(p('scene_mask_occluded_polygons'))
         self.floor_on = bool(p('inferred_floor_enabled'))
         self.floor_r_max = float(p('inferred_floor_r_max_m'))
@@ -747,9 +809,12 @@ def _open(bag, run, style):
                 continue
             depth_info = (wh, k)
             break
-        mask = RebuiltMask(depth, depth_info or info,
-                           Topic(bag, DETECTION_MASKS_TOPIC, decode_image), scans, tf,
-                           run_params(run))
+        try:
+            mask = RebuiltMask(depth, depth_info or info,
+                               Topic(bag, DETECTION_MASKS_TOPIC, decode_image), scans, tf,
+                               run_params(run))
+        except (ImportError, KeyError) as exc:
+            return None, f'no mask parameters: {exc!r} (not in the run params, no stack_params)'
     else:
         return None, f'no scene mask (neither {CLASSES_TOPIC} nor {DEPTH_TOPIC})'
     first = next((camera.message(i) for i in range(min(len(camera), 5))
@@ -776,37 +841,53 @@ def spread(count, limit):
     return sorted({int(round(i * step)) for i in range(limit)})
 
 
+def pick_stills(count, offset_at, limit=10, search=3):
+    """
+    Return the camera frames (of `count`) the stills are drawn from, in time order.
+
+    One per place spread evenly over the run: of the frames within `search`
+    of the place and not picked yet, the one whose mask is nearest in time
+    (`offset_at(i)`: |stamp difference| [s], None for no mask), then the one
+    nearest the place. On a run shorter than about 2 * search * limit frames
+    the windows overlap, and a place can pick a frame before its
+    neighbour's, hence the sort: the gateway shows the stills by name.
+    """
+    # The windows overlap below (2 * search + 1) * (limit - 1) + 1 frames.
+    picked = set()
+    for target in spread(count, limit):
+        best = None
+        for i in range(max(0, target - search), min(count, target + search + 1)):
+            off = offset_at(i) if i not in picked else None
+            if off is not None and (best is None or (off, abs(i - target)) < best[0]):
+                best = ((off, abs(i - target)), i)
+        if best is not None:
+            picked.add(best[1])
+    return sorted(picked)
+
+
 def write_snapshots(run, out_dir, run_id=None, limit=10, style=None, search=3):
     """
     Write up to `limit` overlay stills as <out_dir>/<run_id>.NNN.jpg.
 
     Returns (paths, None), or ([], reason) with nothing written: the caller
-    then writes the stills it always wrote. The stills are spread evenly
-    over the run; each is, of the frames within `search` of its place, the
-    one whose mask is nearest in time (then the nearest to the place), so a
-    still never shows the LiDAR alone and its mask is as close to the image
-    as the run allows. All are drawn before any is written, so a failure
-    leaves no partial set behind.
+    then writes the stills it always wrote. The frames are pick_stills', so
+    a still never shows the LiDAR alone and its mask is as close to the
+    image as the run allows. All are drawn before any is written, so a
+    failure leaves no partial set behind.
     """
     overlay, reason = open_run(run, style)
     if overlay is None:
         return [], reason
     try:
-        drawn, used = [], set()
-        for target in spread(len(overlay), limit):
-            best = None
-            for i in range(max(0, target - search), min(len(overlay), target + search + 1)):
-                stamp = overlay.stamp(i)
-                off = (overlay.mask.offset_at(stamp)
-                       if i not in used and stamp is not None else None)
-                if off is not None and (best is None or (off, abs(i - target)) < best[0]):
-                    best = ((off, abs(i - target)), i)
-            if best is None:
-                continue
-            img, masked = overlay.render(best[1])
+        def offset_at(i):
+            stamp = overlay.stamp(i)
+            return overlay.mask.offset_at(stamp) if stamp is not None else None
+
+        drawn = []
+        for i in pick_stills(len(overlay), offset_at, limit, search):
+            img, masked = overlay.render(i)
             if img is not None and masked:
                 drawn.append(img)
-                used.add(best[1])
         quality = overlay.style.jpeg_quality
     finally:
         overlay.close()
