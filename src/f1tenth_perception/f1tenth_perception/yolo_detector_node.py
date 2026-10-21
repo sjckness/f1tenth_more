@@ -145,6 +145,10 @@ other frame runs at confidence_threshold exactly as before. Distances are
 paired by (stamp, class_id, score) -- see perception_debug.py's module
 docstring for why that key is exact. The image is finished when this frame's
 /costmap/semantic_tracks arrives, or at the next tick if it never does.
+While something subscribes to `debug_clean_image_topic` (default
+/camera/debug_image/clean/compressed; the mission logger records it), the
+same downscaled tick frame is also published as a JPEG with nothing drawn on
+it: the camera image the run report's overlay is drawn on, offline.
 
 Message field reference (vision_msgs, Humble == "4.x" layout):
     Detection2DArray.detections[]            -> Detection2D
@@ -360,6 +364,12 @@ class YoloDetectorNode(Node):
             self.declare_parameter('debug_image_min_confidence', 0.1).value)
         self.debug_image_topic = str(self.declare_parameter(
             'debug_image_topic', '/camera/debug_image/compressed').value)
+        # The same tick frame with nothing drawn on it, for the run report's
+        # offline overlay (f1tenth_logger.mission_overlay). Encoded and
+        # published only while something subscribes: the mission logger,
+        # while it records.
+        self.debug_clean_image_topic = str(self.declare_parameter(
+            'debug_clean_image_topic', '/camera/debug_image/clean/compressed').value)
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -986,6 +996,8 @@ class YoloDetectorNode(Node):
     def _debug_setup(self):
         """Create the debug image publisher, its small inputs and its state."""
         self.debug_pub = self.create_publisher(CompressedImage, self.debug_image_topic, 10)
+        self.debug_clean_pub = self.create_publisher(
+            CompressedImage, self.debug_clean_image_topic, 10)
         self._debug_period = 1.0 / self.debug_image_rate_hz
         self._debug_next_due = None
         self._debug_pending = None
@@ -1182,11 +1194,33 @@ class YoloDetectorNode(Node):
             hi.append({'box': (cx - half_w, cy - half_h, cx + half_w, cy + half_h),
                        'class_id': class_id, 'score': score, 'contours': contours,
                        'color': self._class_color_bgr(class_id)})
+        img = cv2.resize(cv_image, size, interpolation=cv2.INTER_LINEAR)
+        self._debug_publish_clean(img, header)
         self._debug_pending = {
-            'key': self._debug_key(header.stamp), 'header': header,
-            'img': cv2.resize(cv_image, size, interpolation=cv2.INTER_LINEAR),
+            'key': self._debug_key(header.stamp), 'header': header, 'img': img,
             'scale': size[0] / float(img_w), 'src_wh': (img_w, img_h),
             'hi': hi, 'lo': below}
+
+    def _debug_publish_clean(self, img, header):
+        """
+        Publish the downscaled tick frame as it is, before anything is drawn on it.
+
+        Only while something subscribes -- the mission logger's recorder,
+        which exists only while a run is recorded -- so it costs one JPEG
+        encode of an already-downscaled frame per debug tick then, and
+        nothing otherwise. The run report draws the scene mask and the LiDAR
+        on it offline (f1tenth_logger.mission_overlay).
+        """
+        if self.debug_clean_pub.get_subscription_count() == 0:
+            return
+        jpeg = perception_debug.encode_jpeg(img, self.debug_image_jpeg_quality)
+        if jpeg is None:
+            return
+        msg = CompressedImage()
+        msg.header = header
+        msg.format = 'jpeg'
+        msg.data = array.array('B', jpeg)
+        self.debug_clean_pub.publish(msg)
 
     def _debug_finish(self):
         """Pair, draw, encode and publish the pending debug frame."""
