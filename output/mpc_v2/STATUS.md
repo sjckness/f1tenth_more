@@ -19,10 +19,12 @@ permission and no reverse can ever start).
 
 ## What works
 
-- **Reverse runs on the car, and odometry sees it.** Three manoeuvres in the
-  15:37 run, ending on `timeout`, `bt_withdrawn: bt_disallowed` and
-  `rear_clearance`, with `/odometry/filtered` at -0.23 to -0.36 m/s throughout
-  (`ODOM/hw` and `SOLVE/in` lines). Thirteen more in the 17:52-18:24 runs, with
+- **Reverse runs on the car, and odometry sees it.** The first two reverses of
+  the day, in the 15:33 run (15:35:05 and 15:35:10, BT log), both ended
+  `distance_done`. Three more in the 15:37 run, ending on `timeout`,
+  `bt_withdrawn: bt_disallowed` and `rear_clearance`, with
+  `/odometry/filtered` at -0.23 to -0.36 m/s throughout (`ODOM/hw` and
+  `SOLVE/in` lines). Thirteen more in the 17:52-18:24 runs, with
   the per-tick `CTRL` line: 12 `distance_done`, 1 `rear_clearance`, `v_real`
   -0.32 to -0.36 m/s for a -0.40 command, moving 0.18-0.21 s after it.
 - **The speed limit is lifted.** `max_reverse_speed_mps` 0.0 → 0.4, equal to
@@ -45,16 +47,21 @@ permission and no reverse can ever start).
 
 - **Resolved: "odometry may not see the reverse".** It did. "`v_real` stayed
   at zero" came from the old `CTRL` line, which printed only forward ticks.
-  The `timeout` reverse (15:39:09) moved 0.81 m back in odom in 2.6 s, and the
-  clearance to the obstacle ahead grew 0.60 m; the `rear_clearance` one
-  (15:39:28) moved 0.75 m in 2.4 s. Both passed 0.5 m without `distance_done`
-  because `travelled` was the displacement in MAP (the start held in map,
-  re-read through the current map -> odom): with odom 0.81 m back, a count
-  under 0.5 m means map -> odom moved more than 0.3 m with the car during the
-  manoeuvre (inferred, the edge is not logged). On the evening runs the same count
-  sat at 0.000 for 1.0 s of motion and jumped up to 0.45 m in one tick.
-  `travelled` is now dead reckoning in odom from the start pose; the rear
-  corridor stays anchored in map (`reverse_manoeuvre.py`, `_reverse_tick`).
+  The `timeout` reverse (15:39:09) was 0.77 m back in odom at the timeout
+  tick (0.81 m at rest after braking), and the clearance to the obstacle
+  ahead grew 0.60 m; the `rear_clearance` one (15:39:28) was 0.71 m back at
+  the tick it ended (0.75 m at rest). Both passed 0.5 m without
+  `distance_done` because `travelled` was the displacement in MAP (the start
+  held in map, re-read through the current map -> odom): with odom 0.77 m
+  back at the timeout tick, a count under 0.5 m means map -> odom had moved at
+  least about 0.27 m with the car (inferred, the edge is not logged). On the
+  evening runs the same count sat at 0.000 for 1.0 s of motion and jumped up
+  to 0.45 m in one tick. `travelled` is now the larger of two counts: dead
+  reckoning in odom from the start pose, and the old map-anchored one, so
+  either can end the reverse and neither can stretch it past the 0.5 m strip
+  the precheck validated (odometry frozen under vesc_driver's ERPM deadband,
+  or map -> odom following the car). The rear corridor stays anchored in map
+  (`reverse_manoeuvre.py`, `_reverse_tick`).
 - **Resolved: the `bt_disallowed` reverse.** The BT log names it:
   `/bt/allow_reverse False: IsProximityTooClose blocks the reverse` at
   15:39:25.48, 0.20 s before the manoeuvre ended.
@@ -72,12 +79,16 @@ permission and no reverse can ever start).
 ```
 ros2 bag record /drive /ackermann_drive /commands/motor/speed /commands/servo/position \
   /sensors/core /sensors/imu/raw /odom /odometry/filtered \
+  /tf /tf_static /ekf_global/odometry/filtered /slam/pose_calibrated \
   /mpc/reverse_status /bt/allow_reverse /mpc/drive_clamp
 ```
 
-`/sensors/core` settles the ERPM polarity, `/odom` and `/odometry/filtered`
-bracket the EKF, and `/sensors/imu/raw` gives the yaw rate the steering
-question needs. The `CTRL` line now reports every tick's published command with
+`/tf` (map -> odom from the global EKF), `/ekf_global/odometry/filtered` and
+`/slam/pose_calibrated` show directly whether map -> odom follows the car
+during a reverse, the one inferred link above. `/sensors/core`, `/odom` and
+`/odometry/filtered` bracket the EKF, and `/sensors/imu/raw` gives the yaw
+rate the steering question needs. Measure one reverse with a tape: odom moved
+0.81 m in the 15:39:09 reverse while the clearance ahead grew 0.60 m. The `CTRL` line now reports every tick's published command with
 its source and the manoeuvre's `travelled`, so the log alone answers what each
 reverse commanded.
 
