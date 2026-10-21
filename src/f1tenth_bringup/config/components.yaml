@@ -187,3 +187,12 @@ components:
   startup_sequence:
     - package: f1tenth_bringup
       launch_file: startup_sequence.launch.py
+
+  # The car's side of the link to the base PC: wifi_coverage_node and
+  # link_manager (f1tenth_comms). In _CONDITIONAL_AUTO_START on stack_params'
+  # enable_comms (default false). Its own component: it reads TF and
+  # /comms/*, publishes /comms/* only, and a restart of it must not take any
+  # other node with it. Enforced by f1tenth_bringup/test/test_comms_component.py.
+  comms:
+    - package: f1tenth_comms
+      launch_file: comms.launch.py

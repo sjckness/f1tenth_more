@@ -238,6 +238,11 @@ def generate_launch_description():
         include('f1tenth_diagnostics', 'system_observer.launch.py'),
         include('f1tenth_diagnostics', 'diagnostics_server.launch.py'),
     ]
+    # The link to the base PC (f1tenth_comms): off unless stack_params.yaml
+    # enable_comms is true, read at parse time like the branching args above
+    # (the supervisor path gates its `comms` component on the same key).
+    if get_value('enable_comms'):
+        diagnostics_bringup.append(include('f1tenth_comms', 'comms.launch.py'))
 
     # ================================================================
     # 8. DEV TOOLS / VISUALIZATION

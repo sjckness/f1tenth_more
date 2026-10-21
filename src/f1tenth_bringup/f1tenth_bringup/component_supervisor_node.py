@@ -345,6 +345,9 @@ _CONDITIONAL_AUTO_START = {
     # cpu-cleanup (2026-10-16): off by default, still registered so it can be
     # restarted by name. stack_params.yaml's enable_wall_distance says why.
     'wall_distance': 'enable_wall_distance',
+    # f1tenth_comms (2026-10-21): off by default until the base is set up;
+    # `stackctl.py start comms` runs it on demand. See stack_params.yaml.
+    'comms': 'enable_comms',
 }
 
 # FastDDS SHM transport hygiene (see module docstring's own paragraph on this) --

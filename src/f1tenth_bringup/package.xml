@@ -47,6 +47,9 @@
   <exec_depend>f1tenth_behavior</exec_depend>
   <exec_depend>f1tenth_diagnostics</exec_depend>
   <exec_depend>llm</exec_depend>
+  <!-- the comms component (components.yaml) and stack_bringup.launch.py's
+       enable_comms include. -->
+  <exec_depend>f1tenth_comms</exec_depend>
   <exec_depend>foxglove_bridge</exec_depend>
   <!-- topic_tools' throttle node: visualization-only throttled copies of
        /camera/image_raw and /camera/image_annotated for foxglove_bridge

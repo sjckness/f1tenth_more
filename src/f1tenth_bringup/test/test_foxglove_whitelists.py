@@ -73,6 +73,11 @@ def test_topics_allow_only_the_viz_relays_and_latched_topics():
         '/slam/map_metadata',
         '/tf',
         '/tf_static',
+        # f1tenth_comms (enable_comms): latched grids, at most 1 Hz.
+        '/comms/coverage_rssi',
+        '/comms/coverage_rtt',
+        '/comms/coverage_cells',
+        '/comms/link_status',
     ]
     assert _advertised('foxglove_topic_whitelist', hidden + shown) == set(shown)
 

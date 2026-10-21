@@ -1,0 +1,31 @@
+# f1tenth_comms parameters (launch/comms.launch.py). output/comms/setup.md
+# explains each group. Floats keep their decimal point: Humble refuses an
+# integer for a double parameter.
+
+wifi_coverage_node:
+  ros__parameters:
+    map_frame: map
+    base_frame: base_link
+    resolution_m: 1.0             # cell size
+    sample_period_s: 1.0
+    tf_max_age_s: 1.0             # skip the sample when map -> base_link is older
+    tf_polling: true              # take /tf once per sample (tf_poll.py); false: TransformListener
+    wifi_interface: ''            # '' = the first wireless interface (wlP1p1s0 on the Orin)
+    use_iw_fallback: true         # `iw dev <if> link` when /proc/net/wireless has no dBm
+    link_status_topic: /comms/link_status
+    link_status_timeout_s: 3.0    # older link_status = link unknown (never "no link")
+    # Encoding, both layers 0 = good .. 100 = bad, -1 no data, -128 no link.
+    rssi_good_dbm: -40.0          # -> 0
+    rssi_bad_dbm: -90.0           # -> 100
+    rtt_bad_ms: 200.0             # p95 RTT -> 100
+    no_link_fraction: 0.5         # a cell is drawn as no link from this share of samples
+    rtt_samples_per_cell: 200     # the p95 is over the last N per cell
+    max_extent_m: 200.0           # samples further from the map origin are dropped
+    publish_period_s: 1.0         # at least 1.0: grids go out at most once per second
+    cells_publish_period_s: 5.0   # /comms/coverage_cells when only the numbers changed
+    rssi_z_m: 0.05                # drawn above the SLAM map
+    rtt_z_m: 0.10
+    rssi_topic: /comms/coverage_rssi
+    rtt_topic: /comms/coverage_rtt
+    cells_topic: /comms/coverage_cells
+    reset_service: /comms/coverage_reset
