@@ -1,7 +1,7 @@
 # The base's hotspot, read by scripts/base/hotspot.sh (bash syntax).
 #
 #   cp scripts/base/hotspot.conf.example scripts/base/hotspot.conf   # git-ignored
-#   edit HOTSPOT_PSK (and HOTSPOT_IFNAME for this PC)
+#   edit HOTSPOT_PSK, and the two radios for this PC
 #
 # Use the SAME SSID, password and address on linus and on the tpad: the
 # car's one NetworkManager profile (scripts/orin/comms_network.sh) then joins
@@ -11,30 +11,42 @@ HOTSPOT_CON=f1tenth-base          # NetworkManager profile name on this PC
 HOTSPOT_SSID=f1tenth-base
 HOTSPOT_PSK='change-me-8-to-63-chars'
 
-# The Wi-Fi interface whose radio becomes the access point.
-# linus: wlp4s0 (RTL8822CE, rtw88). tpad: see scripts/base/check_ap.sh.
-HOTSPOT_IFNAME=wlp4s0
+# The two radios, by MAC address or by a stable interface name, never
+# wlan0/wlan1 (those can swap). scripts/base/check_ap.sh lists them.
+# linus (2026-10-21):
+#   AP:     USB RTL8822BU "AC1200/AC1300" (rtw88_8822bu, in the stock kernel),
+#           90:de:80:25:1d:c2, interface wlx90de80251dc2
+#   uplink: internal RTL8822CE (rtw88_8822ce), 08:8a:f1:c6:4e:ca, wlp4s0, eduroam
+HOTSPOT_AP_IF=90:de:80:25:1d:c2
+HOTSPOT_UPLINK_IF=08:8a:f1:c6:4e:ca
+# Client profiles bound to the uplink radio by `up` (interface name + MAC),
+# so NetworkManager never starts them on the AP radio. Space-separated.
+HOTSPOT_UPLINK_CONS="eduroam"
 
 # Address and /24 of the hotspot; the car reaches the base here when Tailscale
 # does not answer (link_manager local_host). NOT 10.42.0.1: linus's
 # thor-link ethernet already is 10.42.0.1/24.
 HOTSPOT_ADDRESS=10.42.50.1/24
 
-# Dedicated mode (HOTSPOT_VIRTUAL=0): the whole radio becomes the AP. Any
-# Wi-Fi connection on it (eduroam) goes down, so the internet shared with
-# the car must come from another interface (ethernet, USB tethering).
-# bg = 2.4 GHz (longer range, walls): channel 1, 6 or 11.
-# a  = 5 GHz: 36, 40, 44 or 48 only (52-144 need radar detection, which
-# rtw88 cannot do as an AP).
-HOTSPOT_BAND=bg
-HOTSPOT_CHANNEL=6
+# a = 5 GHz: 36, 40, 44 or 48 only (52-144 need radar detection, which
+# rtw88 cannot do as an AP). bg = 2.4 GHz: 1, 6 or 11.
+# linus's USB RTL8822BU, 2026-10-21: on 5 GHz 36 an iPhone joined, got a
+# lease and had internet through the base; on 2.4 GHz 6 it sent no beacons
+# at all (nothing saw the SSID, not even linus's own internal radio). 2.4
+# GHz was tried once, right after plugging in: try it again before using it.
+HOTSPOT_BAND=a
+HOTSPOT_CHANNEL=36
 
-# Concurrent mode (HOTSPOT_VIRTUAL=1): keep the Wi-Fi uplink (eduroam) on
-# HOTSPOT_IFNAME and add a virtual AP interface on the same radio, sharing
-# eduroam's internet. Needs `iw` and sudo, and the radio must allow it
-# (`iw list`: "#{ managed } <= 1, #{ AP } <= 1, total <= 2, #channels <= 1"
-# on linus). The AP then has to sit on eduroam's channel (taken from the
-# link, HOTSPOT_BAND/CHANNEL ignored), which must not be a radar (DFS)
-# channel, and it breaks when eduroam roams to another channel.
+# After `up`, watch the uplink this many seconds; if it drops, `up` takes
+# the hotspot down again.
+HOTSPOT_GUARD_S=10
+
+# One radio only (no second adapter): HOTSPOT_VIRTUAL=1 adds a virtual AP
+# interface on the uplink radio and shares its connection. Needs `iw` and
+# sudo, and the radio must allow it (`iw list`: "#{ managed } <= 1,
+# #{ AP } <= 1, total <= 2, #channels <= 1" on linus's RTL8822CE). The AP
+# then has to sit on the uplink's channel (HOTSPOT_BAND/CHANNEL ignored),
+# which must not be a radar (DFS) channel, and it breaks when the uplink
+# roams to another channel. HOTSPOT_AP_IF is ignored.
 HOTSPOT_VIRTUAL=0
 HOTSPOT_VIF=f1tap0

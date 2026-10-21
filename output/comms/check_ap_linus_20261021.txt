@@ -1,17 +1,29 @@
+default route via wlp4s0
+
 == wlp4s0
-card:       Network controller: Realtek Semiconductor Co., Ltd. RTL8822CE 802.11ac PCIe Wireless Network Adapter
-driver:     rtw88_8822ce
-NM AP:      yes
-connection: eduroam
-uplink:     default route via wlp4s0
-phy:        phy0
+card:       Network controller: Realtek Semiconductor Co., Ltd. RTL8822CE 802.11ac PCIe Wireless Network Adapter (pci)
+driver:     rtw88_8822ce, in the stock kernel
+MAC:        08:8a:f1:c6:4e:ca
+NM:         AP yes, connection 'eduroam'
+phy:        phy0, bands 2.4 GHz,5 GHz
 modes:      IBSS managed AP AP/VLAN monitor
 combos:     * #{ managed } <= 1, #{ AP } <= 1, total <= 2, #channels <= 1
-client on:  5280 MHz: 5280.0 MHz [56] (20.0 dBm) (radar detection)
-AP chans:   1 2 3 4 5 6 7 8 9 10 11 12 13 36 40 44 48 149 153 157 161 165   (no radar detection, no no-IR)
+AP chans:   1 2 3 4 5 6 7 8 9 10 11 12 13 36 40 44 48 149 153 157 161 165
+radar/noIR: 52 56 60 64 100 104 108 112 116 120 124 128 132 136 140 144
+client on:  5280.0 MHz [56] (20.0 dBm) (radar detection)
 
-== verdict
-AP mode:                    yes
-AP while connected (STA+AP): yes, on the client channel only (#channels <= 1)
-dedicated mode:             the radio carries the internet (wlp4s0): the car would get none
-concurrent mode:            NOT now: the client is on a radar/no-IR channel (5280 MHz)
+== wlx90de80251dc2
+card:       Realtek USB3.0 802.11ac 1200M Adapter [0bda:b812], USB 5000 Mb/s (usb)
+driver:     rtw88_8822bu, in the stock kernel
+MAC:        90:de:80:25:1d:c2
+NM:         AP yes, connection ''
+phy:        phy2, bands 2.4 GHz,5 GHz
+modes:      IBSS managed AP AP/VLAN monitor
+combos:     none listed (one interface at a time)
+AP chans:   1 2 3 4 5 6 7 8 9 10 11 12 13 36 40 44 48 149 153 157 161 165
+radar/noIR: 52 56 60 64 100 104 108 112 116 120 124 128 132 136 140 144
+
+== layout
+uplink:     wlp4s0 ('eduroam'), carries the default route
+hotspot:    wlx90de80251dc2 (a radio of its own: the uplink is untouched)
+            HOTSPOT_AP_IF=90:de:80:25:1d:c2  HOTSPOT_UPLINK_IF=08:8a:f1:c6:4e:ca

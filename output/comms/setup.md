@@ -3,13 +3,13 @@
 Branch `comms-base` (from `pwa-control` `9c5371d`), 2026-10-21. Phases 0–2 of
 the "base + hotspot + auto-reconnect" design.
 
-**What has run, and where.** Everything below ran on linus only: unit tests
-on Jazzy and on Humble/Python 3.10 (the `f1tenth_more:cpu` image, no
-network), and a 95 s synthetic run of both nodes with fake TF, Wi-Fi, base
-and `nmcli`. **Nothing ran on the Orin, on the tpad or with a real hotspot.**
-On linus no hotspot was brought up and no network setting was changed; the AP
-checks in §3 are read-only. On the Orin, only read-only `nmcli`/`/proc`
-queries were made over ssh.
+**What has run, and where.** On linus: unit tests on Jazzy and on
+Humble/Python 3.10 (the `f1tenth_more:cpu` image, no network), a 95 s
+synthetic run of both nodes with fake TF, Wi-Fi, base and `nmcli`, and on
+2026-10-21 a ~12 min live test of the hotspot on linus's USB adapter with an
+iPhone as the client (§4.7). **Nothing ran on the Orin or on the tpad, and
+no car has joined the hotspot yet.** On the Orin, only read-only
+`nmcli`/`/proc` queries were made over ssh.
 
 ---
 
@@ -54,40 +54,48 @@ queries were made over ssh.
 | 2 `f1tenth_comms: link_manager … + base responder` | `link_manager`, `heartbeat.py`, `reconnect.py`; `scripts/base/heartbeat_responder.py` + systemd user unit + installer; `tools/comms_synthetic_run.py` |
 | 3 `f1tenth_gateway: /comms/link_status in the status payload` | the optional step: `link` in the gateway's status; the PWA does not show it yet |
 | 4 `scripts + docs` | `scripts/base/hotspot.sh`, `check_ap.sh`, `hotspot.conf.example`; `scripts/orin/comms_network.sh`; this file; the Foxglove layout; the synthetic-run results |
+| 5 `comms: linus as base with two radios` | the USB adapter as the AP, eduroam on the internal card; both radios by MAC, pinned in NM; uplink guard in `hotspot.sh up`; `check_ap.sh` for every radio; the live test |
 
 Nothing is pushed.
 
-## 3. AP mode: read-only checks
+## 3. AP mode: checks
 
-### linus (2026-10-21, `scripts/base/check_ap.sh`, output in `check_ap_linus_20261021.txt`)
+### linus: two radios (2026-10-21, `scripts/base/check_ap.sh`, output in `check_ap_linus_20261021.txt`)
 
 `iw` is not installed on linus; it was run from the Ubuntu package
-unpacked in a scratch directory, without installing anything.
+unpacked in a scratch directory, without installing anything. Regulatory
+domain IT (ETSI) for both radios.
 
-| | |
-|---|---|
-| Card / driver | Realtek RTL8822CE (PCIe), `rtw88_8822ce`, regulatory domain IT (ETSI) |
-| Interface modes | IBSS, managed, **AP**, AP/VLAN, monitor; NetworkManager `WIFI-PROPERTIES.AP: yes` |
-| Interface combinations | `#{ managed } <= 1, #{ AP } <= 1, total <= 2, #channels <= 1`: a client and an AP **at the same time, on one channel** |
-| AP-usable channels | 1–13 (2.4 GHz); 36–48 and 149–165 (5 GHz). 52–144 need radar detection: not as an AP |
-| Uplink now | `wlp4s0` on **eduroam**, channel 56 (5280 MHz, a radar/DFS channel), and it carries linus's **only** default route |
-| Ethernet | `enp5s0` = `thor-link`, manual 10.42.0.1/24, the cable to the Thor: no internet |
-| Firewall | `ufw` active |
+| | internal | USB adapter |
+|---|---|---|
+| Card | Realtek RTL8822CE, PCIe | Realtek RTL8822BU `0bda:b812` ("USB3.0 802.11ac 1200M Adapter"), on USB 3 (5 Gb/s) |
+| Driver | `rtw88_8822ce`, in the stock kernel | `rtw88_8822bu` + `rtw88_usb`, **in the stock 7.0.0-38 kernel** (`intree: Y`, package `linux-modules`), firmware 27.2.0 from `linux-firmware`. No DKMS, nothing to build |
+| Interface | `wlp4s0`, `08:8a:f1:c6:4e:ca` | `wlx90de80251dc2`, `90:de:80:25:1d:c2` (the name is made from the MAC: stable) |
+| Modes | IBSS, managed, **AP**, AP/VLAN, monitor | IBSS, managed, **AP**, AP/VLAN, monitor |
+| Combinations | client + AP on one channel | none listed: one interface at a time |
+| Bands | 2.4 and 5 GHz | 2.4 and 5 GHz |
+| AP channels | 1–13, 36–48, 149–165 | the same |
+| Radar / no-IR | 52–144 (14 disabled) | the same |
+| Role | **uplink: eduroam** (channel 56, linus's only default route) | **the hotspot** |
 
-**Verdict for linus.**
-- It can be an AP. But its one radio is also its only internet.
-- *Dedicated mode* (the radio becomes the AP): eduroam goes, and so does
-  linus's internet, so the car would get none. Tailscale between car and linus
-  then depends on cached state; the local path (10.42.50.1) still works, which
-  is exactly what the fallback is for.
-- *Concurrent mode* (eduroam + a virtual AP, sharing eduroam): the radio
-  allows it, but only on eduroam's channel, and **right now that is 56, where
-  an AP is not allowed**. It would work while eduroam happens to be on 1–13 or
-  36–48, and break when eduroam roams.
-- Usable as a base with internet only with a second radio (a USB Wi-Fi adapter
-  that can do AP) or another uplink (USB tethering, a lab ethernet port
-  instead of the Thor cable), or with the travel router (§4.6).
-- `10.42.0.0/24` is taken by thor-link: the hotspot uses **10.42.50.1/24**.
+The kernel log at plug-in shows `write register 0xc4 failed with -71` on
+the first USB 2 enumeration: that is the driver switching the adapter to USB
+3 mode and is followed by a clean SuperSpeed enumeration. During the test one
+`rtw88_8822bu: failed to get tx report from firmware` appeared, nothing else.
+
+**Layout: the preferred one.** USB adapter = AP, internal card = eduroam: the
+internal card keeps the internet exactly as before, and the USB radio can be
+an AP. The fallback (internal = AP, USB = eduroam) was not needed.
+
+Without the USB adapter, linus has one radio that is also its only internet
+(`enp5s0` is `thor-link`, manual 10.42.0.1/24, no internet; eduroam often sits
+on radar channel 56, where an AP is not allowed). That case keeps the
+travel router (§4.6) or `HOTSPOT_VIRTUAL=1` when eduroam is on 1–13/36–48.
+`10.42.0.0/24` is taken by thor-link: the hotspot uses **10.42.50.1/24**.
+
+eduroam on linus drops for ~1 s about once an hour (journal: 00:55, 01:51,
+02:53 … 13:43, a periodic re-authentication). The uplink guard in
+`hotspot.sh up` waits for 3 s down in a row before it rolls back.
 
 ### Orin (read-only over ssh, 2026-10-21)
 
@@ -118,8 +126,21 @@ simple, robust setup.
 
 ```bash
 cp scripts/base/hotspot.conf.example scripts/base/hotspot.conf    # git-ignored
-$EDITOR scripts/base/hotspot.conf    # HOTSPOT_PSK, HOTSPOT_IFNAME; mode and band
+$EDITOR scripts/base/hotspot.conf    # HOTSPOT_PSK; the two radios; band and channel
 ```
+
+The radios are given by MAC (or a stable name), never `wlan0`/`wlan1`:
+
+| Key | linus |
+|---|---|
+| `HOTSPOT_AP_IF` | `90:de:80:25:1d:c2` (USB RTL8822BU) |
+| `HOTSPOT_UPLINK_IF` | `08:8a:f1:c6:4e:ca` (internal RTL8822CE) |
+| `HOTSPOT_UPLINK_CONS` | `eduroam`: client profiles bound to the uplink radio |
+| `HOTSPOT_BAND` / `HOTSPOT_CHANNEL` | `a` / `36` (tested); 36–48 only on 5 GHz |
+
+On the test day `scripts/base/hotspot.conf` was created on linus with a
+random password (the one the iPhone used). Keep it or change it; the Orin's
+profile needs the same one.
 
 Use the **same SSID, password and address on both bases**: the car's single
 profile then joins either, and `local_host` never changes. Only
@@ -128,37 +149,53 @@ profile then joins either, and `local_host` never changes. Only
 ### 4.2 Hotspot
 
 ```bash
-scripts/base/check_ap.sh                 # read-only
-scripts/base/hotspot.sh up               # asks before taking a radio that carries a connection
-scripts/base/hotspot.sh status           # profile, address, clients, leases, uplink, responder, firewall
+scripts/base/check_ap.sh                 # read-only, every radio, suggested layout
+scripts/base/hotspot.sh up               # resolve radios, pin, bring up, watch the uplink 10 s
+scripts/base/hotspot.sh status           # both radios, profile binding, clients, responder, firewall
 scripts/base/hotspot.sh down             # the profile stays; autoconnect is off
 ```
 
-`up` creates or updates the NM profile `f1tenth-base`: `802-11-wireless.mode
-ap`, WPA2 (RSN/CCMP), `ipv4.method shared` with `ipv4.addresses
-10.42.50.1/24` (NM runs DHCP and DNS and NATs to the default route),
-`ipv6.method disabled`, autoconnect off.
+`up`:
+1. resolves both radios from their MACs and refuses if they are the same radio;
+2. binds each profile in `HOTSPOT_UPLINK_CONS` to the uplink radio
+   (`connection.interface-name` + `802-11-wireless.mac-address`). linus's
+   eduroam already was bound to `wlp4s0` by name, so it was left as it is;
+3. warns about autoconnecting client profiles that could take the AP radio.
+   On linus: **`TIM-71892397` is bound to `wlx90de80251dc2`** (the USB
+   adapter) with autoconnect on, so at home it would take the hotspot's
+   radio. Not changed; to move it:
+   `nmcli connection modify id TIM-71892397 connection.interface-name wlp4s0`;
+4. creates or updates the NM profile `f1tenth-base`, bound to the AP radio by
+   name **and** MAC: `802-11-wireless.mode ap`, WPA2 (RSN/CCMP),
+   `ipv4.method shared` at 10.42.50.1/24 (NM runs DHCP 10.42.50.10–254 and
+   DNS, and NATs to the default route), `ipv6.method disabled`, autoconnect off;
+5. activates it, then watches the uplink for `HOTSPOT_GUARD_S` (10 s) and
+   takes the hotspot down again if the uplink is down 3 s in a row.
 
-- Dedicated (`HOTSPOT_VIRTUAL=0`): band/channel from the config (default 2.4 GHz
-  channel 6: range through walls matters more than throughput here).
-- Concurrent (`HOTSPOT_VIRTUAL=1`, needs `iw` and sudo): adds `f1tap0` (type AP,
-  its own locally administered MAC) on the same radio and puts the AP on the
-  uplink's channel; refuses a radar/no-IR channel.
+One radio only: `HOTSPOT_VIRTUAL=1` (needs `iw` and sudo) adds `f1tap0` (type
+AP, its own locally administered MAC) on the uplink radio, on the uplink's
+channel; it refuses a radar/no-IR channel.
 
-### 4.3 Firewall (ufw is active on linus)
+### 4.3 Firewall
+
+On linus **ufw is not enabled** (`ENABLED=no` in `/etc/ufw/ufw.conf`; the
+`ufw` systemd unit being "active" means nothing more). The first report said
+"ufw active": that was wrong. In the live test DHCP, DNS and NAT worked with
+no rule added, Docker's iptables rules included.
+
+If ufw gets enabled (here or on the tpad), `hotspot.sh status` prints:
 
 ```bash
-IF=wlp4s0     # or f1tap0 in concurrent mode; hotspot.sh status prints it
+IF=wlx90de80251dc2     # the AP interface
 sudo ufw allow in on $IF to any port 67 proto udp       # DHCP
 sudo ufw allow in on $IF to any port 53                 # DNS
 sudo ufw allow in on $IF to any port 47800 proto udp    # heartbeat via the hotspot
 sudo ufw allow in on tailscale0 to any port 47800 proto udp
-sudo ufw route allow in on $IF                          # only if the car has no internet
+sudo ufw route allow in on $IF                          # the car's traffic to the internet
 ```
 
-Not tried: NM's shared mode adds its own NAT rules; whether ufw's FORWARD
-policy also needs the `route allow` line depends on the backend. Test with
-`ping 1.1.1.1` from the car.
+and, where Docker's FORWARD policy drops the car's traffic (address but no
+internet), the `DOCKER-USER` accept rules.
 
 ### 4.4 Heartbeat responder
 
@@ -174,7 +211,15 @@ covered, also when they come up later. It answers only packets that start
 with `F1HB` and are 16–64 bytes, with the same bytes (no amplification).
 Stdlib Python, no ROS.
 
-### 4.5 Quick check from the base itself
+### 4.5 Quick checks of the heartbeat
+
+From a laptop joined to the hotspot (the closest thing to the car):
+
+```bash
+python3 -c "import socket,struct,time;s=socket.socket(2,2);s.settimeout(1);p=struct.pack('!4sBBHIIQ',b'F1HB',1,1,0,1,1,0);t=time.time();s.sendto(p,('10.42.50.1',47800));s.recvfrom(64);print('heartbeat ok %.1f ms'%((time.time()-t)*1e3))"
+```
+
+From the base itself (proves only that the responder answers on both addresses):
 
 ```bash
 python3 - <<'EOF'
@@ -190,7 +235,7 @@ EOF
 
 ### 4.6 Fallback: a travel router
 
-When no base PC can be AP and keep its internet (linus today): a small
+When no base PC can be AP and keep its internet (a base with one radio): a small
 travel router (GL.iNet class) configured with **the same SSID, password and
 10.42.50.0/24, gateway 10.42.50.1**, uplink by ethernet, by repeating eduroam
 (WPA2-Enterprise client; many travel routers can) or by USB tethering. The
@@ -199,6 +244,25 @@ base PC joins it as a client and runs the responder.
 The car needs no change, with one exception: link_manager's `local_host`
 must be the base PC's address on the router (e.g. a DHCP reservation
 10.42.50.2), not the router's 10.42.50.1. Pass `comms_local_host:=10.42.50.2`.
+
+### 4.7 Live test on linus (2026-10-21, 13:47–13:59)
+
+Hotspot on the USB adapter, eduroam on the internal card; a rollback guard
+(uplink connected, default route on `wlp4s0`, `ping -I wlp4s0 1.1.1.1` every
+3 s; down after 3 failures or 20 min) and the heartbeat responder ran for the
+whole test. The responder was started by hand, not installed.
+
+| Check | Result |
+|---|---|
+| Internet on linus before / with the hotspot / after | ping 1.1.1.1 3.3 / 3.4 / 3.4 ms, `connectivity-check.ubuntu.com` 204 each time; default route on `wlp4s0` throughout |
+| Uplink during the test | 244 guard checks, 0 failures; eduroam stayed on channel 56 |
+| 2.4 GHz channel 6 | AP up (`iw`: type AP, channel 6), but **no beacons**: neither the iPhone, nor the tpad, nor linus's own internal radio saw the SSID |
+| 5 GHz channel 36 | SSID seen by `wlp4s0` at 100 %; **iPhone joined** |
+| DHCP | `DHCPACK(wlx90de80251dc2) 10.42.50.109 … iPhone` (range 10.42.50.10–254, 1 h) |
+| Link | −27 to −36 dBm at ~1 m, VHT MCS 7 2×2 (144 Mb/s tx), 0 tx retries/failures; ping linus → iPhone 20/20, avg 12 ms (iPhone power save) |
+| Internet through NAT | iPhone with mobile data off loaded websites |
+| Heartbeat from a client | **not tested**: a phone cannot send UDP. The responder listened on 0.0.0.0:47800; no firewall in the way. The one-liner for a laptop client is in §4.5 |
+| End state | `hotspot.sh down`: `wlx90de80251dc2` disconnected with no address, responder stopped, eduroam connected, internet ok. The NM profile `f1tenth-base` stays (autoconnect off, 5 GHz 36) |
 
 ## 5. Orin setup (by hand, ON THE ORIN; nothing here was run)
 
@@ -486,7 +550,14 @@ never closer than 0.997 s.
   outages make the logs or NM noisy.
 - **Which base.** One `tailscale_host` at a time (linus by default).
   Switching to the tpad: `comms_tailscale_host:=100.108.225.104`, or the yaml.
-- **linus as a base** needs a second radio or the travel router (§3). Which?
+- **2.4 or 5 GHz.** 5 GHz 36 works with the USB adapter; 2.4 GHz sent no
+  beacons on the one try. 5 GHz has less range through walls: the first
+  coverage walk will tell whether that matters. Retry 2.4 GHz once (change
+  `HOTSPOT_BAND=bg`, `HOTSPOT_CHANNEL=6`, `up`, look for the SSID) before ruling it out.
+- **`TIM-71892397` on linus** is bound to the USB adapter (§4.2): move it to
+  `wlp4s0`?
+- **The heartbeat from a real client** over the hotspot is still to be seen:
+  the tpad one-liner (§4.5) or the car itself (§10 step 3).
 - **eduroam with the hotspot in range but Tailscale fine.** No switch today
   (reconnect runs only while LOST). Should the car prefer the hotspot then?
 - **`enable_comms` from the command line** (like `enable_mission_logger`)

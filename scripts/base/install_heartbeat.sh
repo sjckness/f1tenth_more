@@ -39,8 +39,8 @@ if [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; t
   echo "NOTE: linger is off: the responder stops when you log out. To keep it:"
   echo "  sudo loginctl enable-linger $USER"
 fi
-if systemctl is-active --quiet ufw 2>/dev/null; then
-  echo "NOTE: ufw is active. Let the heartbeat in on Tailscale and on the hotspot:"
+if grep -qs '^ENABLED=yes' /etc/ufw/ufw.conf; then
+  echo "NOTE: ufw is enabled. Let the heartbeat in on Tailscale and on the hotspot:"
   echo "  sudo ufw allow in on tailscale0 to any port 47800 proto udp"
   echo "  sudo ufw allow in on <hotspot interface> to any port 47800 proto udp"
   echo "  (scripts/base/hotspot.sh status prints the hotspot interface)"
