@@ -6,27 +6,56 @@ import { cpuFrom, online, status } from '../store';
 import type { PinnedProc, SysCore } from '../store';
 import { fmt, Icon } from '../components/ui';
 
-// Identity of a pinned process: the dataviz reference's 8 dark categorical steps, in their
-// validated order (CVD and normal-vision separation pass on --surface). A 9th process takes
-// slot 1's hue again with a dashed border, so hue + border tell it apart; the chip's name
-// does in any case.
-const PALETTE = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#008300', '#9085e9', '#e66767'];
+// Identity of a pinned process: six of the dataviz reference's dark categorical steps. Its
+// yellow and red are left out: above the bars they would read as the amber and red load
+// states. In this order the six pass the validator on --surface (CVD and normal-vision
+// separation, contrast). The 7th to 12th process take the same hues with a dashed border,
+// then dotted; the chip's name tells them apart in any case.
+const PALETTE = ['#3987e5', '#d95926', '#199e70', '#9085e9', '#008300', '#d55181'];
+const BORDERS = ['solid', 'dashed', 'dotted'];
 const slots = new Map<string, number>();
+const keyOf = (p: PinnedProc) => `${p.name}|${p.cores_text}`;
 
-/** A colour that stays with the process (name and cores) for the session, never its rank. */
-function slotOf(p: PinnedProc): number {
-  const key = `${p.name}|${p.cores_text}`;
-  let slot = slots.get(key);
-  if (slot === undefined) {
-    slot = slots.size;
-    slots.set(key, slot);
+/**
+ * Give each process pinned now a style that stays with it (name and cores), never its rank:
+ * one that is gone frees its slot, a new one takes the lowest free slot. So two live
+ * processes never share a style, and stack restarts do not use up the palette.
+ */
+function assignSlots(pinned: PinnedProc[]): void {
+  const now = new Set(pinned.map(keyOf));
+  for (const k of [...slots.keys()]) if (!now.has(k)) slots.delete(k);
+  const used = new Set(slots.values());
+  for (const p of pinned) {
+    if (slots.has(keyOf(p))) continue;
+    let slot = 0;
+    while (used.has(slot)) slot++;
+    slots.set(keyOf(p), slot);
+    used.add(slot);
   }
-  return slot;
 }
 
-function chipStyle(slot: number) {
+function chipStyle(p: PinnedProc) {
+  const slot = slots.get(keyOf(p)) ?? 0;
   const c = PALETTE[slot % PALETTE.length];
-  return { borderColor: c, borderStyle: slot >= PALETTE.length ? 'dashed' : 'solid', background: `${c}33` };
+  const border = BORDERS[Math.floor(slot / PALETTE.length) % BORDERS.length];
+  return { borderColor: c, borderStyle: border, background: `${c}33` };
+}
+
+// A chip's width on the iPhone (390 px, 4 bars per row), in characters.
+const CHIP_CHARS = 10;
+
+/** A chip's name: no _node, cut at an underscore to fit (ekf_global_filter_node: ekf_global,
+ *  slam_toolbox: slam). The legend has the full name. */
+function chipLabel(name: string): string {
+  const base = name.replace(/_node$/, '');
+  if (base.length <= CHIP_CHARS) return base;
+  const words = base.split('_');
+  let out = words[0];
+  for (const w of words.slice(1)) {
+    if (out.length + 1 + w.length > CHIP_CHARS) break;
+    out += `_${w}`;
+  }
+  return out;
 }
 
 /** Load as a state, the app's way: data grey while normal, amber high, red near saturation. */
@@ -55,7 +84,7 @@ function CoreBar({ core, pins }: { core: SysCore; pins: PinnedProc[] }) {
     <div class={`core${core.online ? '' : ' off'}`} role="img" aria-label={label} data-testid={`core-${core.id}`}>
       <div class="chips">
         {pins.map((p) => (
-          <span class="chip" key={p.pid} style={chipStyle(slotOf(p))}>{p.name.replace(/_node$/, '')}</span>))}
+          <span class="chip" key={p.pid} style={chipStyle(p)}>{chipLabel(p.name)}</span>))}
       </div>
       <div class="bar">
         {pct !== null && <div class="fill" style={{ height: `${Math.max(2, pct)}%`, background: loadColour(pct) }} />}
@@ -70,7 +99,7 @@ export function Cpu() {
   const sys = status.value?.system ?? null;
   const cores = sys?.cores ?? [];
   const pinned = sys?.pinned ?? [];
-  pinned.forEach(slotOf);           // colours in the gateway's order (by first core) the first time
+  assignSlots(pinned);              // new ones in the gateway's order (by first core)
   // Rows of at most 4 bars: 12 cores are 3 rows, and a chip has room for a readable name.
   const rows = Math.max(1, Math.ceil(cores.length / 4));
   const cols = Math.max(1, Math.ceil(cores.length / rows));
@@ -112,7 +141,7 @@ export function Cpu() {
                 <li class="head mono"><span /><span>processo</span><span>core</span><span>CPU %</span></li>
                 {pinned.map((p) => (
                   <li key={p.pid}>
-                    <span class="sw" style={chipStyle(slotOf(p))} />
+                    <span class="sw" style={chipStyle(p)} />
                     <span class="name">{p.name}</span>
                     <span class="mono muted">{p.cores_text}</span>
                     <span class="mono">{fmt(p.cpu_percent, 0)}</span>
@@ -120,7 +149,9 @@ export function Cpu() {
               </ul>)}
             <span style={{ fontSize: '14px' }} data-testid="unpinned">
               <b class="mono">{sys.unpinned ?? '—'}</b> processi non vincolati</span>
-            <span class="muted" style={{ fontSize: '12px' }}>CPU %: 100 = un core, media degli ultimi 5 s. Thread del kernel esclusi.</span>
+            <span class="muted" style={{ fontSize: '12px' }}>
+              CPU %: 100 = un core, media degli ultimi 5 s. Thread del kernel esclusi
+              {sys.kernel_threads != null && ` (${sys.kernel_threads})`}.</span>
           </section>
         </>)}
     </>

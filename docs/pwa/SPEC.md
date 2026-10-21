@@ -93,8 +93,15 @@ Pulsante **EMERGENZA** fisso, sempre visibile sopra la tab bar (in Guida: in alt
 - Una barra per core con il suo % (grigio sotto 60 %, ambra 60–85 %, rosso da 85 %); core offline
   tratteggiati, senza %. Righe da 4 barre al massimo (12 core = 3 righe), leggibili in verticale.
 - Sopra ogni core i chip dei processi vincolati a quel core (un processo su più core compare su
-  ognuno); legenda con un colore per processo (lo stesso dei chip), i suoi core e il suo CPU %
-  (100 = un core, media su 5 s); la riga "N processi non vincolati". Thread del kernel esclusi.
+  ognuno), col nome accorciato a un `_` (`ekf_global_filter_node` → `ekf_global`); legenda col
+  nome intero, un colore per processo (lo stesso dei chip), i suoi core e il suo CPU %
+  (100 = un core, media su 5 s); la riga "N processi non vincolati".
+- Colori dei processi: 6 tinte, senza giallo e rosso (sopra le barre sembrerebbero il carico);
+  dal 7° processo le stesse tinte col bordo tratteggiato, dal 13° punteggiato. Il colore resta al
+  processo (nome e core) finché è vincolato; uno che sparisce libera il suo.
+- Thread del kernel esclusi (i per-CPU come `ksoftirqd/N` sono vincolati per natura): non sono né
+  tra i vincolati né tra i non vincolati; la nota in fondo ne dice il numero. Esclusi anche i
+  processi in uscita (zombie, o senza più riga di comando).
 - Dati: `status.system` del gateway (`sysstats.py`): core a 1 Hz, processi ogni 5 s.
 
 ### Run (`design/Run.dc.html`)
