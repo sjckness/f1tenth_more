@@ -89,6 +89,10 @@ class _FakeTimer:
         self.cancelled = True
 
 
+#: The countdown these tests arm, in seconds (the stack default is 0).
+COUNTDOWN_S = 3.0
+
+
 class _FakeNode:
     """Just enough of rclpy.node.Node for MissionLoader.__init__ and the
     three service handlers under test -- see module docstring."""
@@ -126,6 +130,11 @@ class _FakeNode:
     def declare_parameter(self, name, default):
         if name == 'enable_mission_logger':
             return _FakeParam(True)  # the countdown these tests fire by hand
+        if name == 'mission_countdown_sec':
+            # Set here, not taken from stack_params (0.0 since 2026-10-21):
+            # what these tests are about is the window between start_mission
+            # and the first move, so there has to BE one.
+            return _FakeParam(COUNTDOWN_S)
         return _FakeParam(default)  # mission_file_name unset -- no auto-load
 
     def get_logger(self):
@@ -156,8 +165,9 @@ def _fire_countdown(loader, node):
     """Run the start countdown to completion, as the executor would.
 
     /mission/start_mission no longer starts the mission itself: it arms a
-    mission_countdown_sec timer (default 3 s) so every logged test begins from
-    a measured standstill, and the mission begins in _on_countdown_elapsed --
+    mission_countdown_sec timer (0 by default since 2026-10-21; _FakeNode sets
+    COUNTDOWN_S so there is a window to test) so a logged test begins from a
+    measured standstill, and the mission begins in _on_countdown_elapsed --
     which is also where /mpc/hold is released. These tests drive that timer
     directly rather than waiting three real seconds.
     """

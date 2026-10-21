@@ -1596,6 +1596,11 @@ class LidarFrontWallNode(Node):
 
         def num(x):
             return None if x is None or not math.isfinite(x) else round(x, 4)
+        # NOT ONLY DEBUG: `state`, `distance_m` and `front_id` are the mission
+        # wall stop's input since 2026-10-21 (f1tenth_behavior's
+        # check_stop_condition.front_from_debug, FRONT-WALL LOCK). The three
+        # come from this one publish, so the value is known to belong to
+        # that track. Keep the keys and their meaning.
         self.virtual_debug_pub.publish(String(data=json.dumps({
             'stamp': stamp.sec + stamp.nanosec * 1e-9,
             'state': wall_fusion.STATE_NAMES[state],

@@ -779,6 +779,17 @@ use_wall_tracker:
 wall_distance_max_age_s:
   default: 0.5
   description: "Mission wall stop (stop_condition type front_clearance): a wall distance (get_wall_distance_topic) older than this [s] by receipt time, never received, or not positive (-1.0 = no wall) HOLDS the car (/mpc/hold) with a WARN every 2 s instead of driving on the last value; the first fresh positive value releases it. The move's timeout_sec still runs. /perception/virtual_wall publishes once per new tracker estimate (lidar_front_wall_virtual_wall_rate_hz, 10 Hz nominal since cpu-cleanup R2; it was every scan before, ~6 Hz with up to 0.8 s per scan measured live on 2026-10-14 when CPU-bound) and /perception/front_distance once per depth frame."
+# Consumed by: f1tenth_behavior/behavior_executor_node.py (CheckStopCondition,
+# mission/wall_lock.py). Design: output/front_wall_lock/design.md.
+wall_lock_enabled:
+  default: true
+  description: "Mission wall stop (front_clearance): lock onto the first LiDAR-backed FRONT wall track (multi_wall_tracker id, source LIDAR or BOTH; a stereo-only FRONT is not locked) of the move and fire only on it, or on a FRONT track that re-acquires it within wall_follow_gate_m / wall_follow_gate_deg. While another wall is FRONT, or none is, the stop reads 'not yet' and the move stays bounded by its timeout_sec. Until the first FRONT of the move the stop reads /perception/virtual_wall exactly as before. Reads /perception/virtual_wall/debug (state, distance_m, front_id from one publish) and /perception/walls, both against wall_distance_max_age_s. NEW 2026-10-21 after M02 P002-R029/R031, where an avoidance swerve put another wall in the travel strip. false: the stop reads /perception/virtual_wall alone, as before."
+wall_follow_gate_m:
+  default: 0.3
+  description: "Wall lock re-acquisition: a FRONT track replaces a LOST locked wall only if its offset from the bumper is within this [m] of the locked wall's line, which is dead-reckoned in odom (lidar_front_wall.WallEstimator._predict's d = d0 - (p - p0) . n). 0.30 m is lidar_front_wall_wrong_surface_gate_m: the valley of the recorded innovation histogram (same-wall reacquisitions -16/+6 cm p10/p90). The go_to_object counterpart is object_follow_gate_m."
+wall_follow_gate_deg:
+  default: 15.0
+  description: "Wall lock re-acquisition: the replacement's normal must be within this [deg] of the locked wall's (odom frame). This is what tells a side wall at the same distance from the front wall, the case the lock exists for. NOT MEASURED: far above the line-normal noise (0.4-0.8 deg 1-sigma) and the odometry yaw drift of one move, far below the 90 deg of a side wall. The locked track coasting is capped by lidar_front_wall_wall_tracker_front_max_coast_sec / _m, the tracker's own FRONT coast caps."
 lidar_front_wall_wall_tracker_front_max_coast_sec:
   default: 0.5
   description: "Multi-wall tracker: the longest [s] a front track may go unmatched (COASTING, its line only predicted) and still be the FRONT wall; lidar_front_wall_wall_tracker_front_max_coast_m caps the same coast on odometry, whichever comes first. A coast is also only allowed while the travel strip does not see THROUGH the track (a return beyond it ends the coast on that scan) and while the track had a LiDAR fit in the last lidar_front_wall_front_lidar_recent_cycles cycles or is rect VERIFIED -- so for an unverified LiDAR wall the effective cap is 3 cycles, ~0.3 s at decimation 4. Past it the track stops being FRONT and /perception/virtual_wall is CLEAR, not -1 (block 3, 2026-10-16: the old -1 latch HELD the car until a new front track appeared, indefinitely in an open hall). 0.3 -> 0.5 because the distance cap and the strip test now bound what a time cap alone had to. The track itself lives on until wall_tracker_delete_after_sec (2 s)."
@@ -1752,6 +1763,87 @@ stop_ramp_rest_speed_mps:
   default: 0.05
   description: "What counts as 'at rest' [m/s] for the stop_ramp_arrive_tol_m arm of front_clearance: the car's measured forward speed on the active odometry topic (get_odom_topic, /odometry/filtered with localization_source ekf). Same value and same reasoning as object_rest_speed_mps, which is the object approach's version of this test: VESC telemetry reads exactly zero below vesc.yaml's erpm_deadband (500 ERPM = 0.091 m/s), and in the archived stops the filtered speed was at or below 0.02 m/s within 0.5 s of the zero command. A separate key rather than a reuse so that loosening the object arrival cannot silently loosen a wall stop."
 # ------------------------------------------------------------------
+# THE SPEED LAW -- what mpc_corr puts on /drive.speed.
+# mpc_controller/speed_channel.py has the design; output/speed_gap/
+# offset_free.md the identification and the verification matrix.
+#
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value) and the
+# closed-loop rig test/speed_channel_harness.py (get_value). No launch arg:
+# edit here and relaunch.
+#
+# WHY. The legacy law publishes v_meas + a_0 * ts. Against a car that returns
+# 76 % of its command at 0.33 m/s it settles where a * ts / (1 - r) says --
+# 0.35 commanded, 0.25 real, against vdes 0.5 (output/speed_gap/report.md) --
+# because the solver's speed state is re-seeded from the measurement every
+# tick and nothing integrates the error. offset_free gives the solver the
+# command as a state of its own, the real speed as a first-order lag of it
+# plus a disturbance d, and estimates d from the measured speed: zero
+# steady-state error on the real speed for any constant gain error, lag or
+# delay the command ceiling can cover.
+#
+# THE COMMAND CEILING IS UNCHANGED: max_forward_speed_mps, in both modes
+# (operator decision, 2026-10-21 -- the car delivers ~60-76 % of its command
+# only at low speed and about all of it at 0.5 m/s). Where vdes / gain would
+# need more, the command sits at the ceiling and anti-windup stops d asking
+# for more.
+speed_command_mode:
+  default: "offset_free"
+  description: "How mpc_corr turns the plan into /drive.speed. 'offset_free': the solver's model carries the command in force c (x0: the command the actuator last received, never the measurement) and the real speed v (x0: the measurement) as v+ = v + alpha (c + d - v), alpha = 1 - exp(-ts / speed_lag_tau_s), with d from a Luenberger observer; the published command is c at stage 1, c0 + a0 * ts, and a is the command RATE (a_min/a_max and the dAMin/dAMax slew keep their meaning). 'legacy': v_meas + a0 * ts, exactly as before -- the rollback; the observer still runs and reports d on /mpc/speed_channel, but nothing acts on it. offset_free falls back to legacy (WARN at start) when allow_reverse is on or use_rti_solver is false: neither the direction candidates nor the SLSQP path have the speed model."
+speed_lag_tau_s:
+  default: 0.18
+  description: "Nominal time constant [s] of the command -> real speed channel, the first-order lag the offset-free model assumes (exact ZOH: alpha = 1 - exp(-0.1 / tau) = 0.43). IDENTIFIED 2026-10-21 (output/speed_gap/offset_free.md section 1): 0.176 s, 95 % [0.142, 0.198], the median of instrumental-variable fits over 104 archived car runs at today's speed_to_erpm_gain (run IQR 0.11-0.25 s); the 35 archived stops give 0.159 s on their own. The 14:20 run alone cannot pin it (0.24-0.44 s by method). A NOMINAL value: the closed-loop matrix runs the plant at 0.5x and 2x it, and the steady state does not depend on it -- the observer's d absorbs the mismatch -- only the transient does."
+speed_delay_ticks:
+  default: 0
+  description: "Pure delay [control ticks, 0 or 1] between publishing a command and the speed responding, as the offset-free model and its observer assume it. 0: the command published now acts on the step it starts. IDENTIFIED 0: the archived stops (command stepping to zero, the only exogenous steps in the data) show a dead time below one 20 ms telemetry sample (p90 0.01 s over 35 stops); closed-loop delay fits are biased toward 0 and are not used. Delay never enters the steady state, only the transient: the matrix runs the plant at 0, 1 and 2 ticks against this model."
+offset_free_obs_bw_v_rad_s:
+  default: 5.0
+  description: "Bandwidth [rad/s] of the observer's speed pole: (I - L C) A gets a real pole at exp(-this * 0.1 s). With offset_free_obs_bw_d_rad_s it sets the two gains L_v, L_d in closed form (speed_channel.observer_gains; logged at start as 'SPEED | ... L_v= L_d='). Higher follows the measurement more closely and passes more of its noise."
+offset_free_obs_bw_d_rad_s:
+  default: 2.0
+  description: "Bandwidth [rad/s] of the observer's disturbance pole: how fast d, and so the steady-state correction, converges -- time constant about 1 / this (0.5 s at 2.0). Higher removes an offset faster and moves the command more with speed noise (sigma 0.02 m/s in the matrix)."
+offset_free_d_max_mps:
+  default: 0.35
+  description: "Saturation of the disturbance estimate |d| [m/s of command]. d is the speed the car behaves as if it were sent on top of the command: -0.12 for a car returning 76 % of 0.5 m/s, -0.19 for 60 %. The command itself stays inside max_forward_speed_mps whatever d says; this bounds how far a wrong estimate can move the plan."
+offset_free_est_min_speed_mps:
+  default: 0.12
+  description: "d is not integrated while the measured speed is below this [m/s]: standstill, static friction and the VESC telemetry deadband (erpm_deadband 500 ERPM, ~0.11 m/s at the shipped speed_to_erpm_gain, reads exactly 0) are not the lag the model describes. Above the deadband on purpose."
+offset_free_est_min_cmd_mps:
+  default: 0.10
+  description: "d is not integrated while the command in force is below this [m/s]: a zero or near-zero command is a stop, and braking is not the lag either (it is the measured 1.5 m/s^2 stop of stop_ramp_a_stop_mps2)."
+offset_free_stall_cmd_mps:
+  default: 0.20
+  description: "Stall detector: a command at or above this [m/s] ..."
+offset_free_stall_speed_mps:
+  default: 0.05
+  description: "... with |measured speed| below this [m/s] (stuck_speed_mps's value) ..."
+offset_free_stall_time_s:
+  default: 0.8
+  description: "... continuously for this long [s] is a STALL (blocked wheels, a wall): d is frozen and the command is capped at what it was when the stall was detected, so the controller never pushes harder against what is stopping the car. Several times the start-up from rest (0.08 s from a command above the VESC's ~500 ERPM threshold to motion in the archive, p90 0.17 s, max 0.62 s) so a normal start never trips it. Clears the tick the car moves or the command drops below offset_free_stall_cmd_mps. The reverse manoeuvre's own stuck detector (stuck_*) is not changed and still sees the same blocked_front / no_progress conditions."
+offset_free_odom_max_age_s:
+  default: 0.25
+  description: "d is not integrated on a tick whose odometry sample is older than this [s] by receipt, or the same sample as the previous tick's (no new information). Below odom_stale_timeout_sec (0.5), where the node stops driving altogether."
+v_breakaway_mps:
+  default: 0.25
+  description: "START-UP from rest [m/s]: while the measured speed is below offset_free_breakaway_speed_mps and the previous plan wanted to move, the command is lower-bounded at this on the first offset_free_breakaway_stages stages -- a JUMP, not a ramp from 0. Released the tick the car moves; the MPC continues from the command it holds. 0 disables the jump. FROM THE DATA (output/speed_gap/offset_free.md section 1.4), NOT 0.3-0.4: the VESC produces no motor current below a setpoint of ~450-540 ERPM (0.10-0.12 m/s at speed_to_erpm_gain 4516.9; the 10-19 bag, 452 ERPM -> 0 A, 542 ERPM -> 10-38 A); in all 34 archived starts the car moved 0.08 s [0.05, 0.11] after the first command above 500 ERPM and never failed to start; the 2026-08-07 sweep moved the car at its smallest command, 0.15 m/s. What starting cost the legacy law was the RAMP: 0.48 s median from the first command to motion, spent below that threshold. 0.20 clears it with the threshold's whole uncertainty; 0.25 adds margin for a heavier battery, a floor with more grip, a cold motor. The 0.4 m/s operating floor is a tracking-quality rule (gain >= 0.82 above it), not a breakaway one."
+offset_free_breakaway_speed_mps:
+  default: 0.08
+  description: "Measured speed [m/s] below which the car counts as at rest for the start-up bound v_breakaway_mps. Below the telemetry deadband (~0.11 m/s) so a car that has started is not kicked again by a reading of exactly 0 while it rolls slowly."
+offset_free_breakaway_stages:
+  default: 3
+  description: "How many stages (prediction steps from stage 1) the start-up bound covers. The stages after it are free, and the plan's command there is what 'wanted to move' is read from -- a solver that would rather stay put (an obstacle ahead) is never kicked."
+offset_free_moving_floor:
+  default: "object"
+  description: "Where the operating floor min_moving_speed_mps (>= 0.4 m/s while moving, zero only to stop) bounds the offset-free command. 'object': object approaches while they drive -- exactly where the legacy law floors the published speed (object_approach.floor_moving_speed), now a hard bound in the QP plus the same post-solve floor. 'all': every forward-driving solve (drive, turn, goal_distance, goal_pose too; missions asking for 0.3 m/s then get the floor). 'off': no floor. Legacy mode ignores this and keeps its own object floor."
+offset_free_speed_slack_weight:
+  default: 1000.0
+  description: "Penalty on the soft cap on the predicted REAL speed (min(max_forward_speed_mps, the stop ramp's box)), charged w * (s^2 + s) on one slack shared by the stages, like the boundary slack. Soft because the real speed is seeded from a noisy measurement; the cap starts at the first stage where less than half of the prediction is measurement (2 at tau 0.3), and the hard command cap covers the stages before."
+offset_free_override_tol_mps:
+  default: 0.03
+  description: "The mux output /ackermann_drive differing from what mpc_corr published by more than this [m/s] means another lane drives (safety_stop, joystick): d freezes and the model starts from what the VESC was actually sent."
+offset_free_applied_max_age_s:
+  default: 0.3
+  description: "A /ackermann_drive sample older than this [s] is not used (no lane active, or the mux down): the command in force is then what mpc_corr published."
+# ------------------------------------------------------------------
 # WALL TRACKER -- d_wall for the wall_turn increment.
 #
 # Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read by
@@ -2557,7 +2649,21 @@ enable_slam:
 # point is that nobody has to remember to turn it on.
 enable_mission_logger:
   default: false
-  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before. ALSO READ BY behavior_executor_node (forwarded by component_supervisor_node through behavior_bringup.launch.py): the mission start countdown (mission_countdown_sec, 15 s) is armed only when this is true; false starts a mission at once."
+  description: "Run mission_logger_node (automatic per-mission rosbag2 recording, started/stopped by /mission/status transitions). false: fully skipped, not just idle -- the node is not created and neither is the 5 Hz depth throttle that feeds its bags. FALSE SINCE 2026-10-16, down from true, because recording is not free on this box and must be asked for: the audit of corridor10m_20261015T171753 measured 12 cores at 95-97 %, /scan reaching a bag at 30 Hz against the 40 Hz urg_node published, /odometry/filtered at 38 Hz against the EKF own-reported 50, and the recorder writing 5.5 MB/s of which 73 % was Image and grid topics. A campaign run must pass enable_mission_logger:=true explicitly (f1tenth_logger/TEST_CAMPAIGN.md); everything inside the node is unchanged, and with true the behaviour is exactly as before. ALSO READ BY behavior_executor_node (forwarded by component_supervisor_node through behavior_bringup.launch.py): the mission start countdown (mission_countdown_sec, 0.0 s since 2026-10-21) is armed only when this is true; false starts a mission at once."
+# ============================================================
+# mission_countdown_sec -- f1tenth_behavior/mission/loader.py
+# ============================================================
+# Consumed by: MissionLoader (behavior_executor_node). The standstill between
+# /mission/start_mission and the car actually moving: the state stays LOADED,
+# the mission subtree never ticks, /mpc/hold stays engaged. Armed only while
+# enable_mission_logger is true; with the logger off a start begins at once,
+# whatever this says. Read LIVE at every start, so `ros2 param set
+# /behavior_executor_node mission_countdown_sec 15.0` re-arms it between
+# tests without a restart.
+mission_countdown_sec:
+  default: 0.0
+  description: "Standstill [s] between start_mission and the first move. 0.0 SINCE 2026-10-21 (down from 15.0): the wait before every run was removed on request -- a start now begins at once. THE PRICE, accepted: mission_logger's recorder starts at LOADED and needs 5-14 s of discovery before its first message (median 8.2 s, first test campaign), and the countdown was what made the bag cover the whole drive, so with 0 the bag of a short mission begins mid-drive or stays empty, and the standstill the jerk numbers were measured against is gone. Set it back per session with `ros2 param set` (read live at every start) when a run's bag has to cover the start. Only ever armed with enable_mission_logger true."
+
 # Consumed by: f1tenth_logger/mission_logger.launch.py: starts the 5 Hz depth
 # throttle (topic_tools) and forwards record_depth to mission_logger_node.
 mission_logger_record_depth:
@@ -3149,9 +3255,9 @@ go_to_enabled:
 # discovery included. Expired, or the load refused -> start_mission is never
 # called and the reason is logged. The standstill countdown between
 # start_mission and the car moving is a different parameter of a different
-# node: f1tenth_behavior's mission_countdown_sec (behavior_executor_node, 15 s
-# by default, armed only with enable_mission_logger true, not in this file --
-# see f1tenth_logger/TEST_CAMPAIGN.md).
+# node: f1tenth_behavior's mission_countdown_sec (behavior_executor_node, 0.0 s
+# by default since 2026-10-21, armed only with enable_mission_logger true --
+# see that key above and f1tenth_logger/TEST_CAMPAIGN.md).
 # Read once at node start; a ROS parameter of the same name overrides it.
 llm_load_confirm_timeout_s:
   default: 15.0
@@ -3263,8 +3369,8 @@ wall_clear_distance_m:
 # a moving joint published on /tf, not /tf_static, every detections lookup
 # fails (throttled WARN, batch skipped) and /costmap/semantic_tracks goes empty.
 unknown_objects_mode:
-  default: active
-  description: "LiDAR obstacles nothing recognised, as 'unknown' objects in the semantic layer (f1tenth_costmap/unknown_objects.py, obstacles v2). off: not computed. shadow: computed, tracked, published on /costmap/semantic_tracks, /costmap/semantic_markers and /costmap/unknown_objects/debug, but NOT on the MPC's obstacle list and no speed cap -- for a first live test. active: the MPC receives them like any object. Every occupied /scan cell is owned by a confirmed wall (within unknown_wall_tol_m), a confirmed recognised object (footprint + unknown_object_margin_m) or is an ISLAND; islands become candidates, candidates become tracks in the same tracker YOLO detections use; a detection that matches an unknown track upgrades it in place (same id)."
+  default: "off"
+  description: "OFF by default since 2026-10-21: live, the LiDAR-only objects were too many and too large -- corridor clutter and wall returns no confirmed wall owned became unknown objects whose disks reached across the travel strip, so the MPC had nowhere feasible to go and the car stopped. Recognised (YOLO) objects are UNAFFECTED: they keep reaching mpc_corr on /costmap/semantic_obstacles exactly as before (obstacles_for_mpc drops only the unknown tracks), and hard_stop_node, which reads /scan itself, is unchanged. Set 'shadow' to look at them again without any control effect. LiDAR obstacles nothing recognised, as 'unknown' objects in the semantic layer (f1tenth_costmap/unknown_objects.py, obstacles v2). off: not computed. shadow: computed, tracked, published on /costmap/semantic_tracks, /costmap/semantic_markers and /costmap/unknown_objects/debug, but NOT on the MPC's obstacle list and no speed cap -- for a first live test. active: the MPC receives them like any object. Every occupied /scan cell is owned by a confirmed wall (within unknown_wall_tol_m), a confirmed recognised object (footprint + unknown_object_margin_m) or is an ISLAND; islands become candidates, candidates become tracks in the same tracker YOLO detections use; a detection that matches an unknown track upgrades it in place (same id)."
 unknown_rate_hz:
   default: 10.0
   description: "Rate [Hz] of the semantic layer's LiDAR cycle (cells, candidates, unknown tracks) and of its /costmap/semantic_obstacles publish. 10 Hz = mpc_corr's control rate; the work order caps everything feeding the MPC at 10 Hz."
@@ -3300,7 +3406,7 @@ semantic_recognised_max_age_s:
   description: "A confirmed RECOGNISED track no detection has updated for this long [s] stays tracked (its lifecycle is the detections' own and only counts detection batches) but no longer owns LiDAR cells and never reaches the MPC's obstacle list. The case it exists for: the camera stops (output/avoidance/log.md, A3 -- depth died 0.8 s into both 2026-10-19 bags) and its last chair stayed in every solve for 89 s. Its LiDAR returns then become an unknown object, which is what it is once nothing recognises it."
 unknown_speed_cap_enabled:
   default: true
-  description: "Second layer: a confirmed unknown object in the travel strip within unknown_speed_cap_range_m of the bumper caps mpc_corr's desired speed at unknown_speed_cap_mps (/costmap/unknown_speed_cap; -1.0 = no cap). Never in shadow mode."
+  description: "Inert while unknown_objects_mode is 'off' (2026-10-21): speed_cap() returns -1.0 in any mode but 'active', so the mode is the ONE lever and this stays true for whenever unknowns are switched back on. Second layer: a confirmed unknown object in the travel strip within unknown_speed_cap_range_m of the bumper caps mpc_corr's desired speed at unknown_speed_cap_mps (/costmap/unknown_speed_cap; -1.0 = no cap). Never in shadow mode."
 unknown_speed_cap_mps:
   default: 0.4
   description: "The speed cap [m/s] an unknown object close ahead imposes."

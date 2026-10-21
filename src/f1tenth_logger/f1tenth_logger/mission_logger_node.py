@@ -20,7 +20,8 @@ PRE-ROLL: recording starts at LOADED, not at RUNNING, because the recorder
 needs 5-14 s of discovery before its first message (first test campaign,
 2026-09/10: median 8.2 s after the mission start, 17 of 58 bags empty when it
 started at RUNNING). f1tenth_behavior's mission_countdown_sec (LOADED ->
-RUNNING) was raised to cover that window. The manifest's start_time still
+RUNNING) was raised to cover that window, and is 0.0 again since 2026-10-21
+(stack_params.yaml), so the pre-roll is only what discovery itself manages. The manifest's start_time still
 means the MISSION start (the RUNNING edge): the MATLAB exporter matches runs
 on it within 2 s. record_start_time (the LOADED edge), mission_start_time and
 preroll_s are additions. A run that never reaches RUNNING keeps
@@ -376,6 +377,21 @@ _DEFAULT_TOPICS = [
     # The reverse manoeuvre: mode, stuck reason and timer, rear readiness,
     # BT permission, attempts, termination reason -- every control tick.
     '/mpc/reverse_status',
+    # --- the speed loop, end to end (output/speed_gap/report.md section 4,
+    # offset_free.md) -- all small, ~10-50 Hz ---
+    # mpc_corr's speed law on every /drive: the disturbance d, the command in
+    # force, the estimator state and why it froze (SpeedChannelStatus).
+    '/mpc/speed_channel',
+    # The commanded ERPM out of ackermann_to_vesc, and the VESC's own
+    # telemetry: measured ERPM, battery voltage, motor current, duty cycle.
+    # Without the pair the command -> speed gap is an inference from /odom;
+    # with it it is a measurement, and the voltage question answers itself.
+    '/commands/motor/speed',
+    '/sensors/core',
+    # The mission's wall target for the stop ramp, once per move
+    # (transient-local, recorded on rosbag2's own QoS adaptation like
+    # /mission/status): whether the ramp had a target at all.
+    '/mpc/stop_target',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',

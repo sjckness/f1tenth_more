@@ -127,6 +127,8 @@ from scipy.optimize import minimize
 from mpc_controller.vehicle_model import (
     f1tenth_state_fcn_dt_beta,
     f1tenth_state_fcn_dt_beta_jacobian,
+    f1tenth_state_fcn_dt_beta_lag,
+    f1tenth_state_fcn_dt_beta_lag_jacobian,
 )
 
 # osqp is a pip-only dependency (see docker/Dockerfile.* + README), not a
@@ -344,6 +346,7 @@ def solve_mpc_step(
     warm_start_z: Optional[np.ndarray] = None,
     control_period: Optional[float] = None,
     stage_spec: Optional[Dict] = None,
+    speed_model: Optional[Dict] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """
     Replica MATLAB:
@@ -409,6 +412,19 @@ def solve_mpc_step(
     'terminal' and 'path_ref' are GUIDANCE and are not part of the true cost
     planner_cost_corridor reports (reverse_mpc scores candidates without
     them, against the cost-to-go itself).
+
+    speed_model: None (default) is today's integrator speed model, v+ = v +
+    ts * a, operation for operation. A dict (speed_channel.SpeedChannel
+    builds it) switches the QP to the offset-free model: x0 has a FIFTH
+    entry, the command in force c, the speed row becomes the first-order lag
+    of vehicle_model.f1tenth_state_fcn_dt_beta_lag, and the scalar
+    vMin/vMax box is replaced by
+      'c_lo', 'c_hi'  length-N HARD box on the command c_{k+1};
+      'v_hi'          optional length-N SOFT cap on the real speed v_{k+1},
+                      through one slack shared by the stages, charged
+                      'slack_weight' * (s^2 + s) like the boundary slack.
+    RTI only (SLSQP raises), and not combined with stage_spec. x_pred keeps
+    its four columns; the predicted command is info['v_cmd_pred'].
     """
     # Horizon-invariant stage/terminal balance -- see scale_stage_weights.
     # Done here, once, so both backends and the true_cost they report are
@@ -417,6 +433,10 @@ def solve_mpc_step(
 
     if stage_spec is not None and solver != 'rti':
         raise ValueError('stage_spec (reverse candidates) needs the rti solver')
+    if speed_model is not None and solver != 'rti':
+        raise ValueError('speed_model (offset-free speed) needs the rti solver')
+    if speed_model is not None and stage_spec is not None:
+        raise ValueError('speed_model and stage_spec cannot be combined')
 
     if solver == 'slsqp':
         return _solve_slsqp(
@@ -432,9 +452,26 @@ def solve_mpc_step(
             boundary_hard=boundary_hard,
             boundary_slack_weight=boundary_slack_weight,
             boundary_slack_max=boundary_slack_max,
-            stage_spec=stage_spec)
+            stage_spec=stage_spec,
+            speed_model=speed_model)
     else:
         raise ValueError(f"Unknown solver={solver!r}, expected 'rti' or 'slsqp'")
+
+
+def _model_step(xk, uk, ts, params, speed_model=None):
+    """Step the solver's nonlinear model once: today's, or the offset-free one."""
+    if speed_model is None:
+        return f1tenth_state_fcn_dt_beta(xk, uk, ts, params["L"], params["lr"])
+    return f1tenth_state_fcn_dt_beta_lag(
+        xk, uk, ts, params["L"], params["lr"], speed_model)
+
+
+def _model_jacobian(xk, uk, ts, params, speed_model=None):
+    """Return (A, B) of _model_step at (xk, uk)."""
+    if speed_model is None:
+        return f1tenth_state_fcn_dt_beta_jacobian(xk, uk, ts, params["L"], params["lr"])
+    return f1tenth_state_fcn_dt_beta_lag_jacobian(
+        xk, uk, ts, params["L"], params["lr"], speed_model)
 
 
 def _rollout_true_dynamics(
@@ -443,6 +480,7 @@ def _rollout_true_dynamics(
     horizon: int,
     ts: float,
     params: Dict,
+    speed_model: Optional[Dict] = None,
 ) -> np.ndarray:
     """Roll a flat control sequence z=[delta_0,a_0,delta_1,a_1,...] forward
     through the TRUE nonlinear model (never the RTI path's linearized one),
@@ -450,16 +488,16 @@ def _rollout_true_dynamics(
     prediction regardless of which solver chose z -- MPC_corr.py's
     compute_predicted_clearance() etc. depend on that being physically
     meaningful, not a linearization artifact.
+
+    With a speed_model the rows carry the fifth (command) column too; the
+    caller splits it off.
     """
     x_pred_list = []
     x_roll = np.asarray(x0, dtype=float).copy()
     for k in range(horizon):
         uk = z[2 * k: 2 * k + 2]
         x_roll = np.asarray(
-            f1tenth_state_fcn_dt_beta(
-                xk=x_roll, uk=uk, ts=ts,
-                wheelbase=params["L"], lr=params["lr"]),
-            dtype=float)
+            _model_step(x_roll, uk, ts, params, speed_model), dtype=float)
         x_pred_list.append(x_roll.copy())
     return np.array(x_pred_list, dtype=float)
 
@@ -871,6 +909,7 @@ def _solve_rti(
     boundary_slack_max: float = BOUNDARY_SLACK_MAX_DEFAULT,
     control_period: Optional[float] = None,
     stage_spec: Optional[Dict] = None,
+    speed_model: Optional[Dict] = None,
 ) -> Tuple[np.ndarray, Dict]:
     """One linearization + one warm-started OSQP QP solve. See module
     docstring for the overall design and the MPC-optimization-pass plan for
@@ -886,6 +925,8 @@ def _solve_rti(
     boundary constraints" section. None/[] (default) means all 3 slots are
     disabled (BOUNDARY_DISABLED) -- a fully inert no-op, identical to this
     feature not existing.
+
+    speed_model: see solve_mpc_step. None builds today's QP, row for row.
     """
     if not OSQP_AVAILABLE:
         raise RuntimeError(
@@ -897,7 +938,11 @@ def _solve_rti(
     last_u = np.asarray(last_u, dtype=float)
     pref_nom = np.asarray(pref_nom, dtype=float)
     N = horizon
-    n_x, n_u = 4, 2
+    # The offset-free model carries the command in force as a fifth state.
+    sm = speed_model
+    n_x, n_u = (4 if sm is None else 5), 2
+    if x0.size != n_x:
+        raise ValueError(f'x0 has {x0.size} entries, the speed model needs {n_x}')
     # Stage 0's rate row spans the control period, the rest the prediction
     # step -- see solve_mpc_step's control_period.
     t_first = ts if control_period is None else float(control_period)
@@ -926,19 +971,14 @@ def _solve_rti(
     for k in range(N):
         uk = warm_start_z[2 * k: 2 * k + 2]
         u_ref.append(uk)
-        xk = np.asarray(
-            f1tenth_state_fcn_dt_beta(xk, uk, ts, params["L"], params["lr"]),
-            dtype=float)
+        xk = np.asarray(_model_step(xk, uk, ts, params, sm), dtype=float)
         x_ref.append(xk)
 
     # ---- 2. Linearize dynamics at each step.
     A_list, B_list, c_list = [], [], []
     for k in range(N):
-        A_k, B_k = f1tenth_state_fcn_dt_beta_jacobian(
-            x_ref[k], u_ref[k], ts, params["L"], params["lr"])
-        f_ref = np.asarray(
-            f1tenth_state_fcn_dt_beta(x_ref[k], u_ref[k], ts, params["L"], params["lr"]),
-            dtype=float)
+        A_k, B_k = _model_jacobian(x_ref[k], u_ref[k], ts, params, sm)
+        f_ref = np.asarray(_model_step(x_ref[k], u_ref[k], ts, params, sm), dtype=float)
         c_k = f_ref - A_k @ x_ref[k] - B_k @ u_ref[k]
         A_list.append(A_k)
         B_list.append(B_k)
@@ -1000,7 +1040,21 @@ def _solve_rti(
         rev_stages = []
     n_rev = len(rev_stages)
 
-    n_z = N * (n_u + n_x) + n_slack + n_rev
+    # ---- speed_model (offset-free speed; see solve_mpc_step). One slack for
+    # the soft real-speed cap, shared by the stages for the same reason the
+    # boundary slack is: the cap is one limit, and its worst violation is
+    # what matters. None leaves n_vs at 0.
+    if sm is not None:
+        c_lo_stage = [float(v) for v in sm['c_lo']]
+        c_hi_stage = [float(v) for v in sm['c_hi']]
+        v_hi_soft = sm.get('v_hi')
+        v_hi_stage = (None if v_hi_soft is None
+                      else [float(v) for v in v_hi_soft])
+        n_vs = 0 if v_hi_stage is None else 1
+    else:
+        n_vs = 0
+
+    n_z = N * (n_u + n_x) + n_slack + n_rev + n_vs
 
     def u_idx(k):
         return slice(k * n_u, k * n_u + n_u)
@@ -1014,6 +1068,8 @@ def _solve_rti(
 
     def r_idx(j):  # j = 0..n_rev-1, reverse-speed slack of stage rev_stages[j]
         return N * (n_u + n_x) + n_slack + j
+
+    vs_idx = N * (n_u + n_x) + n_slack + n_rev   # the speed-cap slack, if n_vs
 
     P = np.zeros((n_z, n_z))
     q = np.zeros(n_z)
@@ -1120,8 +1176,12 @@ def _solve_rti(
         # obstacle soft cost: local quadratic model (see
         # _linearize_obstacle_cost_rti).
         M_obs, b_obs = _linearize_obstacle_cost_rti(
-            x_ref_k1, params["L"], car_radius, avoidance_margin, obstacles_world,
+            x_ref_k1[:4], params["L"], car_radius, avoidance_margin, obstacles_world,
             rear_offsets=(rear_offsets if spec is not None and rear_stage[k] else None))
+        if n_x > 4:
+            # The command state does not enter the obstacle term.
+            M_obs = np.pad(M_obs, ((0, n_x - 4), (0, n_x - 4)))
+            b_obs = np.pad(b_obs, (0, n_x - 4))
         P[xk1_idx, xk1_idx] += 2.0 * weights["w_obs"] * M_obs
         q[xk1_idx] += weights["w_obs"] * b_obs
 
@@ -1206,7 +1266,20 @@ def _solve_rti(
         # speed bound: box on x_{k+1}[3].
         row_v = np.zeros(n_z)
         row_v[xk1_idx][3] = 1.0
-        if spec is None:
+        if sm is not None:
+            # OFFSET-FREE: the HARD box is on the command c_{k+1}, the one
+            # quantity this node sets exactly (SpeedChannel widens it where
+            # the rate rows could not reach it, so it is feasible by
+            # construction). The real speed is a measurement-seeded
+            # prediction that noise alone can push over any line, so its cap
+            # is SOFT: v_{k+1} - s <= v_hi_k, s >= 0 charged below.
+            row_c = np.zeros(n_z)
+            row_c[xk1_idx][4] = 1.0
+            add_row(row_c, c_lo_stage[k], c_hi_stage[k])
+            if n_vs:
+                row_v[vs_idx] = -1.0
+                add_row(row_v, -math.inf, v_hi_stage[k])
+        elif spec is None:
             add_row(row_v, limits["vMin"], limits["vMax"])
         else:
             add_row(row_v, v_lo_stage[k], v_hi_stage[k])
@@ -1266,6 +1339,17 @@ def _solve_rti(
         row_rv[x_idx(k + 1)][3] = 1.0
         add_row(row_rv, 0.0, math.inf)
         q[r_idx(j)] += w_rev
+
+    # ---- speed-cap slack (speed_model only): s >= 0, charged w * (s^2 + s)
+    # for the boundary slack's reason -- the linear part makes a tiny
+    # violation cost something.
+    if n_vs:
+        w_vs = float(sm.get('slack_weight', 1.0e3))
+        row_vs = np.zeros(n_z)
+        row_vs[vs_idx] = 1.0
+        add_row(row_vs, 0.0, math.inf)
+        P[vs_idx, vs_idx] += 2.0 * w_vs
+        q[vs_idx] += w_vs
 
     # ---- terminal position cost: w_term * ||x_N[:2] - pref_nom||^2, exact
     # quadratic, only at the LAST state block.
@@ -1328,6 +1412,9 @@ def _solve_rti(
     if n_rev:
         z_guess = np.concatenate([
             z_guess, [max(0.0, -float(x_ref[k + 1][3])) for k in rev_stages]])
+    if n_vs:
+        z_guess = np.concatenate([z_guess, [max(0.0, max(
+            float(x_ref[k + 1][3]) - v_hi_stage[k] for k in range(N)))]])
 
     prob = osqp.OSQP()
     # warm_starting/polishing: current osqp (>=1.x) setting names -- the
@@ -1369,7 +1456,13 @@ def _solve_rti(
     # control sequence) -- x_1..x_N are internal to this solver.
     u0 = zopt[:2].copy()
 
-    x_pred = _rollout_true_dynamics(x0, zopt, N, ts, params)
+    x_pred = _rollout_true_dynamics(x0, zopt, N, ts, params, sm)
+    v_cmd_pred = None
+    if sm is not None:
+        # Every consumer of x_pred reads (X, Y, psi, v); the command column
+        # is reported on its own.
+        v_cmd_pred = x_pred[:, 4].copy()
+        x_pred = x_pred[:, :4].copy()
 
     # True (non-quadratic-approximated) cost at this solution, for
     # apples-to-apples comparison/logging against _solve_slsqp -- see module
@@ -1377,7 +1470,7 @@ def _solve_rti(
     true_cost = planner_cost_corridor(
         z=zopt, x0=x0, last_u=last_u, pref_nom=pref_nom, corridor=corridor,
         horizon=N, ts=ts, params=params, weights=weights, vdes=vdes,
-        control_period=t_first, stage_spec=spec)
+        control_period=t_first, stage_spec=spec, speed_model=sm)
 
     info = {
         "success": success,
@@ -1403,7 +1496,13 @@ def _solve_rti(
     if spec is not None:
         # Reverse speed the solver bought per slack stage (m/s), for the
         # candidate's debug record.
-        info['rev_slack'] = [float(v) for v in z_full[N * (n_u + n_x) + n_slack:]]
+        info['rev_slack'] = [float(v) for v in z_full[N * (n_u + n_x) + n_slack:
+                                                      N * (n_u + n_x) + n_slack + n_rev]]
+    if sm is not None:
+        info['v_cmd_pred'] = v_cmd_pred
+        # How far over the soft real-speed cap the plan went, m/s (0.0 when
+        # it respected it or there was no cap).
+        info['speed_slack'] = float(z_full[vs_idx]) if n_vs else 0.0
 
     return u0, info
 
@@ -1421,6 +1520,7 @@ def planner_cost_corridor(
     vdes: float,
     control_period: Optional[float] = None,
     stage_spec: Optional[Dict] = None,
+    speed_model: Optional[Dict] = None,
 ) -> float:
     """
     Return the true (nonlinear) cost of the control sequence z.
@@ -1429,6 +1529,11 @@ def planner_cost_corridor(
     stages that ask for them, and w_rev * max(0, -v) on every stage. None is
     the original objective. A spec's 'terminal' model is NOT evaluated here:
     reverse_mpc scores the exact cost-to-go itself.
+
+    speed_model rolls z out through the offset-free model instead (x0 then
+    has five entries); every cost term reads the same state indices. The
+    speed-cap slack is a constraint penalty, like the boundary slack, and is
+    not part of this cost.
     """
     z = np.asarray(z, dtype=float)
     t_first = ts if control_period is None else float(control_period)
@@ -1439,16 +1544,7 @@ def planner_cost_corridor(
 
     for k in range(horizon):
         uk = z[2 * k: 2 * k + 2]
-        x = np.asarray(
-            f1tenth_state_fcn_dt_beta(
-                xk=x,
-                uk=uk,
-                ts=ts,
-                wheelbase=params["L"],
-                lr=params["lr"]
-            ),
-            dtype=float
-        )
+        x = np.asarray(_model_step(x, uk, ts, params, speed_model), dtype=float)
 
         v = x[3]
         delta = uk[0]

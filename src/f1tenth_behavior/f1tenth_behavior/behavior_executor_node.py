@@ -424,6 +424,7 @@ def create_root(
     stop_ramp_arrive_tol_m=0.15,
     stop_ramp_rest_speed_mps=0.05,
     wall_distance_max_age_s=0.5,
+    wall_lock_params=None,
     enable_proximity_event_stop=False,
     reverse_monitor=None,
     direction_aware_front_stop=True,
@@ -635,6 +636,8 @@ def create_root(
     # module docstring. object_params are stack_params.yaml values read in
     # main(); the defaults below only serve create_root() callers in tests.
     op = dict(object_params or {})
+    # wall_lock_params: the same, for CheckStopCondition's FRONT-WALL LOCK.
+    wl = dict(wall_lock_params or {})
     mission_progress = py_trees.composites.Sequence(name='mission_progress', memory=False)
     mission_progress.add_children([
         PublishMoveGoal(),
@@ -656,7 +659,14 @@ def create_root(
             # condition_eval's front_clearance branch.
             stop_ramp_arrive_tol_m=stop_ramp_arrive_tol_m,
             stop_ramp_rest_speed_mps=stop_ramp_rest_speed_mps,
-            wall_distance_max_age_s=wall_distance_max_age_s),
+            wall_distance_max_age_s=wall_distance_max_age_s,
+            wall_lock_enabled=wl.get('wall_lock_enabled', True),
+            wall_follow_gate_m=wl.get('wall_follow_gate_m', 0.30),
+            wall_follow_gate_deg=wl.get('wall_follow_gate_deg', 15.0),
+            wall_lock_coast_max_sec=wl.get(
+                'lidar_front_wall_wall_tracker_front_max_coast_sec', 0.5),
+            wall_lock_coast_max_m=wl.get(
+                'lidar_front_wall_wall_tracker_front_max_coast_m', 0.3)),
         AdvanceMove(),
     ])
 
@@ -799,6 +809,21 @@ def main():
     # (check_stop_condition.py, WALL DISTANCE FRESHNESS). Same single-sourcing.
     wall_distance_max_age_s = float(bootstrap_node.declare_parameter(
         'wall_distance_max_age_s', get_value('wall_distance_max_age_s')).value)
+    # ...and fires only on the wall the move locked onto (check_stop_condition.py,
+    # FRONT-WALL LOCK). The coast caps are the wall tracker's own FRONT caps,
+    # read from the same stack_params keys rather than copied.
+    wall_lock_params = {
+        'wall_lock_enabled': bool(bootstrap_node.declare_parameter(
+            'wall_lock_enabled', get_value('wall_lock_enabled')).value),
+    }
+    wall_lock_params.update({
+        name: float(bootstrap_node.declare_parameter(name, get_value(name)).value)
+        for name in (
+            'wall_follow_gate_m', 'wall_follow_gate_deg',
+            'lidar_front_wall_wall_tracker_front_max_coast_sec',
+            'lidar_front_wall_wall_tracker_front_max_coast_m',
+        )
+    })
     # The deceleration ramp's arrival arm for that same stop. Read here even
     # when enable_stop_ramp is false: the arm is harmless without the ramp (a
     # car that crosses the threshold at speed fires the strict arm first) and
@@ -838,6 +863,7 @@ def main():
         sys_obs_load_trip_consecutive_samples=sys_obs_load_trip_consecutive_samples,
         object_params=object_params,
         wall_distance_max_age_s=wall_distance_max_age_s,
+        wall_lock_params=wall_lock_params,
         stop_ramp_arrive_tol_m=stop_ramp_arrive_tol_m,
         stop_ramp_rest_speed_mps=stop_ramp_rest_speed_mps,
         enable_proximity_event_stop=enable_proximity_event_stop,

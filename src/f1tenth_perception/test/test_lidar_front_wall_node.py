@@ -373,6 +373,13 @@ class TestMultiWallTracker:
             for key in ('strip_range_m', 'front_reason', 'front_id', 'gap_rejected',
                         'merge_gap_refused', 'stereo_near_rejected', 'rejections'):
                 assert key in debug, key
+            # The mission wall stop reads these three from this payload
+            # (f1tenth_behavior check_stop_condition.front_from_debug).
+            assert debug['state'] in ('wall', 'clear', 'no_data')
+            assert 'distance_m' in debug
+            if debug['state'] == 'wall':
+                assert isinstance(debug['front_id'], int)
+                assert debug['distance_m'] == pytest.approx(_value, abs=1e-3)
             assert isinstance(debug['gap_rejected'], int)
             assert isinstance(debug['stereo_near_rejected'], int)
             assert isinstance(debug['rejections'], list)

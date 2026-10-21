@@ -1,8 +1,10 @@
 """The start countdown in mission/loader.py, and above all its stop paths.
 
-/mission/start_mission no longer starts the mission: it arms a
-``mission_countdown_sec`` timer (default 3 s) so every logged test begins from
-a measured standstill, and the mission begins in ``_on_countdown_elapsed``.
+/mission/start_mission can arm a ``mission_countdown_sec`` timer instead of
+starting the mission at once, so a logged test begins from a measured
+standstill, and the mission then begins in ``_on_countdown_elapsed``. The
+default is 0 (stack_params.yaml, since 2026-10-21), so these tests set a
+countdown explicitly -- ``COUNTDOWN_S``, 3 s.
 That creates a window in which the operator has asked for a start and the car
 has not moved yet -- and the only thing that matters about that window is that
 a stop arriving inside it always wins.
@@ -37,6 +39,7 @@ py_trees = pytest.importorskip("py_trees")
 loader_module = pytest.importorskip("f1tenth_behavior.mission.loader")
 
 from f1tenth_behavior.mission.loader import MissionLoader  # noqa: E402
+from f1tenth_params.param_defaults import get_value  # noqa: E402
 from f1tenth_behavior.mission.runtime import (  # noqa: E402
     CURRENT_XY_KEY,
     MISSION_KEY,
@@ -450,14 +453,17 @@ def test_a_finished_mission_is_announced_by_the_state_watcher():
     assert _event_names(node)[-1] == "mission_finished"
 
 
-def test_default_countdown_is_15_s_to_cover_mission_recorder_discovery():
-    """Default to 15 s, so the countdown covers mission recorder discovery."""
-    # The mission bag recorder starts at LOADED and needs 5-14 s of discovery
-    # (first test campaign) before its first message; the countdown is what
-    # makes the bag cover the drive. Coupled to the loader.py default.
+def test_the_default_countdown_comes_from_stack_params_and_is_zero():
+    """COUPLING: the default is stack_params' mission_countdown_sec, now 0.
+
+    0.0 since 2026-10-21: the wait before every run was removed, so a start
+    begins at once even with the logger on. It was 15 s to cover the mission
+    recorder's 5-14 s of discovery (it starts at LOADED), which is the price
+    stack_params.yaml records -- change the yaml and this test together.
+    """
     node = _Node(live_node_names=[], countdown_s=None)
     loader = MissionLoader(node)
-    assert loader._countdown_seconds() == 15.0
+    assert loader._countdown_seconds() == get_value('mission_countdown_sec') == 0.0
 
 
 # --------------------------------------------------------------------------
@@ -477,8 +483,18 @@ def test_logger_off_starts_at_once():
     assert _events(node)[-1]['countdown_s'] == 0.0
 
 
-def test_logger_on_keeps_the_15_s_countdown():
+def test_logger_on_with_the_default_countdown_also_starts_at_once():
+    """The default is 0, so the logger being on no longer delays a start."""
     loader, node = _make_loader(countdown_s=None, logger_on=True)
+    resp = loader._on_start_mission_service(_request(), _response())
+    assert resp.success is True and resp.message.startswith('started')
+    assert _countdown_timers(loader, node) == []
+    assert _state(loader) is MissionState.RUNNING
+
+
+def test_logger_on_arms_whatever_countdown_is_set():
+    """A countdown put back by `ros2 param set` still holds the car at LOADED."""
+    loader, node = _make_loader(countdown_s=15.0, logger_on=True)
     resp = loader._on_start_mission_service(_request(), _response())
     assert resp.message == 'starting in 15.0 s'
     assert _countdown_timers(loader, node)[0].period_sec == 15.0
