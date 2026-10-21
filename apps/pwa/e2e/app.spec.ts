@@ -138,11 +138,13 @@ test('EMERGENZA reset is disabled while the car moves', async ({ page, request }
   await expect(page.getByTestId('estop-reset')).toBeDisabled();
 });
 
-test('connection lost: red banner, commands off, EMERGENZA unreachable, then back', async ({ page, request }) => {
+test('connection lost: red banner, commands off, EMERGENZA still on (REST), then back', async ({ page, request }) => {
   await openApp(page);
-  await mock(request, 'freeze', { seconds: 4 });
+  await mock(request, 'freeze', { seconds: 4 });     // the WebSocket only: REST still answers
   await expect(page.getByTestId('lost-banner')).toBeVisible({ timeout: 3_000 });
-  await expect(page.getByText('EMERGENZA NON RAGGIUNGIBILE')).toBeVisible();
+  // a11ca36: the e-stop is REST, so a lost socket does not take the button away.
+  await expect(page.getByTestId('estop')).toBeEnabled();
+  await expect(page.getByTestId('estop-unavailable')).toHaveCount(0);
   await expect(page.getByRole('switch', { name: 'Attiva stack' })).toBeDisabled();
   await expect(page.getByTestId('ready-card')).toContainText('— — —');
   // Tabs still work.
