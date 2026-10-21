@@ -98,7 +98,7 @@ def qr_lines(text: str) -> list:
         raise SystemExit(
             'pairing_qr: no QR encoder. Either install qrencode, or, in the gateway venv:\n'
             '  ~/.local/share/f1tenth_gateway/venv/bin/pip install qrcode\n'
-            'and run this script with that venv\'s python.')
+            "and run this script with that venv's python.")
     code = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_L, border=2)
     code.add_data(text)
     code.make(fit=True)
@@ -134,7 +134,7 @@ def main(argv=None) -> int:
     ap.add_argument('--base-url', default=None,
                     help='https://<orin>.<tailnet>.ts.net (default: from `tailscale status`)')
     ap.add_argument('--env-file', default=ENV_FILE,
-                    help=f'the gateway\'s EnvironmentFile (default {ENV_FILE})')
+                    help=f"the gateway's EnvironmentFile (default {ENV_FILE})")
     ap.add_argument('--show-url', action='store_true',
                     help='also print the link in full -- it CONTAINS THE TOKEN')
     args = ap.parse_args(argv)
@@ -150,9 +150,9 @@ def main(argv=None) -> int:
         print('  ' + line)
     print()
     print(f'  {base}/')
-    print('  Inquadra il QR con la fotocamera dell\'iPhone, apri in Safari,')
-    print('  poi Condividi -> Aggiungi alla schermata Home e riapri dall\'icona.')
-    print('  (L\'abbinamento sta nella memoria dell\'app aperta dall\'icona.)')
+    print("  Inquadra il QR con la fotocamera dell'iPhone, apri in Safari,")
+    print("  poi Condividi -> Aggiungi alla schermata Home e riapri dall'icona.")
+    print("  (L'abbinamento sta nella memoria dell'app aperta dall'icona.)")
     if args.show_url:
         print()
         print('  ' + url)

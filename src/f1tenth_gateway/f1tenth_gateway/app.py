@@ -25,8 +25,8 @@ them:
 
 import asyncio
 from collections import deque
-import contextlib
 from concurrent.futures import ThreadPoolExecutor
+import contextlib
 import hmac
 import json
 import logging
