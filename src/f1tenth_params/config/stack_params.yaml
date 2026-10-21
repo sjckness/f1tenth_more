@@ -2822,8 +2822,9 @@ start_server:
 # llm/config/interrogations.yaml" -- see llm.launch.py's model_la/
 # _launch_setup() for the full model/interrogation pairing fix). This key's
 # value is now only the last-resort fallback used if an interrogation entry
-# somehow has no default_model of its own; the one entry that exists today
-# (`planner`) does, so this branch is not exercised in practice right now --
+# somehow has no default_model of its own; both entries that exist today
+# (`planner`, and two-llm-arch's `llm2_mpc_params`, which llm2.launch.py
+# starts) do, so this branch is not exercised in practice right now --
 # kept pointing at a real, currently-valid models.yaml key regardless (was
 # qwen_mpc_pruned, removed along with llm_mpc_tuner_node -- see git history --
 # now qwen25_3b_instruct, the same model `planner` itself already defaults to).

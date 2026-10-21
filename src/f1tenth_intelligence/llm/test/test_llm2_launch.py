@@ -6,8 +6,9 @@ config.py: the real LaunchDescription, a LaunchContext seeded with the
 arguments, and the OpaqueFunction performed by hand. Nothing is started.
 
 What it pins:
-  - LLM2 is off by default (enable_llm2, a config coupling with
-    stack_params.yaml);
+  - enable_llm2 defaults to false in stack_params.yaml (a config coupling;
+    that stack_bringup then leaves llm2.launch.py out is f1tenth_bringup's
+    test_stack_bringup_llm2_gate.py);
   - the shipped llm2_port is not LLM1's port (models.yaml's planner model).
     The intelligence component starts LLM1 by default, so a second server on
     that port could not bind and the node would quietly talk to LLM1;
@@ -59,7 +60,7 @@ def _launch_actions(**overrides):
     return ctx, opaque.execute(ctx)
 
 
-def test_llm2_is_off_by_default():
+def test_enable_llm2_defaults_to_false_in_stack_params():
     assert get_value('enable_llm2') is False
 
 

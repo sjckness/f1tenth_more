@@ -88,6 +88,27 @@ def test_a_valid_echo_is_published_on_llm2_mpc_params_as_sent(make_node, fake_se
     assert status['counters']['ok'] == 1 and status['counters']['echo_match'] == 1
 
 
+def test_a_valid_reply_that_is_not_an_echo_is_published_as_returned_with_echo_match_false(
+        make_node, fake_server, echo_answer):
+    # Valid but changed: published (MPC_corr's whitelist and ranges are the
+    # gate on values), and the status says it was not an echo.
+    def changed(body):
+        status, reply = echo_answer(body)
+        values = json.loads(reply['content'])
+        values['mpc_w_v'] = 5.0
+        return status, dict(reply, content=json.dumps(values))
+
+    node = make_node(fake_server(answer=changed))
+    node._on_tick()
+    (status,) = wait_for_statuses(node, 1)
+    assert status['outcome'] == 'ok' and status['echo_match'] is False
+    assert status['counters']['ok'] == 1 and status['counters']['echo_match'] == 0
+    (msg,) = node._update_pub.msgs
+    sent = dict(MOCK_PARAMS)
+    assert sent['mpc_w_v'] != 5.0
+    assert dict(zip(msg.names, msg.values)) == dict(sent, mpc_w_v=5.0)
+
+
 def test_a_tick_while_the_request_is_in_flight_is_skipped_not_sent(make_node, fake_server):
     server = fake_server(delay_s=0.5)
     node = make_node(server)

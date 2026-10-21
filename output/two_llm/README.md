@@ -16,7 +16,8 @@ latency, validation, application, logging) before a real tuner goes in.
 the same 33 processes and nodes as `campaign-final` (checked with a dry walk of
 the launch tree; the only difference is one extra parameter,
 `llm2_params_enabled: false`, on mpc_corr), and `mpc_corr` does not even
-subscribe.
+subscribe. The gate is pinned by
+`f1tenth_bringup/test/test_stack_bringup_llm2_gate.py`.
 
 ```
                  LLM1 (unchanged)                      LLM2 (new, off by default)
@@ -40,10 +41,13 @@ lets the consumer act on it.
 | Switch | Where | Default | What it does |
 |---|---|---|---|
 | `enable_llm2` | `stack_bringup.launch.py` arg (stack_params.yaml) | `false` | Starts the second llama-server (`llm2_model` on `llm2_port`) and `llm2_mpc_param_node`. Nothing else. |
-| `llm2_params_enabled` | `mpc_corr` parameter; launch arg of `mpc_corr.launch.py`, forwarded by `navigation.launch.py` and therefore by `stack_bringup` | `false` | `mpc_corr` subscribes to `/llm2/mpc_params` and applies valid updates. `false`: no subscription, no publisher, no whitelist parameters. |
+| `llm2_params_enabled` | `mpc_corr` parameter; launch arg of `mpc_corr.launch.py`, forwarded by `navigation.launch.py` and therefore by `stack_bringup` | `false` | `mpc_corr` subscribes to `/llm2/mpc_params` and applies valid updates. `false`: no subscription, no publisher, no whitelist parameters. **Read-only at run time**, like the whitelist: `ros2 param set /mpc_corr llm2_params_enabled false` is refused ("read-only parameter"); to switch it, restart mpc_corr (the `navigation` component). |
 
 Either can run without the other: LLM2 alone publishes and logs but changes
-nothing; `mpc_corr` alone waits for updates that never come.
+nothing; `mpc_corr` alone waits for updates that never come. **To stop LLM2
+from changing the controller at run time**, stop the producer (the
+`llm2.launch.py` process): the values last applied stay in force until
+mpc_corr restarts (section 5, item 8).
 
 **stack_bringup path:**
 
@@ -101,7 +105,7 @@ All three are recorded by `mission_logger` (`_DEFAULT_TOPICS`).
 |---|---|---|---|
 | `/llm2/mpc_params` | `f1tenth_messages/MpcParamUpdate` | `llm2_mpc_param_node` | A **valid** LLM2 reply: one JSON object with exactly the requested keys, all finite numbers. `seq` = the node's tick number, `source` = `llm2_mock`, `names[i]`/`values[i]` = `mpc_w_*` parameter names and values in declared (unscaled) units. Invalid replies publish nothing. A valid reply that is not an exact echo **is** published (with a warning); mpc_corr's whitelist is the gate. |
 | `/llm2/status` | `std_msgs/String` (JSON) | `llm2_mpc_param_node` | One message per tick, sent when that tick's outcome is known. Always the same keys: `seq`, `outcome` (`ok` / `invalid` / `timeout` / `error` / `skipped`), `reason`, `echo_match` (reply == sent), `latency_ms` (wall, request to reply), `timeout_s` (the timeout used), `in_flight_seq` (for a skipped tick), `tokens_cached`, `prompt_n`/`prompt_ms` (prefill), `predicted_n`/`predicted_ms` (generation), `source`, `counters` (cumulative ok / invalid / timeout / error / skipped / echo_match). `error` = no usable reply from the server (connection refused, HTTP 503 "Loading model", ...), as opposed to `invalid` = the model answered something unusable. |
-| `/mpc/applied_params` | `f1tenth_messages/MpcParamUpdate` | `mpc_corr` | Published after every application, with the update's `seq` and `source`, the names and values applied, and the stamp of the tick that applied them. An exact echo is applied (and echoed) too, so a bag shows request → application one to one. Rejected updates produce nothing here (only a warning in mpc_corr's log). |
+| `/mpc/applied_params` | `f1tenth_messages/MpcParamUpdate` | `mpc_corr` | Published after every application, with the update's `seq` and `source`, the names and values applied, and the stamp of the tick that applied them. An exact echo is applied (and echoed) too, so a bag shows request → application one to one, with one exception: two valid updates that arrive before one control tick are merged (newer value per name) and applied under the **newer** seq, so the older seq never appears here although its other values were applied; mpc_corr logs `seq=N merged over seq=M`. At 10 Hz control against 0.5 Hz LLM2 that needs a stalled control loop; it did not happen in the 5-minute run. Rejected updates produce nothing here (only a warning in mpc_corr's log). |
 
 `MpcParamUpdate.msg`: `std_msgs/Header header`, `uint32 seq`, `string source`,
 `string[] names`, `float64[] values`.
@@ -146,14 +150,25 @@ All three are recorded by `mission_logger` (`_DEFAULT_TOPICS`).
   | `mpc_w_v` | 4.2857 | 1.0 | 10.0 |
   | `mpc_w_du_delta` | 8.33 | 2.0 | 23.81 |
 
-- **Only `mpc_w_*` cost weights can ever be whitelisted.** Any other name
-  (car_radius, avoidance_margin, steering limits, dDelta, boundary flags,
-  corridor geometry, vdes, max speeds, allow_reverse, `mpc_rear.*`) refuses
-  mpc_corr's start with a FATAL log, as does a malformed whitelist (unpaired
-  lists, duplicates, non-finite bounds, negative minimum, min > max).
+- **Only `mpc_w_*` cost weights can ever be whitelisted, and never
+  `mpc_w_obs`.** Any other name (car_radius, avoidance_margin, steering
+  limits, dDelta, boundary flags, corridor geometry, vdes, max speeds,
+  allow_reverse, `mpc_rear.*`) refuses mpc_corr's start with a FATAL log, as
+  does a malformed whitelist (unpaired lists, duplicates, non-finite bounds,
+  negative minimum, min > max). `mpc_w_obs` is refused the same way: the
+  obstacle cost has no hard obstacle row behind it in the RTI solve (the
+  costmap boundary rows are soft by default), so a low `w_obs` would switch
+  obstacle avoidance off. The other weights only reshape the objective; the
+  input and speed boxes and the corridor's lateral bound stay hard rows.
+- The four LLM2 parameters (`llm2_params_enabled`, `llm2_param_whitelist`,
+  `_min`, `_max`) are declared **read-only**: they are read once at start,
+  so a runtime `ros2 param set` is refused with a reason instead of being
+  accepted, shown by `ros2 param get`, and ignored.
 - An update is **all or nothing**: one non-whitelisted name, NaN/inf, or
   out-of-range value rejects the whole message, with a warning saying why.
-  Nothing is clamped.
+  Nothing is clamped. With `allow_reverse` on, so is an update raising
+  `mpc_w_v` above `w_rev / (2·vdes_default)` (4.3 with the defaults),
+  whatever `llm2_param_max` says (section 5, item 6).
 - The subscription callback only validates and parks the update (locked,
   one slot; a second valid update before the next tick is merged over the
   first, newer value wins, with a warning). `control_loop` applies it **first
@@ -163,7 +178,9 @@ All three are recorded by `mission_logger` (`_DEFAULT_TOPICS`).
   reads). If the parameter write is refused, nothing is applied.
 - Startup warnings (start continues): a current value outside its own range
   (every echo would be rejected); `allow_reverse` on with the `mpc_w_v`
-  maximum above `w_rev / (2·vdes)` = 4.3 (see section 5).
+  maximum above `w_rev / (2·vdes)` = 4.3 (updates past 4.3 are then
+  rejected, see section 5), or the current `mpc_w_v` already above it (every
+  update carrying `mpc_w_v` is then rejected).
 
 `vdes` is **not** in the whitelist and cannot be: it is not a declared
 parameter but per-move mission state (each move sets it from its own speed),
@@ -284,7 +301,7 @@ tegrastats --stop
    callback that goes through the same whitelist and tick boundary.
 2. **Three different numbers for one name.** The declared value is what LLM2
    sends. `scale_stage_weights` multiplies the stage terms (`w_psi_stage`,
-   `w_corr`, `w_v`, `w_du_delta`, and `w_obs`/`w_line`/... if ever listed) by
+   `w_corr`, `w_v`, `w_du_delta`, and `w_line`/... if ever listed) by
    7/N = 0.35 at N = 20 on every solve; `w_term`/`w_psi` are terminal and not
    scaled. `w_du_delta` is further multiplied by `rate_weight_factor`
    ((control period / `mpc_prediction_dt_s`)², 1.0 at today's 0.1 s, 0.25 at
@@ -305,10 +322,15 @@ tegrastats --stop
    re-read at the tick boundary, which changes controller behaviour and was
    out of scope for a mock that must change nothing.
 6. **`w_v` and reverse.** `reverse_mpc` relies on `w_rev >= 2·w_v·vdes`
-   ("reversing is never cheaper than standing"). With `allow_reverse` on, an
-   `mpc_w_v` above 4.3 (at vdes 0.5) breaks it; mpc_corr only warns at
-   startup. Lower `llm2_param_max` for `mpc_w_v` if both are used. LLM2
-   updates never touch the reverse manoeuvre's own `mpc_rear.*` weights.
+   ("reversing is never cheaper than standing"). With `allow_reverse` on,
+   mpc_corr rejects (whole message) any update with `mpc_w_v` above
+   `w_rev / (2·vdes_default)` = 4.3, so LLM2 can lower `w_v` but raise it by
+   at most 0.3%. The check uses `vdes_default` (0.5), the speed the shipped
+   `w_rev` was sized for: a move commanded faster than 0.5 m/s already breaks
+   the invariant with the shipped weights (pre-existing, not LLM2's). A real
+   tuner that needs a higher `w_v` with reverse on must move `w_rev` with it,
+   which is a reverse-planner parameter and not tunable. LLM2 updates never
+   touch the reverse manoeuvre's own `mpc_rear.*` weights.
 7. **No observation input.** The mock prompt contains only the parameter
    JSON. A real tuner needs a compact state summary (speed error, cross-track
    error, solver status, corridor type, recent events) as a topic and in the
@@ -332,11 +354,12 @@ tegrastats --stop
 | File | What it pins |
 |---|---|
 | `llm/test/test_llm2_protocol.py` | JSON validation (exact echo, changed value, 15 invalid replies), refused mock sets, request body (greedy, `cache_prompt`, exact-key schema, stable prefix), skip-when-in-flight on the gate (8 concurrent ticks start exactly 1 request), fake HTTP server: exact JSON with timings, timeout, invalid content, HTTP 503, closed port |
-| `llm/test/test_llm2_mpc_param_node.py` | The real node against the fake server, ticks by hand: publishes the echo (source, seq, names, values), skips while in flight, publishes nothing on an invalid reply, warm-up then short timeout, refuses unpaired lists; config couplings (params file == `MOCK_PARAMS` == stack_params.yaml; the interrogation entry) |
-| `llm/test/test_llm2_launch.py` | `enable_llm2` off by default; shipped `llm2_port` is not LLM1's; `llm2.launch.py` starts one server with `llm2_model`'s file and flags on `llm2_port` and gives the node the same port |
+| `llm/test/test_llm2_mpc_param_node.py` | The real node against the fake server, ticks by hand: publishes the echo (source, seq, names, values), publishes a valid non-echo as returned with `echo_match` false, skips while in flight, publishes nothing on an invalid reply, warm-up then short timeout, refuses unpaired lists; config couplings (params file == `MOCK_PARAMS` == stack_params.yaml; the interrogation entry) |
+| `llm/test/test_llm2_launch.py` | `enable_llm2` defaults to false in stack_params.yaml; shipped `llm2_port` is not LLM1's; `llm2.launch.py` starts one server with `llm2_model`'s file and flags on `llm2_port` and gives the node the same port |
+| `f1tenth_bringup/test/test_stack_bringup_llm2_gate.py` | `stack_bringup` includes `llm2.launch.py` exactly once, and its condition is false with the defaults and with `enable_llm2:=false`, true only with `enable_llm2:=true` |
 | `llm/test/conftest.py` | The fake llama-server fixture |
-| `mpc_controller/test/test_llm2_params.py` | Shipped whitelist and ranges (and the mock set inside them), non-weight names refuse the whitelist, malformed whitelists, all-or-nothing rejection (14 cases), inclusive bounds, the pending slot (take once, merge, 6 threads × 300 puts), startup warnings |
-| `mpc_controller/test/test_llm2_mpc_corr_node.py` | The real `MPCController`: off → no subscription/publisher; on → applied at the next tick, not by the callback, even when the update arrives mid-solve; rejected updates change and publish nothing and do not displace a parked one; `car_radius` in the whitelist refuses the start |
+| `mpc_controller/test/test_llm2_params.py` | Shipped whitelist and ranges (and the mock set inside them), non-weight names and `mpc_w_obs` refuse the whitelist, malformed whitelists, all-or-nothing rejection (14 cases), inclusive bounds, the reverse `w_v` limit, the pending slot (take once, merge, 6 threads × 300 puts), startup warnings |
+| `mpc_controller/test/test_llm2_mpc_corr_node.py` | The real `MPCController`: off → no subscription/publisher; on → applied at the next tick, not by the callback, even when the update arrives mid-solve; rejected updates change and publish nothing and do not displace a parked one; with `allow_reverse` on, `mpc_w_v` 10 is rejected and 4.0 applied; a runtime `set_parameters` on the switch or the whitelist is refused (on and off); `car_radius` or `mpc_w_obs` in the whitelist refuses the start |
 | `f1tenth_control/test/test_mpc_corr_launch_config.py` (2 added) | `llm2_params_enabled` reaches the node as bool False / True |
 
 ```bash
@@ -366,6 +389,8 @@ this session. On the car or the sim host: run the same short mission twice,
 | `f1tenth_params/config/stack_params.yaml` | LLM2 block after `llama_server_cwd` (7 keys); no MPC weight touched |
 | `mpc_controller/mpc_controller/llm2_params.py` | Whitelist / validation / pending slot |
 | `mpc_controller/mpc_controller/MPC_corr.py` | One block of 3 methods after `_weights_for`, one call in `__init__`, one at the top of `control_loop`, imports |
+| `mpc_controller/package.xml` | `rcl_interfaces` (the read-only `ParameterDescriptor`) |
+| `f1tenth_bringup/config/components.yaml` | Comment only: two interrogations now |
 | `f1tenth_control/launch/mpc_corr.launch.py`, `f1tenth_navigation/launch/navigation.launch.py` | `llm2_params_enabled` arg and its forwarding |
 | `f1tenth_logger/f1tenth_logger/mission_logger_node.py` | Records the three topics |
 

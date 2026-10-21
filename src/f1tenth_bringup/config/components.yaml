@@ -163,7 +163,10 @@ components:
     # overridden here -- both already default correctly (interrogation ->
     # planner, model -> '' auto-selecting planner's own default_model,
     # qwen25_3b_instruct -- see llm.launch.py's own model/interrogation
-    # pairing fix) with only one interrogation registered today.
+    # pairing fix). Two interrogations are registered today: planner (this
+    # one, llm.launch.py's default) and two-llm-arch's llm2_mpc_params, which
+    # llm.launch.py does not start (llm2.launch.py does, see stack_bringup's
+    # enable_llm2).
     - package: llm
       launch_file: llm.launch.py
 
