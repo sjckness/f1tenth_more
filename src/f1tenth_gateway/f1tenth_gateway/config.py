@@ -96,6 +96,7 @@ DEFAULTS: Dict[str, Any] = {
         'mpc_solver': '/mpc/solver_status',
         'map': '/slam/map',
         'vesc': '/sensors/core',
+        'link_status': '/comms/link_status',
     },
     'teleop_frame_id': 'base_link/pwa_teleop',
     'bt_open_service': '/behavior_executor_node/snapshot_streams/open',

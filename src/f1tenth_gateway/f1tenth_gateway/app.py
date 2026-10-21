@@ -251,6 +251,8 @@ class Gateway:
             'processes': procs, 'mission': self.mission_view(),
             'battery': latest.get('battery'), 'vesc_temp_c': latest.get('vesc_temp_c'),
             'cpu_percent': system.get('cpu_percent'), 'cpu_temp_c': system.get('cpu_temp_c'),
+            # f1tenth_comms link_manager, None when it does not run (report only).
+            'link': latest.get('link'),
             'drive': {'busy': self.teleop.holder is not None, 'blockers': self.drive_blockers()},
             'reset_allowed': self.reset_allowed(), 'transcription': self.transcriber.status(),
             'age_s': None if self.status_t is None else round(self.clock() - self.status_t, 1),
