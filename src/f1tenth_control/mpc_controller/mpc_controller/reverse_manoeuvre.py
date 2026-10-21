@@ -433,6 +433,7 @@ class ReverseSupervisor:
         self.travelled = 0.0
         self._stop_since: Optional[float] = None
         self._start: Optional[Tuple[float, float, float]] = None   # map frame
+        self._start_pose_odom: Optional[Tuple[float, float, float]] = None   # odom frame
         self._started_t = 0.0
         self._rear_fail = 0
         # Where (and facing which way) the car was stuck when the last reverse
@@ -636,6 +637,9 @@ class ReverseSupervisor:
         px, py = odom_to_map_point((x[0], x[1]), env.map_to_odom)
         yaw = float(x[2]) + (env.map_to_odom[2] if env.map_to_odom is not None else 0.0)
         self._start = (px, py, yaw)
+        # The distance travelled is NOT measured through that anchor: see
+        # _reverse_tick.
+        self._start_pose_odom = (float(x[0]), float(x[1]), float(x[2]))
 
     def _start_odom(self, env: RearEnv):
         sx, sy, syaw = self._start
@@ -645,8 +649,17 @@ class ReverseSupervisor:
     def _reverse_tick(self, now, x, env: RearEnv) -> Command:
         cfg = self.cfg
         sx, sy, syaw = self._start_odom(env)
-        back = (-math.cos(syaw), -math.sin(syaw))
-        self.travelled = max(0.0, (x[0] - sx) * back[0] + (x[1] - sy) * back[1])
+        # DISTANCE IN ODOM. The corridor stays anchored in map, but how far the
+        # car has backed up is dead reckoning from where the reverse began: odom
+        # is continuous, map -> odom is not, and a correction of it during the
+        # manoeuvre is localisation catching up, not motion. Read through the
+        # map anchor it was taken as motion: the 2026-10-20 15:39 reverse ended
+        # on its 2.5 s timeout with less than 0.5 m counted while
+        # /odometry/filtered had moved 0.81 m back and the clearance to the
+        # obstacle ahead had grown 0.60 m; on the 17:52-18:24 reverses the count
+        # sat at 0.000 for 1.0 s of motion and jumped up to 0.45 m in one tick.
+        ox, oy, oyaw = self._start_pose_odom
+        self.travelled = max(0.0, -(x[0] - ox) * math.cos(oyaw) - (x[1] - oy) * math.sin(oyaw))
         bx = x[0] - cfg.car_rear_offset_m * math.cos(x[2])
         by = x[1] - cfg.car_rear_offset_m * math.sin(x[2])
         remaining = max(self.requested - self.travelled, 0.0)

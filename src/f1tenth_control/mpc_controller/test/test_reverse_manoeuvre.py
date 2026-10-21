@@ -230,6 +230,7 @@ class _StubRear:
     def solve(self, x, steer_prev, corridor, obstacles, boundaries, *_a):
         self.calls += 1
         self.warm = 'warm'
+        self.corridor = corridor
         return -0.05, {}, self.ok, self.seconds
 
 
@@ -417,20 +418,49 @@ def test_the_bt_withdrawing_its_permission_ends_the_reverse():
     assert sup2.last_termination == 'bt_withdrawn: bt_allow_stale'
 
 
-def test_the_rear_corridor_stays_put_in_map_through_a_map_odom_jump():
-    sup, _ = _sup()
+def _reverse_through_a_map_odom_jump():
+    """Reverse 0.3 m in odom, then let the localisation correct map -> odom by 0.2 m."""
+    sup, rear = _sup()
     sup.request(0.0, X_STOPPED, 0.0, _env(map_to_odom=(0.0, 0.0, 0.0)))
     for k in range(10):
         sup.before_forward(k * TS, X_STOPPED, _env(map_to_odom=(0.0, 0.0, 0.0)))
     assert sup.mode == MODE_REVERSE
-    # The localisation corrects map -> odom by 0.2 m: the start pose, held in
-    # map, now reads 0.2 m further back in odom, so the same odom pose has
-    # travelled 0.2 m less.
     sup.before_forward(1.1, np.array([-0.3, 0.0, 0.0, -0.4]), _env(map_to_odom=(0.0, 0.0, 0.0)))
-    before = sup.travelled
+    before = (sup.travelled, rear.corridor['bumper'])
     sup.before_forward(1.2, np.array([-0.3, 0.0, 0.0, -0.4]), _env(map_to_odom=(0.2, 0.0, 0.0)))
-    assert before == pytest.approx(0.3, abs=1e-6)
-    assert sup.travelled == pytest.approx(0.1, abs=1e-6)
+    return sup, rear, before
+
+
+def test_the_rear_corridor_stays_put_in_map_through_a_map_odom_jump():
+    # The start pose, held in map, now reads 0.2 m further back in odom, and
+    # the corridor handed to the rear solver moves with it.
+    _s, rear, (_travelled, bumper_before) = _reverse_through_a_map_odom_jump()
+    assert rear.corridor['bumper'][0] - bumper_before[0] == pytest.approx(-0.2, abs=1e-9)
+    assert rear.corridor['bumper'][1] == pytest.approx(bumper_before[1], abs=1e-9)
+
+
+def test_a_map_odom_correction_is_not_distance_travelled():
+    # The car has backed up 0.3 m in odom on both sides of the correction.
+    sup, _rear, (travelled_before, _bumper) = _reverse_through_a_map_odom_jump()
+    assert travelled_before == pytest.approx(0.3, abs=1e-6)
+    assert sup.travelled == pytest.approx(0.3, abs=1e-6)
+
+
+def test_a_reverse_the_localisation_holds_still_in_map_ends_on_distance_not_timeout():
+    # The 2026-10-20 15:39 car run: map -> odom absorbed the motion, so the
+    # car stood still in map while odom moved back at 0.35 m/s. Counted
+    # through the map anchor, that reverse ran on to its timeout.
+    sup, _ = _sup()
+    k, _cmd = _into_reverse(sup)
+    t0 = k * TS
+    for i in range(1, 40):
+        back = 0.035 * i
+        sup.before_forward(t0 + i * TS, np.array([-back, 0.0, 0.0, -0.35]),
+                           _env(map_to_odom=(back, 0.0, 0.0)))
+        if sup.mode != MODE_REVERSE:
+            break
+    assert sup.last_termination == 'distance_done'
+    assert sup.travelled == pytest.approx(0.5, abs=0.04)
 
 
 def test_a_new_move_lifts_the_stuck_give_up():
