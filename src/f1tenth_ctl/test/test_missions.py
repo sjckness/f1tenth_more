@@ -1,5 +1,6 @@
 """Planned missions: storing RESULT lines, the summary, refusals of load and start."""
 
+import dataclasses
 import json
 import time
 
@@ -204,6 +205,31 @@ def test_start_reports_no_countdown_when_the_loader_starts_at_once(settings, mon
     st = missions.describe_state(settings, 'LOADED', cur['path'], now=cur['started_at'] + 6.0,
                                  countdown_s=15.0)
     assert st['state'] == 'loaded'
+
+
+@pytest.mark.parametrize('armed, counting', [(0.0, False), (15.0, True)])
+def test_load_guard_uses_the_countdown_the_last_start_armed(settings, monkeypatch,
+                                                            armed, counting):
+    """
+    6 s after a start, the next mission-load is refused only if that start armed a countdown.
+
+    F1T_MISSION_COUNTDOWN_S 15 (a stale ctl.env) must not refuse it for 20 s
+    when the loader started at once.
+    """
+    settings = dataclasses.replace(settings, mission_countdown_s=15.0)
+    mid = _stored(settings)
+    missions.set_current(settings, id=mid, path=missions.mission_path(settings, mid),
+                         started_at=time.time() - 6.0, countdown_s=armed)
+    seen = {}
+    monkeypatch.setattr(cli, '_stack_up', lambda s: True)
+
+    def fake_probe(s, mode, spec, timeout):
+        seen.update(spec)
+        return {'ok': True, 'ros_state': 'IDLE', 'load': {'ok': True, 'message': 'loaded'}}
+
+    monkeypatch.setattr(cli, 'run_rosprobe', fake_probe)
+    cli.cmd_mission_load(settings, Args(id=_stored(settings)))
+    assert seen['op'] == 'load' and seen['counting_down'] is counting
 
 
 def test_armed_countdown_reads_the_loader_answer():
