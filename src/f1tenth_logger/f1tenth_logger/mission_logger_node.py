@@ -70,6 +70,8 @@ loud one-time WARNING naming the exact package to install
 on the next start with no code or config change. The fallback is deliberately
 noisy rather than silent: sqlite3 bags are what Foxglove reads least well, so
 "it recorded fine" must not quietly mean "in the format you didn't want".
+The run-report overlay (mission_overlay) reads sqlite3 bags only: an mcap run
+gets the plain recorded stills, so the warning says that too.
 
 QoS -- THE TRAP THIS NODE EXPLICITLY GUARDS AGAINST: rosbag2's recorder does
 not simply inherit a publisher's QoS, and a recorder subscribing RELIABLE to
@@ -877,7 +879,9 @@ class MissionLoggerNode(Node):
             f'storage_id "{self.requested_storage_id}" is NOT a registered rosbag2 '
             f'writer on this system (registered: {sorted(available)}) -- falling back to '
             f'"{fallback}". For mcap: sudo apt install ros-humble-rosbag2-storage-mcap, '
-            'then restart this node; no config change needed.')
+            'then restart this node; no config change needed. But the run-report overlay '
+            '(mask and LiDAR on the snapshots) reads sqlite3 bags only: with mcap the '
+            'snapshots are the plain recorded frames.')
         return fallback
 
     # -- mission lifecycle -------------------------------------------------
