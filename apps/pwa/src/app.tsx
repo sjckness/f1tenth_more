@@ -2,16 +2,18 @@
 // the banners (connection lost, E-STOP), the screen wake lock during missions and Guida.
 import { useEffect, useState } from 'preact/hooks';
 import { openSession } from './api';
-import { conn, missionActive, online, setToken, token, toast, wakeLockMissing } from './store';
+import { conn, cpuFrom, missionActive, online, setToken, token, toast, wakeLockMissing } from './store';
 import { connect, disconnect } from './ws';
 import { EstopButton, LatchedBanner, LostBanner, TabBar, Toasts, TopBar } from './components/ui';
 import { Cockpit } from './screens/Cockpit';
+import { Cpu } from './screens/Cpu';
 import { Guida } from './screens/Guida';
 import { Missione } from './screens/Missione';
 import { Run } from './screens/Run';
 import { Telemetria } from './screens/Telemetria';
 
-const ROUTES = ['cockpit', 'missione', 'guida', 'telemetria', 'run'];
+// cpu: the CPU view, no tab of its own (the CPU tile opens it, its arrow goes back).
+const ROUTES = ['cockpit', 'missione', 'guida', 'telemetria', 'run', 'cpu'];
 
 function useRoute(): string {
   const get = () => {
@@ -101,7 +103,7 @@ export function App() {
   if (route === 'guida') {
     return (<div class="shell"><LostBanner /><Guida /><Toasts bottom /></div>);
   }
-  const Screen = { cockpit: Cockpit, missione: Missione, telemetria: Telemetria, run: Run }[route] ?? Cockpit;
+  const Screen = { cockpit: Cockpit, missione: Missione, telemetria: Telemetria, run: Run, cpu: Cpu }[route] ?? Cockpit;
   const needWake = wakeLockMissing.value && missionActive.value;
   return (
     <div class="shell">
@@ -118,7 +120,7 @@ export function App() {
         <Toasts />
       </div>
       <div class="estop-wrap"><EstopButton /></div>
-      <TabBar route={route} />
+      <TabBar route={route === 'cpu' ? (cpuFrom.value ?? 'cockpit') : route} />
     </div>
   );
 }

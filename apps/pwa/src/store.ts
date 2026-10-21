@@ -15,12 +15,25 @@ export interface MissionView {
   elapsed_s?: number; countdown_left_s?: number; started_by_app?: boolean;
   estop_latched?: boolean;
 }
+/** One core, from the gateway's /proc/stat deltas (sysstats.py); no % when offline. */
+export interface SysCore { id: number; online: boolean; percent: number | null }
+/** A process whose CPU affinity leaves out some online core (taskset -c). 100 % = one core. */
+export interface PinnedProc {
+  pid: number; name: string; cores: number[]; cores_text: string; cpu_percent: number | null;
+}
+/** The car's load as the gateway reads it, sampled at 1 Hz while a phone is connected. */
+export interface SysView {
+  t: number; cpu_percent: number | null; cores: SysCore[];
+  gpu: { percent: number | null; freq_mhz: number | null; max_mhz: number | null; source: string | null };
+  pinned: PinnedProc[]; unpinned: number | null; kernel_threads: number | null;
+}
 export interface Status {
   ok: boolean; error?: string | null; ready: boolean; failing: string[]; checks: Check[];
   checks_ok: number; checks_total: number; estop_latched: boolean;
   processes: Record<string, Proc>; mission: MissionView;
   battery?: { v: number; ok: boolean } | null; vesc_temp_c?: number | null;
-  cpu_percent?: number | null; drive: { busy: boolean; blockers: string[] };
+  cpu_percent?: number | null; system?: SysView | null;
+  drive: { busy: boolean; blockers: string[] };
   reset_allowed: { ok: boolean; why: string | null };
   transcription: { state: string; reason?: string | null };
   estop?: { available: boolean; why: string | null };
@@ -133,6 +146,8 @@ export const speedHist = signal<{ t: number; v: number | null; cmd: number | nul
 export const drive = signal<{ state: string; reason?: string | null }>({ state: 'idle' });
 export const toasts = signal<Toast[]>([]);
 export const wakeLockMissing = signal(false);
+/** The view whose CPU tile opened the CPU view (its back arrow returns there); null: opened by URL. */
+export const cpuFrom = signal<string | null>(null);
 
 export const online = computed(() => conn.value === 'online');
 

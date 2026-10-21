@@ -1,10 +1,11 @@
 // lamacchinina, the view once called Cockpit: route and code keep "cockpit"
 // (docs/pwa/design/Main.dc.html). READY, the failing checks, the three processes,
-// speed / VESC temperature / CPU.
+// speed / VESC temperature / CPU (tap: the CPU view) / GPU.
 import { post, waitJob } from '../api';
 import { online, status, tel, toast } from '../store';
 import type { Check, Proc } from '../store';
 import { fmt, Icon, Switch } from '../components/ui';
+import { CpuTile, GpuTile } from '../components/SysTiles';
 
 const CHECK_LABEL: Record<string, string> = {
   odometry: 'Odometria (EKF)',
@@ -119,10 +120,10 @@ export function Cockpit() {
         </div>
       </section>
 
-      <div class="grid3">
+      <div class="grid4">
         <div class="stat"><span class="k">VEL m/s</span><span class="v">{fmt(t?.v_meas, 2)}</span></div>
         <div class="stat"><span class="k">VESC °C</span><span class="v">{fmt(s?.vesc_temp_c, 0)}</span></div>
-        <div class="stat"><span class="k">CPU %</span><span class="v">{fmt(s?.cpu_percent, 0)}</span></div>
+        <CpuTile /><GpuTile />
       </div>
       {!online.value && (
         <div class="card pad" style={{ display: 'flex', gap: '12px', fontSize: '14px', color: 'var(--text-2)' }}>

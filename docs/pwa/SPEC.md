@@ -60,7 +60,8 @@ Pulsante **EMERGENZA** fisso, sempre visibile sopra la tab bar (in Guida: in alt
   (icona errore rossa o warning ambra, nome, dettaglio con valore e soglia).
 - Tre interruttori di processo: **Stack, Planner, Logger**, con sottotitolo di stato (es. `running · 14 nodi · 00:12:31`).
   Durante la transizione: stato "in avvio…/in arresto…", switch non toccabile.
-- Riga di numeri: velocità, temperatura VESC, CPU.
+- Riga di numeri: velocità, temperatura VESC, CPU, GPU (% e, sotto, la frequenza; `n/a` se il gateway
+  non legge nessuna GPU). Toccare la CPU apre la vista CPU.
 
 ### Missione (`design/Missione.dc.html`, `design/MissioneInCorso.dc.html`)
 - Input testo + pulsante microfono **hold-to-talk** (MediaRecorder, rilascio = invio → trascrizione → testo nel campo,
@@ -84,6 +85,17 @@ Pulsante **EMERGENZA** fisso, sempre visibile sopra la tab bar (in Guida: in alt
 - Grafico velocità ultimi 30 s: reale (linea piena) vs comandata (tratteggiata).
 - Behavior tree come grafo colorato: success verde, running bianco, idle grigio tratteggiato, failure rosso.
   Il BT è py_trees_ros: usare il topic snapshot del tree (verificare quale in Fase 0).
+- In alto CPU e GPU come in lamacchinina; toccare la CPU apre la vista CPU.
+
+### CPU (route `#/cpu`, senza tab)
+- Si apre toccando la CPU in lamacchinina o in Telemetria; la freccia "indietro" torna lì
+  (aperta da URL: a lamacchinina). La tab bar resta, con evidenziata la vista di partenza.
+- Una barra per core con il suo % (grigio sotto 60 %, ambra 60–85 %, rosso da 85 %); core offline
+  tratteggiati, senza %. Righe da 4 barre al massimo (12 core = 3 righe), leggibili in verticale.
+- Sopra ogni core i chip dei processi vincolati a quel core (un processo su più core compare su
+  ognuno); legenda con un colore per processo (lo stesso dei chip), i suoi core e il suo CPU %
+  (100 = un core, media su 5 s); la riga "N processi non vincolati". Thread del kernel esclusi.
+- Dati: `status.system` del gateway (`sysstats.py`): core a 1 Hz, processi ogni 5 s.
 
 ### Run (`design/Run.dc.html`)
 - Ultime run: id, missione, esito (OK verde / ABORT ambra / E-STOP rosso), data, durata, link **Report** e **Video**.
@@ -106,7 +118,7 @@ REST (tutte con `Authorization: Bearer <token>`):
 
 | Metodo | Path | Effetto |
 |---|---|---|
-| GET | `/api/status` | connessione, batteria, ready, checks[], processi, estop_latched, mission_state |
+| GET | `/api/status` | connessione, batteria, ready, checks[], processi, estop_latched, mission_state, `system` (CPU per core, GPU, processi vincolati) |
 | POST | `/api/process/{stack\|planner\|logger}` `{action: start\|stop}` | via f1tenth_ctl |
 | POST | `/api/estop` | `/mission/emergency_stop` + zero sul lane teleop |
 | POST | `/api/mission/transcribe` (audio) | → `{text}` (riusare il trascrittore del bot Telegram) |

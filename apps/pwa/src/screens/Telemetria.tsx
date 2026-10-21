@@ -1,10 +1,12 @@
 // Telemetria (design/Telemetria.dc.html): the SLAM map with the path driven and the pose,
-// the MPC's predicted horizon dashed (there is no raceline), speed over 30 s, the BT.
+// the MPC's predicted horizon dashed (there is no raceline), speed over 30 s, the BT;
+// on top the CPU (tap: the CPU view) and GPU tiles.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { api } from '../api';
 import { bt, mapVersion, missionActive, path, speedHist, tel } from '../store';
 import type { BtNode } from '../store';
 import { fmt } from '../components/ui';
+import { CpuTile, GpuTile } from '../components/SysTiles';
 
 interface MapMeta { version: number; width: number; height: number; resolution: number;
   origin: { x: number; y: number } }
@@ -230,5 +232,6 @@ function BtGraph() {
 }
 
 export function Telemetria() {
-  return (<><h1>Telemetria</h1><Trajectory /><SpeedChart /><BtGraph /></>);
+  return (<><h1>Telemetria</h1><div class="grid2"><CpuTile /><GpuTile /></div>
+    <Trajectory /><SpeedChart /><BtGraph /></>);
 }
