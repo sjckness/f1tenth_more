@@ -137,6 +137,7 @@ class Settings:
     estop_reset_wait_s: float
     mission_max_age_s: float
     mission_countdown_s: float
+    mission_discover_s: float
 
     @property
     def log_dir(self) -> str:
@@ -231,6 +232,14 @@ def settings_from_env(env_file: str, env: Dict[str, str]) -> Settings:
         mission_max_age_s=_float(env, 'F1T_MISSION_MAX_AGE_S', 300.0),
         # f1tenth_behavior's mission_countdown_sec, for telling "starting" apart.
         mission_countdown_s=_float(env, 'F1T_MISSION_COUNTDOWN_S', 15.0),
+        # How long a fresh participant gets to receive /mission/status before
+        # mission-load/start/status give up. Under the discovery server this is
+        # NOT quick: measured on the car 2026-10-21, a new node needed between
+        # 6 and 10 s for the latched sample, while the budget was 3 s -- so
+        # every mission-load refused with "no /mission/status: is behavior
+        # running?" although the BT was publishing it the whole time. The
+        # callers' own timeout is 25 s, so this had room to spare.
+        mission_discover_s=_float(env, 'F1T_MISSION_DISCOVER_S', 15.0),
     )
 
 

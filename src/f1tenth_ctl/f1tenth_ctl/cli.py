@@ -640,7 +640,8 @@ def _sim(settings: Settings) -> bool:
 
 
 def _mission_spec(settings: Settings, **kw) -> dict:
-    return {'status_topic': settings.status_topic, 'use_sim_time': _sim(settings), **kw}
+    return {'status_topic': settings.status_topic, 'use_sim_time': _sim(settings),
+            'discover_s': settings.mission_discover_s, **kw}
 
 
 def _plan_age(settings: Settings, rec: dict, args):
