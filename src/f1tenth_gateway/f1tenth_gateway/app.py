@@ -6,9 +6,10 @@ ROS and f1tenth_ctl are two ports (ros_bridge / ctl_port, or mock.py's
 stand-ins): nothing in here imports rclpy.
 
 Threads: uvicorn's event loop runs the handlers; anything that blocks
-(f1tenth_ctl, a ROS service call, the e-stop's 2 s window, a transcription)
-runs in the thread pool; the teleop publish loop runs in the ROS port's own
-thread, so a busy event loop never delays a zero (teleop.py).
+(f1tenth_ctl, a ROS service call, the e-stop's 2 s window, a transcription,
+the 1 Hz CPU/GPU sample) runs in the thread pool; the teleop publish loop
+runs in the ROS port's own thread, so a busy event loop never delays a zero
+(teleop.py).
 
 The rules that make the car safe are in teleop.py (watchdog, clamps, lease)
 and mission.py (auto-abort); this file enforces the preconditions around
@@ -45,6 +46,7 @@ from starlette.websockets import WebSocketDisconnect, WebSocketState
 from . import mapimg
 from .mission import ACTIVE, MissionTracker
 from .runs import Archive
+from .sysstats import SysStats
 from .teleop import Teleop
 
 log = logging.getLogger('f1tenth_gateway')
@@ -68,12 +70,13 @@ class Client:
 
 class Gateway:
     def __init__(self, cfg: Dict, make_ros, ctl, transcriber, token: str, world=None,
-                 clock=time.monotonic, wall=time.time):
+                 sysstats=None, clock=time.monotonic, wall=time.time):
         self.cfg = cfg
         self.ctl = ctl
         self.transcriber = transcriber
         self.token = token
         self.world = world                 # MockWorld in mock mode, else None
+        self.sysstats = sysstats if sysstats is not None else SysStats()
         self.clock, self.wall = clock, wall
         self.teleop = Teleop(cfg['teleop_cfg'])
         self.tlock = threading.Lock()      # the tracker is fed from ROS threads
@@ -244,6 +247,10 @@ class Gateway:
         if not checks:
             failing = st.get('failing') or []
         system = latest.get('system') or {}
+        # CPU, GPU, cores and pinned processes as the gateway reads them (sysstats.py);
+        # the stack's /diagnostics/system_status only for what it alone has, the temperature.
+        own = self.sysstats.snapshot()
+        cpu = (own or {}).get('cpu_percent')
         return {
             'type': 'status', 'ok': st.get('ok', False), 'error': st.get('error'),
             'ready': bool(st.get('ready')) and not failing, 'failing': failing,
@@ -251,7 +258,8 @@ class Gateway:
             'checks_total': len(required), 'estop_latched': latched,
             'processes': procs, 'mission': self.mission_view(),
             'battery': latest.get('battery'), 'vesc_temp_c': latest.get('vesc_temp_c'),
-            'cpu_percent': system.get('cpu_percent'), 'cpu_temp_c': system.get('cpu_temp_c'),
+            'cpu_percent': cpu if cpu is not None else system.get('cpu_percent'),
+            'cpu_temp_c': system.get('cpu_temp_c'), 'system': own,
             'drive': {'busy': self.teleop.holder is not None, 'blockers': self.drive_blockers()},
             'reset_allowed': self.reset_allowed(), 'transcription': self.transcriber.status(),
             'estop': self.estop_reach(),
@@ -493,6 +501,18 @@ class Gateway:
                     await self.broadcast(self.status_payload())
             await asyncio.sleep(float(self.cfg['client']['status_period_s']))
 
+    async def sysstats_loop(self) -> None:
+        """Sample CPU, GPU and pinned processes at 1 Hz, only while a phone is connected."""
+        loop = asyncio.get_running_loop()
+        while True:
+            t0 = self.clock()
+            if self.clients:
+                try:
+                    await loop.run_in_executor(self.pool, self.sysstats.sample)
+                except Exception:  # noqa: BLE001 - never let the loop die
+                    log.exception('system stats sample failed')
+            await asyncio.sleep(max(0.1, 1.0 - (self.clock() - t0)))
+
     async def telemetry_loop(self) -> None:
         period = 1.0 / float(self.cfg['client']['telemetry_hz'])
         n = 0
@@ -612,7 +632,8 @@ def create_app(gw: Gateway) -> FastAPI:
         gw._loop = asyncio.get_running_loop()
         gw.ros.start()
         gw.tasks = [asyncio.create_task(gw.status_loop()),
-                    asyncio.create_task(gw.telemetry_loop())]
+                    asyncio.create_task(gw.telemetry_loop()),
+                    asyncio.create_task(gw.sysstats_loop())]
 
     @app.on_event('shutdown')
     async def _shutdown():
@@ -823,7 +844,8 @@ def create_app(gw: Gateway) -> FastAPI:
             if op == 'set':
                 with w._lock:
                     for key in ('failing', 'battery_v', 'teleop_others', 'mux_listens',
-                                'countdown_s', 'move_s', 'estop_service_ready'):
+                                'countdown_s', 'move_s', 'estop_service_ready',
+                                'cores_offline'):
                         if key in body:
                             setattr(w, key, body[key])
                     if 'estop_latched' in body:

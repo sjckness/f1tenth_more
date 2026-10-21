@@ -205,6 +205,19 @@ def test_status_has_ready_checks_and_processes(gw):
     assert not s['ready'] and s['failing'] == ['scan']
 
 
+def test_status_carries_cores_gpu_and_pinned_processes_only_while_a_phone_watches(gw):
+    assert gw.client.get('/api/status', headers=H).json()['system'] is None
+    with connect(gw) as ws:
+        st = recv_until(ws, 'status', lambda m: m.get('system') is not None)
+    sysv = st['system']
+    assert [c['id'] for c in sysv['cores']] == list(range(12))
+    assert st['cpu_percent'] == sysv['cpu_percent']
+    assert sysv['gpu']['percent'] is not None and sysv['gpu']['freq_mhz'] == 408
+    pins = {p['name']: p['cores_text'] for p in sysv['pinned']}
+    assert pins['mpc_corr'] == '10-11' and pins['slam_toolbox'] == '2'
+    assert sysv['unpinned'] > 0
+
+
 def test_a_process_switch_shows_its_transition_and_never_retries(gw):
     r = gw.client.post('/api/process/logger', headers=H, json={'action': 'start'})
     assert wait(lambda: gw.client.get('/api/status', headers=H).json()['processes']['logger']

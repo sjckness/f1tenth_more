@@ -17,7 +17,7 @@ def build(cfg, mock: bool):
     from .app import Gateway, create_app
     token = config.token(cfg)
     if mock or cfg['mock']:
-        from .mock import MockCtl, MockRos, MockWorld
+        from .mock import MockCtl, MockRos, MockSysStats, MockWorld
         from .transcription import FakeTranscriber
         world = MockWorld()
         ctl = MockCtl(world)
@@ -25,7 +25,7 @@ def build(cfg, mock: bool):
         def make_ros(teleop, spec, on_status, on_outcome):
             return MockRos(world, teleop, on_status, on_outcome)
         gw = Gateway(cfg, make_ros, ctl, FakeTranscriber(cfg['transcription']), token,
-                     world=world)
+                     world=world, sysstats=MockSysStats(world))
     else:
         from .ctl_port import CtlPort
         from .ros_bridge import RosBridge

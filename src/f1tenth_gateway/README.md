@@ -24,6 +24,14 @@ tailscale serve :443 ──▶ 127.0.0.1:8770  f1tenth_gateway (uvicorn, unità 
   telemetria arriva a 10 Hz: posa, velocità misurata e comandata, sorgente del
   comando, batteria, VESC, CPU. Ci sono anche la mappa SLAM, la traiettoria, il
   BT e l'orizzonte MPC.
+- **Carico dell'Orin** (`sysstats.py`, nel messaggio di stato, campo `system`):
+  CPU totale e per core (`/proc/stat`, core online/offline), GPU % e frequenza,
+  i processi vincolati a dei core (`Cpus_allowed_list`, cioè i `taskset -c` dei
+  launch) con il loro CPU %. Letto dal gateway stesso, a 1 Hz e solo con un
+  telefono collegato; i processi ogni 5 s. Niente jtop, tegrastats o sudo: solo
+  `/proc` e sysfs. GPU sull'Orin (L4T R36):
+  `/sys/devices/platform/bus@0/17000000.gpu/load` (per mille) e
+  `/sys/class/devfreq/17000000.gpu/cur_freq`; su linus `nvidia-smi`, altrimenti n/a.
 - **Missioni**:
   - il comando (scritto o dettato) va al planner `plan-only` di `f1tenth_ctl`;
   - il piano validato è avviabile per 5 minuti;
@@ -315,3 +323,4 @@ uno; gli altri girano.
 | Guida: "un altro nodo pubblica su /teleop" | joystick acceso | spegni il joy node |
 | Microfono: errore | faster-whisper non installato, o modello non scaricato | passo 2; `~/.local/state/f1tenth_gateway/gateway.log` |
 | BT vuoto in Telemetria | `py_trees_ros_interfaces` assente, o il nodo del BT non espone gli snapshot stream | passo 2 |
+| GPU "n/a" sull'Orin | nessun file `load` della GPU leggibile (altro L4T?) | `cat /sys/devices/platform/bus@0/17000000.gpu/load`; `ls /sys/class/devfreq/`; i percorsi in `sysstats.py` (`GPU_LOAD_PATHS`) |

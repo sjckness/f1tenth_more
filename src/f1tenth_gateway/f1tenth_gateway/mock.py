@@ -14,6 +14,7 @@ Everything the gateway would publish on /teleop and /safety_stop is recorded
 import json
 import math
 import os
+import random
 import tempfile
 import threading
 import time
@@ -76,6 +77,7 @@ class MockWorld:
         # /mission/emergency_stop served: the e2e tests take it away to see
         # the app say the e-stop is out of reach.
         self.estop_service_ready = True
+        self.cores_offline: List[int] = []       # MockSysStats: the e2e can switch cores off
         self.path: List[tuple] = []
         self.path_version = 0
         self.bt_version = 1
@@ -96,6 +98,7 @@ class MockWorld:
             self.cmd, self.teleop_t = (0.0, 0.0, 'mpc'), 0.0
             self.teleop_others, self.mux_listens = 0, True
             self.estop_service_ready = True
+            self.cores_offline = []
             self.published.clear()
             self.current = {}
             self.plan_jobs = []
@@ -549,3 +552,75 @@ class MockRos:
                     data[row * w + col] = 100
         return {'version': 1, 'width': w, 'height': h, 'resolution': res,
                 'origin': {'x': -1.0, 'y': -3.0, 'yaw': 0.0}, 'data': data}
+
+
+# The stack's taskset pins (the launch files' defaults, scripts/check_cpu_pinning.py):
+# (node name, cores, its CPU % of one core while the car drives). Busy enough that a
+# mission shows amber and red cores: the car's audit saw 95-97 % on all 12 (output/cpu).
+MOCK_PINS = (
+    ('ekf_filter_node', [0, 1], 35.0), ('ekf_global_filter_node', [0, 1], 20.0),
+    ('slam_toolbox', [2], 85.0), ('foxglove_bridge', [3], 25.0),
+    ('behavior_executor_node', [4], 40.0), ('detection_3d_node', [6, 7], 60.0),
+    ('obstacle_projector_node', [6, 7], 30.0), ('yolo_detector_node', [8, 9], 130.0),
+    ('mpc_corr', [10, 11], 150.0),
+)
+
+
+class MockSysStats:
+    """SysStats on the MockWorld: the Orin's 12 cores, its GPU and the stack's pins, made up."""
+
+    def __init__(self, world: MockWorld, cores: int = 12):
+        self.w = world
+        self.n = cores
+        self.rng = random.Random(7)
+        self.view: Optional[Dict] = None
+        self.view_t: Optional[float] = None
+        self._procs_t = 0.0
+        self._procs: Dict = {}
+
+    def snapshot(self) -> Optional[Dict]:
+        if self.view is None or self.view_t is None or time.monotonic() - self.view_t > 5.0:
+            return None
+        return self.view
+
+    def sample(self) -> Dict:
+        from .sysstats import format_cpu_list
+        now = time.monotonic()
+        w = self.w
+        with w._lock:
+            stack = w.procs['stack']['state'] == 'running'
+            busy = 1.0 if w.ros_state == 'RUNNING' or abs(w.v) > 0.05 else 0.55
+            offline = set(w.cores_offline)
+        load = [8.0] * self.n
+        if stack:
+            for _name, cores, pct in MOCK_PINS:
+                for c in cores:
+                    if c < self.n:
+                        load[c] += pct * busy / len(cores)
+        cores = []
+        for c in range(self.n):
+            on = c not in offline
+            pct = min(100.0, max(0.0, load[c] + self.rng.uniform(-4.0, 4.0))) if on else None
+            cores.append({'id': c, 'online': on,
+                          'percent': None if pct is None else round(pct, 1)})
+        live = [x['percent'] for x in cores if x['percent'] is not None]
+        gpu_pct = (52.0 * busy + self.rng.uniform(-6.0, 6.0)) if stack else 0.0
+        gpu = {'percent': round(max(0.0, gpu_pct), 1),
+               'freq_mhz': (612 if busy == 1.0 else 408) if stack else 306,
+               'max_mhz': 816, 'source': 'mock'}
+        if not self._procs or now - self._procs_t >= 5.0:
+            self._procs_t = now
+            pinned = []
+            if stack:
+                for i, (name, pin, pct) in enumerate(MOCK_PINS):
+                    pinned.append({'pid': 4100 + 37 * i, 'name': name, 'cores': pin,
+                                   'cores_text': format_cpu_list(pin),
+                                   'cpu_percent': round(pct * busy * self.rng.uniform(0.85, 1.1),
+                                                        1)})
+            self._procs = {'pinned': pinned, 'unpinned': 141 if stack else 96,
+                           'kernel_threads': 123}
+        self.view = {'t': time.time(),
+                     'cpu_percent': round(sum(live) / len(live), 1) if live else None,
+                     'cores': cores, 'gpu': gpu, **self._procs}
+        self.view_t = now
+        return self.view
