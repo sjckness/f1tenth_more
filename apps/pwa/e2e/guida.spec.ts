@@ -39,6 +39,26 @@ test('gas held: the car gets 0.4..limit on /teleop; released: a zero at once', a
   expect(Date.now() - t0).toBeLessThan(10_000);
 });
 
+test('gas pulled back: reverse down to -0.4 with RETROMARCIA shown; released: a zero at once', async ({ page, request }) => {
+  await openApp(page, 'guida');
+  await expect(page.getByTestId('reverse')).toBeHidden();
+  await press(page, 'gas', 1, 0.5, 0.95);                  // full reverse
+  await expect(page.getByTestId('reverse')).toBeVisible();
+  await expect(page.getByTestId('reverse')).toContainText('RETROMARCIA');
+  await page.waitForTimeout(800);
+  let pub = (await published(request)).filter((p) => p[1] === '/teleop');
+  const back = pub.filter((p) => p[2] < 0);
+  expect(back.length).toBeGreaterThan(5);
+  expect(Math.min(...back.map((p) => p[2]))).toBeGreaterThanOrEqual(-0.4 - 1e-9);   // max_reverse_speed_mps
+  expect(pub.some((p) => p[2] > 0)).toBeFalsy();
+  const before = pub.length;
+  await lift(page, 'gas', 1);
+  await page.waitForTimeout(150);
+  pub = (await published(request)).filter((p) => p[1] === '/teleop');
+  expect(pub.slice(before).some((p) => p[2] === 0)).toBeTruthy();
+  await expect(page.getByTestId('reverse')).toBeHidden();
+});
+
 test('the limit stepper is clamped to 0.4..1.0 and the server enforces it', async ({ page, request }) => {
   await openApp(page, 'guida');
   for (let i = 0; i < 10; i++) await page.getByTestId('limit-up').click();

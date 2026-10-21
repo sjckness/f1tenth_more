@@ -1,5 +1,6 @@
 // Guida (design/Guida.dc.html): landscape only, two thumbs. Gas = dead-man: the car moves
 // only while that thumb is down; lifting it sends a zero at once. 20 Hz while held.
+// Gas below the dead zone = reverse (gateway teleop.py): RETROMARCIA in amber while it lasts.
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { battery, drive, hello, online, rttMs, tel, wakeLockMissing } from '../store';
 import { send } from '../ws';
@@ -104,6 +105,12 @@ export function Guida() {
   const t = tel.value;
   const vReal = t?.v_meas ?? 0;
   const vCmd = t?.v_cmd ?? 0;
+  // Reverse: what this phone sends (at once, no round trip) or what the gateway still
+  // commands. reverse_wait: held at 0 until the car has stopped (direction change).
+  const maxRev = cfg?.max_reverse_speed_mps ?? 0;
+  const reverse = (held && maxRev > 0 && thr < -(cfg?.deadzone ?? 0.15))
+    || (t?.drive?.speed_cmd ?? 0) < 0;
+  const revWait = reverse && !!t?.drive?.reverse_wait;
   const maxSteerDeg = ((cfg?.max_steer_rad ?? 0.3) * 180) / Math.PI;
   const b = battery.value;
   const reason = drive.value.state === 'acquiring' ? 'richiesta della guida…'
@@ -148,18 +155,31 @@ export function Guida() {
           <Joystick axis="v" label="Gas" disabled={!canDrive} glow={held} onChange={onGas} testid="gas" />
           <div class="mono" style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <span class="muted" style={{ fontSize: '11px' }}>THR</span>
-            <span style={{ fontSize: '20px', fontWeight: 700 }}>{thr >= 0 ? '+' : ''}{Math.round(thr * 100)}%</span>
+            <span style={{ fontSize: '20px', fontWeight: 700, color: reverse ? 'var(--amber)' : undefined }}>
+              {thr >= 0 ? '+' : ''}{Math.round(thr * 100)}%</span>
             <span style={{ marginTop: '8px', fontSize: '10px', color: 'var(--green)', lineHeight: 1.3 }}>pollice<br />= dead-man</span>
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
+          {/* Always laid out, shown only in reverse: nothing moves under the thumbs when it appears. */}
+          <div role="status" aria-hidden={!reverse} class="mono" data-testid="reverse" style={{
+            visibility: reverse ? 'visible' : 'hidden', display: 'flex', alignItems: 'center', gap: '8px',
+            padding: '6px 14px', borderRadius: '999px', background: 'var(--amber)', color: 'var(--bg)',
+            fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 21l-8-9h5V3h6v9h5z" /></svg>
+            RETROMARCIA
+            <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: 0 }}>
+              {revWait ? 'attesa arresto' : `max ${maxRev.toFixed(1)} m/s`}</span>
+          </div>
           <div style={{ display: 'flex', gap: '22px', alignItems: 'flex-end' }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <span class="label" style={{ fontSize: '11px' }}>REALE</span>
               <span class="mono" style={{ fontSize: '54px', lineHeight: 1, fontWeight: 800 }} data-testid="v-real">{vReal.toFixed(2)}</span></div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', paddingBottom: '4px' }}>
               <span class="label" style={{ fontSize: '11px' }}>CMD</span>
-              <span class="mono muted" style={{ fontSize: '30px', lineHeight: 1, fontWeight: 700 }}>{vCmd.toFixed(2)}</span></div>
+              <span class={`mono${vCmd < 0 ? '' : ' muted'}`} data-testid="v-cmd" style={{ fontSize: '30px', lineHeight: 1, fontWeight: 700,
+                color: vCmd < 0 ? 'var(--amber)' : undefined }}>{vCmd.toFixed(2)}</span></div>
           </div>
           <div style={{ width: '220px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             <div style={{ position: 'relative', height: '8px', borderRadius: '999px', background: 'var(--border)' }}>

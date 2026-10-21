@@ -31,13 +31,14 @@ export interface Telemetry {
   cmd_source?: string | null; safety?: { active: boolean; source: string } | null;
   mission: MissionView; battery?: { v: number; ok: boolean } | null; estop_latched: boolean;
   drive: { holder: string | null; armed: boolean; tripped: boolean; limit_mps: number;
-           speed_cmd: number; steer_cmd: number };
+           speed_cmd: number; steer_cmd: number; reverse?: boolean; reverse_wait?: boolean };
   reset_allowed: { ok: boolean; why: string | null };
 }
 export interface Hello {
   client_id: string;
   teleop: { min_speed_mps: number; max_speed_mps: number; default_limit_mps: number;
-            limit_step_mps: number; deadzone: number; max_steer_rad: number; watchdog_s: number };
+            limit_step_mps: number; deadzone: number; max_steer_rad: number; watchdog_s: number;
+            max_reverse_speed_mps?: number };
   mission: { auto_abort_s: number };
   client: { lost_after_s: number; ping_s: number };
   mock: boolean;
