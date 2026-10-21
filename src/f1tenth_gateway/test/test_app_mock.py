@@ -152,6 +152,40 @@ def test_security_headers(gw):
     assert r.headers['cache-control'] == 'no-store'
 
 
+# ---- the e-stop's reach -----------------------------------------------------------------------
+
+def test_status_says_whether_the_estop_can_be_reached(gw):
+    """
+    /api/status carries the e-stop's reach, so the app can say so explicitly.
+
+    Without it the app had nothing to go on and gated EMERGENZA on its
+    WebSocket instead -- which the e-stop does not use (/api/estop is REST),
+    so the button went away exactly when the link was shaky and stayed
+    offered when the mux was not listening at all.
+    """
+    c = gw.client
+    assert c.get('/api/status', headers=H).json()['estop'] == {
+        'available': True, 'why': None,
+        'zero_subscribers': 1, 'service_ready': True, 'abort_ready': True}
+
+    c.post('/api/_mock/set', headers=H, json={'mux_listens': False})
+    e = c.get('/api/status', headers=H).json()['estop']
+    assert e['available'] is False and '/safety_stop' in e['why']
+
+    c.post('/api/_mock/set', headers=H, json={'mux_listens': True,
+                                              'estop_service_ready': False})
+    e = c.get('/api/status', headers=H).json()['estop']
+    assert e['available'] is False and '/mission/emergency_stop' in e['why']
+
+
+def test_the_estop_reach_fails_open_when_ros_cannot_answer(gw, monkeypatch):
+    def boom():
+        raise RuntimeError('no graph')
+    monkeypatch.setattr(gw.ros, 'estop_graph', boom)
+    e = gw.estop_reach()
+    assert e['available'] is True and 'RuntimeError' in e['unknown']
+
+
 # ---- status and processes ---------------------------------------------------------------------
 
 def test_status_has_ready_checks_and_processes(gw):

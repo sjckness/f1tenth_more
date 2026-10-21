@@ -254,6 +254,7 @@ class Gateway:
             'cpu_percent': system.get('cpu_percent'), 'cpu_temp_c': system.get('cpu_temp_c'),
             'drive': {'busy': self.teleop.holder is not None, 'blockers': self.drive_blockers()},
             'reset_allowed': self.reset_allowed(), 'transcription': self.transcriber.status(),
+            'estop': self.estop_reach(),
             'age_s': None if self.status_t is None else round(self.clock() - self.status_t, 1),
             'server_time': self.wall()}
 
@@ -275,6 +276,33 @@ class Gateway:
         return out
 
     # ---- preconditions -------------------------------------------------------------------------
+
+    def estop_reach(self) -> Dict:
+        """
+        Say whether an E-STOP would reach the car, for the app's button.
+
+        The app must never offer a button that cannot stop anything, and must
+        never hide one that can: this is about the graph (the mux subscribed
+        to /safety_stop, /mission/emergency_stop served), NOT about the
+        phone's WebSocket, which the e-stop does not go through -- /api/estop
+        is plain REST.
+
+        It fails OPEN. If the ROS port cannot answer at all we report
+        available, because f1tenth_ctl's own e-stop is still the fallback
+        (_estop_blocking) and a button that works is worth more than a
+        truthful label.
+        """
+        try:
+            graph = self.ros.estop_graph()
+        except Exception as exc:  # noqa: BLE001 - ROS not up yet
+            return {'available': True, 'why': None, 'unknown': f'{type(exc).__name__}: {exc}'}
+        missing = []
+        if not graph.get('service_ready'):
+            missing.append(self.ctl.estop_spec()['service'])
+        if graph.get('zero_subscribers', 0) < 1:
+            missing.append(self.ctl.estop_spec()['topic'])
+        return {'available': not missing, 'why': None if not missing else
+                'non raggiungibile: ' + ', '.join(missing), **graph}
 
     def drive_blockers(self) -> List[str]:
         why = []
@@ -795,7 +823,7 @@ def create_app(gw: Gateway) -> FastAPI:
             if op == 'set':
                 with w._lock:
                     for key in ('failing', 'battery_v', 'teleop_others', 'mux_listens',
-                                'countdown_s', 'move_s'):
+                                'countdown_s', 'move_s', 'estop_service_ready'):
                         if key in body:
                             setattr(w, key, body[key])
                     if 'estop_latched' in body:
