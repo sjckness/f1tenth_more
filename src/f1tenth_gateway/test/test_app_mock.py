@@ -101,6 +101,38 @@ def test_everything_needs_the_token(gw):
             ws.receive_json()
 
 
+def ws_refused(gw, send=None, timeout=8.0):
+    """Open /ws, optionally send one message, and return the close code."""
+    from starlette.websockets import WebSocketDisconnect
+    with pytest.raises(WebSocketDisconnect) as exc:
+        with gw.client.websocket_connect('/ws') as ws:
+            if send is not None:
+                ws.send_json(send)
+            ws.receive_json()
+    return exc.value.code
+
+
+def test_a_handshake_that_times_out_is_not_an_auth_failure(gw):
+    """
+    A client that does not authenticate in time gets 4408, never 4401.
+
+    The app stops reconnecting on 4401 and goes back to the pairing screen
+    (ws.ts), so answering a TRANSPORT failure with 4401 wedged it offline
+    until a reload -- no mission status, EMERGENZA disabled -- with a token
+    that was never wrong. iOS holds a backgrounded PWA's timers, so a resume
+    easily takes longer than ws_auth_timeout_s (2 s) to send its auth.
+    """
+    assert ws_refused(gw) == 4408
+
+
+def test_an_unreadable_auth_message_is_not_an_auth_failure(gw):
+    assert ws_refused(gw, send={'type': 'hello'}) == 4400
+
+
+def test_only_a_rejected_token_gets_4401(gw):
+    assert ws_refused(gw, send={'type': 'auth', 'token': 'nope'}) == 4401
+
+
 def test_too_many_failures_are_refused_for_a_minute(gw):
     for _ in range(5):
         gw.client.get('/api/status', headers={'Authorization': 'Bearer nope'})
