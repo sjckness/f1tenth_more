@@ -377,6 +377,21 @@ _DEFAULT_TOPICS = [
     # The reverse manoeuvre: mode, stuck reason and timer, rear readiness,
     # BT permission, attempts, termination reason -- every control tick.
     '/mpc/reverse_status',
+    # --- the speed loop, end to end (output/speed_gap/report.md section 4,
+    # offset_free.md) -- all small, ~10-50 Hz ---
+    # mpc_corr's speed law on every /drive: the disturbance d, the command in
+    # force, the estimator state and why it froze (SpeedChannelStatus).
+    '/mpc/speed_channel',
+    # The commanded ERPM out of ackermann_to_vesc, and the VESC's own
+    # telemetry: measured ERPM, battery voltage, motor current, duty cycle.
+    # Without the pair the command -> speed gap is an inference from /odom;
+    # with it it is a measurement, and the voltage question answers itself.
+    '/commands/motor/speed',
+    '/sensors/core',
+    # The mission's wall target for the stop ramp, once per move
+    # (transient-local, recorded on rosbag2's own QoS adaptation like
+    # /mission/status): whether the ramp had a target at all.
+    '/mpc/stop_target',
     # --- health, for correlating hz drops/dropped frames post-hoc ---
     '/diagnostics',
     '/diagnostics/system_status',

@@ -37,3 +37,11 @@ def test_the_campaign_profile_has_what_the_wall_replay_needs():
     for t in ('/perception/scene_labels/classes', '/camera/image_raw_5hz',
               '/zed2/zed_node/depth/depth_registered_5hz', '/perception/wall_observations'):
         assert t in topics, t
+
+
+def test_the_default_list_records_the_speed_loop_end_to_end():
+    # output/speed_gap: command ERPM, VESC telemetry, the ramp's target and
+    # mpc_corr's speed-law state, so the next run measures the gap directly.
+    for t in ('/drive', '/ackermann_drive', '/commands/motor/speed', '/sensors/core',
+              '/odom', '/odometry/filtered', '/mpc/stop_target', '/mpc/speed_channel'):
+        assert t in _DEFAULT_TOPICS, t
