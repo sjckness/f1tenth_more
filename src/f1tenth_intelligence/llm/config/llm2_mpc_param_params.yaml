@@ -2,8 +2,47 @@
 # llm2_mpc_params entry; loaded by llm2.launch.py. server_url is NOT set
 # here: llm2.launch.py injects it from the llm2_port launch argument, so the
 # port has one source of truth (stack_params.yaml's llm2_port).
-#
-# Placeholder until the node lands: the node's own parameters (rate,
-# timeout, mock parameter set) are added with it.
 /**:
-  ros__parameters: {}
+  ros__parameters:
+    # One request per tick. A tick that finds the previous request still in
+    # flight is skipped and counted on /llm2/status, never queued.
+    rate_hz: 0.5
+    # Timeout of one request once the server has answered. Measured on linus
+    # (Vulkan, warm, prompt cached): ~0.9 s for the six-parameter echo.
+    request_timeout_s: 10.0
+    # Timeout of the first request, and of the next one after any timeout or
+    # error: a fresh llama-server builds its GPU pipelines on the first
+    # request (26.4 s measured on linus/Vulkan; llm_planner_node allows 90 s
+    # for its own warm-up on the Orin).
+    warmup_timeout_s: 90.0
+    # Generation cap. The six-parameter echo is ~82 tokens; a reply cut off
+    # by the cap is not valid JSON and counts as invalid.
+    n_predict: 256
+    # The mock set, one name -> value list in two parallel arrays: MPC_corr
+    # parameter names and the values sent every tick. Today's launch-path
+    # values (stack_params.yaml defaults), so an exact echo applied by
+    # MPC_corr changes nothing; the node's tests hold this set equal to
+    # stack_params.yaml and to llm2_protocol.MOCK_PARAMS.
+    # mpc_w_du_delta is 8.33, the launch-path value, not the 8.5714 the
+    # comments around it quote (output/mpc_known_failures.md #13).
+    # Left out on purpose: vdes (per-move mission state, not a declared
+    # parameter), mpc_w_obs (safety term), mpc_w_line (always overridden where
+    # it acts), mpc_w_delta0 / mpc_w_u_a / mpc_w_du_a (zero on purpose).
+    # Every name must be on MPC_corr's LLM2 whitelist, or MPC_corr rejects
+    # the whole message. Write every value with a decimal point: a double
+    # array (9 instead of 9.0 makes it an integer array and the node refuses
+    # to start).
+    mock_param_names:
+      - mpc_w_term
+      - mpc_w_psi
+      - mpc_w_psi_stage
+      - mpc_w_corr
+      - mpc_w_v
+      - mpc_w_du_delta
+    mock_param_values:
+      - 9.0
+      - 4.5
+      - 4.7736
+      - 3.5714
+      - 4.2857
+      - 8.33

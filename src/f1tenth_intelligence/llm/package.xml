@@ -21,6 +21,10 @@
        Confirmed by grep across every .py file in this package before
        removing any of the three. -->
   <depend>rclpy</depend>
+  <!-- std_msgs is back: llm2_mpc_param_node publishes /llm2/status as a
+       std_msgs/String (JSON). llm_planner_node imports std_msgs/String
+       again too (its test_plan_result_topic publisher). -->
+  <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <!-- LoadMission.srv, used by llm_planner_node's /mission/load_mission client
        (start_mission/abort_mission are plain std_srvs/Trigger, already covered

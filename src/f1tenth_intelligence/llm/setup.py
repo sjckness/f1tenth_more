@@ -33,6 +33,7 @@ setup(
     entry_points={
         'console_scripts': [
             'llm_planner_node = llm.llm_planner_node:main',
+            'llm2_mpc_param_node = llm.llm2_mpc_param_node:main',
         ],
     },
 )
