@@ -129,3 +129,16 @@ class TestPredictionStepSurvivesSubstitution:
         value = _node_parameters({'mpc_prediction_dt_s': '0.1'})['mpc_prediction_dt_s']
         assert isinstance(value, float)
         assert value == pytest.approx(0.1)
+
+
+class TestLlm2ParamsEnabledSurvivesSubstitution:
+    """llm2_params_enabled (two-llm-arch) reaches the node as the bool it declares."""
+
+    def test_the_default_reaches_the_node_as_false(self):
+        # Off by default: mpc_corr does not even subscribe to /llm2/mpc_params.
+        value = _node_parameters()['llm2_params_enabled']
+        assert value is False, f'{value!r} ({type(value).__name__})'
+
+    def test_the_override_reaches_the_node_as_true(self):
+        value = _node_parameters({'llm2_params_enabled': 'true'})['llm2_params_enabled']
+        assert value is True, f'{value!r} ({type(value).__name__})'
