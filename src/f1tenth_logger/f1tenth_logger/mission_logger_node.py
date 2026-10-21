@@ -351,6 +351,13 @@ _DEFAULT_TOPICS = [
     # Solver convergence/timing per tick. Previously logger-only, recoverable
     # solely by parsing ~/.ros/log before rotation discarded it.
     '/mpc/solver_status',
+    # LLM2, the MPC-parameter tuner (two-llm-arch): what it proposed
+    # (MpcParamUpdate), one status per tick (JSON: outcome, latency, echo
+    # match, counters), and what mpc_corr actually applied, same seq. All
+    # 0.5 Hz and absent while enable_llm2 / llm2_params_enabled are off.
+    '/llm2/mpc_params',
+    '/llm2/status',
+    '/mpc/applied_params',
     # The MPC's own reference corridor geometry (build_straight_corridor's
     # left/right Bezier wall polylines + centerline, MarkerArray, odom frame).
     # NOT the same thing as /costmap/boundaries: those are 3 hard halfspace

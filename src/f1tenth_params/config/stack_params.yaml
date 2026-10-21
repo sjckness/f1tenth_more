@@ -2883,6 +2883,45 @@ llm2_model:
 llm2_port:
   default: 8084
   description: "TCP port of the LLM2 llama-server; llm2_mpc_param_node's server_url is built from it."
+# LLM2 on the MPC side: whether mpc_corr listens to /llm2/mpc_params at all, and
+# what it may change (mpc_controller/llm2_params.py). Independent of
+# enable_llm2: that one starts the producer, this one the consumer, and either
+# can run without the other.
+# Consumed by: f1tenth_control/launch/mpc_corr.launch.py (forwarded by
+# f1tenth_navigation/navigation.launch.py) and MPC_corr.py's declare_parameter()
+# default (get_value).
+llm2_params_enabled:
+  default: false
+  description: "true: mpc_corr subscribes to /llm2/mpc_params, applies a valid update at the start of the next control tick (through its declared mpc_w_* parameters, so ros2 param get shows the live value) and echoes it on /mpc/applied_params. false (default): no subscription at all; the controller is unchanged."
+# The whitelist: three parallel lists, one entry per parameter LLM2 may change,
+# bounds in DECLARED units (the numbers under MPC COST WEIGHTS, BEFORE the 7/N
+# stage scaling). Only mpc_w_* cost weights can be listed: any other name
+# refuses mpc_corr's start. An update with a name not listed here, a NaN or a
+# value outside [min, max] is rejected WHOLE, never clamped.
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read
+# only when llm2_params_enabled is true. No launch args (lists); override with
+# a params file or -p.
+#
+# The default set is the cost-SHAPE weights, each ~0.25x-2.5x of today's value
+# (output/two_llm/recon.md section 4); mpc_w_du_delta's maximum is its
+# rho/sigma^2 derivation, 23.8095, rounded up to 23.81. Left out on purpose:
+#   vdes         not a parameter: per-move mission state, set from each move's
+#                own speed, so an "unchanged" 0.5 would change a 0.4 m/s move
+#   mpc_w_obs    obstacle soft-deflection, a safety term
+#   mpc_w_line   always overridden by mpc_arc_line_sigma_m where it acts
+#   mpc_w_delta0, mpc_w_u_a, mpc_w_du_a   zero on purpose (see MPC COST WEIGHTS)
+# Every value llm2_mpc_param_node mocks (llm/config/llm2_mpc_param_params.yaml)
+# must be listed here and lie inside its range, or every mock update is
+# rejected.
+llm2_param_whitelist:
+  default: [mpc_w_term, mpc_w_psi, mpc_w_psi_stage, mpc_w_corr, mpc_w_v, mpc_w_du_delta]
+  description: "Parameters an LLM2 update may change (mpc_w_* cost weights only); parallel to llm2_param_min and llm2_param_max."
+llm2_param_min:
+  default: [2.0, 1.0, 1.0, 0.5, 1.0, 2.0]
+  description: "Lowest accepted value per llm2_param_whitelist entry, in declared (unscaled) units; inclusive."
+llm2_param_max:
+  default: [20.0, 10.0, 12.0, 9.0, 10.0, 23.81]
+  description: "Highest accepted value per llm2_param_whitelist entry, in declared (unscaled) units; inclusive."
 
 # ============================================================
 # Simulation-flavored args of f1tenth_description/launch/description.launch.py --

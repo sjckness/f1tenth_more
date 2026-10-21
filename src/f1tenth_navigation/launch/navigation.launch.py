@@ -63,6 +63,8 @@ from launch.substitutions import LaunchConfiguration
 #: docstring: narrow on purpose, and every default comes from stack_params.yaml
 #: via get_default, so it is the same number mpc_corr.launch.py would have used.
 _FORWARDED = (
+    # LLM2's parameter updates on/off (two-llm-arch), default false.
+    'llm2_params_enabled',
     'boundary_source',
     'boundary_max_sources',
     'boundary_hard',
