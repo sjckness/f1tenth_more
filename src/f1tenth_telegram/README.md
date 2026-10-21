@@ -134,8 +134,10 @@ steps:
    with **[✅ Yes, start] [❌ No]**, valid for 10 s.
 5. **✅ Yes, start.** `f1tenth_ctl mission-load <id>` loads *that* stored
    plan, after validating it with the stack's own parser. Then
-   `mission-start` checks again and starts it. The mission begins after the
-   loader's 15 s countdown.
+   `mission-start` checks again and starts it. The car moves at once: the
+   loader's `mission_countdown_sec` is 0.0 since 2026-10-21, and the answer
+   says `it moves now, no countdown`. If a countdown is armed, the answer
+   gives its length, as f1tenth_ctl read it from the loader.
 
 **The rules:**
 - **Time limits.** Every question expires 10 s after it is asked. A plan

@@ -1,7 +1,7 @@
 """The two-step planner flow: plan, then start, with every refusal."""
 
 from f1tenth_telegram import config, planner
-from f1tenth_telegram.flow import Flow, PLAN_MAX_AGE_S
+from f1tenth_telegram.flow import Flow, PLAN_MAX_AGE_S, when_it_moves
 import pytest
 
 from test_controller import FakeTransport, PLANNER_ERROR
@@ -50,6 +50,13 @@ def test_plan_then_start(setup):
     assert ['mission-start', '--id', offer.id] in fake.calls
     # One start per plan.
     assert flow.offer_start(offer.token)['kind'] == 'gone'
+
+
+def test_when_it_moves_says_now_for_0_and_no_number_for_none():
+    assert when_it_moves(0.0) == 'it moves now, no countdown'
+    assert when_it_moves(15.0) == 'it begins after the 15 s countdown'
+    assert when_it_moves(2.5) == 'it begins after the 2.5 s countdown'
+    assert when_it_moves(None) == "it begins after the loader's countdown"
 
 
 def test_discard(setup):

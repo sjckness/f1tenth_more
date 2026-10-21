@@ -233,6 +233,20 @@ def test_start_needs_the_second_confirmation(app, monkeypatch):
                for e in app.bot.edits)
 
 
+def test_a_start_with_no_countdown_says_it_moves_now_not_15_s(app, monkeypatch):
+    """The loader starts at once since 2026-10-21: f1tenth_ctl answers countdown_s 0.0."""
+    app.fake.answers['mission-start'] = {'ok': True, 'id': '20261020T153012-abc123',
+                                         'countdown_s': 0.0}
+    final, ctx = _plan_and_offer(app, monkeypatch)
+    start = _buttons(final[3])[0]
+    run(app.handlers['button'](button_update(OWNER, start, message_id=901)[0], ctx))
+    yes = _buttons(app.bot.sent[-1][2])[0]
+    run(app.handlers['button'](button_update(OWNER, yes, message_id=app.bot.next_id)[0], ctx))
+    started = [e[2] for e in app.bot.edits if 'started:' in (e[2] or '')]
+    assert started and 'started: it moves now, no countdown.' in started[-1]
+    assert '15 s' not in started[-1]
+
+
 def test_no_and_discard_start_nothing(app, monkeypatch):
     final, ctx = _plan_and_offer(app, monkeypatch)
     start, discard = _buttons(final[3])

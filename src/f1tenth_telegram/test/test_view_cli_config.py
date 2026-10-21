@@ -141,10 +141,27 @@ def test_cli_say_plans_then_starts_in_two_steps(monkeypatch):
     assert fake.sent == ['vai dritto per due metri']
     assert '🧭 Plan for «vai dritto per due metri»' in text and '[start / discard]' in text
     assert '🚗 The car will drive. Start? [yes / no]' in text
-    assert '🚗 mission 20261020T153012-abc123 started: countdown 15 s' in text
+    assert '🚗 mission 20261020T153012-abc123 started: it begins after the 15 s countdown' \
+        in text
     starts = [c for c in fake.calls if c[0] in ('mission-load', 'mission-start')]
     assert starts == [['mission-load', '20261020T153012-abc123'],
                       ['mission-start', '--id', '20261020T153012-abc123']]
+
+
+def test_cli_start_with_no_countdown_says_it_moves_now_not_15_s(monkeypatch):
+    """The loader starts at once since 2026-10-21: f1tenth_ctl answers countdown_s 0.0."""
+    from f1tenth_telegram import planner
+    monkeypatch.setattr(planner, 'POLL_S', 0)
+    fake = FakeTransport()
+    fake.state['planner'] = 'running'
+    fake.answers['mission-start'] = {'ok': True, 'id': '20261020T153012-abc123',
+                                     'countdown_s': 0.0}
+    out = io.StringIO()
+    cli.run(Controller(config.from_dict({}), fake),
+            ['say:vai dritto per due metri', 'plan', 'start', 'yes'], out=out)
+    text = out.getvalue()
+    assert '🚗 mission 20261020T153012-abc123 started: it moves now, no countdown' in text
+    assert '15 s' not in text
 
 
 def test_cli_no_start_without_the_second_yes(monkeypatch):

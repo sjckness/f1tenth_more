@@ -42,6 +42,21 @@ def collapse(text: Optional[str]) -> str:
     return ' '.join((text or '').split())
 
 
+def when_it_moves(countdown_s: Optional[float]) -> str:
+    """
+    After "started: ", when the car moves: f1tenth_ctl's countdown_s.
+
+    0 is the normal case since 2026-10-21 (the loader's mission_countdown_sec
+    0.0): the car is already moving, and a "15 s countdown" there leaves the
+    operator next to it. None (an answer without the number): no number either.
+    """
+    if countdown_s is None:
+        return "it begins after the loader's countdown"
+    if float(countdown_s) <= 0.0:
+        return 'it moves now, no countdown'
+    return f'it begins after the {float(countdown_s):g} s countdown'
+
+
 @dataclass
 class Offer:
     token: str

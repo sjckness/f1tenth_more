@@ -20,7 +20,7 @@ from typing import Iterable, Optional
 
 from . import planner, view
 from .controller import Controller, Panel
-from .flow import Flow
+from .flow import Flow, when_it_moves
 
 
 def show(panel: Panel, out=sys.stdout) -> list:
@@ -195,8 +195,8 @@ class PlannerChat:
         res = self.flow.start(nonce)
         if res['ok']:
             self.offer = None
-            self.out.write(f'  🚗 mission {res["id"]} started: countdown '
-                           f'{res.get("countdown_s") or 15:g} s\n')
+            self.out.write(f'  🚗 mission {res["id"]} started: '
+                           f'{when_it_moves(res.get("countdown_s"))}\n')
         else:
             self.out.write(f'  ❌ not started: {res["why"]}\n')
 

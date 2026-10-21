@@ -24,7 +24,7 @@ import time
 from . import planner, view
 from .config import Config
 from .controller import Controller, summary_estop
-from .flow import Flow
+from .flow import Flow, when_it_moves
 from .guard import allowed, is_stale
 from .transcribe import Transcriber
 
@@ -288,9 +288,8 @@ def run_bot(cfg: Config, controller: Controller, token: str,
         log.warning('user %s: mission start %s: %s', update.effective_user.id,
                     res.get('id'), 'started' if res['ok'] else f'refused: {res["why"]}')
         if res['ok']:
-            text = (f'🚗 Mission {res["id"]} started: it begins after the '
-                    f'{res.get("countdown_s") or 15:g} s countdown. 🛑 EMERGENCY is on '
-                    'the panel.')
+            text = (f'🚗 Mission {res["id"]} started: {when_it_moves(res.get("countdown_s"))}. '
+                    '🛑 EMERGENCY is on the panel.')
         else:
             text = f'❌ Not started: {res["why"]}'
         await edit(context.bot, chat_id, mid, text)
