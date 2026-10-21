@@ -3397,11 +3397,13 @@ class MPCController(Node):
         self.ramp_wall_pick = pick
         if (previous is None or pick.source != previous.source
                 or pick.track_id != previous.track_id):
-            # Throttled: a far wall's FRONT flickers with CLEAR, and with it
-            # locked / not_front (check_stop_condition logs the same way).
+            # NOT throttled: this is already edge-triggered, at most one line
+            # per debug payload, and a throttled call drops the transition for
+            # good -- ramp_wall_pick has moved on, so it is never re-logged.
+            # That lost the swerve's locked -> not_front whenever it came
+            # within 2 s of a far wall's CLEAR flicker.
             self.get_logger().info(
-                f'RAMP | aiming at {ramp_wall_source.describe(pick)}',
-                throttle_duration_sec=2.0)
+                f'RAMP | aiming at {ramp_wall_source.describe(pick)}')
         return pick.distance
 
     def _wall_stop_tick(self):

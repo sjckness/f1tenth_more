@@ -25,6 +25,7 @@ Run standalone: python3 -m pytest test/test_ramp_wall_source.py -v
 import json
 import math
 import os
+import sys
 from types import SimpleNamespace
 
 from f1tenth_params.param_defaults import get_value
@@ -51,14 +52,35 @@ class _Clock:
 
 
 class _Logger:
-    def __init__(self):
+    """Records what reaches the log, throttled the way rclpy throttles.
+
+    rclpy keeps one window per CALL SITE: a call with throttle_duration_sec
+    inside the window of the last emitted call from the same file and line
+    is dropped, on the node's clock.
+    """
+
+    def __init__(self, node):
+        self._node = node
+        self._last = {}
         self.infos, self.warns = [], []
 
+    def _emits(self, throttle_duration_sec=None, **_):
+        caller = sys._getframe(2)
+        site = (caller.f_code.co_filename, caller.f_lineno)
+        if throttle_duration_sec is not None:
+            last = self._last.get(site)
+            if last is not None and self._node.t - last < throttle_duration_sec:
+                return False
+        self._last[site] = self._node.t
+        return True
+
     def info(self, msg, **k):
-        self.infos.append(msg)
+        if self._emits(**k):
+            self.infos.append(msg)
 
     def warn(self, msg, **k):
-        self.warns.append(msg)
+        if self._emits(**k):
+            self.warns.append(msg)
 
 
 class _Node:
@@ -91,7 +113,7 @@ class _Node:
         self.v = self.vdes = 0.5
         self._last_published_steer = 0.1
         self.drive = []
-        self.log = _Logger()
+        self.log = _Logger(self)
         self.ramp_wall_pick = None
         self.ramp_wall_source = (RampWallSource(MAX_AGE, CLEAR_M)
                                  if lock_enabled else None)
@@ -196,6 +218,25 @@ def test_locked_with_a_side_wall_in_the_strip_there_is_no_wall_ramp():
     assert node.log.warns == []
     assert any('locked wall 7 is not in the way (track 9 is the front wall)' in m
                for m in node.log.infos)
+
+
+def test_every_ramp_source_transition_is_logged_however_close_together():
+    """Locked, swerve, back, swerve again, inside one second: four INFO lines.
+
+    A throttled transition line was dropped for good -- the pick had already
+    moved on -- so a far wall's CLEAR flicker could hide the swerve's
+    locked -> not_front, the line the car test watches for.
+    """
+    node = _Node()
+    for i, (distance, front_id) in enumerate(
+            [(1.8, TARGET), (SIDE_M, SIDE), (1.7, TARGET), (SIDE_M, SIDE)]):
+        node.t = 100.0 + 0.2 * i
+        node.lock(TARGET)               # the BT's id, every tick
+        node.scan(distance, front_id)
+        node._ramp_wall_distance()
+    aims = [m for m in node.log.infos if m.startswith('RAMP | aiming at')]
+    assert len(aims) == 4, aims
+    assert ['not in the way' in m for m in aims] == [False, True, False, True]
 
 
 def test_locked_and_back_in_front_the_ramp_reads_it_again():
