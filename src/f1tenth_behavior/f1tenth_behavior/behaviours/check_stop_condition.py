@@ -71,6 +71,32 @@ object approach on a hold, it does not pause it) or outside RUNNING (a
 HOLDING mission's hold belongs to HandleObjectAction). min_obstacle_distance
 keeps the old latched behaviour.
 
+FRONT-WALL LOCK (2026-10-21, wall_lock_enabled; mission/wall_lock.py has the
+rules and the reasoning). A front_clearance stop now fires only on the wall
+the move was sent to approach: the first LiDAR-backed FRONT track of the move,
+by the wall tracker's id, or a FRONT track that re-acquires it on the same
+line. While
+another wall is FRONT, or none is, the stop reads "not yet" -- the swerve that
+put a side wall in the strip no longer ends the move on it. Three more
+inputs, each by receipt time and against wall_distance_max_age_s, because they
+come from the same node and tick as the wall topic:
+  * /perception/virtual_wall/debug (JSON) -- the contract state, its value and
+    `front_id`, the track that value belongs to, from ONE publish. Reading the
+    id from there and the value from the Float32 would pair two different
+    scans across a front switch, which is exactly the tick that matters.
+  * /perception/walls (MultiWallTrackArray) -- the tracks' states, evidence
+    sources and odom lines: a stereo-only FRONT is not locked, the locked
+    track is kept while it coasts, and a re-acquisition is gated on its line.
+  * the odometry this behaviour already reads -- the bumper position
+    (f1tenth_description's base_front) the gate is evaluated at, and an
+    odometer for the coast cap.
+Runs after WALL DISTANCE FRESHNESS, on the same moves (front_clearance, not
+go_to_object, RUNNING), and is reset on the same (run_generation, move.id)
+trigger as the goal_reached latch. Until a lockable FRONT track has been seen
+the stop reads the wall topic exactly as before, and with wall_lock_enabled
+false it always does. Transitions are logged (INFO), a refused re-acquisition WARNs
+every 2 s.
+
 Also owns /mpc/goal_reached (std_msgs/Bool, published by mpc_corr for BOTH its
 distance-mode and pose-mode arrival -- same topic, mode-agnostic on the wire),
 for the goal_reached stop_condition type. mpc_corr only ever publishes `True`
@@ -134,6 +160,7 @@ sitting on the same (now-timed-out) move indefinitely, logged once via
 log_stub_once rather than every tick.
 """
 
+import json
 import math
 import time
 
@@ -141,8 +168,10 @@ import py_trees
 from nav_msgs.msg import Odometry
 from std_msgs.msg import Bool, Float32, String
 
-from f1tenth_messages.msg import ObjectApproachStatus
+from f1tenth_description.vehicle_frames import base_front_x
+from f1tenth_messages.msg import MultiWallTrackArray, ObjectApproachStatus
 
+from f1tenth_behavior.mission import wall_lock
 from f1tenth_behavior.mission.condition_eval import (
     ConditionDebouncer, EvalContext, evaluate)
 from f1tenth_behavior.mission.mission_config import STUB_STOP_CONDITION_TYPES
@@ -182,6 +211,39 @@ def _quaternion_to_yaw(q) -> float:
     )
 
 
+def _metres(value) -> str:
+    return 'n/a' if value is None else f'{value:.2f} m'
+
+
+def walls_from_message(msg) -> dict:
+    """The tracks of a /perception/walls MultiWallTrackArray, by id."""
+    return {int(t.id): wall_lock.WallTrack(
+        track_id=int(t.id), state=int(t.state), role=str(t.role),
+        rho=float(t.rho), theta=float(t.theta), source=int(t.source))
+        for t in msg.tracks}
+
+
+def front_from_debug(text: str):
+    """The FrontReading in a /perception/virtual_wall/debug payload, or None.
+
+    Reads three keys lidar_front_wall_node writes from one publish -- `state`,
+    `distance_m` and `front_id` -- and nothing else (test_lidar_front_wall_
+    node pins that they are there). None for a payload that is not JSON or
+    lacks `state`: an unreadable verdict is no verdict.
+    """
+    try:
+        payload = json.loads(text)
+        state = str(payload['state'])
+    except (ValueError, TypeError, KeyError):
+        return None
+    distance = payload.get('distance_m')
+    front_id = payload.get('front_id')
+    return wall_lock.FrontReading(
+        state=state,
+        distance=float(distance) if distance is not None else None,
+        front_id=int(front_id) if front_id is not None else None)
+
+
 class CheckStopCondition(py_trees.behaviour.Behaviour):
 
     def __init__(self, name='CheckStopCondition', odom_topic='/odom',
@@ -199,12 +261,39 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
                  object_rest_speed_mps=0.05,
                  stop_ramp_arrive_tol_m=0.15,
                  stop_ramp_rest_speed_mps=0.05,
-                 wall_distance_max_age_s=0.5):
+                 wall_distance_max_age_s=0.5,
+                 wall_lock_enabled=True,
+                 wall_follow_gate_m=0.30,
+                 wall_follow_gate_deg=15.0,
+                 wall_lock_coast_max_sec=0.5,
+                 wall_lock_coast_max_m=0.3,
+                 walls_topic='/perception/walls',
+                 wall_debug_topic='/perception/virtual_wall/debug',
+                 base_front_x_m=None):
         super().__init__(name=name)
         # Module docstring, WALL DISTANCE FRESHNESS.
         self.wall_distance_max_age_s = float(wall_distance_max_age_s)
         self._front_clearance_rx = None     # time.monotonic() of the last message
         self._wall_hold = False             # this behaviour engaged /mpc/hold
+        # Module docstring, FRONT-WALL LOCK. None when disabled: the stop then
+        # reads the wall topic as it always did.
+        self._wall_lock = (wall_lock.FrontWallLock(wall_lock.LockParams(
+            gate_m=float(wall_follow_gate_m),
+            gate_rad=math.radians(float(wall_follow_gate_deg)),
+            coast_max_sec=float(wall_lock_coast_max_sec),
+            coast_max_m=float(wall_lock_coast_max_m))) if wall_lock_enabled else None)
+        self._walls_topic = walls_topic
+        self._wall_debug_topic = wall_debug_topic
+        self._base_front_x_m = base_front_x_m   # resolved on first use (URDF)
+        self._walls = None                  # {id: WallTrack} of the last message
+        self._walls_rx = None
+        self._front_reading = None          # FrontReading of the last debug payload
+        self._front_reading_rx = None
+        self._wall_lock_phase = None        # last logged phase, for transitions
+        # Path length [m] of the odometry, for the lock's coast cap -- the
+        # tracker caps a FRONT coast on path length too, not displacement.
+        self._odometer = 0.0
+        self._odometer_xy = None
         self._object_status_topic = object_status_topic
         self._object_goal_end_topic = object_goal_end_topic
         self.object_reach_tol_m = float(object_reach_tol_m)
@@ -315,6 +404,21 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             ObjectApproachStatus, self._object_status_topic, self._object_status_cb, 10)
         self.object_end_pub = self.node.create_publisher(
             String, self._object_goal_end_topic, 10)
+        if self._wall_lock is not None:
+            self.node.create_subscription(
+                MultiWallTrackArray, self._walls_topic, self._walls_cb, 10)
+            self.node.create_subscription(
+                String, self._wall_debug_topic, self._wall_debug_cb, 10)
+
+    def _walls_cb(self, msg):
+        self._walls = walls_from_message(msg)
+        self._walls_rx = time.monotonic()
+
+    def _wall_debug_cb(self, msg):
+        # An unreadable payload replaces the last good one: it must not leave
+        # an older verdict standing as if it were current.
+        self._front_reading = front_from_debug(msg.data)
+        self._front_reading_rx = time.monotonic()
 
     def _object_status_cb(self, msg):
         setattr(self.blackboard, OBJECT_STATUS_KEY, ObjectStatusSample(
@@ -346,6 +450,10 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         self.yaw = _quaternion_to_yaw(msg.pose.pose.orientation)
         # Body-frame forward speed, as mpc_corr reads it off the same topic.
         self.speed = msg.twist.twist.linear.x
+        if self._odometer_xy is not None:
+            self._odometer += math.hypot(self.x - self._odometer_xy[0],
+                                         self.y - self._odometer_xy[1])
+        self._odometer_xy = (self.x, self.y)
         # Unwrap-and-accumulate THIS message's own small step, not a re-derived
         # current-minus-start delta -- see module docstring's "Turn
         # accumulation" paragraph for why. Every odom message folds in here
@@ -394,15 +502,63 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         setattr(self.blackboard, FRONT_CLEARANCE_KEY, float(msg.data))
         self._front_clearance_rx = time.monotonic()
 
+    @staticmethod
+    def _is_wall_stop(state, move):
+        """The moves WALL DISTANCE FRESHNESS and the FRONT-WALL LOCK apply to."""
+        return (move.stop_condition.type == 'front_clearance'
+                and getattr(move, 'go_to_object', None) is None
+                and getattr(state, 'state', MissionState.RUNNING) == MissionState.RUNNING)
+
+    def _locked_wall_distance(self, move, now, raw):
+        """The wall distance this move's stop may read. Module docstring,
+        FRONT-WALL LOCK; mission/wall_lock.py decides, this feeds and logs it."""
+        def fresh(rx):
+            return rx is not None and now - rx <= self.wall_distance_max_age_s
+
+        bumper_xy = odometer = None
+        if self.x is not None and self.yaw is not None:
+            if self._base_front_x_m is None:
+                self._base_front_x_m = base_front_x()
+            fx = float(self._base_front_x_m)
+            bumper_xy = (self.x + fx * math.cos(self.yaw), self.y + fx * math.sin(self.yaw))
+            odometer = self._odometer
+        step = self._wall_lock.update(
+            now, raw,
+            self._front_reading if fresh(self._front_reading_rx) else None,
+            self._walls if fresh(self._walls_rx) else None,
+            bumper_xy, odometer)
+
+        log = self.node.get_logger()
+        tag = f"[mission] Move '{move.id}'"
+        if step.event == wall_lock.EVENT_ACQUIRED:
+            log.info(f'{tag}: front wall locked on track {step.track_id} at '
+                     f'{_metres(step.distance)} -- the stop fires on this wall only')
+        elif step.event == wall_lock.EVENT_REACQUIRED:
+            log.info(f'{tag}: front wall re-acquired: {step.detail}')
+        elif step.event == wall_lock.EVENT_REFUSED:
+            log.warn(f'{tag}: {step.detail}; the stop waits for the locked wall',
+                     throttle_duration_sec=2.0)
+        # Throttled: a far wall's FRONT flickers with CLEAR every second or so
+        # (corridor10m_20261019T131815: ~40 changes in 90 s). The recorded
+        # debug payload and walls have every one.
+        if step.phase != self._wall_lock_phase:
+            if step.phase in (wall_lock.NOT_FRONT, wall_lock.LOST, wall_lock.NO_READING):
+                if step.event != wall_lock.EVENT_REFUSED:
+                    log.info(f'{tag}: {step.detail} -- the stop waits for the locked wall',
+                             throttle_duration_sec=2.0)
+            elif step.phase == wall_lock.LOCKED and step.event is None:
+                log.info(f'{tag}: locked wall {step.track_id} is the front wall again '
+                         f'at {_metres(step.distance)}', throttle_duration_sec=2.0)
+            self._wall_lock_phase = step.phase
+        return step.distance
+
     def _hold_for_wall(self, state, move, now):
         """Hold while this move's front_clearance stop has no fresh wall.
 
         Returns True when the car is held (the caller returns RUNNING without
         evaluating the stop). Module docstring, WALL DISTANCE FRESHNESS.
         """
-        guarded = (move.stop_condition.type == 'front_clearance'
-                   and getattr(move, 'go_to_object', None) is None
-                   and getattr(state, 'state', MissionState.RUNNING) == MissionState.RUNNING)
+        guarded = self._is_wall_stop(state, move)
         value = getattr(self.blackboard, FRONT_CLEARANCE_KEY)
         rx = self._front_clearance_rx
         if value is None or rx is None:
@@ -489,6 +645,10 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
             # Same trigger, same reason: a front_clearance streak accumulated
             # under the PREVIOUS move must not count toward this one.
             self._debouncer.reset()
+            # ...nor its locked wall: each move approaches its own.
+            if self._wall_lock is not None:
+                self._wall_lock.reset()
+                self._wall_lock_phase = None
 
         current_xy = (self.x, self.y) if self.x is not None else None
         if state.move_start_xy is None and current_xy is not None:
@@ -572,6 +732,8 @@ class CheckStopCondition(py_trees.behaviour.Behaviour):
         min_obstacle_distance_forward = getattr(
             self.blackboard, MIN_OBSTACLE_DISTANCE_FORWARD_KEY)
         front_clearance = getattr(self.blackboard, FRONT_CLEARANCE_KEY)
+        if self._wall_lock is not None and self._is_wall_stop(state, move):
+            front_clearance = self._locked_wall_distance(move, now, front_clearance)
         object_move_id = None
         object_status = getattr(self.blackboard, OBJECT_STATUS_KEY, None)
         if getattr(move, 'go_to_object', None) is not None:

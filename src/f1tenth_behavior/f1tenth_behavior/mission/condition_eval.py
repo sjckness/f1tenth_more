@@ -72,6 +72,15 @@ class EvalContext:
     # node's discrete-object distance -- the OPPOSITE quantity, kept as its
     # own stop_condition type (obstacle_distance_below) precisely so a mission
     # picks one deliberately.
+    #
+    # WHICH WALL (2026-10-21). For its own move's stop, CheckStopCondition
+    # passes the distance of the wall the move LOCKED onto (mission/wall_lock.py,
+    # wall_lock_enabled), and None while that wall is not the one in the way --
+    # a side wall a swerve put in the travel strip is not this move's wall. The
+    # branch below is unchanged and cannot tell: None is "not yet" either way.
+    # The lock's per-move state lives in the caller, not here, for the same
+    # reason ConditionDebouncer's does. HandleObjectAction's resume_condition
+    # still passes the raw wall topic.
     front_clearance: Optional[float]
     # The move's own top-level goal_distance, used as distance_reached's implicit
     # target when the stop_condition itself doesn't override it with its own
