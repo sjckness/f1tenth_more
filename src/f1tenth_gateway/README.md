@@ -39,8 +39,12 @@ tailscale serve :443 ──▶ 127.0.0.1:8770  f1tenth_gateway (uvicorn, unità 
   `base_link/pwa_teleop`).
   - Un solo telefono alla volta.
   - Watchdog di 250 ms, poi zero.
-  - Velocità 0, oppure tra 0.4 m/s e il limite (massimo 1.0 m/s); niente
-    retromarcia.
+  - Velocità 0, oppure tra 0.4 m/s e il limite (massimo 1.0 m/s) in avanti.
+  - Retromarcia: gas sotto la zona morta, lineare da 0 a
+    `teleop.max_reverse_speed_mps` (0.4 m/s, come l'MPC; 0 la disabilita),
+    senza il minimo di 0.4. Il cambio di verso passa per lo zero:
+    almeno `reverse_hold_s` (0.3 s) e finché l'odometria dice che l'auto
+    si muove ancora nel verso opposto (`stop_speed_mps`, 0.05 m/s).
   - Sterzo al massimo 0.30 rad, con rate limit.
   - Non sostituisce né aggira `/safety_stop`, l'emergenza del BT o lo stop
     LiDAR.

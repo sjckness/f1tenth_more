@@ -420,6 +420,7 @@ class MockRos:
         while not self._stop.is_set():
             now = time.monotonic()
             if self.teleop is not None:
+                self.teleop.measured(self.w.v, now)
                 cmd = self.teleop.tick(now)
                 if cmd is not None:
                     self.publish_teleop(cmd)

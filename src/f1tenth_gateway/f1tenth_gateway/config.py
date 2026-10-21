@@ -53,6 +53,13 @@ DEFAULTS: Dict[str, Any] = {
         'zero_tail_s': 0.5,
         'publish_hz': 50.0,
         'max_input_hz': 50.0,
+        # Reverse (teleop.py): the gas stick below the dead zone, linear to this
+        # (the MPC's max_reverse_speed_mps; 0.0 = no reverse). A change of
+        # direction holds 0 for reverse_hold_s and until |measured| is below
+        # stop_speed_mps.
+        'max_reverse_speed_mps': 0.4,
+        'reverse_hold_s': 0.3,
+        'stop_speed_mps': 0.05,
     },
     'mission': {
         'auto_abort_s': 2.0,

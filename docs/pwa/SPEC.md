@@ -126,8 +126,17 @@ WebSocket `/ws`:
 3. Il teleop passa dal **lane teleop di ackermann_mux** (verificare topic e priorità): mai bypassare i lane di sicurezza
    (safety_stop, emergenza, stop LiDAR di ultima istanza).
 4. Clamp lato server: limite di velocità, sterzo massimo, rate limit.
-5. Vincolo della macchina: mai in movimento sotto 0.4 m/s. Mappatura gas: zona morta → 0; fuori dalla zona morta
-   velocità da 0.4 m/s al limite. Retromarcia non abilitata nella v1.
+5. Vincolo della macchina: mai in movimento sotto 0.4 m/s in avanti. Mappatura gas: zona morta (|gas| ≤ `deadzone`,
+   0.15) → 0; gas in avanti fuori dalla zona morta → velocità da 0.4 m/s al limite.
+   **Retromarcia** (gas sotto −`deadzone`): velocità negativa, lineare da 0 al bordo della zona morta fino a
+   −`max_reverse_speed_mps` (parametro del gateway, default 0.4 m/s, uguale a `max_reverse_speed_mps` dell'MPC in
+   stack_params.yaml; mai oltre il limite del conducente; 0 = retromarcia disabilitata come nella v1). Il minimo di
+   0.4 m/s vale solo in avanti. Ogni cambio di verso passa per lo zero: comando 0 per almeno `reverse_hold_s`
+   (default 0.3 s) e finché la velocità misurata (odometria, se più recente di 0.5 s) supera `stop_speed_mps`
+   (default 0.05 m/s) nel verso opposto; senza misura fresca decide solo il tempo. Dead-man, watchdog 250 ms e
+   rilascio = zero immediato sono gli stessi della marcia avanti. In Guida, finché il comando è negativo, un
+   indicatore RETROMARCIA (etichetta e colore ambra) è sempre visibile, con "attesa arresto" durante lo zero
+   del cambio di verso. Attenzione: dietro l'auto non c'è sensore oltre la finestra del LiDAR.
 6. Un solo client di guida alla volta (il secondo riceve "guida occupata").
 7. Le azioni critiche (start missione, abort, process stop) non hanno retry automatici.
 

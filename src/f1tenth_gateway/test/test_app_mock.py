@@ -413,6 +413,33 @@ def test_the_watchdog_on_the_wire(gw):
         assert late == [], 'after the zero tail nothing more: the mux lane times out'
 
 
+def test_reverse_on_the_wire_goes_through_0_until_the_car_stops(gw):
+    """Forward, then the stick back: zeros until the pretend car is still, then -0.4 at most."""
+    with gw.client.websocket_connect('/ws') as ws:
+        ws.send_json({'type': 'auth', 'token': TOKEN})
+        hello = ws.receive_json()
+        assert hello['teleop']['max_reverse_speed_mps'] == 0.4
+        ws.send_json({'type': 'drive_acquire'})
+        assert recv_until(ws, 'drive')['state'] == 'granted'
+        t0 = time.monotonic()
+        seq = 0
+        for thr in [1.0] * 20 + [-1.0] * 40:
+            seq += 1
+            ws.send_json({'type': 'teleop', 'seq': seq, 'thr': thr, 'steer': 0.0,
+                          'limit': 1.0, 'deadman': True})
+            time.sleep(0.05)
+        pubs = teleop_published(gw, t0)
+        ws.send_json({'type': 'teleop', 'deadman': False})
+    last_fwd = max(p[0] for p in pubs if p[2] > 0)
+    first_rev = min(p[0] for p in pubs if p[2] < 0)
+    assert min(p[2] for p in pubs) >= -0.4 - 1e-9
+    assert all(p[2] == 0.0 for p in pubs if last_fwd < p[0] < first_rev)
+    assert first_rev - last_fwd >= 0.3, 'at least reverse_hold_s at 0'
+    # The pretend car is at ~1.0 m/s after 1 s (1 m/s^2) and slows at 2 m/s^2: 0.47 s to
+    # 0.05 m/s, longer than the hold, so the zero lasted until it was still.
+    assert first_rev - last_fwd >= 0.4
+
+
 def test_guida_is_refused_with_a_joystick_or_a_latch_or_a_mission(gw):
     with connect(gw) as ws:
         gw.world.teleop_others = 1

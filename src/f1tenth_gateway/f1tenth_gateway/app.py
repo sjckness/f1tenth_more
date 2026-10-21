@@ -927,7 +927,8 @@ def create_app(gw: Gateway) -> FastAPI:
             'teleop': {'min_speed_mps': 0.4, 'max_speed_mps': t.max_speed_mps,
                        'default_limit_mps': t.default_limit_mps,
                        'limit_step_mps': t.limit_step_mps, 'deadzone': t.deadzone,
-                       'max_steer_rad': t.max_steer_rad, 'watchdog_s': t.watchdog_s},
+                       'max_steer_rad': t.max_steer_rad, 'watchdog_s': t.watchdog_s,
+                       'max_reverse_speed_mps': t.max_reverse_speed_mps},
             'mission': {'auto_abort_s': cfg['mission']['auto_abort_s']},
             'client': {'lost_after_s': cfg['client']['lost_after_s'],
                        'ping_s': cfg['client']['ping_s']}})

@@ -112,11 +112,11 @@ def test_the_estop_uses_the_publisher_and_clients_made_at_start(ros_env):
     assert bridge.abort()['ok'] and calls == ['abort']
 
 
-def test_mission_status_battery_and_odometry_reach_the_gateway(ros_env):
+def test_mission_status_battery_and_odometry_reach_the_gateway_and_teleop(ros_env):
     from f1tenth_messages.msg import BatteryStatus, MissionStatus, MoveOutcome
     from nav_msgs.msg import Odometry
     from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
-    bridge, _teleop, fake, seen = ros_env
+    bridge, teleop, fake, seen = ros_env
     latched = QoSProfile(depth=1, reliability=ReliabilityPolicy.RELIABLE,
                          durability=DurabilityPolicy.TRANSIENT_LOCAL)
     status = fake.create_publisher(MissionStatus, '/mission/status', latched)
@@ -143,3 +143,5 @@ def test_mission_status_battery_and_odometry_reach_the_gateway(ros_env):
             bridge.latest().get('battery', {}).get('v') == 11.6 and \
             bridge.latest().get('v_meas', {}).get('v') == 0.42
     assert wait(publish_all, timeout=8.0)
+    # The measured speed also reaches teleop, for the direction change (reverse).
+    assert teleop._measured is not None and abs(teleop._measured[0] - 0.42) < 1e-9

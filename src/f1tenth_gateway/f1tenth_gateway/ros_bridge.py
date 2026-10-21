@@ -282,7 +282,9 @@ class RosBridge:
         self._close_bt_stream()
 
     def _odom_cb(self, msg) -> None:
-        self._put('v_meas', {'v': round(float(msg.twist.twist.linear.x), 3), 'src': 'odom'})
+        v = float(msg.twist.twist.linear.x)
+        self._put('v_meas', {'v': round(v, 3), 'src': 'odom'})
+        self.teleop.measured(v, time.monotonic())       # the direction change waits for 0
 
     def _pose_odom_cb(self, msg) -> None:
         p = msg.pose.pose
