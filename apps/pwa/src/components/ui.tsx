@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
 import { post } from '../api';
 import {
-  battery, conn, lastMsgAt, latched, online, rttMs, status, tel, toast, toasts,
+  battery, conn, estopReach, gatewayUp, lastMsgAt, latched, online, rttMs, status, tel, toast,
+  toasts,
 } from '../store';
 import { send } from '../ws';
 import { capture } from './pointer';
@@ -108,11 +109,18 @@ export async function emergency(): Promise<void> {
 }
 
 export function EstopButton({ compact = false }: { compact?: boolean }) {
-  if (!online.value) {
+  // NOT gated on the WebSocket. /api/estop is REST, a separate connection, and
+  // the gateway runs the e-stop itself (f1tenth_ctl is its own fallback), so a
+  // shaky socket is no reason to take the button away -- which is what used to
+  // happen, at exactly the moment the button was most wanted. It goes only on
+  // what the gateway reports about its reach (store.estopReach).
+  const reach = estopReach.value;
+  if (!reach.ok) {
     return (
-      <button type="button" class="estop unreachable" disabled style={compact ? { height: '52px' } : undefined}>
-        <span>EMERGENZA NON RAGGIUNGIBILE</span>
-        <small>arresto affidato al watchdog</small>
+      <button type="button" class="estop unreachable" disabled
+        style={compact ? { height: '52px' } : undefined} data-testid="estop-unavailable">
+        <span>E-STOP NON DISPONIBILE</span>
+        <small>{reach.why ?? 'arresto affidato al watchdog'}</small>
       </button>
     );
   }
@@ -144,7 +152,10 @@ export function LostBanner() {
 }
 
 export function LatchedBanner() {
-  if (!latched.value || !online.value) return null;
+  // gatewayUp, not online: a latched e-stop is the one thing that must not be
+  // hidden because the WebSocket dropped. The REST poll keeps the status fresh
+  // in that state (ws.ts), so the latch is still known.
+  if (!latched.value || !gatewayUp.value) return null;
   const allowed = tel.value?.reset_allowed ?? status.value?.reset_allowed;
   return (
     <div class="banner latched" role="alert" data-testid="estop-banner">

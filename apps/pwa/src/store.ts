@@ -23,6 +23,7 @@ export interface Status {
   cpu_percent?: number | null; drive: { busy: boolean; blockers: string[] };
   reset_allowed: { ok: boolean; why: string | null };
   transcription: { state: string; reason?: string | null };
+  estop?: { available: boolean; why: string | null };
 }
 export interface Telemetry {
   t: number; pose?: { x: number; y: number; yaw: number } | null;
@@ -119,6 +120,34 @@ export const toasts = signal<Toast[]>([]);
 export const wakeLockMissing = signal(false);
 
 export const online = computed(() => conn.value === 'online');
+
+/**
+ * Whether the gateway answers at all, over either connection.
+ *
+ * The WebSocket is not the measure: REST is a separate connection and keeps
+ * working when the socket is down (ws.ts polls /api/status then). This is
+ * what EMERGENZA goes by, so it is driven by events rather than by a clock:
+ * any message from the gateway sets it, a failed poll clears it.
+ */
+export const gatewayUp = signal(true);
+
+/**
+ * Whether an E-STOP would reach the car, and why not.
+ *
+ * NOT a function of the WebSocket: /api/estop is REST, and the gateway runs
+ * the e-stop itself with f1tenth_ctl as its fallback. Only two things take
+ * the button away -- the gateway not answering, or the gateway reporting that
+ * it cannot reach /mission/emergency_stop or /safety_stop.
+ *
+ * With no report yet it fails OPEN: an older gateway sends no status.estop,
+ * and a button that works beats a truthful label.
+ */
+export const estopReach = computed<{ ok: boolean; why: string | null }>(() => {
+  if (!gatewayUp.value) return { ok: false, why: 'gateway non raggiungibile' };
+  const e = status.value?.estop;
+  if (!e) return { ok: true, why: null };
+  return e.available ? { ok: true, why: null } : { ok: false, why: e.why ?? null };
+});
 export const latched = computed(() =>
   tel.value?.estop_latched ?? status.value?.estop_latched ?? false);
 export const mission = computed<MissionView>(() =>
