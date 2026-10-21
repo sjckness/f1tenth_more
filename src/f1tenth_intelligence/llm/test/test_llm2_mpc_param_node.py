@@ -5,6 +5,7 @@ The node is built for real (rclpy, its own parameters) but never spun: each
 test calls its timer callback by hand and replaces the two publishers with
 recorders, so nothing depends on DDS discovery or on timing of the 0.5 Hz
 timer. The request runs on the node's own worker thread, as on the car.
+/llm2/set_active is called the same way, through its callback.
 
 Also here: the mock set is a coupling with stack_params.yaml (CLAUDE.md). It
 must stay the launch-path values, or the "round trip changes nothing" premise
@@ -20,6 +21,7 @@ from llm.llm2_protocol import MOCK_PARAMS, SOURCE
 import pytest
 import rclpy
 from rclpy.parameter import Parameter
+from std_srvs.srv import SetBool
 import yaml
 
 LLM_DIR = pathlib.Path(__file__).resolve().parents[1]
@@ -72,6 +74,11 @@ def wait_for_statuses(node, count, timeout_s=5.0):
         assert time.monotonic() < deadline, f'only {statuses(node)} after {timeout_s} s'
         time.sleep(0.01)
     return statuses(node)
+
+
+def set_active(node, active):
+    """Call /llm2/set_active's callback, as the service would."""
+    return node._on_set_active(SetBool.Request(data=active), SetBool.Response())
 
 
 def test_a_valid_echo_is_published_on_llm2_mpc_params_as_sent(make_node, fake_server):
@@ -157,6 +164,73 @@ def test_the_short_timeout_applies_only_after_the_server_has_answered(
     ]
 
 
+def test_a_paused_node_sends_and_publishes_nothing_until_resumed(make_node, fake_server):
+    server = fake_server()
+    node = make_node(server)
+    for _ in range(2):      # pausing a paused node is accepted, nothing changes
+        response = set_active(node, False)
+        assert response.success and response.message == 'paused'
+    node._on_tick()
+    node._on_tick()
+    paused = statuses(node)     # published at once: a paused tick waits for nothing
+    # A tick that started a request would have claimed the gate already.
+    assert node._gate.in_flight is None and server.bodies == []
+    assert node._update_pub.msgs == []
+    assert [(s['outcome'], s['state']) for s in paused] == [('paused', 'paused')] * 2
+    assert paused[-1]['counters']['paused'] == 2 and paused[-1]['counters']['skipped'] == 0
+
+    response = set_active(node, True)
+    assert response.success and response.message == 'active'
+    node._on_tick()
+    done = wait_for_statuses(node, 3)[-1]
+    assert (done['seq'], done['outcome'], done['state']) == (3, 'ok', 'active')
+    assert set(done) == set(paused[0])     # one key set, paused or not
+    assert len(server.bodies) == 1
+    (msg,) = node._update_pub.msgs
+    assert msg.seq == 3
+
+
+@pytest.mark.parametrize('resumed_before_the_reply', [False, True])
+def test_a_reply_to_a_request_in_flight_at_the_pause_is_discarded_not_published(
+        make_node, fake_server, resumed_before_the_reply):
+    server = fake_server(delay_s=0.5)
+    node = make_node(server)
+    node._on_tick()             # request 1 goes out
+    assert set_active(node, False).message == 'paused'
+    node._on_tick()             # paused while 1 is in flight: not a skip
+    if resumed_before_the_reply:
+        set_active(node, True)
+    tick_2, tick_1 = wait_for_statuses(node, 2)
+    assert (tick_2['outcome'], tick_2['in_flight_seq']) == ('paused', 1)
+    assert (tick_1['seq'], tick_1['outcome'], tick_1['echo_match']) == (1, 'discarded', None)
+    assert '(ok)' in tick_1['reason']   # the server did answer an exact echo
+    assert tick_1['state'] == ('active' if resumed_before_the_reply else 'paused')
+    assert node._update_pub.msgs == []
+    counters = tick_1['counters']
+    assert counters['discarded'] == 1 and counters['ok'] == counters['echo_match'] == 0
+    assert counters['paused'] == 1 and counters['skipped'] == 0
+    if resumed_before_the_reply:
+        node._on_tick()         # the next request goes out and is used
+        assert wait_for_statuses(node, 3)[-1]['outcome'] == 'ok'
+        assert len(node._update_pub.msgs) == 1
+    assert len(server.bodies) == (2 if resumed_before_the_reply else 1)
+
+
+def test_start_active_false_starts_paused_and_param_set_cannot_resume_it(
+        make_node, fake_server):
+    server = fake_server()
+    node = make_node(server, start_active=False)
+    node._on_tick()
+    (status,) = statuses(node)
+    assert (status['outcome'], status['state']) == ('paused', 'paused')
+    assert node._gate.in_flight is None and server.bodies == []
+    # Read-only: the runtime switch is /llm2/set_active, not the parameter.
+    (result,) = node.set_parameters([Parameter('start_active', value=True)])
+    assert not result.successful
+    node._on_tick()
+    assert statuses(node)[-1]['outcome'] == 'paused'
+
+
 def test_unpaired_mock_lists_stop_the_node_at_start(ros, fake_server):
     with pytest.raises(ValueError, match='must pair up'):
         Llm2MpcParamNode(parameter_overrides=[
@@ -177,6 +251,14 @@ def test_the_mock_set_is_the_launch_path_value_of_every_weight_it_names():
     with open(STACK_PARAMS) as f:
         stack = yaml.safe_load(f)
     assert {name: stack[name]['default'] for name in from_file} == from_file
+
+
+def test_the_shipped_params_file_starts_llm2_active():
+    # enable_llm2 is the opt-in; a shipped false would start an LLM2 that
+    # silently never asks anything.
+    with open(LLM_DIR / 'config' / 'llm2_mpc_param_params.yaml') as f:
+        node_params = yaml.safe_load(f)['/**']['ros__parameters']
+    assert node_params['start_active'] is True
 
 
 def test_the_llm2_interrogation_names_an_installed_executable_and_params_file():

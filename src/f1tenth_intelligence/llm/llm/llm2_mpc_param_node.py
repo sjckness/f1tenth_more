@@ -11,6 +11,8 @@ llm2_params_enabled is true (default false). The default set is today's
 launch-path values, so an exact echo changes nothing.
 
 One tick:
+  - paused (below): nothing is sent; the tick is counted as 'paused', not
+    as 'skipped', and still gets its status;
   - a request still in flight: the tick is skipped and counted, never queued.
     Requests never overlap (the server has one slot, and a queued request
     would answer a tick that is already stale);
@@ -22,14 +24,28 @@ One tick:
     numbers: llm2_protocol.validate_reply). Valid: published. Invalid:
     nothing is published and the reason is logged;
   - one status per tick on /llm2/status (std_msgs/String, JSON), published
-    when the tick's outcome is known: at once for a skipped tick, when the
-    reply, the timeout or the error comes back otherwise. It carries the
+    when the tick's outcome is known: at once for a skipped or paused tick,
+    when the reply, the timeout or the error comes back otherwise. It carries the
     outcome, echo_match (reply == sent), the wall latency, llama-server's
-    prefill (prompt_ms) and generation (predicted_ms) times, and the
-    cumulative counters ok / invalid / timeout / error / skipped / echo_match.
+    prefill (prompt_ms) and generation (predicted_ms) times, the node's
+    state ('active' / 'paused'), and the cumulative counters ok / invalid /
+    timeout / error / skipped / paused / discarded / echo_match.
+
+Pause / resume: the service /llm2/set_active (std_srvs/SetBool; true =
+active, false = paused), and start_active (true) for the state at start. Paused, the
+timer keeps ticking and publishing /llm2/status ('state': 'paused'), but no
+request goes to the server and nothing is published on /llm2/mpc_params. A
+request already in flight when the pause comes is left to finish; its reply is
+then discarded (outcome and counter 'discarded'), even if the node was resumed
+meanwhile. Pausing reverts nothing: mpc_corr keeps the values it last
+applied. The llama-server keeps running with its model loaded. Setting the
+state the node is already in is accepted (success, nothing changes). The
+response's message is the new state, 'active' or 'paused'.
 
 Parameters (config/llm2_mpc_param_params.yaml; llm2.launch.py injects
 server_url from its llm2_port argument):
+  start_active       start active (true) or paused (false); read-only, read
+                     once at start: /llm2/set_active switches at run time
   rate_hz            tick rate (0.5)
   server_url         the LLM2 llama-server (http://127.0.0.1:8084; 8083 is LLM1's)
   request_timeout_s  timeout of a request once the server has answered (10.0)
@@ -52,11 +68,13 @@ from f1tenth_messages.msg import MpcParamUpdate
 from llm.llm2_protocol import (
     Completion,
     completion_url,
+    DISCARDED,
     ERROR,
     INVALID,
     MOCK_PARAMS,
     mock_params_from,
     OK,
+    PAUSED,
     request_params,
     RequestGate,
     SKIPPED,
@@ -65,17 +83,25 @@ from llm.llm2_protocol import (
     TIMING_KEYS,
 )
 
+from rcl_interfaces.msg import ParameterDescriptor
+
 import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 
 from std_msgs.msg import String
+from std_srvs.srv import SetBool
 
 PARAMS_TOPIC = '/llm2/mpc_params'
 STATUS_TOPIC = '/llm2/status'
+SET_ACTIVE_SERVICE = '/llm2/set_active'
+#: The node's state: 'state' on every /llm2/status, and the message of every
+#: /llm2/set_active response.
+STATE_ACTIVE = 'active'
+STATE_PAUSED = 'paused'
 #: Every /llm2/status message has every one of these keys (null where the
-#: tick has no value, e.g. latency_ms of a skipped tick), plus 'source' and
-#: 'counters', so a bag or a log reads as one table.
+#: tick has no value, e.g. latency_ms of a skipped tick), plus 'state',
+#: 'source' and 'counters', so a bag or a log reads as one table.
 STATUS_KEYS = ('seq', 'outcome', 'reason', 'echo_match', 'latency_ms', 'timeout_s',
                'in_flight_seq', 'tokens_cached') + TIMING_KEYS
 
@@ -86,6 +112,12 @@ class Llm2MpcParamNode(Node):
     def __init__(self, **kwargs):
         # kwargs: rclpy Node options, e.g. parameter_overrides in the tests.
         super().__init__('llm2_mpc_param_node', **kwargs)
+        # Read-only: a runtime `ros2 param set ... start_active false` would
+        # otherwise be accepted and do nothing. The runtime switch is the
+        # /llm2/set_active service.
+        self.declare_parameter('start_active', True, ParameterDescriptor(
+            read_only=True,
+            description=f'read once at start; pause/resume with {SET_ACTIVE_SERVICE}'))
         self.declare_parameter('rate_hz', 0.5)
         self.declare_parameter('server_url', 'http://127.0.0.1:8084')
         self.declare_parameter('request_timeout_s', 10.0)
@@ -127,8 +159,21 @@ class Llm2MpcParamNode(Node):
         self._first_ok_logged = False
         self._closing = False
 
+        # Pause / resume. _pauses counts the pauses: a request takes its
+        # value when it starts, and a reply that comes back after a later
+        # pause is discarded, even if the node was resumed meanwhile.
+        # _state_lock makes a pause atomic against the timer starting a
+        # request and against the worker publishing its update, so nothing
+        # reaches /llm2/mpc_params once /llm2/set_active has answered
+        # 'paused'. Lock order: _state_lock, then the gate's own lock.
+        self._state_lock = threading.Lock()
+        self._active = bool(p('start_active'))
+        self._pauses = 0
+
         self._update_pub = self.create_publisher(MpcParamUpdate, PARAMS_TOPIC, 10)
         self._status_pub = self.create_publisher(String, STATUS_TOPIC, 10)
+        self._set_active_srv = self.create_service(
+            SetBool, SET_ACTIVE_SERVICE, self._on_set_active)
         self._timer = self.create_timer(1.0 / rate_hz, self._on_tick)
 
         self.get_logger().info(
@@ -136,26 +181,39 @@ class Llm2MpcParamNode(Node):
             f'{self._url} -> {PARAMS_TOPIC} (status {STATUS_TOPIC}); timeout '
             f'{self._request_timeout_s:.1f} s, {self._warmup_timeout_s:.1f} s until the '
             f'server first answers. Set: {json.dumps(self._params)}')
+        if not self._active:
+            self.get_logger().info(
+                f'starting PAUSED (start_active false): no request until '
+                f'{SET_ACTIVE_SERVICE} true')
 
     # -- one tick -----------------------------------------------------------
 
     def _on_tick(self):
         self._seq = (self._seq + 1) & 0xFFFFFFFF    # MpcParamUpdate.seq is a uint32
         seq = self._seq
-        gate = self._gate.try_start(seq)
-        if not gate.started:
-            self._publish_status({
-                'seq': seq, 'outcome': SKIPPED,
-                'reason': f'request {gate.in_flight} still in flight',
-                'in_flight_seq': gate.in_flight,
-            }, gate.counters)
+        # Under the state lock: a pause lands either before this tick (no
+        # request) or after its request has started (the pause then
+        # discards the reply), never in between.
+        with self._state_lock:
+            active, pauses = self._active, self._pauses
+            gate = self._gate.try_start(seq) if active else self._gate.count_paused()
+            if gate.started:
+                timeout_s = self._request_timeout_s if self._warm else self._warmup_timeout_s
+                threading.Thread(
+                    target=self._run_request, args=(seq, timeout_s, pauses),
+                    name=f'llm2_request_{seq}', daemon=True).start()
+        if gate.started:
             return
-        timeout_s = self._request_timeout_s if self._warm else self._warmup_timeout_s
-        threading.Thread(
-            target=self._run_request, args=(seq, timeout_s),
-            name=f'llm2_request_{seq}', daemon=True).start()
+        if active:
+            outcome, reason = SKIPPED, f'request {gate.in_flight} still in flight'
+        else:
+            outcome, reason = PAUSED, f'paused, nothing sent ({SET_ACTIVE_SERVICE} true resumes)'
+        self._publish_status({
+            'seq': seq, 'outcome': outcome, 'reason': reason,
+            'in_flight_seq': gate.in_flight,
+        }, gate.counters, active)
 
-    def _run_request(self, seq, timeout_s):
+    def _run_request(self, seq, timeout_s, pauses):
         """Worker thread: one request, its publication and its status. Always releases the gate."""
         try:
             result = request_params(self._url, self._params, timeout_s, self._n_predict)
@@ -165,22 +223,69 @@ class Llm2MpcParamNode(Node):
             # (every later tick would be skipped, silently).
             result = Completion(ERROR, f'unexpected {type(e).__name__}: {e}', None, None,
                                 0.0, {key: None for key in TIMING_KEYS}, None)
+        # Warm or cold describes the server, so it holds whatever the node's state.
         self._warm = result.outcome in (OK, INVALID)
+        outcome, reason, echo_match = result.outcome, result.reason, result.echo_match
+        active = False
         try:
-            if result.outcome == OK:
-                self._publish_update(seq, result.values)
-            self._log_outcome(seq, result)
+            with self._state_lock:
+                active = self._active
+                if active and self._pauses == pauses:
+                    if result.outcome == OK:
+                        self._publish_update(seq, result.values)
+                else:
+                    # Paused while in flight: the reply answers a request
+                    # the pause cancelled. Counted as discarded only, so ok /
+                    # invalid / timeout / error / echo_match count what was used.
+                    outcome, echo_match = DISCARDED, None
+                    reason = (f'paused while in flight: its result ({result.outcome}) '
+                              f'was discarded, nothing published')
+            if outcome == DISCARDED:
+                self.get_logger().info(f'seq {seq}: {reason}')
+            else:
+                self._log_outcome(seq, result)
         finally:
-            counters = self._gate.finish(result.outcome, result.echo_match)
+            counters = self._gate.finish(outcome, echo_match)
         status = {
-            'seq': seq, 'outcome': result.outcome, 'reason': result.reason,
-            'echo_match': result.echo_match,
+            'seq': seq, 'outcome': outcome, 'reason': reason,
+            'echo_match': echo_match,
             'latency_ms': round(result.latency_ms, 1),
             'timeout_s': timeout_s,
             'tokens_cached': result.tokens_cached,
         }
         status.update(result.timings)
-        self._publish_status(status, counters)
+        self._publish_status(status, counters, active)
+
+    # -- pause / resume -----------------------------------------------------
+
+    def _on_set_active(self, request, response):
+        """/llm2/set_active: true = active, false = paused. Idempotent; always succeeds."""
+        active = bool(request.data)
+        with self._state_lock:
+            changed = active != self._active
+            if changed and not active:
+                self._pauses += 1
+            self._active = active
+            in_flight = self._gate.in_flight
+        state = STATE_ACTIVE if active else STATE_PAUSED
+        log = self.get_logger()
+        # A request in flight here started before a pause (a paused node
+        # starts none), so its reply will be discarded either way.
+        in_flight_note = ('' if in_flight is None else
+                          f'; request {in_flight} is still in flight, its reply '
+                          f'will be discarded')
+        if not changed:
+            log.info(f'{SET_ACTIVE_SERVICE} {active}: already {state}, nothing changes')
+        elif active:
+            log.info(f'LLM2 resumed ({SET_ACTIVE_SERVICE}): requests restart at the '
+                     f'next tick that finds none in flight{in_flight_note}')
+        else:
+            log.info(f'LLM2 paused ({SET_ACTIVE_SERVICE}): no requests, nothing on '
+                     f'{PARAMS_TOPIC} until resumed; mpc_corr keeps the values it '
+                     f'last applied{in_flight_note}')
+        response.success = True
+        response.message = state
+        return response
 
     def _log_outcome(self, seq, result):
         log = self.get_logger()
@@ -219,9 +324,10 @@ class Llm2MpcParamNode(Node):
         msg.values = [float(value) for value in values.values()]
         self._publish(self._update_pub, msg)
 
-    def _publish_status(self, fields, counters):
+    def _publish_status(self, fields, counters, active):
         status = dict.fromkeys(STATUS_KEYS)
         status.update(fields)
+        status['state'] = STATE_ACTIVE if active else STATE_PAUSED
         status['source'] = SOURCE
         status['counters'] = counters
         self._publish(self._status_pub, String(data=json.dumps(status)))

@@ -30,8 +30,12 @@ OK = 'ok'                # valid reply, published
 INVALID = 'invalid'      # the server answered, the content failed validation
 TIMEOUT = 'timeout'      # no reply within the request's timeout
 ERROR = 'error'          # no usable reply: connection refused, HTTP error, no 'content'
-SKIPPED = 'skipped'      # the previous request was still in flight
-OUTCOMES = (OK, INVALID, TIMEOUT, ERROR, SKIPPED)
+SKIPPED = 'skipped'      # active, but the previous request was still in flight
+PAUSED = 'paused'        # the node is paused (/llm2/set_active): nothing was sent
+DISCARDED = 'discarded'  # the request was in flight when the node was paused: its
+#                          reply, whatever it was, is neither published nor
+#                          counted as ok / invalid / timeout / error
+OUTCOMES = (OK, INVALID, TIMEOUT, ERROR, SKIPPED, PAUSED, DISCARDED)
 
 #: The mock parameter set: MPC_corr ROS parameter name -> its value on the
 #: launch path (the stack_params.yaml defaults, output/two_llm/recon.md
@@ -257,10 +261,10 @@ def request_params(url: str, params: Dict[str, float], timeout_s: float,
 
 
 class GateState(NamedTuple):
-    """RequestGate.try_start()'s answer, taken under one lock."""
+    """RequestGate.try_start()'s or count_paused()'s answer, taken under one lock."""
 
-    started: bool              # False: the tick is skipped (and was counted)
-    in_flight: Optional[int]   # seq of the request running when the tick was skipped
+    started: bool              # False: the tick is skipped or paused (and was counted)
+    in_flight: Optional[int]   # seq of the request running at a tick that did not start one
     counters: Dict[str, int]
 
 
@@ -270,8 +274,8 @@ class RequestGate:
 
     The LLM2 server has one slot, and a queued request would answer a tick
     that is already stale, so a skipped tick is dropped, never deferred.
-    Thread-safe: try_start() runs on the executor (the timer callback),
-    finish() on the worker thread that ran the request.
+    Thread-safe: try_start() and count_paused() run on the executor (the
+    timer callback), finish() on the worker thread that ran the request.
     """
 
     def __init__(self):
@@ -287,6 +291,12 @@ class RequestGate:
                 return GateState(False, self._in_flight, dict(self._counters))
             self._in_flight = seq
             return GateState(True, None, dict(self._counters))
+
+    def count_paused(self) -> GateState:
+        """Count a tick of a paused node: it never tries the gate, and is not a skip."""
+        with self._lock:
+            self._counters[PAUSED] += 1
+            return GateState(False, self._in_flight, dict(self._counters))
 
     def finish(self, outcome: str, echo_match: Optional[bool] = None) -> Dict[str, int]:
         """Release the gate after a request; count its outcome. Returns the counters."""

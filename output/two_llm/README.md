@@ -42,12 +42,14 @@ lets the consumer act on it.
 |---|---|---|---|
 | `enable_llm2` | `stack_bringup.launch.py` arg (stack_params.yaml) | `false` | Starts the second llama-server (`llm2_model` on `llm2_port`) and `llm2_mpc_param_node`. Nothing else. |
 | `llm2_params_enabled` | `mpc_corr` parameter; launch arg of `mpc_corr.launch.py`, forwarded by `navigation.launch.py` and therefore by `stack_bringup` | `false` | `mpc_corr` subscribes to `/llm2/mpc_params` and applies valid updates. `false`: no subscription, no publisher, no whitelist parameters. **Read-only at run time**, like the whitelist: `ros2 param set /mpc_corr llm2_params_enabled false` is refused ("read-only parameter"); to switch it, restart mpc_corr (the `navigation` component). |
+| `/llm2/set_active` (`start_active`) | `llm2_mpc_param_node` service, `std_srvs/SetBool`; `start_active` in `llm2_mpc_param_params.yaml` | active (`start_active: true`) | **Pause / resume at run time**, only when `enable_llm2` started LLM2. Paused: no request to the server, nothing on `/llm2/mpc_params`, `/llm2/status` keeps coming with `"state": "paused"`. The llama-server keeps running with its model loaded. `start_active` is read-only (set it before the start); the service is the runtime switch. Details in section 2. |
 
 Either can run without the other: LLM2 alone publishes and logs but changes
 nothing; `mpc_corr` alone waits for updates that never come. **To stop LLM2
-from changing the controller at run time**, stop the producer (the
-`llm2.launch.py` process): the values last applied stay in force until
-mpc_corr restarts (section 5, item 8).
+from changing the controller at run time**, pause it (`/llm2/set_active`
+false) or stop the producer (the `llm2.launch.py` process). **Neither reverts
+anything: the MPC keeps the values it last applied** until the next applied
+update or an mpc_corr restart (section 5, item 8).
 
 **stack_bringup path:**
 
@@ -87,9 +89,16 @@ same port to the node as `server_url`, and warns (does not refuse) if
 **Check it is working:**
 
 ```bash
-ros2 topic echo /llm2/status            # one JSON per tick: outcome ok, echo_match true
+ros2 topic echo /llm2/status            # one JSON per tick: outcome ok, echo_match true, state active
 ros2 topic echo /mpc/applied_params     # same seq as /llm2/mpc_params, one per valid update
 ros2 param get /mpc_corr mpc_w_v        # the live value (4.2857 with the mock)
+```
+
+**Pause / resume by hand** (what the app's toggle will call):
+
+```bash
+ros2 service call /llm2/set_active std_srvs/srv/SetBool "{data: false}"   # -> success True, message 'paused'
+ros2 service call /llm2/set_active std_srvs/srv/SetBool "{data: true}"    # -> success True, message 'active'
 ```
 
 `mpc_corr` logs `LLM2 | parameter updates ON ... Whitelist ...` at start, then
@@ -104,11 +113,71 @@ All three are recorded by `mission_logger` (`_DEFAULT_TOPICS`).
 | Topic | Type | Publisher | Meaning |
 |---|---|---|---|
 | `/llm2/mpc_params` | `f1tenth_messages/MpcParamUpdate` | `llm2_mpc_param_node` | A **valid** LLM2 reply: one JSON object with exactly the requested keys, all finite numbers. `seq` = the node's tick number, `source` = `llm2_mock`, `names[i]`/`values[i]` = `mpc_w_*` parameter names and values in declared (unscaled) units. Invalid replies publish nothing. A valid reply that is not an exact echo **is** published (with a warning); mpc_corr's whitelist is the gate. |
-| `/llm2/status` | `std_msgs/String` (JSON) | `llm2_mpc_param_node` | One message per tick, sent when that tick's outcome is known. Always the same keys: `seq`, `outcome` (`ok` / `invalid` / `timeout` / `error` / `skipped`), `reason`, `echo_match` (reply == sent), `latency_ms` (wall, request to reply), `timeout_s` (the timeout used), `in_flight_seq` (for a skipped tick), `tokens_cached`, `prompt_n`/`prompt_ms` (prefill), `predicted_n`/`predicted_ms` (generation), `source`, `counters` (cumulative ok / invalid / timeout / error / skipped / echo_match). `error` = no usable reply from the server (connection refused, HTTP 503 "Loading model", ...), as opposed to `invalid` = the model answered something unusable. |
+| `/llm2/status` | `std_msgs/String` (JSON) | `llm2_mpc_param_node` | One message per tick, **paused or not**, sent when that tick's outcome is known. Always the same keys (below): `seq`, `outcome` (`ok` / `invalid` / `timeout` / `error` / `skipped` / `paused` / `discarded`), `reason`, `echo_match` (reply == sent), `latency_ms` (wall, request to reply), `timeout_s` (the timeout used), `in_flight_seq` (for a skipped or paused tick), `tokens_cached`, `prompt_n`/`prompt_ms` (prefill), `predicted_n`/`predicted_ms` (generation), `state` (`active` / `paused`), `source`, `counters`. `error` = no usable reply from the server (connection refused, HTTP 503 "Loading model", ...), as opposed to `invalid` = the model answered something unusable. |
 | `/mpc/applied_params` | `f1tenth_messages/MpcParamUpdate` | `mpc_corr` | Published after every application, with the update's `seq` and `source`, the names and values applied, and the stamp of the tick that applied them. An exact echo is applied (and echoed) too, so a bag shows request → application one to one, with one exception: two valid updates that arrive before one control tick are merged (newer value per name) and applied under the **newer** seq, so the older seq never appears here although its other values were applied; mpc_corr logs `seq=N merged over seq=M`. At 10 Hz control against 0.5 Hz LLM2 that needs a stalled control loop; it did not happen in the 5-minute run. Rejected updates produce nothing here (only a warning in mpc_corr's log). |
 
 `MpcParamUpdate.msg`: `std_msgs/Header header`, `uint32 seq`, `string source`,
 `string[] names`, `float64[] values`.
+
+### Service `/llm2/set_active` (pause / resume)
+
+`std_srvs/srv/SetBool`, served by `llm2_mpc_param_node`: `data: true` =
+active, `data: false` = paused. The response is always `success: true`, and
+`message` is exactly the new state, `"active"` or `"paused"` (the same word
+as the status `state`). Setting the state the node is already in is fine:
+same answer, nothing changes (logged `already paused`). The service exists
+only while the node runs, i.e. only with `enable_llm2` (or `llm2.launch.py`
+by hand); a gateway that cannot reach it should show LLM2 as not running.
+
+- **Paused:** the timer keeps ticking, but no request goes to the server and
+  nothing is published on `/llm2/mpc_params`. Every tick still publishes a
+  status: `outcome` `paused`, `state` `paused`. The llama-server process keeps
+  running with the model loaded (this is a pause of the requests, not an
+  unload), so resuming costs no warm-up.
+- **A request in flight at the pause** is left to finish (it cannot be
+  cancelled on the server). Its reply is **discarded**: not published, not
+  counted as ok / invalid / timeout / error / echo_match, but as `discarded`,
+  and its status has `outcome` `discarded`, `echo_match` null, and the
+  reply's own classification in `reason` (`paused while in flight: its result
+  (ok) was discarded, nothing published`); latency and timings are kept. This
+  holds even if the node was resumed before the reply came back.
+- **Pausing does not revert the MPC parameters.** mpc_corr keeps the values it
+  last applied; LLM2 being paused only means no new ones arrive.
+- **Resume:** requests restart at the next tick (the first after a resume is
+  skipped if the discarded request is still in flight). Warm-up timeouts are
+  not reset: the server stayed up.
+- **At start:** `start_active` (default `true`, in `llm2_mpc_param_params.yaml`).
+  `false` starts the node paused. It is a read-only parameter: `ros2 param set
+  /llm2_mpc_param_node start_active ...` is refused ("Trying to set a
+  read-only parameter") instead of being accepted and ignored.
+- The pause is atomic against the publish: once the service has answered
+  `paused`, nothing more is published on `/llm2/mpc_params`.
+
+### `/llm2/status` JSON, exactly (for the gateway)
+
+Every message has all of these keys, in this order; `null` where a tick has
+no value. A real paused tick:
+
+```json
+{"seq": 1, "outcome": "paused", "reason": "paused, nothing sent (/llm2/set_active true resumes)",
+ "echo_match": null, "latency_ms": null, "timeout_s": null, "in_flight_seq": null,
+ "tokens_cached": null, "prompt_n": null, "prompt_ms": null, "predicted_n": null,
+ "predicted_ms": null, "state": "paused", "source": "llm2_mock",
+ "counters": {"ok": 0, "invalid": 0, "timeout": 0, "error": 0, "skipped": 0,
+              "paused": 1, "discarded": 0, "echo_match": 0}}
+```
+
+| Key | Values |
+|---|---|
+| `state` | `"active"` / `"paused"`: the node's state when this status was published. **The one key a UI toggle reads.** It changes on the next status after a `/llm2/set_active` call (every `1/rate_hz` = 2 s, or when an in-flight reply comes back); the service response carries the new state at once. |
+| `outcome` | What happened to this tick: `ok` (valid reply, published), `invalid`, `timeout`, `error`, `skipped` (active, previous request still in flight), `paused` (paused, nothing sent), `discarded` (the request was in flight at a pause, reply dropped). `outcome` and `state` are separate: a `discarded` status can carry `state` `active` (resumed before the reply came back). |
+| `seq` | The tick number (`uint32`, wraps), shared with `MpcParamUpdate.seq`. Paused ticks advance it too. |
+| `in_flight_seq` | For `skipped` and `paused`: the request still running, or `null`. |
+| `counters` | Cumulative since the node started: `ok`, `invalid`, `timeout`, `error`, `skipped`, `paused`, `discarded`, and `echo_match` (a subset of `ok`). Every tick ends in exactly one of the first seven, so their sum is the number of ticks reported. `skipped` keeps its meaning (an active tick that found a request in flight); a paused tick is never a skip. |
+
+No status for more than a few periods means the node is not running (LLM2 not
+enabled, or it crashed), which a gateway should show differently from
+`paused`.
 
 ## 3. What each side does
 
@@ -125,8 +194,11 @@ All three are recorded by `mission_logger` (`_DEFAULT_TOPICS`).
   4.2857, `mpc_w_du_delta` **8.33** (the launch-path value; the comments around
   it still quote 8.5714, see `output/mpc_known_failures.md` #13). A test holds
   the params file, `MOCK_PARAMS` and stack_params.yaml equal.
-- Each tick: if a request is still in flight, the tick is **skipped and
-  counted**, never queued. Otherwise one `POST /completion` on a worker thread
+- `start_active` `true` (read-only); `/llm2/set_active` pauses and resumes at
+  run time (section 2).
+- Each tick: if paused, nothing is sent and the tick is counted as `paused`.
+  If a request is still in flight, the tick is **skipped and counted**, never
+  queued. Otherwise one `POST /completion` on a worker thread
   (the executor never blocks on HTTP): temperature 0, a `json_schema` with
   exactly these keys and `additionalProperties: false` (llama-server turns it
   into a grammar), `cache_prompt` with a fixed ChatML prefix ahead of the JSON.
@@ -290,6 +362,22 @@ tegrastats --stop
 # /llm2/status: the first ok's latency (CUDA cold start) and the steady median.
 ```
 
+**Car checklist, pause / resume** (on two-llm-arch with `enable_llm2`):
+
+- [ ] On two-llm-arch with enable_llm2: pause LLM2 from lamacchinina, check
+  `/llm2/status` = paused and no new `/llm2/mpc_params`; resume.
+
+Until the app has the toggle, the same by hand:
+
+```bash
+ros2 service call /llm2/set_active std_srvs/srv/SetBool "{data: false}"   # message 'paused'
+ros2 topic echo /llm2/status        # "state": "paused", "outcome": "paused", counters.paused rising
+ros2 topic hz /llm2/mpc_params      # no new messages while paused
+ros2 param get /mpc_corr mpc_w_v    # unchanged: pausing reverts nothing
+ros2 service call /llm2/set_active std_srvs/srv/SetBool "{data: true}"    # message 'active'
+ros2 topic echo /llm2/status        # back to "outcome": "ok", "state": "active"
+```
+
 ## 5. What blocks real tuning later
 
 1. **Weights are read once at startup.** `MPC_corr` reads every `mpc_w_*` into
@@ -338,8 +426,9 @@ tegrastats --stop
    expect prefill cost on top of the ~0.85 s generation measured here.
 8. **No step limit, no fallback.** Each value only has to be inside its
    range: `mpc_w_v` may jump 1 → 10 between two ticks. And the last applied
-   set stays in force if LLM2 stops publishing (no timeout back to the
-   stack_params defaults) until mpc_corr restarts. A real tuner needs a max
+   set stays in force if LLM2 stops publishing, stopped or paused (no
+   timeout back to the stack_params defaults), until mpc_corr restarts. A
+   real tuner needs a max
    change per update and a "revert to defaults after X s of silence" rule.
 9. **The mock's values come from its params file, not the live controller.**
    If mpc_corr was launched with a non-default `mpc_w_*` (launch override),
@@ -354,7 +443,7 @@ tegrastats --stop
 | File | What it pins |
 |---|---|
 | `llm/test/test_llm2_protocol.py` | JSON validation (exact echo, changed value, 15 invalid replies), refused mock sets, request body (greedy, `cache_prompt`, exact-key schema, stable prefix), skip-when-in-flight on the gate (8 concurrent ticks start exactly 1 request), fake HTTP server: exact JSON with timings, timeout, invalid content, HTTP 503, closed port |
-| `llm/test/test_llm2_mpc_param_node.py` | The real node against the fake server, ticks by hand: publishes the echo (source, seq, names, values), publishes a valid non-echo as returned with `echo_match` false, skips while in flight, publishes nothing on an invalid reply, warm-up then short timeout, refuses unpaired lists; config couplings (params file == `MOCK_PARAMS` == stack_params.yaml; the interrogation entry) |
+| `llm/test/test_llm2_mpc_param_node.py` | The real node against the fake server, ticks by hand: publishes the echo (source, seq, names, values), publishes a valid non-echo as returned with `echo_match` false, skips while in flight, publishes nothing on an invalid reply, warm-up then short timeout, refuses unpaired lists; pause / resume through the `/llm2/set_active` callback: paused → no request, nothing on `/llm2/mpc_params`, status `paused` every tick (not counted as skipped), pausing twice is fine, resume → requests and publication restart; a reply in flight at the pause is discarded (also when resumed before it comes back); `start_active` false starts paused and a parameter set cannot resume it; config couplings (params file == `MOCK_PARAMS` == stack_params.yaml; shipped `start_active` true; the interrogation entry) |
 | `llm/test/test_llm2_launch.py` | `enable_llm2` defaults to false in stack_params.yaml; shipped `llm2_port` is not LLM1's; `llm2.launch.py` starts one server with `llm2_model`'s file and flags on `llm2_port` and gives the node the same port |
 | `f1tenth_bringup/test/test_stack_bringup_llm2_gate.py` | `stack_bringup` includes `llm2.launch.py` exactly once, and its condition is false with the defaults and with `enable_llm2:=false`, true only with `enable_llm2:=true` |
 | `llm/test/conftest.py` | The fake llama-server fixture |
@@ -381,10 +470,10 @@ this session. On the car or the sim host: run the same short mission twice,
 | `f1tenth_messages/msg/MpcParamUpdate.msg`, `CMakeLists.txt` | New message |
 | `llm/config/models.yaml` | Entry `qwen2.5-3b-instruct-q5km` (same .gguf, `-ngl 999 -np 1 -c 4096`) |
 | `llm/config/interrogations.yaml` | Entry `llm2_mpc_params` |
-| `llm/config/llm2_mpc_param_params.yaml` | Node parameters (mock set) |
+| `llm/config/llm2_mpc_param_params.yaml` | Node parameters (mock set, `start_active`) |
 | `llm/launch/llm2.launch.py` | Second llama-server + node |
 | `llm/llm/llm2_protocol.py`, `llm/llm/llm2_mpc_param_node.py` | The node |
-| `llm/setup.py`, `llm/package.xml` | Entry point; `std_msgs` dependency |
+| `llm/setup.py`, `llm/package.xml` | Entry point; `std_msgs` dependency (`std_srvs` was already declared; `rcl_interfaces` for the read-only `start_active`) |
 | `f1tenth_bringup/launch/stack_bringup.launch.py` | `enable_llm2`, `llm2_model`, `llm2_port` |
 | `f1tenth_params/config/stack_params.yaml` | LLM2 block after `llama_server_cwd` (7 keys); no MPC weight touched |
 | `mpc_controller/mpc_controller/llm2_params.py` | Whitelist / validation / pending slot |

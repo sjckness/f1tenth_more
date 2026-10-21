@@ -4,6 +4,14 @@
 # port has one source of truth (stack_params.yaml's llm2_port).
 /**:
   ros__parameters:
+    # true: requests start at the first tick. false: the node starts paused
+    # (no request, nothing on /llm2/mpc_params, /llm2/status still every tick
+    # with 'state': 'paused') until /llm2/set_active true. Read once at start
+    # (read-only); at run time pause and resume with
+    #   ros2 service call /llm2/set_active std_srvs/srv/SetBool "{data: false}"
+    # Pausing reverts nothing: mpc_corr keeps the values it last applied.
+    # enable_llm2 (stack_bringup) stays the opt-in that starts LLM2 at all.
+    start_active: true
     # One request per tick. A tick that finds the previous request still in
     # flight is skipped and counted on /llm2/status, never queued.
     rate_hz: 0.5
