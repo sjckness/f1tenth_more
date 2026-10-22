@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>lamacchinina</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#0A0C0F}
+a{color:#ECEEF1}a:hover{color:#FFFFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #0A0C0F; color: #ECEEF1; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 54px 16px 10px; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: rgba(52,210,123,0.12); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #34D27B; letter-spacing: 0.06em">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #34D27B"></span>ONLINE</div>
+<div style="display: flex; gap: 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums">
+<span><span style="color: #9099A6">LAT </span>24 ms</span>
+<span><span style="color: #9099A6">BATT </span>11.6 V · 68%</span>
+</div>
+</div>
+
+<main style="flex: 1; overflow-y: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; align-items: baseline; justify-content: space-between">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.01em">lamacchinina</h1>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #9099A6">F1T-01</span>
+</div>
+
+<section aria-label="Stato di prontezza" style="border: 1.5px solid rgba(245,165,36,0.55); background: rgba(245,165,36,0.07); border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: flex-end; justify-content: space-between">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9099A6; letter-spacing: 0.1em">STATO SISTEMA</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 46px; line-height: 1; font-weight: 800; color: #F5A524; letter-spacing: -0.02em">NOT READY</span>
+</div>
+<div style="text-align: right; font-family: 'JetBrains Mono', monospace">
+<div style="font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums">9/11</div>
+<div style="font-size: 11px; color: #9099A6; letter-spacing: 0.08em">CHECK OK</div>
+</div>
+</div>
+<ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px">
+<li style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #13161B">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF5A50" stroke-width="2.2" stroke-linecap="round" role="img" aria-label="Errore"><circle cx="12" cy="12" r="9"></circle><path d="M9 9l6 6M15 9l-6 6"></path></svg>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600">Localizzazione</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9099A6">cov. xy 0.42 m &gt; soglia 0.15 m</span>
+</div>
+</li>
+<li style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #13161B">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F5A524" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Avviso"><path d="M12 3l9.5 17h-19z"></path><path d="M12 10v4M12 17v.01"></path></svg>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 15px; font-weight: 600">Planner</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9099A6">processo non attivo</span>
+</div>
+</li>
+</ul>
+</section>
+
+<section aria-label="Processi" style="display: flex; flex-direction: column; gap: 8px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9099A6; letter-spacing: 0.1em">PROCESSI</span>
+<div style="background: #13161B; border: 1px solid #262B34; border-radius: 20px; overflow: hidden">
+<sc-for list="{{procs}}" as="p" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: {{p.divider}}">
+<div style="flex: 1; display: flex; flex-direction: column; gap: 3px">
+<span style="font-size: 17px; font-weight: 700">{{p.name}}</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: {{p.statusColor}}">{{p.status}}</span>
+</div>
+<button type="button" role="switch" aria-checked="{{p.aria}}" aria-label="{{p.label}}" onClick="{{p.toggle}}" style="width: 68px; height: 40px; border-radius: 999px; border: 0; padding: 0; position: relative; background: {{p.track}}; cursor: pointer">
+<span style="position: absolute; top: 4px; left: {{p.knob}}; width: 32px; height: 32px; border-radius: 50%; background: #FFFFFF; transition: left 150ms"></span>
+</button>
+</div>
+</sc-for>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<div style="background: #13161B; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9099A6">VEL m/s</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700">0.00</span>
+</div>
+<div style="background: #13161B; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9099A6">VESC °C</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700">38</span>
+</div>
+<a href="#/cpu" style="background: #13161B; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; text-decoration: none; color: #ECEEF1; box-shadow: inset 0 0 0 1px #262B34">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9099A6">CPU %<span aria-hidden="true"> ›</span></span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700">41</span>
+</a>
+<div style="background: #13161B; border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9099A6">GPU %</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700">12</span>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #9099A6; white-space: nowrap">306 MHz</span>
+</div>
+</div>
+</main>
+
+<div style="padding: 8px 16px 10px">
+<button type="button" style="width: 100%; height: 64px; border: 0; border-radius: 16px; background: #D7261E; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 12px; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 0.14em; cursor: pointer">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"></path><path d="M12 8v5M12 16.5v.01"></path></svg>EMERGENZA</button>
+</div>
+<nav aria-label="Sezioni" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid #262B34; background: #0E1014; padding: 6px 4px 26px">
+<a href="Main.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #ECEEF1; font-size: 11px; font-weight: 700"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"></path><path d="M12 16l4-5"></path></svg>lamacchinina</a>
+<a href="Missione.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"></path><path d="M5 4h12l-2.5 4 2.5 4H5"></path></svg>Missione</a>
+<a href="Guida.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="2"></circle><path d="M3.5 10.5H10M14 10.5h6.5M12 14v7"></path></svg>Guida</a>
+<a href="Telemetria.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Telemetria</a>
+<a href="Run.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9l5 3-5 3z"></path></svg>Run</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { on: { Stack: true, Planner: false, Logger: true } };
+  }
+  renderVals() {
+    var self = this;
+    var info = {
+      Stack: ['running · 14 nodi · 00:12:31', 'fermo'],
+      Planner: ['running · 50 Hz', 'fermo'],
+      Logger: ['rec · bag 312 MB', 'fermo']
+    };
+    var names = ['Stack', 'Planner', 'Logger'];
+    var procs = names.map(function (n, i) {
+      var on = !!self.state.on[n];
+      return {
+        name: n,
+        label: 'Attiva ' + n,
+        aria: on ? 'true' : 'false',
+        status: on ? info[n][0] : info[n][1],
+        statusColor: on ? '#34D27B' : '#9099A6',
+        track: on ? '#34D27B' : '#2C323C',
+        knob: on ? '32px' : '4px',
+        divider: i < names.length - 1 ? '1px solid #262B34' : '0',
+        toggle: function () {
+          var next = Object.assign({}, self.state.on);
+          next[n] = !on;
+          self.setState({ on: next });
+        }
+      };
+    });
+    return { procs: procs };
+  }
+}
+</script>
+</body>
+</html>

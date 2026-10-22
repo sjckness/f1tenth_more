@@ -1,0 +1,34 @@
+{
+  "mission_id": "llm_mock0002",
+  "schema_version": "5.0",
+  "moves": [
+    {
+      "id": "straight_1",
+      "drive": {
+        "mode": "straight",
+        "speed": 0.5
+      },
+      "stop_condition": {
+        "type": "distance_reached",
+        "distance": 2.0
+      },
+      "timeout_sec": 30,
+      "on_timeout": "abort"
+    },
+    {
+      "id": "to_person",
+      "go_to_object": {
+        "target_class": "person",
+        "speed": 0.4,
+        "acquire_timeout_sec": 5.0,
+        "lost_grace_sec": 1.5
+      },
+      "stop_condition": {
+        "type": "object_reached"
+      },
+      "timeout_sec": 40,
+      "on_timeout": "abort",
+      "terminal": true
+    }
+  ]
+}

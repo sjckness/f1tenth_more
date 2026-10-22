@@ -1,0 +1,6 @@
+#!/bin/sh
+# Runs f1tenth_ctl straight from this checkout: no build, no ROS sourced.
+# This is the path the Telegram bot calls over ssh (non-interactive ssh does
+# not read ~/.bashrc, so the installed console script is not on PATH there).
+here="$(cd "$(dirname "$0")/.." && pwd)"
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m f1tenth_ctl "$@"

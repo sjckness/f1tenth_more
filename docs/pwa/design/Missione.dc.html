@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Missione — piano</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;700;800&amp;display=swap">
+<style>
+body{margin:0;background:#0A0C0F}
+a{color:#ECEEF1}a:hover{color:#FFFFFF}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #0A0C0F; color: #ECEEF1; font-family: 'Inter', sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 54px 16px 10px; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: rgba(52,210,123,0.12); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #34D27B; letter-spacing: 0.06em">
+<span style="width: 8px; height: 8px; border-radius: 50%; background: #34D27B"></span>READY</div>
+<div style="display: flex; gap: 14px; font-family: 'JetBrains Mono', monospace; font-size: 13px; font-variant-numeric: tabular-nums">
+<span><span style="color: #9099A6">LAT </span>26 ms</span>
+<span><span style="color: #9099A6">BATT </span>11.5 V · 66%</span>
+</div>
+</div>
+
+<main style="flex: 1; overflow-y: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 14px">
+<h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.01em">Missione</h1>
+
+<div style="display: flex; gap: 10px; align-items: stretch">
+<label style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9099A6; letter-spacing: 0.1em">COMANDO</span>
+<textarea rows="3" style="resize: none; background: #13161B; border: 1px solid #262B34; border-radius: 16px; color: #ECEEF1; font-family: 'Inter', sans-serif; font-size: 16px; line-height: 1.4; padding: 12px 14px; outline: none">Fai due giri della pista a 2 m/s e poi fermati al box</textarea>
+</label>
+<button type="button" aria-label="Tieni premuto per parlare" style="align-self: flex-end; width: 72px; height: 72px; border-radius: 20px; border: 1px solid #262B34; background: #1A1E25; color: #ECEEF1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #9099A6">HOLD</span>
+</button>
+</div>
+
+<section aria-label="Piano generato" style="background: #13161B; border: 1px solid #262B34; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; align-items: center; justify-content: space-between">
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #9099A6; letter-spacing: 0.1em">PIANO</span>
+<span style="display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; color: #34D27B">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l5 5L20 6"></path></svg>VALIDATO</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<div style="display: flex; flex-direction: column"><span style="font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700">2</span><span style="font-size: 12px; color: #9099A6">giri</span></div>
+<div style="display: flex; flex-direction: column"><span style="font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700">2.0</span><span style="font-size: 12px; color: #9099A6">v max m/s</span></div>
+<div style="display: flex; flex-direction: column"><span style="font-family: 'JetBrains Mono', monospace; font-size: 28px; font-weight: 700">box</span><span style="font-size: 12px; color: #9099A6">arrivo</span></div>
+</div>
+<ol style="margin: 0; padding: 0 0 0 20px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: #C9CED6">
+<li>Partenza da <span style="font-family: 'JetBrains Mono', monospace">start_line</span></li>
+<li>2 giri sulla raceline <span style="font-family: 'JetBrains Mono', monospace">lab_loop</span></li>
+<li>Stop al waypoint <span style="font-family: 'JetBrains Mono', monospace">box</span></li>
+</ol>
+<button type="button" onClick="{{toggleJson}}" aria-expanded="{{jsonAria}}" style="display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #262B34; background: #0E1014; color: #ECEEF1; font-family: 'JetBrains Mono', monospace; font-size: 13px; cursor: pointer">
+<span>{{jsonLabel}}</span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: {{chevron}}"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+<sc-if value="{{showJson}}" hint-placeholder-val="{{ true }}">
+<pre style="margin: 0; padding: 12px; border-radius: 12px; background: #0E1014; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.5; color: #C9CED6; white-space: pre; overflow-x: auto">{{json}}</pre>
+</sc-if>
+</section>
+
+<a href="MissioneInCorso.dc.html" aria-label="Scorri per avviare la missione" style="position: relative; display: flex; align-items: center; height: 68px; border-radius: 999px; background: rgba(52,210,123,0.10); border: 1.5px solid rgba(52,210,123,0.5); text-decoration: none; color: #34D27B; flex-shrink: 0">
+<span style="position: absolute; left: 6px; top: 6px; width: 56px; height: 56px; border-radius: 50%; background: #34D27B; color: #0A0C0F; display: flex; align-items: center; justify-content: center">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+</span>
+<span style="flex: 1; text-align: center; padding-left: 50px; font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.12em">SCORRI PER AVVIARE</span>
+</a>
+</main>
+
+<div style="padding: 8px 16px 10px">
+<button type="button" style="width: 100%; height: 64px; border: 0; border-radius: 16px; background: #D7261E; color: #FFFFFF; display: flex; align-items: center; justify-content: center; gap: 12px; font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 800; letter-spacing: 0.14em; cursor: pointer">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M8 3h8l5 5v8l-5 5H8l-5-5V8z"></path><path d="M12 8v5M12 16.5v.01"></path></svg>EMERGENZA</button>
+</div>
+<nav aria-label="Sezioni" style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border-top: 1px solid #262B34; background: #0E1014; padding: 6px 4px 26px">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0"></path><path d="M12 16l4-5"></path></svg>lamacchinina</a>
+<a href="Missione.dc.html" aria-current="page" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #ECEEF1; font-size: 11px; font-weight: 700"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"></path><path d="M5 4h12l-2.5 4 2.5 4H5"></path></svg>Missione</a>
+<a href="Guida.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="2"></circle><path d="M3.5 10.5H10M14 10.5h6.5M12 14v7"></path></svg>Guida</a>
+<a href="Telemetria.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>Telemetria</a>
+<a href="Run.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 52px; text-decoration: none; color: #9099A6; font-size: 11px; font-weight: 600"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M10 9l5 3-5 3z"></path></svg>Run</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { showJson: false };
+  }
+  renderVals() {
+    var self = this;
+    var plan = {
+      mission_id: 'm_20261020_1432',
+      type: 'laps',
+      laps: 2,
+      raceline: 'lab_loop',
+      v_max: 2.0,
+      start: 'start_line',
+      end: { action: 'stop', waypoint: 'box' }
+    };
+    var open = !!this.state.showJson;
+    return {
+      showJson: open,
+      jsonAria: open ? 'true' : 'false',
+      jsonLabel: open ? 'Nascondi JSON' : 'Mostra JSON',
+      chevron: open ? 'rotate(180deg)' : 'none',
+      json: JSON.stringify(plan, null, 2),
+      toggleJson: function () { self.setState({ showJson: !open }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

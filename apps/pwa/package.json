@@ -1,0 +1,26 @@
+{
+  "name": "f1tenth-lab-control",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "F1Tenth Lab Control: the PWA (iPhone, Safari) for the car's gateway.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "deploy": "npm run build && ./scripts/deploy.sh",
+    "test:e2e": "playwright test --project=webkit-portrait --project=webkit-landscape --project=chromium-multitouch",
+    "screens": "playwright test --project=screens"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.1.0",
+    "@fontsource/jetbrains-mono": "5.1.0",
+    "@preact/signals": "1.3.1",
+    "preact": "10.24.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.48.2",
+    "@preact/preset-vite": "2.9.1",
+    "typescript": "5.6.3",
+    "vite": "5.4.11"
+  }
+}
