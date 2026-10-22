@@ -23,7 +23,7 @@ def build(cfg, mock: bool):
         ctl = MockCtl(world)
 
         def make_ros(teleop, spec, on_status, on_outcome):
-            return MockRos(world, teleop, on_status, on_outcome)
+            return MockRos(world, teleop, on_status, on_outcome, llm2_cfg=cfg['llm2'])
         gw = Gateway(cfg, make_ros, ctl, FakeTranscriber(cfg['transcription']), token,
                      world=world, sysstats=MockSysStats(world))
     else:

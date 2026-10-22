@@ -7,6 +7,7 @@ isolated domain, with in-process stand-ins for the mux, the mission services
 and a few stack topics. Skipped elsewhere.
 """
 
+import json
 import os
 import threading
 import time
@@ -145,3 +146,46 @@ def test_mission_status_battery_and_odometry_reach_the_gateway_and_teleop(ros_en
     assert wait(publish_all, timeout=8.0)
     # The measured speed also reaches teleop, for the direction change (reverse).
     assert teleop._measured is not None and abs(teleop._measured[0] - 0.42) < 1e-9
+
+
+def test_llm2_pause_through_a_fake_set_active_and_the_status_after_it(ros_env):
+    from std_msgs.msg import String
+    from std_srvs.srv import SetBool
+    bridge, _teleop, fake, _ = ros_env
+    assert bridge.llm2_view()['state'] == 'not_running'
+    res = bridge.llm2_set_active(False)
+    assert not res['ok'] and res['code'] == 409, 'no service: LLM2 not running'
+    calls, delay = [], {'s': 0.0}
+
+    def answer(req, resp):
+        calls.append(req.data)
+        time.sleep(delay['s'])
+        resp.success, resp.message = True, 'active' if req.data else 'paused'
+        return resp
+    fake.create_service(SetBool, '/llm2/set_active', answer)
+    pub = fake.create_publisher(String, '/llm2/status', 10)
+    active = String(data=json.dumps({'seq': 7, 'outcome': 'ok', 'latency_ms': 412.0,
+                                     'state': 'active', 'counters': {'ok': 7}}))
+
+    def publish_active():
+        pub.publish(active)
+        return bridge.llm2_view()['state'] == 'active'
+    assert wait(publish_active)
+    res = bridge.llm2_set_active(False)
+    assert res['ok'] and res['state'] == 'paused' and calls == [False]
+    # A status published just before the call and received after the answer: the answer wins.
+    pub.publish(active)
+    time.sleep(0.3)
+    v = bridge.llm2_view()
+    assert v['state'] == 'paused' and v['latency_ms'] == 412.0 and v['counters'] == {'ok': 7}
+    # No answer within the timeout: an error, the state stays what LLM2 last said.
+    delay['s'] = 1.0
+    res = bridge.llm2_set_active(True, timeout_s=0.3)
+    assert not res['ok'] and 'nessuna risposta entro 0.3 s' in res['message']
+    assert bridge.llm2_view()['state'] == 'paused'
+    # The late answer to the abandoned call breaks nothing: the next call works.
+    time.sleep(1.0)
+    delay['s'] = 0.0
+    res = bridge.llm2_set_active(True)
+    assert res['ok'] and res['state'] == 'active' and calls == [False, True, True]
+    assert bridge.llm2_view()['state'] == 'active'

@@ -11,6 +11,9 @@ What it does:
   matched before anyone presses EMERGENZA. The sequence itself is
   f1tenth_ctl's (rosprobe.estop_with), run on this node;
 - feeds the mission tracker (/mission/status, /mission/move_outcome);
+- follows LLM2 (two-llm-arch): /llm2/status always (one JSON every 2 s), and
+  pauses / resumes it with /llm2/set_active from a client made at start
+  (llm2.py says how the two make one state);
 - keeps the latest telemetry. The heavier subscriptions (odometry, VESC,
   MPC horizon, SLAM map, behaviour tree stream) exist only while a phone is
   connected, and are dropped 30 s after the last one leaves.
@@ -23,6 +26,8 @@ import math
 import threading
 import time
 from typing import Callable, Dict, List, Optional
+
+from .llm2 import Llm2State
 
 LINGER_S = 30.0
 PATH_MIN_STEP_M = 0.05
@@ -81,6 +86,8 @@ class RosBridge:
         self._bt_stream = None
         self._thread = None
         self._estop_lock = threading.Lock()
+        llm2 = cfg['llm2']
+        self.llm2 = Llm2State(llm2['service'], llm2['stale_s'], llm2['trust_s'])
 
     # ---- life cycle --------------------------------------------------------------------
 
@@ -91,7 +98,8 @@ class RosBridge:
         from rclpy.node import Node
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
         from ackermann_msgs.msg import AckermannDriveStamped
-        from std_srvs.srv import Trigger
+        from std_msgs.msg import String
+        from std_srvs.srv import SetBool, Trigger
         from f1tenth_messages.msg import BatteryStatus, MissionStatus, MoveOutcome
 
         rclpy.init()
@@ -120,6 +128,10 @@ class RosBridge:
         self._estop_cli = node.create_client(Trigger, self.estop_spec['service'])
         self._abort_cli = node.create_client(Trigger, self.estop_spec['abort_service'])
         self._Trigger = Trigger
+        # LLM2: cheap (0.5 Hz), so always on, like the mission status.
+        self._llm2_cli = node.create_client(SetBool, self.cfg['llm2']['service'])
+        self._SetBool = SetBool
+        node.create_subscription(String, topics['llm2_status'], self._llm2_status_cb, reliable)
         node.create_subscription(MissionStatus, topics['mission_status'], self._mission_cb,
                                  self._latched)
         node.create_subscription(MoveOutcome, topics['move_outcome'], self._outcome_cb,
@@ -213,6 +225,33 @@ class RosBridge:
         return {'ok': ok, 'message': resp.message,
                 'duration_ms': int((time.monotonic() - t0) * 1000)}
 
+    # ---- LLM2 pause / resume -------------------------------------------------------------------
+
+    def llm2_set_active(self, active: bool, timeout_s: float = 2.0) -> Dict:
+        """Call /llm2/set_active; the answer is LLM2's state at once (Llm2State.on_response)."""
+        t0 = time.monotonic()
+        service = self.cfg['llm2']['service']
+        if not self._llm2_cli.service_is_ready():
+            return {'ok': False, 'code': 409,
+                    'message': f'LLM2 non attivo: servizio {service} non disponibile'}
+        req = self._SetBool.Request()
+        req.data = bool(active)
+        fut = self._llm2_cli.call_async(req)
+        while not fut.done() and time.monotonic() - t0 < timeout_s:
+            time.sleep(0.005)
+        if not fut.done():
+            fut.cancel()
+            return {'ok': False, 'message': f'{service}: nessuna risposta entro {timeout_s:g} s'}
+        resp = fut.result()
+        if resp is None:
+            return {'ok': False, 'message': f'{service}: {fut.exception()}'}
+        res = self.llm2.on_response(active, resp.success, resp.message, time.monotonic())
+        res['duration_ms'] = int((time.monotonic() - t0) * 1000)
+        return res
+
+    def llm2_view(self) -> Dict:
+        return self.llm2.view(time.monotonic(), bool(self._llm2_cli.service_is_ready()))
+
     # ---- always-on callbacks ------------------------------------------------------------------
 
     def _mission_cb(self, msg) -> None:
@@ -226,6 +265,9 @@ class RosBridge:
         self._put('battery', {'v': round(float(msg.voltage), 2), 'ok': bool(msg.ok),
                               'has_data': bool(msg.has_data),
                               'min_v': round(float(msg.min_voltage), 2)})
+
+    def _llm2_status_cb(self, msg) -> None:
+        self.llm2.on_status(msg.data, time.monotonic())
 
     def _put(self, key: str, value) -> None:
         with self._lock:

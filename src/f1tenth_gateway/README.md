@@ -8,7 +8,7 @@ iPhone (Safari, app sulla Home)
    │  https://jetson-orin.<tailnet>.ts.net   (Tailscale, certificato del tailnet)
    ▼
 tailscale serve :443 ──▶ 127.0.0.1:8770  f1tenth_gateway (uvicorn, unità systemd utente)
-                              ├─ rclpy, un nodo: /teleop, /safety_stop, /mission/*, telemetria
+                              ├─ rclpy, un nodo: /teleop, /safety_stop, /mission/*, /llm2/*, telemetria
                               ├─ f1tenth_ctl in-process: status / start / stop / estop-reset / planner
                               └─ trascrizione: un processo a parte (nice 10), faster-whisper CPU
 ```
@@ -59,6 +59,29 @@ tailscale serve :443 ──▶ 127.0.0.1:8770  f1tenth_gateway (uvicorn, unità 
     LiDAR.
 - **Run**: elenco da `~/f1tenth_archive`, report HTML, video (con range) quando
   c'è.
+- **LLM2** (solo `two-llm-arch`; `llm2.py`, contratto in
+  `output/two_llm/README.md`, sezione 2): pausa e ripresa del tuner dei
+  parametri MPC da lamacchinina.
+  - `POST /api/llm2` `{"active": false|true}` chiama `/llm2/set_active`
+    (`std_srvs/SetBool`) con un client creato all'avvio, timeout
+    `llm2.timeout_s` (2 s), una chiamata alla volta (la seconda: 409), mai
+    ritentata. Risponde `{ok, state, duration_ms, llm2}` (`llm2`: il campo
+    di stato qui sotto, già aggiornato); se fallisce, `{detail}` con l'errore:
+    502 (nessuna risposta entro il timeout, risposta inattesa), 409 (LLM2 non
+    attivo, o un'altra chiamata in corso), 422 (corpo non valido). Lo stato
+    resta quello che dice LLM2: un timeout non vuol dire che il comando non
+    sia arrivato, lo dice lo `/llm2/status` dopo.
+  - Nel messaggio di stato, campo `llm2`: `state` (`active` / `paused` /
+    `not_running`), `why` (perché non attivo), `latency_ms` (l'ultima
+    misurata: i tick in pausa non ne hanno), `outcome` e `counters` dell'ultimo
+    `/llm2/status`, `age_s`, `pending` (una chiamata in corso).
+  - Lo stato viene da `/llm2/status` (un JSON ogni 2 s, sottoscritto sempre),
+    mai dal click: dopo una risposta del servizio vale il suo `message` per un
+    periodo (`llm2.trust_s`, 2 s), perché uno stato pubblicato appena prima
+    della chiamata può arrivare dopo la risposta.
+  - `not_running`: nessuno stato da `llm2.stale_s` (5 s) né una risposta, o il
+    servizio non c'è. Cioè LLM2 non avviato (`enable_llm2:=false`, il
+    default) o morto, che è diverso da `paused`.
 
 Regole lato server (non le decide l'app):
 
@@ -274,12 +297,20 @@ Chiavi utili:
 | `mission.auto_abort_s` | 2.0 | missione avviata dall'app senza client → ABORT |
 | `estop.reset_still_s` | 1.0 | macchina ferma da questo tempo per SBLOCCA |
 | `client.lost_after_s` | 1.5 | nessun messaggio dal gateway → "connessione persa" |
+| `llm2.stale_s` | 5.0 | nessun `/llm2/status` per questo tempo → LLM2 `not_running` |
+| `llm2.timeout_s` | 2.0 | attesa massima della risposta di `/llm2/set_active` |
+| `llm2.trust_s` | 2.0 | dopo una risposta, gli `/llm2/status` di questo tempo non la smentiscono (un periodo, `1/rate_hz`) |
 | `transcription.model` | small | `base` più veloce |
 
 ## Su linus: il gateway con la macchina finta
 
 Senza ROS e senza macchina: `--mock` simula processi, check, missioni, Guida,
-EMERGENZA e archivio.
+EMERGENZA, archivio e LLM2 (attivo, uno stato ogni 2 s). `POST /api/_mock/set`
+con `llm2_running` (false: LLM2 non attivo), `llm2_active` (lo cambia "un altro",
+lo stato lo segue al tick dopo), `llm2_fail` (il messaggio d'errore con cui
+fallisce la chiamata al servizio; `null` lo toglie) o `llm2_delay_s` (quanto
+ci mette a rispondere, 0.15 s; oltre `llm2.timeout_s` la chiamata va in
+timeout come sulla macchina e niente cambia).
 
 ```bash
 python3 -m venv /tmp/gwvenv && /tmp/gwvenv/bin/pip install -r src/f1tenth_gateway/requirements.txt httpx==0.28.1 pytest
@@ -324,4 +355,5 @@ uno; gli altri girano.
 | Guida: "un altro nodo pubblica su /teleop" | joystick acceso | spegni il joy node |
 | Microfono: errore | faster-whisper non installato, o modello non scaricato | passo 2; `~/.local/state/f1tenth_gateway/gateway.log` |
 | BT vuoto in Telemetria | `py_trees_ros_interfaces` assente, o il nodo del BT non espone gli snapshot stream | passo 2 |
+| lamacchinina: "LLM2 non attivo" con `enable_llm2:=true` | il nodo LLM2 non gira, o il gateway non vede `/llm2/status` o `/llm2/set_active` | con `ctl.env`: `ros2 topic echo /llm2/status`, `ros2 service list \| grep llm2`; `why` in `/api/status` |
 | GPU "n/a" sull'Orin | nessun file `load` della GPU leggibile (altro L4T?) | `cat /sys/devices/platform/bus@0/17000000.gpu/load`; `ls /sys/class/devfreq/`; i percorsi in `sysstats.py` (`GPU_LOAD_PATHS`) |
