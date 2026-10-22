@@ -63,8 +63,10 @@ invisible; asserting the argument directly is what would have caught it.
 Run standalone: python3 -m pytest test/test_yolo_detector_node.py -v
 """
 
+import csv
 import hashlib
 import sys
+import time
 import types
 from unittest.mock import MagicMock
 
@@ -79,6 +81,8 @@ from vision_msgs.msg import Detection2D, ObjectHypothesisWithPose
 from f1tenth_perception.yolo_detector_node import (
     MASK_OVERLAY_ALPHA,
     MAX_MASK_INSTANCES,
+    TIMING_CSV_COLUMNS,
+    TIMING_STAGES,
     YoloDetectorNode,
     _bbox_overlap_fraction,
     _mask_overlap_fraction,
@@ -975,3 +979,56 @@ def test_annotated_image_is_drawn_and_published_only_while_subscribed(subscriber
         assert node.det_pub.publish.call_count == 1
     finally:
         node.destroy_node()
+
+
+class TestStageTiming:
+    """stage_timing: canonical per-frame stages and the per-frame CSV."""
+
+    def test_off_takes_no_timestamps_and_writes_no_csv(self, tmp_path):
+        csv_path = tmp_path / 'timing.csv'
+        node = _construct_with_params({'debug_image_rate_hz': 0.0,
+                                       'stage_timing_csv': str(csv_path)})
+        try:
+            node.model = _FakeCallableModel()
+            node.image_callback(_bgr_msg(100.0))
+            assert node._timer is None
+        finally:
+            node.destroy_node()
+        assert not csv_path.exists()
+
+    def test_csv_has_a_header_and_one_row_per_processed_frame(self, tmp_path):
+        csv_path = tmp_path / 'sub' / 'timing.csv'
+        node = _construct_with_params({'debug_image_rate_hz': 0.0, 'stage_timing': True,
+                                       'stage_timing_csv': str(csv_path)})
+        try:
+            node.model = _FakeCallableModel()
+            for i in range(3):
+                node.image_callback(_bgr_msg(100.0 + i / 15.0))
+            report = node._timer.report(time.time() + 2.0)
+        finally:
+            node.destroy_node()  # writes the buffered rows
+        assert report['counts']['frames_in'] == 3
+        assert report['stages']['stage.total']['n'] == 3
+        with open(csv_path, newline='') as f:
+            reader = csv.DictReader(f)
+            rows = list(reader)
+        assert tuple(reader.fieldnames) == TIMING_CSV_COLUMNS
+        assert [r['stamp'] for r in rows] == ['100.000000000', '100.066666667', '100.133333333']
+        for r in rows:
+            assert (r['path'], r['n_detections'], r['debug']) == ('classic', '0', '')
+            # Every stage is claimed exactly once: the stages add up to total.
+            parts = sum(float(r[s]) for s in TIMING_STAGES[:-1] if r[s])
+            assert parts == pytest.approx(float(r['total']), abs=0.01)
+
+    def test_an_unwritable_csv_never_stops_detection(self, tmp_path):
+        not_a_dir = tmp_path / 'file'
+        not_a_dir.write_text('')
+        node = _construct_with_params({'debug_image_rate_hz': 0.0, 'stage_timing': True,
+                                       'stage_timing_csv': str(not_a_dir / 'timing.csv')})
+        try:
+            node.model = _FakeCallableModel()
+            node.image_callback(_bgr_msg(100.0))
+            assert node.det_pub.publish.call_count == 1
+            assert node._csv_file is None
+        finally:
+            node.destroy_node()

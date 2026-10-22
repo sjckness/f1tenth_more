@@ -4,13 +4,15 @@ Pure (no rclpy): yolo_detector_node and detection_3d_node feed it samples in
 milliseconds and it hands back one report per period, which the node logs as
 a single line:
 
-    STAGE_TIMING {"node": ..., "period_s": ..., "stages": {name: {p50, p95, max, n}},
-                  "counts": {name: n}}
+    STAGE_TIMING {"node": ..., "period_s": ...,
+                  "stages": {name: {mean, p50, p95, max, n}}, "counts": {name: n}}
 
 A stage is any named series. The nodes record two kinds and name them so the
 log says which is which: `age.<stage>` is now minus the frame's header.stamp
 when the stage ended (so the ages of consecutive stages rise), and
-`dur.<stage>` is how long the stage itself took. Counts are plain event
+`dur.<stage>` is how long the stage itself took. yolo_detector_node also
+records `stage.<name>`, the duration of one of its canonical per-frame
+stages (the same set on every inference path). Counts are plain event
 counters (frames in, frames processed, frames skipped).
 
 Temporary measurement code for the 2026-10-14 detection-latency audit. With
@@ -23,7 +25,7 @@ import numpy as np
 
 
 class StageTimer:
-    """Collects samples per stage and reports p50/p95/max every period_s."""
+    """Collects samples per stage and reports mean/p50/p95/max every period_s."""
 
     def __init__(self, node_name, period_s=30.0):
         self.node_name = str(node_name)
@@ -58,6 +60,7 @@ class StageTimer:
         for stage, values in self._samples.items():
             arr = np.asarray(values, dtype=float)
             stages[stage] = {
+                'mean': round(float(arr.mean()), 2),
                 'p50': round(float(np.percentile(arr, 50)), 2),
                 'p95': round(float(np.percentile(arr, 95)), 2),
                 'max': round(float(arr.max()), 2),

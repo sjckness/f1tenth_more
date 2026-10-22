@@ -164,6 +164,7 @@ Message field reference (vision_msgs, Humble == "4.x" layout):
 
 import array
 import collections
+import csv
 import hashlib
 import json
 import os
@@ -226,6 +227,20 @@ _MISSION_STATUS_QOS = QoSProfile(
 # 2026-10-01 campaign bags show (P004-R018); the matching message lands
 # ~15 ms after the 2D detections of the frame it belongs to.
 _DEBUG_CACHE = 30
+
+# stage_timing: the canonical per-frame stages [ms], the same set on every
+# inference path (`stage.<name>` in STAGE_TIMING, one CSV column each).
+# 'other' is the callback time no stage claims (classic path: mostly
+# Ultralytics' per-call work outside its three Profiles); 'annotate' and
+# 'debug' are recorded only on frames where they ran.
+TIMING_STAGES = ('msg_to_array', 'preprocess', 'inference', 'postprocess', 'masks',
+                 'publish', 'annotate', 'debug', 'other', 'total')
+# stage_timing_csv: wall_time = time.time() at callback entry [s]; stamp =
+# header stamp [s], printed exactly from sec/nanosec.
+TIMING_CSV_COLUMNS = ('wall_time', 'stamp', 'n_detections', 'path') + TIMING_STAGES
+# Rows buffered between report ticks. Written from the callback only when no
+# executor runs the report timer (offline harness).
+_TIMING_CSV_MAX_ROWS = 512
 
 
 # ==============================================================================
@@ -568,6 +583,7 @@ class YoloDetectorNode(Node):
             self.get_logger().error(f'cv_bridge conversion failed: {exc}')
             return
         self._mark('convert')
+        self._stage('msg_to_array')
 
         out = Detection2DArray()
         out.header = msg.header  # keep detections time/frame aligned to the image
@@ -576,8 +592,11 @@ class YoloDetectorNode(Node):
             # Passthrough: empty detections, re-publish the frame unmodified so
             # the annotated topic stays live.
             self.det_pub.publish(out)
+            self._stage('publish')
             if self.annotated_pub.get_subscription_count() > 0:
                 self._publish_annotated(cv_image, msg.header)
+                self._stage('annotate')
+            self._mark_exit(0, 'passthrough')
             return
 
         # Debug tick: decided before inference, because a tick frame runs
@@ -620,6 +639,7 @@ class YoloDetectorNode(Node):
                 result = self.model(
                     cv_image, verbose=False, device=self.device,
                     conf=self.confidence_threshold, retina_masks=True)[0]
+            self._stage('debug')
 
         # Car's-own-LiDAR exclusion -- see module docstring's own paragraph.
         # Applied here, on the raw Ultralytics result, BEFORE anything below
@@ -642,6 +662,7 @@ class YoloDetectorNode(Node):
         if self.masks_pub is not None and result.masks is not None:
             masks_np = result.masks.data.cpu().numpy()
         self._mark('masks_to_cpu')
+        self._stage('masks')
 
         for i, box in enumerate(result.boxes):
             x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
@@ -656,6 +677,7 @@ class YoloDetectorNode(Node):
 
         self.det_pub.publish(out)
         self._mark('pub_det')
+        self._stage('publish')
 
         # PER-FRAME MASK INVARIANT (2026-09-02 stale-track fix)
         # ----------------------------------------------------------------
@@ -692,6 +714,7 @@ class YoloDetectorNode(Node):
                 # another never-aged-out gap of exactly the kind above.
                 self._publish_empty_mask(msg.header)
             self._mark('pub_masks')
+            self._stage('publish')
         # The annotated image is drawn and published only while something
         # subscribes (Foxglove through the lazy /viz relay, or a bag with
         # mission_logger_record_annotated_image): drawing and converting it
@@ -719,6 +742,7 @@ class YoloDetectorNode(Node):
             self._mark('annotate_draw')
             self._publish_annotated(annotated, msg.header)
             self._mark('pub_annotated')
+            self._stage('annotate')
         if debug_tick:
             try:
                 self._debug_capture(cv_image, msg.header, out.detections, masks_np, below)
@@ -726,7 +750,8 @@ class YoloDetectorNode(Node):
                 self.get_logger().error(
                     f'debug image capture failed: {exc}', throttle_duration_sec=5.0)
             self._mark('debug_capture')
-        self._mark_exit()
+            self._stage('debug')
+        self._mark_exit(len(out.detections), 'classic')
 
     def _publish_annotated(self, cv_image, header):
         try:
@@ -806,6 +831,7 @@ class YoloDetectorNode(Node):
             # Higher index (later detection) wins where masks overlap -- see
             # module docstring's "last-write" note.
             label_img[masks_np[i] > 0.5] = i + 1
+        self._stage('masks')
 
         try:
             mask_msg = self.bridge.cv2_to_imgmsg(label_img, encoding='mono8')
@@ -917,42 +943,115 @@ class YoloDetectorNode(Node):
     # and post_nms_other is the rest of postprocess. Skipped input frames are
     # counted from gaps between consecutive processed stamps, against
     # stage_timing_frame_period_s.
+    #
+    # On top of these, stage.<name> holds the canonical stages of
+    # TIMING_STAGES: _stage(name) gives the time since the previous boundary
+    # to `name`, _mark_model splits the Ultralytics call by result.speed
+    # (mask decode -> masks), _mark_exit records total and other. With
+    # stage_timing_csv set, one row per frame is buffered and written when a
+    # report is logged and on destroy_node.
 
     def _timing_setup(self):
         self._timer = None
+        self._csv_file = None
         if not bool(self.declare_parameter('stage_timing', False).value):
             return
-        self._timer = StageTimer(self.get_name(), float(
-            self.declare_parameter('stage_timing_period_s', 30.0).value))
+        period = float(self.declare_parameter('stage_timing_period_s', 1.0).value)
+        self._timer = StageTimer(self.get_name(), period)
+        self._timer.report(time.time())  # the first period starts now
         self._timing_frame_period = float(
             self.declare_parameter('stage_timing_frame_period_s', 1.0 / 30.0).value)
-        self._t_stamp = self._t_last = 0.0
+        self._t_stamp = self._t_last = self._t_entry = self._t_cursor = self._t_wall = 0.0
         self._t_prev_stamp = None
+        self._t_stamp_text = ''
+        self._t_frame = {}
         self._mask_ms = 0.0
-        if self.model is not None and self.device.startswith('cuda'):
+        self._csv_rows = []
+        csv_path = str(self.declare_parameter('stage_timing_csv', '').value)
+        if csv_path:
+            self._csv_open(csv_path)
+        if self.model is not None:
             import torch
             from ultralytics.utils import ops
-            original = ops.process_mask_native
+            # Unwrap a wrapper an earlier node in this process installed.
+            original = getattr(ops.process_mask_native, '_stage_timing_original',
+                               ops.process_mask_native)
+            sync = torch.cuda.synchronize if self.device.startswith('cuda') else (lambda: None)
 
             def timed_process_mask_native(*args, **kwargs):
-                torch.cuda.synchronize()
+                sync()
                 t0 = time.perf_counter()
                 out = original(*args, **kwargs)
-                torch.cuda.synchronize()
+                sync()
                 self._mask_ms += (time.perf_counter() - t0) * 1e3
                 return out
+            timed_process_mask_native._stage_timing_original = original
             ops.process_mask_native = timed_process_mask_native
-        self.create_timer(1.0, self._timing_report)
-        self.get_logger().warn('stage_timing ON: per-stage latency logged as STAGE_TIMING')
+        # Polled at a quarter period so a report is late by 1/4 period at most
+        # (polling at the period itself skips a report whenever the previous
+        # poll ran late behind a frame).
+        self.create_timer(min(1.0, period / 4.0) if period > 0.0 else 1.0,
+                          self._timing_report)
+        self.get_logger().warn(
+            'stage_timing ON: per-stage latency logged as STAGE_TIMING'
+            + (f', per-frame CSV "{csv_path}"' if self._csv_file is not None else ''))
+
+    def _csv_open(self, csv_path):
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
+            self._csv_file = open(csv_path, 'w', newline='', encoding='utf-8')
+            self._csv_writer = csv.writer(self._csv_file)
+            self._csv_writer.writerow(TIMING_CSV_COLUMNS)
+            self._csv_file.flush()
+        except Exception as exc:  # noqa: BLE001 - the CSV must never stop detection
+            self.get_logger().error(f'stage_timing_csv "{csv_path}": {exc} -- no CSV')
+            self._csv_close()
+
+    def _csv_flush(self):
+        """Write the buffered rows (formatted here, not in the callback)."""
+        if self._csv_file is None or not self._csv_rows:
+            return
+        rows, self._csv_rows = self._csv_rows, []
+        try:
+            for wall, stamp, n_det, path, frame in rows:
+                self._csv_writer.writerow(
+                    [f'{wall:.6f}', stamp, n_det, path]
+                    + ['' if frame.get(s) is None else f'{frame[s]:.3f}'
+                       for s in TIMING_STAGES])
+            self._csv_file.flush()
+        except Exception as exc:  # noqa: BLE001 - the CSV must never stop detection
+            self.get_logger().error(f'stage_timing_csv write failed: {exc} -- CSV off')
+            self._csv_close()
+
+    def _csv_close(self):
+        csv_file, self._csv_file = self._csv_file, None
+        self._csv_rows = []
+        if csv_file is not None:
+            try:
+                csv_file.close()
+            except Exception:  # noqa: BLE001 - the CSV must never stop detection
+                pass
+
+    def destroy_node(self):
+        if getattr(self, '_csv_file', None) is not None:
+            self._csv_flush()
+            self._csv_close()
+        return super().destroy_node()
 
     def _mark_entry(self, stamp):
         if self._timer is None:
             return
         now = time.time()
+        self._t_entry = self._t_cursor = time.perf_counter()
+        self._t_frame = {}
+        self._t_wall = now
+        self._t_stamp_text = f'{int(stamp.sec)}.{int(stamp.nanosec):09d}'
         stamp_s = perception_debug.stamp_to_sec(stamp)
         self._t_stamp, self._t_last = stamp_s, now
         self._timer.add('age.entry', (now - stamp_s) * 1e3)
+        self._timer.count('frames_in')
         self._timer.count('frames_processed')
+        self._timer.count('frames_dropped', 0)
         if self._t_prev_stamp is not None:
             gap = stamp_s - self._t_prev_stamp
             self._timer.add('gap_between_processed', gap * 1e3)
@@ -979,17 +1078,48 @@ class YoloDetectorNode(Node):
         self._timer.add('dur.post_mask', self._mask_ms)
         if speed.get('postprocess') is not None:
             self._timer.add('dur.post_nms_other', speed['postprocess'] - self._mask_ms)
+        # Canonical: the rest of the call (setup_source, Results, ...) stays
+        # unclaimed and ends up in 'other'.
+        frame = self._t_frame
+        for key in ('preprocess', 'inference'):
+            if speed.get(key) is not None:
+                frame[key] = frame.get(key, 0.0) + float(speed[key])
+        if speed.get('postprocess') is not None:
+            frame['postprocess'] = (frame.get('postprocess', 0.0)
+                                    + float(speed['postprocess']) - self._mask_ms)
+        frame['masks'] = frame.get('masks', 0.0) + self._mask_ms
+        self._t_cursor = time.perf_counter()
 
-    def _mark_exit(self):
+    def _stage(self, name):
+        """Add the time since the previous stage boundary to canonical stage `name`."""
+        if self._timer is None:
+            return
+        now = time.perf_counter()
+        self._t_frame[name] = self._t_frame.get(name, 0.0) + (now - self._t_cursor) * 1e3
+        self._t_cursor = now
+
+    def _mark_exit(self, n_detections=0, path='classic'):
         if self._timer is None:
             return
         now = time.time()
         self._timer.add('age.exit', (now - self._t_stamp) * 1e3)
+        frame = self._t_frame
+        total = (time.perf_counter() - self._t_entry) * 1e3
+        frame['other'] = total - sum(frame.values())
+        frame['total'] = total
+        for name, value in frame.items():
+            self._timer.add('stage.' + name, value)
+        if self._csv_file is not None:
+            self._csv_rows.append(
+                (self._t_wall, self._t_stamp_text, int(n_detections), path, frame))
+            if len(self._csv_rows) >= _TIMING_CSV_MAX_ROWS:
+                self._csv_flush()
 
     def _timing_report(self):
         report = self._timer.report(time.time())
         if report is not None:
             self.get_logger().info(StageTimer.format(report))
+            self._csv_flush()
 
     # ---- perception debug image (see module docstring) -----------------
 
