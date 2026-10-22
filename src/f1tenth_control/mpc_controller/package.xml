@@ -34,6 +34,9 @@
        URDF base_front frame (the body box, the wall tracker's bumper and the
        obstacle-distance topics are measured from it). -->
   <exec_depend>f1tenth_description</exec_depend>
+  <!-- ParameterDescriptor(read_only=True) for the LLM2 switch and whitelist
+       (MPC_corr.py's _llm2_setup). Comes with rclpy, declared anyway. -->
+  <exec_depend>rcl_interfaces</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

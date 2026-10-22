@@ -7,7 +7,7 @@ stand-ins): nothing in here imports rclpy.
 
 Threads: uvicorn's event loop runs the handlers; anything that blocks
 (f1tenth_ctl, a ROS service call, the e-stop's 2 s window, a transcription,
-the 1 Hz CPU/GPU sample) runs in the thread pool; the teleop publish loop
+the 1 Hz CPU/GPU sample, LLM2's pause / resume) runs in the thread pool; the teleop publish loop
 runs in the ROS port's own thread, so a busy event loop never delays a zero
 (teleop.py).
 
@@ -103,6 +103,7 @@ class Gateway:
         self._sent = {'bt': None, 'path': None, 'map': None}
         self._map_png: Dict = {}
         self._next_guard = 0.0
+        self._llm2_lock = threading.Lock()     # one /llm2/set_active call at a time
         self._loop: Optional[asyncio.AbstractEventLoop] = None
         self.tasks: List[asyncio.Task] = []
 
@@ -262,7 +263,7 @@ class Gateway:
             'cpu_temp_c': system.get('cpu_temp_c'), 'system': own,
             'drive': {'busy': self.teleop.holder is not None, 'blockers': self.drive_blockers()},
             'reset_allowed': self.reset_allowed(), 'transcription': self.transcriber.status(),
-            'estop': self.estop_reach(),
+            'estop': self.estop_reach(), 'llm2': self.llm2_view(),
             'age_s': None if self.status_t is None else round(self.clock() - self.status_t, 1),
             'server_time': self.wall()}
 
@@ -282,6 +283,40 @@ class Gateway:
         if latched:
             out['why'] = 'e-stop latched'
         return out
+
+    # ---- LLM2 (two-llm-arch) -------------------------------------------------------------------
+
+    def llm2_view(self) -> Dict:
+        """
+        Return LLM2's state for the app's toggle: active, paused or not_running (llm2.py).
+
+        The state comes from /llm2/status, or from the last /llm2/set_active
+        answer for one status period after it, never from what was asked.
+        pending: a call is in flight (any phone's), so the toggle waits.
+        """
+        try:
+            view = dict(self.ros.llm2_view())
+        except Exception as exc:  # noqa: BLE001 - ROS not up yet
+            view = {'state': 'not_running', 'why': f'{type(exc).__name__}: {exc}',
+                    'latency_ms': None, 'outcome': None, 'counters': None, 'age_s': None}
+        view['pending'] = self._llm2_lock.locked()
+        return view
+
+    def llm2_set(self, active: bool) -> Dict:
+        """Pause or resume LLM2 (/llm2/set_active): one call at a time, never retried."""
+        if not self._llm2_lock.acquire(blocking=False):
+            return {'ok': False, 'code': 409, 'why': 'un altro comando LLM2 è in corso'}
+        try:
+            res = self.ros.llm2_set_active(active, float(self.cfg['llm2']['timeout_s']))
+        except Exception as exc:  # noqa: BLE001 - reported to the app
+            res = {'ok': False, 'message': f'{type(exc).__name__}: {exc}'}
+        finally:
+            self._llm2_lock.release()
+        if not res.get('ok'):
+            why = res.get('message') or 'comando LLM2 fallito'
+            log.warning('LLM2 set_active %s failed: %s', active, why)
+            return {**res, 'ok': False, 'code': res.get('code', 502), 'why': why}
+        return {**res, 'llm2': self.llm2_view()}
 
     # ---- preconditions -------------------------------------------------------------------------
 
@@ -788,6 +823,29 @@ def create_app(gw: Gateway) -> FastAPI:
             raise HTTPException(502, res.get('message') or 'abort fallito')
         return res
 
+    # ---- LLM2 pause / resume (two-llm-arch) ----------------------------------------------------
+
+    @app.post('/api/llm2')
+    async def llm2(request: Request, _=Depends(auth)):
+        try:
+            body = await request.json()
+        except ValueError:
+            body = None
+        active = body.get('active') if isinstance(body, dict) else None
+        if not isinstance(active, bool):
+            raise HTTPException(422, 'active: true | false')
+        loop = asyncio.get_running_loop()
+        res = await loop.run_in_executor(gw.pool, gw.llm2_set, active)
+        # Every phone's toggle now, not at the next status tick: the new state, or
+        # the real one again (and pending off) after a failure. Not awaited: a
+        # slow phone must not hold this answer.
+        asyncio.create_task(gw._push_status())
+        if not res['ok']:
+            raise HTTPException(res['code'], res['why'])
+        gw.event('info', f'LLM2 {"attivo" if res["state"] == "active" else "in pausa"} '
+                         f'({who(request)})')
+        return res
+
     # ---- runs, map -----------------------------------------------------------------------------
 
     @app.get('/api/runs')
@@ -845,7 +903,8 @@ def create_app(gw: Gateway) -> FastAPI:
                 with w._lock:
                     for key in ('failing', 'battery_v', 'teleop_others', 'mux_listens',
                                 'countdown_s', 'move_s', 'estop_service_ready',
-                                'cores_offline'):
+                                'cores_offline', 'llm2_running', 'llm2_active', 'llm2_fail',
+                                'llm2_delay_s'):
                         if key in body:
                             setattr(w, key, body[key])
                     if 'estop_latched' in body:
@@ -856,7 +915,8 @@ def create_app(gw: Gateway) -> FastAPI:
                 gw.refresh_status()
                 return {'ok': True}
             if op == 'reset':
-                w.reset()
+                gw.ros.llm2.forget()            # no answer from before the reset wins
+                w.reset()                       # (which sends a status at once)
                 gw.publish_now(gw.teleop.revoke('reset', gw.clock()))
                 gw.teleop.pop_events()
                 gw.plans.clear()

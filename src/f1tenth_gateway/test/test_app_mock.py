@@ -9,6 +9,7 @@ is in MockWorld.published.
 
 import contextlib
 import os
+import threading
 import time
 
 from f1tenth_gateway import config
@@ -471,3 +472,63 @@ def test_estop_revokes_the_lease(gw):
         ws.send_json({'type': 'estop'})
         m = recv_until(ws, 'drive', lambda m: m['state'] == 'revoked')
         assert m['reason'] == 'E-STOP' and gw.teleop.holder is None
+
+
+# ---- LLM2 pause / resume (two-llm-arch) -------------------------------------------------------
+
+def llm2(gw):
+    return gw.client.get('/api/status', headers=H).json()['llm2']
+
+
+def test_llm2_pause_and_resume_show_the_answer_at_once_then_the_status(gw):
+    gw.world.llm2_period_s = 0.3
+    assert wait(lambda: llm2(gw)['state'] == 'active' and llm2(gw)['latency_ms'] is not None)
+    assert llm2(gw)['counters']['ok'] >= 1 and llm2(gw)['pending'] is False
+    r = gw.client.post('/api/llm2', headers=H, json={'active': False})
+    assert r.status_code == 200 and r.json()['state'] == 'paused'
+    assert r.json()['llm2']['state'] == 'paused'
+    assert llm2(gw)['state'] == 'paused'
+    # After one status period the status alone says so; the last latency stays.
+    time.sleep(2.1)
+    v = llm2(gw)
+    assert v['state'] == 'paused' and v['outcome'] == 'paused' and v['latency_ms'] is not None
+    assert gw.client.post('/api/llm2', headers=H, json={'active': True}).json()['state'] == \
+        'active'
+    assert gw.client.post('/api/llm2', headers=H, json={'active': 'no'}).status_code == 422
+    assert gw.client.post('/api/llm2', headers=H, content=b'nope').status_code == 422
+
+
+def test_llm2_a_failed_call_or_llm2_not_running_never_moves_the_toggle(gw):
+    assert wait(lambda: llm2(gw)['state'] == 'active')
+    assert gw.client.post('/api/llm2', json={'active': False}).status_code == 401
+    # A service that does not answer within llm2.timeout_s (2 s): 502, and while the
+    # call is in flight the status says pending and a second call is refused.
+    gw.client.post('/api/_mock/set', headers=H, json={'llm2_delay_s': 2.5})
+    slow = {}
+    t = threading.Thread(target=lambda: slow.update(
+        r=gw.client.post('/api/llm2', headers=H, json={'active': False})))
+    t.start()
+    assert wait(lambda: llm2(gw)['pending'] is True, timeout=1.5)
+    r = gw.client.post('/api/llm2', headers=H, json={'active': False})
+    assert r.status_code == 409 and 'in corso' in r.json()['detail']
+    t.join(timeout=5)
+    r = slow['r']
+    assert r.status_code == 502 and 'nessuna risposta entro 2 s' in r.json()['detail']
+    v = llm2(gw)
+    assert v['state'] == 'active' and v['pending'] is False and gw.world.llm2_active
+    # A service that answers with an error: the same.
+    gw.client.post('/api/_mock/set', headers=H,
+                   json={'llm2_delay_s': 0.1, 'llm2_fail': 'Errore di prova'})
+    r = gw.client.post('/api/llm2', headers=H, json={'active': False})
+    assert r.status_code == 502 and r.json()['detail'] == 'Errore di prova'
+    assert llm2(gw)['state'] == 'active' and gw.world.llm2_active
+    # Someone else pauses it (ros2 service call): the next status says so.
+    gw.client.post('/api/_mock/set', headers=H, json={'llm2_fail': None, 'llm2_active': False})
+    assert wait(lambda: llm2(gw)['state'] == 'paused', timeout=4)
+    # LLM2 not started (enable_llm2 false): not_running at once, a call is a 409.
+    gw.client.post('/api/_mock/set', headers=H, json={'llm2_running': False})
+    v = llm2(gw)
+    assert v['state'] == 'not_running' and '/llm2/set_active' in v['why']
+    r = gw.client.post('/api/llm2', headers=H, json={'active': True})
+    assert r.status_code == 409 and 'LLM2 non attivo' in r.json()['detail']
+    assert llm2(gw)['state'] == 'not_running' and not gw.world.llm2_active

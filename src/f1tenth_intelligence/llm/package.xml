@@ -21,6 +21,12 @@
        Confirmed by grep across every .py file in this package before
        removing any of the three. -->
   <depend>rclpy</depend>
+  <!-- std_msgs is back: llm2_mpc_param_node publishes /llm2/status as a
+       std_msgs/String (JSON). llm_planner_node imports std_msgs/String
+       again too (its test_plan_result_topic publisher). -->
+  <depend>std_msgs</depend>
+  <!-- std_srvs: llm_planner_node's Trigger clients, and llm2_mpc_param_node's
+       /llm2/set_active (SetBool, LLM2 pause/resume). -->
   <depend>std_srvs</depend>
   <!-- LoadMission.srv, used by llm_planner_node's /mission/load_mission client
        (start_mission/abort_mission are plain std_srvs/Trigger, already covered
@@ -61,6 +67,9 @@
   <!-- vehicle_frames.base_front_x(): a go_to gap is measured from the front
        bumper (the URDF base_front frame), as the mission loader checks it. -->
   <exec_depend>f1tenth_description</exec_depend>
+  <!-- ParameterDescriptor(read_only=True) for llm2_mpc_param_node's
+       start_active. Comes with rclpy, declared anyway. -->
+  <exec_depend>rcl_interfaces</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

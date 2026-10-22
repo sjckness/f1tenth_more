@@ -26,3 +26,20 @@ qwen25_3b_instruct:
   model_path: ~/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf
   port: 8083
   extra_args: ["-ngl", "999"]
+# LLM2 (two-llm-arch): the second llama-server, started by llm2.launch.py for
+# llm2_mpc_param_node (interrogations.yaml's llm2_mpc_params). THE SAME FILE
+# as qwen25_3b_instruct above -- 2438740384 bytes, sha256
+# 2c63dde5f2c9ab1fd64d47dee2d34dade6ba9ff62442d1d20b5342310c982081, identical
+# on the Orin, on linus and on Qwen/Qwen2.5-3B-Instruct-GGUF -- so nothing new
+# to download where LLM1 already runs. Its own entry because the second
+# server's workload differs: one request in flight at a time (the node never
+# overlaps them) and a prompt of a few hundred tokens, so ONE slot of 4096
+# tokens instead of the default 4 slots sharing 32768. One slot also keeps
+# the fixed prompt prefix cached between requests (cache_prompt).
+# port: NOT read by llm2.launch.py, which uses its own llm2_port launch
+# argument (default 8084; 8083 is LLM1's). Set to the same value so the entry
+# is still consistent if it is ever served through llm.launch.py.
+qwen2.5-3b-instruct-q5km:
+  model_path: ~/projects/llm/models/qwen2.5-3b-instruct-q5_k_m.gguf
+  port: 8084
+  extra_args: ["-ngl", "999", "-np", "1", "-c", "4096"]

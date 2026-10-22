@@ -7,8 +7,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
+from rcl_interfaces.msg import ParameterDescriptor
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import (
     QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy, qos_profile_sensor_data)
 
@@ -23,6 +25,7 @@ from f1tenth_messages.msg import (
     BoundaryConstraintArray, DriveClamp, DriveCommand, MissionStatus, MpcSolverStatus,
     MultiWallTrackArray, ObjectApproachStatus, ObjectGoal, Obstacle2DArray, ReverseStatus,
     SemanticObjectArray, SpeedChannelStatus, TurnGoal, WallTrack)
+from f1tenth_messages.msg import MpcParamUpdate  # LLM2 (two-llm-arch), see _llm2_setup
 from f1tenth_messages.srv import RequestReverse
 from f1tenth_params.object_geometry import (
     ObstacleFilter, passes_obstacle_filter, SOLVER_FRONT_POINT_OFFSETS_M)
@@ -38,6 +41,9 @@ from f1tenth_params.corridor_geometry import (
     corridor_curves, corridor_curves_to_pose, wrap_pi)
 from mpc_controller import wall_boundaries as wb
 from mpc_controller.drive_limits import clamp_drive_speed, validate_speed_limits
+from mpc_controller.llm2_params import (
+    APPLIED_PARAMS_TOPIC, build_whitelist, LLM2_PARAMS_TOPIC, PendingUpdate,
+    reverse_w_v_limit, startup_warnings, tunable_weights, Update, validate_update)
 from mpc_controller.model_log import ModelLogWriter
 from mpc_controller.mpc_solver import STAGE_WEIGHT_REF_HORIZON, shift_warm_start, solve_mpc_step
 from mpc_controller.stop_profile import (
@@ -2206,6 +2212,11 @@ class MPCController(Node):
         self.wall_track_pub = None
         if self.wall_tracker is not None:
             self.wall_track_pub = self.create_publisher(WallTrack, '/mpc/wall_track', 10)
+
+        # LLM2's MPC-parameter updates (two-llm-arch). Off by default, and off
+        # means not even subscribed -- see _llm2_setup. After self.weights and
+        # the reverse setup, both of which it reads.
+        self._llm2_setup()
 
         # Jetson process tuning (priority); safe no-op if unset or denied by
         # the OS. CPU affinity is handled externally now -- see mpc_corr.
@@ -4975,6 +4986,11 @@ class MPCController(Node):
     def control_loop(self):
         loop_t0 = self.get_clock().now().nanoseconds * 1e-9
 
+        # THE TICK BOUNDARY for LLM2's parameter updates: a parked update is
+        # applied here, before anything in this tick reads the weights, never
+        # in the middle of a solve. No-op unless llm2_params_enabled.
+        self._llm2_apply_pending()
+
         self._update_active_odom()
         # The speed estimator advances over the step that just ended BEFORE
         # anything can return early: a hold or a stop tick still has a
@@ -6940,6 +6956,136 @@ class MPCController(Node):
         weights['w_line'] = 1.0 / (
             STAGE_WEIGHT_REF_HORIZON * self.arc_line_sigma_m ** 2)
         return weights
+
+    # ── LLM2 MPC-parameter updates (two-llm-arch) ─────────────────────────
+    def _llm2_setup(self):
+        """
+        Declare llm2_params_enabled; only when true, subscribe to /llm2/mpc_params.
+
+        False (the default): nothing else is declared, no subscription and no
+        publisher exist, and _llm2_apply_pending returns at once -- the
+        controller is the one it was without this block. True: the whitelist
+        (llm2_param_whitelist, llm2_param_min, llm2_param_max) is checked by
+        llm2_params.build_whitelist, and a bad one refuses the start, as the
+        reverse mechanisms do. Updates are then parked by
+        _llm2_params_callback and applied by _llm2_apply_pending at the top of
+        control_loop. The rules are in mpc_controller/llm2_params.py.
+
+        All four are READ-ONLY parameters: they are read here once, so a
+        runtime `ros2 param set` (switching LLM2 off, tightening a bound) is
+        refused with a reason instead of being accepted, shown by `ros2 param
+        get` and ignored. Changing them takes a restart of mpc_corr.
+        """
+        self._llm2_pending = None
+        fixed = ParameterDescriptor(
+            read_only=True, description='LLM2 (two-llm-arch): read once at start')
+        if not bool(self.declare_parameter(
+                'llm2_params_enabled', get_value('llm2_params_enabled'), fixed).value):
+            return
+        names = self.declare_parameter(
+            'llm2_param_whitelist', get_value('llm2_param_whitelist'), fixed).value
+        mins = self.declare_parameter('llm2_param_min', get_value('llm2_param_min'), fixed).value
+        maxs = self.declare_parameter('llm2_param_max', get_value('llm2_param_max'), fixed).value
+        self._llm2_tunable = tunable_weights(self.weights)
+        try:
+            self._llm2_whitelist = build_whitelist(names, mins, maxs, self._llm2_tunable)
+        except ValueError as exc:
+            self.get_logger().fatal(f'LLM2 | STARTUP REFUSED: {exc}')
+            raise
+        current = {name: self.weights[self._llm2_tunable[name]]
+                   for name in self._llm2_whitelist}
+        # With allow_reverse on, an update raising mpc_w_v past w_rev /
+        # (2 * vdes_default) is rejected (reverse_mpc's invariant). Against
+        # vdes_default, the speed the shipped w_rev was sized for.
+        planner = self.reverse_planner
+        w_rev = planner.cfg.w_rev if planner is not None else None
+        self._llm2_w_v_limit = reverse_w_v_limit(w_rev, self.vdes_default)
+        for warning in startup_warnings(
+                self._llm2_whitelist, current, w_rev=w_rev, vdes=self.vdes_default):
+            self.get_logger().warn(f'LLM2 | {warning}')
+        self._llm2_pending = PendingUpdate()
+        self.llm2_applied_pub = self.create_publisher(MpcParamUpdate, APPLIED_PARAMS_TOPIC, 10)
+        self.sub_llm2_params = self.create_subscription(
+            MpcParamUpdate, LLM2_PARAMS_TOPIC, self._llm2_params_callback, 10)
+        self.get_logger().info(
+            f'LLM2 | parameter updates ON from {LLM2_PARAMS_TOPIC}, applied at the tick '
+            f'boundary, echoed on {APPLIED_PARAMS_TOPIC}. Whitelist (declared units): '
+            + ', '.join(f'{n} [{lo:g}, {hi:g}] now {current[n]:g}'
+                        for n, (lo, hi) in self._llm2_whitelist.items()))
+
+    def _llm2_params_callback(self, msg):
+        """
+        Validate an LLM2 update and park it for the next tick.
+
+        Touches neither self.weights nor a parameter: applying is
+        _llm2_apply_pending's job, at the tick boundary. An invalid update is
+        rejected whole and logged, and does not displace a valid one already
+        parked.
+        """
+        try:
+            values = validate_update(msg.names, msg.values, self._llm2_whitelist,
+                                     w_v_limit=self._llm2_w_v_limit)
+        except ValueError as exc:
+            self.get_logger().warn(
+                f'LLM2 | REJECTED seq={msg.seq} source={msg.source!r}, whole update, '
+                f'nothing applied: {exc}')
+            return
+        merged_over = self._llm2_pending.put(Update(int(msg.seq), str(msg.source), values))
+        if merged_over is not None:
+            self.get_logger().warn(
+                f'LLM2 | seq={msg.seq} merged over seq={merged_over}, which no tick '
+                f'had applied yet: seq={merged_over} will not appear on '
+                f'{APPLIED_PARAMS_TOPIC}, its values go out under seq={msg.seq}')
+
+    def _llm2_apply_pending(self):
+        """
+        Apply the parked LLM2 update, if any. Called first thing in control_loop.
+
+        Through the declared parameters (one set_parameters_atomically, so
+        `ros2 param get /mpc_corr mpc_w_v` shows the live value) AND into
+        self.weights, which is what every solve reads: MPC_corr reads the
+        mpc_w_* parameters once, in __init__, and has no parameter callback,
+        so the parameter write alone would change nothing. A refused parameter
+        write applies nothing. Each application is echoed on
+        /mpc/applied_params with the update's seq and logged old -> new.
+        """
+        pending = getattr(self, '_llm2_pending', None)
+        if pending is None:
+            return
+        update = pending.take()
+        if update is None:
+            return
+        result = self.set_parameters_atomically([
+            Parameter(name, Parameter.Type.DOUBLE, value)
+            for name, value in update.values.items()])
+        if not result.successful:
+            self.get_logger().error(
+                f'LLM2 | seq={update.seq} NOT applied, parameter write refused: '
+                f'{result.reason}')
+            return
+        old = {name: self.weights[self._llm2_tunable[name]] for name in update.values}
+        weights = dict(self.weights)
+        for name, value in update.values.items():
+            weights[self._llm2_tunable[name]] = value
+        self.weights = weights
+
+        msg = MpcParamUpdate()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.seq = update.seq
+        msg.source = update.source
+        msg.names = list(update.values)
+        msg.values = list(update.values.values())
+        self.llm2_applied_pub.publish(msg)
+
+        changed = ', '.join(f'{name} {old[name]:g} -> {value:g}'
+                            for name, value in update.values.items() if value != old[name])
+        if changed:
+            self.get_logger().info(
+                f'LLM2 | applied seq={update.seq} ({update.source}): {changed}')
+        else:
+            self.get_logger().info(
+                f'LLM2 | applied seq={update.seq} ({update.source}): no value changed '
+                f'({len(update.values)} parameters)', throttle_duration_sec=30.0)
 
     def _reference_step(self, corridor):
         """How far this corridor's reference moved from the previous one.

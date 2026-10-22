@@ -4,7 +4,8 @@ A pretend car for linus: the gateway's two ports (ROS, f1tenth_ctl) without ROS.
 MockWorld is one small simulation both ports share: processes that start and
 stop with a delay, READY checks, the e-stop latch, a mission that loads,
 counts down, runs its moves and completes, a car that moves under teleop or
-a mission, a planner that answers. MockRos and MockCtl expose it with the
+a mission, a planner that answers, LLM2 (two-llm-arch) with its status every
+2 s and its pause / resume service. MockRos and MockCtl expose it with the
 same methods as RosBridge and CtlPort, so app.py runs unchanged on it.
 
 Everything the gateway would publish on /teleop and /safety_stop is recorded
@@ -20,6 +21,7 @@ import threading
 import time
 from typing import Dict, List, Optional
 
+from .llm2 import ACTIVE, Llm2State, PAUSED
 from .teleop import Command
 
 MOVES_DEMO = [
@@ -37,6 +39,12 @@ MOVES_DEMO = [
 ]
 CHECK_NAMES = ('odometry', 'scan', 'tf_map_base_link', 'mission_service', 'estop_latched',
                'battery', 'wheel_odom')
+# llm2_mpc_param_node's /llm2/status keys, in its order (output/two_llm/README.md section 2).
+LLM2_KEYS = ('seq', 'outcome', 'reason', 'echo_match', 'latency_ms', 'timeout_s',
+             'in_flight_seq', 'tokens_cached', 'prompt_n', 'prompt_ms', 'predicted_n',
+             'predicted_ms', 'state', 'source', 'counters')
+LLM2_COUNTERS = ('ok', 'invalid', 'timeout', 'error', 'skipped', 'paused', 'discarded',
+                 'echo_match')
 
 
 class MockWorld:
@@ -81,6 +89,21 @@ class MockWorld:
         self.path: List[tuple] = []
         self.path_version = 0
         self.bt_version = 1
+        # LLM2 (enable_llm2 on): a status every llm2_period_s, as the node. The e2e
+        # can stop it (llm2_running: no status, no service), switch it behind the
+        # app's back (llm2_active, seen at the next status), make the service
+        # call fail (llm2_fail: the error it answers with) or slow (llm2_delay_s:
+        # above the call's timeout it times out as on the car, nothing changes).
+        self.llm2_running = True
+        self.llm2_active = True
+        self.llm2_fail: Optional[str] = None
+        self.llm2_delay_s = 0.15
+        self.llm2_period_s = 2.0
+        self.llm2_seq = 0
+        self.llm2_next = 0.0
+        self.llm2_counters = dict.fromkeys(LLM2_COUNTERS, 0)
+        self.llm2_listeners = []
+        self._rng = random.Random(11)
 
     def reset(self) -> None:
         """Back to a READY, idle car (the e2e tests share one gateway)."""
@@ -99,6 +122,9 @@ class MockWorld:
             self.teleop_others, self.mux_listens = 0, True
             self.estop_service_ready = True
             self.cores_offline = []
+            self.llm2_running, self.llm2_active, self.llm2_fail = True, True, None
+            self.llm2_delay_s = 0.15
+            self.llm2_next = 0.0                 # a status at once
             self.published.clear()
             self.current = {}
             self.plan_jobs = []
@@ -174,6 +200,30 @@ class MockWorld:
                 del self.path[:-3000]
                 self.path_version += 1
             self.battery_v = max(10.9, self.battery_v - 0.00002)
+            if self.llm2_running and time.monotonic() >= self.llm2_next:
+                self.llm2_next = time.monotonic() + self.llm2_period_s
+                self._llm2_tick()
+
+    def _llm2_tick(self) -> None:
+        """One /llm2/status, as llm2_mpc_param_node publishes it: the mock echo, or paused."""
+        self.llm2_seq += 1
+        c = self.llm2_counters
+        status = dict.fromkeys(LLM2_KEYS)
+        if self.llm2_active:
+            c['ok'] += 1
+            c['echo_match'] += 1
+            status.update(outcome='ok', echo_match=True, timeout_s=10.0, tokens_cached=180,
+                          latency_ms=round(self._rng.uniform(380.0, 520.0), 1),
+                          prompt_n=12, prompt_ms=40.0, predicted_n=60, predicted_ms=330.0)
+        else:
+            c['paused'] += 1
+            status.update(outcome='paused',
+                          reason='paused, nothing sent (/llm2/set_active true resumes)')
+        status.update(seq=self.llm2_seq, state=ACTIVE if self.llm2_active else PAUSED,
+                      source='llm2_mock', counters=dict(c))
+        data = json.dumps(status)
+        for cb in self.llm2_listeners:
+            cb(data, time.monotonic())
 
     def _set_state(self, state: str) -> None:
         self.ros_state = state
@@ -401,10 +451,14 @@ class MockCtl:
 class MockRos:
     """RosBridge's methods on the MockWorld; a thread plays the publish loop and the world."""
 
-    def __init__(self, world: MockWorld, teleop, on_status=None, on_move_outcome=None):
+    def __init__(self, world: MockWorld, teleop, on_status=None, on_move_outcome=None,
+                 llm2_cfg: Optional[Dict] = None):
         self.w = world
         self.teleop = teleop
         self.viewers = 0
+        cfg = llm2_cfg or {}
+        self.llm2 = Llm2State(cfg.get('service', '/llm2/set_active'),
+                              cfg.get('stale_s', 5.0), cfg.get('trust_s', 2.0))
         self._stop = threading.Event()
         self._thread = None
         if on_status is not None:
@@ -413,6 +467,8 @@ class MockRos:
             world.outcome_listeners.append(on_move_outcome)
 
     def start(self) -> None:
+        with self.w._lock:
+            self.w.llm2_listeners.append(self.llm2.on_status)
         self._thread = threading.Thread(target=self._run, name='mock-ros', daemon=True)
         self._thread.start()
         self.w.notify()
@@ -478,6 +534,33 @@ class MockRos:
                 w._set_state('ABORTED')
                 return {'ok': True, 'message': 'aborted'}
             return {'ok': True, 'message': f'no mission to abort (state={w.ros_state})'}
+
+    def llm2_set_active(self, active: bool, timeout_s: float = 2.0) -> Dict:
+        """/llm2/set_active on the pretend LLM2: RosBridge's answers, the status at its tick."""
+        w = self.w
+        t0 = time.monotonic()
+        with w._lock:
+            running, fail, delay = w.llm2_running, w.llm2_fail, float(w.llm2_delay_s)
+        if not running:
+            return {'ok': False, 'code': 409,
+                    'message': f'LLM2 non attivo: servizio {self.llm2.service} non disponibile'}
+        time.sleep(min(delay, timeout_s))
+        if delay > timeout_s:
+            return {'ok': False,
+                    'message': f'{self.llm2.service}: nessuna risposta entro {timeout_s:g} s'}
+        if fail:
+            return {'ok': False, 'message': str(fail)}
+        with w._lock:
+            w.llm2_active = bool(active)
+        res = self.llm2.on_response(active, True, ACTIVE if active else PAUSED,
+                                    time.monotonic())
+        res['duration_ms'] = int((time.monotonic() - t0) * 1000)
+        return res
+
+    def llm2_view(self) -> Dict:
+        with self.w._lock:
+            running = self.w.llm2_running
+        return self.llm2.view(time.monotonic(), running)
 
     def set_viewers(self, n: int) -> None:
         self.viewers = n

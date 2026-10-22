@@ -60,6 +60,20 @@ Pulsante **EMERGENZA** fisso, sempre visibile sopra la tab bar (in Guida: in alt
   (icona errore rossa o warning ambra, nome, dettaglio con valore e soglia).
 - Tre interruttori di processo: **Stack, Planner, Logger**, con sottotitolo di stato (es. `running · 14 nodi · 00:12:31`).
   Durante la transizione: stato "in avvio…/in arresto…", switch non toccabile.
+- **LLM2** (solo branch `two-llm-arch`): sotto i processi, la riga **Parametri MPC** con uno switch che mette
+  in pausa / riprende LLM2, il tuner dei parametri dell'MPC (`POST /api/llm2 {active}` → `/llm2/set_active`).
+  - Lo switch mostra lo stato che riporta LLM2 (`status.llm2.state`, da `/llm2/status`), **mai l'ultimo
+    tocco**: `attivo` (verde, switch acceso) o `in pausa` (grigio, switch spento), più l'ultima latenza
+    (`latenza 443 ms`, resta in pausa) e, sotto, i contatori `ok · invalid · timeout`.
+  - Nessuna conferma. Durante la chiamata (`pausa in corso…` / `ripresa in corso…` in ambra; da un altro
+    telefono `comando in corso…`, `status.llm2.pending`) lo switch non è toccabile e resta sullo stato reale.
+  - Errore (timeout, risposta inattesa, LLM2 non attivo): toast rosso col motivo del gateway
+    (`Pausa LLM2 fallita: …`), lo switch resta sullo stato reale. Il successo lo annuncia il gateway a
+    tutti i telefoni (`LLM2 in pausa (…)`).
+  - LLM2 non attivo (`state` `not_running`: nessun `/llm2/status` da 5 s o servizio assente, cioè
+    `enable_llm2:=false` o nodo morto): riga grigia "LLM2 non attivo" col motivo (`why`), switch
+    disattivato. Lo stesso con un gateway che non manda `status.llm2` (campaign-final).
+  - Connessione persa: come i processi (comandi disattivati, stato `?`).
 - Riga di numeri: velocità, temperatura VESC, CPU, GPU (% e, sotto, la frequenza; `n/a` se il gateway
   non legge nessuna GPU). Toccare la CPU apre la vista CPU.
 
@@ -125,9 +139,10 @@ REST (tutte con `Authorization: Bearer <token>`):
 
 | Metodo | Path | Effetto |
 |---|---|---|
-| GET | `/api/status` | connessione, batteria, ready, checks[], processi, estop_latched, mission_state, `system` (CPU per core, GPU, processi vincolati) |
+| GET | `/api/status` | connessione, batteria, ready, checks[], processi, estop_latched, mission_state, `system` (CPU per core, GPU, processi vincolati), `llm2` (solo `two-llm-arch`: `state` active/paused/not_running, `why`, `latency_ms`, `counters`, `pending`) |
 | POST | `/api/process/{stack\|planner\|logger}` `{action: start\|stop}` | via f1tenth_ctl |
 | POST | `/api/estop` | `/mission/emergency_stop` + zero sul lane teleop |
+| POST | `/api/llm2` `{active: true\|false}` | solo `two-llm-arch`: `/llm2/set_active` (pausa / ripresa di LLM2); 409 se LLM2 non è attivo o c'è già una chiamata, 502 su timeout (2 s) o risposta inattesa |
 | POST | `/api/mission/transcribe` (audio) | → `{text}` (riusare il trascrittore del bot Telegram) |
 | POST | `/api/mission/plan` `{text}` | → `{plan_id, summary, steps[], json, valid, errors[]}` dal planner LLM |
 | POST | `/api/mission/start` `{plan_id}` | load_mission + start_mission |

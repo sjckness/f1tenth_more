@@ -2822,8 +2822,9 @@ start_server:
 # llm/config/interrogations.yaml" -- see llm.launch.py's model_la/
 # _launch_setup() for the full model/interrogation pairing fix). This key's
 # value is now only the last-resort fallback used if an interrogation entry
-# somehow has no default_model of its own; the one entry that exists today
-# (`planner`) does, so this branch is not exercised in practice right now --
+# somehow has no default_model of its own; both entries that exist today
+# (`planner`, and two-llm-arch's `llm2_mpc_params`, which llm2.launch.py
+# starts) do, so this branch is not exercised in practice right now --
 # kept pointing at a real, currently-valid models.yaml key regardless (was
 # qwen_mpc_pruned, removed along with llm_mpc_tuner_node -- see git history --
 # now qwen25_3b_instruct, the same model `planner` itself already defaults to).
@@ -2854,6 +2855,80 @@ llama_server_path:
 llama_server_cwd:
   default: /scratch/fabiocar/llama.cpp
   description: "Working directory llama-server is launched from (the llama.cpp project root, not the binary's own directory)."
+
+# ------------------------------------------------------------
+# LLM2 (two-llm-arch): a SECOND llama-server plus llm2_mpc_param_node, the
+# MPC-parameter interrogation (interrogations.yaml's llm2_mpc_params). OFF by
+# default; with enable_llm2 false stack_bringup.launch.py does not even load
+# llm2.launch.py, so the launch is the one it was before. Independent of
+# enable_intelligence (LLM1, the planner's server): enabling LLM2 starts
+# only the second server and the LLM2 node, never LLM1.
+# ------------------------------------------------------------
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py (includes
+# llm/launch/llm2.launch.py only when true).
+enable_llm2:
+  default: false
+  description: "true: start the second llama-server (llm2_model on llm2_port) and llm2_mpc_param_node. false (default): neither is started."
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_intelligence/llm/
+# launch/llm2.launch.py. Same .gguf file as LLM1's qwen25_3b_instruct, its own
+# entry because the second server is sized for one short request at a time
+# (see models.yaml).
+llm2_model:
+  default: qwen2.5-3b-instruct-q5km
+  description: "Model name key into llm/config/models.yaml for the LLM2 server (model_path, extra_args; its port field is NOT used, llm2_port is)."
+# Consumed by: f1tenth_bringup/stack_bringup.launch.py, f1tenth_intelligence/llm/
+# launch/llm2.launch.py. NOT 8083: that is LLM1's port (models.yaml
+# qwen25_3b_instruct, llm_planner_node's LLAMA_URL), and the 'intelligence'
+# component starts LLM1 by default, so a second server on 8083 could not bind.
+# llm2.launch.py also hands this port to llm2_mpc_param_node as server_url.
+llm2_port:
+  default: 8084
+  description: "TCP port of the LLM2 llama-server; llm2_mpc_param_node's server_url is built from it."
+# LLM2 on the MPC side: whether mpc_corr listens to /llm2/mpc_params at all, and
+# what it may change (mpc_controller/llm2_params.py). Independent of
+# enable_llm2: that one starts the producer, this one the consumer, and either
+# can run without the other.
+# Consumed by: f1tenth_control/launch/mpc_corr.launch.py (forwarded by
+# f1tenth_navigation/navigation.launch.py) and MPC_corr.py's declare_parameter()
+# default (get_value).
+llm2_params_enabled:
+  default: false
+  description: "true: mpc_corr subscribes to /llm2/mpc_params, applies a valid update at the start of the next control tick (through its declared mpc_w_* parameters, so ros2 param get shows the live value) and echoes it on /mpc/applied_params. false (default): no subscription at all; the controller is unchanged. Read-only at run time: changing it needs a restart of mpc_corr."
+# The whitelist: three parallel lists, one entry per parameter LLM2 may change,
+# bounds in DECLARED units (the numbers under MPC COST WEIGHTS, BEFORE the 7/N
+# stage scaling). Only mpc_w_* cost weights can be listed, and never
+# mpc_w_obs: any other name refuses mpc_corr's start. An update with a name
+# not listed here, a NaN or a value outside [min, max] is rejected WHOLE,
+# never clamped. With allow_reverse on, so is an update raising mpc_w_v above
+# w_rev / (2 * vdes) (4.3 with the defaults), whatever llm2_param_max says:
+# reverse_mpc relies on w_rev >= 2 * w_v * vdes.
+# Consumed by: MPC_corr.py's declare_parameter() defaults (get_value), read
+# only when llm2_params_enabled is true, once, as read-only parameters (a
+# runtime `ros2 param set` is refused; restart mpc_corr). No launch args
+# (lists); override with a params file or -p.
+#
+# The default set is the cost-SHAPE weights, each ~0.25x-2.5x of today's value
+# (output/two_llm/recon.md section 4); mpc_w_du_delta's maximum is its
+# rho/sigma^2 derivation, 23.8095, rounded up to 23.81. Left out on purpose:
+#   vdes         not a parameter: per-move mission state, set from each move's
+#                own speed, so an "unchanged" 0.5 would change a 0.4 m/s move
+#   mpc_w_obs    NEVER listable (refuses the start): the obstacle cost has no
+#                hard row behind it (the costmap boundary rows are soft by
+#                default), so near 0 it switches obstacle avoidance off
+#   mpc_w_line   always overridden by mpc_arc_line_sigma_m where it acts
+#   mpc_w_delta0, mpc_w_u_a, mpc_w_du_a   zero on purpose (see MPC COST WEIGHTS)
+# Every value llm2_mpc_param_node mocks (llm/config/llm2_mpc_param_params.yaml)
+# must be listed here and lie inside its range, or every mock update is
+# rejected.
+llm2_param_whitelist:
+  default: [mpc_w_term, mpc_w_psi, mpc_w_psi_stage, mpc_w_corr, mpc_w_v, mpc_w_du_delta]
+  description: "Parameters an LLM2 update may change (mpc_w_* cost weights only); parallel to llm2_param_min and llm2_param_max."
+llm2_param_min:
+  default: [2.0, 1.0, 1.0, 0.5, 1.0, 2.0]
+  description: "Lowest accepted value per llm2_param_whitelist entry, in declared (unscaled) units; inclusive."
+llm2_param_max:
+  default: [20.0, 10.0, 12.0, 9.0, 10.0, 23.81]
+  description: "Highest accepted value per llm2_param_whitelist entry, in declared (unscaled) units; inclusive."
 
 # ============================================================
 # Simulation-flavored args of f1tenth_description/launch/description.launch.py --

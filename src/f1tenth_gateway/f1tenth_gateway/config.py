@@ -103,6 +103,14 @@ DEFAULTS: Dict[str, Any] = {
         'mpc_solver': '/mpc/solver_status',
         'map': '/slam/map',
         'vesc': '/sensors/core',
+        'llm2_status': '/llm2/status',
+    },
+    'llm2': {
+        # LLM2's pause / resume (two-llm-arch, output/two_llm/README.md section 2).
+        'service': '/llm2/set_active',
+        'timeout_s': 2.0,                # the SetBool call; no retry
+        'stale_s': 5.0,                  # no /llm2/status this long: LLM2 not running
+        'trust_s': 2.0,                  # one status period: the service answer wins
     },
     'teleop_frame_id': 'base_link/pwa_teleop',
     'bt_open_service': '/behavior_executor_node/snapshot_streams/open',

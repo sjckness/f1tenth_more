@@ -333,6 +333,15 @@ def generate_launch_description():
         'mpc_model_log_path', default_value=str(model_log_path_default),
         description=model_log_path_desc)
 
+    # LLM2's MPC-parameter updates (two-llm-arch, mpc_controller/llm2_params.py).
+    # Off by default, and then mpc_corr does not even subscribe. Only the switch
+    # is a launch arg; the whitelist and its ranges are list parameters with
+    # stack_params.yaml defaults (llm2_param_whitelist/_min/_max).
+    llm2_params_enabled_default, llm2_params_enabled_desc = get_default('llm2_params_enabled')
+    llm2_params_enabled_la = DeclareLaunchArgument(
+        'llm2_params_enabled', default_value=str(llm2_params_enabled_default),
+        description=llm2_params_enabled_desc)
+
     mpc_corr_node = Node(
         package='mpc_controller',
         executable='mpc_corr',
@@ -404,6 +413,10 @@ def generate_launch_description():
             'wall_row_max_tf_age_s': LaunchConfiguration('wall_row_max_tf_age_s'),
             'model_log_path': ParameterValue(
                 LaunchConfiguration('mpc_model_log_path'), value_type=str),
+        }, {
+            # Its own dict: the LLM2 block (two-llm-arch), kept apart from the
+            # list above. A bool like use_rti_solver, untyped like it.
+            'llm2_params_enabled': LaunchConfiguration('llm2_params_enabled'),
         }],
     )
 
@@ -426,5 +439,6 @@ def generate_launch_description():
         wall_obstacle_spacing_m_la, wall_obstacle_radius_m_la, wall_row_end_margin_m_la,
         wall_row_merge_angle_deg_la, wall_row_merge_offset_m_la, wall_row_slack_weight_la,
         wall_row_max_tf_age_s_la,
+        llm2_params_enabled_la,
         model_log_path_la, mpc_corr_node,
     ])

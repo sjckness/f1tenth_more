@@ -7,8 +7,16 @@ packages was retired in favor of this one).
 
 `llm_mpc_tuner_node` (a manual-mode, terminal-driven MPC parameter tuner —
 the package's first interrogation) was removed outright, not deprioritized
-— see git history if you need it back. `llm_planner_node` is the sole
-interrogation now.
+— see git history if you need it back. `llm_planner_node` is the mission
+interrogation (LLM1).
+
+**two-llm-arch** adds a second one, LLM2: `llm2_mpc_param_node`, an MPC
+parameter tuner that is a MOCK for now (it asks its own llama-server to echo
+a fixed parameter set and publishes the validated reply on
+`/llm2/mpc_params`). It has its own server and launch file
+(`launch/llm2.launch.py`, default port 8084) and is OFF by default
+(`enable_llm2`). How to enable it, the topics, and what was measured:
+`output/two_llm/README.md`.
 
 **`llm_planner_node` is never auto-launched, by anything** (component-
 auto-start pass) — only `llama-server` itself can be. See "Component
@@ -48,7 +56,10 @@ service flow:
 
 ## Launch file
 
-**`llm.launch.py`** — the only one. Starts `llama-server` ONLY (component-
+(`llm2.launch.py`, LLM2's server plus its node, is separate and described in
+`output/two_llm/README.md`; nothing below applies to it.)
+
+**`llm.launch.py`** — LLM1's. Starts `llama-server` ONLY (component-
 auto-start pass: used to also launch the selected interrogation's node as a
 persistent background `Node` action; removed outright, not just for the
 supervisor path — see that file's own module docstring for why launching a
@@ -113,8 +124,8 @@ confirmed live (`ros2 run llm llm_planner_node "<command>"`).
 
 | File | Holds |
 |---|---|
-| `config/models.yaml` | Model name → `{model_path, port, extra_args}`. One entry today: `qwen25_3b_instruct` (stock Qwen2.5-3B-Instruct, q5_k_m, port 8083). |
-| `config/interrogations.yaml` | Interrogation name → `{executable, params_file, default_model}`. One entry today: `planner` → `llm_planner_node`, `default_model: qwen25_3b_instruct`. `executable`/`params_file` unused by `llm.launch.py` since the component-auto-start pass (see above) — kept as schema, not live config. No `package` field yet — everything resolves inside this one package; would need adding if a second package ever joins `f1tenth_intelligence`. |
+| `config/models.yaml` | Model name → `{model_path, port, extra_args}`. `qwen25_3b_instruct` (stock Qwen2.5-3B-Instruct, q5_k_m, port 8083: LLM1) and `qwen2.5-3b-instruct-q5km` (the same file, one slot of 4096 tokens: LLM2; its `port` is not read, `llm2.launch.py` uses `llm2_port`). |
+| `config/interrogations.yaml` | Interrogation name → `{executable, params_file, default_model}`. `planner` → `llm_planner_node`, `default_model: qwen25_3b_instruct`; `llm2_mpc_params` → `llm2_mpc_param_node` (`config/llm2_mpc_param_params.yaml`, `default_model: qwen2.5-3b-instruct-q5km`; launched by `llm2.launch.py`, not `llm.launch.py`). `executable`/`params_file` unused by `llm.launch.py` since the component-auto-start pass (see above) — kept as schema, not live config. No `package` field yet — everything resolves inside this one package; would need adding if a second package ever joins `f1tenth_intelligence`. |
 | `config/llm_planner_params.yaml` | Not currently loaded by anything (see its own top comment) — `llm_planner_node`'s ROS params (`llm_url`, `llm_timeout_sec`) would go here if node-auto-launch is ever deliberately reintroduced. |
 
 ## Consumed `stack_params.yaml` keys
