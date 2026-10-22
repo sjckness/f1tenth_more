@@ -164,6 +164,7 @@ Message field reference (vision_msgs, Humble == "4.x" layout):
 
 import array
 import collections
+import csv
 import hashlib
 import json
 import os
@@ -194,7 +195,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import MissionStatus, MultiWallTrackArray
 
-from f1tenth_perception import perception_debug
+from f1tenth_perception import perception_debug, yolo_gpu
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -226,6 +227,20 @@ _MISSION_STATUS_QOS = QoSProfile(
 # 2026-10-01 campaign bags show (P004-R018); the matching message lands
 # ~15 ms after the 2D detections of the frame it belongs to.
 _DEBUG_CACHE = 30
+
+# stage_timing: the canonical per-frame stages [ms], the same set on every
+# inference path (`stage.<name>` in STAGE_TIMING, one CSV column each).
+# 'other' is the callback time no stage claims (classic path: mostly
+# Ultralytics' per-call work outside its three Profiles); 'annotate' and
+# 'debug' are recorded only on frames where they ran.
+TIMING_STAGES = ('msg_to_array', 'preprocess', 'inference', 'postprocess', 'masks',
+                 'publish', 'annotate', 'debug', 'other', 'total')
+# stage_timing_csv: wall_time = time.time() at callback entry [s]; stamp =
+# header stamp [s], printed exactly from sec/nanosec.
+TIMING_CSV_COLUMNS = ('wall_time', 'stamp', 'n_detections', 'path') + TIMING_STAGES
+# Rows buffered between report ticks. Written from the callback only when no
+# executor runs the report timer (offline harness).
+_TIMING_CSV_MAX_ROWS = 512
 
 
 # ==============================================================================
@@ -370,6 +385,33 @@ class YoloDetectorNode(Node):
         # while it records.
         self.debug_clean_image_topic = str(self.declare_parameter(
             'debug_clean_image_topic', '/camera/debug_image/clean/compressed').value)
+        # CPU cost (stack_params yolo_cpu_threads / yolo_cuda_blocking_sync /
+        # yolo_max_rate_hz). cpu_threads sizes torch's intra/inter-op pools and
+        # cv2's, 0 leaves the library defaults (torch: one per core, inter-op
+        # not affinity-aware). cuda_blocking_sync makes GPU waits sleep instead
+        # of spinning a core. max_rate_hz drops frames by stamp before any
+        # conversion; <= 0 processes every frame the QoS delivers.
+        self.cpu_threads = int(self.declare_parameter('cpu_threads', 2).value)
+        self.cuda_blocking_sync = bool(
+            self.declare_parameter('cuda_blocking_sync', True).value)
+        self.max_rate_hz = float(self.declare_parameter('max_rate_hz', 15.0).value)
+        self._rate_period = 1.0 / self.max_rate_hz if self.max_rate_hz > 0.0 else 0.0
+        self._rate_next_due = None
+        # yolo_backend 'engine': the FP16 TensorRT engine exported from
+        # model_path (a *.pt) by scripts/export_yolo_engine.sh; engine_path ''
+        # = next to model_path, named by yolo_gpu.engine_path_for. Missing or
+        # failing engine -> WARN and the *.pt on CUDA. A *.engine model_path
+        # keeps its own (legacy) path whatever this says.
+        self.yolo_backend = str(self.declare_parameter('yolo_backend', 'pt').value)
+        self.engine_path = str(self.declare_parameter('engine_path', '').value)
+        self.backend = 'pt'  # what actually runs, set at load
+        # gpu_pipeline: pre/post-processing and the masks on the GPU, one
+        # upload and two small downloads per frame (_gpu_callback); the
+        # classic Ultralytics-call path stays the fallback, per frame on an
+        # unsupported encoding or an error, for the run after 3 errors in a row.
+        self.gpu_pipeline = bool(self.declare_parameter('gpu_pipeline', True).value)
+        self._gpu = None
+        self._gpu_failures = 0
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -387,6 +429,13 @@ class YoloDetectorNode(Node):
                 'No YOLO model_path set — running in passthrough mode '
                 '(empty detections, annotated == raw frame)')
         else:
+            # Before torch creates its CUDA context: the scheduling flags of
+            # an active primary context are not guaranteed to change.
+            cuda_index = yolo_gpu.cuda_device_index(self.device)
+            if self.cuda_blocking_sync and cuda_index is not None:
+                ok, why = yolo_gpu.set_cuda_blocking_sync(cuda_index)
+                if not ok:
+                    self.get_logger().warn(f'cuda_blocking_sync: {why} -- default scheduling')
             try:
                 from ultralytics import YOLO
                 import torch
@@ -395,6 +444,7 @@ class YoloDetectorNode(Node):
                     f'Failed to import Ultralytics/torch: {exc} — falling '
                     'back to passthrough mode')
             else:
+                self._apply_cpu_threads(torch)
                 is_engine = self.model_path.endswith('.engine')
                 if is_engine and self.device == 'cpu':
                     raise RuntimeError(
@@ -429,16 +479,30 @@ class YoloDetectorNode(Node):
                         self.model.to(self.device)
                     self.names = self._resolve_class_names(YOLO, self.model_path, is_engine)
                     self.task = self.model.task
+                    self.backend = 'engine' if is_engine else 'pt'
                     self.get_logger().info(
                         f'Loaded YOLO model "{self.model_path}" on '
                         f'device="{self.device}" task="{self.task}" '
                         f'({len(self.names)} classes)')
+                    if self.yolo_backend == 'engine' and not is_engine:
+                        self._load_engine(YOLO)
+                    elif self.yolo_backend not in ('pt', 'engine'):
+                        self.get_logger().warn(
+                            f'yolo_backend="{self.yolo_backend}" unknown -- using the .pt')
+                    if cuda_index is not None:
+                        flags, active = yolo_gpu.cuda_primary_ctx_flags(cuda_index)
+                        sched = None if flags is None else flags & yolo_gpu.CU_CTX_SCHED_MASK
+                        self.get_logger().info(
+                            f'CUDA primary context: sched flags {sched} '
+                            f'(4 = blocking sync), active {active}')
                 except Exception as exc:  # noqa: BLE001 - stay alive in passthrough
                     self.get_logger().error(
                         f'Failed to load Ultralytics YOLO ("{self.model_path}") '
                         f'on device="{self.device}": {exc} — falling back to '
                         'passthrough mode')
                     self.model = None
+        if self.gpu_pipeline and self.model is not None:
+            self._gpu_setup()
 
         # ---- ROS interfaces -----------------------------------------------
         self.bridge = CvBridge()
@@ -470,6 +534,59 @@ class YoloDetectorNode(Node):
             f'"{self.annotated_topic}"' + (
                 f', masks "{self.masks_topic}" (task=segment)'
                 if self.masks_pub is not None else ''))
+
+    def _load_engine(self, YOLO):  # noqa: N803 - YOLO is a class
+        """Swap the loaded *.pt for its TensorRT engine; on any failure WARN, keep the *.pt."""
+        path = self.engine_path or '(auto)'
+        try:
+            if yolo_gpu.cuda_device_index(self.device) is None:
+                raise RuntimeError(f'device="{self.device}" is not CUDA')
+            if not self.engine_path:
+                import tensorrt
+                path = yolo_gpu.engine_path_for(self.model_path, tensorrt.__version__)
+            if not os.path.isfile(path):
+                raise FileNotFoundError('no such file (scripts/export_yolo_engine.sh writes it)')
+            engine = YOLO(path, task=self.task)
+            if engine.task != self.task:
+                raise RuntimeError(f'engine task "{engine.task}" != .pt task "{self.task}"')
+            # One predict on a dummy frame creates the predictor with the
+            # engine (its fp16 and static imgsz are fixed there), so a broken
+            # engine fails here and not on the first camera frame.
+            engine(np.zeros((360, 640, 3), dtype=np.uint8), verbose=False, device=self.device,
+                   conf=self.confidence_threshold, retina_masks=True)
+        except Exception as exc:  # noqa: BLE001 - the .pt is always the fallback
+            self.get_logger().warn(
+                f'yolo_backend=engine: engine "{path}" not used ({type(exc).__name__}: {exc}) '
+                f'-- running "{self.model_path}" on {self.device}')
+            return
+        self.model = engine
+        self.backend = 'engine'
+        backend = getattr(getattr(engine, 'predictor', None), 'model', None)
+        self.get_logger().info(
+            f'yolo_backend=engine: running "{path}" (fp16 {getattr(backend, "fp16", "?")}, '
+            f'imgsz {getattr(backend, "imgsz", "?")}); class names from "{self.model_path}"')
+
+    def _apply_cpu_threads(self, torch):
+        """Size torch's and cv2's thread pools to cpu_threads (0: untouched)."""
+        n = self.cpu_threads
+        if n <= 0:
+            return
+        try:
+            cv2.setNumThreads(n)
+            if hasattr(torch, 'set_num_threads'):
+                torch.set_num_threads(n)
+            if hasattr(torch, 'set_num_interop_threads'):
+                try:
+                    torch.set_num_interop_threads(n)
+                except RuntimeError as exc:  # inter-op work already started
+                    self.get_logger().warn(f'cpu_threads: inter-op pool unchanged ({exc})')
+            self.get_logger().info(
+                f'cpu_threads={n}: torch intra-op '
+                f'{getattr(torch, "get_num_threads", lambda: "?")()}, inter-op '
+                f'{getattr(torch, "get_num_interop_threads", lambda: "?")()}, '
+                f'cv2 {cv2.getNumThreads()}')
+        except Exception as exc:  # noqa: BLE001 - a tuning knob, never fatal
+            self.get_logger().warn(f'cpu_threads={n} not applied: {exc}')
 
     def _resolve_class_names(self, YOLO, model_path, is_engine):  # noqa: N803 - YOLO is a class
         """class-index -> class-name dict to actually use for this loaded
@@ -559,7 +676,20 @@ class YoloDetectorNode(Node):
         return keep
 
     def image_callback(self, msg: Image):
+        # max_rate_hz frame drop: first, before any conversion.
+        if self._rate_period > 0.0:
+            process, self._rate_next_due = yolo_gpu.rate_gate(
+                perception_debug.stamp_to_sec(msg.header.stamp), self._rate_next_due,
+                self._rate_period)
+            if not process:
+                self._mark_dropped()
+                return
         self._mark_entry(msg.header.stamp)
+        tick = None  # the debug tick, when the GPU path decided it and fell back
+        if self._gpu is not None:
+            handled, tick = self._gpu_callback(msg)
+            if handled:
+                return
         # Convert ROS Image -> OpenCV BGR (3-channel) for inference/drawing.
         # cv_bridge handles rgb8 (webcam) and bgra8 (ZED) -> bgr8 conversion.
         try:
@@ -568,6 +698,7 @@ class YoloDetectorNode(Node):
             self.get_logger().error(f'cv_bridge conversion failed: {exc}')
             return
         self._mark('convert')
+        self._stage('msg_to_array')
 
         out = Detection2DArray()
         out.header = msg.header  # keep detections time/frame aligned to the image
@@ -576,13 +707,16 @@ class YoloDetectorNode(Node):
             # Passthrough: empty detections, re-publish the frame unmodified so
             # the annotated topic stays live.
             self.det_pub.publish(out)
+            self._stage('publish')
             if self.annotated_pub.get_subscription_count() > 0:
                 self._publish_annotated(cv_image, msg.header)
+                self._stage('annotate')
+            self._mark_exit(0, 'passthrough')
             return
 
         # Debug tick: decided before inference, because a tick frame runs
         # YOLO at the debug floor and splits the result (see module docstring).
-        debug_tick = self._debug_tick(msg.header.stamp)
+        debug_tick = self._debug_tick(msg.header.stamp) if tick is None else tick
         conf = (min(self.debug_image_min_confidence, self.confidence_threshold)
                 if debug_tick else self.confidence_threshold)
 
@@ -620,6 +754,7 @@ class YoloDetectorNode(Node):
                 result = self.model(
                     cv_image, verbose=False, device=self.device,
                     conf=self.confidence_threshold, retina_masks=True)[0]
+            self._stage('debug')
 
         # Car's-own-LiDAR exclusion -- see module docstring's own paragraph.
         # Applied here, on the raw Ultralytics result, BEFORE anything below
@@ -642,6 +777,7 @@ class YoloDetectorNode(Node):
         if self.masks_pub is not None and result.masks is not None:
             masks_np = result.masks.data.cpu().numpy()
         self._mark('masks_to_cpu')
+        self._stage('masks')
 
         for i, box in enumerate(result.boxes):
             x1, y1, x2, y2 = (float(v) for v in box.xyxy[0].tolist())
@@ -656,6 +792,7 @@ class YoloDetectorNode(Node):
 
         self.det_pub.publish(out)
         self._mark('pub_det')
+        self._stage('publish')
 
         # PER-FRAME MASK INVARIANT (2026-09-02 stale-track fix)
         # ----------------------------------------------------------------
@@ -692,6 +829,7 @@ class YoloDetectorNode(Node):
                 # another never-aged-out gap of exactly the kind above.
                 self._publish_empty_mask(msg.header)
             self._mark('pub_masks')
+            self._stage('publish')
         # The annotated image is drawn and published only while something
         # subscribes (Foxglove through the lazy /viz relay, or a bag with
         # mission_logger_record_annotated_image): drawing and converting it
@@ -719,6 +857,7 @@ class YoloDetectorNode(Node):
             self._mark('annotate_draw')
             self._publish_annotated(annotated, msg.header)
             self._mark('pub_annotated')
+            self._stage('annotate')
         if debug_tick:
             try:
                 self._debug_capture(cv_image, msg.header, out.detections, masks_np, below)
@@ -726,7 +865,218 @@ class YoloDetectorNode(Node):
                 self.get_logger().error(
                     f'debug image capture failed: {exc}', throttle_duration_sec=5.0)
             self._mark('debug_capture')
-        self._mark_exit()
+            self._stage('debug')
+        self._mark_exit(len(out.detections), 'classic')
+
+    # ---- GPU pipeline (gpu_pipeline; see yolo_gpu.py) --------------------
+
+    def _gpu_setup(self):
+        """Create the predictor with one warmup call and keep what the GPU path needs."""
+        if yolo_gpu.cuda_device_index(self.device) is None:
+            self.get_logger().warn(
+                f'gpu_pipeline: device="{self.device}" is not CUDA -- classic path')
+            return
+        try:
+            import torch
+            self.model(np.zeros((360, 640, 3), dtype=np.uint8), verbose=False, device=self.device,
+                       conf=self.confidence_threshold, retina_masks=True)
+            predictor = self.model.predictor
+            backend = predictor.model
+            # pre_transform's LetterBox auto, for one image per call.
+            auto = bool(predictor.args.rect and (
+                backend.format == 'pt'
+                or (getattr(backend, 'dynamic', False) and backend.format != 'imx')))
+            self._gpu = {
+                'torch': torch, 'predictor': predictor, 'device': predictor.device,
+                'imgsz': tuple(int(v) for v in predictor.imgsz), 'auto': auto,
+                'stride': int(backend.stride), 'half': bool(backend.fp16),
+            }
+        except Exception as exc:  # noqa: BLE001 - the classic path is the fallback
+            self.get_logger().warn(f'gpu_pipeline: setup failed ({exc}) -- classic path')
+            self._gpu = None
+            return
+        self.get_logger().info(
+            f'gpu_pipeline ON: backend {self.backend}, imgsz {self._gpu["imgsz"]}, '
+            f'letterbox auto {auto}, stride {self._gpu["stride"]}, fp16 {self._gpu["half"]}')
+
+    def _gpu_sync(self):
+        if self._timer is not None:
+            self._gpu['torch'].cuda.synchronize()
+
+    def _gpu_callback(self, msg):
+        """
+        Process one frame on the GPU path; return (handled, debug_tick).
+
+        Same outputs as the classic path: the Ultralytics call is replaced by
+        yolo_gpu's upload/letterbox/inference/postprocess, and the per-object
+        work by one download of (box, score, class, mask pixel counts). Not
+        handled (classic path for this frame): an encoding the GPU path does
+        not read, a detect model's annotated image (Results.plot), an error.
+        """
+        if self.masks_pub is None and self.annotated_pub.get_subscription_count() > 0:
+            return False, None
+        frame = yolo_gpu.image_view(msg.data, msg.height, msg.width, msg.step, msg.encoding)
+        if frame is None:
+            return False, None
+        self._stage('msg_to_array')
+        debug_tick = self._debug_tick(msg.header.stamp)
+        conf = (min(self.debug_image_min_confidence, self.confidence_threshold)
+                if debug_tick else self.confidence_threshold)
+        g, h, w = self._gpu, int(msg.height), int(msg.width)
+        ex = (self.lidar_exclusion_x_min * w, self.lidar_exclusion_y_min * h,
+              self.lidar_exclusion_x_max * w, self.lidar_exclusion_y_max * h)
+        try:
+            with g['torch'].inference_mode():
+                im, _ = yolo_gpu.to_model_input(
+                    frame, msg.encoding, g['device'], g['imgsz'], g['auto'], g['stride'],
+                    g['half'])
+                self._gpu_sync()
+                self._stage('preprocess')
+                preds = g['predictor'].model(im)
+                self._gpu_sync()
+                self._stage('inference')
+                det, masks = yolo_gpu.postprocess(
+                    g['predictor'], preds, im.shape[2:], (h, w), conf, self.task)
+                self._gpu_sync()
+                self._stage('postprocess')
+                cols = det[:, :6].float()
+                if masks is not None:
+                    # Clamped/truncated like _mask_overlap_fraction.
+                    rect = (max(int(ex[0]), 0), max(int(ex[1]), 0),
+                            min(int(ex[2]), w), min(int(ex[3]), h))
+                    total, inside = yolo_gpu.mask_stats(masks, rect)
+                    cols = g['torch'].cat([cols, total[:, None], inside[:, None]], 1)
+                host = cols.cpu().numpy()  # the one small download
+            kept, below, has_masks = self._gpu_select(host, masks is not None, debug_tick, ex)
+        except Exception as exc:  # noqa: BLE001 - classic path for this frame
+            self._gpu_failures += 1
+            if self._gpu_failures >= 3:
+                self.get_logger().error(
+                    f'gpu_pipeline: {self._gpu_failures} failures in a row ({exc}) '
+                    '-- classic path for the rest of the run')
+                self._gpu = None
+            else:
+                self.get_logger().warn(
+                    f'gpu_pipeline failed ({exc}) -- classic path for this frame',
+                    throttle_duration_sec=5.0)
+            return False, debug_tick
+        self._gpu_failures = 0
+        self._stage('masks')
+
+        out = Detection2DArray()
+        out.header = msg.header
+        for i in kept:
+            x1, y1, x2, y2 = (float(v) for v in host[i, :4])
+            cls_id = int(host[i, 5])
+            out.detections.append(self._build_detection(
+                class_id=self.names.get(cls_id, str(cls_id)), score=float(host[i, 4]),
+                cx=(x1 + x2) / 2.0, cy=(y1 + y2) / 2.0, w=(x2 - x1), h=(y2 - y1)))
+        self.det_pub.publish(out)
+        self._stage('publish')
+
+        # The kept masks on the CPU only where the classic helpers draw them.
+        masks_np = None
+        need_cpu = debug_tick or self.annotated_pub.get_subscription_count() > 0
+        if self.masks_pub is not None:
+            published = False
+            if has_masks:
+                try:
+                    with g['torch'].inference_mode():
+                        published = self._gpu_publish_masks(masks, kept, (h, w), msg.header)
+                        if need_cpu:
+                            masks_np = self._gpu_masks_to_cpu(masks, kept, (h, w))
+                except Exception as exc:  # noqa: BLE001 - the mask invariant still holds
+                    self.get_logger().error(
+                        f'gpu_pipeline mask publish failed: {exc}', throttle_duration_sec=5.0)
+            if not published:
+                self._publish_empty_mask(msg.header)
+            self._stage('publish')
+        if need_cpu:
+            cv_image = cv2.cvtColor(frame, {
+                'bgra8': cv2.COLOR_BGRA2BGR, 'rgba8': cv2.COLOR_RGBA2BGR,
+                'rgb8': cv2.COLOR_RGB2BGR}[msg.encoding]) if msg.encoding != 'bgr8' \
+                else np.ascontiguousarray(frame)
+            if self.annotated_pub.get_subscription_count() > 0:
+                self._publish_annotated(
+                    self._draw_mask_overlay(cv_image, masks_np, out.detections), msg.header)
+                self._stage('annotate')
+            if debug_tick:
+                try:
+                    self._debug_capture(cv_image, msg.header, out.detections, masks_np, below)
+                except Exception as exc:  # noqa: BLE001 - debug output must never stop detection
+                    self.get_logger().error(
+                        f'debug image capture failed: {exc}', throttle_duration_sec=5.0)
+                self._stage('debug')
+        self._mark_exit(len(out.detections), 'gpu')
+        return True, debug_tick
+
+    def _gpu_select(self, host, has_masks, debug_tick, ex):
+        """
+        Kept indices, below-threshold boxes and whether result.masks would exist.
+
+        The classic path's _debug_split then _lidar_exclusion_keep_mask, on
+        the downloaded rows (x1, y1, x2, y2, score, class[, total, inside]).
+        """
+        idx = list(range(host.shape[0]))
+        below = []
+        if debug_tick and idx:
+            above = host[:, 4] > self.confidence_threshold
+            if not above.all():
+                for i in np.flatnonzero(~above):
+                    x1, y1, x2, y2 = (float(v) for v in host[i, :4])
+                    if _bbox_overlap_fraction(x1, y1, x2, y2, *ex) > \
+                            self.lidar_exclusion_overlap_threshold:
+                        continue
+                    cls_id = int(host[i, 5])
+                    below.append({'box': (x1, y1, x2, y2), 'score': float(host[i, 4]),
+                                  'class_id': self.names.get(cls_id, str(cls_id))})
+                idx = [int(i) for i in np.flatnonzero(above)]
+                if not idx:
+                    has_masks = False
+        kept = []
+        for i in idx:
+            if has_masks and host[i, 6] > 0:
+                overlap = int(host[i, 7]) / int(host[i, 6])
+            else:
+                x1, y1, x2, y2 = (float(v) for v in host[i, :4])
+                overlap = _bbox_overlap_fraction(x1, y1, x2, y2, *ex)
+            if overlap <= self.lidar_exclusion_overlap_threshold:
+                kept.append(i)
+        return kept, below, has_masks
+
+    def _gpu_publish_masks(self, masks, kept, shape_hw, header):
+        """_publish_masks from the device masks: label image built on the GPU, one download."""
+        n = len(kept)
+        if n > MAX_MASK_INSTANCES:
+            self.get_logger().warn(
+                f'{n} detections this frame exceeds the {MAX_MASK_INSTANCES}-instance mono8 '
+                'mask cap -- only the first get mask pixels', throttle_duration_sec=5.0)
+        kept = kept[:MAX_MASK_INSTANCES]
+        if kept:
+            index = self._gpu['torch'].as_tensor(kept, device=masks.device)
+            label_img = yolo_gpu.label_image(masks[index]).cpu().numpy()
+        else:
+            label_img = np.zeros(shape_hw, dtype=np.uint8)
+        if label_img.shape != tuple(shape_hw):
+            self.get_logger().error(
+                f'gpu_pipeline mask shape {label_img.shape} != image {tuple(shape_hw)}',
+                throttle_duration_sec=5.0)
+            return False
+        self._stage('masks')
+        try:
+            mask_msg = self.bridge.cv2_to_imgmsg(label_img, encoding='mono8')
+        except CvBridgeError as exc:
+            self.get_logger().error(f'cv_bridge mask encode failed: {exc}')
+            return False
+        mask_msg.header = header
+        self.masks_pub.publish(mask_msg)
+        return True
+
+    def _gpu_masks_to_cpu(self, masks, kept, shape_hw):
+        if not kept:
+            return np.zeros((0,) + tuple(shape_hw), dtype=np.uint8)
+        index = self._gpu['torch'].as_tensor(kept, device=masks.device)
+        return masks[index].cpu().numpy()
 
     def _publish_annotated(self, cv_image, header):
         try:
@@ -806,6 +1156,7 @@ class YoloDetectorNode(Node):
             # Higher index (later detection) wins where masks overlap -- see
             # module docstring's "last-write" note.
             label_img[masks_np[i] > 0.5] = i + 1
+        self._stage('masks')
 
         try:
             mask_msg = self.bridge.cv2_to_imgmsg(label_img, encoding='mono8')
@@ -917,42 +1268,121 @@ class YoloDetectorNode(Node):
     # and post_nms_other is the rest of postprocess. Skipped input frames are
     # counted from gaps between consecutive processed stamps, against
     # stage_timing_frame_period_s.
+    #
+    # On top of these, stage.<name> holds the canonical stages of
+    # TIMING_STAGES: _stage(name) gives the time since the previous boundary
+    # to `name`, _mark_model splits the Ultralytics call by result.speed
+    # (mask decode -> masks), _mark_exit records total and other. With
+    # stage_timing_csv set, one row per frame is buffered and written when a
+    # report is logged and on destroy_node.
 
     def _timing_setup(self):
         self._timer = None
+        self._csv_file = None
         if not bool(self.declare_parameter('stage_timing', False).value):
             return
-        self._timer = StageTimer(self.get_name(), float(
-            self.declare_parameter('stage_timing_period_s', 30.0).value))
+        period = float(self.declare_parameter('stage_timing_period_s', 1.0).value)
+        self._timer = StageTimer(self.get_name(), period)
+        self._timer.report(time.time())  # the first period starts now
         self._timing_frame_period = float(
             self.declare_parameter('stage_timing_frame_period_s', 1.0 / 30.0).value)
-        self._t_stamp = self._t_last = 0.0
+        self._t_stamp = self._t_last = self._t_entry = self._t_cursor = self._t_wall = 0.0
         self._t_prev_stamp = None
+        self._t_stamp_text = ''
+        self._t_frame = {}
         self._mask_ms = 0.0
-        if self.model is not None and self.device.startswith('cuda'):
+        self._csv_rows = []
+        csv_path = str(self.declare_parameter('stage_timing_csv', '').value)
+        if csv_path:
+            self._csv_open(csv_path)
+        if self.model is not None:
             import torch
             from ultralytics.utils import ops
-            original = ops.process_mask_native
+            # Unwrap a wrapper an earlier node in this process installed.
+            original = getattr(ops.process_mask_native, '_stage_timing_original',
+                               ops.process_mask_native)
+            sync = torch.cuda.synchronize if self.device.startswith('cuda') else (lambda: None)
 
             def timed_process_mask_native(*args, **kwargs):
-                torch.cuda.synchronize()
+                sync()
                 t0 = time.perf_counter()
                 out = original(*args, **kwargs)
-                torch.cuda.synchronize()
+                sync()
                 self._mask_ms += (time.perf_counter() - t0) * 1e3
                 return out
+            timed_process_mask_native._stage_timing_original = original
             ops.process_mask_native = timed_process_mask_native
-        self.create_timer(1.0, self._timing_report)
-        self.get_logger().warn('stage_timing ON: per-stage latency logged as STAGE_TIMING')
+        # Polled at a quarter period so a report is late by 1/4 period at most
+        # (polling at the period itself skips a report whenever the previous
+        # poll ran late behind a frame).
+        self.create_timer(min(1.0, period / 4.0) if period > 0.0 else 1.0,
+                          self._timing_report)
+        self.get_logger().warn(
+            'stage_timing ON: per-stage latency logged as STAGE_TIMING'
+            + (f', per-frame CSV "{csv_path}"' if self._csv_file is not None else ''))
+
+    def _csv_open(self, csv_path):
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(csv_path)), exist_ok=True)
+            self._csv_file = open(csv_path, 'w', newline='', encoding='utf-8')
+            self._csv_writer = csv.writer(self._csv_file)
+            self._csv_writer.writerow(TIMING_CSV_COLUMNS)
+            self._csv_file.flush()
+        except Exception as exc:  # noqa: BLE001 - the CSV must never stop detection
+            self.get_logger().error(f'stage_timing_csv "{csv_path}": {exc} -- no CSV')
+            self._csv_close()
+
+    def _csv_flush(self):
+        """Write the buffered rows (formatted here, not in the callback)."""
+        if self._csv_file is None or not self._csv_rows:
+            return
+        rows, self._csv_rows = self._csv_rows, []
+        try:
+            for wall, stamp, n_det, path, frame in rows:
+                self._csv_writer.writerow(
+                    [f'{wall:.6f}', stamp, n_det, path]
+                    + ['' if frame.get(s) is None else f'{frame[s]:.3f}'
+                       for s in TIMING_STAGES])
+            self._csv_file.flush()
+        except Exception as exc:  # noqa: BLE001 - the CSV must never stop detection
+            self.get_logger().error(f'stage_timing_csv write failed: {exc} -- CSV off')
+            self._csv_close()
+
+    def _csv_close(self):
+        csv_file, self._csv_file = self._csv_file, None
+        self._csv_rows = []
+        if csv_file is not None:
+            try:
+                csv_file.close()
+            except Exception:  # noqa: BLE001 - the CSV must never stop detection
+                pass
+
+    def destroy_node(self):
+        if getattr(self, '_csv_file', None) is not None:
+            self._csv_flush()
+            self._csv_close()
+        return super().destroy_node()
+
+    def _mark_dropped(self):
+        if self._timer is None:
+            return
+        self._timer.count('frames_in')
+        self._timer.count('frames_dropped')
 
     def _mark_entry(self, stamp):
         if self._timer is None:
             return
         now = time.time()
+        self._t_entry = self._t_cursor = time.perf_counter()
+        self._t_frame = {}
+        self._t_wall = now
+        self._t_stamp_text = f'{int(stamp.sec)}.{int(stamp.nanosec):09d}'
         stamp_s = perception_debug.stamp_to_sec(stamp)
         self._t_stamp, self._t_last = stamp_s, now
         self._timer.add('age.entry', (now - stamp_s) * 1e3)
+        self._timer.count('frames_in')
         self._timer.count('frames_processed')
+        self._timer.count('frames_dropped', 0)
         if self._t_prev_stamp is not None:
             gap = stamp_s - self._t_prev_stamp
             self._timer.add('gap_between_processed', gap * 1e3)
@@ -979,17 +1409,48 @@ class YoloDetectorNode(Node):
         self._timer.add('dur.post_mask', self._mask_ms)
         if speed.get('postprocess') is not None:
             self._timer.add('dur.post_nms_other', speed['postprocess'] - self._mask_ms)
+        # Canonical: the rest of the call (setup_source, Results, ...) stays
+        # unclaimed and ends up in 'other'.
+        frame = self._t_frame
+        for key in ('preprocess', 'inference'):
+            if speed.get(key) is not None:
+                frame[key] = frame.get(key, 0.0) + float(speed[key])
+        if speed.get('postprocess') is not None:
+            frame['postprocess'] = (frame.get('postprocess', 0.0)
+                                    + float(speed['postprocess']) - self._mask_ms)
+        frame['masks'] = frame.get('masks', 0.0) + self._mask_ms
+        self._t_cursor = time.perf_counter()
 
-    def _mark_exit(self):
+    def _stage(self, name):
+        """Add the time since the previous stage boundary to canonical stage `name`."""
+        if self._timer is None:
+            return
+        now = time.perf_counter()
+        self._t_frame[name] = self._t_frame.get(name, 0.0) + (now - self._t_cursor) * 1e3
+        self._t_cursor = now
+
+    def _mark_exit(self, n_detections=0, path='classic'):
         if self._timer is None:
             return
         now = time.time()
         self._timer.add('age.exit', (now - self._t_stamp) * 1e3)
+        frame = self._t_frame
+        total = (time.perf_counter() - self._t_entry) * 1e3
+        frame['other'] = total - sum(frame.values())
+        frame['total'] = total
+        for name, value in frame.items():
+            self._timer.add('stage.' + name, value)
+        if self._csv_file is not None:
+            self._csv_rows.append(
+                (self._t_wall, self._t_stamp_text, int(n_detections), path, frame))
+            if len(self._csv_rows) >= _TIMING_CSV_MAX_ROWS:
+                self._csv_flush()
 
     def _timing_report(self):
         report = self._timer.report(time.time())
         if report is not None:
             self.get_logger().info(StageTimer.format(report))
+            self._csv_flush()
 
     # ---- perception debug image (see module docstring) -----------------
 

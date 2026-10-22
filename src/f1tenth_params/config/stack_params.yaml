@@ -358,7 +358,31 @@ debug_image_min_confidence:
 # the 2026-10-14 detection-latency audit (f1tenth_perception/stage_timing.py).
 perception_stage_timing:
   default: false
-  description: "Per-stage latency of the camera pipeline: yolo_detector_node and detection_3d_node log a STAGE_TIMING line (p50/p95/max per stage, ages from header.stamp) every 30 s. Off: no timestamps are taken."
+  description: "Per-stage latency of the camera pipeline: yolo_detector_node (every 1 s, mean/p50/p95/max, canonical stage.* durations) and detection_3d_node (every 30 s) log a STAGE_TIMING line (ages from header.stamp). Off: no timestamps are taken."
+# Consumed by: f1tenth_perception/detection.launch.py, forwarded to yolo_detector_node
+# (cpu_threads, cuda_blocking_sync, max_rate_hz, yolo_backend, engine_path,
+# gpu_pipeline). The YOLO node's CPU cost on the Orin (2026-10-22, branch
+# campaign-final-yolo-gpu, output/perf/yolo_recon.md): the main thread sat at
+# ~87 % of a core. yolo_cpu_threads also sets OMP/MKL/OPENBLAS/OPENCV thread env
+# for the node's process (not set when 0).
+yolo_cpu_threads:
+  default: 2
+  description: "yolo_detector_node: torch intra/inter-op and cv2 thread pool size, plus OMP_NUM_THREADS/MKL_NUM_THREADS/OPENBLAS_NUM_THREADS/OPENCV_FOR_THREADS_NUM of its process. 2 = its two taskset cores. 0 = library defaults (one thread per core, the behaviour before 2026-10-22)."
+yolo_cuda_blocking_sync:
+  default: true
+  description: "yolo_detector_node: CU_CTX_SCHED_BLOCKING_SYNC on the CUDA primary context, so a thread waiting for the GPU sleeps instead of spinning a core. false = CUDA's default (spin with one context)."
+yolo_max_rate_hz:
+  default: 15.0
+  description: "yolo_detector_node: process at most this many frames per second (stamp-driven drop before any conversion; the 30 Hz ZED stream becomes 15 Hz). 0.0 = every frame the latest-frame QoS delivers."
+yolo_backend:
+  default: pt
+  description: "yolo_detector_node inference backend for a *.pt yolo_model: 'pt' (PyTorch on yolo_device) or 'engine' (the FP16 TensorRT engine exported from it by scripts/export_yolo_engine.sh on the Orin). A missing or failing engine logs a WARN and runs the *.pt on CUDA. Ignored when yolo_model itself is a *.engine."
+yolo_engine_path:
+  default: ''
+  description: "TensorRT engine for yolo_backend 'engine'. Empty = next to the model: <models>/<yolo_model stem>.trt<TensorRT version>.fp16.engine (the name export_yolo_engine.sh writes)."
+yolo_gpu_pipeline:
+  default: true
+  description: "yolo_detector_node: letterbox, postprocessing, LiDAR-exclusion mask stats and the label image on the GPU (one upload, one small download + the mono8 mask per frame) instead of the Ultralytics call and numpy mask loops. Same outputs (smoke test 2026-10-22: identical detections and masks on 48 frames). false = the classic path, also the per-frame fallback on an error."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's

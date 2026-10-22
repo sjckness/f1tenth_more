@@ -99,7 +99,7 @@ import os
 from f1tenth_params.param_defaults import get_default, get_value
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -203,6 +203,21 @@ def generate_launch_description():
         'perception_stage_timing', default_value=str(stage_timing_default),
         description=stage_timing_desc)
     stage_timing = ParameterValue(LaunchConfiguration('perception_stage_timing'), value_type=bool)
+    # yolo_detector_node's CPU-cost knobs (stack_params yolo_*): (launch arg,
+    # node param, type).
+    _yolo_cost_args = [
+        ('yolo_cpu_threads', 'cpu_threads', int),
+        ('yolo_cuda_blocking_sync', 'cuda_blocking_sync', bool),
+        ('yolo_max_rate_hz', 'max_rate_hz', float),
+        ('yolo_backend', 'yolo_backend', str),
+        ('yolo_engine_path', 'engine_path', str),
+        ('yolo_gpu_pipeline', 'gpu_pipeline', bool),
+    ]
+    yolo_cost_las = []
+    for _arg, _param, _type in _yolo_cost_args:
+        _default, _desc = get_default(_arg)
+        yolo_cost_las.append(DeclareLaunchArgument(
+            _arg, default_value=str(_default), description=_desc))
     debug_image_las = []
     for _name, _type in _debug_image_args:
         _default, _desc = get_default(_name)
@@ -376,46 +391,62 @@ def generate_launch_description():
     # the same read the MPC and the BT make, so every node agrees.
     scene_labels_on = bool(get_value('enable_scene_labels'))
 
-    yolo_detector_node = Node(
-        package='f1tenth_perception',
-        executable='yolo_detector_node',
-        name='yolo_detector_node',
-        output='screen',
-        prefix=['taskset -c ', LaunchConfiguration('yolo_cpu_affinity')],
-        parameters=[{
-            'image_topic': '/camera/image_raw',
-            'detections_topic': '/camera/detections',
-            'annotated_topic': '/camera/image_annotated',
-            'model_path': PathJoinSubstitution([
-                src_dir, 'f1tenth_perception', 'models',
-                LaunchConfiguration('yolo_model')]),
-            'device': LaunchConfiguration('yolo_device'),
-            # Only consulted for a *.engine yolo_model -- see stack_params.yaml's
-            # own yolo_model_task entry and yolo_detector_node.py's "Task
-            # resolution" docstring paragraph. Ignored for a *.pt yolo_model
-            # (e.g. yolo26s-seg.pt), which carries its own task in the checkpoint.
-            'model_task': LaunchConfiguration('yolo_model_task'),
-            # Only ever published when the loaded model resolves to task
-            # 'segment' -- see yolo_detector_node.py's own docstring.
-            'masks_topic': '/camera/detection_masks',
-            # Previously only reached detection_3d_node below -- see
-            # yolo_detector_node.py's own docstring for why that left this
-            # node's own output unfiltered regardless of this value.
-            'confidence_threshold': LaunchConfiguration('confidence_threshold'),
-            # Car's-own-LiDAR exclusion -- see the declare block above.
-            'lidar_exclusion_x_min': LaunchConfiguration('lidar_exclusion_x_min'),
-            'lidar_exclusion_x_max': LaunchConfiguration('lidar_exclusion_x_max'),
-            'lidar_exclusion_y_min': LaunchConfiguration('lidar_exclusion_y_min'),
-            'lidar_exclusion_y_max': LaunchConfiguration('lidar_exclusion_y_max'),
-            'lidar_exclusion_overlap_threshold': LaunchConfiguration(
-                'lidar_exclusion_overlap_threshold'),
-            'nice': LaunchConfiguration('yolo_nice'),
-            'enable_scene_labels': scene_labels_on,
-            'stage_timing': stage_timing,
-            **{_name: ParameterValue(LaunchConfiguration(_name), value_type=_type)
-               for _name, _type in _debug_image_args},
-        }],
-    )
+    def _yolo_detector_node(context):
+        # An OpaqueFunction only for the thread env: yolo_cpu_threads:=0 must
+        # leave OMP/MKL/OPENBLAS/OPENCV unset (library defaults), which a
+        # substitution cannot express. Never LD_LIBRARY_PATH here: torch on
+        # the Orin needs the inherited one (recon A.5).
+        threads = int(LaunchConfiguration('yolo_cpu_threads').perform(context))
+        thread_env = {} if threads <= 0 else {
+            var: str(threads) for var in (
+                'OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS',
+                'OPENCV_FOR_THREADS_NUM')}
+        return [Node(
+            package='f1tenth_perception',
+            executable='yolo_detector_node',
+            name='yolo_detector_node',
+            output='screen',
+            prefix=['taskset -c ', LaunchConfiguration('yolo_cpu_affinity')],
+            additional_env=thread_env,
+            parameters=[yolo_params],
+        )]
+
+    yolo_params = {
+        'image_topic': '/camera/image_raw',
+        'detections_topic': '/camera/detections',
+        'annotated_topic': '/camera/image_annotated',
+        'model_path': PathJoinSubstitution([
+            src_dir, 'f1tenth_perception', 'models',
+            LaunchConfiguration('yolo_model')]),
+        'device': LaunchConfiguration('yolo_device'),
+        # Only consulted for a *.engine yolo_model -- see stack_params.yaml's
+        # own yolo_model_task entry and yolo_detector_node.py's "Task
+        # resolution" docstring paragraph. Ignored for a *.pt yolo_model
+        # (e.g. yolo26s-seg.pt), which carries its own task in the checkpoint.
+        'model_task': LaunchConfiguration('yolo_model_task'),
+        # Only ever published when the loaded model resolves to task
+        # 'segment' -- see yolo_detector_node.py's own docstring.
+        'masks_topic': '/camera/detection_masks',
+        # Previously only reached detection_3d_node below -- see
+        # yolo_detector_node.py's own docstring for why that left this
+        # node's own output unfiltered regardless of this value.
+        'confidence_threshold': LaunchConfiguration('confidence_threshold'),
+        # Car's-own-LiDAR exclusion -- see the declare block above.
+        'lidar_exclusion_x_min': LaunchConfiguration('lidar_exclusion_x_min'),
+        'lidar_exclusion_x_max': LaunchConfiguration('lidar_exclusion_x_max'),
+        'lidar_exclusion_y_min': LaunchConfiguration('lidar_exclusion_y_min'),
+        'lidar_exclusion_y_max': LaunchConfiguration('lidar_exclusion_y_max'),
+        'lidar_exclusion_overlap_threshold': LaunchConfiguration(
+            'lidar_exclusion_overlap_threshold'),
+        'nice': LaunchConfiguration('yolo_nice'),
+        'enable_scene_labels': scene_labels_on,
+        'stage_timing': stage_timing,
+        **{_name: ParameterValue(LaunchConfiguration(_name), value_type=_type)
+           for _name, _type in _debug_image_args},
+        **{_param: ParameterValue(LaunchConfiguration(_arg), value_type=_type)
+           for _arg, _param, _type in _yolo_cost_args},
+    }
+    yolo_detector_node = OpaqueFunction(function=_yolo_detector_node)
 
     actions = [
         confidence_threshold_la, yolo_device_la, yolo_model_la,
@@ -432,6 +463,7 @@ def generate_launch_description():
         *front_clearance_las,
         *debug_image_las,
         stage_timing_la,
+        *yolo_cost_las,
         yolo_detector_node,
     ]
 
