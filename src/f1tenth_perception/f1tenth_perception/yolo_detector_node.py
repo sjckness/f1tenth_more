@@ -195,7 +195,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from f1tenth_description.vehicle_frames import base_front_x
 from f1tenth_messages.msg import MissionStatus, MultiWallTrackArray
 
-from f1tenth_perception import perception_debug
+from f1tenth_perception import perception_debug, yolo_gpu
 from f1tenth_perception.cpu_affinity import (
     apply_nice,
     declare_nice_param,
@@ -385,6 +385,18 @@ class YoloDetectorNode(Node):
         # while it records.
         self.debug_clean_image_topic = str(self.declare_parameter(
             'debug_clean_image_topic', '/camera/debug_image/clean/compressed').value)
+        # CPU cost (stack_params yolo_cpu_threads / yolo_cuda_blocking_sync /
+        # yolo_max_rate_hz). cpu_threads sizes torch's intra/inter-op pools and
+        # cv2's, 0 leaves the library defaults (torch: one per core, inter-op
+        # not affinity-aware). cuda_blocking_sync makes GPU waits sleep instead
+        # of spinning a core. max_rate_hz drops frames by stamp before any
+        # conversion; <= 0 processes every frame the QoS delivers.
+        self.cpu_threads = int(self.declare_parameter('cpu_threads', 2).value)
+        self.cuda_blocking_sync = bool(
+            self.declare_parameter('cuda_blocking_sync', True).value)
+        self.max_rate_hz = float(self.declare_parameter('max_rate_hz', 15.0).value)
+        self._rate_period = 1.0 / self.max_rate_hz if self.max_rate_hz > 0.0 else 0.0
+        self._rate_next_due = None
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -402,6 +414,13 @@ class YoloDetectorNode(Node):
                 'No YOLO model_path set — running in passthrough mode '
                 '(empty detections, annotated == raw frame)')
         else:
+            # Before torch creates its CUDA context: the scheduling flags of
+            # an active primary context are not guaranteed to change.
+            cuda_index = yolo_gpu.cuda_device_index(self.device)
+            if self.cuda_blocking_sync and cuda_index is not None:
+                ok, why = yolo_gpu.set_cuda_blocking_sync(cuda_index)
+                if not ok:
+                    self.get_logger().warn(f'cuda_blocking_sync: {why} -- default scheduling')
             try:
                 from ultralytics import YOLO
                 import torch
@@ -410,6 +429,7 @@ class YoloDetectorNode(Node):
                     f'Failed to import Ultralytics/torch: {exc} — falling '
                     'back to passthrough mode')
             else:
+                self._apply_cpu_threads(torch)
                 is_engine = self.model_path.endswith('.engine')
                 if is_engine and self.device == 'cpu':
                     raise RuntimeError(
@@ -448,6 +468,12 @@ class YoloDetectorNode(Node):
                         f'Loaded YOLO model "{self.model_path}" on '
                         f'device="{self.device}" task="{self.task}" '
                         f'({len(self.names)} classes)')
+                    if cuda_index is not None:
+                        flags, active = yolo_gpu.cuda_primary_ctx_flags(cuda_index)
+                        sched = None if flags is None else flags & yolo_gpu.CU_CTX_SCHED_MASK
+                        self.get_logger().info(
+                            f'CUDA primary context: sched flags {sched} '
+                            f'(4 = blocking sync), active {active}')
                 except Exception as exc:  # noqa: BLE001 - stay alive in passthrough
                     self.get_logger().error(
                         f'Failed to load Ultralytics YOLO ("{self.model_path}") '
@@ -485,6 +511,28 @@ class YoloDetectorNode(Node):
             f'"{self.annotated_topic}"' + (
                 f', masks "{self.masks_topic}" (task=segment)'
                 if self.masks_pub is not None else ''))
+
+    def _apply_cpu_threads(self, torch):
+        """Size torch's and cv2's thread pools to cpu_threads (0: untouched)."""
+        n = self.cpu_threads
+        if n <= 0:
+            return
+        try:
+            cv2.setNumThreads(n)
+            if hasattr(torch, 'set_num_threads'):
+                torch.set_num_threads(n)
+            if hasattr(torch, 'set_num_interop_threads'):
+                try:
+                    torch.set_num_interop_threads(n)
+                except RuntimeError as exc:  # inter-op work already started
+                    self.get_logger().warn(f'cpu_threads: inter-op pool unchanged ({exc})')
+            self.get_logger().info(
+                f'cpu_threads={n}: torch intra-op '
+                f'{getattr(torch, "get_num_threads", lambda: "?")()}, inter-op '
+                f'{getattr(torch, "get_num_interop_threads", lambda: "?")()}, '
+                f'cv2 {cv2.getNumThreads()}')
+        except Exception as exc:  # noqa: BLE001 - a tuning knob, never fatal
+            self.get_logger().warn(f'cpu_threads={n} not applied: {exc}')
 
     def _resolve_class_names(self, YOLO, model_path, is_engine):  # noqa: N803 - YOLO is a class
         """class-index -> class-name dict to actually use for this loaded
@@ -574,6 +622,14 @@ class YoloDetectorNode(Node):
         return keep
 
     def image_callback(self, msg: Image):
+        # max_rate_hz frame drop: first, before any conversion.
+        if self._rate_period > 0.0:
+            process, self._rate_next_due = yolo_gpu.rate_gate(
+                perception_debug.stamp_to_sec(msg.header.stamp), self._rate_next_due,
+                self._rate_period)
+            if not process:
+                self._mark_dropped()
+                return
         self._mark_entry(msg.header.stamp)
         # Convert ROS Image -> OpenCV BGR (3-channel) for inference/drawing.
         # cv_bridge handles rgb8 (webcam) and bgra8 (ZED) -> bgr8 conversion.
@@ -1037,6 +1093,12 @@ class YoloDetectorNode(Node):
             self._csv_flush()
             self._csv_close()
         return super().destroy_node()
+
+    def _mark_dropped(self):
+        if self._timer is None:
+            return
+        self._timer.count('frames_in')
+        self._timer.count('frames_dropped')
 
     def _mark_entry(self, stamp):
         if self._timer is None:
