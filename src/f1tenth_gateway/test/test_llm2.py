@@ -25,6 +25,7 @@ def test_no_status_for_5_s_is_not_running_not_paused():
     assert v['state'] == 'not_running' and 'da 5 s' in v['why']
     assert s.view(11.0, service_ready=False)['state'] == 'not_running'
     assert not s.on_status('{not json', 11.0) and not s.on_status('{"state": "off"}', 11.0)
+    assert not s.on_status('[' * 100000 + ']' * 100000, 11.0)    # RecursionError
     # An answer alone also says LLM2 runs, for as long as a status would.
     s.forget()
     s.on_response(True, True, 'active', 20.0)
@@ -44,3 +45,5 @@ def test_the_answer_wins_over_a_status_within_one_period_then_the_status_rules()
     assert s.view(3.6)['state'] == 'active'
     bad = s.on_response(True, True, 'paused', 4.0)
     assert not bad['ok'] and bad['state'] == 'paused' and s.view(4.1)['state'] == 'paused'
+    refused = s.on_response(False, False, 'paused', 5.0)
+    assert not refused['ok'] and 'success=False' in refused['message']

@@ -48,9 +48,11 @@ class Llm2State:
 
     def on_status(self, data, now: float) -> bool:
         """Take one /llm2/status (its JSON text, or the parsed dict); False if unusable."""
+        # RecursionError (deeply nested JSON) is not a ValueError: escaping
+        # the subscription callback, it would stop the whole ROS executor.
         try:
             status = json.loads(data) if isinstance(data, (str, bytes)) else data
-        except ValueError:
+        except (ValueError, RecursionError):
             return False
         if not isinstance(status, dict) or status.get('state') not in STATES:
             return False
