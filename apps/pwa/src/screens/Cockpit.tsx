@@ -1,9 +1,11 @@
 // lamacchinina, the view once called Cockpit: route and code keep "cockpit"
 // (docs/pwa/design/Main.dc.html). READY, the failing checks, the three processes,
-// speed / VESC temperature / CPU (tap: the CPU view) / GPU.
+// LLM2's pause switch (two-llm-arch), speed / VESC temperature / CPU (tap: the CPU view) / GPU.
+import { Fragment } from 'preact';
+import { signal } from '@preact/signals';
 import { post, waitJob } from '../api';
 import { online, status, tel, toast } from '../store';
-import type { Check, Proc } from '../store';
+import type { Check, Llm2View, Proc, Status } from '../store';
 import { fmt, Icon, Switch } from '../components/ui';
 import { CpuTile, GpuTile } from '../components/SysTiles';
 
@@ -50,6 +52,87 @@ async function toggle(name: string, running: boolean): Promise<void> {
   } catch (e: any) {
     toast('error', `${name}: ${e.message}`);
   }
+}
+
+// ---- LLM2, the MPC-parameter tuner (two-llm-arch) ----------------------------------------------
+
+/** This phone's pause / resume in flight: what it asked, or null. Kept when the view is left. */
+const llm2Asked = signal<boolean | null>(null);
+
+/** LLM2 as status.llm2 says. A gateway that sends none (campaign-final) has no LLM2 to switch. */
+function llm2Of(s: Status | null): Llm2View {
+  const v = s?.llm2;
+  if (!v) {
+    return { state: 'not_running', why: s ? 'il gateway non riporta LLM2' : null, latency_ms: null,
+      outcome: null, counters: null, age_s: null, pending: false };
+  }
+  return v.state === 'active' || v.state === 'paused' ? v : { ...v, state: 'not_running' };
+}
+
+/**
+ * Pause or resume LLM2 (/llm2/set_active through the gateway): no confirmation, no retry.
+ *
+ * The switch keeps showing what the gateway reports, never this tap: on success the
+ * answer's view (the same the gateway pushes to every phone), on failure a toast and the
+ * state as it was.
+ */
+async function setLlm2(active: boolean): Promise<void> {
+  if (llm2Asked.value !== null) return;
+  llm2Asked.value = active;
+  try {
+    const r = await post<{ ok: boolean; llm2?: Llm2View }>('/api/llm2', { active });
+    if (r.llm2 && status.value) status.value = { ...status.value, llm2: r.llm2 };
+  } catch (e: any) {
+    toast('error', `${active ? 'Ripresa' : 'Pausa'} LLM2 fallita: ${e.message}`, 6000);
+  } finally {
+    llm2Asked.value = null;
+  }
+}
+
+function Llm2Row() {
+  const v = llm2Of(status.value);
+  const on = online.value;
+  const running = v.state !== 'not_running';
+  const active = v.state === 'active';
+  const asked = llm2Asked.value;
+  const busy = asked !== null || v.pending;
+  // Colour for the state word only; the latency and the counters are data (grey).
+  let word = '?';
+  let colour = 'var(--muted)';
+  if (on && busy) {
+    word = asked === false ? 'pausa in corso…' : asked === true ? 'ripresa in corso…' : 'comando in corso…';
+    colour = 'var(--amber)';
+  } else if (on && !running) {
+    [word, colour] = ['LLM2 non attivo', 'var(--disabled)'];
+  } else if (on) {
+    [word, colour] = active ? ['attivo', 'var(--green)'] : ['in pausa', 'var(--muted)'];
+  }
+  const c = v.counters;
+  return (
+    <section aria-label="LLM2" data-testid="llm2" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <span class="label">LLM2{on ? '' : ' · COMANDI DISATTIVATI'}</span>
+      <div class={`card${on ? '' : ' disabled-zone'}`} style={{ display: 'flex', alignItems: 'center',
+        gap: '12px', padding: '14px 16px' }}>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <span style={{ fontSize: '17px', fontWeight: 700, color: on && !running ? 'var(--disabled)' : undefined }}>
+            Parametri MPC</span>
+          <span class="mono" style={{ fontSize: '12px' }} data-testid="llm2-state">
+            <span style={{ color: colour }}>{word}</span>
+            {on && running && (<>{' '}
+              <span class="muted nowrap">· latenza {fmt(v.latency_ms, 0, ' ms')}</span></>)}
+          </span>
+          {on && !running && v.why && <span class="mono muted llm2-sub">{v.why}</span>}
+          {on && running && c && (
+            <span class="mono muted llm2-sub">
+              {(['ok', 'invalid', 'timeout'] as const).map((k, i) => (
+                <Fragment key={k}>{i > 0 && ' · '}<span class="nowrap">{k} {c[k] ?? 0}</span></Fragment>))}
+            </span>)}
+        </div>
+        <Switch on={active} busy={busy} disabled={!on || !running} label="Attiva LLM2"
+          onToggle={() => setLlm2(!active)} />
+      </div>
+    </section>
+  );
 }
 
 export function Cockpit() {
@@ -119,6 +202,8 @@ export function Cockpit() {
           })}
         </div>
       </section>
+
+      <Llm2Row />
 
       <div class="grid4">
         <div class="stat"><span class="k">VEL m/s</span><span class="v">{fmt(t?.v_meas, 2)}</span></div>

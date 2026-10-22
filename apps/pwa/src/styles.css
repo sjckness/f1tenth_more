@@ -92,6 +92,9 @@ h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.01em; }
 .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 a.stat.tap { text-decoration: none; color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
 a.stat.tap:active { background: var(--surface-2); }
+.nowrap { white-space: nowrap; }
+/* lamacchinina's LLM2 row: the counters, or why LLM2 is not running */
+.llm2-sub { font-size: 11px; }
 
 /* EMERGENZA, always there above the tab bar */
 .estop-wrap { padding: 8px calc(16px + var(--safe-right)) 10px calc(16px + var(--safe-left)); }
@@ -117,13 +120,14 @@ nav.tabs a {
   min-height: 52px; text-decoration: none; color: var(--muted); font-size: 11px; font-weight: 600;
 }
 nav.tabs a[aria-current='page'] { color: var(--text); font-weight: 700; }
-/* 320 px phones: 'lamacchinina' (the first tab, a bit wider) and a '1300 MHz' under the
-   GPU % fit with a little less */
+/* 320 px phones: 'lamacchinina' (the first tab, a bit wider), a '1300 MHz' under the
+   GPU % and LLM2's three counters on one line fit with a little less */
 @media (max-width: 359px) {
   nav.tabs { grid-template-columns: minmax(0, 1.15fr) repeat(4, minmax(0, 1fr)); }
   nav.tabs a { font-size: 10px; letter-spacing: -0.02em; }
   .grid4 .stat { padding: 10px 8px; }
   .grid4 .stat .s { font-size: 10px; }
+  .llm2-sub { font-size: 10px; }
 }
 
 /* banners */

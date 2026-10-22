@@ -27,6 +27,18 @@ export interface SysView {
   gpu: { percent: number | null; freq_mhz: number | null; max_mhz: number | null; source: string | null };
   pinned: PinnedProc[]; unpinned: number | null; kernel_threads: number | null;
 }
+/**
+ * LLM2, the MPC-parameter tuner (two-llm-arch), as the gateway reads it (llm2.py): the
+ * state of the last /llm2/status, or of the last /llm2/set_active answer for one status
+ * period after it, never the last tap. not_running: no status for 5 s, or no service
+ * (enable_llm2 false, or the node died); `why` says which. pending: a pause or resume is
+ * in flight, from any phone.
+ */
+export interface Llm2View {
+  state: 'active' | 'paused' | 'not_running'; why: string | null; latency_ms: number | null;
+  outcome: string | null; counters: Record<string, number> | null; age_s: number | null;
+  pending: boolean;
+}
 export interface Status {
   ok: boolean; error?: string | null; ready: boolean; failing: string[]; checks: Check[];
   checks_ok: number; checks_total: number; estop_latched: boolean;
@@ -37,6 +49,8 @@ export interface Status {
   reset_allowed: { ok: boolean; why: string | null };
   transcription: { state: string; reason?: string | null };
   estop?: { available: boolean; why: string | null };
+  /** Missing from a gateway without LLM2 (campaign-final): the app reads it as not running. */
+  llm2?: Llm2View | null;
 }
 export interface Telemetry {
   t: number; pose?: { x: number; y: number; yaw: number } | null;
