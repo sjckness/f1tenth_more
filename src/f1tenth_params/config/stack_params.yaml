@@ -89,9 +89,17 @@ localization_source:
 # llm_planner_node.py's own _wait_for_llama_server()) is accepted as part of
 # ordinary startup now; pass `enable_intelligence:=false` explicitly to skip
 # it (e.g. a quick debug bringup with no LLM planner use planned).
+# main-consolidation (2026-10-22): default flipped back to FALSE on main, by
+# decision: the LLM planner is merged but off by default, the same pattern as
+# door detection (lidar_front_wall_door_detection_enabled) and LLM2
+# (enable_llm2). campaign-final keeps true. Turn it on with
+# `supervisor_bringup.launch.py enable_intelligence:=true`, or at run time
+# `scripts/stackctl.py start intelligence`. Without llama-server the planner
+# (ros2 run llm llm_planner_node, f1tenth_ctl's planner unit, the Telegram and
+# app plan commands) fails its warm-up.
 enable_intelligence:
-  default: true
-  description: "component_supervisor_node.py only: whether the 'intelligence' component (llama-server) auto-starts. llm_planner_node is never auto-launched by this or any flag -- see llm.launch.py."
+  default: false
+  description: "component_supervisor_node.py only: whether the 'intelligence' component (llama-server, the LLM planner's server) auto-starts. Off by default on main (2026-10-22); enable_intelligence:=true on supervisor_bringup.launch.py turns it on. llm_planner_node is never auto-launched by this or any flag -- see llm.launch.py."
 # Consumed by: f1tenth_bringup (stack_bringup.launch.py, component_supervisor_node.py).
 use_behavior_tree:
   default: true

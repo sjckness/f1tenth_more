@@ -553,9 +553,10 @@ class ComponentSupervisorNode(Node):
         # default in this __init__ already carries, e.g. self.calibration
         # above -- stack_params.yaml/the launch-passed parameter is still the
         # actual source of truth, this is only what a launch-file-bypassing
-        # invocation falls back to).
+        # invocation falls back to). main-consolidation (2026-10-22): False
+        # again, mirroring stack_params.yaml's enable_intelligence (off on main).
         self.enable_intelligence = bool(
-            self.declare_parameter('enable_intelligence', True).value)
+            self.declare_parameter('enable_intelligence', False).value)
         # f1tenth_comms (2026-10-21): whether 'comms' auto-starts. The same
         # declared-parameter shape as enable_intelligence, so
         # `supervisor_bringup.launch.py enable_comms:=true` works without
