@@ -1,0 +1,144 @@
+{
+  "configById": {
+    "3D!comms": {
+      "cameraState": {
+        "distance": 30,
+        "perspective": false,
+        "phi": 0,
+        "thetaOffset": 90,
+        "targetOffset": [
+          0,
+          0,
+          0
+        ],
+        "target": [
+          0,
+          0,
+          0
+        ],
+        "targetOrientation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "fovy": 45,
+        "near": 0.5,
+        "far": 5000
+      },
+      "followMode": "follow-none",
+      "followTf": "map",
+      "scene": {},
+      "transforms": {},
+      "topics": {
+        "/slam/map": {
+          "visible": true,
+          "colorMode": "map"
+        },
+        "/comms/coverage_rssi": {
+          "visible": true,
+          "colorMode": "custom",
+          "minColor": "#1a9850ff",
+          "maxColor": "#d73027ff",
+          "unknownColor": "#00000000",
+          "invalidColor": "#7b00a8ff",
+          "frameLocked": true
+        },
+        "/comms/coverage_rtt": {
+          "visible": false,
+          "colorMode": "custom",
+          "minColor": "#1a9850ff",
+          "maxColor": "#d73027ff",
+          "unknownColor": "#00000000",
+          "invalidColor": "#7b00a8ff",
+          "frameLocked": true
+        }
+      },
+      "layers": {},
+      "publish": {
+        "type": "point",
+        "poseTopic": "/move_base_simple/goal",
+        "pointTopic": "/clicked_point",
+        "poseEstimateTopic": "/initialpose",
+        "poseEstimateXDeviation": 0.5,
+        "poseEstimateYDeviation": 0.5,
+        "poseEstimateThetaDeviation": 0.26179939
+      },
+      "imageMode": {}
+    },
+    "StateTransitions!comms": {
+      "paths": [
+        {
+          "value": "/comms/link_status.state_name",
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/comms/link_status.path",
+          "timestampMethod": "receiveTime"
+        },
+        {
+          "value": "/comms/link_status.wifi_associated",
+          "timestampMethod": "receiveTime"
+        }
+      ],
+      "isSynced": true
+    },
+    "Plot!comms": {
+      "paths": [
+        {
+          "value": "/comms/link_status.rtt_ms",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "RTT [ms]"
+        },
+        {
+          "value": "/comms/link_status.rssi_dbm",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "RSSI [dBm]"
+        },
+        {
+          "value": "/comms/link_status.loss_pct",
+          "enabled": true,
+          "timestampMethod": "receiveTime",
+          "label": "loss [%]"
+        }
+      ],
+      "showXAxisLabels": true,
+      "showYAxisLabels": true,
+      "showLegend": true,
+      "legendDisplay": "floating",
+      "isSynced": true,
+      "xAxisVal": "timestamp"
+    },
+    "RawMessages!comms": {
+      "topicPath": "/comms/link_status",
+      "diffEnabled": false,
+      "diffMethod": "custom",
+      "diffTopicPath": "",
+      "showFullMessageForDiff": false,
+      "expansion": "all"
+    }
+  },
+  "globalVariables": {},
+  "userNodes": {},
+  "playbackConfig": {
+    "speed": 1
+  },
+  "layout": {
+    "direction": "row",
+    "splitPercentage": 62,
+    "first": "3D!comms",
+    "second": {
+      "direction": "column",
+      "splitPercentage": 34,
+      "first": "StateTransitions!comms",
+      "second": {
+        "direction": "column",
+        "splitPercentage": 50,
+        "first": "Plot!comms",
+        "second": "RawMessages!comms"
+      }
+    }
+  }
+}

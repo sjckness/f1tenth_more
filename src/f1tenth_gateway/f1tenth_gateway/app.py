@@ -261,6 +261,8 @@ class Gateway:
             'battery': latest.get('battery'), 'vesc_temp_c': latest.get('vesc_temp_c'),
             'cpu_percent': cpu if cpu is not None else system.get('cpu_percent'),
             'cpu_temp_c': system.get('cpu_temp_c'), 'system': own,
+            # f1tenth_comms link_manager, None when it does not run (report only).
+            'link': latest.get('link'),
             'drive': {'busy': self.teleop.holder is not None, 'blockers': self.drive_blockers()},
             'reset_allowed': self.reset_allowed(), 'transcription': self.transcriber.status(),
             'estop': self.estop_reach(), 'llm2': self.llm2_view(),

@@ -3117,7 +3117,11 @@ foxglove_topic_whitelist:
     - '^/parameter_events$'
     - '^/costmap/semantic_markers$'
     - '^/perception/walls/markers$'
-  description: "Anchored regexes (full match, case-insensitive) of the topics foxglove_bridge advertises: the /viz/* copies plus the pass-through topics listed above. foxglove_raw_debug:=true replaces the list with '.*'. /perception/walls/markers is the one perception topic that crosses the bridge unthrottled rather than as a /viz copy: it is a MarkerArray of at most four walls (~5 small markers) at the tracker's ~10 Hz, each marker now carrying its own lifetime, and a throttle that dropped the message holding a track's DELETE would leave that wall on screen for good -- the same reason /costmap/semantic_markers is a pass-through. /viz/walls, the richer all-tracks view, needs no entry here: '^/viz/.*' above already full-matches it."
+    - '^/comms/coverage_rssi$'
+    - '^/comms/coverage_rtt$'
+    - '^/comms/coverage_cells$'
+    - '^/comms/link_status$'
+  description: "Anchored regexes (full match, case-insensitive) of the topics foxglove_bridge advertises: the /viz/* copies plus the pass-through topics listed above. foxglove_raw_debug:=true replaces the list with '.*'. /perception/walls/markers is the one perception topic that crosses the bridge unthrottled rather than as a /viz copy: it is a MarkerArray of at most four walls (~5 small markers) at the tracker's ~10 Hz, each marker now carrying its own lifetime, and a throttle that dropped the message holding a track's DELETE would leave that wall on screen for good -- the same reason /costmap/semantic_markers is a pass-through. /viz/walls, the richer all-tracks view, needs no entry here: '^/viz/.*' above already full-matches it. The /comms/* topics (f1tenth_comms, only with enable_comms) are small: the two coverage grids and the cells JSON are latched and go out at most once a second, only when they change; /comms/link_status is a few hundred bytes at 2 Hz."
 # The topics a Foxglove client may publish through the bridge. Measured
 # 2026-09-22: the only ones the connected clients advertised were the 3D
 # panel's default publish tools below; nothing publishes /drive, /teleop or a
@@ -3930,3 +3934,13 @@ lidar_front_wall_wall_conf_max_rms_scale:
 lidar_front_wall_wall_extract_quality_gates:
   default: true
   description: "Corridor_perception's extraction QUALITY GATES (extraction.py, WHY THE QUALITY GATES), on top of the point-count and length support filter: a range-dependent seed size N(r) = clip(3 + floor((r_med - 2.0) / 1.5), 3, 6) instead of a fixed 3, a perpendicular residual rms ceiling of 0.03 m applied AFTER the collinear merge, and an occlusion-aware fill ratio of 0.6 over the beams in the segment's own angular span. Steps 1-5 of the extraction only ask 'do these returns lie on a line?', and in a furnished room the answer is yes far too often: three returns on a chair leg are perfectly collinear, and the global merge will glue two unrelated 20 cm faces 1.4 m apart into one 1.5 m wall -- which is how a 1.39 m 'front wall' sat 2 m ahead of the car for 30 s of an EMPTY corridor (corridor10m_20261015T171753, track 8). FALSE restores the pre-gate extraction exactly, which is the only honest way to size what the gates change on a bag."
+# The car's side of the link to the base PC (f1tenth_comms, the `comms`
+# component: wifi_coverage_node + link_manager). Off by default: it needs the
+# base set up first (output/comms/setup.md). It only reports on /comms/*;
+# the gateway's "no client for 2 s -> abort" and the e-stop do not read it.
+# Without editing this file: `enable_comms:=true` on supervisor_bringup.launch.py
+# or stack_bringup.launch.py (this key is only the default), or with the
+# stack already up: ./scripts/stackctl.py start comms
+enable_comms:
+  default: false
+  description: "Auto-start the comms component (f1tenth_comms comms.launch.py: Wi-Fi coverage grids and the link to the base on /comms/*). Report only, nothing drives or stops on it. Launch argument of supervisor_bringup.launch.py and stack_bringup.launch.py."

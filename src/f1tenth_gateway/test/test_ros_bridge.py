@@ -189,3 +189,27 @@ def test_llm2_pause_through_a_fake_set_active_and_the_status_after_it(ros_env):
     res = bridge.llm2_set_active(True)
     assert res['ok'] and res['state'] == 'active' and calls == [False, True, True]
     assert bridge.llm2_view()['state'] == 'active'
+
+
+def test_link_status_reaches_the_status_payload(ros_env):
+    """f1tenth_comms' /comms/link_status, report only: NaN becomes None."""
+    lm = pytest.importorskip('f1tenth_messages.msg')
+    if not hasattr(lm, 'LinkStatus'):
+        pytest.skip('f1tenth_messages without LinkStatus')
+    bridge, _teleop, fake, _seen = ros_env
+    pub = fake.create_publisher(lm.LinkStatus, '/comms/link_status', 10)
+    bridge.set_viewers(1)
+    m = lm.LinkStatus()
+    m.state, m.state_name, m.path, m.address = 2, 'LOST', '', ''
+    m.rtt_ms, m.loss_pct, m.rssi_dbm = float('nan'), 100.0, -71.4
+    m.since_last_reply_s, m.reconnect_attempts = 3.25, 2
+    m.last_reconnect_result = "skipped: on eduroam, 'f1tenth-base' not in scan"
+
+    def publish():
+        pub.publish(m)
+        return bridge.latest().get('link') is not None
+    assert wait(publish, timeout=8.0)
+    assert bridge.latest()['link'] == {
+        'state': 'LOST', 'path': None, 'address': None, 'rtt_ms': None, 'loss_pct': 100.0,
+        'rssi_dbm': -71.0, 'since_reply_s': 3.2, 'reconnect_attempts': 2,
+        'reconnect_result': "skipped: on eduroam, 'f1tenth-base' not in scan"}

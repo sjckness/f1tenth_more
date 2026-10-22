@@ -39,6 +39,7 @@ rosidl_generate_interfaces(f1tenth_messages
   "msg/SemanticObject.msg"
   "msg/SemanticObjectArray.msg"
   "msg/MpcParamUpdate.msg"
+  "msg/LinkStatus.msg"
   "srv/RestartComponent.srv"
   "srv/ComponentControl.srv"
   "srv/RunDiagnostics.srv"

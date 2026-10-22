@@ -15,8 +15,9 @@ What it does:
   pauses / resumes it with /llm2/set_active from a client made at start
   (llm2.py says how the two make one state);
 - keeps the latest telemetry. The heavier subscriptions (odometry, VESC,
-  MPC horizon, SLAM map, behaviour tree stream) exist only while a phone is
-  connected, and are dropped 30 s after the last one leaves.
+  MPC horizon, SLAM map, behaviour tree stream, the link to the base) exist
+  only while a phone is connected, and are dropped 30 s after the last one
+  leaves.
 
 Topics and types are the ones the stack publishes today (output/pwa_recon.md
 section 1.7). Nothing here is Jazzy-only: the car runs Humble.
@@ -45,6 +46,18 @@ BT_KIND = {2: 'sequence', 3: 'selector', 4: 'parallel', 5: 'chooser', 6: 'decora
 
 def yaw_of(q) -> float:
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
+
+def link_view(msg) -> Dict:
+    """f1tenth_comms' /comms/link_status as the status payload carries it (NaN -> None)."""
+    def num(v, digits=1):
+        v = float(v)
+        return round(v, digits) if math.isfinite(v) else None
+    return {'state': msg.state_name, 'path': msg.path or None, 'address': msg.address or None,
+            'rtt_ms': num(msg.rtt_ms), 'loss_pct': num(msg.loss_pct),
+            'rssi_dbm': num(msg.rssi_dbm, 0), 'since_reply_s': num(msg.since_last_reply_s),
+            'reconnect_attempts': int(msg.reconnect_attempts),
+            'reconnect_result': msg.last_reconnect_result or None}
 
 
 def uuid_hex(u) -> str:
@@ -315,6 +328,12 @@ class RosBridge:
                                                  self._sensor))
         except ImportError:
             pass
+        try:    # f1tenth_messages built before f1tenth_comms existed has no LinkStatus
+            from f1tenth_messages.msg import LinkStatus
+            subs.append(node.create_subscription(LinkStatus, t['link_status'],
+                                                 self._link_cb, 1))
+        except ImportError:
+            pass
         self._heavy = subs
 
     def _close_heavy(self) -> None:
@@ -322,6 +341,9 @@ class RosBridge:
             self.node.destroy_subscription(s)
         self._heavy = None
         self._close_bt_stream()
+
+    def _link_cb(self, msg) -> None:
+        self._put('link', link_view(msg))
 
     def _odom_cb(self, msg) -> None:
         v = float(msg.twist.twist.linear.x)

@@ -1,0 +1,20 @@
+# systemd USER unit: the base's heartbeat responder for the car's link_manager
+# (f1tenth_comms). Installed by scripts/base/install_heartbeat.sh into
+# ~/.config/systemd/user/, with the script copied to ~/.local/bin/.
+#
+#   systemctl --user status f1tenth-heartbeat
+#   journalctl --user -u f1tenth-heartbeat -f
+#
+# Listens on UDP 47800 on every address (Tailscale and hotspot included).
+# Change the port here AND in the car's comms.yaml (link_manager port).
+[Unit]
+Description=f1tenth_comms heartbeat responder (UDP echo for the car's link_manager)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/.local/bin/f1tenth_heartbeat_responder.py --port 47800 --log-every 60
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

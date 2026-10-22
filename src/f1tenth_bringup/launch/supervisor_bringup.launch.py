@@ -143,6 +143,12 @@ def generate_launch_description():
     enable_intelligence_la = DeclareLaunchArgument(
         'enable_intelligence', default_value=str(enable_intelligence_default).lower(),
         description=enable_intelligence_desc)
+    # f1tenth_comms: the same treatment, so `enable_comms:=true` here starts
+    # the `comms` component with the stack (default from stack_params.yaml).
+    enable_comms_default, enable_comms_desc = get_default('enable_comms')
+    enable_comms_la = DeclareLaunchArgument(
+        'enable_comms', default_value=str(enable_comms_default).lower(),
+        description=enable_comms_desc)
 
     components_config, components_config_desc = get_path_default('components_config')
     components_config_la = DeclareLaunchArgument(
@@ -178,6 +184,7 @@ def generate_launch_description():
             'calibration': LaunchConfiguration('calibration'),
             'enable_mission_logger': LaunchConfiguration('enable_mission_logger'),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
+            'enable_comms': LaunchConfiguration('enable_comms'),
             'components_config': LaunchConfiguration('components_config'),
             'restart_timeout_sec': LaunchConfiguration('restart_timeout_sec'),
             'log_dir': LaunchConfiguration('log_dir'),
@@ -195,6 +202,7 @@ def generate_launch_description():
         calibration_la,
         enable_mission_logger_la,
         enable_intelligence_la,
+        enable_comms_la,
         components_config_la,
         restart_timeout_la,
         log_dir_la,

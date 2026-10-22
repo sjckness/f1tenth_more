@@ -104,6 +104,7 @@ DEFAULTS: Dict[str, Any] = {
         'map': '/slam/map',
         'vesc': '/sensors/core',
         'llm2_status': '/llm2/status',
+        'link_status': '/comms/link_status',
     },
     'llm2': {
         # LLM2's pause / resume (two-llm-arch, output/two_llm/README.md section 2).
