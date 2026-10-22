@@ -211,6 +211,7 @@ def generate_launch_description():
         ('yolo_max_rate_hz', 'max_rate_hz', float),
         ('yolo_backend', 'yolo_backend', str),
         ('yolo_engine_path', 'engine_path', str),
+        ('yolo_gpu_pipeline', 'gpu_pipeline', bool),
     ]
     yolo_cost_las = []
     for _arg, _param, _type in _yolo_cost_args:

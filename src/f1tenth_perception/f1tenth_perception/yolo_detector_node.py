@@ -405,6 +405,13 @@ class YoloDetectorNode(Node):
         self.yolo_backend = str(self.declare_parameter('yolo_backend', 'pt').value)
         self.engine_path = str(self.declare_parameter('engine_path', '').value)
         self.backend = 'pt'  # what actually runs, set at load
+        # gpu_pipeline: pre/post-processing and the masks on the GPU, one
+        # upload and two small downloads per frame (_gpu_callback); the
+        # classic Ultralytics-call path stays the fallback, per frame on an
+        # unsupported encoding or an error, for the run after 3 errors in a row.
+        self.gpu_pipeline = bool(self.declare_parameter('gpu_pipeline', True).value)
+        self._gpu = None
+        self._gpu_failures = 0
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -494,6 +501,8 @@ class YoloDetectorNode(Node):
                         f'on device="{self.device}": {exc} — falling back to '
                         'passthrough mode')
                     self.model = None
+        if self.gpu_pipeline and self.model is not None:
+            self._gpu_setup()
 
         # ---- ROS interfaces -----------------------------------------------
         self.bridge = CvBridge()
@@ -676,6 +685,11 @@ class YoloDetectorNode(Node):
                 self._mark_dropped()
                 return
         self._mark_entry(msg.header.stamp)
+        tick = None  # the debug tick, when the GPU path decided it and fell back
+        if self._gpu is not None:
+            handled, tick = self._gpu_callback(msg)
+            if handled:
+                return
         # Convert ROS Image -> OpenCV BGR (3-channel) for inference/drawing.
         # cv_bridge handles rgb8 (webcam) and bgra8 (ZED) -> bgr8 conversion.
         try:
@@ -702,7 +716,7 @@ class YoloDetectorNode(Node):
 
         # Debug tick: decided before inference, because a tick frame runs
         # YOLO at the debug floor and splits the result (see module docstring).
-        debug_tick = self._debug_tick(msg.header.stamp)
+        debug_tick = self._debug_tick(msg.header.stamp) if tick is None else tick
         conf = (min(self.debug_image_min_confidence, self.confidence_threshold)
                 if debug_tick else self.confidence_threshold)
 
@@ -853,6 +867,216 @@ class YoloDetectorNode(Node):
             self._mark('debug_capture')
             self._stage('debug')
         self._mark_exit(len(out.detections), 'classic')
+
+    # ---- GPU pipeline (gpu_pipeline; see yolo_gpu.py) --------------------
+
+    def _gpu_setup(self):
+        """Create the predictor with one warmup call and keep what the GPU path needs."""
+        if yolo_gpu.cuda_device_index(self.device) is None:
+            self.get_logger().warn(
+                f'gpu_pipeline: device="{self.device}" is not CUDA -- classic path')
+            return
+        try:
+            import torch
+            self.model(np.zeros((360, 640, 3), dtype=np.uint8), verbose=False, device=self.device,
+                       conf=self.confidence_threshold, retina_masks=True)
+            predictor = self.model.predictor
+            backend = predictor.model
+            # pre_transform's LetterBox auto, for one image per call.
+            auto = bool(predictor.args.rect and (
+                backend.format == 'pt'
+                or (getattr(backend, 'dynamic', False) and backend.format != 'imx')))
+            self._gpu = {
+                'torch': torch, 'predictor': predictor, 'device': predictor.device,
+                'imgsz': tuple(int(v) for v in predictor.imgsz), 'auto': auto,
+                'stride': int(backend.stride), 'half': bool(backend.fp16),
+            }
+        except Exception as exc:  # noqa: BLE001 - the classic path is the fallback
+            self.get_logger().warn(f'gpu_pipeline: setup failed ({exc}) -- classic path')
+            self._gpu = None
+            return
+        self.get_logger().info(
+            f'gpu_pipeline ON: backend {self.backend}, imgsz {self._gpu["imgsz"]}, '
+            f'letterbox auto {auto}, stride {self._gpu["stride"]}, fp16 {self._gpu["half"]}')
+
+    def _gpu_sync(self):
+        if self._timer is not None:
+            self._gpu['torch'].cuda.synchronize()
+
+    def _gpu_callback(self, msg):
+        """
+        Process one frame on the GPU path; return (handled, debug_tick).
+
+        Same outputs as the classic path: the Ultralytics call is replaced by
+        yolo_gpu's upload/letterbox/inference/postprocess, and the per-object
+        work by one download of (box, score, class, mask pixel counts). Not
+        handled (classic path for this frame): an encoding the GPU path does
+        not read, a detect model's annotated image (Results.plot), an error.
+        """
+        if self.masks_pub is None and self.annotated_pub.get_subscription_count() > 0:
+            return False, None
+        frame = yolo_gpu.image_view(msg.data, msg.height, msg.width, msg.step, msg.encoding)
+        if frame is None:
+            return False, None
+        self._stage('msg_to_array')
+        debug_tick = self._debug_tick(msg.header.stamp)
+        conf = (min(self.debug_image_min_confidence, self.confidence_threshold)
+                if debug_tick else self.confidence_threshold)
+        g, h, w = self._gpu, int(msg.height), int(msg.width)
+        ex = (self.lidar_exclusion_x_min * w, self.lidar_exclusion_y_min * h,
+              self.lidar_exclusion_x_max * w, self.lidar_exclusion_y_max * h)
+        try:
+            with g['torch'].inference_mode():
+                im, _ = yolo_gpu.to_model_input(
+                    frame, msg.encoding, g['device'], g['imgsz'], g['auto'], g['stride'],
+                    g['half'])
+                self._gpu_sync()
+                self._stage('preprocess')
+                preds = g['predictor'].model(im)
+                self._gpu_sync()
+                self._stage('inference')
+                det, masks = yolo_gpu.postprocess(
+                    g['predictor'], preds, im.shape[2:], (h, w), conf, self.task)
+                self._gpu_sync()
+                self._stage('postprocess')
+                cols = det[:, :6].float()
+                if masks is not None:
+                    # Clamped/truncated like _mask_overlap_fraction.
+                    rect = (max(int(ex[0]), 0), max(int(ex[1]), 0),
+                            min(int(ex[2]), w), min(int(ex[3]), h))
+                    total, inside = yolo_gpu.mask_stats(masks, rect)
+                    cols = g['torch'].cat([cols, total[:, None], inside[:, None]], 1)
+                host = cols.cpu().numpy()  # the one small download
+            kept, below, has_masks = self._gpu_select(host, masks is not None, debug_tick, ex)
+        except Exception as exc:  # noqa: BLE001 - classic path for this frame
+            self._gpu_failures += 1
+            if self._gpu_failures >= 3:
+                self.get_logger().error(
+                    f'gpu_pipeline: {self._gpu_failures} failures in a row ({exc}) '
+                    '-- classic path for the rest of the run')
+                self._gpu = None
+            else:
+                self.get_logger().warn(
+                    f'gpu_pipeline failed ({exc}) -- classic path for this frame',
+                    throttle_duration_sec=5.0)
+            return False, debug_tick
+        self._gpu_failures = 0
+        self._stage('masks')
+
+        out = Detection2DArray()
+        out.header = msg.header
+        for i in kept:
+            x1, y1, x2, y2 = (float(v) for v in host[i, :4])
+            cls_id = int(host[i, 5])
+            out.detections.append(self._build_detection(
+                class_id=self.names.get(cls_id, str(cls_id)), score=float(host[i, 4]),
+                cx=(x1 + x2) / 2.0, cy=(y1 + y2) / 2.0, w=(x2 - x1), h=(y2 - y1)))
+        self.det_pub.publish(out)
+        self._stage('publish')
+
+        # The kept masks on the CPU only where the classic helpers draw them.
+        masks_np = None
+        need_cpu = debug_tick or self.annotated_pub.get_subscription_count() > 0
+        if self.masks_pub is not None:
+            published = False
+            if has_masks:
+                try:
+                    with g['torch'].inference_mode():
+                        published = self._gpu_publish_masks(masks, kept, (h, w), msg.header)
+                        if need_cpu:
+                            masks_np = self._gpu_masks_to_cpu(masks, kept, (h, w))
+                except Exception as exc:  # noqa: BLE001 - the mask invariant still holds
+                    self.get_logger().error(
+                        f'gpu_pipeline mask publish failed: {exc}', throttle_duration_sec=5.0)
+            if not published:
+                self._publish_empty_mask(msg.header)
+            self._stage('publish')
+        if need_cpu:
+            cv_image = cv2.cvtColor(frame, {
+                'bgra8': cv2.COLOR_BGRA2BGR, 'rgba8': cv2.COLOR_RGBA2BGR,
+                'rgb8': cv2.COLOR_RGB2BGR}[msg.encoding]) if msg.encoding != 'bgr8' \
+                else np.ascontiguousarray(frame)
+            if self.annotated_pub.get_subscription_count() > 0:
+                self._publish_annotated(
+                    self._draw_mask_overlay(cv_image, masks_np, out.detections), msg.header)
+                self._stage('annotate')
+            if debug_tick:
+                try:
+                    self._debug_capture(cv_image, msg.header, out.detections, masks_np, below)
+                except Exception as exc:  # noqa: BLE001 - debug output must never stop detection
+                    self.get_logger().error(
+                        f'debug image capture failed: {exc}', throttle_duration_sec=5.0)
+                self._stage('debug')
+        self._mark_exit(len(out.detections), 'gpu')
+        return True, debug_tick
+
+    def _gpu_select(self, host, has_masks, debug_tick, ex):
+        """
+        Kept indices, below-threshold boxes and whether result.masks would exist.
+
+        The classic path's _debug_split then _lidar_exclusion_keep_mask, on
+        the downloaded rows (x1, y1, x2, y2, score, class[, total, inside]).
+        """
+        idx = list(range(host.shape[0]))
+        below = []
+        if debug_tick and idx:
+            above = host[:, 4] > self.confidence_threshold
+            if not above.all():
+                for i in np.flatnonzero(~above):
+                    x1, y1, x2, y2 = (float(v) for v in host[i, :4])
+                    if _bbox_overlap_fraction(x1, y1, x2, y2, *ex) > \
+                            self.lidar_exclusion_overlap_threshold:
+                        continue
+                    cls_id = int(host[i, 5])
+                    below.append({'box': (x1, y1, x2, y2), 'score': float(host[i, 4]),
+                                  'class_id': self.names.get(cls_id, str(cls_id))})
+                idx = [int(i) for i in np.flatnonzero(above)]
+                if not idx:
+                    has_masks = False
+        kept = []
+        for i in idx:
+            if has_masks and host[i, 6] > 0:
+                overlap = int(host[i, 7]) / int(host[i, 6])
+            else:
+                x1, y1, x2, y2 = (float(v) for v in host[i, :4])
+                overlap = _bbox_overlap_fraction(x1, y1, x2, y2, *ex)
+            if overlap <= self.lidar_exclusion_overlap_threshold:
+                kept.append(i)
+        return kept, below, has_masks
+
+    def _gpu_publish_masks(self, masks, kept, shape_hw, header):
+        """_publish_masks from the device masks: label image built on the GPU, one download."""
+        n = len(kept)
+        if n > MAX_MASK_INSTANCES:
+            self.get_logger().warn(
+                f'{n} detections this frame exceeds the {MAX_MASK_INSTANCES}-instance mono8 '
+                'mask cap -- only the first get mask pixels', throttle_duration_sec=5.0)
+        kept = kept[:MAX_MASK_INSTANCES]
+        if kept:
+            index = self._gpu['torch'].as_tensor(kept, device=masks.device)
+            label_img = yolo_gpu.label_image(masks[index]).cpu().numpy()
+        else:
+            label_img = np.zeros(shape_hw, dtype=np.uint8)
+        if label_img.shape != tuple(shape_hw):
+            self.get_logger().error(
+                f'gpu_pipeline mask shape {label_img.shape} != image {tuple(shape_hw)}',
+                throttle_duration_sec=5.0)
+            return False
+        self._stage('masks')
+        try:
+            mask_msg = self.bridge.cv2_to_imgmsg(label_img, encoding='mono8')
+        except CvBridgeError as exc:
+            self.get_logger().error(f'cv_bridge mask encode failed: {exc}')
+            return False
+        mask_msg.header = header
+        self.masks_pub.publish(mask_msg)
+        return True
+
+    def _gpu_masks_to_cpu(self, masks, kept, shape_hw):
+        if not kept:
+            return np.zeros((0,) + tuple(shape_hw), dtype=np.uint8)
+        index = self._gpu['torch'].as_tensor(kept, device=masks.device)
+        return masks[index].cpu().numpy()
 
     def _publish_annotated(self, cv_image, header):
         try:

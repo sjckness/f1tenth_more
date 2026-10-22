@@ -380,6 +380,9 @@ yolo_backend:
 yolo_engine_path:
   default: ''
   description: "TensorRT engine for yolo_backend 'engine'. Empty = next to the model: <models>/<yolo_model stem>.trt<TensorRT version>.fp16.engine (the name export_yolo_engine.sh writes)."
+yolo_gpu_pipeline:
+  default: true
+  description: "yolo_detector_node: letterbox, postprocessing, LiDAR-exclusion mask stats and the label image on the GPU (one upload, one small download + the mono8 mask per frame) instead of the Ultralytics call and numpy mask loops. Same outputs (smoke test 2026-10-22: identical detections and masks on 48 frames). false = the classic path, also the per-frame fallback on an error."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's
