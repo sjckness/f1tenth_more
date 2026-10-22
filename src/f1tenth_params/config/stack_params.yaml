@@ -374,6 +374,12 @@ yolo_cuda_blocking_sync:
 yolo_max_rate_hz:
   default: 15.0
   description: "yolo_detector_node: process at most this many frames per second (stamp-driven drop before any conversion; the 30 Hz ZED stream becomes 15 Hz). 0.0 = every frame the latest-frame QoS delivers."
+yolo_backend:
+  default: pt
+  description: "yolo_detector_node inference backend for a *.pt yolo_model: 'pt' (PyTorch on yolo_device) or 'engine' (the FP16 TensorRT engine exported from it by scripts/export_yolo_engine.sh on the Orin). A missing or failing engine logs a WARN and runs the *.pt on CUDA. Ignored when yolo_model itself is a *.engine."
+yolo_engine_path:
+  default: ''
+  description: "TensorRT engine for yolo_backend 'engine'. Empty = next to the model: <models>/<yolo_model stem>.trt<TensorRT version>.fp16.engine (the name export_yolo_engine.sh writes)."
 # Consumed by: f1tenth_perception (lidar.launch.py, perception.launch.py's standalone
 # duplicate). NOT read by f1tenth_navigation/nav2.launch.py -- it includes
 # lidar.launch.py with no override, so this default is what actually reaches Nav2's

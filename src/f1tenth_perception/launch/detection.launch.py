@@ -209,6 +209,8 @@ def generate_launch_description():
         ('yolo_cpu_threads', 'cpu_threads', int),
         ('yolo_cuda_blocking_sync', 'cuda_blocking_sync', bool),
         ('yolo_max_rate_hz', 'max_rate_hz', float),
+        ('yolo_backend', 'yolo_backend', str),
+        ('yolo_engine_path', 'engine_path', str),
     ]
     yolo_cost_las = []
     for _arg, _param, _type in _yolo_cost_args:

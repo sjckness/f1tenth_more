@@ -397,6 +397,14 @@ class YoloDetectorNode(Node):
         self.max_rate_hz = float(self.declare_parameter('max_rate_hz', 15.0).value)
         self._rate_period = 1.0 / self.max_rate_hz if self.max_rate_hz > 0.0 else 0.0
         self._rate_next_due = None
+        # yolo_backend 'engine': the FP16 TensorRT engine exported from
+        # model_path (a *.pt) by scripts/export_yolo_engine.sh; engine_path ''
+        # = next to model_path, named by yolo_gpu.engine_path_for. Missing or
+        # failing engine -> WARN and the *.pt on CUDA. A *.engine model_path
+        # keeps its own (legacy) path whatever this says.
+        self.yolo_backend = str(self.declare_parameter('yolo_backend', 'pt').value)
+        self.engine_path = str(self.declare_parameter('engine_path', '').value)
+        self.backend = 'pt'  # what actually runs, set at load
 
         # ---- model ---------------------------------------------------------
         self.model = None
@@ -464,10 +472,16 @@ class YoloDetectorNode(Node):
                         self.model.to(self.device)
                     self.names = self._resolve_class_names(YOLO, self.model_path, is_engine)
                     self.task = self.model.task
+                    self.backend = 'engine' if is_engine else 'pt'
                     self.get_logger().info(
                         f'Loaded YOLO model "{self.model_path}" on '
                         f'device="{self.device}" task="{self.task}" '
                         f'({len(self.names)} classes)')
+                    if self.yolo_backend == 'engine' and not is_engine:
+                        self._load_engine(YOLO)
+                    elif self.yolo_backend not in ('pt', 'engine'):
+                        self.get_logger().warn(
+                            f'yolo_backend="{self.yolo_backend}" unknown -- using the .pt')
                     if cuda_index is not None:
                         flags, active = yolo_gpu.cuda_primary_ctx_flags(cuda_index)
                         sched = None if flags is None else flags & yolo_gpu.CU_CTX_SCHED_MASK
@@ -511,6 +525,37 @@ class YoloDetectorNode(Node):
             f'"{self.annotated_topic}"' + (
                 f', masks "{self.masks_topic}" (task=segment)'
                 if self.masks_pub is not None else ''))
+
+    def _load_engine(self, YOLO):  # noqa: N803 - YOLO is a class
+        """Swap the loaded *.pt for its TensorRT engine; on any failure WARN, keep the *.pt."""
+        path = self.engine_path or '(auto)'
+        try:
+            if yolo_gpu.cuda_device_index(self.device) is None:
+                raise RuntimeError(f'device="{self.device}" is not CUDA')
+            if not self.engine_path:
+                import tensorrt
+                path = yolo_gpu.engine_path_for(self.model_path, tensorrt.__version__)
+            if not os.path.isfile(path):
+                raise FileNotFoundError('no such file (scripts/export_yolo_engine.sh writes it)')
+            engine = YOLO(path, task=self.task)
+            if engine.task != self.task:
+                raise RuntimeError(f'engine task "{engine.task}" != .pt task "{self.task}"')
+            # One predict on a dummy frame creates the predictor with the
+            # engine (its fp16 and static imgsz are fixed there), so a broken
+            # engine fails here and not on the first camera frame.
+            engine(np.zeros((360, 640, 3), dtype=np.uint8), verbose=False, device=self.device,
+                   conf=self.confidence_threshold, retina_masks=True)
+        except Exception as exc:  # noqa: BLE001 - the .pt is always the fallback
+            self.get_logger().warn(
+                f'yolo_backend=engine: engine "{path}" not used ({type(exc).__name__}: {exc}) '
+                f'-- running "{self.model_path}" on {self.device}')
+            return
+        self.model = engine
+        self.backend = 'engine'
+        backend = getattr(getattr(engine, 'predictor', None), 'model', None)
+        self.get_logger().info(
+            f'yolo_backend=engine: running "{path}" (fp16 {getattr(backend, "fp16", "?")}, '
+            f'imgsz {getattr(backend, "imgsz", "?")}); class names from "{self.model_path}"')
 
     def _apply_cpu_threads(self, torch):
         """Size torch's and cv2's thread pools to cpu_threads (0: untouched)."""

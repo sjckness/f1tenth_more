@@ -271,6 +271,68 @@ class TestModelTaskResolution:
             node.destroy_node()
 
 
+class _FakeEngineModel(_FakeYoloModel):
+    raises = False
+
+    def __call__(self, *args, **kwargs):
+        if self.raises:
+            raise RuntimeError('deserialize failed')
+        return []
+
+
+class TestEngineBackendFallback:
+    """yolo_backend:=engine never crashes: no engine or a failing one -> the .pt."""
+
+    def _node(self, monkeypatch, engine_path, engine_raises=False):
+        calls = []
+        _install_fake_ultralytics(monkeypatch, calls)
+
+        def _yolo(path, task=None):
+            calls.append({'path': path, 'task': task})
+            if path.endswith('.engine'):
+                model = _FakeEngineModel(path, task)
+                model.raises = engine_raises
+                return model
+            return _FakeYoloModel(path, task)
+        monkeypatch.setattr(sys.modules['ultralytics'], 'YOLO', _yolo)
+        node = _construct_with_params({
+            'model_path': '/fake/models/yolo26s-seg.pt', 'device': 'cuda',
+            'yolo_backend': 'engine', 'engine_path': engine_path})
+        return node, calls
+
+    def test_missing_engine_falls_back_to_the_pt_on_cuda(self, monkeypatch, tmp_path):
+        node, calls = self._node(monkeypatch, str(tmp_path / 'missing.engine'))
+        try:
+            assert node.backend == 'pt'
+            assert node.model.path == '/fake/models/yolo26s-seg.pt'
+            assert [c['path'] for c in calls] == ['/fake/models/yolo26s-seg.pt']
+        finally:
+            node.destroy_node()
+
+    def test_failing_engine_falls_back_to_the_pt(self, monkeypatch, tmp_path):
+        engine = tmp_path / 'yolo26s-seg.trt10.3.0.fp16.engine'
+        engine.write_bytes(b'not an engine')
+        node, _ = self._node(monkeypatch, str(engine), engine_raises=True)
+        try:
+            assert node.backend == 'pt'
+            assert node.model.path == '/fake/models/yolo26s-seg.pt'
+            assert node.task == 'segment' and node.masks_pub is not None
+        finally:
+            node.destroy_node()
+
+    def test_working_engine_is_used_with_the_pt_class_names(self, monkeypatch, tmp_path):
+        engine = tmp_path / 'yolo26s-seg.trt10.3.0.fp16.engine'
+        engine.write_bytes(b'fake')
+        node, calls = self._node(monkeypatch, str(engine))
+        try:
+            assert node.backend == 'engine'
+            assert node.model.path == str(engine)
+            assert calls[1] == {'path': str(engine), 'task': 'segment'}
+            assert node.names == {0: 'fake-class'}
+        finally:
+            node.destroy_node()
+
+
 def _fake_detection2d(class_id, score):
     det = Detection2D()
     hyp = ObjectHypothesisWithPose()
