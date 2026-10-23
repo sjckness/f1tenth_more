@@ -105,7 +105,8 @@ dpsi_by_dist at exactly 0. The two look different (a real, small reading vs.
 no reading) but a frozen cap is the same stall either way: cmd_rot pins at
 whatever rotation has been reached and the car sits there, still closing on
 the wall at v_ref, for as long as the reading stays inside the margin. Before
-commit nothing changes -- d_avail still drives the commit decision, and nothing here can un-stall a turn that never started.
+commit nothing changes -- d_avail still drives the commit decision, and
+nothing here can un-stall a turn that never started.
 
 WHAT THIS DOES NOT FIX. dFront is a straight-ahead measurement along the
 camera's optical axis, not along the arc. Once the car is bending, that ray
@@ -115,6 +116,8 @@ optimistic mid-turn.
 
 import math
 from typing import NamedTuple, Optional
+
+import numpy as np
 
 from f1tenth_params.corridor_geometry import SMOOTHSTEP_PEAK_SLOPE
 
@@ -280,3 +283,73 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
         committed=committed,
         held=held,
     )
+
+
+# ==============================================================================
+# SPEED, NOT HEADING. Follow-up to the freeze fix above (commit e491643a):
+# lifting the distance cap gets the TURN moving again, but says nothing
+# about how fast the car approaches the wall while it catches up. Two
+# independent layers, pure functions, no rclpy -- MPC_corr wires both in
+# every control tick while drive_cmd['mode'] == 'wall_turn':
+#
+#   * wall_turn_speed_cap: once committed, ramps the speed reference down as
+#     dFront closes from corr_wall_turn_safety_margin_m to stop_dist. Reads
+#     the SAME dFront the increment above does degraded or not -- if dFront
+#     is unknown this is not the backstop, the brake below is.
+#   * raw_lidar_forward_min_range / wall_turn_brake_half_angle: a hard stop
+#     from the RAW /scan, deliberately bypassing the wall tracker, the
+#     semantic distance and the committed/d_avail state above entirely --
+#     none of those have to be wrong for a return to be close, and this is
+#     what still catches it if they are. The cone widens with the last
+#     published steering angle so it covers the swept path mid-turn, not
+#     just dead ahead.
+# ==============================================================================
+
+def wall_turn_speed_cap(d_front: Optional[float], safety_margin: float,
+                        stop_dist: float, v_min_turn: float, v_ref: float) -> float:
+    """Linear cap on v_ref as a committed wall_turn's dFront closes from
+    safety_margin (no cap) to stop_dist (v_min_turn). Never raises v_ref.
+
+    Unknown dFront (None, NaN, or negative) is not capped HERE -- same
+    "unknown is not a wall at zero either" rule as plan_wall_turn_step's own
+    UNKNOWN dFront section, and the raw-lidar brake below is the backstop
+    for exactly this case, not this ramp.
+    """
+    if d_front is None or not math.isfinite(d_front) or d_front < 0.0:
+        return v_ref
+    if d_front >= safety_margin:
+        return v_ref
+    span = safety_margin - stop_dist
+    if span <= 0.0:
+        return min(v_ref, v_min_turn)
+    frac = max(0.0, min(1.0, (d_front - stop_dist) / span))
+    return min(v_ref, v_min_turn + frac * (v_ref - v_min_turn))
+
+
+def wall_turn_brake_half_angle(base_half_angle_rad: float, steering_rad: float,
+                               widen_per_rad: float) -> float:
+    """Forward brake cone half-angle, widened with |steering_rad| so the
+    raw-lidar check covers the swept path mid-turn, not just dead ahead.
+    Clamped at pi/2: a wider-than-side cone would start double-counting
+    what the BT's own side proximity check already covers."""
+    half = float(base_half_angle_rad) + float(widen_per_rad) * abs(float(steering_rad))
+    return min(half, math.pi / 2.0)
+
+
+def raw_lidar_forward_min_range(ranges, angle_min: float, angle_increment: float,
+                                range_min: float, range_max: float,
+                                half_angle_rad: float) -> Optional[float]:
+    """Minimum valid return within +-half_angle_rad of the RAW scan's own
+    forward axis (angle 0 -- post-remount this is genuinely the car's
+    front, same convention as f1tenth_behavior's IsProximityTooClose).
+    None with no valid return in the window: that is "nothing seen there",
+    never "clear", so the caller must not read it as a safe distance.
+    """
+    ranges = np.asarray(ranges, dtype=np.float64)
+    angles = angle_min + np.arange(ranges.size) * angle_increment
+    with np.errstate(invalid='ignore'):
+        valid = (np.isfinite(ranges) & (ranges >= range_min) & (ranges <= range_max)
+                 & (np.abs(angles) < half_angle_rad))
+    if not np.any(valid):
+        return None
+    return float(ranges[valid].min())

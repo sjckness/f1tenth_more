@@ -39,7 +39,10 @@ from mpc_controller.mpc_solver import terminal_heading_target
 from mpc_controller.wall_turn import (
     min_turn_radius,
     plan_wall_turn_step,
+    raw_lidar_forward_min_range,
     SMOOTHSTEP_PEAK_SLOPE,
+    wall_turn_brake_half_angle,
+    wall_turn_speed_cap,
     wall_turn_trigger_distance,
     wrap_to_pi,
 )
@@ -480,6 +483,78 @@ class TestKSafetyFloor(unittest.TestCase):
         with self.assertRaises(ValueError):
             _step(TURN_74, 0.0, 3.0, k_safety=1.49)
         _step(TURN_74, 0.0, 3.0, k_safety=1.5)
+
+
+class TestWallTurnSpeedCapAndBrake(unittest.TestCase):
+    """Follow-up to e491643a: the freeze fix gets the turn moving again but
+    says nothing about speed. wall_turn_speed_cap ramps it down once
+    committed; raw_lidar_forward_min_range is the independent raw-lidar
+    backstop (wall_turn.py, 'SPEED, NOT HEADING')."""
+
+    MARGIN, STOP, V_MIN = 0.5, 0.25, 0.15
+
+    def test_the_speed_ramp_never_raises_and_floors_at_v_min_turn(self):
+        self.assertEqual(
+            wall_turn_speed_cap(self.MARGIN + 0.01, self.MARGIN, self.STOP, self.V_MIN, 0.5),
+            0.5)
+        self.assertAlmostEqual(
+            wall_turn_speed_cap((self.MARGIN + self.STOP) / 2.0, self.MARGIN, self.STOP,
+                                self.V_MIN, 0.5),
+            (0.5 + self.V_MIN) / 2.0, delta=1e-12)
+        for d_front in (self.STOP, self.STOP - 0.1, 0.0):
+            self.assertEqual(
+                wall_turn_speed_cap(d_front, self.MARGIN, self.STOP, self.V_MIN, 0.5), self.V_MIN)
+        for unknown in (None, float('nan'), -1.0):
+            self.assertEqual(
+                wall_turn_speed_cap(unknown, self.MARGIN, self.STOP, self.V_MIN, 0.5), 0.5)
+        # Never raises v_ref even if v_min_turn is misconfigured above it.
+        self.assertEqual(
+            wall_turn_speed_cap(self.STOP, self.MARGIN, self.STOP, 10.0, 0.5), 0.5)
+
+    def test_the_brake_cone_widens_with_steering_and_clamps_at_90_deg(self):
+        base = math.radians(20.0)
+        self.assertEqual(wall_turn_brake_half_angle(base, 0.0, 1.0), base)
+        self.assertAlmostEqual(wall_turn_brake_half_angle(base, 0.3, 1.0), base + 0.3,
+                               delta=1e-12)
+        self.assertAlmostEqual(wall_turn_brake_half_angle(base, -0.3, 1.0), base + 0.3,
+                               delta=1e-12)
+        self.assertEqual(wall_turn_brake_half_angle(base, 10.0, 1.0), math.pi / 2.0)
+
+    def test_the_raw_brake_only_sees_a_return_inside_its_cone(self):
+        n = 721  # -90..+90 deg at 0.25 deg steps, angle 0 dead centre
+        ranges = [5.0] * n
+        angle_min, angle_increment = math.radians(-90.0), math.radians(0.25)
+
+        def set_deg(deg, value):
+            ranges[round((math.radians(deg) - angle_min) / angle_increment)] = value
+
+        # A close return at 30 deg: invisible to a narrow cone (which sees
+        # only the 5.0 m background), caught once steering widens the cone
+        # past it.
+        set_deg(30.0, 0.1)
+        narrow = math.radians(20.0)
+        self.assertAlmostEqual(
+            self._min_in_window(ranges, angle_min, angle_increment, narrow), 5.0, delta=1e-9)
+        widened = wall_turn_brake_half_angle(narrow, 0.3, 1.0)  # ~37 deg
+        self.assertGreater(math.degrees(widened), 30.0)
+        self.assertAlmostEqual(
+            self._min_in_window(ranges, angle_min, angle_increment, widened), 0.1, delta=1e-9)
+
+        # Dead ahead: seen by even the narrowest cone, and wins over the
+        # off-axis return regardless of cone width.
+        set_deg(0.0, 0.05)
+        self.assertAlmostEqual(
+            self._min_in_window(ranges, angle_min, angle_increment, narrow), 0.05, delta=1e-9)
+
+        # Nothing in range at all (e.g. every beam a no-return) is None, not
+        # a false "clear".
+        self.assertIsNone(self._min_in_window(
+            [float('inf')] * n, angle_min, angle_increment, narrow))
+
+    @staticmethod
+    def _min_in_window(ranges, angle_min, angle_increment, half_angle):
+        return raw_lidar_forward_min_range(ranges, angle_min, angle_increment,
+                                           0.02, 30.0, half_angle)
 
 
 # ---------------------------------------------------------------------------
