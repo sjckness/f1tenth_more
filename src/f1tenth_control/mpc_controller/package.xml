@@ -37,6 +37,9 @@
   <!-- ParameterDescriptor(read_only=True) for the LLM2 switch and whitelist
        (MPC_corr.py's _llm2_setup). Comes with rclpy, declared anyway. -->
   <exec_depend>rcl_interfaces</exec_depend>
+  <!-- mpc_solver.py and cost_to_go.py import numpy and scipy (rosdep keys). -->
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-scipy</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
