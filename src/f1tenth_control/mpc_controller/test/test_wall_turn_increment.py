@@ -31,7 +31,9 @@ Run standalone: python3 -m pytest test/test_wall_turn_increment.py -v
 import math
 import unittest
 
+from f1tenth_messages.msg import WallEstimate
 from f1tenth_params.param_defaults import get_value
+from mpc_controller import wall_boundaries as wb
 from mpc_controller.MPC_corr import MPCController
 from mpc_controller.mpc_solver import terminal_heading_target
 from mpc_controller.wall_turn import (
@@ -41,6 +43,8 @@ from mpc_controller.wall_turn import (
     wall_turn_trigger_distance,
     wrap_to_pi,
 )
+from mpc_controller.wall_turn_distance import (
+    SOURCE_LIDAR, SOURCE_NONE, SOURCE_SEMANTIC, WallTurnDistance)
 import numpy as np
 
 # READ, NOT COPIED: the deployed values from stack_params.yaml.
@@ -66,21 +70,24 @@ FINE = [round(5.0 - 0.1 * i, 2) for i in range(51)]
 
 
 def _step(turn, progress, d_front, v_ref=0.5, n_steps=N_STEPS, ts=TS,
-          k_safety=K_SAFETY, committed=False, prev_commanded_rot=None):
+          k_safety=K_SAFETY, committed=False, prev_commanded_rot=None,
+          commit_on_unknown_first_rebuild=True):
     return plan_wall_turn_step(
         turn, progress, d_front,
         wheelbase=WHEELBASE, delta_min=DELTA_MIN, delta_max=DELTA_MAX,
         k_safety=k_safety, safety_margin=MARGIN,
         n_steps=n_steps, ts=ts, v_ref=v_ref,
-        committed=committed, prev_commanded_rot=prev_commanded_rot)
+        committed=committed, prev_commanded_rot=prev_commanded_rot,
+        commit_on_unknown_first_rebuild=commit_on_unknown_first_rebuild)
 
 
-def _approach(turn, d_fronts, carried=1.0, v_ref=0.5):
+def _approach(turn, d_fronts, carried=1.0, v_ref=0.5, commit_on_unknown_first_rebuild=True):
     """Rebuild once per dFront sample; return [(progress_before, step)]."""
     progress, committed, prev, out = 0.0, False, None, []
     for d_front in d_fronts:
         step = _step(turn, progress, d_front, v_ref=v_ref,
-                     committed=committed, prev_commanded_rot=prev)
+                     committed=committed, prev_commanded_rot=prev,
+                     commit_on_unknown_first_rebuild=commit_on_unknown_first_rebuild)
         out.append((progress, step))
         committed, prev = step.committed, step.commanded_rot
         progress += carried * step.dpsi_this
@@ -320,12 +327,34 @@ class TestChatter(unittest.TestCase):
 
 class TestUnknownFrontDistance(unittest.TestCase):
 
-    def test_on_the_first_rebuild_it_commits_and_turns_within_the_horizon(self):
+    def test_legacy_on_the_first_rebuild_it_commits_and_turns_within_the_horizon(self):
         for unknown in (None, float('nan'), -1.0):
             step = _step(TURN_90, 0.0, unknown)
             self.assertTrue(step.committed)
             self.assertIsNone(step.d_avail)
             self.assertEqual(step.dpsi_this, step.dpsi_by_horizon)
+
+    def test_semantic_on_the_first_rebuild_it_does_not_commit(self):
+        # corr_wall_turn_distance_source 'semantic' passes False.
+        for unknown in (None, float('nan'), -1.0):
+            step = _step(TURN_90, 0.0, unknown, commit_on_unknown_first_rebuild=False)
+            self.assertFalse(step.committed)
+            self.assertEqual(step.dpsi_this, 0.0)
+
+    def test_semantic_stays_straight_through_unknowns_then_commits_at_the_gate(self):
+        trigger = wall_turn_trigger_distance(TURN_90, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN)
+        samples = [None, None, None, trigger + 1.0, None, trigger + 0.5, trigger]
+        steps = [s for _, s in _approach(TURN_90, samples,
+                                         commit_on_unknown_first_rebuild=False)]
+        self.assertEqual([s.committed for s in steps], [False] * 6 + [True])
+        self.assertEqual([s.dpsi_this for s in steps[:6]], [0.0] * 6)
+        self.assertGreater(steps[-1].dpsi_this, 0.0)
+
+    def test_the_flag_changes_nothing_once_committed(self):
+        for flag in (True, False):
+            step = _step(TURN_90, 0.3, None, committed=True, prev_commanded_rot=0.9,
+                         commit_on_unknown_first_rebuild=flag)
+            self.assertEqual(step.dpsi_this, min(TURN_90 - 0.3, step.dpsi_by_horizon))
 
     def test_later_and_before_commit_it_changes_nothing(self):
         for unknown in (None, float('nan'), -1.0):
@@ -379,7 +408,9 @@ class _FakeMPC:
     """Just enough of MPCController for build_straight_corridor's drive branch."""
 
     def __init__(self, mode='wall_turn', turn_deg=74.5, sign=1.0, psi_base=0.2,
-                 d_front=5.0, vdes=0.5):
+                 d_front=5.0, vdes=0.5, source='legacy'):
+        self.corr_wall_turn_distance_source = source
+        self.semantic_calls = []
         self.front_distance = d_front
         self._d_front = d_front
         self.goal_pose_xy = None
@@ -405,7 +436,15 @@ class _FakeMPC:
         self.wall_turn_commanded_rot = None
 
     def _fresh_front_distance(self):
+        if self.corr_wall_turn_distance_source == 'semantic':
+            raise AssertionError('semantic mode must not read the wall topic')
         return self._d_front
+
+    def _wall_turn_semantic_distance(self, x, y, heading):
+        self.semantic_calls.append((x, y, heading))
+        if self._d_front is None:
+            return WallTurnDistance(None, SOURCE_NONE, None)
+        return WallTurnDistance(self._d_front, SOURCE_SEMANTIC, 7)
 
     def get_logger(self):
         return _FakeLogger()
@@ -475,6 +514,40 @@ class TestCorridorWiring(unittest.TestCase):
             self.assertEqual(corridor['dFront'], -1.0)
             self.assertTrue(np.isfinite(corridor['psiRef']))
 
+    def test_semantic_an_unknown_first_rebuild_builds_a_straight_corridor(self):
+        fake = _FakeMPC(d_front=-1.0, source='semantic')
+        fake._d_front = None
+        corridor = _build(fake, 0.2)
+        self.assertFalse(fake.wall_turn_committed)
+        self.assertEqual(corridor['psiRefTurn'], 0.0)
+        self.assertEqual(corridor['dFront'], -1.0)
+        # The legacy fake would have committed on the same rebuild.
+        legacy = _FakeMPC(d_front=-1.0)
+        legacy._d_front = None
+        _build(legacy, 0.2)
+        self.assertTrue(legacy.wall_turn_committed)
+
+    def test_semantic_commits_once_its_distance_reaches_the_trigger(self):
+        fake = _FakeMPC(d_front=-1.0, source='semantic')
+        fake._d_front = None
+        _build(fake, 0.2)
+        trigger = wall_turn_trigger_distance(
+            math.radians(74.5), WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN)
+        fake._d_front = trigger + 0.1
+        _build(fake, 0.2)
+        self.assertFalse(fake.wall_turn_committed)
+        fake._d_front = trigger - 0.1
+        corridor = _build(fake, 0.2)
+        self.assertTrue(fake.wall_turn_committed)
+        self.assertNotEqual(corridor['psiRefTurn'], 0.0)
+        self.assertEqual(corridor['dFront'], trigger - 0.1)
+
+    def test_semantic_casts_along_the_start_heading_plus_the_turn_so_far(self):
+        fake = _FakeMPC(d_front=6.0, source='semantic', psi_base=0.2)
+        fake.turn_progress_rad = 0.5
+        _build(fake, 0.7)
+        self.assertEqual(fake.semantic_calls, [(1.0, -0.5, 0.2 + 0.5)])
+
     def test_the_straight_drive_branch_is_unchanged(self):
         fake = _FakeMPC(mode='straight', d_front=2.0, psi_base=0.2)
         corridor = _build(fake, 0.25)
@@ -539,3 +612,66 @@ class TestFreshFrontDistanceAndReset(unittest.TestCase):
         MPCController._reset_turn_progress(fake)
         self.assertFalse(fake.wall_turn_committed)
         self.assertIsNone(fake.wall_turn_commanded_rot)
+
+
+class TestSemanticDistanceGlue(unittest.TestCase):
+    """MPCController._wall_turn_semantic_distance: cached messages in, the chain out."""
+
+    class _Fake:
+        _odom_frame_name = MPCController._odom_frame_name
+
+        def __init__(self, tracks, walls_time=99.9, provenance=WallEstimate.PROVENANCE_MEASURED,
+                     lidar_distance=2.0):
+            self.wall_tracks = tracks
+            self.wall_tracks_frame = 'odom'
+            self.wall_tracks_last_time = walls_time
+            self.wall_tracks_stamp = 99.9
+            self.wall_coast_clock = wb.CoastClock()
+            self.wall_coast_clock.update(tracks, 99.9)
+            est = WallEstimate()
+            est.valid = provenance != WallEstimate.PROVENANCE_NONE
+            est.provenance = provenance
+            est.distance = lidar_distance
+            est.normal_angle = 0.0
+            self.lidar_wall_estimate = est
+            self.lidar_wall_estimate_stamp_sec = 99.9
+            self.wall_turn_bumper_x_m = 0.4
+            self.wall_row_max_tf_age_s = 0.5
+            self.wall_row_max_coast_s = 1.0
+            self.corr_wall_turn_front_distance_max_age_sec = 0.5
+            self._clock = _ClockFake(100.0)
+
+        def get_clock(self):
+            return self._clock
+
+    @staticmethod
+    def _wall(source=wb.SOURCE_LIDAR):
+        return wb.WallTrackView(5, 'front', wb.STATE_CONFIRMED, source, 3.0, 0.0,
+                                (3.0, -1.0), (3.0, 1.0))
+
+    def _pick(self, fake):
+        return MPCController._wall_turn_semantic_distance(fake, 0.0, 0.0, 0.0)
+
+    def test_a_fresh_lidar_backed_wall_ahead_is_the_distance(self):
+        pick = self._pick(self._Fake([self._wall()]))
+        self.assertEqual((pick.source, pick.track_id), (SOURCE_SEMANTIC, 5))
+        self.assertAlmostEqual(pick.distance, 2.6)
+
+    def test_a_stereo_only_wall_falls_through_to_the_lidar_fit(self):
+        pick = self._pick(self._Fake([self._wall(wb.SOURCE_STEREO)]))
+        self.assertEqual(pick.source, SOURCE_LIDAR)
+        self.assertAlmostEqual(pick.distance, 1.6)
+
+    def test_a_wall_message_past_the_wall_row_age_falls_through_to_the_lidar_fit(self):
+        self.assertEqual(self._pick(self._Fake([self._wall()], walls_time=99.4)).source,
+                         SOURCE_LIDAR)
+        self.assertEqual(self._pick(self._Fake([self._wall()], walls_time=None)).source,
+                         SOURCE_LIDAR)
+
+    def test_a_seeded_or_invalid_lidar_estimate_is_not_a_distance(self):
+        for provenance in (WallEstimate.PROVENANCE_SEEDED, WallEstimate.PROVENANCE_NONE):
+            self.assertEqual(self._pick(self._Fake([], provenance=provenance)).source,
+                             SOURCE_NONE)
+        self.assertEqual(
+            self._pick(self._Fake([], provenance=WallEstimate.PROVENANCE_DEAD_RECKONED)).source,
+            SOURCE_LIDAR)

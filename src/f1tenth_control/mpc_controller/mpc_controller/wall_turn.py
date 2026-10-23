@@ -86,6 +86,10 @@ is not a distance, and it is not a wall at zero either.
   * Not committed, on the move's FIRST rebuild: the turn commits. There is no
     earlier reading it could have been waiting on, and a wall_turn issued
     with the camera path down would otherwise drive on and never turn.
+    UNLESS commit_on_unknown_first_rebuild is False (MPC_corr's
+    corr_wall_turn_distance_source 'semantic'): then the first rebuild is
+    like any later one, and the car drives straight until a distance
+    appears and the gate commits on it.
 
 WHAT THIS DOES NOT FIX. dFront is a straight-ahead measurement along the
 camera's optical axis, not along the arc. Once the car is bending, that ray
@@ -171,7 +175,8 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
                         k_safety: float, safety_margin: float,
                         n_steps: int, ts: float, v_ref: float,
                         committed: bool = False,
-                        prev_commanded_rot: Optional[float] = None) -> WallTurnStep:
+                        prev_commanded_rot: Optional[float] = None,
+                        commit_on_unknown_first_rebuild: bool = True) -> WallTurnStep:
     """
     Decide how much of the turn this corridor rebuild asks for.
 
@@ -179,7 +184,8 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
     turn_sign * turn_mag and turn_progress_rad). committed and
     prev_commanded_rot come from the previous rebuild of the SAME move:
     pass False/None on a move's first rebuild. See the module docstring for
-    the rule, the gate and the ratchet.
+    the rule, the gate and the ratchet, and its UNKNOWN dFront section for
+    commit_on_unknown_first_rebuild.
     """
     if k_safety < SMOOTHSTEP_PEAK_SLOPE:
         raise ValueError(
@@ -206,7 +212,8 @@ def plan_wall_turn_step(turn_total: float, turn_progress: float,
         # Unknown distance: see the module docstring's three cases.
         d_avail = None
         dpsi_by_dist = math.inf
-        committed = committed or prev_commanded_rot is None
+        committed = committed or (commit_on_unknown_first_rebuild
+                                  and prev_commanded_rot is None)
 
     if committed:
         dpsi_this = math.copysign(
