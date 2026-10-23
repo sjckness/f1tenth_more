@@ -1,0 +1,62 @@
+{
+ "domain": "188",
+ "subscribers": 3,
+ "A": {
+  "scans": 1190,
+  "trip_scans": 238,
+  "rs_stop_latency_ms": {
+   "n": 238,
+   "missing": 0,
+   "p50": 0.577574,
+   "p95": 0.7163921499999999,
+   "max": 0.939781,
+   "mean": 0.5866108403361345
+  },
+  "py_event_stop_latency_ms": {
+   "n": 238,
+   "missing": 0,
+   "p50": 0.9579535,
+   "p95": 1.1631524499999997,
+   "max": 1.910075,
+   "mean": 0.9710453109243697
+  },
+  "rs_stops": 238,
+  "py_stops": 238,
+  "rs_shadow_stops": 0,
+  "rs_decisions": 1193,
+  "rs_compute_us": {
+   "p50": 46.9,
+   "p95": 66.31999999999998,
+   "max": 95.8
+  },
+  "cpu_ms_per_scan": {
+   "rs_active": 0.25210084033613445,
+   "rs_shadow": 0.25210084033613445,
+   "py_host": 0.6050420168067226
+  },
+  "tf_fallback_seen": false
+ },
+ "B": {
+  "rs_first_stale_stop_after_last_scan_ms": 227.679361,
+  "rs_stale_stops_in_2s": 36,
+  "py_stops_in_2s": 0,
+  "rs_stale_decisions": 36,
+  "rs_max_gap_between_stale_stops_ms": 50.160647,
+  "rs_shadow_stops": 0
+ },
+ "C": {
+  "rs_stops_total": 0,
+  "rs_stops_after_100ms": 0,
+  "py_stops": 0
+ },
+ "D": {
+  "scans": 40,
+  "rs_stops": 41,
+  "py_stops": 0,
+  "rs_reasons": [
+   "invalid_beams",
+   "stale"
+  ],
+  "rs_shadow_stops": 0
+ }
+}

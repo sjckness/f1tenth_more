@@ -4,8 +4,10 @@
 //! [`decision`] is the ROS-free decision (parity with the Python),
 //! [`static_tf`] the /tf_static lookup of the laser's mount,
 //! [`replay`] the parity harness's case format,
-//! [`watchdog`] which clock judges a stale /scan.
+//! [`watchdog`] which clock judges a stale /scan,
+//! [`build_info`] the build the binaries log.
 
+pub mod build_info;
 pub mod decision;
 pub mod replay;
 pub mod static_tf;

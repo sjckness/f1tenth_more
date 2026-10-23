@@ -1,0 +1,10 @@
+f1tenth_behavior: 532 tests, 532 pass, 0 failures, 0 errors, 0 skipped
+f1tenth_bringup: 81 tests, 78 pass, 3 failures, 0 errors, 0 skipped
+f1tenth_costmap: 405 tests, 405 pass, 0 failures, 0 errors, 0 skipped
+f1tenth_costmap_boundary_rs: 2 tests, 2 pass, 0 failures, 0 errors, 0 skipped
+f1tenth_proximity_guard: 2 tests, 2 pass, 0 failures, 0 errors, 0 skipped
+TOTAL: 1022 tests, {'pass': 1019, 'failure': 3}
+  failure f1tenth_bringup::f1tenth_bringup.test.test_copyright::test_copyright
+  failure f1tenth_bringup::f1tenth_bringup.test.test_flake8::test_flake8
+  failure f1tenth_bringup::f1tenth_bringup.test.test_pep257::test_pep257
+NEW failing IDs vs output/jazzy_main/test_failing_ids.txt: 0

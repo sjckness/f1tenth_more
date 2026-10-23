@@ -2,14 +2,18 @@
 //!
 //! stdin: JSON lines (f1tenth_proximity_guard::replay::Case);
 //! stdout: one JSON outcome per line. A malformed line is an error on stderr
-//! and exit status 1 after the remaining lines, never a silent skip.
+//! and exit status 1 after the remaining lines, never a silent skip. The
+//! first stderr line is the build (build_info), which the harness's timing
+//! depends on.
 
 use std::io::{self, BufRead, Write};
 use std::process::ExitCode;
 
+use f1tenth_proximity_guard::build_info;
 use f1tenth_proximity_guard::replay::run_line;
 
 fn main() -> ExitCode {
+    eprintln!("proximity_guard_replay {}", build_info::summary());
     let stdin = io::stdin();
     let mut out = io::BufWriter::new(io::stdout().lock());
     let mut failed = false;

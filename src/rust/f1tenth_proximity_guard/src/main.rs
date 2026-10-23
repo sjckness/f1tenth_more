@@ -28,6 +28,7 @@ use rclrs::{
 use sensor_msgs::msg::LaserScan;
 use tf2_msgs::msg::TFMessage;
 
+use f1tenth_proximity_guard::build_info;
 use f1tenth_proximity_guard::decision::{
     decide, no_data, Decision, GuardConfig, LaserPose, Reason, ScanView,
 };
@@ -269,6 +270,8 @@ fn run() -> Result<(), String> {
     let context = Context::default_from_env().map_err(|e| e.to_string())?;
     let mut executor = context.create_basic_executor();
     let node = executor.create_node(NODE_NAME).map_err(|e| e.to_string())?;
+    // First, so a refused configuration still shows what was built.
+    log_info!(node.logger(), "{NODE_NAME} {}", build_info::summary());
 
     let (settings, topics) = read_settings(&node).inspect_err(|e| {
         log_error!(node.logger(), "configuration error: {e}");

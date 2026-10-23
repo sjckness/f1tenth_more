@@ -20,7 +20,13 @@
 //!
 //! use_convex_polytope true is refused at startup: the polytope path
 //! (safe_corridor.py) is not ported. The Python subscribes /mpc/corridor_markers
-//! for that path even when it is off; this node does not.
+//! for that path even when it is off; this node does not. The costmap-mode
+//! cleanup (component_filter, exclude_tracked_object_cells, both default
+//! false) is not ported either: either switch true is refused the same way
+//! (crate::config::validate). Their parameters are declared with the
+//! Python's defaults, so both nodes take the same keys (the launch test
+//! test_costmap_boundary_impl_launch.py checks it); with both switches false
+//! the Python does not subscribe obstacles_topic and neither does this node.
 //!
 //! Extra parameters, set by costmap.launch.py from f1tenth_description's
 //! vehicle_frames (the Python imports them): base_front_x_m,
@@ -39,6 +45,8 @@ use rclrs::{
 };
 use std_msgs::msg::{Float32, String as StringMsg};
 
+use f1tenth_costmap_boundary_rs::build_info;
+use f1tenth_costmap_boundary_rs::config::{validate, StartupParams};
 use f1tenth_costmap_boundary_rs::extraction::{extract, yaw_from_quaternion, Grid, Params, Pose};
 
 const NODE_NAME: &str = "costmap_boundary_node";
@@ -106,7 +114,9 @@ fn read_config(node: &Node) -> Result<Config, String> {
             .map_err(|e| format!("parameter {name}: {e:?}"))
     };
 
-    // The Python's parameters, names and defaults (costmap_boundary_node.py).
+    // The Python's parameters, names and defaults (costmap_boundary_node.py),
+    // one `x("name", default)?` call each: test_costmap_boundary_impl_launch.py
+    // reads these calls to check the key parity with the Python node.
     let map_topic = s("map_topic", "/slam/map")?;
     let pose_topic = s("pose_topic", "/ekf_global/odometry/filtered")?;
     let output_topic = s("output_topic", "/costmap/boundaries")?;
@@ -131,35 +141,31 @@ fn read_config(node: &Node) -> Result<Config, String> {
     f("polytope_min_seed_clearance_m", 0.32)?;
     f("polytope_min_area_m2", 0.25)?;
     f("polytope_min_covered_fraction", 0.25)?;
+    // Costmap-mode cleanup (main-jazzy): the two switches are refused when
+    // true (validate below); the rest is read only by the cleanup, as in the
+    // Python, which subscribes obstacles_topic only with
+    // exclude_tracked_object_cells true.
+    let component_filter = b("component_filter", false)?;
+    f("min_component_length_m", 0.5)?;
+    i("min_component_scans", 2)?;
+    let exclude_tracked_object_cells = b("exclude_tracked_object_cells", false)?;
+    s("obstacles_topic", "/perception/obstacles_2d")?;
+    f("object_footprint_margin_m", 0.12)?;
     // vehicle_frames values, from the launch file. No usable defaults.
     let front_x = f("base_front_x_m", f64::NAN)?;
     let front_side_limit_m = f("front_side_limit_m", f64::NAN)?;
     let min_front_distance_m = f("min_front_distance_m", f64::NAN)?;
     let timing_report_period_s = f("timing_report_period_s", 0.0)?;
 
-    if use_convex_polytope {
-        return Err(
-            "use_convex_polytope:=true is not ported to Rust: run impl:=py \
-                    (costmap.launch.py costmap_boundary_impl:=py)"
-                .to_owned(),
-        );
-    }
-    for (name, v) in [
-        ("base_front_x_m", front_x),
-        ("front_side_limit_m", front_side_limit_m),
-        ("min_front_distance_m", min_front_distance_m),
-    ] {
-        if !v.is_finite() {
-            return Err(format!(
-                "{name} is required (costmap.launch.py passes vehicle_frames' value)"
-            ));
-        }
-    }
-    if !(rate_hz.is_finite() && rate_hz > 0.0) {
-        return Err(format!(
-            "extraction_rate_hz must be positive, got {rate_hz}"
-        ));
-    }
+    validate(&StartupParams {
+        use_convex_polytope,
+        component_filter,
+        exclude_tracked_object_cells,
+        base_front_x_m: front_x,
+        front_side_limit_m,
+        min_front_distance_m,
+        extraction_rate_hz: rate_hz,
+    })?;
     Ok(Config {
         params: Params {
             front_facing_max_rad: front_facing_max_deg.to_radians(),
@@ -200,6 +206,12 @@ fn run() -> Result<(), String> {
     let context = Context::default_from_env().map_err(err)?;
     let mut executor = context.create_basic_executor();
     let node = executor.create_node(NODE_NAME).map_err(err)?;
+    // First, so a refused configuration still shows what was built.
+    log_info!(
+        node.logger(),
+        "{NODE_NAME} (Rust) {}",
+        build_info::summary()
+    );
     let cfg = Arc::new(read_config(&node).inspect_err(|e| {
         log_error!(node.logger(), "configuration error: {e}");
     })?);

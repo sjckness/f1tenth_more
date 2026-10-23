@@ -42,6 +42,22 @@ echo "== CUDA nvJPEG dev symlink absent (F3)"
 echo "== /usr/local/zed group is the host zed GID (F5)"
 [ "$(stat -c %g /usr/local/zed)" = "${ZED_GID}" ] || bad "/usr/local/zed group $(stat -c %g /usr/local/zed) != ${ZED_GID}"
 
+echo "== Rust binaries (RUST=${RUST:-skip}; Dockerfile rust-build stage, NOT BUILT YET)"
+# RUST=build: each replay binary prints its build on stderr (build_info.rs);
+# an opt-level 0 build is the regression R0 fixed. The node binaries are in
+# the ldd -r scan below. RUST=skip: the ament_cargo packages were ignored.
+if [ "${RUST:-skip}" = build ]; then
+  for pb in f1tenth_proximity_guard/proximity_guard_node f1tenth_proximity_guard/proximity_guard_replay \
+            f1tenth_costmap_boundary_rs/costmap_boundary_node f1tenth_costmap_boundary_rs/costmap_boundary_replay; do
+    [ -x "/opt/f1tenth_ws/install/lib/$pb" ] || bad "Rust binary missing: install/lib/$pb"
+  done
+  for pb in f1tenth_proximity_guard/proximity_guard_replay f1tenth_costmap_boundary_rs/costmap_boundary_replay; do
+    build=$(echo | "/opt/f1tenth_ws/install/lib/$pb" 2>&1 >/dev/null | head -1)
+    echo "  $pb: $build"
+    case "$build" in *"opt-level 3,"*) ;; *) bad "$pb not built at opt-level 3: $build" ;; esac
+  done
+fi
+
 echo "== ldd -r scan (CLAUDE.md): workspace install, ZED SDK, llama.cpp; must print nothing"
 scan=$(find /opt/f1tenth_ws/install /usr/local/zed/lib /opt/llama.cpp \( -path '*/lib/*' -o -path '*/bin/*' \) \( -type f -o -type l \) 2>/dev/null |
   while read -r f; do

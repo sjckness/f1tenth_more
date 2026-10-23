@@ -37,6 +37,13 @@
 # marked F1-F7 below.
 
 ARG BASE=ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
+# The Rust packages (src/rust, build type ament_cargo). RUST=skip (default)
+# builds the image as before, with colcon ignoring the ament_cargo packages
+# (the fallback, ws stage). RUST=build adds the rust-build stage's toolchain
+# and builds them. RUST=build IS NOT BUILT YET (main-jazzy-rust R0,
+# 2026-10-23): the rust-build stage lists what it needs first.
+#   ORIN_BUILD_ARGS='--build-arg RUST=build' docker/orin/build.sh
+ARG RUST=skip
 
 # ---------------------------------------------------------------------------
 FROM ${BASE} AS base
@@ -122,6 +129,11 @@ RUN gpg --show-keys --with-colons /tmp/ros-snapshots.asc | grep -q '^fpr::::::::
 # The Thor's ros-jazzy-* list minus GUI/demo/sim, plus the workspace's apt
 # Python (rosdep found the six F6 keys missing in the spike; installed BEFORE
 # pip so pip sees the Thor's versions and does not fill them from PyPI).
+# ros-jazzy-rosidl-generator-rs (added R0, 2026-10-23; the Thor has it): every
+# interface package built in the workspace then also gets its Rust message
+# crate, which the RUST=build packages need. It only generates sources; with
+# RUST=skip nothing compiles them. This snapshot's 0.5.0 means rclrs 0.8 for
+# the Rust packages (rust-build stage).
 COPY ros_packages.txt /tmp/ros_packages.txt
 RUN apt-get update \
  && apt-get install -y --no-install-recommends $(cat /tmp/ros_packages.txt) \
@@ -201,11 +213,61 @@ RUN --mount=type=cache,id=f1tenth-orin-ccache-llama,target=/root/.ccache \
  && rm -rf /tmp/llama.cpp /tmp/cuda-stub
 
 # ---------------------------------------------------------------------------
-FROM zed AS ws
+# Rust toolchain for the ament_cargo packages (RUST=build).
+#
+# NOT BUILT YET. Prepared on linus (main-jazzy-rust R0, 2026-10-23); this
+# stage has never run, on an Orin or anywhere else. Before the first
+# RUST=build:
+#   * rclrs. The 2026-09-11 snapshot (the Thor's set) ships
+#     ros-jazzy-rosidl-generator-rs 0.5.0 (ros_packages.txt), whose message
+#     crates use rosidl_runtime_rs 0.7. Both crates pin rclrs =0.7.0
+#     (runtime 0.6: generator 0.4.11, linus's apt), so cargo will not
+#     resolve them here until they are ported to rclrs 0.8 (plan R0b, waits
+#     for the Thor or sudo on linus; output/rust/setup.md section 5).
+#   * ros2-rust#557: rclrs links test_msgs' and example_interfaces'
+#     typesupport libraries; both are in ros_packages.txt (the Thor has them).
+#   * colcon-ros-cargo writes /opt/f1tenth_ws/.cargo/config.toml during the
+#     build (removed with build/ and log/); --merge-install with ament_cargo
+#     packages has not been tried.
+# Pins: rustup-init 1.29.1 (sha256 from static.rust-lang.org's
+# rustup-init.sha256 for aarch64-unknown-linux-gnu, fetched 2026-10-23),
+# toolchain 1.99.1 = linus's (the crates need >= 1.85), cargo-ament-build
+# 0.1.11 --locked, colcon-cargo / colcon-ros-cargo 0.2.0 from pip as on linus
+# (colcon-ros-cargo also requires the cargo-ament-build 0.1.11 wheel and toml;
+# cargo's copy in /opt/rust/cargo/bin comes first on PATH).
+FROM zed AS rust-build
+ARG RUSTUP_VERSION=1.29.1
+ARG RUSTUP_INIT_SHA256=15f6e4ce9f583b929c996c91562bad6d4454f3281de858b02cdfdef615fac433
+ARG RUST_TOOLCHAIN=1.99.1
+ARG CARGO_AMENT_BUILD_VERSION=0.1.11
+ARG COLCON_CARGO_VERSION=0.2.0
+ARG COLCON_ROS_CARGO_VERSION=0.2.0
+ENV RUSTUP_HOME=/opt/rust/rustup CARGO_HOME=/opt/rust/cargo PATH=/opt/rust/cargo/bin:${PATH}
+RUN --mount=type=cache,id=f1tenth-orin-cargo-registry,target=/opt/rust/cargo/registry \
+    curl --proto '=https' --tlsv1.2 -sSfL -o /tmp/rustup-init \
+      "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/aarch64-unknown-linux-gnu/rustup-init" \
+ && echo "${RUSTUP_INIT_SHA256}  /tmp/rustup-init" | sha256sum -c - \
+ && chmod +x /tmp/rustup-init \
+ && /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain "${RUST_TOOLCHAIN}" \
+ && rm -f /tmp/rustup-init \
+ && rustc --version && cargo --version \
+ && cargo install --locked cargo-ament-build --version "${CARGO_AMENT_BUILD_VERSION}" \
+ && pip install colcon-cargo=="${COLCON_CARGO_VERSION}" colcon-ros-cargo=="${COLCON_ROS_CARGO_VERSION}" \
+      cargo-ament-build=="${CARGO_AMENT_BUILD_VERSION}" \
+ && pip check \
+ && python3 -c 'import colcon_cargo, colcon_ros_cargo' \
+ && chmod -R a+rX /opt/rust
+
+# RUST=skip: no toolchain; the ws stage ignores the ament_cargo packages.
+FROM zed AS rust-skip
+
+# ---------------------------------------------------------------------------
+FROM rust-${RUST} AS ws
 ARG USER_NAME=fabiocar
 ARG USER_UID=1004
 ARG USER_GID=1004
 ARG ZED_GID=1005
+ARG RUST
 COPY --from=llama /opt/llama.cpp /opt/llama.cpp
 WORKDIR /opt/f1tenth_ws
 COPY --from=src src /opt/f1tenth_ws/src
@@ -213,15 +275,32 @@ COPY --from=src scripts/env /opt/f1tenth_ws/scripts/env
 COPY set_llama_paths.py build_checks.sh entrypoint.sh /opt/f1tenth_ws/
 # Workspace build. The host's L4T libs are bind-mounted for this step only
 # (F7, header); --merge-install, Release, the Thor's skip list.
+# RUST=skip: the ament_cargo packages (src/rust) are --packages-ignore'd. A
+# colcon without colcon-ros-cargo identifies them from package.xml
+# ("ros.ament_cargo"; "ament_cargo" with the plugin) and would only warn "No
+# task extension to 'build' a 'ros.ament_cargo' package" and skip them (tried
+# on linus, 2026-10-23): ignoring them says so instead. Nothing depends on
+# them; their launch switches (guard:=, costmap_boundary_impl:=, impl:=)
+# default to off/py. RUST=build: built like every other package
+# (colcon-ros-cargo; cargo's dev profile at opt-level 3, src/rust/Cargo.toml).
 RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia \
     --mount=type=cache,id=f1tenth-orin-ccache-ws,target=/root/.ccache \
     source /opt/ros/jazzy/setup.bash \
+ && rust_pkgs=$(colcon list -t | awk '$3 ~ /^\((ros\.)?ament_cargo\)$/ {printf "%s ", $1}') \
+ && case "${RUST}" in \
+      build) rust_ignore='' ;; \
+      skip) rust_ignore=${rust_pkgs:+--packages-ignore ${rust_pkgs}} ;; \
+      *) echo "RUST must be build or skip, got '${RUST}'" >&2; exit 1 ;; \
+    esac \
+ && echo "RUST=${RUST}: ament_cargo packages: ${rust_pkgs:-none}" | tee /opt/f1tenth_ws/colcon_build.log \
  && colcon build --merge-install \
       --packages-skip f1tenth_sim f1tenth_more husarion_gz_worlds \
+      ${rust_ignore} \
       --cmake-args -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache \
       --event-handlers console_direct- console_cohesion+ summary+ \
-      2>&1 | tee /opt/f1tenth_ws/colcon_build.log \
- && rm -rf build log
+      2>&1 | tee -a /opt/f1tenth_ws/colcon_build.log \
+ && rm -rf build log .cargo \
+ && if [ "${RUST}" = build ]; then rm -rf /opt/rust/cargo/registry /opt/rust/cargo/git; fi
 # The container's llama-server: the image's sm_87 build, selected through the
 # existing llama_server_path / llama_server_cwd parameters in the INSTALLED
 # stack_params.yaml (decision 2026-10-07; the repo default stays the Humble
@@ -230,10 +309,11 @@ RUN python3 /opt/f1tenth_ws/set_llama_paths.py \
       /opt/f1tenth_ws/install/share/f1tenth_params/config/stack_params.yaml \
       /opt/llama.cpp/bin/llama-server /opt/llama.cpp
 # Fatal build checks: pip check, no PyPI CUDA, apt Python not shadowed, imports,
-# F3/F5 invariants, and the CLAUDE.md ldd -r scan (needs the L4T libs again).
+# F3/F5 invariants, the Rust binaries' build (RUST=build only), and the
+# CLAUDE.md ldd -r scan (needs the L4T libs again).
 RUN --mount=type=bind,from=l4t,target=/usr/lib/aarch64-linux-gnu/nvidia \
     source /opt/ros/jazzy/setup.bash && source /opt/f1tenth_ws/install/setup.bash \
- && ZED_GID=${ZED_GID} bash /opt/f1tenth_ws/build_checks.sh
+ && ZED_GID=${ZED_GID} RUST=${RUST} bash /opt/f1tenth_ws/build_checks.sh
 # Persistent CUDA JIT cache (torch / TRT / any PTX): D2 mounts a named volume
 # here; a fresh volume inherits this directory's owner.
 ENV CUDA_CACHE_PATH=/var/cache/f1tenth/cuda CUDA_CACHE_MAXSIZE=1073741824

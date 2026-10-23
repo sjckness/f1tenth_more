@@ -1,0 +1,290 @@
+synthetic: 3184 cases, trip diffs 0
+[INFO] [1792771213.809285067] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-00-06_mission-llm_plan_1788274806/bag/2026-09-01T15-00-06_mission-llm_plan_1788274806_0.db3' for READ_ONLY.
+bag 1/238: trip diffs so far 0
+[INFO] [1792771215.590351448] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-03-07_mission-bottle_then_person/bag/2026-09-01T15-03-07_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771216.692661801] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-04-45_mission-bottle_then_person/bag/2026-09-01T15-04-45_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771218.990131853] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-06-45_mission-llm_plan_1788275205/bag/2026-09-01T15-06-45_mission-llm_plan_1788275205_0.db3' for READ_ONLY.
+[INFO] [1792771220.416621518] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-08-12_mission-llm_plan_1788275291/bag/2026-09-01T15-08-12_mission-llm_plan_1788275291_0.db3' for READ_ONLY.
+[INFO] [1792771222.951141149] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-09-43_mission-bottle_then_person/bag/2026-09-01T15-09-43_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771225.996538572] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-01T15-11-29_mission-bottle_then_person/bag/2026-09-01T15-11-29_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771227.903142314] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-33-43_mission-llm_plan_1788341623/bag/2026-09-02T09-33-43_mission-llm_plan_1788341623_0.db3' for READ_ONLY.
+[INFO] [1792771229.494808378] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-34-40_mission-llm_plan_1788341680/bag/2026-09-02T09-34-40_mission-llm_plan_1788341680_0.db3' for READ_ONLY.
+[INFO] [1792771231.661071444] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-04_mission-llm_plan_1788341702/bag/2026-09-02T09-35-04_mission-llm_plan_1788341702_0.db3' for READ_ONLY.
+[INFO] [1792771233.510202589] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-35-23_mission-llm_plan_1788341723/bag/2026-09-02T09-35-23_mission-llm_plan_1788341723_0.db3' for READ_ONLY.
+[INFO] [1792771234.374167353] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-37-08_mission-llm_plan_1788341827/bag/2026-09-02T09-37-08_mission-llm_plan_1788341827_0.db3' for READ_ONLY.
+[INFO] [1792771235.340053588] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-40-44_mission-bottle_then_person/bag/2026-09-02T09-40-44_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771237.178942024] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-44-30_mission-bottle_then_person/bag/2026-09-02T09-44-30_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771238.263733344] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-46-43_mission-bottle_then_person/bag/2026-09-02T09-46-43_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771239.619131540] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-48-45_mission-bottle_then_person/bag/2026-09-02T09-48-45_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771241.861403465] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-51-30_mission-bottle_then_person/bag/2026-09-02T09-51-30_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771243.309846323] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T09-54-30_mission-llm_plan_1788342870/bag/2026-09-02T09-54-30_mission-llm_plan_1788342870_0.db3' for READ_ONLY.
+[INFO] [1792771244.809018924] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-13-32_mission-bottle_then_person/bag/2026-09-02T15-13-32_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771247.632589203] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-15-50_mission-bottle_then_person/bag/2026-09-02T15-15-50_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771250.602235706] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-17-49_mission-bottle_then_person/bag/2026-09-02T15-17-49_mission-bottle_then_person_0.db3' for READ_ONLY.
+bag 21/238: trip diffs so far 0
+[INFO] [1792771253.225685958] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-19-52_mission-bottle_then_person/bag/2026-09-02T15-19-52_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771254.791508904] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-21-57_mission-bottle_then_person/bag/2026-09-02T15-21-57_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771256.156840645] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-24-27_mission-bottle_then_person/bag/2026-09-02T15-24-27_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771257.183406629] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-26-23_mission-bottle_then_person/bag/2026-09-02T15-26-23_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771258.269074284] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-27-43_mission-bottle_then_person/bag/2026-09-02T15-27-43_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771259.260147441] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-29-24_mission-llm_plan_1788362958/bag/2026-09-02T15-29-24_mission-llm_plan_1788362958_0.db3' for READ_ONLY.
+[INFO] [1792771259.934273517] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-31-05_mission-llm_plan_1788363065/bag/2026-09-02T15-31-05_mission-llm_plan_1788363065_0.db3' for READ_ONLY.
+[INFO] [1792771260.761908392] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-34-45_mission-bottle_then_person/bag/2026-09-02T15-34-45_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771262.421968178] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-36-16_mission-bottle_then_person/bag/2026-09-02T15-36-16_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771263.585032789] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-02T15-37-53_mission-bottle_then_person/bag/2026-09-02T15-37-53_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771265.143234373] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-45-06_mission-bottle_then_person/bag/2026-09-03T12-45-06_mission-bottle_then_person_0.db3' for READ_ONLY.
+[INFO] [1792771266.139735922] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-48-40_mission-llm_plan_1788439720/bag/2026-09-03T12-48-40_mission-llm_plan_1788439720_0.db3' for READ_ONLY.
+[INFO] [1792771266.577734295] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-03T12-49-07_mission-llm_plan_1788439746/bag/2026-09-03T12-49-07_mission-llm_plan_1788439746_0.db3' for READ_ONLY.
+[INFO] [1792771266.894938594] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T13-22-23_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771268.067673598] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-12-39_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771268.682018055] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-15-16_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771269.283265195] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T14-31-49_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771270.154069481] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-18-08_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771270.759956099] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-21-20_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771272.469802037] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-23-48_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+bag 41/238: trip diffs so far 0
+[INFO] [1792771275.060357318] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-55-27_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771277.717231320] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T15-58-24_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771278.948854705] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-02-20_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771280.738197734] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-04T16-05-43_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771282.925219350] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T11-49-54_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771284.828263350] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-10-13_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771286.831743883] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-14-03_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771289.300988271] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-20-37_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771290.168357817] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-22-13_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771291.237118517] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-29-52_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771291.697835988] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-39-23_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771293.645962572] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-41-14_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771295.111784904] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-07T12-48-40_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771297.361857577] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-41-39_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771298.467258044] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-43-06_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771299.331858953] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T11-51-59_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771299.827339092] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-23-20_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771302.145766228] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-27-37_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771306.792043639] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T12-36-28_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771307.606161325] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-09-57_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+bag 61/238: trip diffs so far 0
+[INFO] [1792771308.234090428] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-22-34_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771310.581207389] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-27-00_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771313.125448447] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-46-47_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771313.598972734] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-48-35_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771314.174702290] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T14-50-52_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771315.230073599] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-08T16-25-59_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771316.605336892] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-24-35_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771318.754310298] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-04_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771320.868664366] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-25-48_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771326.181348807] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-34-24_mission-llm_plan_1788964463/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771328.225924954] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-47-40_mission-llm_plan_1788965258/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771328.326926042] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-49-58_mission-llm_plan_1788965397/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771328.921258147] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-54-12_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771329.392586633] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T14-55-31_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771329.823109168] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-09-11_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771330.681163157] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T15-12-08_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771331.315985506] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-18-35_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771332.973771222] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-19-03_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771333.594742814] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-20-58_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771334.830016364] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-24-11_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+bag 81/238: trip diffs so far 0
+[INFO] [1792771339.785568623] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-09T16-25-45_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771340.908956566] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-41_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771341.387622066] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-09-54_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771341.897203892] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-18-28_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771342.060734571] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-25-17_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771343.022658351] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-33-01_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771343.405391598] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-34-38_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771344.174993880] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-35-05_mission-test_04_turn_accuracy/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771344.313076685] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-44-55_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771345.235540470] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-45-34_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771346.005805606] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-06_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771346.093216490] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-46-38_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771346.222216338] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-47-08_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771346.386635890] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T09-48-19_mission-bottle_then_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771346.781230518] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-07-04_mission-drive_turn_180/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771347.272473585] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-10-58_mission-drive_turn_180/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771347.376530937] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-31-58_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771347.911496387] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-34-09_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771348.627427849] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-35-06_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771348.973925305] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-39-04_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+bag 101/238: trip diffs so far 0
+[INFO] [1792771349.833053657] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T13-57-23_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771350.751008716] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-33-46_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771352.806664932] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-35-24_mission-straight_then_wall_turn_3m/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771354.725325036] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-40-16_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771354.879094817] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-13_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771355.014908244] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-42-31_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771355.286999482] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-44-26_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771355.348230911] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-53-36_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771355.489479513] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-54-57_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771355.892627647] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T15-56-51_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771357.624621643] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-10T16-15-47_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771358.126715792] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T12-48-03_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771358.626687038] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T12-54-50_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771361.514967303] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-30-26_mission-turn_90_left/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771362.256260784] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-37-27_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771364.757412729] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-39-45_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771367.044468138] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-42-06_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771372.855699821] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-49-54_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771378.159533014] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T13-58-53_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771379.134393926] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-00-39_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+bag 121/238: trip diffs so far 0
+[INFO] [1792771382.481339197] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-03-25_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771387.267059808] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T14-14-24_mission-llm_plan_1789136064/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771394.646575416] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-11-08_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771397.893288191] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-11T16-16-35_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771400.333257295] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-26-04_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771405.606300275] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-28-28_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771410.351070869] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-32-08_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771415.937023116] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-37-48_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771418.051138520] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-40-10_mission-drive_stop_2m_from_wall/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771418.375099046] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T13-54-42_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771419.599242579] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-05-47_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771420.653732450] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-14T14-07-58_mission-wall_turn/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771422.685354000] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-20-04_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771425.720067201] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-22-38_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771426.762549283] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-24-53_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771427.170249680] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-29-53_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771428.024485422] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-32-12_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771429.851849397] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-42-05_mission-llm_d364fea9685e/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771433.305051116] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-15T09-47-59_mission-llm_18fef65c3e62/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771436.187227372] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-44-24_mission-go_to_person/bag/bag_0.db3' for READ_ONLY.
+bag 141/238: trip diffs so far 0
+[INFO] [1792771436.659289995] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-17T12-59-58_mission-llm_f7c3305e21e1/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771438.073683434] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-17T14-12-24_mission-llm_a32488caaaff/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771439.073636769] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-32-15_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771440.761831160] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-37-16_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771441.043230805] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T11-38-24_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771441.275831138] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-24-55_mission-llm_86cff518e42d/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771442.840647659] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-35-12_mission-llm_86cff518e42d/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771446.459882835] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-37-10_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771446.939761468] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-41-53_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771447.126504716] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-43-47_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771447.510256900] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-45-23_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771447.880809416] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-47-34_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771448.148122100] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-52-54_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771448.578711033] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-55-11_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771449.003516790] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-57-14_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771449.416930448] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T12-58-58_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771449.903064906] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-00-26_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771450.313609079] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-21T13-02-00_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771450.687196946] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-16-25_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771450.823064975] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-19-13_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+bag 161/238: trip diffs so far 0
+[INFO] [1792771451.080228869] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-21-08_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771451.334427927] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-24-28_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771451.419599858] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-30-53_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771451.720336915] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-34-02_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771451.846421428] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T11-57-03_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771452.209308833] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-23-22_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771452.772320008] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-25-27_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771453.088481634] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-27-15_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771453.284707178] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-29-02_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771453.675119723] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-31-01_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771453.954629614] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-32-48_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771454.342979231] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-37-43_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771454.657283386] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-22T12-38-59_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771454.905984395] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-00-02_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771455.218230631] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-12-28_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771456.884881478] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-23T15-17-59_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771460.919733818] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-47-02_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771461.364331263] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-49-14_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771461.678661676] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-51-44_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771461.851604529] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T11-53-44_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+bag 181/238: trip diffs so far 0
+[INFO] [1792771462.589331961] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-02-02_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771464.784094195] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-04-33_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771466.856055662] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-09-55_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771468.751630107] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-13-06_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771470.834491242] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-15-33_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771473.709282192] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-19-28_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771475.740613822] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-22-01_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771477.431870125] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-24T12-24-22_mission-llm_e8f5ca47b036/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771478.985110591] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-28-19_mission-llm_fd5d8fd4f171/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771479.773109411] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-30-03_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771481.072061783] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-31-28_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771483.717686706] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-34-28_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771484.357901962] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-36-35_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771485.253292553] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-38-17_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771485.987352902] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-09-30T15-39-54_mission-llm_d467d7d7ba04/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771486.695512453] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-16-37_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771487.201916087] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-19-14_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771488.245024733] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-22-05_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771489.022249872] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-24-50_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771489.780136754] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-29-36_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+bag 201/238: trip diffs so far 0
+[INFO] [1792771490.318735254] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-33-02_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771491.227362568] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-01T09-36-57_mission-llm_536cba700065/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771500.816609872] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-27-18_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771538.207357763] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-34-26_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771545.893524682] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T11-39-35_mission-llm_926f7913d041/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771546.099949010] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-25-10_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771546.925014292] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-08T12-29-44_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771550.368356074] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-10-47_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771552.765579690] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-17-36_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771554.542178826] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T11-33-21_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771555.946124603] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-05-41_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771558.203030926] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-13T15-13-56_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771560.580732296] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-11-30_mission-llm_be55eb2392c4/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771561.792080764] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-12-37_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771562.341846606] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-14T13-15-20_mission-llm_2b356aac445f/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771562.787343177] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-15T15-18-27_mission-llm_86cff518e42d/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771564.662025887] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-21T12-25-22_mission-20261021T142038-bf7938.mission/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771566.776521934] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-05-38_mission-llm_5e38c1a86f41/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771567.117699539] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-07-54_mission-20261022T140738-2661d2.mission/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771568.282617267] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-09-17_mission-20261022T140856-2661d2.mission/bag/bag_0.db3' for READ_ONLY.
+bag 221/238: trip diffs so far 0
+[INFO] [1792771569.400412166] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T12-11-04_mission-20261022T141051-bf7938.mission/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771574.263847043] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-35-30_mission-straight_until_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771580.099932915] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-41-16_mission-straight_until_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771582.927857645] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-50-53_mission-person_then_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771584.118745675] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-54-01_mission-person_then_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771584.995019508] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-55-23_mission-person_then_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771588.496709216] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T14-56-20_mission-straight_until_potted_plant/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771591.069054402] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-40-33_mission-go_to_person/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771595.492878201] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-46-24_mission-go_to_person_1m/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771598.566085393] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-22T15-50-16_mission-go_to_person_1m/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771603.654889394] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T13-55-40_mission-llm_38d747d91edf/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771607.720224431] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-01-54_mission-llm_38d747d91edf/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771622.913137914] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-08-26_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771627.480362327] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-09-11_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771629.296584970] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-09-51_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771631.273817915] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T14-13-35_mission-approach_wall_then_chair/bag/bag_0.db3' for READ_ONLY.
+[INFO] [1792771639.315255071] [rosbag2_storage]: Opened database '/home/andreas/f1tenth_archive/mission_row/2026-10-23T15-26-28_mission-llm_ac24d6eb5bda/bag/bag_0.db3' for READ_ONLY.
+{
+ "groups": {
+  "synthetic": {
+   "cases": 3184,
+   "py_trips": 444,
+   "rs_trips": 444,
+   "trip_diff": 0,
+   "stop_ne_py": 12
+  },
+  "bag": {
+   "cases": 145368,
+   "py_trips": 9841,
+   "rs_trips": 9841,
+   "trip_diff": 0,
+   "stop_ne_py": 0
+  },
+  "bag+obstacle": {
+   "cases": 101813,
+   "py_trips": 30858,
+   "rs_trips": 30858,
+   "trip_diff": 0,
+   "stop_ne_py": 0
+  }
+ },
+ "max_min_abs_diff": 0.0,
+ "min_bitexact": 244462,
+ "min_compared": 244462,
+ "fail_safe_reasons": {
+  "invalid_beams": 7,
+  "too_close_unquantified": 3,
+  "empty_scan": 1,
+  "no_front_beams": 1
+ }
+}
+TOTAL 250365 cases, trip diffs 0, unexplained stop diffs 0
+
+real	7m15.860s
+user	5m37.000s
+sys	0m10.945s

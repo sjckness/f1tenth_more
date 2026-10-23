@@ -2,14 +2,17 @@
 //!
 //! stdin: JSON lines (f1tenth_costmap_boundary_rs::replay::Case); stdout: one
 //! JSON object per pose. A malformed line is an error on stderr and exit
-//! status 1 after the remaining lines, never a silent skip.
+//! status 1 after the remaining lines, never a silent skip. The first stderr
+//! line is the build (build_info), which the harness's timing depends on.
 
 use std::io::{self, BufRead, Write};
 use std::process::ExitCode;
 
+use f1tenth_costmap_boundary_rs::build_info;
 use f1tenth_costmap_boundary_rs::replay::run_line;
 
 fn main() -> ExitCode {
+    eprintln!("costmap_boundary_replay {}", build_info::summary());
     let mut out = io::BufWriter::new(io::stdout().lock());
     let mut failed = false;
     for (n, line) in io::stdin().lock().lines().enumerate() {

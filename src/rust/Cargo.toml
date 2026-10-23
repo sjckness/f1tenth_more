@@ -18,3 +18,14 @@ members = [
     "f1tenth_proximity_guard",
     "f1tenth_costmap_boundary_rs",
 ]
+
+# colcon-ros-cargo builds with `cargo ament-build` and no `--release`, i.e.
+# cargo's dev profile: every installed Rust binary was an opt-level 0 build
+# until 2026-10-23 (R0). Profiles are read from the workspace root only, so
+# this applies to every member and to their dependencies (rclrs, serde_json).
+# debug_assertions and overflow checks stay on (dev defaults); each binary
+# logs its build at startup (src/build_info.rs in each member). Rust never
+# contracts or reassociates float operations, so the opt-level does not change
+# results (parity re-run in output/rust_main/r0.md).
+[profile.dev]
+opt-level = 3

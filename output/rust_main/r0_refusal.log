@@ -1,0 +1,38 @@
+=== args: []
+[INFO] [1792771302.188632722] [costmap_boundary_node]: costmap_boundary_node (Rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[INFO] [1792771302.203381006] [costmap_boundary_node]: costmap_boundary_node (Rust) started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=10.0 (publishes every tick from whatever is cached; empty/withheld only until a map a
+[WARN] [1792771302.303594550] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
+[ros2run]: Interrupt
+exit 124
+=== args: [-p component_filter:=true]
+[INFO] [1792771306.188151399] [costmap_boundary_node]: costmap_boundary_node (Rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[ERROR] [1792771306.188204977] [costmap_boundary_node]: configuration error: component_filter:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py)
+[costmap_boundary_node] fatal: component_filter:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py)
+[ros2run]: Process exited with failure 1
+exit 1
+=== args: [-p exclude_tracked_object_cells:=true]
+[INFO] [1792771306.555340348] [costmap_boundary_node]: costmap_boundary_node (Rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[ERROR] [1792771306.555386416] [costmap_boundary_node]: configuration error: exclude_tracked_object_cells:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py)
+[costmap_boundary_node] fatal: exclude_tracked_object_cells:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py)
+[ros2run]: Process exited with failure 1
+exit 1
+=== args: [-p component_filter:=true -p exclude_tracked_object_cells:=true]
+[INFO] [1792771306.916283910] [costmap_boundary_node]: costmap_boundary_node (Rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[ERROR] [1792771306.916326890] [costmap_boundary_node]: configuration error: component_filter:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py); exclude_tracked_object_cells:=true is not ported to Rust: run impl:=py (costm
+[costmap_boundary_node] fatal: component_filter:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py); exclude_tracked_object_cells:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py)
+[ros2run]: Process exited with failure 1
+exit 1
+=== launch costmap_boundary_impl:=rust costmap_boundary_component_filter:=true
+[INFO] [semantic_layer_node-1]: process started with pid [2148193]
+[INFO] [costmap_renderer_node-2]: process started with pid [2148194]
+[INFO] [costmap_boundary_node-3]: process started with pid [2148195]
+[costmap_boundary_node-3] [INFO] [1792771315.853803017] [costmap_boundary_node]: costmap_boundary_node (Rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[costmap_boundary_node-3] [ERROR] [1792771315.853882892] [costmap_boundary_node]: configuration error: component_filter:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py)
+[costmap_boundary_node-3] [costmap_boundary_node] fatal: component_filter:=true is not ported to Rust: run impl:=py (costmap.launch.py costmap_boundary_impl:=py)
+=== launch costmap_boundary_impl:=rust 
+[INFO] [semantic_layer_node-1]: process started with pid [2148396]
+[INFO] [costmap_renderer_node-2]: process started with pid [2148397]
+[INFO] [costmap_boundary_node-3]: process started with pid [2148398]
+[costmap_boundary_node-3] [INFO] [1792771323.935456007] [costmap_boundary_node]: costmap_boundary_node (Rust) build: cargo profile debug, opt-level 3, debug_assertions on
+[costmap_boundary_node-3] [INFO] [1792771323.938471587] [costmap_boundary_node]: costmap_boundary_node (Rust) started -- map_topic=/slam/map pose_topic=/ekf_global/odometry/filtered extraction_rate_hz=10.0 (publishes every tick from whateve
+[costmap_boundary_node-3] [WARN] [1792771324.038595545] [costmap_boundary_node]: publishing EMPTY boundary constraints, front_clearance withheld -- map_topic: no message ever received; pose_topic: no message ever received
