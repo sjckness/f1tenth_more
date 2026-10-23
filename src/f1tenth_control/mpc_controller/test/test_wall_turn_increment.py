@@ -71,23 +71,26 @@ FINE = [round(5.0 - 0.1 * i, 2) for i in range(51)]
 
 def _step(turn, progress, d_front, v_ref=0.5, n_steps=N_STEPS, ts=TS,
           k_safety=K_SAFETY, committed=False, prev_commanded_rot=None,
-          commit_on_unknown_first_rebuild=True):
+          commit_on_unknown_first_rebuild=True, commit_lead=0.0):
     return plan_wall_turn_step(
         turn, progress, d_front,
         wheelbase=WHEELBASE, delta_min=DELTA_MIN, delta_max=DELTA_MAX,
         k_safety=k_safety, safety_margin=MARGIN,
         n_steps=n_steps, ts=ts, v_ref=v_ref,
         committed=committed, prev_commanded_rot=prev_commanded_rot,
-        commit_on_unknown_first_rebuild=commit_on_unknown_first_rebuild)
+        commit_on_unknown_first_rebuild=commit_on_unknown_first_rebuild,
+        commit_lead=commit_lead)
 
 
-def _approach(turn, d_fronts, carried=1.0, v_ref=0.5, commit_on_unknown_first_rebuild=True):
+def _approach(turn, d_fronts, carried=1.0, v_ref=0.5, commit_on_unknown_first_rebuild=True,
+              commit_lead=0.0):
     """Rebuild once per dFront sample; return [(progress_before, step)]."""
     progress, committed, prev, out = 0.0, False, None, []
     for d_front in d_fronts:
         step = _step(turn, progress, d_front, v_ref=v_ref,
                      committed=committed, prev_commanded_rot=prev,
-                     commit_on_unknown_first_rebuild=commit_on_unknown_first_rebuild)
+                     commit_on_unknown_first_rebuild=commit_on_unknown_first_rebuild,
+                     commit_lead=commit_lead)
         out.append((progress, step))
         committed, prev = step.committed, step.commanded_rot
         progress += carried * step.dpsi_this
@@ -99,9 +102,11 @@ def _in_turn_sense(turn, value):
 
 
 def _feasible(step):
-    """1.5 * |dpsi_this| / d_avail <= 1 / R_min, with d_avail == 0 meaning no turn."""
+    """1.5 * |dpsi_this| / d_avail <= 1 / R_min, with d_avail == 0 meaning the
+    distance cap is lifted (2026-10-23 fix) and the horizon cap is what
+    bounds dpsi_this instead -- never 0, see TestInsideTheSafetyMargin."""
     if step.d_avail == 0.0:
-        return step.dpsi_this == 0.0
+        return abs(step.dpsi_this) <= step.dpsi_by_horizon + 1e-12
     return (SMOOTHSTEP_PEAK_SLOPE * abs(step.dpsi_this) / step.d_avail
             <= 1.0 / step.r_min + 1e-12)
 
@@ -124,6 +129,49 @@ class TestFarFromTheWall(unittest.TestCase):
         trigger = wall_turn_trigger_distance(TURN_74, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN)
         self.assertTrue(_step(TURN_74, 0.0, trigger).committed)
         self.assertGreater(_step(TURN_74, 0.0, trigger).dpsi_this, 0.0)
+
+
+class TestCommitLead(unittest.TestCase):
+    """corr_wall_turn_commit_lead_m moves the gate and nothing else."""
+
+    LEAD = 0.4
+
+    def test_the_lead_moves_the_trigger_out_by_exactly_the_lead(self):
+        for turn in (TURN_74, -TURN_74, TURN_90, -TURN_90):
+            bound = DELTA_MAX if turn > 0 else DELTA_MIN
+            base = wall_turn_trigger_distance(turn, WHEELBASE, bound, K_SAFETY, MARGIN)
+            led = wall_turn_trigger_distance(turn, WHEELBASE, bound, K_SAFETY, MARGIN,
+                                             commit_lead=self.LEAD)
+            self.assertAlmostEqual(led - base, self.LEAD, delta=1e-12)
+            self.assertFalse(_step(turn, 0.0, led + 0.01, commit_lead=self.LEAD).committed)
+            self.assertTrue(_step(turn, 0.0, led, commit_lead=self.LEAD).committed)
+            # Between the two triggers only the led gate commits.
+            self.assertFalse(_step(turn, 0.0, base + 0.2).committed)
+            self.assertTrue(_step(turn, 0.0, base + 0.2, commit_lead=self.LEAD).committed)
+
+    def test_the_lead_leaves_the_increment_of_a_committed_turn_alone(self):
+        for d_front in (3.0, 2.0, 1.5, 1.0, 0.7, 0.5):
+            plain = _step(TURN_90, 0.4, d_front, committed=True, prev_commanded_rot=0.9)
+            led = _step(TURN_90, 0.4, d_front, committed=True, prev_commanded_rot=0.9,
+                        commit_lead=self.LEAD)
+            self.assertEqual(led, plain)
+
+    def test_a_negative_lead_is_no_lead(self):
+        trigger = wall_turn_trigger_distance(TURN_90, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN)
+        self.assertEqual(
+            wall_turn_trigger_distance(TURN_90, WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN,
+                                       commit_lead=-1.0), trigger)
+        self.assertTrue(_step(TURN_90, 0.0, trigger, commit_lead=-1.0).committed)
+
+    def test_an_approach_with_the_lead_finishes_with_more_distance_in_hand(self):
+        # 1 Hz at 0.45 m/s, from R012's 3.24 m start.
+        seq = [round(3.24 - 0.45 * i, 2) for i in range(8)]
+        plain = _approach(TURN_90, seq)
+        led = [s for _p, s in _approach(TURN_90, seq, commit_lead=self.LEAD)]
+        first = next(i for i, (_p, s) in enumerate(plain) if s.committed)
+        first_led = next(i for i, s in enumerate(led) if s.committed)
+        self.assertEqual(first_led, first - 1)
+        self.assertAlmostEqual(sum(s.dpsi_this for s in led), TURN_90, delta=1e-12)
 
 
 class TestTheApproach(unittest.TestCase):
@@ -253,24 +301,56 @@ class TestEachDirectionUsesItsOwnSteeringBound(unittest.TestCase):
 
 
 class TestInsideTheSafetyMargin(unittest.TestCase):
-    """Required test 7."""
+    """Required test 7.
 
-    def test_d_avail_clamps_at_zero_with_no_division_and_no_inverted_turn(self):
+    FIXED 2026-10-23: d_avail still clamps at 0 inside the margin, but once
+    committed that no longer freezes dpsi_by_dist (and so dpsi_this) at 0 --
+    see wall_turn.py's 'A WALL INSIDE THE MARGIN, COMMITTED' section. The old
+    freeze pinned cmd_rot forever while the car sat at the margin, confirmed
+    live on R017/M05_turn_left_wall (held at 46.6 deg of a commanded 90,
+    dFront flat at 0.14 m for 20+ s, then contact)."""
+
+    def test_d_avail_clamps_at_zero_but_the_cap_lifts_once_committed(self):
         for turn in (TURN_74, -TURN_74):
+            sense = 1.0 if turn > 0 else -1.0
             for d_front in (MARGIN, MARGIN - 1e-9, 0.5, 0.0):
                 step = _step(turn, 0.0, d_front)
                 self.assertEqual(step.d_avail, 0.0)
-                self.assertEqual(step.dpsi_by_dist, 0.0)
                 self.assertTrue(step.committed)
-                self.assertEqual(step.dpsi_this, 0.0)
+                self.assertEqual(step.dpsi_by_dist, math.inf)
+                # Horizon-capped, same as an unknown dFront post-commit --
+                # not frozen, and not inverted.
+                self.assertEqual(step.dpsi_this, sense * step.dpsi_by_horizon)
 
-    def test_a_held_end_heading_inside_the_margin_keeps_the_turns_sign(self):
+    def test_a_wall_already_inside_the_margin_does_not_freeze_a_committed_turn(self):
         for turn in (TURN_74, -TURN_74):
             sense = 1.0 if turn > 0 else -1.0
             step = _step(turn, sense * 0.4, 0.3, committed=True,
                          prev_commanded_rot=sense * 0.6)
-            self.assertTrue(step.held)
-            self.assertAlmostEqual(step.dpsi_this, sense * 0.2, delta=1e-12)
+            # The distance cap is lifted, so the ratchet has nothing to hold
+            # against: the ask is the horizon cap (or the remainder, if
+            # smaller), not the stale end heading from prev_commanded_rot.
+            self.assertFalse(step.held)
+            expected = sense * min(abs(turn) - 0.4, step.dpsi_by_horizon)
+            self.assertAlmostEqual(step.dpsi_this, expected, delta=1e-12)
+            self.assertGreater(abs(step.dpsi_this), 0.2)
+
+    def test_pinned_at_the_margin_with_no_real_progress_the_ask_does_not_decay(self):
+        """The regression test for the stall. R017 (2026-10-23) held dFront
+        at ~0.14 m -- inside the 0.5 m margin -- for 20+ s while the car's
+        real yaw barely moved, and dpsi_this decayed from 0.1672 toward
+        0.147: the ratchet re-floored the ask at the SAME frozen cmd_rot
+        every rebuild because dpsi_by_dist was 0 (the old bug). carried=0.0
+        below is the worst case this scripts directly -- a car making zero
+        real progress on the ask -- and the ask must stay at the horizon
+        cap, not decay toward 0, every one of the 20 rebuilds."""
+        seq = [0.46] + [0.14] * 20
+        for turn in (TURN_90, -TURN_90):
+            steps = _approach(turn, seq, carried=0.0)
+            for _p, s in steps:
+                self.assertTrue(s.committed)
+                self.assertFalse(s.held)
+                self.assertAlmostEqual(abs(s.dpsi_this), s.dpsi_by_horizon, delta=1e-12)
 
 
 class TestChatter(unittest.TestCase):
@@ -310,14 +390,21 @@ class TestChatter(unittest.TestCase):
             self.assertAlmostEqual(steps[-1][1].commanded_rot, turn, delta=1e-12)
 
     def test_without_the_ratchet_the_same_jitter_would_retreat(self):
-        """The raw distance-capped end heading, for the same rebuilds, does go backwards."""
+        """The raw distance-capped end heading, for the same rebuilds, does
+        go backwards. dFront stays well above the margin throughout (0.7 to
+        2.8 m) so this is jitter alone, not the margin relief above: the
+        2026-10-23 fix lifts the distance cap only once d_avail hits 0, and
+        closes off the one dip _jittered() happened to exercise (its tail
+        runs down to 0.0 m), so this uses its own mid-range sequence."""
+        seq = [2.6, 1.1, 0.7, 1.3, 0.9]
         retreated = 0
-        for turn, seed, carried in self.CASES:
+        for turn in (TURN_74, -TURN_74, TURN_90, -TURN_90):
             raw = []
-            for progress, step in _approach(turn, self._jittered(seed), carried):
+            for progress, step in _approach(turn, seq, carried=0.35):
                 if not step.committed:
                     raw.append(0.0)
                     continue
+                self.assertGreater(step.d_avail, 0.0)
                 ask = min(abs(step.dpsi_rem), step.dpsi_by_dist, step.dpsi_by_horizon)
                 raw.append(_in_turn_sense(turn, progress) + ask * (
                     1.0 if _in_turn_sense(turn, step.dpsi_rem) >= 0.0 else -1.0))
@@ -541,6 +628,17 @@ class TestCorridorWiring(unittest.TestCase):
         self.assertTrue(fake.wall_turn_committed)
         self.assertNotEqual(corridor['psiRefTurn'], 0.0)
         self.assertEqual(corridor['dFront'], trigger - 0.1)
+
+    def test_the_node_passes_its_commit_lead_to_the_gate(self):
+        trigger = wall_turn_trigger_distance(
+            math.radians(74.5), WHEELBASE, DELTA_MAX, K_SAFETY, MARGIN)
+        plain = _FakeMPC(d_front=trigger + 0.2)
+        _build(plain, 0.2)
+        self.assertFalse(plain.wall_turn_committed)
+        led = _FakeMPC(d_front=trigger + 0.2)
+        led.corr_wall_turn_commit_lead_m = 0.4
+        _build(led, 0.2)
+        self.assertTrue(led.wall_turn_committed)
 
     def test_semantic_casts_along_the_start_heading_plus_the_turn_so_far(self):
         fake = _FakeMPC(d_front=6.0, source='semantic', psi_base=0.2)
