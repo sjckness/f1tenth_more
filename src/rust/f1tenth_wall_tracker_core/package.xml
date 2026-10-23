@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>f1tenth_wall_tracker_core</name>
+  <version>0.1.0</version>
+  <description>lidar_front_wall_node's multi-wall tracker and per-cycle wall fusion in Rust: a ROS-free C-ABI library (libf1tenth_wall_tracker_core.so) that f1tenth_perception loads with ctypes when wall_tracker_impl is rust</description>
+  <maintainer email="andreas21steffens@gmail.com">andreas</maintainer>
+  <license>Apache-2.0</license>
+
+  <!-- No ROS dependencies: plain Rust, C ABI in src/ffi.rs. -->
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

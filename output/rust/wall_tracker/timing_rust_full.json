@@ -1,0 +1,430 @@
+{
+ "host": "linus",
+ "cpu": "x86_64",
+ "python": "3.12.3",
+ "loadavg": [
+  2.4443359375,
+  2.4765625,
+  2.6279296875
+ ],
+ "results": [
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-35-30_mission-straight_until_potted_plant",
+   "cycles_mode": "car",
+   "stereo": "full",
+   "cycles": 286,
+   "cycles_with_tracker": 286,
+   "repeat": 3,
+   "overrides": {
+    "wall_tracker_impl": "rust"
+   },
+   "tracker_ms": {
+    "n": 286,
+    "p50": 3.4104,
+    "p95": 4.1941,
+    "mean": 3.4769,
+    "max": 4.5592
+   },
+   "scan_callback_ms": {
+    "n": 286,
+    "p50": 5.8843,
+    "p95": 6.5264,
+    "mean": 5.7833,
+    "max": 7.3615
+   },
+   "tracker_ms_instrumented": {
+    "n": 286,
+    "p50": 3.6357,
+    "p95": 4.6836,
+    "mean": 3.7476,
+    "max": 5.0363
+   },
+   "overhead_ms_p50": 0.2254,
+   "stages_exclusive_ms": {
+    "mwt.extract_lines": {
+     "n": 286,
+     "p50": 0.3997,
+     "p95": 0.6227,
+     "mean": 0.4249,
+     "max": 0.7101,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 286,
+     "p50": 0.0179,
+     "p95": 0.0359,
+     "mean": 0.0183,
+     "max": 0.0414,
+     "calls_per_cycle": 1.23
+    },
+    "mwt.line_to_wall_line": {
+     "n": 286,
+     "p50": 0.1087,
+     "p95": 0.1865,
+     "mean": 0.1157,
+     "max": 0.2296,
+     "calls_per_cycle": 7.48
+    },
+    "mwt.propagate_objects": {
+     "n": 286,
+     "p50": 0.0309,
+     "p95": 0.0365,
+     "mean": 0.0243,
+     "max": 0.0636,
+     "calls_per_cycle": 0.99
+    },
+    "mwt.scan_in_base_link": {
+     "n": 286,
+     "p50": 0.193,
+     "p95": 0.4348,
+     "mean": 0.2025,
+     "max": 0.6459,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 286,
+     "p50": 0.113,
+     "p95": 0.232,
+     "mean": 0.1308,
+     "max": 0.2542,
+     "calls_per_cycle": 3.85
+    },
+    "mwt.to_wall_line": {
+     "n": 286,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0009,
+     "max": 0.0241,
+     "calls_per_cycle": 0.04
+    },
+    "mwt.track_in_base_link": {
+     "n": 286,
+     "p50": 0.0666,
+     "p95": 0.127,
+     "mean": 0.0801,
+     "max": 0.1795,
+     "calls_per_cycle": 1.27
+    },
+    "node._publish": {
+     "n": 286,
+     "p50": 0.0174,
+     "p95": 0.0208,
+     "mean": 0.0178,
+     "max": 0.0524,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 286,
+     "p50": 1.551,
+     "p95": 2.0384,
+     "mean": 1.5902,
+     "max": 2.4793,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 286,
+     "p50": 0.0619,
+     "p95": 0.0743,
+     "mean": 0.0625,
+     "max": 0.0948,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 286,
+     "p50": 0.1646,
+     "p95": 0.3147,
+     "mean": 0.1919,
+     "max": 0.4781,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 286,
+     "p50": 0.0244,
+     "p95": 0.0293,
+     "mean": 0.0246,
+     "max": 0.0473,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 286,
+     "p50": 0.0006,
+     "p95": 0.0008,
+     "mean": 0.0006,
+     "max": 0.0011,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 286,
+     "p50": 0.6611,
+     "p95": 0.7294,
+     "mean": 0.6006,
+     "max": 1.226,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 286,
+     "p50": 0.1303,
+     "p95": 0.2261,
+     "mean": 0.1305,
+     "max": 0.2761,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 286,
+     "p50": 0.1305,
+     "p95": 0.1732,
+     "mean": 0.1342,
+     "max": 0.7138,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.front_reason": {
+     "n": 286,
+     "p50": 0.0108,
+     "p95": 0.0229,
+     "mean": 0.0132,
+     "max": 0.0266,
+     "calls_per_cycle": 1.23
+    },
+    "tracker.front_track": {
+     "n": 286,
+     "p50": 0.0462,
+     "p95": 0.0511,
+     "mean": 0.0465,
+     "max": 0.0919,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.published": {
+     "n": 286,
+     "p50": 0.0401,
+     "p95": 0.0462,
+     "mean": 0.0407,
+     "max": 0.0763,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.step": {
+     "n": 286,
+     "p50": 0.2759,
+     "p95": 0.3821,
+     "mean": 0.2835,
+     "max": 0.4266,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 286,
+     "p50": 0.1128,
+     "p95": 0.1487,
+     "mean": 0.1132,
+     "max": 0.1615,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 7.2
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T15-50-16_mission-go_to_person_1m",
+   "cycles_mode": "car",
+   "stereo": "full",
+   "cycles": 293,
+   "cycles_with_tracker": 288,
+   "repeat": 3,
+   "overrides": {
+    "wall_tracker_impl": "rust"
+   },
+   "tracker_ms": {
+    "n": 288,
+    "p50": 3.7602,
+    "p95": 4.4465,
+    "mean": 3.7248,
+    "max": 4.9365
+   },
+   "scan_callback_ms": {
+    "n": 288,
+    "p50": 5.9643,
+    "p95": 7.0097,
+    "mean": 5.9455,
+    "max": 7.9242
+   },
+   "tracker_ms_instrumented": {
+    "n": 288,
+    "p50": 4.1364,
+    "p95": 5.0807,
+    "mean": 4.1446,
+    "max": 5.6658
+   },
+   "overhead_ms_p50": 0.3761,
+   "stages_exclusive_ms": {
+    "mwt.extract_lines": {
+     "n": 288,
+     "p50": 0.4535,
+     "p95": 0.6282,
+     "mean": 0.4762,
+     "max": 0.7334,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 288,
+     "p50": 0.0298,
+     "p95": 0.0482,
+     "mean": 0.0305,
+     "max": 0.0529,
+     "calls_per_cycle": 1.97
+    },
+    "mwt.line_to_wall_line": {
+     "n": 288,
+     "p50": 0.1262,
+     "p95": 0.1932,
+     "mean": 0.1364,
+     "max": 0.2407,
+     "calls_per_cycle": 8.81
+    },
+    "mwt.propagate_objects": {
+     "n": 288,
+     "p50": 0.033,
+     "p95": 0.0369,
+     "mean": 0.0334,
+     "max": 0.043,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.scan_in_base_link": {
+     "n": 288,
+     "p50": 0.2099,
+     "p95": 0.3547,
+     "mean": 0.2358,
+     "max": 0.5257,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 288,
+     "p50": 0.2129,
+     "p95": 0.2898,
+     "mean": 0.2201,
+     "max": 0.3331,
+     "calls_per_cycle": 6.91
+    },
+    "mwt.track_in_base_link": {
+     "n": 288,
+     "p50": 0.1208,
+     "p95": 0.1794,
+     "mean": 0.1202,
+     "max": 0.2017,
+     "calls_per_cycle": 1.97
+    },
+    "node._publish": {
+     "n": 288,
+     "p50": 0.0179,
+     "p95": 0.0209,
+     "mean": 0.0181,
+     "max": 0.0299,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 288,
+     "p50": 1.8063,
+     "p95": 2.2439,
+     "mean": 1.7936,
+     "max": 2.4535,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 288,
+     "p50": 0.0639,
+     "p95": 0.0769,
+     "mean": 0.0645,
+     "max": 0.1011,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 288,
+     "p50": 0.2629,
+     "p95": 0.4381,
+     "mean": 0.2793,
+     "max": 0.9401,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 288,
+     "p50": 0.0259,
+     "p95": 0.0318,
+     "mean": 0.0264,
+     "max": 0.0379,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 288,
+     "p50": 0.0006,
+     "p95": 0.0009,
+     "mean": 0.0006,
+     "max": 0.0015,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 288,
+     "p50": 0.647,
+     "p95": 0.7521,
+     "mean": 0.4305,
+     "max": 0.8246,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 288,
+     "p50": 0.1844,
+     "p95": 0.2625,
+     "mean": 0.192,
+     "max": 0.3429,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 288,
+     "p50": 0.1629,
+     "p95": 0.1966,
+     "mean": 0.1643,
+     "max": 0.3341,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.front_reason": {
+     "n": 288,
+     "p50": 0.0209,
+     "p95": 0.0314,
+     "mean": 0.0208,
+     "max": 0.0351,
+     "calls_per_cycle": 1.97
+    },
+    "tracker.front_track": {
+     "n": 288,
+     "p50": 0.0483,
+     "p95": 0.053,
+     "mean": 0.0484,
+     "max": 0.0647,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.published": {
+     "n": 288,
+     "p50": 0.0427,
+     "p95": 0.0478,
+     "mean": 0.0429,
+     "max": 0.0579,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.step": {
+     "n": 288,
+     "p50": 0.355,
+     "p95": 0.4417,
+     "mean": 0.3618,
+     "max": 0.5225,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 288,
+     "p50": 0.1292,
+     "p95": 0.1668,
+     "mean": 0.1345,
+     "max": 0.1868,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 7.6
+  }
+ ]
+}

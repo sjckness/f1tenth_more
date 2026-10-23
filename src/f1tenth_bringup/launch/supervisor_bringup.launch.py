@@ -210,6 +210,15 @@ def generate_launch_description():
     hard_stop_impl_la = DeclareLaunchArgument(
         'hard_stop_impl', default_value=str(hard_stop_impl_default), choices=['py', 'rust'],
         description=hard_stop_impl_desc)
+    # wall_tracker_impl -> lidar_front_wall.launch.py wall_tracker_impl: which
+    # implementation runs lidar_front_wall_node's wall tracker (R6). Default
+    # from stack_params.yaml (py), the same as the launch file's own.
+    # stack_bringup.launch.py does not start lidar_front_wall_node (it is a
+    # supervisor component only), so only this bringup takes it.
+    wall_tracker_impl_default, wall_tracker_impl_desc = get_default('wall_tracker_impl')
+    wall_tracker_impl_la = DeclareLaunchArgument(
+        'wall_tracker_impl', default_value=str(wall_tracker_impl_default),
+        choices=['py', 'rust'], description=wall_tracker_impl_desc)
 
     enable_intelligence_default, enable_intelligence_desc = get_default('enable_intelligence')
     enable_intelligence_la = DeclareLaunchArgument(
@@ -291,6 +300,8 @@ def generate_launch_description():
                 LaunchConfiguration('mpc_solver_impl'), value_type=str),
             'hard_stop_impl': ParameterValue(
                 LaunchConfiguration('hard_stop_impl'), value_type=str),
+            'wall_tracker_impl': ParameterValue(
+                LaunchConfiguration('wall_tracker_impl'), value_type=str),
             'enable_intelligence': LaunchConfiguration('enable_intelligence'),
             'enable_comms': LaunchConfiguration('enable_comms'),
             'components_config': LaunchConfiguration('components_config'),
@@ -340,6 +351,7 @@ def generate_launch_description():
         corridor_impl_la,
         mpc_solver_impl_la,
         hard_stop_impl_la,
+        wall_tracker_impl_la,
         enable_intelligence_la,
         enable_comms_la,
         components_config_la,

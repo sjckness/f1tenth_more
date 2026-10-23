@@ -298,6 +298,12 @@ without it, the node logs an ERROR at startup and the tracker stays off.
     the gap / chassis rejection counters, and tracker_ms.
   * The scan pose is /odometry/filtered interpolated at the scan stamp, the
     pose the EKF also publishes as odom -> base_link.
+  * wall_tracker_impl (stack_params.yaml, default py; read-only): 'rust' runs
+    the tracker and the per-cycle fusion (observations, rectangle
+    verification) in f1tenth_wall_tracker_core through
+    wall_tracker_backend.py, the same results bit for bit
+    (output/rust/parity_wall_tracker.md); every reader still gets
+    multi_wall_tracker.Track objects. Not loadable: the node refuses to start.
 
 DOOR DETECTION (door_detection_enabled, stack_params.yaml; default false)
 --------------------------------------------------------------------------
@@ -381,6 +387,7 @@ from geometry_msgs.msg import Point, Vector3
 from visualization_msgs.msg import Marker, MarkerArray
 import rclpy
 from nav_msgs.msg import Odometry
+from rcl_interfaces.msg import ParameterDescriptor
 from std_msgs.msg import String
 from vision_msgs.msg import Detection3DArray
 from rclpy.node import Node
@@ -412,6 +419,7 @@ from corridor_perception import extraction
 from f1tenth_perception import door_detection, door_markers
 from f1tenth_perception import multi_wall_tracker as mwt
 from f1tenth_perception import scene_labels, scene_mask, wall_fusion, wall_markers
+from f1tenth_perception import wall_tracker_backend
 from f1tenth_perception.ground_plane import quat_to_matrix
 from f1tenth_perception.latest_frame_qos import LATEST_FRAME_QOS
 
@@ -768,8 +776,28 @@ class LidarFrontWallNode(Node):
         #: The z rows and their weights, built once: nothing about them
         #: depends on the scan or the wall (performance rules).
         self._rect_grid = wall_fusion.rect_grid(rect_params)
-        self.wall_tracker = (mwt.MultiWallTracker(tracker_params, rect_params)
+        # WHICH TRACKER (wall_tracker_backend.py, stack_params wall_tracker_impl):
+        # 'py' this package's multi_wall_tracker, 'rust' the same tracker in
+        # f1tenth_wall_tracker_core. Read once, at start (read-only: a run-time
+        # set would be accepted and ignored). rust requested but not loadable
+        # refuses the start (RuntimeError) rather than running the Python.
+        self.wall_tracker_impl = wall_tracker_backend.require(str(self.declare_parameter(
+            'wall_tracker_impl', wall_tracker_backend.default_impl(),
+            ParameterDescriptor(read_only=True)).value))
+        self.wall_tracker = (mwt.MultiWallTracker(tracker_params, rect_params,
+                                                  impl=self.wall_tracker_impl)
                              if self.use_wall_tracker else None)
+        if self.wall_tracker is not None:
+            self.get_logger().info(
+                f'wall tracker: {wall_tracker_backend.describe(self.wall_tracker_impl)}')
+        #: The per-cycle fusion (observations, rectangle verification) follows
+        #: the same switch: wall_tracker_backend.fusion_cycle / verify_rectangles.
+        self._native_fusion = self.wall_tracker_impl == 'rust'
+        #: (the PointCloud2 decoded last, its (M, 3) points or None).
+        self._cloud_cache = (None, None)
+        #: The rust path's last cross-check (wall_fusion.cross_check_profile's
+        #: dict), for tools; the py path's is wall_fusion's own return value.
+        self._last_check = None
         #: This cycle's rectangle verdicts by track id, for the debug payload.
         self._rect_verdicts = {}
         #: Objects whose centre is behind a confirmed wall this cycle. The
@@ -1185,7 +1213,9 @@ class LidarFrontWallNode(Node):
         scale = labels.shape[1] / float(profile.width)
         t0 = time.perf_counter()
         segments = [mwt.segment_in_base_link(trk, car) for trk in tracks]
-        verdicts = wall_fusion.verify_rectangles(
+        verify = (wall_tracker_backend.verify_rectangles if self._native_fusion
+                  else wall_fusion.verify_rectangles)
+        verdicts = verify(
             segments, labels, depth,
             float(profile.fx) * scale, float(profile.fy) * scale,
             float(profile.cx) * scale, float(profile.cy) * scale,
@@ -1240,6 +1270,8 @@ class LidarFrontWallNode(Node):
             return observations
 
         rot, trans = cam
+        if self._native_fusion:
+            return self._publish_fused_native(stamp, scan_stamp, lines, pts, profile, rot, trans)
         k = (float(profile.fx), float(profile.fy), float(profile.cx), float(profile.cy))
         width = int(profile.width)
 
@@ -1300,6 +1332,66 @@ class LidarFrontWallNode(Node):
         self.observations_pub.publish(_observation_array(
             stamp, self.base_frame, observations, rejected, n_disagree))
         return observations
+
+    def _publish_fused_native(self, stamp, scan_stamp, lines, pts, profile, rot, trans):
+        """Run the fused branch of _publish_observations with wall_tracker_impl rust.
+
+        The same cycle -- the scan carried to the image moment and projected,
+        cross_check_profile, observations_from_lines, stereo_only_observations
+        over the WALL cloud -- computed by f1tenth_wall_tracker_core
+        (wall_tracker_backend.fusion_cycle), the same results bit for bit
+        (output/rust/parity_wall_tracker.md). The odometry poses come from the
+        same PoseHistory lookups _compensate makes; the cloud is decoded once
+        per cloud message.
+        """
+        image_stamp = _stamp_sec(profile.header)
+        compensation = None
+        if abs(image_stamp - scan_stamp) >= 1e-4:
+            pose_scan = self._poses.at(scan_stamp, self.pose_max_extrapolation_s)
+            pose_image = self._poses.at(image_stamp, self.pose_max_extrapolation_s)
+            if pose_scan is None or pose_image is None:
+                self.get_logger().warn(
+                    'no odometry pose to carry the scan to the image stamp; the '
+                    'cross-check runs uncompensated', throttle_duration_sec=10.0)
+            else:
+                compensation = (pose_scan, pose_image)
+        observations, rejected, check = wall_tracker_backend.fusion_cycle(
+            lines, pts, self._laser_z(),
+            (float(profile.fx), float(profile.fy), float(profile.cx), float(profile.cy),
+             rot, trans),
+            int(profile.width), np.asarray(profile.distance_m, dtype=float),
+            np.asarray(profile.z_min, dtype=float), np.asarray(profile.z_max, dtype=float),
+            compensation, self._cloud_points(),
+            tol_base_m=self.obs_tol_base_m, tol_quad_per_m2=self.obs_tol_quad,
+            disagree_reject_frac=self.obs_disagree_reject_frac,
+            stereo_weight=self._stereo_weight, default_height=self.wall_default_height,
+            conf_range_ref_m=self.conf_range_ref_m,
+            conf_min_inlier_ref=self.conf_min_inlier_ref,
+            conf_max_rms_scale=self.conf_max_rms_scale,
+            stereo_min_columns=self.obs_stereo_min_columns, inlier_m=self.inlier_distance_m,
+            min_span_m=self.wall_min_span_m)
+        self._last_check = check
+        n_disagree = int(np.count_nonzero(check['status'] == wall_fusion.STATUS_DISAGREE))
+        if rejected:
+            self.get_logger().warn(
+                f'{rejected} wall observation(s) rejected: the LiDAR and the stereo '
+                f'contradict each other over {n_disagree} column(s). A run of this '
+                'means the extrinsic or the depth is wrong, not that the wall moved.',
+                throttle_duration_sec=5.0)
+        self.observations_pub.publish(_observation_array(
+            stamp, self.base_frame, observations, rejected, n_disagree))
+        return observations
+
+    def _cloud_points(self):
+        """Return the latest WALL cloud as (M, 3) float64, None without one (decoded once)."""
+        held = self._wall_cloud
+        if held is None:
+            return None
+        if self._cloud_cache[0] is not held[1]:
+            pts = read_points_numpy(held[1], field_names=('x', 'y', 'z'), skip_nans=True)
+            pts = np.asarray(pts, dtype=float).reshape(-1, 3)
+            self._cloud_cache = (held[1], pts if pts.shape[0] else None)
+        return self._cloud_cache[1]
 
     def _fresh_profile(self, scan_stamp):
         """(profile, age, weight) of the latest StereoColumns, or (None, age, 0).

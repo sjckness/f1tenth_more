@@ -414,6 +414,8 @@ _SIM_WRAPPER = ('f1tenth_bringup', 'sim_component.launch.py')
 #                      to mpc_corr.launch.py: the RTI solver core, R2)
 #   hard_stop_impl:= -> ackermann_mux.launch.py   hard_stop_impl:=py|rust (the
 #                      `control` component's last-resort LiDAR stop, R4)
+#   wall_tracker_impl:= -> lidar_front_wall.launch.py  wall_tracker_impl:=py|rust
+#                      (lidar_front_wall_node's wall tracker and fusion, R6)
 # Keyed by argument, not by launch file, because one file can take several
 # (navigation.launch.py takes both MPC switches).
 _RUST_SWITCHES = {
@@ -422,6 +424,7 @@ _RUST_SWITCHES = {
     'corridor_impl': ('navigation.launch.py', ('py', 'rust')),
     'mpc_solver_impl': ('navigation.launch.py', ('py', 'rust')),
     'hard_stop_impl': ('ackermann_mux.launch.py', ('py', 'rust')),
+    'wall_tracker_impl': ('lidar_front_wall.launch.py', ('py', 'rust')),
 }
 
 
@@ -717,12 +720,16 @@ class ComponentSupervisorNode(Node):
             'mpc_solver_impl', str(get_value('mpc_solver_impl'))).value)
         self.hard_stop_impl = str(
             self.declare_parameter('hard_stop_impl', str(get_value('hard_stop_impl'))).value)
+        # wall_tracker_impl (R6): the same shape, for the lidar_front_wall component.
+        self.wall_tracker_impl = str(self.declare_parameter(
+            'wall_tracker_impl', str(get_value('wall_tracker_impl'))).value)
         self.rust_switches = {
             'proximity_guard': self.proximity_guard,
             'costmap_boundary_impl': self.costmap_boundary_impl,
             'corridor_impl': self.corridor_impl,
             'mpc_solver_impl': self.mpc_solver_impl,
             'hard_stop_impl': self.hard_stop_impl,
+            'wall_tracker_impl': self.wall_tracker_impl,
         }
         validate_rust_switches(self.rust_switches)
         # component-auto-start pass: whether 'intelligence' (llama-server) auto-
@@ -825,7 +832,8 @@ class ComponentSupervisorNode(Node):
                 f'impl:={self.costmap_boundary_impl} '
                 f'corridor_impl:={self.corridor_impl} '
                 f'mpc_solver_impl:={self.mpc_solver_impl} '
-                f'hard_stop_impl:={self.hard_stop_impl} (output/rust/)')
+                f'hard_stop_impl:={self.hard_stop_impl} '
+                f'wall_tracker_impl:={self.wall_tracker_impl} (output/rust/)')
 
         # Some individual launch files within a multi-launch component legitimately
         # do nothing at all when their own feature flag is off -- an empty (or

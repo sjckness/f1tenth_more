@@ -73,6 +73,15 @@
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
   <test_depend>python3-pytest</test_depend>
+  <!-- NO dependency on f1tenth_wall_tracker_core (src/rust/
+       f1tenth_wall_tracker_core, ament_cargo), deliberately, as mpc_controller
+       has none on f1tenth_mpc_core: libf1tenth_wall_tracker_core.so is the Rust
+       wall tracker wall_tracker_native.py loads with ctypes only when
+       wall_tracker_impl is rust (main-jazzy-rust R6), found through ament_index
+       in the sourced workspace. A declared dependency would make this package
+       unbuildable on a colcon without colcon-ros-cargo (the CLAUDE.md Thor
+       trap). Not built: wall_tracker_impl rust refuses the node's start, and the
+       rust tests skip. -->
 
   <export>
     <build_type>ament_python</build_type>

@@ -1,0 +1,66 @@
+{
+ "library": "/home/andreas/dev_ws/f1tenth_more_r6/install/f1tenth_wall_tracker_core/lib/f1tenth_wall_tracker_core/libf1tenth_wall_tracker_core.so",
+ "build": "build: cargo profile debug, opt-level 3, debug_assertions on",
+ "n": 200000,
+ "solve2": {
+  "cases": 200000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "inv2": {
+  "cases": 200000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "lsa": {
+  "cases": 20000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "hypot": {
+  "cases": 200009,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "pow2": {
+  "cases": 200009,
+  "mismatches": 0,
+  "expected_differences": 1,
+  "first": null
+ },
+ "wrap_pi": {
+  "cases": 200007,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "sum": {
+  "cases": 50003,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "arange": {
+  "cases": 20000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "searchsorted": {
+  "cases": 10000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "svd_vt": {
+  "cases": 20000,
+  "mismatches": 0,
+  "expected_differences": 0,
+  "first": null
+ },
+ "total_mismatches": 0
+}

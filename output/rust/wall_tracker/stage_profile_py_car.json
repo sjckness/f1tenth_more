@@ -1,0 +1,3388 @@
+{
+ "host": "linus",
+ "cpu": "x86_64",
+ "python": "3.12.3",
+ "loadavg": [
+  1.49560546875,
+  1.43408203125,
+  1.78076171875
+ ],
+ "results": [
+  {
+   "bag": "/home/andreas/bags/yolo_gpu/corridor10m_20261015T171753",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 206,
+   "cycles_with_tracker": 206,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 206,
+    "p50": 7.1963,
+    "p95": 9.1093,
+    "mean": 6.8032,
+    "max": 10.0479
+   },
+   "scan_callback_ms": {
+    "n": 206,
+    "p50": 8.9675,
+    "p95": 10.9358,
+    "mean": 8.6652,
+    "max": 12.1829
+   },
+   "tracker_ms_instrumented": {
+    "n": 206,
+    "p50": 7.8412,
+    "p95": 9.4936,
+    "mean": 7.329,
+    "max": 15.2062
+   },
+   "overhead_ms_p50": 0.645,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 206,
+     "p50": 0.0252,
+     "p95": 0.0449,
+     "mean": 0.0271,
+     "max": 0.0592,
+     "calls_per_cycle": 7.33
+    },
+    "fusion.cross_check_profile": {
+     "n": 206,
+     "p50": 0.0707,
+     "p95": 0.0886,
+     "mean": 0.0559,
+     "max": 0.1336,
+     "calls_per_cycle": 0.75
+    },
+    "fusion.observations_from_lines": {
+     "n": 206,
+     "p50": 0.9072,
+     "p95": 1.1772,
+     "mean": 0.7314,
+     "max": 1.2987,
+     "calls_per_cycle": 0.75
+    },
+    "fusion.stereo_only_observations": {
+     "n": 206,
+     "p50": 2.4615,
+     "p95": 3.4262,
+     "mean": 2.0759,
+     "max": 6.8943,
+     "calls_per_cycle": 0.75
+    },
+    "mwt.extract_lines": {
+     "n": 206,
+     "p50": 0.44,
+     "p95": 0.5262,
+     "mean": 0.4455,
+     "max": 0.9887,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 206,
+     "p50": 0.0149,
+     "p95": 0.0297,
+     "mean": 0.0121,
+     "max": 0.0559,
+     "calls_per_cycle": 0.78
+    },
+    "mwt.line_to_wall_line": {
+     "n": 206,
+     "p50": 0.1255,
+     "p95": 0.1691,
+     "mean": 0.1293,
+     "max": 0.2444,
+     "calls_per_cycle": 8.72
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 206,
+     "p50": 0.003,
+     "p95": 0.0043,
+     "mean": 0.0033,
+     "max": 0.0203,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.observation_line": {
+     "n": 206,
+     "p50": 0.2722,
+     "p95": 0.3914,
+     "mean": 0.2769,
+     "max": 0.5211,
+     "calls_per_cycle": 7.33
+    },
+    "mwt.propagate_objects": {
+     "n": 206,
+     "p50": 0.03,
+     "p95": 0.0373,
+     "mean": 0.0279,
+     "max": 0.0724,
+     "calls_per_cycle": 0.97
+    },
+    "mwt.ray_blocked_by": {
+     "n": 206,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0052,
+     "max": 0.1795,
+     "calls_per_cycle": 0.11
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 206,
+     "p50": 0.0348,
+     "p95": 0.0544,
+     "mean": 0.0362,
+     "max": 0.0694,
+     "calls_per_cycle": 3.49
+    },
+    "mwt.scan_in_base_link": {
+     "n": 206,
+     "p50": 0.2262,
+     "p95": 0.3057,
+     "mean": 0.2152,
+     "max": 0.4341,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 206,
+     "p50": 0.3961,
+     "p95": 0.6246,
+     "mean": 0.4076,
+     "max": 0.7642,
+     "calls_per_cycle": 15.39
+    },
+    "mwt.strip_returns": {
+     "n": 206,
+     "p50": 0.0862,
+     "p95": 0.1219,
+     "mean": 0.0905,
+     "max": 0.1515,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.track_in_base_link": {
+     "n": 206,
+     "p50": 0.0421,
+     "p95": 0.089,
+     "mean": 0.036,
+     "max": 0.119,
+     "calls_per_cycle": 0.78
+    },
+    "node._cloud_columns": {
+     "n": 206,
+     "p50": 0.6977,
+     "p95": 0.8366,
+     "mean": 0.5556,
+     "max": 1.408,
+     "calls_per_cycle": 0.75
+    },
+    "node._publish": {
+     "n": 206,
+     "p50": 0.0162,
+     "p95": 0.0228,
+     "mean": 0.0174,
+     "max": 0.0614,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 206,
+     "p50": 0.8027,
+     "p95": 0.9634,
+     "mean": 0.7112,
+     "max": 1.4337,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 206,
+     "p50": 0.0538,
+     "p95": 0.0822,
+     "mean": 0.0571,
+     "max": 0.1379,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 206,
+     "p50": 0.1342,
+     "p95": 0.2615,
+     "mean": 0.1216,
+     "max": 0.9683,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 206,
+     "p50": 0.0262,
+     "p95": 0.0366,
+     "mean": 0.0266,
+     "max": 0.0666,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 206,
+     "p50": 0.0006,
+     "p95": 0.0008,
+     "mean": 0.0006,
+     "max": 0.0011,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 206,
+     "p50": 0.0603,
+     "p95": 0.6683,
+     "mean": 0.161,
+     "max": 1.2216,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 206,
+     "p50": 0.0032,
+     "p95": 0.0039,
+     "mean": 0.0035,
+     "max": 0.0181,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 206,
+     "p50": 0.0038,
+     "p95": 0.0071,
+     "mean": 0.0042,
+     "max": 0.0164,
+     "calls_per_cycle": 3.36
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 206,
+     "p50": 0.0087,
+     "p95": 0.0132,
+     "mean": 0.0097,
+     "max": 0.0338,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 206,
+     "p50": 0.0343,
+     "p95": 0.0508,
+     "mean": 0.0342,
+     "max": 0.0717,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 206,
+     "p50": 0.0787,
+     "p95": 0.1182,
+     "mean": 0.0812,
+     "max": 0.1536,
+     "calls_per_cycle": 0.99
+    },
+    "tracker._expired": {
+     "n": 206,
+     "p50": 0.005,
+     "p95": 0.0071,
+     "mean": 0.0054,
+     "max": 0.0274,
+     "calls_per_cycle": 4.32
+    },
+    "tracker._gate": {
+     "n": 206,
+     "p50": 0.3562,
+     "p95": 0.7528,
+     "mean": 0.3941,
+     "max": 0.9167,
+     "calls_per_cycle": 21.37
+    },
+    "tracker._merge": {
+     "n": 206,
+     "p50": 0.0798,
+     "p95": 0.3946,
+     "mean": 0.1193,
+     "max": 0.5415,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._open_length": {
+     "n": 206,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.007,
+     "max": 0.4476,
+     "calls_per_cycle": 0.08
+    },
+    "tracker._predict": {
+     "n": 206,
+     "p50": 0.0211,
+     "p95": 0.0287,
+     "mean": 0.0214,
+     "max": 0.044,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 206,
+     "p50": 0.0038,
+     "p95": 0.0078,
+     "mean": 0.0042,
+     "max": 0.0117,
+     "calls_per_cycle": 4.32
+    },
+    "tracker._refresh_extent": {
+     "n": 206,
+     "p50": 0.1115,
+     "p95": 0.2296,
+     "mean": 0.1251,
+     "max": 0.3499,
+     "calls_per_cycle": 3.71
+    },
+    "tracker._refusal": {
+     "n": 206,
+     "p50": 0.0167,
+     "p95": 0.0244,
+     "mean": 0.0147,
+     "max": 0.049,
+     "calls_per_cycle": 7.33
+    },
+    "tracker._spawn": {
+     "n": 206,
+     "p50": 0.0398,
+     "p95": 0.1105,
+     "mean": 0.0338,
+     "max": 0.2673,
+     "calls_per_cycle": 0.82
+    },
+    "tracker._update": {
+     "n": 206,
+     "p50": 0.0879,
+     "p95": 0.2031,
+     "mean": 0.1108,
+     "max": 0.2446,
+     "calls_per_cycle": 2.54
+    },
+    "tracker._wall_spans": {
+     "n": 206,
+     "p50": 0.0361,
+     "p95": 0.0981,
+     "mean": 0.0498,
+     "max": 0.2149,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 206,
+     "p50": 0.0012,
+     "p95": 0.0015,
+     "mean": 0.0012,
+     "max": 0.0027,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 206,
+     "p50": 0.0135,
+     "p95": 0.0654,
+     "mean": 0.0219,
+     "max": 0.1241,
+     "calls_per_cycle": 1.85
+    },
+    "tracker.front_reason": {
+     "n": 206,
+     "p50": 0.0165,
+     "p95": 0.0325,
+     "mean": 0.0136,
+     "max": 0.06,
+     "calls_per_cycle": 1.56
+    },
+    "tracker.front_track": {
+     "n": 206,
+     "p50": 0.0186,
+     "p95": 0.0325,
+     "mean": 0.0211,
+     "max": 0.0336,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.negative_evidence": {
+     "n": 206,
+     "p50": 0.1452,
+     "p95": 0.2503,
+     "mean": 0.1646,
+     "max": 0.3122,
+     "calls_per_cycle": 2.5
+    },
+    "tracker.published": {
+     "n": 206,
+     "p50": 0.0217,
+     "p95": 0.0299,
+     "mean": 0.0191,
+     "max": 0.069,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 206,
+     "p50": 0.1464,
+     "p95": 0.2018,
+     "mean": 0.1515,
+     "max": 0.3027,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 206,
+     "p50": 0.0292,
+     "p95": 0.0635,
+     "mean": 0.0356,
+     "max": 0.1594,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 206,
+     "p50": 0.013,
+     "p95": 0.0184,
+     "mean": 0.0129,
+     "max": 0.0342,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 7.7
+  },
+  {
+   "bag": "/home/andreas/bags/corridor10m_20261016T144537",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 703,
+   "cycles_with_tracker": 703,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 703,
+    "p50": 8.2324,
+    "p95": 11.3266,
+    "mean": 8.5375,
+    "max": 14.7301
+   },
+   "scan_callback_ms": {
+    "n": 703,
+    "p50": 10.4405,
+    "p95": 13.7739,
+    "mean": 10.8246,
+    "max": 17.147
+   },
+   "tracker_ms_instrumented": {
+    "n": 703,
+    "p50": 8.9712,
+    "p95": 12.4849,
+    "mean": 9.2557,
+    "max": 16.3991
+   },
+   "overhead_ms_p50": 0.7388,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 703,
+     "p50": 0.0351,
+     "p95": 0.0514,
+     "mean": 0.0353,
+     "max": 0.0988,
+     "calls_per_cycle": 9.0
+    },
+    "fusion.cross_check_profile": {
+     "n": 703,
+     "p50": 0.0741,
+     "p95": 0.1077,
+     "mean": 0.0777,
+     "max": 0.1524,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.observations_from_lines": {
+     "n": 703,
+     "p50": 1.1166,
+     "p95": 1.3987,
+     "mean": 1.1043,
+     "max": 1.9537,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.stereo_only_observations": {
+     "n": 703,
+     "p50": 2.6505,
+     "p95": 4.7876,
+     "mean": 2.4612,
+     "max": 7.8088,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.extract_lines": {
+     "n": 703,
+     "p50": 0.479,
+     "p95": 0.5746,
+     "mean": 0.4809,
+     "max": 0.7151,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 703,
+     "p50": 0.0269,
+     "p95": 0.0355,
+     "mean": 0.0251,
+     "max": 0.0704,
+     "calls_per_cycle": 1.71
+    },
+    "mwt.line_to_wall_line": {
+     "n": 703,
+     "p50": 0.1418,
+     "p95": 0.1924,
+     "mean": 0.1426,
+     "max": 0.2711,
+     "calls_per_cycle": 9.45
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 703,
+     "p50": 0.0033,
+     "p95": 0.0041,
+     "mean": 0.0034,
+     "max": 0.0413,
+     "calls_per_cycle": 0.98
+    },
+    "mwt.observation_line": {
+     "n": 703,
+     "p50": 0.3366,
+     "p95": 0.4775,
+     "mean": 0.3465,
+     "max": 0.6384,
+     "calls_per_cycle": 9.0
+    },
+    "mwt.propagate_objects": {
+     "n": 703,
+     "p50": 0.0299,
+     "p95": 0.0342,
+     "mean": 0.0191,
+     "max": 0.0725,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.ray_blocked_by": {
+     "n": 703,
+     "p50": 0.0,
+     "p95": 0.0485,
+     "mean": 0.0051,
+     "max": 0.2497,
+     "calls_per_cycle": 0.09
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 703,
+     "p50": 0.0368,
+     "p95": 0.0574,
+     "mean": 0.0362,
+     "max": 0.1115,
+     "calls_per_cycle": 3.5
+    },
+    "mwt.scan_in_base_link": {
+     "n": 703,
+     "p50": 0.1914,
+     "p95": 0.3219,
+     "mean": 0.1869,
+     "max": 0.4102,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 703,
+     "p50": 0.6097,
+     "p95": 0.7305,
+     "mean": 0.5683,
+     "max": 1.0139,
+     "calls_per_cycle": 20.6
+    },
+    "mwt.strip_returns": {
+     "n": 703,
+     "p50": 0.0886,
+     "p95": 0.128,
+     "mean": 0.0924,
+     "max": 0.2105,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.to_wall_line": {
+     "n": 703,
+     "p50": 0.021,
+     "p95": 0.0264,
+     "mean": 0.0159,
+     "max": 0.0551,
+     "calls_per_cycle": 0.7
+    },
+    "mwt.track_in_base_link": {
+     "n": 703,
+     "p50": 0.14,
+     "p95": 0.1939,
+     "mean": 0.1268,
+     "max": 0.2393,
+     "calls_per_cycle": 2.42
+    },
+    "node._cloud_columns": {
+     "n": 703,
+     "p50": 0.7419,
+     "p95": 1.0323,
+     "mean": 0.7753,
+     "max": 1.3834,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish": {
+     "n": 703,
+     "p50": 0.018,
+     "p95": 0.025,
+     "mean": 0.019,
+     "max": 0.0615,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 703,
+     "p50": 0.8812,
+     "p95": 1.0286,
+     "mean": 0.8884,
+     "max": 1.3058,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 703,
+     "p50": 0.0606,
+     "p95": 0.0925,
+     "mean": 0.0632,
+     "max": 0.1363,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 703,
+     "p50": 0.2359,
+     "p95": 0.2995,
+     "mean": 0.2252,
+     "max": 0.4981,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 703,
+     "p50": 0.0339,
+     "p95": 0.0476,
+     "mean": 0.0353,
+     "max": 0.0845,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 703,
+     "p50": 0.0006,
+     "p95": 0.0007,
+     "mean": 0.0006,
+     "max": 0.0144,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 703,
+     "p50": 0.6352,
+     "p95": 0.8002,
+     "mean": 0.409,
+     "max": 1.4323,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 703,
+     "p50": 0.0034,
+     "p95": 0.0041,
+     "mean": 0.0036,
+     "max": 0.0217,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 703,
+     "p50": 0.0047,
+     "p95": 0.0074,
+     "mean": 0.0048,
+     "max": 0.0273,
+     "calls_per_cycle": 3.51
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 703,
+     "p50": 0.0107,
+     "p95": 0.015,
+     "mean": 0.0111,
+     "max": 0.0413,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 703,
+     "p50": 0.038,
+     "p95": 0.0534,
+     "mean": 0.0367,
+     "max": 0.0997,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 703,
+     "p50": 0.0833,
+     "p95": 0.1166,
+     "mean": 0.0846,
+     "max": 0.2016,
+     "calls_per_cycle": 0.99
+    },
+    "tracker._expired": {
+     "n": 703,
+     "p50": 0.005,
+     "p95": 0.007,
+     "mean": 0.0053,
+     "max": 0.0294,
+     "calls_per_cycle": 4.18
+    },
+    "tracker._gate": {
+     "n": 703,
+     "p50": 0.4783,
+     "p95": 0.7685,
+     "mean": 0.4822,
+     "max": 1.4014,
+     "calls_per_cycle": 22.48
+    },
+    "tracker._merge": {
+     "n": 703,
+     "p50": 0.0822,
+     "p95": 0.2484,
+     "mean": 0.1011,
+     "max": 1.2034,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._open_length": {
+     "n": 703,
+     "p50": 0.0,
+     "p95": 0.3324,
+     "mean": 0.0459,
+     "max": 1.4008,
+     "calls_per_cycle": 0.55
+    },
+    "tracker._predict": {
+     "n": 703,
+     "p50": 0.0221,
+     "p95": 0.0308,
+     "mean": 0.0229,
+     "max": 0.0903,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 703,
+     "p50": 0.0034,
+     "p95": 0.0069,
+     "mean": 0.0035,
+     "max": 0.0299,
+     "calls_per_cycle": 4.18
+    },
+    "tracker._refresh_extent": {
+     "n": 703,
+     "p50": 0.1588,
+     "p95": 0.2305,
+     "mean": 0.156,
+     "max": 0.444,
+     "calls_per_cycle": 3.65
+    },
+    "tracker._refusal": {
+     "n": 703,
+     "p50": 0.0194,
+     "p95": 0.0314,
+     "mean": 0.0207,
+     "max": 0.0706,
+     "calls_per_cycle": 9.0
+    },
+    "tracker._spawn": {
+     "n": 703,
+     "p50": 0.0,
+     "p95": 0.0941,
+     "mean": 0.0287,
+     "max": 0.253,
+     "calls_per_cycle": 0.67
+    },
+    "tracker._update": {
+     "n": 703,
+     "p50": 0.1307,
+     "p95": 0.1928,
+     "mean": 0.1282,
+     "max": 0.2504,
+     "calls_per_cycle": 2.84
+    },
+    "tracker._wall_spans": {
+     "n": 703,
+     "p50": 0.0389,
+     "p95": 0.1094,
+     "mean": 0.0554,
+     "max": 0.2067,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 703,
+     "p50": 0.0012,
+     "p95": 0.0016,
+     "mean": 0.0013,
+     "max": 0.0279,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 703,
+     "p50": 0.0123,
+     "p95": 0.0383,
+     "mean": 0.0116,
+     "max": 0.1242,
+     "calls_per_cycle": 1.07
+    },
+    "tracker.front_reason": {
+     "n": 703,
+     "p50": 0.0519,
+     "p95": 0.0666,
+     "mean": 0.0443,
+     "max": 0.0942,
+     "calls_per_cycle": 4.13
+    },
+    "tracker.front_track": {
+     "n": 703,
+     "p50": 0.0381,
+     "p95": 0.0528,
+     "mean": 0.0363,
+     "max": 0.0764,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.negative_evidence": {
+     "n": 703,
+     "p50": 0.2023,
+     "p95": 0.289,
+     "mean": 0.2062,
+     "max": 0.3885,
+     "calls_per_cycle": 3.13
+    },
+    "tracker.published": {
+     "n": 703,
+     "p50": 0.0394,
+     "p95": 0.0532,
+     "mean": 0.0362,
+     "max": 0.0937,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 703,
+     "p50": 0.1697,
+     "p95": 0.2272,
+     "mean": 0.1723,
+     "max": 0.3375,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 703,
+     "p50": 0.0375,
+     "p95": 0.0731,
+     "mean": 0.0387,
+     "max": 0.1534,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 703,
+     "p50": 0.0138,
+     "p95": 0.0192,
+     "mean": 0.0137,
+     "max": 0.0443,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 32.8
+  },
+  {
+   "bag": "/home/andreas/bags/corridor10m_20261019T131815",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 664,
+   "cycles_with_tracker": 657,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 657,
+    "p50": 4.9398,
+    "p95": 7.8635,
+    "mean": 5.009,
+    "max": 10.0849
+   },
+   "scan_callback_ms": {
+    "n": 657,
+    "p50": 7.0036,
+    "p95": 10.3716,
+    "mean": 7.0469,
+    "max": 12.4435
+   },
+   "tracker_ms_instrumented": {
+    "n": 657,
+    "p50": 5.5386,
+    "p95": 8.6895,
+    "mean": 5.6163,
+    "max": 11.467
+   },
+   "overhead_ms_p50": 0.5988,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 657,
+     "p50": 0.0244,
+     "p95": 0.0332,
+     "mean": 0.0243,
+     "max": 0.0875,
+     "calls_per_cycle": 9.38
+    },
+    "mwt.extract_lines": {
+     "n": 657,
+     "p50": 0.4735,
+     "p95": 0.5921,
+     "mean": 0.4656,
+     "max": 0.7113,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 657,
+     "p50": 0.031,
+     "p95": 0.0504,
+     "mean": 0.0361,
+     "max": 0.0888,
+     "calls_per_cycle": 2.4
+    },
+    "mwt.line_to_wall_line": {
+     "n": 657,
+     "p50": 0.1405,
+     "p95": 0.1946,
+     "mean": 0.1383,
+     "max": 0.2558,
+     "calls_per_cycle": 9.38
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 657,
+     "p50": 0.0032,
+     "p95": 0.0046,
+     "mean": 0.0034,
+     "max": 0.0367,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.observation_line": {
+     "n": 657,
+     "p50": 0.3459,
+     "p95": 0.4618,
+     "mean": 0.3392,
+     "max": 0.5665,
+     "calls_per_cycle": 9.38
+    },
+    "mwt.propagate_objects": {
+     "n": 657,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0004,
+     "max": 0.0571,
+     "calls_per_cycle": 0.01
+    },
+    "mwt.ray_blocked_by": {
+     "n": 657,
+     "p50": 0.0,
+     "p95": 0.0932,
+     "mean": 0.0161,
+     "max": 0.2142,
+     "calls_per_cycle": 0.32
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 657,
+     "p50": 0.0453,
+     "p95": 0.0696,
+     "mean": 0.0468,
+     "max": 0.1183,
+     "calls_per_cycle": 4.95
+    },
+    "mwt.scan_in_base_link": {
+     "n": 657,
+     "p50": 0.0869,
+     "p95": 0.116,
+     "mean": 0.0907,
+     "max": 0.2183,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 657,
+     "p50": 0.7696,
+     "p95": 1.0856,
+     "mean": 0.7565,
+     "max": 1.2456,
+     "calls_per_cycle": 28.77
+    },
+    "mwt.strip_returns": {
+     "n": 657,
+     "p50": 0.0883,
+     "p95": 0.1233,
+     "mean": 0.0916,
+     "max": 0.1851,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.to_wall_line": {
+     "n": 657,
+     "p50": 0.0203,
+     "p95": 0.0228,
+     "mean": 0.0157,
+     "max": 0.0581,
+     "calls_per_cycle": 0.73
+    },
+    "mwt.track_in_base_link": {
+     "n": 657,
+     "p50": 0.1409,
+     "p95": 0.2109,
+     "mean": 0.1484,
+     "max": 0.3136,
+     "calls_per_cycle": 3.13
+    },
+    "node._publish": {
+     "n": 657,
+     "p50": 0.0163,
+     "p95": 0.0211,
+     "mean": 0.0168,
+     "max": 0.0453,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 657,
+     "p50": 0.131,
+     "p95": 0.1755,
+     "mean": 0.1288,
+     "max": 0.249,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 657,
+     "p50": 0.0517,
+     "p95": 0.0793,
+     "mean": 0.0551,
+     "max": 0.14,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 657,
+     "p50": 0.2606,
+     "p95": 0.3691,
+     "mean": 0.2711,
+     "max": 0.5579,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 657,
+     "p50": 0.0008,
+     "p95": 0.0011,
+     "mean": 0.001,
+     "max": 0.0177,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 657,
+     "p50": 0.0006,
+     "p95": 0.0007,
+     "mean": 0.0006,
+     "max": 0.0011,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 657,
+     "p50": 0.0588,
+     "p95": 0.0838,
+     "mean": 0.0699,
+     "max": 0.7024,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 657,
+     "p50": 0.0033,
+     "p95": 0.004,
+     "mean": 0.0034,
+     "max": 0.0168,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 657,
+     "p50": 0.0056,
+     "p95": 0.0112,
+     "mean": 0.0065,
+     "max": 0.0287,
+     "calls_per_cycle": 5.67
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 657,
+     "p50": 0.0149,
+     "p95": 0.0227,
+     "mean": 0.0153,
+     "max": 0.057,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 657,
+     "p50": 0.0456,
+     "p95": 0.067,
+     "mean": 0.0464,
+     "max": 0.1041,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 657,
+     "p50": 0.0992,
+     "p95": 0.1279,
+     "mean": 0.0995,
+     "max": 0.1726,
+     "calls_per_cycle": 0.99
+    },
+    "tracker._expired": {
+     "n": 657,
+     "p50": 0.0061,
+     "p95": 0.0097,
+     "mean": 0.0066,
+     "max": 0.0291,
+     "calls_per_cycle": 6.38
+    },
+    "tracker._gate": {
+     "n": 657,
+     "p50": 1.0692,
+     "p95": 1.9409,
+     "mean": 1.0595,
+     "max": 2.5788,
+     "calls_per_cycle": 49.53
+    },
+    "tracker._merge": {
+     "n": 657,
+     "p50": 0.2025,
+     "p95": 0.793,
+     "mean": 0.2964,
+     "max": 1.7032,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._open_length": {
+     "n": 657,
+     "p50": 0.4852,
+     "p95": 1.2742,
+     "mean": 0.5041,
+     "max": 2.3616,
+     "calls_per_cycle": 6.06
+    },
+    "tracker._predict": {
+     "n": 657,
+     "p50": 0.0267,
+     "p95": 0.0379,
+     "mean": 0.0272,
+     "max": 0.0719,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 657,
+     "p50": 0.0044,
+     "p95": 0.0095,
+     "mean": 0.0049,
+     "max": 0.0456,
+     "calls_per_cycle": 6.39
+    },
+    "tracker._refresh_extent": {
+     "n": 657,
+     "p50": 0.3403,
+     "p95": 0.5019,
+     "mean": 0.3286,
+     "max": 0.6887,
+     "calls_per_cycle": 5.4
+    },
+    "tracker._refusal": {
+     "n": 657,
+     "p50": 0.0035,
+     "p95": 0.0043,
+     "mean": 0.0034,
+     "max": 0.0193,
+     "calls_per_cycle": 9.38
+    },
+    "tracker._spawn": {
+     "n": 657,
+     "p50": 0.0445,
+     "p95": 0.1546,
+     "mean": 0.0566,
+     "max": 0.2744,
+     "calls_per_cycle": 1.39
+    },
+    "tracker._update": {
+     "n": 657,
+     "p50": 0.1891,
+     "p95": 0.3022,
+     "mean": 0.1921,
+     "max": 0.4876,
+     "calls_per_cycle": 4.29
+    },
+    "tracker._wall_spans": {
+     "n": 657,
+     "p50": 0.0865,
+     "p95": 0.2885,
+     "mean": 0.119,
+     "max": 0.5571,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 657,
+     "p50": 0.0013,
+     "p95": 0.0018,
+     "mean": 0.0015,
+     "max": 0.0243,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 657,
+     "p50": 0.022,
+     "p95": 0.0529,
+     "mean": 0.0213,
+     "max": 0.1344,
+     "calls_per_cycle": 1.77
+    },
+    "tracker.front_reason": {
+     "n": 657,
+     "p50": 0.0519,
+     "p95": 0.0824,
+     "mean": 0.0551,
+     "max": 0.1137,
+     "calls_per_cycle": 5.52
+    },
+    "tracker.front_track": {
+     "n": 657,
+     "p50": 0.049,
+     "p95": 0.0678,
+     "mean": 0.0465,
+     "max": 0.1399,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.negative_evidence": {
+     "n": 657,
+     "p50": 0.2956,
+     "p95": 0.4424,
+     "mean": 0.2909,
+     "max": 0.6365,
+     "calls_per_cycle": 4.65
+    },
+    "tracker.published": {
+     "n": 657,
+     "p50": 0.0415,
+     "p95": 0.0533,
+     "mean": 0.0415,
+     "max": 0.1073,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 657,
+     "p50": 0.258,
+     "p95": 0.3808,
+     "mean": 0.2572,
+     "max": 0.488,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 657,
+     "p50": 0.0515,
+     "p95": 0.1439,
+     "mean": 0.0648,
+     "max": 0.2187,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 657,
+     "p50": 0.0166,
+     "p95": 0.0254,
+     "mean": 0.0174,
+     "max": 0.0501,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 19.8
+  },
+  {
+   "bag": "/home/andreas/bags/corridor_obstacles_20261019T135307",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 380,
+   "cycles_with_tracker": 380,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 380,
+    "p50": 3.5521,
+    "p95": 4.1102,
+    "mean": 3.516,
+    "max": 7.9208
+   },
+   "scan_callback_ms": {
+    "n": 380,
+    "p50": 5.3097,
+    "p95": 6.4047,
+    "mean": 5.1885,
+    "max": 9.9522
+   },
+   "tracker_ms_instrumented": {
+    "n": 380,
+    "p50": 3.9871,
+    "p95": 4.8024,
+    "mean": 3.9885,
+    "max": 8.3484
+   },
+   "overhead_ms_p50": 0.435,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 380,
+     "p50": 0.0177,
+     "p95": 0.0241,
+     "mean": 0.0181,
+     "max": 0.0573,
+     "calls_per_cycle": 6.46
+    },
+    "fusion.cross_check_profile": {
+     "n": 380,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.002,
+     "max": 0.0817,
+     "calls_per_cycle": 0.03
+    },
+    "fusion.observations_from_lines": {
+     "n": 380,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0166,
+     "max": 0.6946,
+     "calls_per_cycle": 0.03
+    },
+    "fusion.stereo_only_observations": {
+     "n": 380,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0491,
+     "max": 2.3691,
+     "calls_per_cycle": 0.03
+    },
+    "fusion.verify_rectangles": {
+     "n": 380,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0086,
+     "max": 0.5005,
+     "calls_per_cycle": 0.02
+    },
+    "fusion.verify_step": {
+     "n": 380,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0,
+     "max": 0.0022,
+     "calls_per_cycle": 0.05
+    },
+    "mwt.extract_lines": {
+     "n": 380,
+     "p50": 0.3751,
+     "p95": 0.4661,
+     "mean": 0.3797,
+     "max": 0.6633,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 380,
+     "p50": 0.0242,
+     "p95": 0.0378,
+     "mean": 0.024,
+     "max": 0.0611,
+     "calls_per_cycle": 1.88
+    },
+    "mwt.line_to_wall_line": {
+     "n": 380,
+     "p50": 0.1023,
+     "p95": 0.1458,
+     "mean": 0.1016,
+     "max": 0.1941,
+     "calls_per_cycle": 6.42
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 380,
+     "p50": 0.0028,
+     "p95": 0.0035,
+     "mean": 0.0029,
+     "max": 0.0277,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.observation_line": {
+     "n": 380,
+     "p50": 0.2548,
+     "p95": 0.3263,
+     "mean": 0.2508,
+     "max": 0.4413,
+     "calls_per_cycle": 6.46
+    },
+    "mwt.propagate_objects": {
+     "n": 380,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0013,
+     "max": 0.0464,
+     "calls_per_cycle": 0.04
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 380,
+     "p50": 0.0292,
+     "p95": 0.0424,
+     "mean": 0.0326,
+     "max": 0.087,
+     "calls_per_cycle": 3.3
+    },
+    "mwt.scan_in_base_link": {
+     "n": 380,
+     "p50": 0.0883,
+     "p95": 0.1399,
+     "mean": 0.1002,
+     "max": 0.406,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 380,
+     "p50": 0.5865,
+     "p95": 0.675,
+     "mean": 0.5744,
+     "max": 0.809,
+     "calls_per_cycle": 20.98
+    },
+    "mwt.strip_returns": {
+     "n": 380,
+     "p50": 0.093,
+     "p95": 0.1319,
+     "mean": 0.0974,
+     "max": 0.1632,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.to_wall_line": {
+     "n": 380,
+     "p50": 0.0206,
+     "p95": 0.0222,
+     "mean": 0.019,
+     "max": 0.0593,
+     "calls_per_cycle": 0.88
+    },
+    "mwt.track_in_base_link": {
+     "n": 380,
+     "p50": 0.1381,
+     "p95": 0.1793,
+     "mean": 0.1342,
+     "max": 0.2476,
+     "calls_per_cycle": 2.77
+    },
+    "node._cloud_columns": {
+     "n": 380,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0165,
+     "max": 0.847,
+     "calls_per_cycle": 0.03
+    },
+    "node._publish": {
+     "n": 380,
+     "p50": 0.0164,
+     "p95": 0.0209,
+     "mean": 0.017,
+     "max": 0.0449,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 380,
+     "p50": 0.4866,
+     "p95": 0.601,
+     "mean": 0.5026,
+     "max": 1.2739,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 380,
+     "p50": 0.0514,
+     "p95": 0.0807,
+     "mean": 0.0548,
+     "max": 0.1194,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 380,
+     "p50": 0.2179,
+     "p95": 0.2766,
+     "mean": 0.2209,
+     "max": 1.1414,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 380,
+     "p50": 0.0008,
+     "p95": 0.0012,
+     "mean": 0.0017,
+     "max": 0.0336,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 380,
+     "p50": 0.0006,
+     "p95": 0.0007,
+     "mean": 0.0006,
+     "max": 0.0011,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 380,
+     "p50": 0.0574,
+     "p95": 0.0888,
+     "mean": 0.0747,
+     "max": 0.6916,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 380,
+     "p50": 0.0056,
+     "p95": 0.009,
+     "mean": 0.0065,
+     "max": 0.0462,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 380,
+     "p50": 0.0042,
+     "p95": 0.0055,
+     "mean": 0.0043,
+     "max": 0.0361,
+     "calls_per_cycle": 3.62
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 380,
+     "p50": 0.0104,
+     "p95": 0.0114,
+     "mean": 0.0106,
+     "max": 0.0342,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 380,
+     "p50": 0.0328,
+     "p95": 0.0494,
+     "mean": 0.0358,
+     "max": 0.0783,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 380,
+     "p50": 0.0852,
+     "p95": 0.119,
+     "mean": 0.0878,
+     "max": 0.1754,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._expired": {
+     "n": 380,
+     "p50": 0.005,
+     "p95": 0.0063,
+     "mean": 0.0053,
+     "max": 0.031,
+     "calls_per_cycle": 4.17
+    },
+    "tracker._gate": {
+     "n": 380,
+     "p50": 0.471,
+     "p95": 0.6012,
+     "mean": 0.4593,
+     "max": 0.862,
+     "calls_per_cycle": 21.1
+    },
+    "tracker._merge": {
+     "n": 380,
+     "p50": 0.2026,
+     "p95": 0.2766,
+     "mean": 0.1554,
+     "max": 0.3938,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._predict": {
+     "n": 380,
+     "p50": 0.0211,
+     "p95": 0.0359,
+     "mean": 0.0229,
+     "max": 0.0601,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 380,
+     "p50": 0.0035,
+     "p95": 0.006,
+     "mean": 0.0039,
+     "max": 0.0264,
+     "calls_per_cycle": 4.17
+    },
+    "tracker._refresh_extent": {
+     "n": 380,
+     "p50": 0.303,
+     "p95": 0.416,
+     "mean": 0.2998,
+     "max": 0.7483,
+     "calls_per_cycle": 3.83
+    },
+    "tracker._refusal": {
+     "n": 380,
+     "p50": 0.0027,
+     "p95": 0.0033,
+     "mean": 0.0032,
+     "max": 0.0317,
+     "calls_per_cycle": 6.46
+    },
+    "tracker._spawn": {
+     "n": 380,
+     "p50": 0.0428,
+     "p95": 0.0842,
+     "mean": 0.0386,
+     "max": 0.1443,
+     "calls_per_cycle": 0.88
+    },
+    "tracker._update": {
+     "n": 380,
+     "p50": 0.1316,
+     "p95": 0.1784,
+     "mean": 0.1268,
+     "max": 0.2171,
+     "calls_per_cycle": 2.74
+    },
+    "tracker._wall_spans": {
+     "n": 380,
+     "p50": 0.0836,
+     "p95": 0.108,
+     "mean": 0.0661,
+     "max": 0.1666,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 380,
+     "p50": 0.0012,
+     "p95": 0.0016,
+     "mean": 0.0013,
+     "max": 0.0148,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 380,
+     "p50": 0.0128,
+     "p95": 0.0343,
+     "mean": 0.0165,
+     "max": 0.0574,
+     "calls_per_cycle": 1.32
+    },
+    "tracker.front_reason": {
+     "n": 380,
+     "p50": 0.0506,
+     "p95": 0.0674,
+     "mean": 0.0491,
+     "max": 0.0911,
+     "calls_per_cycle": 4.65
+    },
+    "tracker.front_track": {
+     "n": 380,
+     "p50": 0.0367,
+     "p95": 0.0523,
+     "mean": 0.0366,
+     "max": 0.0825,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.negative_evidence": {
+     "n": 380,
+     "p50": 0.1952,
+     "p95": 0.2461,
+     "mean": 0.1948,
+     "max": 0.3015,
+     "calls_per_cycle": 2.85
+    },
+    "tracker.published": {
+     "n": 380,
+     "p50": 0.0386,
+     "p95": 0.0464,
+     "mean": 0.0379,
+     "max": 0.0771,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 380,
+     "p50": 0.1514,
+     "p95": 0.1871,
+     "mean": 0.1538,
+     "max": 0.2413,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 380,
+     "p50": 0.0292,
+     "p95": 0.0436,
+     "mean": 0.0326,
+     "max": 0.093,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 380,
+     "p50": 0.0119,
+     "p95": 0.015,
+     "mean": 0.013,
+     "max": 0.0483,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 9,
+   "wall_s": 8.5
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-35-30_mission-straight_until_potted_plant",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 286,
+   "cycles_with_tracker": 286,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 286,
+    "p50": 8.0504,
+    "p95": 11.1893,
+    "mean": 8.2208,
+    "max": 13.1235
+   },
+   "scan_callback_ms": {
+    "n": 286,
+    "p50": 10.2183,
+    "p95": 13.3762,
+    "mean": 10.5172,
+    "max": 15.0811
+   },
+   "tracker_ms_instrumented": {
+    "n": 286,
+    "p50": 8.6486,
+    "p95": 11.6067,
+    "mean": 8.7273,
+    "max": 13.1238
+   },
+   "overhead_ms_p50": 0.5982,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 286,
+     "p50": 0.025,
+     "p95": 0.043,
+     "mean": 0.0258,
+     "max": 0.1715,
+     "calls_per_cycle": 7.44
+    },
+    "fusion.cross_check_profile": {
+     "n": 286,
+     "p50": 0.0747,
+     "p95": 0.1115,
+     "mean": 0.0785,
+     "max": 0.197,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.observations_from_lines": {
+     "n": 286,
+     "p50": 0.7328,
+     "p95": 1.3094,
+     "mean": 0.7991,
+     "max": 1.5461,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.stereo_only_observations": {
+     "n": 286,
+     "p50": 2.7195,
+     "p95": 4.4576,
+     "mean": 2.9251,
+     "max": 5.9042,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.extract_lines": {
+     "n": 286,
+     "p50": 0.4045,
+     "p95": 0.5885,
+     "mean": 0.4188,
+     "max": 0.6852,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 286,
+     "p50": 0.0158,
+     "p95": 0.0313,
+     "mean": 0.0168,
+     "max": 0.0609,
+     "calls_per_cycle": 1.25
+    },
+    "mwt.line_to_wall_line": {
+     "n": 286,
+     "p50": 0.1029,
+     "p95": 0.1824,
+     "mean": 0.1124,
+     "max": 0.2898,
+     "calls_per_cycle": 7.48
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 286,
+     "p50": 0.0033,
+     "p95": 0.0042,
+     "mean": 0.0036,
+     "max": 0.024,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.observation_line": {
+     "n": 286,
+     "p50": 0.2877,
+     "p95": 0.4551,
+     "mean": 0.2899,
+     "max": 0.5342,
+     "calls_per_cycle": 7.44
+    },
+    "mwt.propagate_objects": {
+     "n": 286,
+     "p50": 0.0294,
+     "p95": 0.0361,
+     "mean": 0.0239,
+     "max": 0.1629,
+     "calls_per_cycle": 0.99
+    },
+    "mwt.ray_blocked_by": {
+     "n": 286,
+     "p50": 0.0,
+     "p95": 0.0892,
+     "mean": 0.0149,
+     "max": 0.2883,
+     "calls_per_cycle": 0.27
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 286,
+     "p50": 0.0245,
+     "p95": 0.0604,
+     "mean": 0.0307,
+     "max": 0.1734,
+     "calls_per_cycle": 2.69
+    },
+    "mwt.scan_in_base_link": {
+     "n": 286,
+     "p50": 0.1926,
+     "p95": 0.4258,
+     "mean": 0.2046,
+     "max": 0.6504,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 286,
+     "p50": 0.3189,
+     "p95": 0.6942,
+     "mean": 0.3741,
+     "max": 0.8259,
+     "calls_per_cycle": 13.72
+    },
+    "mwt.strip_returns": {
+     "n": 286,
+     "p50": 0.0896,
+     "p95": 0.1217,
+     "mean": 0.0929,
+     "max": 0.2237,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.to_wall_line": {
+     "n": 286,
+     "p50": 0.0,
+     "p95": 0.0,
+     "mean": 0.0009,
+     "max": 0.0369,
+     "calls_per_cycle": 0.04
+    },
+    "mwt.track_in_base_link": {
+     "n": 286,
+     "p50": 0.0585,
+     "p95": 0.1532,
+     "mean": 0.0749,
+     "max": 0.2823,
+     "calls_per_cycle": 1.29
+    },
+    "node._cloud_columns": {
+     "n": 286,
+     "p50": 0.6914,
+     "p95": 0.8757,
+     "mean": 0.7076,
+     "max": 1.1445,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish": {
+     "n": 286,
+     "p50": 0.017,
+     "p95": 0.0233,
+     "mean": 0.0181,
+     "max": 0.06,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 286,
+     "p50": 0.8524,
+     "p95": 1.0329,
+     "mean": 0.8532,
+     "max": 1.2121,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 286,
+     "p50": 0.0597,
+     "p95": 0.0904,
+     "mean": 0.0638,
+     "max": 0.2035,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 286,
+     "p50": 0.1548,
+     "p95": 0.2748,
+     "mean": 0.1835,
+     "max": 0.4185,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 286,
+     "p50": 0.0237,
+     "p95": 0.039,
+     "mean": 0.0253,
+     "max": 0.0621,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 286,
+     "p50": 0.0006,
+     "p95": 0.0009,
+     "mean": 0.0006,
+     "max": 0.0012,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 286,
+     "p50": 0.6426,
+     "p95": 0.7878,
+     "mean": 0.5993,
+     "max": 1.147,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 286,
+     "p50": 0.0034,
+     "p95": 0.004,
+     "mean": 0.0035,
+     "max": 0.0047,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 286,
+     "p50": 0.0028,
+     "p95": 0.0071,
+     "mean": 0.0034,
+     "max": 0.0099,
+     "calls_per_cycle": 2.58
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 286,
+     "p50": 0.0074,
+     "p95": 0.0157,
+     "mean": 0.009,
+     "max": 0.135,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 286,
+     "p50": 0.0244,
+     "p95": 0.0498,
+     "mean": 0.0281,
+     "max": 0.1799,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 286,
+     "p50": 0.0685,
+     "p95": 0.0983,
+     "mean": 0.0564,
+     "max": 0.1975,
+     "calls_per_cycle": 0.72
+    },
+    "tracker._expired": {
+     "n": 286,
+     "p50": 0.0042,
+     "p95": 0.007,
+     "mean": 0.0045,
+     "max": 0.019,
+     "calls_per_cycle": 3.31
+    },
+    "tracker._gate": {
+     "n": 286,
+     "p50": 0.1581,
+     "p95": 0.8067,
+     "mean": 0.2997,
+     "max": 1.4149,
+     "calls_per_cycle": 13.58
+    },
+    "tracker._merge": {
+     "n": 286,
+     "p50": 0.0257,
+     "p95": 0.2339,
+     "mean": 0.0683,
+     "max": 0.7039,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._open_length": {
+     "n": 286,
+     "p50": 0.0,
+     "p95": 0.2533,
+     "mean": 0.0454,
+     "max": 0.5187,
+     "calls_per_cycle": 0.51
+    },
+    "tracker._predict": {
+     "n": 286,
+     "p50": 0.0196,
+     "p95": 0.032,
+     "mean": 0.0206,
+     "max": 0.0484,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 286,
+     "p50": 0.0032,
+     "p95": 0.007,
+     "mean": 0.0032,
+     "max": 0.0109,
+     "calls_per_cycle": 3.31
+    },
+    "tracker._refresh_extent": {
+     "n": 286,
+     "p50": 0.1108,
+     "p95": 0.2683,
+     "mean": 0.1312,
+     "max": 0.4266,
+     "calls_per_cycle": 2.8
+    },
+    "tracker._refusal": {
+     "n": 286,
+     "p50": 0.0174,
+     "p95": 0.0292,
+     "mean": 0.0184,
+     "max": 0.0583,
+     "calls_per_cycle": 7.44
+    },
+    "tracker._spawn": {
+     "n": 286,
+     "p50": 0.0,
+     "p95": 0.1106,
+     "mean": 0.0246,
+     "max": 0.1533,
+     "calls_per_cycle": 0.58
+    },
+    "tracker._update": {
+     "n": 286,
+     "p50": 0.0854,
+     "p95": 0.1806,
+     "mean": 0.0908,
+     "max": 0.2576,
+     "calls_per_cycle": 2.0
+    },
+    "tracker._wall_spans": {
+     "n": 286,
+     "p50": 0.0354,
+     "p95": 0.0969,
+     "mean": 0.038,
+     "max": 0.1864,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 286,
+     "p50": 0.0011,
+     "p95": 0.0016,
+     "mean": 0.0012,
+     "max": 0.0019,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 286,
+     "p50": 0.0116,
+     "p95": 0.043,
+     "mean": 0.012,
+     "max": 0.1718,
+     "calls_per_cycle": 1.06
+    },
+    "tracker.front_reason": {
+     "n": 286,
+     "p50": 0.0177,
+     "p95": 0.05,
+     "mean": 0.0239,
+     "max": 0.1447,
+     "calls_per_cycle": 2.54
+    },
+    "tracker.front_track": {
+     "n": 286,
+     "p50": 0.0179,
+     "p95": 0.0438,
+     "mean": 0.0225,
+     "max": 0.1645,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.negative_evidence": {
+     "n": 286,
+     "p50": 0.1294,
+     "p95": 0.3144,
+     "mean": 0.1527,
+     "max": 0.4295,
+     "calls_per_cycle": 2.3
+    },
+    "tracker.published": {
+     "n": 286,
+     "p50": 0.0219,
+     "p95": 0.0402,
+     "mean": 0.0254,
+     "max": 0.1311,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 286,
+     "p50": 0.1323,
+     "p95": 0.2292,
+     "mean": 0.1435,
+     "max": 0.3551,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 286,
+     "p50": 0.0198,
+     "p95": 0.1233,
+     "mean": 0.0364,
+     "max": 0.2107,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 286,
+     "p50": 0.0097,
+     "p95": 0.0191,
+     "mean": 0.0109,
+     "max": 0.0407,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 12.8
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T14-55-23_mission-person_then_potted_plant",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 209,
+   "cycles_with_tracker": 209,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 209,
+    "p50": 6.3971,
+    "p95": 6.9072,
+    "mean": 6.4173,
+    "max": 7.3454
+   },
+   "scan_callback_ms": {
+    "n": 209,
+    "p50": 7.9825,
+    "p95": 8.5461,
+    "mean": 8.0028,
+    "max": 9.122
+   },
+   "tracker_ms_instrumented": {
+    "n": 209,
+    "p50": 6.7705,
+    "p95": 7.7186,
+    "mean": 6.8292,
+    "max": 8.7977
+   },
+   "overhead_ms_p50": 0.3734,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 209,
+     "p50": 0.029,
+     "p95": 0.0404,
+     "mean": 0.0289,
+     "max": 0.0748,
+     "calls_per_cycle": 8.41
+    },
+    "fusion.cross_check_profile": {
+     "n": 209,
+     "p50": 0.0752,
+     "p95": 0.0994,
+     "mean": 0.0789,
+     "max": 0.2058,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.observations_from_lines": {
+     "n": 209,
+     "p50": 0.7244,
+     "p95": 0.8895,
+     "mean": 0.7172,
+     "max": 1.0513,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.stereo_only_observations": {
+     "n": 209,
+     "p50": 2.4099,
+     "p95": 2.7981,
+     "mean": 2.4493,
+     "max": 3.1195,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.extract_lines": {
+     "n": 209,
+     "p50": 0.3726,
+     "p95": 0.4661,
+     "mean": 0.3779,
+     "max": 0.5754,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.line_to_wall_line": {
+     "n": 209,
+     "p50": 0.0988,
+     "p95": 0.1332,
+     "mean": 0.098,
+     "max": 0.157,
+     "calls_per_cycle": 6.42
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 209,
+     "p50": 0.0,
+     "p95": 0.0032,
+     "mean": 0.0005,
+     "max": 0.0036,
+     "calls_per_cycle": 0.15
+    },
+    "mwt.observation_line": {
+     "n": 209,
+     "p50": 0.3111,
+     "p95": 0.4101,
+     "mean": 0.3139,
+     "max": 0.5067,
+     "calls_per_cycle": 8.41
+    },
+    "mwt.propagate_objects": {
+     "n": 209,
+     "p50": 0.0006,
+     "p95": 0.0008,
+     "mean": 0.0006,
+     "max": 0.001,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 209,
+     "p50": 0.0,
+     "p95": 0.0203,
+     "mean": 0.0065,
+     "max": 0.0385,
+     "calls_per_cycle": 0.6
+    },
+    "mwt.scan_in_base_link": {
+     "n": 209,
+     "p50": 0.0913,
+     "p95": 0.1232,
+     "mean": 0.0968,
+     "max": 0.2062,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 209,
+     "p50": 0.0585,
+     "p95": 0.1735,
+     "mean": 0.0696,
+     "max": 0.2466,
+     "calls_per_cycle": 2.23
+    },
+    "mwt.strip_returns": {
+     "n": 209,
+     "p50": 0.0922,
+     "p95": 0.1242,
+     "mean": 0.0957,
+     "max": 0.2185,
+     "calls_per_cycle": 1.0
+    },
+    "node._cloud_columns": {
+     "n": 209,
+     "p50": 0.6706,
+     "p95": 0.8224,
+     "mean": 0.6837,
+     "max": 0.9984,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish": {
+     "n": 209,
+     "p50": 0.0167,
+     "p95": 0.0207,
+     "mean": 0.018,
+     "max": 0.1451,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 209,
+     "p50": 0.8355,
+     "p95": 0.9984,
+     "mean": 0.8482,
+     "max": 1.1805,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 209,
+     "p50": 0.0571,
+     "p95": 0.0794,
+     "mean": 0.0603,
+     "max": 0.1856,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 209,
+     "p50": 0.0194,
+     "p95": 0.0288,
+     "mean": 0.0214,
+     "max": 0.1444,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 209,
+     "p50": 0.0219,
+     "p95": 0.0269,
+     "mean": 0.0232,
+     "max": 0.068,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 209,
+     "p50": 0.0005,
+     "p95": 0.0008,
+     "mean": 0.0006,
+     "max": 0.001,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 209,
+     "p50": 0.6247,
+     "p95": 0.7247,
+     "mean": 0.6414,
+     "max": 0.9741,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 209,
+     "p50": 0.0032,
+     "p95": 0.0038,
+     "mean": 0.0032,
+     "max": 0.005,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 209,
+     "p50": 0.0,
+     "p95": 0.0027,
+     "mean": 0.0009,
+     "max": 0.0298,
+     "calls_per_cycle": 0.6
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 209,
+     "p50": 0.0017,
+     "p95": 0.0021,
+     "mean": 0.0017,
+     "max": 0.0347,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 209,
+     "p50": 0.0053,
+     "p95": 0.0246,
+     "mean": 0.0109,
+     "max": 0.044,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 209,
+     "p50": 0.0744,
+     "p95": 0.0919,
+     "mean": 0.0769,
+     "max": 0.2048,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._expired": {
+     "n": 209,
+     "p50": 0.0025,
+     "p95": 0.0037,
+     "mean": 0.0021,
+     "max": 0.0158,
+     "calls_per_cycle": 1.03
+    },
+    "tracker._gate": {
+     "n": 209,
+     "p50": 0.0,
+     "p95": 0.075,
+     "mean": 0.0153,
+     "max": 0.2994,
+     "calls_per_cycle": 2.68
+    },
+    "tracker._merge": {
+     "n": 209,
+     "p50": 0.0028,
+     "p95": 0.023,
+     "mean": 0.0057,
+     "max": 0.0538,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._predict": {
+     "n": 209,
+     "p50": 0.0094,
+     "p95": 0.0176,
+     "mean": 0.0118,
+     "max": 0.064,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 209,
+     "p50": 0.0025,
+     "p95": 0.0055,
+     "mean": 0.0025,
+     "max": 0.0155,
+     "calls_per_cycle": 1.03
+    },
+    "tracker._refresh_extent": {
+     "n": 209,
+     "p50": 0.0,
+     "p95": 0.0524,
+     "mean": 0.0164,
+     "max": 0.1569,
+     "calls_per_cycle": 0.6
+    },
+    "tracker._refusal": {
+     "n": 209,
+     "p50": 0.0151,
+     "p95": 0.0223,
+     "mean": 0.0147,
+     "max": 0.0339,
+     "calls_per_cycle": 8.41
+    },
+    "tracker._spawn": {
+     "n": 209,
+     "p50": 0.0,
+     "p95": 0.0799,
+     "mean": 0.0205,
+     "max": 0.122,
+     "calls_per_cycle": 0.44
+    },
+    "tracker._update": {
+     "n": 209,
+     "p50": 0.0,
+     "p95": 0.0479,
+     "mean": 0.0081,
+     "max": 0.1312,
+     "calls_per_cycle": 0.16
+    },
+    "tracker._wall_spans": {
+     "n": 209,
+     "p50": 0.0353,
+     "p95": 0.0527,
+     "mean": 0.0387,
+     "max": 0.2075,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 209,
+     "p50": 0.0007,
+     "p95": 0.001,
+     "mean": 0.0007,
+     "max": 0.0012,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 209,
+     "p50": 0.0137,
+     "p95": 0.0312,
+     "mean": 0.0132,
+     "max": 0.0557,
+     "calls_per_cycle": 1.03
+    },
+    "tracker.front_track": {
+     "n": 209,
+     "p50": 0.0026,
+     "p95": 0.0032,
+     "mean": 0.0027,
+     "max": 0.0167,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.published": {
+     "n": 209,
+     "p50": 0.006,
+     "p95": 0.0066,
+     "mean": 0.0062,
+     "max": 0.0211,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 209,
+     "p50": 0.0814,
+     "p95": 0.1166,
+     "mean": 0.0823,
+     "max": 0.2055,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 209,
+     "p50": 0.0024,
+     "p95": 0.017,
+     "mean": 0.0074,
+     "max": 0.0273,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 209,
+     "p50": 0.002,
+     "p95": 0.0089,
+     "mean": 0.0043,
+     "max": 0.0273,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 7.2
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-22T15-50-16_mission-go_to_person_1m",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 293,
+   "cycles_with_tracker": 288,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 288,
+    "p50": 9.432,
+    "p95": 12.1163,
+    "mean": 9.6549,
+    "max": 14.0075
+   },
+   "scan_callback_ms": {
+    "n": 288,
+    "p50": 11.5758,
+    "p95": 14.6336,
+    "mean": 11.8651,
+    "max": 17.8356
+   },
+   "tracker_ms_instrumented": {
+    "n": 288,
+    "p50": 10.0197,
+    "p95": 13.0184,
+    "mean": 10.3143,
+    "max": 14.7243
+   },
+   "overhead_ms_p50": 0.5877,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 288,
+     "p50": 0.0298,
+     "p95": 0.047,
+     "mean": 0.0321,
+     "max": 0.0738,
+     "calls_per_cycle": 9.01
+    },
+    "fusion.cross_check_profile": {
+     "n": 288,
+     "p50": 0.0743,
+     "p95": 0.1024,
+     "mean": 0.0771,
+     "max": 0.153,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.observations_from_lines": {
+     "n": 288,
+     "p50": 0.8655,
+     "p95": 1.343,
+     "mean": 0.9306,
+     "max": 1.6405,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.stereo_only_observations": {
+     "n": 288,
+     "p50": 2.9973,
+     "p95": 4.2779,
+     "mean": 3.0952,
+     "max": 5.1476,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.extract_lines": {
+     "n": 288,
+     "p50": 0.4338,
+     "p95": 0.5864,
+     "mean": 0.4502,
+     "max": 0.7026,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 288,
+     "p50": 0.0251,
+     "p95": 0.0503,
+     "mean": 0.0268,
+     "max": 0.0564,
+     "calls_per_cycle": 2.05
+    },
+    "mwt.line_to_wall_line": {
+     "n": 288,
+     "p50": 0.1161,
+     "p95": 0.1956,
+     "mean": 0.1293,
+     "max": 0.2878,
+     "calls_per_cycle": 8.81
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 288,
+     "p50": 0.0035,
+     "p95": 0.0045,
+     "mean": 0.0036,
+     "max": 0.0169,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.observation_line": {
+     "n": 288,
+     "p50": 0.3227,
+     "p95": 0.4338,
+     "mean": 0.3324,
+     "max": 0.7022,
+     "calls_per_cycle": 9.01
+    },
+    "mwt.propagate_objects": {
+     "n": 288,
+     "p50": 0.0294,
+     "p95": 0.035,
+     "mean": 0.0311,
+     "max": 0.1147,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.ray_blocked_by": {
+     "n": 288,
+     "p50": 0.0,
+     "p95": 0.0897,
+     "mean": 0.0115,
+     "max": 0.1564,
+     "calls_per_cycle": 0.24
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 288,
+     "p50": 0.0471,
+     "p95": 0.0776,
+     "mean": 0.0514,
+     "max": 0.1207,
+     "calls_per_cycle": 5.02
+    },
+    "mwt.scan_in_base_link": {
+     "n": 288,
+     "p50": 0.1923,
+     "p95": 0.3281,
+     "mean": 0.2244,
+     "max": 0.4547,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 288,
+     "p50": 0.5924,
+     "p95": 0.9437,
+     "mean": 0.6426,
+     "max": 1.1369,
+     "calls_per_cycle": 24.53
+    },
+    "mwt.strip_returns": {
+     "n": 288,
+     "p50": 0.0864,
+     "p95": 0.1183,
+     "mean": 0.0901,
+     "max": 0.219,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.to_wall_line": {
+     "n": 288,
+     "p50": 0.0,
+     "p95": 0.0201,
+     "mean": 0.0012,
+     "max": 0.0251,
+     "calls_per_cycle": 0.06
+    },
+    "mwt.track_in_base_link": {
+     "n": 288,
+     "p50": 0.1036,
+     "p95": 0.198,
+     "mean": 0.106,
+     "max": 0.3293,
+     "calls_per_cycle": 2.11
+    },
+    "node._cloud_columns": {
+     "n": 288,
+     "p50": 0.7756,
+     "p95": 0.9515,
+     "mean": 0.7967,
+     "max": 1.3973,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish": {
+     "n": 288,
+     "p50": 0.017,
+     "p95": 0.0201,
+     "mean": 0.0177,
+     "max": 0.0569,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 288,
+     "p50": 0.8692,
+     "p95": 0.9874,
+     "mean": 0.8746,
+     "max": 1.1884,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 288,
+     "p50": 0.0601,
+     "p95": 0.09,
+     "mean": 0.0631,
+     "max": 0.1249,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 288,
+     "p50": 0.2441,
+     "p95": 0.4051,
+     "mean": 0.2623,
+     "max": 1.5551,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 288,
+     "p50": 0.0245,
+     "p95": 0.03,
+     "mean": 0.0253,
+     "max": 0.0605,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 288,
+     "p50": 0.0006,
+     "p95": 0.0008,
+     "mean": 0.0007,
+     "max": 0.0212,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 288,
+     "p50": 0.6267,
+     "p95": 0.7603,
+     "mean": 0.4095,
+     "max": 1.2401,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 288,
+     "p50": 0.0035,
+     "p95": 0.004,
+     "mean": 0.0037,
+     "max": 0.0298,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 288,
+     "p50": 0.0054,
+     "p95": 0.0082,
+     "mean": 0.0058,
+     "max": 0.0189,
+     "calls_per_cycle": 4.62
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 288,
+     "p50": 0.0128,
+     "p95": 0.0203,
+     "mean": 0.0144,
+     "max": 0.0436,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 288,
+     "p50": 0.0422,
+     "p95": 0.0623,
+     "mean": 0.0452,
+     "max": 0.092,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 288,
+     "p50": 0.0796,
+     "p95": 0.1199,
+     "mean": 0.0847,
+     "max": 0.2078,
+     "calls_per_cycle": 0.99
+    },
+    "tracker._expired": {
+     "n": 288,
+     "p50": 0.0058,
+     "p95": 0.0079,
+     "mean": 0.0062,
+     "max": 0.0288,
+     "calls_per_cycle": 5.52
+    },
+    "tracker._gate": {
+     "n": 288,
+     "p50": 0.5918,
+     "p95": 1.0586,
+     "mean": 0.6509,
+     "max": 1.2896,
+     "calls_per_cycle": 31.37
+    },
+    "tracker._merge": {
+     "n": 288,
+     "p50": 0.121,
+     "p95": 0.2961,
+     "mean": 0.1552,
+     "max": 1.0137,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._open_length": {
+     "n": 288,
+     "p50": 0.0,
+     "p95": 0.5342,
+     "mean": 0.0677,
+     "max": 1.1086,
+     "calls_per_cycle": 0.79
+    },
+    "tracker._predict": {
+     "n": 288,
+     "p50": 0.0256,
+     "p95": 0.0353,
+     "mean": 0.0273,
+     "max": 0.0983,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 288,
+     "p50": 0.0035,
+     "p95": 0.0071,
+     "mean": 0.0038,
+     "max": 0.0201,
+     "calls_per_cycle": 5.53
+    },
+    "tracker._refresh_extent": {
+     "n": 288,
+     "p50": 0.2583,
+     "p95": 0.3316,
+     "mean": 0.2632,
+     "max": 0.3931,
+     "calls_per_cycle": 5.09
+    },
+    "tracker._refusal": {
+     "n": 288,
+     "p50": 0.0195,
+     "p95": 0.0293,
+     "mean": 0.0203,
+     "max": 0.0492,
+     "calls_per_cycle": 9.01
+    },
+    "tracker._spawn": {
+     "n": 288,
+     "p50": 0.0,
+     "p95": 0.0773,
+     "mean": 0.021,
+     "max": 0.1877,
+     "calls_per_cycle": 0.48
+    },
+    "tracker._update": {
+     "n": 288,
+     "p50": 0.1704,
+     "p95": 0.237,
+     "mean": 0.182,
+     "max": 0.3505,
+     "calls_per_cycle": 4.14
+    },
+    "tracker._wall_spans": {
+     "n": 288,
+     "p50": 0.0372,
+     "p95": 0.0976,
+     "mean": 0.0439,
+     "max": 0.1421,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 288,
+     "p50": 0.0013,
+     "p95": 0.0017,
+     "mean": 0.0015,
+     "max": 0.019,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 288,
+     "p50": 0.0009,
+     "p95": 0.0352,
+     "mean": 0.009,
+     "max": 0.1285,
+     "calls_per_cycle": 1.06
+    },
+    "tracker.front_reason": {
+     "n": 288,
+     "p50": 0.0332,
+     "p95": 0.0772,
+     "mean": 0.0368,
+     "max": 0.0975,
+     "calls_per_cycle": 4.16
+    },
+    "tracker.front_track": {
+     "n": 288,
+     "p50": 0.033,
+     "p95": 0.0525,
+     "mean": 0.0371,
+     "max": 0.0663,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.negative_evidence": {
+     "n": 288,
+     "p50": 0.2807,
+     "p95": 0.3652,
+     "mean": 0.2866,
+     "max": 0.4915,
+     "calls_per_cycle": 4.51
+    },
+    "tracker.published": {
+     "n": 288,
+     "p50": 0.0296,
+     "p95": 0.052,
+     "mean": 0.0321,
+     "max": 0.1663,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 288,
+     "p50": 0.1821,
+     "p95": 0.2551,
+     "mean": 0.1929,
+     "max": 0.3308,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 288,
+     "p50": 0.0473,
+     "p95": 0.1334,
+     "mean": 0.0617,
+     "max": 0.236,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 288,
+     "p50": 0.016,
+     "p95": 0.0235,
+     "mean": 0.0171,
+     "max": 0.0408,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 14.6
+  },
+  {
+   "bag": "/home/andreas/f1tenth_campaigns/first_test_campaign/raw/f1tenth_archive/complete/2026-10-21T12-25-22_mission-20261021T142038-bf7938.mission",
+   "cycles_mode": "car",
+   "stereo": "rec",
+   "cycles": 130,
+   "cycles_with_tracker": 130,
+   "repeat": 3,
+   "overrides": {},
+   "tracker_ms": {
+    "n": 130,
+    "p50": 7.6391,
+    "p95": 10.5755,
+    "mean": 7.3825,
+    "max": 11.2212
+   },
+   "scan_callback_ms": {
+    "n": 130,
+    "p50": 9.816,
+    "p95": 12.5946,
+    "mean": 9.4264,
+    "max": 13.3969
+   },
+   "tracker_ms_instrumented": {
+    "n": 130,
+    "p50": 8.0831,
+    "p95": 11.6634,
+    "mean": 7.9558,
+    "max": 12.6287
+   },
+   "overhead_ms_p50": 0.4441,
+   "stages_exclusive_ms": {
+    "fusion.confidence": {
+     "n": 130,
+     "p50": 0.0185,
+     "p95": 0.0331,
+     "mean": 0.0189,
+     "max": 0.0664,
+     "calls_per_cycle": 4.54
+    },
+    "fusion.cross_check_profile": {
+     "n": 130,
+     "p50": 0.0735,
+     "p95": 0.0931,
+     "mean": 0.0764,
+     "max": 0.1942,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.observations_from_lines": {
+     "n": 130,
+     "p50": 0.7309,
+     "p95": 1.2521,
+     "mean": 0.8046,
+     "max": 1.5385,
+     "calls_per_cycle": 1.0
+    },
+    "fusion.stereo_only_observations": {
+     "n": 130,
+     "p50": 1.829,
+     "p95": 3.088,
+     "mean": 1.5968,
+     "max": 3.4791,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.extract_lines": {
+     "n": 130,
+     "p50": 0.3865,
+     "p95": 0.5602,
+     "mean": 0.4153,
+     "max": 0.7664,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.front_distances": {
+     "n": 130,
+     "p50": 0.0239,
+     "p95": 0.0296,
+     "mean": 0.023,
+     "max": 0.0479,
+     "calls_per_cycle": 1.76
+    },
+    "mwt.line_to_wall_line": {
+     "n": 130,
+     "p50": 0.1006,
+     "p95": 0.1738,
+     "mean": 0.1118,
+     "max": 0.2117,
+     "calls_per_cycle": 7.52
+    },
+    "mwt.linear_sum_assignment": {
+     "n": 130,
+     "p50": 0.0033,
+     "p95": 0.0041,
+     "mean": 0.0033,
+     "max": 0.0054,
+     "calls_per_cycle": 0.99
+    },
+    "mwt.observation_line": {
+     "n": 130,
+     "p50": 0.1854,
+     "p95": 0.3123,
+     "mean": 0.1832,
+     "max": 0.3549,
+     "calls_per_cycle": 4.54
+    },
+    "mwt.propagate_objects": {
+     "n": 130,
+     "p50": 0.0291,
+     "p95": 0.034,
+     "mean": 0.0229,
+     "max": 0.0593,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.ray_blocked_by": {
+     "n": 130,
+     "p50": 0.0,
+     "p95": 0.1292,
+     "mean": 0.0311,
+     "max": 0.155,
+     "calls_per_cycle": 0.64
+    },
+    "mwt.role_with_hysteresis": {
+     "n": 130,
+     "p50": 0.0345,
+     "p95": 0.0555,
+     "mean": 0.0383,
+     "max": 0.1875,
+     "calls_per_cycle": 3.32
+    },
+    "mwt.scan_in_base_link": {
+     "n": 130,
+     "p50": 0.1903,
+     "p95": 0.2989,
+     "mean": 0.1973,
+     "max": 0.4792,
+     "calls_per_cycle": 2.0
+    },
+    "mwt.segment_in_base_link": {
+     "n": 130,
+     "p50": 0.4604,
+     "p95": 0.6524,
+     "mean": 0.4723,
+     "max": 0.7394,
+     "calls_per_cycle": 17.84
+    },
+    "mwt.strip_returns": {
+     "n": 130,
+     "p50": 0.0863,
+     "p95": 0.1233,
+     "mean": 0.0899,
+     "max": 0.2334,
+     "calls_per_cycle": 1.0
+    },
+    "mwt.track_in_base_link": {
+     "n": 130,
+     "p50": 0.088,
+     "p95": 0.1126,
+     "mean": 0.0846,
+     "max": 0.3126,
+     "calls_per_cycle": 1.76
+    },
+    "node._cloud_columns": {
+     "n": 130,
+     "p50": 0.9747,
+     "p95": 1.1567,
+     "mean": 0.986,
+     "max": 1.5008,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish": {
+     "n": 130,
+     "p50": 0.0176,
+     "p95": 0.0197,
+     "mean": 0.0178,
+     "max": 0.0434,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_observations": {
+     "n": 130,
+     "p50": 0.8353,
+     "p95": 0.9878,
+     "mean": 0.8473,
+     "max": 1.0854,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_virtual": {
+     "n": 130,
+     "p50": 0.058,
+     "p95": 0.0818,
+     "mean": 0.06,
+     "max": 0.1061,
+     "calls_per_cycle": 1.0
+    },
+    "node._publish_walls": {
+     "n": 130,
+     "p50": 0.2382,
+     "p95": 0.3063,
+     "mean": 0.2285,
+     "max": 0.447,
+     "calls_per_cycle": 1.0
+    },
+    "node._sectors": {
+     "n": 130,
+     "p50": 0.024,
+     "p95": 0.0297,
+     "mean": 0.0253,
+     "max": 0.0742,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_payload": {
+     "n": 130,
+     "p50": 0.0006,
+     "p95": 0.0008,
+     "mean": 0.0006,
+     "max": 0.0009,
+     "calls_per_cycle": 1.0
+    },
+    "node._track_walls": {
+     "n": 130,
+     "p50": 0.0655,
+     "p95": 0.6943,
+     "mean": 0.2058,
+     "max": 0.8155,
+     "calls_per_cycle": 1.0
+    },
+    "node._verify_tracks": {
+     "n": 130,
+     "p50": 0.0035,
+     "p95": 0.0043,
+     "mean": 0.0036,
+     "max": 0.007,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._absorb": {
+     "n": 130,
+     "p50": 0.004,
+     "p95": 0.0077,
+     "mean": 0.0045,
+     "max": 0.0312,
+     "calls_per_cycle": 3.32
+    },
+    "tracker._apply_negative_evidence": {
+     "n": 130,
+     "p50": 0.0105,
+     "p95": 0.0153,
+     "mean": 0.0108,
+     "max": 0.0354,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._apply_strip_evidence": {
+     "n": 130,
+     "p50": 0.0354,
+     "p95": 0.0522,
+     "mean": 0.0355,
+     "max": 0.1789,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._chi2_between": {
+     "n": 130,
+     "p50": 0.0702,
+     "p95": 0.0889,
+     "mean": 0.0656,
+     "max": 0.1166,
+     "calls_per_cycle": 0.92
+    },
+    "tracker._expired": {
+     "n": 130,
+     "p50": 0.0052,
+     "p95": 0.0069,
+     "mean": 0.0053,
+     "max": 0.0077,
+     "calls_per_cycle": 4.3
+    },
+    "tracker._gate": {
+     "n": 130,
+     "p50": 0.2874,
+     "p95": 0.7951,
+     "mean": 0.3622,
+     "max": 0.9164,
+     "calls_per_cycle": 15.38
+    },
+    "tracker._merge": {
+     "n": 130,
+     "p50": 0.1543,
+     "p95": 0.3714,
+     "mean": 0.1669,
+     "max": 0.4526,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._open_length": {
+     "n": 130,
+     "p50": 0.1707,
+     "p95": 0.6765,
+     "mean": 0.266,
+     "max": 1.0231,
+     "calls_per_cycle": 3.09
+    },
+    "tracker._predict": {
+     "n": 130,
+     "p50": 0.0219,
+     "p95": 0.0302,
+     "mean": 0.0226,
+     "max": 0.0802,
+     "calls_per_cycle": 1.0
+    },
+    "tracker._promote": {
+     "n": 130,
+     "p50": 0.004,
+     "p95": 0.0065,
+     "mean": 0.0044,
+     "max": 0.0266,
+     "calls_per_cycle": 4.31
+    },
+    "tracker._refresh_extent": {
+     "n": 130,
+     "p50": 0.2404,
+     "p95": 0.4003,
+     "mean": 0.2504,
+     "max": 0.5612,
+     "calls_per_cycle": 4.03
+    },
+    "tracker._refusal": {
+     "n": 130,
+     "p50": 0.0115,
+     "p95": 0.0232,
+     "mean": 0.0119,
+     "max": 0.0597,
+     "calls_per_cycle": 4.54
+    },
+    "tracker._spawn": {
+     "n": 130,
+     "p50": 0.0422,
+     "p95": 0.1113,
+     "mean": 0.0368,
+     "max": 0.2222,
+     "calls_per_cycle": 0.8
+    },
+    "tracker._update": {
+     "n": 130,
+     "p50": 0.0947,
+     "p95": 0.2235,
+     "mean": 0.1186,
+     "max": 0.2607,
+     "calls_per_cycle": 2.52
+    },
+    "tracker._wall_spans": {
+     "n": 130,
+     "p50": 0.0708,
+     "p95": 0.1396,
+     "mean": 0.0728,
+     "max": 0.2204,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.apply_rect_verdicts": {
+     "n": 130,
+     "p50": 0.0012,
+     "p95": 0.0016,
+     "mean": 0.0013,
+     "max": 0.0024,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.confirm_reason": {
+     "n": 130,
+     "p50": 0.0121,
+     "p95": 0.0485,
+     "mean": 0.0149,
+     "max": 0.1758,
+     "calls_per_cycle": 1.34
+    },
+    "tracker.front_reason": {
+     "n": 130,
+     "p50": 0.0324,
+     "p95": 0.0345,
+     "mean": 0.0292,
+     "max": 0.0479,
+     "calls_per_cycle": 3.52
+    },
+    "tracker.front_track": {
+     "n": 130,
+     "p50": 0.0267,
+     "p95": 0.0388,
+     "mean": 0.0277,
+     "max": 0.1525,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.negative_evidence": {
+     "n": 130,
+     "p50": 0.1975,
+     "p95": 0.3317,
+     "mean": 0.2037,
+     "max": 0.3902,
+     "calls_per_cycle": 3.02
+    },
+    "tracker.published": {
+     "n": 130,
+     "p50": 0.0287,
+     "p95": 0.0437,
+     "mean": 0.0289,
+     "max": 0.0595,
+     "calls_per_cycle": 2.0
+    },
+    "tracker.step": {
+     "n": 130,
+     "p50": 0.1316,
+     "p95": 0.2514,
+     "mean": 0.1531,
+     "max": 0.4132,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_occlusion": {
+     "n": 130,
+     "p50": 0.0393,
+     "p95": 0.13,
+     "mean": 0.0555,
+     "max": 0.2584,
+     "calls_per_cycle": 1.0
+    },
+    "tracker.update_roles": {
+     "n": 130,
+     "p50": 0.0133,
+     "p95": 0.0189,
+     "mean": 0.0147,
+     "max": 0.2223,
+     "calls_per_cycle": 1.0
+    }
+   },
+   "rect_cycles": 0,
+   "wall_s": 5.3
+  }
+ ]
+}
